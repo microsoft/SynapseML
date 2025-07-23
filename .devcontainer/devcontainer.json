@@ -29,14 +29,15 @@
 			"jdkDistro": "ms"
 		}
 	},
-	"hostRequirements": {
-        "gpu": "optional"
-    },
-    "runArgs": ["--gpus=all"],
-    "containerEnv": {
-        "NVIDIA_VISIBLE_DEVICES": "all",
-        "NVIDIA_DRIVER_CAPABILITIES": "all"
-    },
+    //// Uncomment if you need GPU support and have a configuration that supports it
+	// "hostRequirements": {
+    //     "gpu": "optional"
+    // },
+    // "runArgs": ["--gpus=all"],
+    // "containerEnv": {
+    //     "NVIDIA_VISIBLE_DEVICES": "all",
+    //     "NVIDIA_DRIVER_CAPABILITIES": "all"
+    // },
 	"customizations": {
         "vscode": {
             "settings": {
