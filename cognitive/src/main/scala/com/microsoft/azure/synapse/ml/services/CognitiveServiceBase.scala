@@ -229,9 +229,9 @@ trait HasTelemHeaders extends HasServiceParams {
 
   setDefault(telemHeaders -> Left(Map("x-ai-telemetry-properties"->
     s"""{
-       |"ClientArtifactType": "SynapseML",
-       |"Platform": "Spark",
-       |"Class": "${this.getClass.getName}"
+       |"OriginatingService": "SynapseML",
+       |"ClientArtifactType": "Spark",
+       |"OperationName": "${this.getClass.getName}"
        |}""".stripMargin.replaceAll("\n", ""))))
 
 }
