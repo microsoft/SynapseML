@@ -14,7 +14,7 @@ import org.scalactic.Equality
 trait AIFoundryAPIKey {
   lazy val aiFoundryAPIKey: String = sys.env.getOrElse("AI_FOUNDRY_API_KEY", Secrets.AIFoundryApiKey)
   lazy val aiFoundryServiceName: String = sys.env.getOrElse("AI_FOUNDRY_SERVICE_NAME", "synapseml-ai-foundry-resource")
-  lazy val modelName: String = "Phi-4-mini-instruct"
+  lazy val aiFoundryModelName: String = "Llama-3.3-70B-Instruct" //"Phi-4-mini-instruct"
 }
 
 class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompletion] with AIFoundryAPIKey with Flaky {
@@ -31,7 +31,7 @@ class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompl
     .setTopP(0.1)
     .setPresencePenalty(0.0)
     .setFrequencyPenalty(0.0)
-    .setModel(modelName)
+    .setModel(aiFoundryModelName)
     .setSubscriptionKey(aiFoundryAPIKey)
 
   lazy val goodDf: DataFrame = Seq(
@@ -153,7 +153,7 @@ class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompl
 
     val completion = new AIFoundryChatCompletion()
       .setCustomServiceName(aiFoundryServiceName)
-      .setModel(modelName)
+      .setModel(aiFoundryModelName)
       .setApiVersion("2024-05-01-preview")
       .setMaxTokens(500)
       .setOutputCol("out")
