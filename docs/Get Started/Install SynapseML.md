@@ -32,7 +32,7 @@ For Spark3.4 pools
 {
   "name": "synapseml",
   "conf": {
-      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:1.0.12",
+      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:1.0.13",
       "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
       "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
       "spark.yarn.user.classpath.first": "true",
@@ -64,8 +64,8 @@ installed via pip with `pip install pyspark`.
 ```python
 import pyspark
 spark = pyspark.sql.SparkSession.builder.appName("MyApp") \
-            # Use 0.11.4-spark3.3 version for Spark3.3 and 1.0.12 version for Spark3.4
-            .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:1.0.12") \
+            # Use 0.11.4-spark3.3 version for Spark3.3 and 1.0.13 version for Spark3.4
+            .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:1.0.13") \
             .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven") \
             .getOrCreate()
 import synapse.ml
@@ -78,8 +78,8 @@ your `build.sbt`:
 
 ```scala
 resolvers += "SynapseML" at "https://mmlspark.azureedge.net/maven"
-// Use 0.11.4-spark3.3 version for Spark3.3 and 1.0.12 version for Spark3.4
-libraryDependencies += "com.microsoft.azure" % "synapseml_2.12" % "1.0.12"
+// Use 0.11.4-spark3.3 version for Spark3.3 and 1.0.13 version for Spark3.4
+libraryDependencies += "com.microsoft.azure" % "synapseml_2.12" % "1.0.13"
 ```
 
 ## Spark package
@@ -88,10 +88,10 @@ SynapseML can be conveniently installed on existing Spark clusters via the
 `--packages` option, examples:
 
 ```bash
-# Use 0.11.4-spark3.3 version for Spark3.3 and 1.0.12 version for Spark3.4
-spark-shell --packages com.microsoft.azure:synapseml_2.12:1.0.12
-pyspark --packages com.microsoft.azure:synapseml_2.12:1.0.12
-spark-submit --packages com.microsoft.azure:synapseml_2.12:1.0.12 MyApp.jar
+# Use 0.11.4-spark3.3 version for Spark3.3 and 1.0.13 version for Spark3.4
+spark-shell --packages com.microsoft.azure:synapseml_2.12:1.0.13
+pyspark --packages com.microsoft.azure:synapseml_2.12:1.0.13
+spark-submit --packages com.microsoft.azure:synapseml_2.12:1.0.13 MyApp.jar
 ```
 
 A similar technique can be used in other Spark contexts too. For example, you can use SynapseML
@@ -106,7 +106,7 @@ cloud](http://community.cloud.databricks.com), create a new [library from Maven
 coordinates](https://docs.databricks.com/user-guide/libraries.html#libraries-from-maven-pypi-or-spark-packages)
 in your workspace.
 
-For the coordinates use: `com.microsoft.azure:synapseml_2.12:1.0.12` for Spark3.4 Cluster and
+For the coordinates use: `com.microsoft.azure:synapseml_2.12:1.0.13` for Spark3.4 Cluster and
  `com.microsoft.azure:synapseml_2.12:0.11.4-spark3.3` for Spark3.3 Cluster;
 Add the resolver: `https://mmlspark.azureedge.net/maven`. Ensure this library is
 attached to your target cluster(s).
@@ -115,7 +115,7 @@ Finally, ensure that your Spark cluster has at least Spark 3.2 and Scala 2.12.
 
 You can use SynapseML in both your Scala and PySpark notebooks. To get started with our example notebooks, import the following databricks archive:
 
-`https://mmlspark.blob.core.windows.net/dbcs/SynapseMLExamplesv1.0.12.dbc`
+`https://mmlspark.blob.core.windows.net/dbcs/SynapseMLExamplesv1.0.13.dbc`
 
 ## Apache Livy and HDInsight
 
@@ -128,8 +128,8 @@ Excluding certain packages from the library may be necessary due to current issu
 {
     "name": "synapseml",
     "conf": {
-        # Use 0.11.4-spark3.3 version for Spark3.3 and 1.0.12 version for Spark3.4
-        "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:1.0.12",
+        # Use 0.11.4-spark3.3 version for Spark3.3 and 1.0.13 version for Spark3.4
+        "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:1.0.13",
         "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind"
     }
 }
@@ -142,8 +142,8 @@ In Azure Synapse, "spark.yarn.user.classpath.first" should be set to "true" to o
 {
     "name": "synapseml",
     "conf": {
-        # Use 0.11.4-spark3.3 version for Spark3.3 and 1.0.12 version for Spark3.4
-        "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:1.0.12",
+        # Use 0.11.4-spark3.3 version for Spark3.3 and 1.0.13 version for Spark3.4
+        "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:1.0.13",
         "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
         "spark.yarn.user.classpath.first": "true"
     }
