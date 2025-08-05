@@ -79,11 +79,15 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     OpenAIDefaults.setDeploymentName(deploymentName)
     OpenAIDefaults.setSubscriptionKey(openAIAPIKey)
     OpenAIDefaults.setTemperature(0.05)
+    OpenAIDefaults.setSeed(42)
+    OpenAIDefaults.setTopP(0.9)
     OpenAIDefaults.setURL(s"https://$openAIServiceName.openai.azure.com/")
 
     assert(OpenAIDefaults.getDeploymentName.contains(deploymentName))
     assert(OpenAIDefaults.getSubscriptionKey.contains(openAIAPIKey))
     assert(OpenAIDefaults.getTemperature.contains(0.05))
+    assert(OpenAIDefaults.getSeed.contains(42))
+    assert(OpenAIDefaults.getTopP.contains(0.9))
     assert(OpenAIDefaults.getURL.contains(s"https://$openAIServiceName.openai.azure.com/"))
   }
 
@@ -91,16 +95,50 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     OpenAIDefaults.setDeploymentName(deploymentName)
     OpenAIDefaults.setSubscriptionKey(openAIAPIKey)
     OpenAIDefaults.setTemperature(0.05)
+    OpenAIDefaults.setSeed(42)
+    OpenAIDefaults.setTopP(0.9)
     OpenAIDefaults.setURL(s"https://$openAIServiceName.openai.azure.com/")
 
     OpenAIDefaults.resetDeploymentName()
     OpenAIDefaults.resetSubscriptionKey()
     OpenAIDefaults.resetTemperature()
+    OpenAIDefaults.resetSeed()
+    OpenAIDefaults.resetTopP()
     OpenAIDefaults.resetURL()
 
     assert(OpenAIDefaults.getDeploymentName.isEmpty)
     assert(OpenAIDefaults.getSubscriptionKey.isEmpty)
     assert(OpenAIDefaults.getTemperature.isEmpty)
+    assert(OpenAIDefaults.getSeed.isEmpty)
+    assert(OpenAIDefaults.getTopP.isEmpty)
     assert(OpenAIDefaults.getURL.isEmpty)
+  }
+
+  test("Test Parameter Validation") {
+    // Test valid temperature values
+    OpenAIDefaults.setTemperature(0.0)
+    OpenAIDefaults.setTemperature(1.0)
+    OpenAIDefaults.setTemperature(2.0)
+    
+    // Test valid topP values
+    OpenAIDefaults.setTopP(0.0)
+    OpenAIDefaults.setTopP(0.5)
+    OpenAIDefaults.setTopP(1.0)
+    
+    // Test invalid temperature values
+    assertThrows[IllegalArgumentException] {
+      OpenAIDefaults.setTemperature(-0.1)
+    }
+    assertThrows[IllegalArgumentException] {
+      OpenAIDefaults.setTemperature(2.1)
+    }
+    
+    // Test invalid topP values
+    assertThrows[IllegalArgumentException] {
+      OpenAIDefaults.setTopP(-0.1)
+    }
+    assertThrows[IllegalArgumentException] {
+      OpenAIDefaults.setTopP(1.1)
+    }
   }
 }
