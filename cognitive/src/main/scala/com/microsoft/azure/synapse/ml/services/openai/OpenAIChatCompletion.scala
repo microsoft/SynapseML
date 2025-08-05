@@ -94,9 +94,9 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
     frequencyPenalty,
     bestOf,
     logProbs,
+    responseFormat,
     seed,
-    responseFormat
-    )
+  )
 }
 
 object OpenAIChatCompletion extends ComplexParamsReadable[OpenAIChatCompletion]
