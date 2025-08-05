@@ -33,6 +33,7 @@ object OpenAIDefaults {
   }
 
   def setTemperature(v: Double): Unit = {
+    require(v >= 0.0 && v <= 2.0, s"Temperature must be between 0.0 and 2.0, got: $v")
     GlobalParams.setGlobalParam(OpenAITemperatureKey, Left(v))
   }
 
@@ -54,6 +55,31 @@ object OpenAIDefaults {
 
   def resetURL(): Unit = {
     GlobalParams.resetGlobalParam(URLKey)
+  }
+
+  def setSeed(v: Int): Unit = {
+    GlobalParams.setGlobalParam(OpenAISeedKey, Left(v))
+  }
+
+  def getSeed: Option[Int] = {
+    extractLeft(GlobalParams.getGlobalParam(OpenAISeedKey))
+  }
+
+  def resetSeed(): Unit = {
+    GlobalParams.resetGlobalParam(OpenAISeedKey)
+  }
+
+  def setTopP(v: Double): Unit = {
+    require(v >= 0.0 && v <= 1.0, s"TopP must be between 0.0 and 1.0, got: $v")
+    GlobalParams.setGlobalParam(OpenAITopPKey, Left(v))
+  }
+
+  def getTopP: Option[Double] = {
+    extractLeft(GlobalParams.getGlobalParam(OpenAITopPKey))
+  }
+
+  def resetTopP(): Unit = {
+    GlobalParams.resetGlobalParam(OpenAITopPKey)
   }
 
   private def extractLeft[T](optEither: Option[Either[T, String]]): Option[T] = {
