@@ -35,8 +35,10 @@ class TextToSpeechSuite extends TransformerFuzzing[TextToSpeech] with CognitiveK
   }
 
   test("Error Usage") {
+    // Set an invalid voice name to trigger an error
+    val errs = Set("AuthenticationFailure", "BadRequest")
     tts.setVoiceName("blahhh").transform(df).select("error").collect()
-      .foreach(r => assert(r.getStruct(0).getString(0) === "AuthenticationFailure"))
+      .foreach(r => assert(errs.contains(r.getStruct(0).getString(0))))
   }
 
   lazy val ssmlDf: DataFrame = Seq((

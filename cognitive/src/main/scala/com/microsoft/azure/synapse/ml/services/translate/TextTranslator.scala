@@ -110,13 +110,7 @@ trait TextAsOnlyEntity extends HasTextInput with HasCognitiveServiceInput with H
         }
 
         val post = new HttpPost(base + appended)
-        addHeaders(
-          post,
-          getValueOpt(row, subscriptionKey),
-          getValueOpt(row, AADToken),
-          contentType(row),
-          getCustomAuthHeader(row)
-        )
+        addHeaders(post, row)
         getValueOpt(row, subscriptionRegion).foreach(post.setHeader("Ocp-Apim-Subscription-Region", _))
 
         val json = texts.map(s => Map("Text" -> s)).toJson.compactPrint
@@ -254,13 +248,7 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
         }
 
         val post = new HttpPost(base + appended)
-        addHeaders(
-          post,
-          getValueOpt(row, subscriptionKey),
-          getValueOpt(row, AADToken),
-          contentType(row),
-          getCustomAuthHeader(row)
-        )
+        addHeaders(post, row)
         getValueOpt(row, subscriptionRegion).foreach(post.setHeader("Ocp-Apim-Subscription-Region", _))
 
         val json = texts.map(s => Map("Text" -> s)).toJson.compactPrint
@@ -545,13 +533,7 @@ class DictionaryExamples(override val uid: String) extends TextTranslatorBase(ui
           }
 
           val post = new HttpPost(base + appended)
-          addHeaders(
-            post,
-            getValueOpt(row, subscriptionKey),
-            getValueOpt(row, AADToken),
-            contentType(row),
-            getCustomAuthHeader(row)
-          )
+          addHeaders(post, row)
           getValueOpt(row, subscriptionRegion).foreach(post.setHeader("Ocp-Apim-Subscription-Region", _))
 
           val json = textAndTranslations.head.getClass.getTypeName match {

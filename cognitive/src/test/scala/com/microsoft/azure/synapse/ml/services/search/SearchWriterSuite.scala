@@ -4,19 +4,20 @@
 package com.microsoft.azure.synapse.ml.services.search
 
 import com.microsoft.azure.synapse.ml.Secrets
-import com.microsoft.azure.synapse.ml.services._
-import com.microsoft.azure.synapse.ml.services.openai.{OpenAIAPIKey, OpenAIEmbedding}
-import com.microsoft.azure.synapse.ml.services.vision.AnalyzeImage
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.azure.synapse.ml.core.test.fuzzing.{ TestObject, TransformerFuzzing }
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers._
+import com.microsoft.azure.synapse.ml.services._
+import com.microsoft.azure.synapse.ml.services.openai.{ OpenAIAPIKey, OpenAIEmbedding }
+import com.microsoft.azure.synapse.ml.services.vision.AnalyzeImage
 import org.apache.http.client.methods.HttpDelete
+import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.ml.linalg.Vectors
+import org.scalatest.{ Outcome, TestData }
 
 import java.time.LocalDateTime
-import java.time.format.{DateTimeFormatterBuilder, DateTimeParseException, SignStyle}
+import java.time.format.{ DateTimeFormatter, DateTimeFormatterBuilder, DateTimeParseException, SignStyle }
 import java.time.temporal.ChronoField
 import java.util.UUID
 import scala.collection.mutable
@@ -36,7 +37,7 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
 
   // When a date pattern starts with 'yyyy' and has no separator following, the parser can sometimes decide
   // to take the whole string to match the year, which results in an exception. The following is a hackaround.
-  val formatter = new DateTimeFormatterBuilder()
+  val formatter: DateTimeFormatter = new DateTimeFormatterBuilder()
     .appendValue(ChronoField.YEAR_OF_ERA, 4, 4, SignStyle.EXCEEDS_PAD)
     .appendPattern("MMddHHmmssSSS").toFormatter()
 
@@ -119,18 +120,38 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
     """.stripMargin
   }
 
-  private val createdIndexes: mutable.ListBuffer[String] = mutable.ListBuffer()
+  private val createdIndexes = new mutable.HashMap[String, mutable.Set[String]]
 
-  private def generateIndexName(): String = {
+  private val currentTestData = new ThreadLocal[TestData]
+
+  override def withFixture(test: NoArgTest): Outcome = {
+    currentTestData.set(test)
+    try {
+      super.withFixture(test)
+    } finally {
+      currentTestData.remove()
+    }
+  }
+
+  private def generateIndexName(testName: Option[String] = None): String = {
+    val testNameNormalized = if (testName.isEmpty || testName.get.isEmpty) {
+      currentTestData.get().name
+    } else {
+      testName.get
+    }
+
     val date = formatter.format(LocalDateTime.now())
     val name = s"test-${UUID.randomUUID().hashCode()}-${date}"
-    createdIndexes.append(name)
+    createdIndexes.getOrElseUpdate(testNameNormalized, mutable.HashSet[String]()).+=(name)
     name
   }
 
-  lazy val indexName: String = generateIndexName()
+  lazy val indexName: String = generateIndexName(Some("global"))
 
   override def beforeAll(): Unit = {
+    // to ensure that we clean up old indexes at the start of the test
+    // so we have enough capacity to create new ones
+    cleanOldIndexes()
     println("WARNING CREATING SEARCH ENGINE!")
     SearchIndex.createIfNoneExists(azureSearchKey,
       testServiceName,
@@ -141,19 +162,42 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
     val deleteRequest = new HttpDelete(
       s"https://$testServiceName.search.windows.net/indexes/$indexName?api-version=2017-11-11")
     deleteRequest.setHeader("api-key", azureSearchKey)
-    val response = safeSend(deleteRequest)
+    val response = safeSend(deleteRequest, backoffs = List.fill(10)(1000 * 10)) // 10 seconds for each 10 retries
     response.getStatusLine.getStatusCode
   }
 
   override def afterAll(): Unit = {
     //TODO make this existing search indices when multiple builds are allowed
     println("Cleaning up services")
-    val successfulCleanup = getExisting(azureSearchKey, testServiceName)
-      .intersect(createdIndexes).map { n =>
-      deleteIndex(n)
-    }.forall(_ == 204)
+    val indexNames = this.createdIndexes.values.flatten
+    println(s"Remaining indices: ${indexNames.mkString(",")}")
+    cleanTestIndices(indexNames)
     cleanOldIndexes()
     super.afterAll()
+    ()
+  }
+
+  override def afterEach(td: TestData): Unit = {
+    val testName = td.name
+    println(s"Cleaning up local test indices for test $testName")
+    val indices = createdIndexes.get(testName)
+
+    if (indices.isDefined) {
+      println(s"Deleting indices ${indices.get.mkString(",")}")
+      cleanTestIndices(indices.get)
+      createdIndexes.remove(testName)
+    } else {
+      println(s"No indices found for test $testName")
+    }
+    super.afterEach(td)
+  }
+
+  private def cleanTestIndices(indices: Iterable[String]): Unit = {
+    val successfulCleanup = getExisting(azureSearchKey, testServiceName)
+      .intersect(indices.toSeq).map { n =>
+        println(s"Deleting index $n")
+        deleteIndex(n)
+      }.forall(_ == 204)
     assert(successfulCleanup)
     ()
   }
@@ -164,20 +208,18 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
     val twoDaysAgo = LocalDateTime.now().minusDays(2)
     val endingDatePattern: Regex = "^.*-(\\d{17})$".r
     val e = getExisting(azureSearchKey, testServiceName)
-    e.foreach { name =>
-      name match {
-        case endingDatePattern(dateString) =>
-          try {
-            val date = LocalDateTime.parse(dateString, formatter)
-            if (date.isBefore(twoDaysAgo)) {
-              deleteIndex(name)
-            }
-          } catch {
-            case _: DateTimeParseException => {}
-            case t: Throwable => throw t
+    e.foreach {
+      case name@endingDatePattern(dateString) =>
+        try {
+          val date = LocalDateTime.parse(dateString, formatter)
+          if (date.isBefore(twoDaysAgo)) {
+            deleteIndex(name)
           }
-        case _ => {}
-      }
+        } catch {
+          case _: DateTimeParseException => {}
+          case t: Throwable => throw t
+        }
+      case _ => {}
     }
   }
 
@@ -324,7 +366,7 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
       .map { i => ("upload", s"$i", s"file$i", s"text$i") }
       .toDF("searchAction", "badkeyname", "fileName", "text")
     assertThrows[IllegalArgumentException] {
-      writeHelper(mismatchDF, generateIndexName(), isVectorField=false)
+      writeHelper(mismatchDF, generateIndexName(), isVectorField = false)
     }
   }
 
@@ -390,7 +432,6 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
       ("upload", "0", "file0", Array("p1", "p2", "p3")),
       ("upload", "1", "file1", Array("p4", null, "p6")))
       .toDF("searchAction", "id", "fileName", "phrases")
-
     AzureSearchWriter.write(phraseDF,
       Map(
         "subscriptionKey" -> azureSearchKey,
@@ -406,7 +447,6 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
 
   test("pipeline with analyze image") {
     val in = generateIndexName()
-
     val df = Seq(
       ("upload", "0", "https://mmlspark.blob.core.windows.net/datasets/DSIR/test1.jpg"),
       ("upload", "1", "https://mmlspark.blob.core.windows.net/datasets/DSIR/test2.jpg")
@@ -663,5 +703,76 @@ class SearchWriterSuite extends TestBase with AzureSearchKey with IndexJsonGette
     retryWithBackoff(assertSize(in, 2))
     val indexJson = retryWithBackoff(getIndexJsonFromExistingIndex(azureSearchKey, testServiceName, in))
     assert(parseIndexJson(indexJson).fields.find(_.name == "vectorContent").get.vectorSearchConfiguration.nonEmpty)
+  }
+
+  test("Handle Azure Search index with scoring profiles") {
+    val indexJsonWithScoringProfile = """{"name": "test-index", "fields": [
+      {"name": "id", "type": "Edm.String", "key": true},
+      {"name": "date", "type": "Edm.DateTimeOffset"}
+    ], "scoringProfiles": [{
+      "name": "default_profiler", "functionAggregation": "sum",
+      "functions": [{"type": "freshness", "boost": 2.0, "fieldName": "date",
+        "interpolation": "constant", "freshness": {"boostingDuration": "P1D"}}]
+    }]}"""
+    val parsedIndex = parseIndexJson(indexJsonWithScoringProfile)
+    assert(parsedIndex.scoringProfiles.isDefined)
+    assert(parsedIndex.scoringProfiles.get.length == 1)
+    val scoringProfile = parsedIndex.scoringProfiles.get.head
+    assert(scoringProfile.name == "default_profiler")
+    assert(scoringProfile.functionAggregation.contains("sum"))
+    assert(scoringProfile.functions.isDefined)
+    assert(scoringProfile.functions.get.length == 1)
+    val function = scoringProfile.functions.get.head
+    assert(function.`type` == "freshness")
+    assert(function.boost.contains(2.0))
+    assert(function.fieldName == "date")
+    assert(function.freshness.isDefined)
+    assert(function.freshness.get.boostingDuration == "P1D")
+  }
+
+  test("Handle date fields correctly") {
+    val in = generateIndexName()
+    import java.sql.{Date, Timestamp}
+    val dateDF = Seq(
+      ("upload", "0", "item0", Date.valueOf("2025-05-20"), Timestamp.valueOf("2025-05-20 10:30:00")),
+      ("upload", "1", "item1", Date.valueOf("2025-05-21"), Timestamp.valueOf("2025-05-21 14:45:30")),
+      ("upload", "2", "item2", null, null)
+    ).toDF("searchAction", "id", "name", "createdDate", "lastModified")
+    val indexJson = s"""{"name": "$in", "fields": [
+      {"name": "id", "type": "Edm.String", "key": true, "facetable": false},
+      {"name": "name", "type": "Edm.String", "searchable": true, "facetable": false},
+      {"name": "createdDate", "type": "Edm.DateTimeOffset", "filterable": true, "sortable": true, "facetable": false},
+      {"name": "lastModified", "type": "Edm.DateTimeOffset", "filterable": true, "sortable": true, "facetable": false}
+    ]}"""
+    AzureSearchWriter.write(dateDF, Map(
+      "subscriptionKey" -> azureSearchKey, "actionCol" -> "searchAction",
+      "serviceName" -> testServiceName, "indexJson" -> indexJson))
+    retryWithBackoff(assertSize(in, 3))
+    val createdIndexJson = retryWithBackoff(getIndexJsonFromExistingIndex(azureSearchKey, testServiceName, in))
+    val parsedIndex = parseIndexJson(createdIndexJson)
+    assert(parsedIndex.fields.find(_.name == "createdDate").get.`type` == "Edm.DateTimeOffset")
+    assert(parsedIndex.fields.find(_.name == "lastModified").get.`type` == "Edm.DateTimeOffset")
+  }
+
+  test("Date field conversion handles different timezones correctly") {
+    val in = generateIndexName()
+    import java.sql.{Date, Timestamp}
+    import org.apache.spark.sql.functions._
+    val dateDF = spark.createDataFrame(Seq(
+      ("upload", "0", "2025-05-20", "2025-05-20 10:30:00"),
+      ("upload", "1", "2025-05-21", "2025-05-21 14:45:30.123")
+    )).toDF("searchAction", "id", "dateStr", "timestampStr")
+      .withColumn("createdDate", to_date(col("dateStr")))
+      .withColumn("lastModified", to_timestamp(col("timestampStr")))
+      .drop("dateStr", "timestampStr")
+    val indexJson = s"""{"name": "$in", "fields": [
+      {"name": "id", "type": "Edm.String", "key": true},
+      {"name": "createdDate", "type": "Edm.DateTimeOffset"},
+      {"name": "lastModified", "type": "Edm.DateTimeOffset"}
+    ]}"""
+    AzureSearchWriter.write(dateDF, Map(
+      "subscriptionKey" -> azureSearchKey, "actionCol" -> "searchAction",
+      "serviceName" -> testServiceName, "indexJson" -> indexJson))
+    retryWithBackoff(assertSize(in, 2))
   }
 }

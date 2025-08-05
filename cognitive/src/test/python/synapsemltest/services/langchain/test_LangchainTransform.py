@@ -4,29 +4,13 @@
 import os, json, subprocess, unittest
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
-from langchain.llms import AzureOpenAI
+from langchain.chat_models import AzureChatOpenAI
 from synapse.ml.services.langchain import LangchainTransformer
 from pyspark.sql import SQLContext
 from synapse.ml.core.init_spark import *
 
 spark = init_spark()
 sc = SQLContext(spark.sparkContext)
-
-#######################################################
-# this part is to correct a bug in langchain,
-# where the llm type of AzureOpenAI was set
-# to 'openai', but it should be 'azure'.
-# I submitted a PR to langchain for this.
-# link to the PR is here:
-# https://github.com/hwchase17/langchain/pull/3721/files
-# Once that's approved, I'll remove ths correction
-@property
-def _llm_type(self):
-    return "azure"
-
-
-AzureOpenAI._llm_type = _llm_type
-#######################################################
 
 
 class LangchainTransformTest(unittest.TestCase):
@@ -39,7 +23,7 @@ class LangchainTransformTest(unittest.TestCase):
         )
         openai_api_key = json.loads(secretJson)["value"]
         openai_api_base = "https://synapseml-openai-2.openai.azure.com/"
-        openai_api_version = "2024-02-01"
+        openai_api_version = "2025-01-01-preview"
         openai_api_type = "azure"
 
         os.environ["OPENAI_API_TYPE"] = openai_api_type
@@ -51,9 +35,9 @@ class LangchainTransformTest(unittest.TestCase):
         self.url = openai_api_base
 
         # construction of llm
-        llm = AzureOpenAI(
-            deployment_name="gpt-35-turbo-0125",
-            model_name="gpt-35-turbo",
+        llm = AzureChatOpenAI(
+            api_version="2025-01-01-preview",
+            deployment_name="gpt-4o",
             temperature=0,
             verbose=False,
         )
@@ -142,6 +126,9 @@ class LangchainTransformTest(unittest.TestCase):
             self.langchainTransformer, dataframes_to_test
         )
 
+    @unittest.skip(
+        "Skipping this test because not supported for langchain.chat_models.AzureChatOpenAI."
+    )
     def test_save_load(self):
         dataframes_to_test = spark.createDataFrame(
             [(0, "docker"), (0, "spark"), (1, "python")], ["label", "technology"]

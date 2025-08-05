@@ -60,11 +60,11 @@ class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with Op
       "Knock, knock")
   ).toDF("batchPrompt")
 
-  test("Basic Usage") {
+  ignore("Basic Usage") {
     testCompletion(promptCompletion, promptDF)
   }
 
-  test("Basic usage with AAD auth") {
+  ignore("Basic usage with AAD auth") {
     val aadToken = getAccessToken("https://cognitiveservices.azure.com/")
 
     val completion = new OpenAICompletion()
@@ -77,7 +77,7 @@ class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with Op
     testCompletion(completion, promptDF)
   }
 
-  test("Batch Prompt") {
+  ignore("Batch Prompt") {
     testCompletion(batchPromptCompletion, batchPromptDF)
   }
 

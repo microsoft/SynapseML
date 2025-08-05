@@ -86,7 +86,7 @@ trait HasImageInput extends HasImageUrl
       } else {
         val req = prepareMethod()
         req.setURI(new URI(rowToUrl(row)))
-        addHeaders(req, getValueOpt(row, subscriptionKey), getValueOpt(row, AADToken))
+        addHeaders(req, row, addContentType = false)
         req match {
           case er: HttpEntityEnclosingRequestBase =>
             rowToEntity(row).foreach(er.setEntity)
@@ -217,12 +217,14 @@ object RecognizeText extends ComplexParamsReadable[RecognizeText] {
 
 trait BasicAsyncReply extends HasAsyncReply {
 
-  override protected def queryForResult(key: Option[String],
+  override protected def queryForResult(headers: Map[String, String],
                                         client: CloseableHttpClient,
                                         location: URI): Option[HTTPResponseData] = {
     val get = new HttpGet()
     get.setURI(location)
-    key.foreach(get.setHeader("Ocp-Apim-Subscription-Key", _))
+    headers.foreach { case (name, value) =>
+      get.setHeader(name, value)
+    }
     get.setHeader("User-Agent", s"synapseml/${BuildInfo.version}${HeaderValues.PlatformInfo}")
     val resp = convertAndClose(sendWithRetries(client, get, getBackoffs))
     get.releaseConnection()
@@ -265,12 +267,12 @@ trait BasicAsyncReply extends HasAsyncReply {
       val originalLocation = new URI(response.headers.filter(_.name.toLowerCase() == "operation-location").head.value)
       val location = modifyPollingURI(originalLocation)
       val maxTries = getMaxPollingRetries
-      val key = request.headers.find(_.name == "Ocp-Apim-Subscription-Key").map(_.value)
+      val headers = extractHeaderValuesForPolling(request)
       blocking {
         Thread.sleep(getInitialPollingDelay.toLong)
       }
       val it = (0 to maxTries).toIterator.flatMap { i =>
-        queryForResult(key, client, location).orElse({
+        queryForResult(headers, client, location).orElse({
           blocking {
             Thread.sleep(getPollingDelay.toLong)
           }
@@ -356,7 +358,11 @@ trait HasAsyncReply extends Params {
     suppressMaxRetriesException -> false)
   //scalastyle:on magic.number
 
-  protected def queryForResult(key: Option[String],
+  protected def extractHeaderValuesForPolling(request: HTTPRequestData): Map[String, String] = {
+    request.headers.map(h => h.name -> h.value).toMap
+  }
+
+  protected def queryForResult(headers: Map[String, String],
                                client: CloseableHttpClient,
                                location: URI): Option[HTTPResponseData]
 

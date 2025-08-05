@@ -10,9 +10,9 @@ import com.microsoft.azure.synapse.ml.fabric.FabricClient
 import com.microsoft.azure.synapse.ml.io.http._
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails
-import com.microsoft.azure.synapse.ml.param.{GlobalKey, GlobalParams, HasGlobalParams, ServiceParam}
-import com.microsoft.azure.synapse.ml.services.openai.OpenAIDeploymentNameKey
+import com.microsoft.azure.synapse.ml.param.{GlobalKey, GlobalParams, HasGlobalParams, ServiceParam, TypedArrayParam}
 import com.microsoft.azure.synapse.ml.stages.{DropColumns, Lambda}
+import org.apache.commons.lang.StringUtils
 import org.apache.http.NameValuePair
 import org.apache.http.client.methods.{HttpEntityEnclosingRequestBase, HttpPost, HttpRequestBase}
 import org.apache.http.client.utils.URLEncodedUtils
@@ -28,6 +28,7 @@ import spray.json.DefaultJsonProtocol._
 import java.net.URI
 import java.util.UUID
 import scala.collection.JavaConverters._
+import scala.collection.mutable
 import scala.language.existentials
 
 trait HasServiceParams extends Params {
@@ -205,12 +206,36 @@ trait HasCustomHeaders extends HasServiceParams {
 
   // For Pyspark compatability accept Java HashMap as input to parameter
   // py4J only natively supports conversions from Python Dict to Java HashMap
-  def setCustomHeaders(v: java.util.HashMap[String,String]): this.type = {
+  def setCustomHeaders(v: java.util.HashMap[String, String]): this.type = {
     setCustomHeaders(v.asScala.toMap)
   }
-
-  def getCustomHeaders: Map[String, String] = getScalarParam(customHeaders)
 }
+
+trait HasTelemHeaders extends HasServiceParams {
+
+  private[ml] val telemHeaders = new ServiceParam[Map[String, String]](
+    this, "telemHeaders", "Map of Custom Header Key-Value Tuples."
+  )
+
+  private[ml] def setTelemHeaders(v: Map[String, String]): this.type = {
+    setScalarParam(telemHeaders, v)
+  }
+
+  // For Pyspark compatability accept Java HashMap as input to parameter
+  // py4J only natively supports conversions from Python Dict to Java HashMap
+  private[ml] def setTelemHeaders(v: java.util.HashMap[String, String]): this.type = {
+    setTelemHeaders(v.asScala.toMap)
+  }
+
+  setDefault(telemHeaders -> Left(Map("x-ai-telemetry-properties"->
+    s"""{
+       |"OriginatingService": "SynapseML",
+       |"ClientArtifactType": "Spark",
+       |"OperationName": "${this.getClass.getName}"
+       |}""".stripMargin.replaceAll("\n", ""))))
+
+}
+
 
 trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
   def setCustomServiceName(v: String): this.type = {
@@ -280,7 +305,7 @@ object URLEncodingUtils {
 }
 
 trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAADToken with HasCustomAuthHeader
-  with HasCustomHeaders with SynapseMLLogging {
+  with HasCustomHeaders with HasTelemHeaders with SynapseMLLogging {
 
   val customUrlRoot: Param[String] = new Param[String](
     this, "customUrlRoot", "The custom URL root for the service. " +
@@ -333,7 +358,7 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
 
   protected def getCustomAuthHeader(row: Row): Option[String] = {
     val providedCustomAuthHeader = getValueOpt(row, CustomAuthHeader)
-    if (providedCustomAuthHeader .isEmpty && PlatformDetails.runningOnFabric()) {
+    if (providedCustomAuthHeader.isEmpty && PlatformDetails.runningOnFabric()) {
       logInfo("Using Default AAD Token On Fabric")
       Option(FabricClient.getCognitiveMWCTokenAuthHeader)
     } else {
@@ -346,35 +371,57 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
   }
 
   protected def addHeaders(req: HttpRequestBase,
-                           subscriptionKey: Option[String],
-                           aadToken: Option[String],
-                           contentType: String = "",
-                           customAuthHeader: Option[String] = None,
-                           customHeaders: Option[Map[String, String]] = None): Unit = {
+                           row: Row,
+                           addContentType: Boolean = true): Unit = {
 
-    if (subscriptionKey.nonEmpty) {
-      req.setHeader(subscriptionKeyHeaderName, subscriptionKey.get)
-    } else if (aadToken.nonEmpty) {
-      aadToken.foreach(s => {
-        req.setHeader(aadHeaderName, "Bearer " + s)
-        // this is required for internal workload
-        req.setHeader("x-ms-workload-resource-moniker", UUID.randomUUID().toString)
-      })
-    } else if (customAuthHeader.nonEmpty) {
-      customAuthHeader.foreach(s => {
-        req.setHeader(aadHeaderName, s)
-        // this is required for internal workload
-        req.setHeader("x-ms-workload-resource-moniker", UUID.randomUUID().toString)
-      })
+    val headers = getHeaders(row, addContentType)
+    headers.foreach { case (headerName, headerValue) => req.addHeader(headerName, headerValue) }
+  }
+
+  // Returns a list of key-value pairs representing the headers
+  protected def getHeaders(row: Row, addContentType: Boolean = true): Map[String, String] = {
+    val headers = mutable.Map.empty[String, String]
+    val subscriptionKeyOpt = getValueOpt(row, subscriptionKey)
+    val aadTokenOpt = getValueOpt(row, AADToken)
+    val contentTypeValue = contentType(row)
+    val customAuthHeaderOpt = getCustomAuthHeader(row)
+    val customHeadersOpt = getCustomHeaders(row)
+    val telemHeadersOpt =  getValueOpt(row, telemHeaders)
+
+    if (subscriptionKeyOpt.nonEmpty) {
+      headers += (subscriptionKeyHeaderName -> getValue(row, subscriptionKey))
+    } else if (aadTokenOpt.nonEmpty) {
+      aadTokenOpt.foreach { s =>
+        headers += (aadHeaderName -> ("Bearer " + s))
+        headers += ("x-ms-workload-resource-moniker" -> UUID.randomUUID().toString)
+      }
+    } else if (customAuthHeaderOpt.nonEmpty) {
+      customAuthHeaderOpt.foreach { s =>
+        headers += (aadHeaderName -> s)
+        headers += ("x-ms-workload-resource-moniker" -> UUID.randomUUID().toString)
+      }
     }
-    if (customHeaders.nonEmpty) {
-      customHeaders.foreach(m => {
-        m.foreach {
-          case (headerName, headerValue) => req.setHeader(headerName, headerValue)
+
+    if (customHeadersOpt.nonEmpty) {
+      customHeadersOpt.foreach { m =>
+        m.foreach { case (headerName, headerValue) =>
+          headers += (headerName -> headerValue)
         }
-      })
+      }
     }
-    if (contentType != "") req.setHeader("Content-Type", contentType)
+
+    if (telemHeadersOpt.nonEmpty) {
+      telemHeadersOpt.foreach { m =>
+        m.foreach { case (headerName, headerValue) =>
+          headers += (headerName -> headerValue)
+        }
+      }
+    }
+
+    if (addContentType && !StringUtils.isEmpty(contentTypeValue)) {
+      headers += ("Content-Type" -> contentTypeValue)
+    }
+    new scala.collection.immutable.TreeMap[String, String]() ++ headers
   }
 
   protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
@@ -386,12 +433,7 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
       } else {
         val req = prepareMethod()
         req.setURI(new URI(rowToUrl(row)))
-        addHeaders(req,
-          getValueOpt(row, subscriptionKey),
-          getValueOpt(row, AADToken),
-          contentType(row),
-          getCustomAuthHeader(row),
-          getCustomHeaders(row))
+        addHeaders(req, row)
 
         req match {
           case er: HttpEntityEnclosingRequestBase =>
@@ -505,7 +547,7 @@ abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transform
     errorCol -> (this.uid + "_error")
   )
 
-  if(PlatformDetails.runningOnFabric()) {
+  if (PlatformDetails.runningOnFabric()) {
     setDefaultInternalEndpoint(FabricClient.MLWorkloadEndpointML)
   }
 

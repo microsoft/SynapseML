@@ -20,3 +20,11 @@ steps:
     displayName: Create Anaconda environment
     retryCountOnTaskFailure: 1
     condition: eq(variables.CONDA_CACHE_RESTORED, 'false')
+  - bash: |
+      sudo apt-get autoremove -y
+      sudo apt-get clean
+      conda clean --all --yes 
+      conda clean --packages --yes
+      pip cache purge
+    displayName: Free up space
+    retryCountOnTaskFailure: 1

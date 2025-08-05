@@ -55,6 +55,7 @@ object Secrets {
 
   lazy val CognitiveApiKey: String = getSecret("cognitive-api-key")
   lazy val OpenAIApiKey: String = getSecret("openai-api-key-2")
+  lazy val AIFoundryApiKey: String = getSecret("synapseml-ai-foundry-resource-key")
 
   lazy val CustomSpeechApiKey: String = getSecret("custom-speech-api-key")
   lazy val ConversationTranscriptionUrl: String = getSecret("conversation-transcription-url")
@@ -74,4 +75,5 @@ object Secrets {
   lazy val Platform: String = getSecret("synapse-platform")
   lazy val AadResource: String = getSecret("synapse-internal-aad-resource")
 
+  lazy val LanguageApiKey: String = getSecret("language-api-key")
 }
