@@ -6,7 +6,6 @@ import sys
 if sys.version >= "3":
     basestring = str
 
-import pyspark
 from pyspark import SparkContext
 
 
