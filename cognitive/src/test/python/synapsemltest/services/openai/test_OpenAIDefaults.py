@@ -120,6 +120,7 @@ class TestOpenAIDefaults(unittest.TestCase):
         defaults.set_temperature(2.0)
         defaults.set_temperature(0)  # int should work
         defaults.set_temperature(1)  # int should work
+        defaults.set_temperature(2)  # int should work
         
         # Test valid top_p values
         defaults.set_top_p(0.0)
