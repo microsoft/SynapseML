@@ -113,7 +113,7 @@ class TestOpenAIDefaults(unittest.TestCase):
 
     def test_parameter_validation(self):
         defaults = OpenAIDefaults()
-        
+
         # Test valid temperature values
         defaults.set_temperature(0.0)
         defaults.set_temperature(1.0)
@@ -121,20 +121,20 @@ class TestOpenAIDefaults(unittest.TestCase):
         defaults.set_temperature(0)  # int should work
         defaults.set_temperature(1)  # int should work
         defaults.set_temperature(2)  # int should work
-        
+
         # Test valid top_p values
         defaults.set_top_p(0.0)
         defaults.set_top_p(0.5)
         defaults.set_top_p(1.0)
         defaults.set_top_p(0)  # int should work
         defaults.set_top_p(1)  # int should work
-        
+
         # Test invalid temperature values
         with self.assertRaises(ValueError):
             defaults.set_temperature(-0.1)
         with self.assertRaises(ValueError):
             defaults.set_temperature(2.1)
-            
+
         # Test invalid top_p values
         with self.assertRaises(ValueError):
             defaults.set_top_p(-0.1)

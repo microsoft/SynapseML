@@ -76,9 +76,7 @@ class OpenAIDefaults:
     def set_top_p(self, top_p):
         top_p_float = float(top_p)
         if not (0.0 <= top_p_float <= 1.0):
-            raise ValueError(
-                f"TopP must be between 0.0 and 1.0, got: {top_p_float}"
-            )
+            raise ValueError(f"TopP must be between 0.0 and 1.0, got: {top_p_float}")
         self.defaults.setTopP(top_p_float)
 
     def get_top_p(self):
