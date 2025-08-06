@@ -129,7 +129,7 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     OpenAIDefaults.setTopP(1.0)
     OpenAIDefaults.setTopP(0)  // int should work
     OpenAIDefaults.setTopP(1)  // int should work
-    
+
     // Test invalid temperature values
     assertThrows[IllegalArgumentException] {
       OpenAIDefaults.setTemperature(-0.1)
@@ -137,7 +137,7 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     assertThrows[IllegalArgumentException] {
       OpenAIDefaults.setTemperature(2.1)
     }
-    
+
     // Test invalid topP values
     assertThrows[IllegalArgumentException] {
       OpenAIDefaults.setTopP(-0.1)

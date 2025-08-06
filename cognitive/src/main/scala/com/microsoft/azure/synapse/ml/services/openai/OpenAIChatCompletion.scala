@@ -95,7 +95,7 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
     bestOf,
     logProbs,
     responseFormat,
-    seed,
+    seed
   )
 }
 

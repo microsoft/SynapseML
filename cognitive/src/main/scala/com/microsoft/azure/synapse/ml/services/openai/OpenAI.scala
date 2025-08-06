@@ -314,7 +314,7 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
     frequencyPenalty,
     bestOf,
     logProbs,
-    seed,
+    seed
   )
 
   private[ml] def getOptionalParams(r: Row): Map[String, Any] = {
