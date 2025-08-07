@@ -138,8 +138,9 @@ object HandlingUtils extends SparkLogging {
         }
       }
     } catch {
-      case e: javax.net.ssl.SSLException => keepTrying(client, request, retriesLeft, e)
-      case e: java.net.SocketTimeoutException => keepTrying(client, request, retriesLeft, e)
+      case e: java.io.IOException =>
+        logError("Encountering a connection error", e)
+        keepTrying(client, request, retriesLeft, e)
     }
   }
   //scalastyle:on cyclomatic.complexity
@@ -161,8 +162,8 @@ object HandlingUtils extends SparkLogging {
       req.releaseConnection()
       respData
     } catch {
-      case e: java.net.SocketTimeoutException =>
-        logWarning(s"Encountered Socket Timeout: ${e.getMessage}")
+      case e: Exception =>
+        logError(s"Encountered Unknown exception while sending payload", e)
         null //scalastyle:ignore null
     }
   }
