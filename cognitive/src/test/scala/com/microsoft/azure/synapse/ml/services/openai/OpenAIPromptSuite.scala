@@ -3,15 +3,18 @@
 
 package com.microsoft.azure.synapse.ml.services.openai
 
-import com.microsoft.azure.synapse.ml.Secrets.getAccessToken
+import com.microsoft.azure.synapse.ml.Secrets.{AIFoundryApiKey, getAccessToken}
 import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.col
 import org.scalactic.Equality
+import com.microsoft.azure.synapse.ml.services.aifoundry.AIFoundryAPIKey
 
-class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIKey with Flaky {
+class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIKey
+  with AIFoundryAPIKey
+  with Flaky {
 
   import spark.implicits._
 
@@ -25,6 +28,14 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     .setSubscriptionKey(openAIAPIKey)
     .setDeploymentName(deploymentName)
     .setCustomServiceName(openAIServiceName)
+    .setOutputCol("outParsed")
+    .setTemperature(0)
+
+  lazy val aiFoundryPrompt: OpenAIPrompt = new OpenAIPrompt()
+    .setSubscriptionKey(aiFoundryAPIKey)
+    .setApiVersion("2024-05-01-preview")
+    .setModel(aiFoundryModelName)
+    .setAIFoundryCustomServiceName(aiFoundryServiceName)
     .setOutputCol("outParsed")
     .setTemperature(0)
 
@@ -56,7 +67,17 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .select("outParsed")
       .collect()
       .count(r => Option(r.getSeq[String](0)).isDefined)
+    assert(nonNullCount == 3)
+  }
 
+  test("Basic Usage AI Foundry") {
+    val nonNullCount = aiFoundryPrompt
+      .setPromptTemplate("here is a comma separated list of 5 {category}: {text}, ")
+      .setPostProcessing("csv")
+      .transform(df)
+      .select("outParsed")
+      .collect()
+      .count(r => Option(r.getSeq[String](0)).isDefined)
     assert(nonNullCount == 3)
   }
 
