@@ -42,7 +42,12 @@ class OpenAIDefaults:
         self.defaults.resetSubscriptionKey()
 
     def set_temperature(self, temp):
-        self.defaults.setTemperature(float(temp))
+        temp_float = float(temp)
+        if not (0.0 <= temp_float <= 2.0):
+            raise ValueError(
+                f"Temperature must be between 0.0 and 2.0, got: {temp_float}"
+            )
+        self.defaults.setTemperature(temp_float)
 
     def get_temperature(self):
         return getOption(self.defaults.getTemperature())
@@ -58,3 +63,24 @@ class OpenAIDefaults:
 
     def reset_URL(self):
         self.defaults.resetURL()
+
+    def set_seed(self, seed):
+        self.defaults.setSeed(int(seed))
+
+    def get_seed(self):
+        return getOption(self.defaults.getSeed())
+
+    def reset_seed(self):
+        self.defaults.resetSeed()
+
+    def set_top_p(self, top_p):
+        top_p_float = float(top_p)
+        if not (0.0 <= top_p_float <= 1.0):
+            raise ValueError(f"TopP must be between 0.0 and 1.0, got: {top_p_float}")
+        self.defaults.setTopP(top_p_float)
+
+    def get_top_p(self):
+        return getOption(self.defaults.getTopP())
+
+    def reset_top_p(self):
+        self.defaults.resetTopP()
