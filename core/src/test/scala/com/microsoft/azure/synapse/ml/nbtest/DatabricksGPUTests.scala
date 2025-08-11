@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.nbtest.DatabricksUtilities._
 
 class DatabricksGPUTests extends DatabricksTestHelper {
 
-  val clusterId: String = createClusterInPool(GPUClusterName, AdbGpuRuntime, 2, GpuPoolId)
+  val clusterId: String = createClusterInPool(GPUClusterName, AdbGpuRuntime, 2, GpuPoolId, GPUUseMLRuntime)
 
   databricksTestHelper(clusterId, GPULibraries, GPUNotebooks, 1, List())
 

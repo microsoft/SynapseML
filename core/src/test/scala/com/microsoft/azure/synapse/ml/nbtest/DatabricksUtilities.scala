@@ -39,6 +39,7 @@ object DatabricksUtilities {
   val AdbGpuRuntime = "13.3.x-gpu-ml-scala2.12"
   val NumWorkers = 5
   val AutoTerminationMinutes = 15
+  val GPUUseMLRuntime = true
 
   lazy val Token: String = sys.env.getOrElse("MML_ADB_TOKEN", Secrets.AdbToken)
   lazy val AuthValue: String = "Basic " + BaseEncoding.base64()
@@ -199,6 +200,7 @@ object DatabricksUtilities {
                           sparkVersion: String,
                           numWorkers: Int,
                           poolId: String,
+                          useMLRuntime: Boolean = false,
                           initScripts: String = "[]",
                           memory: Option[String] = None): String = {
 
@@ -214,6 +216,7 @@ object DatabricksUtilities {
          |{
          |  "cluster_name": "$clusterName",
          |  "spark_version": "$sparkVersion",
+         |  "use_ml_runtime": $useMLRuntime,
          |  "num_workers": $numWorkers,
          |  "autotermination_minutes": $AutoTerminationMinutes,
          |  "instance_pool_id": "$poolId",
