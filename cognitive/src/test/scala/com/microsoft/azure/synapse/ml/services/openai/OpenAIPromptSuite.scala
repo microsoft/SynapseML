@@ -42,8 +42,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
   lazy val df: DataFrame = Seq(
     ("apple", "fruits"),
     ("mercedes", "cars"),
-    ("cake", "dishes"),
-//    (null, "none") //scalastyle:ignore null
+    ("cake", "dishes")
   ).toDF("text", "category")
 
   test("RAI Usage") {
