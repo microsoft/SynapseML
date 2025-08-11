@@ -21,11 +21,15 @@ class TestOpenAIDefaults(unittest.TestCase):
         defaults.set_deployment_name("Bing Bong")
         defaults.set_subscription_key("SubKey")
         defaults.set_temperature(0.05)
+        defaults.set_seed(42)
+        defaults.set_top_p(0.9)
         defaults.set_URL("Test URL/")
 
         self.assertEqual(defaults.get_deployment_name(), "Bing Bong")
         self.assertEqual(defaults.get_subscription_key(), "SubKey")
         self.assertEqual(defaults.get_temperature(), 0.05)
+        self.assertEqual(defaults.get_seed(), 42)
+        self.assertEqual(defaults.get_top_p(), 0.9)
         self.assertEqual(defaults.get_URL(), "Test URL/")
 
     def test_resetters(self):
@@ -34,21 +38,29 @@ class TestOpenAIDefaults(unittest.TestCase):
         defaults.set_deployment_name("Bing Bong")
         defaults.set_subscription_key("SubKey")
         defaults.set_temperature(0.05)
-        defaults.set_URL("Test URL")
+        defaults.set_seed(42)
+        defaults.set_top_p(0.9)
+        defaults.set_URL("Test URL/")
 
         self.assertEqual(defaults.get_deployment_name(), "Bing Bong")
         self.assertEqual(defaults.get_subscription_key(), "SubKey")
         self.assertEqual(defaults.get_temperature(), 0.05)
+        self.assertEqual(defaults.get_seed(), 42)
+        self.assertEqual(defaults.get_top_p(), 0.9)
         self.assertEqual(defaults.get_URL(), "Test URL/")
 
         defaults.reset_deployment_name()
         defaults.reset_subscription_key()
         defaults.reset_temperature()
+        defaults.reset_seed()
+        defaults.reset_top_p()
         defaults.reset_URL()
 
         self.assertEqual(defaults.get_deployment_name(), None)
         self.assertEqual(defaults.get_subscription_key(), None)
         self.assertEqual(defaults.get_temperature(), None)
+        self.assertEqual(defaults.get_seed(), None)
+        self.assertEqual(defaults.get_top_p(), None)
         self.assertEqual(defaults.get_URL(), None)
 
     def test_two_defaults(self):
@@ -98,6 +110,36 @@ class TestOpenAIDefaults(unittest.TestCase):
         results.select("outParsed").show(truncate=False)
         nonNullCount = results.filter(col("outParsed").isNotNull()).count()
         assert nonNullCount == 3
+
+    def test_parameter_validation(self):
+        defaults = OpenAIDefaults()
+
+        # Test valid temperature values
+        defaults.set_temperature(0.0)
+        defaults.set_temperature(1.0)
+        defaults.set_temperature(2.0)
+        defaults.set_temperature(0)  # int should work
+        defaults.set_temperature(1)  # int should work
+        defaults.set_temperature(2)  # int should work
+
+        # Test valid top_p values
+        defaults.set_top_p(0.0)
+        defaults.set_top_p(0.5)
+        defaults.set_top_p(1.0)
+        defaults.set_top_p(0)  # int should work
+        defaults.set_top_p(1)  # int should work
+
+        # Test invalid temperature values
+        with self.assertRaises(ValueError):
+            defaults.set_temperature(-0.1)
+        with self.assertRaises(ValueError):
+            defaults.set_temperature(2.1)
+
+        # Test invalid top_p values
+        with self.assertRaises(ValueError):
+            defaults.set_top_p(-0.1)
+        with self.assertRaises(ValueError):
+            defaults.set_top_p(1.1)
 
 
 if __name__ == "__main__":
