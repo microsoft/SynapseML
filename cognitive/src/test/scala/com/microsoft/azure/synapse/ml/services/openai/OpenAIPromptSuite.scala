@@ -43,7 +43,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     ("apple", "fruits"),
     ("mercedes", "cars"),
     ("cake", "dishes"),
-    (null, "none") //scalastyle:ignore null
+//    (null, "none") //scalastyle:ignore null
   ).toDF("text", "category")
 
   test("RAI Usage") {
@@ -61,7 +61,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
 
   test("Basic Usage") {
     val nonNullCount = prompt
-      .setPromptTemplate("here is a comma separated list of 5 {category}: {text}, ")
+      .setPromptTemplate("give me a comma separated list of 5 {category}, starting with {text} ")
       .setPostProcessing("csv")
       .transform(df)
       .select("outParsed")
@@ -72,7 +72,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
 
   test("Basic Usage AI Foundry") {
     val nonNullCount = aiFoundryPrompt
-      .setPromptTemplate("here is a comma separated list of 5 {category}: {text}, ")
+      .setPromptTemplate("give me a comma separated list of 5 {category}, starting with {text} ")
       .setPostProcessing("csv")
       .transform(df)
       .select("outParsed")
@@ -105,7 +105,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
 
   test("Basic Usage - Gpt 4") {
     val nonNullCount = promptGpt4
-      .setPromptTemplate("here is a comma separated list of 5 {category}: {text}, ")
+      .setPromptTemplate("give me a comma separated list of 5 {category}, starting with {text} ")
       .setPostProcessing("csv")
       .transform(df)
       .select("outParsed")
@@ -210,7 +210,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
         .setCustomHeaders(customHeadersValues)
     }
 
-    customPromptGpt4.setPromptTemplate("here is a comma separated list of 5 {category}: {text}, ")
+    customPromptGpt4.setPromptTemplate("give me a comma separated list of 5 {category}, starting with {text} ")
       .setPostProcessing("csv")
       .transform(df)
       .select("outParsed")

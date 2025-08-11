@@ -227,6 +227,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     }
   }
 
+  private[openai] def hasAIFoundryModel: Boolean = this.isDefined(model)
+
   //deployment name can be set by user, it doesn't have to match with model name
   private val legacyModels = Set("ada", "babbage", "curie", "davinci",
     "text-ada-001", "text-babbage-001", "text-curie-001", "text-davinci-002", "text-davinci-003",
@@ -234,24 +236,16 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   private def openAICompletion: OpenAIServicesBase = {
 
-    val useCompletion: Boolean =
-      try {
-        legacyModels.contains(getDeploymentName)
-      } catch {
-        case _: NoSuchElementException => false
-      }
-
-    val completion: OpenAIServicesBase = {
-      if (useCompletion) {
-        new OpenAICompletion()
-      }
-      else if (getUrl.contains("openai.azure.com")){
-        new OpenAIChatCompletion()
-      }
-      else {
+    val completion: OpenAIServicesBase =
+      if (hasAIFoundryModel) {
         new AIFoundryChatCompletion()
       }
-    }
+      else if (legacyModels.contains(getDeploymentName)) {
+        new OpenAICompletion()
+      }
+      else {
+        new OpenAIChatCompletion()
+      }
 
     // apply all parameters
     extractParamMap().toSeq
