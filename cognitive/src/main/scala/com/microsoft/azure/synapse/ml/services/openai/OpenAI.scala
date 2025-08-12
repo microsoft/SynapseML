@@ -104,6 +104,8 @@ trait HasOpenAIEmbeddingParams extends HasOpenAISharedParams with HasAPIVersion 
 }
 
 case object OpenAITemperatureKey extends GlobalKey[Either[Double, String]]
+case object OpenAISeedKey extends GlobalKey[Either[Int, String]]
+case object OpenAITopPKey extends GlobalKey[Either[Double, String]]
 
 trait HasOpenAITextParams extends HasOpenAISharedParams {
   val maxTokens: ServiceParam[Int] = new ServiceParam[Int](
@@ -161,6 +163,8 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
     isRequired = false) {
     override val payloadName: String = "top_p"
   }
+
+  GlobalParams.registerParam(topP, OpenAITopPKey)
 
   def getTopP: Double = getScalarParam(topP)
 
@@ -277,6 +281,24 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
 
   def setBestOfCol(v: String): this.type = setVectorParam(bestOf, v)
 
+  val seed: ServiceParam[Int] = new ServiceParam[Int](
+    this, "seed",
+    "If specified, OpenAI will make a best effort to sample deterministically," +
+      " such that repeated requests with the same seed and parameters should return the same result." +
+      " Determinism is not guaranteed, and you should refer to the system_fingerprint response parameter" +
+      " to monitor changes in the backend.",
+    isRequired = false)
+
+  GlobalParams.registerParam(seed, OpenAISeedKey)
+
+  def getSeed: Int = getScalarParam(seed)
+
+  def setSeed(v: Int): this.type = setScalarParam(seed, v)
+
+  def getSeedCol: String = getVectorParam(seed)
+
+  def setSeedCol(v: String): this.type = setVectorParam(seed, v)
+
   // list of shared text parameters. In method getOptionalParams, we will iterate over these parameters
   // to compute the optional parameters. Since this list never changes, we can create it once and reuse it.
   private[openai] val sharedTextParams: Seq[ServiceParam[_]] = Seq(
@@ -291,7 +313,8 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
     presencePenalty,
     frequencyPenalty,
     bestOf,
-    logProbs
+    logProbs,
+    seed
   )
 
   private[ml] def getOptionalParams(r: Row): Map[String, Any] = {
