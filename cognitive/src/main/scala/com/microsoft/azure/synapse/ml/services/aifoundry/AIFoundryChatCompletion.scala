@@ -17,8 +17,6 @@ trait HasAIFoundryTextParamsExtended extends HasOpenAITextParamsExtended {
   val model = new ServiceParam[String](
     this, "model", "The name of the model", isRequired = true)
 
-  GlobalParams.registerParam(model, OpenAIDeploymentNameKey)
-
   def getModel: String = getScalarParam(model)
 
   def setModel(v: String): this.type = setScalarParam(model, v)

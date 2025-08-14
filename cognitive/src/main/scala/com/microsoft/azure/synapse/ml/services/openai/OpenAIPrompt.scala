@@ -17,12 +17,14 @@ import org.apache.spark.sql.{Column, DataFrame, Dataset, Row, functions => F, ty
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types.{DataType, StructField, StructType}
+import com.microsoft.azure.synapse.ml.services.aifoundry.{AIFoundryChatCompletion, HasAIFoundryTextParamsExtended}
 
 import scala.collection.JavaConverters._
 
 object OpenAIPrompt extends ComplexParamsReadable[OpenAIPrompt]
 
 class OpenAIPrompt(override val uid: String) extends Transformer
+  with HasAIFoundryTextParamsExtended
   with HasOpenAITextParamsExtended with HasMessagesInput
   with HasErrorCol with HasOutputCol
   with HasURL with HasCustomCogServiceDomain with ConcurrencyParams
@@ -120,6 +122,10 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   override def setCustomServiceName(v: String): this.type = {
     setUrl(s"https://$v.openai.azure.com/" + urlPath.stripPrefix("/"))
+  }
+
+  def setAIFoundryCustomServiceName(v: String): this.type = {
+    setUrl(s"https://$v.services.ai.azure.com/" + urlPath.stripPrefix("/"))
   }
 
   private val localParamNames = Seq(
@@ -221,6 +227,9 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     }
   }
 
+  private[openai] def hasAIFoundryModel: Boolean = this.isDefined(model)
+
+  //deployment name can be set by user, it doesn't have to match with model name
   private val legacyModels = Set("ada", "babbage", "curie", "davinci",
     "text-ada-001", "text-babbage-001", "text-curie-001", "text-davinci-002", "text-davinci-003",
     "code-cushman-001", "code-davinci-002")
@@ -228,12 +237,16 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   private def openAICompletion: OpenAIServicesBase = {
 
     val completion: OpenAIServicesBase =
-      if (legacyModels.contains(getDeploymentName)) {
+      if (hasAIFoundryModel) {
+        new AIFoundryChatCompletion()
+      }
+      else if (legacyModels.contains(getDeploymentName)) {
         new OpenAICompletion()
       }
       else {
         new OpenAIChatCompletion()
       }
+
     // apply all parameters
     extractParamMap().toSeq
       .filter(p => !localParamNames.contains(p.param.name) && completion.hasParam(p.param.name))
@@ -246,6 +259,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     r =>
       openAICompletion match {
         case chatCompletion: OpenAIChatCompletion =>
+          chatCompletion.prepareEntity(r)
+        case chatCompletion: AIFoundryChatCompletion =>
           chatCompletion.prepareEntity(r)
         case completion: OpenAICompletion =>
           completion.prepareEntity(r)
@@ -267,6 +282,10 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   override def transformSchema(schema: StructType): StructType = {
     val transformedSchema = openAICompletion match {
       case chatCompletion: OpenAIChatCompletion =>
+        chatCompletion
+          .transformSchema(schema.add(getMessagesCol, StructType(Seq())))
+          .add(getPostProcessing, getParser.outputSchema)
+      case chatCompletion: AIFoundryChatCompletion =>
         chatCompletion
           .transformSchema(schema.add(getMessagesCol, StructType(Seq())))
           .add(getPostProcessing, getParser.outputSchema)
