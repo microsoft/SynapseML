@@ -2,7 +2,7 @@
 
 export OPENMPI_VERSION="3.1.2"
 
-export SPARK_VERSION="3.4.1"
+export SPARK_VERSION="3.5.0"
 export HADOOP_VERSION="3.3"
 export SYNAPSEML_VERSION="1.0.13" # Binder compatibility version
 
