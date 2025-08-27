@@ -93,4 +93,3 @@ class OpenAIDefaults:
 
     def reset_api_version(self):
         self.defaults.resetApiVersion()
-
