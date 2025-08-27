@@ -98,7 +98,7 @@ class OpenAIDefaults:
         self.defaults.setModel(ai_foundry_model)
 
     def get_model(self):
-        return getOption(self.defaults.getAiFoundryModel())
+        return getOption(self.defaults.getModel())
 
     def reset_model(self):
-        self.defaults.resetAiFoundryModel()
+        self.defaults.resetModel()
