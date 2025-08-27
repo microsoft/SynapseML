@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.services.aifoundry
 
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
-import com.microsoft.azure.synapse.ml.param.{GlobalParams, ServiceParam}
+import com.microsoft.azure.synapse.ml.param.{GlobalKey, GlobalParams, ServiceParam}
 import com.microsoft.azure.synapse.ml.services.openai._
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.util._
@@ -13,9 +13,13 @@ import spray.json.DefaultJsonProtocol._
 
 import scala.language.existentials
 
+case object AIFoundryModel extends GlobalKey[Either[String, String]]
+
 trait HasAIFoundryTextParamsExtended extends HasOpenAITextParamsExtended {
   val model = new ServiceParam[String](
     this, "model", "The name of the model", isRequired = true)
+
+  GlobalParams.registerParam(model, AIFoundryModel)
 
   def getModel: String = getScalarParam(model)
 
@@ -37,6 +41,8 @@ trait HasAIFoundryTextParamsExtended extends HasOpenAITextParamsExtended {
     responseFormat,
     model
   )
+
+  setDefault(apiVersion -> Left("2024-05-01-preview"))
   }
 
 object AIFoundryChatCompletion extends ComplexParamsReadable[AIFoundryChatCompletion]

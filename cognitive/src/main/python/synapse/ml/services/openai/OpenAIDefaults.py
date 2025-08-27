@@ -93,3 +93,12 @@ class OpenAIDefaults:
 
     def reset_api_version(self):
         self.defaults.resetApiVersion()
+
+    def set_model(self, ai_foundry_model):
+        self.defaults.setModel(ai_foundry_model)
+
+    def get_model(self):
+        return getOption(self.defaults.getAiFoundryModel())
+
+    def reset_model(self):
+        self.defaults.resetAiFoundryModel()

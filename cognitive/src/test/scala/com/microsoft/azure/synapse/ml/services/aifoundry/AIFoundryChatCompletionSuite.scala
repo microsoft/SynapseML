@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.services.aifoundry
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
-import com.microsoft.azure.synapse.ml.services.openai.{ChatCompletionResponse, OpenAIMessage, OpenAIResponseFormat}
+import com.microsoft.azure.synapse.ml.services.openai._
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
 import org.scalactic.Equality
@@ -60,6 +60,30 @@ class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompl
     null //scalastyle:ignore null
   ).toDF("messages")
 
+  import spark.implicits._
+
+  def promptCompletion: AIFoundryChatCompletion = new AIFoundryChatCompletion()
+    .setMaxTokens(200)
+    .setOutputCol("out")
+    .setMessagesCol("prompt")
+
+  lazy val promptDF: DataFrame = Seq(
+    Seq(
+      OpenAIMessage("system", "You are an AI chatbot with red as your favorite color"),
+      OpenAIMessage("user", "Whats your favorite color")
+    ),
+    Seq(
+      OpenAIMessage("system", "You are very excited"),
+      OpenAIMessage("user", "How are you today")
+    ),
+    Seq(
+      OpenAIMessage("system", "You are very excited"),
+      OpenAIMessage("user", "How are you today"),
+      OpenAIMessage("system", "Better than ever"),
+      OpenAIMessage("user", "Why?")
+    )
+  ).toDF("prompt")
+
   test("Basic Usage") {
     testCompletion(completion, goodDf)
   }
@@ -72,6 +96,30 @@ class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompl
     assert(Option(results.apply(2).getAs[Row](completion.getErrorCol)).isEmpty)
     assert(Option(results.apply(2).getAs[Row]("out")).isEmpty)
   }
+
+  test("Completion w Globals AI Foundry") {
+    OpenAIDefaults.setSubscriptionKey(aiFoundryAPIKey)
+    OpenAIDefaults.setTemperature(0.05)
+    OpenAIDefaults.setURL(s"https://$aiFoundryServiceName.services.ai.azure.com/")
+    OpenAIDefaults.setModel(aiFoundryModelName)
+    OpenAIDefaults.setApiVersion("2024-05-01-preview")
+
+    val fromRow = ChatCompletionResponse.makeFromRowConverter
+    promptCompletion.transform(promptDF).collect().foreach(r =>
+      fromRow(r.getAs[Row]("out")).choices.foreach(c =>
+        assert(c.message.content.length > 10)))
+  }
+
+  lazy val prompt: OpenAIPrompt = new OpenAIPrompt()
+    .setOutputCol("outParsed")
+
+  lazy val df: DataFrame = Seq(
+    ("apple", "fruits"),
+    ("mercedes", "cars"),
+    ("cake", "dishes"),
+    (null, "none") //scalastyle:ignore null
+  ).toDF("text", "category")
+
 
   test("getOptionalParam should include responseFormat"){
     val completion = new AIFoundryChatCompletion()
