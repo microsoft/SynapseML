@@ -41,8 +41,6 @@ trait HasAIFoundryTextParamsExtended extends HasOpenAITextParamsExtended {
     responseFormat,
     model
   )
-
-  setDefault(apiVersion -> Left("2024-05-01-preview"))
   }
 
 object AIFoundryChatCompletion extends ComplexParamsReadable[AIFoundryChatCompletion]
