@@ -24,6 +24,8 @@ class TestOpenAIDefaults(unittest.TestCase):
         defaults.set_seed(42)
         defaults.set_top_p(0.9)
         defaults.set_URL("Test URL/")
+        defaults.set_api_version("2024-05-01-preview")
+        defaults.set_model("grok-3-mini")
 
         self.assertEqual(defaults.get_deployment_name(), "Bing Bong")
         self.assertEqual(defaults.get_subscription_key(), "SubKey")
@@ -31,6 +33,8 @@ class TestOpenAIDefaults(unittest.TestCase):
         self.assertEqual(defaults.get_seed(), 42)
         self.assertEqual(defaults.get_top_p(), 0.9)
         self.assertEqual(defaults.get_URL(), "Test URL/")
+        self.assertEqual(defaults.get_api_version(), "2024-05-01-preview")
+        self.assertEqual(defaults.get_model(), "grok-3-mini")
 
     def test_resetters(self):
         defaults = OpenAIDefaults()
@@ -41,6 +45,8 @@ class TestOpenAIDefaults(unittest.TestCase):
         defaults.set_seed(42)
         defaults.set_top_p(0.9)
         defaults.set_URL("Test URL/")
+        defaults.set_api_version("2024-05-01-preview")
+        defaults.set_model("grok-3-mini")
 
         self.assertEqual(defaults.get_deployment_name(), "Bing Bong")
         self.assertEqual(defaults.get_subscription_key(), "SubKey")
@@ -48,6 +54,8 @@ class TestOpenAIDefaults(unittest.TestCase):
         self.assertEqual(defaults.get_seed(), 42)
         self.assertEqual(defaults.get_top_p(), 0.9)
         self.assertEqual(defaults.get_URL(), "Test URL/")
+        self.assertEqual(defaults.get_api_version(), "2024-05-01-preview")
+        self.assertEqual(defaults.get_model(), "grok-3-mini")
 
         defaults.reset_deployment_name()
         defaults.reset_subscription_key()
@@ -55,6 +63,8 @@ class TestOpenAIDefaults(unittest.TestCase):
         defaults.reset_seed()
         defaults.reset_top_p()
         defaults.reset_URL()
+        defaults.reset_api_version()
+        defaults.reset_model()
 
         self.assertEqual(defaults.get_deployment_name(), None)
         self.assertEqual(defaults.get_subscription_key(), None)
@@ -62,6 +72,8 @@ class TestOpenAIDefaults(unittest.TestCase):
         self.assertEqual(defaults.get_seed(), None)
         self.assertEqual(defaults.get_top_p(), None)
         self.assertEqual(defaults.get_URL(), None)
+        self.assertEqual(defaults.get_api_version(), None)
+        self.assertEqual(defaults.get_model(), None)
 
     def test_two_defaults(self):
         defaults = OpenAIDefaults()
