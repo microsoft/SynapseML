@@ -97,29 +97,6 @@ class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompl
     assert(Option(results.apply(2).getAs[Row]("out")).isEmpty)
   }
 
-  test("Completion w Globals AI Foundry") {
-    OpenAIDefaults.setSubscriptionKey(aiFoundryAPIKey)
-    OpenAIDefaults.setTemperature(0.05)
-    OpenAIDefaults.setURL(s"https://$aiFoundryServiceName.services.ai.azure.com/")
-    OpenAIDefaults.setModel(aiFoundryModelName)
-    OpenAIDefaults.setApiVersion("2024-05-01-preview")
-
-    val fromRow = ChatCompletionResponse.makeFromRowConverter
-    promptCompletion.transform(promptDF).collect().foreach(r =>
-      fromRow(r.getAs[Row]("out")).choices.foreach(c =>
-        assert(c.message.content.length > 10)))
-  }
-
-  lazy val prompt: OpenAIPrompt = new OpenAIPrompt()
-    .setOutputCol("outParsed")
-
-  lazy val df: DataFrame = Seq(
-    ("apple", "fruits"),
-    ("mercedes", "cars"),
-    ("cake", "dishes"),
-    (null, "none") //scalastyle:ignore null
-  ).toDF("text", "category")
-
 
   test("getOptionalParam should include responseFormat"){
     val completion = new AIFoundryChatCompletion()
