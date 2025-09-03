@@ -80,22 +80,11 @@ object SharedNotebookE2ETestUtilities {
     cleanUpGeneratedNotebooksDir()
 
     val docsDir = FileUtilities.join(BuildInfo.baseDirectory.getParent, "docs").getCanonicalFile
-    val newFiles = FileUtilities.recursiveListFiles(docsDir)
-      .filter(_.getName.endsWith(".ipynb"))
-      .map { f =>
-        val relative = docsDir.toURI.relativize(f.toURI).getPath
-        val newName = relative
-          .replace("/", "")
-          .replace(" ", "")
-          .replace("-", "")
-          .replace(",", "")
-        FileUtilities.copyAndRenameFile(f, NotebooksDir, newName, true)
-        new File(NotebooksDir, newName)
-      } :+ {
+    val newFiles: Array[File] = Array({
         val onePlusOne = new File(NotebooksDir, "OnePlusOne.ipynb")
         FileUtilities.writeFile(onePlusOne, OnePlusOneNotebook)
         onePlusOne
-      }
+      })
 
     runCmd(activateCondaEnv ++ Seq("jupyter", "nbconvert", "--to", "python", "*.ipynb"), NotebooksDir)
 

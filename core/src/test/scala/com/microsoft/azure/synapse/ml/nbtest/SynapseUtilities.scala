@@ -134,7 +134,7 @@ object SynapseUtilities {
   val StorageContainer: String = "synapse"
   val PoolNodeSize: String = "Small"
   val PoolLocation: String = "eastus2"
-  val WorkspaceName: String = "mmlsparkbuild"
+  val WorkspaceName: String = "mmlsparkbuildtest"
   val ResourceGroupName: String = "marhamil-mmlspark"
   val SubscriptionId: String = Secrets.SubscriptionID
 
@@ -187,10 +187,13 @@ object SynapseUtilities {
     val abfssPath = s"abfss://$StorageContainer@$StorageAccount.dfs.core.windows.net/$dest"
 
     val excludes: String = Seq(
+      // "org.apache.commons:commons-configuration2",
+      // "org.apache.commons:commons-text",
       "org.scala-lang:scala-reflect",
       "org.apache.spark:spark-tags_2.12",
       "org.scalatest:scalatest_2.12",
       "org.slf4j:slf4j-api").mkString(",")
+      // "org.scalanlp:breeze_2.12").mkString(",")
     val runName = abfssPath.split('/').last.replace(".py", "")
     val livyPayload: String =
       s"""

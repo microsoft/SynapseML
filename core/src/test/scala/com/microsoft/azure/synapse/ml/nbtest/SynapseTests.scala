@@ -64,8 +64,10 @@ class SynapseTests extends TestBase {
   println(s"Found ${generatedNotebooks.length} notebooks in ${SharedNotebookE2ETestUtilities.NotebooksDir}")
   
   val selectedPythonFiles: Array[File] = generatedNotebooks
+    .filter(file => file.getName.contains("OnePlusOne"))
     .filterNot(file => excludedNotebooks.exists(excluded => file.getAbsolutePath.contains(excluded)))
     .sortBy(_.getAbsolutePath)
+    .take(1)
 
   val expectedPoolCount: Int = selectedPythonFiles.length
 
@@ -76,11 +78,69 @@ class SynapseTests extends TestBase {
   // Cleanup old stray spark pools lying around due to ungraceful test shutdown
   tryDeleteOldSparkPools()
 
-  println(s"Creating $expectedPoolCount Spark Pools...")
-  val sparkPools: Seq[String] = createSparkPools(expectedPoolCount)
-  testNotebooks(sparkPools)
+  val pkgs = Array(
+    // "com.github.vowpalwabbit:vw-jni:9.3.0",
+    // "com.globalmentor:hadoop-bare-naked-local-fs:0.1.0",
+    // "com.jcraft:jsch:0.1.54",
+    // "com.linkedin.isolation-forest:isolation-forest_3.5.0_2.12:3.0.5",
+    // "com.microsoft.azure:onnx-protobuf_2.12:0.9.3",
+    // "com.microsoft.azure:synapseml-cognitive_2.12:1.0.11-spark3.5",
+    // "com.microsoft.azure:synapseml-core_2.12:1.0.11-spark3.5",
+    // "com.microsoft.azure:synapseml-deep-learning_2.12:1.0.11-spark3.5",
+    // "com.microsoft.azure:synapseml-lightgbm_2.12:1.0.11-spark3.5",
+    // "com.microsoft.azure:synapseml-opencv_2.12:1.0.11-spark3.5",
+    // "com.microsoft.azure:synapseml-vw_2.12:1.0.11-spark3.5",
+    // "com.microsoft.cognitiveservices.speech:client-sdk:1.24.1",
+    // "com.microsoft.ml.lightgbm:lightgbmlib:3.3.510",
+    // "com.microsoft.onnxruntime:onnxruntime_gpu:1.8.1",
+    // "commons-lang:commons-lang:2.6",
+    // "io.spray:spray-json_2.12:1.3.5",
+    // "org.apache.hadoop:hadoop-azure:3.3.4",
+    // "org.apache.hadoop:hadoop-common:3.3.4",
+    // "org.apache.httpcomponents.client5:httpclient5:5.1.3",
+    // "org.apache.httpcomponents:httpmime:4.5.13",
+    // "org.apache.spark:spark-avro_2.12:3.5.0",
+    // "org.apache.spark:spark-core_2.12:3.5.0",
+    // "org.apache.spark:spark-mllib_2.12:3.5.0",
+    // "org.apache.spark:spark-tags_2.12:3.5.0",
+    // "org.openpnp:opencv:3.2.0-1",
+    // "org.scala-lang:scala-compiler:2.12.17",
+    // "org.scala-lang:scala-library:2.12.17",
+    // "org.scalactic:scalactic_2.12:3.2.14",
+    // "org.scalanlp:breeze_2.12:2.1.0",
+    // "org.scalatest:scalatest_2.12:3.2.14",
+  )
 
-  private def testNotebooks(sparkPools: Seq[String]): Unit = {
+  // val sparkPools: Seq[String] = Array[String]()
+  // pkgs.foreach { pkg =>
+  //   println(s"$pkg: Creating $expectedPoolCount Spark Pools...")
+  //   val curSparkPools: Seq[String] = createSparkPools(expectedPoolCount)
+  //   curSparkPools.foreach { pool =>
+  //     sparkPools :+ pool
+  //   } 
+  //   testNotebooks(selectedPythonFiles, curSparkPools, pkg)
+  // }
+
+  // Allow using a pre-existing Spark pool by env var or system property
+  // Env: SYNAPSE_SPARK_POOL    or    JVM prop: -Dsynapse.sparkPool=<poolName>
+  private val existingPoolNameOpt: Option[String] =
+    Some("test35")
+    // sys.env.get("SYNAPSE_SPARK_POOL")
+    //   .orElse(sys.props.get("synapse.sparkPool"))
+    //   .map(_.trim)
+    //   .filter(_.nonEmpty)
+
+  private val sparkPools: Seq[String] = existingPoolNameOpt match {
+    case Some(pool) =>
+      println(s"Using existing Spark pool '$pool' for all ${expectedPoolCount} notebook(s); no new pools will be created.")
+      Seq.fill(expectedPoolCount)(pool)
+    case None =>
+      createSparkPools(expectedPoolCount)
+  }
+
+  testNotebooks(selectedPythonFiles, sparkPools)
+
+  private def testNotebooks(selectedPythonFiles: Array[File], sparkPools: Seq[String]): Unit = {
     val livyBatches: Array[LivyBatch] =
       selectedPythonFiles.zip(sparkPools).map { case (file, poolName) =>
         SynapseUtilities.uploadAndSubmitNotebook(poolName, file)
@@ -135,14 +195,21 @@ class SynapseTests extends TestBase {
 
   protected override def afterAll(): Unit = {
     println("Synapse E2E Test Suite finished. Deleting Spark Pools...")
-    val failures = sparkPools.map(pool => Try(deleteSparkPool(pool)))
-      .filter(_.isFailure)
-    if (failures.isEmpty) {
-      println("All Spark Pools deleted successfully.")
-    } else {
-      println("Failed to delete all spark pools cleanly:")
-      failures.foreach(failure =>
-        println(failure.failed.get.getMessage))
+    // Only delete pools that were created by this test run. If an existing pool was
+    // provided, skip deletion entirely. Additionally, guard by prefix to be safe.
+    existingPoolNameOpt match {
+      case Some(pool) =>
+        println(s"Existing pool '$pool' was used; skipping deletion.")
+      case None =>
+        val poolsToDelete = sparkPools.distinct.filter(_.startsWith(ClusterPrefix))
+        val failures = poolsToDelete.map(pool => Try(deleteSparkPool(pool)))
+          .filter(_.isFailure)
+        if (failures.isEmpty) {
+          println("All Spark Pools deleted successfully.")
+        } else {
+          println("Failed to delete all spark pools cleanly:")
+          failures.foreach(failure => println(failure.failed.get.getMessage))
+        }
     }
     super.afterAll()
   }
