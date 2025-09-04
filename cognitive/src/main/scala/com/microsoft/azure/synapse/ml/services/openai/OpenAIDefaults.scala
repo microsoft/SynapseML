@@ -4,8 +4,9 @@
 package com.microsoft.azure.synapse.ml.services.openai
 
 import com.microsoft.azure.synapse.ml.param.GlobalParams
-import com.microsoft.azure.synapse.ml.services.OpenAISubscriptionKey
+import com.microsoft.azure.synapse.ml.services.{OpenAIApiVersion, OpenAISubscriptionKey}
 import com.microsoft.azure.synapse.ml.io.http.URLKey
+import com.microsoft.azure.synapse.ml.services.aifoundry.AIFoundryModel
 
 object OpenAIDefaults {
   def setDeploymentName(v: String): Unit = {
@@ -81,6 +82,30 @@ object OpenAIDefaults {
 
   def resetTopP(): Unit = {
     GlobalParams.resetGlobalParam(OpenAITopPKey)
+  }
+
+  def setApiVersion(v: String): Unit = {
+    GlobalParams.setGlobalParam(OpenAIApiVersion, Left(v))
+  }
+
+  def getApiVersion: Option[String] = {
+    extractLeft(GlobalParams.getGlobalParam(OpenAIApiVersion))
+  }
+
+  def resetApiVersion(): Unit = {
+    GlobalParams.resetGlobalParam(OpenAIApiVersion)
+  }
+
+  def setModel(v: String): Unit = {
+    GlobalParams.setGlobalParam(AIFoundryModel, Left(v))
+  }
+
+  def getModel: Option[String] = {
+    extractLeft(GlobalParams.getGlobalParam(AIFoundryModel))
+  }
+
+  def resetModel(): Unit = {
+    GlobalParams.resetGlobalParam(AIFoundryModel)
   }
 
   private def extractLeft[T](optEither: Option[Either[T, String]]): Option[T] = {

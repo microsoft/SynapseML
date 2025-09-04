@@ -275,11 +275,15 @@ trait HasCustomCogServiceDomain extends Wrappable with HasURL with HasUrlPath {
 
 }
 
+case object OpenAIApiVersion extends GlobalKey[Either[String, String]]
+
 trait HasAPIVersion extends HasServiceParams {
   val apiVersion: ServiceParam[String] = new ServiceParam[String](
     this, "apiVersion", "version of the api", isRequired = true, isURLParam = true) {
     override val payloadName: String = "api-version"
   }
+
+  GlobalParams.registerParam(apiVersion, OpenAIApiVersion)
 
   def getApiVersion: String = getScalarParam(apiVersion)
 

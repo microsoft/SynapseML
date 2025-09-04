@@ -84,3 +84,21 @@ class OpenAIDefaults:
 
     def reset_top_p(self):
         self.defaults.resetTopP()
+
+    def set_api_version(self, api_version):
+        self.defaults.setApiVersion(api_version)
+
+    def get_api_version(self):
+        return getOption(self.defaults.getApiVersion())
+
+    def reset_api_version(self):
+        self.defaults.resetApiVersion()
+
+    def set_model(self, ai_foundry_model):
+        self.defaults.setModel(ai_foundry_model)
+
+    def get_model(self):
+        return getOption(self.defaults.getModel())
+
+    def reset_model(self):
+        self.defaults.resetModel()
