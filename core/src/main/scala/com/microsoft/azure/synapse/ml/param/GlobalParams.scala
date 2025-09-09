@@ -46,7 +46,7 @@ trait HasGlobalParams extends Params{
   private[ml] def transferGlobalParamsToParamMap(): Unit = {
     // check for empty params. Fill em with GlobalParams
     this.params
-      .filter(p => !this.isSet(p) && !this.hasDefault(p))
+      .filter(p => !this.isSet(p))
       .foreach { p =>
         GlobalParams.getParam(p).foreach { v =>
           set(p.asInstanceOf[Param[Any]], v)
