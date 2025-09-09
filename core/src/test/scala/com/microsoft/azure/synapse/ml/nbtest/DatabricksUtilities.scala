@@ -114,6 +114,7 @@ object DatabricksUtilities {
     .filterNot(_.getAbsolutePath.contains("Audiobooks")) // TODO Remove this by fixing auth
     .filterNot(_.getAbsolutePath.contains("Art")) // TODO Remove this by fixing performance
     .filterNot(_.getAbsolutePath.contains("Explanation Dashboard")) // TODO Remove this exclusion
+    .filterNot(_.getAbsolutePath.contains("Snow Leopard Detection")) // TODO Remove this exclusion
 
   val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter { file =>
     file.getAbsolutePath.contains("Fine-tune") || file.getAbsolutePath.contains("Phi Model")
