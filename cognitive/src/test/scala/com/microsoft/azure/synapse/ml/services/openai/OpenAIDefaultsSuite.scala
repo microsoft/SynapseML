@@ -82,6 +82,8 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     OpenAIDefaults.setSeed(42)
     OpenAIDefaults.setTopP(0.9)
     OpenAIDefaults.setURL(s"https://$openAIServiceName.openai.azure.com/")
+    OpenAIDefaults.setApiVersion("2024-05-01-preview")
+    OpenAIDefaults.setModel("grok-3-mini")
 
     assert(OpenAIDefaults.getDeploymentName.contains(deploymentName))
     assert(OpenAIDefaults.getSubscriptionKey.contains(openAIAPIKey))
@@ -89,6 +91,8 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     assert(OpenAIDefaults.getSeed.contains(42))
     assert(OpenAIDefaults.getTopP.contains(0.9))
     assert(OpenAIDefaults.getURL.contains(s"https://$openAIServiceName.openai.azure.com/"))
+    assert(OpenAIDefaults.getApiVersion.contains("2024-05-01-preview"))
+    assert(OpenAIDefaults.getModel.contains("grok-3-mini"))
   }
 
   test("Test Resetters") {
@@ -98,6 +102,8 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     OpenAIDefaults.setSeed(42)
     OpenAIDefaults.setTopP(0.9)
     OpenAIDefaults.setURL(s"https://$openAIServiceName.openai.azure.com/")
+    OpenAIDefaults.setApiVersion("2024-05-01-preview")
+    OpenAIDefaults.setModel("grok-3-mini")
 
     OpenAIDefaults.resetDeploymentName()
     OpenAIDefaults.resetSubscriptionKey()
@@ -105,6 +111,8 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     OpenAIDefaults.resetSeed()
     OpenAIDefaults.resetTopP()
     OpenAIDefaults.resetURL()
+    OpenAIDefaults.resetApiVersion()
+    OpenAIDefaults.resetModel()
 
     assert(OpenAIDefaults.getDeploymentName.isEmpty)
     assert(OpenAIDefaults.getSubscriptionKey.isEmpty)
@@ -112,6 +120,8 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     assert(OpenAIDefaults.getSeed.isEmpty)
     assert(OpenAIDefaults.getTopP.isEmpty)
     assert(OpenAIDefaults.getURL.isEmpty)
+    assert(OpenAIDefaults.getApiVersion.isEmpty)
+    assert(OpenAIDefaults.getModel.isEmpty)
   }
 
   test("Test Parameter Validation") {
