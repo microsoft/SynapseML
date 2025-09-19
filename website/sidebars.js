@@ -67,6 +67,8 @@ module.exports = {
                         "Explore Algorithms/Deep Learning/Quickstart - Fine-tune a Vision Classifier",
                         "Explore Algorithms/Deep Learning/Quickstart - ONNX Model Inference",
                         "Explore Algorithms/Deep Learning/Quickstart - Transfer Learn for Image Classification",
+                        "Explore Algorithms/Deep Learning/Quickstart - Apply Phi Model with HuggingFace CausalLM",
+                        "Explore Algorithms/Deep Learning/Quickstart - Chat Completion with Azure AI Foundry Model",
                     ],
                 },
                 {
