@@ -106,6 +106,14 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   def setSystemPrompt(value: String): this.type = set(systemPrompt, value)
 
+  val openAIAPIType = new Param[String](
+    this, "openAIAPIType", "The OpenAI API type to use: 'chat_completions' or 'responses'",
+    isValid = ParamValidators.inArray(Array("chat_completions", "responses")))
+
+  def getOpenAIAPIType: String = $(openAIAPIType)
+
+  def setOpenAIAPIType(value: String): this.type = set(openAIAPIType, value)
+
   private val defaultSystemPrompt = "You are an AI chatbot who wants to answer user's questions and complete tasks. " +
     "Follow their instructions carefully and be brief if they don't say otherwise."
 
@@ -117,6 +125,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     messagesCol -> (this.uid + "_messages"),
     dropPrompt -> true,
     systemPrompt -> defaultSystemPrompt,
+    openAIAPIType -> "chat_completions",
     timeout -> 360.0
   )
 
@@ -130,10 +139,11 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   private val localParamNames = Seq(
     "promptTemplate", "outputCol", "postProcessing", "postProcessingOptions", "dropPrompt", "dropMessages",
-    "systemPrompt")
+    "systemPrompt", "openAIAPIType")
 
-  private def addRAIErrors(df: DataFrame, errorCol: String, outputCol: String): DataFrame = {
-    val openAIResultFromRow = ChatCompletionResponse.makeFromRowConverter
+  // Q: What does RAI means?
+  private def addChatRAIErrors(df: DataFrame, errorCol: String, outputCol: String): DataFrame = {
+    val openAIResultFromRow = ChatModelResponse.makeFromRowConverter
     df.map({ row =>
       val originalOutput = Option(row.getAs[Row](outputCol))
         .map({ row => openAIResultFromRow(row).choices.head })
@@ -150,6 +160,25 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       }
     })(RowEncoder(df.schema))
   }
+  private def addResponsesRAIErrors(df: DataFrame, errorCol: String, outputCol: String): DataFrame = {
+    val openAIResultFromRow = ResponsesModelResponse.makeFromRowConverter
+    df.map({ row =>
+      val originalOutput = Option(row.getAs[Row](outputCol))
+        .map({ row => openAIResultFromRow(row).output.head })
+      val isFiltered = originalOutput.exists(output => Option(output.content).isEmpty)
+
+      if (isFiltered) {
+        val updatedRowSeq = row.toSeq.updated(
+          row.fieldIndex(errorCol),
+          Row(originalOutput.get.status, null) //Q: what does this line do?
+        )
+        Row.fromSeq(updatedRowSeq)
+      } else {
+        row
+      }
+    })(RowEncoder(df.schema))
+  }
+
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions._
@@ -160,6 +189,30 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       val promptCol = Functions.template(getPromptTemplate)
 
       completion match {
+        case chatCompletion: OpenAIResponses =>
+          if (isSet(responseFormat)) {
+            chatCompletion.setResponseFormat(getResponseFormat)
+          }
+          val messageColName = getMessagesCol
+          val createMessagesUDF = udf((userMessage: String) => {
+            getPromptsForMessage(userMessage)
+          })
+          val dfTemplated = df.withColumn(messageColName, createMessagesUDF(promptCol))
+          val completionNamed = chatCompletion.setMessagesCol(messageColName)
+
+          val transformed = addResponsesRAIErrors(
+            completionNamed.transform(dfTemplated), chatCompletion.getErrorCol, chatCompletion.getOutputCol)
+          val results = transformed
+            .withColumn(getOutputCol,
+              getParser.parse(F.element_at(F.element_at(F.col(completionNamed.getOutputCol).getField("output"), 1)
+                .getField("content"), 1).getField("text")))
+            .drop(completionNamed.getOutputCol)
+          val resultsFinal = results.select(results.columns.filter(_ != getErrorCol).map(col) :+ col(getErrorCol): _*)
+          if (getDropPrompt) {
+            resultsFinal.drop(messageColName)
+          } else {
+            resultsFinal
+          }
         case chatCompletion: OpenAIChatCompletion =>
           if (isSet(responseFormat)) {
             chatCompletion.setResponseFormat(getResponseFormat)
@@ -171,7 +224,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
           val dfTemplated = df.withColumn(messageColName, createMessagesUDF(promptCol))
           val completionNamed = chatCompletion.setMessagesCol(messageColName)
 
-          val transformed = addRAIErrors(
+          val transformed = addChatRAIErrors(
             completionNamed.transform(dfTemplated), chatCompletion.getErrorCol, chatCompletion.getOutputCol)
           val results = transformed
             .withColumn(getOutputCol,
@@ -203,6 +256,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
           } else {
             resultsFinal
           }
+
       }
     }, dataset.columns.length)
   }
@@ -218,7 +272,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       )
 
     if (isSet(responseFormat)) {
-      val responseFormatPrompt = OpenAIResponseFormat
+      val responseFormatPrompt = OpenAIChatCompletionResponseFormat
         .fromResponseFormatString(getResponseFormat("type"))
         .prompt
       basePrompts :+ OpenAIMessage("system", responseFormatPrompt)
@@ -244,7 +298,11 @@ class OpenAIPrompt(override val uid: String) extends Transformer
         new OpenAICompletion()
       }
       else {
-        new OpenAIChatCompletion()
+        // Use the openAIAPIType parameter to decide which API to use
+        getOpenAIAPIType match {
+          case "responses" => new OpenAIResponses()
+          case "chat_completions" | _ => new OpenAIChatCompletion()
+        }
       }
 
     // apply all parameters
@@ -258,9 +316,11 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
     r =>
       openAICompletion match {
-        case chatCompletion: OpenAIChatCompletion =>
+        case chatCompletion: OpenAIResponses =>
           chatCompletion.prepareEntity(r)
         case chatCompletion: AIFoundryChatCompletion =>
+          chatCompletion.prepareEntity(r)
+        case chatCompletion: OpenAIChatCompletion =>
           chatCompletion.prepareEntity(r)
         case completion: OpenAICompletion =>
           completion.prepareEntity(r)
@@ -281,11 +341,15 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   override def transformSchema(schema: StructType): StructType = {
     val transformedSchema = openAICompletion match {
-      case chatCompletion: OpenAIChatCompletion =>
+      case chatCompletion: OpenAIResponses =>
         chatCompletion
           .transformSchema(schema.add(getMessagesCol, StructType(Seq())))
           .add(getPostProcessing, getParser.outputSchema)
       case chatCompletion: AIFoundryChatCompletion =>
+        chatCompletion
+          .transformSchema(schema.add(getMessagesCol, StructType(Seq())))
+          .add(getPostProcessing, getParser.outputSchema)
+      case chatCompletion: OpenAIChatCompletion =>
         chatCompletion
           .transformSchema(schema.add(getMessagesCol, StructType(Seq())))
           .add(getPostProcessing, getParser.outputSchema)

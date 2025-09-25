@@ -16,17 +16,18 @@ import spray.json.DefaultJsonProtocol._
 import spray.json._
 
 import scala.language.existentials
+import com.microsoft.azure.synapse.ml.services.HasCustomHeaders
 
-object OpenAIChatCompletionResponseFormat extends Enumeration {
+object OpenAIResponseFormat extends Enumeration {
   case class ResponseFormat(paylodName: String, prompt: String) extends super.Val(paylodName)
 
   val TEXT: ResponseFormat = ResponseFormat("text", "Output must be in text format")
   val JSON: ResponseFormat = ResponseFormat("json_object", "Output must be in JSON format")
 
   def asStringSet: Set[String] =
-    OpenAIChatCompletionResponseFormat.values.map(_.asInstanceOf[OpenAIChatCompletionResponseFormat.ResponseFormat].paylodName)
+    OpenAIResponseFormat.values.map(_.asInstanceOf[OpenAIResponseFormat.ResponseFormat].paylodName)
 
-  def fromResponseFormatString(format: String): OpenAIChatCompletionResponseFormat.ResponseFormat = {
+  def fromResponseFormatString(format: String): OpenAIResponseFormat.ResponseFormat = {
     if (TEXT.paylodName== format) {
       TEXT
     } else if (JSON.paylodName == format) {
@@ -39,7 +40,7 @@ object OpenAIChatCompletionResponseFormat extends Enumeration {
   }
 }
 
-trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
+trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
   val responseFormat: ServiceParam[Map[String, String]] = new ServiceParam[Map[String, String]](
     this,
     "responseFormat",
@@ -51,7 +52,7 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
   def getResponseFormat: Map[String, String] = getScalarParam(responseFormat)
 
   def setResponseFormat(value: Map[String, String]): this.type = {
-    val allowedFormat = OpenAIChatCompletionResponseFormat.asStringSet
+    val allowedFormat = OpenAIResponseFormat.asStringSet
 
     // This test is to validate that value is properly formatted Map('type' -> '<format>')
     if (value == null || value.size !=1  || !value.contains("type") || value("type").isEmpty) {
@@ -76,7 +77,7 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
     }
   }
 
-  def setResponseFormat(value: OpenAIChatCompletionResponseFormat.ResponseFormat): this.type = {
+  def setResponseFormat(value: OpenAIResponseFormat.ResponseFormat): this.type = {
     setScalarParam(responseFormat, Map("type" -> value.paylodName))
   }
 
@@ -99,14 +100,14 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
   )
 }
 
-object OpenAIChatCompletion extends ComplexParamsReadable[OpenAIChatCompletion]
+object OpenAIResponses extends ComplexParamsReadable[OpenAIResponses]
 
-class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(uid)
-  with HasOpenAITextParamsExtended with HasMessagesInput with HasCognitiveServiceInput
-  with HasInternalJsonOutputParser with SynapseMLLogging {
+class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
+  with HasOpenAITextParamsResponses with HasMessagesInput with HasCognitiveServiceInput
+  with HasInternalJsonOutputParser with SynapseMLLogging with HasCustomHeaders{
   logClass(FeatureNames.AiServices.OpenAI)
 
-  def this() = this(Identifiable.randomUID("OpenAIChatCompletion"))
+  def this() = this(Identifiable.randomUID("OpenAIResponses"))
 
   def urlPath: String = ""
 
@@ -117,7 +118,7 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   }
 
   override protected def prepareUrlRoot: Row => String = { row =>
-    s"${getUrl}openai/deployments/${getValue(row, deploymentName)}/chat/completions"
+    s"${getUrl}openai/responses"
   }
 
   override protected[openai] def prepareEntity: Row => Option[AbstractHttpEntity] = {
@@ -127,15 +128,24 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
       Some(getStringEntity(messages, optionalParams))
   }
 
+  override private[ml] def getOptionalParams(r: Row): Map[String, Any] = {
+    val params = super.getOptionalParams(r)
+    getValueOpt(r, deploymentName) match {
+      case Some(modelName) if modelName != null && modelName.nonEmpty =>
+        params.updated("model", modelName)
+      case _ => params
+    }
+  }
+
   override val subscriptionKeyHeaderName: String = "api-key"
 
   override def shouldSkip(row: Row): Boolean =
     super.shouldSkip(row) || Option(row.getAs[Row](getMessagesCol)).isEmpty
 
   override protected def getVectorParamMap: Map[String, String] = super.getVectorParamMap
-    .updated("messages", getMessagesCol)
+    .updated("input", getMessagesCol)
 
-  override def responseDataType: DataType = ChatModelResponse.schema
+  override def responseDataType: DataType = ResponsesModelResponse.schema
 
   private[openai] def getStringEntity(messages: Seq[Row], optionalParams: Map[String, Any]): StringEntity = {
     val mappedMessages: Seq[Map[String, String]] = messages.map { m =>
@@ -143,11 +153,8 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
         n -> Option(m.getAs[String](n))
       ).toMap.filter(_._2.isDefined).mapValues(_.get)
     }
-    val fullPayload = optionalParams.updated("messages", mappedMessages)
+    val fullPayload = optionalParams.updated("input", mappedMessages)
     new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
   }
 
 }
-
-
-
