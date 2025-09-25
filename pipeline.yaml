@@ -646,8 +646,12 @@ jobs:
       aifoundry:
         PACKAGE: "services.aifoundry"
         FLAKY: "true"
-      search:
-        PACKAGE: "services.search"
+      search1:
+        PACKAGE: "services.search.split1"
+        FFMPEG: "true"
+        FLAKY: "true"
+      search2:
+        PACKAGE: "services.search.split2"
         FFMPEG: "true"
         FLAKY: "true"
       speech:
