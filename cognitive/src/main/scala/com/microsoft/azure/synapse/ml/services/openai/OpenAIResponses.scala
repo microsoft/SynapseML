@@ -149,7 +149,7 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
 
   private[openai] def getStringEntity(messages: Seq[Row], optionalParams: Map[String, Any]): StringEntity = {
     val mappedMessages: Seq[Map[String, String]] = messages.map { m =>
-      Seq("role", "content", "name").map(n =>
+      Seq("role", "content").map(n =>
         n -> Option(m.getAs[String](n))
       ).toMap.filter(_._2.isDefined).mapValues(_.get)
     }
