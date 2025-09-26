@@ -417,7 +417,11 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
     case "Edm.Double" => DoubleType
     case "Edm.Single" => FloatType
     case "Edm.DateTimeOffset" => StringType // We convert date/time to ISO8601 strings
-    case "Edm.GeographyPoint" => StringType
+    case "Edm.GeographyPoint"   =>
+      StructType(Seq(
+        StructField("type", StringType),
+        StructField("coordinates", ArrayType(DoubleType))
+      ))
     case "Edm.ComplexType" => StructType(fields.get.map(f =>
       StructField(f.name, edmTypeToSparkType(f.`type`, f.fields))))
   }
