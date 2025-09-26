@@ -80,6 +80,20 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     assert(nonNullCount == 3)
   }
 
+    test("Basic Usage Responses API") {
+    val nonNullCount = prompt
+      .setPromptTemplate("give me a comma separated list of 5 {category}, starting with {text} ")
+      .setOpenAIAPIType("responses")
+      .setApiVersion("2025-04-01-preview")
+      .setDeploymentName("gpt-4.1-mini")
+      .setPostProcessing("csv")
+      .transform(df)
+      .select("outParsed")
+      .collect()
+      .count(r => Option(r.getSeq[String](0)).isDefined)
+    assert(nonNullCount == 3)
+  }
+
   test("Basic Usage JSON") {
     prompt.setPromptTemplate(
         """Split a word into prefix and postfix a respond in JSON.
@@ -187,7 +201,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     prompt.setResponseFormat("json_object")
     val messages = prompt.getPromptsForMessage("test")
     assert(messages.nonEmpty)
-    messages.exists(p => p.role == "system" && p.content.contains(OpenAIResponseFormat.JSON.prompt))
+    messages.exists(p => p.role == "system" && p.content.contains(OpenAIChatCompletionResponseFormat.JSON.prompt))
   }
 
   ignore("Custom EndPoint") {
