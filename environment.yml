@@ -31,16 +31,16 @@ dependencies:
     - azure-storage-blob
     - jupyter
     - twine
-    - mlflow
-    - numpy
+    - mlflow==2.21.3
+    - numpy==1.26.4
     - torch==2.0.0
     - torchvision==0.15.1
     - horovod==0.28.1
-    - petastorm>=0.11.0
+    - petastorm==0.12.1
     - pytorch_lightning==1.5.0
     - onnxmltools==1.7.0
-    - matplotlib
-    - Pillow
+    - matplotlib==3.10.1
+    - Pillow==11.2.1
     - transformers==4.49.0
     - huggingface-hub==0.26.0
     - langchain==0.0.152
@@ -51,5 +51,5 @@ dependencies:
     - markdownify
     - pypandoc
     - traitlets
-    - opencv-python
-    - sentence_transformers~=4.0.2
+    - opencv-python==4.11.0.86
+    - sentence_transformers==4.0.2
