@@ -15,6 +15,9 @@ import scala.concurrent.Await
 import scala.concurrent.duration.Duration
 import scala.language.existentials
 import scala.util.Try
+import scala.annotation.tailrec
+import scala.util.Success
+import scala.util.Failure
 
 class SynapseTestCleanup extends TestBase {
 
@@ -60,14 +63,47 @@ class SynapseTests extends TestBase {
     "ExplanationDashboard" // New issue
   )
 
+  final val includedNotebooks: Set[String] = Set(
+    "ExploreAlgorithmsAIServicesAdvancedUsageAsyncBatchingandMultiKey",
+    "ExploreAlgorithmsAIServicesGeospatialServices",
+    "ExploreAlgorithmsAIServicesOverview",
+    "ExploreAlgorithmsAIServicesQuickstartAnalyzeCelebrityQuotes",
+    "ExploreAlgorithmsAIServicesQuickstartAnalyzeText",
+    "ExploreAlgorithmsAIServicesQuickstartCreateaVisualSearchEngine",
+    "ExploreAlgorithmsAIServicesQuickstartFloodingRisk",
+    "ExploreAlgorithmsAIServicesQuickstartPredictiveMaintenance",
+    "ExploreAlgorithmsCausalInferenceQuickstartMeasureCausalEffects",
+    "ExploreAlgorithmsCausalInferenceQuickstartMeasureHeterogeneousEffects",
+    "ExploreAlgorithmsCausalInferenceQuickstartSyntheticdifferenceindifferences",
+    "ExploreAlgorithmsClassificationQuickstartSparkMLvsSynapseML",
+    "ExploreAlgorithmsClassificationQuickstartTrainClassifier",
+  )
+
   val generatedNotebooks = SharedNotebookE2ETestUtilities.generateNotebooks()
   println(s"Found ${generatedNotebooks.length} notebooks in ${SharedNotebookE2ETestUtilities.NotebooksDir}")
-  
+
   val selectedPythonFiles: Array[File] = generatedNotebooks
-    .filter(file => file.getName.contains("OnePlusOne"))
+    .filterNot(file => file.getName.contains("OnePlusOne"))
     .filterNot(file => excludedNotebooks.exists(excluded => file.getAbsolutePath.contains(excluded)))
+    // .filter(file => includedNotebooks.exists(included => file.getAbsolutePath.contains(included)))
     .sortBy(_.getAbsolutePath)
-    .take(1)
+    .take(20)
+
+  val selectedPythonFilesTmp1: Array[File] = generatedNotebooks
+    // .filter(file => file.getName.contains("OnePlusOne"))
+    .filterNot(file => excludedNotebooks.exists(excluded => file.getAbsolutePath.contains(excluded)))
+    .filter(file => includedNotebooks.exists(included => file.getAbsolutePath.contains(included)))
+    .sortBy(_.getAbsolutePath)
+    // .take(1)
+
+  val selectedPythonFilesTmp2: Array[File] = generatedNotebooks
+    // .filter(file => file.getName.contains("OnePlusOne"))
+    .filterNot(file => excludedNotebooks.exists(excluded => file.getAbsolutePath.contains(excluded)))
+    .filterNot(file => includedNotebooks.exists(included => file.getAbsolutePath.contains(included)))
+    .sortBy(_.getAbsolutePath)
+    // .take(1)
+
+  // val selectedPythonFiles: Array[File] = selectedPythonFilesTmp2 ++ selectedPythonFilesTmp1
 
   val expectedPoolCount: Int = selectedPythonFiles.length
 
@@ -140,57 +176,87 @@ class SynapseTests extends TestBase {
 
   testNotebooks(selectedPythonFiles, sparkPools)
 
-  private def testNotebooks(selectedPythonFiles: Array[File], sparkPools: Seq[String]): Unit = {
-    val livyBatches: Array[LivyBatch] =
-      selectedPythonFiles.zip(sparkPools).map { case (file, poolName) =>
-        SynapseUtilities.uploadAndSubmitNotebook(poolName, file)
-      }
+  private def testNotebook(livyBatch: LivyBatch): LivyBatch = {
+    val tryResult = Await
+      .ready(
+        livyBatch.monitor(),
+        Duration(SynapseUtilities.TimeoutInMillis.toLong,TimeUnit.MILLISECONDS)
+      ).value.get
+    assert(tryResult.isSuccess)
+    val result = tryResult.get
 
-    livyBatches.foreach { livyBatch =>
-      println(
-        s"submitted livy job: ${livyBatch.id} for ${livyBatch.runName} to sparkPool: ${livyBatch.sparkPool}"
-      )
-      test(livyBatch.runName) {
-        try {
-          val result = Await
-            .ready(
-              livyBatch.monitor(),
-              Duration(
-                SynapseUtilities.TimeoutInMillis.toLong,
-                TimeUnit.MILLISECONDS
-              )
-            )
-            .value
-            .get
-          assert(result.isSuccess)
-        } catch {
-          case t: Throwable =>
-            livyBatch.cancelRun()
-            // Fetch and print Livy logs for debugging
-            try {
-              val getStatusRequest = new HttpGet(
-                s"${SynapseUtilities.livyUrl(livyBatch.sparkPool)}/${livyBatch.id}"
-              )
-              getStatusRequest.setHeader(
-                "Authorization",
-                s"Bearer ${SynapseUtilities.SynapseToken}"
-              )
-              val batchData =
-                sendAndParseJson(getStatusRequest).convertTo[LivyBatchData]
-              println(s"--- Livy Logs for job ${livyBatch.id} ---")
-              batchData.log.foreach(_.foreach(println))
-              println(s"--- End of Livy Logs ---")
-            } catch {
-              case logEx: Throwable =>
-                println(s"Failed to fetch Livy logs: ${logEx.getMessage}")
-            }
-            throw new RuntimeException(
-              s"Job failed see ${livyBatch.jobStatusPage} for details",
-              t
-            )
-        }
+    if (result.isSuccess) {
+      println(s"Job ${livyBatch.id} for ${livyBatch.runName} completed successfully.")
+    } else {
+      println(s"Job failed see ${livyBatch.jobStatusPage} for details")
+      livyBatch.cancelRun()
+      // Fetch and print Livy logs for debugging
+      try {
+        val getStatusRequest = new HttpGet(
+          s"${SynapseUtilities.livyUrl(livyBatch.sparkPool)}/${livyBatch.id}"
+        )
+        getStatusRequest.setHeader(
+          "Authorization",
+          s"Bearer ${SynapseUtilities.SynapseToken}"
+        )
+        val batchData =
+          sendAndParseJson(getStatusRequest).convertTo[LivyBatchData]
+        println(s"--- Livy Logs for job ${livyBatch.id} ---")
+        batchData.log.foreach(_.foreach(println))
+        println(s"--- End of Livy Logs ---")
+      } catch {
+        case logEx: Throwable =>
+          println(s"Failed to fetch Livy logs: ${logEx.getMessage}")
       }
     }
+
+    result
+  }
+
+  private def testNotebooks(selectedPythonFiles: Array[File], sparkPools: Seq[String]): Unit = {
+    val livyBatches = selectedPythonFiles.zip(sparkPools).map {
+      case (file, pool) => SynapseUtilities.uploadAndSubmitNotebook(pool, file)
+    }
+
+    println(s"Submitting ${livyBatches.length} notebook(s) as Livy batches in workspace: $WorkspaceName...")
+    livyBatches.foreach { livyBatch =>
+      println(s"- Job ${livyBatch.id}: ${livyBatch.runName} on pool ${livyBatch.sparkPool}")
+    }
+
+    @tailrec
+    def retry(maxRetries: Int, delayMillis: Long, attempt: Int = 1)(block: => LivyBatch): LivyBatch = {
+      val livyBatch = block
+      livyBatch.isSuccess match {
+        case true => livyBatch
+        case false if attempt < maxRetries =>
+          println(s"Retrying after failure of job ${livyBatch.id} for ${livyBatch.runName}. Attempt $attempt of $maxRetries.")
+          Thread.sleep(delayMillis)
+          retry(maxRetries, delayMillis, attempt + 1)(block)
+        case false => livyBatch
+      }
+    } 
+    
+    var batchResults: Seq[LivyBatch] = livyBatches.map(livyBatch => {
+      println(s"Submitting job ${livyBatch.id} for ${livyBatch.runName} to sparkPool: ${livyBatch.sparkPool}")
+      retry(maxRetries = 3, delayMillis = 10000) {
+        testNotebook(livyBatch)
+      }
+    })
+
+    batchResults.foreach { livyBatch =>
+      test(livyBatch.runName) {
+        assert(livyBatch.isSuccess)
+      }
+    }
+
+    val results = batchResults.map(b => (b.runName, b.isSuccess, b.elapsedSeconds, b.pollCount))
+    println("+---------------------------------------------------+-----------+---------+-------+")
+    println("| Notebook                                          | Succeeded | Time(s) | Polls |")
+    println("+---------------------------------------------------+-----------+---------+-------+")
+    for ((name, status, time, polls) <- results) {
+      println(f"| ${name.take(45)}%-45s | ${status}%-9s | ${time}%-7.2f | ${polls}%-5d |")
+    }
+    println("+---------------------------------------------------+-----------+---------+-------+")
   }
 
   protected override def afterAll(): Unit = {

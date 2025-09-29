@@ -34,9 +34,17 @@ object LivyBatchData extends DefaultJsonProtocol {
   implicit val livyBatchDataFormat: RootJsonFormat[LivyBatchData] = jsonFormat4(LivyBatchData.apply)
 }
 
+case class LivyBatchResult(id: Int,
+                          state: String,
+                          appId: Option[String],
+                          log: Option[Seq[String]],
+                          error: Option[String])
+
 case class LivyBatch(data: LivyBatchData,
                      runName: String,
-                     sparkPool: String) {
+                     sparkPool: String,
+                     startTime: Long = System.currentTimeMillis,
+                     pollCount: Int = 0) {
 
   import SynapseJsonProtocol._
 
@@ -49,25 +57,31 @@ case class LivyBatch(data: LivyBatchData,
 
   def state: String = data.state
 
+  def isSuccess: Boolean = data.state.toLowerCase == "success"
+
+  def elapsedSeconds: Int = ((System.currentTimeMillis - startTime) / 1000).toInt
+
   @tailrec
-  private def pollLivyUrl(): LivyBatch = {
+  private def pollLivyUrl(lastStatus: Option[String] = None): LivyBatch = {
     val getStatusRequest = new HttpGet(s"${SynapseUtilities.livyUrl(sparkPool)}/${data.id}")
     getStatusRequest.setHeader("Authorization", s"Bearer $SynapseToken")
     val newData = sendAndParseJson(getStatusRequest).convertTo[LivyBatchData]
-    printStatus(newData)
+    val elapsed = elapsedSeconds
+    if (lastStatus.isEmpty || lastStatus.get != newData.state) {
+      println(s"[info] Job ${newData.id} on pool $sparkPool status: ${newData.state} (elapsed: ${elapsed}s, polls: ${pollCount})")
+    }
     if (newData.state == "success") {
-      println(s"Success finishing job ${newData.id} on pool $sparkPool")
-      LivyBatch(newData, runName, sparkPool)
+      println(s"[info] Success finishing job ${newData.id} on pool $sparkPool (elapsed: ${elapsed}s, polls: ${pollCount})")
+      LivyBatch(newData, runName, sparkPool, startTime, pollCount + 1)
+    } else if (Set("dead", "error", "killed")(newData.state.toLowerCase)) {
+      println(s"[error] Job ${newData.id} on pool $sparkPool ended with status ${newData.state} (elapsed: ${elapsed}s, polls: ${pollCount})")
+      LivyBatch(newData, runName, sparkPool, startTime, pollCount + 1)
+      // throw new RuntimeException(s"Job ${newData.id} on pool $sparkPool ended with status ${newData.state}")
     } else {
-      if (Set("dead", "error")(newData.state.toLowerCase)) {
-        throw new RuntimeException(s"Job ${newData.id} on pool $sparkPool ended with status ${newData.state}")
-      } else {
-        blocking {
-          Thread.sleep(8000)
-        }
-        println(s"Polling Job ${newData.id} on pool $sparkPool")
-        pollLivyUrl()
+      blocking {
+        Thread.sleep(8000)
       }
+      pollLivyUrl(Some(newData.state))
     }
   }
 

@@ -7,6 +7,9 @@ import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.{FileUtilities, StreamUtilities}
 import org.apache.commons.io.FileUtils
 
+import scala.concurrent.{Future, Await}
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
 import java.io.File
 import java.lang.ProcessBuilder.Redirect
 import scala.sys.process._
@@ -80,13 +83,31 @@ object SharedNotebookE2ETestUtilities {
     cleanUpGeneratedNotebooksDir()
 
     val docsDir = FileUtilities.join(BuildInfo.baseDirectory.getParent, "docs").getCanonicalFile
-    val newFiles: Array[File] = Array({
+    val newFiles = FileUtilities.recursiveListFiles(docsDir)
+      .filter(_.getName.endsWith(".ipynb"))
+      .map { f =>
+        val relative = docsDir.toURI.relativize(f.toURI).getPath
+        val newName = relative
+          .replace("/", "")
+          .replace(" ", "")
+          .replace("-", "")
+          .replace(",", "")
+        FileUtilities.copyAndRenameFile(f, NotebooksDir, newName, true)
+        new File(NotebooksDir, newName)
+      } :+ {
         val onePlusOne = new File(NotebooksDir, "OnePlusOne.ipynb")
         FileUtilities.writeFile(onePlusOne, OnePlusOneNotebook)
         onePlusOne
-      })
+      }
 
-    runCmd(activateCondaEnv ++ Seq("jupyter", "nbconvert", "--to", "python", "*.ipynb"), NotebooksDir)
+    // Parallelize nbconvert for each notebook file
+    val conversions = newFiles.toSeq.map { f =>
+      Future {
+        runCmd(activateCondaEnv ++ Seq("jupyter", "nbconvert", "--to", "python", f.getName), NotebooksDir)
+      }
+    }
+    // Wait for all conversions to finish
+    Await.result(Future.sequence(conversions), Duration.Inf)
 
     newFiles.map { f =>
       val newFile = new File(f.getPath.replace(".ipynb", ".py"))
