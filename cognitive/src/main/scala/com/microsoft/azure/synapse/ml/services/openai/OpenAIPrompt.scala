@@ -15,11 +15,25 @@ import org.apache.spark.ml.param.{BooleanParam, Param, ParamMap, ParamValidators
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.{Column, DataFrame, Dataset, Row, functions => F, types => T}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
-import org.apache.spark.sql.functions.{col, udf}
+import org.apache.spark.sql.functions.{col, typedLit, udf}
 import org.apache.spark.sql.types.{DataType, StructField, StructType}
 import com.microsoft.azure.synapse.ml.services.aifoundry.{AIFoundryChatCompletion, HasAIFoundryTextParamsExtended}
 
+import java.io.{ByteArrayInputStream, File}
+import java.net.{URI, URL, URLConnection}
+import java.nio.charset.StandardCharsets
+import java.nio.file.{Files, Paths}
+import java.util.Base64
+
 import scala.collection.JavaConverters._
+import scala.util.{Try, Using}
+
+private[openai] case class MessagePayload(
+  role: String,
+  content: Option[String],
+  name: Option[String],
+  contentParts: Option[Seq[Map[String, String]]]
+)
 
 object OpenAIPrompt extends ComplexParamsReadable[OpenAIPrompt]
 
@@ -114,6 +128,26 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   def setOpenAIAPIType(value: String): this.type = set(openAIAPIType, value)
 
+  val columnTypes = new Param[Map[String, String]](
+    this, "columnTypes", "A map from column names to their types. Supported types are 'text' and 'path'.")
+  
+  def getColumnTypes: Map[String, String] = $(columnTypes)
+  
+  def setColumnTypes(value: Map[String, String]): this.type = {
+    for ((colName, colType) <- value) {
+      setColumnType(colName, colType)
+    }
+    this
+  }
+
+  def setColumnType(columnName: String, columnType: String): this.type = {
+    require(columnType.equalsIgnoreCase("text") || columnType.equalsIgnoreCase("path"),
+      s"Unsupported column type: $columnType. Supported types are 'text' and 'path'.")
+    val currentTypes = if (isSet(columnTypes)) getColumnTypes else Map.empty[String, String]
+    set(columnTypes, currentTypes + (columnName -> columnType))
+    this
+  }
+
   private val defaultSystemPrompt = "You are an AI chatbot who wants to answer user's questions and complete tasks. " +
     "Follow their instructions carefully and be brief if they don't say otherwise."
 
@@ -140,6 +174,20 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   private val localParamNames = Seq(
     "promptTemplate", "outputCol", "postProcessing", "postProcessingOptions", "dropPrompt", "dropMessages",
     "systemPrompt", "openAIAPIType")
+
+  private val multiModalTextPrompt = "The name of the file to analyze is %s.\nHere is the content:\n"
+  private val textExtensions = Set("md", "csv", "tsv", "json", "xml", "html", "htm")
+  private val imageExtensions = Set("jpg", "jpeg", "png", "gif", "webp")
+  private val audioExtensions = Set("mp3", "wav")
+
+  private def attachmentPlaceholder(columnName: String): String =
+    s"[Content for column '$columnName' will be provided later as an attachment.]"
+
+  private[openai] def applyPathPlaceholders(template: String, pathColumns: Seq[String]): String = {
+    pathColumns.foldLeft(template) { (current, columnName) =>
+      current.replace(s"{$columnName}", attachmentPlaceholder(columnName))
+    }
+  }
 
   // Q: What does RAI means?
   private def addChatRAIErrors(df: DataFrame, errorCol: String, outputCol: String): DataFrame = {
@@ -186,7 +234,41 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     logTransform[DataFrame]({
       val df = dataset.toDF
       val completion = openAICompletion
-      val promptCol = Functions.template(getPromptTemplate)
+      val columnTypeMap = if (isSet(columnTypes)) getColumnTypes else Map.empty[String, String]
+
+      columnTypeMap.foreach { case (colName, colType) =>
+        val normalized = colType.toLowerCase
+        require(normalized == "text" || normalized == "path",
+          s"Unsupported column type '$colType' for column '$colName'. Supported types are 'text' and 'path'.")
+      }
+
+      val pathColumnNames = columnTypeMap.collect { case (colName, colType) if colType.equalsIgnoreCase("path") => colName }.toSeq
+
+      val promptTemplateWithPlaceholders = applyPathPlaceholders(getPromptTemplate, pathColumnNames)
+      val promptCol = Functions.template(promptTemplateWithPlaceholders)
+
+      pathColumnNames.foreach { colName =>
+        require(df.columns.contains(colName), s"Column '$colName' specified in columnTypes was not found in the DataFrame.")
+      }
+
+      val attachmentsColumn: Column =
+        if (pathColumnNames.nonEmpty) {
+          val mapEntries = pathColumnNames.flatMap { columnName =>
+            Seq(F.lit(columnName), F.col(columnName).cast(T.StringType))
+          }
+          F.map(mapEntries: _*)
+        } else {
+          typedLit(Map.empty[String, String])
+        }
+
+      val createMessagesUDF = udf[Seq[MessagePayload], String, Map[String, String]] {
+        (userMessage, attachmentMap) =>
+          createMessagesForRow(
+            userMessage,
+            Option(attachmentMap).getOrElse(Map.empty[String, String]),
+            pathColumnNames
+          )
+      }
 
       completion match {
         case chatCompletion: OpenAIResponses =>
@@ -194,10 +276,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
             chatCompletion.setResponseFormat(getResponseFormat)
           }
           val messageColName = getMessagesCol
-          val createMessagesUDF = udf((userMessage: String) => {
-            getPromptsForMessage(userMessage)
-          })
-          val dfTemplated = df.withColumn(messageColName, createMessagesUDF(promptCol))
+          val dfTemplated = df.withColumn(messageColName, createMessagesUDF(promptCol, attachmentsColumn))
           val completionNamed = chatCompletion.setMessagesCol(messageColName)
 
           val transformed = addResponsesRAIErrors(
@@ -218,10 +297,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
             chatCompletion.setResponseFormat(getResponseFormat)
           }
           val messageColName = getMessagesCol
-          val createMessagesUDF = udf((userMessage: String) => {
-            getPromptsForMessage(userMessage)
-          })
-          val dfTemplated = df.withColumn(messageColName, createMessagesUDF(promptCol))
+          val dfTemplated = df.withColumn(messageColName, createMessagesUDF(promptCol, attachmentsColumn))
           val completionNamed = chatCompletion.setMessagesCol(messageColName)
 
           val transformed = addChatRAIErrors(
@@ -279,6 +355,130 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     } else {
       basePrompts
     }
+  }
+
+  private[openai] def createMessagesForRow(userMessage: String,
+                                          attachmentMap: Map[String, String],
+                                          attachmentOrder: Seq[String]): Seq[MessagePayload] = {
+    val orderedAttachments = attachmentOrder.flatMap { columnName =>
+      attachmentMap.get(columnName).map(_.trim).filter(_.nonEmpty)
+    }
+
+    val contentParts = buildContentParts(userMessage, orderedAttachments)
+    val baseMessages = getPromptsForMessage(userMessage)
+
+    baseMessages.map { message =>
+      val hasAttachments = message.role == "user" && contentParts.nonEmpty
+      val partsOpt = if (hasAttachments) Some(contentParts) else None
+      val contentOpt = if (hasAttachments) None else Option(message.content)
+      MessagePayload(message.role, contentOpt, message.name, partsOpt)
+    }
+  }
+
+  private def buildContentParts(promptText: String, attachmentPaths: Seq[String]): Seq[Map[String, String]] = {
+    if (attachmentPaths.isEmpty) {
+      Seq.empty
+    } else {
+      val basePromptPart = Map("type" -> "input_text", "text" -> promptText)
+      basePromptPart +: attachmentPaths.flatMap(wrapFileToMessagesList)
+    }
+  }
+
+  private def wrapFileToMessagesList(filePath: String): Seq[Map[String, String]] = {
+    val (fileBytes, fileName) = readFileBytes(filePath)
+    val (extension, fileType, mimeType) = inferFileType(filePath, fileBytes)
+    val baseMessage = Map("type" -> "input_text", "text" -> multiModalTextPrompt.format(fileName))
+
+    val fileMessage = fileType match {
+      case "text" =>
+        val textContent = new String(fileBytes, StandardCharsets.UTF_8)
+        Map("type" -> "input_text", "text" -> s"File Name: ${fileName}\nContent: ${textContent}")
+      case "image" =>
+        val encoded = Base64.getEncoder.encodeToString(fileBytes)
+        val mime = if (mimeType.nonEmpty) mimeType else s"image/${extension}".stripSuffix("/")
+        Map("type" -> "input_image", "image_url" -> s"data:${mime};base64,${encoded}")
+      case "audio" =>
+        throw new IllegalArgumentException("Audio input is not supported in the current API version.")
+      case _ =>
+        val encoded = Base64.getEncoder.encodeToString(fileBytes)
+        val mime = if (mimeType.nonEmpty) mimeType else s"application/${if (extension.nonEmpty) extension else "octet-stream"}"
+        Map(
+          "type" -> "input_file",
+          "filename" -> fileName,
+          "file_data" -> s"data:${mime};base64,${encoded}"
+        )
+    }
+
+    Seq(baseMessage, fileMessage)
+  }
+
+  private def readFileBytes(filePath: String): (Array[Byte], String) = {
+    val maybeUri = Try(new URI(filePath)).toOption
+
+    maybeUri match {
+      case Some(uri) if Option(uri.getScheme).exists(s => s.equalsIgnoreCase("http") || s.equalsIgnoreCase("https")) =>
+        val url = uri.toURL
+        val fileName = extractFileName(uri.getPath)
+        val bytes = Using.resource(url.openStream()) { stream =>
+          stream.readAllBytes()
+        }
+        (bytes, fileName)
+      case Some(uri) if Option(uri.getScheme).contains("file") =>
+        val path = Paths.get(uri)
+        val fileName = Option(path.getFileName).map(_.toString).getOrElse(extractFileName(filePath))
+        (Files.readAllBytes(path), fileName)
+      case _ =>
+        val path = Paths.get(filePath)
+        val fileName = Option(path.getFileName).map(_.toString).getOrElse(extractFileName(filePath))
+        (Files.readAllBytes(path), fileName)
+    }
+  }
+
+  private def extractFileName(path: String): String = {
+    val trimmed = path.trim
+    val file = new File(trimmed)
+    val nameFromFile = file.getName
+    if (nameFromFile.nonEmpty && !nameFromFile.endsWith(File.separator)) {
+      nameFromFile
+    } else {
+      val sanitized = trimmed.replaceAll("[\\\\/]+$", "")
+      val idx = sanitized.lastIndexOf('/')
+      if (idx >= 0 && idx + 1 < sanitized.length) sanitized.substring(idx + 1)
+      else if (sanitized.nonEmpty) sanitized
+      else "attachment"
+    }
+  }
+
+  private def inferFileType(filePath: String, fileBytes: Array[Byte]): (String, String, String) = {
+    val fileName = extractFileName(filePath).toLowerCase
+    val extension =
+      if (fileName.contains('.')) fileName.substring(fileName.lastIndexOf('.') + 1)
+      else ""
+
+    val mimeFromName = Option(URLConnection.guessContentTypeFromName(fileName)).getOrElse("")
+    val mimeFromContent = Option(URLConnection.guessContentTypeFromStream(new ByteArrayInputStream(fileBytes))).getOrElse("")
+    val mimeType = if (mimeFromName.nonEmpty) mimeFromName else mimeFromContent
+
+    val fileType =
+      if (mimeType == "application/pdf") {
+        "file"
+      } else if (mimeType.startsWith("image/")) {
+        "image"
+      } else if (mimeType.startsWith("audio/")) {
+        "audio"
+      } else if (mimeType.startsWith("text/")) {
+        "text"
+      } else if (imageExtensions.contains(extension)) {
+        "image"
+      } else if (audioExtensions.contains(extension)) {
+        "audio"
+      } else if (textExtensions.contains(extension)) {
+        "text"
+      } else {
+        "file"
+      }
+
+    (extension, fileType, mimeType)
   }
 
   private[openai] def hasAIFoundryModel: Boolean = this.isDefined(model)

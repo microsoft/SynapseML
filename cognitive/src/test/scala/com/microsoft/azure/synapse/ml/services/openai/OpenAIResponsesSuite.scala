@@ -5,9 +5,14 @@ package com.microsoft.azure.synapse.ml.services.openai
 
 import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import org.apache.http.util.EntityUtils
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
+import org.apache.spark.sql.types.{ArrayType, MapType, StringType, StructField, StructType}
 import org.scalactic.Equality
+import spray.json._
+import spray.json.DefaultJsonProtocol._
 
 class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
   with OpenAIAPIKey with Flaky {
@@ -95,6 +100,35 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
     assertThrows[IllegalArgumentException] {
       transformer.setResponseFormat(Map("invalid_key" -> "json_object"))
     }
+  }
+
+  test("getStringEntity serializes contentParts for multimodal payloads") {
+    val transformer = new OpenAIResponses()
+    val contentParts = Seq(
+      Map("type" -> "input_text", "text" -> "Describe the attachment"),
+      Map("type" -> "input_file", "filename" -> "example.pdf", "file_data" -> "data:application/pdf;base64,AAA")
+    )
+    val messageSchema = StructType(Seq(
+      StructField("role", StringType, nullable = false),
+      StructField("content", StringType, nullable = true),
+      StructField("name", StringType, nullable = true),
+      StructField("contentParts", ArrayType(MapType(StringType, StringType, valueContainsNull = true), containsNull = false), nullable = true)
+    ))
+    val row = new GenericRowWithSchema(Array[Any]("user", null, null, contentParts), messageSchema)
+
+    val entity = transformer.getStringEntity(Seq(row), Map.empty)
+    val payload = EntityUtils.toString(entity)
+    val json = payload.parseJson.asJsObject
+    val JsArray(messages) = json.fields("input")
+    assert(messages.nonEmpty)
+    val JsObject(messageFields) = messages.head
+    assert(messageFields.get("content").exists(_.isInstanceOf[JsArray]))
+    val JsArray(parts) = messageFields("content")
+    assert(parts.length == 2)
+    val firstPartType = parts.head.asJsObject.fields("type").convertTo[String]
+    val secondPartType = parts(1).asJsObject.fields("type").convertTo[String]
+    assert(firstPartType == "input_text")
+    assert(secondPartType == "input_file")
   }
 
   private def testResponses(model: OpenAIResponses,

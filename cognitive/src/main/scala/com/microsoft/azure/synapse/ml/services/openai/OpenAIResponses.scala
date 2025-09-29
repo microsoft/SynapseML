@@ -15,8 +15,52 @@ import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
+import scala.collection.JavaConverters._
 import scala.language.existentials
 import com.microsoft.azure.synapse.ml.services.HasCustomHeaders
+
+private[openai] object OpenAIMessagePayloadConverter {
+
+  private def hasField(row: Row, fieldName: String): Boolean =
+    row.schema.fieldNames.contains(fieldName)
+
+  private def getOption[T](row: Row, fieldName: String): Option[T] =
+    if (hasField(row, fieldName)) Option(row.getAs[T](fieldName)) else None
+
+  private def convertContentPart(part: Any): Map[String, Any] = part match {
+    case null => Map.empty
+    case m: Map[_, _] =>
+      m.collect { case (k: String, v) => k -> Option(v).map(_.toString).orNull }.toMap
+    case jm: java.util.Map[_, _] =>
+      jm.asScala.collect { case (k: String, v) => k.toString -> Option(v).map(_.toString).orNull }.toMap
+    case r: Row =>
+      r.schema.fieldNames.map { fieldName =>
+        fieldName -> Option(r.get(r.fieldIndex(fieldName))).map(_.toString).orNull
+      }.toMap
+    case other => Map("value" -> other.toString)
+  }
+
+  def rowsToMaps(messages: Seq[Row]): Seq[Map[String, Any]] = {
+    messages.map { row =>
+      val base = scala.collection.mutable.Map[String, Any]()
+      getOption[String](row, "role").foreach(base += "role" -> _)
+      getOption[String](row, "name").foreach(base += "name" -> _)
+
+      val contentPartsOpt =
+        if (hasField(row, "contentParts")) Option(row.getAs[Seq[Any]]("contentParts")) else None
+
+      contentPartsOpt.filter(parts => parts != null && parts.nonEmpty) match {
+        case Some(parts) =>
+          val converted = parts.map(convertContentPart)
+          base += "content" -> converted
+        case None =>
+          getOption[Any](row, "content").foreach(base += "content" -> _)
+      }
+
+      base.toMap
+    }
+  }
+}
 
 object OpenAIResponseFormat extends Enumeration {
   case class ResponseFormat(paylodName: String, prompt: String) extends super.Val(paylodName)
@@ -148,11 +192,8 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   override def responseDataType: DataType = ResponsesModelResponse.schema
 
   private[openai] def getStringEntity(messages: Seq[Row], optionalParams: Map[String, Any]): StringEntity = {
-    val mappedMessages: Seq[Map[String, String]] = messages.map { m =>
-      Seq("role", "content").map(n =>
-        n -> Option(m.getAs[String](n))
-      ).toMap.filter(_._2.isDefined).mapValues(_.get)
-    }
+    val mappedMessages = OpenAIMessagePayloadConverter.rowsToMaps(messages)
+      .map(_.filter { case (_, value) => value != null })
     val fullPayload = optionalParams.updated("input", mappedMessages)
     new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
   }

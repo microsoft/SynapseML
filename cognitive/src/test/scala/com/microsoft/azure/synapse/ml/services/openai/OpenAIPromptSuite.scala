@@ -12,6 +12,9 @@ import org.apache.spark.sql.functions.col
 import org.scalactic.Equality
 import com.microsoft.azure.synapse.ml.services.aifoundry.AIFoundryAPIKey
 
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+
 class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIKey
   with AIFoundryAPIKey
   with Flaky {
@@ -44,6 +47,40 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     ("mercedes", "cars"),
     ("cake", "dishes")
   ).toDF("text", "category")
+
+  test("createMessagesForRow generates contentParts for path columns") {
+    val prompt = new OpenAIPrompt()
+    val tempFile = Files.createTempFile("synapseml-openai", ".txt")
+    try {
+      Files.write(tempFile, "example content".getBytes(StandardCharsets.UTF_8))
+      val attachments = Map("filePath" -> tempFile.toString)
+      val messages = prompt.createMessagesForRow("Summarize the file", attachments, Seq("filePath"))
+
+      val systemMessage = messages.find(_.role == "system").get
+      assert(systemMessage.contentParts.isEmpty)
+
+      val userMessage = messages.find(_.role == "user").get
+      val parts = userMessage.contentParts.get
+      assert(parts.head.getOrElse("type", "") == "input_text")
+      assert(parts.head.getOrElse("text", "").contains("Summarize the file"))
+      val textSection = parts.collectFirst {
+        case part if part.getOrElse("type", "") == "input_text" && part.getOrElse("text", "").contains("example content") => part
+      }
+      assert(textSection.isDefined)
+      assert(userMessage.content.isEmpty)
+    } finally {
+      Files.deleteIfExists(tempFile)
+    }
+  }
+
+  test("applyPathPlaceholders replaces path columns with attachment notice") {
+    val prompt = new OpenAIPrompt()
+    val template = "Describe {text} with reference to {filePath}"
+    val updated = prompt.applyPathPlaceholders(template, Seq("filePath"))
+    assert(updated.contains("Content for column 'filePath' will be provided later as an attachment."))
+    assert(!updated.contains("{filePath}"))
+    assert(updated.contains("{text}"))
+  }
 
   test("RAI Usage") {
     val result = prompt
@@ -202,6 +239,33 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     val messages = prompt.getPromptsForMessage("test")
     assert(messages.nonEmpty)
     messages.exists(p => p.role == "system" && p.content.contains(OpenAIChatCompletionResponseFormat.JSON.prompt))
+  }
+
+  test("Take Multimodal Message") {
+    val promptResponses = new OpenAIPrompt()
+      .setSubscriptionKey(openAIAPIKey)
+      .setDeploymentName(deploymentNameGpt4o)
+      .setCustomServiceName(openAIServiceName)
+      .setApiVersion("2025-04-01-preview")
+      .setOpenAIAPIType("responses")
+      .setColumnType("images", "path")
+      .setOutputCol("outParsed")
+      .setPromptTemplate("{questions}: {images}")
+    
+    val urlDF = Seq(
+      (
+        (
+          "What's in the image?",
+          "https://m.media-amazon.com/images/I/51WvSW1UXlL._AC_SY300_SX300_QL70_ML2_.jpg"
+        )
+      ),
+    ).toDF("questions", "images")
+
+  promptResponses.transform(urlDF)
+               .select("outParsed")
+               .where(col("outParsed").isNotNull)
+               .collect()
+               .foreach(r => assert(r.getString(0).toLowerCase().contains("dewalt")))       
   }
 
   ignore("Custom EndPoint") {
