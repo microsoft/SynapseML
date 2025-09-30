@@ -24,7 +24,8 @@ object OpenAIChatCompletionResponseFormat extends Enumeration {
   val JSON: ResponseFormat = ResponseFormat("json_object", "Output must be in JSON format")
 
   def asStringSet: Set[String] =
-    OpenAIChatCompletionResponseFormat.values.map(_.asInstanceOf[OpenAIChatCompletionResponseFormat.ResponseFormat].paylodName)
+    OpenAIChatCompletionResponseFormat.values.map(
+      _.asInstanceOf[OpenAIChatCompletionResponseFormat.ResponseFormat].paylodName)
 
   def fromResponseFormatString(format: String): OpenAIChatCompletionResponseFormat.ResponseFormat = {
     if (TEXT.paylodName== format) {

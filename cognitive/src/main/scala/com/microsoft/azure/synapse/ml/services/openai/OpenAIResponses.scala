@@ -100,16 +100,16 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
     val allowedFormat = OpenAIResponseFormat.asStringSet
 
     // This test is to validate that value is properly formatted Map('type' -> '<format>')
-    if (value == null || value.size !=1  || !value.contains("type") || value("type").isEmpty) {
+    if (value == null || value.size != 1 || !value.contains("type") || value("type").isEmpty) {
       throw new IllegalArgumentException("Response format map must of the form Map('type' -> '<format>')"
-                                           + " where <format> is one of " + allowedFormat.mkString(", "))
+        + " where <format> is one of " + allowedFormat.mkString(", "))
     }
 
     // This test is to validate that the format is one of the allowed formats
     if (!allowedFormat.contains(value("type").toLowerCase)) {
       throw new IllegalArgumentException("Response format must be valid for OpenAI API. " +
-                                           "Currently supported formats are " +
-                                           allowedFormat.mkString(", "))
+        "Currently supported formats are " +
+        allowedFormat.mkString(", "))
     }
     setScalarParam(responseFormat, value)
   }

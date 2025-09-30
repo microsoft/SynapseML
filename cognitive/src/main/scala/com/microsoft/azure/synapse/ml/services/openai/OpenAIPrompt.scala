@@ -10,6 +10,7 @@ import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.{HasGlobalParams, StringStringMapParam}
 import spray.json.DefaultJsonProtocol._
 import com.microsoft.azure.synapse.ml.services._
+import org.apache.commons.io.IOUtils
 import org.apache.http.entity.AbstractHttpEntity
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param.{BooleanParam, Param, ParamMap, ParamValidators}
@@ -131,7 +132,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   val columnTypes = new StringStringMapParam(
     this, "columnTypes", "A map from column names to their types. Supported types are 'text' and 'path'.")
-  
   private def validateColumnType(value: String) = {
     require(value.equalsIgnoreCase("text") || value.equalsIgnoreCase("path"),
       s"Unsupported column type: $value. Supported types are 'text' and 'path'.")
@@ -228,7 +228,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       if (isFiltered) {
         val updatedRowSeq = row.toSeq.updated(
           row.fieldIndex(errorCol),
-          Row(originalOutput.get.status, null) //Q: what does this line do?
+          Row(originalOutput.get.status, null) //scalastyle:ignore null
         )
         Row.fromSeq(updatedRowSeq)
       } else {
@@ -252,13 +252,18 @@ class OpenAIPrompt(override val uid: String) extends Transformer
           s"Unsupported column type '$colType' for column '$colName'. Supported types are 'text' and 'path'.")
       }
 
-      val pathColumnNames = columnTypeMap.collect { case (colName, colType) if colType.equalsIgnoreCase("path") => colName }.toSeq
+      val pathColumnNames = columnTypeMap.collect {
+        case (colName, colType) if colType.equalsIgnoreCase("path") => colName
+        }.toSeq
 
       val promptTemplateWithPlaceholders = applyPathPlaceholders(getPromptTemplate, pathColumnNames)
       val promptCol = Functions.template(promptTemplateWithPlaceholders)
 
       pathColumnNames.foreach { colName =>
-        require(df.columns.contains(colName), s"Column '$colName' specified in columnTypes was not found in the DataFrame.")
+        require(
+          df.columns.contains(colName),
+          s"Column '$colName' specified in columnTypes was not found in the DataFrame."
+          )
       }
 
       val attachmentsColumn: Column =
@@ -406,12 +411,16 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       case "image" =>
         val encoded = Base64.getEncoder.encodeToString(fileBytes)
         val mime = if (mimeType.nonEmpty) mimeType else s"image/${extension}".stripSuffix("/")
-        Map("type" -> "input_image", "image_url" -> s"data:${mime};base64,${encoded}")
+        Map(
+          "type" -> "input_image",
+          "image_url" -> s"data:${mime};base64,${encoded}"
+        )
       case "audio" =>
         throw new IllegalArgumentException("Audio input is not supported in the current API version.")
       case _ =>
         val encoded = Base64.getEncoder.encodeToString(fileBytes)
-        val mime = if (mimeType.nonEmpty) mimeType else s"application/${if (extension.nonEmpty) extension else "octet-stream"}"
+        val mime = if (mimeType.nonEmpty) mimeType else s"application/" +
+          s"${if (extension.nonEmpty) extension else "octet-stream"}"
         Map(
           "type" -> "input_file",
           "filename" -> fileName,
@@ -430,7 +439,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
         val url = uri.toURL
         val fileName = extractFileName(uri.getPath)
         val bytes = Using.resource(url.openStream()) { stream =>
-          stream.readAllBytes()
+          IOUtils.toByteArray(stream)
         }
         (bytes, fileName)
       case Some(uri) if Option(uri.getScheme).contains("file") =>
@@ -459,14 +468,19 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     }
   }
 
-  private def inferFileType(filePath: String, fileBytes: Array[Byte]): (String, String, String) = {
+  private def inferFileType(
+    filePath: String,
+    fileBytes: Array[Byte]
+    ): (String, String, String) = {
     val fileName = extractFileName(filePath).toLowerCase
     val extension =
       if (fileName.contains('.')) fileName.substring(fileName.lastIndexOf('.') + 1)
       else ""
 
     val mimeFromName = Option(URLConnection.guessContentTypeFromName(fileName)).getOrElse("")
-    val mimeFromContent = Option(URLConnection.guessContentTypeFromStream(new ByteArrayInputStream(fileBytes))).getOrElse("")
+    val mimeFromContent = Option(
+      URLConnection.guessContentTypeFromStream(new ByteArrayInputStream(fileBytes))
+      ).getOrElse("")
     val mimeType = if (mimeFromName.nonEmpty) mimeFromName else mimeFromContent
 
     val fileType =
@@ -495,8 +509,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   //deployment name can be set by user, it doesn't have to match with model name
   private val legacyModels = Set("ada", "babbage", "curie", "davinci",
-    "text-ada-001", "text-babbage-001", "text-curie-001", "text-davinci-002", "text-davinci-003",
-    "code-cushman-001", "code-davinci-002")
+    "text-ada-001", "text-babbage-001", "text-curie-001", "text-davinci-002",
+    "text-davinci-003", "code-cushman-001", "code-davinci-002")
 
   private def openAICompletion: OpenAIServicesBase = {
 
