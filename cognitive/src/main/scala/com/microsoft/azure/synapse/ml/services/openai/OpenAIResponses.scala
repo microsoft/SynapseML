@@ -28,7 +28,6 @@ private[openai] object OpenAIMessagePayloadConverter {
     if (hasField(row, fieldName)) Option(row.getAs[T](fieldName)) else None
 
   private def convertContentPart(part: Any): Map[String, Any] = part match {
-    case null => Map.empty
     case m: Map[_, _] =>
       m.collect { case (k: String, v) => k -> Option(v).map(_.toString).orNull }.toMap
     case jm: java.util.Map[_, _] =>
@@ -140,7 +139,7 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
     frequencyPenalty,
     bestOf,
     logProbs,
-    responseFormat,
+    responseFormat
   )
 }
 

@@ -30,13 +30,6 @@ import java.util.Base64
 import scala.collection.JavaConverters._
 import scala.util.{Try, Using}
 
-private[openai] case class MessagePayload(
-  role: String,
-  content: Option[String],
-  name: Option[String],
-  contentParts: Option[Seq[Map[String, String]]]
-)
-
 object OpenAIPrompt extends ComplexParamsReadable[OpenAIPrompt]
 
 class OpenAIPrompt(override val uid: String) extends Transformer
@@ -237,6 +230,83 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     })(RowEncoder(df.schema))
   }
 
+  private def handleOpenAIResponses(chatCompletion: OpenAIResponses,
+                                    df: DataFrame,
+                                    createMessagesUDF: org.apache.spark.sql.expressions.UserDefinedFunction,
+                                    promptCol: Column,
+                                    attachmentsColumn: Column): DataFrame = {
+    if (isSet(responseFormat)) {
+      chatCompletion.setResponseFormat(getResponseFormat)
+    }
+    val messageColName = getMessagesCol
+    val dfTemplated = df.withColumn(messageColName, createMessagesUDF(promptCol, attachmentsColumn))
+    val completionNamed = chatCompletion.setMessagesCol(messageColName)
+
+    val transformed = addResponsesRAIErrors(
+      completionNamed.transform(dfTemplated), chatCompletion.getErrorCol, chatCompletion.getOutputCol)
+    val results = transformed
+      .withColumn(getOutputCol,
+        getParser.parse(F.element_at(F.element_at(F.col(completionNamed.getOutputCol).getField("output"), 1)
+          .getField("content"), 1).getField("text")))
+      .drop(completionNamed.getOutputCol)
+    val resultsFinal = results.select(results.columns.filter(_ != getErrorCol).map(col) :+ col(getErrorCol): _*)
+    if (getDropPrompt) {
+      resultsFinal.drop(messageColName)
+    } else {
+      resultsFinal
+    }
+  }
+
+  private def handleOpenAIChatCompletion(chatCompletion: OpenAIChatCompletion,
+                                         df: DataFrame,
+                                         createMessagesUDF: org.apache.spark.sql.expressions.UserDefinedFunction,
+                                         promptCol: Column,
+                                         attachmentsColumn: Column): DataFrame = {
+    if (isSet(responseFormat)) {
+      chatCompletion.setResponseFormat(getResponseFormat)
+    }
+    val messageColName = getMessagesCol
+    val dfTemplated = df.withColumn(messageColName, createMessagesUDF(promptCol, attachmentsColumn))
+    val completionNamed = chatCompletion.setMessagesCol(messageColName)
+
+    val transformed = addChatRAIErrors(
+      completionNamed.transform(dfTemplated), chatCompletion.getErrorCol, chatCompletion.getOutputCol)
+    val results = transformed
+      .withColumn(getOutputCol,
+        getParser.parse(F.element_at(F.col(completionNamed.getOutputCol).getField("choices"), 1)
+          .getField("message").getField("content")))
+      .drop(completionNamed.getOutputCol)
+    val resultsFinal = results.select(results.columns.filter(_ != getErrorCol).map(col) :+ col(getErrorCol): _*)
+    if (getDropPrompt) {
+      resultsFinal.drop(messageColName)
+    } else {
+      resultsFinal
+    }
+  }
+
+  private def handleOpenAICompletion(completion: OpenAICompletion,
+                                     df: DataFrame,
+                                     promptCol: Column): DataFrame = {
+    if (isSet(responseFormat)) {
+      throw new IllegalArgumentException("responseFormat is not supported for completion models")
+    }
+    import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions._
+    val promptColName = df.withDerivativeCol("prompt")
+    val dfTemplated = df.withColumn(promptColName, promptCol)
+    val completionNamed = completion.setPromptCol(promptColName)
+    val results = completionNamed
+      .transform(dfTemplated)
+      .withColumn(getOutputCol,
+        getParser.parse(F.element_at(F.col(completionNamed.getOutputCol).getField("choices"), 1)
+          .getField("text")))
+      .drop(completionNamed.getOutputCol)
+    val resultsFinal = results.select(results.columns.filter(_ != getErrorCol).map(col) :+ col(getErrorCol): _*)
+    if (getDropPrompt) {
+      resultsFinal.drop(promptColName)
+    } else {
+      resultsFinal
+    }
+  }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions._
@@ -276,7 +346,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
           typedLit(Map.empty[String, String])
         }
 
-      val createMessagesUDF = udf[Seq[MessagePayload], String, Map[String, String]] {
+      val createMessagesUDF = udf[Seq[OpenAIMessagePayload], String, Map[String, String]] {
         (userMessage, attachmentMap) =>
           createMessagesForRow(
             userMessage,
@@ -287,67 +357,11 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
       completion match {
         case chatCompletion: OpenAIResponses =>
-          if (isSet(responseFormat)) {
-            chatCompletion.setResponseFormat(getResponseFormat)
-          }
-          val messageColName = getMessagesCol
-          val dfTemplated = df.withColumn(messageColName, createMessagesUDF(promptCol, attachmentsColumn))
-          val completionNamed = chatCompletion.setMessagesCol(messageColName)
-
-          val transformed = addResponsesRAIErrors(
-            completionNamed.transform(dfTemplated), chatCompletion.getErrorCol, chatCompletion.getOutputCol)
-          val results = transformed
-            .withColumn(getOutputCol,
-              getParser.parse(F.element_at(F.element_at(F.col(completionNamed.getOutputCol).getField("output"), 1)
-                .getField("content"), 1).getField("text")))
-            .drop(completionNamed.getOutputCol)
-          val resultsFinal = results.select(results.columns.filter(_ != getErrorCol).map(col) :+ col(getErrorCol): _*)
-          if (getDropPrompt) {
-            resultsFinal.drop(messageColName)
-          } else {
-            resultsFinal
-          }
+          handleOpenAIResponses(chatCompletion, df, createMessagesUDF, promptCol, attachmentsColumn)
         case chatCompletion: OpenAIChatCompletion =>
-          if (isSet(responseFormat)) {
-            chatCompletion.setResponseFormat(getResponseFormat)
-          }
-          val messageColName = getMessagesCol
-          val dfTemplated = df.withColumn(messageColName, createMessagesUDF(promptCol, attachmentsColumn))
-          val completionNamed = chatCompletion.setMessagesCol(messageColName)
-
-          val transformed = addChatRAIErrors(
-            completionNamed.transform(dfTemplated), chatCompletion.getErrorCol, chatCompletion.getOutputCol)
-          val results = transformed
-            .withColumn(getOutputCol,
-              getParser.parse(F.element_at(F.col(completionNamed.getOutputCol).getField("choices"), 1)
-                .getField("message").getField("content")))
-            .drop(completionNamed.getOutputCol)
-          val resultsFinal = results.select(results.columns.filter(_ != getErrorCol).map(col) :+ col(getErrorCol): _*)
-          if (getDropPrompt) {
-            resultsFinal.drop(messageColName)
-          } else {
-            resultsFinal
-          }
+          handleOpenAIChatCompletion(chatCompletion, df, createMessagesUDF, promptCol, attachmentsColumn)
         case completion: OpenAICompletion =>
-          if (isSet(responseFormat)) {
-            throw new IllegalArgumentException("responseFormat is not supported for completion models")
-          }
-          val promptColName = df.withDerivativeCol("prompt")
-          val dfTemplated = df.withColumn(promptColName, promptCol)
-          val completionNamed = completion.setPromptCol(promptColName)
-          val results = completionNamed
-            .transform(dfTemplated)
-            .withColumn(getOutputCol,
-              getParser.parse(F.element_at(F.col(completionNamed.getOutputCol).getField("choices"), 1)
-                .getField("text")))
-            .drop(completionNamed.getOutputCol)
-          val resultsFinal = results.select(results.columns.filter(_ != getErrorCol).map(col) :+ col(getErrorCol): _*)
-          if (getDropPrompt) {
-            resultsFinal.drop(promptColName)
-          } else {
-            resultsFinal
-          }
-
+          handleOpenAICompletion(completion, df, promptCol)
       }
     }, dataset.columns.length)
   }
@@ -374,7 +388,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   private[openai] def createMessagesForRow(userMessage: String,
                                           attachmentMap: Map[String, String],
-                                          attachmentOrder: Seq[String]): Seq[MessagePayload] = {
+                                          attachmentOrder: Seq[String]): Seq[OpenAIMessagePayload] = {
     val orderedAttachments = attachmentOrder.flatMap { columnName =>
       attachmentMap.get(columnName).map(_.trim).filter(_.nonEmpty)
     }
@@ -386,7 +400,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       val hasAttachments = message.role == "user" && contentParts.nonEmpty
       val partsOpt = if (hasAttachments) Some(contentParts) else None
       val contentOpt = if (hasAttachments) None else Option(message.content)
-      MessagePayload(message.role, contentOpt, message.name, partsOpt)
+      OpenAIMessagePayload(message.role, contentOpt, message.name, partsOpt)
     }
   }
 

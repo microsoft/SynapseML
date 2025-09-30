@@ -71,3 +71,10 @@ case class ResponsesModelResponse(id: String,
                                   usage: Option[ResponsesUsage])
 
 object ResponsesModelResponse extends SparkBindings[ResponsesModelResponse]
+
+case class OpenAIMessagePayload(
+  role: String,
+  content: Option[String],
+  name: Option[String],
+  contentParts: Option[Seq[Map[String, String]]]
+)
