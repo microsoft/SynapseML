@@ -8,6 +8,7 @@ import com.microsoft.azure.synapse.ml.core.spark.Functions
 import com.microsoft.azure.synapse.ml.io.http.{ConcurrencyParams, HasErrorCol, HasURL}
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.{HasGlobalParams, StringStringMapParam}
+import spray.json.DefaultJsonProtocol._
 import com.microsoft.azure.synapse.ml.services._
 import org.apache.http.entity.AbstractHttpEntity
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
@@ -128,25 +129,33 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   def setOpenAIAPIType(value: String): this.type = set(openAIAPIType, value)
 
-  val columnTypes = new Param[Map[String, String]](
+  val columnTypes = new StringStringMapParam(
     this, "columnTypes", "A map from column names to their types. Supported types are 'text' and 'path'.")
   
+  private def validateColumnType(value: String) = {
+    require(value.equalsIgnoreCase("text") || value.equalsIgnoreCase("path"),
+      s"Unsupported column type: $value. Supported types are 'text' and 'path'.")
+  }
+
   def getColumnTypes: Map[String, String] = $(columnTypes)
-  
+
   def setColumnTypes(value: Map[String, String]): this.type = {
     for ((colName, colType) <- value) {
-      setColumnType(colName, colType)
+      validateColumnType(colType)
     }
+    set(columnTypes, value)
     this
   }
 
   def setColumnType(columnName: String, columnType: String): this.type = {
-    require(columnType.equalsIgnoreCase("text") || columnType.equalsIgnoreCase("path"),
-      s"Unsupported column type: $columnType. Supported types are 'text' and 'path'.")
-    val currentTypes = if (isSet(columnTypes)) getColumnTypes else Map.empty[String, String]
-    set(columnTypes, currentTypes + (columnName -> columnType))
+    validateColumnType(columnType)
+    val updatedMap = getColumnTypes + (columnName -> columnType)
+    set(columnTypes, updatedMap)
     this
   }
+
+  def setColumnTypes(v: java.util.HashMap[String, String]): this.type =
+    set(columnTypes, v.asScala.toMap)
 
   private val defaultSystemPrompt = "You are an AI chatbot who wants to answer user's questions and complete tasks. " +
     "Follow their instructions carefully and be brief if they don't say otherwise."
@@ -160,6 +169,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     dropPrompt -> true,
     systemPrompt -> defaultSystemPrompt,
     openAIAPIType -> "chat_completions",
+    columnTypes -> Map.empty,
     timeout -> 360.0
   )
 

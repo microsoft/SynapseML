@@ -85,6 +85,7 @@ object OpenAIResponseFormat extends Enumeration {
 }
 
 trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
+  // TODO: Responses API takes response format in a `text` arg, instead of the raw `response_format`` arg.
   val responseFormat: ServiceParam[Map[String, String]] = new ServiceParam[Map[String, String]](
     this,
     "responseFormat",
@@ -140,7 +141,6 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
     bestOf,
     logProbs,
     responseFormat,
-    seed
   )
 }
 
