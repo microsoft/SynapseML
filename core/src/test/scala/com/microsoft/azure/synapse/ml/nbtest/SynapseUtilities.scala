@@ -43,8 +43,7 @@ case class LivyBatchResult(id: Int,
 case class LivyBatch(data: LivyBatchData,
                      runName: String,
                      sparkPool: String,
-                     startTime: Long = System.currentTimeMillis,
-                     pollCount: Int = 0) {
+                     startTime: Long = System.currentTimeMillis) {
 
   import SynapseJsonProtocol._
 
@@ -68,18 +67,15 @@ case class LivyBatch(data: LivyBatchData,
     val newData = sendAndParseJson(getStatusRequest).convertTo[LivyBatchData]
     val elapsed = elapsedSeconds
     if (lastStatus.isEmpty || lastStatus.get != newData.state) {
-      println(s"[info] Job ${newData.id} on pool $sparkPool status: ${newData.state} (elapsed: ${elapsed}s, polls: ${pollCount})")
+      println(s"Job ${newData.id} on pool $sparkPool status: ${newData.state} (notebook: ${runName}, elapsed: ${elapsed}s")
     }
     if (newData.state == "success") {
-      println(s"[info] Success finishing job ${newData.id} on pool $sparkPool (elapsed: ${elapsed}s, polls: ${pollCount})")
-      LivyBatch(newData, runName, sparkPool, startTime, pollCount + 1)
+      LivyBatch(newData, runName, sparkPool, startTime)
     } else if (Set("dead", "error", "killed")(newData.state.toLowerCase)) {
-      println(s"[error] Job ${newData.id} on pool $sparkPool ended with status ${newData.state} (elapsed: ${elapsed}s, polls: ${pollCount})")
-      LivyBatch(newData, runName, sparkPool, startTime, pollCount + 1)
-      // throw new RuntimeException(s"Job ${newData.id} on pool $sparkPool ended with status ${newData.state}")
+      LivyBatch(newData, runName, sparkPool, startTime)
     } else {
       blocking {
-        Thread.sleep(8000)
+        Thread.sleep(15000)
       }
       pollLivyUrl(Some(newData.state))
     }
@@ -191,6 +187,7 @@ object SynapseUtilities {
 
   def uploadAndSubmitNotebook(poolName: String, notebook: File): LivyBatch = {
     val dest = s"$Folder/${notebook.getName}"
+    println(s"Uploading notebook (${notebook.getName}) to $StorageAccount/$StorageContainer/$dest")
     exec(s"az storage fs file upload " +
       s" -s ${notebook.getAbsolutePath}" +
       s" -p $dest" +
@@ -199,6 +196,7 @@ object SynapseUtilities {
       s" --overwrite true" +
       s" --account-name $StorageAccount")
     val abfssPath = s"abfss://$StorageContainer@$StorageAccount.dfs.core.windows.net/$dest"
+    println(s"Completed uploading notebook (${notebook.getName})")
 
     val excludes: String = Seq(
       // "org.apache.commons:commons-configuration2",

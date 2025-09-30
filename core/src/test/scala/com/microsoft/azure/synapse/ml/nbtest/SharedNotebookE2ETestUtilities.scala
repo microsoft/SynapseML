@@ -80,8 +80,10 @@ object SharedNotebookE2ETestUtilities {
   }
 
   def generateNotebooks(): Array[File] = {
+    println("Cleaning up generated notebooks directory...")
     cleanUpGeneratedNotebooksDir()
 
+    println("Generating new notebooks...")
     val docsDir = FileUtilities.join(BuildInfo.baseDirectory.getParent, "docs").getCanonicalFile
     val newFiles = FileUtilities.recursiveListFiles(docsDir)
       .filter(_.getName.endsWith(".ipynb"))
@@ -103,11 +105,12 @@ object SharedNotebookE2ETestUtilities {
     // Parallelize nbconvert for each notebook file
     val conversions = newFiles.toSeq.map { f =>
       Future {
-        runCmd(activateCondaEnv ++ Seq("jupyter", "nbconvert", "--to", "python", f.getName), NotebooksDir)
+        runCmd(activateCondaEnv ++ Seq("jupyter", "nbconvert", "--to", "python", "--log-level=ERROR", f.getName), NotebooksDir)
       }
     }
     // Wait for all conversions to finish
     Await.result(Future.sequence(conversions), Duration.Inf)
+    println(s"Generated ${newFiles.length} Python files from notebooks.")
 
     newFiles.map { f =>
       val newFile = new File(f.getPath.replace(".ipynb", ".py"))

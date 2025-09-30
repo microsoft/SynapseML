@@ -12,6 +12,7 @@ import org.apache.http.client.methods.HttpGet
 import java.io.File
 import java.util.concurrent.TimeUnit
 import scala.concurrent.Await
+import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 import scala.language.existentials
 import scala.util.Try
@@ -60,50 +61,17 @@ class SynapseTests extends TestBase {
     "TuningHyperOpt", // New issue
     "IsolationForests", // New issue
     "CreateAudiobooks", // New issue
-    "ExplanationDashboard" // New issue
-  )
-
-  final val includedNotebooks: Set[String] = Set(
-    "ExploreAlgorithmsAIServicesAdvancedUsageAsyncBatchingandMultiKey",
-    "ExploreAlgorithmsAIServicesGeospatialServices",
-    "ExploreAlgorithmsAIServicesOverview",
-    "ExploreAlgorithmsAIServicesQuickstartAnalyzeCelebrityQuotes",
-    "ExploreAlgorithmsAIServicesQuickstartAnalyzeText",
-    "ExploreAlgorithmsAIServicesQuickstartCreateaVisualSearchEngine",
-    "ExploreAlgorithmsAIServicesQuickstartFloodingRisk",
-    "ExploreAlgorithmsAIServicesQuickstartPredictiveMaintenance",
-    "ExploreAlgorithmsCausalInferenceQuickstartMeasureCausalEffects",
-    "ExploreAlgorithmsCausalInferenceQuickstartMeasureHeterogeneousEffects",
-    "ExploreAlgorithmsCausalInferenceQuickstartSyntheticdifferenceindifferences",
-    "ExploreAlgorithmsClassificationQuickstartSparkMLvsSynapseML",
-    "ExploreAlgorithmsClassificationQuickstartTrainClassifier",
+    "ExplanationDashboard", // New issue
+    "ExploreAlgorithmsDeepLearningQuickstartONNXModelInference", // ONNX package issues
   )
 
   val generatedNotebooks = SharedNotebookE2ETestUtilities.generateNotebooks()
   println(s"Found ${generatedNotebooks.length} notebooks in ${SharedNotebookE2ETestUtilities.NotebooksDir}")
 
   val selectedPythonFiles: Array[File] = generatedNotebooks
-    .filterNot(file => file.getName.contains("OnePlusOne"))
     .filterNot(file => excludedNotebooks.exists(excluded => file.getAbsolutePath.contains(excluded)))
-    // .filter(file => includedNotebooks.exists(included => file.getAbsolutePath.contains(included)))
+    // .filter(file => file.getName().contains("OnePlusOne"))
     .sortBy(_.getAbsolutePath)
-    .take(20)
-
-  val selectedPythonFilesTmp1: Array[File] = generatedNotebooks
-    // .filter(file => file.getName.contains("OnePlusOne"))
-    .filterNot(file => excludedNotebooks.exists(excluded => file.getAbsolutePath.contains(excluded)))
-    .filter(file => includedNotebooks.exists(included => file.getAbsolutePath.contains(included)))
-    .sortBy(_.getAbsolutePath)
-    // .take(1)
-
-  val selectedPythonFilesTmp2: Array[File] = generatedNotebooks
-    // .filter(file => file.getName.contains("OnePlusOne"))
-    .filterNot(file => excludedNotebooks.exists(excluded => file.getAbsolutePath.contains(excluded)))
-    .filterNot(file => includedNotebooks.exists(included => file.getAbsolutePath.contains(included)))
-    .sortBy(_.getAbsolutePath)
-    // .take(1)
-
-  // val selectedPythonFiles: Array[File] = selectedPythonFilesTmp2 ++ selectedPythonFilesTmp1
 
   val expectedPoolCount: Int = selectedPythonFiles.length
 
@@ -111,41 +79,9 @@ class SynapseTests extends TestBase {
   println(s"SynapseTests E2E Test Suite starting on ${expectedPoolCount} notebook(s)...")
   selectedPythonFiles.foreach(println)
 
-  // Cleanup old stray spark pools lying around due to ungraceful test shutdown
   tryDeleteOldSparkPools()
 
-  val pkgs = Array(
-    // "com.github.vowpalwabbit:vw-jni:9.3.0",
-    // "com.globalmentor:hadoop-bare-naked-local-fs:0.1.0",
-    // "com.jcraft:jsch:0.1.54",
-    // "com.linkedin.isolation-forest:isolation-forest_3.5.0_2.12:3.0.5",
-    // "com.microsoft.azure:onnx-protobuf_2.12:0.9.3",
-    // "com.microsoft.azure:synapseml-cognitive_2.12:1.0.11-spark3.5",
-    // "com.microsoft.azure:synapseml-core_2.12:1.0.11-spark3.5",
-    // "com.microsoft.azure:synapseml-deep-learning_2.12:1.0.11-spark3.5",
-    // "com.microsoft.azure:synapseml-lightgbm_2.12:1.0.11-spark3.5",
-    // "com.microsoft.azure:synapseml-opencv_2.12:1.0.11-spark3.5",
-    // "com.microsoft.azure:synapseml-vw_2.12:1.0.11-spark3.5",
-    // "com.microsoft.cognitiveservices.speech:client-sdk:1.24.1",
-    // "com.microsoft.ml.lightgbm:lightgbmlib:3.3.510",
-    // "com.microsoft.onnxruntime:onnxruntime_gpu:1.8.1",
-    // "commons-lang:commons-lang:2.6",
-    // "io.spray:spray-json_2.12:1.3.5",
-    // "org.apache.hadoop:hadoop-azure:3.3.4",
-    // "org.apache.hadoop:hadoop-common:3.3.4",
-    // "org.apache.httpcomponents.client5:httpclient5:5.1.3",
-    // "org.apache.httpcomponents:httpmime:4.5.13",
-    // "org.apache.spark:spark-avro_2.12:3.5.0",
-    // "org.apache.spark:spark-core_2.12:3.5.0",
-    // "org.apache.spark:spark-mllib_2.12:3.5.0",
-    // "org.apache.spark:spark-tags_2.12:3.5.0",
-    // "org.openpnp:opencv:3.2.0-1",
-    // "org.scala-lang:scala-compiler:2.12.17",
-    // "org.scala-lang:scala-library:2.12.17",
-    // "org.scalactic:scalactic_2.12:3.2.14",
-    // "org.scalanlp:breeze_2.12:2.1.0",
-    // "org.scalatest:scalatest_2.12:3.2.14",
-  )
+  implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
 
   // val sparkPools: Seq[String] = Array[String]()
   // pkgs.foreach { pkg =>
@@ -176,7 +112,7 @@ class SynapseTests extends TestBase {
 
   testNotebooks(selectedPythonFiles, sparkPools)
 
-  private def testNotebook(livyBatch: LivyBatch): LivyBatch = {
+  private def monitorNotebook(livyBatch: LivyBatch): LivyBatch = {
     val tryResult = Await
       .ready(
         livyBatch.monitor(),
@@ -214,15 +150,6 @@ class SynapseTests extends TestBase {
   }
 
   private def testNotebooks(selectedPythonFiles: Array[File], sparkPools: Seq[String]): Unit = {
-    val livyBatches = selectedPythonFiles.zip(sparkPools).map {
-      case (file, pool) => SynapseUtilities.uploadAndSubmitNotebook(pool, file)
-    }
-
-    println(s"Submitting ${livyBatches.length} notebook(s) as Livy batches in workspace: $WorkspaceName...")
-    livyBatches.foreach { livyBatch =>
-      println(s"- Job ${livyBatch.id}: ${livyBatch.runName} on pool ${livyBatch.sparkPool}")
-    }
-
     @tailrec
     def retry(maxRetries: Int, delayMillis: Long, attempt: Int = 1)(block: => LivyBatch): LivyBatch = {
       val livyBatch = block
@@ -230,33 +157,59 @@ class SynapseTests extends TestBase {
         case true => livyBatch
         case false if attempt < maxRetries =>
           println(s"Retrying after failure of job ${livyBatch.id} for ${livyBatch.runName}. Attempt $attempt of $maxRetries.")
-          Thread.sleep(delayMillis)
+          val jitter = scala.util.Random.nextInt(5000)
+          Thread.sleep(delayMillis + jitter)
           retry(maxRetries, delayMillis, attempt + 1)(block)
         case false => livyBatch
       }
-    } 
-    
-    var batchResults: Seq[LivyBatch] = livyBatches.map(livyBatch => {
-      println(s"Submitting job ${livyBatch.id} for ${livyBatch.runName} to sparkPool: ${livyBatch.sparkPool}")
-      retry(maxRetries = 3, delayMillis = 10000) {
-        testNotebook(livyBatch)
-      }
-    })
+    }
 
-    batchResults.foreach { livyBatch =>
-      test(livyBatch.runName) {
-        assert(livyBatch.isSuccess)
+    println(s"Submitting ${selectedPythonFiles.length} notebook(s) as Livy batches in workspace: $WorkspaceName...")
+    val batchFutures: Seq[(String, Future[LivyBatch])] = selectedPythonFiles.zip(sparkPools).zipWithIndex.map {
+      case ((file, pool), index) => {
+        (
+          file.getName(),
+          Future {
+            val jitter = scala.util.Random.nextInt(400)
+            Thread.sleep(3000L * index + jitter)
+
+            retry(maxRetries = 5, delayMillis = 60000) {
+              val livyBatch = SynapseUtilities.uploadAndSubmitNotebook(pool, file)
+              println(s"- Job ${livyBatch.id}: ${livyBatch.runName} on pool ${livyBatch.sparkPool}")
+              monitorNotebook(livyBatch)
+            }
+          }
+        )
       }
     }
 
-    val results = batchResults.map(b => (b.runName, b.isSuccess, b.elapsedSeconds, b.pollCount))
-    println("+---------------------------------------------------+-----------+---------+-------+")
-    println("| Notebook                                          | Succeeded | Time(s) | Polls |")
-    println("+---------------------------------------------------+-----------+---------+-------+")
-    for ((name, status, time, polls) <- results) {
-      println(f"| ${name.take(45)}%-45s | ${status}%-9s | ${time}%-7.2f | ${polls}%-5d |")
+    // Register a test block for each notebook, blocking on its Future
+    batchFutures.foreach { case (name, fut) =>
+      test(name.substring(0, name.length - 3)) {
+        val result = Await.result(fut, Duration.Inf)
+        assert(result.isSuccess)
+      }
     }
-    println("+---------------------------------------------------+-----------+---------+-------+")
+    try {
+      val results = batchFutures.map { case (name, fut) =>
+        Await.result(fut, Duration.Inf)
+      }.map(b => (b.runName, b.isSuccess, b.elapsedSeconds))
+      
+      // Dynamically calculate column widths
+      val notebookColWidth = (results.map(_._1.length).max max "Notebook".length) + 2
+      val succeededColWidth = (results.map(_._2.toString.length).max max "Succeeded".length) + 2
+      val timeColWidth = (results.map(r => r._3.toDouble.formatted("%.2f").length).max max "Time(s)".length) + 2
+
+      def pad(s: String, width: Int) = s.padTo(width, ' ')
+
+      println(pad("Notebook", notebookColWidth) + pad("Succeeded", succeededColWidth) + pad("Time(s)", timeColWidth))
+      for ((name, status, time) <- results) {
+        println(pad(name, notebookColWidth) + pad(status.toString, succeededColWidth) + pad(f"${time.toDouble}%.2f", timeColWidth))      
+      }
+    } catch {
+      case e: Throwable =>
+        println(s"Failed to print summary table: ${e.getMessage}")
+    }
   }
 
   protected override def afterAll(): Unit = {
