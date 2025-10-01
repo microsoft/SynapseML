@@ -8,9 +8,11 @@ import com.microsoft.azure.synapse.ml.core.spark.Functions
 import com.microsoft.azure.synapse.ml.io.http.{ConcurrencyParams, HasErrorCol, HasURL}
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.{HasGlobalParams, StringStringMapParam}
-import spray.json.DefaultJsonProtocol._
 import com.microsoft.azure.synapse.ml.services._
-import org.apache.commons.io.IOUtils
+import com.microsoft.azure.synapse.ml.services.aifoundry.{AIFoundryChatCompletion, HasAIFoundryTextParamsExtended}
+import org.apache.hadoop.conf.Configuration
+import org.apache.hadoop.fs.{FileSystem, Path, FSDataInputStream}
+import org.apache.hadoop.io.IOUtils 
 import org.apache.http.entity.AbstractHttpEntity
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param.{BooleanParam, Param, ParamMap, ParamValidators}
@@ -19,9 +21,10 @@ import org.apache.spark.sql.{Column, DataFrame, Dataset, Row, functions => F, ty
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions.{col, typedLit, udf}
 import org.apache.spark.sql.types.{DataType, StructField, StructType}
-import com.microsoft.azure.synapse.ml.services.aifoundry.{AIFoundryChatCompletion, HasAIFoundryTextParamsExtended}
+import spray.json.DefaultJsonProtocol._
 
-import java.io.{ByteArrayInputStream, File}
+
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, File}
 import java.net.{URI, URL, URLConnection}
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths}
@@ -445,25 +448,19 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     Seq(baseMessage, fileMessage)
   }
 
-  private def readFileBytes(filePath: String): (Array[Byte], String) = {
-    val maybeUri = Try(new URI(filePath)).toOption
+  private def readFileBytes(filePath: String, conf: Configuration = new Configuration()): (Array[Byte], String) = {
+    val path = new Path(filePath)
+    val fs: FileSystem = path.getFileSystem(conf)
+    val fileName = path.getName
 
-    maybeUri match {
-      case Some(uri) if Option(uri.getScheme).exists(s => s.equalsIgnoreCase("http") || s.equalsIgnoreCase("https")) =>
-        val url = uri.toURL
-        val fileName = extractFileName(uri.getPath)
-        val bytes = Using.resource(url.openStream()) { stream =>
-          IOUtils.toByteArray(stream)
-        }
-        (bytes, fileName)
-      case Some(uri) if Option(uri.getScheme).contains("file") =>
-        val path = Paths.get(uri)
-        val fileName = Option(path.getFileName).map(_.toString).getOrElse(extractFileName(filePath))
-        (Files.readAllBytes(path), fileName)
-      case _ =>
-        val path = Paths.get(filePath)
-        val fileName = Option(path.getFileName).map(_.toString).getOrElse(extractFileName(filePath))
-        (Files.readAllBytes(path), fileName)
+    val in: FSDataInputStream = fs.open(path) // works across many schemes
+    val baos = new ByteArrayOutputStream()
+    try {
+      IOUtils.copyBytes(in, baos, conf, false) // stream -> memory
+      (baos.toByteArray, fileName)
+    } finally {
+      IOUtils.closeStream(in)
+      baos.close()
     }
   }
 
