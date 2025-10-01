@@ -1,4 +1,37 @@
 steps:
+  - bash: |
+      echo "======================================"
+      echo "DISK SPACE DIAGNOSTICS"
+      echo "======================================"
+      echo ""
+      echo "=== Overall Disk Usage ==="
+      df -h
+      echo ""
+      echo "=== Top 20 Largest Directories in / ==="
+      sudo du -h -d 2 / 2>/dev/null | sort -hr | head -n 20
+      echo ""
+      echo "=== Specific Directory Sizes ==="
+      echo "Checking common space hogs:"
+      du -sh /usr/share/dotnet 2>/dev/null || echo "/usr/share/dotnet: NOT FOUND"
+      du -sh /usr/local/lib/android 2>/dev/null || echo "/usr/local/lib/android: NOT FOUND"
+      du -sh /opt/ghc 2>/dev/null || echo "/opt/ghc: NOT FOUND"
+      du -sh /opt/hostedtoolcache 2>/dev/null || echo "/opt/hostedtoolcache: NOT FOUND"
+      du -sh /usr/share/az_* 2>/dev/null || echo "Azure CLI modules: NOT FOUND"
+      du -sh /opt/az 2>/dev/null || echo "/opt/az: NOT FOUND"
+      du -sh /usr/local/share/powershell 2>/dev/null || echo "PowerShell: NOT FOUND"
+      du -sh /usr/lib/google-cloud-sdk 2>/dev/null || echo "Google Cloud SDK: NOT FOUND"
+      du -sh /usr/share/miniconda 2>/dev/null || echo "/usr/share/miniconda: NOT FOUND"
+      du -sh /var/lib/docker 2>/dev/null || echo "Docker data: NOT FOUND"
+      echo ""
+      echo "=== Docker Images ==="
+      sudo docker images || echo "Docker not available"
+      echo ""
+      echo "======================================"
+      echo "EXITING FOR DIAGNOSTIC REVIEW"
+      echo "======================================"
+      exit 1
+    displayName: DIAGNOSTIC - Check disk space usage
+    retryCountOnTaskFailure: 1
   - bash: echo "##vso[task.prependpath]$CONDA/bin"
     displayName: Add conda to PATH
     retryCountOnTaskFailure: 1
