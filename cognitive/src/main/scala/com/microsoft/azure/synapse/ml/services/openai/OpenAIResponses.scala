@@ -27,30 +27,20 @@ private[openai] object OpenAIMessagePayloadConverter {
   private def getOption[T](row: Row, fieldName: String): Option[T] =
     if (hasField(row, fieldName)) Option(row.getAs[T](fieldName)) else None
 
-  private def convertContentPart(part: Any): Map[String, Any] = part match {
-    case m: Map[_, _] =>
-      m.collect { case (k: String, v) => k -> Option(v).map(_.toString).orNull }.toMap
-    case jm: java.util.Map[_, _] =>
-      jm.asScala.collect { case (k: String, v) => k.toString -> Option(v).map(_.toString).orNull }.toMap
-    case r: Row =>
-      r.schema.fieldNames.map { fieldName =>
-        fieldName -> Option(r.get(r.fieldIndex(fieldName))).map(_.toString).orNull
-      }.toMap
-    case other => Map("value" -> other.toString)
-  }
+  private def castContentPartToString(part: Map[String, Any]): Map[String, Any] =
+    part.map { case (k, v) => k.toString -> v }
 
   def rowsToMaps(messages: Seq[Row]): Seq[Map[String, Any]] = {
     messages.map { row =>
       val base = scala.collection.mutable.Map[String, Any]()
       getOption[String](row, "role").foreach(base += "role" -> _)
-      getOption[String](row, "name").foreach(base += "name" -> _)
 
       val contentPartsOpt =
-        if (hasField(row, "contentParts")) Option(row.getAs[Seq[Any]]("contentParts")) else None
+        if (hasField(row, "contentParts")) Option(row.getAs[Seq[Map[String, Any]]]("contentParts")) else None
 
       contentPartsOpt.filter(parts => parts != null && parts.nonEmpty) match {
         case Some(parts) =>
-          val converted = parts.map(convertContentPart)
+          val converted = parts.map(castContentPartToString)
           base += "content" -> converted
         case None =>
           getOption[Any](row, "content").foreach(base += "content" -> _)
