@@ -41,18 +41,39 @@ case class OpenAIChatChoice(message: OpenAIMessage,
                             index: Long,
                             finish_reason: String)
 
-case class OpenAIUsage(completion_tokens: Long, prompt_tokens: Long, total_tokens: Long)
+case class ChatUsage(completion_tokens: Long, prompt_tokens: Long, total_tokens: Long)
 
-case class ChatCompletionResponse(id: String,
+case class ChatModelResponse(id: String,
                                   `object`: String,
                                   created: String,
                                   model: String,
                                   choices: Seq[OpenAIChatChoice],
                                   system_fingerprint: Option[String],
-                                  usage: Option[OpenAIUsage])
+                                  usage: Option[ChatUsage])
 
-object ChatCompletionResponse extends SparkBindings[ChatCompletionResponse]
+object ChatModelResponse extends SparkBindings[ChatModelResponse]
 
 object OpenAIJsonProtocol extends DefaultJsonProtocol {
   implicit val MessageEnc: RootJsonFormat[OpenAIMessage] = jsonFormat3(OpenAIMessage.apply)
 }
+
+case class ResponsesOutputContentComponent(`type`: String, text: String)
+case class OpenAIResponsesChoice(content: Seq[ResponsesOutputContentComponent], status: String)
+
+case class ResponsesUsage(output_tokens: Long, input_tokens: Long, total_tokens: Long)
+
+case class ResponsesModelResponse(id: String,
+                                  `object`: String,
+                                  created_at: String,
+                                  model: String,
+                                  output: Seq[OpenAIResponsesChoice],
+                                  system_fingerprint: Option[String],
+                                  usage: Option[ResponsesUsage])
+
+object ResponsesModelResponse extends SparkBindings[ResponsesModelResponse]
+
+case class OpenAICompositeMessage(
+  role: String,
+  content: Seq[Map[String, String]],
+  name: Option[String] = None
+)

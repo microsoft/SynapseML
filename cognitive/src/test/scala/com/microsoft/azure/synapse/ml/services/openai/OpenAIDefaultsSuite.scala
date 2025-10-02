@@ -38,7 +38,7 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     OpenAIDefaults.setTemperature(0.05)
     OpenAIDefaults.setURL(s"https://$openAIServiceName.openai.azure.com/")
 
-    val fromRow = ChatCompletionResponse.makeFromRowConverter
+    val fromRow = ChatModelResponse.makeFromRowConverter
     promptCompletion.transform(promptDF).collect().foreach(r =>
       fromRow(r.getAs[Row]("out")).choices.foreach(c =>
         assert(c.message.content.length > 10)))
