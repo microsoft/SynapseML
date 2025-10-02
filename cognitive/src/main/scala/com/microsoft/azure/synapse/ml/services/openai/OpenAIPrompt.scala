@@ -31,6 +31,8 @@ import java.util.Base64
 
 import scala.collection.JavaConverters._
 import scala.util.{Try, Using}
+import spire.std.string
+import org.apache.hadoop.shaded.org.checkerframework.checker.units.qual.s
 
 object OpenAIPrompt extends ComplexParamsReadable[OpenAIPrompt]
 
@@ -307,7 +309,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
           typedLit(Map.empty[String, String])
         }
 
-      val createMessagesUDF = udf[Seq[OpenAIMessagePayload], String, Map[String, String]] {
+      val createMessagesUDF = udf[Seq[OpenAICompositeMessage], String, Map[String, String]] {
         (userMessage, attachmentMap) =>
           createMessagesForRow(
             userMessage,
@@ -331,17 +333,29 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   // OpenAI api. If the reponseFormat is json and the prompt does not contain string 'JSON' then 400 error is returned
   // For this reason we add a system prompt to the messages.
   // This method is made private[openai] for testing purposes
-  private[openai] def getPromptsForMessage(userMessage: String) = {
+  private[openai] def stringMessageWrapper(str: String): Map[String, String] = {
+    if (this.getOpenAIAPIType == "responses") {
+      Map("type" -> "input_text", "text" -> str)
+    } else {
+      Map("type" -> "text", "text" -> str)
+    }
+  }
+
+  private[openai] def getPromptsForMessage(content: Either[Seq[Map[String, String]], String]) = {
+    val stringWrapper = (s: String) => Seq(stringMessageWrapper(s))
     val basePrompts = Seq(
-      OpenAIMessage("system", getSystemPrompt),
-      OpenAIMessage("user", userMessage)
-      )
+      OpenAICompositeMessage("system", stringWrapper(getSystemPrompt)),
+      OpenAICompositeMessage("user", content match {
+        case Left(parts) => parts
+        case Right(text) => stringWrapper(text)
+      })
+    )
 
     if (isSet(responseFormat)) {
       val responseFormatPrompt = OpenAIChatCompletionResponseFormat
         .fromResponseFormatString(getResponseFormat("type"))
         .prompt
-      basePrompts :+ OpenAIMessage("system", responseFormatPrompt)
+      basePrompts :+ OpenAICompositeMessage("system", stringWrapper(responseFormatPrompt))
     } else {
       basePrompts
     }
@@ -349,43 +363,37 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   private[openai] def createMessagesForRow(userMessage: String,
                                           attachmentMap: Map[String, String],
-                                          attachmentOrder: Seq[String]): Seq[OpenAIMessagePayload] = {
+                                          attachmentOrder: Seq[String]): Seq[OpenAICompositeMessage] = {
     val orderedAttachments = attachmentOrder.flatMap { columnName =>
       attachmentMap.get(columnName).map(_.trim).filter(_.nonEmpty)
     }
 
     val contentParts = buildContentParts(userMessage, orderedAttachments)
-    val baseMessages = getPromptsForMessage(userMessage)
+    val messages = getPromptsForMessage(Left(contentParts))
 
-    baseMessages.map { message =>
-      val hasAttachments = message.role == "user" && contentParts.nonEmpty
-      val partsOpt = if (hasAttachments) Some(contentParts) else None
-      val contentOpt = if (hasAttachments) None else Option(message.content)
-      OpenAIMessagePayload(message.role, contentOpt, message.name, partsOpt)
+    val messagePayloads = messages.map { message =>
+      OpenAICompositeMessage(message.role, contentParts, None)
     }
+    messagePayloads
   }
 
   private def buildContentParts(promptText: String, attachmentPaths: Seq[String]): Seq[Map[String, String]] = {
-    var parts = Seq(Map("type" -> "input_text", "text" -> promptText))
+    var parts = Seq(stringMessageWrapper(promptText))
     if (!attachmentPaths.isEmpty) {
       parts = parts ++ attachmentPaths.flatMap(wrapFileToMessagesList)
     }
     parts
   }
 
-  private def wrapFileToMessagesList(filePathStr: String): Seq[Map[String, String]] = {
+  private def makeResponsesFileMessage(filePathStr: String): Map[String, String] = {
     val filePath = new HPath(filePathStr)
     val fileBytes = BinaryFileReader.readSingleFileBytes(filePath)
     val fileName = filePath.getName
     val (fileType, mimeType) = inferFileType(filePath)
-    val baseMessage = Map("type" -> "input_text", "text" -> multiModalTextPrompt.format(fileName))
 
     val fileMessage = fileType match {
       case "text" =>
-        Map(
-          "type" -> "input_text",
-          "text" -> s"File Name: ${fileName}\nContent: ${new String(fileBytes, StandardCharsets.UTF_8)}"
-        )
+        stringMessageWrapper(s"${new String(fileBytes, StandardCharsets.UTF_8)}")
       case "image" =>
         Map(
           "type" -> "input_image",
@@ -400,7 +408,37 @@ class OpenAIPrompt(override val uid: String) extends Transformer
           "file_data" -> s"data:${mimeType};base64,${Base64.getEncoder.encodeToString(fileBytes)}"
         )
     }
+    fileMessage
+  }
 
+    private def makeChatCompletionsFileMessage(filePathStr: String): Map[String, String] = {
+      val filePath = new HPath(filePathStr)
+      val fileBytes = BinaryFileReader.readSingleFileBytes(filePath)
+      val fileName = filePath.getName
+      val (fileType, mimeType) = inferFileType(filePath)
+
+      val fileMessage = fileType match {
+        case "text" =>
+          stringMessageWrapper(s"Content: ${new String(fileBytes, StandardCharsets.UTF_8)}")
+        case _ =>
+          throw new IllegalArgumentException(s"Multimodal Input is not supported in Chat Completions API.")
+      }
+      fileMessage
+    }
+
+  private def wrapFileToMessagesList(filePathStr: String): Seq[Map[String, String]] = {
+    val filePath = new HPath(filePathStr)
+    val fileBytes = BinaryFileReader.readSingleFileBytes(filePath)
+    val fileName = filePath.getName
+    val (fileType, mimeType) = inferFileType(filePath)
+    val baseMessage = stringMessageWrapper(multiModalTextPrompt.format(fileName))
+
+    val fileMessage = this.getOpenAIAPIType match {
+      case "responses" =>
+        makeResponsesFileMessage(filePathStr)
+      case "chat_completions" =>
+        makeChatCompletionsFileMessage(filePathStr)
+    }
     Seq(baseMessage, fileMessage)
   }
 

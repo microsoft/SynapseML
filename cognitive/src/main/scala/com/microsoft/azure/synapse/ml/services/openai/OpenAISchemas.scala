@@ -72,9 +72,8 @@ case class ResponsesModelResponse(id: String,
 
 object ResponsesModelResponse extends SparkBindings[ResponsesModelResponse]
 
-case class OpenAIMessagePayload(
+case class OpenAICompositeMessage(
   role: String,
-  content: Option[String],
-  name: Option[String],
-  contentParts: Option[Seq[Map[String, String]]]
+  content: Seq[Map[String, String]],
+  name: Option[String] = None
 )

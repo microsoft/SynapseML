@@ -20,38 +20,6 @@ import scala.collection.JavaConverters._
 import scala.language.existentials
 import com.microsoft.azure.synapse.ml.services.HasCustomHeaders
 
-private[openai] object OpenAIMessagePayloadConverter {
-
-  private def hasField(row: Row, fieldName: String): Boolean =
-    row.schema.fieldNames.contains(fieldName)
-
-  private def getOption[T](row: Row, fieldName: String): Option[T] =
-    if (hasField(row, fieldName)) Option(row.getAs[T](fieldName)) else None
-
-  private def castContentPartToString(part: Map[String, Any]): Map[String, Any] =
-    part.map { case (k, v) => k.toString -> v }
-
-  def rowsToMaps(messages: Seq[Row]): Seq[Map[String, Any]] = {
-    messages.map { row =>
-      val base = scala.collection.mutable.Map[String, Any]()
-      getOption[String](row, "role").foreach(base += "role" -> _)
-
-      val contentPartsOpt =
-        if (hasField(row, "contentParts")) Option(row.getAs[Seq[Map[String, Any]]]("contentParts")) else None
-
-      contentPartsOpt.filter(parts => parts != null && parts.nonEmpty) match {
-        case Some(parts) =>
-          val converted = parts.map(castContentPartToString)
-          base += "content" -> converted
-        case None =>
-          getOption[Any](row, "content").foreach(base += "content" -> _)
-      }
-
-      base.toMap
-    }
-  }
-}
-
 object OpenAIResponseFormat extends Enumeration {
   case class ResponseFormat(paylodName: String, prompt: String) extends super.Val(paylodName)
 
@@ -183,7 +151,7 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   override def responseDataType: DataType = ResponsesModelResponse.schema
 
   private[openai] def getStringEntity(messages: Seq[Row], optionalParams: Map[String, Any]): StringEntity = {
-    val mappedMessages = OpenAIMessagePayloadConverter.rowsToMaps(messages)
+    val mappedMessages = OpenAIMessageContentEncoder.rowsToMaps(messages)
       .map(_.filter { case (_, value) => value != null })
     val fullPayload = optionalParams.updated("input", mappedMessages)
     new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)

@@ -347,6 +347,39 @@ trait HasChatOutput {
   def getOutputMessageString(outputColName: String): org.apache.spark.sql.Column
 }
 
+private[openai] object OpenAIMessageContentEncoder {
+
+  private def hasField(row: Row, fieldName: String): Boolean =
+    row.schema.fieldNames.contains(fieldName)
+
+  private def getOption[T](row: Row, fieldName: String): Option[T] =
+    if (hasField(row, fieldName)) Option(row.getAs[T](fieldName)) else None
+
+  private def castContentPartToString(part: Map[String, Any]): Map[String, Any] =
+    part.map { case (k, v) => k.toString -> v }
+
+  def rowsToMaps(messages: Seq[Row]): Seq[Map[String, Any]] = {
+    messages.map { row =>
+      val base = scala.collection.mutable.Map[String, Any]()
+      getOption[String](row, "role").foreach(base += "role" -> _)
+
+      val contentPartsOpt =
+        if (hasField(row, "contentParts")) Option(row.getAs[Seq[Map[String, Any]]]("contentParts")) else None
+
+      contentPartsOpt.filter(parts => parts != null && parts.nonEmpty) match {
+        case Some(parts) =>
+          val converted = parts.map(castContentPartToString)
+          base += "content" -> converted
+        case None =>
+          getOption[Any](row, "content").foreach(base += "content" -> _)
+      }
+
+      base.toMap
+    }
+  }
+}
+
+
 abstract class OpenAIServicesBase(override val uid: String) extends CognitiveServicesBase(uid: String)
   with HasOpenAISharedParams with OpenAIFabricSetting {
   setDefault(timeout -> 360.0)

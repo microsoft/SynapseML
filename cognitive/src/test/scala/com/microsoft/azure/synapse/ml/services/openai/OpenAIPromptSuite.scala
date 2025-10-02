@@ -48,7 +48,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     ("cake", "dishes")
   ).toDF("text", "category")
 
-  test("createMessagesForRow generates contentParts for path columns") {
+  test("createMessagesForRow generates contentParts for path columns when using Chat Completions API") {
     val prompt = new OpenAIPrompt()
     val tempFile = Files.createTempFile("synapseml-openai", ".txt")
     try {
@@ -57,17 +57,17 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       val messages = prompt.createMessagesForRow("Summarize the file", attachments, Seq("filePath"))
 
       val systemMessage = messages.find(_.role == "system").get
-      assert(systemMessage.contentParts.isEmpty)
+      assert(systemMessage.content.nonEmpty)
 
       val userMessage = messages.find(_.role == "user").get
-      val parts = userMessage.contentParts.get
-      assert(parts.head.getOrElse("type", "") == "input_text")
+      val parts = userMessage.content
+      assert(parts.head.getOrElse("type", "") == "text")
       assert(parts.head.getOrElse("text", "").contains("Summarize the file"))
       val textSection = parts.collectFirst {
-        case part if part.getOrElse("type", "") == "input_text" && part.getOrElse("text", "").contains("example content") => part
+        case part if part.getOrElse("type", "") == "text" && part.getOrElse("text", "").contains("example content") => part
       }
       assert(textSection.isDefined)
-      assert(userMessage.content.isEmpty)
+      assert(userMessage.content.nonEmpty)
     } finally {
       Files.deleteIfExists(tempFile)
     }
@@ -236,7 +236,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
   test("if responseFormat is set then appropriate system prompt should be present") {
     val prompt = new OpenAIPrompt()
     prompt.setResponseFormat("json_object")
-    val messages = prompt.getPromptsForMessage("test")
+    val messages = prompt.getPromptsForMessage(Right("test"))
     assert(messages.nonEmpty)
     messages.exists(p => p.role == "system" && p.content.contains(OpenAIChatCompletionResponseFormat.JSON.prompt))
   }
