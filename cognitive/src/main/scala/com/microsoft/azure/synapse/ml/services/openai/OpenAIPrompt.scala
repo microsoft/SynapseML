@@ -5,14 +5,14 @@ package com.microsoft.azure.synapse.ml.services.openai
 
 import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.spark.Functions
+import com.microsoft.azure.synapse.ml.io.binary.BinaryFileReader
 import com.microsoft.azure.synapse.ml.io.http.{ConcurrencyParams, HasErrorCol, HasURL}
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.{HasGlobalParams, StringStringMapParam}
 import com.microsoft.azure.synapse.ml.services._
 import com.microsoft.azure.synapse.ml.services.aifoundry.{AIFoundryChatCompletion, HasAIFoundryTextParamsExtended}
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, Path, FSDataInputStream}
-import org.apache.hadoop.io.IOUtils
+import org.apache.hadoop.fs.{Path => HPath}
 import org.apache.http.entity.AbstractHttpEntity
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param.{BooleanParam, Param, ParamMap, ParamValidators}
@@ -24,8 +24,7 @@ import org.apache.spark.sql.types.{DataType, StructField, StructType}
 import spray.json.DefaultJsonProtocol._
 
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream, File}
-import java.net.{URI, URL, URLConnection}
+import java.net.{URI, URL}
 import java.nio.charset.StandardCharsets
 import java.nio.file.{Files, Paths}
 import java.util.Base64
@@ -182,7 +181,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     "systemPrompt", "openAIAPIType")
 
   private val multiModalTextPrompt = "The name of the file to analyze is %s.\nHere is the content:\n"
-  private val textExtensions = Set("md", "csv", "tsv", "json", "xml", "html", "htm")
+
+  private val textExtensions = Set("md", "csv", "tsv", "json", "xml")
   private val imageExtensions = Set("jpg", "jpeg", "png", "gif", "webp")
   private val audioExtensions = Set("mp3", "wav")
 
@@ -366,112 +366,65 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   }
 
   private def buildContentParts(promptText: String, attachmentPaths: Seq[String]): Seq[Map[String, String]] = {
-    if (attachmentPaths.isEmpty) {
-      Seq.empty
-    } else {
-      val basePromptPart = Map("type" -> "input_text", "text" -> promptText)
-      basePromptPart +: attachmentPaths.flatMap(wrapFileToMessagesList)
+    var parts = Seq(Map("type" -> "input_text", "text" -> promptText))
+    if (!attachmentPaths.isEmpty) {
+      parts = parts ++ attachmentPaths.flatMap(wrapFileToMessagesList)
     }
+    parts
   }
 
-  private def wrapFileToMessagesList(filePath: String): Seq[Map[String, String]] = {
-    val (fileBytes, fileName) = readFileBytes(filePath)
-    val (extension, fileType, mimeType) = inferFileType(filePath, fileBytes)
+  private def wrapFileToMessagesList(filePathStr: String): Seq[Map[String, String]] = {
+    val filePath = new HPath(filePathStr)
+    val fileBytes = BinaryFileReader.readSingleFileBytes(filePath)
+    val fileName = filePath.getName
+    val (fileType, mimeType) = inferFileType(filePath)
     val baseMessage = Map("type" -> "input_text", "text" -> multiModalTextPrompt.format(fileName))
 
     val fileMessage = fileType match {
       case "text" =>
-        val textContent = new String(fileBytes, StandardCharsets.UTF_8)
-        Map("type" -> "input_text", "text" -> s"File Name: ${fileName}\nContent: ${textContent}")
+        Map(
+          "type" -> "input_text",
+          "text" -> s"File Name: ${fileName}\nContent: ${new String(fileBytes, StandardCharsets.UTF_8)}"
+        )
       case "image" =>
-        val encoded = Base64.getEncoder.encodeToString(fileBytes)
-        val mime = if (mimeType.nonEmpty) mimeType else s"image/${extension}".stripSuffix("/")
         Map(
           "type" -> "input_image",
-          "image_url" -> s"data:${mime};base64,${encoded}"
+          "image_url" -> s"data:${mimeType};base64,${Base64.getEncoder.encodeToString(fileBytes)}"
         )
       case "audio" =>
         throw new IllegalArgumentException("Audio input is not supported in the current API version.")
       case _ =>
-        val encoded = Base64.getEncoder.encodeToString(fileBytes)
-        val mime = if (mimeType.nonEmpty) mimeType else s"application/" +
-          s"${if (extension.nonEmpty) extension else "octet-stream"}"
         Map(
           "type" -> "input_file",
           "filename" -> fileName,
-          "file_data" -> s"data:${mime};base64,${encoded}"
+          "file_data" -> s"data:${mimeType};base64,${Base64.getEncoder.encodeToString(fileBytes)}"
         )
     }
 
     Seq(baseMessage, fileMessage)
   }
 
-  private def readFileBytes(filePath: String, conf: Configuration = new Configuration()): (Array[Byte], String) = {
-    val path = new Path(filePath)
-    val fs: FileSystem = path.getFileSystem(conf)
-    val fileName = path.getName
-
-    val in: FSDataInputStream = fs.open(path) // works across many schemes
-    val baos = new ByteArrayOutputStream()
-    try {
-      IOUtils.copyBytes(in, baos, conf, false) // stream -> memory
-      (baos.toByteArray, fileName)
-    } finally {
-      IOUtils.closeStream(in)
-      baos.close()
+  private def getExtension(fileName: String): String = {
+    fileName.lastIndexOf('.') match {
+      case idx if idx >= 0 => fileName.substring(idx + 1).toLowerCase
+      case _ => ""
     }
   }
 
-  private def extractFileName(path: String): String = {
-    val trimmed = path.trim
-    val file = new File(trimmed)
-    val nameFromFile = file.getName
-    if (nameFromFile.nonEmpty && !nameFromFile.endsWith(File.separator)) {
-      nameFromFile
-    } else {
-      val sanitized = trimmed.replaceAll("[\\\\/]+$", "")
-      val idx = sanitized.lastIndexOf('/')
-      if (idx >= 0 && idx + 1 < sanitized.length) sanitized.substring(idx + 1)
-      else if (sanitized.nonEmpty) sanitized
-      else "attachment"
-    }
+  private def categorizeFileType(mimeType: String, extension: String): String = {
+    if (mimeType == "application/pdf") "file"
+    else if (mimeType.startsWith("image/") && imageExtensions.contains(extension)) "image"
+    else if (mimeType.startsWith("audio/") && audioExtensions.contains(extension)) "audio"
+    else if (mimeType.startsWith("text/") || textExtensions.contains(extension)) "text"
+    else "file"
   }
 
-  private def inferFileType(
-    filePath: String,
-    fileBytes: Array[Byte]
-    ): (String, String, String) = {
-    val fileName = extractFileName(filePath).toLowerCase
-    val extension =
-      if (fileName.contains('.')) fileName.substring(fileName.lastIndexOf('.') + 1)
-      else ""
-
-    val mimeFromName = Option(URLConnection.guessContentTypeFromName(fileName)).getOrElse("")
-    val mimeFromContent = Option(
-      URLConnection.guessContentTypeFromStream(new ByteArrayInputStream(fileBytes))
-      ).getOrElse("")
-    val mimeType = if (mimeFromName.nonEmpty) mimeFromName else mimeFromContent
-
-    val fileType =
-      if (mimeType == "application/pdf") {
-        "file"
-      } else if (mimeType.startsWith("image/")) {
-        "image"
-      } else if (mimeType.startsWith("audio/")) {
-        "audio"
-      } else if (mimeType.startsWith("text/")) {
-        "text"
-      } else if (imageExtensions.contains(extension)) {
-        "image"
-      } else if (audioExtensions.contains(extension)) {
-        "audio"
-      } else if (textExtensions.contains(extension)) {
-        "text"
-      } else {
-        "file"
-      }
-
-    (extension, fileType, mimeType)
+  private def inferFileType(filePath: HPath): (String, String) = {
+    val extension = getExtension(filePath.getName)
+    val mimeType = Option(Files.probeContentType(Paths.get(filePath.toString)))
+      .getOrElse("application/octet-stream")
+    val fileType = categorizeFileType(mimeType, extension)
+    (fileType, mimeType)
   }
 
   private[openai] def hasAIFoundryModel: Boolean = this.isDefined(model)
