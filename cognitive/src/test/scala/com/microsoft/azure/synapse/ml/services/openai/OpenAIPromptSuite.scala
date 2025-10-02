@@ -254,11 +254,9 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     
     val urlDF = Seq(
       (
-        (
-          "What's in the image?",
-          "https://m.media-amazon.com/images/I/51WvSW1UXlL._AC_SY300_SX300_QL70_ML2_.jpg"
-        )
-      ),
+        "What's in the image?",
+        "https://m.media-amazon.com/images/I/51WvSW1UXlL._AC_SY300_SX300_QL70_ML2_.jpg"
+      )
     ).toDF("questions", "images")
 
   promptResponses.transform(urlDF)

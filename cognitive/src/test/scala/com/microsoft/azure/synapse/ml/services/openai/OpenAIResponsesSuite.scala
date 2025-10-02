@@ -68,10 +68,10 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
       val value = params(payloadName).asInstanceOf[Map[String, String]]
       assert(value.get("type").contains(expected))
     }
-    val raw_messages = Seq(
+    val rawMessages = Seq(
       OpenAIMessage("user", "Whats your favorite color")
     )
-    val messages: Seq[Row] = raw_messages.toDF("role", "content", "name").collect()
+    val messages: Seq[Row] = rawMessages.toDF("role", "content", "name").collect()
 
     val optionalParams = transformer.getOptionalParams(messages.head)
     assert(!optionalParams.contains("response_format"))
@@ -111,9 +111,18 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
     val messageSchema = StructType(Seq(
       StructField("role", StringType, nullable = false),
       StructField("name", StringType, nullable = true),
-      StructField("content", ArrayType(MapType(StringType, StringType, valueContainsNull = true), containsNull = false), nullable = true)
+      StructField(
+        "content", 
+        ArrayType(
+          MapType(
+            StringType, StringType, valueContainsNull = true
+            ), containsNull = false
+          ), nullable = true
+        )
     ))
-    val row = new GenericRowWithSchema(Array[Any]("user", null, contentParts), messageSchema)
+    val row = new GenericRowWithSchema(
+      Array[Any]("user", null, contentParts), messageSchema // scalastyle:ignore null
+    )
 
     val entity = transformer.getStringEntity(Seq(row), Map.empty)
     val payload = EntityUtils.toString(entity)
