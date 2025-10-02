@@ -9,7 +9,7 @@ import com.microsoft.azure.synapse.ml.services.{HasCognitiveServiceInput, HasInt
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.util._
-import org.apache.spark.sql.Row
+import org.apache.spark.sql.{functions => F, Row}
 import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
@@ -20,7 +20,7 @@ object OpenAICompletion extends ComplexParamsReadable[OpenAICompletion]
 
 class OpenAICompletion(override val uid: String) extends OpenAIServicesBase(uid)
   with HasOpenAITextParams with HasPromptInputs with HasCognitiveServiceInput
-  with HasInternalJsonOutputParser with SynapseMLLogging {
+  with HasInternalJsonOutputParser with SynapseMLLogging with HasChatOutput {
   logClass(FeatureNames.AiServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAICompletion"))
@@ -60,5 +60,10 @@ class OpenAICompletion(override val uid: String) extends OpenAIServicesBase(uid)
     val fullPayload = optionalParams.updated("prompt", prompt)
     new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
   }
+
+  override def getOutputMessageString(outputColName: String): org.apache.spark.sql.Column = {
+    F.element_at(F.col(outputColName).getField("choices"), 1).getField("text")
+  }
+
 }
 

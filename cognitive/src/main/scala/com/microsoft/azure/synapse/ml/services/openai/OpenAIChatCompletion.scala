@@ -10,7 +10,7 @@ import com.microsoft.azure.synapse.ml.services.{HasCognitiveServiceInput, HasInt
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.util._
-import org.apache.spark.sql.Row
+import org.apache.spark.sql.{functions => F, Row}
 import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
@@ -104,7 +104,7 @@ object OpenAIChatCompletion extends ComplexParamsReadable[OpenAIChatCompletion]
 
 class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(uid)
   with HasOpenAITextParamsExtended with HasMessagesInput with HasCognitiveServiceInput
-  with HasInternalJsonOutputParser with SynapseMLLogging {
+  with HasInternalJsonOutputParser with SynapseMLLogging with HasRAIContentFilter with HasChatOutput {
   logClass(FeatureNames.AiServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAIChatCompletion"))
@@ -146,6 +146,22 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
     }
     val fullPayload = optionalParams.updated("messages", mappedMessages)
     new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
+  }
+
+  override def getOutputMessageString(outputColName: String): org.apache.spark.sql.Column = {
+    F.element_at(F.col(outputColName).getField("choices"), 1)
+      .getField("message").getField("content")
+  }
+
+  override def isContentFiltered(outputRow: Row): Boolean = {
+    val result = ChatModelResponse.makeFromRowConverter(outputRow)
+    val firstChoice = result.choices.head
+    Option(firstChoice.message.content).isEmpty
+  }
+
+  override def getFilterReason(outputRow: Row): String = {
+    val result = ChatModelResponse.makeFromRowConverter(outputRow)
+    result.choices.head.finish_reason
   }
 
 }

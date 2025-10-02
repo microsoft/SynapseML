@@ -12,7 +12,7 @@ import com.microsoft.azure.synapse.ml.services._
 import com.microsoft.azure.synapse.ml.services.aifoundry.{AIFoundryChatCompletion, HasAIFoundryTextParamsExtended}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path, FSDataInputStream}
-import org.apache.hadoop.io.IOUtils 
+import org.apache.hadoop.io.IOUtils
 import org.apache.http.entity.AbstractHttpEntity
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param.{BooleanParam, Param, ParamMap, ParamValidators}
@@ -196,35 +196,16 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   }
 
   // Q: What does RAI means?
-  private def addChatRAIErrors(df: DataFrame, errorCol: String, outputCol: String): DataFrame = {
-    val openAIResultFromRow = ChatModelResponse.makeFromRowConverter
+  private def addRAIErrors[T <: OpenAIServicesBase with HasRAIContentFilter](
+      completion: T, df: DataFrame, errorCol: String, outputCol: String): DataFrame = {
     df.map({ row =>
       val originalOutput = Option(row.getAs[Row](outputCol))
-        .map({ row => openAIResultFromRow(row).choices.head })
-      val isFiltered = originalOutput.exists(output => Option(output.message.content).isEmpty)
+      val isFiltered = originalOutput.exists(completion.isContentFiltered)
 
       if (isFiltered) {
         val updatedRowSeq = row.toSeq.updated(
           row.fieldIndex(errorCol),
-          Row(originalOutput.get.finish_reason, null) //scalastyle:ignore null
-        )
-        Row.fromSeq(updatedRowSeq)
-      } else {
-        row
-      }
-    })(RowEncoder(df.schema))
-  }
-  private def addResponsesRAIErrors(df: DataFrame, errorCol: String, outputCol: String): DataFrame = {
-    val openAIResultFromRow = ResponsesModelResponse.makeFromRowConverter
-    df.map({ row =>
-      val originalOutput = Option(row.getAs[Row](outputCol))
-        .map({ row => openAIResultFromRow(row).output.head })
-      val isFiltered = originalOutput.exists(output => Option(output.content).isEmpty)
-
-      if (isFiltered) {
-        val updatedRowSeq = row.toSeq.updated(
-          row.fieldIndex(errorCol),
-          Row(originalOutput.get.status, null) //scalastyle:ignore null
+          Row(completion.getFilterReason(originalOutput.get), null) //scalastyle:ignore null
         )
         Row.fromSeq(updatedRowSeq)
       } else {
@@ -233,51 +214,28 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     })(RowEncoder(df.schema))
   }
 
-  private def handleOpenAIResponses(chatCompletion: OpenAIResponses,
-                                    df: DataFrame,
-                                    createMessagesUDF: org.apache.spark.sql.expressions.UserDefinedFunction,
-                                    promptCol: Column,
-                                    attachmentsColumn: Column): DataFrame = {
+  private def handleOpenAIChatAPI[T <: OpenAIServicesBase
+    with HasMessagesInput with HasRAIContentFilter with HasChatOutput](
+      chatCompletion: T,
+      df: DataFrame,
+      createMessagesUDF: org.apache.spark.sql.expressions.UserDefinedFunction,
+      promptCol: Column,
+      attachmentsColumn: Column): DataFrame = {
     if (isSet(responseFormat)) {
-      chatCompletion.setResponseFormat(getResponseFormat)
+      chatCompletion match {
+        case cc: OpenAIChatCompletion => cc.setResponseFormat(getResponseFormat)
+        case resp: OpenAIResponses => resp.setResponseFormat(getResponseFormat)
+        case _ => // Do nothing for other types
+      }
     }
     val messageColName = getMessagesCol
     val dfTemplated = df.withColumn(messageColName, createMessagesUDF(promptCol, attachmentsColumn))
     val completionNamed = chatCompletion.setMessagesCol(messageColName)
 
-    val transformed = addResponsesRAIErrors(
-      completionNamed.transform(dfTemplated), chatCompletion.getErrorCol, chatCompletion.getOutputCol)
+    val transformed = addRAIErrors(
+      chatCompletion, completionNamed.transform(dfTemplated), chatCompletion.getErrorCol, chatCompletion.getOutputCol)
     val results = transformed
-      .withColumn(getOutputCol,
-        getParser.parse(F.element_at(F.element_at(F.col(completionNamed.getOutputCol).getField("output"), 1)
-          .getField("content"), 1).getField("text")))
-      .drop(completionNamed.getOutputCol)
-    val resultsFinal = results.select(results.columns.filter(_ != getErrorCol).map(col) :+ col(getErrorCol): _*)
-    if (getDropPrompt) {
-      resultsFinal.drop(messageColName)
-    } else {
-      resultsFinal
-    }
-  }
-
-  private def handleOpenAIChatCompletion(chatCompletion: OpenAIChatCompletion,
-                                         df: DataFrame,
-                                         createMessagesUDF: org.apache.spark.sql.expressions.UserDefinedFunction,
-                                         promptCol: Column,
-                                         attachmentsColumn: Column): DataFrame = {
-    if (isSet(responseFormat)) {
-      chatCompletion.setResponseFormat(getResponseFormat)
-    }
-    val messageColName = getMessagesCol
-    val dfTemplated = df.withColumn(messageColName, createMessagesUDF(promptCol, attachmentsColumn))
-    val completionNamed = chatCompletion.setMessagesCol(messageColName)
-
-    val transformed = addChatRAIErrors(
-      completionNamed.transform(dfTemplated), chatCompletion.getErrorCol, chatCompletion.getOutputCol)
-    val results = transformed
-      .withColumn(getOutputCol,
-        getParser.parse(F.element_at(F.col(completionNamed.getOutputCol).getField("choices"), 1)
-          .getField("message").getField("content")))
+      .withColumn(getOutputCol, getParser.parse(chatCompletion.getOutputMessageString(completionNamed.getOutputCol)))
       .drop(completionNamed.getOutputCol)
     val resultsFinal = results.select(results.columns.filter(_ != getErrorCol).map(col) :+ col(getErrorCol): _*)
     if (getDropPrompt) {
@@ -359,10 +317,10 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       }
 
       completion match {
-        case chatCompletion: OpenAIResponses =>
-          handleOpenAIResponses(chatCompletion, df, createMessagesUDF, promptCol, attachmentsColumn)
+        case responses: OpenAIResponses =>
+          handleOpenAIChatAPI(responses, df, createMessagesUDF, promptCol, attachmentsColumn)
         case chatCompletion: OpenAIChatCompletion =>
-          handleOpenAIChatCompletion(chatCompletion, df, createMessagesUDF, promptCol, attachmentsColumn)
+          handleOpenAIChatAPI(chatCompletion, df, createMessagesUDF, promptCol, attachmentsColumn)
         case completion: OpenAICompletion =>
           handleOpenAICompletion(completion, df, promptCol)
       }

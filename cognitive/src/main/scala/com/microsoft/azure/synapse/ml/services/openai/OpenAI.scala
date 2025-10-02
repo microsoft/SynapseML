@@ -324,6 +324,29 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
   }
 }
 
+trait HasRAIContentFilter {
+  /**
+   * Determines if the content in the output row was filtered by content safety
+   * @param outputRow The output row from the API response
+   * @return true if content was filtered, false otherwise
+   */
+  def isContentFiltered(outputRow: Row): Boolean
+
+  /**
+   * Extracts the error/status reason from a filtered output row
+   * @param outputRow The output row from the API response
+   * @return The error reason (e.g., finish_reason or status)
+   */
+  def getFilterReason(outputRow: Row): String
+}
+
+trait HasChatOutput {
+  /**
+   * Extract the text content from the output column for this specific API type
+   */
+  def getOutputMessageString(outputColName: String): org.apache.spark.sql.Column
+}
+
 abstract class OpenAIServicesBase(override val uid: String) extends CognitiveServicesBase(uid: String)
   with HasOpenAISharedParams with OpenAIFabricSetting {
   setDefault(timeout -> 360.0)
