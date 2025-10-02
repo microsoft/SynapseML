@@ -1,4 +1,45 @@
 steps:
+  - bash: |
+      echo "======================================"
+      echo "DISK SPACE CLEANUP"
+      echo "======================================"
+      echo ""
+      echo "=== Before cleanup ==="
+      df -h
+      echo ""
+      echo "=== Removing unnecessary software ==="
+      
+      # Remove Android SDK (9.0GB) - not needed for SynapseML
+      echo "Removing Android SDK..."
+      sudo rm -rf /usr/local/lib/android
+      
+      # Remove hosted tool cache (5.4GB) - pre-installed tool versions not needed
+      echo "Removing hosted tool cache..."
+      sudo rm -rf /opt/hostedtoolcache
+      
+      # Remove .NET/Dotnet (3.4GB) - SynapseML uses Java/Scala, not .NET
+      echo "Removing .NET/Dotnet..."
+      sudo rm -rf /usr/share/dotnet
+      
+      # Remove PowerShell (1.3GB) - not needed
+      echo "Removing PowerShell..."
+      sudo rm -rf /usr/local/share/powershell
+      
+      # Remove Google Cloud SDK (956MB) - not needed
+      echo "Removing Google Cloud SDK..."
+      sudo rm -rf /usr/lib/google-cloud-sdk
+      
+      # Remove Docker images (~4GB) - not building Docker in most jobs
+      echo "Pruning Docker images..."
+      sudo docker image prune --all --force || true
+      
+      echo ""
+      echo "=== After cleanup ==="
+      df -h
+      echo ""
+      echo "======================================"
+    displayName: Free up disk space on build host
+    retryCountOnTaskFailure: 1
   - bash: echo "##vso[task.prependpath]$CONDA/bin"
     displayName: Add conda to PATH
     retryCountOnTaskFailure: 1

@@ -7,6 +7,9 @@ import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.{FileUtilities, StreamUtilities}
 import org.apache.commons.io.FileUtils
 
+import scala.concurrent.{Future, Await}
+import scala.concurrent.ExecutionContext.Implicits.global
+import scala.concurrent.duration._
 import java.io.File
 import java.lang.ProcessBuilder.Redirect
 import scala.sys.process._
@@ -38,6 +41,31 @@ object SharedNotebookE2ETestUtilities {
       |
       |""".stripMargin
 
+  val OnePlusOneNotebook =
+    """
+    |{
+    |    "cells": [
+    |        {
+    |            "cell_type": "code",
+    |            "execution_count": null,
+    |            "id": "de5aebcf",
+    |            "metadata": {},
+    |            "outputs": [],
+    |            "source": [
+    |                "1+1"
+    |            ]
+    |        }
+    |    ],
+    |    "metadata": {
+    |        "language_info": {
+    |            "name": "python"
+    |        }
+    |    },
+    |    "nbformat": 4,
+    |    "nbformat_minor": 5
+    |}
+    |""".stripMargin
+
   def insertTextInFile(file: File, textToPrepend: String, locToInsert: Int): Unit = {
     val existingLines = StreamUtilities.using(Source.fromFile(file)) { s =>
       s.getLines().toList
@@ -51,9 +79,11 @@ object SharedNotebookE2ETestUtilities {
     }
   }
 
-  def generateNotebooks(): Unit = {
+  def generateNotebooks(): Array[File] = {
+    println("Cleaning up generated notebooks directory...")
     cleanUpGeneratedNotebooksDir()
 
+    println("Generating new notebooks...")
     val docsDir = FileUtilities.join(BuildInfo.baseDirectory.getParent, "docs").getCanonicalFile
     val newFiles = FileUtilities.recursiveListFiles(docsDir)
       .filter(_.getName.endsWith(".ipynb"))
@@ -66,14 +96,27 @@ object SharedNotebookE2ETestUtilities {
           .replace(",", "")
         FileUtilities.copyAndRenameFile(f, NotebooksDir, newName, true)
         new File(NotebooksDir, newName)
+      } :+ {
+        val onePlusOne = new File(NotebooksDir, "OnePlusOne.ipynb")
+        FileUtilities.writeFile(onePlusOne, OnePlusOneNotebook)
+        onePlusOne
       }
 
-    runCmd(activateCondaEnv ++ Seq("jupyter", "nbconvert", "--to", "python", "*.ipynb"), NotebooksDir)
-
-    newFiles.foreach { f =>
-      insertTextInFile(new File(f.getPath.replace(".ipynb", ".py")), NotebookPreamble, 2)
+    // Parallelize nbconvert for each notebook file
+    val conversions = newFiles.toSeq.map { f =>
+      Future {
+        runCmd(activateCondaEnv ++ Seq("jupyter", "nbconvert", "--to", "python", "--log-level=ERROR", f.getName), NotebooksDir)
+      }
     }
+    // Wait for all conversions to finish
+    Await.result(Future.sequence(conversions), Duration.Inf)
+    println(s"Generated ${newFiles.length} Python files from notebooks.")
 
+    newFiles.map { f =>
+      val newFile = new File(f.getPath.replace(".ipynb", ".py"))
+      insertTextInFile(newFile, NotebookPreamble, 2)
+      newFile
+    }
   }
 
   def cleanUpGeneratedNotebooksDir(): Unit = {
