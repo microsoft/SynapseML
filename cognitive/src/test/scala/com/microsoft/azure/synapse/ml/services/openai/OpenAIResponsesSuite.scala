@@ -110,11 +110,10 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
     )
     val messageSchema = StructType(Seq(
       StructField("role", StringType, nullable = false),
-      StructField("content", StringType, nullable = true),
       StructField("name", StringType, nullable = true),
-      StructField("contentParts", ArrayType(MapType(StringType, StringType, valueContainsNull = true), containsNull = false), nullable = true)
+      StructField("content", ArrayType(MapType(StringType, StringType, valueContainsNull = true), containsNull = false), nullable = true)
     ))
-    val row = new GenericRowWithSchema(Array[Any]("user", null, null, contentParts), messageSchema)
+    val row = new GenericRowWithSchema(Array[Any]("user", null, contentParts), messageSchema)
 
     val entity = transformer.getStringEntity(Seq(row), Map.empty)
     val payload = EntityUtils.toString(entity)

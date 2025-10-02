@@ -364,7 +364,7 @@ private[openai] object OpenAIMessageContentEncoder {
       getOption[String](row, "role").foreach(base += "role" -> _)
 
       val contentPartsOpt =
-        if (hasField(row, "contentParts")) Option(row.getAs[Seq[Map[String, Any]]]("contentParts")) else None
+        if (hasField(row, "content")) Option(row.getAs[Seq[Map[String, Any]]]("content")) else None
 
       contentPartsOpt.filter(parts => parts != null && parts.nonEmpty) match {
         case Some(parts) =>

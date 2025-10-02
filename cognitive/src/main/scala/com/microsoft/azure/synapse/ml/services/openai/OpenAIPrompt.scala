@@ -370,11 +370,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
     val contentParts = buildContentParts(userMessage, orderedAttachments)
     val messages = getPromptsForMessage(Left(contentParts))
-
-    val messagePayloads = messages.map { message =>
-      OpenAICompositeMessage(message.role, contentParts, None)
-    }
-    messagePayloads
+    messages
   }
 
   private def buildContentParts(promptText: String, attachmentPaths: Seq[String]): Seq[Map[String, String]] = {
