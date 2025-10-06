@@ -254,16 +254,25 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     
     val urlDF = Seq(
       (
-        "What's in the image?",
-        "https://m.media-amazon.com/images/I/51WvSW1UXlL._AC_SY300_SX300_QL70_ML2_.jpg"
+        "What's in this document?",
+        "https://mmlspark.blob.core.windows.net/datasets/OCR/paper.pdf"
+      ),
+      (
+        "What's in this image?",
+        "https://mmlspark.blob.core.windows.net/datasets/OCR/test2.png"
       )
     ).toDF("questions", "images")
+
+    val keywordsForEachQuestions = List("knn", "sorry")
 
   promptResponses.transform(urlDF)
                .select("outParsed")
                .where(col("outParsed").isNotNull)
                .collect()
-               .foreach(r => assert(r.getString(0).toLowerCase().contains("dewalt")))       
+               .zip(keywordsForEachQuestions)
+               .foreach { case (row, keyword) =>
+                 assert(row.getString(0).toLowerCase.contains(keyword))
+               }
   }
 
   ignore("Custom EndPoint") {
