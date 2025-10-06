@@ -104,7 +104,7 @@ object OpenAIChatCompletion extends ComplexParamsReadable[OpenAIChatCompletion]
 
 class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(uid)
   with HasOpenAITextParamsExtended with HasMessagesInput with HasCognitiveServiceInput
-  with HasInternalJsonOutputParser with SynapseMLLogging with HasRAIContentFilter with HasChatOutput {
+  with HasInternalJsonOutputParser with SynapseMLLogging with HasRAIContentFilter with HasTextOutput {
   logClass(FeatureNames.AiServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAIChatCompletion"))
@@ -139,13 +139,13 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   override def responseDataType: DataType = ChatModelResponse.schema
 
   private[openai] def getStringEntity(messages: Seq[Row], optionalParams: Map[String, Any]): StringEntity = {
-    val mappedMessages = encodeCompositeMessageFromRows(messages)
+    val mappedMessages = encodeMessagesToMap(messages)
       .map(_.filter { case (_, value) => value != null })
     val fullPayload = optionalParams.updated("messages", mappedMessages)
     new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
   }
 
-  override private[openai] def getOutputMessageString(outputColName: String): org.apache.spark.sql.Column = {
+  override private[openai] def getOutputMessageText(outputColName: String): org.apache.spark.sql.Column = {
     F.element_at(F.col(outputColName).getField("choices"), 1)
       .getField("message").getField("content")
   }

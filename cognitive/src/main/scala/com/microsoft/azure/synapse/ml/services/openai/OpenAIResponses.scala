@@ -107,7 +107,7 @@ object OpenAIResponses extends ComplexParamsReadable[OpenAIResponses]
 class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   with HasOpenAITextParamsResponses with HasMessagesInput with HasCognitiveServiceInput
   with HasInternalJsonOutputParser with SynapseMLLogging with HasCustomHeaders
-  with HasRAIContentFilter with HasChatOutput {
+  with HasRAIContentFilter with HasTextOutput {
   logClass(FeatureNames.AiServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAIResponses"))
@@ -151,13 +151,13 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   override def responseDataType: DataType = ResponsesModelResponse.schema
 
   private[openai] def getStringEntity(messages: Seq[Row], optionalParams: Map[String, Any]): StringEntity = {
-    val mappedMessages = encodeCompositeMessageFromRows(messages)
+    val mappedMessages = encodeMessagesToMap(messages)
       .map(_.filter { case (_, value) => value != null })
     val fullPayload = optionalParams.updated("input", mappedMessages)
     new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
   }
 
-  override private[openai] def getOutputMessageString(outputColName: String): org.apache.spark.sql.Column = {
+  override private[openai] def getOutputMessageText(outputColName: String): org.apache.spark.sql.Column = {
     F.element_at(F.element_at(F.col(outputColName).getField("output"), 1)
       .getField("content"), 1).getField("text")
   }

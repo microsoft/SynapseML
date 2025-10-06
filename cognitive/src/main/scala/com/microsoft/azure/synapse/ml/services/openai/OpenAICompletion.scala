@@ -20,7 +20,7 @@ object OpenAICompletion extends ComplexParamsReadable[OpenAICompletion]
 
 class OpenAICompletion(override val uid: String) extends OpenAIServicesBase(uid)
   with HasOpenAITextParams with HasPromptInputs with HasCognitiveServiceInput
-  with HasInternalJsonOutputParser with SynapseMLLogging with HasChatOutput {
+  with HasInternalJsonOutputParser with SynapseMLLogging with HasTextOutput {
   logClass(FeatureNames.AiServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAICompletion"))
@@ -61,7 +61,7 @@ class OpenAICompletion(override val uid: String) extends OpenAIServicesBase(uid)
     new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
   }
 
-  override private[openai] def getOutputMessageString(outputColName: String): org.apache.spark.sql.Column = {
+  override private[openai] def getOutputMessageText(outputColName: String): org.apache.spark.sql.Column = {
     F.element_at(F.col(outputColName).getField("choices"), 1).getField("text")
   }
 

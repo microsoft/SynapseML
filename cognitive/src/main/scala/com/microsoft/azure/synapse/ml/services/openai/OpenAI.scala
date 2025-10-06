@@ -340,26 +340,41 @@ trait HasRAIContentFilter {
   private[openai] def getFilterReason(outputRow: Row): String
 }
 
-trait HasChatOutput {
+trait HasTextOutput {
   /**
    * Extract the text content from the output column for this specific API type
    */
-  private[openai] def getOutputMessageString(outputColName: String): org.apache.spark.sql.Column
+  private[openai] def getOutputMessageText(outputColName: String): org.apache.spark.sql.Column
 
   /**
-    * This one is used to convert message in OpenAICompositeMessage schema to the format required by OpenAI API.
+    * This one is used to convert messages from Rows
+    * in both format of OpenAIMessage or OpenAICompositeMessage
+    * to the format required by OpenAI API as a Map.
     *
     * @param messages
     * @return
     */
-  private[openai] def encodeCompositeMessageFromRows(messages: Seq[Row]): Seq[Map[String, Any]] = {
+  private[openai] def encodeMessagesToMap(messages: Seq[Row]): Seq[Map[String, Any]] = {
     messages.map { row =>
-      val rawContent = row.getAs[Seq[Map[String, Any]]]("content")
-      val converted = rawContent.map(_.map { case (k, v) => k.toString -> v })
+      val role = row.getAs[String]("role")
+      val contentField = row.schema.fieldIndex("content")
+      val contentType = row.schema.fields(contentField).dataType
+
+      val content = contentType.typeName match {
+        case "string" =>
+          // OpenAIMessage: content is a String
+          row.getAs[String]("content")
+        case "array" =>
+          // OpenAICompositeMessage: content is Seq[Map[String, Any]]
+          val rawContent = row.getAs[Seq[Map[String, Any]]]("content")
+          rawContent.map(_.map { case (k, v) => k.toString -> v })
+        case other =>
+          throw new IllegalArgumentException(s"Unsupported content type: $other")
+      }
 
       Map(
-        "role" -> row.getAs[String]("role"),
-        "content" -> converted
+        "role" -> role,
+        "content" -> content
       )
     }
   }
