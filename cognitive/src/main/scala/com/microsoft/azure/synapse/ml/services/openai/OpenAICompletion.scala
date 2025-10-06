@@ -61,7 +61,7 @@ class OpenAICompletion(override val uid: String) extends OpenAIServicesBase(uid)
     new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
   }
 
-  override def getOutputMessageString(outputColName: String): org.apache.spark.sql.Column = {
+  override private[openai] def getOutputMessageString(outputColName: String): org.apache.spark.sql.Column = {
     F.element_at(F.col(outputColName).getField("choices"), 1).getField("text")
   }
 

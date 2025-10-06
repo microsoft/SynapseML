@@ -330,21 +330,21 @@ trait HasRAIContentFilter {
    * @param outputRow The output row from the API response
    * @return true if content was filtered, false otherwise
    */
-  def isContentFiltered(outputRow: Row): Boolean
+  private[openai] def isContentFiltered(outputRow: Row): Boolean
 
   /**
    * Extracts the error/status reason from a filtered output row
    * @param outputRow The output row from the API response
    * @return The error reason (e.g., finish_reason or status)
    */
-  def getFilterReason(outputRow: Row): String
+  private[openai] def getFilterReason(outputRow: Row): String
 }
 
 trait HasChatOutput {
   /**
    * Extract the text content from the output column for this specific API type
    */
-  def getOutputMessageString(outputColName: String): org.apache.spark.sql.Column
+  private[openai] def getOutputMessageString(outputColName: String): org.apache.spark.sql.Column
 }
 
 private[openai] object OpenAIMessageContentEncoder {

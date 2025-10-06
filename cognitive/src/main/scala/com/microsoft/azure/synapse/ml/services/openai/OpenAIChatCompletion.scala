@@ -145,18 +145,18 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
     new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
   }
 
-  override def getOutputMessageString(outputColName: String): org.apache.spark.sql.Column = {
+  override private[openai] def getOutputMessageString(outputColName: String): org.apache.spark.sql.Column = {
     F.element_at(F.col(outputColName).getField("choices"), 1)
       .getField("message").getField("content")
   }
 
-  override def isContentFiltered(outputRow: Row): Boolean = {
+  override private[openai] def isContentFiltered(outputRow: Row): Boolean = {
     val result = ChatModelResponse.makeFromRowConverter(outputRow)
     val firstChoice = result.choices.head
     Option(firstChoice.message.content).isEmpty
   }
 
-  override def getFilterReason(outputRow: Row): String = {
+  override private[openai] def getFilterReason(outputRow: Row): String = {
     val result = ChatModelResponse.makeFromRowConverter(outputRow)
     result.choices.head.finish_reason
   }

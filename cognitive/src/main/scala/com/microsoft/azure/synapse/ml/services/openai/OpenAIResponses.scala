@@ -157,18 +157,18 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
     new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
   }
 
-  override def getOutputMessageString(outputColName: String): org.apache.spark.sql.Column = {
+  override private[openai] def getOutputMessageString(outputColName: String): org.apache.spark.sql.Column = {
     F.element_at(F.element_at(F.col(outputColName).getField("output"), 1)
       .getField("content"), 1).getField("text")
   }
 
-  override def isContentFiltered(outputRow: Row): Boolean = {
+  override private[openai] def isContentFiltered(outputRow: Row): Boolean = {
     val result = ResponsesModelResponse.makeFromRowConverter(outputRow)
     val firstOutput = result.output.head
     Option(firstOutput.content).isEmpty
   }
 
-  override def getFilterReason(outputRow: Row): String = {
+  override private[openai] def getFilterReason(outputRow: Row): String = {
     val result = ResponsesModelResponse.makeFromRowConverter(outputRow)
     result.output.head.status
   }
