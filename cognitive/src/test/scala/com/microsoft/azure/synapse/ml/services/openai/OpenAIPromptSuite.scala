@@ -120,7 +120,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     test("Basic Usage Responses API") {
     val nonNullCount = prompt
       .setPromptTemplate("give me a comma separated list of 5 {category}, starting with {text} ")
-      .setOpenAIAPIType("responses")
+      .setAPIType("responses")
       .setApiVersion("2025-04-01-preview")
       .setDeploymentName("gpt-4.1-mini")
       .setPostProcessing("csv")
@@ -247,7 +247,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .setDeploymentName(deploymentNameGpt4o)
       .setCustomServiceName(openAIServiceName)
       .setApiVersion("2025-04-01-preview")
-      .setOpenAIAPIType("responses")
+      .setAPIType("responses")
       .setColumnType("images", "path")
       .setOutputCol("outParsed")
       .setPromptTemplate("{questions}: {images}")

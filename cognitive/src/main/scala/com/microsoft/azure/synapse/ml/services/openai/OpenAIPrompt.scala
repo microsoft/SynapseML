@@ -119,13 +119,13 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   def setSystemPrompt(value: String): this.type = set(systemPrompt, value)
 
-  val openAIAPIType = new Param[String](
-    this, "openAIAPIType", "The OpenAI API type to use: 'chat_completions' or 'responses'",
+  val APIType = new Param[String](
+    this, "APIType", "The OpenAI API type to use: 'chat_completions' or 'responses'",
     isValid = ParamValidators.inArray(Array("chat_completions", "responses")))
 
-  def getOpenAIAPIType: String = $(openAIAPIType)
+  def getAPIType: String = $(APIType)
 
-  def setOpenAIAPIType(value: String): this.type = set(openAIAPIType, value)
+  def setAPIType(value: String): this.type = set(APIType, value)
 
   val columnTypes = new StringStringMapParam(
     this, "columnTypes", "A map from column names to their types. Supported types are 'text' and 'path'.")
@@ -165,7 +165,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     messagesCol -> (this.uid + "_messages"),
     dropPrompt -> true,
     systemPrompt -> defaultSystemPrompt,
-    openAIAPIType -> "chat_completions",
+    APIType -> "chat_completions",
     columnTypes -> Map.empty,
     timeout -> 360.0
   )
@@ -180,7 +180,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   private val localParamNames = Seq(
     "promptTemplate", "outputCol", "postProcessing", "postProcessingOptions", "dropPrompt", "dropMessages",
-    "systemPrompt", "openAIAPIType")
+    "systemPrompt", "APIType")
 
   private val multiModalTextPrompt = "The name of the file to analyze is %s.\nHere is the content:\n"
 
@@ -334,7 +334,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   // For this reason we add a system prompt to the messages.
   // This method is made private[openai] for testing purposes
   private[openai] def stringMessageWrapper(str: String): Map[String, String] = {
-    if (this.getOpenAIAPIType == "responses") {
+    if (this.getAPIType == "responses") {
       Map("type" -> "input_text", "text" -> str)
     } else {
       Map("type" -> "text", "text" -> str)
@@ -429,7 +429,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     val (fileType, mimeType) = inferFileType(filePath)
     val baseMessage = stringMessageWrapper(multiModalTextPrompt.format(fileName))
 
-    val fileMessage = this.getOpenAIAPIType match {
+    val fileMessage = this.getAPIType match {
       case "responses" =>
         makeResponsesFileMessage(filePathStr)
       case "chat_completions" =>
@@ -478,8 +478,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
         new OpenAICompletion()
       }
       else {
-        // Use the openAIAPIType parameter to decide which API to use
-        getOpenAIAPIType match {
+        // Use the APIType parameter to decide which API to use
+        getAPIType match {
           case "responses" => new OpenAIResponses()
           case "chat_completions" | _ => new OpenAIChatCompletion()
         }
