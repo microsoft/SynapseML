@@ -1,0 +1,14 @@
+name: sml-rm
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - ipykernel
+  - pip:
+    - azure-devops
+    - azure-identity
+    - python-dotenv
+    - PyGithub
+    - openai
