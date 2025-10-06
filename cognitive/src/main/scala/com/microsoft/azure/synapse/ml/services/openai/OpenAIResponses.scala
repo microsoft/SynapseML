@@ -151,7 +151,7 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   override def responseDataType: DataType = ResponsesModelResponse.schema
 
   private[openai] def getStringEntity(messages: Seq[Row], optionalParams: Map[String, Any]): StringEntity = {
-    val mappedMessages = OpenAIMessageContentEncoder.rowsToMaps(messages)
+    val mappedMessages = encodeCompositeMessageFromRows(messages)
       .map(_.filter { case (_, value) => value != null })
     val fullPayload = optionalParams.updated("input", mappedMessages)
     new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)

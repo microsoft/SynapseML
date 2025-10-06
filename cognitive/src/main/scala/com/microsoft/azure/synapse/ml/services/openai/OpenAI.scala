@@ -345,36 +345,22 @@ trait HasChatOutput {
    * Extract the text content from the output column for this specific API type
    */
   private[openai] def getOutputMessageString(outputColName: String): org.apache.spark.sql.Column
-}
 
-private[openai] object OpenAIMessageContentEncoder {
-
-  private def hasField(row: Row, fieldName: String): Boolean =
-    row.schema.fieldNames.contains(fieldName)
-
-  private def getOption[T](row: Row, fieldName: String): Option[T] =
-    if (hasField(row, fieldName)) Option(row.getAs[T](fieldName)) else None
-
-  private def castContentPartToString(part: Map[String, Any]): Map[String, Any] =
-    part.map { case (k, v) => k.toString -> v }
-
-  def rowsToMaps(messages: Seq[Row]): Seq[Map[String, Any]] = {
+  /**
+    * This one is used to convert message in OpenAICompositeMessage schema to the format required by OpenAI API.
+    *
+    * @param messages
+    * @return
+    */
+  private[openai] def encodeCompositeMessageFromRows(messages: Seq[Row]): Seq[Map[String, Any]] = {
     messages.map { row =>
-      val base = scala.collection.mutable.Map[String, Any]()
-      getOption[String](row, "role").foreach(base += "role" -> _)
+      val rawContent = row.getAs[Seq[Map[String, Any]]]("content")
+      val converted = rawContent.map(_.map { case (k, v) => k.toString -> v })
 
-      val contentPartsOpt =
-        if (hasField(row, "content")) Option(row.getAs[Seq[Map[String, Any]]]("content")) else None
-
-      contentPartsOpt.filter(parts => parts != null && parts.nonEmpty) match {
-        case Some(parts) =>
-          val converted = parts.map(castContentPartToString)
-          base += "content" -> converted
-        case None =>
-          getOption[Any](row, "content").foreach(base += "content" -> _)
-      }
-
-      base.toMap
+      Map(
+        "role" -> row.getAs[String]("role"),
+        "content" -> converted
+      )
     }
   }
 }
