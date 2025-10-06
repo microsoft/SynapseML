@@ -305,11 +305,15 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
       val createMessagesUDF = udf[Seq[OpenAICompositeMessage], String, Map[String, String]] {
         (userMessage, attachmentMap) =>
-          createMessagesForRow(
-            userMessage,
-            Option(attachmentMap).getOrElse(Map.empty[String, String]),
-            pathColumnNames
-          )
+          if (userMessage == null) {
+            null //scalastyle:ignore null
+          } else {
+            createMessagesForRow(
+              userMessage,
+              Option(attachmentMap).getOrElse(Map.empty[String, String]),
+              pathColumnNames
+            )
+          }
       }
 
       val (dfTemplated, inputColName, serviceConfigured) =
