@@ -119,7 +119,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   def setSystemPrompt(value: String): this.type = set(systemPrompt, value)
 
   val apiType = new Param[String](
-    this, "APIType", "The OpenAI API type to use: 'chat_completions' or 'responses'",
+    this, "apiType", "The OpenAI API type to use: 'chat_completions' or 'responses'",
     isValid = ParamValidators.inArray(Array("chat_completions", "responses")))
 
   def getApiType: String = $(apiType)
@@ -179,7 +179,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   private val localParamNames = Seq(
     "promptTemplate", "outputCol", "postProcessing", "postProcessingOptions", "dropPrompt", "dropMessages",
-    "systemPrompt", "APIType")
+    "systemPrompt", "apiType")
 
   private val multiModalTextPrompt = "The name of the file to analyze is %s.\nHere is the content:\n"
 
@@ -470,7 +470,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
         new OpenAICompletion()
       }
       else {
-        // Use the APIType parameter to decide which API to use
+        // Use the apiType parameter to decide which API to use
         getApiType match {
           case "responses" => new OpenAIResponses()
           case "chat_completions" | _ => new OpenAIChatCompletion()

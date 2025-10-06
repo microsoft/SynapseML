@@ -64,7 +64,8 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       assert(parts.head.getOrElse("type", "") == "text")
       assert(parts.head.getOrElse("text", "").contains("Summarize the file"))
       val textSection = parts.collectFirst {
-        case part if part.getOrElse("type", "") == "text" && part.getOrElse("text", "").contains("example content") => part
+        case part if part.getOrElse("type", "") == "text" 
+        && part.getOrElse("text", "").contains("example content") => part
       }
       assert(textSection.isDefined)
       assert(userMessage.content.nonEmpty)
@@ -251,7 +252,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .setColumnType("images", "path")
       .setOutputCol("outParsed")
       .setPromptTemplate("{questions}: {images}")
-    
+
     val urlDF = Seq(
       (
         "What's in this document?",

@@ -112,7 +112,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
       StructField("role", StringType, nullable = false),
       StructField("name", StringType, nullable = true),
       StructField(
-        "content", 
+        "content",
         ArrayType(
           MapType(
             StringType, StringType, valueContainsNull = true
