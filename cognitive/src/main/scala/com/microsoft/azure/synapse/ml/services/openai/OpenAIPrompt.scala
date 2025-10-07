@@ -207,24 +207,14 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     }, dataset.columns.length)
   }
 
-  // If the response format is set, add a system prompt to the messages. This is required by the
-  // OpenAI api. If the reponseFormat is json and the prompt does not contain string 'JSON' then 400 error is returned
-  // For this reason we add a system prompt to the messages.
-  // This method is made private[openai] for testing purposes
+  // Build chat messages: user-supplied system prompt (or default) + user message.
+  // Do not inject any additional system prompt based on responseFormat; allow caller control.
+  // Exposed private[openai] for existing tests.
   private[openai] def getPromptsForMessage(userMessage: String) = {
-    val basePrompts = Seq(
+    Seq(
       OpenAIMessage("system", getSystemPrompt),
       OpenAIMessage("user", userMessage)
-      )
-
-    if (isSet(responseFormat)) {
-      val responseFormatPrompt = OpenAIResponseFormat
-        .fromResponseFormatString(getResponseFormat("type"))
-        .prompt
-      basePrompts :+ OpenAIMessage("system", responseFormatPrompt)
-    } else {
-      basePrompts
-    }
+    )
   }
 
   private[openai] def hasAIFoundryModel: Boolean = this.isDefined(model)

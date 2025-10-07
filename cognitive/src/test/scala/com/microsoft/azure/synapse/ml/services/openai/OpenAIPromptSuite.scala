@@ -182,13 +182,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
                .foreach(r => assert(r.getStruct(0).getString(0).nonEmpty))
   }
 
-  test("if responseFormat is set then appropriate system prompt should be present") {
-    val prompt = new OpenAIPrompt()
-    prompt.setResponseFormat("json_object")
-    val messages = prompt.getPromptsForMessage("test")
-    assert(messages.nonEmpty)
-    messages.exists(p => p.role == "system" && p.content.contains(OpenAIResponseFormat.JSON.prompt))
-  }
+  // Removed tests asserting automatic system prompt injection for responseFormat.
 
   ignore("Custom EndPoint") {
     lazy val accessToken: String = sys.env.getOrElse("CUSTOM_ACCESS_TOKEN", "")
@@ -255,6 +249,15 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     intercept[IllegalArgumentException] {
       prompt.setPostProcessingOptions(Map("jsonSchema" -> "schema"))
     }
+  }
+
+  test("reject bare json_schema string in OpenAIPrompt responseFormat passthrough"){
+    val p = new OpenAIPrompt()
+    intercept[IllegalArgumentException] {
+      p.setResponseFormat("json_schema")
+    }
+    // Ensure json_schema provided as Map still works
+    p.setResponseFormat(Map("type" -> "json_schema", "json_schema" -> Map("name" -> "answer_schema", "schema" -> Map("type" -> "object"))))
   }
 
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {

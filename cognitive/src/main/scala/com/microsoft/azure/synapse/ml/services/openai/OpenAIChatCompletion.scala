@@ -17,68 +17,65 @@ import spray.json._
 
 import scala.language.existentials
 
-object OpenAIResponseFormat extends Enumeration {
-  case class ResponseFormat(paylodName: String, prompt: String) extends super.Val(paylodName)
-
-  val TEXT: ResponseFormat = ResponseFormat("text", "Output must be in text format")
-  val JSON: ResponseFormat = ResponseFormat("json_object", "Output must be in JSON format")
-
-  def asStringSet: Set[String] =
-    OpenAIResponseFormat.values.map(_.asInstanceOf[OpenAIResponseFormat.ResponseFormat].paylodName)
-
-  def fromResponseFormatString(format: String): OpenAIResponseFormat.ResponseFormat = {
-    if (TEXT.paylodName== format) {
-      TEXT
-    } else if (JSON.paylodName == format) {
-      JSON
-    } else {
-      throw new IllegalArgumentException("Response format must be valid for OpenAI API. " +
-                                         "Currently supported formats are " +
-                                         asStringSet.mkString(", "))
-    }
-  }
-}
+/**
+ * Minimal response_format handling:
+ * - Accept any non-empty 'type' (delegated to service for validation).
+ * - Special case: bare 'json_schema' string is rejected (must include full json_schema object).
+ * - If type == json_schema then a 'json_schema' key must be present.
+ */
 
 trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
-  val responseFormat: ServiceParam[Map[String, String]] = new ServiceParam[Map[String, String]](
+  // Updated to Map[String, Any] to allow nested json_schema structure
+  val responseFormat: ServiceParam[Map[String, Any]] = new ServiceParam[Map[String, Any]](
     this,
     "responseFormat",
-    "Response format for the completion. Can be 'json_object' or 'text'.",
+    "Response format for the completion. Can be 'json_object', 'json_schema', or 'text'. " +
+      "For 'json_schema' you must also provide key 'json_schema' with nested JSON schema definition.",
     isRequired = false) {
     override val payloadName: String = "response_format"
   }
 
-  def getResponseFormat: Map[String, String] = getScalarParam(responseFormat)
+  def getResponseFormat: Map[String, Any] = getScalarParam(responseFormat)
 
-  def setResponseFormat(value: Map[String, String]): this.type = {
-    val allowedFormat = OpenAIResponseFormat.asStringSet
-
-    // This test is to validate that value is properly formatted Map('type' -> '<format>')
-    if (value == null || value.size !=1  || !value.contains("type") || value("type").isEmpty) {
-      throw new IllegalArgumentException("Response format map must of the form Map('type' -> '<format>')"
-                                           + " where <format> is one of " + allowedFormat.mkString(", "))
+  def setResponseFormat(value: Map[String, Any]): this.type = {
+    if (value == null || !value.contains("type") ||
+      value("type") == null ||
+      value("type").asInstanceOf[Any].toString.trim.isEmpty) {
+      throw new IllegalArgumentException("response_format map must contain non-empty key 'type'")
     }
-
-    // This test is to validate that the format is one of the allowed formats
-    if (!allowedFormat.contains(value("type").toLowerCase)) {
-      throw new IllegalArgumentException("Response format must be valid for OpenAI API. " +
-                                           "Currently supported formats are " +
-                                           allowedFormat.mkString(", "))
+    val tpe = value("type").toString.toLowerCase
+    if (tpe == "json_schema" && !value.contains("json_schema")) {
+      throw new IllegalArgumentException("When type == 'json_schema', key 'json_schema' must be provided.")
     }
     setScalarParam(responseFormat, value)
   }
 
+  // Simplified: only allow plain type tokens via String for common simple formats.
+  // Supported String values: "text", "json_object".
+  // For "json_schema" caller must use Map form with full structure (no parsing performed here).
+  // Any other String value is rejected to avoid implicit parsing/assumptions.
   def setResponseFormat(value: String): this.type = {
-    if (value == null || value.isEmpty) {
-      this
-    } else {
-      setResponseFormat(Map("type" -> value.toLowerCase))
+    if (value == null) return this
+    val trimmed = value.trim
+    if (trimmed.isEmpty) return this
+    if (trimmed.equalsIgnoreCase("json_schema")) {
+      throw new IllegalArgumentException(
+        "Provide json_schema via Map: setResponseFormat(Map(\"type\"->\"json_schema\",\"json_schema\"-> {...}))")
+    }
+    trimmed.toLowerCase match {
+      case "text" | "json_object" =>
+        setResponseFormat(Map("type" -> trimmed.toLowerCase))
+      case _ =>
+        throw new IllegalArgumentException(
+          "Unsupported response_format String. Use 'text', 'json_object', or a Map for 'json_schema'.")
     }
   }
 
-  def setResponseFormat(value: OpenAIResponseFormat.ResponseFormat): this.type = {
-    setScalarParam(responseFormat, Map("type" -> value.paylodName))
-  }
+  // Enumeration overload removed; users pass String or Map[String, Any].
+
+  def getResponseFormatType: String = Option(getResponseFormat)
+    .flatMap(m => Option(m.getOrElse("type", "").toString))
+    .getOrElse("")
 
   // override this field to include the new parameter
   override private[openai] val sharedTextParams: Seq[ServiceParam[_]] = Seq(
@@ -148,6 +145,3 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   }
 
 }
-
-
-

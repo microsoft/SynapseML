@@ -159,7 +159,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     def validateResponseFormat(params: Map[String, Any], responseFormat: String): Unit = {
       val responseFormatPayloadName = this.completion.responseFormat.payloadName
       assert(params.contains(responseFormatPayloadName))
-      val responseFormatMap = params(responseFormatPayloadName).asInstanceOf[Map[String, String]]
+      val responseFormatMap = params(responseFormatPayloadName).asInstanceOf[Map[String, Any]]
       assert(responseFormatMap.contains("type"))
       assert(responseFormatMap("type") == responseFormat)
     }
@@ -187,25 +187,66 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     val optionalParams3: Map[String, Any] = completion.getOptionalParams(messages.head)
     validateResponseFormat(optionalParams3, "json_object")
 
-    completion.setResponseFormat(OpenAIResponseFormat.TEXT)
+    completion.setResponseFormat("text")
     val optionalParams4: Map[String, Any] = completion.getOptionalParams(messages.head)
     validateResponseFormat(optionalParams4, "text")
   }
 
-  test("setResponseFormat should throw exception if invalid format"){
+  test("getOptionalParam should include json_schema responseFormat") {
     val completion = new OpenAIChatCompletion()
       .setDeploymentName(deploymentNameGpt4)
 
-    assertThrows[IllegalArgumentException] {
-      completion.setResponseFormat("invalid_format")
-    }
+    val messages: Seq[Row] = Seq(
+      OpenAIMessage("user", "test")
+    ).toDF("role", "content", "name").collect()
 
-    assertThrows[IllegalArgumentException] {
-      completion.setResponseFormat(Map("type" -> "invalid_format"))
-    }
+    val schemaMap: Map[String, Any] = Map(
+      "type" -> "json_schema",
+      "json_schema" -> Map(
+        "name" -> "answer_schema",
+        "strict" -> true,
+        "schema" -> Map(
+          "type" -> "object",
+          "properties" -> Map(
+            "answer" -> Map("type" -> "string")
+          ),
+          "required" -> Seq("answer"),
+          "additionalProperties" -> false
+        )
+      )
+    )
 
+    completion.setResponseFormat(schemaMap)
+    val optionalParams = completion.getOptionalParams(messages.head)
+    val rf = optionalParams(this.completion.responseFormat.payloadName).asInstanceOf[Map[String, Any]]
+    assert(rf("type") == "json_schema")
+    val js = rf("json_schema").asInstanceOf[Map[String, Any]]
+    assert(js("name") == "answer_schema")
+  }
+
+  // Removed JSON string parsing test: json_schema must be provided as Map
+
+  test("setResponseFormat should throw exception if json_schema JSON string missing type") {
+    val completion = new OpenAIChatCompletion()
+      .setDeploymentName(deploymentNameGpt4)
+    val badJson =
+      """{
+        |  "json_schema": {
+        |    "name": "answer_schema"
+        |  }
+        |}""".stripMargin
     assertThrows[IllegalArgumentException] {
-      completion.setResponseFormat(Map("invalid_key" -> "json_object"))
+      completion.setResponseFormat(badJson)
+    }
+  }
+
+  // Removed invalid format rejection test: unknown types are passed through to service.
+
+  test("reject bare json_schema string in setResponseFormat"){
+    val completion = new OpenAIChatCompletion()
+      .setDeploymentName(deploymentNameGpt4)
+    assertThrows[IllegalArgumentException] {
+      completion.setResponseFormat("json_schema")
     }
   }
 
@@ -213,22 +254,19 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     val goodDf: DataFrame = Seq(
       Seq(
         OpenAIMessage("system", "You are an AI chatbot with red as your favorite color"),
-        OpenAIMessage("system", OpenAIResponseFormat.JSON.prompt),
         OpenAIMessage("user", "Whats your favorite color")
-        ),
+      ),
       Seq(
         OpenAIMessage("system", "You are very excited"),
-        OpenAIMessage("system", OpenAIResponseFormat.JSON.prompt),
         OpenAIMessage("user", "How are you today")
-        ),
+      ),
       Seq(
-        OpenAIMessage("system", OpenAIResponseFormat.JSON.prompt),
         OpenAIMessage("system", "You are very excited"),
         OpenAIMessage("user", "How are you today"),
         OpenAIMessage("system", "Better than ever"),
         OpenAIMessage("user", "Why?")
-        )
-      ).toDF("messages")
+      )
+    ).toDF("messages")
 
     val completion = new OpenAIChatCompletion()
       .setDeploymentName(deploymentNameGpt4o)
