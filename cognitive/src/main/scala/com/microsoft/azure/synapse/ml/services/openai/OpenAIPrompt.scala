@@ -25,9 +25,9 @@ import org.apache.spark.sql.types.{DataType, StructField, StructType}
 import spray.json.DefaultJsonProtocol._
 
 
-import java.net.{URI, URL}
+import java.io.ByteArrayInputStream
+import java.net.{URI, URL, URLConnection}
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Paths}
 import java.util.Base64
 
 import scala.collection.JavaConverters._
@@ -377,13 +377,32 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     parts
   }
 
-  private def makeResponsesFileMessage(filePathStr: String): Map[String, String] = {
+  private def prepareFile(filePathStr: String): (String, Array[Byte], String, String) = {
     val filePath = new HPath(filePathStr)
     val fileBytes = BinaryFileReader.readSingleFileBytes(filePath)
     val fileName = filePath.getName
-    val (fileType, mimeType) = inferFileType(filePath)
+    val extension = fileName.lastIndexOf('.') match {
+      case idx if idx >= 0 => fileName.substring(idx + 1).toLowerCase
+      case _ => ""
+    }
 
-    val fileMessage = fileType match {
+    // Use URLConnection to infer MIME type from byte content
+    val mimeType = Option(URLConnection.guessContentTypeFromStream(new ByteArrayInputStream(fileBytes))).getOrElse(
+      // Fallback to URLConnection.guessContentTypeFromName if content-based detection fails
+      Option(URLConnection.guessContentTypeFromName(fileName)).getOrElse("application/octet-stream")
+    )
+
+    val fileType = categorizeFileType(mimeType, extension)
+    (fileName, fileBytes, fileType, mimeType)
+  }
+
+  private def makeResponsesFileMessage(
+    fileName: String,
+    fileBytes: Array[Byte],
+    fileType: String,
+    mimeType: String
+  ): Map[String, String] = {
+    fileType match {
       case "text" =>
         stringMessageWrapper(s"${new String(fileBytes, StandardCharsets.UTF_8)}")
       case "image" =>
@@ -400,45 +419,33 @@ class OpenAIPrompt(override val uid: String) extends Transformer
           "file_data" -> s"data:${mimeType};base64,${Base64.getEncoder.encodeToString(fileBytes)}"
         )
     }
-    fileMessage
   }
 
-    private def makeChatCompletionsFileMessage(filePathStr: String): Map[String, String] = {
-      val filePath = new HPath(filePathStr)
-      val fileBytes = BinaryFileReader.readSingleFileBytes(filePath)
-      val fileName = filePath.getName
-      val (fileType, mimeType) = inferFileType(filePath)
-
-      val fileMessage = fileType match {
-        case "text" =>
-          stringMessageWrapper(s"Content: ${new String(fileBytes, StandardCharsets.UTF_8)}")
-        case _ =>
-          throw new IllegalArgumentException(s"Multimodal Input is not supported in Chat Completions API.")
-      }
-      fileMessage
+  private def makeChatCompletionsFileMessage(
+    fileName: String,
+    fileBytes: Array[Byte],
+    fileType: String,
+    mimeType: String
+  ): Map[String, String] = {
+    fileType match {
+      case "text" =>
+        stringMessageWrapper(s"Content: ${new String(fileBytes, StandardCharsets.UTF_8)}")
+      case _ =>
+        throw new IllegalArgumentException(s"Multimodal Input is not supported in Chat Completions API.")
     }
+  }
 
   private def wrapFileToMessagesList(filePathStr: String): Seq[Map[String, String]] = {
-    val filePath = new HPath(filePathStr)
-    val fileBytes = BinaryFileReader.readSingleFileBytes(filePath)
-    val fileName = filePath.getName
-    val (fileType, mimeType) = inferFileType(filePath)
+    val (fileName, fileBytes, fileType, mimeType) = prepareFile(filePathStr)
     val baseMessage = stringMessageWrapper(multiModalTextPrompt.format(fileName))
 
     val fileMessage = this.getApiType match {
       case "responses" =>
-        makeResponsesFileMessage(filePathStr)
+        makeResponsesFileMessage(fileName, fileBytes, fileType, mimeType)
       case "chat_completions" =>
-        makeChatCompletionsFileMessage(filePathStr)
+        makeChatCompletionsFileMessage(fileName, fileBytes, fileType, mimeType)
     }
     Seq(baseMessage, fileMessage)
-  }
-
-  private def getExtension(fileName: String): String = {
-    fileName.lastIndexOf('.') match {
-      case idx if idx >= 0 => fileName.substring(idx + 1).toLowerCase
-      case _ => ""
-    }
   }
 
   private def categorizeFileType(mimeType: String, extension: String): String = {
@@ -447,14 +454,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     else if (mimeType.startsWith("audio/") && audioExtensions.contains(extension)) "audio"
     else if (mimeType.startsWith("text/") || textExtensions.contains(extension)) "text"
     else "file"
-  }
-
-  private def inferFileType(filePath: HPath): (String, String) = {
-    val extension = getExtension(filePath.getName)
-    val mimeType = Option(Files.probeContentType(Paths.get(filePath.toString)))
-      .getOrElse("application/octet-stream")
-    val fileType = categorizeFileType(mimeType, extension)
-    (fileType, mimeType)
   }
 
   private[openai] def hasAIFoundryModel: Boolean = this.isDefined(model)
