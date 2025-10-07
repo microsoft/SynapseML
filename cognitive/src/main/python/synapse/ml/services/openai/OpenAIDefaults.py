@@ -6,7 +6,6 @@ import sys
 if sys.version >= "3":
     basestring = str
 
-import pyspark
 from pyspark import SparkContext
 
 
@@ -20,7 +19,9 @@ def getOption(opt):
 class OpenAIDefaults:
     def __init__(self):
         self.defaults = (
-            SparkContext.getOrCreate()._jvm.com.microsoft.azure.synapse.ml.services.openai.OpenAIDefaults
+            SparkContext.getOrCreate()
+            ._jvm
+            .com.microsoft.azure.synapse.ml.services.openai.OpenAIDefaults
         )
 
     def set_deployment_name(self, name):
@@ -76,7 +77,9 @@ class OpenAIDefaults:
     def set_top_p(self, top_p):
         top_p_float = float(top_p)
         if not (0.0 <= top_p_float <= 1.0):
-            raise ValueError(f"TopP must be between 0.0 and 1.0, got: {top_p_float}")
+            raise ValueError(
+                f"TopP must be between 0.0 and 1.0, got: {top_p_float}"
+            )
         self.defaults.setTopP(top_p_float)
 
     def get_top_p(self):
@@ -102,3 +105,27 @@ class OpenAIDefaults:
 
     def reset_model(self):
         self.defaults.resetModel()
+
+    # New verbosity parameter
+    def set_verbosity(self, verbosity):
+        # Accept any string the user provides
+        # (no validation constraints per requirement)
+        self.defaults.setVerbosity(str(verbosity))
+
+    def get_verbosity(self):
+        return getOption(self.defaults.getVerbosity())
+
+    def reset_verbosity(self):
+        self.defaults.resetVerbosity()
+
+    # New reasoning_effort parameter
+    def set_reasoning_effort(self, reasoning_effort):
+        # Accept any string the user provides
+        # (no validation constraints per requirement)
+        self.defaults.setReasoningEffort(str(reasoning_effort))
+
+    def get_reasoning_effort(self):
+        return getOption(self.defaults.getReasoningEffort())
+
+    def reset_reasoning_effort(self):
+        self.defaults.resetReasoningEffort()
