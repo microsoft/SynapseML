@@ -26,6 +26,7 @@ class TestOpenAIDefaults(unittest.TestCase):
         defaults.set_URL("Test URL/")
         defaults.set_api_version("2024-05-01-preview")
         defaults.set_model("grok-3-mini")
+        defaults.set_embedding_deployment_name("text-embedding-ada-002")
 
         self.assertEqual(defaults.get_deployment_name(), "Bing Bong")
         self.assertEqual(defaults.get_subscription_key(), "SubKey")
@@ -35,6 +36,7 @@ class TestOpenAIDefaults(unittest.TestCase):
         self.assertEqual(defaults.get_URL(), "Test URL/")
         self.assertEqual(defaults.get_api_version(), "2024-05-01-preview")
         self.assertEqual(defaults.get_model(), "grok-3-mini")
+        self.assertEqual(defaults.get_embedding_deployment_name(), "text-embedding-ada-002")
 
     def test_resetters(self):
         defaults = OpenAIDefaults()
@@ -47,6 +49,7 @@ class TestOpenAIDefaults(unittest.TestCase):
         defaults.set_URL("Test URL/")
         defaults.set_api_version("2024-05-01-preview")
         defaults.set_model("grok-3-mini")
+        defaults.set_embedding_deployment_name("text-embedding-ada-002")
 
         self.assertEqual(defaults.get_deployment_name(), "Bing Bong")
         self.assertEqual(defaults.get_subscription_key(), "SubKey")
@@ -56,6 +59,7 @@ class TestOpenAIDefaults(unittest.TestCase):
         self.assertEqual(defaults.get_URL(), "Test URL/")
         self.assertEqual(defaults.get_api_version(), "2024-05-01-preview")
         self.assertEqual(defaults.get_model(), "grok-3-mini")
+        self.assertEqual(defaults.get_embedding_deployment_name(), "text-embedding-ada-002")
 
         defaults.reset_deployment_name()
         defaults.reset_subscription_key()
@@ -65,6 +69,7 @@ class TestOpenAIDefaults(unittest.TestCase):
         defaults.reset_URL()
         defaults.reset_api_version()
         defaults.reset_model()
+        defaults.reset_embedding_deployment_name()
 
         self.assertEqual(defaults.get_deployment_name(), None)
         self.assertEqual(defaults.get_subscription_key(), None)
@@ -74,6 +79,7 @@ class TestOpenAIDefaults(unittest.TestCase):
         self.assertEqual(defaults.get_URL(), None)
         self.assertEqual(defaults.get_api_version(), None)
         self.assertEqual(defaults.get_model(), None)
+        self.assertEqual(defaults.get_embedding_deployment_name(), None)
 
     def test_two_defaults(self):
         defaults = OpenAIDefaults()
