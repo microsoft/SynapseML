@@ -1,7 +1,7 @@
 name: Acknowledge PR
 on:
   pull_request_target:
-    types: opened
+    types: [opened, synchronize]
 jobs:
   commentor:
     runs-on: ubuntu-latest
