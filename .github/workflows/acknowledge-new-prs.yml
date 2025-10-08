@@ -1,15 +1,10 @@
 name: Acknowledge PR
 on:
-  pull_request:
-    types:
-      - opened
-      - synchronize
+  pull_request_target:
+    types: opened
 jobs:
   commentor:
     runs-on: ubuntu-latest
-    permissions:
-      issues: write
-      pull-requests: write
     steps:
       - name: Comment to acknowledge PRs
         uses: peter-evans/create-or-update-comment@v5
