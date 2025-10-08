@@ -118,6 +118,28 @@ object OpenAIDefaults {
 
   def resetEmbeddingDeploymentName(): Unit = {
     GlobalParams.resetGlobalParam(OpenAIEmbeddingDeploymentNameKey)
+  def setVerbosity(v: String): Unit = {
+    GlobalParams.setGlobalParam(OpenAIVerbosityKey, Left(v))
+  }
+
+  def getVerbosity: Option[String] = {
+    extractLeft(GlobalParams.getGlobalParam(OpenAIVerbosityKey))
+  }
+
+  def resetVerbosity(): Unit = {
+    GlobalParams.resetGlobalParam(OpenAIVerbosityKey)
+  }
+
+  def setReasoningEffort(v: String): Unit = {
+    GlobalParams.setGlobalParam(OpenAIReasoningEffortKey, Left(v))
+  }
+
+  def getReasoningEffort: Option[String] = {
+    extractLeft(GlobalParams.getGlobalParam(OpenAIReasoningEffortKey))
+  }
+
+  def resetReasoningEffort(): Unit = {
+    GlobalParams.resetGlobalParam(OpenAIReasoningEffortKey)
   }
 
   private def extractLeft[T](optEither: Option[Either[T, String]]): Option[T] = {

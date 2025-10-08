@@ -6,7 +6,6 @@ import sys
 if sys.version >= "3":
     basestring = str
 
-import pyspark
 from pyspark import SparkContext
 
 
@@ -111,3 +110,21 @@ class OpenAIDefaults:
 
     def reset_embedding_deployment_name(self):
         self.defaults.resetEmbeddingDeploymentName()
+
+    def set_verbosity(self, verbosity):
+        self.defaults.setVerbosity(str(verbosity))
+
+    def get_verbosity(self):
+        return getOption(self.defaults.getVerbosity())
+
+    def reset_verbosity(self):
+        self.defaults.resetVerbosity()
+
+    def set_reasoning_effort(self, reasoning_effort):
+        self.defaults.setReasoningEffort(str(reasoning_effort))
+
+    def get_reasoning_effort(self):
+        return getOption(self.defaults.getReasoningEffort())
+
+    def reset_reasoning_effort(self):
+        self.defaults.resetReasoningEffort()

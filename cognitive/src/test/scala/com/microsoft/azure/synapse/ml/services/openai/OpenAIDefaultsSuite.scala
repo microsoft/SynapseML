@@ -85,6 +85,8 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     OpenAIDefaults.setApiVersion("2024-05-01-preview")
     OpenAIDefaults.setModel("grok-3-mini")
     OpenAIDefaults.setEmbeddingDeploymentName("text-embedding-ada-002")
+    OpenAIDefaults.setVerbosity("medium")
+    OpenAIDefaults.setReasoningEffort("medium")
 
     assert(OpenAIDefaults.getDeploymentName.contains(deploymentName))
     assert(OpenAIDefaults.getSubscriptionKey.contains(openAIAPIKey))
@@ -95,6 +97,8 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     assert(OpenAIDefaults.getApiVersion.contains("2024-05-01-preview"))
     assert(OpenAIDefaults.getModel.contains("grok-3-mini"))
     assert(OpenAIDefaults.getEmbeddingDeploymentName.contains("text-embedding-ada-002"))
+    assert(OpenAIDefaults.getVerbosity.contains("medium"))
+    assert(OpenAIDefaults.getReasoningEffort.contains("medium"))
   }
 
   test("Test Resetters") {
@@ -107,6 +111,8 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     OpenAIDefaults.setApiVersion("2024-05-01-preview")
     OpenAIDefaults.setModel("grok-3-mini")
     OpenAIDefaults.setEmbeddingDeploymentName("text-embedding-ada-002")
+    OpenAIDefaults.setVerbosity("medium")
+    OpenAIDefaults.setReasoningEffort("medium")
 
     OpenAIDefaults.resetDeploymentName()
     OpenAIDefaults.resetSubscriptionKey()
@@ -117,6 +123,8 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     OpenAIDefaults.resetApiVersion()
     OpenAIDefaults.resetModel()
     OpenAIDefaults.resetEmbeddingDeploymentName()
+    OpenAIDefaults.resetVerbosity()
+    OpenAIDefaults.resetReasoningEffort()
 
     assert(OpenAIDefaults.getDeploymentName.isEmpty)
     assert(OpenAIDefaults.getSubscriptionKey.isEmpty)
@@ -127,6 +135,8 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     assert(OpenAIDefaults.getApiVersion.isEmpty)
     assert(OpenAIDefaults.getModel.isEmpty)
     assert(OpenAIDefaults.getEmbeddingDeploymentName.isEmpty)
+    assert(OpenAIDefaults.getVerbosity.isEmpty)
+    assert(OpenAIDefaults.getReasoningEffort.isEmpty)
   }
 
   test("Test Parameter Validation") {
@@ -134,16 +144,16 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     OpenAIDefaults.setTemperature(0.0)
     OpenAIDefaults.setTemperature(1.0)
     OpenAIDefaults.setTemperature(2.0)
-    OpenAIDefaults.setTemperature(0)  // int should work
-    OpenAIDefaults.setTemperature(1)  // int should work
-    OpenAIDefaults.setTemperature(2)  // int should work
+    OpenAIDefaults.setTemperature(0)
+    OpenAIDefaults.setTemperature(1)
+    OpenAIDefaults.setTemperature(2)
 
     // Test valid topP values
     OpenAIDefaults.setTopP(0.0)
     OpenAIDefaults.setTopP(0.5)
     OpenAIDefaults.setTopP(1.0)
-    OpenAIDefaults.setTopP(0)  // int should work
-    OpenAIDefaults.setTopP(1)  // int should work
+    OpenAIDefaults.setTopP(0)
+    OpenAIDefaults.setTopP(1)
 
     // Test invalid temperature values
     assertThrows[IllegalArgumentException] {
@@ -160,5 +170,13 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     assertThrows[IllegalArgumentException] {
       OpenAIDefaults.setTopP(1.1)
     }
+
+    // Test verbosity values
+    OpenAIDefaults.setVerbosity("low")
+    OpenAIDefaults.setVerbosity("anything")
+
+    // Test reasoning effort values
+    OpenAIDefaults.setReasoningEffort("low")
+    OpenAIDefaults.setReasoningEffort("anything")
   }
 }
