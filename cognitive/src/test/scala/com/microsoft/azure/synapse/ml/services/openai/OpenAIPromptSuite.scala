@@ -12,6 +12,9 @@ import org.apache.spark.sql.functions.col
 import org.scalactic.Equality
 import com.microsoft.azure.synapse.ml.services.aifoundry.AIFoundryAPIKey
 
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+
 class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIKey
   with AIFoundryAPIKey
   with Flaky {
@@ -45,6 +48,41 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     ("cake", "dishes")
   ).toDF("text", "category")
 
+  test("createMessagesForRow generates contentParts for path columns when using Chat Completions API") {
+    val prompt = new OpenAIPrompt()
+    val tempFile = Files.createTempFile("synapseml-openai", ".txt")
+    try {
+      Files.write(tempFile, "example content".getBytes(StandardCharsets.UTF_8))
+      val attachments = Map("filePath" -> tempFile.toString)
+      val messages = prompt.createMessagesForRow("Summarize the file", attachments, Seq("filePath"))
+
+      val systemMessage = messages.find(_.role == "system").get
+      assert(systemMessage.content.nonEmpty)
+
+      val userMessage = messages.find(_.role == "user").get
+      val parts = userMessage.content
+      assert(parts.head.getOrElse("type", "") == "text")
+      assert(parts.head.getOrElse("text", "").contains("Summarize the file"))
+      val textSection = parts.collectFirst {
+        case part if part.getOrElse("type", "") == "text"
+        && part.getOrElse("text", "").contains("example content") => part
+      }
+      assert(textSection.isDefined)
+      assert(userMessage.content.nonEmpty)
+    } finally {
+      Files.deleteIfExists(tempFile)
+    }
+  }
+
+  test("applyPathPlaceholders replaces path columns with attachment notice") {
+    val prompt = new OpenAIPrompt()
+    val template = "Describe {text} with reference to {filePath}"
+    val updated = prompt.applyPathPlaceholders(template, Seq("filePath"))
+    assert(updated.contains("Content for column 'filePath' will be provided later as an attachment."))
+    assert(!updated.contains("{filePath}"))
+    assert(updated.contains("{text}"))
+  }
+
   test("RAI Usage") {
     val result = prompt
       .setDeploymentName(deploymentNameGpt4o)
@@ -72,6 +110,20 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
   test("Basic Usage AI Foundry") {
     val nonNullCount = aiFoundryPrompt
       .setPromptTemplate("give me a comma separated list of 5 {category}, starting with {text} ")
+      .setPostProcessing("csv")
+      .transform(df)
+      .select("outParsed")
+      .collect()
+      .count(r => Option(r.getSeq[String](0)).isDefined)
+    assert(nonNullCount == 3)
+  }
+
+    test("Basic Usage Responses API") {
+    val nonNullCount = prompt
+      .setPromptTemplate("give me a comma separated list of 5 {category}, starting with {text} ")
+      .setApiType("responses")
+      .setApiVersion("2025-04-01-preview")
+      .setDeploymentName("gpt-4.1-mini")
       .setPostProcessing("csv")
       .transform(df)
       .select("outParsed")
@@ -185,9 +237,43 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
   test("if responseFormat is set then appropriate system prompt should be present") {
     val prompt = new OpenAIPrompt()
     prompt.setResponseFormat("json_object")
-    val messages = prompt.getPromptsForMessage("test")
+    val messages = prompt.getPromptsForMessage(Right("test"))
     assert(messages.nonEmpty)
-    messages.exists(p => p.role == "system" && p.content.contains(OpenAIResponseFormat.JSON.prompt))
+    messages.exists(p => p.role == "system" && p.content.contains(OpenAIChatCompletionResponseFormat.JSON.prompt))
+  }
+
+  test("Take Multimodal Message") {
+    val promptResponses = new OpenAIPrompt()
+      .setSubscriptionKey(openAIAPIKey)
+      .setDeploymentName(deploymentNameGpt4o)
+      .setCustomServiceName(openAIServiceName)
+      .setApiVersion("2025-04-01-preview")
+      .setApiType("responses")
+      .setColumnType("images", "path")
+      .setOutputCol("outParsed")
+      .setPromptTemplate("{questions}: {images}")
+
+    val urlDF = Seq(
+      (
+        "What's in this document?",
+        "https://mmlspark.blob.core.windows.net/datasets/OCR/paper.pdf"
+      ),
+      (
+        "What's in this image?",
+        "https://mmlspark.blob.core.windows.net/datasets/OCR/test2.png"
+      )
+    ).toDF("questions", "images")
+
+    val keywordsForEachQuestions = List("knn", "sorry")
+
+  promptResponses.transform(urlDF)
+               .select("outParsed")
+               .where(col("outParsed").isNotNull)
+               .collect()
+               .zip(keywordsForEachQuestions)
+               .foreach { case (row, keyword) =>
+                 assert(row.getString(0).toLowerCase.contains(keyword))
+               }
   }
 
   ignore("Custom EndPoint") {

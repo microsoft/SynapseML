@@ -133,7 +133,7 @@ class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompl
     val optionalParams3: Map[String, Any] = completion.getOptionalParams(messages.head)
     validateResponseFormat(optionalParams3, "json_object")
 
-    completion.setResponseFormat(OpenAIResponseFormat.TEXT)
+    completion.setResponseFormat(OpenAIChatCompletionResponseFormat.TEXT)
     val optionalParams4: Map[String, Any] = completion.getOptionalParams(messages.head)
     validateResponseFormat(optionalParams4, "text")
   }
@@ -159,16 +159,16 @@ class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompl
     val goodDf: DataFrame = Seq(
       Seq(
         OpenAIMessage("system", "You are an AI chatbot with red as your favorite color"),
-        OpenAIMessage("system", OpenAIResponseFormat.JSON.prompt),
+        OpenAIMessage("system", OpenAIChatCompletionResponseFormat.JSON.prompt),
         OpenAIMessage("user", "Whats your favorite color")
       ),
       Seq(
         OpenAIMessage("system", "You are very excited"),
-        OpenAIMessage("system", OpenAIResponseFormat.JSON.prompt),
+        OpenAIMessage("system", OpenAIChatCompletionResponseFormat.JSON.prompt),
         OpenAIMessage("user", "How are you today")
       ),
       Seq(
-        OpenAIMessage("system", OpenAIResponseFormat.JSON.prompt),
+        OpenAIMessage("system", OpenAIChatCompletionResponseFormat.JSON.prompt),
         OpenAIMessage("system", "You are very excited"),
         OpenAIMessage("user", "How are you today"),
         OpenAIMessage("system", "Better than ever"),
@@ -191,7 +191,7 @@ class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompl
   }
 
   def testCompletion(completion: AIFoundryChatCompletion, df: DataFrame, requiredLength: Int = 10): Unit = {
-    val fromRow = ChatCompletionResponse.makeFromRowConverter
+    val fromRow = ChatModelResponse.makeFromRowConverter
     completion.transform(df).collect().foreach(r =>
       fromRow(r.getAs[Row]("out")).choices.foreach(c =>
         assert(c.message.content.length > requiredLength)))
