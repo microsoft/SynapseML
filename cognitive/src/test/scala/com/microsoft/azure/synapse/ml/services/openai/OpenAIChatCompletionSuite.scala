@@ -239,23 +239,23 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     // Test verbosity
     completion.setVerbosity("low")
     assert(completion.getVerbosity == "low")
-    
+
     completion.setVerbosity("medium")
     assert(completion.getVerbosity == "medium")
-    
+
     completion.setVerbosity("high")
     assert(completion.getVerbosity == "high")
 
     // Test reasoning_effort
     completion.setReasoningEffort("minimal")
     assert(completion.getReasoningEffort == "minimal")
-    
+
     completion.setReasoningEffort("low")
     assert(completion.getReasoningEffort == "low")
-    
+
     completion.setReasoningEffort("medium")
     assert(completion.getReasoningEffort == "medium")
-    
+
     completion.setReasoningEffort("high")
     assert(completion.getReasoningEffort == "high")
   }
