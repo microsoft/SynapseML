@@ -55,19 +55,20 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
   // For "json_schema" caller must use Map form with full structure (no parsing performed here).
   // Any other String value is rejected to avoid implicit parsing/assumptions.
   def setResponseFormat(value: String): this.type = {
-    if (value == null) return this
-    val trimmed = value.trim
-    if (trimmed.isEmpty) return this
-    if (trimmed.equalsIgnoreCase("json_schema")) {
-      throw new IllegalArgumentException(
-        "Provide json_schema via Map: setResponseFormat(Map(\"type\"->\"json_schema\",\"json_schema\"-> {...}))")
-    }
-    trimmed.toLowerCase match {
-      case "text" | "json_object" =>
-        setResponseFormat(Map("type" -> trimmed.toLowerCase))
-      case _ =>
-        throw new IllegalArgumentException(
-          "Unsupported response_format String. Use 'text', 'json_object', or a Map for 'json_schema'.")
+    Option(value).map(_.trim).filter(_.nonEmpty) match {
+      case None => this
+      case Some(trimmed) =>
+        if (trimmed.equalsIgnoreCase("json_schema")) {
+          throw new IllegalArgumentException(
+            "Provide json_schema via Map: setResponseFormat(Map(\"type\"->\"json_schema\",\"json_schema\"-> {...}))")
+        }
+        trimmed.toLowerCase match {
+          case "text" | "json_object" =>
+            setResponseFormat(Map("type" -> trimmed.toLowerCase))
+          case _ =>
+            throw new IllegalArgumentException(
+              "Unsupported response_format String. Use 'text', 'json_object', or a Map for 'json_schema'.")
+        }
     }
   }
 
