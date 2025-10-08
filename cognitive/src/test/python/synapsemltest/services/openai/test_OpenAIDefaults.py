@@ -177,6 +177,7 @@ class TestResponseFormatJsonSchema(unittest.TestCase):
             },
         }
         import json as _json
+
         self.schema_json = _json.dumps(self.schema_dict)
 
     def test_prompt_set_response_format_dict(self):
