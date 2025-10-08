@@ -1,13 +1,10 @@
 name: Acknowledge PR
 on:
-  pull_request:
+  pull_request_target:
     types:
       - opened
       - edited
       - synchronize
-permissions:
-  pull-requests: write
-  issues: write
 jobs:
   commentor:
     runs-on: ubuntu-latest
