@@ -106,7 +106,10 @@ trait HasOpenAIEmbeddingParams extends HasOpenAISharedParams with HasAPIVersion 
 case object OpenAITemperatureKey extends GlobalKey[Either[Double, String]]
 case object OpenAISeedKey extends GlobalKey[Either[Int, String]]
 case object OpenAITopPKey extends GlobalKey[Either[Double, String]]
+case object OpenAIVerbosityKey extends GlobalKey[Either[String, String]]
+case object OpenAIReasoningEffortKey extends GlobalKey[Either[String, String]]
 
+// scalastyle:off number.of.methods
 trait HasOpenAITextParams extends HasOpenAISharedParams {
   val maxTokens: ServiceParam[Int] = new ServiceParam[Int](
     this, "maxTokens",
@@ -292,12 +295,37 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
   GlobalParams.registerParam(seed, OpenAISeedKey)
 
   def getSeed: Int = getScalarParam(seed)
-
   def setSeed(v: Int): this.type = setScalarParam(seed, v)
-
   def getSeedCol: String = getVectorParam(seed)
-
   def setSeedCol(v: String): this.type = setVectorParam(seed, v)
+
+  val verbosity: ServiceParam[String] = new ServiceParam[String](
+    this, "verbosity",
+    "Verbosity level hint for the model. Accepts 'low','medium','high' or any user-provided string.",
+    isRequired = false) {
+    override val payloadName: String = "verbosity"
+  }
+
+  GlobalParams.registerParam(verbosity, OpenAIVerbosityKey)
+
+  def getVerbosity: String = getScalarParam(verbosity)
+  def setVerbosity(v: String): this.type = setScalarParam(verbosity, v)
+  def getVerbosityCol: String = getVectorParam(verbosity)
+  def setVerbosityCol(v: String): this.type = setVectorParam(verbosity, v)
+
+  val reasoningEffort: ServiceParam[String] = new ServiceParam[String](
+    this, "reasoningEffort",
+    "Reasoning effort hint for the model. Accepts 'minimal','low','medium','high' or any user string.",
+    isRequired = false) {
+    override val payloadName: String = "reasoning_effort"
+  }
+
+  GlobalParams.registerParam(reasoningEffort, OpenAIReasoningEffortKey)
+
+  def getReasoningEffort: String = getScalarParam(reasoningEffort)
+  def setReasoningEffort(v: String): this.type = setScalarParam(reasoningEffort, v)
+  def getReasoningEffortCol: String = getVectorParam(reasoningEffort)
+  def setReasoningEffortCol(v: String): this.type = setVectorParam(reasoningEffort, v)
 
   // list of shared text parameters. In method getOptionalParams, we will iterate over these parameters
   // to compute the optional parameters. Since this list never changes, we can create it once and reuse it.
@@ -314,7 +342,9 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
     frequencyPenalty,
     bestOf,
     logProbs,
-    seed
+    seed,
+    verbosity,
+    reasoningEffort
   )
 
   private[ml] def getOptionalParams(r: Row): Map[String, Any] = {
@@ -323,6 +353,7 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
     }.toMap
   }
 }
+// scalastyle:on number.of.methods
 
 abstract class OpenAIServicesBase(override val uid: String) extends CognitiveServicesBase(uid: String)
   with HasOpenAISharedParams with OpenAIFabricSetting {
