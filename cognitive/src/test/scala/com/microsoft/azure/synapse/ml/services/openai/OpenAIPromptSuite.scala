@@ -257,7 +257,15 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       p.setResponseFormat("json_schema")
     }
     // Ensure json_schema provided as Map still works
-    p.setResponseFormat(Map("type" -> "json_schema", "json_schema" -> Map("name" -> "answer_schema", "schema" -> Map("type" -> "object"))))
+    p.setResponseFormat(Map(
+      "type" -> "json_schema",
+      "json_schema" -> Map(
+        "name" -> "answer_schema",
+        "schema" -> Map(
+          "type" -> "object"
+        )
+      )
+    ))
   }
 
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {

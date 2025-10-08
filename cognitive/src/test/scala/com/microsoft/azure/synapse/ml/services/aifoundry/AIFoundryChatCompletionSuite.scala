@@ -161,7 +161,6 @@ class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompl
 
     // Removed JSON string parsing test: json_schema must be provided as Map
   }
-  }
 
   // Removed invalid format rejection test: unknown types are passed through to service.
 
