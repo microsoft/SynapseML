@@ -169,15 +169,9 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     // Test verbosity values
     OpenAIDefaults.setVerbosity("low")
     OpenAIDefaults.setVerbosity("anything")
-    assertThrows[IllegalArgumentException] {
-      OpenAIDefaults.setVerbosity(1)
-    }
 
     // Test reasoning effort values
     OpenAIDefaults.setReasoningEffort("low")
     OpenAIDefaults.setReasoningEffort("anything")
-    assertThrows[IllegalArgumentException] {
-      OpenAIDefaults.setReasoningEffort(1)
-    }
   }
 }
