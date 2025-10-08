@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.services.openai
 import com.microsoft.azure.synapse.ml.param.AnyJsonFormat.anyFormat
 import com.microsoft.azure.synapse.ml.io.http.JSONOutputParser
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
-import com.microsoft.azure.synapse.ml.param.{GlobalParams, ServiceParam}
+import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.services.HasCognitiveServiceInput
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.spark.ml.ComplexParamsReadable
@@ -31,9 +31,6 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
   def urlPath: String = ""
 
   override private[ml] def internalServiceType: String = "openai"
-
-  // Register deploymentName with the embedding-specific global key
-  GlobalParams.registerParam(deploymentName, OpenAIEmbeddingDeploymentNameKey)
 
   val text: ServiceParam[String] = new ServiceParam[String](
     this, "text", "Input text to get embeddings for.", isRequired = true)

@@ -84,7 +84,6 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     OpenAIDefaults.setURL(s"https://$openAIServiceName.openai.azure.com/")
     OpenAIDefaults.setApiVersion("2024-05-01-preview")
     OpenAIDefaults.setModel("grok-3-mini")
-    OpenAIDefaults.setEmbeddingDeploymentName("text-embedding-ada-002")
 
     assert(OpenAIDefaults.getDeploymentName.contains(deploymentName))
     assert(OpenAIDefaults.getSubscriptionKey.contains(openAIAPIKey))
@@ -94,7 +93,6 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     assert(OpenAIDefaults.getURL.contains(s"https://$openAIServiceName.openai.azure.com/"))
     assert(OpenAIDefaults.getApiVersion.contains("2024-05-01-preview"))
     assert(OpenAIDefaults.getModel.contains("grok-3-mini"))
-    assert(OpenAIDefaults.getEmbeddingDeploymentName.contains("text-embedding-ada-002"))
   }
 
   test("Test Resetters") {
@@ -106,7 +104,6 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     OpenAIDefaults.setURL(s"https://$openAIServiceName.openai.azure.com/")
     OpenAIDefaults.setApiVersion("2024-05-01-preview")
     OpenAIDefaults.setModel("grok-3-mini")
-    OpenAIDefaults.setEmbeddingDeploymentName("text-embedding-ada-002")
 
     OpenAIDefaults.resetDeploymentName()
     OpenAIDefaults.resetSubscriptionKey()
@@ -116,7 +113,6 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     OpenAIDefaults.resetURL()
     OpenAIDefaults.resetApiVersion()
     OpenAIDefaults.resetModel()
-    OpenAIDefaults.resetEmbeddingDeploymentName()
 
     assert(OpenAIDefaults.getDeploymentName.isEmpty)
     assert(OpenAIDefaults.getSubscriptionKey.isEmpty)
@@ -126,7 +122,6 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     assert(OpenAIDefaults.getURL.isEmpty)
     assert(OpenAIDefaults.getApiVersion.isEmpty)
     assert(OpenAIDefaults.getModel.isEmpty)
-    assert(OpenAIDefaults.getEmbeddingDeploymentName.isEmpty)
   }
 
   test("Test Parameter Validation") {

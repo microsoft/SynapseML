@@ -108,18 +108,6 @@ object OpenAIDefaults {
     GlobalParams.resetGlobalParam(AIFoundryModel)
   }
 
-  def setEmbeddingDeploymentName(v: String): Unit = {
-    GlobalParams.setGlobalParam(OpenAIEmbeddingDeploymentNameKey, Left(v))
-  }
-
-  def getEmbeddingDeploymentName: Option[String] = {
-    extractLeft(GlobalParams.getGlobalParam(OpenAIEmbeddingDeploymentNameKey))
-  }
-
-  def resetEmbeddingDeploymentName(): Unit = {
-    GlobalParams.resetGlobalParam(OpenAIEmbeddingDeploymentNameKey)
-  }
-
   private def extractLeft[T](optEither: Option[Either[T, String]]): Option[T] = {
     optEither match {
       case Some(Left(v)) => Some(v)

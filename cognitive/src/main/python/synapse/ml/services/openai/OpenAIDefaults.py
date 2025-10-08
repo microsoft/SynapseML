@@ -102,12 +102,3 @@ class OpenAIDefaults:
 
     def reset_model(self):
         self.defaults.resetModel()
-
-    def set_embedding_deployment_name(self, name):
-        self.defaults.setEmbeddingDeploymentName(name)
-
-    def get_embedding_deployment_name(self):
-        return getOption(self.defaults.getEmbeddingDeploymentName())
-
-    def reset_embedding_deployment_name(self):
-        self.defaults.resetEmbeddingDeploymentName()

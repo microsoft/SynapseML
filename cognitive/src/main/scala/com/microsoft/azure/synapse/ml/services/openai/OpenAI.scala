@@ -52,7 +52,6 @@ trait HasMessagesInput extends Params {
 }
 
 case object OpenAIDeploymentNameKey extends GlobalKey[Either[String, String]]
-case object OpenAIEmbeddingDeploymentNameKey extends GlobalKey[Either[String, String]]
 
 trait HasOpenAISharedParams extends HasServiceParams with HasAPIVersion {
 
