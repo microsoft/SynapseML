@@ -81,7 +81,7 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
     setScalarParam(responseFormat, Map("type" -> value.paylodName))
   }
 
-  // override this field to include the new parameter
+  // override this field to include the new parameters
   override private[openai] val sharedTextParams: Seq[ServiceParam[_]] = Seq(
     maxTokens,
     temperature,
@@ -95,6 +95,8 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
     frequencyPenalty,
     bestOf,
     logProbs,
+    verbosity,
+    reasoningEffort,
     responseFormat,
     seed
   )

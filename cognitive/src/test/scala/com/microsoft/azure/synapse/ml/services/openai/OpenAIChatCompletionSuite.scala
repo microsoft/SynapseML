@@ -192,6 +192,161 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     validateResponseFormat(optionalParams4, "text")
   }
 
+  test("optional params for gpt-4.1-mini include numeric sampling only") {
+    // Simulated usage: numeric sampling parameters only
+    val completion = new OpenAIChatCompletion()
+      .setDeploymentName(deploymentNameGpt4)
+
+    val messages: Seq[Row] = Seq(
+      OpenAIMessage("user", "Sample prompt")
+    ).toDF("role", "content", "name").collect()
+
+    completion.setTemperature(0.2).setTopP(0.5).setSeed(123)
+    val params = completion.getOptionalParams(messages.head)
+
+    assert(params.contains("temperature"))
+    assert(params.contains("top_p"))
+    assert(params.contains("seed"))
+    assert(!params.contains("verbosity"))
+    assert(!params.contains("reasoning_effort"))
+  }
+
+  test("optional params for gpt-5-mini include reasoning controls only") {
+    // Simulated usage: verbosity / reasoning_effort only (no temperature/top_p/seed)
+    val completion = new OpenAIChatCompletion()
+      .setDeploymentName(deploymentNameGpt4)
+
+    val messages: Seq[Row] = Seq(
+      OpenAIMessage("user", "Hello reasoning")
+    ).toDF("role", "content", "name").collect()
+
+    completion.setVerbosity("high").setReasoningEffort("minimal")
+    val params = completion.getOptionalParams(messages.head)
+
+    assert(params.contains("verbosity"))
+    assert(params("verbosity") == "high")
+    assert(params.contains("reasoning_effort"))
+    assert(params("reasoning_effort") == "minimal")
+    assert(!params.contains("temperature"))
+    assert(!params.contains("top_p"))
+    assert(!params.contains("seed"))
+  }
+
+  test("verbosity and reasoning_effort getters and setters") {
+    val completion = new OpenAIChatCompletion()
+      .setDeploymentName(deploymentNameGpt4)
+
+    // Test verbosity
+    completion.setVerbosity("low")
+    assert(completion.getVerbosity == "low")
+
+    completion.setVerbosity("medium")
+    assert(completion.getVerbosity == "medium")
+
+    completion.setVerbosity("high")
+    assert(completion.getVerbosity == "high")
+
+    // Test reasoning_effort
+    completion.setReasoningEffort("minimal")
+    assert(completion.getReasoningEffort == "minimal")
+
+    completion.setReasoningEffort("low")
+    assert(completion.getReasoningEffort == "low")
+
+    completion.setReasoningEffort("medium")
+    assert(completion.getReasoningEffort == "medium")
+
+    completion.setReasoningEffort("high")
+    assert(completion.getReasoningEffort == "high")
+  }
+
+  test("verbosity parameter correctly serialized in payload") {
+    val completion = new OpenAIChatCompletion()
+      .setDeploymentName(deploymentNameGpt4)
+      .setVerbosity("high")
+
+    val messages: Seq[Row] = Seq(
+      OpenAIMessage("user", "Test message")
+    ).toDF("role", "content", "name").collect()
+
+    val params = completion.getOptionalParams(messages.head)
+    assert(params.contains("verbosity"))
+    assert(params("verbosity") == "high")
+  }
+
+  test("reasoning_effort parameter correctly serialized in payload") {
+    val completion = new OpenAIChatCompletion()
+      .setDeploymentName(deploymentNameGpt4)
+      .setReasoningEffort("medium")
+
+    val messages: Seq[Row] = Seq(
+      OpenAIMessage("user", "Test message")
+    ).toDF("role", "content", "name").collect()
+
+    val params = completion.getOptionalParams(messages.head)
+    assert(params.contains("reasoning_effort"))
+    assert(params("reasoning_effort") == "medium")
+  }
+
+  test("both verbosity and reasoning_effort serialized together") {
+    val completion = new OpenAIChatCompletion()
+      .setDeploymentName(deploymentNameGpt4)
+      .setVerbosity("low")
+      .setReasoningEffort("high")
+
+    val messages: Seq[Row] = Seq(
+      OpenAIMessage("user", "Test message")
+    ).toDF("role", "content", "name").collect()
+
+    val params = completion.getOptionalParams(messages.head)
+    assert(params.contains("verbosity"))
+    assert(params("verbosity") == "low")
+    assert(params.contains("reasoning_effort"))
+    assert(params("reasoning_effort") == "high")
+  }
+
+  test("verbosity accepts custom string values") {
+    val completion = new OpenAIChatCompletion()
+      .setDeploymentName(deploymentNameGpt4)
+      .setVerbosity("custom_value")
+
+    val messages: Seq[Row] = Seq(
+      OpenAIMessage("user", "Test message")
+    ).toDF("role", "content", "name").collect()
+
+    val params = completion.getOptionalParams(messages.head)
+    assert(params.contains("verbosity"))
+    assert(params("verbosity") == "custom_value")
+  }
+
+  test("reasoning_effort accepts custom string values") {
+    val completion = new OpenAIChatCompletion()
+      .setDeploymentName(deploymentNameGpt4)
+      .setReasoningEffort("custom_reasoning")
+
+    val messages: Seq[Row] = Seq(
+      OpenAIMessage("user", "Test message")
+    ).toDF("role", "content", "name").collect()
+
+    val params = completion.getOptionalParams(messages.head)
+    assert(params.contains("reasoning_effort"))
+    assert(params("reasoning_effort") == "custom_reasoning")
+  }
+
+  test("parameters not included when not set") {
+    val completion = new OpenAIChatCompletion()
+      .setDeploymentName(deploymentNameGpt4)
+      // Don't set verbosity or reasoning_effort
+
+    val messages: Seq[Row] = Seq(
+      OpenAIMessage("user", "Test message")
+    ).toDF("role", "content", "name").collect()
+
+    val params = completion.getOptionalParams(messages.head)
+    assert(!params.contains("verbosity"))
+    assert(!params.contains("reasoning_effort"))
+  }
+
   test("setResponseFormat should throw exception if invalid format"){
     val completion = new OpenAIChatCompletion()
       .setDeploymentName(deploymentNameGpt4)

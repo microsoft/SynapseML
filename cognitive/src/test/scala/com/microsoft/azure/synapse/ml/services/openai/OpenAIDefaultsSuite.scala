@@ -84,6 +84,8 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     OpenAIDefaults.setURL(s"https://$openAIServiceName.openai.azure.com/")
     OpenAIDefaults.setApiVersion("2024-05-01-preview")
     OpenAIDefaults.setModel("grok-3-mini")
+    OpenAIDefaults.setVerbosity("medium")
+    OpenAIDefaults.setReasoningEffort("medium")
 
     assert(OpenAIDefaults.getDeploymentName.contains(deploymentName))
     assert(OpenAIDefaults.getSubscriptionKey.contains(openAIAPIKey))
@@ -93,6 +95,8 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     assert(OpenAIDefaults.getURL.contains(s"https://$openAIServiceName.openai.azure.com/"))
     assert(OpenAIDefaults.getApiVersion.contains("2024-05-01-preview"))
     assert(OpenAIDefaults.getModel.contains("grok-3-mini"))
+    assert(OpenAIDefaults.getVerbosity.contains("medium"))
+    assert(OpenAIDefaults.getReasoningEffort.contains("medium"))
   }
 
   test("Test Resetters") {
@@ -104,6 +108,8 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     OpenAIDefaults.setURL(s"https://$openAIServiceName.openai.azure.com/")
     OpenAIDefaults.setApiVersion("2024-05-01-preview")
     OpenAIDefaults.setModel("grok-3-mini")
+    OpenAIDefaults.setVerbosity("medium")
+    OpenAIDefaults.setReasoningEffort("medium")
 
     OpenAIDefaults.resetDeploymentName()
     OpenAIDefaults.resetSubscriptionKey()
@@ -113,6 +119,8 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     OpenAIDefaults.resetURL()
     OpenAIDefaults.resetApiVersion()
     OpenAIDefaults.resetModel()
+    OpenAIDefaults.resetVerbosity()
+    OpenAIDefaults.resetReasoningEffort()
 
     assert(OpenAIDefaults.getDeploymentName.isEmpty)
     assert(OpenAIDefaults.getSubscriptionKey.isEmpty)
@@ -122,6 +130,8 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     assert(OpenAIDefaults.getURL.isEmpty)
     assert(OpenAIDefaults.getApiVersion.isEmpty)
     assert(OpenAIDefaults.getModel.isEmpty)
+    assert(OpenAIDefaults.getVerbosity.isEmpty)
+    assert(OpenAIDefaults.getReasoningEffort.isEmpty)
   }
 
   test("Test Parameter Validation") {
@@ -155,5 +165,13 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     assertThrows[IllegalArgumentException] {
       OpenAIDefaults.setTopP(1.1)
     }
+
+    // Test verbosity values
+    OpenAIDefaults.setVerbosity("low")
+    OpenAIDefaults.setVerbosity("anything")
+
+    // Test reasoning effort values
+    OpenAIDefaults.setReasoningEffort("low")
+    OpenAIDefaults.setReasoningEffort("anything")
   }
 }
