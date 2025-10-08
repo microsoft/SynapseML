@@ -36,7 +36,9 @@ class TestOpenAIDefaults(unittest.TestCase):
         self.assertEqual(defaults.get_URL(), "Test URL/")
         self.assertEqual(defaults.get_api_version(), "2024-05-01-preview")
         self.assertEqual(defaults.get_model(), "grok-3-mini")
-        self.assertEqual(defaults.get_embedding_deployment_name(), "text-embedding-ada-002")
+        self.assertEqual(
+            defaults.get_embedding_deployment_name(), "text-embedding-ada-002"
+        )
 
     def test_resetters(self):
         defaults = OpenAIDefaults()
@@ -59,7 +61,9 @@ class TestOpenAIDefaults(unittest.TestCase):
         self.assertEqual(defaults.get_URL(), "Test URL/")
         self.assertEqual(defaults.get_api_version(), "2024-05-01-preview")
         self.assertEqual(defaults.get_model(), "grok-3-mini")
-        self.assertEqual(defaults.get_embedding_deployment_name(), "text-embedding-ada-002")
+        self.assertEqual(
+            defaults.get_embedding_deployment_name(), "text-embedding-ada-002"
+        )
 
         defaults.reset_deployment_name()
         defaults.reset_subscription_key()
