@@ -5,6 +5,9 @@ on:
       - opened
       - edited
       - synchronize
+permissions:
+  pull-requests: write
+  issues: write
 jobs:
   commentor:
     runs-on: ubuntu-latest
