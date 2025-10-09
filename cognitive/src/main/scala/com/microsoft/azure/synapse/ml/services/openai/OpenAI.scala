@@ -106,7 +106,10 @@ trait HasOpenAIEmbeddingParams extends HasOpenAISharedParams with HasAPIVersion 
 case object OpenAITemperatureKey extends GlobalKey[Either[Double, String]]
 case object OpenAISeedKey extends GlobalKey[Either[Int, String]]
 case object OpenAITopPKey extends GlobalKey[Either[Double, String]]
+case object OpenAIVerbosityKey extends GlobalKey[Either[String, String]]
+case object OpenAIReasoningEffortKey extends GlobalKey[Either[String, String]]
 
+// scalastyle:off number.of.methods
 trait HasOpenAITextParams extends HasOpenAISharedParams {
   val maxTokens: ServiceParam[Int] = new ServiceParam[Int](
     this, "maxTokens",
@@ -292,12 +295,37 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
   GlobalParams.registerParam(seed, OpenAISeedKey)
 
   def getSeed: Int = getScalarParam(seed)
-
   def setSeed(v: Int): this.type = setScalarParam(seed, v)
-
   def getSeedCol: String = getVectorParam(seed)
-
   def setSeedCol(v: String): this.type = setVectorParam(seed, v)
+
+  val verbosity: ServiceParam[String] = new ServiceParam[String](
+    this, "verbosity",
+    "Verbosity level hint for the model. Accepts 'low','medium','high' or any user-provided string.",
+    isRequired = false) {
+    override val payloadName: String = "verbosity"
+  }
+
+  GlobalParams.registerParam(verbosity, OpenAIVerbosityKey)
+
+  def getVerbosity: String = getScalarParam(verbosity)
+  def setVerbosity(v: String): this.type = setScalarParam(verbosity, v)
+  def getVerbosityCol: String = getVectorParam(verbosity)
+  def setVerbosityCol(v: String): this.type = setVectorParam(verbosity, v)
+
+  val reasoningEffort: ServiceParam[String] = new ServiceParam[String](
+    this, "reasoningEffort",
+    "Reasoning effort hint for the model. Accepts 'minimal','low','medium','high' or any user string.",
+    isRequired = false) {
+    override val payloadName: String = "reasoning_effort"
+  }
+
+  GlobalParams.registerParam(reasoningEffort, OpenAIReasoningEffortKey)
+
+  def getReasoningEffort: String = getScalarParam(reasoningEffort)
+  def setReasoningEffort(v: String): this.type = setScalarParam(reasoningEffort, v)
+  def getReasoningEffortCol: String = getVectorParam(reasoningEffort)
+  def setReasoningEffortCol(v: String): this.type = setVectorParam(reasoningEffort, v)
 
   // list of shared text parameters. In method getOptionalParams, we will iterate over these parameters
   // to compute the optional parameters. Since this list never changes, we can create it once and reuse it.
@@ -314,7 +342,9 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
     frequencyPenalty,
     bestOf,
     logProbs,
-    seed
+    seed,
+    verbosity,
+    reasoningEffort
   )
 
   private[ml] def getOptionalParams(r: Row): Map[String, Any] = {
@@ -323,6 +353,64 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
     }.toMap
   }
 }
+// scalastyle:on number.of.methods
+
+trait HasRAIContentFilter {
+  /**
+   * Determines if the content in the output row was filtered by content safety
+   * @param outputRow The output row from the API response
+   * @return true if content was filtered, false otherwise
+   */
+  private[openai] def isContentFiltered(outputRow: Row): Boolean
+
+  /**
+   * Extracts the error/status reason from a filtered output row
+   * @param outputRow The output row from the API response
+   * @return The error reason (e.g., finish_reason or status)
+   */
+  private[openai] def getFilterReason(outputRow: Row): String
+}
+
+trait HasTextOutput {
+  /**
+   * Extract the text content from the output column for this specific API type
+   */
+  private[openai] def getOutputMessageText(outputColName: String): org.apache.spark.sql.Column
+
+  /**
+    * This one is used to convert messages from Rows
+    * in both format of OpenAIMessage or OpenAICompositeMessage
+    * to the format required by OpenAI API as a Map.
+    *
+    * @param messages
+    * @return
+    */
+  private[openai] def encodeMessagesToMap(messages: Seq[Row]): Seq[Map[String, Any]] = {
+    messages.map { row =>
+      val role = row.getAs[String]("role")
+      val contentField = row.schema.fieldIndex("content")
+      val contentType = row.schema.fields(contentField).dataType
+
+      val content = contentType.typeName match {
+        case "string" =>
+          // OpenAIMessage: content is a String
+          row.getAs[String]("content")
+        case "array" =>
+          // OpenAICompositeMessage: content is Seq[Map[String, Any]]
+          val rawContent = row.getAs[Seq[Map[String, Any]]]("content")
+          rawContent.map(_.map { case (k, v) => k.toString -> v })
+        case other =>
+          throw new IllegalArgumentException(s"Unsupported content type: $other")
+      }
+
+      Map(
+        "role" -> role,
+        "content" -> content
+      )
+    }
+  }
+}
+
 
 abstract class OpenAIServicesBase(override val uid: String) extends CognitiveServicesBase(uid: String)
   with HasOpenAISharedParams with OpenAIFabricSetting {

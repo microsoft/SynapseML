@@ -205,7 +205,7 @@ class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompl
   }
 
   def testCompletion(completion: AIFoundryChatCompletion, df: DataFrame, requiredLength: Int = 10): Unit = {
-    val fromRow = ChatCompletionResponse.makeFromRowConverter
+    val fromRow = ChatModelResponse.makeFromRowConverter
     completion.transform(df).collect().foreach(r =>
       fromRow(r.getAs[Row]("out")).choices.foreach(c =>
         assert(c.message.content.length > requiredLength)))

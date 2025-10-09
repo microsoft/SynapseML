@@ -10,19 +10,13 @@ import com.microsoft.azure.synapse.ml.services.{HasCognitiveServiceInput, HasInt
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.util._
-import org.apache.spark.sql.Row
+import org.apache.spark.sql.{functions => F, Row}
 import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
 import scala.language.existentials
 
-/**
- * Minimal response_format handling:
- * - Accept any non-empty 'type' (delegated to service for validation).
- * - Special case: bare 'json_schema' string is rejected (must include full json_schema object).
- * - If type == json_schema then a 'json_schema' key must be present.
- */
 
 trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
   // Updated to Map[String, Any] to allow nested json_schema structure
@@ -50,7 +44,6 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
     setScalarParam(responseFormat, value)
   }
 
-  // Simplified: only allow plain type tokens via String for common simple formats.
   // Supported String values: "text", "json_object".
   // For "json_schema" caller must use Map form with full structure (no parsing performed here).
   // Any other String value is rejected to avoid implicit parsing/assumptions.
@@ -78,7 +71,7 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
     .flatMap(m => Option(m.getOrElse("type", "").toString))
     .getOrElse("")
 
-  // override this field to include the new parameter
+  // override this field to include the new parameters
   override private[openai] val sharedTextParams: Seq[ServiceParam[_]] = Seq(
     maxTokens,
     temperature,
@@ -92,6 +85,8 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
     frequencyPenalty,
     bestOf,
     logProbs,
+    verbosity,
+    reasoningEffort,
     responseFormat,
     seed
   )
@@ -101,7 +96,7 @@ object OpenAIChatCompletion extends ComplexParamsReadable[OpenAIChatCompletion]
 
 class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(uid)
   with HasOpenAITextParamsExtended with HasMessagesInput with HasCognitiveServiceInput
-  with HasInternalJsonOutputParser with SynapseMLLogging {
+  with HasInternalJsonOutputParser with SynapseMLLogging with HasRAIContentFilter with HasTextOutput {
   logClass(FeatureNames.AiServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAIChatCompletion"))
@@ -133,16 +128,29 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   override protected def getVectorParamMap: Map[String, String] = super.getVectorParamMap
     .updated("messages", getMessagesCol)
 
-  override def responseDataType: DataType = ChatCompletionResponse.schema
+  override def responseDataType: DataType = ChatModelResponse.schema
 
   private[openai] def getStringEntity(messages: Seq[Row], optionalParams: Map[String, Any]): StringEntity = {
-    val mappedMessages: Seq[Map[String, String]] = messages.map { m =>
-      Seq("role", "content", "name").map(n =>
-        n -> Option(m.getAs[String](n))
-      ).toMap.filter(_._2.isDefined).mapValues(_.get)
-    }
+    val mappedMessages = encodeMessagesToMap(messages)
+      .map(_.filter { case (_, value) => value != null })
     val fullPayload = optionalParams.updated("messages", mappedMessages)
     new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
+  }
+
+  override private[openai] def getOutputMessageText(outputColName: String): org.apache.spark.sql.Column = {
+    F.element_at(F.col(outputColName).getField("choices"), 1)
+      .getField("message").getField("content")
+  }
+
+  override private[openai] def isContentFiltered(outputRow: Row): Boolean = {
+    val result = ChatModelResponse.makeFromRowConverter(outputRow)
+    val firstChoice = result.choices.head
+    Option(firstChoice.message.content).isEmpty
+  }
+
+  override private[openai] def getFilterReason(outputRow: Row): String = {
+    val result = ChatModelResponse.makeFromRowConverter(outputRow)
+    result.choices.head.finish_reason
   }
 
 }
