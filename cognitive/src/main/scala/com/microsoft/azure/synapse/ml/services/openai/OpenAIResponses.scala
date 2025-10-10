@@ -44,7 +44,7 @@ object OpenAIResponseFormat extends Enumeration {
 
 trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
   // TODO: Responses API takes response format in a `text` arg, instead of the raw `response_format`` arg.
-  val responseFormat: ServiceParam[Map[String, String]] = new ServiceParam[Map[String, String]](
+  val responseFormat: ServiceParam[Map[String, Any]] = new ServiceParam[Map[String, Any]](
     this,
     "responseFormat",
     "Response format for the completion. Can be 'json_object' or 'text'.",
@@ -52,24 +52,29 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
     override val payloadName: String = "response_format"
   }
 
-  def getResponseFormat: Map[String, String] = getScalarParam(responseFormat)
+  def getResponseFormat: Map[String, Any] = getScalarParam(responseFormat)
 
-  def setResponseFormat(value: Map[String, String]): this.type = {
+  def setResponseFormat(value: Map[String, Any]): this.type = {
     val allowedFormat = OpenAIResponseFormat.asStringSet
 
     // This test is to validate that value is properly formatted Map('type' -> '<format>')
-    if (value == null || value.size != 1 || !value.contains("type") || value("type").isEmpty) {
+    if (value == null || value.size != 1 || !value.contains("type") ||
+        value("type") == null || value("type").toString.trim.isEmpty) {
       throw new IllegalArgumentException("Response format map must of the form Map('type' -> '<format>')"
         + " where <format> is one of " + allowedFormat.mkString(", "))
     }
 
     // This test is to validate that the format is one of the allowed formats
-    if (!allowedFormat.contains(value("type").toLowerCase)) {
+    if (!allowedFormat.contains(value("type").toString.toLowerCase)) {
       throw new IllegalArgumentException("Response format must be valid for OpenAI API. " +
         "Currently supported formats are " +
         allowedFormat.mkString(", "))
     }
     setScalarParam(responseFormat, value)
+  }
+
+  def setResponseFormat(value: Map[String, String]): this.type = {
+    setResponseFormat(value.asInstanceOf[Map[String, Any]])
   }
 
   def setResponseFormat(value: String): this.type = {

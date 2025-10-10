@@ -346,8 +346,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     )
 
     if (isSet(responseFormat)) {
-      val responseFormatPrompt = OpenAIChatCompletionResponseFormat
-        .fromResponseFormatString(getResponseFormat("type"))
+      val responseFormatPrompt = OpenAIResponseFormat
+        .fromResponseFormatString(getResponseFormat("type").toString)
         .prompt
       basePrompts :+ OpenAICompositeMessage("system", stringWrapper(responseFormatPrompt))
     } else {
