@@ -78,3 +78,15 @@ this process:
 
 If in doubt about how to do something, see how it was done in existing code or
 pull requests, and don't hesitate to ask.
+
+#### Create Environment
+
+1. Run conda CLI to create environment.
+    ```shell
+    $ conda env create -f environment.yaml
+    ```
+    To upgrade packages based on the latest environment.yaml, run:
+    ```shell
+    $ conda activate synapseml-internal
+    $ conda env update --file environment.yaml --prune
+    ```
