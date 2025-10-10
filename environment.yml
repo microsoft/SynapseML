@@ -36,7 +36,6 @@ dependencies:
     - numpy
     - torch==2.0.0
     - torchvision==0.15.1
-    # - horovod==0.28.1  # Commented out - install separately if needed: pip install horovod[pytorch]
     - petastorm>=0.11.0
     - pytorch_lightning==1.5.0
     - onnxmltools==1.7.0
