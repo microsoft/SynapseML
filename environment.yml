@@ -5,7 +5,7 @@ channels:
 dependencies:
   - python=3.11.8
   - requests=2.26.0
-  - pip=21.3
+  - pip>=24.0
   - r-base=4.1.1
   - r-sparklyr=1.8.1
   - r-devtools=2.4.2
@@ -13,7 +13,7 @@ dependencies:
   - pip:
     - pyarrow==10.0.1
     - pyspark==3.4.1
-    - pandas==1.4.0
+    - pandas==2.0.3
     - wheel
     - sphinx==5.0.2
     - sphinx_paramlinks==0.5.2
@@ -35,7 +35,7 @@ dependencies:
     - numpy
     - torch==2.0.0
     - torchvision==0.15.1
-    - horovod==0.28.1
+    # - horovod==0.28.1  # Commented out - install separately if needed: pip install horovod[pytorch]
     - petastorm>=0.11.0
     - pytorch_lightning==1.5.0
     - onnxmltools==1.7.0

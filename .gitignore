@@ -88,3 +88,4 @@ metastore_db/
 **/dist/*
 **/*.egg-info/*
 
+*_local\.*
