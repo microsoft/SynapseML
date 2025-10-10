@@ -73,10 +73,6 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
     setScalarParam(responseFormat, value)
   }
 
-  def setResponseFormat(value: Map[String, String]): this.type = {
-    setResponseFormat(value.asInstanceOf[Map[String, Any]])
-  }
-
   def setResponseFormat(value: String): this.type = {
     if (value == null || value.isEmpty) {
       this
