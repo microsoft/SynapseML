@@ -118,6 +118,8 @@ object OpenAIDefaults {
 
   def resetEmbeddingDeploymentName(): Unit = {
     GlobalParams.resetGlobalParam(OpenAIEmbeddingDeploymentNameKey)
+  }
+
   def setVerbosity(v: String): Unit = {
     GlobalParams.setGlobalParam(OpenAIVerbosityKey, Left(v))
   }
