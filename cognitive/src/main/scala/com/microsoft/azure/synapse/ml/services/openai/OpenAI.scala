@@ -356,6 +356,63 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
 }
 // scalastyle:on number.of.methods
 
+trait HasRAIContentFilter {
+  /**
+   * Determines if the content in the output row was filtered by content safety
+   * @param outputRow The output row from the API response
+   * @return true if content was filtered, false otherwise
+   */
+  private[openai] def isContentFiltered(outputRow: Row): Boolean
+
+  /**
+   * Extracts the error/status reason from a filtered output row
+   * @param outputRow The output row from the API response
+   * @return The error reason (e.g., finish_reason or status)
+   */
+  private[openai] def getFilterReason(outputRow: Row): String
+}
+
+trait HasTextOutput {
+  /**
+   * Extract the text content from the output column for this specific API type
+   */
+  private[openai] def getOutputMessageText(outputColName: String): org.apache.spark.sql.Column
+
+  /**
+    * This one is used to convert messages from Rows
+    * in both format of OpenAIMessage or OpenAICompositeMessage
+    * to the format required by OpenAI API as a Map.
+    *
+    * @param messages
+    * @return
+    */
+  private[openai] def encodeMessagesToMap(messages: Seq[Row]): Seq[Map[String, Any]] = {
+    messages.map { row =>
+      val role = row.getAs[String]("role")
+      val contentField = row.schema.fieldIndex("content")
+      val contentType = row.schema.fields(contentField).dataType
+
+      val content = contentType.typeName match {
+        case "string" =>
+          // OpenAIMessage: content is a String
+          row.getAs[String]("content")
+        case "array" =>
+          // OpenAICompositeMessage: content is Seq[Map[String, Any]]
+          val rawContent = row.getAs[Seq[Map[String, Any]]]("content")
+          rawContent.map(_.map { case (k, v) => k.toString -> v })
+        case other =>
+          throw new IllegalArgumentException(s"Unsupported content type: $other")
+      }
+
+      Map(
+        "role" -> role,
+        "content" -> content
+      )
+    }
+  }
+}
+
+
 abstract class OpenAIServicesBase(override val uid: String) extends CognitiveServicesBase(uid: String)
   with HasOpenAISharedParams with OpenAIFabricSetting {
   setDefault(timeout -> 360.0)
