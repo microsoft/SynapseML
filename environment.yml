@@ -10,6 +10,7 @@ dependencies:
   - r-sparklyr=1.8.1
   - r-devtools=2.4.2
   - cmake<=3.27
+  - horovod==0.28.1
   - pip:
     - pyarrow==10.0.1
     - pyspark==3.4.1
