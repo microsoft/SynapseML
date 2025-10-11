@@ -10,6 +10,7 @@ dependencies:
   - r-sparklyr=1.8.1
   - r-devtools=2.4.2
   - cmake<=3.27
+  - torch==2.0.0
   - horovod==0.28.1
   - pip:
     - pyarrow==10.0.1
@@ -34,7 +35,6 @@ dependencies:
     - twine
     - mlflow
     - numpy
-    - torch==2.0.0
     - torchvision==0.15.1
     - petastorm>=0.11.0
     - pytorch_lightning==1.5.0
