@@ -33,7 +33,6 @@ steps:
       echo "=== Disk space AFTER cleanup ==="
       df -h / | grep -E 'Filesystem|/$'
     displayName: 'Free disk space (remove unused SDKs)'
-    condition: eq(variables['CONDA_CACHE_RESTORED'], 'false')
   - bash: |
       set -e
       df -H
