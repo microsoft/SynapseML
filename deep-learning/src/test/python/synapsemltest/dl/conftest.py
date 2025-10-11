@@ -2,40 +2,15 @@
 # Licensed under the MIT License. See LICENSE in project root for information.
 
 import os
-import sys
 import shutil
 import subprocess
 import urllib
 from os.path import join
-from unittest.mock import MagicMock
 
 import numpy as np
 import pytest
 import torchvision.transforms as transforms
 from pyspark.ml.feature import StringIndexer
-
-# Try to import horovod, but if there's a version mismatch, use a mock instead
-# This allows tests to run even when horovod has PyTorch version conflicts
-try:
-    import horovod.torch  # noqa: F401
-    import horovod.spark.common.store  # noqa: F401
-    HOROVOD_AVAILABLE = True
-except Exception:
-    # Mock horovod modules if import fails (e.g., due to version mismatch)
-    # This is acceptable since the dl-nohf tests are currently all skipped
-    # and don't require actual horovod functionality
-    sys.modules['horovod'] = MagicMock()
-    sys.modules['horovod.torch'] = MagicMock()
-    sys.modules['horovod.torch.mpi_ops'] = MagicMock()
-    sys.modules['horovod.torch.elastic'] = MagicMock()
-    sys.modules['horovod.spark'] = MagicMock()
-    sys.modules['horovod.spark.common'] = MagicMock()
-    
-    # Create a mock LocalStore that can be imported
-    mock_store_module = MagicMock()
-    mock_store_module.LocalStore = MagicMock
-    sys.modules['horovod.spark.common.store'] = mock_store_module
-    HOROVOD_AVAILABLE = False
 
 IS_WINDOWS = os.name == "nt"
 delimiter = "\\" if IS_WINDOWS else "/"
