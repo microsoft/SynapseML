@@ -287,8 +287,8 @@ lazy val deepLearning = (project in file("deep-learning"))
     libraryDependencies ++= Seq(
       "com.microsoft.azure" % "onnx-protobuf_2.12" % "0.9.3",
       "com.microsoft.onnxruntime" % "onnxruntime_gpu" % "1.8.1",
-      "org.apache.hadoop" % "hadoop-common" % "3.3.4" % "provided",
-      "org.apache.hadoop" % "hadoop-azure" % "3.3.4" % "provided",
+      "org.apache.hadoop" % "hadoop-common" % "3.3.4" % "test",
+      "org.apache.hadoop" % "hadoop-azure" % "3.3.4" % "test",
     ),
     name := "synapseml-deep-learning"
   ): _*)
