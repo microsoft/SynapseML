@@ -39,7 +39,7 @@ dependencies:
     - torch==2.1.0
     - torchvision
     - petastorm>=0.11.0
-    - pytorch_lightning
+    - pytorch_lightning==1.5.0
     - onnxmltools==1.7.0
     - matplotlib
     - Pillow
