@@ -10,8 +10,8 @@ dependencies:
   - r-sparklyr=1.8.1
   - r-devtools=2.4.2
   - cmake<=3.27
-  - pytorch==2.0.0
-  - horovod==0.28.1
+  # - pytorch==2.0.0
+  # - horovod==0.28.1
   - pip:
     - pyarrow==10.0.1
     - pyspark==3.4.1
@@ -35,9 +35,11 @@ dependencies:
     - twine
     - mlflow
     - numpy
-    - torchvision==0.15.1
+    - git+https://github.com/thomas-bouvier/horovod.git@compile-cpp17
+    - torch==2.1.0
+    - torchvision
     - petastorm>=0.11.0
-    - pytorch_lightning==1.5.0
+    - pytorch_lightning
     - onnxmltools==1.7.0
     - matplotlib
     - Pillow
