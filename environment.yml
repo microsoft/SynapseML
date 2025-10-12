@@ -35,9 +35,9 @@ dependencies:
     - twine
     - mlflow
     - numpy
-    - git+https://github.com/thomas-bouvier/horovod.git@compile-cpp17
     - torch==2.1.0
     - torchvision
+    - git+https://github.com/thomas-bouvier/horovod.git@compile-cpp17
     - petastorm>=0.11.0
     - pytorch_lightning==1.5.0
     - onnxmltools==1.7.0
