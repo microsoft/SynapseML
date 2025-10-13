@@ -85,7 +85,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
 
   test("RAI Usage") {
     val result = prompt
-      .setDeploymentName(deploymentNameGpt4o)
+      .setDeploymentName(deploymentName)
       .setPromptTemplate("Tell me about a graphically disgusting " +
         "and violent movie in detail, " +
         "be very gory and NSFW in your description.")
@@ -123,7 +123,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .setPromptTemplate("give me a comma separated list of 5 {category}, starting with {text} ")
       .setApiType("responses")
       .setApiVersion("2025-04-01-preview")
-      .setDeploymentName("gpt-4.1-mini")
+      .setDeploymentName(deploymentName)
       .setPostProcessing("csv")
       .transform(df)
       .select("outParsed")
@@ -149,7 +149,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
 
   lazy val promptGpt4: OpenAIPrompt = new OpenAIPrompt()
     .setSubscriptionKey(openAIAPIKey)
-    .setDeploymentName(deploymentNameGpt4)
+    .setDeploymentName(deploymentName)
     .setCustomServiceName(openAIServiceName)
     .setOutputCol("outParsed")
     .setTemperature(0)
@@ -214,7 +214,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
   test("Basic Usage JSON - Gpt 4o with responseFormat") {
     val promptGpt4o: OpenAIPrompt = new OpenAIPrompt()
       .setSubscriptionKey(openAIAPIKey)
-      .setDeploymentName(deploymentNameGpt4o)
+      .setDeploymentName(deploymentName)
       .setCustomServiceName(openAIServiceName)
       .setOutputCol("outParsed")
       .setTemperature(0)
@@ -234,18 +234,11 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
                .foreach(r => assert(r.getStruct(0).getString(0).nonEmpty))
   }
 
-  test("if responseFormat is set then appropriate system prompt should be present") {
-    val prompt = new OpenAIPrompt()
-    prompt.setResponseFormat("json_object")
-    val messages = prompt.getPromptsForMessage(Right("test"))
-    assert(messages.nonEmpty)
-    messages.exists(p => p.role == "system" && p.content.contains(OpenAIChatCompletionResponseFormat.JSON.prompt))
-  }
 
   test("Take Multimodal Message") {
     val promptResponses = new OpenAIPrompt()
       .setSubscriptionKey(openAIAPIKey)
-      .setDeploymentName(deploymentNameGpt4o)
+      .setDeploymentName(deploymentName)
       .setCustomServiceName(openAIServiceName)
       .setApiVersion("2025-04-01-preview")
       .setApiType("responses")
@@ -288,7 +281,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
 
     if (accessToken.isEmpty) {
       customPromptGpt4.setSubscriptionKey(openAIAPIKey)
-        .setDeploymentName(deploymentNameGpt4)
+        .setDeploymentName(deploymentName)
         .setCustomServiceName(openAIServiceName)
     } else {
       customPromptGpt4.setAADToken(accessToken)
@@ -341,6 +334,23 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     intercept[IllegalArgumentException] {
       prompt.setPostProcessingOptions(Map("jsonSchema" -> "schema"))
     }
+  }
+
+  test("reject bare json_schema string in OpenAIPrompt responseFormat passthrough"){
+    val p = new OpenAIPrompt()
+    intercept[IllegalArgumentException] {
+      p.setResponseFormat("json_schema")
+    }
+    // Ensure json_schema provided as Map still works
+    p.setResponseFormat(Map(
+      "type" -> "json_schema",
+      "json_schema" -> Map(
+        "name" -> "answer_schema",
+        "schema" -> Map(
+          "type" -> "object"
+        )
+      )
+    ))
   }
 
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {

@@ -84,10 +84,6 @@ trait HasOpenAISharedParams extends HasServiceParams with HasAPIVersion {
 
   def setUserCol(v: String): this.type = setVectorParam(user, v)
 
-  setDefault(apiVersion -> Left("2024-02-01"))
-
-  // explicit flag removed; any scalar/column set on the instance is treated as explicit
-
 }
 
 trait HasOpenAIEmbeddingParams extends HasOpenAISharedParams with HasAPIVersion {
@@ -332,8 +328,6 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
   def getReasoningEffortCol: String = getVectorParam(reasoningEffort)
   def setReasoningEffortCol(v: String): this.type = setVectorParam(reasoningEffort, v)
 
-  // list of shared text parameters. In method getOptionalParams, we will iterate over these parameters
-  // to compute the optional parameters. Since this list never changes, we can create it once and reuse it.
   private[openai] val sharedTextParams: Seq[ServiceParam[_]] = Seq(
     maxTokens,
     temperature,

@@ -29,6 +29,8 @@ class OpenAICompletion(override val uid: String) extends OpenAIServicesBase(uid)
 
   override private[ml] def internalServiceType: String = "openai"
 
+  setDefault(apiVersion -> Left("2024-02-01"))
+
   override def setCustomServiceName(v: String): this.type = {
     setUrl(s"https://$v.openai.azure.com/" + urlPath.stripPrefix("/"))
   }
@@ -66,4 +68,3 @@ class OpenAICompletion(override val uid: String) extends OpenAIServicesBase(uid)
   }
 
 }
-

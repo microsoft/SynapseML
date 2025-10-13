@@ -20,7 +20,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
   import spark.implicits._
 
   lazy val responses: OpenAIResponses = new OpenAIResponses()
-    .setDeploymentName(deploymentNameGpt4)
+    .setDeploymentName(deploymentName)
     .setCustomServiceName(openAIServiceName)
     .setApiVersion("2025-04-01-preview")
     .setMaxTokens(500)
@@ -60,13 +60,15 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
 
   test("getOptionalParam should include responseFormat") {
     val transformer = new OpenAIResponses()
-      .setDeploymentName(deploymentNameGpt4)
+      .setDeploymentName(deploymentName)
 
     def validate(params: Map[String, Any], expected: String): Unit = {
-      val payloadName = responses.responseFormat.payloadName
-      assert(params.contains(payloadName))
-      val value = params(payloadName).asInstanceOf[Map[String, String]]
-      assert(value.get("type").contains(expected))
+      // Support both current 'text.format' and any legacy 'response_format' shapes
+      val textOrRf = params.get("text").orElse(params.get("response_format"))
+      assert(textOrRf.isDefined, s"missing text/response_format in optional params: $params")
+      val container = textOrRf.get.asInstanceOf[Map[String, Any]]
+      val format = container.get("format").map(_.asInstanceOf[Map[String, Any]]).getOrElse(container)
+      assert(format.get("type").contains(expected), s"unexpected format in optional params: $params")
     }
     val rawMessages = Seq(
       OpenAIMessage("user", "Whats your favorite color")
@@ -74,7 +76,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
     val messages: Seq[Row] = rawMessages.toDF("role", "content", "name").collect()
 
     val optionalParams = transformer.getOptionalParams(messages.head)
-    assert(!optionalParams.contains("response_format"))
+    assert(!optionalParams.contains("text"))
 
     transformer.setResponseFormat("json_object")
     val paramsWithJson = transformer.getOptionalParams(messages.head)
@@ -85,9 +87,88 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
     validate(paramsWithText, "text")
   }
 
+  test("Responses setResponseFormat accepts json_schema Map and rejects bare string") {
+    val transformer = new OpenAIResponses()
+      .setDeploymentName(deploymentName)
+
+    // Flattened form for Responses API
+    val schemaMap: Map[String, Any] = Map(
+      "type" -> "json_schema",
+      "name" -> "answer_schema",
+      "strict" -> true,
+      "schema" -> Map(
+        "type" -> "object",
+        "properties" -> Map(
+          "answer" -> Map("type" -> "string")
+        ),
+        "required" -> Seq("answer"),
+        "additionalProperties" -> false
+      )
+    )
+
+    transformer.setResponseFormat(schemaMap)
+    val rawMessages = Seq(OpenAIMessage("user", "Whats your favorite color"))
+    val messages: Seq[Row] = rawMessages.toDF("role", "content", "name").collect()
+    val optionalParams = transformer.getOptionalParams(messages.head)
+    val textObj = optionalParams(responses.responseFormat.payloadName).asInstanceOf[Map[String, Any]]
+    val rf = textObj("format").asInstanceOf[Map[String, Any]]
+    assert(rf("type") == "json_schema")
+    assert(rf("name") == "answer_schema")
+
+    assertThrows[IllegalArgumentException] {
+      transformer.setResponseFormat("json_schema")
+    }
+  }
+
+  test("Responses optional params include text.verbosity alongside format") {
+    val transformer = new OpenAIResponses()
+      .setDeploymentName(deploymentName)
+      .setVerbosity("high")
+
+    val schemaMap: Map[String, Any] = Map(
+      "type" -> "json_schema",
+      "name" -> "answer_schema",
+      "strict" -> true,
+      "schema" -> Map(
+        "type" -> "object",
+        "properties" -> Map(
+          "answer" -> Map("type" -> "string")
+        ),
+        "required" -> Seq("answer"),
+        "additionalProperties" -> false
+      )
+    )
+
+    transformer.setResponseFormat(schemaMap)
+    val rawMessages = Seq(OpenAIMessage("user", "Test verbosity"))
+    val messages: Seq[Row] = rawMessages.toDF("role", "content", "name").collect()
+    val optionalParams = transformer.getOptionalParams(messages.head)
+
+    assert(optionalParams.contains("text"))
+    val textObj = optionalParams("text").asInstanceOf[Map[String, Any]]
+    assert(textObj.contains("format"))
+    assert(textObj.get("verbosity").contains("high"))
+  }
+
+  test("Responses optional params include reasoning.effort mapping") {
+    val transformer = new OpenAIResponses()
+      .setDeploymentName(deploymentName)
+      .setReasoningEffort("medium")
+
+    val rawMessages = Seq(OpenAIMessage("user", "Test reasoning"))
+    val messages: Seq[Row] = rawMessages.toDF("role", "content", "name").collect()
+    val optionalParams = transformer.getOptionalParams(messages.head)
+
+    assert(optionalParams.contains("reasoning"))
+    val reasoningObj = optionalParams("reasoning").asInstanceOf[Map[String, Any]]
+    assert(reasoningObj.get("effort").contains("medium"))
+    // Ensure flat reasoning_effort not present
+    assert(!optionalParams.contains("reasoning_effort"))
+  }
+
   test("setResponseFormat should throw exception if invalid format") {
     val transformer = new OpenAIResponses()
-      .setDeploymentName(deploymentNameGpt4)
+      .setDeploymentName(deploymentName)
 
     assertThrows[IllegalArgumentException] {
       transformer.setResponseFormat("invalid_format")

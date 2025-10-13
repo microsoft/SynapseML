@@ -32,6 +32,9 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
 
   override private[ml] def internalServiceType: String = "openai"
 
+  // Default API version aligned with Responses and Chat Completions
+  setDefault(apiVersion -> Left("2025-04-01-preview"))
+
   val text: ServiceParam[String] = new ServiceParam[String](
     this, "text", "Input text to get embeddings for.", isRequired = true)
 

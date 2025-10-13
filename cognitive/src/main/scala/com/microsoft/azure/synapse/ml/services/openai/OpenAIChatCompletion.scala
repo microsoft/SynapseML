@@ -17,71 +17,82 @@ import spray.json._
 
 import scala.language.existentials
 
-object OpenAIChatCompletionResponseFormat extends Enumeration {
-  case class ResponseFormat(paylodName: String, prompt: String) extends super.Val(paylodName)
-
-  val TEXT: ResponseFormat = ResponseFormat("text", "Output must be in text format")
-  val JSON: ResponseFormat = ResponseFormat("json_object", "Output must be in JSON format")
-
-  def asStringSet: Set[String] =
-    OpenAIChatCompletionResponseFormat.values.map(
-      _.asInstanceOf[OpenAIChatCompletionResponseFormat.ResponseFormat].paylodName)
-
-  def fromResponseFormatString(format: String): OpenAIChatCompletionResponseFormat.ResponseFormat = {
-    if (TEXT.paylodName== format) {
-      TEXT
-    } else if (JSON.paylodName == format) {
-      JSON
-    } else {
-      throw new IllegalArgumentException("Response format must be valid for OpenAI API. " +
-                                         "Currently supported formats are " +
-                                         asStringSet.mkString(", "))
-    }
-  }
-}
 
 trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
-  val responseFormat: ServiceParam[Map[String, String]] = new ServiceParam[Map[String, String]](
+  // Updated to Map[String, Any] to allow nested json_schema structure
+  val responseFormat: ServiceParam[Map[String, Any]] = new ServiceParam[Map[String, Any]](
     this,
     "responseFormat",
-    "Response format for the completion. Can be 'json_object' or 'text'.",
+    "Response format for the completion. Can be 'json_object', 'json_schema', or 'text'. " +
+      "For 'json_schema' you must also provide key 'json_schema' with nested JSON schema definition.",
     isRequired = false) {
     override val payloadName: String = "response_format"
   }
 
-  def getResponseFormat: Map[String, String] = getScalarParam(responseFormat)
+  def getResponseFormat: Map[String, Any] = getScalarParam(responseFormat)
 
-  def setResponseFormat(value: Map[String, String]): this.type = {
-    val allowedFormat = OpenAIChatCompletionResponseFormat.asStringSet
-
-    // This test is to validate that value is properly formatted Map('type' -> '<format>')
-    if (value == null || value.size !=1  || !value.contains("type") || value("type").isEmpty) {
-      throw new IllegalArgumentException("Response format map must of the form Map('type' -> '<format>')"
-                                           + " where <format> is one of " + allowedFormat.mkString(", "))
-    }
-
-    // This test is to validate that the format is one of the allowed formats
-    if (!allowedFormat.contains(value("type").toLowerCase)) {
-      throw new IllegalArgumentException("Response format must be valid for OpenAI API. " +
-                                           "Currently supported formats are " +
-                                           allowedFormat.mkString(", "))
+  def setResponseFormat(value: Map[String, Any]): this.type = {
+    requireValidResponseFormatType(value)
+    if (isJsonSchema(value)) {
+      requireValidJsonSchemaShape(value)
     }
     setScalarParam(responseFormat, value)
   }
 
-  def setResponseFormat(value: String): this.type = {
-    if (value == null || value.isEmpty) {
-      this
-    } else {
-      setResponseFormat(Map("type" -> value.toLowerCase))
+  private def isJsonSchema(value: Map[String, Any]): Boolean =
+    value.get("type").exists(_.toString.equalsIgnoreCase("json_schema"))
+
+  private def requireValidResponseFormatType(value: Map[String, Any]): Unit = {
+    val tOpt = value.get("type").map(_.toString.trim.toLowerCase)
+    if (tOpt.isEmpty || tOpt.exists(_.isEmpty)) {
+      throw new IllegalArgumentException("response_format map must contain non-empty key 'type'")
+    }
+    val tpe = tOpt.get
+    val ok = tpe == "text" || tpe == "json_object" || tpe == "json_schema"
+    if (!ok) {
+      val msg = "Unsupported response_format type. Use 'text', 'json_object', or 'json_schema'."
+      throw new IllegalArgumentException(msg)
     }
   }
 
-  def setResponseFormat(value: OpenAIChatCompletionResponseFormat.ResponseFormat): this.type = {
-    setScalarParam(responseFormat, Map("type" -> value.paylodName))
+  private def requireValidJsonSchemaShape(value: Map[String, Any]): Unit = {
+    val hasNested = value.contains("json_schema")
+    val hasFlat = value.contains("name") && value.contains("schema")
+    if (!hasNested && !hasFlat) {
+      val msg = "json_schema requires nested 'json_schema' or top-level 'name' and 'schema'."
+      throw new IllegalArgumentException(msg)
+    }
   }
 
-  // override this field to include the new parameters
+  // Supported String values: "text", "json_object".
+  // For "json_schema" caller must use Map form with full structure (no parsing performed here).
+  // Any other String value is rejected to avoid implicit parsing/assumptions.
+  def setResponseFormat(value: String): this.type = {
+    Option(value).map(_.trim).filter(_.nonEmpty) match {
+      case None => this
+      case Some(trimmed) =>
+        if (trimmed.equalsIgnoreCase("json_schema")) {
+          val msgParts = Seq(
+            "To use json_schema pass a dict (Python) or Map (Scala) with required fields.",
+            "Chat: Map('type'->'json_schema','json_schema'-> {...});",
+            "Responses: Map('type'->'json_schema','name'->...,'schema'-> {...})"
+          )
+          throw new IllegalArgumentException(msgParts.mkString(" "))
+        }
+        trimmed.toLowerCase match {
+          case "text" | "json_object" =>
+            setResponseFormat(Map("type" -> trimmed.toLowerCase))
+          case _ =>
+            throw new IllegalArgumentException(
+              "Unsupported response_format String. Use 'text', 'json_object', or a Map for 'json_schema'.")
+        }
+    }
+  }
+
+  def getResponseFormatType: String = Option(getResponseFormat)
+    .flatMap(m => Option(m.getOrElse("type", "").toString))
+    .getOrElse("")
+
   override private[openai] val sharedTextParams: Seq[ServiceParam[_]] = Seq(
     maxTokens,
     temperature,
@@ -114,6 +125,8 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   def urlPath: String = ""
 
   override private[ml] def internalServiceType: String = "openai"
+
+  setDefault(apiVersion -> Left("2025-04-01-preview"))
 
   override def setCustomServiceName(v: String): this.type = {
     setUrl(s"https://$v.openai.azure.com/" + urlPath.stripPrefix("/"))
@@ -164,6 +177,3 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   }
 
 }
-
-
-

@@ -1,14 +1,17 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 
-from synapse.ml.services.openai.OpenAIDefaults import OpenAIDefaults
-from synapse.ml.services.openai.OpenAIPrompt import OpenAIPrompt
-import unittest, os, json, subprocess
+import unittest
+import json
+import subprocess
+
 from pyspark.sql import SQLContext
 from pyspark.sql.functions import col
 
-
-from synapse.ml.core.init_spark import *
+from synapse.ml.services.openai.OpenAIDefaults import OpenAIDefaults
+from synapse.ml.services.openai.OpenAIPrompt import OpenAIPrompt
+from synapse.ml.services.openai.OpenAIChatCompletion import OpenAIChatCompletion
+from synapse.ml.core.init_spark import init_spark
 
 spark = init_spark()
 sc = SQLContext(spark.sparkContext)
@@ -102,11 +105,13 @@ class TestOpenAIDefaults(unittest.TestCase):
 
     def test_prompt_w_defaults(self):
 
-        secretJson = subprocess.check_output(
-            "az keyvault secret show --vault-name mmlspark-build-keys --name openai-api-key-2",
-            shell=True,
+        cmd = (
+            "az keyvault secret show "
+            "--vault-name mmlspark-build-keys "
+            "--name openai-api-key-2"
         )
-        openai_api_key = json.loads(secretJson)["value"]
+        secret_json = subprocess.check_output(cmd, shell=True)
+        openai_api_key = json.loads(secret_json)["value"]
 
         df = spark.createDataFrame(
             [
@@ -162,6 +167,70 @@ class TestOpenAIDefaults(unittest.TestCase):
             defaults.set_top_p(-0.1)
         with self.assertRaises(ValueError):
             defaults.set_top_p(1.1)
+
+
+class TestResponseFormatJsonSchema(unittest.TestCase):
+    def setUp(self):
+        self.schema_dict = {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "answer_schema",
+                "strict": True,
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "answer": {"type": "string"},
+                    },
+                    "required": ["answer"],
+                    "additionalProperties": False,
+                },
+            },
+        }
+        import json as _json
+
+        self.schema_json = _json.dumps(self.schema_dict)
+
+    def test_prompt_set_response_format_dict(self):
+        prompt = OpenAIPrompt().setResponseFormat(self.schema_dict)
+        rf_type = prompt._java_obj.getResponseFormatType()
+        self.assertEqual(rf_type, "json_schema")
+
+    def test_prompt_set_response_format_json_string_rejected(self):
+        prompt = OpenAIPrompt()
+        with self.assertRaises(Exception):
+            prompt.setResponseFormat(self.schema_json)
+
+    def test_chat_set_response_format_dict(self):
+        chat = OpenAIChatCompletion().setResponseFormat(self.schema_dict)
+        rf_type = chat._java_obj.getResponseFormatType()
+        self.assertEqual(rf_type, "json_schema")
+
+    def test_chat_set_response_format_json_string_rejected(self):
+        chat = OpenAIChatCompletion()
+        with self.assertRaises(Exception):
+            chat.setResponseFormat(self.schema_json)
+
+    def test_chat_set_response_format_invalid_missing_schema(self):
+        bad = {"type": "json_schema"}  # missing json_schema key
+        chat = OpenAIChatCompletion()
+        with self.assertRaises(Exception):
+            chat.setResponseFormat(bad)
+
+    def test_chat_set_response_format_invalid_type(self):
+        bad = {"type": "not_a_valid_type"}
+        chat = OpenAIChatCompletion()
+        with self.assertRaises(Exception):
+            chat.setResponseFormat(bad)
+
+    def test_chat_set_response_format_bare_json_schema_string_rejected(self):
+        chat = OpenAIChatCompletion()
+        with self.assertRaises(Exception):
+            chat.setResponseFormat("json_schema")
+
+    def test_prompt_set_response_format_bare_json_schema_string_rejected(self):
+        prompt = OpenAIPrompt()
+        with self.assertRaises(Exception):
+            prompt.setResponseFormat("json_schema")
 
 
 if __name__ == "__main__":
