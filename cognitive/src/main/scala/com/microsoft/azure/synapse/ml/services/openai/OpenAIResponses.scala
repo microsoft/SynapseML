@@ -21,37 +21,25 @@ import scala.language.existentials
 import com.microsoft.azure.synapse.ml.services.HasCustomHeaders
 
 object OpenAIResponseFormat extends Enumeration {
-  case class ResponseFormat(paylodName: String, prompt: String) extends super.Val(paylodName)
+  case class ResponseFormat(paylodName: String) extends super.Val(paylodName)
 
-  val TEXT: ResponseFormat = ResponseFormat("text", "Output must be in text format")
-  val JSON: ResponseFormat = ResponseFormat("json_object", "Output must be in JSON format")
+  val TEXT: ResponseFormat = ResponseFormat("text")
+  val JSON: ResponseFormat = ResponseFormat("json_object")
 
-  def asStringSet: Set[String] = {
-    OpenAIResponseFormat.values.map(
-      _.asInstanceOf[OpenAIResponseFormat.ResponseFormat].paylodName
-    )
-  }
+  def asStringSet: Set[String] = OpenAIResponseFormat.values.map(_.asInstanceOf[OpenAIResponseFormat.ResponseFormat].paylodName)
 
-  // Note: 'json_schema' is intentionally not represented here because it does not
-  // require a system prompt injection. We still accept it in validation elsewhere.
   def fromResponseFormatString(format: String): OpenAIResponseFormat.ResponseFormat = {
-    if (TEXT.paylodName == format) {
-      TEXT
-    } else if (JSON.paylodName == format) {
-      JSON
-    } else {
-      throw new IllegalArgumentException("Response format must be valid for OpenAI API. " +
-        "Currently supported formats are " + asStringSet.mkString(", "))
-    }
+    if (TEXT.paylodName == format) TEXT
+    else if (JSON.paylodName == format) JSON
+    else throw new IllegalArgumentException("Response format must be one of: " + asStringSet.mkString(", "))
   }
 }
 
 trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
-  // Responses API accepts 'text', 'json_object', and now 'json_schema'.
   val responseFormat: ServiceParam[Map[String, Any]] = new ServiceParam[Map[String, Any]](
     this,
     "responseFormat",
-    "Response format. One of 'text', 'json_object', 'json_schema'. Responses sends this under 'text.format'.",
+    "Response format. One of 'text', 'json_object', 'json_schema'.",
     isRequired = false) {
     override val payloadName: String = "text"
   }
@@ -73,7 +61,7 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
       case "json_schema" => buildJsonSchemaFormat(value)
       case _ =>
         throw new IllegalArgumentException("Unsupported response format type. Use 'text','json_object','json_schema'.")
-    }
+  }
   }
 
   private def buildJsonSchemaFormat(value: Map[String, Any]): Map[String, Any] = {
@@ -148,7 +136,6 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
 
   override private[ml] def internalServiceType: String = "openai"
 
-  // Default API version for Responses
   setDefault(apiVersion -> Left("2025-04-01-preview"))
 
   override def setCustomServiceName(v: String): this.type = {
