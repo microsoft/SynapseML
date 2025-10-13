@@ -64,10 +64,15 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
     // 1) instance/row value
     // 2) global embedding deployment name
     // 3) global (general) deployment name
-    val resolvedDeployment: Option[String] =
-      getValueOpt(row, deploymentName)
-        .orElse(GlobalParams.getGlobalParam(OpenAIEmbeddingDeploymentNameKey).flatMap(_.left.toOption))
-        .orElse(GlobalParams.getGlobalParam(OpenAIDeploymentNameKey).flatMap(_.left.toOption))
+    // Prefer the embedding deployment name over the general deployment name when both are set.
+    // This ensures embeddings use their specific deployment by default.
+    val resolvedDeployment: Option[String] = {
+      val instanceDep = getValueOpt(row, deploymentName)
+      val globalEmbedDep = GlobalParams.getGlobalParam(OpenAIEmbeddingDeploymentNameKey).flatMap(_.left.toOption)
+      val globalGeneralDep = GlobalParams.getGlobalParam(OpenAIDeploymentNameKey).flatMap(_.left.toOption)
+      // Precedence: instance > globalEmbed > globalGeneral
+      instanceDep.orElse(globalEmbedDep).orElse(globalGeneralDep)
+    }
 
     val dep = resolvedDeployment.getOrElse(
       throw new IllegalArgumentException("Please set deploymentName or EmbeddingDeploymentName.")
