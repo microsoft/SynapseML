@@ -11,8 +11,6 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
 import org.scalactic.Equality
 
-// Uses shared OpenAIAPIKey from OpenAIAPIKey.scala
-
 class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with OpenAIAPIKey with Flaky {
 
   import spark.implicits._

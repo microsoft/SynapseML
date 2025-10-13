@@ -5,10 +5,8 @@ package com.microsoft.azure.synapse.ml.services.openai
 
 import com.microsoft.azure.synapse.ml.Secrets
 
-/**
- * Shared OpenAI test configuration.
- * Centralizes how tests get API keys, service names, and default deployments.
- */
+// Shared OpenAI test configuration.
+// Centralizes how tests get API keys, service names, and default deployments.
 trait OpenAIAPIKey {
   // Prefer environment overrides to make CI/local runs configurable
   lazy val openAIAPIKey: String = sys.env.getOrElse("OPENAI_API_KEY_2", Secrets.OpenAIApiKey)

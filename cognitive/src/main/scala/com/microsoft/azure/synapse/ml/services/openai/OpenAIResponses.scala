@@ -26,7 +26,8 @@ object OpenAIResponseFormat extends Enumeration {
   val TEXT: ResponseFormat = ResponseFormat("text")
   val JSON: ResponseFormat = ResponseFormat("json_object")
 
-  def asStringSet: Set[String] = OpenAIResponseFormat.values.map(_.asInstanceOf[OpenAIResponseFormat.ResponseFormat].paylodName)
+  def asStringSet: Set[String] = OpenAIResponseFormat.values.map(
+    _.asInstanceOf[OpenAIResponseFormat.ResponseFormat].paylodName)
 
   def fromResponseFormatString(format: String): OpenAIResponseFormat.ResponseFormat = {
     if (TEXT.paylodName == format) TEXT
