@@ -152,11 +152,13 @@ trait PythonWrappable extends BaseWrappable {
           |""".stripMargin
     // scalastyle:off line.size.limit
     p match {
-      case _: ServiceParam[_] =>
+      case sp: ServiceParam[_] =>
         s"""|def set$capName(self, value):
             |${indent(docString, 1)}
             |    if isinstance(value, list):
             |        value = SparkContext._active_spark_context._jvm.com.microsoft.azure.synapse.ml.param.ServiceParam.toSeq(value)
+            |    elif isinstance(value, dict):
+            |        value = SparkContext._active_spark_context._jvm.com.microsoft.azure.synapse.ml.param.ServiceParam.toMap(value)
             |    self._java_obj = self._java_obj.set$capName(value)
             |    return self
             |

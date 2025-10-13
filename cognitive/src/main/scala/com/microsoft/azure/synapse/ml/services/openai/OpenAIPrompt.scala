@@ -232,6 +232,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
       case c: HasMessagesInput =>
         if (isSet(responseFormat)) {
+          // Pass through responseFormat without forcing a single shape here.
+          // Each service validates according to its API (chat_completions vs responses).
           c match {
             case cc: OpenAIChatCompletion => cc.setResponseFormat(getResponseFormat)
             case resp: OpenAIResponses => resp.setResponseFormat(getResponseFormat)
@@ -323,10 +325,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     }, dataset.columns.length)
   }
 
-  // If the response format is set, add a system prompt to the messages. This is required by the
-  // OpenAI api. If the reponseFormat is json and the prompt does not contain string 'JSON' then 400 error is returned
-  // For this reason we add a system prompt to the messages.
-  // This method is made private[openai] for testing purposes
   private[openai] def stringMessageWrapper(str: String): Map[String, String] = {
     if (this.getApiType == "responses") {
       Map("type" -> "input_text", "text" -> str)
@@ -337,22 +335,13 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   private[openai] def getPromptsForMessage(content: Either[Seq[Map[String, String]], String]) = {
     val stringWrapper = (s: String) => Seq(stringMessageWrapper(s))
-    val basePrompts = Seq(
+    Seq(
       OpenAICompositeMessage("system", stringWrapper(getSystemPrompt)),
       OpenAICompositeMessage("user", content match {
         case Left(parts) => parts
         case Right(text) => stringWrapper(text)
       })
     )
-
-    if (isSet(responseFormat)) {
-      val responseFormatPrompt = OpenAIChatCompletionResponseFormat
-        .fromResponseFormatString(getResponseFormat("type"))
-        .prompt
-      basePrompts :+ OpenAICompositeMessage("system", stringWrapper(responseFormatPrompt))
-    } else {
-      basePrompts
-    }
   }
 
   private[openai] def createMessagesForRow(
@@ -473,7 +462,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
         new OpenAICompletion()
       }
       else {
-        // Use the apiType parameter to decide which API to use
+        // Use the apiType parameter to decide between chat_completions and responses
         getApiType match {
           case "responses" => new OpenAIResponses()
           case "chat_completions" | _ => new OpenAIChatCompletion()
