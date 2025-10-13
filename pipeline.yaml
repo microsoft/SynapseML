@@ -335,7 +335,7 @@ jobs:
         PGP-PW: $(pgp-pw)
         SYNAPSEML_ENABLE_PUBLISH: true
       displayName: 'publish jar package to maven central'
-    - task: EsrpRelease@11
+    - task: EsrpRelease@10
       inputs:
         connectedservicename: 'SynapseML-ESRP-Service-Connection'
         usemanagedidentity: true
