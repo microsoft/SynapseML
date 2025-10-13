@@ -10,8 +10,6 @@ dependencies:
   - r-sparklyr=1.8.1
   - r-devtools=2.4.2
   - cmake<=3.27
-  # - pytorch==2.0.0
-  # - horovod==0.28.1
   - pip:
     - pyarrow==10.0.1
     - pyspark==3.4.1
@@ -37,7 +35,8 @@ dependencies:
     - numpy
     - torch==2.1.0
     - torchvision
-    - git+https://github.com/thomas-bouvier/horovod.git@compile-cpp17
+    # With horovod being depreciated, this commit has horovod c++17 compile fix by thomas-bouvier
+    - git+https://github.com/horovod/horovod.git@3a31d933a13c7c885b8a673f4172b17914ad334d
     - petastorm>=0.11.0
     - pytorch_lightning==1.5.0
     - onnxmltools==1.7.0
