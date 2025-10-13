@@ -48,9 +48,9 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
   val responseFormat: ServiceParam[Map[String, Any]] = new ServiceParam[Map[String, Any]](
     this,
     "responseFormat",
-    "Response format. Can be 'json_object', 'json_schema', or 'text'. For 'json_schema' also provide key 'json_schema' with nested schema.",
+    "Response format. Can be 'json_object', 'json_schema', or 'text'. For Responses API this is sent under 'text': {'format': {...}}.",
     isRequired = false) {
-    override val payloadName: String = "response_format"
+    override val payloadName: String = "text"
   }
 
   def getResponseFormat: Map[String, Any] = getScalarParam(responseFormat)
@@ -64,20 +64,37 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
     }
 
     val tpe = value("type").toString.toLowerCase
-    tpe match {
+    val formatted: Map[String, Any] = tpe match {
       case "text" | "json_object" =>
-        // Allow additional keys to pass through; service will ignore unknown keys.
-        setScalarParam(responseFormat, value)
+        Map("format" -> Map("type" -> tpe))
       case "json_schema" =>
-        if (!value.contains("json_schema")) {
+        // Build flattened 'format' object: { type: 'json_schema', name, schema, strict? }
+        val hasNested = value.contains("json_schema")
+        val hasFlattened = value.contains("name") && value.contains("schema")
+        if (!hasNested && !hasFlattened) {
           throw new IllegalArgumentException(
-            "When type == 'json_schema', key 'json_schema' must be provided.")
+            "When type == 'json_schema', provide nested key 'json_schema' or top-level 'name' and 'schema'.")
         }
-        setScalarParam(responseFormat, value)
+        val inner: Map[String, Any] = if (hasFlattened) {
+          Map(
+            "type" -> "json_schema",
+            "name" -> value("name"),
+            "schema" -> value("schema")
+          ) ++ (if (value.contains("strict")) Map("strict" -> value("strict")) else Map.empty)
+        } else {
+          val js = value("json_schema").asInstanceOf[Map[String, Any]]
+          Map(
+            "type" -> "json_schema",
+            "name" -> js.getOrElse("name", throw new IllegalArgumentException("json_schema.name required")),
+            "schema" -> js.getOrElse("schema", throw new IllegalArgumentException("json_schema.schema required"))
+          ) ++ js.get("strict").map(v => Map("strict" -> v)).getOrElse(Map.empty)
+        }
+        Map("format" -> inner)
       case _ =>
         throw new IllegalArgumentException(
           "Response format must be valid for OpenAI API. Currently supported formats are text, json_object, json_schema.")
     }
+    setScalarParam(responseFormat, formatted)
   }
 
   def setResponseFormat(value: String): this.type = {
@@ -87,8 +104,8 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
       val trimmed = value.trim.toLowerCase
       if (trimmed == "json_schema") {
         throw new IllegalArgumentException(
-          "To use json_schema pass a dict (Python) or Map (Scala) that complies with OpenAI responses response_format. " +
-          "Example: setResponseFormat(Map(\"type\"->\"json_schema\", ...))")
+          "To use json_schema pass a dict (Python) or Map (Scala) that complies with OpenAI responses text.format. " +
+          "Example: setResponseFormat(Map(\"type\"->\"json_schema\", \"name\"->\"my_schema\", \"strict\"->true, \"schema\"->Map(...)))")
       }
       setResponseFormat(Map("type" -> trimmed))
     }
@@ -130,6 +147,9 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
 
   override private[ml] def internalServiceType: String = "openai"
 
+  // Default API version for Responses
+  setDefault(apiVersion -> Left("2025-04-01-preview"))
+
   override def setCustomServiceName(v: String): this.type = {
     setUrl(s"https://$v.openai.azure.com/" + urlPath.stripPrefix("/"))
   }
@@ -146,12 +166,43 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   }
 
   override private[ml] def getOptionalParams(r: Row): Map[String, Any] = {
-    val params = super.getOptionalParams(r)
-    getValueOpt(r, deploymentName) match {
+    val base0 = super.getOptionalParams(r)
+    // Remove flat reasoning_effort; Responses uses nested reasoning.effort
+    val base = base0 - "reasoning_effort"
+    // Merge model mapping
+    val withModel = getValueOpt(r, deploymentName) match {
       case Some(modelName) if modelName != null && modelName.nonEmpty =>
-        params.updated("model", modelName)
-      case _ => params
+        base.updated("model", modelName)
+      case _ => base
     }
+    // Merge verbosity under text alongside format for Responses API
+    val maybeVerbosity = getValueOpt(r, verbosity)
+    val withText = (withModel.get("text"), maybeVerbosity) match {
+      case (Some(t: Map[_, _]), Some(v)) =>
+        val textMap = t.asInstanceOf[Map[String, Any]]
+        withModel.updated("text", textMap.updated("verbosity", v))
+      case (None, Some(v)) =>
+        withModel.updated("text", Map("verbosity" -> v))
+      case _ => withModel
+    }
+    // Map reasoning_effort -> reasoning.effort for Responses API
+    val withReasoning = getValueOpt(r, reasoningEffort) match {
+      case Some(effort) =>
+        val existing = withText.get("reasoning") match {
+          case Some(m: Map[_, _]) => m.asInstanceOf[Map[String, Any]]
+          case _ => Map.empty[String, Any]
+        }
+        withText.updated("reasoning", existing.updated("effort", effort))
+      case _ => withText
+    }
+    // If a GPT-5 style model is used, include reasoning controls and drop classic sampling.
+    val isGpt5 = withReasoning.get("model").exists {
+      case s: String => s.toLowerCase.contains("gpt-5")
+      case _ => false
+    }
+    if (isGpt5) {
+      withReasoning - "temperature" - "top_p" - "seed"
+    } else withReasoning
   }
 
   override val subscriptionKeyHeaderName: String = "api-key"

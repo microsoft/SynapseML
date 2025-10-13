@@ -232,6 +232,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
       case c: HasMessagesInput =>
         if (isSet(responseFormat)) {
+          // Pass through responseFormat without forcing a single shape here.
+          // Each service validates according to its API (chat_completions vs responses).
           c match {
             case cc: OpenAIChatCompletion => cc.setResponseFormat(getResponseFormat)
             case resp: OpenAIResponses => resp.setResponseFormat(getResponseFormat)
@@ -348,7 +350,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     if (isSet(responseFormat)) {
       val tpe = getResponseFormat("type").toString
       if (tpe.equalsIgnoreCase("json_schema")) {
-        // Do not inject a system prompt for json_schema; schema drives structure.
+        // For responses API, no system prompt is required; shape is enforced via response_format.
+        // For chat_completions, we still avoid injecting an extra JSON/text directive here.
         basePrompts
       } else {
         val responseFormatPrompt = OpenAIResponseFormat

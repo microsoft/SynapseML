@@ -42,8 +42,12 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
       case "text" | "json_object" =>
         setScalarParam(responseFormat, value)
       case "json_schema" =>
-        if (!value.contains("json_schema")) {
-          throw new IllegalArgumentException("When type == 'json_schema', key 'json_schema' must be provided.")
+        // Accept nested or flattened json_schema at the param level to support Prompt passthrough.
+        val hasNested = value.contains("json_schema")
+        val hasFlattened = value.contains("name") && value.contains("schema")
+        if (!hasNested && !hasFlattened) {
+          throw new IllegalArgumentException(
+            "When type == 'json_schema', provide nested key 'json_schema' or top-level 'name' and 'schema'.")
         }
         setScalarParam(responseFormat, value)
       case _ =>
@@ -113,6 +117,9 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   def urlPath: String = ""
 
   override private[ml] def internalServiceType: String = "openai"
+
+  // Default API version for Chat Completions
+  setDefault(apiVersion -> Left("2025-04-01-preview"))
 
   override def setCustomServiceName(v: String): this.type = {
     setUrl(s"https://$v.openai.azure.com/" + urlPath.stripPrefix("/"))

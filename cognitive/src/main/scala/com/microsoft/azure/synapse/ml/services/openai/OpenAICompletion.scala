@@ -29,6 +29,10 @@ class OpenAICompletion(override val uid: String) extends OpenAIServicesBase(uid)
 
   override private[ml] def internalServiceType: String = "openai"
 
+  // Override default API version for legacy Completions API.
+  // Other services retain their defaults from HasOpenAISharedParams.
+  setDefault(apiVersion -> Left("2024-02-01"))
+
   override def setCustomServiceName(v: String): this.type = {
     setUrl(s"https://$v.openai.azure.com/" + urlPath.stripPrefix("/"))
   }
@@ -66,4 +70,3 @@ class OpenAICompletion(override val uid: String) extends OpenAIServicesBase(uid)
   }
 
 }
-
