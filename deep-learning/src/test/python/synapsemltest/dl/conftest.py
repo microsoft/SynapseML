@@ -8,7 +8,6 @@ import urllib
 from os.path import join
 
 import numpy as np
-import pandas as pd
 import pytest
 import torchvision.transforms as transforms
 from pyspark.ml.feature import StringIndexer
