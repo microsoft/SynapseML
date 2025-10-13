@@ -70,8 +70,14 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
       val instanceDep = getValueOpt(row, deploymentName)
       val globalEmbedDep = GlobalParams.getGlobalParam(OpenAIEmbeddingDeploymentNameKey).flatMap(_.left.toOption)
       val globalGeneralDep = GlobalParams.getGlobalParam(OpenAIDeploymentNameKey).flatMap(_.left.toOption)
-      // Precedence: instance > globalEmbed > globalGeneral
-      instanceDep.orElse(globalEmbedDep).orElse(globalGeneralDep)
+      // If the instance deployment was populated from the general global default,
+      // prefer the embedding-specific global default when present.
+      instanceDep match {
+        case Some(inst) if globalEmbedDep.isDefined && globalGeneralDep.contains(inst) =>
+          globalEmbedDep
+        case Some(inst) => Some(inst)
+        case None => globalEmbedDep.orElse(globalGeneralDep)
+      }
     }
 
     val dep = resolvedDeployment.getOrElse(
