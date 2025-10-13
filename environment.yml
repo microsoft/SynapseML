@@ -5,7 +5,7 @@ channels:
 dependencies:
   - python=3.11.8
   - requests=2.26.0
-  - pip=21.3
+  - pip=25.2
   - r-base=4.1.1
   - r-sparklyr=1.8.1
   - r-devtools=2.4.2
@@ -13,7 +13,7 @@ dependencies:
   - pip:
     - pyarrow==10.0.1
     - pyspark==3.4.1
-    - pandas==1.4.0
+    - pandas==2.0.3
     - wheel
     - sphinx==5.0.2
     - sphinx_paramlinks==0.5.2
@@ -33,9 +33,11 @@ dependencies:
     - twine
     - mlflow
     - numpy
-    - torch==2.0.0
-    - torchvision==0.15.1
-    - horovod==0.28.1
+    - torch==2.1.0
+    - torchvision==0.16.0
+    # horovod package was depreciated in 2023, this commit has horovod compile with c++17
+    # Ref: https://github.com/horovod/horovod/issues/3996#issuecomment-2098507345
+    - git+https://github.com/horovod/horovod.git@3a31d933a13c7c885b8a673f4172b17914ad334d
     - petastorm>=0.11.0
     - pytorch_lightning==1.5.0
     - onnxmltools==1.7.0
