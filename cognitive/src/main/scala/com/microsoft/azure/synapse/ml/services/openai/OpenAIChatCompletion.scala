@@ -32,27 +32,35 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
   def getResponseFormat: Map[String, Any] = getScalarParam(responseFormat)
 
   def setResponseFormat(value: Map[String, Any]): this.type = {
-    if (value == null || !value.contains("type") ||
-      value("type") == null ||
-      value("type").asInstanceOf[Any].toString.trim.isEmpty) {
+    requireValidResponseFormatType(value)
+    if (isJsonSchema(value)) {
+      requireValidJsonSchemaShape(value)
+    }
+    setScalarParam(responseFormat, value)
+  }
+
+  private def isJsonSchema(value: Map[String, Any]): Boolean =
+    value.get("type").exists(_.toString.equalsIgnoreCase("json_schema"))
+
+  private def requireValidResponseFormatType(value: Map[String, Any]): Unit = {
+    val tOpt = value.get("type").map(_.toString.trim.toLowerCase)
+    if (tOpt.isEmpty || tOpt.exists(_.isEmpty)) {
       throw new IllegalArgumentException("response_format map must contain non-empty key 'type'")
     }
-    val tpe = value("type").toString.toLowerCase
-    tpe match {
-      case "text" | "json_object" =>
-        setScalarParam(responseFormat, value)
-      case "json_schema" =>
-        // Accept nested or flattened json_schema at the param level to support Prompt passthrough.
-        val hasNested = value.contains("json_schema")
-        val hasFlattened = value.contains("name") && value.contains("schema")
-        if (!hasNested && !hasFlattened) {
-          throw new IllegalArgumentException(
-            "When type == 'json_schema', provide nested key 'json_schema' or top-level 'name' and 'schema'.")
-        }
-        setScalarParam(responseFormat, value)
-      case _ =>
-        throw new IllegalArgumentException(
-          "Unsupported response_format type. Use 'text', 'json_object', or 'json_schema'.")
+    val tpe = tOpt.get
+    val ok = tpe == "text" || tpe == "json_object" || tpe == "json_schema"
+    if (!ok) {
+      val msg = "Unsupported response_format type. Use 'text', 'json_object', or 'json_schema'."
+      throw new IllegalArgumentException(msg)
+    }
+  }
+
+  private def requireValidJsonSchemaShape(value: Map[String, Any]): Unit = {
+    val hasNested = value.contains("json_schema")
+    val hasFlat = value.contains("name") && value.contains("schema")
+    if (!hasNested && !hasFlat) {
+      val msg = "json_schema requires nested 'json_schema' or top-level 'name' and 'schema'."
+      throw new IllegalArgumentException(msg)
     }
   }
 
@@ -64,9 +72,12 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
       case None => this
       case Some(trimmed) =>
         if (trimmed.equalsIgnoreCase("json_schema")) {
-          throw new IllegalArgumentException(
-            "To use json_schema pass a dict (Python) or Map (Scala) that complies with OpenAI chat_completions response_format. " +
-            "Example: setResponseFormat(Map(\"type\"->\"json_schema\", \"json_schema\"-> {...}))")
+          val msgParts = Seq(
+            "To use json_schema pass a dict (Python) or Map (Scala) with required fields.",
+            "Chat: Map('type'->'json_schema','json_schema'-> {...});",
+            "Responses: Map('type'->'json_schema','name'->...,'schema'-> {...})"
+          )
+          throw new IllegalArgumentException(msgParts.mkString(" "))
         }
         trimmed.toLowerCase match {
           case "text" | "json_object" =>

@@ -10,20 +10,24 @@ import scala.collection.JavaConverters._
 import scala.reflect.runtime.universe._
 
 object ServiceParamJsonProtocol extends DefaultJsonProtocol {
+  // scalastyle:off cyclomatic.complexity
   override implicit def eitherFormat[A: JsonFormat, B: JsonFormat]: JsonFormat[Either[A, B]] =
     new JsonFormat[Either[A, B]] {
-      def write(either: Either[A, B]): JsValue = either match {
-        case Left(a) => JsObject.apply(("left", a.toJson))
-        case Right(b) => JsObject.apply(("right", b.toJson))
+      def write(either: Either[A, B]): JsValue = {
+        either.fold[JsValue](
+          a => JsObject("left" -> a.toJson),
+          b => JsObject("right" -> b.toJson)
+        )
       }
 
-      def read(value: JsValue): Either[A, B] = value.asJsObject().fields.head match {
-        case ("left", jv) => Left(jv.convertTo[A])
-        case ("right", jv) => Right(jv.convertTo[B])
-        case _ => throw new IllegalArgumentException("Could not parse either type")
+      def read(value: JsValue): Either[A, B] = {
+        val obj = value.asJsObject
+        obj.fields.get("left").map(j => Left(j.convertTo[A]))
+          .orElse(obj.fields.get("right").map(j => Right(j.convertTo[B])))
+          .getOrElse(throw new IllegalArgumentException("Could not parse either type"))
       }
     }
-
+  // scalastyle:on cyclomatic.complexity
 }
 
 class JsonEncodableParam[T](parent: Params, name: String, doc: String, isValid: T => Boolean)
@@ -56,6 +60,10 @@ object ServiceParam {
       m.asScala.map { case (k, v) => k.toString -> toScalaAny(v) }.toMap
     case l: java.util.List[_] =>
       l.asScala.map(toScalaAny).toSeq
+    case other => toScalaPrimitive(other)
+  }
+
+  private def toScalaPrimitive(value: Any): Any = value match {
     case b: java.lang.Boolean => b.booleanValue()
     case i: java.lang.Integer => i.intValue()
     case l: java.lang.Long => l.longValue()
