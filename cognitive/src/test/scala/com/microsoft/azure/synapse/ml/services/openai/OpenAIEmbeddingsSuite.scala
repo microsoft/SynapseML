@@ -16,7 +16,6 @@ class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with Ope
 
   lazy val embedding: OpenAIEmbedding = new OpenAIEmbedding()
     .setSubscriptionKey(openAIAPIKey)
-    .setDeploymentName("text-embedding-ada-002")
     .setCustomServiceName(openAIServiceName)
     .setTextCol("text")
     .setOutputCol("out")
@@ -34,15 +33,11 @@ class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with Ope
     })
   }
 
-  test("Embedding deployment defaults take precedence over general deployment defaults") {
-    // Set conflicting global defaults: general deployment and embedding-specific deployment
-    val originalDeploymentName = OpenAIDefaults.getDeploymentName
+  test("Embedding uses global embedding deployment name when per-instance is not set") {
     val originalEmbeddingDeploymentName = OpenAIDefaults.getEmbeddingDeploymentName
 
-    OpenAIDefaults.setDeploymentName("gpt-4.1-mini")
     OpenAIDefaults.setEmbeddingDeploymentName("text-embedding-ada-002")
 
-    // Use an embedding transformer without a per-instance deployment to force defaults resolution
     val t = new OpenAIEmbedding()
       .setSubscriptionKey(openAIAPIKey)
       .setCustomServiceName(openAIServiceName)
@@ -55,11 +50,6 @@ class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with Ope
     })
 
     // Reset global defaults to avoid cross-test contamination
-    if (originalDeploymentName.isDefined) {
-      OpenAIDefaults.setDeploymentName(originalDeploymentName.get)
-    } else {
-      OpenAIDefaults.resetDeploymentName()
-    }
     if (originalEmbeddingDeploymentName.isDefined) {
       OpenAIDefaults.setEmbeddingDeploymentName(originalEmbeddingDeploymentName.get)
     } else {
@@ -67,9 +57,34 @@ class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with Ope
     }
   }
 
+  test("Embedding ignores general deployment default when embedding default is set") {
+    val originalGeneral = OpenAIDefaults.getDeploymentName
+    val originalEmbedding = OpenAIDefaults.getEmbeddingDeploymentName
+
+    // Set a general default that is not an embedding model and a valid embedding default
+    OpenAIDefaults.setDeploymentName("gpt-4.1-mini")
+    OpenAIDefaults.setEmbeddingDeploymentName("text-embedding-ada-002")
+
+    val t = new OpenAIEmbedding()
+      .setSubscriptionKey(openAIAPIKey)
+      .setCustomServiceName(openAIServiceName)
+      .setTextCol("text")
+      .setOutputCol("out")
+
+    t.transform(df).collect().foreach(r => {
+      val v = r.getAs[Vector]("out")
+      assert(v.size > 0)
+    })
+
+    // Reset global defaults to avoid cross-test contamination
+    if (originalGeneral.isDefined) OpenAIDefaults.setDeploymentName(originalGeneral.get)
+    else OpenAIDefaults.resetDeploymentName()
+    if (originalEmbedding.isDefined) OpenAIDefaults.setEmbeddingDeploymentName(originalEmbedding.get)
+    else OpenAIDefaults.resetEmbeddingDeploymentName()
+  }
+
   lazy val embeddingExtra: OpenAIEmbedding = new OpenAIEmbedding()
     .setSubscriptionKey(openAIAPIKey)
-    .setDeploymentName("text-embedding-3-small")
     .setApiVersion("2024-03-01-preview")
     .setDimensions(100)
     .setUser("testUser")

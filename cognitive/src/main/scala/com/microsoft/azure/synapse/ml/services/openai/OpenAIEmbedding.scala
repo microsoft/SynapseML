@@ -60,31 +60,19 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
   }
 
   override protected def prepareUrlRoot: Row => String = { row =>
-    // Resolve deployment name with strict precedence:
-    // 1) explicit instance/row value
-    // 2) global embedding deployment name
-    // 3) global (general) deployment name
-    // We never override an explicit per-instance deployment.
-    val instanceDep = getValueOpt(row, deploymentName)
-    val instanceParamSetting = get(deploymentName) // Left(scalar) or Right(colName) if set on instance
     val globalEmbeddingDeployment =
       GlobalParams.getGlobalParam(OpenAIEmbeddingDeploymentNameKey).flatMap(_.left.toOption)
-    val globalDeployment =
-      GlobalParams.getGlobalParam(OpenAIDeploymentNameKey).flatMap(_.left.toOption)
 
-    val dep = if (instanceParamSetting.exists(_.isRight)) {
-      // Explicit per-row column provided; always honor it
-      instanceDep.get
-    } else if (instanceParamSetting.exists(_.isLeft) && this.isDeploymentNameExplicitlySet && instanceDep.nonEmpty) {
-      // Scalar set explicitly on instance; honor it
-      instanceDep.get
-    } else {
-      // Either unset on instance or populated from global default; prefer embedding-global, then instance/global
-      globalEmbeddingDeployment
-        .orElse(instanceDep)
-        .orElse(globalDeployment)
-        .getOrElse(throw new IllegalArgumentException("Please set deploymentName parameter or global defaults"))
-    }
+    val dep = globalEmbeddingDeployment.orElse {
+      // If embedding-specific deployment is not set, check instance param
+      if (isSet(deploymentName)) {
+        getValueOpt(row, deploymentName)
+      } else {
+        None
+      }
+    }.getOrElse(throw new IllegalArgumentException(
+      "No embedding deployment name provided. Set the 'deploymentName' param or call " +
+      "OpenAIDefaults.setEmbeddingDeploymentName('<your-embedding-deployment>') to set a global default."))
 
     s"${getUrl}openai/deployments/$dep/embeddings"
   }
@@ -99,7 +87,8 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
       lazy val optionalParams: Map[String, Any] = getOptionalParams(r)
       getValueOpt(r, text)
         .map(text => getStringEntity(text, optionalParams))
-      .orElse(throw new IllegalArgumentException("Please set textCol."))
+        .orElse(throw new IllegalArgumentException(
+          "No input text provided. Set the 'text' param or 'textCol' with the column containing input text."))
   }
 
   override val subscriptionKeyHeaderName: String = "api-key"
