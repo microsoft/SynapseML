@@ -350,8 +350,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     if (isSet(responseFormat)) {
       val tpe = getResponseFormat("type").toString
       if (tpe.equalsIgnoreCase("json_schema")) {
-        // For responses API, no system prompt is required; shape is enforced via response_format.
-        // For chat_completions, we still avoid injecting an extra JSON/text directive here.
         basePrompts
       } else {
         val responseFormatPrompt = OpenAIResponseFormat
@@ -482,7 +480,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
         new OpenAICompletion()
       }
       else {
-        // Use the apiType parameter to decide which API to use
+        // Use the apiType parameter to decide between chat_completions and responses
         getApiType match {
           case "responses" => new OpenAIResponses()
           case "chat_completions" | _ => new OpenAIChatCompletion()

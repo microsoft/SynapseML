@@ -89,13 +89,10 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
     }
   }
 
-  // Enumeration overload removed; users pass String or Map[String, Any].
-
   def getResponseFormatType: String = Option(getResponseFormat)
     .flatMap(m => Option(m.getOrElse("type", "").toString))
     .getOrElse("")
 
-  // override this field to include the new parameters
   override private[openai] val sharedTextParams: Seq[ServiceParam[_]] = Seq(
     maxTokens,
     temperature,
@@ -129,7 +126,6 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
 
   override private[ml] def internalServiceType: String = "openai"
 
-  // Default API version for Chat Completions
   setDefault(apiVersion -> Left("2025-04-01-preview"))
 
   override def setCustomServiceName(v: String): this.type = {
