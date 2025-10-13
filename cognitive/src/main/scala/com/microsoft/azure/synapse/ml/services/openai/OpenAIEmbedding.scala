@@ -32,9 +32,6 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
 
   override private[ml] def internalServiceType: String = "openai"
 
-  // Register deploymentName with the embedding-specific global key
-  GlobalParams.registerParam(deploymentName, OpenAIEmbeddingDeploymentNameKey)
-
   val text: ServiceParam[String] = new ServiceParam[String](
     this, "text", "Input text to get embeddings for.", isRequired = true)
 
@@ -63,7 +60,20 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
   }
 
   override protected def prepareUrlRoot: Row => String = { row =>
-    s"${getUrl}openai/deployments/${getValue(row, deploymentName)}/embeddings"
+    // Resolve deployment name with precedence:
+    // 1) instance/row value
+    // 2) global embedding deployment name
+    // 3) global (general) deployment name
+    val resolvedDeployment: Option[String] =
+      getValueOpt(row, deploymentName)
+        .orElse(GlobalParams.getGlobalParam(OpenAIEmbeddingDeploymentNameKey).flatMap(_.left.toOption))
+        .orElse(GlobalParams.getGlobalParam(OpenAIDeploymentNameKey).flatMap(_.left.toOption))
+
+    val dep = resolvedDeployment.getOrElse(
+      throw new IllegalArgumentException("Please set deploymentName or EmbeddingDeploymentName.")
+    )
+
+    s"${getUrl}openai/deployments/$dep/embeddings"
   }
 
   private[this] def getStringEntity[A](text: A, optionalParams: Map[String, Any]): StringEntity = {
