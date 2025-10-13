@@ -35,6 +35,7 @@ class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with Ope
   lazy val embedding: OpenAIEmbedding = new OpenAIEmbedding()
     .setSubscriptionKey(openAIAPIKey)
     .setCustomServiceName(openAIServiceName)
+    .setDeploymentName("text-embedding-ada-002")
     .setTextCol("text")
     .setOutputCol("out")
 
@@ -107,6 +108,7 @@ class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with Ope
     .setDimensions(100)
     .setUser("testUser")
     .setCustomServiceName(openAIServiceName)
+    .setDeploymentName("text-embedding-ada-002")
     .setTextCol("text")
     .setOutputCol("out")
 
