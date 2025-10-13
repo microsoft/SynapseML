@@ -89,3 +89,5 @@ metastore_db/
 **/*.egg-info/*
 
 *_local\.*
+condaenv.*.requirements.txt
+*.env
