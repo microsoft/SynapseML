@@ -60,31 +60,31 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
   }
 
   override protected def prepareUrlRoot: Row => String = { row =>
-    // Resolve deployment name with precedence:
-    // 1) instance/row value
+    // Resolve deployment name with strict precedence:
+    // 1) explicit instance/row value
     // 2) global embedding deployment name
     // 3) global (general) deployment name
-    // Prefer the embedding deployment name over the general deployment name when both are set.
-    // This ensures embeddings use their specific deployment by default.
-    val resolvedDeployment: Option[String] = {
-      val instanceDep = getValueOpt(row, deploymentName)
-      val (globalEmbeddingDeploymentName, globalDeploymentNameKey) = (
-        GlobalParams.getGlobalParam(OpenAIEmbeddingDeploymentNameKey).flatMap(_.left.toOption),
-        GlobalParams.getGlobalParam(OpenAIDeploymentNameKey).flatMap(_.left.toOption)
-      )
-      // If the instance deployment was populated from the general global default,
-      // prefer the embedding-specific global default when present.
-      instanceDep match {
-        case Some(inst) if globalEmbeddingDeploymentName.isDefined && globalDeploymentNameKey.contains(inst) =>
-          globalEmbeddingDeploymentName
-        case Some(inst) => Some(inst)
-        case None => globalEmbeddingDeploymentName.orElse(globalDeploymentNameKey)
-      }
-    }
+    // We never override an explicit per-instance deployment.
+    val instanceDep = getValueOpt(row, deploymentName)
+    val instanceParamSetting = get(deploymentName) // Left(scalar) or Right(colName) if set on instance
+    val globalEmbeddingDeployment =
+      GlobalParams.getGlobalParam(OpenAIEmbeddingDeploymentNameKey).flatMap(_.left.toOption)
+    val globalDeployment =
+      GlobalParams.getGlobalParam(OpenAIDeploymentNameKey).flatMap(_.left.toOption)
 
-    val dep = resolvedDeployment.getOrElse(
-      throw new IllegalArgumentException("Please set deploymentName parameter or global defaults")
-    )
+    val dep = if (instanceParamSetting.exists(_.isRight)) {
+      // Explicit per-row column provided; always honor it
+      instanceDep.get
+    } else if (instanceParamSetting.exists(_.isLeft) && this.isDeploymentNameExplicitlySet && instanceDep.nonEmpty) {
+      // Scalar set explicitly on instance; honor it
+      instanceDep.get
+    } else {
+      // Either unset on instance or populated from global default; prefer embedding-global, then instance/global
+      globalEmbeddingDeployment
+        .orElse(instanceDep)
+        .orElse(globalDeployment)
+        .getOrElse(throw new IllegalArgumentException("Please set deploymentName parameter or global defaults"))
+    }
 
     s"${getUrl}openai/deployments/$dep/embeddings"
   }

@@ -9,7 +9,7 @@ import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails
 import com.microsoft.azure.synapse.ml.param.{GlobalKey, GlobalParams, ServiceParam}
 import com.microsoft.azure.synapse.ml.services._
 import org.apache.spark.ml.PipelineModel
-import org.apache.spark.ml.param.{Param, Params}
+import org.apache.spark.ml.param.{BooleanParam, Param, Params}
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
@@ -61,9 +61,19 @@ trait HasOpenAISharedParams extends HasServiceParams with HasAPIVersion {
 
   GlobalParams.registerParam(deploymentName, OpenAIDeploymentNameKey)
 
+  // Internal flag to disambiguate between explicitly setting the deployment on the instance
+  // vs. it being auto-populated from global defaults. This helps embedding choose the
+  // embedding-specific global default without unexpectedly overriding explicit user input.
+  private[openai] val deploymentNameExplicit: BooleanParam = new BooleanParam(
+    this, "deploymentNameExplicit", "Whether deploymentName was explicitly set on this instance")
+  setDefault(deploymentNameExplicit -> false)
+
   def getDeploymentName: String = getScalarParam(deploymentName)
 
-  def setDeploymentName(v: String): this.type = setScalarParam(deploymentName, v)
+  def setDeploymentName(v: String): this.type = {
+    setScalarParam(deploymentName, v)
+    set(deploymentNameExplicit, true)
+  }
 
   def getDeploymentNameCol: String = getVectorParam(deploymentName)
 
@@ -83,6 +93,9 @@ trait HasOpenAISharedParams extends HasServiceParams with HasAPIVersion {
   def setUserCol(v: String): this.type = setVectorParam(user, v)
 
   setDefault(apiVersion -> Left("2024-02-01"))
+
+  // Visible for subclasses (e.g., embeddings) to read the explicit flag
+  private[openai] def isDeploymentNameExplicitlySet: Boolean = getOrDefault(deploymentNameExplicit)
 
 }
 
