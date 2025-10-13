@@ -63,9 +63,7 @@ trait HasOpenAISharedParams extends HasServiceParams with HasAPIVersion {
 
   def getDeploymentName: String = getScalarParam(deploymentName)
 
-  def setDeploymentName(v: String): this.type = {
-    setScalarParam(deploymentName, v)
-  }
+  def setDeploymentName(v: String): this.type = setScalarParam(deploymentName, v)
 
   def getDeploymentNameCol: String = getVectorParam(deploymentName)
 
