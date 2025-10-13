@@ -14,6 +14,24 @@ class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with Ope
 
   import spark.implicits._
 
+  private var originalEmbeddingDefault: Option[String] = None
+
+  override def beforeAll(): Unit = {
+    // Ensure a global embedding deployment is available for tests that don't set per-instance deployment
+    originalEmbeddingDefault = OpenAIDefaults.getEmbeddingDeploymentName
+    OpenAIDefaults.setEmbeddingDeploymentName("text-embedding-ada-002")
+    super.beforeAll()
+  }
+
+  override def afterAll(): Unit = {
+    // Restore prior global state to avoid contaminating other tests
+    originalEmbeddingDefault match {
+      case Some(v) => OpenAIDefaults.setEmbeddingDeploymentName(v)
+      case None => OpenAIDefaults.resetEmbeddingDeploymentName()
+    }
+    super.afterAll()
+  }
+
   lazy val embedding: OpenAIEmbedding = new OpenAIEmbedding()
     .setSubscriptionKey(openAIAPIKey)
     .setCustomServiceName(openAIServiceName)
