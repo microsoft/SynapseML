@@ -48,6 +48,26 @@ import com.microsoft.azure.synapse.ml.param.ServiceParamJsonProtocol._
 
 object ServiceParam {
   def toSeq[T](arr: java.util.ArrayList[T]): Seq[T] = arr.asScala.toSeq
+
+  // Convert a Java Map/Collection structure into a deeply-converted Scala structure
+  // so nested maps/lists are serializable by spray-json (used by ServiceParam JSON encoding).
+  private def toScalaAny(value: Any): Any = value match {
+    case m: java.util.Map[_, _] =>
+      m.asScala.map { case (k, v) => k.toString -> toScalaAny(v) }.toMap
+    case l: java.util.List[_] =>
+      l.asScala.map(toScalaAny).toSeq
+    case b: java.lang.Boolean => b.booleanValue()
+    case i: java.lang.Integer => i.intValue()
+    case l: java.lang.Long => l.longValue()
+    case d: java.lang.Double => d.doubleValue()
+    case f: java.lang.Float => f.floatValue()
+    case s: java.lang.Short => s.shortValue()
+    case by: java.lang.Byte => by.byteValue()
+    case other => other
+  }
+
+  def toMap(m: java.util.Map[String, Object]): Map[String, Any] =
+    m.asScala.map { case (k, v) => k -> toScalaAny(v) }.toMap
 }
 
 class ServiceParam[T: TypeTag](parent: Params,

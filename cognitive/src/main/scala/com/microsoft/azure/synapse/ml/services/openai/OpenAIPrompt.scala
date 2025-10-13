@@ -346,10 +346,16 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     )
 
     if (isSet(responseFormat)) {
-      val responseFormatPrompt = OpenAIResponseFormat
-        .fromResponseFormatString(getResponseFormat("type").toString)
-        .prompt
-      basePrompts :+ OpenAICompositeMessage("system", stringWrapper(responseFormatPrompt))
+      val tpe = getResponseFormat("type").toString
+      if (tpe.equalsIgnoreCase("json_schema")) {
+        // Do not inject a system prompt for json_schema; schema drives structure.
+        basePrompts
+      } else {
+        val responseFormatPrompt = OpenAIResponseFormat
+          .fromResponseFormatString(tpe)
+          .prompt
+        basePrompts :+ OpenAICompositeMessage("system", stringWrapper(responseFormatPrompt))
+      }
     } else {
       basePrompts
     }

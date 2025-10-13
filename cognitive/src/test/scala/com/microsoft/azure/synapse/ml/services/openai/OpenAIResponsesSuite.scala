@@ -85,6 +85,40 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
     validate(paramsWithText, "text")
   }
 
+  test("Responses setResponseFormat accepts json_schema Map and rejects bare string") {
+    val transformer = new OpenAIResponses()
+      .setDeploymentName(deploymentNameGpt4)
+
+    val schemaMap: Map[String, Any] = Map(
+      "type" -> "json_schema",
+      "json_schema" -> Map(
+        "name" -> "answer_schema",
+        "strict" -> true,
+        "schema" -> Map(
+          "type" -> "object",
+          "properties" -> Map(
+            "answer" -> Map("type" -> "string")
+          ),
+          "required" -> Seq("answer"),
+          "additionalProperties" -> false
+        )
+      )
+    )
+
+    transformer.setResponseFormat(schemaMap)
+    val rawMessages = Seq(OpenAIMessage("user", "Whats your favorite color"))
+    val messages: Seq[Row] = rawMessages.toDF("role", "content", "name").collect()
+    val optionalParams = transformer.getOptionalParams(messages.head)
+    val rf = optionalParams(responses.responseFormat.payloadName).asInstanceOf[Map[String, Any]]
+    assert(rf("type") == "json_schema")
+    val js = rf("json_schema").asInstanceOf[Map[String, Any]]
+    assert(js("name") == "answer_schema")
+
+    assertThrows[IllegalArgumentException] {
+      transformer.setResponseFormat("json_schema")
+    }
+  }
+
   test("setResponseFormat should throw exception if invalid format") {
     val transformer = new OpenAIResponses()
       .setDeploymentName(deploymentNameGpt4)

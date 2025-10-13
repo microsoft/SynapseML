@@ -29,25 +29,26 @@ object OpenAIResponseFormat extends Enumeration {
   def asStringSet: Set[String] =
     OpenAIResponseFormat.values.map(_.asInstanceOf[OpenAIResponseFormat.ResponseFormat].paylodName)
 
+  // Note: 'json_schema' is intentionally not represented here because it does not
+  // require a system prompt injection. We still accept it in validation elsewhere.
   def fromResponseFormatString(format: String): OpenAIResponseFormat.ResponseFormat = {
-    if (TEXT.paylodName== format) {
+    if (TEXT.paylodName == format) {
       TEXT
     } else if (JSON.paylodName == format) {
       JSON
     } else {
       throw new IllegalArgumentException("Response format must be valid for OpenAI API. " +
-                                         "Currently supported formats are " +
-                                         asStringSet.mkString(", "))
+        "Currently supported formats are " + asStringSet.mkString(", "))
     }
   }
 }
 
 trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
-  // TODO: Responses API takes response format in a `text` arg, instead of the raw `response_format`` arg.
+  // Responses API accepts 'text', 'json_object', and now 'json_schema'.
   val responseFormat: ServiceParam[Map[String, Any]] = new ServiceParam[Map[String, Any]](
     this,
     "responseFormat",
-    "Response format for the completion. Can be 'json_object' or 'text'.",
+    "Response format. Can be 'json_object', 'json_schema', or 'text'. For 'json_schema' also provide key 'json_schema' with nested schema.",
     isRequired = false) {
     override val payloadName: String = "response_format"
   }
@@ -55,29 +56,41 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
   def getResponseFormat: Map[String, Any] = getScalarParam(responseFormat)
 
   def setResponseFormat(value: Map[String, Any]): this.type = {
-    val allowedFormat = OpenAIResponseFormat.asStringSet
-
-    // This test is to validate that value is properly formatted Map('type' -> '<format>')
-    if (value == null || value.size != 1 || !value.contains("type") ||
-        value("type") == null || value("type").toString.trim.isEmpty) {
-      throw new IllegalArgumentException("Response format map must of the form Map('type' -> '<format>')"
-        + " where <format> is one of " + allowedFormat.mkString(", "))
+    // Accept formats: text, json_object, json_schema (with nested json_schema)
+    if (value == null || !value.contains("type") || value("type") == null ||
+      value("type").toString.trim.isEmpty) {
+      throw new IllegalArgumentException(
+        "Response format map must contain non-empty key 'type' with one of 'text', 'json_object', or 'json_schema'.")
     }
 
-    // This test is to validate that the format is one of the allowed formats
-    if (!allowedFormat.contains(value("type").toString.toLowerCase)) {
-      throw new IllegalArgumentException("Response format must be valid for OpenAI API. " +
-        "Currently supported formats are " +
-        allowedFormat.mkString(", "))
+    val tpe = value("type").toString.toLowerCase
+    tpe match {
+      case "text" | "json_object" =>
+        // Allow additional keys to pass through; service will ignore unknown keys.
+        setScalarParam(responseFormat, value)
+      case "json_schema" =>
+        if (!value.contains("json_schema")) {
+          throw new IllegalArgumentException(
+            "When type == 'json_schema', key 'json_schema' must be provided.")
+        }
+        setScalarParam(responseFormat, value)
+      case _ =>
+        throw new IllegalArgumentException(
+          "Response format must be valid for OpenAI API. Currently supported formats are text, json_object, json_schema.")
     }
-    setScalarParam(responseFormat, value)
   }
 
   def setResponseFormat(value: String): this.type = {
-    if (value == null || value.isEmpty) {
+    if (value == null || value.trim.isEmpty) {
       this
     } else {
-      setResponseFormat(Map("type" -> value.toLowerCase))
+      val trimmed = value.trim.toLowerCase
+      if (trimmed == "json_schema") {
+        throw new IllegalArgumentException(
+          "To use json_schema pass a dict (Python) or Map (Scala) that complies with OpenAI responses response_format. " +
+          "Example: setResponseFormat(Map(\"type\"->\"json_schema\", ...))")
+      }
+      setResponseFormat(Map("type" -> trimmed))
     }
   }
 

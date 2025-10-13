@@ -38,10 +38,18 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
       throw new IllegalArgumentException("response_format map must contain non-empty key 'type'")
     }
     val tpe = value("type").toString.toLowerCase
-    if (tpe == "json_schema" && !value.contains("json_schema")) {
-      throw new IllegalArgumentException("When type == 'json_schema', key 'json_schema' must be provided.")
+    tpe match {
+      case "text" | "json_object" =>
+        setScalarParam(responseFormat, value)
+      case "json_schema" =>
+        if (!value.contains("json_schema")) {
+          throw new IllegalArgumentException("When type == 'json_schema', key 'json_schema' must be provided.")
+        }
+        setScalarParam(responseFormat, value)
+      case _ =>
+        throw new IllegalArgumentException(
+          "Unsupported response_format type. Use 'text', 'json_object', or 'json_schema'.")
     }
-    setScalarParam(responseFormat, value)
   }
 
   // Supported String values: "text", "json_object".
@@ -53,7 +61,8 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
       case Some(trimmed) =>
         if (trimmed.equalsIgnoreCase("json_schema")) {
           throw new IllegalArgumentException(
-            "Provide json_schema via Map: setResponseFormat(Map(\"type\"->\"json_schema\",\"json_schema\"-> {...}))")
+            "To use json_schema pass a dict (Python) or Map (Scala) that complies with OpenAI chat_completions response_format. " +
+            "Example: setResponseFormat(Map(\"type\"->\"json_schema\", \"json_schema\"-> {...}))")
         }
         trimmed.toLowerCase match {
           case "text" | "json_object" =>
