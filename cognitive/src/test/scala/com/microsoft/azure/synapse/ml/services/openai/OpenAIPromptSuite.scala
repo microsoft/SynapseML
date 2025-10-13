@@ -85,7 +85,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
 
   test("RAI Usage") {
     val result = prompt
-      .setDeploymentName(deploymentNameGpt4o)
+      .setDeploymentName(deploymentName)
       .setPromptTemplate("Tell me about a graphically disgusting " +
         "and violent movie in detail, " +
         "be very gory and NSFW in your description.")
@@ -123,7 +123,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .setPromptTemplate("give me a comma separated list of 5 {category}, starting with {text} ")
       .setApiType("responses")
       .setApiVersion("2025-04-01-preview")
-      .setDeploymentName("gpt-4.1-mini")
+      .setDeploymentName(deploymentName)
       .setPostProcessing("csv")
       .transform(df)
       .select("outParsed")
@@ -149,7 +149,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
 
   lazy val promptGpt4: OpenAIPrompt = new OpenAIPrompt()
     .setSubscriptionKey(openAIAPIKey)
-    .setDeploymentName(deploymentNameGpt4)
+    .setDeploymentName(deploymentName)
     .setCustomServiceName(openAIServiceName)
     .setOutputCol("outParsed")
     .setTemperature(0)
@@ -214,7 +214,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
   test("Basic Usage JSON - Gpt 4o with responseFormat") {
     val promptGpt4o: OpenAIPrompt = new OpenAIPrompt()
       .setSubscriptionKey(openAIAPIKey)
-      .setDeploymentName(deploymentNameGpt4o)
+      .setDeploymentName(deploymentName)
       .setCustomServiceName(openAIServiceName)
       .setOutputCol("outParsed")
       .setTemperature(0)
@@ -238,7 +238,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
   test("Take Multimodal Message") {
     val promptResponses = new OpenAIPrompt()
       .setSubscriptionKey(openAIAPIKey)
-      .setDeploymentName(deploymentNameGpt4o)
+      .setDeploymentName(deploymentName)
       .setCustomServiceName(openAIServiceName)
       .setApiVersion("2025-04-01-preview")
       .setApiType("responses")
@@ -281,7 +281,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
 
     if (accessToken.isEmpty) {
       customPromptGpt4.setSubscriptionKey(openAIAPIKey)
-        .setDeploymentName(deploymentNameGpt4)
+        .setDeploymentName(deploymentName)
         .setCustomServiceName(openAIServiceName)
     } else {
       customPromptGpt4.setAADToken(accessToken)
