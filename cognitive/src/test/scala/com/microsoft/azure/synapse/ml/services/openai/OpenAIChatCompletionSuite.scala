@@ -404,18 +404,18 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     }
   }
 
-  test("validate that gpt4o accepts json_object response format") {
+  test("validate that gpt4p1 accepts json_object response format") {
     val goodDf: DataFrame = Seq(
       Seq(
-        OpenAIMessage("system", "You are an AI chatbot with red as your favorite color"),
+        OpenAIMessage("system", "Respond with JSON. You are an AI chatbot with red as your favorite color"),
         OpenAIMessage("user", "Whats your favorite color")
       ),
       Seq(
-        OpenAIMessage("system", "You are very excited"),
+        OpenAIMessage("system", "Respond with JSON. You are very excited"),
         OpenAIMessage("user", "How are you today")
       ),
       Seq(
-        OpenAIMessage("system", "You are very excited"),
+        OpenAIMessage("system", "Respond with JSON. You are very excited"),
         OpenAIMessage("user", "How are you today"),
         OpenAIMessage("system", "Better than ever"),
         OpenAIMessage("user", "Why?")
