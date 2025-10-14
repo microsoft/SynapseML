@@ -23,7 +23,7 @@ def _entity_to_string(entity):
         is_.close()
 
 
-def _make_json_schema(reason_first: bool):
+def _make_json_schema(reason_first: bool) -> dict:
     # Build an ordered dict-like structure in Python
     # Python dict preserves insertion order; we rely on wrapper converting to LinkedHashMap recursively.
     props = (
@@ -55,15 +55,19 @@ def _make_json_schema(reason_first: bool):
 
 class TestResponseFormatOrder(unittest.TestCase):
     def test_chat_reason_then_ans(self):
-        chat = OpenAIChatCompletion().setResponseFormat(_make_json_schema(True))
+        chat = OpenAIChatCompletion().setResponseFormat(
+            _make_json_schema(reason_first=True),
+        )
 
         # Build Java LinkedHashMap optional params with response_format
         jvm = spark.sparkContext._jvm
         opt = jvm.java.util.LinkedHashMap()
         opt.put("response_format", chat._java_obj.getResponseFormat())
 
-        empty_scala_seq = jvm.scala.collection.JavaConverters.asScalaBuffer([]).toSeq()
-        entity = chat._java_obj.getStringEntity(empty_scala_seq, opt)
+        # Convert Python list -> Java ArrayList (empty), pass directly
+        jlist = jvm.java.util.ArrayList()
+        # Let Scala overload accept (scala.collection.Seq, java.util.Map)
+        entity = chat._java_obj.getStringEntity(jlist, opt)
         json = _entity_to_string(entity)
 
         props_start = json.find('"properties":{')
@@ -78,14 +82,16 @@ class TestResponseFormatOrder(unittest.TestCase):
         )
 
     def test_chat_ans_then_reason(self):
-        chat = OpenAIChatCompletion().setResponseFormat(_make_json_schema(False))
+        chat = OpenAIChatCompletion().setResponseFormat(
+            _make_json_schema(reason_first=False)
+        )
 
         jvm = spark.sparkContext._jvm
         opt = jvm.java.util.LinkedHashMap()
         opt.put("response_format", chat._java_obj.getResponseFormat())
 
-        empty_scala_seq = jvm.scala.collection.JavaConverters.asScalaBuffer([]).toSeq()
-        entity = chat._java_obj.getStringEntity(empty_scala_seq, opt)
+        jlist = jvm.java.util.ArrayList()
+        entity = chat._java_obj.getStringEntity(jlist, opt)
         json = _entity_to_string(entity)
 
         props_start = json.find('"properties":{')
@@ -100,7 +106,9 @@ class TestResponseFormatOrder(unittest.TestCase):
         )
 
     def test_responses_reason_then_ans(self):
-        resp = OpenAIResponses().setResponseFormat(_make_json_schema(True))
+        resp = OpenAIResponses().setResponseFormat(
+            _make_json_schema(reason_first=True),
+        )
 
         jvm = spark.sparkContext._jvm
         empty_scala_seq = jvm.scala.collection.JavaConverters.asScalaBuffer([]).toSeq()
@@ -123,7 +131,9 @@ class TestResponseFormatOrder(unittest.TestCase):
         )
 
     def test_responses_ans_then_reason(self):
-        resp = OpenAIResponses().setResponseFormat(_make_json_schema(False))
+        resp = OpenAIResponses().setResponseFormat(
+            _make_json_schema(reason_first=False)
+        )
 
         jvm = spark.sparkContext._jvm
         empty_scala_seq = jvm.scala.collection.JavaConverters.asScalaBuffer([]).toSeq()
