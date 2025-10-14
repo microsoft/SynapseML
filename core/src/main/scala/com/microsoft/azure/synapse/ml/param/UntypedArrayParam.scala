@@ -27,13 +27,14 @@ object AnyJsonFormat extends DefaultJsonProtocol {
         case v: Map[_, _] => {
           try {
             val m = v.asInstanceOf[Map[String, Any]]
-            // Convert to ListMap to preserve insertion order during JSON serialization
+            // Convert to ListMap to preserve insertion order during JSON serialization;
+            // then delegate to spray-json to render.
             val ordered = m match {
               case lm: ListMap[String, Any] => lm
               case other => ListMap(other.toSeq: _*)
             }
-            // Manually build JsObject using this writer to avoid relying on implicits for Any
-            JsObject(ordered.map { case (k, vv) => k -> write(vv) })
+            // Use spray-json mapFormat via toMap to serialize while preserving order in the underlying fields
+            ordered.toMap.toJson
           } catch {
             case _: Throwable => throwFailure(any)
           }

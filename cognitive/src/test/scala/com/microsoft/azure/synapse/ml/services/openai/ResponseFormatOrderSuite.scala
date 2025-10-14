@@ -7,8 +7,6 @@ import org.scalatest.funsuite.AnyFunSuite
 import org.apache.http.entity.StringEntity
 import org.apache.spark.sql.Row
 
-import scala.collection.immutable.ListMap
-
 class ResponseFormatOrderSuite extends AnyFunSuite {
 
   private def entityToString(e: StringEntity): String = {
@@ -20,13 +18,13 @@ class ResponseFormatOrderSuite extends AnyFunSuite {
     }
   }
 
-  private def makeJsonSchema(properties: ListMap[String, Any]): ListMap[String, Any] = {
-    ListMap(
+  private def makeJsonSchema(properties: Map[String, Any]): Map[String, Any] = {
+    Map(
       "type" -> "json_schema",
-      "json_schema" -> ListMap(
+      "json_schema" -> Map(
         "name" -> "ordered_schema",
         "strict" -> true,
-        "schema" -> ListMap(
+        "schema" -> Map(
           "type" -> "object",
           "properties" -> properties,
           "required" -> properties.keys.toSeq,
@@ -36,9 +34,9 @@ class ResponseFormatOrderSuite extends AnyFunSuite {
     )
   }
 
-  private def reasonAnsProps(reasonFirst: Boolean): ListMap[String, Any] = {
-    val r = ListMap("reason" -> ListMap("type" -> "string"))
-    val a = ListMap("ans" -> ListMap("type" -> "string"))
+  private def reasonAnsProps(reasonFirst: Boolean): Map[String, Any] = {
+    val r = Map("reason" -> Map("type" -> "string"))
+    val a = Map("ans" -> Map("type" -> "string"))
     if (reasonFirst) r ++ a else a ++ r
   }
 
