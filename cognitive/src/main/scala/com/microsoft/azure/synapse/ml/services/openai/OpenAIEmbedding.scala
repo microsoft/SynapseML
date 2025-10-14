@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.services.openai
 import com.microsoft.azure.synapse.ml.param.AnyJsonFormat.anyFormat
 import com.microsoft.azure.synapse.ml.io.http.JSONOutputParser
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
-import com.microsoft.azure.synapse.ml.param.ServiceParam
+import com.microsoft.azure.synapse.ml.param.{GlobalParams, ServiceParam}
 import com.microsoft.azure.synapse.ml.services.HasCognitiveServiceInput
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.spark.ml.ComplexParamsReadable
@@ -63,7 +63,21 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
   }
 
   override protected def prepareUrlRoot: Row => String = { row =>
-    s"${getUrl}openai/deployments/${getValue(row, deploymentName)}/embeddings"
+    val globalEmbeddingDeployment =
+      GlobalParams.getGlobalParam(OpenAIEmbeddingDeploymentNameKey).flatMap(_.left.toOption)
+
+    val dep = globalEmbeddingDeployment.orElse {
+      // If embedding-specific deployment is not set, check instance param
+      if (isSet(deploymentName)) {
+        getValueOpt(row, deploymentName)
+      } else {
+        None
+      }
+    }.getOrElse(throw new IllegalArgumentException(
+      "No embedding deployment name provided. Set the 'deploymentName' param or call " +
+      "OpenAIDefaults.setEmbeddingDeploymentName('<your-embedding-deployment>') to set a global default."))
+
+    s"${getUrl}openai/deployments/$dep/embeddings"
   }
 
   private[this] def getStringEntity[A](text: A, optionalParams: Map[String, Any]): StringEntity = {
@@ -76,7 +90,8 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
       lazy val optionalParams: Map[String, Any] = getOptionalParams(r)
       getValueOpt(r, text)
         .map(text => getStringEntity(text, optionalParams))
-      .orElse(throw new IllegalArgumentException("Please set textCol."))
+        .orElse(throw new IllegalArgumentException(
+          "No input text provided. Set the 'text' param or 'textCol' with the column containing input text."))
   }
 
   override val subscriptionKeyHeaderName: String = "api-key"
