@@ -102,10 +102,16 @@ class OpenAIDefaults:
     def reset_model(self):
         self.defaults.resetModel()
 
-    # New verbosity parameter
+    def set_embedding_deployment_name(self, name):
+        self.defaults.setEmbeddingDeploymentName(name)
+
+    def get_embedding_deployment_name(self):
+        return getOption(self.defaults.getEmbeddingDeploymentName())
+
+    def reset_embedding_deployment_name(self):
+        self.defaults.resetEmbeddingDeploymentName()
+
     def set_verbosity(self, verbosity):
-        # Accept any string the user provides
-        # (no validation constraints per requirement)
         self.defaults.setVerbosity(str(verbosity))
 
     def get_verbosity(self):
@@ -114,10 +120,7 @@ class OpenAIDefaults:
     def reset_verbosity(self):
         self.defaults.resetVerbosity()
 
-    # New reasoning_effort parameter
     def set_reasoning_effort(self, reasoning_effort):
-        # Accept any string the user provides
-        # (no validation constraints per requirement)
         self.defaults.setReasoningEffort(str(reasoning_effort))
 
     def get_reasoning_effort(self):
