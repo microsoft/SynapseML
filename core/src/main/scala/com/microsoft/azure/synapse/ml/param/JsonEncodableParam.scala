@@ -7,6 +7,7 @@ import org.apache.spark.ml.param.{Param, Params}
 import spray.json.{JsonFormat, _}
 
 import scala.collection.JavaConverters._
+import scala.collection.immutable.ListMap
 import scala.reflect.runtime.universe._
 
 object ServiceParamJsonProtocol extends DefaultJsonProtocol {
@@ -54,12 +55,14 @@ object ServiceParam {
   def toSeq[T](arr: java.util.ArrayList[T]): Seq[T] = arr.asScala.toSeq
 
   // Convert a Java Map/Collection structure into a deeply-converted Scala structure
-  // so nested maps/lists are serializable by spray-json (used by ServiceParam JSON encoding).
+  // using insertion-ordered collections to preserve user-specified order (e.g., JSON Schema properties).
   private def toScalaAny(value: Any): Any = value match {
     case m: java.util.Map[_, _] =>
-      m.asScala.map { case (k, v) => k.toString -> toScalaAny(v) }.toMap
+      // Preserve iteration order using ListMap
+      val pairs = m.asScala.toSeq.map { case (k, v) => k.toString -> toScalaAny(v) }
+      ListMap(pairs: _*)
     case l: java.util.List[_] =>
-      l.asScala.map(toScalaAny).toSeq
+      l.asScala.toSeq.map(toScalaAny)
     case other => toScalaPrimitive(other)
   }
 
@@ -74,8 +77,10 @@ object ServiceParam {
     case other => other
   }
 
-  def toMap(m: java.util.Map[String, Object]): Map[String, Any] =
-    m.asScala.map { case (k, v) => k -> toScalaAny(v) }.toMap
+  def toMap(m: java.util.Map[String, Object]): Map[String, Any] = {
+    val pairs = m.asScala.toSeq.map { case (k, v) => k -> toScalaAny(v) }
+    ListMap(pairs: _*)
+  }
 }
 
 class ServiceParam[T: TypeTag](parent: Params,

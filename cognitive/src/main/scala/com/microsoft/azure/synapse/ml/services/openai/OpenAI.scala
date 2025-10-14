@@ -400,7 +400,8 @@ trait HasTextOutput {
           throw new IllegalArgumentException(s"Unsupported content type: $other")
       }
 
-      Map(
+      // Use ListMap to preserve key insertion order in serialized JSON
+      scala.collection.immutable.ListMap(
         "role" -> role,
         "content" -> content
       )

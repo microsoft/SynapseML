@@ -19,6 +19,7 @@ import spray.json._
 import scala.collection.JavaConverters._
 import scala.language.existentials
 import com.microsoft.azure.synapse.ml.services.HasCustomHeaders
+import com.microsoft.azure.synapse.ml.io.http.JSONOutputParser
 
 object OpenAIResponseFormat extends Enumeration {
   case class ResponseFormat(paylodName: String) extends super.Val(paylodName)
@@ -233,5 +234,8 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
     val result = ResponsesModelResponse.makeFromRowConverter(outputRow)
     result.output.head.status
   }
+
+  override protected def getInternalOutputParser(schema: StructType): JSONOutputParser =
+    new JSONOutputParser().setDataType(responseDataType)
 
 }

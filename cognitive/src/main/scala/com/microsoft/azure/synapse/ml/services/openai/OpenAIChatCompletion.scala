@@ -7,6 +7,7 @@ import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.AnyJsonFormat.anyFormat
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.services.{HasCognitiveServiceInput, HasInternalJsonOutputParser}
+import com.microsoft.azure.synapse.ml.io.http.JSONOutputParser
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.util._
@@ -152,6 +153,9 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
     .updated("messages", getMessagesCol)
 
   override def responseDataType: DataType = ChatModelResponse.schema
+
+  override protected def getInternalOutputParser(schema: StructType): JSONOutputParser =
+    new JSONOutputParser().setDataType(responseDataType)
 
   private[openai] def getStringEntity(messages: Seq[Row], optionalParams: Map[String, Any]): StringEntity = {
     val mappedMessages = encodeMessagesToMap(messages)
