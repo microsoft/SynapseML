@@ -16,14 +16,6 @@ steps:
     timeoutInMinutes: 20
     retryCountOnTaskFailure: 1
   - bash: |
-      echo "=== Checking sizes of unused pre-installed SDKs ==="
-      if [ -d /usr/local/lib/android ]; then
-        echo "Android SDK:"
-        du --max-depth=0 -h /usr/local/lib/android 2>/dev/null || echo "  (size check failed)"
-      else
-        echo "Android SDK: not found"
-      fi
-      echo ""
       echo "=== Disk space BEFORE cleanup ==="
       df -h / | grep -E 'Filesystem|/$'
       echo ""
