@@ -1,11 +1,11 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 
+import json
 import unittest
 
 from synapse.ml.core.init_spark import init_spark
-from synapse.ml.services.openai import OpenAIChatCompletion, OpenAIResponses
-
+from synapse.ml.services.openai import OpenAIPrompt, OpenAIResponses
 
 spark = init_spark()
 
@@ -55,103 +55,115 @@ def _make_json_schema(reason_first: bool) -> dict:
 
 class TestResponseFormatOrder(unittest.TestCase):
     def test_chat_reason_then_ans(self):
-        chat = OpenAIChatCompletion().setResponseFormat(
-            _make_json_schema(reason_first=True),
+
+        df = spark.createDataFrame([("Paris", "City")], ["text", "category"])
+        prompt = (
+            OpenAIPrompt()
+            .setPromptTemplate("List 2 {category}: {text},")
+            .setApiType("chat_completions")
+            .setResponseFormat(_make_json_schema(reason_first=True))
+            .setOutputCol("out")
         )
+        out_df = prompt.transform(df)
+        text = out_df.select("out").first()[0]
 
-        # Build Java LinkedHashMap optional params with response_format
-        jvm = spark.sparkContext._jvm
-        opt = jvm.java.util.LinkedHashMap()
-        opt.put("response_format", chat._java_obj.getResponseFormat())
+        self.assertIsInstance(text, str)
+        json_response = json.loads(text)
+        self.assertIsNotNone(json_response)
+        self.assertIsInstance(json_response, dict)
 
-        # Convert Python list -> Java ArrayList (empty), pass directly
-        jlist = jvm.java.util.ArrayList()
-        # Let Scala overload accept (scala.collection.Seq, java.util.Map)
-        entity = chat._java_obj.getStringEntity(jlist, opt)
-        json = _entity_to_string(entity)
-
-        props_start = json.find('"properties":{')
-        self.assertTrue(props_start >= 0, f"properties block not found in JSON: {json}")
-        ridx = json.find('"reason"', props_start)
-        aidx = json.find('"ans"', props_start)
+        reason_index = text.find('"reason"')
+        answer_index = text.find('"ans"')
         self.assertTrue(
-            ridx >= 0 and aidx >= 0, f"reason/ans keys not found in properties: {json}"
+            reason_index >= 0 and answer_index >= 0,
+            f"reason/ans keys not found: {text}",
         )
         self.assertTrue(
-            ridx < aidx, f"Order incorrect: expected reason before ans. JSON: {json}"
+            reason_index < answer_index, f"Expected reason before ans. Output: {text}"
         )
 
     def test_chat_ans_then_reason(self):
-        chat = OpenAIChatCompletion().setResponseFormat(
-            _make_json_schema(reason_first=False)
+
+        df = spark.createDataFrame([("item", "category")], ["text", "category"])
+        prompt = (
+            OpenAIPrompt()
+            .setPromptTemplate("List 2 {category}: {text},")
+            .setApiType("chat_completions")
+            .setResponseFormat(_make_json_schema(reason_first=False))
+            .setOutputCol("out")
         )
+        out_df = prompt.transform(df)
+        text = out_df.select("out").first()[0]
 
-        jvm = spark.sparkContext._jvm
-        opt = jvm.java.util.LinkedHashMap()
-        opt.put("response_format", chat._java_obj.getResponseFormat())
+        self.assertIsInstance(text, str)
+        json_response = json.loads(text)
+        self.assertIsNotNone(json_response)
+        self.assertIsInstance(json_response, dict)
 
-        jlist = jvm.java.util.ArrayList()
-        entity = chat._java_obj.getStringEntity(jlist, opt)
-        json = _entity_to_string(entity)
-
-        props_start = json.find('"properties":{')
-        self.assertTrue(props_start >= 0, f"properties block not found in JSON: {json}")
-        ridx = json.find('"reason"', props_start)
-        aidx = json.find('"ans"', props_start)
+        reason_index = text.find('"reason"')
+        answer_index = text.find('"ans"')
         self.assertTrue(
-            ridx >= 0 and aidx >= 0, f"reason/ans keys not found in properties: {json}"
+            reason_index >= 0 and answer_index >= 0,
+            f"reason/ans keys not found: {text}",
         )
         self.assertTrue(
-            aidx < ridx, f"Order incorrect: expected ans before reason. JSON: {json}"
+            reason_index > answer_index, f"Expected ans before reason. Output: {text}"
         )
 
     def test_responses_reason_then_ans(self):
-        resp = OpenAIResponses().setResponseFormat(
-            _make_json_schema(reason_first=True),
+
+        df = spark.createDataFrame([("Paris", "City")], ["text", "category"])
+        prompt = (
+            OpenAIPrompt()
+            .setPromptTemplate("List 2 {category}: {text},")
+            .setApiType("responses")
+            .setResponseFormat(_make_json_schema(reason_first=True))
+            .setOutputCol("out")
         )
+        out_df = prompt.transform(df)
+        text = out_df.select("out").first()[0]
 
-        jvm = spark.sparkContext._jvm
-        empty_scala_seq = jvm.scala.collection.JavaConverters.asScalaBuffer([]).toSeq()
+        self.assertIsInstance(text, str)
+        json_response = json.loads(text)
+        self.assertIsNotNone(json_response)
+        self.assertIsInstance(json_response, dict)
 
-        # For Responses API, setResponseFormat already wraps the dict as top-level 'format'
-        entity = resp._java_obj.getStringEntity(
-            empty_scala_seq, resp._java_obj.getResponseFormat()
-        )
-        json = _entity_to_string(entity)
-
-        props_start = json.find('"properties":{')
-        self.assertTrue(props_start >= 0, f"properties block not found in JSON: {json}")
-        ridx = json.find('"reason"', props_start)
-        aidx = json.find('"ans"', props_start)
+        reason_index = text.find('"reason"')
+        answer_index = text.find('"ans"')
         self.assertTrue(
-            ridx >= 0 and aidx >= 0, f"reason/ans keys not found in properties: {json}"
+            reason_index >= 0 and answer_index >= 0,
+            f"reason/ans keys not found: {text}",
         )
         self.assertTrue(
-            ridx < aidx, f"Order incorrect: expected reason before ans. JSON: {json}"
+            reason_index < answer_index, f"Expected reason before ans. Output: {text}"
         )
 
     def test_responses_ans_then_reason(self):
-        resp = OpenAIResponses().setResponseFormat(
-            _make_json_schema(reason_first=False)
+
+        df = spark.createDataFrame([("item", "category")], ["text", "category"])
+        prompt = (
+            OpenAIPrompt()
+            .setPromptTemplate("List 2 {category}: {text},")
+            .setApiType("responses")
+            .setResponseFormat(_make_json_schema(reason_first=False))
+            .setOutputCol("out")
         )
+        out_df = prompt.transform(df)
+        text = out_df.select("out").first()[0]
 
-        jvm = spark.sparkContext._jvm
-        empty_scala_seq = jvm.scala.collection.JavaConverters.asScalaBuffer([]).toSeq()
+        self.assertIsInstance(text, str)
+        json_response = json.loads(text)
+        self.assertIsNotNone(json_response)
+        self.assertIsInstance(json_response, dict)
 
-        entity = resp._java_obj.getStringEntity(
-            empty_scala_seq, resp._java_obj.getResponseFormat()
-        )
-        json = _entity_to_string(entity)
-
-        props_start = json.find('"properties":{')
-        self.assertTrue(props_start >= 0, f"properties block not found in JSON: {json}")
-        ridx = json.find('"reason"', props_start)
-        aidx = json.find('"ans"', props_start)
+        reason_index = text.find('"reason"')
+        answer_index = text.find('"ans"')
         self.assertTrue(
-            ridx >= 0 and aidx >= 0, f"reason/ans keys not found in properties: {json}"
+            reason_index >= 0 and answer_index >= 0,
+            f"reason/ans keys not found: {text}",
         )
         self.assertTrue(
-            aidx < ridx, f"Order incorrect: expected ans before reason. JSON: {json}"
+            reason_index > answer_index, f"Expected ans before reason. Output: {text}"
         )
 
 
