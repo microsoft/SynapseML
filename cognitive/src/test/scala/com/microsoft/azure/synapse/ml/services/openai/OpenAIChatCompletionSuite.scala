@@ -23,7 +23,6 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     .setTemperature(0)
     .setSubscriptionKey(openAIAPIKey)
 
-
   lazy val goodDf: DataFrame = Seq(
     Seq(
       OpenAIMessage("system", "You are an AI chatbot with red as your favorite color"),
