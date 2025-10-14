@@ -1,102 +1,84 @@
-# SynapseML Version Bump & Revert Guide
+# SynapseML Version Bump Guide
 
-This folder contains small, safe automation to bump the SynapseML version across the repo, snapshot docs for a new version, and optionally revert those changes.
+This folder contains small, safe automation to bump the SynapseML version across the repo, snapshot docs for a new version.
 
 ## Scripts
 
-- bump_version.sh
+- release.py
+  - One-call, end-to-end release helper that bumps version strings, snapshots docs, updates sidebars and versions.json, and can run verification and git operations.
+  - Usage:
+
+    ```bash
+    # Dry-run preview of changes
+    python tools/release/release.py --from 1.0.15 --to 1.0.16
+
+    # Apply bump + docs snapshot, then commit, tag, and push
+    python tools/release/release.py --from 1.0.15 --to 1.0.16 \
+      --prev 1.0.15 --apply --verify --git-commit --git-tag --git-push
+    ```
+
+  - Flags:
+    - `--from`, `--to`: version strings
+    - `--prev`: previous version (used for sidebars copy; inferred from `website/versions.json` if omitted)
+    - `--apply`: perform edits; omit for dry-run
+    - `--verify`: check changes (uses `rg` if available, else Python)
+    - `--git-commit`, `--git-tag`, `--git-push`: optional git steps; customize with `--commit-message`, `--tag-name`, `--tag-message`, `--remote`
+
+- bump_version.py
   - Dry-run by default; replaces occurrences of a version string in targeted files.
   - Excludes frozen docs (website/versioned_docs/**) and assets.
   - Usage:
 
     ```bash
-    tools/release/bump_version.sh -f 1.0.15 -t 1.0.16           # preview only
-    tools/release/bump_version.sh -f 1.0.15 -t 1.0.16 --apply   # perform edits
+    python tools/release/bump_version.py -f 1.0.15 -t 1.0.16           # preview only
+    python tools/release/bump_version.py -f 1.0.15 -t 1.0.16 --apply   # perform edits
     ```
 
   - Targets: README, docs/**, website/** (non-versioned), tools/docker/**, start; file types md/js/ts/json/yaml.
 
-- version_docs.sh
-  - Offline snapshot of docs into docusaurus versioned docs.
-  - Creates `website/versioned_docs/version-<new>` and copies sidebars.
-  - Prepends `<new>` to `website/versions.json`.
-  - Usage:
-
-    ```bash
-    tools/release/version_docs.sh 1.0.16 1.0.15
-    # If prev version omitted, tries to infer from website/versions.json
-    ```
-
-- revert_bump.sh
-  - Dry-run by default; replaces text back `TO -> FROM` in the same targets as bump_version.sh.
-  - Optionally cleans the docs snapshot (dir + sidebar + versions.json).
-  - Usage:
-
-    ```bash
-    tools/release/revert_bump.sh -f 1.0.15 -t 1.0.16           # preview
-    tools/release/revert_bump.sh -f 1.0.15 -t 1.0.16 --apply   # revert text + docs cleanup
-    tools/release/revert_bump.sh -f 1.0.15 -t 1.0.16 --apply --keep-docs  # text-only revert
-    ```
+  - For docs versioning, the script prefers running `docusaurus docs:version <new>` (via yarn or npx) and falls back to an offline snapshot if Docusaurus is unavailable. It also updates sidebars and `website/versions.json`.
 
 ## Typical Release Flow (1.0.15 → 1.0.16)
 
-1) Bump version everywhere except frozen docs:
+1) One-call end-to-end:
 
    ```bash
-   tools/release/bump_version.sh -f 1.0.15 -t 1.0.16 --apply
+   python tools/release/release.py --from 1.0.15 --to 1.0.16 \
+     --prev 1.0.15 --apply --verify --git-commit --git-tag --git-push
    ```
 
-2) Version docs for the website:
+2) (Alternative manual steps) Bump version everywhere except frozen docs:
 
    ```bash
-   tools/release/version_docs.sh 1.0.16 1.0.15
+   python tools/release/bump_version.py -f 1.0.15 -t 1.0.16 --apply
    ```
 
-3) Verify edits:
+3) Version docs for the website (manual alternative if not using release.py):
+
+   ```bash
+   # Prefer Docusaurus when available
+   (cd website && yarn run docusaurus docs:version 1.0.16) || true
+   # Offline fallback
+   python tools/release/release.py --from 1.0.15 --to 1.0.16 --apply --skip-bump --prev 1.0.15
+   ```
+
+4) Verify edits:
 
    ```bash
    rg -n -S '1\.0\.15' -g '!website/versioned_docs/**' -g '!website/versions.json' -g '!node_modules/**'
    rg -n -S '1\.0\.16'
    ```
 
-4) Commit and tag:
-
-   ```bash
-   git add -A
-   git commit -m "Bump SynapseML version: 1.0.15 → 1.0.16; update docs, website, docker, start"
-   git tag -a v1.0.16 -m "SynapseML 1.0.16"
-   git push origin HEAD --tags
-   ```
-
-## Reverting a Test Bump
-
-- Full revert (text + remove versioned docs and entry in versions.json):
-
-  ```bash
-  tools/release/revert_bump.sh -f 1.0.15 -t 1.0.16 --apply
-  ```
-
-- Text-only revert (keep versioned docs):
-
-  ```bash
-  tools/release/revert_bump.sh -f 1.0.15 -t 1.0.16 --apply --keep-docs
-  ```
-
 ## Safety Rules
 
-- bump_version.sh intentionally avoids editing `website/versioned_docs/**` and `website/versions.json`.
+- The version bump step avoids editing `website/versioned_docs/**` and `website/versions.json`.
 - Only ASCII text files are edited (md/js/ts/json/yaml), images and lockfiles are skipped.
 - Always run a dry-run first to confirm the file list and snippets.
 
 ## Docusaurus Notes
 
-- When network is available, you can use the official command:
-
-  ```bash
-  (cd website && npx docusaurus docs:version 1.0.16)
-  ```
-
-- Then run `yarn build` and deploy as needed.
+- The release helper attempts to run `docusaurus docs:version <new>` via yarn or npx. If unavailable or it fails, it falls back to an offline snapshot of `docs/` → `website/versioned_docs/version-<new>` and updates sidebars and `versions.json`.
+- After versioning docs, you can run `yarn build` in `website/` and deploy as needed.
 
 ## Artifact & Links Checklist
 
