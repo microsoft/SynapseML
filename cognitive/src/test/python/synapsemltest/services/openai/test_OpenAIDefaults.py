@@ -27,7 +27,7 @@ class TestOpenAIDefaults(unittest.TestCase):
         defaults.set_seed(42)
         defaults.set_top_p(0.9)
         defaults.set_URL("Test URL/")
-        defaults.set_api_version("2024-05-01-preview")
+        defaults.set_api_version("2025-04-01-preview")
         defaults.set_model("grok-3-mini")
         defaults.set_embedding_deployment_name("text-embedding-ada-002")
 
@@ -37,7 +37,7 @@ class TestOpenAIDefaults(unittest.TestCase):
         self.assertEqual(defaults.get_seed(), 42)
         self.assertEqual(defaults.get_top_p(), 0.9)
         self.assertEqual(defaults.get_URL(), "Test URL/")
-        self.assertEqual(defaults.get_api_version(), "2024-05-01-preview")
+        self.assertEqual(defaults.get_api_version(), "2025-04-01-preview")
         self.assertEqual(defaults.get_model(), "grok-3-mini")
         self.assertEqual(
             defaults.get_embedding_deployment_name(), "text-embedding-ada-002"
@@ -52,7 +52,7 @@ class TestOpenAIDefaults(unittest.TestCase):
         defaults.set_seed(42)
         defaults.set_top_p(0.9)
         defaults.set_URL("Test URL/")
-        defaults.set_api_version("2024-05-01-preview")
+        defaults.set_api_version("2025-04-01-preview")
         defaults.set_model("grok-3-mini")
         defaults.set_embedding_deployment_name("text-embedding-ada-002")
 
@@ -62,7 +62,7 @@ class TestOpenAIDefaults(unittest.TestCase):
         self.assertEqual(defaults.get_seed(), 42)
         self.assertEqual(defaults.get_top_p(), 0.9)
         self.assertEqual(defaults.get_URL(), "Test URL/")
-        self.assertEqual(defaults.get_api_version(), "2024-05-01-preview")
+        self.assertEqual(defaults.get_api_version(), "2025-04-01-preview")
         self.assertEqual(defaults.get_model(), "grok-3-mini")
         self.assertEqual(
             defaults.get_embedding_deployment_name(), "text-embedding-ada-002"

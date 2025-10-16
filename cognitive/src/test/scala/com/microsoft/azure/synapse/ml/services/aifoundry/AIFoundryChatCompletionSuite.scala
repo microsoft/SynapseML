@@ -23,7 +23,7 @@ class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompl
 
   lazy val completion: AIFoundryChatCompletion = new AIFoundryChatCompletion()
     .setCustomServiceName(aiFoundryServiceName)
-    .setApiVersion("2024-05-01-preview")
+    .setApiVersion("2025-04-01-preview")
     .setMaxTokens(2048)
     .setOutputCol("out")
     .setMessagesCol("messages")
@@ -193,7 +193,7 @@ class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompl
     val completion = new AIFoundryChatCompletion()
       .setCustomServiceName(aiFoundryServiceName)
       .setModel(aiFoundryModelName)
-      .setApiVersion("2024-05-01-preview")
+      .setApiVersion("2025-04-01-preview")
       .setMaxTokens(500)
       .setOutputCol("out")
       .setMessagesCol("messages")
