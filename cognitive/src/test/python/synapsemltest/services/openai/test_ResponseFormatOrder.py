@@ -2,25 +2,14 @@
 # Licensed under the MIT License. See LICENSE in project root for information.
 
 import json
+import os
+import subprocess
 import unittest
 
 from synapse.ml.core.init_spark import init_spark
-from synapse.ml.services.openai import OpenAIPrompt, OpenAIResponses
+from synapse.ml.services.openai import OpenAIPrompt
 
 spark = init_spark()
-
-
-def _entity_to_string(entity):
-    is_ = entity.getContent()
-    try:
-        # Read Java InputStream to Python string
-        # Using JDK classes via Py4J
-        java_scanner = spark.sparkContext._jvm.java.util.Scanner(
-            is_, "UTF-8"
-        ).useDelimiter("\\A")
-        return java_scanner.next()
-    finally:
-        is_.close()
 
 
 def _make_json_schema(reason_first: bool) -> dict:
@@ -54,17 +43,43 @@ def _make_json_schema(reason_first: bool) -> dict:
 
 
 class TestResponseFormatOrder(unittest.TestCase):
+    def __init__(self, *args, **kwargs):
+        # fetching openai_api_key from azure keyvault
+        openai_api_key = json.loads(
+            subprocess.check_output(
+                "az keyvault secret show --vault-name mmlspark-build-keys --name openai-api-key-2",
+                shell=True,
+            )
+        )["value"]
+        openai_api_base = "https://synapseml-openai-2.openai.azure.com/"
+        openai_api_version = "2025-04-01-preview"
+
+        os.environ["OPENAI_API_VERSION"] = openai_api_version
+        os.environ["OPENAI_API_BASE"] = openai_api_base
+        os.environ["OPENAI_API_KEY"] = openai_api_key
+
+        self.subscriptionKey = openai_api_key
+        self.url = openai_api_base
+        self.api_version = openai_api_version
+        self.deploymentName = "gpt-4.1-mini"
+
+        # construction of test dataframe
+        self.df = spark.createDataFrame([("Paris", "City")], ["text", "category"])
+
     def test_chat_reason_then_ans(self):
 
-        df = spark.createDataFrame([("Paris", "City")], ["text", "category"])
         prompt = (
             OpenAIPrompt()
             .setPromptTemplate("List 2 {category}: {text},")
             .setApiType("chat_completions")
             .setResponseFormat(_make_json_schema(reason_first=True))
             .setOutputCol("out")
+            .setdeploymentName(self.deploymentName)
+            .setApiVersion(self.api_version)
+            .setUrl(self.url)
+            .setSubscriptionKey(self.subscriptionKey)
         )
-        out_df = prompt.transform(df)
+        out_df = prompt.transform(self.df)
         text = out_df.select("out").first()[0]
 
         self.assertIsInstance(text, str)
@@ -84,15 +99,18 @@ class TestResponseFormatOrder(unittest.TestCase):
 
     def test_chat_ans_then_reason(self):
 
-        df = spark.createDataFrame([("item", "category")], ["text", "category"])
         prompt = (
             OpenAIPrompt()
             .setPromptTemplate("List 2 {category}: {text},")
             .setApiType("chat_completions")
             .setResponseFormat(_make_json_schema(reason_first=False))
             .setOutputCol("out")
+            .setdeploymentName(self.deploymentName)
+            .setApiVersion(self.api_version)
+            .setUrl(self.url)
+            .setSubscriptionKey(self.subscriptionKey)
         )
-        out_df = prompt.transform(df)
+        out_df = prompt.transform(self.df)
         text = out_df.select("out").first()[0]
 
         self.assertIsInstance(text, str)
@@ -112,15 +130,18 @@ class TestResponseFormatOrder(unittest.TestCase):
 
     def test_responses_reason_then_ans(self):
 
-        df = spark.createDataFrame([("Paris", "City")], ["text", "category"])
         prompt = (
             OpenAIPrompt()
             .setPromptTemplate("List 2 {category}: {text},")
             .setApiType("responses")
             .setResponseFormat(_make_json_schema(reason_first=True))
             .setOutputCol("out")
+            .setdeploymentName(self.deploymentName)
+            .setApiVersion(self.api_version)
+            .setUrl(self.url)
+            .setSubscriptionKey(self.subscriptionKey)
         )
-        out_df = prompt.transform(df)
+        out_df = prompt.transform(self.df)
         text = out_df.select("out").first()[0]
 
         self.assertIsInstance(text, str)
@@ -140,15 +161,18 @@ class TestResponseFormatOrder(unittest.TestCase):
 
     def test_responses_ans_then_reason(self):
 
-        df = spark.createDataFrame([("item", "category")], ["text", "category"])
         prompt = (
             OpenAIPrompt()
             .setPromptTemplate("List 2 {category}: {text},")
             .setApiType("responses")
             .setResponseFormat(_make_json_schema(reason_first=False))
             .setOutputCol("out")
+            .setdeploymentName(self.deploymentName)
+            .setApiVersion(self.api_version)
+            .setUrl(self.url)
+            .setSubscriptionKey(self.subscriptionKey)
         )
-        out_df = prompt.transform(df)
+        out_df = prompt.transform(self.df)
         text = out_df.select("out").first()[0]
 
         self.assertIsInstance(text, str)
