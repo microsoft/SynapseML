@@ -36,7 +36,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
 
   lazy val aiFoundryPrompt: OpenAIPrompt = new OpenAIPrompt()
     .setSubscriptionKey(aiFoundryAPIKey)
-    .setApiVersion("2025-04-01-preview")
+    .setApiVersion("2024-05-01-preview")
     .setModel(aiFoundryModelName)
     .setAIFoundryCustomServiceName(aiFoundryServiceName)
     .setOutputCol("outParsed")
