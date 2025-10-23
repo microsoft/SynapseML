@@ -58,9 +58,7 @@ object ServiceParam {
   // using insertion-ordered collections to preserve user-specified order (e.g., JSON Schema properties).
   private def toScalaAny(value: Any): Any = value match {
     case m: java.util.Map[_, _] =>
-      // Preserve iteration order using ListMap
-      val pairs = m.asScala.toSeq.map { case (k, v) => k.toString -> toScalaAny(v) }
-      ListMap(pairs: _*)
+      ListMap(m.asScala.toSeq.map { case (k, v) => k.toString -> toScalaAny(v) }: _*)
     case l: java.util.List[_] =>
       l.asScala.toSeq.map(toScalaAny)
     case other => toScalaPrimitive(other)
