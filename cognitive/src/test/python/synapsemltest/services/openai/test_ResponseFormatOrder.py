@@ -15,7 +15,7 @@ spark = init_spark()
 sc = SQLContext(spark.sparkContext)
 
 
-def _make_json_schema(api_type: str, reason_first: bool) -> dict:
+def _make_json_schema(reason_first: bool) -> dict:
     # Build an ordered dict-like structure in Python
     # Python dict preserves insertion order; we rely on wrapper converting to LinkedHashMap recursively.
     props = {
@@ -28,29 +28,12 @@ def _make_json_schema(api_type: str, reason_first: bool) -> dict:
             "ans": {"type": "string"},
         }
 
-    schema = {
-        "name": "ordered_schema",
-        "strict": True,
-        "schema": {
-            "type": "object",
-            "properties": props,
-            "required": list(props.keys()),
-            "additionalProperties": False,
-        },
+    return {
+        "type": "object",
+        "properties": props,
+        "required": list(props.keys()),
+        "additionalProperties": False,
     }
-
-    if api_type == "chat_completions":
-        return {
-            "type": "json_schema",
-            "json_schema": schema,
-        }
-    elif api_type == "responses":
-        return {
-            "type": "json_schema",
-            **schema,
-        }
-    else:
-        raise ValueError(f"Unknown api_type: {api_type}")
 
 
 class TestResponseFormatOrder(unittest.TestCase):
@@ -83,9 +66,7 @@ class TestResponseFormatOrder(unittest.TestCase):
             OpenAIPrompt()
             .setPromptTemplate("List 2 {category}: {text},")
             .setApiType("chat_completions")
-            .setResponseFormat(
-                _make_json_schema(api_type="chat_completions", reason_first=True)
-            )
+            .setResponseFormat(_make_json_schema(reason_first=True))
             .setOutputCol("out")
             .setdeploymentName(self.deploymentName)
             .setApiVersion(self.api_version)
@@ -116,9 +97,7 @@ class TestResponseFormatOrder(unittest.TestCase):
             OpenAIPrompt()
             .setPromptTemplate("List 2 {category}: {text},")
             .setApiType("chat_completions")
-            .setResponseFormat(
-                _make_json_schema(api_type="chat_completions", reason_first=False)
-            )
+            .setResponseFormat(_make_json_schema(reason_first=False))
             .setOutputCol("out")
             .setdeploymentName(self.deploymentName)
             .setApiVersion(self.api_version)
@@ -149,9 +128,7 @@ class TestResponseFormatOrder(unittest.TestCase):
             OpenAIPrompt()
             .setPromptTemplate("List 2 {category}: {text},")
             .setApiType("responses")
-            .setResponseFormat(
-                _make_json_schema(api_type="responses", reason_first=True)
-            )
+            .setResponseFormat(_make_json_schema(reason_first=True))
             .setOutputCol("out")
             .setdeploymentName(self.deploymentName)
             .setApiVersion(self.api_version)
@@ -182,9 +159,7 @@ class TestResponseFormatOrder(unittest.TestCase):
             OpenAIPrompt()
             .setPromptTemplate("List 2 {category}: {text},")
             .setApiType("responses")
-            .setResponseFormat(
-                _make_json_schema(api_type="responses", reason_first=False)
-            )
+            .setResponseFormat(_make_json_schema(reason_first=False))
             .setOutputCol("out")
             .setdeploymentName(self.deploymentName)
             .setApiVersion(self.api_version)
