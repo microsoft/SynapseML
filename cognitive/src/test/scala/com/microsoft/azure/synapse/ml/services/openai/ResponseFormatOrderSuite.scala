@@ -3,20 +3,15 @@
 
 package com.microsoft.azure.synapse.ml.services.openai
 
+import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
 import org.scalatest.funsuite.AnyFunSuite
 import org.apache.http.entity.StringEntity
 import org.apache.spark.sql.Row
 
 class ResponseFormatOrderSuite extends AnyFunSuite {
 
-  private def entityToString(e: StringEntity): String = {
-    val is = e.getContent
-    try {
-      scala.io.Source.fromInputStream(is, "UTF-8").mkString
-    } finally {
-      is.close()
-    }
-  }
+  private def entityToString(e: StringEntity): String =
+    StreamUtilities.using(e.getContent)(scala.io.Source.fromInputStream(_, "UTF-8").mkString).get
 
   private def makeJsonSchema(properties: Map[String, Any]): Map[String, Any] = {
     Map(
@@ -30,6 +25,19 @@ class ResponseFormatOrderSuite extends AnyFunSuite {
           "required" -> properties.keys.toSeq,
           "additionalProperties" -> false
         )
+      )
+    )
+  }
+
+  private def makeBareSchema(properties: Map[String, Any]): Map[String, Any] = {
+    Map(
+      "name" -> "ordered_schema",
+      "strict" -> true,
+      "schema" -> Map(
+        "type" -> "object",
+        "properties" -> properties,
+        "required" -> properties.keys.toSeq,
+        "additionalProperties" -> false
       )
     )
   }
@@ -104,5 +112,31 @@ class ResponseFormatOrderSuite extends AnyFunSuite {
     assert(reasonIdx >= 0 && ansIdx >= 0, s"reason/ans keys not found in properties: $json")
     assert(ansIdx < reasonIdx, s"Order incorrect: expected ans before reason. JSON: $json")
   }
-}
 
+  test("ChatCompletions accepts bare schema Map and wraps as json_schema") {
+    val chat = new OpenAIChatCompletion()
+    val bare = makeBareSchema(reasonAnsProps(reasonFirst = true))
+    chat.setResponseFormat(bare)
+
+    val entity = chat.getStringEntity(Seq.empty[Row], Map("response_format" -> chat.getResponseFormat))
+    val json = entityToString(entity)
+
+    assert(json.contains("\"response_format\""), s"missing response_format in JSON: $json")
+    assert(json.contains("\"type\":\"json_schema\""), s"missing type json_schema in JSON: $json")
+    assert(json.contains("\"json_schema\""), s"missing nested json_schema in JSON: $json")
+  }
+
+  test("Responses accepts bare schema Map and flattens under format") {
+    val resp = new OpenAIResponses()
+    val bare = makeBareSchema(reasonAnsProps(reasonFirst = true))
+    resp.setResponseFormat(bare)
+
+    val entity = resp.getStringEntity(Seq.empty[Row], resp.getResponseFormat)
+    val json = entityToString(entity)
+
+    assert(json.contains("\"format\""), s"missing format in JSON: $json")
+    assert(json.contains("\"type\":\"json_schema\""), s"missing type json_schema in JSON: $json")
+    assert(!json.contains("\"json_schema\":{"), s"Responses should flatten, unexpected nested json_schema: $json")
+    assert(json.contains("\"name\":\"ordered_schema\""), s"missing name in flattened format: $json")
+  }
+}
