@@ -25,8 +25,9 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
     this,
     "responseFormat",
     "Response format for the completion. Can be 'text', 'json_object', or 'json_schema'. " +
-      "For 'json_schema' you may provide either: (a) a bare schema Map with keys 'name', 'schema', and optional 'strict' " +
-      "which will be wrapped as {type:'json_schema', json_schema: <schema>}; or (b) a full Map including key 'json_schema'.",
+      "For 'json_schema' you may provide either: (a) a bare schema Map with keys 'name', 'schema', " +
+      "and optional 'strict' which will be wrapped as {type:'json_schema', json_schema: <schema>}; " +
+      "or (b) a full Map including key 'json_schema'.",
     isRequired = false) {
     override val payloadName: String = "response_format"
   }
@@ -38,15 +39,39 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
       throw new IllegalArgumentException("response_format must be a non-null Map")
     }
 
-    val hasType = value.get("type").exists(v => Option(v).exists(_.toString.trim.nonEmpty))
-    val normalized: Map[String, Any] = if (hasType) {
+    def looksLikeInnerSchema(m: Map[String, Any]): Boolean = {
+      val keys = m.keySet.map(_.toString)
+      val schemaHints = Set("properties", "required", "additionalProperties", "$schema", "items")
+      keys.exists(schemaHints.contains)
+    }
+
+    val typeOpt = value.get("type").map(_.toString.trim.toLowerCase)
+    val isKnownRfType = typeOpt.exists(t => t == "text" || t == "json_object" || t == "json_schema")
+    val treatAsInnerSchema = (!isKnownRfType && (typeOpt.nonEmpty || looksLikeInnerSchema(value)))
+
+    val normalized: Map[String, Any] = if (isKnownRfType) {
       requireValidResponseFormatType(value)
       if (isJsonSchema(value)) {
         requireValidJsonSchemaShape(value)
       }
       value
+    } else if (treatAsInnerSchema) {
+      // User passed the inner JSON Schema (e.g., {type: object, properties: ...}).
+      // Extract optional name/strict if present; everything else is part of the schema.
+      val name = value.get("name").map(_.toString).getOrElse("response_schema")
+      val strictOpt = value.get("strict")
+      val innerSchema = value - "name" - "strict"
+      val jsonSchema = Map(
+        "name" -> name,
+        "schema" -> innerSchema
+      ) ++ strictOpt.map(v => Map("strict" -> v)).getOrElse(Map.empty)
+
+      Map(
+        "type" -> "json_schema",
+        "json_schema" -> jsonSchema
+      )
     } else {
-      // Treat as bare schema for Chat Completions; wrap under 'json_schema'
+      // Bare schema wrapper with required keys (name + schema)
       requireBareJsonSchemaShape(value)
       Map(
         "type" -> "json_schema",
@@ -68,7 +93,9 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
     val tpe = tOpt.get
     val ok = tpe == "text" || tpe == "json_object" || tpe == "json_schema"
     if (!ok) {
-      val msg = "Unsupported response_format type. Use 'text', 'json_object', or 'json_schema'."
+      val msg = s"Unsupported response_format type: '$tpe'. Allowed: 'text', 'json_object', 'json_schema'. " +
+        "If you're passing an inner JSON Schema (e.g., type:'object', properties:...), omit the top-level 'type' " +
+        "or set type:'json_schema' and include 'json_schema': {name, schema, strict?}."
       throw new IllegalArgumentException(msg)
     }
   }

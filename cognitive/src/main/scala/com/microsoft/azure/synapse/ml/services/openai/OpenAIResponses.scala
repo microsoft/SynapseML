@@ -52,11 +52,31 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
     if (value == null) {
       throw new IllegalArgumentException("Response format must be a non-null Map.")
     }
-    val hasType = value.get("type").exists(v => Option(v).exists(_.toString.trim.nonEmpty))
-    val formatObj: Map[String, Any] = if (hasType) {
+    def looksLikeInnerSchema(m: Map[String, Any]): Boolean = {
+      val keys = m.keySet.map(_.toString)
+      val schemaHints = Set("properties", "required", "additionalProperties", "$schema", "items")
+      keys.exists(schemaHints.contains)
+    }
+
+    val typeOpt = value.get("type").map(_.toString.trim.toLowerCase)
+    val isKnownRfType = typeOpt.exists(t => t == "text" || t == "json_object" || t == "json_schema")
+    val treatAsInnerSchema = (!isKnownRfType && (typeOpt.nonEmpty || looksLikeInnerSchema(value)))
+
+    val formatObj: Map[String, Any] = if (isKnownRfType) {
       buildFormatObject(value)
+    } else if (treatAsInnerSchema) {
+      // Inner JSON Schema detected; flatten for Responses API
+      val name = value.get("name").map(_.toString).getOrElse("response_schema")
+      val strictOpt = value.get("strict")
+      val innerSchema = value - "name" - "strict"
+      val flat = Map(
+        "type" -> "json_schema",
+        "name" -> name,
+        "schema" -> innerSchema
+      ) ++ strictOpt.map(v => Map("strict" -> v)).getOrElse(Map.empty)
+      flat
     } else {
-      // Treat as bare schema Map for Responses API; flatten under type 'json_schema'
+      // Treat as bare schema Map with required keys (name + schema); flatten for Responses API
       requireBareJsonSchemaShape(value)
       val flat = Map("type" -> "json_schema") ++ value
       buildJsonSchemaFormat(flat)
@@ -71,8 +91,13 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
       case "text" | "json_object" => Map("type" -> tpe)
       case "json_schema" => buildJsonSchemaFormat(value)
       case _ =>
-        throw new IllegalArgumentException("Unsupported response format type. Use 'text','json_object','json_schema'.")
-  }
+        throw new IllegalArgumentException(
+          s"Unsupported response format type: '$tpe'. Allowed: 'text','json_object','json_schema'. " +
+            "If you're passing an inner JSON Schema (e.g., type:'object', properties:...), " +
+            "omit the top-level 'type' or set type:'json_schema' and include either nested " +
+            "'json_schema':{name,schema,strict?} or top-level name/schema."
+        )
+    }
   }
 
   private def buildJsonSchemaFormat(value: Map[String, Any]): Map[String, Any] = {
