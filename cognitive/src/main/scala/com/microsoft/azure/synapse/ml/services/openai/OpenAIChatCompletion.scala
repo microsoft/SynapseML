@@ -7,7 +7,6 @@ import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.AnyJsonFormat.anyFormat
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.services.{HasCognitiveServiceInput, HasInternalJsonOutputParser}
-import com.microsoft.azure.synapse.ml.io.http.JSONOutputParser
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.util._
@@ -47,7 +46,9 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
 
     val typeOpt = value.get("type").map(_.toString.trim.toLowerCase)
     val isKnownRfType = typeOpt.exists(t => t == "text" || t == "json_object" || t == "json_schema")
-    val treatAsInnerSchema = (!isKnownRfType && (typeOpt.nonEmpty || looksLikeInnerSchema(value)))
+    val isJsonSchemaType = typeOpt.exists(t => Set(
+      "object", "array", "string", "number", "integer", "boolean", "null").contains(t))
+    val treatAsInnerSchema = (!isKnownRfType && (looksLikeInnerSchema(value) || isJsonSchemaType))
 
     val normalized: Map[String, Any] = if (isKnownRfType) {
       requireValidResponseFormatType(value)
@@ -70,12 +71,19 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
         "type" -> "json_schema",
         "json_schema" -> jsonSchema
       )
-    } else {
+    } else if (typeOpt.isEmpty) {
       // Bare schema wrapper with required keys (name + schema)
       requireBareJsonSchemaShape(value)
       Map(
         "type" -> "json_schema",
         "json_schema" -> value
+      )
+    } else {
+      // Has a 'type' but not recognized as response_format or JSON Schema -> invalid
+      val bad = typeOpt.get
+      throw new IllegalArgumentException(
+        s"Unsupported response_format type: '$bad'. Allowed: 'text', 'json_object', 'json_schema'. " +
+          "For inner JSON Schema, either omit top-level 'type' or use a schema with keys like 'properties' or a JSON Schema type ('object','array',...)."
       )
     }
 
@@ -206,9 +214,6 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
     .updated("messages", getMessagesCol)
 
   override def responseDataType: DataType = ChatModelResponse.schema
-
-  override protected def getInternalOutputParser(schema: StructType): JSONOutputParser =
-    new JSONOutputParser().setDataType(responseDataType)
 
   private[openai] def getStringEntity(messages: Seq[Row], optionalParams: Map[String, Any]): StringEntity = {
     val mappedMessages = encodeMessagesToMap(messages)
