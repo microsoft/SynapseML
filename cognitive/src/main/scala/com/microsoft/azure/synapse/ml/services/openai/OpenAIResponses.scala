@@ -60,7 +60,9 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
 
     val typeOpt = value.get("type").map(_.toString.trim.toLowerCase)
     val isKnownRfType = typeOpt.exists(t => t == "text" || t == "json_object" || t == "json_schema")
-    val treatAsInnerSchema = (!isKnownRfType && (typeOpt.nonEmpty || looksLikeInnerSchema(value)))
+    val isJsonSchemaType = typeOpt.exists(t => Set(
+      "object", "array", "string", "number", "integer", "boolean", "null").contains(t))
+    val treatAsInnerSchema = (!isKnownRfType && (looksLikeInnerSchema(value) || isJsonSchemaType))
 
     val formatObj: Map[String, Any] = if (isKnownRfType) {
       buildFormatObject(value)
@@ -75,11 +77,18 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
         "schema" -> innerSchema
       ) ++ strictOpt.map(v => Map("strict" -> v)).getOrElse(Map.empty)
       flat
-    } else {
+    } else if (typeOpt.isEmpty) {
       // Treat as bare schema Map with required keys (name + schema); flatten for Responses API
       requireBareJsonSchemaShape(value)
       val flat = Map("type" -> "json_schema") ++ value
       buildJsonSchemaFormat(flat)
+    } else {
+      // Has a 'type' but not recognized as response_format or JSON Schema -> invalid
+      val bad = typeOpt.get
+      throw new IllegalArgumentException(
+        s"Unsupported response format type: '$bad'. Allowed: 'text','json_object','json_schema'. " +
+          "For inner JSON Schema, either omit top-level 'type' or use a schema with keys like 'properties' or a JSON Schema type ('object','array',...)."
+      )
     }
     val formatted = Map("format" -> formatObj)
     setScalarParam(responseFormat, formatted)
