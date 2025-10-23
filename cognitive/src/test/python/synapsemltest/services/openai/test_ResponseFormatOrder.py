@@ -19,9 +19,9 @@ def _make_json_schema(api_type: str, reason_first: bool) -> dict:
     # Build an ordered dict-like structure in Python
     # Python dict preserves insertion order; we rely on wrapper converting to LinkedHashMap recursively.
     props = {
-            "ans": {"type": "string"},
-            "reason": {"type": "string"},
-        }
+        "ans": {"type": "string"},
+        "reason": {"type": "string"},
+    }
     if reason_first:
         props = {
             "reason": {"type": "string"},
