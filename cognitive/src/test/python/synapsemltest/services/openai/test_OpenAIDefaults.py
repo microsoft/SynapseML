@@ -123,7 +123,7 @@ class TestOpenAIDefaults(unittest.TestCase):
         )
 
         defaults = OpenAIDefaults()
-        defaults.set_deployment_name("gpt-4.1-mini")
+        defaults.set_deployment_name("gpt-35-turbo-0125")
         defaults.set_subscription_key(openai_api_key)
         defaults.set_temperature(0.05)
         defaults.set_URL("https://synapseml-openai-2.openai.azure.com/")

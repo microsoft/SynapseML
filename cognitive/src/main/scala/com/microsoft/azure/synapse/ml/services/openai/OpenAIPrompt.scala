@@ -454,29 +454,15 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   private def getOpenAIChatService: OpenAIServicesBase with HasTextOutput = {
 
-    val hasInlineDeployment: Boolean = this.isDefined(deploymentName) && {
-      val dn = getDeploymentName
-      dn != null && dn.nonEmpty
-    }
-
     val completion: OpenAIServicesBase with HasTextOutput =
-      if (hasInlineDeployment) {
-        // Prefer inline deploymentName over any global/default model
-        if (legacyModels.contains(getDeploymentName)) {
-          new OpenAICompletion()
-        } else {
-          getApiType match {
-            case "responses" => new OpenAIResponses()
-            case "chat_completions" | _ => new OpenAIChatCompletion()
-          }
-        }
-      } else if (hasAIFoundryModel) {
-        // Fall back to Foundry when no inline deployment is provided
+      if (hasAIFoundryModel) {
         new AIFoundryChatCompletion()
-      } else if (legacyModels.contains(getDeploymentName)) {
+      }
+      else if (legacyModels.contains(getDeploymentName)) {
         new OpenAICompletion()
-      } else {
-        // Decide by apiType when neither inline deployment nor Foundry model is present
+      }
+      else {
+        // Use the apiType parameter to decide between chat_completions and responses
         getApiType match {
           case "responses" => new OpenAIResponses()
           case "chat_completions" | _ => new OpenAIChatCompletion()

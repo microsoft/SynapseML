@@ -9,7 +9,7 @@ import unittest
 from pyspark.sql import SQLContext
 
 from synapse.ml.core.init_spark import init_spark
-from synapse.ml.services.openai import OpenAIDefaults, OpenAIPrompt
+from synapse.ml.services.openai import OpenAIPrompt
 
 spark = init_spark()
 sc = SQLContext(spark.sparkContext)
@@ -40,14 +40,22 @@ class TestResponseFormatOrder(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         # fetching openai_api_key from azure keyvault
-        cls.subscriptionKey = json.loads(
+        openai_api_key = json.loads(
             subprocess.check_output(
                 "az keyvault secret show --vault-name mmlspark-build-keys --name openai-api-key-2",
                 shell=True,
             )
         )["value"]
-        cls.url = "https://synapseml-openai-2.openai.azure.com/"
-        cls.api_version = "2025-04-01-preview"
+        openai_api_base = "https://synapseml-openai-2.openai.azure.com/"
+        openai_api_version = "2025-04-01-preview"
+
+        os.environ["OPENAI_API_VERSION"] = openai_api_version
+        os.environ["OPENAI_API_BASE"] = openai_api_base
+        os.environ["OPENAI_API_KEY"] = openai_api_key
+
+        cls.subscriptionKey = openai_api_key
+        cls.url = openai_api_base
+        cls.api_version = openai_api_version
         cls.deploymentName = "gpt-4.1-mini"
 
         # construction of test dataframe
