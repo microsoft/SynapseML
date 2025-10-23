@@ -6,10 +6,13 @@ import os
 import subprocess
 import unittest
 
+from pyspark.sql import SQLContext
+
 from synapse.ml.core.init_spark import init_spark
 from synapse.ml.services.openai import OpenAIPrompt
 
 spark = init_spark()
+sc = SQLContext(spark.sparkContext)
 
 
 def _make_json_schema(reason_first: bool) -> dict:
