@@ -87,7 +87,8 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
       val bad = typeOpt.get
       throw new IllegalArgumentException(
         s"Unsupported response format type: '$bad'. Allowed: 'text','json_object','json_schema'. " +
-          "For inner JSON Schema, either omit top-level 'type' or use a schema with keys like 'properties' or a JSON Schema type ('object','array',...)."
+          "For inner JSON Schema, either omit top-level 'type' or use a schema with keys like 'properties' " +
+          "or a JSON Schema type ('object','array',...)."
       )
     }
     val formatted = Map("format" -> formatObj)
