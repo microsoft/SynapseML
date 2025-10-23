@@ -215,9 +215,12 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   }
 
   private def mergeModel(params: Map[String, Any], r: Row): Map[String, Any] = {
+    // Prefer inline deploymentName if provided; otherwise use global model if set
     getValueOpt(r, deploymentName) match {
       case Some(m) if m != null && m.nonEmpty => params.updated("model", m)
-      case _ => params
+      case _ =>
+        val modelOpt = com.microsoft.azure.synapse.ml.services.openai.OpenAIDefaults.getModel
+        modelOpt.map(md => params.updated("model", md)).getOrElse(params)
     }
   }
 
