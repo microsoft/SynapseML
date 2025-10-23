@@ -19,14 +19,10 @@ import scala.language.existentials
 
 
 trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
-  // Updated to Map[String, Any] to allow nested json_schema structure
   val responseFormat: ServiceParam[Map[String, Any]] = new ServiceParam[Map[String, Any]](
     this,
     "responseFormat",
-    "Response format for the completion. Can be 'text', 'json_object', or 'json_schema'. " +
-      "For 'json_schema' you may provide either: (a) a bare schema Map with keys 'name', 'schema', " +
-      "and optional 'strict' which will be wrapped as {type:'json_schema', json_schema: <schema>}; " +
-      "or (b) a full Map including key 'json_schema'.",
+    "Response format for the completion. One of 'text', 'json_object', or 'json_schema'.",
     isRequired = false) {
     override val payloadName: String = "response_format"
   }
@@ -34,120 +30,40 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
   def getResponseFormat: Map[String, Any] = getScalarParam(responseFormat)
 
   def setResponseFormat(value: Map[String, Any]): this.type = {
-    if (value == null) {
-      throw new IllegalArgumentException("response_format must be a non-null Map")
-    }
-
-    def looksLikeInnerSchema(m: Map[String, Any]): Boolean = {
-      val keys = m.keySet.map(_.toString)
-      val schemaHints = Set("properties", "required", "additionalProperties", "$schema", "items")
-      keys.exists(schemaHints.contains)
-    }
-
-    val typeOpt = value.get("type").map(_.toString.trim.toLowerCase)
-    val isKnownRfType = typeOpt.exists(t => t == "text" || t == "json_object" || t == "json_schema")
-    val isJsonSchemaType = typeOpt.exists(t => Set(
-      "object", "array", "string", "number", "integer", "boolean", "null").contains(t))
-    val treatAsInnerSchema = (!isKnownRfType && (looksLikeInnerSchema(value) || isJsonSchemaType))
-
-    val normalized: Map[String, Any] = if (isKnownRfType) {
-      requireValidResponseFormatType(value)
-      if (isJsonSchema(value)) {
-        requireValidJsonSchemaShape(value)
-      }
-      value
-    } else if (treatAsInnerSchema) {
-      // User passed the inner JSON Schema (e.g., {type: object, properties: ...}).
-      // Extract optional name/strict if present; everything else is part of the schema.
-      val name = value.get("name").map(_.toString).getOrElse("response_schema")
-      val strictOpt = value.get("strict")
-      val innerSchema = value - "name" - "strict"
-      val jsonSchema = Map(
-        "name" -> name,
-        "schema" -> innerSchema
-      ) ++ strictOpt.map(v => Map("strict" -> v)).getOrElse(Map.empty)
-
-      Map(
-        "type" -> "json_schema",
-        "json_schema" -> jsonSchema
-      )
-    } else if (typeOpt.isEmpty) {
-      // Bare schema wrapper with required keys (name + schema)
-      requireBareJsonSchemaShape(value)
-      Map(
-        "type" -> "json_schema",
-        "json_schema" -> value
-      )
-    } else {
-      // Has a 'type' but not recognized as response_format or JSON Schema -> invalid
-      val bad = typeOpt.get
-      throw new IllegalArgumentException(
-        s"Unsupported response_format type: '$bad'. Allowed: 'text', 'json_object', 'json_schema'. " +
-          "For inner JSON Schema, either omit top-level 'type' or use a schema with keys like " +
-          "'properties' or a JSON Schema type ('object','array',...)."
-      )
-    }
-
-    setScalarParam(responseFormat, normalized)
+    val normalized = ResponseFormatUtils.normalize(value)
+    val payload =
+      if (normalized.get("type").exists(_.toString.equalsIgnoreCase("json_schema"))) {
+        Map(
+          "type" -> "json_schema",
+          "json_schema" -> {
+            val base = Map(
+              "name" -> normalized("name"),
+              "schema" -> normalized("schema")
+            )
+            normalized.get("strict").map(v => base ++ Map("strict" -> v)).getOrElse(base)
+          }
+        )
+      } else normalized
+    setScalarParam(responseFormat, payload)
   }
 
-  private def isJsonSchema(value: Map[String, Any]): Boolean =
-    value.get("type").exists(_.toString.equalsIgnoreCase("json_schema"))
 
-  private def requireValidResponseFormatType(value: Map[String, Any]): Unit = {
-    val tOpt = value.get("type").map(_.toString.trim.toLowerCase)
-    if (tOpt.isEmpty || tOpt.exists(_.isEmpty)) {
-      throw new IllegalArgumentException("response_format map must contain non-empty key 'type'")
-    }
-    val tpe = tOpt.get
-    val ok = tpe == "text" || tpe == "json_object" || tpe == "json_schema"
-    if (!ok) {
-      val msg = s"Unsupported response_format type: '$tpe'. Allowed: 'text', 'json_object', 'json_schema'. " +
-        "If you're passing an inner JSON Schema (e.g., type:'object', properties:...), omit the top-level 'type' " +
-        "or set type:'json_schema' and include 'json_schema': {name, schema, strict?}."
-      throw new IllegalArgumentException(msg)
-    }
-  }
-
-  private def requireValidJsonSchemaShape(value: Map[String, Any]): Unit = {
-    val hasNested = value.contains("json_schema")
-    val hasFlat = value.contains("name") && value.contains("schema")
-    if (!hasNested && !hasFlat) {
-      val msg = "json_schema requires nested 'json_schema' or top-level 'name' and 'schema'."
-      throw new IllegalArgumentException(msg)
-    }
-  }
-
-  private def requireBareJsonSchemaShape(value: Map[String, Any]): Unit = {
-    val hasName = value.contains("name")
-    val hasSchema = value.contains("schema")
-    if (!hasName || !hasSchema) {
-      val msg = "Bare schema Map must include 'name' and 'schema' keys."
-      throw new IllegalArgumentException(msg)
-    }
-  }
-
-  // Supported String values: "text", "json_object".
-  // For "json_schema" caller must use Map form with full structure (no parsing performed here).
-  // Any other String value is rejected to avoid implicit parsing/assumptions.
+  // Supported String values: "text", "json_object". Use Map for "json_schema" or inner JSON Schema.
   def setResponseFormat(value: String): this.type = {
     Option(value).map(_.trim).filter(_.nonEmpty) match {
       case None => this
       case Some(trimmed) =>
         if (trimmed.equalsIgnoreCase("json_schema")) {
-          val msgParts = Seq(
-            "To use json_schema pass a dict (Python) or Map (Scala) with required fields.",
-            "Chat: Map('type'->'json_schema','json_schema'-> {...});",
-            "Responses: Map('type'->'json_schema','name'->...,'schema'-> {...})"
-          )
-          throw new IllegalArgumentException(msgParts.mkString(" "))
+          throw new IllegalArgumentException(
+            "Use a Map for 'json_schema' or pass an inner JSON Schema map.")
         }
         trimmed.toLowerCase match {
           case "text" | "json_object" =>
             setResponseFormat(Map("type" -> trimmed.toLowerCase))
           case _ =>
             throw new IllegalArgumentException(
-              "Unsupported response_format String. Use 'text', 'json_object', or a Map for 'json_schema'.")
+              "Unsupported response_format String. Use 'text', 'json_object', or pass a Map for schemas."
+            )
         }
     }
   }
