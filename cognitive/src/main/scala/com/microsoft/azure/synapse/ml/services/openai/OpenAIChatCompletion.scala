@@ -24,8 +24,9 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
   val responseFormat: ServiceParam[Map[String, Any]] = new ServiceParam[Map[String, Any]](
     this,
     "responseFormat",
-    "Response format for the completion. Can be 'json_object', 'json_schema', or 'text'. " +
-      "For 'json_schema' you must also provide key 'json_schema' with nested JSON schema definition.",
+    "Response format for the completion. Can be 'text', 'json_object', or 'json_schema'. " +
+      "For 'json_schema' you may provide either: (a) a bare schema Map with keys 'name', 'schema', and optional 'strict' " +
+      "which will be wrapped as {type:'json_schema', json_schema: <schema>}; or (b) a full Map including key 'json_schema'.",
     isRequired = false) {
     override val payloadName: String = "response_format"
   }
@@ -33,11 +34,27 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
   def getResponseFormat: Map[String, Any] = getScalarParam(responseFormat)
 
   def setResponseFormat(value: Map[String, Any]): this.type = {
-    requireValidResponseFormatType(value)
-    if (isJsonSchema(value)) {
-      requireValidJsonSchemaShape(value)
+    if (value == null) {
+      throw new IllegalArgumentException("response_format must be a non-null Map")
     }
-    setScalarParam(responseFormat, value)
+
+    val hasType = value.get("type").exists(v => Option(v).exists(_.toString.trim.nonEmpty))
+    val normalized: Map[String, Any] = if (hasType) {
+      requireValidResponseFormatType(value)
+      if (isJsonSchema(value)) {
+        requireValidJsonSchemaShape(value)
+      }
+      value
+    } else {
+      // Treat as bare schema for Chat Completions; wrap under 'json_schema'
+      requireBareJsonSchemaShape(value)
+      Map(
+        "type" -> "json_schema",
+        "json_schema" -> value
+      )
+    }
+
+    setScalarParam(responseFormat, normalized)
   }
 
   private def isJsonSchema(value: Map[String, Any]): Boolean =
@@ -61,6 +78,15 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
     val hasFlat = value.contains("name") && value.contains("schema")
     if (!hasNested && !hasFlat) {
       val msg = "json_schema requires nested 'json_schema' or top-level 'name' and 'schema'."
+      throw new IllegalArgumentException(msg)
+    }
+  }
+
+  private def requireBareJsonSchemaShape(value: Map[String, Any]): Unit = {
+    val hasName = value.contains("name")
+    val hasSchema = value.contains("schema")
+    if (!hasName || !hasSchema) {
+      val msg = "Bare schema Map must include 'name' and 'schema' keys."
       throw new IllegalArgumentException(msg)
     }
   }

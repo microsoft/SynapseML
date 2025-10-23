@@ -49,10 +49,19 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
   def getResponseFormat: Map[String, Any] = getScalarParam(responseFormat)
 
   def setResponseFormat(value: Map[String, Any]): this.type = {
-    if (value == null || !value.contains("type") || value("type") == null || value("type").toString.trim.isEmpty) {
-      throw new IllegalArgumentException("Response format requires non-empty 'type'.")
+    if (value == null) {
+      throw new IllegalArgumentException("Response format must be a non-null Map.")
     }
-    val formatted = Map("format" -> buildFormatObject(value))
+    val hasType = value.get("type").exists(v => Option(v).exists(_.toString.trim.nonEmpty))
+    val formatObj: Map[String, Any] = if (hasType) {
+      buildFormatObject(value)
+    } else {
+      // Treat as bare schema Map for Responses API; flatten under type 'json_schema'
+      requireBareJsonSchemaShape(value)
+      val flat = Map("type" -> "json_schema") ++ value
+      buildJsonSchemaFormat(flat)
+    }
+    val formatted = Map("format" -> formatObj)
     setScalarParam(responseFormat, formatted)
   }
 
@@ -86,6 +95,14 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
         "schema" -> js.getOrElse("schema", throw new IllegalArgumentException("json_schema.schema required"))
       )
       js.get("strict").map(v => base ++ Map("strict" -> v)).getOrElse(base)
+    }
+  }
+
+  private def requireBareJsonSchemaShape(value: Map[String, Any]): Unit = {
+    val hasName = value.contains("name")
+    val hasSchema = value.contains("schema")
+    if (!hasName || !hasSchema) {
+      throw new IllegalArgumentException("Bare schema Map must include 'name' and 'schema' keys.")
     }
   }
 
