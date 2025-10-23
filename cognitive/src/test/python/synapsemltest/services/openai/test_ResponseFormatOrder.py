@@ -37,7 +37,8 @@ def _make_json_schema(reason_first: bool) -> dict:
 
 
 class TestResponseFormatOrder(unittest.TestCase):
-    def __init__(self, *args, **kwargs):
+    @classmethod
+    def setUpClass(cls):
         # fetching openai_api_key from azure keyvault
         openai_api_key = json.loads(
             subprocess.check_output(
@@ -52,13 +53,13 @@ class TestResponseFormatOrder(unittest.TestCase):
         os.environ["OPENAI_API_BASE"] = openai_api_base
         os.environ["OPENAI_API_KEY"] = openai_api_key
 
-        self.subscriptionKey = openai_api_key
-        self.url = openai_api_base
-        self.api_version = openai_api_version
-        self.deploymentName = "gpt-4.1-mini"
+        cls.subscriptionKey = openai_api_key
+        cls.url = openai_api_base
+        cls.api_version = openai_api_version
+        cls.deploymentName = "gpt-4.1-mini"
 
         # construction of test dataframe
-        self.df = spark.createDataFrame([("Paris", "City")], ["text", "category"])
+        cls.df = spark.createDataFrame([("Paris", "City")], ["text", "category"])
 
     def test_chat_reason_then_ans(self):
 
