@@ -158,7 +158,23 @@ trait PythonWrappable extends BaseWrappable {
             |    if isinstance(value, list):
             |        value = SparkContext._active_spark_context._jvm.com.microsoft.azure.synapse.ml.param.ServiceParam.toSeq(value)
             |    elif isinstance(value, dict):
-            |        value = SparkContext._active_spark_context._jvm.com.microsoft.azure.synapse.ml.param.ServiceParam.toMap(value)
+            |        # Recursively convert Python dict/list to Java LinkedHashMap/ArrayList to preserve order
+            |        sc = SparkContext._active_spark_context
+            |        jvm = sc._jvm
+            |        def _convert(val):
+            |            if isinstance(val, dict):
+            |                jmap = jvm.java.util.LinkedHashMap()
+            |                for k, v in val.items():
+            |                    jmap.put(k, _convert(v))
+            |                return jmap
+            |            elif isinstance(val, list):
+            |                jlist = jvm.java.util.ArrayList()
+            |                for it in val:
+            |                    jlist.add(_convert(it))
+            |                return jlist
+            |            else:
+            |                return val
+            |        value = jvm.com.microsoft.azure.synapse.ml.param.ServiceParam.toMap(_convert(value))
             |    self._java_obj = self._java_obj.set$capName(value)
             |    return self
             |

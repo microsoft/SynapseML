@@ -48,45 +48,12 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
   def getResponseFormat: Map[String, Any] = getScalarParam(responseFormat)
 
   def setResponseFormat(value: Map[String, Any]): this.type = {
-    if (value == null || !value.contains("type") || value("type") == null || value("type").toString.trim.isEmpty) {
-      throw new IllegalArgumentException("Response format requires non-empty 'type'.")
-    }
-    val formatted = Map("format" -> buildFormatObject(value))
+    val normalized = ResponseFormatUtils.normalize(value)
+    val formatted = Map("format" -> normalized)
     setScalarParam(responseFormat, formatted)
   }
 
-  private def buildFormatObject(value: Map[String, Any]): Map[String, Any] = {
-    val tpe = value("type").toString.toLowerCase
-    tpe match {
-      case "text" | "json_object" => Map("type" -> tpe)
-      case "json_schema" => buildJsonSchemaFormat(value)
-      case _ =>
-        throw new IllegalArgumentException("Unsupported response format type. Use 'text','json_object','json_schema'.")
-  }
-  }
-
-  private def buildJsonSchemaFormat(value: Map[String, Any]): Map[String, Any] = {
-    val hasNested = value.contains("json_schema")
-    val hasFlat = value.contains("name") && value.contains("schema")
-    if (!hasNested && !hasFlat) {
-      throw new IllegalArgumentException("json_schema requires nested 'json_schema' or top-level 'name' and 'schema'.")
-    }
-    if (hasFlat) {
-      Map(
-        "type" -> "json_schema",
-        "name" -> value("name"),
-        "schema" -> value("schema")
-      ) ++ (if (value.contains("strict")) Map("strict" -> value("strict")) else Map.empty)
-    } else {
-      val js = value("json_schema").asInstanceOf[Map[String, Any]]
-      val base = Map(
-        "type" -> "json_schema",
-        "name" -> js.getOrElse("name", throw new IllegalArgumentException("json_schema.name required")),
-        "schema" -> js.getOrElse("schema", throw new IllegalArgumentException("json_schema.schema required"))
-      )
-      js.get("strict").map(v => base ++ Map("strict" -> v)).getOrElse(base)
-    }
-  }
+  // Validation helpers moved into ResponseFormatUtils
 
   def setResponseFormat(value: String): this.type = {
     if (value == null || value.trim.isEmpty) {
@@ -94,16 +61,14 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
     } else {
       val trimmed = value.trim.toLowerCase
       if (trimmed == "json_schema") {
-        val msg = "To use json_schema pass a dict (Python) or Map (Scala) with required fields. " +
-          "Responses: Map('type'->'json_schema','name'->...,'schema'-> {...}, 'strict'->true?)"
-        throw new IllegalArgumentException(msg)
+        throw new IllegalArgumentException("Use a Map with required fields for 'json_schema'.")
       }
       setResponseFormat(Map("type" -> trimmed))
     }
   }
 
   def setResponseFormat(value: OpenAIResponseFormat.ResponseFormat): this.type = {
-    setScalarParam(responseFormat, Map("type" -> value.paylodName))
+    setResponseFormat(Map("type" -> value.paylodName))
   }
 
   override private[openai] val sharedTextParams: Seq[ServiceParam[_]] = Seq(
@@ -214,6 +179,14 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   private[openai] def getStringEntity(messages: Seq[Row], optionalParams: Map[String, Any]): StringEntity = {
     val mappedMessages = encodeMessagesToMap(messages)
       .map(_.filter { case (_, value) => value != null })
+      .map { m =>
+        // For Responses API, ensure content is an array of parts with type 'input_text'
+        m.get("content") match {
+          case Some(s: String) =>
+            m.updated("content", Seq(Map("type" -> "input_text", "text" -> s)))
+          case _ => m
+        }
+      }
     val fullPayload = optionalParams.updated("input", mappedMessages)
     new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
   }

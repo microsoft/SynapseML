@@ -19,12 +19,10 @@ import scala.language.existentials
 
 
 trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
-  // Updated to Map[String, Any] to allow nested json_schema structure
   val responseFormat: ServiceParam[Map[String, Any]] = new ServiceParam[Map[String, Any]](
     this,
     "responseFormat",
-    "Response format for the completion. Can be 'json_object', 'json_schema', or 'text'. " +
-      "For 'json_schema' you must also provide key 'json_schema' with nested JSON schema definition.",
+    "Response format for the completion. One of 'text', 'json_object', or 'json_schema'.",
     isRequired = false) {
     override val payloadName: String = "response_format"
   }
@@ -32,59 +30,40 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
   def getResponseFormat: Map[String, Any] = getScalarParam(responseFormat)
 
   def setResponseFormat(value: Map[String, Any]): this.type = {
-    requireValidResponseFormatType(value)
-    if (isJsonSchema(value)) {
-      requireValidJsonSchemaShape(value)
-    }
-    setScalarParam(responseFormat, value)
+    val normalized = ResponseFormatUtils.normalize(value)
+    val payload =
+      if (normalized.get("type").exists(_.toString.equalsIgnoreCase("json_schema"))) {
+        Map(
+          "type" -> "json_schema",
+          "json_schema" -> {
+            val base = Map(
+              "name" -> normalized("name"),
+              "schema" -> normalized("schema")
+            )
+            normalized.get("strict").map(v => base ++ Map("strict" -> v)).getOrElse(base)
+          }
+        )
+      } else normalized
+    setScalarParam(responseFormat, payload)
   }
 
-  private def isJsonSchema(value: Map[String, Any]): Boolean =
-    value.get("type").exists(_.toString.equalsIgnoreCase("json_schema"))
 
-  private def requireValidResponseFormatType(value: Map[String, Any]): Unit = {
-    val tOpt = value.get("type").map(_.toString.trim.toLowerCase)
-    if (tOpt.isEmpty || tOpt.exists(_.isEmpty)) {
-      throw new IllegalArgumentException("response_format map must contain non-empty key 'type'")
-    }
-    val tpe = tOpt.get
-    val ok = tpe == "text" || tpe == "json_object" || tpe == "json_schema"
-    if (!ok) {
-      val msg = "Unsupported response_format type. Use 'text', 'json_object', or 'json_schema'."
-      throw new IllegalArgumentException(msg)
-    }
-  }
-
-  private def requireValidJsonSchemaShape(value: Map[String, Any]): Unit = {
-    val hasNested = value.contains("json_schema")
-    val hasFlat = value.contains("name") && value.contains("schema")
-    if (!hasNested && !hasFlat) {
-      val msg = "json_schema requires nested 'json_schema' or top-level 'name' and 'schema'."
-      throw new IllegalArgumentException(msg)
-    }
-  }
-
-  // Supported String values: "text", "json_object".
-  // For "json_schema" caller must use Map form with full structure (no parsing performed here).
-  // Any other String value is rejected to avoid implicit parsing/assumptions.
+  // Supported String values: "text", "json_object". Use Map for "json_schema" or inner JSON Schema.
   def setResponseFormat(value: String): this.type = {
     Option(value).map(_.trim).filter(_.nonEmpty) match {
       case None => this
       case Some(trimmed) =>
         if (trimmed.equalsIgnoreCase("json_schema")) {
-          val msgParts = Seq(
-            "To use json_schema pass a dict (Python) or Map (Scala) with required fields.",
-            "Chat: Map('type'->'json_schema','json_schema'-> {...});",
-            "Responses: Map('type'->'json_schema','name'->...,'schema'-> {...})"
-          )
-          throw new IllegalArgumentException(msgParts.mkString(" "))
+          throw new IllegalArgumentException(
+            "Use a Map for 'json_schema' or pass an inner JSON Schema map.")
         }
         trimmed.toLowerCase match {
           case "text" | "json_object" =>
             setResponseFormat(Map("type" -> trimmed.toLowerCase))
           case _ =>
             throw new IllegalArgumentException(
-              "Unsupported response_format String. Use 'text', 'json_object', or a Map for 'json_schema'.")
+              "Unsupported response_format String. Use 'text', 'json_object', or pass a Map for schemas."
+            )
         }
     }
   }
@@ -156,6 +135,18 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   private[openai] def getStringEntity(messages: Seq[Row], optionalParams: Map[String, Any]): StringEntity = {
     val mappedMessages = encodeMessagesToMap(messages)
       .map(_.filter { case (_, value) => value != null })
+      .map { m =>
+        // Chat Completions expects string content; collapse any content parts into a single text string
+        m.get("content") match {
+          case Some(parts: Seq[_]) =>
+            val textChunks = parts.collect {
+              case mp: Map[_, _] => mp.asInstanceOf[Map[String, Any]].get("text").map(_.toString)
+            }.flatten
+            val combined = textChunks.mkString("\n")
+            m.updated("content", combined)
+          case _ => m
+        }
+      }
     val fullPayload = optionalParams.updated("messages", mappedMessages)
     new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
   }

@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.param
 import org.apache.spark.annotation.DeveloperApi
 import org.apache.spark.ml.param.{Param, ParamPair, Params}
 import spray.json.{DefaultJsonProtocol, JsValue, JsonFormat, _}
+import scala.collection.immutable.ListMap
 
 import scala.collection.JavaConverters._
 
@@ -25,7 +26,15 @@ object AnyJsonFormat extends DefaultJsonProtocol {
         case v: Seq[_] => seqFormat[Any].write(v)
         case v: Map[_, _] => {
           try {
-            mapFormat[String, Any].write(v.asInstanceOf[Map[String, Any]])
+            val m = v.asInstanceOf[Map[String, Any]]
+            // Convert to ListMap to preserve insertion order during JSON serialization;
+            // then delegate to spray-json to render.
+            val ordered = m match {
+              case lm: ListMap[String, Any] => lm
+              case other => ListMap(other.toSeq: _*)
+            }
+            // Use spray-json mapFormat via toMap to serialize while preserving order in the underlying fields
+            ordered.toMap.toJson
           } catch {
             case _: Throwable => throwFailure(any)
           }
