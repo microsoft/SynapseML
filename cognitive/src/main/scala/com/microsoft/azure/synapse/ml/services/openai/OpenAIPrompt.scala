@@ -59,7 +59,21 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   def getPromptTemplate: String = $(promptTemplate)
 
-  def setPromptTemplate(value: String): this.type = set(promptTemplate, value)
+  def setPromptTemplate(value: String): this.type = {
+    require(!isSet(prompt), "Only one of 'prompt' or 'promptTemplate' can be set.")
+    set(promptTemplate, value)
+  }
+
+  // Direct prompt without interpolation
+  val prompt = new Param[String](
+    this, "prompt", "The prompt, passed directly without interpolation.")
+
+  def getPrompt: String = $(prompt)
+
+  def setPrompt(value: String): this.type = {
+    require(!isSet(promptTemplate), "Only one of 'prompt' or 'promptTemplate' can be set.")
+    set(prompt, value)
+  }
 
   val postProcessing = new Param[String](
     this, "postProcessing", "Post processing options: csv, json, regex",
@@ -178,7 +192,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   }
 
   private val localParamNames = Seq(
-    "promptTemplate", "outputCol", "postProcessing", "postProcessingOptions", "dropPrompt", "dropMessages",
+    "promptTemplate", "prompt", "outputCol", "postProcessing", "postProcessingOptions", "dropPrompt", "dropMessages",
     "systemPrompt", "apiType")
 
   private val multiModalTextPrompt = "The name of the file to analyze is %s.\nHere is the content:\n"
@@ -285,8 +299,20 @@ class OpenAIPrompt(override val uid: String) extends Transformer
         case (colName, colType) if colType.equalsIgnoreCase("path") => colName
         }.toSeq
 
-      val promptTemplateWithPlaceholders = applyPathPlaceholders(getPromptTemplate, pathColumnNames)
-      val promptCol = Functions.template(promptTemplateWithPlaceholders)
+      // Ensure only one of prompt or promptTemplate is provided
+      val hasPrompt = isSet(prompt)
+      val hasPromptTemplate = isSet(promptTemplate)
+      require(!(hasPrompt && hasPromptTemplate), "Only one of 'prompt' or 'promptTemplate' can be set.")
+      require(hasPrompt || hasPromptTemplate, "Either 'prompt' or 'promptTemplate' must be set.")
+
+      val promptCol = if (hasPrompt) {
+        // Direct prompt: pass through as-is, no interpolation or path placeholders
+        F.lit(getPrompt)
+      } else {
+        // Template prompt: support interpolation and path placeholders
+        val promptTemplateWithPlaceholders = applyPathPlaceholders(getPromptTemplate, pathColumnNames)
+        Functions.template(promptTemplateWithPlaceholders)
+      }
 
       pathColumnNames.foreach { colName =>
         require(
