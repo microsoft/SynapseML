@@ -53,8 +53,6 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
     setScalarParam(responseFormat, formatted)
   }
 
-  // Validation helpers moved into ResponseFormatUtils
-
   def setResponseFormat(value: String): this.type = {
     if (value == null || value.trim.isEmpty) {
       this
