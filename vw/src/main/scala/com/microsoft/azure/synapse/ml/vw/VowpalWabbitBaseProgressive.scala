@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.vw
 import org.apache.spark.TaskContext
 import org.apache.spark.ml.Transformer
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types.StructType
 import org.vowpalwabbit.spark.VowpalWabbitNative
 
@@ -114,7 +114,7 @@ trait VowpalWabbitBaseProgressive
 
     // TODO: barrier mode?
     // TODO: check w/ Stage ID (different stages)
-    val encoder = ExpressionEncoder(schema)
+    val encoder = RowEncoder(schema)
 
     df
       .mapPartitions(inputRows =>

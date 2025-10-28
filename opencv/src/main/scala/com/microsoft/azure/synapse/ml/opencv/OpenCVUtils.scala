@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.opencv
 
 import com.microsoft.azure.synapse.ml.core.env.NativeLoader
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 
 object OpenCVUtils {
   /** This object will load the openCV binaries when the object is referenced
@@ -27,7 +27,7 @@ object OpenCVUtils {
   }
 
   private[ml] def loadOpenCV(df: DataFrame): DataFrame = {
-    val encoder = ExpressionEncoder(df.schema)
+    val encoder = RowEncoder(df.schema)
     df.mapPartitions(loadOpenCVFunc)(encoder)
   }
 

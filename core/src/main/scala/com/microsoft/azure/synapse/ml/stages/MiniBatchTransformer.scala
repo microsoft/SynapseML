@@ -9,7 +9,7 @@ import com.microsoft.azure.synapse.ml.param.TransformerParam
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
-import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
+import org.apache.spark.sql.catalyst.encoders.{ExpressionEncoder, RowEncoder}
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
@@ -35,7 +35,7 @@ trait MiniBatchBase extends Transformer with DefaultParamsWritable with Wrappabl
   def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
       val outputSchema = transformSchema(dataset.schema)
-      implicit val outputEncoder: ExpressionEncoder[Row] = ExpressionEncoder(outputSchema)
+      implicit val outputEncoder: ExpressionEncoder[Row] = RowEncoder(outputSchema)
       dataset.toDF().mapPartitions { it =>
         if (it.isEmpty) {
           it
@@ -215,7 +215,7 @@ class FlattenBatch(val uid: String)
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
       val outputSchema = transformSchema(dataset.schema)
-      implicit val outputEncoder: ExpressionEncoder[Row] = ExpressionEncoder(outputSchema)
+      implicit val outputEncoder: ExpressionEncoder[Row] = RowEncoder(outputSchema)
 
       dataset.toDF().mapPartitions(it =>
         it.flatMap { rowOfLists =>

@@ -12,7 +12,7 @@ import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel, Transformer}
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types.{DataType, StringType, StructType}
 import spray.json.DefaultJsonProtocol.StringJsonFormat
@@ -93,7 +93,7 @@ class SpeakerEmotionInference(override val uid: String)
             converter(row.getAs[Row](row.fieldIndex(getOutputCol)))
           )
           new GenericRowWithSchema((row.toSeq.dropRight(1) ++ Seq(ssml)).toArray, newSchema): Row
-        })(ExpressionEncoder({
+        })(RowEncoder({
           newSchema
         }))
       })

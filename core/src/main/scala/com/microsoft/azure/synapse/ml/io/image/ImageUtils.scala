@@ -11,7 +11,7 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.ml.ImageInjections
 import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.{DataFrame, Row}
 
 import java.awt.color.ColorSpace
@@ -117,7 +117,7 @@ object ImageUtils {
 
   def readFromPaths(df: DataFrame, pathCol: String, imageCol: String = "image"): DataFrame = {
     val outputSchema = df.schema.add(imageCol, ImageSchema.columnSchema)
-    val encoder = ExpressionEncoder(outputSchema)
+    val encoder = RowEncoder(outputSchema)
     val hconf = ConfUtils.getHConf(df)
     df.mapPartitions { rows =>
       rows.map { row =>
@@ -133,7 +133,7 @@ object ImageUtils {
 
   def readFromBytes(df: DataFrame, pathCol: String, bytesCol: String, imageCol: String = "image"): DataFrame = {
     val outputSchema = df.schema.add(imageCol, ImageSchema.columnSchema)
-    val encoder = ExpressionEncoder(outputSchema)
+    val encoder = RowEncoder(outputSchema)
     df.mapPartitions { rows =>
       rows.map { row =>
         val path = row.getAs[String](pathCol)
@@ -150,7 +150,7 @@ object ImageUtils {
                       imageCol: String = "image",
                       dropPrefix: Boolean = false): DataFrame = {
     val outputSchema = df.schema.add(imageCol, ImageSchema.columnSchema)
-    val encoder = ExpressionEncoder(outputSchema)
+    val encoder = RowEncoder(outputSchema)
     df.mapPartitions { rows =>
       rows.map { row =>
         val encoded = row.getAs[String](bytesCol)

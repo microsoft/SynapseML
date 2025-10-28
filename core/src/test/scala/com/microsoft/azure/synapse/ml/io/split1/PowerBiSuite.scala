@@ -8,7 +8,7 @@ import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.io.powerbi.PowerBIWriter
 import org.apache.spark.SparkException
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions.{current_timestamp, lit}
 
 import java.io.File
@@ -33,7 +33,7 @@ class PowerBiSuite extends TestBase with FileReaderUtils {
       .createDataFrame(rows, df.schema)
       .coalesce(1).cache()
     df2.count()
-    df2.map({x => Thread.sleep(10); x})(ExpressionEncoder(df2.schema))
+    df2.map({x => Thread.sleep(10); x})(RowEncoder(df2.schema))
   }
 
   test("write to powerBi") {

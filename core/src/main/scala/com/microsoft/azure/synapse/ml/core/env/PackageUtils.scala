@@ -21,7 +21,7 @@ object PackageUtils {
   // Use a fixed version for local testing
   // val PackageMavenCoordinate = s"$PackageGroup:$PackageName:1.0.9"
 
-  private val AvroCoordinate = "org.apache.spark:spark-avro_2.12:3.5.0"
+  private val AvroCoordinate = "org.apache.spark:spark-avro_2.12:3.4.1"
   val PackageRepository: String = SparkMLRepository
 
   // If testing onnx package with snapshots repo, make sure to switch to using

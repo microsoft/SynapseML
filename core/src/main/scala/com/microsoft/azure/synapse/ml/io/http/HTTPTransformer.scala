@@ -13,7 +13,7 @@ import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
-import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
@@ -122,7 +122,7 @@ class HTTPTransformer(val uid: String)
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
       val df = dataset.toDF()
-      val enc = ExpressionEncoder(transformSchema(df.schema))
+      val enc = RowEncoder(transformSchema(df.schema))
       val colIndex = df.schema.fieldNames.indexOf(getInputCol)
       val fromRow = HTTPRequestData.makeFromRowConverter
       val toRow = HTTPResponseData.makeToRowConverter

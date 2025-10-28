@@ -24,7 +24,7 @@ import org.apache.spark.ml.linalg.{SQLDataTypes, Vector}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql._
-import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
 import org.apache.spark.{SparkContext, TaskContext}
@@ -230,7 +230,7 @@ class ONNXModel(override val uid: String)
   def transformInner(dataset: Dataset[_], inputSchema: StructType): DataFrame = logTransform ({
     val modelOutputSchema = getModelOutputSchema(inputSchema)
 
-    implicit val enc: Encoder[Row] = ExpressionEncoder(
+    implicit val enc: Encoder[Row] = RowEncoder(
       StructType(modelOutputSchema.map(f => StructField(f.name, ArrayType(f.dataType))))
     )
 

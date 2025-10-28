@@ -12,7 +12,7 @@ import org.apache.spark.ml._
 import org.apache.spark.ml.feature._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
-import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
@@ -56,7 +56,7 @@ class MultiNGram(override val uid: String)
           .map(col => row.getAs[Seq[String]](col))
           .reduce(_ ++ _)
         Row.fromSeq(row.toSeq :+ mergedNGrams)
-      }(ExpressionEncoder(intermediateDF.schema.add(getOutputCol, ArrayType(StringType))))
+      }(RowEncoder(intermediateDF.schema.add(getOutputCol, ArrayType(StringType))))
         .drop(intermediateOutputCols: _*)
     }, dataset.columns.length)
   }

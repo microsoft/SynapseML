@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.core.test.base.{TestBase, TimeLimitedFlaky
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.azure.synapse.ml.stages.PartitionConsolidator
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types.{DoubleType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.scalatest.Assertion
@@ -66,7 +66,7 @@ class PartitionConsolidatorSuite extends TransformerFuzzing[PartitionConsolidato
     println(baseDF.count())
 
     def getDF: Dataset[Row] = baseDF.map { x => Thread.sleep(10); x }(
-      ExpressionEncoder(new StructType().add("values", DoubleType)))
+      RowEncoder(new StructType().add("values", DoubleType)))
 
     val t1 = getTime(3)(
       getDF.foreach(_ => ()))._2

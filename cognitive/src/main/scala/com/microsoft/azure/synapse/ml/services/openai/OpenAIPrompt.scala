@@ -17,7 +17,6 @@ import org.apache.http.entity.AbstractHttpEntity
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param.{BooleanParam, Param, ParamMap, ParamValidators}
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.{Column, DataFrame, Dataset, Row, functions => F, types => T}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.expressions.UserDefinedFunction
@@ -212,7 +211,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       } else {
         row
       }
-    })(ExpressionEncoder(df.schema))
+    })(RowEncoder(df.schema))
   }
 
   private def configureService(

@@ -24,7 +24,7 @@ import org.apache.spark.injections.SConf
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
-import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
@@ -400,7 +400,7 @@ abstract class SpeechSDKBase extends Transformer
         ArrayType(responseTypeBinding.schema)
       }
 
-      val enc = ExpressionEncoder(enrichedDf.schema.add(getOutputCol, addedSchema))
+      val enc = RowEncoder(enrichedDf.schema.add(getOutputCol, addedSchema))
       val sc = df.sparkSession.sparkContext
       val bConf = sc.broadcast(new SConf(sc.hadoopConfiguration))
       val isUriAudio = df.schema(getAudioDataCol).dataType match {

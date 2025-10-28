@@ -9,7 +9,7 @@ import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{DefaultParamsReadable, Identifiable}
 import org.apache.spark.ml.{ComplexParamsWritable, Transformer}
-import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
@@ -39,7 +39,7 @@ class PartitionConsolidator(val uid: String)
         } else {
           Iterator()
         }
-      }(ExpressionEncoder(dataset.schema))
+      }(RowEncoder(dataset.schema))
     }, dataset.columns.length)
   }
 

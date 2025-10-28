@@ -12,13 +12,9 @@ import org.apache.http.client.methods.HttpGet
 import java.io.File
 import java.util.concurrent.TimeUnit
 import scala.concurrent.Await
-import scala.concurrent.Future
 import scala.concurrent.duration.Duration
 import scala.language.existentials
 import scala.util.Try
-import scala.annotation.tailrec
-import scala.util.Success
-import scala.util.Failure
 
 class SynapseTestCleanup extends TestBase {
 
@@ -46,31 +42,25 @@ class SynapseTestCleanup extends TestBase {
 }
 
 class SynapseTests extends TestBase {
-  final val excludedNotebooks: Set[String] = Set(
-    "Finetune", // Excluded by design task 1829306
-    "GPU",
-    "PhiModel",
-    "VWnativeFormat",
-    "VowpalWabbitMulticlassclassification", // Wait for Synapse fix
-    "Langchain", // Wait for Synapse fix
-    "DocumentQuestionandAnsweringwithPDFs", // Wait for Synapse fix
-    "SetupCognitive", // No code to run
-    "CreateaSparkCluster", // No code to run
-    "Deploying", // New issue
-    "MultivariateAnomaly", // New issue
-    "TuningHyperOpt", // New issue
-    "IsolationForests", // New issue
-    "CreateAudiobooks", // New issue
-    "ExplanationDashboard", // New issue
-    "ExploreAlgorithmsDeepLearningQuickstartONNXModelInference", // ONNX package issues
-  )
+  SharedNotebookE2ETestUtilities.generateNotebooks()
 
-  val generatedNotebooks = SharedNotebookE2ETestUtilities.generateNotebooks()
-  println(s"Found ${generatedNotebooks.length} notebooks in ${SharedNotebookE2ETestUtilities.NotebooksDir}")
-
-  val selectedPythonFiles: Array[File] = generatedNotebooks
-    .filterNot(file => excludedNotebooks.exists(excluded => file.getAbsolutePath.contains(excluded)))
-    // .filter(file => file.getName().contains("OnePlusOne"))
+  val selectedPythonFiles: Array[File] = FileUtilities.recursiveListFiles(SharedNotebookE2ETestUtilities.NotebooksDir)
+    .filter(_.getAbsolutePath.endsWith(".py"))
+    .filterNot(_.getAbsolutePath.contains("Finetune")) // Excluded by design task 1829306
+    .filterNot(_.getAbsolutePath.contains("GPU"))
+    .filterNot(_.getAbsolutePath.contains("PhiModel"))
+    .filterNot(_.getAbsolutePath.contains("VWnativeFormat"))
+    .filterNot(_.getAbsolutePath.contains("VowpalWabbitMulticlassclassification")) // Wait for Synapse fix
+    .filterNot(_.getAbsolutePath.contains("Langchain")) // Wait for Synapse fix
+    .filterNot(_.getAbsolutePath.contains("DocumentQuestionandAnsweringwithPDFs")) // Wait for Synapse fix
+    .filterNot(_.getAbsolutePath.contains("SetupCognitive")) // No code to run
+    .filterNot(_.getAbsolutePath.contains("CreateaSparkCluster")) // No code to run
+    .filterNot(_.getAbsolutePath.contains("Deploying")) // New issue
+    .filterNot(_.getAbsolutePath.contains("MultivariateAnomaly")) // New issue
+    .filterNot(_.getAbsolutePath.contains("TuningHyperOpt")) // New issue
+    .filterNot(_.getAbsolutePath.contains("IsolationForests")) // New issue
+    .filterNot(_.getAbsolutePath.contains("CreateAudiobooks")) // New issue
+    .filterNot(_.getAbsolutePath.contains("ExplanationDashboard")) // New issue
     .sortBy(_.getAbsolutePath)
 
   val expectedPoolCount: Int = selectedPythonFiles.length
@@ -82,138 +72,41 @@ class SynapseTests extends TestBase {
   // Cleanup old stray spark pools lying around due to ungraceful test shutdown
   tryDeleteOldSparkPools()
 
-  implicit val ec: scala.concurrent.ExecutionContext = scala.concurrent.ExecutionContext.global
+  println(s"Creating $expectedPoolCount Spark Pools...")
+  val sparkPools: Seq[String] = createSparkPools(expectedPoolCount)
+  //  val sparkPools: Seq[String] = Seq.fill(expectedPoolCount)("sml34pool3")
 
-  private val existingPoolNameOpt: Option[String] =
-    Some("test35")
 
-  private val sparkPools: Seq[String] = existingPoolNameOpt match {
-    case Some(pool) =>
-      println(s"Using existing Spark pool '$pool' for all ${expectedPoolCount} notebook(s); no new pools will be created.")
-      Seq.fill(expectedPoolCount)(pool)
-    case None =>
-      createSparkPools(expectedPoolCount)
+  val livyBatches: Array[LivyBatch] = selectedPythonFiles.zip(sparkPools).map { case (file, poolName) =>
+    SynapseUtilities.uploadAndSubmitNotebook(poolName, file)
   }
 
-  testNotebooks(selectedPythonFiles, sparkPools)
-
-  private def monitorNotebook(livyBatch: LivyBatch): LivyBatch = {
-    val tryResult = Await
-      .ready(
-        livyBatch.monitor(),
-        Duration(SynapseUtilities.TimeoutInMillis.toLong,TimeUnit.MILLISECONDS)
-      ).value.get
-    assert(tryResult.isSuccess)
-    val result = tryResult.get
-
-    if (result.isSuccess) {
-      println(s"Job ${livyBatch.id} for ${livyBatch.runName} completed successfully.")
-    } else {
-      println(s"Job failed see ${livyBatch.jobStatusPage} for details")
-      livyBatch.cancelRun()
-      // Fetch and print Livy logs for debugging
+  livyBatches.foreach { livyBatch =>
+    println(s"submitted livy job: ${livyBatch.id} for ${livyBatch.runName} to sparkPool: ${livyBatch.sparkPool}")
+    test(livyBatch.runName) {
       try {
-        val getStatusRequest = new HttpGet(
-          s"${SynapseUtilities.livyUrl(livyBatch.sparkPool)}/${livyBatch.id}"
-        )
-        getStatusRequest.setHeader(
-          "Authorization",
-          s"Bearer ${SynapseUtilities.SynapseToken}"
-        )
-        val batchData =
-          sendAndParseJson(getStatusRequest).convertTo[LivyBatchData]
-        println(s"--- Livy Logs for job ${livyBatch.id} ---")
-        batchData.log.foreach(_.foreach(println))
-        println(s"--- End of Livy Logs ---")
-      } catch {
-        case logEx: Throwable =>
-          println(s"Failed to fetch Livy logs: ${logEx.getMessage}")
-      }
-    }
-
-    result
-  }
-
-  private def testNotebooks(selectedPythonFiles: Array[File], sparkPools: Seq[String]): Unit = {
-    @tailrec
-    def retry(maxRetries: Int, delayMillis: Long, attempt: Int = 1)(block: => LivyBatch): LivyBatch = {
-      val livyBatch = block
-      livyBatch.isSuccess match {
-        case true => livyBatch
-        case false if attempt < maxRetries =>
-          println(s"Retrying after failure of job ${livyBatch.id} for ${livyBatch.runName}. Attempt $attempt of $maxRetries.")
-          val jitter = scala.util.Random.nextInt(5000)
-          Thread.sleep(delayMillis + jitter)
-          retry(maxRetries, delayMillis, attempt + 1)(block)
-        case false => livyBatch
-      }
-    }
-
-    println(s"Submitting ${selectedPythonFiles.length} notebook(s) as Livy batches in workspace: $WorkspaceName...")
-    val batchFutures: Seq[(String, Future[LivyBatch])] = selectedPythonFiles.zip(sparkPools).zipWithIndex.map {
-      case ((file, pool), index) => {
-        (
-          file.getName(),
-          Future {
-            val jitter = scala.util.Random.nextInt(400)
-            Thread.sleep(3000L * index + jitter)
-
-            retry(maxRetries = 5, delayMillis = 60000) {
-              val livyBatch = SynapseUtilities.uploadAndSubmitNotebook(pool, file)
-              println(s"- Job ${livyBatch.id}: ${livyBatch.runName} on pool ${livyBatch.sparkPool}")
-              monitorNotebook(livyBatch)
-            }
-          }
-        )
-      }
-    }
-
-    // Register a test block for each notebook, blocking on its Future
-    batchFutures.foreach { case (name, fut) =>
-      test(name.substring(0, name.length - 3)) {
-        val result = Await.result(fut, Duration.Inf)
+        val result = Await.ready(
+          livyBatch.monitor(),
+          Duration(SynapseUtilities.TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
         assert(result.isSuccess)
+      } catch {
+        case t: Throwable =>
+          livyBatch.cancelRun()
+          throw new RuntimeException(s"Job failed see ${livyBatch.jobStatusPage} for details", t)
       }
-    }
-    try {
-      val results = batchFutures.map { case (name, fut) =>
-        Await.result(fut, Duration.Inf)
-      }.map(b => (b.runName, b.isSuccess, b.elapsedSeconds))
-      
-      // Dynamically calculate column widths
-      val notebookColWidth = (results.map(_._1.length).max max "Notebook".length) + 2
-      val succeededColWidth = (results.map(_._2.toString.length).max max "Succeeded".length) + 2
-      val timeColWidth = (results.map(r => r._3.toDouble.formatted("%.2f").length).max max "Time(s)".length) + 2
-
-      def pad(s: String, width: Int) = s.padTo(width, ' ')
-
-      println(pad("Notebook", notebookColWidth) + pad("Succeeded", succeededColWidth) + pad("Time(s)", timeColWidth))
-      for ((name, status, time) <- results) {
-        println(pad(name, notebookColWidth) + pad(status.toString, succeededColWidth) + pad(f"${time.toDouble}%.2f", timeColWidth))
-      }
-    } catch {
-      case e: Throwable =>
-        println(s"Failed to print summary table: ${e.getMessage}")
     }
   }
 
   protected override def afterAll(): Unit = {
     println("Synapse E2E Test Suite finished. Deleting Spark Pools...")
-    // Only delete pools that were created by this test run. If an existing pool was
-    // provided, skip deletion entirely. Additionally, guard by prefix to be safe.
-    existingPoolNameOpt match {
-      case Some(pool) =>
-        println(s"Existing pool '$pool' was used; skipping deletion.")
-      case None =>
-        val poolsToDelete = sparkPools.distinct.filter(_.startsWith(ClusterPrefix))
-        val failures = poolsToDelete.map(pool => Try(deleteSparkPool(pool)))
-          .filter(_.isFailure)
-        if (failures.isEmpty) {
-          println("All Spark Pools deleted successfully.")
-        } else {
-          println("Failed to delete all spark pools cleanly:")
-          failures.foreach(failure => println(failure.failed.get.getMessage))
-        }
+    val failures = sparkPools.map(pool => Try(deleteSparkPool(pool)))
+      .filter(_.isFailure)
+    if (failures.isEmpty) {
+      println("All Spark Pools deleted successfully.")
+    } else {
+      println("Failed to delete all spark pools cleanly:")
+      failures.foreach(failure =>
+        println(failure.failed.get.getMessage))
     }
     super.afterAll()
   }

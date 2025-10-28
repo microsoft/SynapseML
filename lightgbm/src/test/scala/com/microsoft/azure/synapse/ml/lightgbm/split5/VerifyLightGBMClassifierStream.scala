@@ -11,7 +11,7 @@ import com.microsoft.azure.synapse.ml.lightgbm.split1._
 import org.apache.spark.TaskContext
 import org.apache.spark.ml.feature.{LabeledPoint, VectorAssembler}
 import org.apache.spark.ml.linalg.{DenseVector, Vector, Vectors}
-import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, Row}
 
@@ -455,7 +455,7 @@ class VerifyLightGBMClassifierStream extends LightGBMClassifierTestData {
       } else {
         rows
       }
-    }(ExpressionEncoder(baseDF.schema))
+    }(RowEncoder(baseDF.schema))
 
     assertFitWithoutErrors(baseModel, df)
   }
@@ -470,7 +470,7 @@ class VerifyLightGBMClassifierStream extends LightGBMClassifierTestData {
       } else {
         rows
       }
-    })(ExpressionEncoder(baseDF.schema))
+    })(RowEncoder(baseDF.schema))
 
     val model = new LightGBMClassifier()
       .setLabelCol(labelCol)
@@ -493,7 +493,7 @@ class VerifyLightGBMClassifierStream extends LightGBMClassifierTestData {
       } else {
         rows
       }
-    })(ExpressionEncoder(baseDF.schema))
+    })(RowEncoder(baseDF.schema))
 
     // Validate fit works and doesn't get stuck
     assertFitWithoutErrors(baseModel, df)

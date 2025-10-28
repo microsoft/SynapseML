@@ -30,20 +30,9 @@ case class LivyBatchData(id: Int,
                          appId: Option[String],
                          log: Option[Seq[String]])
 
-object LivyBatchData extends DefaultJsonProtocol {
-  implicit val livyBatchDataFormat: RootJsonFormat[LivyBatchData] = jsonFormat4(LivyBatchData.apply)
-}
-
-case class LivyBatchResult(id: Int,
-                          state: String,
-                          appId: Option[String],
-                          log: Option[Seq[String]],
-                          error: Option[String])
-
 case class LivyBatch(data: LivyBatchData,
                      runName: String,
-                     sparkPool: String,
-                     startTime: Long = System.currentTimeMillis) {
+                     sparkPool: String) {
 
   import SynapseJsonProtocol._
 
@@ -56,28 +45,25 @@ case class LivyBatch(data: LivyBatchData,
 
   def state: String = data.state
 
-  def isSuccess: Boolean = data.state.toLowerCase == "success"
-
-  def elapsedSeconds: Int = ((System.currentTimeMillis - startTime) / 1000).toInt
-
   @tailrec
-  private def pollLivyUrl(lastStatus: Option[String] = None): LivyBatch = {
+  private def pollLivyUrl(): LivyBatch = {
     val getStatusRequest = new HttpGet(s"${SynapseUtilities.livyUrl(sparkPool)}/${data.id}")
     getStatusRequest.setHeader("Authorization", s"Bearer $SynapseToken")
     val newData = sendAndParseJson(getStatusRequest).convertTo[LivyBatchData]
-    val elapsed = elapsedSeconds
-    if (lastStatus.isEmpty || lastStatus.get != newData.state) {
-      println(s"Job ${newData.id} on pool $sparkPool status: ${newData.state} (notebook: ${runName}, elapsed: ${elapsed}s")
-    }
+    printStatus(newData)
     if (newData.state == "success") {
-      LivyBatch(newData, runName, sparkPool, startTime)
-    } else if (Set("dead", "error", "killed")(newData.state.toLowerCase)) {
-      LivyBatch(newData, runName, sparkPool, startTime)
+      println(s"Success finishing job ${newData.id} on pool $sparkPool")
+      LivyBatch(newData, runName, sparkPool)
     } else {
-      blocking {
-        Thread.sleep(15000)
+      if (Set("dead", "error")(newData.state.toLowerCase)) {
+        throw new RuntimeException(s"Job ${newData.id} on pool $sparkPool ended with status ${newData.state}")
+      } else {
+        blocking {
+          Thread.sleep(8000)
+        }
+        println(s"Polling Job ${newData.id} on pool $sparkPool")
+        pollLivyUrl()
       }
-      pollLivyUrl(Some(newData.state))
     }
   }
 
@@ -144,7 +130,7 @@ object SynapseUtilities {
   val StorageContainer: String = "synapse"
   val PoolNodeSize: String = "Small"
   val PoolLocation: String = "eastus2"
-  val WorkspaceName: String = "mmlsparkbuildtest"
+  val WorkspaceName: String = "mmlsparkbuild"
   val ResourceGroupName: String = "marhamil-mmlspark"
   val SubscriptionId: String = Secrets.SubscriptionID
 
@@ -187,7 +173,6 @@ object SynapseUtilities {
 
   def uploadAndSubmitNotebook(poolName: String, notebook: File): LivyBatch = {
     val dest = s"$Folder/${notebook.getName}"
-    println(s"Uploading notebook (${notebook.getName}) to $StorageAccount/$StorageContainer/$dest")
     exec(s"az storage fs file upload " +
       s" -s ${notebook.getAbsolutePath}" +
       s" -p $dest" +
@@ -196,7 +181,6 @@ object SynapseUtilities {
       s" --overwrite true" +
       s" --account-name $StorageAccount")
     val abfssPath = s"abfss://$StorageContainer@$StorageAccount.dfs.core.windows.net/$dest"
-    println(s"Completed uploading notebook (${notebook.getName})")
 
     val excludes: String = Seq(
       "org.scala-lang:scala-reflect",
@@ -221,7 +205,7 @@ object SynapseUtilities {
          |         "spark.jars.excludes": "$excludes",
          |         "spark.yarn.user.classpath.first": "true",
          |         "spark.sql.parquet.enableVectorizedReader":"false",
-         |         "spark.sql.legacy.replaceDatabricksSparkAvro.enabled": "true",
+         |         "spark.sql.legacy.replaceDatabricksSparkAvro.enabled": "true"
          |     }
          | }
       """.stripMargin
@@ -230,8 +214,6 @@ object SynapseUtilities {
     createRequest.setHeader("Content-Type", "application/json")
     createRequest.setHeader("Authorization", s"Bearer $SynapseToken")
     createRequest.setEntity(new StringEntity(livyPayload))
-    println(s"Submitting job $runName to pool $poolName")
-    println(s"Payload: $livyPayload")
     LivyBatch(sendAndParseJson(createRequest).convertTo[LivyBatchData], runName, poolName)
   }
 
@@ -273,7 +255,7 @@ object SynapseUtilities {
        |    "nodeSizeFamily": "MemoryOptimized",
        |    "provisioningState": "Succeeded",
        |    "sessionLevelPackagesEnabled": "true",
-       |    "sparkVersion": "3.5"
+       |    "sparkVersion": "3.4"
        |  }
        |}
        |""".stripMargin
@@ -295,7 +277,6 @@ object SynapseUtilities {
 
     val sparkPools = sendAndParseJson(getBigDataPoolRequest).convertTo[SynapseResourceResponse].value
     sparkPools.foreach(sparkPool => {
-      println(s"Found pool ${sparkPool.name}")
       val name = sparkPool.name.stripPrefix(s"$WorkspaceName/")
       if (sparkPool.tags.contains("createdAt") && sparkPool.tags.contains("createdBy")) {
         assert(name.stripPrefix(ClusterPrefix).length == dayAgoTsInMillis.toString.length)
@@ -305,11 +286,7 @@ object SynapseUtilities {
             deleteSparkPool(name)
           } catch {
             case e: RuntimeException => println(s"Could not delete old spark cluster: ${e.getMessage}")
-            case e: Exception =>
-              println(s"Could not delete old spark cluster: ${e.getMessage}")
           }
-        } else {
-          println(s"Pool $name is not older than 24 hours, skipping...")
         }
       }
     })
@@ -327,10 +304,9 @@ object SynapseUtilities {
       val deployRequest = new HttpPut(deployUri)
       deployRequest.setHeader("Authorization", s"Bearer $ArmToken")
       deployRequest.setHeader("Content-Type", "application/json")
-      val payload = bigDataPoolBicepPayload(bigDataPoolName, PoolLocation, PoolNodeSize, timeStamp)
-      deployRequest.setEntity(new StringEntity(payload))
+      deployRequest.setEntity(new StringEntity(
+        bigDataPoolBicepPayload(bigDataPoolName, PoolLocation, PoolNodeSize, timeStamp)))
       println(s"Creating Apache Spark Pool: $bigDataPoolName...")
-      println(s"Payload: $payload")
       safeSend(deployRequest)
       bigDataPoolName
     }

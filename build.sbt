@@ -7,7 +7,7 @@ import scala.xml.transform.{RewriteRule, RuleTransformer}
 import scala.xml.{Node => XmlNode, NodeSeq => XmlNodeSeq, _}
 
 val condaEnvName = "synapseml"
-val sparkVersion = "3.5.0"
+val sparkVersion = "3.4.1"
 name := "synapseml"
 ThisBuild / organization := "com.microsoft.azure"
 ThisBuild / scalaVersion := "2.12.17"
@@ -16,8 +16,7 @@ val scalaMajorVersion = 2.12
 
 val excludes = Seq(
   ExclusionRule("org.apache.spark", s"spark-tags_$scalaMajorVersion"),
-  ExclusionRule("org.scalatest"),
-  ExclusionRule("org.scalanlp", s"breeze_$scalaMajorVersion")
+  ExclusionRule("org.scalatest")
 )
 
 val coreDependencies = Seq(
@@ -35,10 +34,13 @@ val extraDependencies = Seq(
   "com.jcraft" % "jsch" % "0.1.54",
   "org.apache.httpcomponents.client5" % "httpclient5" % "5.1.3",
   "org.apache.httpcomponents" % "httpmime" % "4.5.13",
-  "com.linkedin.isolation-forest" %% "isolation-forest_3.5.0" % "3.0.5"
+  "com.linkedin.isolation-forest" %% "isolation-forest_3.4.2" % "3.0.4"
     exclude("com.google.protobuf", "protobuf-java") exclude("org.apache.spark", "spark-mllib_2.12")
     exclude("org.apache.spark", "spark-core_2.12") exclude("org.apache.spark", "spark-avro_2.12")
     exclude("org.apache.spark", "spark-sql_2.12"),
+  // Although breeze 2.1.0 is already provided by Spark, this is needed for Azure Synapse Spark 3.4 pools.
+  // Otherwise a NoSuchMethodError will be thrown by interpretability code.
+  "org.scalanlp" %% "breeze" % "2.1.0"
 ).map(d => d excludeAll (excludes: _*))
 val dependencies = coreDependencies ++ extraDependencies
 

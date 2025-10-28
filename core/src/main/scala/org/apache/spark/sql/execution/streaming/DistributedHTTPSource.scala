@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.io.http.{HTTPRequestData, HTTPResponseData
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql._
-import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
+import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.connector.read.streaming.{Offset => OffsetV2}
 import org.apache.spark.sql.execution.streaming.continuous.HTTPSourceV2
 import org.apache.spark.sql.sources.{DataSourceRegister, StreamSinkProvider, StreamSourceProvider}
@@ -218,7 +218,7 @@ class DistributedHTTPSource(name: String,
   private[spark] val infoSchema = new StructType()
     .add("machine", StringType).add("ip", StringType).add("id", StringType)
 
-  private[spark] val infoEnc = ExpressionEncoder(infoSchema)
+  private[spark] val infoEnc = RowEncoder(infoSchema)
 
   // Access point to run code on nodes through mapPartitions
   // TODO do this by hooking deeper into spark,
@@ -284,7 +284,7 @@ class DistributedHTTPSource(name: String,
         .map{ case (id, request) =>
           Row.fromSeq(Seq(Row(null, id, null), toRow(request)))  //scalastyle:ignore null
         }.toIterator
-    }(ExpressionEncoder(HTTPSourceV2.Schema))
+    }(RowEncoder(HTTPSourceV2.Schema))
   }
 
   override def commit(end: OffsetV2): Unit = synchronized {
