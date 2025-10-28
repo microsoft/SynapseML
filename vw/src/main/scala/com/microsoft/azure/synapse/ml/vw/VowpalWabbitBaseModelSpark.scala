@@ -41,7 +41,7 @@ trait VowpalWabbitBaseModelSpark
     val outputSchema = dataset.schema.add(StructField(vowpalWabbitPredictionCol, schemaForPredictionType, false))
 
     // create a fitting row encoder
-    val ExpressionEncoder = ExpressionEncoder(outputSchema)
+    val encoder = ExpressionEncoder(outputSchema)
 
     dataset.toDF.mapPartitions(inputRows => {
       inputRows.map { row => {

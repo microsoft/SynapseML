@@ -105,7 +105,7 @@ class VowpalWabbitGenericModel(override val uid: String)
       val inputColIdx = df.schema.fieldIndex(getInputCol)
 
       val predictToSeq = VowpalWabbitPrediction.getPredictionFunc(vw)
-      val ExpressionEncoder = ExpressionEncoder(schemaForPredictionType)
+      val encoder = ExpressionEncoder(schemaForPredictionType)
 
       df.mapPartitions(inputRows => {
         inputRows.map { row => {
