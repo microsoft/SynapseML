@@ -21,6 +21,7 @@ steps:
       echo ""
       echo "Removing unused pre-installed SDKs..."
       sudo rm -rf /usr/local/lib/android || true
+      sudo rm -rf /usr/lib/google-cloud-sdk || true
       echo ""
       echo "=== Disk space AFTER cleanup ==="
       df -h / | grep -E 'Filesystem|/$'
