@@ -9,7 +9,7 @@ import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.{DataFrame, Dataset, Row, SparkSession, functions => F}
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 
@@ -105,7 +105,7 @@ class VowpalWabbitGenericModel(override val uid: String)
       val inputColIdx = df.schema.fieldIndex(getInputCol)
 
       val predictToSeq = VowpalWabbitPrediction.getPredictionFunc(vw)
-      val rowEncoder = RowEncoder(schemaForPredictionType)
+      val ExpressionEncoder = ExpressionEncoder(schemaForPredictionType)
 
       df.mapPartitions(inputRows => {
         inputRows.map { row => {
@@ -114,7 +114,7 @@ class VowpalWabbitGenericModel(override val uid: String)
 
           Row.fromSeq(row.toSeq ++ predictToSeq(prediction))
         }}
-      })(rowEncoder)
+      })(ExpressionEncoder)
         .toDF()
     }, dataset.columns.length)
   }

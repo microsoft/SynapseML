@@ -14,7 +14,7 @@ def init_spark():
             "spark.jars.packages",
             "com.microsoft.azure:synapseml_2.12:"
             + __spark_package_version__
-            + ",org.apache.spark:spark-avro_2.12:3.4.1",
+            + ",org.apache.spark:spark-avro_2.12:3.5.0",
         )
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .config("spark.executor.heartbeatInterval", "60s")

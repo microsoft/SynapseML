@@ -9,7 +9,7 @@ import com.microsoft.azure.synapse.ml.core.utils.AsyncUtils
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
-import org.apache.spark.sql.catalyst.encoders.RowEncoder
+import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.types.BinaryType
 import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
@@ -100,7 +100,7 @@ object BinaryFileReader {
                     timeout: Int
                    ): DataFrame = {
     val outputSchema = df.schema.add(bytesCol, BinaryType, nullable = true)
-    val encoder = RowEncoder(outputSchema)
+    val encoder = ExpressionEncoder(outputSchema)
     val hconf = ConfUtils.getHConf(df)
 
     df.mapPartitions { rows =>
