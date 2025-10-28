@@ -12,7 +12,7 @@ dependencies:
   - cmake<=3.27
   - pip:
     - pyarrow==10.0.1
-    - pyspark==3.4.1
+    - pyspark==3.5.0
     - pandas==2.0.3
     - wheel
     - sphinx==5.0.2
