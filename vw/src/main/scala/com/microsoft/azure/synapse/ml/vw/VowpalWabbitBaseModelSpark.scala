@@ -57,7 +57,7 @@ trait VowpalWabbitBaseModelSpark
         // add the prediction column to the output
         Row.fromSeq(row.toSeq :+ Row.fromSeq(predictToSeq(prediction)))
       }}
-    })(ExpressionEncoder)
+    })(encoder)
       .toDF()
   }
 }

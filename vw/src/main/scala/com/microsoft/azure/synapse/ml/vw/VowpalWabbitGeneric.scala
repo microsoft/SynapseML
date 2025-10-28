@@ -114,7 +114,7 @@ class VowpalWabbitGenericModel(override val uid: String)
 
           Row.fromSeq(row.toSeq ++ predictToSeq(prediction))
         }}
-      })(ExpressionEncoder)
+      })(encoder)
         .toDF()
     }, dataset.columns.length)
   }
