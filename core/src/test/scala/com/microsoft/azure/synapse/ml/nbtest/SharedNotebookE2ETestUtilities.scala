@@ -105,7 +105,9 @@ object SharedNotebookE2ETestUtilities {
     // Parallelize nbconvert for each notebook file
     val conversions = newFiles.toSeq.map { f =>
       Future {
-        runCmd(activateCondaEnv ++ Seq("jupyter", "nbconvert", "--to", "python", "--log-level=ERROR", f.getName), NotebooksDir)
+        runCmd(
+          activateCondaEnv ++ Seq("jupyter", "nbconvert", "--to", "python", "--log-level=ERROR", f.getName),
+          NotebooksDir)
       }
     }
     // Wait for all conversions to finish

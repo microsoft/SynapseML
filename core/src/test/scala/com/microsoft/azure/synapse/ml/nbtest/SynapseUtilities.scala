@@ -31,7 +31,7 @@ case class LivyBatchData(id: Int,
                          log: Option[Seq[String]])
 
 object LivyBatchData extends DefaultJsonProtocol {
-  implicit val livyBatchDataFormat: RootJsonFormat[LivyBatchData] = jsonFormat4(LivyBatchData.apply)
+  implicit val LivyBatchDataFormat: RootJsonFormat[LivyBatchData] = jsonFormat4(LivyBatchData.apply)
 }
 
 case class LivyBatchResult(id: Int,
@@ -67,7 +67,7 @@ case class LivyBatch(data: LivyBatchData,
     val newData = sendAndParseJson(getStatusRequest).convertTo[LivyBatchData]
     val elapsed = elapsedSeconds
     if (lastStatus.isEmpty || lastStatus.get != newData.state) {
-      println(s"Job ${newData.id} on pool $sparkPool status: ${newData.state} (notebook: ${runName}, elapsed: ${elapsed}s")
+      println(s"Job ${newData.id} on pool $sparkPool status: ${newData.state} (elapsed: ${elapsed}s)")
     }
     if (newData.state == "success") {
       LivyBatch(newData, runName, sparkPool, startTime)
@@ -137,7 +137,7 @@ object SynapseUtilities {
   lazy val SynapseToken: String = getAccessToken("https://dev.azuresynapse.net/")
   lazy val ArmToken: String = getAccessToken("https://management.azure.com/")
 
-  val LineSeparator: String = sys.props("line.separator").toLowerCase // Platform agnostic (\r\n:windows, \n:linux)
+  val LineSeparator: String = sys.props("line.separator").toLowerCase
   val Folder = s"build_${BuildInfo.version}/scripts"
   val TimeoutInMillis: Int = 30 * 60 * 1000 // 30 minutes
   val StorageAccount: String = "mmlsparkbuildsynapse"
@@ -249,7 +249,7 @@ object SynapseUtilities {
        |    "createdBy": "SynapseE2E Tests",
        |    "createdAt": "$createdAtTime",
        |    "buildId": "$buildId",
-       |    "buildNumber": "$buildNumber",
+       |    "buildNumber": "$buildNumber"
        |  },
        |  "properties": {
        |    "autoPause": {

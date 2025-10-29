@@ -62,7 +62,7 @@ class SynapseTests extends TestBase {
     "IsolationForests", // New issue
     "CreateAudiobooks", // New issue
     "ExplanationDashboard", // New issue
-    "ExploreAlgorithmsDeepLearningQuickstartONNXModelInference", // ONNX package issues
+    "ExploreAlgorithmsDeepLearningQuickstartONNXModelInference" // ONNX package issues
   )
 
   val generatedNotebooks = SharedNotebookE2ETestUtilities.generateNotebooks()
@@ -89,7 +89,7 @@ class SynapseTests extends TestBase {
 
   private val sparkPools: Seq[String] = existingPoolNameOpt match {
     case Some(pool) =>
-      println(s"Using existing Spark pool '$pool' for all ${expectedPoolCount} notebook(s); no new pools will be created.")
+      println(s"Using existing Spark pool '$pool' for all ${expectedPoolCount} notebook(s).")
       Seq.fill(expectedPoolCount)(pool)
     case None =>
       createSparkPools(expectedPoolCount)
@@ -134,21 +134,21 @@ class SynapseTests extends TestBase {
     result
   }
 
-  private def testNotebooks(selectedPythonFiles: Array[File], sparkPools: Seq[String]): Unit = {
-    @tailrec
-    def retry(maxRetries: Int, delayMillis: Long, attempt: Int = 1)(block: => LivyBatch): LivyBatch = {
-      val livyBatch = block
-      livyBatch.isSuccess match {
-        case true => livyBatch
-        case false if attempt < maxRetries =>
-          println(s"Retrying after failure of job ${livyBatch.id} for ${livyBatch.runName}. Attempt $attempt of $maxRetries.")
-          val jitter = scala.util.Random.nextInt(5000)
-          Thread.sleep(delayMillis + jitter)
-          retry(maxRetries, delayMillis, attempt + 1)(block)
-        case false => livyBatch
-      }
+  @tailrec
+  private def retryBatch(maxRetries: Int, delayMillis: Long, attempt: Int = 1)(block: => LivyBatch): LivyBatch = {
+    val livyBatch = block
+    livyBatch.isSuccess match {
+      case true => livyBatch
+      case false if attempt < maxRetries =>
+        println(s"Retrying after failure of job ${livyBatch.id} for ${livyBatch.runName}. $attempt of $maxRetries.")
+        val jitter = scala.util.Random.nextInt(5000)
+        Thread.sleep(delayMillis + jitter)
+        retryBatch(maxRetries, delayMillis, attempt + 1)(block)
+      case false => livyBatch
     }
+  }
 
+  private def testNotebooks(selectedPythonFiles: Array[File], sparkPools: Seq[String]): Unit = {
     println(s"Submitting ${selectedPythonFiles.length} notebook(s) as Livy batches in workspace: $WorkspaceName...")
     val batchFutures: Seq[(String, Future[LivyBatch])] = selectedPythonFiles.zip(sparkPools).zipWithIndex.map {
       case ((file, pool), index) => {
@@ -158,7 +158,7 @@ class SynapseTests extends TestBase {
             val jitter = scala.util.Random.nextInt(400)
             Thread.sleep(3000L * index + jitter)
 
-            retry(maxRetries = 5, delayMillis = 60000) {
+            retryBatch(maxRetries = 5, delayMillis = 60000) {
               val livyBatch = SynapseUtilities.uploadAndSubmitNotebook(pool, file)
               println(s"- Job ${livyBatch.id}: ${livyBatch.runName} on pool ${livyBatch.sparkPool}")
               monitorNotebook(livyBatch)
@@ -179,17 +179,17 @@ class SynapseTests extends TestBase {
       val results = batchFutures.map { case (name, fut) =>
         Await.result(fut, Duration.Inf)
       }.map(b => (b.runName, b.isSuccess, b.elapsedSeconds))
-      
+
       // Dynamically calculate column widths
-      val notebookColWidth = (results.map(_._1.length).max max "Notebook".length) + 2
-      val succeededColWidth = (results.map(_._2.toString.length).max max "Succeeded".length) + 2
-      val timeColWidth = (results.map(r => r._3.toDouble.formatted("%.2f").length).max max "Time(s)".length) + 2
+      val nbWidth = (results.map(_._1.length).max max "Notebook".length) + 2
+      val succeededWidth = (results.map(_._2.toString.length).max max "Succeeded".length) + 2
+      val timeWidth = (results.map(r => r._3.toDouble.formatted("%.2f").length).max max "Time(s)".length) + 2
 
       def pad(s: String, width: Int) = s.padTo(width, ' ')
 
-      println(pad("Notebook", notebookColWidth) + pad("Succeeded", succeededColWidth) + pad("Time(s)", timeColWidth))
+      println(pad("Notebook", nbWidth) + pad("Succeeded", succeededWidth) + pad("Time(s)", timeWidth))
       for ((name, status, time) <- results) {
-        println(pad(name, notebookColWidth) + pad(status.toString, succeededColWidth) + pad(f"${time.toDouble}%.2f", timeColWidth))
+        println(pad(name, nbWidth) + pad(status.toString, succeededWidth) + pad(f"${time.toDouble}%.2f", timeWidth))
       }
     } catch {
       case e: Throwable =>
