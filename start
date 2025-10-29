@@ -4,7 +4,7 @@ export OPENMPI_VERSION="3.1.2"
 
 export SPARK_VERSION="3.5.0"
 export HADOOP_VERSION="3.3"
-export SYNAPSEML_VERSION="1.0.15" # Binder compatibility version
+export SYNAPSEML_VERSION="1.1.0" # Binder compatibility version
 
 echo "Beginning Spark Session..."
 exec "$@"
