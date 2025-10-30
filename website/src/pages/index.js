@@ -417,7 +417,7 @@ import synapse.ml`}
                   following lines to your build.sbt:
                   <CodeSnippet
                     snippet={`resolvers += "SynapseML" at "https://mmlspark.azureedge.net/maven"
-libraryDependencies += "com.microsoft.azure" %% "synapseml_2.12" % "1.1.0" // Please use 1.1.0 version for Spark3.2 and 1.0.15-spark3.3 version for Spark3.3`}
+libraryDependencies += "com.microsoft.azure" %% "synapseml_2.12" % "1.1.0" // Please use 1.1.0 version for Spark3.5 and 1.0.15 version for Spark3.4`}
                     lang="jsx"
                   ></CodeSnippet>
                 </TabItem>
