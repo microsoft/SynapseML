@@ -25,11 +25,17 @@ case class OpenAILogProbs(tokens: Seq[String],
                           top_logprobs: Seq[Map[String, Double]],
                           text_offset: Seq[Long])
 
+object EmbeddingUsage extends SparkBindings[EmbeddingUsage]
+
+case class EmbeddingUsage(prompt_tokens: Long,
+                          total_tokens: Long)
+
 object EmbeddingResponse extends SparkBindings[EmbeddingResponse]
 
 case class EmbeddingResponse(`object`: String,
                              data: Seq[EmbeddingObject],
-                             model: String)
+                             model: String,
+                             usage: Option[EmbeddingUsage])
 
 case class EmbeddingObject(`object`: String,
                            embedding: Array[Double],

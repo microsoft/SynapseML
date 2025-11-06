@@ -12,6 +12,7 @@ import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{Vector, Vectors}
+import org.apache.spark.ml.param.BooleanParam
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types._
@@ -46,16 +47,60 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
 
   def setTextCol(value: String): this.type = setVectorParam(text, value)
 
-  override protected def getInternalOutputParser(schema: StructType): JSONOutputParser = {
-    def responseToVector(r: Row) =
-      if (r == null)
-        None
-      else
-        Some(Vectors.dense(r.getAs[Seq[Row]]("data").head.getAs[Seq[Double]]("embedding").toArray))
+  val returnUsage = new BooleanParam(
+    this, "returnUsage", "Whether to include embedding usage statistics alongside the vector output.")
 
-    new JSONOutputParser()
+  def getReturnUsage: Boolean = $(returnUsage)
+
+  def setReturnUsage(value: Boolean): this.type = set(returnUsage, value)
+
+  setDefault(returnUsage -> false)
+
+  override protected def getInternalOutputParser(schema: StructType): JSONOutputParser = {
+    def extractVector(row: Row): Option[Vector] = {
+      Option(row)
+        .flatMap(r => Option(r.getAs[Seq[Row]]("data")))
+        .flatMap(_.headOption)
+        .map(dataRow => Vectors.dense(dataRow.getAs[Seq[Double]]("embedding").toArray))
+    }
+
+    val parser = new JSONOutputParser()
       .setDataType(EmbeddingResponse.schema)
-      .setPostProcessFunc[Row, Option[Vector]](responseToVector, VectorType)
+
+    if (getReturnUsage) {
+      parser.setPostProcessFunc[Row, String]({ r: Row =>
+        if (r == null) {
+          null
+        } else {
+          val vectorOpt = extractVector(r)
+          val usageMapOpt = Option(r.getAs[Row]("usage")).map { usageRow =>
+            Map(
+              "prompt_tokens" -> usageRow.getAs[Long]("prompt_tokens"),
+              "total_tokens" -> usageRow.getAs[Long]("total_tokens")
+            )
+          }
+
+          val responseJson = vectorOpt match {
+            case Some(vec) => vec.toArray.toSeq.toJson
+            case None => JsNull
+          }
+
+          val usageJson = usageMapOpt match {
+            case Some(map) => map.toJson
+            case None => JsNull
+          }
+
+          JsObject(
+            "response" -> responseJson,
+            "usage" -> usageJson
+          ).compactPrint
+        }
+      }, StringType)
+    } else {
+      parser.setPostProcessFunc[Row, Option[Vector]](extractVector, VectorType)
+    }
+
+    parser
   }
 
   override def setCustomServiceName(v: String): this.type = {

@@ -127,6 +127,13 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   def setApiType(value: String): this.type = set(apiType, value)
 
+  val returnUsage = new BooleanParam(
+    this, "returnUsage", "Whether to include usage statistics alongside the response output.")
+
+  def getReturnUsage: Boolean = $(returnUsage)
+
+  def setReturnUsage(value: Boolean): this.type = set(returnUsage, value)
+
   val columnTypes = new StringStringMapParam(
     this, "columnTypes", "A map from column names to their types. Supported types are 'text' and 'path'.")
   private def validateColumnType(value: String) = {
@@ -167,7 +174,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     systemPrompt -> defaultSystemPrompt,
     apiType -> "chat_completions",
     columnTypes -> Map.empty,
-    timeout -> 360.0
+    timeout -> 360.0,
+    returnUsage -> false
   )
 
   override def setCustomServiceName(v: String): this.type = {
@@ -180,7 +188,9 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   private val localParamNames = Seq(
     "promptTemplate", "outputCol", "postProcessing", "postProcessingOptions", "dropPrompt", "dropMessages",
-    "systemPrompt", "apiType")
+    "systemPrompt", "apiType", "returnUsage")
+
+  private val usageMapType: T.MapType = T.MapType(T.StringType, T.LongType, valueContainsNull = false)
 
   private val multiModalTextPrompt = "The name of the file to analyze is %s.\nHere is the content:\n"
 
@@ -262,8 +272,34 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     }
 
     val outputTextCol = service.getOutputMessageText(service.getOutputCol)
-    val results = transformed
-      .withColumn(getOutputCol, getParser.parse(outputTextCol))
+    val parsedOutputCol = getParser.parse(outputTextCol)
+
+    val withParsed = if (getReturnUsage) {
+      val usageCol = service match {
+        case _: OpenAIChatCompletion | _: AIFoundryChatCompletion =>
+          buildUsageMap(F.col(service.getOutputCol).getField("usage"),
+            Seq("completion_tokens", "prompt_tokens", "total_tokens"))
+        case _: OpenAIResponses =>
+          buildUsageMap(F.col(service.getOutputCol).getField("usage"),
+            Seq("output_tokens", "input_tokens", "total_tokens"))
+        case _ =>
+          F.lit(null).cast(usageMapType)
+      }
+      transformed
+        .withColumn(
+          getOutputCol,
+          F.to_json(
+            F.struct(
+              parsedOutputCol.alias("response"),
+              usageCol.alias("usage")
+            )
+          )
+        )
+    } else {
+      transformed.withColumn(getOutputCol, parsedOutputCol)
+    }
+
+    val results = withParsed
       .drop(service.getOutputCol)
 
     results.select(results.columns.filter(_ != getErrorCol).map(col) :+ col(getErrorCol): _*)
@@ -446,6 +482,14 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     else "file"
   }
 
+  private def buildUsageMap(usageCol: Column, fieldNames: Seq[String]): Column = {
+    val keyValueColumns = fieldNames.flatMap { fieldName =>
+      Seq(F.lit(fieldName), usageCol.getField(fieldName).cast(T.LongType))
+    }
+    F.when(usageCol.isNotNull, F.map(keyValueColumns: _*))
+      .otherwise(F.lit(null).cast(usageMapType))
+  }
+
   private[openai] def hasAIFoundryModel: Boolean = this.isDefined(model)
 
   //deployment name can be set by user, it doesn't have to match with model name
@@ -505,30 +549,33 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   }
 
   override def transformSchema(schema: StructType): StructType = {
-    val transformedSchema = getOpenAIChatService match {
+    val service = getOpenAIChatService
+    val serviceSchema = service match {
       case chatCompletion: OpenAIResponses =>
-        chatCompletion
-          .transformSchema(schema.add(getMessagesCol, StructType(Seq())))
-          .add(getPostProcessing, getParser.outputSchema)
+        chatCompletion.transformSchema(schema.add(getMessagesCol, StructType(Seq())))
       case chatCompletion: AIFoundryChatCompletion =>
-        chatCompletion
-          .transformSchema(schema.add(getMessagesCol, StructType(Seq())))
-          .add(getPostProcessing, getParser.outputSchema)
+        chatCompletion.transformSchema(schema.add(getMessagesCol, StructType(Seq())))
       case chatCompletion: OpenAIChatCompletion =>
-        chatCompletion
-          .transformSchema(schema.add(getMessagesCol, StructType(Seq())))
-          .add(getPostProcessing, getParser.outputSchema)
+        chatCompletion.transformSchema(schema.add(getMessagesCol, StructType(Seq())))
       case completion: OpenAICompletion =>
-        completion
-          .transformSchema(schema)
-          .add(getPostProcessing, getParser.outputSchema)
+        completion.transformSchema(schema)
     }
 
-   // Move error column to back
-    val errorFieldOpt: Option[StructField] = transformedSchema.fields.find(_.name == getErrorCol)
-    val fieldsWithoutError: Array[StructField] = transformedSchema.fields.filterNot(_.name == getErrorCol)
-    val reorderedFields = Array.concat(fieldsWithoutError, errorFieldOpt.toArray)
-    StructType(reorderedFields)
+    val outputDataType: DataType = {
+      val parserOutputSchema = getParser.outputSchema
+      if (getReturnUsage) {
+        T.StringType
+      } else {
+        parserOutputSchema
+      }
+    }
+
+    val withoutServiceOutput = StructType(serviceSchema.filterNot(_.name == service.getOutputCol))
+    val withPromptOutput = withoutServiceOutput.add(getOutputCol, outputDataType)
+
+    val errorFieldOpt: Option[StructField] = withPromptOutput.fields.find(_.name == getErrorCol)
+    val fieldsWithoutError: Array[StructField] = withPromptOutput.fields.filterNot(_.name == getErrorCol)
+    StructType(fieldsWithoutError ++ errorFieldOpt.toSeq)
   }
 }
 
