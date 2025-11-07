@@ -4,11 +4,14 @@
 package com.microsoft.azure.synapse.ml.services.openai
 
 import com.microsoft.azure.synapse.ml.core.test.base.Flaky
-import com.microsoft.azure.synapse.ml.core.test.fuzzing.{ TestObject, TransformerFuzzing }
+import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.ml.linalg.Vector
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
+import org.apache.spark.sql.types.StringType
 import org.scalactic.Equality
+import spray.json._
 
 class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with OpenAIAPIKey with Flaky {
 
@@ -44,6 +47,14 @@ class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with Ope
     "Best programming language award goes to",
     "SynapseML is "
   ).toDF("text")
+
+  private def usageEmbedding(outputCol: String): OpenAIEmbedding =
+    new OpenAIEmbedding()
+      .setSubscriptionKey(openAIAPIKey)
+      .setCustomServiceName(openAIServiceName)
+      .setDeploymentName("text-embedding-ada-002")
+      .setTextCol("text")
+      .setOutputCol(outputCol)
 
   test("Basic Usage") {
     embedding.transform(df).collect().foreach(r => {
@@ -116,6 +127,41 @@ class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with Ope
       val v = r.getAs[Vector]("out")
       assert(v != null && v.size > 0)
     })
+  }
+
+  test("returnUsage default (unset) keeps vector output") {
+    val e = usageEmbedding("usage_default_vec")
+    val schema = e.transformSchema(df.schema)
+    assert(schema(e.getOutputCol).dataType == VectorType)
+
+    val row = e.transform(df.limit(1)).select("usage_default_vec").collect().head
+    val vector = row.getAs[Vector](0)
+    assert(vector.size > 0)
+  }
+
+  test("returnUsage set to false keeps vector output") {
+    val e = usageEmbedding("usage_false_vec").setReturnUsage(false)
+    val schema = e.transformSchema(df.schema)
+    assert(schema(e.getOutputCol).dataType == VectorType)
+
+    val row = e.transform(df.limit(1)).select("usage_false_vec").collect().head
+    val vector = row.getAs[Vector](0)
+    assert(vector.size > 0)
+  }
+
+  test("returnUsage true emits JSON envelope with response and usage") {
+    val e = usageEmbedding("usage_true_json").setReturnUsage(true)
+    val schema = e.transformSchema(df.schema)
+    assert(schema(e.getOutputCol).dataType == StringType)
+
+    val jsonStr = e.transform(df.limit(1)).select("usage_true_json").collect().head.getString(0)
+    val json = jsonStr.parseJson.asJsObject
+    assert(json.fields.contains("response"))
+    assert(json.fields.contains("usage"))
+    val responseJson = json.fields("response")
+    assert(responseJson == JsNull || responseJson.isInstanceOf[JsArray])
+    val usageJson = json.fields("usage")
+    assert(usageJson == JsNull || usageJson.isInstanceOf[JsObject])
   }
 
 

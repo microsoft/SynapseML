@@ -9,8 +9,10 @@ import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, Transformer
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.types.{ArrayType, StringType}
 import org.scalactic.Equality
 import com.microsoft.azure.synapse.ml.services.aifoundry.AIFoundryAPIKey
+import spray.json._
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
@@ -47,6 +49,17 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     ("mercedes", "cars"),
     ("cake", "dishes")
   ).toDF("text", "category")
+
+  private def usagePrompt(outputCol: String): OpenAIPrompt = {
+    new OpenAIPrompt()
+      .setSubscriptionKey(openAIAPIKey)
+      .setDeploymentName(deploymentName)
+      .setCustomServiceName(openAIServiceName)
+      .setPromptTemplate("List two {category}, starting with {text}.")
+      .setPostProcessing("csv")
+      .setOutputCol(outputCol)
+      .setTemperature(0)
+  }
 
   test("createMessagesForRow generates contentParts for path columns when using Chat Completions API") {
     val prompt = new OpenAIPrompt()
@@ -145,6 +158,38 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .where(col("outParsed").isNotNull)
       .collect()
       .foreach(r => assert(r.getStruct(0).getString(0).nonEmpty))
+  }
+
+  test("returnUsage default (unset) keeps structured output") {
+    val p = usagePrompt("usage_default")
+    val result = p.transform(df.limit(1)).select("usage_default").collect().head
+    val values = result.getSeq[String](0)
+    assert(values.nonEmpty)
+    val schema = p.transformSchema(df.schema)
+    assert(schema(p.getOutputCol).dataType == ArrayType(StringType))
+  }
+
+  test("returnUsage set to false matches default behavior") {
+    val p = usagePrompt("usage_false").setReturnUsage(false)
+    val result = p.transform(df.limit(1)).select("usage_false").collect().head
+    val values = result.getSeq[String](0)
+    assert(values.nonEmpty)
+    val schema = p.transformSchema(df.schema)
+    assert(schema(p.getOutputCol).dataType == ArrayType(StringType))
+  }
+
+  test("returnUsage true emits JSON envelope with response and usage") {
+    val p = usagePrompt("usage_true").setReturnUsage(true)
+    val schema = p.transformSchema(df.schema)
+    assert(schema(p.getOutputCol).dataType == StringType)
+
+    val jsonStr = p.transform(df.limit(1)).select("usage_true").collect().head.getString(0)
+    val json = jsonStr.parseJson.asJsObject
+    assert(json.fields.contains("response"))
+    assert(json.fields.contains("usage"))
+    assert(json.fields("response").isInstanceOf[JsArray])
+    val usageJson = json.fields("usage")
+    assert(usageJson == JsNull || usageJson.isInstanceOf[JsObject])
   }
 
   lazy val promptGpt4: OpenAIPrompt = new OpenAIPrompt()
