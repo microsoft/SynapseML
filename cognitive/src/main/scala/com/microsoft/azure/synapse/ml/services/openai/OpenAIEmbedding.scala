@@ -70,7 +70,7 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
     if (getReturnUsage) {
       parser.setPostProcessFunc[Row, String]({ r: Row =>
         if (r == null) {
-          null
+          JsNull.compactPrint
         } else {
           val vectorOpt = extractVector(r)
           val usageMapOpt = Option(r.getAs[Row]("usage")).map { usageRow =>
@@ -85,15 +85,9 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
             case None => JsNull
           }
 
-          val usageJson = usageMapOpt match {
-            case Some(map) => map.toJson
-            case None => JsNull
-          }
+          val usageJson: JsValue = usageMapOpt.map(_.toJson).getOrElse(JsNull)
 
-          JsObject(
-            "response" -> responseJson,
-            "usage" -> usageJson
-          ).compactPrint
+          JsObject("response" -> responseJson, "usage" -> usageJson).compactPrint
         }
       }, StringType)
     } else {

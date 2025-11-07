@@ -190,8 +190,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     "promptTemplate", "outputCol", "postProcessing", "postProcessingOptions", "dropPrompt", "dropMessages",
     "systemPrompt", "apiType", "returnUsage")
 
-  private val usageMapType: T.MapType = T.MapType(T.StringType, T.LongType, valueContainsNull = false)
-
   private val multiModalTextPrompt = "The name of the file to analyze is %s.\nHere is the content:\n"
 
   private val textExtensions = Set("md", "csv", "tsv", "json", "xml")
@@ -277,13 +275,15 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     val withParsed = if (getReturnUsage) {
       val usageCol = service match {
         case _: OpenAIChatCompletion | _: AIFoundryChatCompletion =>
-          buildUsageMap(F.col(service.getOutputCol).getField("usage"),
+          buildUsageMap(
+            F.col(service.getOutputCol).getField("usage"),
             Seq("completion_tokens", "prompt_tokens", "total_tokens"))
         case _: OpenAIResponses =>
-          buildUsageMap(F.col(service.getOutputCol).getField("usage"),
+          buildUsageMap(
+            F.col(service.getOutputCol).getField("usage"),
             Seq("output_tokens", "input_tokens", "total_tokens"))
         case _ =>
-          F.lit(null).cast(usageMapType)
+          typedLit(Map.empty[String, Long])
       }
       transformed
         .withColumn(
@@ -486,8 +486,9 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     val keyValueColumns = fieldNames.flatMap { fieldName =>
       Seq(F.lit(fieldName), usageCol.getField(fieldName).cast(T.LongType))
     }
-    F.when(usageCol.isNotNull, F.map(keyValueColumns: _*))
-      .otherwise(F.lit(null).cast(usageMapType))
+    val usageMapExpr = F.map(keyValueColumns: _*)
+    F.when(usageCol.isNotNull, usageMapExpr)
+      .otherwise(typedLit(Map.empty[String, Long]))
   }
 
   private[openai] def hasAIFoundryModel: Boolean = this.isDefined(model)
