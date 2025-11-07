@@ -190,6 +190,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     "promptTemplate", "outputCol", "postProcessing", "postProcessingOptions", "dropPrompt", "dropMessages",
     "systemPrompt", "apiType", "returnUsage")
 
+  private val usageMapType: T.MapType = T.MapType(T.StringType, T.LongType, valueContainsNull = false)
+
   private val multiModalTextPrompt = "The name of the file to analyze is %s.\nHere is the content:\n"
 
   private val textExtensions = Set("md", "csv", "tsv", "json", "xml")
@@ -288,11 +290,9 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       transformed
         .withColumn(
           getOutputCol,
-          F.to_json(
-            F.struct(
-              parsedOutputCol.alias("response"),
-              usageCol.alias("usage")
-            )
+          F.struct(
+            parsedOutputCol.alias("response"),
+            usageCol.alias("usage")
           )
         )
     } else {
@@ -565,7 +565,10 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     val outputDataType: DataType = {
       val parserOutputSchema = getParser.outputSchema
       if (getReturnUsage) {
-        T.StringType
+        T.StructType(Seq(
+          StructField("response", parserOutputSchema, nullable = true),
+          StructField("usage", usageMapType, nullable = true)
+        ))
       } else {
         parserOutputSchema
       }

@@ -9,10 +9,9 @@ import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, Transformer
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.col
-import org.apache.spark.sql.types.{ArrayType, StringType}
+import org.apache.spark.sql.types.{ArrayType, StringType, StructType}
 import org.scalactic.Equality
 import com.microsoft.azure.synapse.ml.services.aifoundry.AIFoundryAPIKey
-import spray.json._
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
@@ -178,18 +177,18 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     assert(schema(p.getOutputCol).dataType == ArrayType(StringType))
   }
 
-  test("returnUsage true emits JSON envelope with response and usage") {
+  test("returnUsage true emits structured response and usage map") {
     val p = usagePrompt("usage_true").setReturnUsage(true)
     val schema = p.transformSchema(df.schema)
-    assert(schema(p.getOutputCol).dataType == StringType)
+    val structType = schema(p.getOutputCol).dataType.asInstanceOf[StructType]
+    assert(structType.fieldNames.contains("response"))
+    assert(structType.fieldNames.contains("usage"))
 
-    val jsonStr = p.transform(df.limit(1)).select("usage_true").collect().head.getString(0)
-    val json = jsonStr.parseJson.asJsObject
-    assert(json.fields.contains("response"))
-    assert(json.fields.contains("usage"))
-    assert(json.fields("response").isInstanceOf[JsArray])
-    val usageJson = json.fields("usage")
-    assert(usageJson == JsNull || usageJson.isInstanceOf[JsObject])
+    val row = p.transform(df.limit(1)).select("usage_true").collect().head.getStruct(0)
+    val values = row.getValuesMap[Any](Seq("response", "usage"))
+    assert(values("response").isInstanceOf[Seq[_]] || values("response") == null)
+    val usage = values("usage").asInstanceOf[scala.collection.Map[String, Long]]
+    assert(usage != null)
   }
 
   lazy val promptGpt4: OpenAIPrompt = new OpenAIPrompt()

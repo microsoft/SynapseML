@@ -6,12 +6,10 @@ package com.microsoft.azure.synapse.ml.services.openai
 import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.DataFrame
-import org.apache.spark.ml.linalg.Vector
-import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
-import org.apache.spark.sql.types.StringType
+import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.ml.linalg.{Vector, SQLDataTypes}
+import org.apache.spark.sql.types.StructType
 import org.scalactic.Equality
-import spray.json._
 
 class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with OpenAIAPIKey with Flaky {
 
@@ -132,7 +130,7 @@ class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with Ope
   test("returnUsage default (unset) keeps vector output") {
     val e = usageEmbedding("usage_default_vec")
     val schema = e.transformSchema(df.schema)
-    assert(schema(e.getOutputCol).dataType == VectorType)
+    assert(schema(e.getOutputCol).dataType == SQLDataTypes.VectorType)
 
     val row = e.transform(df.limit(1)).select("usage_default_vec").collect().head
     val vector = row.getAs[Vector](0)
@@ -142,26 +140,29 @@ class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with Ope
   test("returnUsage set to false keeps vector output") {
     val e = usageEmbedding("usage_false_vec").setReturnUsage(false)
     val schema = e.transformSchema(df.schema)
-    assert(schema(e.getOutputCol).dataType == VectorType)
+    assert(schema(e.getOutputCol).dataType == SQLDataTypes.VectorType)
 
     val row = e.transform(df.limit(1)).select("usage_false_vec").collect().head
     val vector = row.getAs[Vector](0)
     assert(vector.size > 0)
   }
 
-  test("returnUsage true emits JSON envelope with response and usage") {
-    val e = usageEmbedding("usage_true_json").setReturnUsage(true)
+  test("returnUsage true emits structured response and usage map") {
+    val e = usageEmbedding("usage_true_struct").setReturnUsage(true)
     val schema = e.transformSchema(df.schema)
-    assert(schema(e.getOutputCol).dataType == StringType)
+    val structType = schema(e.getOutputCol).dataType.asInstanceOf[StructType]
+    assert(structType.fieldNames.contains("response"))
+    assert(structType.fieldNames.contains("usage"))
 
-    val jsonStr = e.transform(df.limit(1)).select("usage_true_json").collect().head.getString(0)
-    val json = jsonStr.parseJson.asJsObject
-    assert(json.fields.contains("response"))
-    assert(json.fields.contains("usage"))
-    val responseJson = json.fields("response")
-    assert(responseJson == JsNull || responseJson.isInstanceOf[JsArray])
-    val usageJson = json.fields("usage")
-    assert(usageJson == JsNull || usageJson.isInstanceOf[JsObject])
+    val outputRow = e.transform(df.limit(1)).select("usage_true_struct").collect().head
+    val struct = outputRow.getAs[Row](0)
+    assert(struct != null)
+    val values = struct.getValuesMap[Any](Seq("response", "usage"))
+    val vector = values("response").asInstanceOf[Vector]
+    assert(vector.size > 0)
+    val usage = values("usage").asInstanceOf[scala.collection.Map[String, Long]]
+    assert(usage != null)
+    assert(usage.keySet.subsetOf(Set("prompt_tokens", "total_tokens")))
   }
 
 

@@ -14,12 +14,12 @@ import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.param.BooleanParam
 import org.apache.spark.ml.util._
-import org.apache.spark.sql.Row
+import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
 import org.apache.spark.sql.types._
+import scala.language.existentials
+import org.apache.spark.sql.functions.{col, lit, map => sqlMap, struct, typedLit, udf, when}
 import spray.json.DefaultJsonProtocol._
 import spray.json._
-
-import scala.language.existentials
 
 object OpenAIEmbedding extends ComplexParamsReadable[OpenAIEmbedding]
 
@@ -56,46 +56,8 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
 
   setDefault(returnUsage -> false)
 
-  override protected def getInternalOutputParser(schema: StructType): JSONOutputParser = {
-    def extractVector(row: Row): Option[Vector] = {
-      Option(row)
-        .flatMap(r => Option(r.getAs[Seq[Row]]("data")))
-        .flatMap(_.headOption)
-        .map(dataRow => Vectors.dense(dataRow.getAs[Seq[Double]]("embedding").toArray))
-    }
-
-    val parser = new JSONOutputParser()
-      .setDataType(EmbeddingResponse.schema)
-
-    if (getReturnUsage) {
-      parser.setPostProcessFunc[Row, String]({ r: Row =>
-        if (r == null) {
-          JsNull.compactPrint
-        } else {
-          val vectorOpt = extractVector(r)
-          val usageMapOpt = Option(r.getAs[Row]("usage")).map { usageRow =>
-            Map(
-              "prompt_tokens" -> usageRow.getAs[Long]("prompt_tokens"),
-              "total_tokens" -> usageRow.getAs[Long]("total_tokens")
-            )
-          }
-
-          val responseJson = vectorOpt match {
-            case Some(vec) => vec.toArray.toSeq.toJson
-            case None => JsNull
-          }
-
-          val usageJson: JsValue = usageMapOpt.map(_.toJson).getOrElse(JsNull)
-
-          JsObject("response" -> responseJson, "usage" -> usageJson).compactPrint
-        }
-      }, StringType)
-    } else {
-      parser.setPostProcessFunc[Row, Option[Vector]](extractVector, VectorType)
-    }
-
-    parser
-  }
+  override protected def getInternalOutputParser(schema: StructType): JSONOutputParser =
+    new JSONOutputParser().setDataType(EmbeddingResponse.schema)
 
   override def setCustomServiceName(v: String): this.type = {
     setUrl(s"https://$v.openai.azure.com/" + urlPath.stripPrefix("/"))
@@ -135,4 +97,59 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
 
   override val subscriptionKeyHeaderName: String = "api-key"
 
+  private val usageMapType: MapType = MapType(StringType, LongType, valueContainsNull = false)
+
+  private val extractVectorUDF = udf { row: Row =>
+    Option(row)
+      .flatMap(r => Option(r.getAs[Seq[Row]]("data")))
+      .flatMap(_.headOption)
+      .map(dataRow => Vectors.dense(dataRow.getAs[Seq[Double]]("embedding").toArray))
+      .orNull // scalastyle:ignore null
+  }
+
+  private def usageMapColumn(usageStruct: Column): Column = {
+    val promptTokens = usageStruct.getField("prompt_tokens").cast(LongType)
+    val totalTokens = usageStruct.getField("total_tokens").cast(LongType)
+    val mapExpr = sqlMap(
+      lit("prompt_tokens"), promptTokens,
+      lit("total_tokens"), totalTokens
+    )
+    when(usageStruct.isNotNull, mapExpr).otherwise(typedLit(Map.empty[String, Long]))
+  }
+
+  override def transform(dataset: Dataset[_]): DataFrame = {
+    val parsed = super.transform(dataset)
+    val responseCol = col(getOutputCol)
+    val vectorCol = extractVectorUDF(responseCol)
+    if (getReturnUsage) {
+      val usageCol = usageMapColumn(responseCol.getField("usage"))
+      parsed.withColumn(
+        getOutputCol,
+        struct(
+          vectorCol.alias("response"),
+          usageCol.alias("usage")
+        )
+      )
+    } else {
+      parsed.withColumn(getOutputCol, vectorCol)
+    }
+  }
+
+  override def transformSchema(schema: StructType): StructType = {
+    val baseSchema = super.transformSchema(schema)
+    val fieldsWithoutOutput = baseSchema.fields.filterNot(_.name == getOutputCol)
+    val outputField = if (getReturnUsage) {
+      StructField(
+        getOutputCol,
+        StructType(Seq(
+          StructField("response", VectorType, nullable = true),
+          StructField("usage", usageMapType, nullable = true)
+        )),
+        nullable = true
+      )
+    } else {
+      StructField(getOutputCol, VectorType, nullable = true)
+    }
+    StructType(fieldsWithoutOutput :+ outputField)
+  }
 }
