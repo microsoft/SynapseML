@@ -252,61 +252,80 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     }
   }
 
+  private def usageMappingFor(service: OpenAIServicesBase with HasTextOutput)
+      : Option[UsageFieldMapping] = {
+    service match {
+      case _: OpenAIChatCompletion | _: AIFoundryChatCompletion =>
+        Some(
+          UsageFieldMapping(
+            inputTokens = Some("prompt_tokens"),
+            outputTokens = Some("completion_tokens"),
+            totalTokens = Some("total_tokens"),
+            inputDetails = Some(
+              "prompt_tokens_details" -> Seq("audio_tokens", "cached_tokens")
+            ),
+            outputDetails = Some(
+              "completion_tokens_details" ->
+                Seq(
+                  "accepted_prediction_tokens",
+                  "audio_tokens",
+                  "reasoning_tokens",
+                  "rejected_prediction_tokens"
+                )
+            )
+          )
+        )
+      case _: OpenAIResponses =>
+        Some(
+          UsageFieldMapping(
+            inputTokens = Some("input_tokens"),
+            outputTokens = Some("output_tokens"),
+            totalTokens = Some("total_tokens"),
+            inputDetails = Some("input_tokens_details" -> Seq("cached_tokens")),
+            outputDetails = Some("output_tokens_details" -> Seq("reasoning_tokens"))
+          )
+        )
+      case _ => None
+    }
+  }
+
+  private def withUsageColumn(
+      df: DataFrame,
+      responseCol: Column,
+      parsedCol: Column,
+      mappingOpt: Option[UsageFieldMapping]): DataFrame = {
+    mappingOpt match {
+      case Some(mapping) =>
+        val usageCol = normalizeUsageColumn(responseCol.getField("usage"), mapping)
+        df.withColumn(
+          getOutputCol,
+          F.struct(parsedCol.alias("response"), usageCol.alias("usage"))
+        )
+      case None =>
+        df.withColumn(getOutputCol, parsedCol)
+    }
+  }
+
   private def generateText(
     service: OpenAIServicesBase with HasTextOutput,
     df: DataFrame
   ): DataFrame = {
-
     val transformed = service match {
       case c: (HasRAIContentFilter with HasMessagesInput) =>
         addRAIErrors(c, service.transform(df), c.getErrorCol, c.getOutputCol)
       case _ => service.transform(df)
     }
 
-    val outputTextCol = service.getOutputMessageText(service.getOutputCol)
-    val parsedOutputCol = getParser.parse(outputTextCol)
+    val responseCol = F.col(service.getOutputCol)
+    val parsedOutputCol = getParser.parse(service.getOutputMessageText(service.getOutputCol))
+    val withParsed = withUsageColumn(
+      transformed,
+      responseCol,
+      parsedOutputCol,
+      if (getReturnUsage) usageMappingFor(service) else None
+    )
 
-    val withParsed = if (getReturnUsage) {
-      val usageCol = service match {
-        case _: OpenAIChatCompletion | _: AIFoundryChatCompletion =>
-          normalizeUsageColumn(
-            F.col(service.getOutputCol).getField("usage"),
-            UsageFieldMapping(
-              inputTokens = Some("prompt_tokens"),
-              outputTokens = Some("completion_tokens"),
-              totalTokens = Some("total_tokens"),
-              inputDetails = Some("prompt_tokens_details"),
-              outputDetails = Some("completion_tokens_details")
-            )
-          )
-        case _: OpenAIResponses =>
-          normalizeUsageColumn(
-            F.col(service.getOutputCol).getField("usage"),
-            UsageFieldMapping(
-              inputTokens = Some("input_tokens"),
-              outputTokens = Some("output_tokens"),
-              totalTokens = Some("total_tokens"),
-              inputDetails = Some("input_tokens_details"),
-              outputDetails = Some("output_tokens_details")
-            )
-          )
-        case _ =>
-          F.lit(null).cast(usageStructType)
-      }
-      transformed
-        .withColumn(
-          getOutputCol,
-          F.struct(
-            parsedOutputCol.alias("response"),
-            usageCol.alias("usage")
-          )
-        )
-    } else {
-      transformed.withColumn(getOutputCol, parsedOutputCol)
-    }
-
-    val results = withParsed
-      .drop(service.getOutputCol)
+    val results = withParsed.drop(service.getOutputCol)
 
     results.select(results.columns.filter(_ != getErrorCol).map(col) :+ col(getErrorCol): _*)
   }

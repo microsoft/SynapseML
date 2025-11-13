@@ -11,12 +11,12 @@ import com.microsoft.azure.synapse.ml.services.HasCognitiveServiceInput
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
-import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.util._
+import org.apache.spark.ml.functions.array_to_vector
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.types._
 import scala.language.existentials
-import org.apache.spark.sql.functions.{col, struct, udf}
+import org.apache.spark.sql.functions.{col, element_at, struct}
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 import HasReturnUsage.UsageFieldMapping
@@ -89,18 +89,11 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
 
   override val subscriptionKeyHeaderName: String = "api-key"
 
-  private val extractVectorUDF = udf((row: Row) =>
-    Option(row)
-      .flatMap(r => Option(r.getAs[Seq[Row]]("data")))
-      .flatMap(_.headOption)
-      .map(dataRow => Vectors.dense(dataRow.getAs[Seq[Double]]("embedding").toArray))
-      .orNull // scalastyle:ignore null
-  )
-
   override def transform(dataset: Dataset[_]): DataFrame = {
     val parsed = super.transform(dataset)
     val responseCol = col(getOutputCol)
-    val vectorCol = extractVectorUDF(responseCol)
+    val embeddingArrayCol = element_at(responseCol.getField("data"), 1).getField("embedding")
+    val vectorCol = array_to_vector(embeddingArrayCol)
     if (getReturnUsage) {
       val usageCol = normalizeUsageColumn(
         responseCol.getField("usage"),
