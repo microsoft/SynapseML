@@ -19,7 +19,7 @@ import scala.language.existentials
 import org.apache.spark.sql.functions.{col, element_at, struct}
 import spray.json.DefaultJsonProtocol._
 import spray.json._
-import HasReturnUsage.UsageFieldMapping
+import HasReturnUsage.UsageMappings
 
 object OpenAIEmbedding extends ComplexParamsReadable[OpenAIEmbedding]
 
@@ -97,13 +97,7 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
     if (getReturnUsage) {
       val usageCol = normalizeUsageColumn(
         responseCol.getField("usage"),
-        UsageFieldMapping(
-          inputTokens = Some("prompt_tokens"),
-          outputTokens = None,
-          totalTokens = Some("total_tokens"),
-          inputDetails = None,
-          outputDetails = None
-        )
+        UsageMappings.Embeddings
       )
       parsed.withColumn(
         getOutputCol,

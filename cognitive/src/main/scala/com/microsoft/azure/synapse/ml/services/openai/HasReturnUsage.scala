@@ -40,6 +40,42 @@ object HasReturnUsage {
                                      inputDetails: Option[(String, Seq[String])] = None,
                                      outputDetails: Option[(String, Seq[String])] = None) extends Serializable
 
+  object UsageMappings {
+    val ChatCompletions: UsageFieldMapping = UsageFieldMapping(
+      inputTokens = Some("prompt_tokens"),
+      outputTokens = Some("completion_tokens"),
+      totalTokens = Some("total_tokens"),
+      inputDetails = Some(
+        "prompt_tokens_details" -> Seq("audio_tokens", "cached_tokens")
+      ),
+      outputDetails = Some(
+        "completion_tokens_details" ->
+          Seq(
+            "accepted_prediction_tokens",
+            "audio_tokens",
+            "reasoning_tokens",
+            "rejected_prediction_tokens"
+          )
+      )
+    )
+
+    val Responses: UsageFieldMapping = UsageFieldMapping(
+      inputTokens = Some("input_tokens"),
+      outputTokens = Some("output_tokens"),
+      totalTokens = Some("total_tokens"),
+      inputDetails = Some("input_tokens_details" -> Seq("cached_tokens")),
+      outputDetails = Some("output_tokens_details" -> Seq("reasoning_tokens"))
+    )
+
+    val Embeddings: UsageFieldMapping = UsageFieldMapping(
+      inputTokens = Some("prompt_tokens"),
+      outputTokens = None,
+      totalTokens = Some("total_tokens"),
+      inputDetails = None,
+      outputDetails = None
+    )
+  }
+
   val UsageStructType: StructType = StructType(Seq(
     StructField("input_tokens", LongType, nullable = true),
     StructField("output_tokens", LongType, nullable = true),

@@ -11,7 +11,7 @@ import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.{HasGlobalParams, StringStringMapParam}
 import com.microsoft.azure.synapse.ml.services._
 import com.microsoft.azure.synapse.ml.services.aifoundry.{AIFoundryChatCompletion, HasAIFoundryTextParamsExtended}
-import HasReturnUsage.UsageFieldMapping
+import HasReturnUsage.{UsageFieldMapping, UsageMappings}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{Path => HPath}
 import org.apache.http.entity.AbstractHttpEntity
@@ -253,40 +253,13 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   }
 
   private def usageMappingFor(service: OpenAIServicesBase with HasTextOutput)
-      : Option[UsageFieldMapping] = {
-    service match {
-      case _: OpenAIChatCompletion | _: AIFoundryChatCompletion =>
-        Some(
-          UsageFieldMapping(
-            inputTokens = Some("prompt_tokens"),
-            outputTokens = Some("completion_tokens"),
-            totalTokens = Some("total_tokens"),
-            inputDetails = Some(
-              "prompt_tokens_details" -> Seq("audio_tokens", "cached_tokens")
-            ),
-            outputDetails = Some(
-              "completion_tokens_details" ->
-                Seq(
-                  "accepted_prediction_tokens",
-                  "audio_tokens",
-                  "reasoning_tokens",
-                  "rejected_prediction_tokens"
-                )
-            )
-          )
-        )
-      case _: OpenAIResponses =>
-        Some(
-          UsageFieldMapping(
-            inputTokens = Some("input_tokens"),
-            outputTokens = Some("output_tokens"),
-            totalTokens = Some("total_tokens"),
-            inputDetails = Some("input_tokens_details" -> Seq("cached_tokens")),
-            outputDetails = Some("output_tokens_details" -> Seq("reasoning_tokens"))
-          )
-        )
-      case _ => None
-    }
+      : Option[UsageFieldMapping] = service match {
+    case _: OpenAIChatCompletion | _: AIFoundryChatCompletion =>
+      Some(UsageMappings.ChatCompletions)
+    case _: OpenAIResponses =>
+      Some(UsageMappings.Responses)
+    case _ =>
+      None
   }
 
   private def withUsageColumn(
