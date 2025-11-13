@@ -12,19 +12,20 @@ import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{Vector, Vectors}
-import org.apache.spark.ml.param.BooleanParam
 import org.apache.spark.ml.util._
-import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.types._
 import scala.language.existentials
-import org.apache.spark.sql.functions.{col, lit, map => sqlMap, struct, typedLit, udf, when}
+import org.apache.spark.sql.functions.{col, struct, udf}
 import spray.json.DefaultJsonProtocol._
 import spray.json._
+import HasReturnUsage.UsageFieldMapping
 
 object OpenAIEmbedding extends ComplexParamsReadable[OpenAIEmbedding]
 
 class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
-  with HasOpenAIEmbeddingParams with HasCognitiveServiceInput with SynapseMLLogging {
+  with HasOpenAIEmbeddingParams with HasCognitiveServiceInput with SynapseMLLogging
+  with HasReturnUsage {
   logClass(FeatureNames.AiServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAIEmbedding"))
@@ -46,15 +47,6 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
   def getTextCol: String = getVectorParam(text)
 
   def setTextCol(value: String): this.type = setVectorParam(text, value)
-
-  val returnUsage = new BooleanParam(
-    this, "returnUsage", "Whether to include embedding usage statistics alongside the vector output.")
-
-  def getReturnUsage: Boolean = $(returnUsage)
-
-  def setReturnUsage(value: Boolean): this.type = set(returnUsage, value)
-
-  setDefault(returnUsage -> false)
 
   override protected def getInternalOutputParser(schema: StructType): JSONOutputParser =
     new JSONOutputParser().setDataType(EmbeddingResponse.schema)
@@ -97,32 +89,29 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
 
   override val subscriptionKeyHeaderName: String = "api-key"
 
-  private val usageMapType: MapType = MapType(StringType, LongType, valueContainsNull = false)
-
-  private val extractVectorUDF = udf { row: Row =>
+  private val extractVectorUDF = udf((row: Row) =>
     Option(row)
       .flatMap(r => Option(r.getAs[Seq[Row]]("data")))
       .flatMap(_.headOption)
       .map(dataRow => Vectors.dense(dataRow.getAs[Seq[Double]]("embedding").toArray))
       .orNull // scalastyle:ignore null
-  }
-
-  private def usageMapColumn(usageStruct: Column): Column = {
-    val promptTokens = usageStruct.getField("prompt_tokens").cast(LongType)
-    val totalTokens = usageStruct.getField("total_tokens").cast(LongType)
-    val mapExpr = sqlMap(
-      lit("prompt_tokens"), promptTokens,
-      lit("total_tokens"), totalTokens
-    )
-    when(usageStruct.isNotNull, mapExpr).otherwise(typedLit(Map.empty[String, Long]))
-  }
+  )
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     val parsed = super.transform(dataset)
     val responseCol = col(getOutputCol)
     val vectorCol = extractVectorUDF(responseCol)
     if (getReturnUsage) {
-      val usageCol = usageMapColumn(responseCol.getField("usage"))
+      val usageCol = normalizeUsageColumn(
+        responseCol.getField("usage"),
+        UsageFieldMapping(
+          inputTokens = Some("prompt_tokens"),
+          outputTokens = None,
+          totalTokens = Some("total_tokens"),
+          inputDetails = None,
+          outputDetails = None
+        )
+      )
       parsed.withColumn(
         getOutputCol,
         struct(
@@ -143,7 +132,7 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
         getOutputCol,
         StructType(Seq(
           StructField("response", VectorType, nullable = true),
-          StructField("usage", usageMapType, nullable = true)
+          StructField("usage", usageStructType, nullable = true)
         )),
         nullable = true
       )

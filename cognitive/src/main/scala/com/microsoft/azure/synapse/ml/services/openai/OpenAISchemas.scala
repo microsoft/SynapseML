@@ -47,7 +47,19 @@ case class OpenAIChatChoice(message: OpenAIMessage,
                             index: Long,
                             finish_reason: String)
 
-case class ChatUsage(completion_tokens: Long, prompt_tokens: Long, total_tokens: Long)
+case class TokenDetails(audio_tokens: Option[Long] = None,
+                        cached_tokens: Option[Long] = None,
+                        reasoning_tokens: Option[Long] = None,
+                        accepted_prediction_tokens: Option[Long] = None,
+                        rejected_prediction_tokens: Option[Long] = None)
+
+object TokenDetails extends SparkBindings[TokenDetails]
+
+case class ChatUsage(completion_tokens: Long,
+                     prompt_tokens: Long,
+                     total_tokens: Long,
+                     completion_tokens_details: Option[TokenDetails] = None,
+                     prompt_tokens_details: Option[TokenDetails] = None)
 
 case class ChatModelResponse(id: String,
                                   `object`: String,
@@ -66,7 +78,11 @@ object OpenAIJsonProtocol extends DefaultJsonProtocol {
 case class ResponsesOutputContentComponent(`type`: String, text: String)
 case class OpenAIResponsesChoice(content: Seq[ResponsesOutputContentComponent], status: String)
 
-case class ResponsesUsage(output_tokens: Long, input_tokens: Long, total_tokens: Long)
+case class ResponsesUsage(output_tokens: Long,
+                          input_tokens: Long,
+                          total_tokens: Long,
+                          output_tokens_details: Option[TokenDetails] = None,
+                          input_tokens_details: Option[TokenDetails] = None)
 
 case class ResponsesModelResponse(id: String,
                                   `object`: String,

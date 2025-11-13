@@ -185,10 +185,23 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     assert(structType.fieldNames.contains("usage"))
 
     val row = p.transform(df.limit(1)).select("usage_true").collect().head.getStruct(0)
-    val values = row.getValuesMap[Any](Seq("response", "usage"))
-    assert(values("response").isInstanceOf[Seq[_]] || values("response") == null)
-    val usage = values("usage").asInstanceOf[scala.collection.Map[String, Long]]
-    assert(usage != null)
+    val usageRowOpt = Option(row.getAs[Row]("usage"))
+    assert(usageRowOpt.isDefined)
+    val usageRow = usageRowOpt.get
+    val usageFields = usageRow.schema.fieldNames.toSet
+    assert(usageFields.contains("input_tokens"))
+    assert(usageFields.contains("output_tokens"))
+    assert(usageFields.contains("total_tokens"))
+    assert(usageFields.contains("input_token_details"))
+    assert(usageFields.contains("output_token_details"))
+    val inputTokens = usageRow.getAs[java.lang.Long]("input_tokens")
+    assert(inputTokens == null || inputTokens.longValue() >= 0)
+    val totalTokens = usageRow.getAs[java.lang.Long]("total_tokens")
+    assert(totalTokens == null || totalTokens.longValue() >= 0)
+    val inputDetails = usageRow.getAs[scala.collection.Map[String, Long]]("input_token_details")
+    val outputDetails = usageRow.getAs[scala.collection.Map[String, Long]]("output_token_details")
+    assert(inputDetails != null)
+    assert(outputDetails != null)
   }
 
   lazy val promptGpt4: OpenAIPrompt = new OpenAIPrompt()

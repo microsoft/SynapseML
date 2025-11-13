@@ -11,6 +11,7 @@ import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.{HasGlobalParams, StringStringMapParam}
 import com.microsoft.azure.synapse.ml.services._
 import com.microsoft.azure.synapse.ml.services.aifoundry.{AIFoundryChatCompletion, HasAIFoundryTextParamsExtended}
+import HasReturnUsage.UsageFieldMapping
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{Path => HPath}
 import org.apache.http.entity.AbstractHttpEntity
@@ -43,7 +44,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   with HasURL with HasCustomCogServiceDomain with ConcurrencyParams
   with HasSubscriptionKey with HasAADToken with HasCustomAuthHeader
   with HasCognitiveServiceInput
-  with ComplexParamsWritable with SynapseMLLogging with HasGlobalParams {
+  with ComplexParamsWritable with SynapseMLLogging with HasGlobalParams
+  with HasReturnUsage {
 
   logClass(FeatureNames.AiServices.OpenAI)
 
@@ -127,13 +129,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   def setApiType(value: String): this.type = set(apiType, value)
 
-  val returnUsage = new BooleanParam(
-    this, "returnUsage", "Whether to include usage statistics alongside the response output.")
-
-  def getReturnUsage: Boolean = $(returnUsage)
-
-  def setReturnUsage(value: Boolean): this.type = set(returnUsage, value)
-
   val columnTypes = new StringStringMapParam(
     this, "columnTypes", "A map from column names to their types. Supported types are 'text' and 'path'.")
   private def validateColumnType(value: String) = {
@@ -174,8 +169,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     systemPrompt -> defaultSystemPrompt,
     apiType -> "chat_completions",
     columnTypes -> Map.empty,
-    timeout -> 360.0,
-    returnUsage -> false
+    timeout -> 360.0
   )
 
   override def setCustomServiceName(v: String): this.type = {
@@ -189,8 +183,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   private val localParamNames = Seq(
     "promptTemplate", "outputCol", "postProcessing", "postProcessingOptions", "dropPrompt", "dropMessages",
     "systemPrompt", "apiType", "returnUsage")
-
-  private val usageMapType: T.MapType = T.MapType(T.StringType, T.LongType, valueContainsNull = false)
 
   private val multiModalTextPrompt = "The name of the file to analyze is %s.\nHere is the content:\n"
 
@@ -277,15 +269,29 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     val withParsed = if (getReturnUsage) {
       val usageCol = service match {
         case _: OpenAIChatCompletion | _: AIFoundryChatCompletion =>
-          buildUsageMap(
+          normalizeUsageColumn(
             F.col(service.getOutputCol).getField("usage"),
-            Seq("completion_tokens", "prompt_tokens", "total_tokens"))
+            UsageFieldMapping(
+              inputTokens = Some("prompt_tokens"),
+              outputTokens = Some("completion_tokens"),
+              totalTokens = Some("total_tokens"),
+              inputDetails = Some("prompt_tokens_details"),
+              outputDetails = Some("completion_tokens_details")
+            )
+          )
         case _: OpenAIResponses =>
-          buildUsageMap(
+          normalizeUsageColumn(
             F.col(service.getOutputCol).getField("usage"),
-            Seq("output_tokens", "input_tokens", "total_tokens"))
+            UsageFieldMapping(
+              inputTokens = Some("input_tokens"),
+              outputTokens = Some("output_tokens"),
+              totalTokens = Some("total_tokens"),
+              inputDetails = Some("input_tokens_details"),
+              outputDetails = Some("output_tokens_details")
+            )
+          )
         case _ =>
-          typedLit(Map.empty[String, Long])
+          F.lit(null).cast(usageStructType)
       }
       transformed
         .withColumn(
@@ -482,15 +488,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     else "file"
   }
 
-  private def buildUsageMap(usageCol: Column, fieldNames: Seq[String]): Column = {
-    val keyValueColumns = fieldNames.flatMap { fieldName =>
-      Seq(F.lit(fieldName), usageCol.getField(fieldName).cast(T.LongType))
-    }
-    val usageMapExpr = F.map(keyValueColumns: _*)
-    F.when(usageCol.isNotNull, usageMapExpr)
-      .otherwise(typedLit(Map.empty[String, Long]))
-  }
-
   private[openai] def hasAIFoundryModel: Boolean = this.isDefined(model)
 
   //deployment name can be set by user, it doesn't have to match with model name
@@ -567,7 +564,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       if (getReturnUsage) {
         T.StructType(Seq(
           StructField("response", parserOutputSchema, nullable = true),
-          StructField("usage", usageMapType, nullable = true)
+          StructField("usage", usageStructType, nullable = true)
         ))
       } else {
         parserOutputSchema

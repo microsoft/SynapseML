@@ -157,12 +157,20 @@ class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with Ope
     val outputRow = e.transform(df.limit(1)).select("usage_true_struct").collect().head
     val struct = outputRow.getAs[Row](0)
     assert(struct != null)
-    val values = struct.getValuesMap[Any](Seq("response", "usage"))
-    val vector = values("response").asInstanceOf[Vector]
+    val vector = struct.getAs[Vector]("response")
     assert(vector.size > 0)
-    val usage = values("usage").asInstanceOf[scala.collection.Map[String, Long]]
-    assert(usage != null)
-    assert(usage.keySet.subsetOf(Set("prompt_tokens", "total_tokens")))
+    val usageRowOpt = Option(struct.getAs[Row]("usage"))
+    assert(usageRowOpt.isDefined)
+    val usageRow = usageRowOpt.get
+    val usageFields = usageRow.schema.fieldNames.toSet
+    assert(usageFields.contains("input_tokens"))
+    assert(usageFields.contains("total_tokens"))
+    val inputTokens = usageRow.getAs[java.lang.Long]("input_tokens")
+    assert(inputTokens == null || inputTokens.longValue() >= 0)
+    val inputDetails = usageRow.getAs[scala.collection.Map[String, Long]]("input_token_details")
+    assert(inputDetails != null)
+    val outputDetails = usageRow.getAs[scala.collection.Map[String, Long]]("output_token_details")
+    assert(outputDetails != null)
   }
 
 
