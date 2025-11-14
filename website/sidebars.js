@@ -35,7 +35,6 @@ module.exports = {
                         "Explore Algorithms/AI Services/Geospatial Services",
                         "Explore Algorithms/AI Services/Multivariate Anomaly Detection",
                         "Explore Algorithms/AI Services/Advanced Usage - Async, Batching, and Multi-Key",
-                        "Explore Algorithms/AI Services/Quickstart - Analyze Celebrity Quotes",
                         "Explore Algorithms/AI Services/Quickstart - Analyze Text",
                         "Explore Algorithms/AI Services/Quickstart - Create a Visual Search Engine",
                         "Explore Algorithms/AI Services/Quickstart - Create Audiobooks",
@@ -83,7 +82,6 @@ module.exports = {
                         "Explore Algorithms/Responsible AI/Data Balance Analysis",
                         "Explore Algorithms/Responsible AI/Explanation Dashboard",
                         "Explore Algorithms/Responsible AI/Quickstart - Data Balance Analysis",
-                        "Explore Algorithms/Responsible AI/Quickstart - Snow Leopard Detection",
                     ],
                 },
 
