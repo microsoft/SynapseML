@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.services.vision
 
 import com.microsoft.azure.synapse.ml.services._
-import com.microsoft.azure.synapse.ml.services.bing.BingImageSearch
+import com.microsoft.azure.synapse.ml.services.TestImageDownloader
 import com.microsoft.azure.synapse.ml.core.spark.FluentAPI._
 import com.microsoft.azure.synapse.ml.core.test.base.{Flaky, TestBase}
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{GetterSetterFuzzing, TestObject, TransformerFuzzing}
@@ -28,9 +28,8 @@ trait OCRUtils extends TestBase {
     "https://mmlspark.blob.core.windows.net/datasets/OCR/paper.pdf"
   ).toDF("url")
 
-  lazy val bytesDF: DataFrame = BingImageSearch
-    .downloadFromUrls("url", "imageBytes", 4, 10000)
-    .transform(df)
+  lazy val bytesDF: DataFrame = TestImageDownloader
+    .downloadFromUrls(df, "url", "imageBytes")
     .select("imageBytes")
 
 }
@@ -115,9 +114,8 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage]
   def ai: AnalyzeImage = baseAI
     .setImageUrlCol("url")
 
-  lazy val bytesDF: DataFrame = BingImageSearch
-    .downloadFromUrls("url", "imageBytes", 4, 10000)
-    .transform(df)
+  lazy val bytesDF: DataFrame = TestImageDownloader
+    .downloadFromUrls(df, "url", "imageBytes")
     .drop("url")
 
   def bytesAI: AnalyzeImage = baseAI
@@ -321,9 +319,8 @@ class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDo
     .setImageUrlCol("url")
     .setOutputCol("celebs")
 
-  lazy val bytesDF: DataFrame = BingImageSearch
-    .downloadFromUrls("url", "imageBytes", 4, 10000)
-    .transform(df)
+  lazy val bytesDF: DataFrame = TestImageDownloader
+    .downloadFromUrls(df, "url", "imageBytes")
     .select("imageBytes")
 
   lazy val bytesCeleb: RecognizeDomainSpecificContent = new RecognizeDomainSpecificContent()
@@ -377,9 +374,8 @@ class GenerateThumbnailsSuite extends TransformerFuzzing[GenerateThumbnails]
     .setImageUrlCol("url")
     .setOutputCol("thumbnails")
 
-  lazy val bytesDF: DataFrame = BingImageSearch
-    .downloadFromUrls("url", "imageBytes", 4, 10000)
-    .transform(df)
+  lazy val bytesDF: DataFrame = TestImageDownloader
+    .downloadFromUrls(df, "url", "imageBytes")
     .select("imageBytes")
 
   lazy val bytesGT: GenerateThumbnails = new GenerateThumbnails()
@@ -419,9 +415,8 @@ class TagImageSuite extends TransformerFuzzing[TagImage] with CognitiveKey with 
     .setImageUrlCol("url")
     .setOutputCol("tags")
 
-  lazy val bytesDF: DataFrame = BingImageSearch
-    .downloadFromUrls("url", "imageBytes", 4, 10000)
-    .transform(df)
+  lazy val bytesDF: DataFrame = TestImageDownloader
+    .downloadFromUrls(df, "url", "imageBytes")
     .select("imageBytes")
 
   lazy val bytesTI: TagImage = new TagImage()
@@ -476,9 +471,8 @@ class DescribeImageSuite extends TransformerFuzzing[DescribeImage]
     .setImageUrlCol("url")
     .setOutputCol("descriptions")
 
-  lazy val bytesDF: DataFrame = BingImageSearch
-    .downloadFromUrls("url", "imageBytes", 4, 10000)
-    .transform(df)
+  lazy val bytesDF: DataFrame = TestImageDownloader
+    .downloadFromUrls(df, "url", "imageBytes")
     .select("imageBytes")
 
   lazy val bytesDI: DescribeImage = new DescribeImage()
