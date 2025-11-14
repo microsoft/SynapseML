@@ -24,7 +24,7 @@ object TestImageDownloader {
                        readTimeoutMs: Int = 10000): DataFrame = {
     val fetchBytes = udf { urlStr: String =>
       if (urlStr == null) {
-        null
+        null //scalastyle:ignore null
       } else {
         val connection = new URL(urlStr).openConnection()
         connection.setConnectTimeout(connectTimeoutMs)
