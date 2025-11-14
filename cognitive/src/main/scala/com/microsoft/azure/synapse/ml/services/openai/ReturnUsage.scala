@@ -84,7 +84,7 @@ object HasReturnUsage {
     StructField("output_token_details", MapType(StringType, LongType, valueContainsNull = true), nullable = false)
   ))
 
-  private val NullLongColumn: Column = lit(0L).cast(LongType)
+  private val NullLongColumn: Column = lit(null).cast(LongType)  // scalastyle:ignore null
   private val EmptyDetailsMapColumn: Column = typedLit(Map.empty[String, Long])
 
   private def tokenValue(usage: Column, nameOpt: Option[String]): Column =
