@@ -11,19 +11,21 @@ import com.microsoft.azure.synapse.ml.services.HasCognitiveServiceInput
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
-import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.util._
-import org.apache.spark.sql.Row
+import org.apache.spark.ml.functions.array_to_vector
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.types._
+import scala.language.existentials
+import org.apache.spark.sql.functions.{col, element_at, struct}
 import spray.json.DefaultJsonProtocol._
 import spray.json._
-
-import scala.language.existentials
+import HasReturnUsage.UsageMappings
 
 object OpenAIEmbedding extends ComplexParamsReadable[OpenAIEmbedding]
 
 class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
-  with HasOpenAIEmbeddingParams with HasCognitiveServiceInput with SynapseMLLogging {
+  with HasOpenAIEmbeddingParams with HasCognitiveServiceInput with SynapseMLLogging
+  with HasReturnUsage {
   logClass(FeatureNames.AiServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAIEmbedding"))
@@ -46,17 +48,8 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
 
   def setTextCol(value: String): this.type = setVectorParam(text, value)
 
-  override protected def getInternalOutputParser(schema: StructType): JSONOutputParser = {
-    def responseToVector(r: Row) =
-      if (r == null)
-        None
-      else
-        Some(Vectors.dense(r.getAs[Seq[Row]]("data").head.getAs[Seq[Double]]("embedding").toArray))
-
-    new JSONOutputParser()
-      .setDataType(EmbeddingResponse.schema)
-      .setPostProcessFunc[Row, Option[Vector]](responseToVector, VectorType)
-  }
+  override protected def getInternalOutputParser(schema: StructType): JSONOutputParser =
+    new JSONOutputParser().setDataType(EmbeddingResponse.schema)
 
   override def setCustomServiceName(v: String): this.type = {
     setUrl(s"https://$v.openai.azure.com/" + urlPath.stripPrefix("/"))
@@ -96,4 +89,43 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
 
   override val subscriptionKeyHeaderName: String = "api-key"
 
+  override def transform(dataset: Dataset[_]): DataFrame = {
+    val parsed = super.transform(dataset)
+    val responseCol = col(getOutputCol)
+    val embeddingArrayCol = element_at(responseCol.getField("data"), 1).getField("embedding")
+    val vectorCol = array_to_vector(embeddingArrayCol)
+    if (getReturnUsage) {
+      val usageCol = normalizeUsageColumn(
+        responseCol.getField("usage"),
+        UsageMappings.Embeddings
+      )
+      parsed.withColumn(
+        getOutputCol,
+        struct(
+          vectorCol.alias("response"),
+          usageCol.alias("usage")
+        )
+      )
+    } else {
+      parsed.withColumn(getOutputCol, vectorCol)
+    }
+  }
+
+  override def transformSchema(schema: StructType): StructType = {
+    val baseSchema = super.transformSchema(schema)
+    val fieldsWithoutOutput = baseSchema.fields.filterNot(_.name == getOutputCol)
+    val outputField = if (getReturnUsage) {
+      StructField(
+        getOutputCol,
+        StructType(Seq(
+          StructField("response", VectorType, nullable = true),
+          StructField("usage", usageStructType, nullable = true)
+        )),
+        nullable = true
+      )
+    } else {
+      StructField(getOutputCol, VectorType, nullable = true)
+    }
+    StructType(fieldsWithoutOutput :+ outputField)
+  }
 }
