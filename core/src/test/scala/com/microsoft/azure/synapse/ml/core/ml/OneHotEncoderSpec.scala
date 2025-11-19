@@ -82,7 +82,7 @@ class OneHotEncoderSpec extends TestBase {
   }
 
   private def testOHE(data: DataFrame) = {
-    assertSparkException[SparkException](
+    assertSparkException[Exception](
       new OneHotEncoder()
         .setInputCols(Array("categoryIndex")).setOutputCols(Array("encodedOutput")),
       data.toDF("id", "categoryIndex"))

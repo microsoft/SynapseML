@@ -254,6 +254,12 @@ val settings = Seq(
   Test / logBuffered := false,
   Test / parallelExecution := false,
   Test / publishArtifact := true,
+  Test / fork := true,
+  Test / javaOptions ++= Seq(
+    "--add-opens=java.base/java.nio=ALL-UNNAMED",
+    "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
+    "--add-opens=java.base/java.util=ALL-UNNAMED"
+  ),
   assembly / test := {},
   assembly / assemblyMergeStrategy := {
     case PathList("META-INF", xs@_*) => MergeStrategy.discard

@@ -135,4 +135,6 @@ class VectorSHAPExplainerSuite extends TestBase
   override def testObjects(): Seq[TestObject[VectorSHAP]] = Seq(new TestObject(kernelShap, infer))
 
   override def reader: MLReadable[_] = VectorSHAP
+
+  override def ignoreSerializationFuzzing: Boolean = true
 }

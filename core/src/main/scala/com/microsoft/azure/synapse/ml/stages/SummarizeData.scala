@@ -136,7 +136,14 @@ class SummarizeData(override val uid: String)
   private def computeCountsImpl(col: String, df: DataFrame): Array[Double] = {
     val column = df.col(col)
     val dataType = df.schema(col).dataType
-    val mExpr = isnull(column) || (if (dataType.equals(BooleanType)) isnan(column.cast(DoubleType)) else isnan(column))
+    val mExpr = dataType match {
+      case _: NumericType =>
+        isnull(column) || isnan(column.cast(DoubleType))
+      case BooleanType =>
+        isnull(column)
+      case _ =>
+        isnull(column)
+    }
 
     val countMissings = df.where(mExpr).count().toDouble
     // approxCount returns Long which > Double!

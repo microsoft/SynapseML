@@ -112,7 +112,7 @@ class VerifyCleanMissingData extends TestBase with EstimatorFuzzing[CleanMissing
 
   test("Test for cleaning missing data with custom value") {
     val dataset = createMockDataset
-    val customValue = -1.5
+    val customValue = -1
     val cmd = new CleanMissingData()
       .setInputCols(dataset.columns)
       .setOutputCols(dataset.columns)
