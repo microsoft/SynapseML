@@ -13,24 +13,24 @@ object ArrayMapJsonProtocol extends DefaultJsonProtocol {
   implicit object MapJsonFormat extends JsonFormat[Map[String, Any]] {
     //scalastyle:off cyclomatic.complexity
     def write(m: Map[String, Any]): JsValue = {
-      JsObject(m.mapValues {
-        case v: Int => JsNumber(v)
-        case v: Short => JsNumber(v)
-        case v: Long => JsNumber(v)
-        case v: BigInt => JsNumber(v)
-        case v: Double => JsNumber(v)
-        case v: String => JsString(v)
-        case true => JsTrue
-        case false => JsFalse
-        case v: Map[_, _] => write(v.asInstanceOf[Map[String, Any]])
-        case default => serializationError(s"Unable to serialize $default")
+      JsObject(m.map {
+        case (k, v: Int) => k -> JsNumber(v)
+        case (k, v: Short) => k -> JsNumber(v)
+        case (k, v: Long) => k -> JsNumber(v)
+        case (k, v: BigInt) => k -> JsNumber(v)
+        case (k, v: Double) => k -> JsNumber(v)
+        case (k, v: String) => k -> JsString(v)
+        case (k, true) => k -> JsTrue
+        case (k, false) => k -> JsFalse
+        case (k, v: Map[_, _]) => k -> write(v.asInstanceOf[Map[String, Any]])
+        case (k, default) => serializationError(s"Unable to serialize $default")
       })
     }
     //scalastyle:on cyclomatic.complexity
 
     def read(value: JsValue): Map[String, Any] = value.asInstanceOf[JsObject].fields.map(kvp => {
       val convValue = kvp._2 match {
-        case JsNumber(n) => if (n.isValidInt) n.intValue().asInstanceOf[Any] else n.toDouble.asInstanceOf[Any]
+        case JsNumber(n) => if (n.isValidInt) n.toInt.asInstanceOf[Any] else n.toDouble.asInstanceOf[Any]
         case JsString(s) => s
         case JsTrue => true
         case JsFalse => false

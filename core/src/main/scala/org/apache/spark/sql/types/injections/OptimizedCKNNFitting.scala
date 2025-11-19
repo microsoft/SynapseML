@@ -22,8 +22,11 @@ trait OptimizedCKNNFitting extends ConditionalKNNParams with SynapseMLLogging {
         val label = row.getAs[L](getLabelCol)
         (bdv, value, label)
       }
-    val ballTree = ConditionalBallTree(
-      kvlTriples.map(_._1), kvlTriples.map(_._2), kvlTriples.map(_._3), getLeafSize)
+    val keys = kvlTriples.iterator.map(_._1).toIndexedSeq
+    val values = kvlTriples.iterator.map(_._2).toIndexedSeq
+    val labels = kvlTriples.iterator.map(_._3).toIndexedSeq
+
+    val ballTree = ConditionalBallTree(keys, values, labels, getLeafSize)
     new ConditionalKNNModel()
       .setFeaturesCol(getFeaturesCol)
       .setValuesCol(getValuesCol)
@@ -58,8 +61,10 @@ trait OptimizedKNNFitting extends KNNParams with SynapseMLLogging {
         val value = row.getAs[V](getValuesCol)
         (bdv, value)
       }
-    val ballTree = BallTree(
-      kvlTuples.map(_._1), kvlTuples.map(_._2), getLeafSize)
+    val keys = kvlTuples.iterator.map(_._1).toIndexedSeq
+    val values = kvlTuples.iterator.map(_._2).toIndexedSeq
+
+    val ballTree = BallTree(keys, values, getLeafSize)
     new KNNModel()
       .setFeaturesCol(getFeaturesCol)
       .setValuesCol(getValuesCol)

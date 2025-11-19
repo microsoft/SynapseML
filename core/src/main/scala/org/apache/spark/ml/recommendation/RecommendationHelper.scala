@@ -10,7 +10,8 @@ import org.apache.spark.ml.param._
 import org.apache.spark.ml.param.shared.{HasLabelCol, HasPredictionCol, HasSeed}
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsWritable, Estimator, Model}
-import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.expressions.Window
+import org.apache.spark.sql.functions.{col, collect_list, row_number, struct}
 import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.util.ThreadUtils
@@ -199,7 +200,6 @@ object SparkHelpers {
 
   def flatten(ratings: Dataset[_], num: Int, dstOutputColumn: String, srcOutputColumn: String): DataFrame = {
     import ratings.sparkSession.implicits._
-    import org.apache.spark.sql.functions.{collect_top_k, struct}
 
     val arrayType = ArrayType(
       new StructType()
@@ -207,12 +207,19 @@ object SparkHelpers {
         .add(Constants.RatingCol, FloatType)
     )
 
-    ratings.toDF(srcOutputColumn, dstOutputColumn, Constants.RatingCol).groupBy(srcOutputColumn)
-     .agg(collect_top_k(struct(Constants.RatingCol, dstOutputColumn), num, false))
-     .as[(Int, Seq[(Float, Int)])]
-     .map(t => (t._1, t._2.map(p => (p._2, p._1))))
-     .toDF(srcOutputColumn, Constants.Recommendations)
-     .withColumn(Constants.Recommendations, col(Constants.Recommendations).cast(arrayType))
+    val base = ratings.toDF(srcOutputColumn, dstOutputColumn, Constants.RatingCol)
+
+    val windowSpec = Window.partitionBy(col(srcOutputColumn)).orderBy(col(Constants.RatingCol).desc)
+
+    val ranked = base.withColumn("rn", row_number().over(windowSpec))
+
+    val topK = ranked
+      .filter(col("rn") <= num)
+      .groupBy(col(srcOutputColumn))
+      .agg(collect_list(struct(col(dstOutputColumn), col(Constants.RatingCol))).as(Constants.Recommendations))
+
+    topK
+      .withColumn(Constants.Recommendations, col(Constants.Recommendations).cast(arrayType))
   }
 }
 

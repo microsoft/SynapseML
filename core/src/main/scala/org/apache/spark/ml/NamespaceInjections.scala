@@ -34,7 +34,7 @@ object ParamInjections {
     }
 
     protected def awaitFutures[T](futures: Array[Future[T]]): Seq[T] = {
-      futures.map(ThreadUtils.awaitResult(_, Duration.Inf))
+      futures.iterator.map(f => ThreadUtils.awaitResult(f, Duration.Inf)).toSeq
     }
   }
 }

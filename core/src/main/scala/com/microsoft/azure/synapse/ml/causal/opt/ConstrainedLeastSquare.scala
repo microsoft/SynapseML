@@ -70,7 +70,7 @@ private[causal] class ConstrainedLeastSquare[TMat, TVec](step: Double,
 
     val init = vectorOps.make(n, 1d / n)
     val x = md.solve(init)
-    val lossHistory = md.history.map(_.valueAt)
+    val lossHistory: Seq[Double] = md.history.map(_.valueAt).toSeq
 
     val rmse = vectorOps.nrm2(matrixOps.gemv(A, x, Some(b), beta = -1)) / math.sqrt(m)
 

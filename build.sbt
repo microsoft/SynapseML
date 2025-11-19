@@ -7,12 +7,12 @@ import scala.xml.transform.{RewriteRule, RuleTransformer}
 import scala.xml.{Node => XmlNode, NodeSeq => XmlNodeSeq, _}
 
 val condaEnvName = "synapseml"
-val sparkVersion = "3.5.0"
+val sparkVersion = "4.0.1"
 name := "synapseml"
 ThisBuild / organization := "com.microsoft.azure"
-ThisBuild / scalaVersion := "2.12.17"
+ThisBuild / scalaVersion := "2.13.16"
 
-val scalaMajorVersion = 2.12
+val scalaMajorVersion = 2.13
 
 val excludes = Seq(
   ExclusionRule("org.apache.spark", s"spark-tags_$scalaMajorVersion"),
@@ -36,9 +36,11 @@ val extraDependencies = Seq(
   "org.apache.httpcomponents.client5" % "httpclient5" % "5.1.3",
   "org.apache.httpcomponents" % "httpmime" % "4.5.13",
   "com.linkedin.isolation-forest" %% "isolation-forest_3.5.0" % "3.0.5"
-    exclude("com.google.protobuf", "protobuf-java") exclude("org.apache.spark", "spark-mllib_2.12")
-    exclude("org.apache.spark", "spark-core_2.12") exclude("org.apache.spark", "spark-avro_2.12")
-    exclude("org.apache.spark", "spark-sql_2.12"),
+    exclude("com.google.protobuf", "protobuf-java")
+    exclude("org.apache.spark", s"spark-mllib_$scalaMajorVersion")
+    exclude("org.apache.spark", s"spark-core_$scalaMajorVersion")
+    exclude("org.apache.spark", s"spark-avro_$scalaMajorVersion")
+    exclude("org.apache.spark", s"spark-sql_$scalaMajorVersion"),
 ).map(d => d excludeAll (excludes: _*))
 val dependencies = coreDependencies ++ extraDependencies
 

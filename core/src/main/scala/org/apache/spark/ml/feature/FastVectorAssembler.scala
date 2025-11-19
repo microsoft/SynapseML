@@ -48,34 +48,31 @@ class FastVectorAssembler (override val uid: String)
             if (addedNumericField) {
               throw new SparkException("Categorical columns must precede all others, column out of order: " + c)
             }
-            Some(attr.withName(c))
+            Seq(attr.withName(c))
           } else {
             addedNumericField = true
-            None
+            Seq.empty
           }
         case _: VectorUDT =>
           val group = AttributeGroup.fromStructField(field)
-          if (group.attributes.isDefined) {
-            // If attributes are defined, copy them with updated names.
-            group.attributes.get.zipWithIndex.map { case (attr, i) =>
-              if (attr.isNominal && attr.name.isDefined) {
-                if (addedNumericField) {
-                  throw new SparkException("Categorical columns must precede all others, column out of order: " + c)
+          group.attributes match {
+            case Some(attrsArray) =>
+              // If attributes are defined, copy them with updated names.
+              attrsArray.zipWithIndex.flatMap { case (attr, i) =>
+                if (attr.isNominal) {
+                  if (addedNumericField) {
+                    throw new SparkException("Categorical columns must precede all others, column out of order: " + c)
+                  }
+                  val suffix = attr.name.getOrElse(i.toString)
+                  Some(attr.withName(s"${c}_$suffix"))
+                } else {
+                  addedNumericField = true
+                  None
                 }
-                attr.withName(c + "_" + attr.name.get)
-              } else if (attr.isNominal) {
-                if (addedNumericField) {
-                  throw new SparkException("Categorical columns must precede all others, column out of order: " + c)
-                }
-                attr.withName(c + "_" + i)
-              } else {
-                addedNumericField = true
-                null  //scalastyle:ignore null
-              }
-            }.filter(attr => attr != null)
-          } else {
-            addedNumericField = true
-            None
+              }.toSeq
+            case None =>
+              addedNumericField = true
+              Seq.empty
           }
         case otherType =>
           throw new SparkException(s"FastVectorAssembler does not support the $otherType type")

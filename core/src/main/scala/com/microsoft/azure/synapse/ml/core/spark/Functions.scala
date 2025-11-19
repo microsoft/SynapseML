@@ -80,7 +80,7 @@ class PEP3101Parser(val expr: String) {
       findLiteral = !findLiteral
     }
 
-    tokens
+    tokens.toSeq
   }
 }
 

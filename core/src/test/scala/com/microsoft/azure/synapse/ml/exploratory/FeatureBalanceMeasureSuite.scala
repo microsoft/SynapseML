@@ -38,8 +38,8 @@ class FeatureBalanceMeasureSuite extends DataBalanceTestBase with TransformerFuz
   private lazy val val1: String = "Male"
   private lazy val val2: String = "Female"
 
-  private def actualGenderMaleFemale: Map[String, Double] =
-    METRICS zip new FeatureBalanceMeasure()
+  private def actualGenderMaleFemale: Map[String, Double] = {
+    val values = new FeatureBalanceMeasure()
       .setSensitiveCols(features)
       .setLabelCol(label)
       .setVerbose(false) // Verbose adds additional cols to the measure struct, so disable it for unit test
@@ -47,7 +47,9 @@ class FeatureBalanceMeasureSuite extends DataBalanceTestBase with TransformerFuz
       .filter((col("ClassA") === val1 && col("ClassB") === val2) || (col("ClassB") === val2 && col("ClassB") === val1))
       .select(array(col("FeatureBalanceMeasure.*")))
       .as[Array[Double]]
-      .head toMap
+      .head
+    METRICS.zip(values).toMap
+  }
 
   private object ExpectedGenderMaleFemale {
     // Values were computed using:

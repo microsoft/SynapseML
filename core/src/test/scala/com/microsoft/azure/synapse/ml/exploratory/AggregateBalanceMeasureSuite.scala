@@ -29,24 +29,28 @@ class AggregateBalanceMeasureSuite extends DataBalanceTestBase with TransformerF
     df.printSchema()
   }
 
-  private def actualOneFeature: Map[String, Double] =
-    METRICS zip new AggregateBalanceMeasure()
+  private def actualOneFeature: Map[String, Double] = {
+    val values = new AggregateBalanceMeasure()
       .setSensitiveCols(Array(feature1))
       .setVerbose(true)
       .transform(sensitiveFeaturesDf)
       .select(array(col("AggregateBalanceMeasure.*")))
       .as[Array[Double]]
-      .head toMap
+      .head
+    METRICS.zip(values).toMap
+  }
 
-  private def actualOneFeatureDiffEpsilon: Map[String, Double] =
-    METRICS zip new AggregateBalanceMeasure()
+  private def actualOneFeatureDiffEpsilon: Map[String, Double] = {
+    val values = new AggregateBalanceMeasure()
       .setSensitiveCols(Array(feature1))
       .setEpsilon(0.9)
       .setVerbose(true)
       .transform(sensitiveFeaturesDf)
       .select(array(col("AggregateBalanceMeasure.*")))
       .as[Array[Double]]
-      .head toMap
+      .head
+    METRICS.zip(values).toMap
+  }
 
   private def oneFeatureProbabilities =
     getFeatureStats(sensitiveFeaturesDf.groupBy(feature1)).select(featureProbCol).as[Double].collect()
@@ -81,25 +85,29 @@ class AggregateBalanceMeasureSuite extends DataBalanceTestBase with TransformerF
     assert(actualOneFeature(THEILTINDEX) === ExpectedOneFeature.THEILTINDEX)
   }
 
-  private def actualTwoFeatures: Map[String, Double] =
-    METRICS zip new AggregateBalanceMeasure()
+  private def actualTwoFeatures: Map[String, Double] = {
+    val values = new AggregateBalanceMeasure()
       .setSensitiveCols(features)
       .setVerbose(true)
       .transform(sensitiveFeaturesDf)
       .select(array(col("AggregateBalanceMeasure.*")))
       .as[Array[Double]]
-      .head toMap
+      .head
+    METRICS.zip(values).toMap
+  }
 
 
-  private def actualTwoFeaturesDiffEpsilon: Map[String, Double] =
-    METRICS zip new AggregateBalanceMeasure()
+  private def actualTwoFeaturesDiffEpsilon: Map[String, Double] = {
+    val values = new AggregateBalanceMeasure()
       .setSensitiveCols(features)
       .setEpsilon(0.9)
       .setVerbose(true)
       .transform(sensitiveFeaturesDf)
       .select(array(col("AggregateBalanceMeasure.*")))
       .as[Array[Double]]
-      .head toMap
+      .head
+    METRICS.zip(values).toMap
+  }
 
 
   private def twoFeaturesProbabilities =

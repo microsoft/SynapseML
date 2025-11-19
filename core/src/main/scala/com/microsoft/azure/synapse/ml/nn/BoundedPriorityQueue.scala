@@ -10,7 +10,6 @@ Original file: https://github.com/apache/spark/core/src/main/scala/org/apache/sp
 
 import java.io.Serializable
 import java.util.{PriorityQueue => JPriorityQueue}
-import scala.collection.generic.Growable
 
 /**
   * Bounded priority queue. This class wraps the original PriorityQueue
@@ -18,7 +17,7 @@ import scala.collection.generic.Growable
   * The top K elements are defined by an implicit Ordering[A].
   */
 class BoundedPriorityQueue[A](maxSize: Int)(implicit ord: Ordering[A])
-  extends Iterable[A] with Growable[A] with Serializable {
+  extends Iterable[A] with Serializable {
 
   import scala.collection.JavaConverters._
 
@@ -29,14 +28,14 @@ class BoundedPriorityQueue[A](maxSize: Int)(implicit ord: Ordering[A])
   override def size: Int = underlying.size
 
   //scalastyle:off method.name
-  override def ++=(xs: TraversableOnce[A]): this.type = {
+  def ++=(xs: IterableOnce[A]): this.type = {
     xs.foreach {
       this += _
     }
     this
   }
 
-  override def +=(elem: A): this.type = {
+  def +=(elem: A): this.type = {
     if (size < maxSize) {
       underlying.offer(elem)
     } else {
@@ -45,12 +44,12 @@ class BoundedPriorityQueue[A](maxSize: Int)(implicit ord: Ordering[A])
     this
   }
 
-  override def +=(elem1: A, elem2: A, elems: A*): this.type = {
+  def +=(elem1: A, elem2: A, elems: A*): this.type = {
     this += elem1 += elem2 ++= elems
   }
   //scalastyle:on method.name
 
-  override def clear(): Unit = {
+  def clear(): Unit = {
     underlying.clear()
   }
 

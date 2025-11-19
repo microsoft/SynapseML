@@ -28,16 +28,16 @@ you opened a new command prompt or terminal before running the command.
 
 ### 2. Install Java
 
-Install [Java 8.1](https://www.oracle.com/java/technologies/downloads/#java8) for Windows and macOS,
-or [OpenJDK 8](https://openjdk.org/install/) for Ubuntu.
+Install [Java 17](https://www.oracle.com/java/technologies/downloads/#java17) for Windows and macOS,
+or a compatible [OpenJDK 17](https://openjdk.org/install/) distribution for Ubuntu.
 
-Select the appropriate version for your operating system. For example, select jdk-8u201-windows-x64.exe
-for a Windows x64 machine or jdk-8u231-macosx-x64.dmg for macOS. Then, use the command java to verify the installation.
+Select the appropriate version for your operating system (for example, a Windows x64 or macOS x64/ARM64 installer),
+then use the command `java -version` to verify the installation.
 
 ### 3. Install Apache Spark
 
-[Download and install Apache Spark](https://spark.apache.org/downloads.html) with version >= 3.5.0.
-(SynapseML v1.1.0 only supports spark version >= 3.5.0)
+[Download and install Apache Spark](https://spark.apache.org/downloads.html) with version >= 4.0.1.
+(This branch targets Spark version 4.0.x)
 
 Extract downloaded zipped files (with 7-Zip app on Windows or `tar` on linux) and remember the location of
 extracted files, we take `~/bin/spark-3.2.0-bin-hadoop3.2/` as an example here.

@@ -33,8 +33,8 @@ trait FormRecognizerV3Utils extends TestBase {
 
   def resultAssert(result: Array[Row], str1: String, str2: String): Unit = {
     assert(result.head.getString(2).contains(str1))
-    assert(result.head.getSeq(3).head.asInstanceOf[HashMap.HashTrieMap[String, _]]
-      .keys.toSeq.sortWith(_ < _).mkString(",").contains(str2))
+    val fieldMap = result.head.getSeq[scala.collection.Map[String, _]](3).head
+    assert(fieldMap.keys.toSeq.sorted.mkString(",").contains(str2))
   }
 
   def documentTest(model: AnalyzeDocument, df: DataFrame): DataFrame = {

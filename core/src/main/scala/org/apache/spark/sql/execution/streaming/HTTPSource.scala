@@ -7,8 +7,6 @@ import com.microsoft.azure.synapse.ml.io.http.{HTTPRequestData, HTTPResponseData
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql._
-import org.apache.spark.sql.catalyst.InternalRow
-import org.apache.spark.sql.catalyst.expressions.GenericInternalRow
 import org.apache.spark.sql.execution.streaming.continuous.HTTPSourceV2
 import org.apache.spark.sql.sources.{DataSourceRegister, StreamSinkProvider, StreamSourceProvider}
 import org.apache.spark.sql.streaming.OutputMode
@@ -83,31 +81,25 @@ class HTTPSource(name: String, host: String, port: Int, sqlContext: SQLContext)
     val startOrdinal = start.map(_.asInstanceOf[LongOffset]).getOrElse(LongOffset(-1)).offset.toInt + 1
     val endOrdinal = Option(end).map(_.asInstanceOf[LongOffset]).getOrElse(LongOffset(-1)).offset.toInt + 1
 
-    val hrdToIr = HTTPRequestData.makeToInternalRowConverter
+    val requestToRow = HTTPRequestData.makeToRowConverter
 
     // Internal buffer only holds the batches after lastOffsetCommitted
-    val rawList = synchronized {
+    val rawList: Seq[Row] = synchronized {
       val sliceStart = startOrdinal - lastOffsetCommitted.offset.toInt - 1
       val sliceEnd = endOrdinal - lastOffsetCommitted.offset.toInt - 1
-      requests.slice(sliceStart, sliceEnd).map{ case(id, request) =>
-        val row = new GenericInternalRow(2)
-        val idRow = new GenericInternalRow(3)
-        idRow.update(0, null) //scalastyle:ignore null
-        idRow.update(1, UTF8String.fromString(id.toString))
-        idRow.update(2, null) //scalastyle:ignore null
-        row.update(0, idRow)
-        row.update(1, hrdToIr(HTTPRequestData.fromHTTPExchange(request)))
-        row.asInstanceOf[InternalRow]
-      }
+      requests.slice(sliceStart, sliceEnd).map { case (id, request) =>
+        val idRow = Row(null, id.toString, null)  // matches HTTPSourceV2.IdSchema
+        val requestRow = requestToRow(HTTPRequestData.fromHTTPExchange(request))
+        Row(idRow, requestRow)
+      }.toSeq
     }
     val rawBatch = if (rawList.nonEmpty) {
       sqlContext.sparkContext.parallelize(rawList)
     } else {
-      sqlContext.sparkContext.emptyRDD[InternalRow]
+      sqlContext.sparkContext.emptyRDD[Row]
     }
 
-    sqlContext.sparkSession
-      .internalCreateDataFrame(rawBatch, schema, isStreaming = true)
+    sqlContext.sparkSession.createDataFrame(rawBatch, schema)
   }
 
   def reply(id: String, reply: HTTPResponseData): Unit = {
@@ -146,13 +138,13 @@ class HTTPSourceProvider extends StreamSourceProvider with DataSourceRegister wi
     logWarning("The socket source should not be used for production applications! " +
                  "It does not support recovery.")
     if (!parameters.contains("host")) {
-      throw new AnalysisException("Set a host to read from with option(\"host\", ...).")
+      throw new IllegalArgumentException("Set a host to read from with option(\"host\", ...).")
     }
     if (!parameters.contains("port")) {
-      throw new AnalysisException("Set a port to read from with option(\"port\", ...).")
+      throw new IllegalArgumentException("Set a port to read from with option(\"port\", ...).")
     }
     if (!parameters.contains("path")) {
-      throw new AnalysisException("Set a name of the API which is used for routing")
+      throw new IllegalArgumentException("Set a name of the API which is used for routing")
     }
     ("HTTP", HTTPSourceV2.Schema)
   }
@@ -177,7 +169,7 @@ class HTTPSourceProvider extends StreamSourceProvider with DataSourceRegister wi
 class HTTPSink(val options: Map[String, String]) extends Sink with Logging {
 
   if (!options.contains("name")) {
-    throw new AnalysisException("Set a name of an API to reply to")
+    throw new IllegalArgumentException("Set a name of an API to reply to")
   }
 
   override def addBatch(batchId: Long, data: DataFrame): Unit = synchronized {

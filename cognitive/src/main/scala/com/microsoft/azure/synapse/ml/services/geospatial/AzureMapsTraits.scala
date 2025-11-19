@@ -13,6 +13,7 @@ import com.microsoft.azure.synapse.ml.param.ServiceParam
 import org.apache.http.client.methods.HttpGet
 import org.apache.http.impl.client.CloseableHttpClient
 import spray.json.DefaultJsonProtocol.{DoubleJsonFormat, StringJsonFormat, seqFormat}
+import spray.json.JsonFormat
 
 import java.net.URI
 import java.util.concurrent.TimeoutException
@@ -47,6 +48,8 @@ trait HasUserDataIdInput extends HasServiceParams {
 }
 
 trait HasLatLonPairInput extends HasServiceParams {
+  implicit val doubleSeqJsonFormat: JsonFormat[Seq[Double]] =
+    seqFormat[Double].asInstanceOf[JsonFormat[Seq[Double]]]
   val latitude = new ServiceParam[Seq[Double]](
     this, "latitude", "the latitude of location")
   val longitude = new ServiceParam[Seq[Double]](
@@ -74,6 +77,8 @@ trait HasLatLonPairInput extends HasServiceParams {
 }
 
 trait HasAddressInput extends HasServiceParams {
+  implicit val stringSeqJsonFormat: JsonFormat[Seq[String]] =
+    seqFormat[String].asInstanceOf[JsonFormat[Seq[String]]]
   val address = new ServiceParam[Seq[String]](
     this, "address", "the address to geocode")
 

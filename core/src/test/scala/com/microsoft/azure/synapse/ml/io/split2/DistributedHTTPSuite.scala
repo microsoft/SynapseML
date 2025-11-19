@@ -389,7 +389,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
         new FooHolder
       }
 
-      import spark.sqlContext.implicits._
+      import spark.implicits._
 
       val DF: DataFrame = spark.sparkContext.parallelize(Seq(Tuple1("placeholder")))
         .toDF("plcaholder")

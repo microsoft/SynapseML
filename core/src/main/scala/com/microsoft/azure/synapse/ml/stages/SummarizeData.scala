@@ -85,7 +85,7 @@ trait SummarizeDataParams extends Wrappable with DefaultParamsWritable {
     if ($(basic)) columns ++= SummarizeData.BasicFields
     if ($(sample)) columns ++= SummarizeData.SampleFields
     if ($(percentiles)) columns ++= SummarizeData.PercentilesFields
-    StructType(columns)
+    StructType(columns.toSeq)
   }
 }
 

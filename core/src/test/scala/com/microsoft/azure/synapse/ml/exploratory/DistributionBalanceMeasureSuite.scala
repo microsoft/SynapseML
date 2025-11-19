@@ -36,11 +36,13 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
       .setVerbose(true)
       .transform(sensitiveFeaturesDf)
 
-  private def actualFeature1: Map[String, Double] =
-    METRICS zip actual.filter(col("FeatureName") === feature1)
+  private def actualFeature1: Map[String, Double] = {
+    val values = actual.filter(col("FeatureName") === feature1)
       .select(array(col("DistributionBalanceMeasure.*")))
       .as[Array[Double]]
-      .head toMap
+      .head
+    METRICS.zip(values).toMap
+  }
 
   private def expectedFeature1 = getFeatureStats(sensitiveFeaturesDf.groupBy(feature1))
     .select(featureProbCol, featureCountCol)
@@ -73,11 +75,13 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
     assert(actual(CHISQUAREDPVALUE) === expected.CHISQUAREDPVALUE)
   }
 
-  private def actualFeature2: Map[String, Double] =
-    METRICS zip actual.filter(col("FeatureName") === feature2)
+  private def actualFeature2: Map[String, Double] = {
+    val values = actual.filter(col("FeatureName") === feature2)
       .select(array(col("DistributionBalanceMeasure.*")))
       .as[Array[Double]]
-      .head toMap
+      .head
+    METRICS.zip(values).toMap
+  }
 
   private def expectedFeature2 = getFeatureStats(sensitiveFeaturesDf.groupBy(feature2))
     .select(featureProbCol, featureCountCol)
@@ -164,11 +168,13 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
       .setReferenceDistribution(customDistribution)
       .transform(sensitiveFeaturesDf)
 
-  private def actualCustomDistFeature1: Map[String, Double] =
-    METRICS zip actualCustomDist.filter(col("FeatureName") === feature1)
+  private def actualCustomDistFeature1: Map[String, Double] = {
+    val values = actualCustomDist.filter(col("FeatureName") === feature1)
       .select(array(col("DistributionBalanceMeasure.*")))
       .as[Array[Double]]
-      .head toMap
+      .head
+    METRICS.zip(values).toMap
+  }
 
   private def expectedCustomDistFeature1 = getFeatureStats(sensitiveFeaturesDf.groupBy(feature1))
     .select(feature1, featureProbCol, featureCountCol)
@@ -204,11 +210,13 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
     assert(actual(CHISQUAREDPVALUE) === expected.CHISQUAREDPVALUE)
   }
 
-  private def actualCustomDistFeature2: Map[String, Double] =
-    METRICS zip actualCustomDist.filter(col("FeatureName") === feature2)
+  private def actualCustomDistFeature2: Map[String, Double] = {
+    val values = actualCustomDist.filter(col("FeatureName") === feature2)
       .select(array(col("DistributionBalanceMeasure.*")))
       .as[Array[Double]]
-      .head toMap
+      .head
+    METRICS.zip(values).toMap
+  }
 
   private def expectedCustomDistFeature2 = getFeatureStats(sensitiveFeaturesDf.groupBy(feature2))
     .select(feature2, featureProbCol, featureCountCol)
