@@ -248,9 +248,18 @@ class DistributedHTTPSource(name: String,
     serverInfoConfigured
   }
 
-  // In Spark 4.x `internalCreateDataFrame` with `isStreaming` is no longer public;
-  // for our purposes we can treat this as a regular DataFrame.
-  private[spark] val serverInfoDFStreaming: DataFrame = serverInfoDF
+  // Mark the server info DataFrame as streaming so that Spark's micro-batch engine
+  // accepts it as a valid source output in Spark 4.x.
+  // Spark 4 introduces org.apache.spark.sql.classic.SparkSession which hosts the
+  // internalCreateDataFrame API; we downcast to that concrete type here.
+  private[spark] val serverInfoDFStreaming: DataFrame = {
+    val classicSession =
+      sqlContext.sparkSession.asInstanceOf[org.apache.spark.sql.classic.SparkSession]
+    classicSession.internalCreateDataFrame(
+      serverInfoDF.queryExecution.toRdd,
+      serverInfoDF.schema,
+      true)
+  }
 
   @GuardedBy("this")
   protected var currentOffset: LongOffset = new LongOffset(-1)

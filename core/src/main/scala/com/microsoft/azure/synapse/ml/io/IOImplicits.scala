@@ -20,7 +20,7 @@ import scala.language.implicitConversions
 case class DataStreamReaderExtensions(dsr: DataStreamReader) {
 
   def server: DataStreamReader = {
-    dsr.format(classOf[HTTPSourceProvider].getName)
+    dsr.format(classOf[HTTPSourceProviderV2].getName)
   }
 
   def distributedServer: DataStreamReader = {
@@ -32,7 +32,11 @@ case class DataStreamReaderExtensions(dsr: DataStreamReader) {
   }
 
   def address(host: String, port: Int, api: String): DataStreamReader = {
-    dsr.option("host", host).option("port", port.toLong).option("path", api)
+    dsr
+      .option("host", host)
+      .option("port", port.toLong)
+      .option("path", api)
+      .option("name", api)
   }
 
   def image: DataStreamReader = {
@@ -49,7 +53,7 @@ case class DataStreamReaderExtensions(dsr: DataStreamReader) {
 case class DataStreamWriterExtensions[T](dsw: DataStreamWriter[T]) {
 
   def server: DataStreamWriter[T] = {
-    dsw.format(classOf[HTTPSinkProvider].getName)
+    dsw.format(classOf[HTTPSinkProviderV2].getName)
   }
 
   def distributedServer: DataStreamWriter[T] = {

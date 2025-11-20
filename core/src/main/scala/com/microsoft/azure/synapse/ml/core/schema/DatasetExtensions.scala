@@ -29,7 +29,14 @@ object DatasetExtensions {
       * @return The sequence of values in the column.
       */
     def getColAs[T: ClassTag](colName: String): Seq[T] = {
-      df.select(colName).collect.map(_.getAs[T](0))
+      val rows = df.select(colName).collect()
+      val buffer = scala.collection.mutable.ArrayBuffer.empty[T]
+      var i = 0
+      while (i < rows.length) { //scalastyle:ignore while
+        buffer += rows(i).getAs[T](0)
+        i += 1
+      }
+      buffer.toSeq
     }
 
     /** Gets the spark sparse vector column.

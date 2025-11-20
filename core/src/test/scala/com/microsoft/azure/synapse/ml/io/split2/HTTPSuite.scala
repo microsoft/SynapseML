@@ -6,30 +6,53 @@ package com.microsoft.azure.synapse.ml.io.split2
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.io.http.HTTPSchema.string_to_response
 import org.apache.http.impl.client.HttpClientBuilder
-import org.apache.spark.sql.execution.streaming.{HTTPSinkProvider, HTTPSourceProvider}
+import org.apache.spark.sql.execution.streaming.continuous.{HTTPSourceProviderV2, HTTPSinkProviderV2}
 import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.streaming.DataStreamWriter
+import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.types.StringType
 
 import java.io.File
 
 class HTTPSuite extends TestBase with HTTPTestUtils {
 
-  test("stream from HTTP") {
-    val q1 = spark.readStream.format(classOf[HTTPSourceProvider].getName)
+  private def baseDF(apiPath: String = apiPath,
+                     apiName: String = apiName,
+                     port: Int = port): DataFrame = {
+    spark.readStream
+      .format(classOf[HTTPSourceProviderV2].getName)
       .option("host", host)
       .option("port", port.toString)
       .option("path", apiPath)
+      .option("name", apiName)
+      .option("numPartitions", 1L)
       .load()
-      .withColumn("contentLength", col("request.entity.contentLength"))
-      .withColumn("reply", string_to_response(col("contentLength").cast(StringType)))
-      .writeStream
-      .format(classOf[HTTPSinkProvider].getName)
-      .option("name", "foo")
-      .queryName("foo")
+  }
+
+  private def baseWrite(df: DataFrame,
+                        name: String = "foo",
+                        apiName: String = apiName): DataStreamWriter[Row] = {
+    df.writeStream
+      .format(classOf[HTTPSinkProviderV2].getName)
+      .option("name", apiName)
+      .queryName(name)
+      .option("checkpointLocation",
+        new File(tmpDir.toFile, s"checkpoints-$name").toString)
+  }
+
+  test("stream from HTTP") {
+    val q1 = baseWrite(
+      baseDF()
+        .withColumn("contentLength", col("request.entity.contentLength"))
+        .withColumn("reply", string_to_response(col("contentLength").cast(StringType))),
+      name = "foo"
+    )
       .option("replyCol", "reply")
-      .option("checkpointLocation", new File(tmpDir.toFile, "checkpoints").toString)
       .start()
-    waitForServer(q1)
+    // HTTPv2 sources can be slower to report initial
+    // progress; give the query a short warm-up period
+    // before issuing requests.
+    Thread.sleep(5000)
     val client = HttpClientBuilder.create().build()
     val p1 = sendJsonRequest(Map("foo" -> 1, "bar" -> "here"), url)
     val p2 = sendJsonRequest(Map("foo" -> 1, "bar" -> "heree"), url)

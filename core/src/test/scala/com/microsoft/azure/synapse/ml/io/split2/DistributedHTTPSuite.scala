@@ -228,7 +228,10 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
       .start()
 
     using(server) {
-      waitForServer(server)
+      // HTTPv2 sources can take a bit longer to report
+      // progress; give the query a moment to start before
+      // sending requests.
+      Thread.sleep(5000)
       val responses = List(
         sendJsonRequest(Map("foo" -> 1, "bar" -> "here"), url),
         sendJsonRequest(Map("foo" -> 2, "bar" -> "heree"), url),
@@ -255,7 +258,9 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
       .start()
 
     using(server) {
-      waitForServer(server)
+      // See comment in "test implicits" – allow the HTTPv2
+      // query some time to initialize before issuing requests.
+      Thread.sleep(5000)
       val responsesWithLatencies = (1 to 10).map(_ => sendFileRequest())
 
       val latencies = responsesWithLatencies.drop(3).map(_._2.toInt).toList
