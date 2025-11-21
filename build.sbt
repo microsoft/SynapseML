@@ -35,7 +35,7 @@ val extraDependencies = Seq(
   "com.jcraft" % "jsch" % "0.1.54",
   "org.apache.httpcomponents.client5" % "httpclient5" % "5.1.3",
   "org.apache.httpcomponents" % "httpmime" % "4.5.13",
-  "com.linkedin.isolation-forest" %% "isolation-forest_3.5.0" % "3.0.5"
+  "com.linkedin.isolation-forest" %% "isolation-forest_3.5.5" % "4.0.1"
     exclude("com.google.protobuf", "protobuf-java")
     exclude("org.apache.spark", s"spark-mllib_$scalaMajorVersion")
     exclude("org.apache.spark", s"spark-core_$scalaMajorVersion")
@@ -258,7 +258,9 @@ val settings = Seq(
   Test / javaOptions ++= Seq(
     "--add-opens=java.base/java.nio=ALL-UNNAMED",
     "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
-    "--add-opens=java.base/java.util=ALL-UNNAMED"
+    "--add-opens=java.base/java.util=ALL-UNNAMED",
+    "--add-opens=java.base/sun.util.calendar=ALL-UNNAMED",
+    "--add-exports=java.base/sun.util.calendar=ALL-UNNAMED"
   ),
   assembly / test := {},
   assembly / assemblyMergeStrategy := {

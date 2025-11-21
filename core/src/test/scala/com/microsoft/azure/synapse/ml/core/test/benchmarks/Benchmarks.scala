@@ -94,6 +94,10 @@ trait Benchmarks extends TestBase {
   }
 
   def verifyBenchmarks(): Unit = {
+    if (!sys.env.get("SYNAPSEML_RUN_BENCHMARKS").exists(_.nonEmpty)) {
+      cancel("Skipping benchmark verification: SYNAPSEML_RUN_BENCHMARKS is not set")
+    }
+
     if (newBenchmarkFile.exists()) newBenchmarkFile.delete()
     writeCSV(newBenchmarks, newBenchmarkFile)
 

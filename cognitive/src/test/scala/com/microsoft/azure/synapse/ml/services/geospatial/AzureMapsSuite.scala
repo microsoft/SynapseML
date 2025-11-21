@@ -21,6 +21,15 @@ import java.net.URI
 
 trait AzureMapsKey {
   lazy val azureMapsKey: String = sys.env.getOrElse("AZURE_MAPS_KEY", Secrets.AzureMapsKey)
+
+  protected def withAzureMaps(testName: String)(f: => Unit): Unit = {
+    val keyTry = scala.util.Try(azureMapsKey)
+    keyTry.fold(
+      _ => org.scalatest.Assertions.cancel(
+        s"Skipping Azure Maps test '$testName': AZURE_MAPS_KEY / Secrets.AzureMapsKey not configured"),
+      _ => f
+    )
+  }
 }
 
 class AzMapsSearchAddressSuite extends TransformerFuzzing[AddressGeocoder] with AzureMapsKey {

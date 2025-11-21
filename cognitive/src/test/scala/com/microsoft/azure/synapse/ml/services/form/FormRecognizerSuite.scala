@@ -154,6 +154,14 @@ trait FormRecognizerUtils extends TestBase with CognitiveKey with Flaky {
       assert(results.head.getString(i).startsWith(truePrefix))
     }
   }
+
+  override def beforeAll(): Unit = {
+    if (cognitiveKeyOption.isEmpty) {
+      org.scalatest.Assertions.cancel(
+        "Skipping FormRecognizer suites: COGNITIVE_API_KEY / Secrets.CognitiveApiKey not configured")
+    }
+    super.beforeAll()
+  }
 }
 
 class AnalyzeLayoutSuite extends TransformerFuzzing[AnalyzeLayout] with FormRecognizerUtils {

@@ -26,6 +26,15 @@ import scala.concurrent.blocking
 
 trait AzureSearchKey {
   lazy val azureSearchKey: String = sys.env.getOrElse("AZURE_SEARCH_KEY", Secrets.AzureSearchKey)
+
+  protected def withAzureSearch(testName: String)(f: => Unit): Unit = {
+    val keyTry = scala.util.Try(azureSearchKey)
+    keyTry.fold(
+      _ => org.scalatest.Assertions.cancel(
+        s"Skipping Azure Search test '$testName': AZURE_SEARCH_KEY / Secrets.AzureSearchKey not configured"),
+      _ => f
+    )
+  }
 }
 
 class SearchWriterSuiteUtilities extends TestBase with AzureSearchKey

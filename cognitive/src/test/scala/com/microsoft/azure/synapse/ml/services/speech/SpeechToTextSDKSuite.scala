@@ -77,6 +77,15 @@ trait SpeechToTextSDKSuiteBase extends TestBase with CognitiveKey with CustomSpe
 
   def sdk: SpeechSDKBase
 
+  protected def withSpeech(testName: String)(f: => Assertion): Assertion = {
+    cognitiveKeyOption match {
+      case Some(_) => f
+      case None =>
+        org.scalatest.Assertions.cancel(
+          s"Skipping Speech test '$testName': SPEECH_API_KEY / Secrets.SpeechApiKey not configured")
+    }
+  }
+
   def speechArrayToText(speechArray: Seq[SharedSpeechFields]): String = {
     speechArray.map(sr => sr.DisplayText.getOrElse("")).mkString(" ")
   }

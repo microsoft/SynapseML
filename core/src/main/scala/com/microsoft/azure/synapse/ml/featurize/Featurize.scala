@@ -201,16 +201,30 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel]
               })
               Some(new UDFTransformer().setInputCol(oldCol).setOutputCol(newCol).setUDF(featurizeUdf))
             case _: DateType =>
+              // First, derive an intermediate integer column holding days since epoch
+              // using Spark's built-in unix_date function, then apply a UDF on that
+              // integer column. This avoids any internal Date->ZoneInfo reflection while
+              // keeping the public behavior (a vector of derived date features).
+              val daysCol = columnState.makeNewCol(baseCol, IntegerType)
+              val m0 = new SQLTransformer()
+                .setStatement(s"SELECT *, unix_date(`$oldCol`) AS `$daysCol` FROM __THIS__")
+
               val newCol = columnState.makeNewCol(baseCol, VectorType)
-              val featurizeUdf = udf((d: Date) => {
-                val localDate = d.toLocalDate
-                Vectors.dense(Array[Double](d.getTime.toDouble,
+              val featurizeUdf = udf((daysSinceEpoch: Int) => {
+                val localDate = java.time.LocalDate.ofEpochDay(daysSinceEpoch.toLong)
+                val millis = daysSinceEpoch.toLong * 24L * 60L * 60L * 1000L
+                Vectors.dense(Array[Double](
+                  millis.toDouble,
                   localDate.getYear.toDouble,
                   localDate.getDayOfWeek.getValue.toDouble,
-                  localDate.getMonth.getValue.toDouble,
+                  localDate.getMonthValue.toDouble,
                   localDate.getDayOfMonth.toDouble))
               })
-              Some(new UDFTransformer().setInputCol(oldCol).setOutputCol(newCol).setUDF(featurizeUdf))
+              val m1 = new UDFTransformer()
+                .setInputCol(daysCol)
+                .setOutputCol(newCol)
+                .setUDF(featurizeUdf)
+              Some(new Pipeline().setStages(Array(m0, m1)))
             case _ =>
               None
           }

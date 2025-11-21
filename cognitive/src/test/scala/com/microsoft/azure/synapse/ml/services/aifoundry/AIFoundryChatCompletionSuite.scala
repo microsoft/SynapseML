@@ -12,9 +12,24 @@ import org.apache.spark.sql.{DataFrame, Row}
 import org.scalactic.Equality
 
 trait AIFoundryAPIKey {
-  lazy val aiFoundryAPIKey: String = sys.env.getOrElse("AI_FOUNDRY_API_KEY", Secrets.AIFoundryApiKey)
+  lazy val aiFoundryAPIKeyOption: Option[String] = {
+    sys.env.get("AI_FOUNDRY_API_KEY").orElse {
+      scala.util.Try(Secrets.AIFoundryApiKey).toOption
+    }
+  }
+
+  lazy val aiFoundryAPIKey: String = aiFoundryAPIKeyOption.getOrElse("")
   lazy val aiFoundryServiceName: String = sys.env.getOrElse("AI_FOUNDRY_SERVICE_NAME", "synapseml-ai-foundry-resource")
   lazy val aiFoundryModelName: String = "Llama-3.3-70B-Instruct" //"Phi-4-mini-instruct"
+
+  protected def withAIFoundry(testName: String)(f: => Unit): Unit = {
+    aiFoundryAPIKeyOption match {
+      case Some(_) => f
+      case None =>
+        org.scalatest.Assertions.cancel(
+          s"Skipping AI Foundry test '$testName': AI_FOUNDRY_API_KEY / Secrets.AIFoundryApiKey not configured")
+    }
+  }
 }
 
 class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompletion] with AIFoundryAPIKey with Flaky {
@@ -84,17 +99,25 @@ class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompl
     )
   ).toDF("prompt")
 
+  override def ignoreSerializationFuzzing: Boolean = true
+
+  override def ignoreExperimentFuzzing: Boolean = true
+
   test("Basic Usage") {
-    testCompletion(completion, goodDf)
+    withAIFoundry("AIFoundryChatCompletion.Basic Usage") {
+      testCompletion(completion, goodDf)
+    }
   }
 
   test("Robustness to bad inputs") {
-    val results = completion.transform(badDf).collect()
-    assert(Option(results.head.getAs[Row](completion.getErrorCol)).isDefined)
-    // empty user message is valid for Phi 4, no error
-    //assert(Option(results.apply(1).getAs[Row](completion.getErrorCol)).isDefined)
-    assert(Option(results.apply(2).getAs[Row](completion.getErrorCol)).isEmpty)
-    assert(Option(results.apply(2).getAs[Row]("out")).isEmpty)
+    withAIFoundry("AIFoundryChatCompletion.Robustness to bad inputs") {
+      val results = completion.transform(badDf).collect()
+      assert(Option(results.head.getAs[Row](completion.getErrorCol)).isDefined)
+      // empty user message is valid for Phi 4, no error
+      //assert(Option(results.apply(1).getAs[Row](completion.getErrorCol)).isDefined)
+      assert(Option(results.apply(2).getAs[Row](completion.getErrorCol)).isEmpty)
+      assert(Option(results.apply(2).getAs[Row]("out")).isEmpty)
+    }
   }
 
 

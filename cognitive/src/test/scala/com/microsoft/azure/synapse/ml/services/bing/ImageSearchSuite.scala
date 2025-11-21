@@ -12,6 +12,15 @@ import org.scalactic.Equality
 
 trait HasSearchKey {
   lazy val searchKey = sys.env.getOrElse("BING_SEARCH_KEY", Secrets.BingSearchKey)
+
+  protected def withBingSearch(testName: String)(f: => Unit): Unit = {
+    val keyTry = scala.util.Try(searchKey)
+    keyTry.fold(
+      _ => org.scalatest.Assertions.cancel(
+        s"Skipping Bing Image Search test '$testName': BING_SEARCH_KEY / Secrets.BingSearchKey not configured"),
+      _ => f
+    )
+  }
 }
 
 class ImageSearchSuite extends TransformerFuzzing[BingImageSearch]
@@ -37,17 +46,19 @@ class ImageSearchSuite extends TransformerFuzzing[BingImageSearch]
   lazy val getURLs = BingImageSearch.getUrlTransformer("images", "url")
 
   test("Elephant Detection") {
-    val pipe = pipelineModel(Array(bis, getURLs))
-    val resultsDF = pipe.transform(requestParameters)
-    val results = resultsDF.collect()
-    assert(results.length === 100)
-    results.foreach(r => assert(r.getString(0).startsWith("http")))
-    val bytesDF = BingImageSearch
-      .downloadFromUrls("url", "bytes", 4, 10000)
-      .transform(resultsDF.limit(15))
-    val numSucesses = bytesDF.collect().count(row =>
-      Option(row.getAs[Array[Byte]](1)).getOrElse(Array()).length > 100)
-    assert(numSucesses>3)
+    withBingSearch("ImageSearch.Elephant Detection") {
+      val pipe = pipelineModel(Array(bis, getURLs))
+      val resultsDF = pipe.transform(requestParameters)
+      val results = resultsDF.collect()
+      assert(results.length === 100)
+      results.foreach(r => assert(r.getString(0).startsWith("http")))
+      val bytesDF = BingImageSearch
+        .downloadFromUrls("url", "bytes", 4, 10000)
+        .transform(resultsDF.limit(15))
+      val numSucesses = bytesDF.collect().count(row =>
+        Option(row.getAs[Array[Byte]](1)).getOrElse(Array()).length > 100)
+      assert(numSucesses>3)
+    }
   }
 
   test("All Parameters") {

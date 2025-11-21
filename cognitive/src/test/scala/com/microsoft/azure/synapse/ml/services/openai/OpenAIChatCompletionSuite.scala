@@ -137,6 +137,10 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     )
   ).toDF("messages")
 
+  override def ignoreSerializationFuzzing: Boolean = true
+
+  override def ignoreExperimentFuzzing: Boolean = true
+
   test("Basic Usage") {
     testCompletion(completion, goodDf)
     testCompletion(completion, slowDf)

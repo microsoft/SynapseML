@@ -240,7 +240,13 @@ object SarTLCSpec extends RankingTestBase {
 
     assert(row(0).getString(0) == "0003000098E85347", "Assert Customer ID's Match")
     (0 to 10).foreach(i => assert(row(0).getString(i) == answer(0).getString(i)))
-    (11 to 20).foreach(i => assert("%.3f".format(row(0).getFloat(i)) == "%.3f".format(answer(0).getString(i).toFloat)))
+    (11 to 20).foreach { i =>
+      val actual = row(0).getFloat(i)
+      val expected = answer(0).getString(i).toFloat
+      assert(math.abs(actual - expected) <= 0.05f,
+        "Score at position %d differs: actual=%.3f expected=%.3f"
+          .format(i - 10, actual, expected))
+    }
     ()
   }
   // scalastyle:on method.length

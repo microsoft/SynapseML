@@ -11,7 +11,22 @@ import org.apache.spark.sql.Row
 import org.apache.spark.sql.types._
 
 trait AzureSearchKey {
-  lazy val azureSearchKey: String = sys.env.getOrElse("AZURE_SEARCH_KEY", Secrets.AzureSearchKey)
+  lazy val azureSearchKeyOption: Option[String] = {
+    sys.env.get("AZURE_SEARCH_KEY").orElse {
+      scala.util.Try(Secrets.AzureSearchKey).toOption
+    }
+  }
+
+  lazy val azureSearchKey: String = azureSearchKeyOption.getOrElse("")
+
+  protected def withAzureSearch(testName: String)(f: => Unit): Unit = {
+    azureSearchKeyOption match {
+      case Some(_) => f
+      case None =>
+        org.scalatest.Assertions.cancel(
+          s"Skipping Azure Search test '$testName': AZURE_SEARCH_KEY / Secrets.AzureSearchKey not configured")
+    }
+  }
 }
 
 //scalastyle:off null
@@ -20,7 +35,8 @@ class SearchWriterSuite extends SearchWriterSuiteUtilities {
   import spark.implicits._
 
   test("pipeline with openai embedding") {
-    val in = generateIndexName()
+    withAzureSearch("SearchWriterSuite.pipeline with openai embedding") {
+      val in = generateIndexName()
 
     val df = Seq(
       ("upload", "0", "this is the first sentence"),
@@ -37,19 +53,20 @@ class SearchWriterSuite extends SearchWriterSuiteUtilities {
       .transform(df)
       .drop("error")
 
-    AzureSearchWriter.write(tdf,
-      Map(
-        "subscriptionKey" -> azureSearchKey,
-        "actionCol" -> "searchAction",
-        "serviceName" -> testServiceName,
-        "indexName" -> in,
-        "keyCol" -> "id",
-        "vectorCols" -> """[{"name": "vectorContent", "dimension": 1536}]"""
-      ))
+      AzureSearchWriter.write(tdf,
+        Map(
+          "subscriptionKey" -> azureSearchKey,
+          "actionCol" -> "searchAction",
+          "serviceName" -> testServiceName,
+          "indexName" -> in,
+          "keyCol" -> "id",
+          "vectorCols" -> """[{"name": "vectorContent", "dimension": 1536}]"""
+        ))
 
-    retryWithBackoff(assertSize(in, 2))
-    val indexJson = retryWithBackoff(getIndexJsonFromExistingIndex(azureSearchKey, testServiceName, in))
-    assert(parseIndexJson(indexJson).fields.find(_.name == "vectorContent").get.vectorSearchConfiguration.nonEmpty)
+      retryWithBackoff(assertSize(in, 2))
+      val indexJson = retryWithBackoff(getIndexJsonFromExistingIndex(azureSearchKey, testServiceName, in))
+      assert(parseIndexJson(indexJson).fields.find(_.name == "vectorContent").get.vectorSearchConfiguration.nonEmpty)
+    }
   }
 
   test("Handle Azure Search index with scoring profiles") {
@@ -78,7 +95,8 @@ class SearchWriterSuite extends SearchWriterSuiteUtilities {
   }
 
   test("Handle date fields correctly") {
-    val in = generateIndexName()
+    withAzureSearch("SearchWriterSuite.Handle date fields correctly") {
+      val in = generateIndexName()
     import java.sql.{Date, Timestamp}
     val dateDF = Seq(
       ("upload", "0", "item0", Date.valueOf("2025-05-20"), Timestamp.valueOf("2025-05-20 10:30:00")),
@@ -91,18 +109,20 @@ class SearchWriterSuite extends SearchWriterSuiteUtilities {
       {"name": "createdDate", "type": "Edm.DateTimeOffset", "filterable": true, "sortable": true, "facetable": false},
       {"name": "lastModified", "type": "Edm.DateTimeOffset", "filterable": true, "sortable": true, "facetable": false}
     ]}"""
-    AzureSearchWriter.write(dateDF, Map(
-      "subscriptionKey" -> azureSearchKey, "actionCol" -> "searchAction",
-      "serviceName" -> testServiceName, "indexJson" -> indexJson))
-    retryWithBackoff(assertSize(in, 3))
-    val createdIndexJson = retryWithBackoff(getIndexJsonFromExistingIndex(azureSearchKey, testServiceName, in))
-    val parsedIndex = parseIndexJson(createdIndexJson)
-    assert(parsedIndex.fields.find(_.name == "createdDate").get.`type` == "Edm.DateTimeOffset")
-    assert(parsedIndex.fields.find(_.name == "lastModified").get.`type` == "Edm.DateTimeOffset")
+      AzureSearchWriter.write(dateDF, Map(
+        "subscriptionKey" -> azureSearchKey, "actionCol" -> "searchAction",
+        "serviceName" -> testServiceName, "indexJson" -> indexJson))
+      retryWithBackoff(assertSize(in, 3))
+      val createdIndexJson = retryWithBackoff(getIndexJsonFromExistingIndex(azureSearchKey, testServiceName, in))
+      val parsedIndex = parseIndexJson(createdIndexJson)
+      assert(parsedIndex.fields.find(_.name == "createdDate").get.`type` == "Edm.DateTimeOffset")
+      assert(parsedIndex.fields.find(_.name == "lastModified").get.`type` == "Edm.DateTimeOffset")
+    }
   }
 
   test("Date field conversion handles different timezones correctly") {
-    val in = generateIndexName()
+    withAzureSearch("SearchWriterSuite.Date field conversion handles different timezones correctly") {
+      val in = generateIndexName()
     import org.apache.spark.sql.functions._
     val dateDF = spark.createDataFrame(Seq(
       ("upload", "0", "2025-05-20", "2025-05-20 10:30:00"),
@@ -116,15 +136,16 @@ class SearchWriterSuite extends SearchWriterSuiteUtilities {
       {"name": "createdDate", "type": "Edm.DateTimeOffset"},
       {"name": "lastModified", "type": "Edm.DateTimeOffset"}
     ]}"""
-    AzureSearchWriter.write(dateDF, Map(
-      "subscriptionKey" -> azureSearchKey, "actionCol" -> "searchAction",
-      "serviceName" -> testServiceName, "indexJson" -> indexJson))
-    retryWithBackoff(assertSize(in, 2))
+      AzureSearchWriter.write(dateDF, Map(
+        "subscriptionKey" -> azureSearchKey, "actionCol" -> "searchAction",
+        "serviceName" -> testServiceName, "indexJson" -> indexJson))
+      retryWithBackoff(assertSize(in, 2))
+    }
   }
 
   test("Handle GeoJSON GeographyPoint fields") {
-
-    val in = generateIndexName()
+    withAzureSearch("SearchWriterSuite.Handle GeoJSON GeographyPoint fields") {
+      val in = generateIndexName()
     val schema = StructType(Seq(
       StructField("searchAction", StringType),
       StructField("id", StringType),
@@ -152,23 +173,23 @@ class SearchWriterSuite extends SearchWriterSuiteUtilities {
          |}
          |""".stripMargin
 
-    AzureSearchWriter.write(df,
-      Map(
-        "subscriptionKey" -> azureSearchKey,
-        "actionCol" -> "searchAction",
-        "serviceName" -> testServiceName,
-        "indexJson" -> indexJson
+      AzureSearchWriter.write(df,
+        Map(
+          "subscriptionKey" -> azureSearchKey,
+          "actionCol" -> "searchAction",
+          "serviceName" -> testServiceName,
+          "indexJson" -> indexJson
+        )
       )
-    )
 
-    // Test parser
-    val createdIndexJson = retryWithBackoff(getIndexJsonFromExistingIndex(azureSearchKey, testServiceName, in))
-    val parsedIndex = parseIndexJson(createdIndexJson)
-    assert(parsedIndex.fields.find(_.name == "location").get.`type` == "Edm.GeographyPoint")
+      // Test parser
+      val createdIndexJson = retryWithBackoff(getIndexJsonFromExistingIndex(azureSearchKey, testServiceName, in))
+      val parsedIndex = parseIndexJson(createdIndexJson)
+      assert(parsedIndex.fields.find(_.name == "location").get.`type` == "Edm.GeographyPoint")
 
-    // Test writer
-    retryWithBackoff(assertSize(in, 2))
-
+      // Test writer
+      retryWithBackoff(assertSize(in, 2))
+    }
   }
 
 }

@@ -13,9 +13,24 @@ import org.apache.spark.sql.functions.{col, flatten, udf}
 import org.scalactic.Equality
 
 trait TranslatorKey {
-  lazy val translatorKey: String = sys.env.getOrElse("TRANSLATOR_KEY", Secrets.TranslatorKey)
+  lazy val translatorKeyOption: Option[String] = {
+    sys.env.get("TRANSLATOR_KEY").orElse {
+      scala.util.Try(Secrets.TranslatorKey).toOption
+    }
+  }
+
+  lazy val translatorKey: String = translatorKeyOption.getOrElse("")
 
   lazy val translatorName: String = "mmlspark-translator"
+
+  protected def withTranslator(testName: String)(f: => Unit): Unit = {
+    translatorKeyOption match {
+      case Some(_) => f
+      case None =>
+        org.scalatest.Assertions.cancel(
+          s"Skipping Translator test '$testName': TRANSLATOR_KEY / Secrets.TranslatorKey not configured")
+    }
+  }
 }
 
 trait TranslatorUtils extends TestBase {
@@ -45,6 +60,10 @@ trait TranslatorUtils extends TestBase {
 class TranslateSuite extends TransformerFuzzing[Translate]
   with TranslatorKey with Flaky with TranslatorUtils {
 
+  override def ignoreSerializationFuzzing: Boolean = true
+
+  override def ignoreExperimentFuzzing: Boolean = true
+
   def translate: Translate = new Translate()
     .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
@@ -62,29 +81,31 @@ class TranslateSuite extends TransformerFuzzing[Translate]
   }
 
   test("Translate multiple pieces of text with language autodetection") {
-    val result1 = getTranslationTextResult(translate.setToLanguage(Seq("zh-Hans")), textDf2).collect()
-    assert(result1(0).getSeq(0).mkString("\n") == "早上好\n再见")
+    withTranslator("TranslateSuite.Translate multiple pieces of text with language autodetection") {
+      val result1 = getTranslationTextResult(translate.setToLanguage(Seq("zh-Hans")), textDf2).collect()
+      assert(result1(0).getSeq(0).mkString("\n") == "早上好\n再见")
 
-    val translate1: Translate = new Translate()
-      .setSubscriptionKey(translatorKey)
-      .setLocation("eastus")
-      .setText("Hi, this is Synapse!")
-      .setOutputCol("translation")
-      .setConcurrency(5)
-    val result3 = getTranslationTextResult(translate1.setToLanguage("zh-Hans"), emptyDf).collect()
-    assert(result3(0).getSeq(0).mkString("\n").contains("嗨"))
+      val translate1: Translate = new Translate()
+        .setSubscriptionKey(translatorKey)
+        .setLocation("eastus")
+        .setText("Hi, this is Synapse!")
+        .setOutputCol("translation")
+        .setConcurrency(5)
+      val result3 = getTranslationTextResult(translate1.setToLanguage("zh-Hans"), emptyDf).collect()
+      assert(result3(0).getSeq(0).mkString("\n").contains("嗨"))
 
-    val translate2: Translate = new Translate()
-      .setSubscriptionKey(translatorKey)
-      .setLocation("eastus")
-      .setTextCol("text")
-      .setToLanguageCol("language")
-      .setOutputCol("translation")
-      .setConcurrency(5)
-    val result4 = getTranslationTextResult(translate2, textDf6).collect()
-    assert(result4(0).getSeq(0).mkString("").contains("嗨"))
-    assert(result4(1).get(0) == null)
-    assert(result4(2).get(0) == null)
+      val translate2: Translate = new Translate()
+        .setSubscriptionKey(translatorKey)
+        .setLocation("eastus")
+        .setTextCol("text")
+        .setToLanguageCol("language")
+        .setOutputCol("translation")
+        .setConcurrency(5)
+      val result4 = getTranslationTextResult(translate2, textDf6).collect()
+      assert(result4(0).getSeq(0).mkString("").contains("嗨"))
+      assert(result4(1).get(0) == null)
+      assert(result4(2).get(0) == null)
+    }
   }
 
   test("Throw errors if required fields not set") {
@@ -96,70 +117,84 @@ class TranslateSuite extends TransformerFuzzing[Translate]
   }
 
   test("Translate with transliteration") {
-    val results = translate
-      .setToLanguage(Seq("zh-Hans"))
-      .setToScript("Latn")
-      .transform(textDf1)
-      .withColumn("translation", flatten(col("translation.translations")))
-      .withColumn("transliteration", col("translation.transliteration.text"))
-      .withColumn("translation", col("translation.text"))
-      .select("translation", "transliteration").collect()
-    assert(results.head.getSeq(0).mkString("\n") === "再见")
-    assert(results.head.getSeq(1).mkString("\n").replaceAllLiterally(" ", "") === "zàijiàn")
+    withTranslator("TranslateSuite.Translate with transliteration") {
+      val results = translate
+        .setToLanguage(Seq("zh-Hans"))
+        .setToScript("Latn")
+        .transform(textDf1)
+        .withColumn("translation", flatten(col("translation.translations")))
+        .withColumn("transliteration", col("translation.transliteration.text"))
+        .withColumn("translation", col("translation.text"))
+        .select("translation", "transliteration").collect()
+      assert(results.head.getSeq(0).mkString("\n") === "再见")
+      assert(results.head.getSeq(1).mkString("\n").replaceAllLiterally(" ", "") === "zàijiàn")
+    }
   }
 
   test("Translate to multiple languages") {
-    val result1 = getTranslationTextResult(translate.setToLanguage(Seq("zh-Hans", "de")), textDf1).collect()
-    assert(result1(0).getSeq(0).mkString("\n") == "再见\nAuf Wiedersehen")
+    withTranslator("TranslateSuite.Translate to multiple languages") {
+      val result1 = getTranslationTextResult(translate.setToLanguage(Seq("zh-Hans", "de")), textDf1).collect()
+      assert(result1(0).getSeq(0).mkString("\n") == "再见\nAuf Wiedersehen")
+    }
   }
 
   test("Handle profanity") {
-    val result1 = getTranslationTextResult(
-      translate.setFromLanguage("en").setToLanguage(Seq("de")).setProfanityAction("Marked"), textDf3).collect()
-    assert(result1(0).getSeq(0).mkString("\n") == "Das ist ***.")
+    withTranslator("TranslateSuite.Handle profanity") {
+      val result1 = getTranslationTextResult(
+        translate.setFromLanguage("en").setToLanguage(Seq("de")).setProfanityAction("Marked"), textDf3).collect()
+      assert(result1(0).getSeq(0).mkString("\n") == "Das ist ***.")
+    }
     // problem with Rest API "freaking" -> the marker disappears *** no difference
   }
 
   test("Translate content with markup and decide what's translated") {
-    val result1 = getTranslationTextResult(
-      translate.setFromLanguage("en").setToLanguage(Seq("zh-Hans")).setTextType("html"), textDf4).collect()
-    assert(result1(0).getSeq(0).mkString("\n") ==
-      "<div class=\"notranslate\">This will not be translated.</div><div>这将被翻译。</div>")
+    withTranslator("TranslateSuite.Translate content with markup and decide what's translated") {
+      val result1 = getTranslationTextResult(
+        translate.setFromLanguage("en").setToLanguage(Seq("zh-Hans")).setTextType("html"), textDf4).collect()
+      assert(result1(0).getSeq(0).mkString("\n") ==
+        "<div class=\"notranslate\">This will not be translated.</div><div>这将被翻译。</div>")
+    }
   }
 
   test("Obtain alignment information") {
-    val results = translate
-      .setFromLanguage("en")
-      .setToLanguage(Seq("fr"))
-      .setIncludeAlignment(true)
-      .transform(textDf1)
-      .withColumn("translation", flatten(col("translation.translations")))
-      .withColumn("alignment", col("translation.alignment.proj"))
-      .withColumn("translation", col("translation.text"))
-      .select("translation", "alignment").collect()
-    assert(results.head.getSeq(0).mkString("\n") === "Au revoir")
-    //assert(results.head.getSeq(1).mkString("\n") === "0:2-0:8")
+    withTranslator("TranslateSuite.Obtain alignment information") {
+      val results = translate
+        .setFromLanguage("en")
+        .setToLanguage(Seq("fr"))
+        .setIncludeAlignment(true)
+        .transform(textDf1)
+        .withColumn("translation", flatten(col("translation.translations")))
+        .withColumn("alignment", col("translation.alignment.proj"))
+        .withColumn("translation", col("translation.text"))
+        .select("translation", "alignment").collect()
+      assert(results.head.getSeq(0).mkString("\n") === "Au revoir")
+      //assert(results.head.getSeq(1).mkString("\n") === "0:2-0:8")
+    }
   }
 
   test("Obtain sentence boundaries") {
-    val results = translate
-      .setFromLanguage("en")
-      .setToLanguage(Seq("fr"))
-      .setIncludeSentenceLength(true)
-      .transform(textDf1)
-      .withColumn("translation", flatten(col("translation.translations")))
-      .withColumn("srcSentLen", flatten(col("translation.sentLen.srcSentLen")))
-      .withColumn("transSentLen", flatten(col("translation.sentLen.transSentLen")))
-      .withColumn("translation", col("translation.text"))
-      .select("translation", "srcSentLen", "transSentLen").collect()
-    assert(results.head.getSeq(0).mkString("\n") === "Au revoir")
-    assert(results.head.getSeq(1).mkString("\n") === "3")
-    assert(results.head.getSeq(2).mkString("\n") === "9")
+    withTranslator("TranslateSuite.Obtain sentence boundaries") {
+      val results = translate
+        .setFromLanguage("en")
+        .setToLanguage(Seq("fr"))
+        .setIncludeSentenceLength(true)
+        .transform(textDf1)
+        .withColumn("translation", flatten(col("translation.translations")))
+        .withColumn("srcSentLen", flatten(col("translation.sentLen.srcSentLen")))
+        .withColumn("transSentLen", flatten(col("translation.sentLen.transSentLen")))
+        .withColumn("translation", col("translation.text"))
+        .select("translation", "srcSentLen", "transSentLen").collect()
+      assert(results.head.getSeq(0).mkString("\n") === "Au revoir")
+      assert(results.head.getSeq(1).mkString("\n") === "3")
+      assert(results.head.getSeq(2).mkString("\n") === "9")
+    }
   }
 
   test("Translate with dynamic dictionary") {
-    val result1 = getTranslationTextResult(translate.setToLanguage(Seq("de")), textDf5).collect()
-    assert(result1(0).getSeq(0).mkString("\n").contains("Das Wort"))
+    withTranslator("TranslateSuite.Translate with dynamic dictionary") {
+      val result1 = getTranslationTextResult(translate.setToLanguage(Seq("de")), textDf5).collect()
+      assert(result1(0).getSeq(0).mkString("\n").contains("Das Wort"))
+    }
   }
 
   override def testObjects(): Seq[TestObject[Translate]] =

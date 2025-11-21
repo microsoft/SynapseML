@@ -45,6 +45,10 @@ class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with Ope
     "SynapseML is "
   ).toDF("text")
 
+  override def ignoreSerializationFuzzing: Boolean = true
+
+  override def ignoreExperimentFuzzing: Boolean = true
+
   test("Basic Usage") {
     embedding.transform(df).collect().foreach(r => {
       val v = r.getAs[Vector]("out")

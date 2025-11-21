@@ -150,6 +150,14 @@ class ExtractiveSummarizationSuite extends TransformerFuzzing[AnalyzeTextLongRun
                                                          df))
 
   override def reader: MLReadable[_] = AnalyzeTextLongRunningOperations
+
+  override def beforeAll(): Unit = {
+    if (textKeyOption.isEmpty) {
+      org.scalatest.Assertions.cancel(
+        "Skipping ExtractiveSummarizationSuite: TEXT_API_KEY / Secrets.CognitiveApiKey not configured")
+    }
+    super.beforeAll()
+  }
 }
 
 
@@ -695,6 +703,5 @@ class MultiLableClassificationSuite extends TransformerFuzzing[AnalyzeTextLongRu
 
   override def reader: MLReadable[_] = AnalyzeText
 }
-
 
 

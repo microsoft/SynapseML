@@ -76,7 +76,20 @@ object CBDatasetHelper {
 class VWContextualBandidSpec extends TestBase with EstimatorFuzzing[VowpalWabbitContextualBandit] {
   import spark.implicits._
 
+  // VW JNI native library is only available for linux_64; on other platforms
+  // (e.g., macOS) loading it will throw UnsatisfiedLinkError. For local dev on
+  // unsupported platforms, skip these tests rather than fail hard; they will
+  // still run in a Linux-based CI environment.
+  private val vwSupportedPlatform: Boolean =
+    sys.props.get("os.name").exists(_.toLowerCase.contains("linux"))
+
+  override def ignoreSerializationFuzzing: Boolean = !vwSupportedPlatform
+  override def ignoreExperimentFuzzing: Boolean = !vwSupportedPlatform
+
   test("Verify VerifyVowpalWabbitContextualBandit can be run on toy dataset") {
+    if (!vwSupportedPlatform) {
+      cancel("Skipping VW tests on non-Linux platform (VW JNI native library not available)")
+    }
     val df = Seq(
       ("shared_f", "action1_f", "action2_f", "action2_f2=0", 1, 1, 0.8),
       ("shared_f", "action1_f", "action2_f", "action2_f2=1", 2, 1, 0.8),

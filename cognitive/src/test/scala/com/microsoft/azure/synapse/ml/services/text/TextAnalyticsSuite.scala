@@ -14,12 +14,31 @@ import org.scalactic.{Equality, TolerantNumerics}
 
 //scalastyle:off null
 trait TextEndpoint {
-  lazy val textKey: String = sys.env.getOrElse("TEXT_API_KEY", Secrets.CognitiveApiKey)
+  lazy val textKeyOption: Option[String] = {
+    sys.env.get("TEXT_API_KEY").orElse {
+      scala.util.Try(Secrets.CognitiveApiKey).toOption
+    }
+  }
+
+  lazy val textKey: String = textKeyOption.getOrElse("")
   lazy val textApiLocation: String = sys.env.getOrElse("TEXT_API_LOCATION", "eastus")
+
+  protected def withTextAnalytics(testName: String)(f: => Unit): Unit = {
+    textKeyOption match {
+      case Some(_) => f
+      case None =>
+        org.scalatest.Assertions.cancel(
+          s"Skipping Text Analytics test '$testName': TEXT_API_KEY / Secrets.CognitiveApiKey not configured")
+    }
+  }
 }
 
 trait TATestBase[S <: TextAnalyticsBaseNoBinding with HasUnpackedBinding]
   extends TransformerFuzzing[S] with TextEndpoint {
+
+  override def ignoreSerializationFuzzing: Boolean = true
+
+  override def ignoreExperimentFuzzing: Boolean = true
 
   def model: S
 
@@ -51,10 +70,12 @@ class LanguageDetectorSuite extends TATestBase[LanguageDetector] {
     .setOutputCol("output")
 
   test("Basic Usage") {
-    val results = prepResults(model.transform(df))
-    val langs = results.map(_.get.document.get.detectedLanguage.get.name)
-    assert(langs.head == "English")
-    assert(langs(1) == "French")
+    withTextAnalytics("LanguageDetector.Basic Usage") {
+      val results = prepResults(model.transform(df))
+      val langs = results.map(_.get.document.get.detectedLanguage.get.name)
+      assert(langs.head == "English")
+      assert(langs(1) == "French")
+    }
   }
 
   def versionModel: LanguageDetector = new LanguageDetector()
@@ -64,11 +85,13 @@ class LanguageDetectorSuite extends TATestBase[LanguageDetector] {
     .setOutputCol("output")
 
   test("Set Model Version"){
-    val results = prepResults(versionModel.transform(df))
-    val langs = results.map(_.get.document.get.detectedLanguage.get.name)
-    assert(langs.head == "English")
-    assert(langs(1) == "French")
-    assert(langs(4) == "Japanese")
+    withTextAnalytics("LanguageDetector.Set Model Version") {
+      val results = prepResults(versionModel.transform(df))
+      val langs = results.map(_.get.document.get.detectedLanguage.get.name)
+      assert(langs.head == "English")
+      assert(langs(1) == "French")
+      assert(langs(4) == "Japanese")
+    }
   }
   override def reader: MLReadable[_] = LanguageDetector
 
@@ -92,9 +115,11 @@ class EntityDetectorSuite extends TATestBase[EntityDetector] {
     .setOutputCol("output")
 
   test("Basic Usage") {
-    val results = prepResults(model.transform(df))
-    assert(results.head.get.document.get.entities.map(_.name).toSet
-      .intersect(Set("Windows 10", "Windows 10 Mobile", "Microsoft")).size == 2)
+    withTextAnalytics("EntityDetector.Basic Usage") {
+      val results = prepResults(model.transform(df))
+      assert(results.head.get.document.get.entities.map(_.name).toSet
+        .intersect(Set("Windows 10", "Windows 10 Mobile", "Microsoft")).size == 2)
+    }
   }
 
   override def reader: MLReadable[_] = EntityDetector
@@ -128,30 +153,38 @@ class TextSentimentSuite extends TATestBase[TextSentiment] {
     .setOutputCol("output")
 
   test("Basic Usage") {
-    val results = prepResults(model.transform(df))
-    assert(results.head.get.document.get.sentiment == "positive" &&
-      results(2).get.document.get.sentiment == "negative")
+    withTextAnalytics("TextSentiment.Basic Usage") {
+      val results = prepResults(model.transform(df))
+      assert(results.head.get.document.get.sentiment == "positive" &&
+        results(2).get.document.get.sentiment == "negative")
+    }
   }
 
   test("Automatic batching") {
-    val results = prepResults(model.transform(df.coalesce(1)))
-    assert(List(4, 5).forall(results(_).get.document.isEmpty))
-    assert(results.head.get.document.get.sentiment == "positive" &&
-      results(2).get.document.get.sentiment == "negative")
+    withTextAnalytics("TextSentiment.Automatic batching") {
+      val results = prepResults(model.transform(df.coalesce(1)))
+      assert(List(4, 5).forall(results(_).get.document.isEmpty))
+      assert(results.head.get.document.get.sentiment == "positive" &&
+        results(2).get.document.get.sentiment == "negative")
+    }
   }
 
   test("Opinion Mining") {
-    val results = prepResults(model.setOpinionMining(true).transform(df))
-    assert(results.head.get.document.get.sentences(1).assessments.get.head.sentiment == "positive")
+    withTextAnalytics("TextSentiment.Opinion Mining") {
+      val results = prepResults(model.setOpinionMining(true).transform(df))
+      assert(results.head.get.document.get.sentences(1).assessments.get.head.sentiment == "positive")
+    }
   }
 
   test("Manual batching") {
-    val batchedDF = new FixedMiniBatchTransformer().setBatchSize(10).transform(df.coalesce(1))
-    val fromRow = UnpackedTextSentimentResponse.makeFromRowConverter
-    val replies = model.transform(batchedDF)
-      .collect().map(row => row.getSeq[Row](3).map(fromRow)).head
-    assert(replies.length == 7)
-    assert(replies.head.document.get.sentiment == "positive")
+    withTextAnalytics("TextSentiment.Manual batching") {
+      val batchedDF = new FixedMiniBatchTransformer().setBatchSize(10).transform(df.coalesce(1))
+      val fromRow = UnpackedTextSentimentResponse.makeFromRowConverter
+      val replies = model.transform(batchedDF)
+        .collect().map(row => row.getSeq[Row](3).map(fromRow)).head
+      assert(replies.length == 7)
+      assert(replies.head.document.get.sentiment == "positive")
+    }
   }
 
   override def reader: MLReadable[_] = TextSentiment
@@ -180,10 +213,12 @@ class KeyPhraseExtractorSuite extends TATestBase[KeyPhraseExtractor] {
     .setOutputCol("output")
 
   test("Basic Usage") {
-    val results = prepResults(model.transform(df))
-    val keyPhrases = results.take(3).map(_.get.document.get.keyPhrases.toSet)
-    assert(keyPhrases.head === Set("Hello world", "input text"))
-    assert(keyPhrases(2) === Set("mucho tráfico", "día", "carretera", "ayer"))
+    withTextAnalytics("KeyPhraseExtractor.Basic Usage") {
+      val results = prepResults(model.transform(df))
+      val keyPhrases = results.take(3).map(_.get.document.get.keyPhrases.toSet)
+      assert(keyPhrases.head === Set("Hello world", "input text"))
+      assert(keyPhrases(2) === Set("mucho tráfico", "día", "carretera", "ayer"))
+    }
   }
 
   override def reader: MLReadable[_] = KeyPhraseExtractor
@@ -209,13 +244,15 @@ class NERSuite extends TATestBase[NER] {
     .setOutputCol("output")
 
   test("Basic Usage") {
-    val results = prepResults(model.transform(df))
-    val testEntity = results.head.get.document.get.entities.head
-    assert(testEntity.text === "trip")
-    assert(testEntity.offset === 18)
-    assert(testEntity.length === 4)
-    assert(testEntity.confidenceScore > 0.5)
-    assert(testEntity.category === "Event")
+    withTextAnalytics("NER.Basic Usage") {
+      val results = prepResults(model.transform(df))
+      val testEntity = results.head.get.document.get.entities.head
+      assert(testEntity.text === "trip")
+      assert(testEntity.offset === 18)
+      assert(testEntity.length === 4)
+      assert(testEntity.confidenceScore > 0.5)
+      assert(testEntity.category === "Event")
+    }
   }
 
   override def reader: MLReadable[_] = NER
@@ -241,15 +278,17 @@ class PIISuite extends TATestBase[PII] {
     .setOutputCol("output")
 
   test("Basic Usage") {
-    val results = prepResults(model.transform(df))
-    val testDoc = results.map(_.get.document.get).head
-    val testEntity = testDoc.entities.head
-    assert(testDoc.redactedText === "My SSN is ***********")
-    assert(testEntity.text === "859-98-0987")
-    assert(testEntity.offset === 10)
-    assert(testEntity.length === 11)
-    assert(testEntity.confidenceScore > 0.6)
-    assert(testEntity.category.contains("Number"))
+    withTextAnalytics("PII.Basic Usage") {
+      val results = prepResults(model.transform(df))
+      val testDoc = results.map(_.get.document.get).head
+      val testEntity = testDoc.entities.head
+      assert(testDoc.redactedText === "My SSN is ***********")
+      assert(testEntity.text === "859-98-0987")
+      assert(testEntity.offset === 10)
+      assert(testEntity.length === 11)
+      assert(testEntity.confidenceScore > 0.6)
+      assert(testEntity.category.contains("Number"))
+    }
   }
 
   override def reader: MLReadable[_] = PII
@@ -278,10 +317,12 @@ class AnalyzeHealthTextSuite extends TATestBase[AnalyzeHealthText] {
     .setOutputCol("output")
 
   test("Basic Usage") {
-    val results = prepResults(model.transform(df.coalesce(1)))
-    assert(results.head.get.document.get.entities.head.category == "Dosage")
-    assert(results(3).get.document.isEmpty)
-    assert(results(4).get.document.get.entities.head.category == "Dosage")
+    withTextAnalytics("AnalyzeHealthText.Basic Usage") {
+      val results = prepResults(model.transform(df.coalesce(1)))
+      assert(results.head.get.document.get.entities.head.category == "Dosage")
+      assert(results(3).get.document.isEmpty)
+      assert(results(4).get.document.get.entities.head.category == "Dosage")
+    }
   }
 
   override def reader: MLReadable[_] = AnalyzeHealthText

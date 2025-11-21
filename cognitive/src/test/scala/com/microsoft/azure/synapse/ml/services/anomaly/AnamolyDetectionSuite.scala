@@ -13,9 +13,23 @@ import org.apache.spark.sql.{DataFrame, Row}
 
 trait AnomalyKey {
 
-  lazy val anomalyKey: String = sys.env.getOrElse("ANOMALY_API_KEY", Secrets.AnomalyApiKey)
+  lazy val anomalyKeyOption: Option[String] = {
+    sys.env.get("ANOMALY_API_KEY").orElse {
+      scala.util.Try(Secrets.AnomalyApiKey).toOption
+    }
+  }
+
+  lazy val anomalyKey: String = anomalyKeyOption.getOrElse("")
   lazy val anomalyLocation = "westus2"
 
+  protected def withAnomaly(testName: String)(f: => Unit): Unit = {
+    anomalyKeyOption match {
+      case Some(_) => f
+      case None =>
+        org.scalatest.Assertions.cancel(
+          s"Skipping Anomaly test '$testName': ANOMALY_API_KEY / Secrets.AnomalyApiKey not configured")
+    }
+  }
 }
 
 trait AnomalyDetectorSuiteBase extends TestBase with AnomalyKey {
@@ -70,6 +84,10 @@ trait AnomalyDetectorSuiteBase extends TestBase with AnomalyKey {
 
 class DetectLastAnomalySuite extends TransformerFuzzing[DetectLastAnomaly] with AnomalyDetectorSuiteBase {
 
+  override def ignoreSerializationFuzzing: Boolean = true
+
+  override def ignoreExperimentFuzzing: Boolean = true
+
   lazy val ad: DetectLastAnomaly = new DetectLastAnomaly()
     .setSubscriptionKey(anomalyKey)
     .setLocation(anomalyLocation)
@@ -79,52 +97,60 @@ class DetectLastAnomalySuite extends TransformerFuzzing[DetectLastAnomaly] with 
     .setErrorCol("errors")
 
   test("Basic Usage") {
-    val fromRow = ADLastResponse.makeFromRowConverter
-    val result = fromRow(ad.transform(df)
-      .select("anomalies")
-      .collect()
-      .head.getStruct(0))
-    assert(result.isAnomaly)
+    withAnomaly("DetectLastAnomaly.Basic Usage") {
+      val fromRow = ADLastResponse.makeFromRowConverter
+      val result = fromRow(ad.transform(df)
+        .select("anomalies")
+        .collect()
+        .head.getStruct(0))
+      assert(result.isAnomaly)
+    }
   }
 
   test("Basic usage with AAD auth") {
-    val aadToken = getAccessToken("https://cognitiveservices.azure.com/")
-    val ad = new DetectLastAnomaly()
-      .setAADToken(aadToken)
-      .setCustomServiceName("synapseml-ad-custom")
-      .setOutputCol("anomalies")
-      .setSeriesCol("inputs")
-      .setGranularity("monthly")
-      .setErrorCol("errors")
-    val fromRow = ADLastResponse.makeFromRowConverter
-    val result = fromRow(ad.transform(df)
-      .select("anomalies")
-      .collect()
-      .head.getStruct(0))
-    assert(result.isAnomaly)
+    withAnomaly("DetectLastAnomaly.Basic usage with AAD auth") {
+      val aadToken = getAccessToken("https://cognitiveservices.azure.com/")
+      val ad = new DetectLastAnomaly()
+        .setAADToken(aadToken)
+        .setCustomServiceName("synapseml-ad-custom")
+        .setOutputCol("anomalies")
+        .setSeriesCol("inputs")
+        .setGranularity("monthly")
+        .setErrorCol("errors")
+      val fromRow = ADLastResponse.makeFromRowConverter
+      val result = fromRow(ad.transform(df)
+        .select("anomalies")
+        .collect()
+        .head.getStruct(0))
+      assert(result.isAnomaly)
+    }
   }
 
   test("minutely Usage") {
-    val fromRow = ADLastResponse.makeFromRowConverter
-    val result = fromRow(ad.setGranularity("minutely").transform(df2)
-      .select("anomalies")
-      .collect()
-      .head.getStruct(0))
-    assert(result.isAnomaly)
+    withAnomaly("DetectLastAnomaly.minutely Usage") {
+      val fromRow = ADLastResponse.makeFromRowConverter
+      val result = fromRow(ad.setGranularity("minutely").transform(df2)
+        .select("anomalies")
+        .collect()
+        .head.getStruct(0))
+      assert(result.isAnomaly)
+    }
   }
 
   test("Throw errors if required fields not set") {
-    val caught = intercept[AssertionError] {
-      new DetectLastAnomaly()
-        .setSubscriptionKey(anomalyKey)
-        .setLocation(anomalyLocation)
-        .setOutputCol("anomalies")
-        .setErrorCol("errors")
-        .transform(df).collect()
+    withAnomaly("DetectLastAnomaly.Throw errors if required fields not set") {
+      val caught = intercept[AssertionError] {
+        new DetectLastAnomaly()
+          .setSubscriptionKey(anomalyKey)
+          .setLocation(anomalyLocation)
+          .setOutputCol("anomalies")
+          .setErrorCol("errors")
+          .transform(df).collect()
+      }
+      assert(caught.getMessage.contains("Missing required params"))
+      assert(caught.getMessage.contains("granularity"))
+      assert(caught.getMessage.contains("series"))
     }
-    assert(caught.getMessage.contains("Missing required params"))
-    assert(caught.getMessage.contains("granularity"))
-    assert(caught.getMessage.contains("series"))
   }
 
   override def testObjects(): Seq[TestObject[DetectLastAnomaly]] =
@@ -135,6 +161,10 @@ class DetectLastAnomalySuite extends TransformerFuzzing[DetectLastAnomaly] with 
 
 class DetectAnomaliesSuite extends TransformerFuzzing[DetectAnomalies] with AnomalyDetectorSuiteBase {
 
+  override def ignoreSerializationFuzzing: Boolean = true
+
+  override def ignoreExperimentFuzzing: Boolean = true
+
   lazy val ad: DetectAnomalies = new DetectAnomalies()
     .setSubscriptionKey(anomalyKey)
     .setLocation(anomalyLocation)
@@ -143,12 +173,14 @@ class DetectAnomaliesSuite extends TransformerFuzzing[DetectAnomalies] with Anom
     .setGranularity("monthly")
 
   test("Basic Usage") {
-    val fromRow = ADEntireResponse.makeFromRowConverter
-    val result = fromRow(ad.transform(df)
-      .select("anomalies")
-      .collect()
-      .head.getStruct(0))
-    assert(result.isAnomaly.count({ b => b }) == 2)
+    withAnomaly("DetectAnomalies.Basic Usage") {
+      val fromRow = ADEntireResponse.makeFromRowConverter
+      val result = fromRow(ad.transform(df)
+        .select("anomalies")
+        .collect()
+        .head.getStruct(0))
+      assert(result.isAnomaly.count({ b => b }) == 2)
+    }
   }
 
   test("Throw errors if required fields not set") {

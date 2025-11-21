@@ -52,6 +52,14 @@ class DetectFaceSuite extends TransformerFuzzing[DetectFace] with CognitiveKey {
     Seq(new TestObject(face, df))
 
   override def reader: MLReadable[_] = DetectFace
+
+  override def beforeAll(): Unit = {
+    if (cognitiveKeyOption.isEmpty) {
+      org.scalatest.Assertions.cancel(
+        "Skipping DetectFaceSuite: COGNITIVE_API_KEY / Secrets.CognitiveApiKey not configured")
+    }
+    super.beforeAll()
+  }
 }
 
 class FindSimilarFaceSuite extends TransformerFuzzing[FindSimilarFace] with CognitiveKey {
@@ -114,6 +122,14 @@ class FindSimilarFaceSuite extends TransformerFuzzing[FindSimilarFace] with Cogn
     Seq(new TestObject(findSimilar, faceIdDF))
 
   override def reader: MLReadable[_] = FindSimilarFace
+
+  override def beforeAll(): Unit = {
+    if (cognitiveKeyOption.isEmpty) {
+      org.scalatest.Assertions.cancel(
+        "Skipping FindSimilarFaceSuite: COGNITIVE_API_KEY / Secrets.CognitiveApiKey not configured")
+    }
+    super.beforeAll()
+  }
 }
 
 class GroupFacesSuite extends TransformerFuzzing[GroupFaces] with CognitiveKey {
@@ -175,6 +191,14 @@ class GroupFacesSuite extends TransformerFuzzing[GroupFaces] with CognitiveKey {
     Seq(new TestObject(group, faceIdDF))
 
   override def reader: MLReadable[_] = GroupFaces
+
+  override def beforeAll(): Unit = {
+    if (cognitiveKeyOption.isEmpty) {
+      org.scalatest.Assertions.cancel(
+        "Skipping GroupFacesSuite: COGNITIVE_API_KEY / Secrets.CognitiveApiKey not configured")
+    }
+    super.beforeAll()
+  }
 }
 
 class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with CognitiveKey {

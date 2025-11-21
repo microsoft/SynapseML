@@ -81,6 +81,14 @@ class OCRSuite extends TransformerFuzzing[OCR] with CognitiveKey with Flaky with
     Seq(new TestObject(ocr, df))
 
   override def reader: MLReadable[_] = OCR
+
+  override def beforeAll(): Unit = {
+    if (cognitiveKeyOption.isEmpty) {
+      org.scalatest.Assertions.cancel(
+        "Skipping OCRSuite: COGNITIVE_API_KEY / Secrets.CognitiveApiKey not configured")
+    }
+    super.beforeAll()
+  }
 }
 
 class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage]
@@ -200,6 +208,14 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage]
     }
   }
 
+  override def beforeAll(): Unit = {
+    if (cognitiveKeyOption.isEmpty) {
+      org.scalatest.Assertions.cancel(
+        "Skipping AnalyzeImageSuite: COGNITIVE_API_KEY / Secrets.CognitiveApiKey not configured")
+    }
+    super.beforeAll()
+  }
+
 }
 
 class RecognizeTextSuite extends TransformerFuzzing[RecognizeText]
@@ -243,6 +259,14 @@ class RecognizeTextSuite extends TransformerFuzzing[RecognizeText]
     Seq(new TestObject(rt, df))
 
   override def reader: MLReadable[_] = RecognizeText
+
+  override def beforeAll(): Unit = {
+    if (cognitiveKeyOption.isEmpty) {
+      org.scalatest.Assertions.cancel(
+        "Skipping RecognizeTextSuite: COGNITIVE_API_KEY / Secrets.CognitiveApiKey not configured")
+    }
+    super.beforeAll()
+  }
 }
 
 class ReadImageSuite extends TransformerFuzzing[ReadImage]
@@ -303,6 +327,14 @@ class ReadImageSuite extends TransformerFuzzing[ReadImage]
     Seq(new TestObject(readImage, df))
 
   override def reader: MLReadable[_] = ReadImage
+
+  override def beforeAll(): Unit = {
+    if (cognitiveKeyOption.isEmpty) {
+      org.scalatest.Assertions.cancel(
+        "Skipping ReadImageSuite: COGNITIVE_API_KEY / Secrets.CognitiveApiKey not configured")
+    }
+    super.beforeAll()
+  }
 }
 
 class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDomainSpecificContent]

@@ -16,5 +16,13 @@ trait OpenAIAPIKey {
   lazy val deploymentName5: String = "gpt-5-mini"
   // Default deployment when GPT-5 features are not required
   lazy val deploymentName: String = deploymentName4p1
-}
 
+  protected def withOpenAI(testName: String)(f: => Unit): Unit = {
+    val keyTry = scala.util.Try(openAIAPIKey)
+    keyTry.fold(
+      _ => org.scalatest.Assertions.cancel(
+        s"Skipping OpenAI test '$testName': OPENAI_API_KEY_2 / Secrets.OpenAIApiKey not configured"),
+      _ => f
+    )
+  }
+}
