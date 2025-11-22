@@ -401,7 +401,9 @@ jobs:
         scriptType: bash
         inlineScript: |
           source activate synapseml
-          sbt coverage getDatasets installPipPackage
+          # Temporarily disable scoverage during Spark 4.0 migration.
+          # sbt coverage getDatasets installPipPackage
+          sbt getDatasets installPipPackage
           sbt publishM2
     - task: AzureCLI@2
       displayName: 'Test Python Code'
@@ -429,25 +431,30 @@ jobs:
           echo "TEST_SUB_PATH=$TEST_SUB_PATH"
           echo "IGNORE_TEST_PATH_FLAG=$IGNORE_TEST_PATH_FLAG"
           echo "TEST_SUB_PATH_FLAG=$TEST_SUB_PATH_FLAG"
-          (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython) || \
-          (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython) || \
-          (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython)
+          # Temporarily disable scoverage during Spark 4.0 migration.
+          # (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython) || \
+          # (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython) || \
+          # (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython)
+          (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" testPython) || \
+          (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" testPython) || \
+          (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" testPython)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
         testResultsFiles: '**/python-test-*.xml'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
-    - task: AzureCLI@2
-      displayName: 'Generate Codecov report'
-      retryCountOnTaskFailure: 1
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: 'sbt coverageReport'
-      condition: succeededOrFailed()
-    - template: templates/codecov.yml
+    # Temporarily disable coverage report and Codecov upload for Python tests.
+    # - task: AzureCLI@2
+    #   displayName: 'Generate Codecov report'
+    #   retryCountOnTaskFailure: 1
+    #   inputs:
+    #     azureSubscription: 'SynapseML Build'
+    #     scriptLocation: inlineScript
+    #     scriptType: bash
+    #     inlineScript: 'sbt coverageReport'
+    #   condition: succeededOrFailed()
+    # - template: templates/codecov.yml
 
 
 - job: RTests
@@ -506,23 +513,26 @@ jobs:
           set -e
           export SBT_OPTS="-Xms2G -Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=4G -Xss5M  -Duser.timezone=GMT"
           source activate synapseml
-          timeout 20m sbt -DskipCodegen=true "project $(PACKAGE)" coverage testR
+          # Temporarily disable scoverage during Spark 4.0 migration.
+          # timeout 20m sbt -DskipCodegen=true "project $(PACKAGE)" coverage testR
+          timeout 20m sbt -DskipCodegen=true "project $(PACKAGE)" testR
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
         testResultsFiles: '**/r-test-*.xml'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
-    - task: AzureCLI@2
-      retryCountOnTaskFailure: 1
-      displayName: 'Generate Codecov report'
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: 'sbt coverageReport'
-      condition: succeededOrFailed()
-    - template: templates/codecov.yml
+    # Temporarily disable coverage report and Codecov upload for R tests.
+    # - task: AzureCLI@2
+    #   retryCountOnTaskFailure: 1
+    #   displayName: 'Generate Codecov report'
+    #   inputs:
+    #     azureSubscription: 'SynapseML Build'
+    #     scriptLocation: inlineScript
+    #     scriptType: bash
+    #     inlineScript: 'sbt coverageReport'
+    #   condition: succeededOrFailed()
+    # - template: templates/codecov.yml
 
 - job: BuildAndCacheCondaEnv
   cancelTimeoutInMinutes: 0
@@ -552,23 +562,26 @@ jobs:
         scriptType: bash
         inlineScript: |
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-          (sbt coverage testWebsiteDocs)
+          # Temporarily disable scoverage during Spark 4.0 migration.
+          # (sbt coverage testWebsiteDocs)
+          (sbt testWebsiteDocs)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
         testResultsFiles: '**/website-test-result.xml'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
-    - task: AzureCLI@2
-      displayName: 'Generate Codecov report'
-      retryCountOnTaskFailure: 1
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: 'sbt coverageReport'
-      condition: succeededOrFailed()
-    - template: templates/codecov.yml
+    # Temporarily disable coverage report and Codecov upload for website samples.
+    # - task: AzureCLI@2
+    #   displayName: 'Generate Codecov report'
+    #   retryCountOnTaskFailure: 1
+    #   inputs:
+    #     azureSubscription: 'SynapseML Build'
+    #     scriptLocation: inlineScript
+    #     scriptType: bash
+    #     inlineScript: 'sbt coverageReport'
+    #   condition: succeededOrFailed()
+    # - template: templates/codecov.yml
 
 
 
@@ -758,22 +771,26 @@ jobs:
         inlineScript: |
           ulimit -c unlimited
           export SBT_OPTS="-XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss2M  -Duser.timezone=GMT"
-          (timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
-          (${FLAKY:-false} && timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**")
+          # Temporarily disable scoverage during Spark 4.0 migration.
+          # (timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
+          # (${FLAKY:-false} && timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**")
+          (timeout 30m sbt "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
+          (${FLAKY:-false} && timeout 30m sbt "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**")
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
         testResultsFiles: '**/test-reports/TEST-*.xml'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
-    - task: AzureCLI@2
-      displayName: 'Generate Codecov report'
-      retryCountOnTaskFailure: 1
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: 'sbt coverageReport'
-      condition: succeededOrFailed()
+    # Temporarily disable coverage report and Codecov upload for unit tests.
+    # - task: AzureCLI@2
+    #   displayName: 'Generate Codecov report'
+    #   retryCountOnTaskFailure: 1
+    #   inputs:
+    #     azureSubscription: 'SynapseML Build'
+    #     scriptLocation: inlineScript
+    #     scriptType: bash
+    #     inlineScript: 'sbt coverageReport'
+    #   condition: succeededOrFailed()
     - template: templates/kv.yml
-    - template: templates/codecov.yml
+    # - template: templates/codecov.yml

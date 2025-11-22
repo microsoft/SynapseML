@@ -238,10 +238,16 @@ object CodegenPlugin extends AutoPlugin {
       val destPyDir = join(targetDir.value, "classes", genPackageNamespace.value)
       val packageDir = join(codegenDir.value, "package", "python").absolutePath
       val pythonSrcDir = join(codegenDir.value, "src", "python")
-      if (destPyDir.exists()) FileUtils.forceDelete(destPyDir)
       val sourcePyDir = join(pythonSrcDir.getAbsolutePath, genPackageNamespace.value)
-      FileUtils.copyDirectory(sourcePyDir, destPyDir)
-      packagePythonWheelCmd(packageDir, pythonSrcDir)
+      if (!sourcePyDir.exists()) {
+        streams.value.log.info(
+          s"Skipping Python packaging for ${name.value}: no generated sources at ${sourcePyDir.getAbsolutePath}"
+        )
+      } else {
+        if (destPyDir.exists()) FileUtils.forceDelete(destPyDir)
+        FileUtils.copyDirectory(sourcePyDir, destPyDir)
+        packagePythonWheelCmd(packageDir, pythonSrcDir)
+      }
     },
     removePipPackage := {
       runCmd(activateCondaEnv ++ Seq("pip", "uninstall", "-y", name.value))
@@ -267,7 +273,13 @@ object CodegenPlugin extends AutoPlugin {
     mergePyCode := {
       val srcDir = join(codegenDir.value, "src", "python", genPackageNamespace.value)
       val destDir = join(mergeCodeDir.value, "src", "python", genPackageNamespace.value)
-      FileUtils.copyDirectory(srcDir, destDir)
+      if (srcDir.exists()) {
+        FileUtils.copyDirectory(srcDir, destDir)
+      } else {
+        streams.value.log.info(
+          s"Skipping mergePyCode for ${name.value}: no generated sources at ${srcDir.getAbsolutePath}"
+        )
+      }
     },
     pyCodegen := pyCodeGenImpl.value,
     pythonIgnoreTestPath := sys.props.get("pythonIgnoreTestPath"),
@@ -300,7 +312,7 @@ object CodegenPlugin extends AutoPlugin {
       (Compile / packageBin / artifactPath).value.getParentFile
     },
     mergeCodeDir := {
-      join(baseDirectory.value.getParent, "target", "scala-2.12", "generated")
+      join(baseDirectory.value.getParent, "target", s"scala-${scalaBinaryVersion.value}", "generated")
     },
     codegenDir := {
       join(targetDir.value, "generated")
