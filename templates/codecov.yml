@@ -4,8 +4,15 @@ steps:
       curl -Os https://cli.codecov.io/latest/linux/codecov
       chmod +x codecov
       echo "Starting Codecov Upload"
-      ./codecov --verbose upload-process -t $(codecov-token) --dir .
+      if [ -z "$CODECOV_TOKEN" ]; then
+        echo "CODECOV_TOKEN not set; skipping Codecov upload"
+      else
+        # Run Codecov upload, but do not fail the job if it exits non-zero.
+        ./codecov --verbose upload-process -t "$CODECOV_TOKEN" || echo "Codecov upload failed (ignored)"
+      fi
       echo "Codecov Upload Complete" # Ensure that uploading failure does not stop the pipeline
     retryCountOnTaskFailure: 1
     displayName: Upload Coverage Report To Codecov.io
     condition: succeededOrFailed()
+    env:
+      CODECOV_TOKEN: $(codecov-token)
