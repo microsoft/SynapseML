@@ -184,8 +184,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     "promptTemplate", "outputCol", "postProcessing", "postProcessingOptions", "dropPrompt", "dropMessages",
     "systemPrompt", "apiType", "returnUsage")
 
-  private val multiModalTextPrompt = "The name of the file to analyze is %s.\nHere is the content:\n"
-
   private val textExtensions = Set("md", "csv", "tsv", "json", "xml")
   private val imageExtensions = Set("jpg", "jpeg", "png", "gif", "webp")
   private val audioExtensions = Set("mp3", "wav")
@@ -461,7 +459,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   private def wrapFileToMessagesList(filePathStr: String): Seq[Map[String, String]] = {
     val (fileName, fileBytes, fileType, mimeType) = prepareFile(filePathStr)
-    val baseMessage = stringMessageWrapper(multiModalTextPrompt.format(fileName))
 
     val fileMessage = this.getApiType match {
       case "responses" =>
@@ -469,7 +466,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       case "chat_completions" =>
         makeChatCompletionsFileMessage(fileName, fileBytes, fileType, mimeType)
     }
-    Seq(baseMessage, fileMessage)
+    Seq(fileMessage)
   }
 
   private def categorizeFileType(mimeType: String, extension: String): String = {
