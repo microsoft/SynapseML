@@ -91,8 +91,10 @@ trait HasAddressInput extends HasServiceParams {
 trait MapsAsyncReply extends HasAsyncReply {
 
   override protected def extractHeaderValuesForPolling(request: HTTPRequestData): Map[String, String] = {
-    // Extract query parameters instead of headers for Azure Maps authentication
-    // Azure Maps uses subscription-key as a URL query parameter, not an HTTP header.
+    // NOTE: Although the method name and return type refer to headers, this override extracts
+    // query parameters (specifically "subscription-key" and "api-version") from the request URI.
+    // This is necessary because Azure Maps uses these values as query parameters, not HTTP headers.
+    // The returned map is in the format expected by the base trait, which uses it to construct polling requests.
     Option(request.requestLine.uri).flatMap { uriString =>
       val uri = new URI(uriString)
       Option(uri.getQuery).map { queryParams =>
