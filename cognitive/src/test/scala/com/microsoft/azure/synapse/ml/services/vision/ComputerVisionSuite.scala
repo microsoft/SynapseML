@@ -205,8 +205,6 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage]
 
 
 
-
-
   override def testObjects(): Seq[TestObject[AnalyzeImage]] =
     Seq(new TestObject(ai, df))
 
@@ -413,8 +411,6 @@ class GenerateThumbnailsSuite extends TransformerFuzzing[GenerateThumbnails]
     val results = bytesGT.transform(bytesDF)
     assert(results.head().getAs[Array[Byte]](2).length > 1000)
   }
-
-
 
   override def testObjects(): Seq[TestObject[GenerateThumbnails]] =
     Seq(new TestObject(t, df))
