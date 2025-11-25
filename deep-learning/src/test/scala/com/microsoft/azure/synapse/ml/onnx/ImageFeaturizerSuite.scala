@@ -128,6 +128,12 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
   }
 
   test("Image featurizer should work with ResNet50 and powerBI") {
+    val powerBiUrlOpt =
+      scala.util.Try(sys.env.getOrElse("MML_POWERBI_URL", Secrets.PowerbiURL)).toOption
+    if (powerBiUrlOpt.isEmpty) {
+      cancel("Skipping Power BI integration test: MML_POWERBI_URL / Secrets.PowerbiURL not configured")
+    }
+
     val images = groceryImages.withColumnRenamed(inputCol, "image").coalesce(1)
     println(images.count())
 
@@ -135,7 +141,7 @@ class ImageFeaturizerSuite extends TransformerFuzzing[ImageFeaturizer]
       .withColumn("foo", UDFUtils.oldUdf({ x: DenseVector => x(0).toString }, StringType)(col("out")))
       .select("foo")
 
-    PowerBIWriter.write(result, sys.env.getOrElse("MML_POWERBI_URL", Secrets.PowerbiURL), Map("concurrency" -> "1"))
+    PowerBIWriter.write(result, powerBiUrlOpt.get, Map("concurrency" -> "1"))
   }
 
   val reader: MLReadable[_] = ImageFeaturizer
