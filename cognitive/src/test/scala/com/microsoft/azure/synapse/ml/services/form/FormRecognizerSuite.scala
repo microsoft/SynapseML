@@ -324,7 +324,6 @@ class AnalyzeBusinessCardsSuite extends TransformerFuzzing[AnalyzeBusinessCards]
   }
 
 
-
   override def testObjects(): Seq[TestObject[AnalyzeBusinessCards]] =
     Seq(new TestObject(analyzeBusinessCards, imageDf3))
 
