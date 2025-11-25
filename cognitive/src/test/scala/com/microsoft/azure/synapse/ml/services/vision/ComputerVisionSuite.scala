@@ -314,7 +314,6 @@ class ReadImageSuite extends TransformerFuzzing[ReadImage]
   }
 
 
-
   override def testObjects(): Seq[TestObject[ReadImage]] =
     Seq(new TestObject(readImage, df))
 
