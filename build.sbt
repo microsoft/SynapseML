@@ -11,10 +11,6 @@ val sparkVersion = "4.0.1"
 name := "synapseml"
 ThisBuild / organization := "com.microsoft.azure"
 ThisBuild / scalaVersion := "2.13.16"
-// Disable scoverage instrumentation by default for the Spark 4.0 migration.
-// The CI pipeline no longer relies on coverage, and this avoids resolving
-// scalac-scoverage-plugin for Scala 2.13.16 when older plugin versions are present.
-ThisBuild / coverageEnabled := false
 
 val scalaMajorVersion = 2.13
 

@@ -91,3 +91,6 @@ metastore_db/
 *_local\.*
 condaenv.*.requirements.txt
 *.env
+
+# Local test result logs
+.test_results/
