@@ -5,7 +5,8 @@ steps:
       architecture: 'x64'
   - task: JavaToolInstaller@0
     inputs:
-      versionSpec: '8'
+      # Use Java 17 for Spark 4.0 builds
+      versionSpec: '17'
       jdkArchitectureOption: 'x64'
       jdkSourceOption: 'PreInstalled'
   - bash: pip install azure-cli==2.60.0
