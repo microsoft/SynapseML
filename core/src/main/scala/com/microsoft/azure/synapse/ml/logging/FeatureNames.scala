@@ -6,10 +6,11 @@ package com.microsoft.azure.synapse.ml.logging
 object FeatureNames {
   object AiServices {
     val Anomaly = "aiservice-anomalydetection"
-    val BingImage = "aiservice-bingimage"
+
     val Face = "aiservice-face"
     val Form = "aiservice-form"
     val Language = "aiservice-language"
+
     val OpenAI = "aiservice-openai"
     val Search = "aiservice-search"
     val Speech = "aiservice-speech"

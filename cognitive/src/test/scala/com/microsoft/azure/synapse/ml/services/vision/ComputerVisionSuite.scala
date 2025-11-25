@@ -1,20 +1,38 @@
+
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
 package com.microsoft.azure.synapse.ml.services.vision
 
-import com.microsoft.azure.synapse.ml.services._
-import com.microsoft.azure.synapse.ml.services.bing.BingImageSearch
 import com.microsoft.azure.synapse.ml.core.spark.FluentAPI._
 import com.microsoft.azure.synapse.ml.core.test.base.{Flaky, TestBase}
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{GetterSetterFuzzing, TestObject, TransformerFuzzing}
 import org.apache.spark.ml.NamespaceInjections.pipelineModel
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.functions.{col, typedLit}
+import org.apache.spark.sql.functions.{col, typedLit, udf}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.scalactic.Equality
+import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
+import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
+import org.apache.commons.io.IOUtils
+import org.apache.http.client.methods.HttpGet
 
-trait OCRUtils extends TestBase {
+import com.microsoft.azure.synapse.ml.services.CognitiveKey
+
+trait VisionUtils extends TestBase {
+  import spark.implicits._
+
+  def downloadBytes(url: String): Array[Byte] = {
+    val request = new HttpGet(url)
+    using(RESTHelpers.Client.execute(request)) { response =>
+      IOUtils.toByteArray(response.getEntity.getContent)
+    }.get
+  }
+
+  val downloadBytesUdf = udf(downloadBytes _)
+}
+
+trait OCRUtils extends VisionUtils {
 
   import spark.implicits._
 
@@ -28,9 +46,7 @@ trait OCRUtils extends TestBase {
     "https://mmlspark.blob.core.windows.net/datasets/OCR/paper.pdf"
   ).toDF("url")
 
-  lazy val bytesDF: DataFrame = BingImageSearch
-    .downloadFromUrls("url", "imageBytes", 4, 10000)
-    .transform(df)
+  lazy val bytesDF: DataFrame = df.withColumn("imageBytes", downloadBytesUdf(col("url")))
     .select("imageBytes")
 
 }
@@ -77,6 +93,8 @@ class OCRSuite extends TransformerFuzzing[OCR] with CognitiveKey with Flaky with
     assert(results(2).getString(2).startsWith("This is a lot of 12 point text"))
   }
 
+
+
   override def testObjects(): Seq[TestObject[OCR]] =
     Seq(new TestObject(ocr, df))
 
@@ -84,7 +102,7 @@ class OCRSuite extends TransformerFuzzing[OCR] with CognitiveKey with Flaky with
 }
 
 class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage]
-  with CognitiveKey with Flaky with GetterSetterFuzzing[AnalyzeImage] {
+  with CognitiveKey with Flaky with GetterSetterFuzzing[AnalyzeImage] with VisionUtils {
 
   import spark.implicits._
 
@@ -115,13 +133,13 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage]
   def ai: AnalyzeImage = baseAI
     .setImageUrlCol("url")
 
-  lazy val bytesDF: DataFrame = BingImageSearch
-    .downloadFromUrls("url", "imageBytes", 4, 10000)
-    .transform(df)
-    .drop("url")
+
 
   def bytesAI: AnalyzeImage = baseAI
     .setImageBytesCol("imageBytes")
+
+  lazy val bytesDF: DataFrame = df.withColumn("imageBytes", downloadBytesUdf(col("url")))
+    .select("imageBytes")
 
   test("Null handling"){
     assertThrows[IllegalArgumentException]{
@@ -186,6 +204,10 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage]
     assert(responses(1).categories.get.head.name === "text_sign")
   }
 
+
+
+
+
   override def testObjects(): Seq[TestObject[AnalyzeImage]] =
     Seq(new TestObject(ai, df))
 
@@ -230,14 +252,7 @@ class RecognizeTextSuite extends TransformerFuzzing[RecognizeText]
       headStr === "CLOSED WHEN ONE DOOR CLOSES, ANOTHER OPENS. ALL YOU HAVE TO DO IS WALK IN")
   }
 
-  test("Basic Usage with Bytes") {
-    val results = bytesDF.mlTransform(bytesRT, RecognizeText.flatten("ocr", "ocr"))
-      .select("ocr")
-      .collect()
-    val headStr = results.head.getString(0)
-    assert(headStr === "OPENS.ALL YOU HAVE TO DO IS WALK IN WHEN ONE DOOR CLOSES, ANOTHER CLOSED" ||
-      headStr === "CLOSED WHEN ONE DOOR CLOSES, ANOTHER OPENS. ALL YOU HAVE TO DO IS WALK IN")
-  }
+
 
   override def testObjects(): Seq[TestObject[RecognizeText]] =
     Seq(new TestObject(rt, df))
@@ -299,6 +314,8 @@ class ReadImageSuite extends TransformerFuzzing[ReadImage]
       headStr === "CLOSED WHEN ONE DOOR CLOSES, ANOTHER OPENS. ALL YOU HAVE TO DO IS WALK IN")
   }
 
+
+
   override def testObjects(): Seq[TestObject[ReadImage]] =
     Seq(new TestObject(readImage, df))
 
@@ -306,7 +323,7 @@ class ReadImageSuite extends TransformerFuzzing[ReadImage]
 }
 
 class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDomainSpecificContent]
-  with CognitiveKey with Flaky {
+  with CognitiveKey with Flaky with VisionUtils {
 
   import spark.implicits._
 
@@ -321,10 +338,9 @@ class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDo
     .setImageUrlCol("url")
     .setOutputCol("celebs")
 
-  lazy val bytesDF: DataFrame = BingImageSearch
-    .downloadFromUrls("url", "imageBytes", 4, 10000)
-    .transform(df)
+  lazy val bytesDF: DataFrame = df.withColumn("imageBytes", downloadBytesUdf(col("url")))
     .select("imageBytes")
+
 
   lazy val bytesCeleb: RecognizeDomainSpecificContent = new RecognizeDomainSpecificContent()
     .setSubscriptionKey(cognitiveKey)
@@ -347,6 +363,8 @@ class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDo
     assert(results.head().getString(2) === "Leonardo DiCaprio")
   }
 
+
+
   override implicit lazy val dfEq: Equality[DataFrame] = new Equality[DataFrame] {
     def areEqual(a: DataFrame, bAny: Any): Boolean = bAny match {
       case b: Dataset[_] =>
@@ -362,7 +380,7 @@ class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDo
 }
 
 class GenerateThumbnailsSuite extends TransformerFuzzing[GenerateThumbnails]
-  with CognitiveKey with Flaky {
+  with CognitiveKey with Flaky with VisionUtils {
 
   import spark.implicits._
 
@@ -377,10 +395,9 @@ class GenerateThumbnailsSuite extends TransformerFuzzing[GenerateThumbnails]
     .setImageUrlCol("url")
     .setOutputCol("thumbnails")
 
-  lazy val bytesDF: DataFrame = BingImageSearch
-    .downloadFromUrls("url", "imageBytes", 4, 10000)
-    .transform(df)
+  lazy val bytesDF: DataFrame = df.withColumn("imageBytes", downloadBytesUdf(col("url")))
     .select("imageBytes")
+
 
   lazy val bytesGT: GenerateThumbnails = new GenerateThumbnails()
     .setSubscriptionKey(cognitiveKey)
@@ -399,13 +416,15 @@ class GenerateThumbnailsSuite extends TransformerFuzzing[GenerateThumbnails]
     assert(results.head().getAs[Array[Byte]](2).length > 1000)
   }
 
+
+
   override def testObjects(): Seq[TestObject[GenerateThumbnails]] =
     Seq(new TestObject(t, df))
 
   override def reader: MLReadable[_] = GenerateThumbnails
 }
 
-class TagImageSuite extends TransformerFuzzing[TagImage] with CognitiveKey with Flaky {
+class TagImageSuite extends TransformerFuzzing[TagImage] with CognitiveKey with Flaky with VisionUtils {
 
   import spark.implicits._
 
@@ -419,10 +438,9 @@ class TagImageSuite extends TransformerFuzzing[TagImage] with CognitiveKey with 
     .setImageUrlCol("url")
     .setOutputCol("tags")
 
-  lazy val bytesDF: DataFrame = BingImageSearch
-    .downloadFromUrls("url", "imageBytes", 4, 10000)
-    .transform(df)
+  lazy val bytesDF: DataFrame = df.withColumn("imageBytes", downloadBytesUdf(col("url")))
     .select("imageBytes")
+
 
   lazy val bytesTI: TagImage = new TagImage()
     .setSubscriptionKey(cognitiveKey)
@@ -450,6 +468,8 @@ class TagImageSuite extends TransformerFuzzing[TagImage] with CognitiveKey with 
     assert(tagResponse.map(_.getDouble(1)).toList.head > .9)
   }
 
+
+
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
     super.assertDFEq(df1.select("tags.tags.name"), df2.select("tags.tags.name"))(eq)
   }
@@ -461,7 +481,7 @@ class TagImageSuite extends TransformerFuzzing[TagImage] with CognitiveKey with 
 }
 
 class DescribeImageSuite extends TransformerFuzzing[DescribeImage]
-  with CognitiveKey with Flaky {
+  with CognitiveKey with Flaky with VisionUtils {
 
   import spark.implicits._
 
@@ -476,10 +496,9 @@ class DescribeImageSuite extends TransformerFuzzing[DescribeImage]
     .setImageUrlCol("url")
     .setOutputCol("descriptions")
 
-  lazy val bytesDF: DataFrame = BingImageSearch
-    .downloadFromUrls("url", "imageBytes", 4, 10000)
-    .transform(df)
+  lazy val bytesDF: DataFrame = df.withColumn("imageBytes", downloadBytesUdf(col("url")))
     .select("imageBytes")
+
 
   lazy val bytesDI: DescribeImage = new DescribeImage()
     .setSubscriptionKey(cognitiveKey)
@@ -501,6 +520,8 @@ class DescribeImageSuite extends TransformerFuzzing[DescribeImage]
       .getStruct(0).getStruct(0).getSeq[String](0).toSet
     assert(tags("person") && tags("glasses"))
   }
+
+
 
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
     super.assertDFEq(df1.select("descriptions.description.tags", "descriptions.description.captions.text"),

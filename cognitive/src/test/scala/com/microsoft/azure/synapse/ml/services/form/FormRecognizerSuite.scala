@@ -10,7 +10,7 @@ import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, Transformer
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers.retry
 import com.microsoft.azure.synapse.ml.services._
-import com.microsoft.azure.synapse.ml.services.bing.BingImageSearch
+
 import com.microsoft.azure.synapse.ml.services.form.FormsFlatteners._
 import com.microsoft.azure.synapse.ml.stages.UDFTransformer
 import org.apache.commons.io.IOUtils
@@ -19,7 +19,7 @@ import org.apache.http.entity.StringEntity
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.functions.{col, udf}
 import org.scalactic.Equality
 import spray.json._
 
@@ -100,12 +100,19 @@ trait FormRecognizerUtils extends TestBase with CognitiveKey with Flaky {
 
   import spark.implicits._
 
-  def createTestDataframe(baseUrl: String, docs: Seq[String], returnBytes: Boolean): DataFrame = {
+  def downloadBytes(url: String): Array[Byte] = {
+    val request = new HttpGet(url)
+    using(RESTHelpers.Client.execute(request)) { response =>
+      IOUtils.toByteArray(response.getEntity.getContent)
+    }.get
+  }
+
+  val downloadBytesUdf = udf(downloadBytes _)
+
+  def createTestDataframe(baseUrl: String, docs: Seq[String], returnBytes: Boolean = false): DataFrame = {
     val df = docs.map(doc => baseUrl + doc).toDF("source")
     if (returnBytes) {
-      BingImageSearch
-        .downloadFromUrls("source", "imageBytes", 4, 10000)
-        .transform(df)
+      df.withColumn("imageBytes", downloadBytesUdf(col("source")))
         .select("imageBytes")
     } else {
       df
@@ -134,13 +141,13 @@ trait FormRecognizerUtils extends TestBase with CognitiveKey with Flaky {
 
   lazy val bytesDF5: DataFrame = createTestDataframe(baseUrl, Seq("id1.jpg"), returnBytes = true)
 
-  lazy val imageDf6: DataFrame = createTestDataframe(baseUrl, Seq("tables1.pdf"), returnBytes = false)
+  lazy val imageDf6: DataFrame = createTestDataframe(baseUrl, Seq("tables1.pdf"))
 
-  lazy val pdfDf1: DataFrame = createTestDataframe(baseUrl, Seq("layout2.pdf"), returnBytes = false)
+  lazy val pdfDf1: DataFrame = createTestDataframe(baseUrl, Seq("layout2.pdf"))
 
-  lazy val pdfDf2: DataFrame = createTestDataframe(baseUrl, Seq("invoice1.pdf", "invoice3.pdf"), returnBytes = false)
+  lazy val pdfDf2: DataFrame = createTestDataframe(baseUrl, Seq("invoice1.pdf", "invoice3.pdf"))
 
-  lazy val pathDf: DataFrame = createTestDataframe(baseUrl, Seq(""), returnBytes = false)
+  lazy val pathDf: DataFrame = createTestDataframe(baseUrl, Seq(""))
 
   // TODO refactor tests to share structure
   def basicTest(df: DataFrame,
@@ -214,6 +221,8 @@ class AnalyzeLayoutSuite extends TransformerFuzzing[AnalyzeLayout] with FormReco
 
   }
 
+
+
   override def testObjects(): Seq[TestObject[AnalyzeLayout]] =
     Seq(new TestObject(analyzeLayout, imageDf1))
 
@@ -261,6 +270,8 @@ class AnalyzeReceiptsSuite extends TransformerFuzzing[AnalyzeReceipts] with Form
     val docHeadStr = results.head.getString(1)
     assert(docHeadStr.contains("Tax"))
   }
+
+
 
   override def testObjects(): Seq[TestObject[AnalyzeReceipts]] =
     Seq(new TestObject(analyzeReceipts, imageDf2))
@@ -311,6 +322,8 @@ class AnalyzeBusinessCardsSuite extends TransformerFuzzing[AnalyzeBusinessCards]
     assert(docHeadStr.startsWith((
       """{"Addresses":{"type":"array","valueArray":["{\"type\":\"string\",\"valueString\"""").stripMargin))
   }
+
+
 
   override def testObjects(): Seq[TestObject[AnalyzeBusinessCards]] =
     Seq(new TestObject(analyzeBusinessCards, imageDf3))
@@ -372,6 +385,8 @@ class AnalyzeInvoicesSuite extends TransformerFuzzing[AnalyzeInvoices] with Form
     assert(docHeadStr.contains("Enterprise Way Sunnayvale"))
   }
 
+
+
   override def testObjects(): Seq[TestObject[AnalyzeInvoices]] =
     Seq(new TestObject(analyzeInvoices, imageDf4))
 
@@ -420,6 +435,8 @@ class AnalyzeIDDocumentsSuite extends TransformerFuzzing[AnalyzeIDDocuments] wit
     assert(docHeadStr.contains("DateOfExpiration"))
 
   }
+
+
 
   override def testObjects(): Seq[TestObject[AnalyzeIDDocuments]] =
     Seq(new TestObject(analyzeIDDocuments, imageDf5))
