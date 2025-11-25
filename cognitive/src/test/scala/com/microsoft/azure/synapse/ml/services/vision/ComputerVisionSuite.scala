@@ -94,7 +94,6 @@ class OCRSuite extends TransformerFuzzing[OCR] with CognitiveKey with Flaky with
   }
 
 
-
   override def testObjects(): Seq[TestObject[OCR]] =
     Seq(new TestObject(ocr, df))
 
