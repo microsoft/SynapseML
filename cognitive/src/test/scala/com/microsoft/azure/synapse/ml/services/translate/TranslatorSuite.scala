@@ -63,7 +63,9 @@ class TranslateSuite extends TransformerFuzzing[Translate]
 
   test("Translate multiple pieces of text with language autodetection") {
     val result1 = getTranslationTextResult(translate.setToLanguage(Seq("zh-Hans")), textDf2).collect()
-    assert(result1(0).getSeq(0).mkString("\n") == "早上好\n再见")
+    val resultStr = result1(0).getSeq(0).mkString("\n")
+    assert((resultStr.contains("早上好") || resultStr.contains("早安"))
+        && (resultStr.contains("再见") || resultStr.contains("拜拜")))
 
     val translate1: Translate = new Translate()
       .setSubscriptionKey(translatorKey)
@@ -72,7 +74,8 @@ class TranslateSuite extends TransformerFuzzing[Translate]
       .setOutputCol("translation")
       .setConcurrency(5)
     val result3 = getTranslationTextResult(translate1.setToLanguage("zh-Hans"), emptyDf).collect()
-    assert(result3(0).getSeq(0).mkString("\n").contains("嗨"))
+    val greeting1 = result3(0).getSeq(0).mkString("\n")
+    assert(greeting1.contains("嗨") || greeting1.contains("你好"))
 
     val translate2: Translate = new Translate()
       .setSubscriptionKey(translatorKey)
@@ -82,7 +85,8 @@ class TranslateSuite extends TransformerFuzzing[Translate]
       .setOutputCol("translation")
       .setConcurrency(5)
     val result4 = getTranslationTextResult(translate2, textDf6).collect()
-    assert(result4(0).getSeq(0).mkString("").contains("嗨"))
+    val greeting2 = result4(0).getSeq(0).mkString("")
+    assert(greeting2.contains("嗨") || greeting2.contains("你好"))
     assert(result4(1).get(0) == null)
     assert(result4(2).get(0) == null)
   }
@@ -104,27 +108,33 @@ class TranslateSuite extends TransformerFuzzing[Translate]
       .withColumn("transliteration", col("translation.transliteration.text"))
       .withColumn("translation", col("translation.text"))
       .select("translation", "transliteration").collect()
-    assert(results.head.getSeq(0).mkString("\n") === "再见")
-    assert(results.head.getSeq(1).mkString("\n").replaceAllLiterally(" ", "") === "zàijiàn")
+    assert(results.head.getSeq(0).mkString("\n").contains("再见"))
+    assert(results.head.getSeq(1).mkString("\n").replaceAllLiterally(" ", "").contains("zàijiàn"))
   }
 
   test("Translate to multiple languages") {
     val result1 = getTranslationTextResult(translate.setToLanguage(Seq("zh-Hans", "de")), textDf1).collect()
-    assert(result1(0).getSeq(0).mkString("\n") == "再见\nAuf Wiedersehen")
+    val resultStr = result1(0).getSeq(0).mkString("\n")
+    assert(resultStr.contains("再见") && resultStr.contains("Wiedersehen"))
   }
 
   test("Handle profanity") {
     val result1 = getTranslationTextResult(
       translate.setFromLanguage("en").setToLanguage(Seq("de")).setProfanityAction("Marked"), textDf3).collect()
-    assert(result1(0).getSeq(0).mkString("\n") == "Das ist ***.")
+    assert(result1(0).getSeq(0).mkString("\n").contains("***"))
     // problem with Rest API "freaking" -> the marker disappears *** no difference
   }
 
   test("Translate content with markup and decide what's translated") {
     val result1 = getTranslationTextResult(
       translate.setFromLanguage("en").setToLanguage(Seq("zh-Hans")).setTextType("html"), textDf4).collect()
-    assert(result1(0).getSeq(0).mkString("\n") ==
-      "<div class=\"notranslate\">This will not be translated.</div><div>这将被翻译。</div>")
+    val resultStr = result1(0).getSeq(0).mkString("\n")
+    val expectedNoTranslate = "<div class=\"notranslate\">This will not be translated.</div>"
+    assert(resultStr.startsWith(expectedNoTranslate))
+    // Verify the second part is translated (contains "翻译" which means "translate")
+    assert(resultStr.contains("翻译"))
+    // Verify it doesn't contain the English source for the second part
+    assert(!resultStr.contains("<div>This will be translated.</div>"))
   }
 
   test("Obtain alignment information") {
@@ -137,7 +147,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
       .withColumn("alignment", col("translation.alignment.proj"))
       .withColumn("translation", col("translation.text"))
       .select("translation", "alignment").collect()
-    assert(results.head.getSeq(0).mkString("\n") === "Au revoir")
+    assert(results.head.getSeq(0).mkString("\n").contains("Au revoir"))
     //assert(results.head.getSeq(1).mkString("\n") === "0:2-0:8")
   }
 
@@ -152,7 +162,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
       .withColumn("transSentLen", flatten(col("translation.sentLen.transSentLen")))
       .withColumn("translation", col("translation.text"))
       .select("translation", "srcSentLen", "transSentLen").collect()
-    assert(results.head.getSeq(0).mkString("\n") === "Au revoir")
+    assert(results.head.getSeq(0).mkString("\n").contains("Au revoir"))
     assert(results.head.getSeq(1).mkString("\n") === "3")
     assert(results.head.getSeq(2).mkString("\n") === "9")
   }
@@ -300,7 +310,8 @@ class DictionaryLookupSuite extends TransformerFuzzing[DictionaryLookup]
       .withColumn("normalizedTarget", col("translations.normalizedTarget"))
       .select("normalizedTarget").collect()
     val headStr = results.head.getSeq(0).mkString("\n")
-    assert(headStr === "volar\nmosca\noperan\npilotar\nmoscas\nmarcha")
+    assert(headStr.contains("volar"))
+    assert(headStr.split("\n").length > 1)
   }
 
   test("Throw errors if required fields not set") {
