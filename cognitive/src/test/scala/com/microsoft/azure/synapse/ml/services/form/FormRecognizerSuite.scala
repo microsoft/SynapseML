@@ -385,7 +385,6 @@ class AnalyzeInvoicesSuite extends TransformerFuzzing[AnalyzeInvoices] with Form
   }
 
 
-
   override def testObjects(): Seq[TestObject[AnalyzeInvoices]] =
     Seq(new TestObject(analyzeInvoices, imageDf4))
 
