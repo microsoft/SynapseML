@@ -91,18 +91,16 @@ trait HasAddressInput extends HasServiceParams {
 trait MapsAsyncReply extends HasAsyncReply {
 
   override protected def extractHeaderValuesForPolling(request: HTTPRequestData): Map[String, String] = {
-    // NOTE: Although the method name and return type refer to headers, this override extracts
-    // query parameters (specifically "subscription-key" and "api-version") from the request URI.
-    // This is necessary because Azure Maps uses these values as query parameters, not HTTP headers.
-    // The returned map is in the format expected by the base trait, which uses it to construct polling requests.
+    // Extract query parameters instead of headers for Azure Maps authentication
+    // NOTE: Although the method name refers to headers, Azure Maps supplies authentication values
+    // via query parameters, so we return the relevant query params in the expected map format.
     Option(request.requestLine.uri).flatMap { uriString =>
       val uri = new URI(uriString)
-      Option(uri.getQuery).map { queryParams =>
+      Option(uri.getRawQuery).map { queryParams =>
         queryParams.split("&").flatMap { param =>
           val parts = param.split("=", 2)
           if (parts.length == 2 && (parts(0) == "subscription-key" || parts(0) == "api-version")) {
-            // Decode the value in case it contains URL-encoded characters
-            Some(parts(0) -> java.net.URLDecoder.decode(parts(1), "UTF-8"))
+            Some(parts(0) -> parts(1))
           } else {
             None
           }
@@ -115,11 +113,20 @@ trait MapsAsyncReply extends HasAsyncReply {
                                location: URI): Option[HTTPResponseData] = {
     val statusRequest = new HttpGet()
     val locationWithAuth = if (headers.nonEmpty) {
-      val separator = if (location.getQuery == null) "?" else "&"
-      val authParams = headers.map { case (k, v) =>
-        s"$k=${java.net.URLEncoder.encode(v, "UTF-8")}"
+      val authParams = headers.toSeq.map { case (k, v) =>
+        s"$k=$v"
       }.mkString("&")
-      new URI(location.toString + separator + authParams)
+      val originalQuery = Option(location.getRawQuery).filter(_.nonEmpty)
+      val updatedQuery = originalQuery.map(_ + "&" + authParams).getOrElse(authParams)
+      val rawSSP = location.getRawSchemeSpecificPart
+      val baseSSP = {
+        val idx = rawSSP.indexOf('?')
+        if (idx >= 0) rawSSP.substring(0, idx) else rawSSP
+      }
+      val newSSP = s"$baseSSP?$updatedQuery"
+      val schemePrefix = Option(location.getScheme).map(_ + ":").getOrElse("")
+      val fragmentSuffix = Option(location.getRawFragment).map("#" + _).getOrElse("")
+      new URI(s"$schemePrefix$newSSP$fragmentSuffix")
     } else {
       location
     }
