@@ -64,7 +64,8 @@ class TranslateSuite extends TransformerFuzzing[Translate]
   test("Translate multiple pieces of text with language autodetection") {
     val result1 = getTranslationTextResult(translate.setToLanguage(Seq("zh-Hans")), textDf2).collect()
     val resultStr = result1(0).getSeq(0).mkString("\n")
-    assert((resultStr.contains("早上好") || resultStr.contains("早安")) && (resultStr.contains("再见") || resultStr.contains("拜拜")))
+    assert((resultStr.contains("早上好") || resultStr.contains("早安"))
+        && (resultStr.contains("再见") || resultStr.contains("拜拜")))
 
     val translate1: Translate = new Translate()
       .setSubscriptionKey(translatorKey)
