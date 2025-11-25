@@ -36,9 +36,9 @@ class AzureMapsTraitsSuite extends AnyFunSuite {
 
     override def close(): Unit = {}
 
-    override def getConnectionManager: ClientConnectionManager = null
+    override def getConnectionManager: ClientConnectionManager = throw new UnsupportedOperationException
 
-    override def getParams: HttpParams = null
+    override def getParams: HttpParams = throw new UnsupportedOperationException
 
     override protected def doExecute(target: HttpHost,
                                      request: HttpRequest,
@@ -117,12 +117,12 @@ class AzureMapsTraitsSuite extends AnyFunSuite {
       headerObjects.reverse.find(_.getName.equalsIgnoreCase(name)).orNull
 
     override def headerIterator(): HeaderIterator =
-      new BasicHeaderIterator(headerObjects, null)
+      new BasicHeaderIterator(headerObjects, null) // scalastyle:ignore null
 
     override def headerIterator(name: String): HeaderIterator =
       new BasicHeaderIterator(headerObjects, name)
 
-    override def getParams: HttpParams = null
+    override def getParams: HttpParams = throw new UnsupportedOperationException
 
     override def setParams(params: HttpParams): Unit = {}
   }
@@ -144,14 +144,14 @@ class AzureMapsTraitsSuite extends AnyFunSuite {
   test("queryForResult appends auth params without double encoding or dropping fragments") {
     val helper = new TestableMapsAsyncReply
     val entity = new StringEntity("""{"status":"succeeded"}""", "UTF-8")
-    val client = new RecordingHttpClient(() => new StubCloseableHttpResponse(200, Seq.empty, Some(entity)))
+    val client = new RecordingHttpClient(() => new StubCloseableHttpResponse(HttpStatus.SC_OK, Seq.empty, Some(entity)))
 
     val location = new URI("https://example.com/path?existing=1#frag")
     val headers = Map("subscription-key" -> "abc%2B123%3D", "api-version" -> "2024-01-01")
 
     val response = helper.query(headers, client, location)
     assert(response.nonEmpty)
-    assert(response.get.statusLine.statusCode == 200)
+    assert(response.get.statusLine.statusCode == HttpStatus.SC_OK)
 
     val recordedUri = client.lastRequestUri.get
     assert(recordedUri.getFragment == "frag")
