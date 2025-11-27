@@ -6,6 +6,7 @@ package org.apache.spark.sql.execution.streaming
 import com.microsoft.azure.synapse.ml.io.http.{HTTPRequestData, HTTPResponseData}
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import org.apache.spark.internal.Logging
+import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.{AnalysisException, DataFrame, Dataset, SQLContext, Row, SparkSession}
 import org.apache.spark.sql.catalyst.InternalRow
 import org.apache.spark.sql.catalyst.expressions.{AttributeReference, GenericInternalRow}
