@@ -33,7 +33,7 @@ object JarLoadingUtils {
     AllClasses
       .filter(classTag[T].runtimeClass.isAssignableFrom(_))
       .filter(c => jarName.forall({
-        val jarResource = c.getResource(c.getSimpleName + ".class")
+        val jarResource = c.getResource("/" + c.getName.replace('.', '/') + ".class")
         if (jarResource == null) {
           throw new IOException(s"Could not find resource for class ${c.getSimpleName}")
         }
