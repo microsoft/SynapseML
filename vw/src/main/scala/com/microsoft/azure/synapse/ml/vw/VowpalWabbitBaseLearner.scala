@@ -372,14 +372,14 @@ trait VowpalWabbitBaseLearner extends VowpalWabbitBase {
     val diagRdd = dataset.sparkSession.createDataFrame(trainingResults.map {
       _.stats
     })
-      .withColumn("timeMarshalPercentage", 
-        when(timeTotalCol === 0, lit(null)).otherwise(timeMarshalCol / timeTotalCol))
-      .withColumn("timeLearnPercentage", 
-        when(timeTotalCol === 0, lit(null)).otherwise(timeLearnCol / timeTotalCol))
-      .withColumn("timeMultipassPercentage", 
-        when(timeTotalCol === 0, lit(null)).otherwise(timeMultipassCol / timeTotalCol))
+      .withColumn("timeMarshalPercentage",
+        when(timeTotalCol === 0, lit(Double.NaN)).otherwise(timeMarshalCol / timeTotalCol))
+      .withColumn("timeLearnPercentage",
+        when(timeTotalCol === 0, lit(Double.NaN)).otherwise(timeLearnCol / timeTotalCol))
+      .withColumn("timeMultipassPercentage",
+        when(timeTotalCol === 0, lit(Double.NaN)).otherwise(timeMultipassCol / timeTotalCol))
       .withColumn("timeSparkReadPercentage",
-        when(timeTotalCol === 0, lit(null)).otherwise(
+        when(timeTotalCol === 0, lit(Double.NaN)).otherwise(
           (timeTotalCol - timeMarshalCol - timeLearnCol - timeMultipassCol) / timeTotalCol))
 
     model.setPerformanceStatistics(diagRdd)

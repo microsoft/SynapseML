@@ -111,34 +111,7 @@ class HTTPSource(name: String, host: String, port: Int, sqlContext: SQLContext)
     val rowRdd = rawBatch.map(ir => Row.fromSeq(ir.toSeq(sourceSchema)))
     val df = sqlContext.sparkSession.createDataFrame(rowRdd, sourceSchema)
 
-    // Reflection hack to set isStreaming=true via LocalRelation
-    try {
-      var clazz: Class[_] = df.getClass
-      var field: java.lang.reflect.Field = null
-      while (clazz != null && field == null) {
-        try {
-          field = clazz.getDeclaredField("logicalPlan")
-        } catch {
-          case _: NoSuchFieldException => clazz = clazz.getSuperclass
-        }
-      }
-      if (field != null) {
-        field.setAccessible(true)
-        val attributes = sourceSchema.map(f =>
-          AttributeReference(f.name, f.dataType, f.nullable, f.metadata)()
-        )
-        val newPlan = LocalRelation(
-          attributes,
-          rawBatch.collect().toSeq,
-          isStreaming = true
-        )
-        field.set(df, newPlan)
-      } else {
-        logError("DEBUG: logicalPlan field not found")
-      }
-    } catch {
-      case e: Exception => logError(s"DEBUG: Reflection hack failed: $e")
-    }
+    setStreamingViaReflection(df, sourceSchema, rawBatch)
     df
   }
 
@@ -166,6 +139,42 @@ class HTTPSource(name: String, host: String, port: Int, sqlContext: SQLContext)
 
   override def toString: String = s"HTTPSource[name: $name, host: $host, port: $port]"
 
+  private def setStreamingViaReflection(df: DataFrame, sourceSchema: StructType, rawBatch: RDD[InternalRow]): Unit = {
+    // Reflection hack to set isStreaming=true via LocalRelation
+    try {
+      @scala.annotation.tailrec
+      def findField(c: Class[_]): Option[java.lang.reflect.Field] = {
+        if (c == null) {
+          None
+        } else {
+          try {
+            Some(c.getDeclaredField("logicalPlan"))
+          } catch {
+            case _: NoSuchFieldException => findField(c.getSuperclass)
+          }
+        }
+      }
+
+      findField(df.getClass) match {
+        case Some(field) =>
+          field.setAccessible(true)
+          val attributes = sourceSchema.map(f =>
+            AttributeReference(f.name, f.dataType, f.nullable, f.metadata)()
+          )
+          val newPlan = LocalRelation(
+            attributes,
+            rawBatch.collect().toSeq,
+            isStreaming = true
+          )
+          field.set(df, newPlan)
+        case None =>
+          logError("DEBUG: logicalPlan field not found")
+      }
+    } catch {
+      case e: Exception => logError(s"DEBUG: Reflection hack failed: $e")
+    }
+  }
+
 }
 
 class HTTPSourceProvider extends StreamSourceProvider with DataSourceRegister with Logging {
@@ -178,13 +187,19 @@ class HTTPSourceProvider extends StreamSourceProvider with DataSourceRegister wi
     logWarning("The socket source should not be used for production applications! " +
                  "It does not support recovery.")
     if (!parameters.contains("host")) {
-      throw new AnalysisException(errorClass = "INTERNAL_ERROR", messageParameters = Map("message" -> "Set a host to read from with option(\"host\", ...)."))
+      throw new AnalysisException(
+        errorClass = "INTERNAL_ERROR",
+        messageParameters = Map("message" -> "Set a host to read from with option(\"host\", ...)."))
     }
     if (!parameters.contains("port")) {
-      throw new AnalysisException(errorClass = "INTERNAL_ERROR", messageParameters = Map("message" -> "Set a port to read from with option(\"port\", ...)."))
+      throw new AnalysisException(
+        errorClass = "INTERNAL_ERROR",
+        messageParameters = Map("message" -> "Set a port to read from with option(\"port\", ...)."))
     }
     if (!parameters.contains("path")) {
-      throw new AnalysisException(errorClass = "INTERNAL_ERROR", messageParameters = Map("message" -> "Set a name of the API which is used for routing"))
+      throw new AnalysisException(
+        errorClass = "INTERNAL_ERROR",
+        messageParameters = Map("message" -> "Set a name of the API which is used for routing"))
     }
     ("HTTP", HTTPSourceV2.Schema)
   }
@@ -209,7 +224,9 @@ class HTTPSourceProvider extends StreamSourceProvider with DataSourceRegister wi
 class HTTPSink(val options: Map[String, String]) extends Sink with Logging {
 
   if (!options.contains("name")) {
-    throw new AnalysisException(errorClass = "INTERNAL_ERROR", messageParameters = Map("message" -> "Set a name of an API to reply to"))
+    throw new AnalysisException(
+      errorClass = "INTERNAL_ERROR",
+      messageParameters = Map("message" -> "Set a name of an API to reply to"))
   }
 
   override def addBatch(batchId: Long, data: DataFrame): Unit = synchronized {

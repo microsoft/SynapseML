@@ -255,31 +255,36 @@ class DistributedHTTPSource(name: String,
     val serverInfoConfRDD = serverInfoDF.rdd.map(serializer)
     val rowRdd = serverInfoConfRDD.map(ir => Row.fromSeq(ir.toSeq(schema)))
     val df = sqlContext.sparkSession.createDataFrame(rowRdd, schema)
-    
+
     // Reflection hack to set isStreaming=true via LocalRelation
     try {
-      var clazz: Class[_] = df.getClass
-      var field: java.lang.reflect.Field = null
-      while (clazz != null && field == null) {
-        try {
-          field = clazz.getDeclaredField("logicalPlan")
-        } catch {
-          case _: NoSuchFieldException => clazz = clazz.getSuperclass
+      @scala.annotation.tailrec
+      def findField(c: Class[_]): Option[java.lang.reflect.Field] = {
+        if (c == null) {
+          None
+        } else {
+          try {
+            Some(c.getDeclaredField("logicalPlan"))
+          } catch {
+            case _: NoSuchFieldException => findField(c.getSuperclass)
+          }
         }
       }
-      if (field != null) {
-        field.setAccessible(true)
-        val attributes = schema.map(f =>
-          AttributeReference(f.name, f.dataType, f.nullable, f.metadata)()
-        )
-        val newPlan = LocalRelation(
-          attributes,
-          serverInfoConfRDD.collect().toSeq,
-          isStreaming = true
-        )
-        field.set(df, newPlan)
-      } else {
-        logError("DEBUG: logicalPlan field not found")
+
+      findField(df.getClass) match {
+        case Some(field) =>
+          field.setAccessible(true)
+          val attributes = schema.map(f =>
+            AttributeReference(f.name, f.dataType, f.nullable, f.metadata)()
+          )
+          val newPlan = LocalRelation(
+            attributes,
+            serverInfoConfRDD.collect().toSeq,
+            isStreaming = true
+          )
+          field.set(df, newPlan)
+        case None =>
+          logError("DEBUG: logicalPlan field not found")
       }
     } catch {
       case e: Exception => logError(s"DEBUG: Reflection hack failed: $e")
@@ -401,7 +406,9 @@ class DistributedHTTPSink(val options: Map[String, String])
     extends Sink with Logging with Serializable {
 
   if (!options.contains("name")) {
-    throw new AnalysisException(errorClass = "INTERNAL_ERROR", messageParameters = Map("message" -> "Set a name of an API to reply to"))
+    throw new AnalysisException(
+      errorClass = "INTERNAL_ERROR",
+      messageParameters = Map("message" -> "Set a name of an API to reply to"))
   }
   override def name: String = options("name")
 
