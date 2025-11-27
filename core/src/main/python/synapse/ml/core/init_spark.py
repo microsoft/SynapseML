@@ -12,9 +12,9 @@ def init_spark():
         .appName("PysparkTests")
         .config(
             "spark.jars.packages",
-            "com.microsoft.azure:synapseml_2.12:"
+            "com.microsoft.azure:synapseml_2.13:"
             + __spark_package_version__
-            + ",org.apache.spark:spark-avro_2.12:3.4.1",
+            + ",org.apache.spark:spark-avro_2.13:4.0.1",
         )
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .config("spark.executor.heartbeatInterval", "60s")
