@@ -52,7 +52,33 @@ object PyTestGen {
   }
 
   def main(args: Array[String]): Unit = {
-    val conf = args.head.parseJson.convertTo[CodegenConfig]
+    // args.head is normally a JSON string produced by CodegenConfig.toJson.compactPrint,
+    // but in some environments it may arrive in a simple key:value format without quotes.
+    // Try JSON first, then fall back to a minimal key:value parser for robustness.
+    val raw = args.head
+    val conf = try {
+      raw.parseJson.convertTo[CodegenConfig]
+    } catch {
+      case _: spray.json.JsonParser.ParsingException =>
+        val trimmed = raw.trim.stripPrefix("{").stripSuffix("}")
+        val pairs = trimmed.split(",").toSeq.map(_.trim).filter(_.nonEmpty)
+        val kvs = pairs.flatMap { kv =>
+          kv.split(":", 2) match {
+            case Array(k, v) => Some(k.trim -> v.trim)
+            case _ => None
+          }
+        }.toMap
+        CodegenConfig(
+          name = kvs.getOrElse("name", ""),
+          jarName = kvs.get("jarName"),
+          topDir = kvs.getOrElse("topDir", ""),
+          targetDir = kvs.getOrElse("targetDir", ""),
+          version = kvs.getOrElse("version", ""),
+          pythonizedVersion = kvs.getOrElse("pythonizedVersion", ""),
+          rVersion = kvs.getOrElse("rVersion", ""),
+          packageName = kvs.getOrElse("packageName", "")
+        )
+    }
     clean(conf.pyTestDataDir)
     clean(conf.pyTestDir)
     generatePythonTests(conf)
