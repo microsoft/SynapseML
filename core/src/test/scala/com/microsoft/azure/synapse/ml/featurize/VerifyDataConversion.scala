@@ -102,7 +102,7 @@ class VerifyDataConversions extends TestBase with TransformerFuzzing[DataConvers
     val expectedDF = spark.createDataFrame(spark.sparkContext.parallelize(Seq(
       Row(1.toByte, 1.toByte, 2.toByte, 3.toByte, 4.toByte, 5.toByte, 6.toByte, 7.toByte, 8.toByte),
       Row(0.toByte, 9.toByte, 10.toByte, 11.toByte, 12.toByte, 14.toByte, 127.toByte, 16.toByte, 17.toByte),
-      Row(1.toByte, -127.toByte, 89.toByte, null, null, 18.toByte, 20.toByte, 100.toByte, null)
+      Row(1.toByte, -127.toByte, 89.toByte, null, null, 18.toByte, 20.toByte, 100.toByte, null) //scalastyle:ignore null
     )), schema)
     val res =  generateRes("byte", masterInDF)
     assert(res.schema("bool").dataType == ByteType)
@@ -129,7 +129,7 @@ class VerifyDataConversions extends TestBase with TransformerFuzzing[DataConvers
     val expectedDF = spark.createDataFrame(spark.sparkContext.parallelize(Seq(
       Row(1.toShort, 1.toShort, 2.toShort, 3.toShort, 4.toShort, 5.toShort, 6.toShort, 7.toShort, 8.toShort),
       Row(0.toShort, 9.toShort, 10.toShort, 11.toShort, 12.toShort, 14.toShort, 15.toShort, 16.toShort, 17.toShort),
-      Row(1.toShort, -127.toShort, 345.toShort, null, null, 18.toShort, 20.toShort, 100.toShort, 200.toShort)
+      Row(1.toShort, -127.toShort, 345.toShort, null, null, 18.toShort, 20.toShort, 100.toShort, 200.toShort) //scalastyle:ignore null
     )), schema)
     assert(expectedDF.except(generateRes("short", masterInDF)).count == 0)
   }
@@ -148,7 +148,7 @@ class VerifyDataConversions extends TestBase with TransformerFuzzing[DataConvers
     val expectedDF = spark.createDataFrame(spark.sparkContext.parallelize(Seq(
       Row(1, 1, 2, 3, 4, 5, 6, 7, 8),
       Row(0, 9, 10, 11, 12, 14, 15, 16, 17),
-      Row(1, -127, 345, 32867, null, 18, 20, 100, 200)
+      Row(1, -127, 345, 32867, null, 18, 20, 100, 200) //scalastyle:ignore null
     )), schema)
     assert(expectedDF.except(generateRes("integer", masterInDF)).count == 0)
   }

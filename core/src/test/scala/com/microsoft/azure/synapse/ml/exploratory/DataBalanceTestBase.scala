@@ -113,7 +113,8 @@ case class DistributionMetricsCalculator(refFeatureProbabilities: Array[Double],
                                          obsFeatureProbabilities: Array[Double],
                                          obsFeatureCounts: Array[Double],
                                          numFeatures: Double) {
-  val absDiffObsRef: Array[Double] = (obsFeatureProbabilities, refFeatureProbabilities).zipped.map((a, b) => abs(a - b)).toArray
+  val absDiffObsRef: Array[Double] = (obsFeatureProbabilities, refFeatureProbabilities)
+    .zipped.map((a, b) => abs(a - b)).toArray
 
   val klDivergence: Double = entropy(obsFeatureProbabilities, Some(refFeatureProbabilities))
   val jsDistance: Double = {

@@ -120,7 +120,9 @@ object CodegenPlugin extends AutoPlugin {
     (Test / compile).value
     val arg = codegenArgs.value
     Def.task {
-      (Test / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.PyCodegen $arg").value
+      val r = (Test / runner).value
+      val cp = (Test / fullClasspath).value
+      r.run("com.microsoft.azure.synapse.ml.codegen.PyCodegen", cp.files, Seq(arg), streams.value.log).get
     }
   } tag (PyCodeGenTag)
 
@@ -129,7 +131,9 @@ object CodegenPlugin extends AutoPlugin {
     (Test / compile).value
     val arg = testgenArgs.value
     Def.task {
-      (Test / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.PyTestGen '$arg'").value
+      val r = (Test / runner).value
+      val cp = (Test / fullClasspath).value
+      r.run("com.microsoft.azure.synapse.ml.codegen.PyTestGen", cp.files, Seq(arg), streams.value.log).get
     }
   } tag (PyTestGenTag)
 
@@ -138,7 +142,9 @@ object CodegenPlugin extends AutoPlugin {
     (Test / compile).value
     val arg = codegenArgs.value
     Def.task {
-      (Test / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.RCodegen '$arg'").value
+      val r = (Test / runner).value
+      val cp = (Test / fullClasspath).value
+      r.run("com.microsoft.azure.synapse.ml.codegen.RCodegen", cp.files, Seq(arg), streams.value.log).get
     }
   } tag (RCodeGenTag)
 
@@ -147,7 +153,9 @@ object CodegenPlugin extends AutoPlugin {
     (Test / compile).value
     val arg = testgenArgs.value
     Def.task {
-      (Test / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.RTestGen '$arg'").value
+      val r = (Test / runner).value
+      val cp = (Test / fullClasspath).value
+      r.run("com.microsoft.azure.synapse.ml.codegen.RTestGen", cp.files, Seq(arg), streams.value.log).get
     }
   } tag (RTestGenTag)
 
@@ -197,7 +205,9 @@ object CodegenPlugin extends AutoPlugin {
         (Test / compile).value
         val arg = codegenArgs.value
         Def.task {
-          (Compile / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.CodeGen '$arg'").value
+          val r = (Compile / runner).value
+          val cp = (Compile / fullClasspath).value
+          r.run("com.microsoft.azure.synapse.ml.codegen.CodeGen", cp.files, Seq(arg), streams.value.log).get
         }
       } else {
         Def.task {
