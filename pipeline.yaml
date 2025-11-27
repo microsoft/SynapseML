@@ -416,7 +416,7 @@ jobs:
         inlineScript: |
           set -e
           source activate synapseml
-          export SBT_OPTS="-Xms2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss5M  -Duser.timezone=GMT"
+          export SBT_OPTS="-Xms2G -Xss5M -Duser.timezone=GMT"
           echo "##vso[task.setvariable variable=SBT_OPTS]$SBT_OPTS"
           echo "SBT_OPTS=$SBT_OPTS"
           IGNORE_TEST_PATH_FLAG=""
@@ -511,7 +511,7 @@ jobs:
         scriptType: bash
         inlineScript: |
           set -e
-          export SBT_OPTS="-Xms2G -Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=4G -Xss5M  -Duser.timezone=GMT"
+          export SBT_OPTS="-Xms2G -Xmx4G -Xss5M -Duser.timezone=GMT"
           source activate synapseml
           # Temporarily disable scoverage during Spark 4.0 migration.
           # timeout 20m sbt -DskipCodegen=true "project $(PACKAGE)" coverage testR
@@ -770,7 +770,7 @@ jobs:
         scriptType: bash
         inlineScript: |
           ulimit -c unlimited
-          export SBT_OPTS="-XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss2M  -Duser.timezone=GMT"
+          export SBT_OPTS="-Xss2M -Duser.timezone=GMT"
           # Temporarily disable scoverage during Spark 4.0 migration.
           # (timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
           # (${FLAKY:-false} && timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**")
