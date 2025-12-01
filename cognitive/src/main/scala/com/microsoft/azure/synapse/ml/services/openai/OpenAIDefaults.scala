@@ -149,11 +149,11 @@ object OpenAIDefaults {
       v == "responses" || v == "chat_completions",
       s"ApiType must be either 'responses' or 'chat_completions', got: $v"
     )
-    GlobalParams.setGlobalParam(OpenAIApiTypeKey, Left(v))
+    GlobalParams.setGlobalParam(OpenAIApiTypeKey, v)
   }
 
   def getApiType: Option[String] = {
-    extractLeft(GlobalParams.getGlobalParam(OpenAIApiTypeKey))
+    GlobalParams.getGlobalParam(OpenAIApiTypeKey)
   }
 
   def resetApiType(): Unit = {

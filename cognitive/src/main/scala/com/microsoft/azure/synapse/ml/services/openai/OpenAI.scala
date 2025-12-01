@@ -107,7 +107,7 @@ case object OpenAISeedKey extends GlobalKey[Either[Int, String]]
 case object OpenAITopPKey extends GlobalKey[Either[Double, String]]
 case object OpenAIVerbosityKey extends GlobalKey[Either[String, String]]
 case object OpenAIReasoningEffortKey extends GlobalKey[Either[String, String]]
-case object OpenAIApiTypeKey extends GlobalKey[Either[String, String]]
+case object OpenAIApiTypeKey extends GlobalKey[String]
 
 // scalastyle:off number.of.methods
 trait HasOpenAITextParams extends HasOpenAISharedParams {
