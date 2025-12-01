@@ -144,6 +144,22 @@ object OpenAIDefaults {
     GlobalParams.resetGlobalParam(OpenAIReasoningEffortKey)
   }
 
+  def setApiType(v: String): Unit = {
+    require(
+      v == "responses" || v == "chat_completions",
+      s"ApiType must be either 'responses' or 'chat_completions', got: $v"
+    )
+    GlobalParams.setGlobalParam(OpenAIApiTypeKey, Left(v))
+  }
+
+  def getApiType: Option[String] = {
+    extractLeft(GlobalParams.getGlobalParam(OpenAIApiTypeKey))
+  }
+
+  def resetApiType(): Unit = {
+    GlobalParams.resetGlobalParam(OpenAIApiTypeKey)
+  }
+
   private def extractLeft[T](optEither: Option[Either[T, String]]): Option[T] = {
     optEither match {
       case Some(Left(v)) => Some(v)

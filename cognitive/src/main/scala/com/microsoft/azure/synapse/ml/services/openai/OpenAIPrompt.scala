@@ -8,7 +8,7 @@ import com.microsoft.azure.synapse.ml.core.spark.Functions
 import com.microsoft.azure.synapse.ml.io.binary.BinaryFileReader
 import com.microsoft.azure.synapse.ml.io.http.{ConcurrencyParams, HasErrorCol, HasURL}
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
-import com.microsoft.azure.synapse.ml.param.{HasGlobalParams, StringStringMapParam}
+import com.microsoft.azure.synapse.ml.param.{GlobalParams, HasGlobalParams, StringStringMapParam}
 import com.microsoft.azure.synapse.ml.services._
 import com.microsoft.azure.synapse.ml.services.aifoundry.{AIFoundryChatCompletion, HasAIFoundryTextParamsExtended}
 import HasReturnUsage.{UsageFieldMapping, UsageMappings}
@@ -124,6 +124,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   val apiType = new Param[String](
     this, "apiType", "The OpenAI API type to use: 'chat_completions' or 'responses'",
     isValid = ParamValidators.inArray(Array("chat_completions", "responses")))
+
+  GlobalParams.registerParam(apiType, OpenAIApiTypeKey)
 
   def getApiType: String = $(apiType)
 
