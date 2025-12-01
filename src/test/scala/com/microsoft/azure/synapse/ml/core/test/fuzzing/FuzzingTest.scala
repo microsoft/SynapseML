@@ -76,7 +76,8 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.services.form.GetCustomModel",
       "com.microsoft.azure.synapse.ml.services.form.AnalyzeCustomModel",
       "com.microsoft.azure.synapse.ml.services.anomaly.DetectLastMultivariateAnomaly",
-      "com.microsoft.azure.synapse.ml.services.anomaly.SimpleFitMultivariateAnomaly"
+      "com.microsoft.azure.synapse.ml.services.anomaly.SimpleFitMultivariateAnomaly",
+      "com.microsoft.azure.synapse.ml.services.geospatial.AzureMapsTraitsSuite$TestableMapsAsyncReply"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
@@ -137,7 +138,8 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.services.form.GetCustomModel",
       "com.microsoft.azure.synapse.ml.services.form.AnalyzeCustomModel",
       "com.microsoft.azure.synapse.ml.services.anomaly.DetectLastMultivariateAnomaly",
-      "com.microsoft.azure.synapse.ml.services.anomaly.SimpleFitMultivariateAnomaly"
+      "com.microsoft.azure.synapse.ml.services.anomaly.SimpleFitMultivariateAnomaly",
+      "com.microsoft.azure.synapse.ml.services.geospatial.AzureMapsTraitsSuite$TestableMapsAsyncReply"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
@@ -195,7 +197,8 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.services.form.GetCustomModel",
       "com.microsoft.azure.synapse.ml.services.form.AnalyzeCustomModel",
       "com.microsoft.azure.synapse.ml.services.anomaly.DetectLastMultivariateAnomaly",
-      "com.microsoft.azure.synapse.ml.services.anomaly.SimpleFitMultivariateAnomaly"
+      "com.microsoft.azure.synapse.ml.services.anomaly.SimpleFitMultivariateAnomaly",
+      "com.microsoft.azure.synapse.ml.services.geospatial.AzureMapsTraitsSuite$TestableMapsAsyncReply"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
@@ -255,7 +258,8 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.services.form.GetCustomModel",
       "com.microsoft.azure.synapse.ml.services.form.AnalyzeCustomModel",
       "com.microsoft.azure.synapse.ml.services.anomaly.DetectLastMultivariateAnomaly",
-      "com.microsoft.azure.synapse.ml.services.anomaly.SimpleFitMultivariateAnomaly"
+      "com.microsoft.azure.synapse.ml.services.anomaly.SimpleFitMultivariateAnomaly",
+      "com.microsoft.azure.synapse.ml.services.geospatial.AzureMapsTraitsSuite$TestableMapsAsyncReply"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
