@@ -132,8 +132,6 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage]
   def ai: AnalyzeImage = baseAI
     .setImageUrlCol("url")
 
-
-
   def bytesAI: AnalyzeImage = baseAI
     .setImageBytesCol("imageBytes")
 
@@ -248,8 +246,6 @@ class RecognizeTextSuite extends TransformerFuzzing[RecognizeText]
     assert(headStr === "OPENS.ALL YOU HAVE TO DO IS WALK IN WHEN ONE DOOR CLOSES, ANOTHER CLOSED" ||
       headStr === "CLOSED WHEN ONE DOOR CLOSES, ANOTHER OPENS. ALL YOU HAVE TO DO IS WALK IN")
   }
-
-
 
   override def testObjects(): Seq[TestObject[RecognizeText]] =
     Seq(new TestObject(rt, df))
