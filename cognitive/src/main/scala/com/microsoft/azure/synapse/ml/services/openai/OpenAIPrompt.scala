@@ -134,9 +134,12 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   val columnTypes = new StringStringMapParam(
     this, "columnTypes", "A map from column names to their types. Supported types are 'text' and 'path'.")
   private def validateColumnType(value: String) = {
+    if (value.equalsIgnoreCase("path") || value.equalsIgnoreCase("text")) {
+      logWarning(s"Column type '$value' is deprecated. Please use lowercase 'path' or 'text' instead.")
+    }
     require(value == "text" || value == "path",
       s"Unsupported column type: $value. Supported types are 'text' and 'path'.")
-    require(value != "path" || this.getApiType == "responses",
+    require(value != "responses" || this.getApiType == "responses",
       s"Column type 'path' is only supported when apiType is set to 'responses'.")
   }
 

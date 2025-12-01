@@ -137,4 +137,3 @@ class OpenAIDefaults:
 
     def reset_api_type(self):
         self.defaults.resetApiType()
-
