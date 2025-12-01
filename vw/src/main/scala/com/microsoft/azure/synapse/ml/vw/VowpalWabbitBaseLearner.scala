@@ -9,7 +9,7 @@ import org.apache.spark.TaskContext
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.ml.param.{Param, StringArrayParam}
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
-import org.apache.spark.sql.functions.{col, lit, spark_partition_id}
+import org.apache.spark.sql.functions.{col, lit, spark_partition_id, try_divide}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Encoders, Row, SparkSession}
 import org.vowpalwabbit.spark._
@@ -372,11 +372,11 @@ trait VowpalWabbitBaseLearner extends VowpalWabbitBase {
     val diagRdd = dataset.sparkSession.createDataFrame(trainingResults.map {
       _.stats
     })
-      .withColumn("timeMarshalPercentage", timeMarshalCol / timeTotalCol)
-      .withColumn("timeLearnPercentage", timeLearnCol / timeTotalCol)
-      .withColumn("timeMultipassPercentage", timeMultipassCol / timeTotalCol)
+      .withColumn("timeMarshalPercentage", try_divide(timeMarshalCol, timeTotalCol))
+      .withColumn("timeLearnPercentage", try_divide(timeLearnCol, timeTotalCol))
+      .withColumn("timeMultipassPercentage", try_divide(timeMultipassCol, timeTotalCol))
       .withColumn("timeSparkReadPercentage",
-        (timeTotalCol - timeMarshalCol - timeLearnCol - timeMultipassCol) / timeTotalCol)
+        try_divide(timeTotalCol - timeMarshalCol - timeLearnCol - timeMultipassCol, timeTotalCol))
 
     model.setPerformanceStatistics(diagRdd)
   }

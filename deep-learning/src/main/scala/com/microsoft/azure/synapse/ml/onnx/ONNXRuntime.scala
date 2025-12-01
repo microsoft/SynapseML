@@ -14,7 +14,6 @@ import org.apache.spark.TaskContext
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
-
 import scala.jdk.CollectionConverters._
 
 /**
@@ -66,7 +65,8 @@ object ONNXRuntime extends Logging {
         val inputTensors = session.getInputInfo.asScala.map {
           case (inputName, inputNodeInfo) =>
 
-            val batchedValues: Seq[Any] = row.getAs[Seq[Any]](feedMap(inputName))
+            val batchedValues: Seq[Any] =
+              row.getAs[scala.collection.Seq[Any]](feedMap(inputName)).toSeq
 
             inputNodeInfo.getInfo match {
               case tensorInfo: TensorInfo => // Only supports tensor input.

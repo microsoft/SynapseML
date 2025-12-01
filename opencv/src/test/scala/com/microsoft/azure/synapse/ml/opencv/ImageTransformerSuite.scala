@@ -171,9 +171,25 @@ class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with Op
   lazy val images: DataFrame = spark.read.image.option("dropInvalid", value = true)
     .load(FileUtilities.join(fileLocation, "**").toString)
 
-  lazy val badImages: DataFrame =
-    spark.read.image.load(
-      ".//opencv//src//test//scala//com//microsoft//azure//synapse//ml//opencv//cmyk_image.jpg")
+  lazy val badImages: DataFrame = {
+    // Use a path rooted at the core module base directory so this image
+    // can be found regardless of the current working directory.
+    val badImagePath = FileUtilities.join(
+      BuildInfo.baseDirectory,
+      "..",
+      "opencv",
+      "src",
+      "test",
+      "scala",
+      "com",
+      "microsoft",
+      "azure",
+      "synapse",
+      "ml",
+      "opencv",
+      "cmyk_image.jpg")
+    spark.read.image.load(badImagePath.toString)
+  }
 
   test("general workflow") {
     //assert(images.count() == 30) //TODO this does not work on build machine for some reason
@@ -390,7 +406,7 @@ class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with Op
     assert(row.getAs[Int]("nChannels") == 3)
     assert(row.getAs[Int]("mode") == 16)
 
-    val tensor = row.getAs[Seq[Seq[Seq[Float]]]]("features")
+    val tensor = row.getAs[scala.collection.Seq[scala.collection.Seq[scala.collection.Seq[Float]]]]("features")
 
     val channelRed = tensor.head
     assert(channelRed.length == 500)
@@ -425,7 +441,7 @@ class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with Op
     assert(row.getAs[Int]("nChannels") == 4)
     assert(row.getAs[Int]("mode") == 24)
 
-    val tensor = row.getAs[Seq[Seq[Seq[Double]]]]("features")
+    val tensor = row.getAs[scala.collection.Seq[scala.collection.Seq[scala.collection.Seq[Double]]]]("features")
 
     val channelRed = tensor.head
     assert(channelRed.length == 100)
@@ -461,7 +477,7 @@ class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with Op
     assert(row.getAs[Int]("nChannels") == 1)
     assert(row.getAs[Int]("mode") == CvType.CV_8UC1)
 
-    val tensor = row.getAs[Seq[Seq[Seq[Double]]]]("features")
+    val tensor = row.getAs[scala.collection.Seq[scala.collection.Seq[scala.collection.Seq[Double]]]]("features")
     assert(tensor.length == 1)
 
     val channel = tensor.head
