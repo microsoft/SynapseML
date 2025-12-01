@@ -19,16 +19,7 @@ import java.util.Locale
 
 class AzureMapsTraitsSuite extends AnyFunSuite {
 
-  private class TestableMapsAsyncReply extends AddressGeocoder("test-maps-async") {
 
-    def extract(request: HTTPRequestData): Map[String, String] =
-      extractHeaderValuesForPolling(request)
-
-    def query(headers: Map[String, String],
-              client: CloseableHttpClient,
-              location: URI): Option[HTTPResponseData] =
-      queryForResult(headers, client, location)
-  }
 
   private class RecordingHttpClient(responseFactory: () => CloseableHttpResponse)
     extends CloseableHttpClient {
@@ -128,7 +119,7 @@ class AzureMapsTraitsSuite extends AnyFunSuite {
   }
 
   test("extractHeaderValuesForPolling preserves encoded Azure Maps query params") {
-    val helper = new TestableMapsAsyncReply
+    val helper = new AzureMapsTraitsSuite.TestableMapsAsyncReply
     val request = HTTPRequestData(
       RequestLineData(
         "GET",
@@ -142,7 +133,7 @@ class AzureMapsTraitsSuite extends AnyFunSuite {
   }
 
   test("queryForResult appends auth params without double encoding or dropping fragments") {
-    val helper = new TestableMapsAsyncReply
+    val helper = new AzureMapsTraitsSuite.TestableMapsAsyncReply
     val entity = new StringEntity("""{"status":"succeeded"}""", "UTF-8")
     val client = new RecordingHttpClient(() => new StubCloseableHttpResponse(HttpStatus.SC_OK, Seq.empty, Some(entity)))
 
@@ -162,4 +153,17 @@ class AzureMapsTraitsSuite extends AnyFunSuite {
     assert(queryParts.contains("api-version=2024-01-01"))
   }
 
+}
+
+object AzureMapsTraitsSuite {
+  private class TestableMapsAsyncReply extends AddressGeocoder("test-maps-async") {
+
+    def extract(request: HTTPRequestData): Map[String, String] =
+      extractHeaderValuesForPolling(request)
+
+    def query(headers: Map[String, String],
+              client: CloseableHttpClient,
+              location: URI): Option[HTTPResponseData] =
+      queryForResult(headers, client, location)
+  }
 }
