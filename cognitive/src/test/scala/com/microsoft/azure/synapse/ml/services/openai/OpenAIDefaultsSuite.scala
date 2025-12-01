@@ -87,6 +87,7 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     OpenAIDefaults.setEmbeddingDeploymentName("text-embedding-ada-002")
     OpenAIDefaults.setVerbosity("medium")
     OpenAIDefaults.setReasoningEffort("medium")
+    OpenAIDefaults.setApiType("responses")
 
     assert(OpenAIDefaults.getDeploymentName.contains(deploymentName))
     assert(OpenAIDefaults.getSubscriptionKey.contains(openAIAPIKey))
@@ -99,6 +100,7 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     assert(OpenAIDefaults.getEmbeddingDeploymentName.contains("text-embedding-ada-002"))
     assert(OpenAIDefaults.getVerbosity.contains("medium"))
     assert(OpenAIDefaults.getReasoningEffort.contains("medium"))
+    assert(OpenAIDefaults.getApiType.contains("responses"))
   }
 
   test("Test Resetters") {

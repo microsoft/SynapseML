@@ -145,9 +145,10 @@ object OpenAIDefaults {
   }
 
   def setApiType(v: String): Unit = {
+    val options = Seq("responses", "chat_completions")
     require(
-      v == "responses" || v == "chat_completions",
-      s"ApiType must be either 'responses' or 'chat_completions', got: $v"
+      options.contains(v),
+      s"ApiType must be in ${options.mkString(", ")}, got: $v"
     )
     GlobalParams.setGlobalParam(OpenAIApiTypeKey, v)
   }

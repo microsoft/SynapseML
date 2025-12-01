@@ -130,11 +130,6 @@ class OpenAIDefaults:
         self.defaults.resetReasoningEffort()
 
     def set_api_type(self, api_type):
-        api_type = str(api_type)
-        if api_type not in ["responses", "chat_completions"]:
-            raise ValueError(
-                f"ApiType must be either 'responses' or 'chat_completions', got: {api_type}"
-            )
         self.defaults.setApiType(api_type)
 
     def get_api_type(self):
