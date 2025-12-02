@@ -8,7 +8,7 @@ import com.microsoft.azure.synapse.ml.core.spark.Functions
 import com.microsoft.azure.synapse.ml.io.binary.BinaryFileReader
 import com.microsoft.azure.synapse.ml.io.http.{ConcurrencyParams, HasErrorCol, HasURL}
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
-import com.microsoft.azure.synapse.ml.param.{HasGlobalParams, StringStringMapParam}
+import com.microsoft.azure.synapse.ml.param.{GlobalParams, HasGlobalParams, StringStringMapParam}
 import com.microsoft.azure.synapse.ml.services._
 import com.microsoft.azure.synapse.ml.services.aifoundry.{AIFoundryChatCompletion, HasAIFoundryTextParamsExtended}
 import HasReturnUsage.{UsageFieldMapping, UsageMappings}
@@ -125,6 +125,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     this, "apiType", "The OpenAI API type to use: 'chat_completions' or 'responses'",
     isValid = ParamValidators.inArray(Array("chat_completions", "responses")))
 
+  GlobalParams.registerParam(apiType, OpenAIApiTypeKey)
+
   def getApiType: String = $(apiType)
 
   def setApiType(value: String): this.type = set(apiType, value)
@@ -132,8 +134,13 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   val columnTypes = new StringStringMapParam(
     this, "columnTypes", "A map from column names to their types. Supported types are 'text' and 'path'.")
   private def validateColumnType(value: String) = {
-    require(value.equalsIgnoreCase("text") || value.equalsIgnoreCase("path"),
+    if (value.equalsIgnoreCase("path") || value.equalsIgnoreCase("text")) {
+      logWarning(s"Column type '$value' is deprecated. Please use lowercase 'path' or 'text' instead.")
+    }
+    require(value == "text" || value == "path",
       s"Unsupported column type: $value. Supported types are 'text' and 'path'.")
+    require(value != "responses" || this.getApiType == "responses",
+      s"Column type 'path' is only supported when apiType is set to 'responses'.")
   }
 
   def getColumnTypes: Map[String, String] = $(columnTypes)
