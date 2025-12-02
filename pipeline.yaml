@@ -770,7 +770,7 @@ jobs:
         scriptType: bash
         inlineScript: |
           ulimit -c unlimited
-          export SBT_OPTS="-Xss2M -Duser.timezone=GMT -J--add-opens=java.base/sun.security.action=ALL-UNNAMED"
+          export SBT_OPTS="-Xss2M -Duser.timezone=GMT --add-opens=java.base/sun.security.action=ALL-UNNAMED"
           # Temporarily disable scoverage during Spark 4.0 migration.
           # (timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
           # (${FLAKY:-false} && timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**")
