@@ -9,27 +9,15 @@ import com.microsoft.azure.synapse.ml.core.test.base.{Flaky, TestBase}
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{GetterSetterFuzzing, TestObject, TransformerFuzzing}
 import org.apache.spark.ml.NamespaceInjections.pipelineModel
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.functions.{col, typedLit, udf}
+import org.apache.spark.sql.functions.{col, typedLit}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.scalactic.Equality
-import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
-import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
-import org.apache.commons.io.IOUtils
-import org.apache.http.client.methods.HttpGet
 
 import com.microsoft.azure.synapse.ml.services.CognitiveKey
+import com.microsoft.azure.synapse.ml.services.testutils.ImageDownloadUtils
 
-trait VisionUtils extends TestBase {
+trait VisionUtils extends TestBase with ImageDownloadUtils {
   import spark.implicits._
-
-  def downloadBytes(url: String): Array[Byte] = {
-    val request = new HttpGet(url)
-    using(RESTHelpers.Client.execute(request)) { response =>
-      IOUtils.toByteArray(response.getEntity.getContent)
-    }.get
-  }
-
-  val downloadBytesUdf = udf(downloadBytes _)
 }
 
 trait OCRUtils extends VisionUtils {

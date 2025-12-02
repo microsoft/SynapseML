@@ -10,16 +10,16 @@ import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, Transformer
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers.retry
 import com.microsoft.azure.synapse.ml.services._
-
 import com.microsoft.azure.synapse.ml.services.form.FormsFlatteners._
 import com.microsoft.azure.synapse.ml.stages.UDFTransformer
+import com.microsoft.azure.synapse.ml.services.testutils.ImageDownloadUtils
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.methods._
 import org.apache.http.entity.StringEntity
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions.{col, udf}
+import org.apache.spark.sql.functions.col
 import org.scalactic.Equality
 import spray.json._
 
@@ -96,18 +96,9 @@ object FormRecognizerUtils extends CognitiveKey {
   }
 }
 
-trait FormRecognizerUtils extends TestBase with CognitiveKey with Flaky {
+trait FormRecognizerUtils extends TestBase with CognitiveKey with Flaky with ImageDownloadUtils {
 
   import spark.implicits._
-
-  def downloadBytes(url: String): Array[Byte] = {
-    val request = new HttpGet(url)
-    using(RESTHelpers.Client.execute(request)) { response =>
-      IOUtils.toByteArray(response.getEntity.getContent)
-    }.get
-  }
-
-  val downloadBytesUdf = udf(downloadBytes _)
 
   def createTestDataframe(baseUrl: String, docs: Seq[String], returnBytes: Boolean = false): DataFrame = {
     val df = docs.map(doc => baseUrl + doc).toDF("source")
