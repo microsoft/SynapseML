@@ -160,6 +160,8 @@ object CodegenPlugin extends AutoPlugin {
   } tag (RTestGenTag)
 
   override lazy val projectSettings: Seq[Setting[_]] = Seq(
+    Compile / fork := true,
+    Compile / javaOptions += "--add-modules=java.sql",
     publishMavenStyle := true,
     codegenArgs := {
       CodegenConfig(
@@ -205,9 +207,15 @@ object CodegenPlugin extends AutoPlugin {
         (Test / compile).value
         val arg = codegenArgs.value
         Def.task {
-          val r = (Compile / runner).value
           val cp = (Compile / fullClasspath).value
-          r.run("com.microsoft.azure.synapse.ml.codegen.CodeGen", cp.files, Seq(arg), streams.value.log).get
+          val opts = ForkOptions()
+            .withRunJVMOptions((Seq("--add-modules=java.sql") ++ (Compile / javaOptions).value).toVector)
+            .withOutputStrategy(OutputStrategy.LoggedOutput(streams.value.log))
+          // Write arg to temp file to avoid quoting issues
+          val tempFile = File.createTempFile("codegen_conf", ".json")
+          FileUtils.writeStringToFile(tempFile, arg, "UTF-8")
+          val exitCode = Fork.java(opts, Seq("-cp", cp.files.map(_.getAbsolutePath).mkString(File.pathSeparator), "com.microsoft.azure.synapse.ml.codegen.CodeGen", "@" + tempFile.getAbsolutePath))
+          if (exitCode != 0) sys.error(s"Codegen failed with exit code $exitCode")
         }
       } else {
         Def.task {

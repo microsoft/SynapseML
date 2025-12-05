@@ -128,7 +128,6 @@ class TranslateSuite extends TransformerFuzzing[Translate]
   test("Translate content with markup and decide what's translated") {
     val result1 = getTranslationTextResult(
       translate.setFromLanguage("en").setToLanguage(Seq("zh-Hans")).setTextType("html"), textDf4).collect()
-<<<<<<< HEAD
     val resultStr = result1(0).getSeq(0).mkString("\n")
     val expectedNoTranslate = "<div class=\"notranslate\">This will not be translated.</div>"
     assert(resultStr.startsWith(expectedNoTranslate))
@@ -136,11 +135,6 @@ class TranslateSuite extends TransformerFuzzing[Translate]
     assert(resultStr.contains("翻译"))
     // Verify it doesn't contain the English source for the second part
     assert(!resultStr.contains("<div>This will be translated.</div>"))
-=======
-    val res = result1(0).getSeq(0).mkString("\n")
-    assert(res == "<div class=\"notranslate\">This will not be translated.</div><div>这将被翻译。</div>" ||
-           res == "<div class=\"notranslate\">This will not be translated.</div><div>这会被翻译。</div>")
->>>>>>> 4b302044e3 (latest)
   }
 
   test("Obtain alignment information") {

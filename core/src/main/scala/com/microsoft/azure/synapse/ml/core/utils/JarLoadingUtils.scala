@@ -32,7 +32,7 @@ object JarLoadingUtils {
   def instantiateServices[T: ClassTag](instantiate: Class[_] => Any, jarName: Option[String]): List[T] = {
     AllClasses
       .filter(classTag[T].runtimeClass.isAssignableFrom(_))
-      .filter(c => jarName.forall({
+      .filter(c => jarName.forall({ name =>
         val jarResource = c.getResource("/" + c.getName.replace('.', '/') + ".class")
         if (jarResource == null) {
           throw new IOException(s"Could not find resource for class ${c.getSimpleName}")

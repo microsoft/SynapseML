@@ -13,14 +13,7 @@ import scala.reflect.runtime.universe.TypeTag
 abstract class SparkBindings[T: TypeTag] extends Serializable {
 
   lazy val schema: StructType = enc.schema
-  private lazy val enc: ExpressionEncoder[T] = try {
-    ExpressionEncoder[T]().resolveAndBind()
-  } catch {
-    case e: Exception =>
-      println(s"Failed to create encoder for ${implicitly[TypeTag[T]].tpe}")
-      e.printStackTrace()
-      throw e
-  }
+  private lazy val enc: ExpressionEncoder[T] = ExpressionEncoder[T]().resolveAndBind()
   private lazy val rowEnc: ExpressionEncoder[Row] = ExpressionEncoder(enc.schema).resolveAndBind()
 
   // WARNING: each time you use this function on a dataframe, you should make a new converter.
