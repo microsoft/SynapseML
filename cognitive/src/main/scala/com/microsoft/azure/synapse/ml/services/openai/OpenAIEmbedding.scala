@@ -16,7 +16,7 @@ import org.apache.spark.ml.functions.array_to_vector
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.types._
 import scala.language.existentials
-import org.apache.spark.sql.functions.{col, element_at, struct}
+import org.apache.spark.sql.functions.{col, element_at, lit, struct, when}
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 import HasReturnUsage.UsageMappings
@@ -92,8 +92,13 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
   override def transform(dataset: Dataset[_]): DataFrame = {
     val parsed = super.transform(dataset)
     val responseCol = col(getOutputCol)
-    val embeddingArrayCol = element_at(responseCol.getField("data"), 1).getField("embedding")
-    val vectorCol = array_to_vector(embeddingArrayCol)
+    val dataField = responseCol.getField("data")
+    val embeddingArrayCol = when(dataField.isNotNull,
+      element_at(dataField, 1).getField("embedding")
+    ).otherwise(lit(null))
+    val vectorCol = when(embeddingArrayCol.isNotNull,
+      array_to_vector(embeddingArrayCol)
+    ).otherwise(lit(null).cast(VectorType))
     if (getReturnUsage) {
       val usageCol = normalizeUsageColumn(
         responseCol.getField("usage"),
