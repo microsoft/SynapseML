@@ -131,7 +131,7 @@ class VWContextualBandidSpec extends TestBase with EstimatorFuzzing[VowpalWabbit
       .setInputCols(Array("col1", "col2"))
       .setOutputCol("combined_things")
     val transformedDf = sequencer.transform(df)
-    val result = transformedDf.collect.head.getAs[Seq[String]]("combined_things")
+    val result = transformedDf.collect.head.getAs[scala.collection.Seq[String]]("combined_things")
     assert(result == Seq("thing1", "thing2"))
   }
 
@@ -361,7 +361,7 @@ class VWContextualBandidSpec extends TestBase with EstimatorFuzzing[VowpalWabbit
 
     val transformedPredictSet = model.transform(predictSet)
     val results = m.transform(transformedPredictSet)
-    assert(results.collect.head.getAs[Seq[Float]]("output_prediction").length == 2)
+    assert(results.collect.head.getAs[scala.collection.Seq[Float]]("output_prediction").length == 2)
   }
 
   override def testObjects(): Seq[TestObject[VowpalWabbitContextualBandit]] = {

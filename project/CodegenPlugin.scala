@@ -120,7 +120,31 @@ object CodegenPlugin extends AutoPlugin {
     (Test / compile).value
     val arg = codegenArgs.value
     Def.task {
-      (Test / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.PyCodegen $arg").value
+      val cp = (Test / fullClasspath).value
+      val log = streams.value.log
+      // Ensure java.sql is available to Scala reflection when running PyCodegen under Java 17+
+      val javaOpts = (Test / javaOptions).value ++ Seq(
+        "--add-modules=java.sql",
+        "--add-opens=java.sql/java.sql=ALL-UNNAMED"
+      )
+      val opts = ForkOptions()
+        .withRunJVMOptions(javaOpts.toVector)
+        .withOutputStrategy(OutputStrategy.LoggedOutput(log))
+
+      // Write arg to temp file to avoid quoting issues
+      val tempFile = File.createTempFile("pycodegen_conf", ".json")
+      FileUtils.writeStringToFile(tempFile, arg, "UTF-8")
+
+      val exitCode = Fork.java(
+        opts,
+        Seq(
+          "-cp",
+          cp.files.map(_.getAbsolutePath).mkString(File.pathSeparator),
+          "com.microsoft.azure.synapse.ml.codegen.PyCodegen",
+          "@" + tempFile.getAbsolutePath
+        )
+      )
+      if (exitCode != 0) sys.error(s"PyCodegen failed with exit code $exitCode")
     }
   } tag (PyCodeGenTag)
 
@@ -129,7 +153,24 @@ object CodegenPlugin extends AutoPlugin {
     (Test / compile).value
     val arg = testgenArgs.value
     Def.task {
-      (Test / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.PyTestGen $arg").value
+      val cp = (Test / fullClasspath).value
+      val log = streams.value.log
+      // We must explicitly add the java.sql modules here because (Test / runner) might not reliably
+      // propagate them to the forked process in all environments or task configurations.
+      val javaOpts = (Test / javaOptions).value ++ Seq(
+        "--add-modules=java.sql",
+        "--add-opens=java.sql/java.sql=ALL-UNNAMED"
+      )
+      val opts = ForkOptions()
+        .withRunJVMOptions(javaOpts.toVector)
+        .withOutputStrategy(OutputStrategy.LoggedOutput(log))
+      
+      // Write arg to temp file to avoid quoting issues
+      val tempFile = File.createTempFile("pytestgen_conf", ".json")
+      FileUtils.writeStringToFile(tempFile, arg, "UTF-8")
+      
+      val exitCode = Fork.java(opts, Seq("-cp", cp.files.map(_.getAbsolutePath).mkString(File.pathSeparator), "com.microsoft.azure.synapse.ml.codegen.PyTestGen", "@" + tempFile.getAbsolutePath))
+      if (exitCode != 0) sys.error(s"PyTestGen failed with exit code $exitCode")
     }
   } tag (PyTestGenTag)
 
@@ -138,7 +179,9 @@ object CodegenPlugin extends AutoPlugin {
     (Test / compile).value
     val arg = codegenArgs.value
     Def.task {
-      (Test / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.RCodegen $arg").value
+      val r = (Test / runner).value
+      val cp = (Test / fullClasspath).value
+      r.run("com.microsoft.azure.synapse.ml.codegen.RCodegen", cp.files, Seq(arg), streams.value.log).get
     }
   } tag (RCodeGenTag)
 
@@ -147,11 +190,19 @@ object CodegenPlugin extends AutoPlugin {
     (Test / compile).value
     val arg = testgenArgs.value
     Def.task {
-      (Test / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.RTestGen $arg").value
+      val r = (Test / runner).value
+      val cp = (Test / fullClasspath).value
+      r.run("com.microsoft.azure.synapse.ml.codegen.RTestGen", cp.files, Seq(arg), streams.value.log).get
     }
   } tag (RTestGenTag)
 
   override lazy val projectSettings: Seq[Setting[_]] = Seq(
+    Compile / fork := true,
+    Compile / javaOptions += "--add-modules=java.sql",
+    Test / javaOptions ++= Seq(
+      "--add-modules=java.sql",
+      "--add-opens=java.sql/java.sql=ALL-UNNAMED"
+    ),
     publishMavenStyle := true,
     codegenArgs := {
       CodegenConfig(
@@ -197,7 +248,15 @@ object CodegenPlugin extends AutoPlugin {
         (Test / compile).value
         val arg = codegenArgs.value
         Def.task {
-          (Compile / runMain).toTask(s" com.microsoft.azure.synapse.ml.codegen.CodeGen $arg").value
+          val cp = (Compile / fullClasspath).value
+          val opts = ForkOptions()
+            .withRunJVMOptions((Seq("--add-modules=java.sql") ++ (Compile / javaOptions).value).toVector)
+            .withOutputStrategy(OutputStrategy.LoggedOutput(streams.value.log))
+          // Write arg to temp file to avoid quoting issues
+          val tempFile = File.createTempFile("codegen_conf", ".json")
+          FileUtils.writeStringToFile(tempFile, arg, "UTF-8")
+          val exitCode = Fork.java(opts, Seq("-cp", cp.files.map(_.getAbsolutePath).mkString(File.pathSeparator), "com.microsoft.azure.synapse.ml.codegen.CodeGen", "@" + tempFile.getAbsolutePath))
+          if (exitCode != 0) sys.error(s"Codegen failed with exit code $exitCode")
         }
       } else {
         Def.task {
@@ -235,12 +294,8 @@ object CodegenPlugin extends AutoPlugin {
     packagePython := {
       codegen.value
       createCondaEnvTask.value
-      val destPyDir = join(targetDir.value, "classes", genPackageNamespace.value)
       val packageDir = join(codegenDir.value, "package", "python").absolutePath
       val pythonSrcDir = join(codegenDir.value, "src", "python")
-      if (destPyDir.exists()) FileUtils.forceDelete(destPyDir)
-      val sourcePyDir = join(pythonSrcDir.getAbsolutePath, genPackageNamespace.value)
-      FileUtils.copyDirectory(sourcePyDir, destPyDir)
       packagePythonWheelCmd(packageDir, pythonSrcDir)
     },
     removePipPackage := {
@@ -251,9 +306,15 @@ object CodegenPlugin extends AutoPlugin {
       val publishLocalResult: Unit = (publishLocal dependsOn packagePython).value
       val rootPublishLocalResult: Unit = (LocalRootProject / Compile / publishLocal).value
       runCmd(
-        activateCondaEnv ++ Seq("pip", "install", "-I",
-          s"${name.value.replace("-", "_")}-${pythonizedVersion(version.value)}-py2.py3-none-any.whl"),
-        join(codegenDir.value, "package", "python"))
+        activateCondaEnv ++ Seq(
+          "pip",
+          "install",
+          "-I",
+          "--no-deps",
+          s"${name.value.replace("-", "_")}-${pythonizedVersion(version.value)}-py2.py3-none-any.whl"
+        ),
+        join(codegenDir.value, "package", "python")
+      )
     },
     publishPython := {
       val packagePythonResult: Unit = packagePython.value
@@ -300,7 +361,7 @@ object CodegenPlugin extends AutoPlugin {
       (Compile / packageBin / artifactPath).value.getParentFile
     },
     mergeCodeDir := {
-      join(baseDirectory.value.getParent, "target", "scala-2.12", "generated")
+      join(baseDirectory.value.getParent, "target", "scala-2.13", "generated")
     },
     codegenDir := {
       join(targetDir.value, "generated")

@@ -30,23 +30,23 @@ class AggregateBalanceMeasureSuite extends DataBalanceTestBase with TransformerF
   }
 
   private def actualOneFeature: Map[String, Double] =
-    METRICS zip new AggregateBalanceMeasure()
+    (METRICS zip new AggregateBalanceMeasure()
       .setSensitiveCols(Array(feature1))
       .setVerbose(true)
       .transform(sensitiveFeaturesDf)
       .select(array(col("AggregateBalanceMeasure.*")))
       .as[Array[Double]]
-      .head toMap
+      .head).toMap
 
   private def actualOneFeatureDiffEpsilon: Map[String, Double] =
-    METRICS zip new AggregateBalanceMeasure()
+    (METRICS zip new AggregateBalanceMeasure()
       .setSensitiveCols(Array(feature1))
       .setEpsilon(0.9)
       .setVerbose(true)
       .transform(sensitiveFeaturesDf)
       .select(array(col("AggregateBalanceMeasure.*")))
       .as[Array[Double]]
-      .head toMap
+      .head).toMap
 
   private def oneFeatureProbabilities =
     getFeatureStats(sensitiveFeaturesDf.groupBy(feature1)).select(featureProbCol).as[Double].collect()
@@ -82,24 +82,24 @@ class AggregateBalanceMeasureSuite extends DataBalanceTestBase with TransformerF
   }
 
   private def actualTwoFeatures: Map[String, Double] =
-    METRICS zip new AggregateBalanceMeasure()
+    (METRICS zip new AggregateBalanceMeasure()
       .setSensitiveCols(features)
       .setVerbose(true)
       .transform(sensitiveFeaturesDf)
       .select(array(col("AggregateBalanceMeasure.*")))
       .as[Array[Double]]
-      .head toMap
+      .head).toMap
 
 
   private def actualTwoFeaturesDiffEpsilon: Map[String, Double] =
-    METRICS zip new AggregateBalanceMeasure()
+    (METRICS zip new AggregateBalanceMeasure()
       .setSensitiveCols(features)
       .setEpsilon(0.9)
       .setVerbose(true)
       .transform(sensitiveFeaturesDf)
       .select(array(col("AggregateBalanceMeasure.*")))
       .as[Array[Double]]
-      .head toMap
+      .head).toMap
 
 
   private def twoFeaturesProbabilities =

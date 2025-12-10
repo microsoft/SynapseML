@@ -58,8 +58,8 @@ class VectorLIMEExplainerSuite extends TestBase
       i =>
         arrayOfVectorFields.indices foreach {
           j => // For each matrix type column
-            val x: Seq[DenseVector] = a(i).getAs[Seq[DenseVector]](j)
-            val y: Seq[DenseVector] = b(i).getAs[Seq[DenseVector]](j)
+            val x: scala.collection.Seq[DenseVector] = a(i).getAs[scala.collection.Seq[DenseVector]](j)
+            val y: scala.collection.Seq[DenseVector] = b(i).getAs[scala.collection.Seq[DenseVector]](j)
             assert(x.length === y.length)
             x.indices foreach {
               k =>

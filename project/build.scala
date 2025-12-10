@@ -68,7 +68,7 @@ object BuildUtils {
     if (sys.props("os.name").toLowerCase.contains("windows")) {
       osPrefix ++ Seq("activate", condaEnvName, "&&")
     } else {
-      Seq()
+      Seq("conda", "run", "-n", condaEnvName, "--no-capture-output")
       //TODO figure out why this doesn't work
       //Seq("/bin/bash", "-l", "-c", "source activate " + condaEnvName, "&&")
     }

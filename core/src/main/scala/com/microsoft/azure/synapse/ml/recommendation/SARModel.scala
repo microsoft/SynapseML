@@ -107,7 +107,9 @@ class SARModel(override val uid: String) extends Model[SARModel]
     def dfToRDDMatrxEntry(dataframe: DataFrame) = {
       dataframe.rdd
         .flatMap(row =>
-          row.getAs[Seq[Float]](1).zipWithIndex.map { case (list, index) => Row(row.getDouble(0), index, list) })
+          row.getAs[scala.collection.Seq[Float]](1).zipWithIndex.map {
+            case (list, index) => Row(row.getDouble(0), index, list)
+          })
         .map(item => MatrixEntry(item.getDouble(0).toLong, item.getInt(1).toLong, item.getFloat(2).toDouble))
     }
 

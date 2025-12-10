@@ -80,11 +80,11 @@ class PEP3101Parser(val expr: String) {
       findLiteral = !findLiteral
     }
 
-    tokens
+    tokens.toSeq
   }
 }
 
 object Functions {
   def template(expr: String): Column =
-    F.concat(new PEP3101Parser(expr).parse: _*)
+    F.concat(new PEP3101Parser(expr).parse.toSeq: _*)
 }

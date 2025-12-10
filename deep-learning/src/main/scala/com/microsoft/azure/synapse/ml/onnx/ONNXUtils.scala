@@ -13,10 +13,10 @@ import org.apache.spark.sql.types._
 import java.nio._
 import java.util
 import scala.annotation.tailrec
-import scala.collection.JavaConverters._
+
 import scala.collection.mutable
 import scala.collection.mutable.ArrayBuffer
-import scala.jdk.CollectionConverters.mapAsScalaMapConverter
+import scala.jdk.CollectionConverters._
 import scala.reflect.ClassTag
 
 object ONNXUtils {
@@ -85,10 +85,10 @@ object ONNXUtils {
           value.getValue.asInstanceOf[java.util.List[java.util.Map[_, _]]]
             .asScala.toArray.map(_.asScala.toMap)
         } else {
-          value.getValue.asInstanceOf[java.util.List[_]].asScala
+          value.getValue.asInstanceOf[java.util.List[_]].asScala.toSeq
         }
       case _: MapInfo =>
-        Array(value.getValue.asInstanceOf[java.util.Map[_, _]].asScala.toMap)
+        Seq(value.getValue.asInstanceOf[java.util.Map[_, _]].asScala.toMap)
     }
   }
 
@@ -106,10 +106,13 @@ object ONNXUtils {
     loadTensorBuffer(env, tensorInfo, batchedValues, inferredShape)
   }
 
-  private def validateBatchShapes(batchedValues: Seq[_], expectedShape: Array[Long]): Array[Long] = {
+  private def validateBatchShapes(batchedValues: scala.collection.Seq[_], expectedShape: Array[Long]): Array[Long] = {
     // Validate input shape based on first sequence in each parent
     @tailrec
-    def validateOneShape(nestedSeq: Seq[_], currentSize: Array[Long], expectedShape: Array[Long]): Array[Long] = {
+    def validateOneShape(
+      nestedSeq: scala.collection.Seq[_],
+      currentSize: Array[Long],
+      expectedShape: Array[Long]): Array[Long] = {
       if (nestedSeq.isEmpty) {
         throw new IllegalArgumentException("Input element dimension is empty")
       }
@@ -122,7 +125,7 @@ object ONNXUtils {
 
       val newSize = currentSize :+ nestedSeq.length.toLong
       nestedSeq.head match {
-        case s: Seq[_] => validateOneShape(s, newSize, expectedShape)
+        case s: scala.collection.Seq[_] => validateOneShape(s, newSize, expectedShape)
         case _ =>
           if (!util.Arrays.equals(newSize, expectedShape)) {
             throw new IllegalArgumentException(
@@ -135,9 +138,9 @@ object ONNXUtils {
     }
 
     val inferredShapes: Seq[Array[Long]] = batchedValues.map {
-      case s: Seq[_] => validateOneShape(s, Array[Long](), expectedShape.tail)
+      case s: scala.collection.Seq[_] => validateOneShape(s, Array[Long](), expectedShape.tail)
       case _ => Array.empty[Long]
-    }
+    }.toSeq
 
     inferredShapes.filterNot(_.sameElements(inferredShapes.head)).headOption.foreach {
       shape =>
@@ -153,7 +156,7 @@ object ONNXUtils {
   // scalastyle:off cyclomatic.complexity
   private[onnx] def loadTensorBuffer(env: OrtEnvironment,
                                      tensorInfo: TensorInfo,
-                                     batchedValues: Seq[_],
+                                     batchedValues: scala.collection.Seq[_],
                                      shape: Array[Long]): OnnxTensor = {
     val size = shape.product.toInt
     tensorInfo.`type` match {
@@ -216,26 +219,26 @@ object ONNXUtils {
     }
   }
 
-  private def writeNestedSeqToBuffer[T: ClassTag](nestedSeq: Seq[_], bufferWrite: T => Unit): Long = {
+  private def writeNestedSeqToBuffer[T: ClassTag](nestedSeq: scala.collection.Seq[_], bufferWrite: T => Unit): Long = {
     nestedSeq.foldLeft(0: Long) { (cur, element) => element match {
       case x: T =>
         bufferWrite(x)
         cur + 1
-      case s: Seq[_] => cur + writeNestedSeqToBuffer(s, bufferWrite)
+      case s: scala.collection.Seq[_] => cur + writeNestedSeqToBuffer(s, bufferWrite)
       case _ => cur + 0L
     }}
   }
 
-  private def writeNestedSeqToStringBuffer(nestedSeq: Seq[_], size: Int): ArrayBuffer[String] = {
+  private def writeNestedSeqToStringBuffer(nestedSeq: scala.collection.Seq[_], size: Int): ArrayBuffer[String] = {
     var i = 0
     val buffer = ArrayBuffer.fill[String](size)("")
 
-    def innerWrite(nestedSeq: Seq[_]): Unit = {
+    def innerWrite(nestedSeq: scala.collection.Seq[_]): Unit = {
       nestedSeq.foreach {
         case x: String =>
           buffer.update(i, x)
           i = i + 1
-        case s: Seq[_] =>
+        case s: scala.collection.Seq[_] =>
           innerWrite(s)
       }
     }

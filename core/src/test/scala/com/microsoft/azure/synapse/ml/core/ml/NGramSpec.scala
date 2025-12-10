@@ -11,7 +11,7 @@ class NGramSpec extends TestBase {
 
   def ngramDFToScalaList(dataFrame: DataFrame, outputCol: String = "ngrams"): Array[List[Any]] = {
     dataFrame.select(dataFrame(outputCol)).collect()
-      .map(_.getAs[Seq[Any]](0).toList)
+      .map(_.getAs[scala.collection.Seq[Any]](0).toList)
   }
 
   test("operation on tokenized strings") {
