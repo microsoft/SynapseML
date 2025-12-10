@@ -195,13 +195,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   private val imageExtensions = Set("jpg", "jpeg", "png", "gif", "webp")
   private val audioExtensions = Set("mp3", "wav")
 
-  private def attachmentPlaceholder(columnName: String): String =
-    s"[Content for column '$columnName' will be provided later as an attachment.]"
-
-  private[openai] def applyPathPlaceholders(template: String, pathColumns: Seq[String]): String = {
-    pathColumns.foldLeft(template) { (current, columnName) =>
-      current.replace(s"{$columnName}", attachmentPlaceholder(columnName))
-    }
+  private def extractFilename = udf { (path: String) =>
+    new HPath(path).getName
   }
 
   private def addRAIErrors[T <: OpenAIServicesBase with HasRAIContentFilter](
@@ -325,15 +320,29 @@ class OpenAIPrompt(override val uid: String) extends Transformer
         case (colName, colType) if colType.equalsIgnoreCase("path") => colName
         }.toSeq
 
-      val promptTemplateWithPlaceholders = applyPathPlaceholders(getPromptTemplate, pathColumnNames)
-      val promptCol = Functions.template(promptTemplateWithPlaceholders)
-
       pathColumnNames.foreach { colName =>
         require(
           df.columns.contains(colName),
           s"Column '$colName' specified in columnTypes was not found in the DataFrame."
           )
       }
+
+      // For path columns, add temporary filename columns for template interpolation
+      // Use withDerivativeCol to avoid column name conflicts
+      import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions._
+      val (dfWithFilenames, filenameColMapping) = pathColumnNames.foldLeft((df, Map.empty[String, String])) {
+        case ((currentDf, mapping), colName) =>
+          val filenameCol = currentDf.withDerivativeCol(s"${colName}_filename")
+          (currentDf.withColumn(filenameCol, extractFilename(F.col(colName))), mapping + (colName -> filenameCol))
+      }
+
+      // Update template to use unique filename columns for path columns
+      val templateWithFilenameRefs = filenameColMapping.foldLeft(getPromptTemplate) {
+        case (template, (colName, filenameCol)) =>
+          template.replace(s"{$colName}", s"{$filenameCol}")
+      }
+
+      val promptCol = Functions.template(templateWithFilenameRefs)
 
       val attachmentsColumn: Column =
         if (pathColumnNames.nonEmpty) {
@@ -359,9 +368,15 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       }
 
       val (dfTemplated, inputColName, serviceConfigured) =
-        configureService(service, df, promptCol, createMessagesUDF, attachmentsColumn)
+        configureService(service, dfWithFilenames, promptCol, createMessagesUDF, attachmentsColumn)
       val result = generateText(serviceConfigured, dfTemplated)
-      if (getDropPrompt) result.drop(inputColName) else result
+
+      // Drop the temporary filename columns
+      val resultCleaned = filenameColMapping.values.foldLeft(result) { (df, colName) =>
+        if (df.columns.contains(colName)) df.drop(colName) else df
+      }
+
+      if (getDropPrompt) resultCleaned.drop(inputColName) else resultCleaned
     }, dataset.columns.length)
   }
 
