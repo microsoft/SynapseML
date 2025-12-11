@@ -277,10 +277,15 @@ class OpenAIPrompt(override val uid: String) extends Transformer
         val usageCol = normalizeUsageColumn(responseCol.getField("usage"), mapping)
         df.withColumn(
           getOutputCol,
-          F.struct(parsedCol.alias("response"), usageCol.alias("usage"))
+          F.when(parsedCol.isNotNull,
+            F.struct(parsedCol.alias("response"), usageCol.alias("usage"))
+          )
         )
       case None =>
-        df.withColumn(getOutputCol, parsedCol)
+        df.withColumn(
+          getOutputCol,
+          F.when(parsedCol.isNotNull, parsedCol)
+        )
     }
   }
 

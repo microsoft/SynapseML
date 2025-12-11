@@ -16,7 +16,7 @@ import org.apache.spark.ml.functions.array_to_vector
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.apache.spark.sql.types._
 import scala.language.existentials
-import org.apache.spark.sql.functions.{col, element_at, struct}
+import org.apache.spark.sql.functions.{col, element_at, struct, when}
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 import HasReturnUsage.UsageMappings
@@ -101,13 +101,18 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
       )
       parsed.withColumn(
         getOutputCol,
-        struct(
-          vectorCol.alias("response"),
-          usageCol.alias("usage")
+        when(responseCol.isNotNull,
+          struct(
+            vectorCol.alias("response"),
+            usageCol.alias("usage")
+          )
         )
       )
     } else {
-      parsed.withColumn(getOutputCol, vectorCol)
+      parsed.withColumn(
+        getOutputCol,
+        when(responseCol.isNotNull, vectorCol)
+      )
     }
   }
 
