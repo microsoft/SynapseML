@@ -173,6 +173,36 @@ class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with Ope
     assert(outputDetails != null)
   }
 
+  test("null input returns null output with returnUsage false") {
+    val dfWithNull = Seq(
+      Some("Once upon a time"),
+      None,
+      Some("SynapseML is ")
+    ).toDF("text")
+
+    val e = usageEmbedding("null_test_vec")
+    val results = e.transform(dfWithNull).collect()
+
+    assert(results(0).getAs[Vector]("null_test_vec") != null)
+    assert(results(1).getAs[Vector]("null_test_vec") == null)
+    assert(results(2).getAs[Vector]("null_test_vec") != null)
+  }
+
+  test("null input returns null output with returnUsage true") {
+    val dfWithNull = Seq(
+      Some("Once upon a time"),
+      None,
+      Some("SynapseML is ")
+    ).toDF("text")
+
+    val e = usageEmbedding("null_test_usage").setReturnUsage(true)
+    val results = e.transform(dfWithNull).collect()
+
+    assert(results(0).getAs[Row]("null_test_usage") != null)
+    assert(results(1).getAs[Row]("null_test_usage") == null)
+    assert(results(2).getAs[Row]("null_test_usage") != null)
+  }
+
 
   override def testObjects(): Seq[TestObject[OpenAIEmbedding]] =
     Seq(new TestObject(embedding, df))

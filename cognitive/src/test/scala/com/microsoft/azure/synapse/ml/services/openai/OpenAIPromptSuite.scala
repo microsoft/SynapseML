@@ -195,42 +195,38 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     assert(outputDetails != null)
   }
 
-  lazy val promptGpt4: OpenAIPrompt = new OpenAIPrompt()
-    .setSubscriptionKey(openAIAPIKey)
-    .setDeploymentName(deploymentName)
-    .setCustomServiceName(openAIServiceName)
-    .setOutputCol("outParsed")
-    .setTemperature(0)
+  test("null input returns null output with returnUsage false") {
+    val dfWithNull = Seq(
+      (Some("apple"), "fruits"),
+      (None, "cars"),
+      (Some("cake"), "dishes")
+    ).toDF("text", "category")
 
-  test("Basic Usage - Gpt 4") {
-    val nonNullCount = promptGpt4
-      .setPromptTemplate("give me a comma separated list of 5 {category}, starting with {text} ")
-      .setPostProcessing("csv")
-      .transform(df)
-      .select("outParsed")
-      .collect()
-      .count(r => Option(r.getSeq[String](0)).isDefined)
+    val p = usagePrompt("null_test")
+    val results = p.transform(dfWithNull).select("null_test").collect()
 
-    assert(nonNullCount == 3)
+    assert(results(0).getSeq[String](0) != null)
+    assert(results(1).get(0) == null)
+    assert(results(2).getSeq[String](0) != null)
   }
 
-  test("Basic Usage JSON - Gpt 4") {
-    promptGpt4.setPromptTemplate(
-        """Split a word into prefix and postfix a respond in JSON
-          |Cherry: {{"prefix": "Che", "suffix": "rry"}}
-          |{text}:
-          |""".stripMargin)
-      .setPostProcessing("json")
-      .setPostProcessingOptions(Map("jsonSchema" -> "prefix STRING, suffix STRING"))
-      .transform(df)
-      .select("outParsed")
-      .where(col("outParsed").isNotNull)
-      .collect()
-      .foreach(r => assert(r.getStruct(0).getString(0).nonEmpty))
+  test("null input returns null output with returnUsage true") {
+    val dfWithNull = Seq(
+      (Some("apple"), "fruits"),
+      (None, "cars"),
+      (Some("cake"), "dishes")
+    ).toDF("text", "category")
+
+    val p = usagePrompt("null_test_usage").setReturnUsage(true)
+    val results = p.transform(dfWithNull).select("null_test_usage").collect()
+
+    assert(results(0).getStruct(0) != null)
+    assert(results(1).get(0) == null)
+    assert(results(2).getStruct(0) != null)
   }
 
-  test("Basic Usage JSON - Gpt 4 without explicit post-processing") {
-    promptGpt4.setPromptTemplate(
+  test("Basic Usage JSON - without explicit post-processing") {
+    prompt.setPromptTemplate(
                 """Split a word into prefix and postfix a respond in JSON
                   |Cherry: {{"prefix": "Che", "suffix": "rry"}}
                   |{text}:
@@ -243,8 +239,8 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
               .foreach(r => assert(r.getStruct(0).getString(0).nonEmpty))
   }
 
-  test("Setting and Keeping Messages Col - Gpt 4") {
-    promptGpt4.setMessagesCol("messages")
+  test("Setting and Keeping Messages Col") {
+    prompt.setMessagesCol("messages")
       .setDropPrompt(false)
       .setPromptTemplate(
         """Classify each word as to whether they are an F1 team or not
@@ -259,15 +255,15 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .foreach(r => assert(r.get(0) != null))
   }
 
-  test("Basic Usage JSON - Gpt 4o with responseFormat") {
-    val promptGpt4o: OpenAIPrompt = new OpenAIPrompt()
+  test("json_object Response Format Usage") {
+    val promptJSONObject: OpenAIPrompt = new OpenAIPrompt()
       .setSubscriptionKey(openAIAPIKey)
       .setDeploymentName(deploymentName)
       .setCustomServiceName(openAIServiceName)
       .setOutputCol("outParsed")
       .setTemperature(0)
       .setPromptTemplate(
-        """Split a word into prefix and postfix
+        """Split a word into prefix and postfix in JSON format
           |Cherry: {{"prefix": "Che", "suffix": "rry"}}
           |{text}:
           |""".stripMargin)
@@ -275,7 +271,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .setPostProcessingOptions(Map("jsonSchema" -> "prefix STRING, suffix STRING"))
 
 
-    promptGpt4o.transform(df)
+    promptJSONObject.transform(df)
                .select("outParsed")
                .where(col("outParsed").isNotNull)
                .collect()
@@ -323,21 +319,21 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     lazy val customRootUrlValue: String = sys.env.getOrElse("CUSTOM_ROOT_URL", "")
     lazy val customHeadersValues: Map[String, String] = Map("X-ModelType" -> "gpt-4-turbo-chat-completions")
 
-    lazy val customPromptGpt4: OpenAIPrompt = new OpenAIPrompt()
+    lazy val customPrompt: OpenAIPrompt = new OpenAIPrompt()
       .setCustomUrlRoot(customRootUrlValue)
       .setOutputCol("outParsed")
       .setTemperature(0)
 
     if (accessToken.isEmpty) {
-      customPromptGpt4.setSubscriptionKey(openAIAPIKey)
+      customPrompt.setSubscriptionKey(openAIAPIKey)
         .setDeploymentName(deploymentName)
         .setCustomServiceName(openAIServiceName)
     } else {
-      customPromptGpt4.setAADToken(accessToken)
+      customPrompt.setAADToken(accessToken)
         .setCustomHeaders(customHeadersValues)
     }
 
-    customPromptGpt4.setPromptTemplate("give me a comma separated list of 5 {category}, starting with {text} ")
+    customPrompt.setPromptTemplate("give me a comma separated list of 5 {category}, starting with {text} ")
       .setPostProcessing("csv")
       .transform(df)
       .select("outParsed")
