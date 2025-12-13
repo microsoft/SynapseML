@@ -106,7 +106,7 @@ case class DataFrameExtensions(df: DataFrame) {
 
   private def fullJsonParsingSuccess(a: Any): Boolean = {
     a match {
-      case s: Seq[_] => s.forall(fullJsonParsingSuccess)
+      case s: scala.collection.Seq[_] => s.forall(fullJsonParsingSuccess)
       case a: Row => a.toSeq.forall(fullJsonParsingSuccess)
       case null => false //scalastyle:ignore null
       case _ => true

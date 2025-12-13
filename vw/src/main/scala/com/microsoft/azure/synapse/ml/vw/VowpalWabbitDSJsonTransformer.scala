@@ -12,7 +12,7 @@ import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, functions => F, types => T}
 
-import scala.jdk.CollectionConverters.mapAsScalaMapConverter
+import scala.jdk.CollectionConverters._
 
 class VowpalWabbitDSJsonTransformer(override val uid: String)
   extends Transformer

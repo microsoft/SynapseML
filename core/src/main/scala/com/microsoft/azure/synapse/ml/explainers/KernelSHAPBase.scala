@@ -68,7 +68,7 @@ abstract class KernelSHAPBase(override val uid: String)
       .agg(Summarizer.mean(col(targetCol)).alias(targetCol), mean(weightCol).alias(weightCol))
 
     val fitted = coalitionScores.groupByKey(row => row.getAs[Long](idCol)).mapGroups {
-      case (id: Long, rows: Iterator[Row]) =>
+      (id: Long, rows: Iterator[Row]) =>
         val (inputs, outputs, weights) = rows.map {
           row =>
             val input = row.getAs[Vector](coalitionCol).toBreeze

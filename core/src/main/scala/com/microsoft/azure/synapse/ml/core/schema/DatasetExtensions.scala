@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.core.schema
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.sql.Dataset
 import org.apache.spark.sql.types.StructType
+import scala.reflect.ClassTag
 
 /** Contains methods for manipulating spark dataframes and datasets. */
 object DatasetExtensions {
@@ -26,7 +27,7 @@ object DatasetExtensions {
       * @tparam T The type to retrieve.
       * @return The sequence of values in the column.
       */
-    def getColAs[T](colName: String): Seq[T] = {
+    def getColAs[T: ClassTag](colName: String): Seq[T] = {
       df.select(colName).collect.map(_.getAs[T](0))
     }
 

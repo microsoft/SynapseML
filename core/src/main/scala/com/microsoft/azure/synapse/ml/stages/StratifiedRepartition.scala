@@ -69,7 +69,7 @@ class StratifiedRepartition(val uid: String) extends Transformer with Wrappable
       val rangePartitioner = new RangePartitioner(dataset.rdd.getNumPartitions, spdata)
       val rspdata = spdata.partitionBy(rangePartitioner).mapPartitions(keyToRow =>
         keyToRow.map { case (key, row) => row }).persist()
-      dataset.sqlContext.createDataFrame(rspdata, dataset.schema)
+      dataset.sparkSession.createDataFrame(rspdata, dataset.schema)
     }, dataset.columns.length)
   }
 

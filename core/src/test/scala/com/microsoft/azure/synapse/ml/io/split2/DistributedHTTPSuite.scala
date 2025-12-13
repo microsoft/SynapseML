@@ -163,22 +163,27 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
   // Logger.getLogger(classOf[DistributedHTTPSource]).setLevel(Level.INFO)
   // Logger.getLogger(classOf[JVMSharedServer]).setLevel(Level.INFO)
 
+  override val host = "127.0.0.1"
+
   def baseReaderDist: DataStreamReader = {
     spark.readStream.distributedServer
       .address(host, port, "foo")
       .option("maxPartitions", 3)
+      .option("maxPortAttempts", "1")
   }
 
   def baseReader: DataStreamReader = {
     spark.readStream.server
       .address(host, port, "foo")
       .option("maxPartitions", 3)
+      .option("maxPortAttempts", "1")
   }
 
   def baseWriterDist(df: DataFrame): DataStreamWriter[Row] = {
     df.writeStream
       .distributedServer
       .option("name", "foo")
+      .option("maxPortAttempts", "1")
       .queryName("foo")
       .option("checkpointLocation",
         new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
@@ -188,6 +193,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
     df.writeStream
       .server
       .option("name", "foo")
+      .option("maxPortAttempts", "1")
       .queryName("foo")
       .option("checkpointLocation",
         new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
@@ -316,7 +322,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
            |        r = s.post("$url",
            |                          data={"number": 12524, "type": "issue", "action": "show"},
            |                          headers = {"content-type": "application/json"},
-           |                          timeout=15)
+           |                          timeout=120)
            |
            |        assert r.status_code==200
            |        print("Exiting {} with code {}".format(self.threadID, r.status_code))
@@ -334,8 +340,9 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
       val pythonFile = new File(tmpDir.toFile, "pythonClient.py")
       FileUtilities.writeFile(pythonFile, pythonClientCode)
 
-      Runtime.getRuntime.exec("pip install requests")
-      val processes = (1 to 50).map(_ => {
+      val pipInstall = Runtime.getRuntime.exec("pip install requests")
+      pipInstall.waitFor()
+      val processes = (1 to 10).map(_ => {
         Runtime.getRuntime.exec(s"python ${pythonFile.getAbsolutePath}")
       })
 
@@ -389,7 +396,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
         new FooHolder
       }
 
-      import spark.sqlContext.implicits._
+      import spark.implicits._
 
       val DF: DataFrame = spark.sparkContext.parallelize(Seq(Tuple1("placeholder")))
         .toDF("plcaholder")

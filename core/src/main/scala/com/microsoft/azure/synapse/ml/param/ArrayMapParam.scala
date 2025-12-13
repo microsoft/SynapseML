@@ -24,21 +24,22 @@ object ArrayMapJsonProtocol extends DefaultJsonProtocol {
         case false => JsFalse
         case v: Map[_, _] => write(v.asInstanceOf[Map[String, Any]])
         case default => serializationError(s"Unable to serialize $default")
-      })
+      }.toMap)
     }
     //scalastyle:on cyclomatic.complexity
 
     def read(value: JsValue): Map[String, Any] = value.asInstanceOf[JsObject].fields.map(kvp => {
       val convValue = kvp._2 match {
-        case JsNumber(n) => if (n.isValidInt) n.intValue().asInstanceOf[Any] else n.toDouble.asInstanceOf[Any]
+        case JsNumber(n) => if (n.isValidInt) n.intValue.asInstanceOf[Any] else n.toDouble.asInstanceOf[Any]
         case JsString(s) => s
-        case JsTrue => true
-        case JsFalse => false
-        case v: JsValue => read(v)
+        case JsBoolean(b) => b
+        case JsArray(a) => a.map(read) // Recursively read elements of the array
+        case JsObject(o) => read(JsObject(o)) // Recursively read the nested object
+        case JsNull => null //scalastyle:ignore null
         case default => deserializationError(s"Unable to deserialize $default")
       }
       (kvp._1, convValue)
-    })
+    }).toMap
   }
 }
 

@@ -81,4 +81,15 @@ class RankingEvaluatorSpec extends TestBase {
     assert(map("mrr") == 1.0)
     assert(map("fcp") == 1.0)
   }
+  test("testMapk") {
+    val df = Seq((Array(1, 2, 3), Array(1, 2, 3)))
+      .toDF("prediction", "label")
+
+    val evaluator = new RankingEvaluator()
+      .setK(3)
+      .setNItems(3)
+      .setMetricName("mapk")
+
+    assert(evaluator.evaluate(df) == 1.0)
+  }
 }

@@ -181,8 +181,8 @@ private[ml] abstract class TextAnalyticsBaseNoBinding(uid: String)
   protected def postprocessResponse(responseOpt: Row): Option[Seq[Row]] = {
     Option(responseOpt).map { response =>
       val stats = response.getAs[Row]("statistics")
-      val docs = response.getAs[Seq[Row]]("documents").map(doc => (doc.getString(0), doc)).toMap
-      val errors = response.getAs[Seq[Row]]("errors").map(error => (error.getString(0), error)).toMap
+      val docs = response.getAs[scala.collection.Seq[Row]]("documents").map(doc => (doc.getString(0), doc)).toMap
+      val errors = response.getAs[scala.collection.Seq[Row]]("errors").map(error => (error.getString(0), error)).toMap
       val modelVersion = response.getAs[String]("modelVersion")
       (0 until (docs.size + errors.size)).map { i =>
         Row.fromSeq(Seq(
@@ -663,11 +663,11 @@ class TextAnalyze(override val uid: String) extends TextAnalyticsBaseNoBinding(u
     Option(responseOpt).map { response =>
       val tasks = response.getAs[Row]("tasks")
       val flattenedTasks = Seq(
-        flattenTask(tasks.getAs[Seq[Row]]("entityRecognitionTasks")),
-        flattenTask(tasks.getAs[Seq[Row]]("entityLinkingTasks")),
-        flattenTask(tasks.getAs[Seq[Row]]("entityRecognitionPiiTasks")),
-        flattenTask(tasks.getAs[Seq[Row]]("keyPhraseExtractionTasks")),
-        flattenTask(tasks.getAs[Seq[Row]]("sentimentAnalysisTasks"))
+        flattenTask(tasks.getAs[scala.collection.Seq[Row]]("entityRecognitionTasks").toSeq),
+        flattenTask(tasks.getAs[scala.collection.Seq[Row]]("entityLinkingTasks").toSeq),
+        flattenTask(tasks.getAs[scala.collection.Seq[Row]]("entityRecognitionPiiTasks").toSeq),
+        flattenTask(tasks.getAs[scala.collection.Seq[Row]]("keyPhraseExtractionTasks").toSeq),
+        flattenTask(tasks.getAs[scala.collection.Seq[Row]]("sentimentAnalysisTasks").toSeq)
       ).map(ftOpt => ftOpt.map(_.toArray))
       val totalDocs = flattenedTasks.flatten.head.length
 

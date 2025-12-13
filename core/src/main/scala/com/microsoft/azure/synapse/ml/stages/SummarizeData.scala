@@ -85,7 +85,7 @@ trait SummarizeDataParams extends Wrappable with DefaultParamsWritable {
     if ($(basic)) columns ++= SummarizeData.BasicFields
     if ($(sample)) columns ++= SummarizeData.SampleFields
     if ($(percentiles)) columns ++= SummarizeData.PercentilesFields
-    StructType(columns)
+    StructType(columns.toSeq)
   }
 }
 
@@ -136,7 +136,11 @@ class SummarizeData(override val uid: String)
   private def computeCountsImpl(col: String, df: DataFrame): Array[Double] = {
     val column = df.col(col)
     val dataType = df.schema(col).dataType
-    val mExpr = isnull(column) || (if (dataType.equals(BooleanType)) isnan(column.cast(DoubleType)) else isnan(column))
+    val mExpr = if (dataType == FloatType || dataType == DoubleType) {
+      isnull(column) || isnan(column)
+    } else {
+      isnull(column)
+    }
 
     val countMissings = df.where(mExpr).count().toDouble
     // approxCount returns Long which > Double!

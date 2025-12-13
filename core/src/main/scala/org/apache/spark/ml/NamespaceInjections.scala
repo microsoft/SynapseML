@@ -11,6 +11,7 @@ import org.apache.spark.util.ThreadUtils
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
+import scala.reflect.ClassTag
 
 object NamespaceInjections {
 
@@ -33,7 +34,7 @@ object ParamInjections {
       getExecutionContext
     }
 
-    protected def awaitFutures[T](futures: Array[Future[T]]): Seq[T] = {
+    protected def awaitFutures[T: ClassTag](futures: Array[Future[T]]): Seq[T] = {
       futures.map(ThreadUtils.awaitResult(_, Duration.Inf))
     }
   }

@@ -78,9 +78,9 @@ private[causal] class ConstrainedLeastSquare[TMat, TVec](step: Double,
       val colMean = matrixOps.colMean(A)
       val bMean = vectorOps.mean(b)
       val intercept = bMean - vectorOps.dot(x, colMean)
-      (x, intercept, rmse, lossHistory)
+      (x, intercept, rmse, lossHistory.toSeq)
     } else {
-      (x, 0d, rmse, lossHistory)
+      (x, 0d, rmse, lossHistory.toSeq)
     }
   }
 }
