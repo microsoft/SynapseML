@@ -28,7 +28,7 @@ class MultiNGramSpec extends TransformerFuzzing[MultiNGram] {
   lazy val dfNgram = t.transform(dfTok)
 
   test("operate on tokens ") {
-    val grams = dfNgram.collect().last.getAs[Seq[String]]("ngrams").toSet
+    val grams = dfNgram.collect().last.getAs[scala.collection.Seq[String]]("ngrams").toSet
     assert(grams("1 2 3 4"))
     assert(grams("4"))
     assert(grams("2 3 4"))

@@ -7,7 +7,11 @@ import pytorch_lightning as pl
 import torch
 import torch.nn.functional as F
 import torch.optim as optim
-from pytorch_lightning.utilities import _module_available
+
+try:
+    from pytorch_lightning.utilities import _module_available
+except ImportError:  # pragma: no cover - fallback for PL>=2.4
+    from lightning_utilities.core.imports import module_available as _module_available
 
 _TRANSFORMERS_AVAILABLE = _module_available("transformers")
 if _TRANSFORMERS_AVAILABLE:

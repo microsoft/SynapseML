@@ -23,6 +23,7 @@ trait AzureMapsKey {
   lazy val azureMapsKey: String = sys.env.getOrElse("AZURE_MAPS_KEY", Secrets.AzureMapsKey)
 }
 
+
 class AzMapsSearchAddressSuite extends TransformerFuzzing[AddressGeocoder] with AzureMapsKey {
 
   import spark.implicits._
@@ -82,6 +83,7 @@ class AzMapsSearchAddressSuite extends TransformerFuzzing[AddressGeocoder] with 
 
   override def reader: MLReadable[_] = AddressGeocoder
 }
+
 
 class AzMapsSearchReverseAddressSuite extends TransformerFuzzing[ReverseAddressGeocoder] with AzureMapsKey {
 
@@ -239,10 +241,15 @@ class AzMapsPointInPolygonSuite extends TransformerFuzzing[CheckPointInPolygon] 
 
     tryWithRetries(Array(3000, 5000, 10000, 20000, 30000)) { () =>
       val getLongRunningResult = new HttpGet(new URI(locationUrl + "&" + queryParams))
-      val resourceLocation = RESTHelpers.sendAndParseJson(getLongRunningResult, expectedCodes = Set(201))
+      val lroResult = RESTHelpers.sendAndParseJson(getLongRunningResult, expectedCodes = Set(201))
         .convertTo[LongRunningOperationResult]
-        .resourceLocation.mkString
-      udid = resourceLocation.split(Array('/', '?', '&'))(5)
+      val resourceLocation = lroResult.resourceLocation.getOrElse("")
+      if (resourceLocation.isEmpty) {
+        throw new RuntimeException("Resource location is empty in LongRunningOperationResult")
+      }
+      val uri = new URI(resourceLocation)
+      val path = uri.getPath
+      udid = path.split("/").last
     }
   }
 

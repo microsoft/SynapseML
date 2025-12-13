@@ -9,7 +9,7 @@ steps:
         set -e
         az account get-access-token --scope https://storage.azure.com/.default --output none
         source activate synapseml
-        sbt packagePython
+        sbt packagePython verifyPythonPackaging
         sbt publishBlob
     env:
       NEXUS-UN: $(nexus-un)

@@ -60,13 +60,13 @@ object VowpalWabbitUtil {
     val sharedExample = createSharedExample(row, sharedNamespaceInfos, exampleStack)
 
     // transfer actions
-    val actionsForZerothNamespace = row.getAs[Seq[Vector]](actionNamespaceInfos.head.colIdx)
+    val actionsForZerothNamespace = row.getAs[scala.collection.Seq[Vector]](actionNamespaceInfos.head.colIdx)
 
     // Seq[Seq[Vector]] - each features column is a Seq[Vector]
     // first index  ... namespaces
     // second index ... actions
     val actionFeaturesForEachNamespace = actionNamespaceInfos.map(
-      namespaceInfo => row.getAs[Seq[Vector]](namespaceInfo.colIdx).toArray)
+      namespaceInfo => row.getAs[scala.collection.Seq[Vector]](namespaceInfo.colIdx).toArray)
 
     // loop over actions
     val examples = (for (actionIdx <- actionsForZerothNamespace.indices) yield {

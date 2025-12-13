@@ -67,7 +67,7 @@ abstract class BaseDiffInDiffEstimator(override val uid: String)
       .setLoss("squaredError")
       .setRegParam(1E-10)
 
-    assembler.transform _ andThen regression.fit apply df
+    regression.fit(assembler.transform(df))
   }
 }
 

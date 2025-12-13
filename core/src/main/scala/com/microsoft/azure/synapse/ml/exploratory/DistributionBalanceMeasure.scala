@@ -69,15 +69,15 @@ class DistributionBalanceMeasure(override val uid: String)
 
   def getReferenceDistribution: Array[Map[String, Double]] =
     if (isDefined(referenceDistribution))
-      $(referenceDistribution).map(_.mapValues(_.asInstanceOf[Double]).map(identity))
+      $(referenceDistribution).map(_.mapValues(_.asInstanceOf[Double]).map(identity).toMap)
     else emptyReferenceDistribution
 
   def setReferenceDistribution(value: Array[Map[String, Double]]): this.type =
-    set(referenceDistribution, value.map(_.mapValues(_.asInstanceOf[Any])))
+    set(referenceDistribution, value.map(_.mapValues(_.asInstanceOf[Any]).toMap))
 
   def setReferenceDistribution(value: util.ArrayList[util.HashMap[String, Double]]): this.type = {
     val arrayMap = value.asScala.toArray.map(_.asScala.toMap.mapValues(_.asInstanceOf[Any]))
-    set(referenceDistribution, arrayMap)
+    set(referenceDistribution, arrayMap.map(_.mapValues(_.asInstanceOf[Any]).toMap))
   }
 
   setDefault(

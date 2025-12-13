@@ -32,11 +32,11 @@ object DatabricksUtilities {
 
   // ADB Info
   val Region = "eastus"
-  val PoolName = "synapseml-build-14.3"
-  val GpuPoolName = "synapseml-build-14.3-gpu"
-  val AdbRuntime = "14.3.x-scala2.12"
-  // https://docs.databricks.com/en/release-notes/runtime/14.3lts-ml.html
-  val AdbGpuRuntime = "14.3.x-gpu-ml-scala2.12"
+  val PoolName = "synapseml-build-17.3"
+  val GpuPoolName = "synapseml-build-17.3-gpu"
+  val AdbRuntime = "17.3.x-scala2.13"
+  // https://docs.databricks.com/en/release-notes/runtime/17.3lts-ml.html
+  val AdbGpuRuntime = "17.3.x-gpu-ml-scala2.13"
   val NumWorkers = 5
   val AutoTerminationMinutes = 15
 
@@ -84,7 +84,7 @@ object DatabricksUtilities {
   val GPULibraries: String = List(
     Map("maven" -> Map("coordinates" -> PackageMavenCoordinate, "repo" -> PackageRepository)),
     Map("pypi" -> Map("package" -> "pytorch-lightning==1.5.0")),
-    Map("pypi" -> Map("package" -> "torchvision==0.15.1")),
+    Map("pypi" -> Map("package" -> "torchvision==0.17.0")),
     Map("pypi" -> Map("package" -> "transformers==4.49.0")),
     Map("pypi" -> Map("package" -> "jinja2==3.1.6")),
     Map("pypi" -> Map("package" -> "petastorm==0.12.1")),

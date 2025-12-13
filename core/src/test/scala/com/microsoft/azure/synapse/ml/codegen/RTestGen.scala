@@ -95,13 +95,28 @@ object RTestGen {
          |conf <- spark_config()
          |conf$$sparklyr.shell.conf <- c(
          |  "spark.app.name=SparklyRTests",
-         |  "spark.jars.packages=$SparkMavenPackageList",
-         |  "spark.jars.repositories=$SparkMavenRepositoryList",
+         |  "spark.jars.packages=${SparkMavenPackageList.replace("synapseml_", "synapseml-core_")}",
+         |  "spark.jars.repositories=$SparkMavenRepositoryList,file:///Users/brendan/.m2/repository",
          |  "spark.executor.heartbeatInterval=60s",
          |  "spark.sql.shuffle.partitions=10",
          |  "spark.sql.crossJoin.enabled=true")
+         |conf$$spark.driver.extraJavaOptions <- paste0("'", paste0(c(
+         |     "--add-opens=java.base/java.lang=ALL-UNNAMED ",
+         |     "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED ",
+         |     "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED ",
+         |     "--add-opens=java.base/java.io=ALL-UNNAMED ",
+         |     "--add-opens=java.base/java.net=ALL-UNNAMED ",
+         |     "--add-opens=java.base/java.nio=ALL-UNNAMED ",
+         |     "--add-opens=java.base/java.util=ALL-UNNAMED ",
+         |     "--add-opens=java.base/java.util.concurrent=ALL-UNNAMED ",
+         |     "--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED ",
+         |     "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED ",
+         |     "--add-opens=java.base/sun.nio.cs=ALL-UNNAMED ",
+         |     "--add-opens=java.base/sun.security.action=ALL-UNNAMED ",
+         |     "--add-opens=java.base/sun.util.calendar=ALL-UNNAMED ",
+         |     "--add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED"), collapse = ""), "'")
          |
-         |sc <- spark_connect(master = "local", version = "3.5.0", config = conf)
+         |sc <- spark_connect(master = "local", version = "4.0", config = conf)
          |
          |""".stripMargin, StandardOpenOption.CREATE)
 

@@ -98,7 +98,7 @@ class TabularLIME(override val uid: String)
     val numericFeatures = this.getInputCols.filterNot(this.getCategoricalFeatures.contains)
     val countCol = DatasetExtensions.findUnusedColumnName("count", df)
     val maxFeatureMembers: Int = 1000
-    val categoryFeatureStats = categoryFeatures.par.map {
+    val categoryFeatureStats = categoryFeatures.map {
       feature =>
         val freqMap = df.groupBy(feature)
           .agg(count("*").cast(DoubleType).alias(countCol))

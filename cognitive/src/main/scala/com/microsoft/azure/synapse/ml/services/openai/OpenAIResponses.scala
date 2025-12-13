@@ -115,7 +115,7 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   override protected[openai] def prepareEntity: Row => Option[AbstractHttpEntity] = {
     r =>
       lazy val optionalParams: Map[String, Any] = getOptionalParams(r)
-      val messages = r.getAs[Seq[Row]](getMessagesCol)
+      val messages = r.getAs[scala.collection.Seq[Row]](getMessagesCol).toSeq
       Some(getStringEntity(messages, optionalParams))
   }
 

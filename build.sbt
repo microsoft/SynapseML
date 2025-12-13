@@ -1,18 +1,20 @@
 import BuildUtils._
 import org.apache.commons.io.FileUtils
+import CodegenPlugin.autoImport._
 import sbt.ExclusionRule
 
 import java.io.File
+import java.util.jar.JarFile
 import scala.xml.transform.{RewriteRule, RuleTransformer}
 import scala.xml.{Node => XmlNode, NodeSeq => XmlNodeSeq, _}
 
 val condaEnvName = "synapseml"
-val sparkVersion = "3.5.0"
+val sparkVersion = "4.0.1"
 name := "synapseml"
 ThisBuild / organization := "com.microsoft.azure"
-ThisBuild / scalaVersion := "2.12.17"
+ThisBuild / scalaVersion := "2.13.16"
 
-val scalaMajorVersion = 2.12
+val scalaMajorVersion = 2.13
 
 val excludes = Seq(
   ExclusionRule("org.apache.spark", s"spark-tags_$scalaMajorVersion"),
@@ -35,10 +37,7 @@ val extraDependencies = Seq(
   "com.jcraft" % "jsch" % "0.1.54",
   "org.apache.httpcomponents.client5" % "httpclient5" % "5.1.3",
   "org.apache.httpcomponents" % "httpmime" % "4.5.13",
-  "com.linkedin.isolation-forest" %% "isolation-forest_3.5.0" % "3.0.5"
-    exclude("com.google.protobuf", "protobuf-java") exclude("org.apache.spark", "spark-mllib_2.12")
-    exclude("org.apache.spark", "spark-core_2.12") exclude("org.apache.spark", "spark-avro_2.12")
-    exclude("org.apache.spark", "spark-sql_2.12"),
+  "com.linkedin.isolation-forest" %% "isolation-forest_4.0.1" % "4.0.7"
 ).map(d => d excludeAll (excludes: _*))
 val dependencies = coreDependencies ++ extraDependencies
 
@@ -247,11 +246,120 @@ uploadNotebooks := {
   uploadToBlob(localNotebooksFolder, blobNotebooksFolder, "docs")
 }
 
+val verifyPythonPackaging = TaskKey[Unit](
+  "verifyPythonPackaging",
+  "Verify that key Python modules are present in the generated Python sources")
+
+verifyPythonPackaging := {
+  // Ensure Python codegen has run for the relevant modules
+  (core / pyCodegen).value
+  (opencv / pyCodegen).value
+
+  def assertFileExists(root: File, relPath: String, label: String): Unit = {
+    val f = new File(root, relPath)
+    if (!f.exists()) {
+      sys.error(s"Missing expected Python module '$label' at: ${f.getAbsolutePath}")
+    }
+  }
+
+  val corePyRoot = join((core / codegenDir).value, "src", "python")
+  val opencvPyRoot = join((opencv / codegenDir).value, "src", "python")
+
+  // Guard a small set of sentinel modules that the Python tests rely on.
+  // Core must continue to generate the canonical Python wrappers.
+  assertFileExists(corePyRoot, "synapse/ml/recommendation/SARModel.py", "SARModel")
+  assertFileExists(corePyRoot, "synapse/ml/explainers/ICETransformer.py", "ICETransformer")
+  assertFileExists(corePyRoot, "synapse/ml/io/http/SimpleHTTPTransformer.py", "SimpleHTTPTransformer")
+  assertFileExists(corePyRoot, "synapse/ml/isolationforest/IsolationForestModel.py", "IsolationForestModel")
+
+  // Also confirm the core OpenCV Python entrypoint is present in generated sources.
+  assertFileExists(opencvPyRoot, "synapse/ml/opencv/ImageTransformer.py", "opencv.ImageTransformer")
+}
+
+val verifySnapshotAlignment = TaskKey[Unit](
+  "verifySnapshotAlignment",
+  "Verify that the synapseml-core wheel's __spark_package_version__ matches a local synapseml_2.13 aggregate and module jars")
+
+verifySnapshotAlignment := {
+  // Ensure the core wheel for the current dynver is built and installed
+  // into the active conda environment before checking alignment.
+  (core / installPipPackage).value
+
+  runCmd(
+    activateCondaEnv ++ Seq("python", "tools/verify_snapshot_alignment.py")
+  )
+}
+
+val verifyPythonMapping = TaskKey[Unit](
+  "verifyPythonMapping",
+  "Verify that key Java stages map cleanly to Python wrapper classes")
+
+verifyPythonMapping := {
+  // Ensure the relevant Python wheels are built and installed into the
+  // same conda environment that Python tests use. This mirrors the
+  // CodegenPlugin.installPipPackage task but focuses on the modules that
+  // own the sentinel stages checked by tools/verify_python_mapping.py.
+  (core / installPipPackage).value
+  (deepLearning / installPipPackage).value
+  (opencv / installPipPackage).value
+
+  runCmd(
+    activateCondaEnv ++ Seq("python", "tools/verify_python_mapping.py")
+  )
+}
+
+// Local developer helper: run a PythonTests-like workflow in a single sbt
+// session so that versioning (including sbt-dynver) is consistent across
+// publishM2 and all Python test invocations.
+val localPythonCi = TaskKey[Unit](
+  "localPythonCi",
+  "Run local Python CI proxy for core, deepLearning, lightgbm, opencv, vw, cognitive")
+
+localPythonCi := Def.sequential(
+  getDatasetsTask,
+  core / publishM2,
+  deepLearning / publishM2,
+  lightgbm / publishM2,
+  opencv / publishM2,
+  vw / publishM2,
+  cognitive / publishM2,
+  publishM2, // aggregate POM
+  verifyPythonPackaging,
+  verifySnapshotAlignment,
+  verifyPythonMapping,
+  core / testPython,
+  deepLearning / testPython,
+  lightgbm / testPython,
+  opencv / testPython,
+  vw / testPython,
+  cognitive / testPython
+).value
+
 val settings = Seq(
   Test / scalastyleConfig := (ThisBuild / baseDirectory).value / "scalastyle-test-config.xml",
   Test / logBuffered := false,
   Test / parallelExecution := false,
   Test / publishArtifact := true,
+  Test / fork := true,
+  Test / javaOptions ++= Seq(
+    "--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED",
+    "--add-opens=java.base/java.lang=ALL-UNNAMED",
+    "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED",
+    "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED",
+    "--add-opens=java.base/java.io=ALL-UNNAMED",
+    "--add-opens=java.base/java.net=ALL-UNNAMED",
+    "--add-opens=java.base/java.nio=ALL-UNNAMED",
+    "--add-opens=java.base/java.util=ALL-UNNAMED",
+    "--add-opens=java.base/java.util.concurrent=ALL-UNNAMED",
+    "--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED",
+    "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED",
+    "--add-opens=java.base/sun.nio.cs=ALL-UNNAMED",
+    "--add-opens=java.base/sun.security.action=ALL-UNNAMED",
+    "--add-opens=java.base/sun.util.calendar=ALL-UNNAMED",
+    "--add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED",
+    "--add-opens=java.sql/java.sql=ALL-UNNAMED",
+    "--add-modules=java.sql"
+  ),
   assembly / test := {},
   assembly / assemblyMergeStrategy := {
     case PathList("META-INF", xs@_*) => MergeStrategy.discard
@@ -283,7 +391,7 @@ lazy val deepLearning = (project in file("deep-learning"))
   .dependsOn(core % "test->test;compile->compile", opencv % "test->test;compile->compile")
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
-      "com.microsoft.azure" % "onnx-protobuf_2.12" % "0.9.3",
+      "com.microsoft.azure" % "onnx-protobuf_2.13" % "0.9.24",
       "com.microsoft.onnxruntime" % "onnxruntime_gpu" % "1.8.1",
       "org.apache.hadoop" % "hadoop-common" % "3.3.4" % "test",
       "org.apache.hadoop" % "hadoop-azure" % "3.3.4" % "test",

@@ -3,6 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.services.openai
 
+import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.spark.Functions
 import com.microsoft.azure.synapse.ml.io.binary.BinaryFileReader
@@ -45,7 +46,9 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   with HasSubscriptionKey with HasAADToken with HasCustomAuthHeader
   with HasCognitiveServiceInput
   with ComplexParamsWritable with SynapseMLLogging with HasGlobalParams
-  with HasReturnUsage {
+  with HasReturnUsage with Wrappable {
+
+  override protected lazy val pyInternalWrapper: Boolean = true
 
   logClass(FeatureNames.AiServices.OpenAI)
 
