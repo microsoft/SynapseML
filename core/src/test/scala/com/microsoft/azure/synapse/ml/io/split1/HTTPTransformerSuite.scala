@@ -95,7 +95,7 @@ trait WithServer extends TestBase with WithFreeUrl {
   }
 
   override def afterAll(): Unit = {
-    server.get.stop(0)
+    server.foreach(_.stop(0))
     super.afterAll()
   }
 }

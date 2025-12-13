@@ -26,7 +26,7 @@ import spray.json._
 
 import java.net.URI
 import java.util.concurrent.TimeoutException
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 import scala.concurrent.blocking
 import scala.language.existentials
 
@@ -493,7 +493,7 @@ class AnalyzeImage(override val uid: String)
 
   def setVisualFeatures(v: Seq[String]): this.type = setScalarParam(visualFeatures, v)
 
-  def setVisualFeatures(v: java.util.ArrayList[String]): this.type = setVisualFeatures(v.asScala)
+  def setVisualFeatures(v: java.util.ArrayList[String]): this.type = setVisualFeatures(v.asScala.toSeq)
 
   def setVisualFeaturesCol(v: String): this.type = setVectorParam(visualFeatures, v)
 

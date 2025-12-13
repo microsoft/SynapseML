@@ -104,7 +104,7 @@ class ParamsStringBuilder(parent: Option[Params], prefix: String, delimiter: Str
     {
       append(s"$prefix$optionLong$delimiter${param.get}")
     }
-    sb.to
+
     this
   }
 

@@ -85,6 +85,19 @@ object RTestGen {
     if (!conf.rTestThatDir.exists()) {
       conf.rTestThatDir.mkdirs()
     }
+
+    // For local and CI testing we prefer to load the freshly built core jar directly via
+    // spark.jars, rather than relying on Maven resolution of a potentially unpublished
+    // SNAPSHOT coordinate. Keep Avro on spark.jars.packages so Spark can resolve it
+    // from the usual repositories.
+    val localCoreJar: Option[String] = conf.jarName.map { jar =>
+      new File(conf.targetDir, jar).getAbsolutePath.replaceAllLiterally("\\", "\\\\")
+    }
+    val avroOnlyPackages: String = SparkMavenPackageList
+      .split(",")
+      .filterNot(_.startsWith("com.microsoft.azure:synapseml_"))
+      .mkString(",")
+
     writeFile(join(conf.rTestThatDir, "setup.R"),
       s"""
          |${useLibrary("sparklyr")}
@@ -95,13 +108,29 @@ object RTestGen {
          |conf <- spark_config()
          |conf$$sparklyr.shell.conf <- c(
          |  "spark.app.name=SparklyRTests",
-         |  "spark.jars.packages=$SparkMavenPackageList",
-         |  "spark.jars.repositories=$SparkMavenRepositoryList",
+         |  ${localCoreJar.map(p => s""""spark.jars=$p",""").getOrElse("")}
+         |  "spark.jars.packages=$avroOnlyPackages",
+         |  "spark.jars.repositories=$SparkMavenRepositoryList,file:///Users/brendan/.m2/repository",
          |  "spark.executor.heartbeatInterval=60s",
          |  "spark.sql.shuffle.partitions=10",
          |  "spark.sql.crossJoin.enabled=true")
+         |conf$$spark.driver.extraJavaOptions <- paste0("'", paste0(c(
+         |     "--add-opens=java.base/java.lang=ALL-UNNAMED ",
+         |     "--add-opens=java.base/java.lang.invoke=ALL-UNNAMED ",
+         |     "--add-opens=java.base/java.lang.reflect=ALL-UNNAMED ",
+         |     "--add-opens=java.base/java.io=ALL-UNNAMED ",
+         |     "--add-opens=java.base/java.net=ALL-UNNAMED ",
+         |     "--add-opens=java.base/java.nio=ALL-UNNAMED ",
+         |     "--add-opens=java.base/java.util=ALL-UNNAMED ",
+         |     "--add-opens=java.base/java.util.concurrent=ALL-UNNAMED ",
+         |     "--add-opens=java.base/java.util.concurrent.atomic=ALL-UNNAMED ",
+         |     "--add-opens=java.base/sun.nio.ch=ALL-UNNAMED ",
+         |     "--add-opens=java.base/sun.nio.cs=ALL-UNNAMED ",
+         |     "--add-opens=java.base/sun.security.action=ALL-UNNAMED ",
+         |     "--add-opens=java.base/sun.util.calendar=ALL-UNNAMED ",
+         |     "--add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED"), collapse = ""), "'")
          |
-         |sc <- spark_connect(master = "local", version = "3.5.0", config = conf)
+         |sc <- spark_connect(master = "local", version = "4.0", config = conf)
          |
          |""".stripMargin, StandardOpenOption.CREATE)
 
@@ -133,7 +162,13 @@ object RTestGen {
   }
 
   def main(args: Array[String]): Unit = {
-    val conf = args.head.parseJson.convertTo[CodegenConfig]
+    val json = if (args.head.startsWith("@")) {
+      val source = scala.io.Source.fromFile(args.head.substring(1))
+      try source.mkString finally source.close()
+    } else {
+      args.head
+    }
+    val conf = json.parseJson.convertTo[CodegenConfig]
     clean(conf.rTestDataDir)
     clean(conf.rTestDir)
     generateRTests(conf)

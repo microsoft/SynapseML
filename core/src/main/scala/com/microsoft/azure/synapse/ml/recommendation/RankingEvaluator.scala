@@ -75,6 +75,7 @@ class AdvancedRankingMetrics(predictionAndLabels: RDD[(Array[Any], Array[Any])],
 
   def matchMetric(metricName: String): Double = metricName match {
     case "map"          => map
+    case "mapk"         => map
     case "ndcgAt"       => ndcg
     case "precisionAtk" => precisionAtk
     case "recallAtK"    => recallAtK
@@ -133,7 +134,11 @@ class RankingEvaluator(override val uid: String)
   def getMetrics(dataset: Dataset[_]): AdvancedRankingMetrics = {
     val predictionAndLabels = dataset
       .select(getPredictionCol, getLabelCol)
-      .rdd.map { case Row(prediction: Seq[Any], label: Seq[Any]) => (prediction.toArray, label.toArray) }
+      .rdd.map { row =>
+        val prediction = row.getAs[scala.collection.Seq[Any]](0)
+        val label = row.getAs[scala.collection.Seq[Any]](1)
+        (prediction.toArray, label.toArray)
+      }
       .cache()
 
     new AdvancedRankingMetrics(predictionAndLabels, getK, getNItems)

@@ -35,8 +35,6 @@ trait MatrixOps[TMatrix, TVector] {
 }
 
 object DMatrixOps extends MatrixOps[DMatrix, DVector] {
-  private implicit val VectorEntryEncoder: Encoder[VectorEntry] = Encoders.product[VectorEntry]
-
   /**
     * alpha*A*x + beta*y
     */
@@ -46,6 +44,8 @@ object DMatrixOps extends MatrixOps[DMatrix, DVector] {
            alpha: Double = 1.0,
            beta: Double = 1.0,
            aTranspose: Boolean = false): DVector = {
+
+    implicit val vectorEntryEncoder: Encoder[VectorEntry] = Encoders.product[VectorEntry]
 
     val alphaAx = (if (aTranspose) transpose(A) else A).as("l")
       .join(x.as("r"), col("l.j") === col("r.i"), "inner")

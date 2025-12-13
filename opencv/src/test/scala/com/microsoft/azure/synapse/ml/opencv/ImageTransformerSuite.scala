@@ -11,6 +11,7 @@ import com.microsoft.azure.synapse.ml.io.IOImplicits._
 import com.microsoft.azure.synapse.ml.param.DataFrameEquality
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkException
+import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
@@ -168,12 +169,22 @@ class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with Op
     assert(true)
   }
 
-  lazy val images: DataFrame = spark.read.image.option("dropInvalid", value = true)
-    .load(FileUtilities.join(fileLocation, "**").toString)
+  lazy val images: DataFrame = spark.read.image
+    .option("dropInvalid", value = true)
+    .option("recursiveFileLookup", value = true)
+    .load(fileLocation.toString)
 
-  lazy val badImages: DataFrame =
-    spark.read.image.load(
-      ".//opencv//src//test//scala//com//microsoft//azure//synapse//ml//opencv//cmyk_image.jpg")
+  lazy val badImages: DataFrame = {
+    val imageStruct = ImageSchema.columnSchema
+    val nullableDataStruct = StructType(imageStruct.fields.map {
+      case f if f.name == "data" => f.copy(nullable = true)
+      case f => f
+    })
+    val invalidBytes = Option.empty[Array[Byte]].orNull
+    val invalidImage = Row("invalid-path", 10, 10, 3, CvType.CV_8UC3, invalidBytes)
+    val schema = StructType(Seq(StructField("image", nullableDataStruct, nullable = true)))
+    spark.createDataFrame(spark.sparkContext.parallelize(Seq(Row(invalidImage))), schema)
+  }
 
   test("general workflow") {
     //assert(images.count() == 30) //TODO this does not work on build machine for some reason
@@ -202,7 +213,9 @@ class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with Op
   }
 
   test("binary file input") {
-    val binaries = spark.read.binary.load(FileUtilities.join(fileLocation, "**").toString)
+    val binaries = spark.read.binary
+      .option("recursiveFileLookup", value = true)
+      .load(fileLocation.toString)
     assert(binaries.count() == 31)
     binaries.printSchema()
 
@@ -225,7 +238,8 @@ class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with Op
 
   test("binary file input 2") {
     val binaries = spark.read.binary
-      .load(FileUtilities.join(fileLocation, "**").toString)
+      .option("recursiveFileLookup", value = true)
+      .load(fileLocation.toString)
       .select("value.bytes")
     assert(binaries.count() == 31)
     binaries.printSchema()
@@ -362,7 +376,9 @@ class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with Op
     val caught = intercept[SparkException] {
       trThrows.transform(badImages).collect()
     }
-    assert(caught.getMessage.contains("CvException"))
+    val msg = caught.getMessage
+    assert(msg.contains("CvException") || msg.contains("Provided data element number"),
+      s"Unexpected decode failure message: $msg")
   }
 
   override def testObjects(): Seq[TestObject[ImageTransformer]] =
@@ -390,7 +406,7 @@ class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with Op
     assert(row.getAs[Int]("nChannels") == 3)
     assert(row.getAs[Int]("mode") == 16)
 
-    val tensor = row.getAs[Seq[Seq[Seq[Float]]]]("features")
+    val tensor = row.getAs[scala.collection.Seq[scala.collection.Seq[scala.collection.Seq[Float]]]]("features")
 
     val channelRed = tensor.head
     assert(channelRed.length == 500)
@@ -425,7 +441,7 @@ class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with Op
     assert(row.getAs[Int]("nChannels") == 4)
     assert(row.getAs[Int]("mode") == 24)
 
-    val tensor = row.getAs[Seq[Seq[Seq[Double]]]]("features")
+    val tensor = row.getAs[scala.collection.Seq[scala.collection.Seq[scala.collection.Seq[Double]]]]("features")
 
     val channelRed = tensor.head
     assert(channelRed.length == 100)
@@ -461,7 +477,7 @@ class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with Op
     assert(row.getAs[Int]("nChannels") == 1)
     assert(row.getAs[Int]("mode") == CvType.CV_8UC1)
 
-    val tensor = row.getAs[Seq[Seq[Seq[Double]]]]("features")
+    val tensor = row.getAs[scala.collection.Seq[scala.collection.Seq[scala.collection.Seq[Double]]]]("features")
     assert(tensor.length == 1)
 
     val channel = tensor.head

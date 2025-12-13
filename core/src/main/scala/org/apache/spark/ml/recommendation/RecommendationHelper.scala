@@ -199,7 +199,7 @@ object SparkHelpers {
 
   def flatten(ratings: Dataset[_], num: Int, dstOutputColumn: String, srcOutputColumn: String): DataFrame = {
     import ratings.sparkSession.implicits._
-    import org.apache.spark.sql.functions.{collect_top_k, struct}
+    import org.apache.spark.sql.functions.{array_sort, col, collect_list, slice, struct, when}
 
     val arrayType = ArrayType(
       new StructType()
@@ -208,7 +208,15 @@ object SparkHelpers {
     )
 
     ratings.toDF(srcOutputColumn, dstOutputColumn, Constants.RatingCol).groupBy(srcOutputColumn)
-     .agg(collect_top_k(struct(Constants.RatingCol, dstOutputColumn), num, false))
+      .agg(slice(
+        array_sort(
+          collect_list(struct(col(Constants.RatingCol), col(dstOutputColumn))),
+          (x, y) => {
+            val xRating = x.getField(Constants.RatingCol)
+            val yRating = y.getField(Constants.RatingCol)
+            when(xRating > yRating, -1).otherwise(when(xRating < yRating, 1).otherwise(0))
+          }
+        ), 1, num).alias(Constants.Recommendations))
      .as[(Int, Seq[(Float, Int)])]
      .map(t => (t._1, t._2.map(p => (p._2, p._1))))
      .toDF(srcOutputColumn, Constants.Recommendations)

@@ -1,12 +1,12 @@
-FROM mcr.microsoft.com/oss/mirror/docker.io/library/ubuntu:20.04
+FROM mcr.microsoft.com/oss/mirror/docker.io/library/ubuntu:22.04
 
 ARG SYNAPSEML_VERSION=1.1.1
 ARG DEBIAN_FRONTEND=noninteractive
 
-ENV SPARK_VERSION=3.5.0
+ENV SPARK_VERSION=4.0.1
 ENV HADOOP_VERSION=3
 ENV SYNAPSEML_VERSION=${SYNAPSEML_VERSION}
-ENV JAVA_HOME /usr/lib/jvm/java-1.11.0-openjdk-amd64
+ENV JAVA_HOME /usr/lib/jvm/java-1.17.0-openjdk-amd64
 
 # Install required packages
 RUN apt-get -qq update \
@@ -14,7 +14,7 @@ RUN apt-get -qq update \
       curl \
       bzip2 \
       wget \
-      default-jre \
+      openjdk-17-jre \
       openmpi-bin \
     && apt-get upgrade -y \
     && apt-get clean -y \
