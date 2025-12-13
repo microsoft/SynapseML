@@ -1,34 +1,25 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 
-import sys
-
 import torchvision.transforms as transforms
-from horovod.spark.common.backend import SparkBackend
-from horovod.spark.lightning import TorchEstimator
 from PIL import Image
 from pyspark.context import SparkContext
 from pyspark.ml.param.shared import Param, Params
-from pytorch_lightning.utilities import _module_available
 from synapse.ml.dl.DeepVisionModel import DeepVisionModel
 from synapse.ml.dl.LitDeepVisionModel import LitDeepVisionModel
-from synapse.ml.dl.utils import keywords_catch, get_or_create_backend
 from synapse.ml.dl.PredictionParams import VisionPredictionParams
-
-_HOROVOD_AVAILABLE = _module_available("horovod")
-if _HOROVOD_AVAILABLE:
-    import horovod
-
-    _HOROVOD_EQUAL_0_28_1 = horovod.__version__ == "0.28.1"
-    if not _HOROVOD_EQUAL_0_28_1:
-        raise RuntimeError(
-            "horovod should be of version 0.28.1, found: {}".format(horovod.__version__)
-        )
-else:
-    raise ModuleNotFoundError("module not found: horovod")
+from synapse.ml.dl._horovod import (
+    HOROVOD_AVAILABLE,
+    TorchEstimatorBase,
+    require_horovod,
+)
+from synapse.ml.dl.utils import keywords_catch, get_or_create_backend
 
 
-class DeepVisionClassifier(TorchEstimator, VisionPredictionParams):
+class DeepVisionClassifier(
+    TorchEstimatorBase if HOROVOD_AVAILABLE else VisionPredictionParams,
+    VisionPredictionParams if HOROVOD_AVAILABLE else object,
+):
     backbone = Param(
         Params._dummy(), "backbone", "backbone of the deep vision classifier"
     )
@@ -122,6 +113,7 @@ class DeepVisionClassifier(TorchEstimator, VisionPredictionParams):
         mp_start_method=None,
     ):
         super(DeepVisionClassifier, self).__init__()
+        require_horovod("DeepVisionClassifier")
 
         self._setDefault(
             backbone=None,

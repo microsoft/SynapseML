@@ -23,7 +23,7 @@ object AnyJsonFormat extends DefaultJsonProtocol {
         case v: String => v.toJson
         case v: Boolean => v.toJson
         case v: Integer => v.toLong.toJson
-        case v: Seq[_] => seqFormat[Any].write(v)
+        case v: scala.collection.Seq[_] => seqFormat[Any].write(v)
         case v: Map[_, _] => {
           try {
             val m = v.asInstanceOf[Map[String, Any]]

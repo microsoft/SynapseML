@@ -7,6 +7,7 @@ trigger:
     - master
     - spark3.3
     - spark3.5
+    - spark4.0
   paths:
     exclude:
     - README.md
@@ -23,6 +24,7 @@ pr:
     - master
     - spark3.3
     - spark3.5
+    - spark4.0
   paths:
     exclude:
     - README.md
@@ -42,12 +44,52 @@ schedules:
         - master
 
 parameters:
-  - name: runSynapseExtensionE2ETests
-    displayName: Run Synapse Extension E2E Tests
+  # - name: runFabricE2ETests
+  #   displayName: Run Fabric E2E Tests
+  #   type: boolean
+  #   default: true
+  - name: testStyle
+    displayName: Run Style Tests
     type: boolean
     default: true
+  - name: testUnit
+    displayName: Run Unit Tests
+    type: boolean
+    default: true
+  - name: testPython
+    displayName: Run Python Tests
+    type: boolean
+    default: true
+  - name: testR
+    displayName: Run R Tests
+    type: boolean
+    default: false
+  - name: testE2E
+    displayName: Run E2E Tests
+    type: boolean
+    default: false
+  - name: testWebsiteSamples
+    displayName: Run Website Samples Tests
+    type: boolean
+    default: true
+  - name: websiteAutoDeploy
+    displayName: Website Auto Deployment
+    type: boolean
+    default: true
+  - name: publishArtifacts
+    displayName: Publish Artifacts
+    type: boolean
+    default: true
+  - name: publishDockerImages
+    displayName: Publish Docker Images
+    type: boolean
+    default: false
+  - name: publishRelease
+    displayName: Publish Release
+    type: boolean
+    default: false
   - name: SYNAPSE_ENVIRONMENT
-    displayName: Synapse Extension E2E Test Environment
+    displayName: Fabric E2E Test Environment
     type: string
     default: weekly
     values:
@@ -65,10 +107,11 @@ variables:
 jobs:
 - job: Style
   cancelTimeoutInMinutes: 0
-  condition: eq(variables.runTests, 'True')
+  condition: and(eq(variables.runTests, 'True'), eq('${{ parameters.testStyle }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
   steps:
+    - template: templates/java_setup.yml
     - task: AzureCLI@2
       displayName: 'Scala Style Check'
       inputs:
@@ -83,59 +126,59 @@ jobs:
         black --diff --color . && black --check -q .
       displayName: 'Python Style Check'
 
-
-- job: Publish
-  cancelTimeoutInMinutes: 0
-  pool:
-    vmImage: $(UBUNTU_VERSION)
-  steps:
-    #- template: templates/ivy_cache.yml
-    - template: templates/update_cli.yml
-    - template: templates/conda.yml
-    - template: templates/kv.yml
-    - task: MavenAuthenticate@0
-      name: mavenAuthPublicPackages
-      displayName: Authenticate SynapseML_PublicPackages
-      inputs:
-        artifactsFeeds: SynapseML_PublicPackages
-        mavenServiceConnections: SynapseML_PublicPackages-Feed-Connection
-    - task: AzureCLI@2
-      displayName: 'Publish Artifacts'
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: |
-          set -e
-          sudo apt-get install graphviz doxygen -y
-          source activate synapseml
-          sbt packagePython uploadNotebooks
-          sbt -DskipCodegen=true publishBlob publishDocs publishR publishPython
-          sbt genBuildInfo
-          echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
-          sbt -DskipCodegen=true publishLocalSigned
-          python tools/esrp/prepare_jar.py
-      env:
-        NEXUS-UN: $(nexus-un)
-        NEXUS-PW: $(nexus-pw)
-        PGP-PRIVATE: $(pgp-private)
-        PGP-PUBLIC: $(pgp-public)
-        PGP-PW: $(pgp-pw)
-        SYNAPSEML_ENABLE_PUBLISH: true
-    - task: AzureCLI@2
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: |
-          set -e
-          sbt publishBadges
-      condition: and(succeeded(), eq(variables.isMaster, true))
-      displayName: Publish Badges
-
-
+- ${{ if eq(parameters.publishArtifacts, true) }}:
+  - job: Publish
+    condition: eq('${{ parameters.publishArtifacts }}', true)
+    cancelTimeoutInMinutes: 0
+    pool:
+      vmImage: $(UBUNTU_VERSION)
+    steps:
+      #- template: templates/ivy_cache.yml
+      - template: templates/update_cli.yml
+      - template: templates/conda.yml
+      - template: templates/kv.yml
+      - task: MavenAuthenticate@0
+        name: mavenAuthPublicPackages
+        displayName: Authenticate SynapseML_PublicPackages
+        inputs:
+          artifactsFeeds: SynapseML_PublicPackages
+          mavenServiceConnections: SynapseML_PublicPackages-Feed-Connection
+      - task: AzureCLI@2
+        displayName: 'Publish Artifacts'
+        inputs:
+          azureSubscription: 'SynapseML Build'
+          scriptLocation: inlineScript
+          scriptType: bash
+          inlineScript: |
+            set -e
+            sudo apt-get install graphviz doxygen -y
+            source activate synapseml
+            sbt packagePython uploadNotebooks
+            sbt -DskipCodegen=true publishBlob publishDocs publishR publishPython
+            sbt genBuildInfo
+            echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
+            sbt -DskipCodegen=true publishLocalSigned
+            python tools/esrp/prepare_jar.py
+        env:
+          NEXUS-UN: $(nexus-un)
+          NEXUS-PW: $(nexus-pw)
+          PGP-PRIVATE: $(pgp-private)
+          PGP-PUBLIC: $(pgp-public)
+          PGP-PW: $(pgp-pw)
+          SYNAPSEML_ENABLE_PUBLISH: true
+      - task: AzureCLI@2
+        inputs:
+          azureSubscription: 'SynapseML Build'
+          scriptLocation: inlineScript
+          scriptType: bash
+          inlineScript: |
+            set -e
+            sbt publishBadges
+        condition: and(succeeded(), eq(variables.isMaster, true))
+        displayName: Publish Badges
 
 - job: E2E
+  condition: eq('${{ parameters.testE2E }}', true)
   timeoutInMinutes: 120
   cancelTimeoutInMinutes: 0
   pool:
@@ -153,7 +196,7 @@ jobs:
 #      TODO: Re-enable the Synapse E2E tests once the environment in live.
 #      synapse:
 #        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseTests"
-#      ${{ if eq(parameters.runSynapseExtensionE2ETests, true) }}:
+#      ${{ if eq(parameters.runFabricE2ETests, true) }}:
 #        synapse-internal:
 #          TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseExtension.SynapseExtensionsTests"
   steps:
@@ -180,184 +223,183 @@ jobs:
         failTaskOnFailedTests: true
       condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
 
-
-#
-#- job: PublishDocker
-#  displayName: PublishDocker
-#  pool:
-#    vmImage: ubuntu-22.04
-#  steps:
-#    - task: AzureCLI@2
-#      displayName: 'Get Docker Tag + Version'
-#      inputs:
-#        azureSubscription: 'SynapseML Build'
-#        scriptLocation: inlineScript
-#        scriptType: bash
-#        inlineScript: |
-#          VERSION=$(sbt "core/version" | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
-#          echo '##vso[task.setvariable variable=version]'$VERSION
-#          echo '##vso[task.setvariable variable=gittag]'$(git tag -l --points-at HEAD)
-#    - task: Docker@2
-#      displayName: Demo Image Build
-#      inputs:
-#        containerRegistry: 'SynapseML MCR MSI'
-#        repository: 'public/mmlspark/build-demo'
-#        command: 'build'
-#        buildContext: "."
-#        Dockerfile: 'tools/docker/demo/Dockerfile'
-#        tags: $(version)
-#        arguments: --build-arg SYNAPSEML_VERSION=$(version)
-#    - task: Docker@2
-#      displayName: Demo Image Push
-#      inputs:
-#        containerRegistry: 'SynapseML MCR MSI'
-#        repository: 'public/mmlspark/build-demo'
-#        command: 'push'
-#        tags: $(version)
-#    - task: Docker@2
-#      displayName: Minimal Image Build
-#      inputs:
-#        containerRegistry: 'SynapseML MCR MSI'
-#        repository: 'public/mmlspark/build-minimal'
-#        command: 'build'
-#        buildContext: "."
-#        Dockerfile: 'tools/docker/minimal/Dockerfile'
-#        tags: $(version)
-#        arguments: --build-arg SYNAPSEML_VERSION=$(version)
-#    - task: Docker@2
-#      displayName: Minimal Image Push
-#      inputs:
-#        containerRegistry: 'SynapseML MCR MSI'
-#        repository: 'public/mmlspark/build-minimal'
-#        command: 'push'
-#        tags: $(version)
-#    - task: Docker@2
-#      condition: and(eq(variables.isMaster, true), startsWith(variables['gittag'], 'v'))
-#      displayName: Release Image Build
-#      inputs:
-#        containerRegistry: 'SynapseML MCR MSI'
-#        repository: 'public/mmlspark/release'
-#        command: 'build'
-#        buildContext: "."
-#        Dockerfile: 'tools/docker/demo/Dockerfile'
-#        tags: |
-#          $(version)
-#          latest
-#        arguments: --build-arg SYNAPSEML_VERSION=$(version)
-#    - task: Docker@2
-#      condition: and(eq(variables.isMaster, true), startsWith(variables['gittag'], 'v'))
-#      displayName: Release Image Push
-#      inputs:
-#        containerRegistry: 'SynapseML MCR MSI'
-#        repository: 'public/mmlspark/release'
-#        command: 'push'
-#        tags: |
-#          $(version)
-#          latest
-#    - task: ComponentGovernanceComponentDetection@0
-
-- job: Release
-  cancelTimeoutInMinutes: 0
+- job: PublishDocker
+  condition: eq('${{ parameters.publishDockerImages }}', true)
+  displayName: PublishDocker
   pool:
-    vmImage: $(UBUNTU_VERSION)
+    vmImage: ubuntu-22.04
   steps:
-    - template: templates/update_cli.yml
-    - bash: |
-        echo '##vso[task.setvariable variable=tag]'$(git tag -l --points-at HEAD)
-      displayName: 'Get Git Tag'
-    - bash: |
-        set -e
-        wget https://github.com/git-chglog/git-chglog/releases/download/0.8.0/git-chglog_linux_amd64
-        chmod +x git-chglog_linux_amd64
-        ./git-chglog_linux_amd64 -o CHANGELOG.md $TAG
-      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
-    - task: GitHubRelease@1
-      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
-      inputs:
-        gitHubConnection: 'MMLSpark Github'
-        repositoryName: '$(Build.Repository.Name)'
-        action: 'create'
-        target: '$(Build.SourceVersion)'
-        tagSource: 'gitTag'
-        releaseNotesFile: 'CHANGELOG.md'
-        isDraft: true
-    - bash: echo "##vso[task.prependpath]$CONDA/bin"
-      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
-      displayName: Add conda to PATH
-    - bash: sudo chown -R $(whoami):$(id -ng) $(CONDA_CACHE_DIR)
-      displayName: Fix directory permissions
-      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
-    - task: Cache@2
-      displayName: Use cached Anaconda environment
-      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
-      inputs:
-        key: 'conda | "$(Agent.OS)" | environment.yml'
-        restoreKeys: |
-          python | "$(Agent.OS)"
-          python
-        path: $(CONDA_CACHE_DIR)
-        cacheHitVar: CONDA_CACHE_RESTORED
-    - bash: |
-        conda env create --force -f environment.yml -v
-      condition: and(eq(variables.isMaster, true), and(startsWith(variables['tag'], 'v'), eq(variables.CONDA_CACHE_RESTORED, 'false')))
-      displayName: Create Anaconda environment
-    - task: AzureKeyVault@2
-      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
+    - task: AzureCLI@2
+      displayName: 'Get Docker Tag + Version'
       inputs:
         azureSubscription: 'SynapseML Build'
-        keyVaultName: mmlspark-keys
-    - bash: |
-        set -e
-        source activate synapseml
-        sbt publishPypi
-      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
-      env:
-        STORAGE-KEY: $(storage-key)
-        NEXUS-UN: $(nexus-un)
-        NEXUS-PW: $(nexus-pw)
-        PGP-PRIVATE: $(pgp-private)
-        PGP-PUBLIC: $(pgp-public)
-        PGP-PW: $(pgp-pw)
-        PYPI-API-TOKEN: $(pypi-api-token)
-        SYNAPSEML_ENABLE_PUBLISH: true
-      displayName: 'publish python package to pypi'
-    - bash: |
-        set -e
-        source activate synapseml
-        sbt publishLocalSigned
-        python tools/esrp/prepare_jar.py
-      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
-      env:
-        STORAGE-KEY: $(storage-key)
-        NEXUS-UN: $(nexus-un)
-        NEXUS-PW: $(nexus-pw)
-        PGP-PRIVATE: $(pgp-private)
-        PGP-PUBLIC: $(pgp-public)
-        PGP-PW: $(pgp-pw)
-        SYNAPSEML_ENABLE_PUBLISH: true
-      displayName: 'publish jar package to maven central'
-    - task: EsrpRelease@9
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          VERSION=$(sbt "core/version" | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
+          echo '##vso[task.setvariable variable=version]'$VERSION
+          echo '##vso[task.setvariable variable=gittag]'$(git tag -l --points-at HEAD)
+    - task: Docker@2
+      displayName: Demo Image Build
       inputs:
-        connectedservicename: 'SynapseML-ESRP-Service-Connection'
-        usemanagedidentity: true
-        keyvaultname: 'esrp-kv-ame'
-        signcertname: 'esrp-release-mi-cert'
-        clientid: '1fc1c0d1-5a85-4081-8f1e-12a8c225b9a6'
-        contenttype: maven
-        folderlocation: '/home/vsts/.ivy2/local/com.microsoft.azure/'
-        owners: 'zhoubo@microsoft.com,marcozo@microsoft.com,romanbat@microsoft.com'
-        approvers: 'romanbat@microsoft.com,markus.weimer@microsoft.com,negust@microsoft.com'
-        mainpublisher: synapseml
-        domaintenantid: '33e01921-4d64-4f8c-a055-5bdaffd5e33d'
-      displayName: 'ESRP Publish Package'
-      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
+        containerRegistry: 'SynapseML MCR MSI'
+        repository: 'public/mmlspark/build-demo'
+        command: 'build'
+        buildContext: "."
+        Dockerfile: 'tools/docker/demo/Dockerfile'
+        tags: $(version)
+        arguments: --build-arg SYNAPSEML_VERSION=$(version)
+    - task: Docker@2
+      displayName: Demo Image Push
+      inputs:
+        containerRegistry: 'SynapseML MCR MSI'
+        repository: 'public/mmlspark/build-demo'
+        command: 'push'
+        tags: $(version)
+    - task: Docker@2
+      displayName: Minimal Image Build
+      inputs:
+        containerRegistry: 'SynapseML MCR MSI'
+        repository: 'public/mmlspark/build-minimal'
+        command: 'build'
+        buildContext: "."
+        Dockerfile: 'tools/docker/minimal/Dockerfile'
+        tags: $(version)
+        arguments: --build-arg SYNAPSEML_VERSION=$(version)
+    - task: Docker@2
+      displayName: Minimal Image Push
+      inputs:
+        containerRegistry: 'SynapseML MCR MSI'
+        repository: 'public/mmlspark/build-minimal'
+        command: 'push'
+        tags: $(version)
+    - task: Docker@2
+      condition: and(eq(variables.isMaster, true), startsWith(variables['gittag'], 'v'))
+      displayName: Release Image Build
+      inputs:
+        containerRegistry: 'SynapseML MCR MSI'
+        repository: 'public/mmlspark/release'
+        command: 'build'
+        buildContext: "."
+        Dockerfile: 'tools/docker/demo/Dockerfile'
+        tags: |
+          $(version)
+          latest
+        arguments: --build-arg SYNAPSEML_VERSION=$(version)
+    - task: Docker@2
+      condition: and(eq(variables.isMaster, true), startsWith(variables['gittag'], 'v'))
+      displayName: Release Image Push
+      inputs:
+        containerRegistry: 'SynapseML MCR MSI'
+        repository: 'public/mmlspark/release'
+        command: 'push'
+        tags: |
+          $(version)
+          latest
+    - task: ComponentGovernanceComponentDetection@0
 
-
+- ${{ if eq(parameters.publishRelease, true) }}:
+  - job: Release
+    condition: eq('${{ parameters.publishRelease }}', true)
+    cancelTimeoutInMinutes: 0
+    pool:
+      vmImage: $(UBUNTU_VERSION)
+    steps:
+      - template: templates/update_cli.yml
+      - bash: |
+          echo '##vso[task.setvariable variable=tag]'$(git tag -l --points-at HEAD)
+        displayName: 'Get Git Tag'
+      - bash: |
+          set -e
+          wget https://github.com/git-chglog/git-chglog/releases/download/0.8.0/git-chglog_linux_amd64
+          chmod +x git-chglog_linux_amd64
+          ./git-chglog_linux_amd64 -o CHANGELOG.md $TAG
+        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
+      - task: GitHubRelease@1
+        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
+        inputs:
+          gitHubConnection: 'MMLSpark Github'
+          repositoryName: '$(Build.Repository.Name)'
+          action: 'create'
+          target: '$(Build.SourceVersion)'
+          tagSource: 'gitTag'
+          releaseNotesFile: 'CHANGELOG.md'
+          isDraft: true
+      - bash: echo "##vso[task.prependpath]$CONDA/bin"
+        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
+        displayName: Add conda to PATH
+      - bash: sudo chown -R $(whoami):$(id -ng) $(CONDA_CACHE_DIR)
+        displayName: Fix directory permissions
+        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
+      - task: Cache@2
+        displayName: Use cached Anaconda environment
+        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
+        inputs:
+          key: 'conda | "$(Agent.OS)" | environment.yml'
+          restoreKeys: |
+            python | "$(Agent.OS)"
+            python
+          path: $(CONDA_CACHE_DIR)
+          cacheHitVar: CONDA_CACHE_RESTORED
+      - bash: |
+          conda env create --force -f environment.yml -v
+        condition: and(eq(variables.isMaster, true), and(startsWith(variables['tag'], 'v'), eq(variables.CONDA_CACHE_RESTORED, 'false')))
+        displayName: Create Anaconda environment
+      - task: AzureKeyVault@2
+        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
+        inputs:
+          azureSubscription: 'SynapseML Build'
+          keyVaultName: mmlspark-keys
+      - bash: |
+          set -e
+          source activate synapseml
+          sbt publishPypi
+        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
+        env:
+          STORAGE-KEY: $(storage-key)
+          NEXUS-UN: $(nexus-un)
+          NEXUS-PW: $(nexus-pw)
+          PGP-PRIVATE: $(pgp-private)
+          PGP-PUBLIC: $(pgp-public)
+          PGP-PW: $(pgp-pw)
+          PYPI-API-TOKEN: $(pypi-api-token)
+          SYNAPSEML_ENABLE_PUBLISH: true
+        displayName: 'publish python package to pypi'
+      - bash: |
+          set -e
+          source activate synapseml
+          sbt publishLocalSigned
+          python tools/esrp/prepare_jar.py
+        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
+        env:
+          STORAGE-KEY: $(storage-key)
+          NEXUS-UN: $(nexus-un)
+          NEXUS-PW: $(nexus-pw)
+          PGP-PRIVATE: $(pgp-private)
+          PGP-PUBLIC: $(pgp-public)
+          PGP-PW: $(pgp-pw)
+          SYNAPSEML_ENABLE_PUBLISH: true
+        displayName: 'publish jar package to maven central'
+      - task: EsrpRelease@9
+        inputs:
+          connectedservicename: 'SynapseML-ESRP-Service-Connection'
+          usemanagedidentity: true
+          keyvaultname: 'esrp-kv-ame'
+          signcertname: 'esrp-release-mi-cert'
+          clientid: '1fc1c0d1-5a85-4081-8f1e-12a8c225b9a6'
+          contenttype: maven
+          folderlocation: '/home/vsts/.ivy2/local/com.microsoft.azure/'
+          owners: 'zhoubo@microsoft.com,marcozo@microsoft.com,romanbat@microsoft.com'
+          approvers: 'romanbat@microsoft.com,markus.weimer@microsoft.com,negust@microsoft.com'
+          mainpublisher: synapseml
+          domaintenantid: '33e01921-4d64-4f8c-a055-5bdaffd5e33d'
+        displayName: 'ESRP Publish Package'
+        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
 
 - job: PythonTests
   timeoutInMinutes: 120
   cancelTimeoutInMinutes: 0
-  condition: eq(variables.runTests, 'True')
+  condition: and(eq(variables.runTests, 'True'), eq('${{ parameters.testPython }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
   strategy:
@@ -394,8 +436,8 @@ jobs:
         scriptType: bash
         inlineScript: |
           source activate synapseml
-          sbt coverage getDatasets installPipPackage
-          sbt publishM2
+          sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED getDatasets installPipPackage
+          sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED publishM2
     - task: AzureCLI@2
       displayName: 'Test Python Code'
       retryCountOnTaskFailure: 1
@@ -407,7 +449,7 @@ jobs:
         inlineScript: |
           set -e
           source activate synapseml
-          export SBT_OPTS="-Xms2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss5M  -Duser.timezone=GMT"
+          export SBT_OPTS="-Xms2G -Xss5M  -Duser.timezone=GMT"
           echo "##vso[task.setvariable variable=SBT_OPTS]$SBT_OPTS"
           echo "SBT_OPTS=$SBT_OPTS"
           IGNORE_TEST_PATH_FLAG=""
@@ -422,31 +464,30 @@ jobs:
           echo "TEST_SUB_PATH=$TEST_SUB_PATH"
           echo "IGNORE_TEST_PATH_FLAG=$IGNORE_TEST_PATH_FLAG"
           echo "TEST_SUB_PATH_FLAG=$TEST_SUB_PATH_FLAG"
-          (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython) || \
-          (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython) || \
-          (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython)
+          (sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" testPython) || \
+          (sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" testPython) || \
+          (sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" testPython)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
         testResultsFiles: '**/python-test-*.xml'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
-    - task: AzureCLI@2
-      displayName: 'Generate Codecov report'
-      retryCountOnTaskFailure: 1
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: 'sbt coverageReport'
-      condition: succeededOrFailed()
-    - template: templates/codecov.yml
-
+#    - task: AzureCLI@2
+#      displayName: 'Generate Codecov report'
+#      retryCountOnTaskFailure: 1
+#      inputs:
+#        azureSubscription: 'SynapseML Build'
+#        scriptLocation: inlineScript
+#        scriptType: bash
+#        inlineScript: 'sbt coverageReport'
+#      condition: succeededOrFailed()
+#    - template: templates/codecov.yml
 
 - job: RTests
   timeoutInMinutes: 60
   cancelTimeoutInMinutes: 0
-  condition: eq(variables.runTests, 'True')
+  condition: and(eq(variables.runTests, 'True'), eq('${{ parameters.testR }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
   strategy:
@@ -478,12 +519,13 @@ jobs:
         scriptType: bash
         inlineScript: |
           set -e
-          export SBT_OPTS="-Xms2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss5M  -Duser.timezone=GMT"
+          export SBT_OPTS="-Xms2G -Xss5M  -Duser.timezone=GMT"
+          export JAVA_TOOL_OPTIONS="--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED"
           source activate synapseml
-          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
+          (timeout 5m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED setup) || (echo "retrying" && timeout 5m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED setup) || (echo "retrying" && timeout 5m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED setup)
           sbt codegen
           sbt publishM2
-          SPARK_VERSION=3.5.0
+          SPARK_VERSION=4.0.1
           HADOOP_VERSION=3
           # wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
           wget https://mmlspark.blob.core.windows.net/installers/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
@@ -497,25 +539,26 @@ jobs:
         scriptType: bash
         inlineScript: |
           set -e
-          export SBT_OPTS="-Xms2G -Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=4G -Xss5M  -Duser.timezone=GMT"
+          export SBT_OPTS="-Xms2G -Xmx4G -Xss5M  -Duser.timezone=GMT"
+          export JAVA_TOOL_OPTIONS="--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED"
           source activate synapseml
-          timeout 20m sbt -DskipCodegen=true "project $(PACKAGE)" coverage testR
+          timeout 20m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED -DskipCodegen=true "project $(PACKAGE)" testR
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
         testResultsFiles: '**/r-test-*.xml'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
-    - task: AzureCLI@2
-      retryCountOnTaskFailure: 1
-      displayName: 'Generate Codecov report'
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: 'sbt coverageReport'
-      condition: succeededOrFailed()
-    - template: templates/codecov.yml
+#    - task: AzureCLI@2
+#      retryCountOnTaskFailure: 1
+#      displayName: 'Generate Codecov report'
+#      inputs:
+#        azureSubscription: 'SynapseML Build'
+#        scriptLocation: inlineScript
+#        scriptType: bash
+#        inlineScript: 'sbt coverageReport'
+#      condition: succeededOrFailed()
+#    - template: templates/codecov.yml
 
 - job: BuildAndCacheCondaEnv
   cancelTimeoutInMinutes: 0
@@ -527,7 +570,7 @@ jobs:
 
 - job: WebsiteSamplesTests
   cancelTimeoutInMinutes: 0
-  condition: eq(variables.runTests, 'True')
+  condition: and(eq(variables.runTests, 'True'), eq('${{ parameters.testWebsiteSamples }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
   steps:
@@ -544,28 +587,27 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
-          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-          (sbt coverage testWebsiteDocs)
+          (timeout 5m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED setup) || (echo "retrying" && timeout 5m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED setup) || (echo "retrying" && timeout 5m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED setup)
+          (sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED testWebsiteDocs)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
         testResultsFiles: '**/website-test-result.xml'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
-    - task: AzureCLI@2
-      displayName: 'Generate Codecov report'
-      retryCountOnTaskFailure: 1
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: 'sbt coverageReport'
-      condition: succeededOrFailed()
-    - template: templates/codecov.yml
-
-
+#    - task: AzureCLI@2
+#      displayName: 'Generate Codecov report'
+#      retryCountOnTaskFailure: 1
+#      inputs:
+#        azureSubscription: 'SynapseML Build'
+#        scriptLocation: inlineScript
+#        scriptType: bash
+#        inlineScript: 'sbt coverageReport'
+#      condition: succeededOrFailed()
+#    - template: templates/codecov.yml
 
 - job: WebsiteAutoDeployment
+  condition: eq('${{ parameters.websiteAutoDeploy }}', true)
   cancelTimeoutInMinutes: 0
   pool:
     vmImage: $(UBUNTU_VERSION)
@@ -587,7 +629,7 @@ jobs:
         scriptType: bash
         inlineScript: |
           source activate synapseml
-          sbt convertNotebooks
+          sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED convertNotebooks
     - bash: |
         set -e
         yarn install
@@ -610,11 +652,10 @@ jobs:
         GH_TOKEN: $(gh-token)
       displayName: 'yarn deploy'
 
-
 - job: UnitTests
   cancelTimeoutInMinutes: 1
   timeoutInMinutes: 80
-  condition: eq(variables.runTests, 'True')
+  condition: and(eq(variables.runTests, 'True'), eq('${{ parameters.testUnit }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
   strategy:
@@ -739,7 +780,7 @@ jobs:
           (${FFMPEG:-false} && sudo apt-get update && \
           sudo apt-get install ffmpeg libgstreamer1.0-0 \
           gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly -y)
-          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
+          (timeout 5m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED setup) || (echo "retrying" && timeout 5m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED setup) || (echo "retrying" && timeout 5m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED setup)
     - task: AzureCLI@2
       displayName: 'Unit Test'
       retryCountOnTaskFailure: 1
@@ -750,23 +791,23 @@ jobs:
         scriptType: bash
         inlineScript: |
           ulimit -c unlimited
-          export SBT_OPTS="-XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss2M  -Duser.timezone=GMT"
-          (timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
-          (${FLAKY:-false} && timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**")
+          export SBT_OPTS="-Xss2M  -Duser.timezone=GMT"
+          (timeout 30m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
+          (${FLAKY:-false} && timeout 30m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**")
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
         testResultsFiles: '**/test-reports/TEST-*.xml'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
-    - task: AzureCLI@2
-      displayName: 'Generate Codecov report'
-      retryCountOnTaskFailure: 1
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: 'sbt coverageReport'
-      condition: succeededOrFailed()
+#    - task: AzureCLI@2
+#      displayName: 'Generate Codecov report'
+#      retryCountOnTaskFailure: 1
+#      inputs:
+#        azureSubscription: 'SynapseML Build'
+#        scriptLocation: inlineScript
+#        scriptType: bash
+#        inlineScript: 'sbt coverageReport'
+#      condition: succeededOrFailed()
     - template: templates/kv.yml
-    - template: templates/codecov.yml
+#    - template: templates/codecov.yml

@@ -107,6 +107,7 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
           case _ => None
         }
       }.mkString("\n")
+
       s"""
          |$externalLoadingLines
          |

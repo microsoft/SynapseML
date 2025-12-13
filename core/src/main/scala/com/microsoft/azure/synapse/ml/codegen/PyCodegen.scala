@@ -29,34 +29,84 @@ object PyCodegen {
   private def makeInitFiles(conf: CodegenConfig, packageFolder: String = ""): Unit = {
     val dir = join(conf.pySrcDir, "synapse", "ml", packageFolder)
     val packageString = if (packageFolder != "") packageFolder.replace("/", ".") else ""
-    val importStrings = if (packageFolder == "/services") {
-      dir.listFiles.filter(_.isDirectory)
-        .filter(folder => folder.getName != "langchain").sorted
-        .map(folder => s"from synapse.ml$packageString.${folder.getName} import *\n").mkString("")
-    } else {
-      dir.listFiles.filter(_.isFile).sorted
-        .map(_.getName)
-        .filter(name => name.endsWith(".py") && !name.startsWith("_") && !name.startsWith("test"))
-        .map(name => s"from synapse.ml$packageString.${getBaseName(name)} import *\n").mkString("")
-    }
+    val importStrings = buildImportStrings(dir, packageFolder, packageString)
     val initFile = new File(dir, "__init__.py")
     if (packageFolder != "/cognitive"){
-      if (packageFolder != "") {
-        writeFile(initFile, conf.packageHelp(importStrings))
-      } else if (initFile.exists()) {
-        initFile.delete()
-      }
+      val patchedImportStrings = patchImportStrings(packageFolder, importStrings)
+      persistInitFile(conf, packageFolder, initFile, patchedImportStrings)
     }
-    dir.listFiles().filter(_.isDirectory).foreach(f =>
+    safeListFiles(dir).filter(_.isDirectory).foreach { f =>
       makeInitFiles(conf, packageFolder + "/" + f.getName)
-    )
+    }
+  }
+
+  private def buildImportStrings(dir: File, packageFolder: String, packageString: String): String = {
+    if (packageFolder == "/services") {
+      serviceImports(dir, packageString)
+    } else {
+      standardImports(dir, packageFolder, packageString)
+    }
+  }
+
+  private def serviceImports(dir: File, packageString: String): String = {
+    safeListFiles(dir)
+      .filter(_.isDirectory)
+      .filter(_.getName != "langchain")
+      .sortBy(_.getName)
+      .map(folder => s"from synapse.ml$packageString.${folder.getName} import *\n")
+      .mkString("")
+  }
+
+  private def standardImports(dir: File, packageFolder: String, packageString: String): String = {
+    val files = safeListFiles(dir).filter(_.isFile).map(_.getName)
+    val baseImports = files.sorted
+      .filter(name => name.endsWith(".py") && !name.startsWith("_") && !name.startsWith("test"))
+      .map(name => s"from synapse.ml$packageString.${getBaseName(name)} import *\n")
+    val iceImport =
+      if (needsIceImport(packageFolder, files)) Seq(s"from synapse.ml$packageString.ICETransformer import *\n")
+      else Seq.empty
+    (iceImport ++ baseImports).mkString("")
+  }
+
+  private def needsIceImport(packageFolder: String, files: Seq[String]): Boolean = {
+    // In 1.1.0 the explainers package surface always includes ICETransformer
+    // alongside the LIME/SHAP variants. When generating per-module wheels,
+    // some modules (e.g., deep-learning) only see the LIME/SHAP wrappers
+    // locally but rely on the core wheel to supply ICETransformer.py.
+    // Ensure the generated __init__ for /explainers keeps exporting ICETransformer
+    // so imports like `from synapse.ml.explainers import ICETransformer` continue
+    // to resolve to the class rather than the module.
+    packageFolder == "/explainers" && !files.contains("ICETransformer.py")
+  }
+
+  private def patchImportStrings(packageFolder: String, importStrings: String): String = {
+    if (packageFolder == "/core") {
+      s"from synapse.ml.core.serialize import java_params_patch as _java_params_patch\n$importStrings"
+    } else {
+      importStrings
+    }
+  }
+
+  private def persistInitFile(conf: CodegenConfig,
+                              packageFolder: String,
+                              initFile: File,
+                              contents: String): Unit = {
+    if (packageFolder.nonEmpty) {
+      writeFile(initFile, conf.packageHelp(contents))
+    } else if (initFile.exists()) {
+      initFile.delete()
+    }
+  }
+
+  private def safeListFiles(dir: File): Seq[File] = {
+    Option(dir.listFiles).map(_.toSeq).getOrElse(Seq.empty)
   }
 
   //noinspection ScalaStyle
   //scalastyle:off
   def generatePyPackageData(conf: CodegenConfig): Unit = {
     if (!conf.pySrcDir.exists()) {
-      conf.pySrcDir.mkdir()
+      conf.pySrcDir.mkdirs()
     }
     val extraPackage = if (conf.name.endsWith("core")) {
       " + [\"mmlspark\"]"
@@ -67,16 +117,15 @@ object PyCodegen {
       s"""MINIMUM_SUPPORTED_PYTHON_VERSION = "3.8"""".stripMargin
     } else ""
     val extraRequirements = if (conf.name.contains("deep-learning")) {
-      // There's `Already borrowed` error found in transformers 4.16.2 when using tokenizers
       s"""extras_require={"extras": [
          |    "cmake",
-         |    "horovod==0.28.1",
-         |    "pytorch_lightning>=1.5.0,<1.5.10",
-         |    "torch==1.13.1",
-         |    "torchvision>=0.14.1",
-         |    "transformers==4.32.1",
+         |    "horovod @ git+https://github.com/horovod/horovod.git@3a31d933a13c7c885b8a673f4172b17914ad334d",
+         |    "pytorch_lightning==1.5.0",
+         |    "torch==2.2.0",
+         |    "torchvision==0.17.0",
+         |    "transformers==4.49.0",
          |    "petastorm>=0.12.0",
-         |    "huggingface-hub>=0.8.1",
+         |    "huggingface-hub==0.26.0",
          |]},
          |python_requires=f">={MINIMUM_SUPPORTED_PYTHON_VERSION}",""".stripMargin
     } else ""
@@ -137,7 +186,13 @@ object PyCodegen {
   }
 
   def main(args: Array[String]): Unit = {
-    val conf = args.head.parseJson.convertTo[CodegenConfig]
+    val json = if (args.head.startsWith("@")) {
+      val source = scala.io.Source.fromFile(args.head.substring(1))
+      try source.mkString finally source.close()
+    } else {
+      args.head
+    }
+    val conf = json.parseJson.convertTo[CodegenConfig]
     clean(conf.pyPackageDir)
     pyGen(conf)
   }

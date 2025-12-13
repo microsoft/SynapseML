@@ -1,11 +1,20 @@
-from horovod.spark.lightning import TorchEstimator
 import torch
 from pyspark.ml.param.shared import Param, Params
-from pytorch_lightning.utilities import _module_available
+
+try:
+    from pytorch_lightning.utilities import _module_available
+except ImportError:  # pragma: no cover - fallback for PL>=2.4
+    from lightning_utilities.core.imports import module_available as _module_available
+
 from synapse.ml.dl.DeepTextModel import DeepTextModel
 from synapse.ml.dl.LitDeepTextModel import LitDeepTextModel
-from synapse.ml.dl.utils import keywords_catch, get_or_create_backend
+from synapse.ml.dl._horovod import (
+    HOROVOD_AVAILABLE,
+    TorchEstimatorBase,
+    require_horovod,
+)
 from synapse.ml.dl.PredictionParams import TextPredictionParams
+from synapse.ml.dl.utils import keywords_catch, get_or_create_backend
 
 _TRANSFORMERS_AVAILABLE = _module_available("transformers")
 if _TRANSFORMERS_AVAILABLE:
@@ -24,7 +33,10 @@ else:
     raise ModuleNotFoundError("module not found: transformers")
 
 
-class DeepTextClassifier(TorchEstimator, TextPredictionParams):
+class DeepTextClassifier(
+    TorchEstimatorBase if HOROVOD_AVAILABLE else TextPredictionParams,
+    TextPredictionParams if HOROVOD_AVAILABLE else object,
+):
     checkpoint = Param(
         Params._dummy(), "checkpoint", "checkpoint of the deep text classifier"
     )
@@ -124,6 +136,7 @@ class DeepTextClassifier(TorchEstimator, TextPredictionParams):
         mp_start_method=None,
     ):
         super(DeepTextClassifier, self).__init__()
+        require_horovod("DeepTextClassifier")
 
         self._setDefault(
             checkpoint=None,

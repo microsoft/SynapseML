@@ -1,13 +1,96 @@
-from pyspark.ml.wrapper import JavaParams, JavaWrapper
+import importlib
+
 from py4j.java_gateway import JavaObject
 from pyspark import RDD, SparkContext
-from pyspark.serializers import PickleSerializer, AutoBatchedSerializer
-from pyspark.sql import DataFrame, SQLContext
-from pyspark.ml.common import _to_java_object_rdd, _java2py
-import pyspark
 from pyspark.ml import PipelineModel
+from pyspark.ml.common import _java2py, _to_java_object_rdd
 from pyspark.ml.util import DefaultParamsReader
+from pyspark.ml.wrapper import JavaParams, JavaWrapper
+from pyspark.serializers import AutoBatchedSerializer, PickleSerializer
+from pyspark.sql import DataFrame, SQLContext
 from pyspark.sql.types import DataType
+
+try:
+    # Canonical ComplexParamsMixin lives in core.schema.Utils; jvm_preflight
+    # historically imported it from this module. Keep a thin shim here so
+    # existing imports continue to work while the actual logic stays in
+    # the schema utilities module.
+    from synapse.ml.core.schema.Utils import (
+        ComplexParamsMixin as _CanonicalComplexParamsMixin,
+    )
+
+    class ComplexParamsMixin(_CanonicalComplexParamsMixin):  # type: ignore[misc]
+        pass
+
+except Exception:  # pragma: no cover - defensive; preflight will fail loudly
+    # If for some reason the canonical mixin cannot be imported, leave this
+    # module without a ComplexParamsMixin definition and let callers surface
+    # the import error. This keeps production code paths unaffected.
+    pass
+
+
+def _resolve_python_target(py_name):
+    """
+    Resolve a dotted Python name into a class object, with fallbacks that
+    mirror tools/verify_python_mapping.py:
+
+    - Treat py_name as module + attribute and try getattr.
+    - If that yields a module, look for a class of the same name inside it.
+    - If the attribute is missing, try importing a submodule and looking
+      for a class of the same name there.
+
+    This improves diagnostics when a SynapseML Java stage cannot be mapped
+    cleanly to its Python wrapper (e.g., due to missing exports or module
+    vs class mismatches).
+    """
+    parts = py_name.split(".")
+    if len(parts) < 2:
+        raise ImportError(f"Cannot split '{py_name}' into module and attribute")
+
+    module_name = ".".join(parts[:-1])
+    attr_name = parts[-1]
+
+    try:
+        mod = importlib.import_module(module_name)
+    except Exception as e:  # noqa: BLE001
+        raise ImportError(
+            f"import_module('{module_name}') failed while resolving '{py_name}': {e!r}"
+        ) from e
+
+    obj = getattr(mod, attr_name, None)
+
+    # If we got a module, see if it defines a class of the same name.
+    if obj is not None and not isinstance(obj, type):
+        inner = getattr(obj, attr_name, None)
+        if isinstance(inner, type):
+            obj = inner
+
+    # If still no class, try importing a submodule and looking there.
+    if obj is None or not isinstance(obj, type):
+        try:
+            submod = importlib.import_module(f"{module_name}.{attr_name}")
+        except Exception:  # noqa: BLE001
+            submod = None
+        if submod is not None:
+            candidate = getattr(submod, attr_name, None)
+            if isinstance(candidate, type):
+                obj = candidate
+
+    if obj is None:
+        raise ImportError(
+            "Could not resolve Python wrapper for Java stage "
+            f"'{py_name}': no class found on package or submodule. "
+            "Check that the corresponding Python package exports this class."
+        )
+
+    if not isinstance(obj, type):
+        raise TypeError(
+            "Resolved Python target for Java stage "
+            f"'{py_name}' to non-class object {obj!r}. "
+            "Check for module vs class export mismatches in the Python package."
+        )
+
+    return obj
 
 
 @staticmethod
@@ -19,21 +102,10 @@ def _mml_from_java(java_stage):
     Meta-algorithms such as Pipeline should override this method as a classmethod.
     """
 
-    def __get_class(clazz):
-        """
-        Loads Python class from its name.
-        """
-        parts = clazz.split(".")
-        module = ".".join(parts[:-1])
-        m = __import__(module)
-        for comp in parts[1:]:
-            m = getattr(m, comp)
-        return m
-
     stage_name = java_stage.getClass().getName().replace("org.apache.spark", "pyspark")
     stage_name = stage_name.replace("com.microsoft.azure.synapse.ml", "synapse.ml")
     # Generate a default new instance from the stage_name class.
-    py_type = __get_class(stage_name)
+    py_type = _resolve_python_target(stage_name)
     if issubclass(py_type, JavaParams):
         # Load information from java_stage to the instance.
         py_stage = py_type()
@@ -59,17 +131,6 @@ def _mml_loadParamsInstance(path, sc):
     This assumes the instance inherits from :py:class:`MLReadable`.
     """
 
-    def __get_class(clazz):
-        """
-        Loads Python class from its name.
-        """
-        parts = clazz.split(".")
-        module = ".".join(parts[:-1])
-        m = __import__(module)
-        for comp in parts[1:]:
-            m = getattr(m, comp)
-        return m
-
     metadata = DefaultParamsReader.loadMetadata(path, sc)
     if DefaultParamsReader.isPythonParamsInstance(metadata):
         pythonClassName = metadata["class"]
@@ -78,7 +139,7 @@ def _mml_loadParamsInstance(path, sc):
         pythonClassName = pythonClassName.replace(
             "com.microsoft.azure.synapse.ml", "synapse.ml"
         )
-    py_type = __get_class(pythonClassName)
+    py_type = _resolve_python_target(pythonClassName)
     instance = py_type.load(path)
     return instance
 

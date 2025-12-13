@@ -16,9 +16,26 @@ object Secrets {
   protected def exec(command: String): String = {
     val os = sys.props("os.name").toLowerCase
     os match {
-      case x if x contains "windows" => Seq("cmd", "/C") ++ Seq(command) !!
-      case _ => command !!
+      case x if x contains "windows" => (Seq("cmd", "/C") ++ Seq(command)).!!
+      case _ => command.!!
     }
+  }
+
+  private def safeExec(command: String): Option[String] = {
+    try {
+      Some(exec(command))
+    } catch {
+      case e: java.lang.RuntimeException =>
+        println(s"Secret fetch error: ${e.toString}")
+        None
+      case e: IOException =>
+        println(s"Secret fetch error: ${e.toString}")
+        None
+    }
+  }
+
+  private def extractField(json: String, field: String): String = {
+    json.parseJson.asJsObject().fields(field).convertTo[String]
   }
 
   // Keep overhead of setting account down
@@ -37,20 +54,23 @@ object Secrets {
   def getSynapseExtensionSecret(envName: String, secretType: String): String = {
     val secretKey = s"synapse-extension-$envName-$secretType"
     println(s"[info] fetching secret: $secretKey from $AccountString")
-    val secretJson = exec(s"az keyvault secret show --vault-name $KvName --name $secretKey")
-    secretJson.parseJson.asJsObject().fields("value").convertTo[String]
+    safeExec(s"az keyvault secret show --vault-name $KvName --name $secretKey")
+      .map(extractField(_, "value"))
+      .getOrElse("")
   }
 
   private def getSecret(secretName: String): String = {
     println(s"[info] fetching secret: $secretName from $AccountString")
-    val secretJson = exec(s"az keyvault secret show --vault-name $KvName --name $secretName")
-    secretJson.parseJson.asJsObject().fields("value").convertTo[String]
+    safeExec(s"az keyvault secret show --vault-name $KvName --name $secretName")
+      .map(extractField(_, "value"))
+      .getOrElse("")
   }
 
   def getAccessToken(reqResource: String): String = {
     println(s"[info] token for perms: $reqResource from $AccountString")
-    val json = exec(s"az account get-access-token --resource $reqResource --output json")
-    json.parseJson.asJsObject().fields("accessToken").convertTo[String]
+    safeExec(s"az account get-access-token --resource $reqResource --output json")
+      .map(extractField(_, "accessToken"))
+      .getOrElse("")
   }
 
   lazy val CognitiveApiKey: String = getSecret("cognitive-api-key")

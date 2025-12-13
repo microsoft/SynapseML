@@ -14,8 +14,42 @@ from synapse.ml.recommendation._RankingTrainValidationSplit import (
 
 
 class RankingTrainValidationSplit(_ValidatorParams, _RankingTrainValidationSplit):
-    def __init__(self, **kwargs):
-        _RankingTrainValidationSplit.__init__(self, **kwargs)
+    """
+    Python wrapper which delegates most behavior to the generated
+    `_RankingTrainValidationSplit`, but integrates with PySpark's
+    `_ValidatorParams` machinery so that `estimatorParamMaps` is always
+    available for `_to_java` and for persistence.
+    """
+
+    def __init__(self, estimatorParamMaps=None, evaluator=None, **kwargs):
+        # Ensure we always have at least one ParamMap so that
+        # _ValidatorParams._to_java_impl(self) can call
+        # getEstimatorParamMaps() without hitting a KeyError, and so that
+        # the Scala side's require(nonEmpty) passes.
+        if estimatorParamMaps is None:
+            estimatorParamMaps = [dict()]
+
+        # Provide a sensible default evaluator that matches the Scala side
+        # expectations if the caller does not supply one explicitly.
+        if evaluator is None:
+            from synapse.ml.recommendation import RankingEvaluator
+
+            evaluator = RankingEvaluator().setK(3).setNItems(10)
+
+        _RankingTrainValidationSplit.__init__(
+            self, estimatorParamMaps=estimatorParamMaps, **kwargs
+        )
+
+        # Seed the evaluator Param used by PySpark's _ValidatorParams
+        # implementation so that getEvaluator/getOrDefault work correctly
+        # under PySpark 4.
+        self._set(evaluator=evaluator)
+
+    def getEstimatorParamMaps(self):
+        # Delegate to the generated implementation so that there is a single
+        # source of truth for this parameter; _ValidatorParams._to_java_impl
+        # will call this method.
+        return _RankingTrainValidationSplit.getEstimatorParamMaps(self)
 
     def _to_java(self):
         estimator, epms, evaluator = _ValidatorParams._to_java_impl(self)
