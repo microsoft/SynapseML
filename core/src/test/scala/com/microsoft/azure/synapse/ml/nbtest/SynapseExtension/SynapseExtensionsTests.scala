@@ -1,7 +1,7 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.azure.synapse.ml.nbtest.SynapseExtension
+package com.microsoft.azure.synapse.ml.nbtest.fabric
 
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
@@ -14,19 +14,19 @@ import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, Future, blocking}
 import scala.language.existentials
 
-class SynapseExtensionTestCleanup extends TestBase {
-    SynapseExtensionUtilities.listArtifacts()
+class FabricWorkspaceTestCleanup extends TestBase {
+    FabricWorkspaceUtilities.listArtifacts()
       .foreach(artifact => {
         if (artifact.lastUpdatedDate.isBefore(LocalDateTime.now().minusDays(3))) {
 
           println(s"Artifact cleanup: deleting artifact ${artifact.displayName}.")
           println(s"Last Update Date: ${artifact.lastUpdatedDate.toString()}")
-          SynapseExtensionUtilities.deleteArtifact(artifact.objectId)
+          FabricWorkspaceUtilities.deleteArtifact(artifact.objectId)
         }
       })
 }
 
-class SynapseExtensionsTests extends TestBase {
+class FabricNotebookTests extends TestBase {
   SharedNotebookE2ETestUtilities.generateNotebooks()
 
   val selectedPythonFiles: Array[File] = FileUtilities.recursiveListFiles(SharedNotebookE2ETestUtilities.NotebooksDir)
@@ -51,33 +51,33 @@ class SynapseExtensionsTests extends TestBase {
   selectedPythonFiles.foreach(println)
   assert(selectedPythonFiles.length > 0)
 
-  val storeArtifactId = SynapseExtensionUtilities.createStoreArtifact()
+  val storeArtifactId = FabricWorkspaceUtilities.createStoreArtifact()
 
   selectedPythonFiles.seq.map(createAndExecuteSJD)
 
   def createAndExecuteSJD(notebookFile: File): Future[String] = {
-    val notebookName = SynapseExtensionUtilities.getBlobNameFromFilepath(notebookFile.getPath)
-    val artifactId = SynapseExtensionUtilities.createSJDArtifact(notebookFile.getPath)
-    val notebookBlobPath = SynapseExtensionUtilities.uploadNotebookToAzure(notebookFile)
-    SynapseExtensionUtilities.updateSJDArtifact(notebookBlobPath, artifactId, storeArtifactId)
+    val notebookName = FabricWorkspaceUtilities.getBlobNameFromFilepath(notebookFile.getPath)
+    val artifactId = FabricWorkspaceUtilities.createSJDArtifact(notebookFile.getPath)
+    val notebookBlobPath = FabricWorkspaceUtilities.uploadNotebookToAzure(notebookFile)
+    FabricWorkspaceUtilities.updateSJDArtifact(notebookBlobPath, artifactId, storeArtifactId)
     blocking {
       Thread.sleep(3000)
     }
-    val jobInstanceId = SynapseExtensionUtilities.submitJob(artifactId)
+    val jobInstanceId = FabricWorkspaceUtilities.submitJob(artifactId)
     blocking {
       Thread.sleep(10000)
     }
     test(notebookName) {
       try {
         val result = Await.ready(
-          SynapseExtensionUtilities.monitorJob(artifactId, jobInstanceId),
-          Duration(SynapseExtensionUtilities.TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
+          FabricWorkspaceUtilities.monitorJob(artifactId, jobInstanceId),
+          Duration(FabricWorkspaceUtilities.TimeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
         assert(result.isSuccess)
       } catch {
         case t: Throwable =>
           throw new RuntimeException(s"Job failed for $notebookName", t)
       }
     }
-    SynapseExtensionUtilities.monitorJob(artifactId, jobInstanceId)
+    FabricWorkspaceUtilities.monitorJob(artifactId, jobInstanceId)
   }
 }

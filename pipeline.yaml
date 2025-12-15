@@ -153,9 +153,9 @@ jobs:
 #      TODO: Re-enable the Synapse E2E tests once the environment in live.
 #      synapse:
 #        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseTests"
-#      ${{ if eq(parameters.runSynapseExtensionE2ETests, true) }}:
-#        synapse-internal:
-#          TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseExtension.SynapseExtensionsTests"
+#      ${{ if eq(parameters.runFabricE2ETests, true) }}:
+#        fabric-notebooks:
+#          TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.fabric.FabricNotebookTests"
   steps:
     #- template: templates/ivy_cache.yml
     - template: templates/update_cli.yml
@@ -172,6 +172,8 @@ jobs:
           set -e
           source activate synapseml
           sbt "testOnly $(TEST-CLASS)"
+      env:
+        ut_certificate: $(sempy-integration-certificate)
       condition: and(succeeded(), eq(variables.runTests, 'True'))
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'

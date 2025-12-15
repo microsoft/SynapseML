@@ -4,3 +4,11 @@ steps:
     inputs:
       azureSubscription: 'SynapseML Build'
       keyVaultName: mmlspark-keys
+
+  - task: AzureKeyVault@2
+    displayName: 'Get Fabric Test Credentials from Key Vault'
+    inputs:
+      azureSubscription: 'SynapseMLFabricTestCreds'
+      KeyVaultName: 'fabrictest-cert-admin-kv'
+      SecretsFilter: 'sempy-integration-certificate'
+      RunAsPreJob: false

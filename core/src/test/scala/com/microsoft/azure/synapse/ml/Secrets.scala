@@ -41,10 +41,29 @@ object Secrets {
     secretJson.parseJson.asJsObject().fields("value").convertTo[String]
   }
 
-  private def getSecret(secretName: String): String = {
+  private def getSecretByName(secretName: String): String = {
     println(s"[info] fetching secret: $secretName from $AccountString")
     val secretJson = exec(s"az keyvault secret show --vault-name $KvName --name $secretName")
     secretJson.parseJson.asJsObject().fields("value").convertTo[String]
+  }
+
+  def getFabricSecret(envName: String, secretType: String): String = {
+    val fabricKey = s"fabric-$envName-$secretType"
+    val fabricValue = getSecretByName(fabricKey)
+    if (fabricValue.nonEmpty) {
+      fabricValue
+    } else {
+      val legacyKey = s"synapse-extension-$envName-$secretType"
+      getSecretByName(legacyKey)
+    }
+  }
+
+  def getSynapseExtensionSecret(envName: String, secretType: String): String = {
+    getFabricSecret(envName, secretType)
+  }
+
+  private def getSecret(secretName: String): String = {
+    getSecretByName(secretName)
   }
 
   def getAccessToken(reqResource: String): String = {
