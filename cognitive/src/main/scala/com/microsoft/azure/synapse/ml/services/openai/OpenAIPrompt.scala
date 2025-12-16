@@ -196,7 +196,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   private val audioExtensions = Set("mp3", "wav")
 
   private def extractFilename = udf { (path: String) =>
-    new HPath(path).getName
+    Option(path).map(_.trim).filter(_.nonEmpty).map(p => new HPath(p).getName).orNull
   }
 
   private def addRAIErrors[T <: OpenAIServicesBase with HasRAIContentFilter](
