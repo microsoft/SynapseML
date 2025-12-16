@@ -49,6 +49,9 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   logClass(FeatureNames.AiServices.OpenAI)
 
+  GlobalParams.registerParam(timeout, OpenAITimeoutKey)
+  GlobalParams.registerParam(connectionTimeout, OpenAIConnectionTimeoutKey)
+
   def this() = this(Identifiable.randomUID("OpenAIPrompt"))
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
@@ -176,7 +179,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     systemPrompt -> defaultSystemPrompt,
     apiType -> "chat_completions",
     columnTypes -> Map.empty,
-    timeout -> 360.0
+    timeout -> 600.0
   )
 
   override def setCustomServiceName(v: String): this.type = {

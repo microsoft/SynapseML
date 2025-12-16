@@ -60,6 +60,15 @@ trait ConcurrencyParams extends Wrappable {
   /** @group setParam */
   def setTimeout(value: Double): this.type = set(timeout, value)
 
+  val connectionTimeout: Param[Double] = new DoubleParam(
+    this, "connectionTimeout", "number of seconds to wait for establishing a connection")
+
+  /** @group getParam */
+  def getConnectionTimeout: Double = $(connectionTimeout)
+
+  /** @group setParam */
+  def setConnectionTimeout(value: Double): this.type = set(connectionTimeout, value)
+
   val concurrentTimeout: Param[Double] = new DoubleParam(
     this, "concurrentTimeout", "max number seconds to wait on futures if concurrency >= 1")
 
@@ -73,7 +82,7 @@ trait ConcurrencyParams extends Wrappable {
     case Some(v) => setConcurrentTimeout(v)
     case None => clear(concurrentTimeout)
   }
-  setDefault(concurrency -> 1, timeout -> 60.0)
+  setDefault(concurrency -> 1, timeout -> 60.0, connectionTimeout -> 5.0)
 }
 
 case object URLKey extends GlobalKey[String]
@@ -106,13 +115,21 @@ class HTTPTransformer(val uid: String)
 
   val clientHolder = SharedVariable {
     getConcurrency match {
-      case 1 => new SingleThreadedHTTPClient(getHandler, (getTimeout * 1000).toInt)
+      case 1 => new SingleThreadedHTTPClient(
+        getHandler,
+        (getTimeout * 1000).toInt,
+        (getConnectionTimeout * 1000).toInt)
       case n if n > 1 =>
         val dur = get(concurrentTimeout)
           .map(ct => Duration.fromNanos((ct * math.pow(10, 9)).toLong)) //scalastyle:ignore magic.number
           .getOrElse(Duration.Inf)
         val ec = ExecutionContext.global
-        new AsyncHTTPClient(getHandler, n, dur, (getTimeout * 1000).toInt)(ec)
+        new AsyncHTTPClient(
+          getHandler,
+          n,
+          dur,
+          (getTimeout * 1000).toInt,
+          (getConnectionTimeout * 1000).toInt)(ec)
     }
   }
 

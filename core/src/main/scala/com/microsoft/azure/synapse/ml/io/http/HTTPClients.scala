@@ -32,10 +32,11 @@ private[ml] trait HTTPClient extends BaseClient
   override type RequestType = HTTPRequestData
 
   protected val requestTimeout: Int
+  protected val connectionTimeout: Int
 
   protected val requestConfig: RequestConfig = RequestConfig.custom()
-    .setConnectTimeout(requestTimeout)
-    .setConnectionRequestTimeout(requestTimeout)
+    .setConnectTimeout(connectionTimeout)
+    .setConnectionRequestTimeout(connectionTimeout)
     .setSocketTimeout(requestTimeout)
     .build()
 
@@ -184,7 +185,8 @@ object HandlingUtils extends SparkLogging {
 class AsyncHTTPClient(val handler: HandlingUtils.HandlerFunc,
                       override val concurrency: Int,
                       override val timeout: Duration,
-                      val requestTimeout: Int)
+                      val requestTimeout: Int,
+                      val connectionTimeout: Int)
                      (override implicit val ec: ExecutionContext)
   extends AsyncClient(concurrency, timeout)(ec) with HTTPClient {
   override def handle(client: CloseableHttpClient,
@@ -193,7 +195,9 @@ class AsyncHTTPClient(val handler: HandlingUtils.HandlerFunc,
   }
 }
 
-class SingleThreadedHTTPClient(val handler: HandlingUtils.HandlerFunc, val requestTimeout: Int)
+class SingleThreadedHTTPClient(val handler: HandlingUtils.HandlerFunc,
+                               val requestTimeout: Int,
+                               val connectionTimeout: Int)
   extends HTTPClient with SingleThreadedClient {
   override def handle(client: CloseableHttpClient,
                       request: HTTPRequestData): HTTPResponseData = blocking {
