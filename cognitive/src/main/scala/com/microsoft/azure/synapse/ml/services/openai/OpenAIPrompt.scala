@@ -323,7 +323,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     pathColumnNames.foreach { colName =>
       require(
         df.columns.contains(colName),
-        s"Column '$colName' specified in columnTypes was not found in the DataFrame." +
+        s"Column '$colName' specified in columnTypes was not found in the DataFrame. " +
         s"Available columns: ${df.columns.mkString(", ")}"
       )
     }
