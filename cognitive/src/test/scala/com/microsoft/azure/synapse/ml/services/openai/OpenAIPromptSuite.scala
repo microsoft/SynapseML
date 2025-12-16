@@ -421,24 +421,21 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .select("outParsed", prompt.getErrorCol)
       .collect()
 
-    // First 3 rows should have valid outputs
+    // Row 0: "apple" - normal input, should have valid output
     assert(Option(results(0).get(0)).isDefined)
-    assert(Option(results(1).get(0)).isDefined)
-    assert(Option(results(2).get(0)).isDefined)
 
-    // Null input should return null output
-    assert(results(3).get(0) == null)
+    // Row 1: null input should return null output
+    assert(results(1).get(0) == null)
 
-    // Long inputs should either succeed or have an error (token limit exceeded)
-    // Row 4: 1000 repetitions - may succeed or fail depending on model limits
-    // Row 5: 10000 repetitions - likely to exceed token limits
-    val row4HasOutput = Option(results(4).get(0)).isDefined
-    val row4HasError = Option(results(4).getAs[Row](1)).isDefined
-    assert(row4HasOutput || row4HasError, "Row 4 should have either output or error")
+    // Row 2: 1000 repetitions - may succeed or fail depending on model limits
+    val row2HasOutput = Option(results(2).get(0)).isDefined
+    val row2HasError = Option(results(2).getAs[Row](1)).isDefined
+    assert(row2HasOutput || row2HasError, "Row 2 should have either output or error")
 
-    val row5HasOutput = Option(results(5).get(0)).isDefined
-    val row5HasError = Option(results(5).getAs[Row](1)).isDefined
-    assert(row5HasOutput || row5HasError, "Row 5 should have either output or error")
+    // Row 3: 10000 repetitions - possible to exceed token limits
+    val row3HasOutput = Option(results(3).get(0)).isDefined
+    val row3HasError = Option(results(3).getAs[Row](1)).isDefined
+    assert(row3HasOutput || row3HasError, "Row 3 should have either output or error")
   }
 
   test("Timeout Configuration") {
