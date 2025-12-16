@@ -141,7 +141,9 @@ class OpenAIDefaults:
     def set_api_timeout(self, timeout):
         timeout_float = float(timeout)
         if timeout_float <= 0:
-            raise ValueError(f"API timeout must be greater than 0, got: {timeout_float}")
+            raise ValueError(
+                f"API timeout must be greater than 0, got: {timeout_float}"
+            )
         self.defaults.setApiTimeout(timeout_float)
 
     def get_api_timeout(self):
