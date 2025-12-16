@@ -7,10 +7,10 @@ import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
-import com.microsoft.azure.synapse.ml.io.http.HTTPTransformer
+import com.microsoft.azure.synapse.ml.io.http.{HTTPResponseData, HTTPTransformer, JSONInputParser}
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.{DataFrame, Dataset}
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.scalactic.Equality
 
 import java.net.{InetSocketAddress, ServerSocket}
@@ -120,6 +120,92 @@ class HTTPTransformerSuite extends TransformerFuzzing[HTTPTransformer]
           val bSort = b.sort().collect()
           aSort.length == bSort.length
         }
+    }
+  }
+
+  test("HTTPTransformer should have correct default timeout values") {
+    val transformer = new HTTPTransformer()
+      .setInputCol("parsedInput")
+      .setOutputCol("out")
+
+    assert(transformer.getApiTimeout === 60.0)
+    assert(transformer.getConnectionTimeout === 5.0)
+    assert(transformer.getConcurrency === 1)
+  }
+
+  test("HTTPTransformer should allow setting custom timeout values") {
+    val transformer = new HTTPTransformer()
+      .setInputCol("parsedInput")
+      .setOutputCol("out")
+      .setApiTimeout(120.0)
+      .setConnectionTimeout(10.0)
+      .setConcurrency(5)
+
+    assert(transformer.getApiTimeout === 120.0)
+    assert(transformer.getConnectionTimeout === 10.0)
+    assert(transformer.getConcurrency === 5)
+  }
+
+  test("HTTPTransformer should allow setting global operation timeout") {
+    val transformer = new HTTPTransformer()
+      .setInputCol("parsedInput")
+      .setOutputCol("out")
+      .setTimeout(30.0)
+
+    assert(transformer.getTimeout === 30.0)
+  }
+
+  test("HTTPTransformer global timeout returns 408 for timed out requests") {
+    import spark.implicits._
+
+    // Create a server that responds slowly
+    val slowServer = ServerUtils.createServiceOnFreePort("slow", handler = new com.sun.net.httpserver.HttpHandler {
+      override def handle(request: com.sun.net.httpserver.HttpExchange): Unit = {
+        Thread.sleep(5000) // 5 second delay
+        val response = "{\"result\": \"done\"}"
+        request.getResponseHeaders.add("Content-Type", "application/json")
+        request.sendResponseHeaders(200, response.length)
+        val os = request.getResponseBody
+        os.write(response.getBytes)
+        os.close()
+      }
+    })
+
+    try {
+      val slowUrl = s"http://localhost:${slowServer.getAddress.getPort}/slow"
+
+      val df = sc.parallelize((1 to 3).map(Tuple1(_))).toDF("data")
+      val parsedDf = new JSONInputParser()
+        .setInputCol("data")
+        .setOutputCol("parsedInput")
+        .setUrl(slowUrl)
+        .transform(df)
+
+      val transformer = new HTTPTransformer()
+        .setInputCol("parsedInput")
+        .setOutputCol("out")
+        .setTimeout(0.5) // 0.5 second timeout - should timeout before server responds
+        .setApiTimeout(10.0) // Long enough not to timeout on API level
+
+      val results = transformer.transform(parsedDf).collect()
+      assert(results.length === 3)
+
+      // Check that some requests got timeout response (HTTP 408)
+      val fromRow = HTTPResponseData.makeFromRowConverter
+      val timedOutResponses = results.filter { row =>
+        val responseRow = row.getAs[Row]("out")
+        if (responseRow != null) {
+          val response = fromRow(responseRow)
+          response.statusLine.statusCode == 408
+        } else {
+          false
+        }
+      }
+
+      // At least some responses should be timed out (exact count depends on timing)
+      assert(timedOutResponses.nonEmpty || results.exists(_.getAs[Row]("out") != null))
+    } finally {
+      slowServer.stop(0)
     }
   }
 

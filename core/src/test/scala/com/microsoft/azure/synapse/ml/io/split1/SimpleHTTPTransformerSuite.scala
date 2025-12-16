@@ -36,7 +36,7 @@ class SimpleHTTPTransformerSuite
     lazy val df2: DataFrame = sc.parallelize((1 to 5).map(Tuple1(_))).toDF("data")
     val results = simpleTransformer
       .setUrl(url + "/flaky")
-      .setTimeout(1)
+      .setApiTimeout(1)
       .transform(df2).collect
     assert(results.length == 5)
   }

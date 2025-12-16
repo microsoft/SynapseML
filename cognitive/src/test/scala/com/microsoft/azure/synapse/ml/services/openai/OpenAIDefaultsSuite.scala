@@ -88,6 +88,9 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     OpenAIDefaults.setVerbosity("medium")
     OpenAIDefaults.setReasoningEffort("medium")
     OpenAIDefaults.setApiType("responses")
+    OpenAIDefaults.setApiTimeout(600.0)
+    OpenAIDefaults.setConnectionTimeout(5.0)
+    OpenAIDefaults.setTimeout(120.0)
 
     assert(OpenAIDefaults.getDeploymentName.contains(deploymentName))
     assert(OpenAIDefaults.getSubscriptionKey.contains(openAIAPIKey))
@@ -101,6 +104,9 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     assert(OpenAIDefaults.getVerbosity.contains("medium"))
     assert(OpenAIDefaults.getReasoningEffort.contains("medium"))
     assert(OpenAIDefaults.getApiType.contains("responses"))
+    assert(OpenAIDefaults.getApiTimeout.contains(600.0))
+    assert(OpenAIDefaults.getConnectionTimeout.contains(5.0))
+    assert(OpenAIDefaults.getTimeout.contains(120.0))
   }
 
   test("Test Resetters") {
@@ -116,6 +122,9 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     OpenAIDefaults.setVerbosity("medium")
     OpenAIDefaults.setReasoningEffort("medium")
     OpenAIDefaults.setApiType("responses")
+    OpenAIDefaults.setApiTimeout(600.0)
+    OpenAIDefaults.setConnectionTimeout(5.0)
+    OpenAIDefaults.setTimeout(120.0)
 
     OpenAIDefaults.resetDeploymentName()
     OpenAIDefaults.resetSubscriptionKey()
@@ -129,6 +138,9 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     OpenAIDefaults.resetVerbosity()
     OpenAIDefaults.resetReasoningEffort()
     OpenAIDefaults.resetApiType()
+    OpenAIDefaults.resetApiTimeout()
+    OpenAIDefaults.resetConnectionTimeout()
+    OpenAIDefaults.resetTimeout()
 
     assert(OpenAIDefaults.getDeploymentName.isEmpty)
     assert(OpenAIDefaults.getSubscriptionKey.isEmpty)
@@ -142,6 +154,9 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     assert(OpenAIDefaults.getVerbosity.isEmpty)
     assert(OpenAIDefaults.getReasoningEffort.isEmpty)
     assert(OpenAIDefaults.getApiType.isEmpty)
+    assert(OpenAIDefaults.getApiTimeout.isEmpty)
+    assert(OpenAIDefaults.getConnectionTimeout.isEmpty)
+    assert(OpenAIDefaults.getTimeout.isEmpty)
   }
 
   test("Test Parameter Validation") {
@@ -183,5 +198,33 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     // Test reasoning effort values
     OpenAIDefaults.setReasoningEffort("low")
     OpenAIDefaults.setReasoningEffort("anything")
+
+    // Test valid timeout values
+    OpenAIDefaults.setApiTimeout(1.0)
+    OpenAIDefaults.setApiTimeout(600.0)
+    OpenAIDefaults.setConnectionTimeout(1.0)
+    OpenAIDefaults.setConnectionTimeout(5.0)
+    OpenAIDefaults.setTimeout(60.0)
+    OpenAIDefaults.setTimeout(120.0)
+
+    // Test invalid timeout values (must be > 0)
+    assertThrows[IllegalArgumentException] {
+      OpenAIDefaults.setApiTimeout(0.0)
+    }
+    assertThrows[IllegalArgumentException] {
+      OpenAIDefaults.setApiTimeout(-1.0)
+    }
+    assertThrows[IllegalArgumentException] {
+      OpenAIDefaults.setConnectionTimeout(0.0)
+    }
+    assertThrows[IllegalArgumentException] {
+      OpenAIDefaults.setConnectionTimeout(-1.0)
+    }
+    assertThrows[IllegalArgumentException] {
+      OpenAIDefaults.setTimeout(0.0)
+    }
+    assertThrows[IllegalArgumentException] {
+      OpenAIDefaults.setTimeout(-1.0)
+    }
   }
 }

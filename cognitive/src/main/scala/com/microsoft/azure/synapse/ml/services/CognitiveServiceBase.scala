@@ -579,19 +579,22 @@ abstract class CognitiveServicesBaseNoHandler(val uid: String) extends Transform
       case l => l
     }
 
+    val baseTransformer = new SimpleHTTPTransformer()
+      .setInputCol(dynamicParamColName)
+      .setOutputCol(getOutputCol)
+      .setInputParser(getInternalInputParser(schema))
+      .setOutputParser(getInternalOutputParser(schema))
+      .setHandler(handlingFunc _)
+      .setConcurrency(getConcurrency)
+      .setConcurrentTimeout(get(concurrentTimeout))
+      .setApiTimeout(getApiTimeout)
+      .setConnectionTimeout(getConnectionTimeout)
+      .setErrorCol(getErrorCol)
+    val transformer = get(timeout).map(baseTransformer.setTimeout).getOrElse(baseTransformer)
+
     val stages = Array(
       Lambda(_.withColumn(dynamicParamColName, struct(dynamicParamCols: _*))),
-      new SimpleHTTPTransformer()
-        .setInputCol(dynamicParamColName)
-        .setOutputCol(getOutputCol)
-        .setInputParser(getInternalInputParser(schema))
-        .setOutputParser(getInternalOutputParser(schema))
-        .setHandler(handlingFunc _)
-        .setConcurrency(getConcurrency)
-        .setConcurrentTimeout(get(concurrentTimeout))
-        .setTimeout(getTimeout)
-        .setConnectionTimeout(getConnectionTimeout)
-        .setErrorCol(getErrorCol),
+      transformer,
       new DropColumns().setCol(dynamicParamColName)
     )
 

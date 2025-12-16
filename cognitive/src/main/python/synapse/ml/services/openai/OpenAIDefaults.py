@@ -138,17 +138,17 @@ class OpenAIDefaults:
     def reset_api_type(self):
         self.defaults.resetApiType()
 
-    def set_timeout(self, timeout):
+    def set_api_timeout(self, timeout):
         timeout_float = float(timeout)
         if timeout_float <= 0:
-            raise ValueError(f"Timeout must be greater than 0, got: {timeout_float}")
-        self.defaults.setTimeout(timeout_float)
+            raise ValueError(f"API timeout must be greater than 0, got: {timeout_float}")
+        self.defaults.setApiTimeout(timeout_float)
 
-    def get_timeout(self):
-        return getOption(self.defaults.getTimeout())
+    def get_api_timeout(self):
+        return getOption(self.defaults.getApiTimeout())
 
-    def reset_timeout(self):
-        self.defaults.resetTimeout()
+    def reset_api_timeout(self):
+        self.defaults.resetApiTimeout()
 
     def set_connection_timeout(self, timeout):
         timeout_float = float(timeout)
@@ -163,3 +163,15 @@ class OpenAIDefaults:
 
     def reset_connection_timeout(self):
         self.defaults.resetConnectionTimeout()
+
+    def set_timeout(self, timeout):
+        timeout_float = float(timeout)
+        if timeout_float <= 0:
+            raise ValueError(f"Timeout must be greater than 0, got: {timeout_float}")
+        self.defaults.setTimeout(timeout_float)
+
+    def get_timeout(self):
+        return getOption(self.defaults.getTimeout())
+
+    def reset_timeout(self):
+        self.defaults.resetTimeout()

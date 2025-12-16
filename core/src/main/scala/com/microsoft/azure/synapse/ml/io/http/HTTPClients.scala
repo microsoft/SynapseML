@@ -56,9 +56,15 @@ private[ml] trait HTTPClient extends BaseClient
   }
 
   protected def sendRequestWithContext(request: RequestWithContext): ResponseWithContext = {
-    request.request.map(req =>
-      ResponseWithContext(Some(handle(internalClient, req)), request.context)
-    ).getOrElse(ResponseWithContext(None, request.context))
+    // If there's a precomputed response (e.g., timeout), return it without making the HTTP call
+    request.precomputedResponse match {
+      case Some(response) =>
+        ResponseWithContext(Some(response), request.context)
+      case None =>
+        request.request.map(req =>
+          ResponseWithContext(Some(handle(internalClient, req)), request.context)
+        ).getOrElse(ResponseWithContext(None, request.context))
+    }
   }
 
 }
