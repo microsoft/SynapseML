@@ -46,7 +46,7 @@ dependencies:
     - transformers==4.49.0
     - huggingface-hub==0.26.0
     - langchain==0.0.152
-    - openai==0.27.5
+    - openai==1.99.5
     - black==22.3.0
     - black[jupyter]==22.3.0
     - mistletoe

@@ -16,31 +16,6 @@ import spray.json.DefaultJsonProtocol._
 
 import scala.language.existentials
 
-trait HasPromptInputs extends HasServiceParams {
-  val prompt: ServiceParam[String] = new ServiceParam[String](
-    this, "prompt", "The text to complete", isRequired = false)
-
-  def getPrompt: String = getScalarParam(prompt)
-
-  def setPrompt(v: String): this.type = setScalarParam(prompt, v)
-
-  def getPromptCol: String = getVectorParam(prompt)
-
-  def setPromptCol(v: String): this.type = setVectorParam(prompt, v)
-
-  val batchPrompt: ServiceParam[Seq[String]] = new ServiceParam[Seq[String]](
-    this, "batchPrompt", "Sequence of prompts to complete", isRequired = false)
-
-  def getBatchPrompt: Seq[String] = getScalarParam(batchPrompt)
-
-  def setBatchPrompt(v: Seq[String]): this.type = setScalarParam(batchPrompt, v)
-
-  def getBatchPromptCol: String = getVectorParam(batchPrompt)
-
-  def setBatchPromptCol(v: String): this.type = setVectorParam(batchPrompt, v)
-
-}
-
 trait HasMessagesInput extends Params {
   val messagesCol: Param[String] = new Param[String](
     this, "messagesCol", "The column messages to generate chat completions for," +

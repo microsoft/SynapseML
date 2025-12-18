@@ -20,7 +20,6 @@ import org.apache.spark.ml.param.{BooleanParam, Param, ParamMap, ParamValidators
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.{Column, DataFrame, Dataset, Row, functions => F, types => T}
-import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{col, typedLit, udf}
 import org.apache.spark.sql.types.{DataType, StructField, StructType}
@@ -108,7 +107,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     set(postProcessingOptions, v.asScala.toMap)
 
   val dropPrompt = new BooleanParam(
-    this, "dropPrompt", "whether to drop the column of prompts after templating (when using legacy models)")
+    this, "dropPrompt", "whether to drop the column of prompts after templating")
 
   def getDropPrompt: Boolean = $(dropPrompt)
 
@@ -224,32 +223,25 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     createMessagesUDF: UserDefinedFunction,
     attachmentsColumn: Column
   ): (DataFrame, String, OpenAIServicesBase with HasTextOutput) = {
-    service match {
-      case c: OpenAICompletion =>
-        if (isSet(responseFormat)) {
-          throw new IllegalArgumentException("responseFormat is not supported for Completion.")
-        }
-        import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions._
-        val promptColName = df.withDerivativeCol("prompt")
-        (df.withColumn(promptColName, promptCol), promptColName, c.setPromptCol(promptColName))
-
-      case c: HasMessagesInput =>
-        if (isSet(responseFormat)) {
-          // Pass through responseFormat without forcing a single shape here.
-          // Each service validates according to its API (chat_completions vs responses).
-          c match {
-            case cc: OpenAIChatCompletion => cc.setResponseFormat(getResponseFormat)
-            case resp: OpenAIResponses => resp.setResponseFormat(getResponseFormat)
-          }
-        }
-        val messageColName = getMessagesCol
-
-        (
-          df.withColumn(messageColName, createMessagesUDF(promptCol, attachmentsColumn)),
-          messageColName,
-          c.setMessagesCol(messageColName)
-        )
+    if (isSet(responseFormat)) {
+      service match {
+        case cc: OpenAIChatCompletion => cc.setResponseFormat(getResponseFormat)
+        case resp: OpenAIResponses => resp.setResponseFormat(getResponseFormat)
+        case _ => // AIFoundryChatCompletion does not currently expose responseFormat.
+      }
     }
+
+    val messageColName = getMessagesCol
+    val configuredService = service match {
+      case c: HasMessagesInput => c.setMessagesCol(messageColName)
+      case other => other
+    }
+
+    (
+      df.withColumn(messageColName, createMessagesUDF(promptCol, attachmentsColumn)),
+      messageColName,
+      configuredService
+    )
   }
 
   private def usageMappingFor(service: OpenAIServicesBase with HasTextOutput)
@@ -510,21 +502,12 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   private[openai] def hasAIFoundryModel: Boolean = this.isDefined(model)
 
-  //deployment name can be set by user, it doesn't have to match with model name
-  private val legacyModels = Set("ada", "babbage", "curie", "davinci",
-    "text-ada-001", "text-babbage-001", "text-curie-001", "text-davinci-002",
-    "text-davinci-003", "code-cushman-001", "code-davinci-002")
-
   private def getOpenAIChatService: OpenAIServicesBase with HasTextOutput = {
 
     val completion: OpenAIServicesBase with HasTextOutput =
       if (hasAIFoundryModel) {
         new AIFoundryChatCompletion()
-      }
-      else if (legacyModels.contains(getDeploymentName)) {
-        new OpenAICompletion()
-      }
-      else {
+      } else {
         // Use the apiType parameter to decide between chat_completions and responses
         getApiType match {
           case "responses" => new OpenAIResponses()
@@ -549,8 +532,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
           chatCompletion.prepareEntity(r)
         case chatCompletion: OpenAIChatCompletion =>
           chatCompletion.prepareEntity(r)
-        case completion: OpenAICompletion =>
-          completion.prepareEntity(r)
       }
   }
 
@@ -575,8 +556,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
         chatCompletion.transformSchema(schema.add(getMessagesCol, StructType(Seq())))
       case chatCompletion: OpenAIChatCompletion =>
         chatCompletion.transformSchema(schema.add(getMessagesCol, StructType(Seq())))
-      case completion: OpenAICompletion =>
-        completion.transformSchema(schema)
     }
 
     val outputDataType: DataType = {
