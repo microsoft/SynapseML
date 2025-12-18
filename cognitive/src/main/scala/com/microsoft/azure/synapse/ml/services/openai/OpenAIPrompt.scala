@@ -199,13 +199,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   private val imageExtensions = Set("jpg", "jpeg", "png", "gif", "webp")
   private val audioExtensions = Set("mp3", "wav")
 
-  private def attachmentPlaceholder(columnName: String): String =
-    s"[Content for column '$columnName' will be provided later as an attachment.]"
-
-  private[openai] def applyPathPlaceholders(template: String, pathColumns: Seq[String]): String = {
-    pathColumns.foldLeft(template) { (current, columnName) =>
-      current.replace(s"{$columnName}", attachmentPlaceholder(columnName))
-    }
+  private def extractFilename = udf { (path: String) =>
+    Option(path).map(_.trim).filter(_.nonEmpty).map(p => new HPath(p).getName).orNull
   }
 
   private def addRAIErrors[T <: OpenAIServicesBase with HasRAIContentFilter](
@@ -317,32 +312,51 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     results.select(results.columns.filter(_ != getErrorCol).map(col) :+ col(getErrorCol): _*)
   }
 
+  private def processPathColumns(df: DataFrame): (DataFrame, Seq[String], Map[String, String], String) = {
+    val columnTypeMap = if (isSet(columnTypes)) getColumnTypes else Map.empty[String, String]
+
+    columnTypeMap.foreach { case (colName, colType) =>
+      require(colType == "text" || colType == "path",
+        s"Unsupported column type '$colType' for column '$colName'. Supported types are 'text' and 'path'.")
+    }
+
+    val pathColumnNames = columnTypeMap.collect {
+      case (colName, colType) if colType == "path" => colName
+    }.toSeq
+
+    pathColumnNames.foreach { colName =>
+      require(
+        df.columns.contains(colName),
+        s"Column '$colName' specified in columnTypes was not found in the DataFrame. " +
+        s"Available columns: ${df.columns.mkString(", ")}"
+      )
+    }
+
+    import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions._
+    val (dfWithFilenames, filenameColMapping) = pathColumnNames.foldLeft((df, Map.empty[String, String])) {
+      case ((currentDf, mapping), colName) =>
+        val filenameCol = currentDf.withDerivativeCol(s"${colName}_filename")
+        (currentDf.withColumn(filenameCol, extractFilename(F.col(colName))), mapping + (colName -> filenameCol))
+    }
+
+    val templateWithFilenameRefs = filenameColMapping.foldLeft(getPromptTemplate) {
+      case (template, (colName, filenameCol)) =>
+        template.replace(s"{$colName}", s"{$filenameCol}")
+    }
+
+    (dfWithFilenames, pathColumnNames, filenameColMapping, templateWithFilenameRefs)
+  }
+
   override def transform(dataset: Dataset[_]): DataFrame = {
     transferGlobalParamsToParamMap()
     logTransform[DataFrame]({
       val df = dataset.toDF
       val service = getOpenAIChatService
-      val columnTypeMap = if (isSet(columnTypes)) getColumnTypes else Map.empty[String, String]
 
-      columnTypeMap.foreach { case (colName, colType) =>
-        val normalized = colType.toLowerCase
-        require(normalized == "text" || normalized == "path",
-          s"Unsupported column type '$colType' for column '$colName'. Supported types are 'text' and 'path'.")
-      }
+      val (dfWithFilenames, pathColumnNames, filenameColMapping, templateWithFilenameRefs) =
+        processPathColumns(df)
 
-      val pathColumnNames = columnTypeMap.collect {
-        case (colName, colType) if colType.equalsIgnoreCase("path") => colName
-        }.toSeq
-
-      val promptTemplateWithPlaceholders = applyPathPlaceholders(getPromptTemplate, pathColumnNames)
-      val promptCol = Functions.template(promptTemplateWithPlaceholders)
-
-      pathColumnNames.foreach { colName =>
-        require(
-          df.columns.contains(colName),
-          s"Column '$colName' specified in columnTypes was not found in the DataFrame."
-          )
-      }
+      val promptCol = Functions.template(templateWithFilenameRefs)
 
       val attachmentsColumn: Column =
         if (pathColumnNames.nonEmpty) {
@@ -368,9 +382,14 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       }
 
       val (dfTemplated, inputColName, serviceConfigured) =
-        configureService(service, df, promptCol, createMessagesUDF, attachmentsColumn)
+        configureService(service, dfWithFilenames, promptCol, createMessagesUDF, attachmentsColumn)
       val result = generateText(serviceConfigured, dfTemplated)
-      if (getDropPrompt) result.drop(inputColName) else result
+
+      val resultCleaned = filenameColMapping.values.foldLeft(result) { (df, colName) =>
+        if (df.columns.contains(colName)) df.drop(colName) else df
+      }
+
+      if (getDropPrompt) resultCleaned.drop(inputColName) else resultCleaned
     }, dataset.columns.length)
   }
 

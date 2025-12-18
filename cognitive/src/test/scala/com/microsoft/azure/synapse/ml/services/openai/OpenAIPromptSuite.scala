@@ -86,15 +86,6 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     }
   }
 
-  test("applyPathPlaceholders replaces path columns with attachment notice") {
-    val prompt = new OpenAIPrompt()
-    val template = "Describe {text} with reference to {filePath}"
-    val updated = prompt.applyPathPlaceholders(template, Seq("filePath"))
-    assert(updated.contains("Content for column 'filePath' will be provided later as an attachment."))
-    assert(!updated.contains("{filePath}"))
-    assert(updated.contains("{text}"))
-  }
-
   test("RAI Usage") {
     val result = prompt
       .setDeploymentName(deploymentName)
@@ -312,14 +303,15 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
 
     val keywordsForEachQuestions = List("knn", "sorry")
 
-  promptResponses.transform(urlDF)
-               .select("outParsed")
-               .where(col("outParsed").isNotNull)
-               .collect()
-               .zip(keywordsForEachQuestions)
-               .foreach { case (row, keyword) =>
-                 assert(row.getString(0).toLowerCase.contains(keyword))
-               }
+  promptResponses
+    .transform(urlDF)
+    .select("outParsed")
+    .where(col("outParsed").isNotNull)
+    .collect()
+    .zip(keywordsForEachQuestions)
+    .foreach { case (row, keyword) =>
+      assert(row.getString(0).toLowerCase.contains(keyword))
+    }
   }
 
   ignore("Custom EndPoint") {
