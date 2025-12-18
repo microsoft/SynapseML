@@ -398,6 +398,79 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     ))
   }
 
+  lazy val longInputDf: DataFrame = Seq(
+    ("apple", "fruits"),
+    (null, null), // scalastyle:ignore null
+    ("Flying on the weekends is a lot of fun! " * 1000, "travel"),
+    ("Flying is a lot of fun! " * 10000, "travel")
+  ).toDF("text", "category")
+
+  test("Long Input Handling") {
+    val results = prompt
+      .setPromptTemplate("Summarize the following text in 10 words or less: {text}")
+      .setTimeout(120.0)
+      .transform(longInputDf)
+      .select("outParsed", prompt.getErrorCol)
+      .collect()
+
+    // Row 0: "apple" - normal input, should have valid output
+    assert(Option(results(0).get(0)).isDefined)
+
+    // Row 1: null input should return null output
+    assert(results(1).get(0) == null)
+
+    // Row 2: 1000 repetitions - may succeed or fail depending on model limits
+    val row2HasOutput = Option(results(2).get(0)).isDefined
+    val row2HasError = Option(results(2).getAs[Row](1)).isDefined
+    assert(row2HasOutput || row2HasError, "Row 2 should have either output or error")
+
+    // Row 3: 10000 repetitions - possible to exceed token limits
+    val row3HasOutput = Option(results(3).get(0)).isDefined
+    val row3HasError = Option(results(3).getAs[Row](1)).isDefined
+    assert(row3HasOutput || row3HasError, "Row 3 should have either output or error")
+  }
+
+  test("Timeout Configuration") {
+    // Test that timeout parameters are properly set and retrieved
+    val promptWithTimeout = new OpenAIPrompt()
+      .setSubscriptionKey(openAIAPIKey)
+      .setDeploymentName(deploymentName)
+      .setCustomServiceName(openAIServiceName)
+      .setOutputCol("outParsed")
+      .setApiTimeout(300.0)
+      .setConnectionTimeout(10.0)
+      .setTimeout(60.0)
+
+    assert(promptWithTimeout.getApiTimeout == 300.0)
+    assert(promptWithTimeout.getConnectionTimeout == 10.0)
+    assert(promptWithTimeout.getTimeout == 60.0)
+  }
+
+  test("Short Timeout Returns Timeout Error") {
+    val promptWithShortTimeout = new OpenAIPrompt()
+      .setSubscriptionKey(openAIAPIKey)
+      .setDeploymentName(deploymentName)
+      .setCustomServiceName(openAIServiceName)
+      .setOutputCol("outParsed")
+      .setPromptTemplate("List 5 {category}")
+      .setTimeout(0.001) // Very short timeout to force timeout error
+
+    val results = promptWithShortTimeout
+      .transform(df)
+      .select("outParsed", promptWithShortTimeout.getErrorCol)
+      .collect()
+
+    // All rows should have timeout errors due to very short timeout
+    results.foreach { row =>
+      val errorRow = row.getAs[Row](1)
+      assert(errorRow != null, "Should have error due to timeout")
+      val errorResponse = errorRow.getAs[String]("response")
+      assert(errorResponse.contains("exceeded the time limit") ||
+        errorResponse.contains("timeout"),
+        s"Error should mention timeout, got: $errorResponse")
+    }
+  }
+
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
     super.assertDFEq(df1.drop("out", "outParsed"), df2.drop("out", "outParsed"))(eq)
   }

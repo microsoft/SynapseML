@@ -108,6 +108,9 @@ case object OpenAITopPKey extends GlobalKey[Either[Double, String]]
 case object OpenAIVerbosityKey extends GlobalKey[Either[String, String]]
 case object OpenAIReasoningEffortKey extends GlobalKey[Either[String, String]]
 case object OpenAIApiTypeKey extends GlobalKey[String]
+case object OpenAIApiTimeoutKey extends GlobalKey[Double]
+case object OpenAIConnectionTimeoutKey extends GlobalKey[Double]
+case object OpenAITimeoutKey extends GlobalKey[Double]
 
 // scalastyle:off number.of.methods
 trait HasOpenAITextParams extends HasOpenAISharedParams {
@@ -412,7 +415,7 @@ trait HasTextOutput {
 
 abstract class OpenAIServicesBase(override val uid: String) extends CognitiveServicesBase(uid: String)
   with HasOpenAISharedParams with OpenAIFabricSetting {
-  setDefault(timeout -> 360.0)
+  setDefault(apiTimeout -> 600.0)
 
   private def usingDefaultOpenAIEndpoint(): Boolean = {
     getUrl == FabricClient.MLWorkloadEndpointML + "/cognitive/openai/"

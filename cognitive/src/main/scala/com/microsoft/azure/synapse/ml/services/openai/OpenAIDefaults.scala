@@ -161,6 +161,45 @@ object OpenAIDefaults {
     GlobalParams.resetGlobalParam(OpenAIApiTypeKey)
   }
 
+  def setApiTimeout(v: Double): Unit = {
+    require(v > 0, s"API timeout must be greater than 0, got: $v")
+    GlobalParams.setGlobalParam(OpenAIApiTimeoutKey, v)
+  }
+
+  def getApiTimeout: Option[Double] = {
+    GlobalParams.getGlobalParam(OpenAIApiTimeoutKey)
+  }
+
+  def resetApiTimeout(): Unit = {
+    GlobalParams.resetGlobalParam(OpenAIApiTimeoutKey)
+  }
+
+  def setConnectionTimeout(v: Double): Unit = {
+    require(v > 0, s"Connection timeout must be greater than 0, got: $v")
+    GlobalParams.setGlobalParam(OpenAIConnectionTimeoutKey, v)
+  }
+
+  def getConnectionTimeout: Option[Double] = {
+    GlobalParams.getGlobalParam(OpenAIConnectionTimeoutKey)
+  }
+
+  def resetConnectionTimeout(): Unit = {
+    GlobalParams.resetGlobalParam(OpenAIConnectionTimeoutKey)
+  }
+
+  def setTimeout(v: Double): Unit = {
+    require(v > 0, s"Timeout must be greater than 0, got: $v")
+    GlobalParams.setGlobalParam(OpenAITimeoutKey, v)
+  }
+
+  def getTimeout: Option[Double] = {
+    GlobalParams.getGlobalParam(OpenAITimeoutKey)
+  }
+
+  def resetTimeout(): Unit = {
+    GlobalParams.resetGlobalParam(OpenAITimeoutKey)
+  }
+
   private def extractLeft[T](optEither: Option[Either[T, String]]): Option[T] = {
     optEither match {
       case Some(Left(v)) => Some(v)

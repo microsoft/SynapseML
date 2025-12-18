@@ -11,7 +11,7 @@ import org.apache.spark.ml.linalg.{Vector, SQLDataTypes}
 import org.apache.spark.sql.types.StructType
 import org.scalactic.Equality
 
-class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with OpenAIAPIKey with Flaky {
+class OpenAIEmbeddingSuite extends TransformerFuzzing[OpenAIEmbedding] with OpenAIAPIKey with Flaky {
 
   import spark.implicits._
 
@@ -203,6 +203,86 @@ class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with Ope
     assert(results(2).getAs[Row]("null_test_usage") != null)
   }
 
+  test("Timeout Configuration") {
+    // Test that timeout parameters are properly set and retrieved
+    val embeddingWithTimeout = new OpenAIEmbedding()
+      .setSubscriptionKey(openAIAPIKey)
+      .setCustomServiceName(openAIServiceName)
+      .setDeploymentName("text-embedding-ada-002")
+      .setTextCol("text")
+      .setOutputCol("out")
+      .setApiTimeout(300.0)
+      .setConnectionTimeout(10.0)
+      .setTimeout(60.0)
+
+    assert(embeddingWithTimeout.getApiTimeout == 300.0)
+    assert(embeddingWithTimeout.getConnectionTimeout == 10.0)
+    assert(embeddingWithTimeout.getTimeout == 60.0)
+  }
+
+  test("Short Timeout Returns Timeout Error") {
+    val embeddingWithShortTimeout = new OpenAIEmbedding()
+      .setSubscriptionKey(openAIAPIKey)
+      .setCustomServiceName(openAIServiceName)
+      .setDeploymentName("text-embedding-ada-002")
+      .setTextCol("text")
+      .setOutputCol("out")
+      .setTimeout(0.001) // Very short timeout to force timeout error
+
+    val errorCol = embeddingWithShortTimeout.getErrorCol
+    val results = embeddingWithShortTimeout
+      .transform(df)
+      .select("out", errorCol)
+      .collect()
+
+    // All rows should have timeout errors due to very short timeout
+    results.foreach { row =>
+      val errorRow = row.getAs[Row](1)
+      assert(errorRow != null, "Should have error due to timeout")
+      val errorResponse = errorRow.getAs[String]("response")
+      assert(errorResponse.contains("exceeded the time limit") ||
+        errorResponse.contains("timeout"),
+        s"Error should mention timeout, got: $errorResponse")
+    }
+  }
+
+  test("Embedding uses global timeout defaults from OpenAIDefaults") {
+    val originalApiTimeout = OpenAIDefaults.getApiTimeout
+    val originalConnectionTimeout = OpenAIDefaults.getConnectionTimeout
+    val originalTimeout = OpenAIDefaults.getTimeout
+
+    try {
+      OpenAIDefaults.setApiTimeout(350.0)
+      OpenAIDefaults.setConnectionTimeout(15.0)
+      OpenAIDefaults.setTimeout(120.0)
+
+      val e = new OpenAIEmbedding()
+        .setSubscriptionKey(openAIAPIKey)
+        .setCustomServiceName(openAIServiceName)
+        .setDeploymentName("text-embedding-ada-002")
+        .setTextCol("text")
+        .setOutputCol("out")
+
+      // The embedding should work with global defaults applied
+      val results = e.transform(df.limit(1)).collect()
+      assert(results.length == 1)
+      assert(results(0).getAs[Vector]("out").size > 0)
+    } finally {
+      // Reset global defaults to avoid cross-test contamination
+      originalApiTimeout match {
+        case Some(v) => OpenAIDefaults.setApiTimeout(v)
+        case None => OpenAIDefaults.resetApiTimeout()
+      }
+      originalConnectionTimeout match {
+        case Some(v) => OpenAIDefaults.setConnectionTimeout(v)
+        case None => OpenAIDefaults.resetConnectionTimeout()
+      }
+      originalTimeout match {
+        case Some(v) => OpenAIDefaults.setTimeout(v)
+        case None => OpenAIDefaults.resetTimeout()
+      }
+    }
+  }
 
   override def testObjects(): Seq[TestObject[OpenAIEmbedding]] =
     Seq(new TestObject(embedding, df))

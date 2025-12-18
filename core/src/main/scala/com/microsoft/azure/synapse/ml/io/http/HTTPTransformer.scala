@@ -51,8 +51,30 @@ trait ConcurrencyParams extends Wrappable {
   /** @group setParam */
   def setConcurrency(value: Int): this.type = set(concurrency, value)
 
+  val apiTimeout: Param[Double] = new DoubleParam(
+    this, "apiTimeout", "number of seconds to wait for a response from the API")
+
+  /** @group getParam */
+  def getApiTimeout: Double = $(apiTimeout)
+
+  /** @group setParam */
+  def setApiTimeout(value: Double): this.type = set(apiTimeout, value)
+
+  val connectionTimeout: Param[Double] = new DoubleParam(
+    this, "connectionTimeout", "number of seconds to wait for establishing a connection")
+
+  /** @group getParam */
+  def getConnectionTimeout: Double = $(connectionTimeout)
+
+  /** @group setParam */
+  def setConnectionTimeout(value: Double): this.type = set(connectionTimeout, value)
+
   val timeout: Param[Double] = new DoubleParam(
-    this, "timeout", "number of seconds to wait before closing the connection")
+    this, "timeout",
+    "number of seconds for the entire DataFrame transformation to complete, " +
+    "measured from the start of the transform operation; " +
+    "rows processed after this timeout will receive HTTP 408 responses without making API calls"
+  )
 
   /** @group getParam */
   def getTimeout: Double = $(timeout)
@@ -73,7 +95,7 @@ trait ConcurrencyParams extends Wrappable {
     case Some(v) => setConcurrentTimeout(v)
     case None => clear(concurrentTimeout)
   }
-  setDefault(concurrency -> 1, timeout -> 60.0)
+  setDefault(concurrency -> 1, apiTimeout -> 60.0, connectionTimeout -> 5.0)
 }
 
 case object URLKey extends GlobalKey[String]
@@ -106,14 +128,30 @@ class HTTPTransformer(val uid: String)
 
   val clientHolder = SharedVariable {
     getConcurrency match {
-      case 1 => new SingleThreadedHTTPClient(getHandler, (getTimeout * 1000).toInt)
+      case 1 => new SingleThreadedHTTPClient(
+        getHandler,
+        (getApiTimeout * 1000).toInt,
+        (getConnectionTimeout * 1000).toInt)
       case n if n > 1 =>
         val dur = get(concurrentTimeout)
           .map(ct => Duration.fromNanos((ct * math.pow(10, 9)).toLong)) //scalastyle:ignore magic.number
           .getOrElse(Duration.Inf)
         val ec = ExecutionContext.global
-        new AsyncHTTPClient(getHandler, n, dur, (getTimeout * 1000).toInt)(ec)
+        new AsyncHTTPClient(
+          getHandler,
+          n,
+          dur,
+          (getApiTimeout * 1000).toInt,
+          (getConnectionTimeout * 1000).toInt)(ec)
     }
+  }
+
+  private def createTimeoutResponse(timeoutSeconds: Double): HTTPResponseData = {
+    HTTPSchema.stringToResponse(
+      f"The operation exceeded the time limit of $timeoutSeconds%.1f seconds. " +
+        "Fix: increase value of timeout or reset it for no limit.",
+      408, //scalastyle:ignore magic.number HTTP_REQUEST_TIMEOUT
+      "Request Timeout")
   }
 
   /** @param dataset - The input dataset, to be transformed
@@ -126,16 +164,51 @@ class HTTPTransformer(val uid: String)
       val colIndex = df.schema.fieldNames.indexOf(getInputCol)
       val fromRow = HTTPRequestData.makeFromRowConverter
       val toRow = HTTPResponseData.makeToRowConverter
+
+      val timeoutMs = get(timeout).map(t => (t * 1000).toLong)
+      val startTime = timeoutMs.map(_ => System.currentTimeMillis())
+      val startTimeBroadcast = startTime.map(df.sparkSession.sparkContext.broadcast(_))
+
+      val timeoutSec = get(timeout)
+
       df.mapPartitions { it =>
         if (!it.hasNext) {
           Iterator()
         } else {
-          val c = clientHolder.get
-          val responsesWithContext = c.sendRequestsWithContext(it.map { row =>
-            c.RequestWithContext(Option(row.getStruct(colIndex)).map(fromRow), Some(row))
-          })
-          responsesWithContext.map { rwc =>
-            Row.fromSeq(rwc.context.get.asInstanceOf[Row].toSeq :+ rwc.response.flatMap(Option.apply).map(toRow).orNull)
+          // Early timeout check before creating HTTP client to avoid network errors
+          val isAlreadyTimedOut = (timeoutMs, startTimeBroadcast) match {
+            case (Some(tm), Some(startBroadcast)) =>
+              System.currentTimeMillis() - startBroadcast.value > tm
+            case _ => false
+          }
+
+          if (isAlreadyTimedOut) {
+            // Return timeout responses for all rows without creating HTTP client
+            it.map { row =>
+              Row.fromSeq(row.toSeq :+ toRow(createTimeoutResponse(timeoutSec.get)))
+            }
+          } else {
+            val c = clientHolder.get
+
+            val responsesWithContext = c.sendRequestsWithContext(it.map { row =>
+              // Check if timeout has been exceeded
+              val isTimedOut = (timeoutMs, startTimeBroadcast) match {
+                case (Some(tm), Some(startBroadcast)) =>
+                  System.currentTimeMillis() - startBroadcast.value > tm
+                case _ => false
+              }
+
+              if (isTimedOut) {
+                // Return a timeout response without making the API call
+                c.RequestWithContext(None, Some(row), Some(createTimeoutResponse(timeoutSec.get)))
+              } else {
+                c.RequestWithContext(Option(row.getStruct(colIndex)).map(fromRow), Some(row))
+              }
+            })
+            responsesWithContext.map { rwc =>
+              Row.fromSeq(rwc.context.get.asInstanceOf[Row].toSeq :+
+                rwc.response.flatMap(Option.apply).map(toRow).orNull)
+            }
           }
         }
       }(enc)

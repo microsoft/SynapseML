@@ -125,13 +125,15 @@ class SimpleHTTPTransformer(val uid: String)
       .setInputCol(getInputCol)
       .setOutputCol(parsedInputCol))
 
-    val client = Some(new HTTPTransformer()
+    val baseClient = new HTTPTransformer()
       .setHandler(getHandler)
       .setConcurrency(getConcurrency)
       .setConcurrentTimeout(get(concurrentTimeout))
-      .setTimeout(getTimeout)
+      .setApiTimeout(getApiTimeout)
+      .setConnectionTimeout(getConnectionTimeout)
       .setInputCol(parsedInputCol)
-      .setOutputCol(unparsedOutputCol))
+      .setOutputCol(unparsedOutputCol)
+    val client = Some(get(timeout).map(baseClient.setTimeout).getOrElse(baseClient))
 
     val parseErrors = Some(Lambda(_
       .withColumn(getErrorCol, ErrorUtils.addErrorUDF(col(unparsedOutputCol)))

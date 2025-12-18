@@ -290,7 +290,7 @@ object HTTPSchema {
     HTTPResponseData(
       Array(),
       Some(stringToEntity(x)),
-      StatusLineData(null, code, reason),
+      StatusLineData(ProtocolVersionData("HTTP", 1, 1), code, reason),
       "en")
   }
 
@@ -304,7 +304,7 @@ object HTTPSchema {
     HTTPResponseData(
       Array(),
       None,
-      StatusLineData(null, code, reason),
+      StatusLineData(ProtocolVersionData("HTTP", 1, 1), code, reason),
       "en")
   }
 
@@ -318,7 +318,7 @@ object HTTPSchema {
     HTTPResponseData(
       Array(),
       Some(binaryToEntity(x)),
-      StatusLineData(null, code, reason),
+      StatusLineData(ProtocolVersionData("HTTP", 1, 1), code, reason),
       "en")
   }
 

@@ -28,6 +28,10 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
   with HasReturnUsage {
   logClass(FeatureNames.AiServices.OpenAI)
 
+  GlobalParams.registerParam(apiTimeout, OpenAIApiTimeoutKey)
+  GlobalParams.registerParam(connectionTimeout, OpenAIConnectionTimeoutKey)
+  GlobalParams.registerParam(timeout, OpenAITimeoutKey)
+
   def this() = this(Identifiable.randomUID("OpenAIEmbedding"))
 
   def urlPath: String = ""
