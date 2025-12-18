@@ -71,8 +71,10 @@ trait ConcurrencyParams extends Wrappable {
 
   val timeout: Param[Double] = new DoubleParam(
     this, "timeout",
-    "number of seconds for the entire DataFrame transformation to complete, measured from the start of the transform operation; " +
-      "rows processed after this timeout will receive HTTP 408 responses without making API calls")
+    "number of seconds for the entire DataFrame transformation to complete, " +
+    "measured from the start of the transform operation; " +
+    "rows processed after this timeout will receive HTTP 408 responses without making API calls"
+  )
 
   /** @group getParam */
   def getTimeout: Double = $(timeout)
