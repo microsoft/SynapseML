@@ -70,7 +70,9 @@ trait ConcurrencyParams extends Wrappable {
   def setConnectionTimeout(value: Double): this.type = set(connectionTimeout, value)
 
   val timeout: Param[Double] = new DoubleParam(
-    this, "timeout", "number of seconds to wait for the entire operation to complete")
+    this, "timeout",
+    "number of seconds for the entire DataFrame transformation to complete, measured from the start of the transform operation; " +
+      "rows processed after this timeout will receive HTTP 408 responses without making API calls")
 
   /** @group getParam */
   def getTimeout: Double = $(timeout)
