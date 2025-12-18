@@ -90,10 +90,47 @@ trait HasAddressInput extends HasServiceParams {
 
 trait MapsAsyncReply extends HasAsyncReply {
 
+  override protected def extractHeaderValuesForPolling(request: HTTPRequestData): Map[String, String] = {
+    // Extract query parameters instead of headers for Azure Maps authentication
+    // NOTE: Although the method name refers to headers, Azure Maps supplies authentication values
+    // via query parameters, so we return the relevant query params in the expected map format.
+    Option(request.requestLine.uri).flatMap { uriString =>
+      val uri = new URI(uriString)
+      Option(uri.getRawQuery).map { queryParams =>
+        queryParams.split("&").flatMap { param =>
+          val parts = param.split("=", 2)
+          if (parts.length == 2 && (parts(0) == "subscription-key" || parts(0) == "api-version")) {
+            Some(parts(0) -> parts(1))
+          } else {
+            None
+          }
+        }.toMap
+      }
+    }.getOrElse(Map.empty)
+  }
+
   protected def queryForResult(headers: Map[String, String], client: CloseableHttpClient,
                                location: URI): Option[HTTPResponseData] = {
     val statusRequest = new HttpGet()
-    statusRequest.setURI(location)
+    val locationWithAuth = if (headers.nonEmpty) {
+      val authParams = headers.toSeq.map { case (k, v) =>
+        s"$k=$v"
+      }.mkString("&")
+      val originalQuery = Option(location.getRawQuery).filter(_.nonEmpty)
+      val updatedQuery = originalQuery.map(_ + "&" + authParams).getOrElse(authParams)
+      val rawSSP = location.getRawSchemeSpecificPart
+      val baseSSP = {
+        val idx = rawSSP.indexOf('?')
+        if (idx >= 0) rawSSP.substring(0, idx) else rawSSP
+      }
+      val newSSP = s"$baseSSP?$updatedQuery"
+      val schemePrefix = Option(location.getScheme).map(_ + ":").getOrElse("")
+      val fragmentSuffix = Option(location.getRawFragment).map("#" + _).getOrElse("")
+      new URI(s"$schemePrefix$newSSP$fragmentSuffix")
+    } else {
+      location
+    }
+    statusRequest.setURI(locationWithAuth)
     statusRequest.setHeader("User-Agent", s"synapseml/${BuildInfo.version}${HeaderValues.PlatformInfo}")
     val resp = convertAndClose(sendWithRetries(
       client, statusRequest, getBackoffs, extraCodesToRetry = Set(404))) // scalastyle:off magic.number
@@ -115,8 +152,9 @@ trait MapsAsyncReply extends HasAsyncReply {
 
       val maxTries = getMaxPollingRetries
       val location = new URI(response.headers.filter(_.name.toLowerCase() == "location").head.value)
+      val headers = extractHeaderValuesForPolling(request)
       val it = (0 to maxTries).toIterator.flatMap { _ =>
-        queryForResult(Map.empty, client, location).orElse({
+        queryForResult(headers, client, location).orElse({
           blocking {
             Thread.sleep(getPollingDelay.toLong)
           }

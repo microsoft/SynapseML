@@ -8,7 +8,7 @@ import com.microsoft.azure.synapse.ml.core.spark.Functions
 import com.microsoft.azure.synapse.ml.io.binary.BinaryFileReader
 import com.microsoft.azure.synapse.ml.io.http.{ConcurrencyParams, HasErrorCol, HasURL}
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
-import com.microsoft.azure.synapse.ml.param.{HasGlobalParams, StringStringMapParam}
+import com.microsoft.azure.synapse.ml.param.{GlobalParams, HasGlobalParams, StringStringMapParam}
 import com.microsoft.azure.synapse.ml.services._
 import com.microsoft.azure.synapse.ml.services.aifoundry.{AIFoundryChatCompletion, HasAIFoundryTextParamsExtended}
 import HasReturnUsage.{UsageFieldMapping, UsageMappings}
@@ -124,6 +124,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     this, "apiType", "The OpenAI API type to use: 'chat_completions' or 'responses'",
     isValid = ParamValidators.inArray(Array("chat_completions", "responses")))
 
+  GlobalParams.registerParam(apiType, OpenAIApiTypeKey)
+
   def getApiType: String = $(apiType)
 
   def setApiType(value: String): this.type = set(apiType, value)
@@ -131,8 +133,13 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   val columnTypes = new StringStringMapParam(
     this, "columnTypes", "A map from column names to their types. Supported types are 'text' and 'path'.")
   private def validateColumnType(value: String) = {
-    require(value.equalsIgnoreCase("text") || value.equalsIgnoreCase("path"),
+    if (value.equalsIgnoreCase("path") || value.equalsIgnoreCase("text")) {
+      logWarning(s"Column type '$value' is deprecated. Please use lowercase 'path' or 'text' instead.")
+    }
+    require(value == "text" || value == "path",
       s"Unsupported column type: $value. Supported types are 'text' and 'path'.")
+    require(value != "responses" || this.getApiType == "responses",
+      s"Column type 'path' is only supported when apiType is set to 'responses'.")
   }
 
   def getColumnTypes: Map[String, String] = $(columnTypes)
@@ -182,8 +189,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   private val localParamNames = Seq(
     "promptTemplate", "outputCol", "postProcessing", "postProcessingOptions", "dropPrompt", "dropMessages",
     "systemPrompt", "apiType", "returnUsage")
-
-  private val multiModalTextPrompt = "The name of the file to analyze is %s.\nHere is the content:\n"
 
   private val textExtensions = Set("md", "csv", "tsv", "json", "xml")
   private val imageExtensions = Set("jpg", "jpeg", "png", "gif", "webp")
@@ -264,10 +269,15 @@ class OpenAIPrompt(override val uid: String) extends Transformer
         val usageCol = normalizeUsageColumn(responseCol.getField("usage"), mapping)
         df.withColumn(
           getOutputCol,
-          F.struct(parsedCol.alias("response"), usageCol.alias("usage"))
+          F.when(parsedCol.isNotNull,
+            F.struct(parsedCol.alias("response"), usageCol.alias("usage"))
+          )
         )
       case None =>
-        df.withColumn(getOutputCol, parsedCol)
+        df.withColumn(
+          getOutputCol,
+          F.when(parsedCol.isNotNull, parsedCol)
+        )
     }
   }
 
@@ -453,7 +463,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   private def wrapFileToMessagesList(filePathStr: String): Seq[Map[String, String]] = {
     val (fileName, fileBytes, fileType, mimeType) = prepareFile(filePathStr)
-    val baseMessage = stringMessageWrapper(multiModalTextPrompt.format(fileName))
 
     val fileMessage = this.getApiType match {
       case "responses" =>
@@ -461,7 +470,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       case "chat_completions" =>
         makeChatCompletionsFileMessage(fileName, fileBytes, fileType, mimeType)
     }
-    Seq(baseMessage, fileMessage)
+    Seq(fileMessage)
   }
 
   private def categorizeFileType(mimeType: String, extension: String): String = {

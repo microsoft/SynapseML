@@ -128,3 +128,12 @@ class OpenAIDefaults:
 
     def reset_reasoning_effort(self):
         self.defaults.resetReasoningEffort()
+
+    def set_api_type(self, api_type):
+        self.defaults.setApiType(api_type)
+
+    def get_api_type(self):
+        return getOption(self.defaults.getApiType())
+
+    def reset_api_type(self):
+        self.defaults.resetApiType()

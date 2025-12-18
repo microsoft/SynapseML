@@ -87,6 +87,7 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     OpenAIDefaults.setEmbeddingDeploymentName("text-embedding-ada-002")
     OpenAIDefaults.setVerbosity("medium")
     OpenAIDefaults.setReasoningEffort("medium")
+    OpenAIDefaults.setApiType("responses")
 
     assert(OpenAIDefaults.getDeploymentName.contains(deploymentName))
     assert(OpenAIDefaults.getSubscriptionKey.contains(openAIAPIKey))
@@ -99,6 +100,7 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     assert(OpenAIDefaults.getEmbeddingDeploymentName.contains("text-embedding-ada-002"))
     assert(OpenAIDefaults.getVerbosity.contains("medium"))
     assert(OpenAIDefaults.getReasoningEffort.contains("medium"))
+    assert(OpenAIDefaults.getApiType.contains("responses"))
   }
 
   test("Test Resetters") {
@@ -113,6 +115,7 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     OpenAIDefaults.setEmbeddingDeploymentName("text-embedding-ada-002")
     OpenAIDefaults.setVerbosity("medium")
     OpenAIDefaults.setReasoningEffort("medium")
+    OpenAIDefaults.setApiType("responses")
 
     OpenAIDefaults.resetDeploymentName()
     OpenAIDefaults.resetSubscriptionKey()
@@ -125,6 +128,7 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     OpenAIDefaults.resetEmbeddingDeploymentName()
     OpenAIDefaults.resetVerbosity()
     OpenAIDefaults.resetReasoningEffort()
+    OpenAIDefaults.resetApiType()
 
     assert(OpenAIDefaults.getDeploymentName.isEmpty)
     assert(OpenAIDefaults.getSubscriptionKey.isEmpty)
@@ -137,6 +141,7 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
     assert(OpenAIDefaults.getEmbeddingDeploymentName.isEmpty)
     assert(OpenAIDefaults.getVerbosity.isEmpty)
     assert(OpenAIDefaults.getReasoningEffort.isEmpty)
+    assert(OpenAIDefaults.getApiType.isEmpty)
   }
 
   test("Test Parameter Validation") {
