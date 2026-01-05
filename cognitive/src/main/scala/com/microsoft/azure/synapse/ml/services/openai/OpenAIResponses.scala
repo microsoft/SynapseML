@@ -124,7 +124,8 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
     val withModel = mergeModel(base, r)
     val withText = mergeTextVerbosity(withModel, r)
     val withReasoning = mergeReasoning(withText, r)
-    dropSamplingForGpt5(withReasoning)
+    val withoutSampling = dropSamplingForGpt5(withReasoning)
+    withoutSampling.updated("store", false)
   }
 
   private def mergeModel(params: Map[String, Any], r: Row): Map[String, Any] = {
