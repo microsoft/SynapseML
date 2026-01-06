@@ -11,7 +11,6 @@ import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.{GlobalParams, HasGlobalParams, ServiceParam, StringStringMapParam}
 import com.microsoft.azure.synapse.ml.services._
 import com.microsoft.azure.synapse.ml.services.aifoundry.{AIFoundryChatCompletion, HasAIFoundryTextParamsExtended}
-import HasReturnUsage.{UsageFieldMapping, UsageMappings}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{Path => HPath}
 import org.apache.http.entity.AbstractHttpEntity
@@ -45,8 +44,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   with HasURL with HasCustomCogServiceDomain with ConcurrencyParams
   with HasSubscriptionKey with HasAADToken with HasCustomAuthHeader
   with HasCognitiveServiceInput
-  with ComplexParamsWritable with SynapseMLLogging with HasGlobalParams
-  with HasReturnUsage {
+  with ComplexParamsWritable with SynapseMLLogging with HasGlobalParams {
 
   logClass(FeatureNames.AiServices.OpenAI)
 
@@ -57,6 +55,28 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   def urlPath: String = ""
 
   override private[ml] def internalServiceType: String = "openai"
+
+  // Import usage types from HasReturnUsage
+  import HasReturnUsage.{UsageFieldMapping, UsageMappings, UsageStructType}
+
+  val usageCol: Param[String] = new Param[String](
+    this, "usageCol",
+    "Column to hold usage statistics. Set this parameter to enable usage tracking.")
+
+  def getUsageCol: String = $(usageCol)
+
+  def setUsageCol(value: String): this.type = set(usageCol, value)
+
+  val responseIdCol: Param[String] = new Param[String](
+    this, "responseIdCol",
+    "Column to hold response ID when store=true. Auto-generated if not explicitly set.")
+
+  def getResponseIdCol: String = {
+    if (isSet(responseIdCol)) $(responseIdCol)
+    else s"${uid}_responseId"
+  }
+
+  def setResponseIdCol(value: String): this.type = set(responseIdCol, value)
 
   val promptTemplate = new Param[String](
     this, "promptTemplate", "The prompt. supports string interpolation {col1}: {col2}.")
@@ -220,7 +240,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   private val localParamNames = Seq(
     "promptTemplate", "outputCol", "postProcessing", "postProcessingOptions", "dropPrompt", "dropMessages",
-    "systemPrompt", "apiType", "returnUsage")
+    "systemPrompt", "apiType", "usageCol", "responseIdCol")
 
   private val textExtensions = Set("md", "csv", "tsv", "json", "xml")
   private val imageExtensions = Set("jpg", "jpeg", "png", "gif", "webp")
@@ -293,38 +313,21 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       None
   }
 
-  private def buildOutputColumn(
+  // Simplified buildOutputColumn - always returns parsed response
+  private def buildOutputColumn(parsedCol: Column): Column = {
+    F.when(parsedCol.isNotNull, parsedCol)
+  }
+
+  // Build usage column from response when usageCol is set
+  private def buildUsageColumn(
       responseCol: Column,
-      parsedCol: Column,
-      usageMappingOpt: Option[UsageFieldMapping],
-      includeResponseId: Boolean): Column = {
+      usageMapping: UsageFieldMapping): Column = {
+    HasReturnUsage.normalize(responseCol.getField("usage"), usageMapping)
+  }
 
-    val includeUsage = usageMappingOpt.isDefined
-
-    (includeUsage, includeResponseId) match {
-      case (true, true) =>
-        val usageCol = normalizeUsageColumn(responseCol.getField("usage"), usageMappingOpt.get)
-        val idCol = responseCol.getField("id")
-        F.when(parsedCol.isNotNull,
-          F.struct(
-            parsedCol.alias("response"),
-            usageCol.alias("usage"),
-            idCol.alias("id")
-          )
-        )
-      case (true, false) =>
-        val usageCol = normalizeUsageColumn(responseCol.getField("usage"), usageMappingOpt.get)
-        F.when(parsedCol.isNotNull,
-          F.struct(parsedCol.alias("response"), usageCol.alias("usage"))
-        )
-      case (false, true) =>
-        val idCol = responseCol.getField("id")
-        F.when(parsedCol.isNotNull,
-          F.struct(parsedCol.alias("response"), idCol.alias("id"))
-        )
-      case (false, false) =>
-        F.when(parsedCol.isNotNull, parsedCol)
-    }
+  // Build response ID column when store=true
+  private def buildResponseIdColumn(responseCol: Column): Column = {
+    responseCol.getField("id")
   }
 
   private def generateText(
@@ -340,16 +343,30 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     val responseCol = F.col(service.getOutputCol)
     val parsedOutputCol = getParser.parse(service.getOutputMessageText(service.getOutputCol))
 
+    // Always add outputCol with parsed response
+    val outputColumn = buildOutputColumn(parsedOutputCol)
+    var result = transformed.withColumn(getOutputCol, outputColumn)
+
+    // Add usageCol if set
+    if (isSet(usageCol)) {
+      usageMappingFor(service).foreach { usageMapping =>
+        val usageColumn = buildUsageColumn(responseCol, usageMapping)
+        result = result.withColumn(getUsageCol, usageColumn)
+      }
+    }
+
+    // Add responseIdCol if store=true (for responses API)
     val isResponsesApi = service.isInstanceOf[OpenAIResponses]
-    val shouldIncludeId = isResponsesApi && getStore
-    val usageMappingOpt = if (getReturnUsage) usageMappingFor(service) else None
+    if (isResponsesApi && getStore) {
+      val responseIdColumn = buildResponseIdColumn(responseCol)
+      result = result.withColumn(getResponseIdCol, responseIdColumn)
+    }
 
-    val outputColumn = buildOutputColumn(responseCol, parsedOutputCol, usageMappingOpt, shouldIncludeId)
-    val withParsed = transformed.withColumn(getOutputCol, outputColumn)
+    // Drop the service output column
+    result = result.drop(service.getOutputCol)
 
-    val results = withParsed.drop(service.getOutputCol)
-
-    results.select(results.columns.filter(_ != getErrorCol).map(col) :+ col(getErrorCol): _*)
+    // Move errorCol to the end
+    result.select(result.columns.filter(_ != getErrorCol).map(col) :+ col(getErrorCol): _*)
   }
 
   private def processPathColumns(df: DataFrame): (DataFrame, Seq[String], Map[String, String], String) = {
@@ -649,23 +666,26 @@ class OpenAIPrompt(override val uid: String) extends Transformer
         completion.transformSchema(schema)
     }
 
-    val outputDataType: DataType = {
-      val parserOutputSchema = getParser.outputSchema
-      if (getReturnUsage) {
-        T.StructType(Seq(
-          StructField("response", parserOutputSchema, nullable = true),
-          StructField("usage", usageStructType, nullable = true)
-        ))
-      } else {
-        parserOutputSchema
-      }
+    // outputCol now always has parser output type (no struct wrapping)
+    val outputDataType: DataType = getParser.outputSchema
+
+    var withoutServiceOutput = StructType(serviceSchema.filterNot(_.name == service.getOutputCol))
+    var resultSchema = withoutServiceOutput.add(getOutputCol, outputDataType)
+
+    // Add usageCol if set
+    if (isSet(usageCol)) {
+      resultSchema = resultSchema.add(getUsageCol, UsageStructType)
     }
 
-    val withoutServiceOutput = StructType(serviceSchema.filterNot(_.name == service.getOutputCol))
-    val withPromptOutput = withoutServiceOutput.add(getOutputCol, outputDataType)
+    // Add responseIdCol if store=true (for responses API)
+    val isResponsesApi = service.isInstanceOf[OpenAIResponses]
+    if (isResponsesApi && getStore) {
+      resultSchema = resultSchema.add(getResponseIdCol, T.StringType)
+    }
 
-    val errorFieldOpt: Option[StructField] = withPromptOutput.fields.find(_.name == getErrorCol)
-    val fieldsWithoutError: Array[StructField] = withPromptOutput.fields.filterNot(_.name == getErrorCol)
+    // Move errorCol to the end
+    val errorFieldOpt: Option[StructField] = resultSchema.fields.find(_.name == getErrorCol)
+    val fieldsWithoutError: Array[StructField] = resultSchema.fields.filterNot(_.name == getErrorCol)
     StructType(fieldsWithoutError ++ errorFieldOpt.toSeq)
   }
 }
