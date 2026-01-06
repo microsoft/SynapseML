@@ -400,13 +400,13 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
 
   test("store parameter defaults to false") {
     val p = new OpenAIPrompt()
-    assert(p.getStore == false)
+    assert(!p.getStore)
   }
 
   test("store parameter can be set") {
     val p = new OpenAIPrompt()
       .setStore(true)
-    assert(p.getStore == true)
+    assert(p.getStore)
   }
 
   test("previousResponseId parameter can be set") {
@@ -529,7 +529,9 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     val exception = intercept[IllegalArgumentException] {
       promptWithPrevId.transform(df.limit(1))
     }
-    assert(exception.getMessage.contains("previousResponseId/previousResponseIdCol parameters are only supported when apiType is 'responses'"))
+    assert(exception.getMessage.contains(
+      "previousResponseId/previousResponseIdCol parameters are only supported when apiType is 'responses'"
+    ))
   }
 
   test("previousResponseIdCol parameter throws error when apiType is not responses") {
@@ -546,7 +548,9 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     val exception = intercept[IllegalArgumentException] {
       promptWithPrevIdCol.transform(dfWithIds.limit(1))
     }
-    assert(exception.getMessage.contains("previousResponseId/previousResponseIdCol parameters are only supported when apiType is 'responses'"))
+    assert(exception.getMessage.contains(
+      "previousResponseId/previousResponseIdCol parameters are only supported when apiType is 'responses'"
+    ))
   }
 
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
