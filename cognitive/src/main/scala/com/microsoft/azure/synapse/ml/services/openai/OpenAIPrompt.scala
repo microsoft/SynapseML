@@ -37,6 +37,7 @@ import scala.util.{Try, Using}
 
 object OpenAIPrompt extends ComplexParamsReadable[OpenAIPrompt]
 
+// scalastyle:off number.of.methods
 class OpenAIPrompt(override val uid: String) extends Transformer
   with HasAIFoundryTextParamsExtended
   with HasOpenAITextParamsExtended with HasMessagesInput
@@ -386,8 +387,29 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     (dfWithFilenames, pathColumnNames, filenameColMapping, templateWithFilenameRefs)
   }
 
+  private def validateResponsesApiParams(): Unit = {
+    val currentApiType = if (isSet(apiType)) getApiType else "chat_completions"
+    if (currentApiType != "responses") {
+      if (isSet(store) && getStore) {
+        throw new IllegalArgumentException(
+          "store parameter is only supported when apiType is 'responses'. " +
+          "Please set .setApiType(\"responses\") to use this parameter."
+        )
+      }
+      val previousResponseIdColParam = this.getParam(previousResponseId.name + "__values")
+      if (isSet(previousResponseId) || (previousResponseIdColParam != null && isSet(previousResponseIdColParam))) {
+        throw new IllegalArgumentException(
+          "previousResponseId/previousResponseIdCol parameters are only supported when apiType is 'responses'. " +
+          "Please set .setApiType(\"responses\") to use these parameters."
+        )
+      }
+    }
+  }
+
   override def transform(dataset: Dataset[_]): DataFrame = {
     transferGlobalParamsToParamMap()
+    validateResponsesApiParams()
+
     logTransform[DataFrame]({
       val df = dataset.toDF
       val service = getOpenAIChatService
@@ -642,6 +664,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     StructType(fieldsWithoutError ++ errorFieldOpt.toSeq)
   }
 }
+// scalastyle:on number.of.methods
 
 trait OutputParser {
   def parse(responseCol: Column): Column

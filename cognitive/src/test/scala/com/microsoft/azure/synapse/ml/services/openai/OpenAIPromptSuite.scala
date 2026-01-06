@@ -500,6 +500,55 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     assert(schema("no_store_output").dataType == StringType)
   }
 
+  test("store parameter throws error when apiType is not responses") {
+    val promptWithStore = new OpenAIPrompt()
+      .setSubscriptionKey(openAIAPIKey)
+      .setDeploymentName(deploymentName)
+      .setCustomServiceName(openAIServiceName)
+      .setApiType("chat_completions")
+      .setStore(true)
+      .setPromptTemplate("What is {text}?")
+      .setOutputCol("output")
+
+    val exception = intercept[IllegalArgumentException] {
+      promptWithStore.transform(df.limit(1))
+    }
+    assert(exception.getMessage.contains("store parameter is only supported when apiType is 'responses'"))
+  }
+
+  test("previousResponseId parameter throws error when apiType is not responses") {
+    val promptWithPrevId = new OpenAIPrompt()
+      .setSubscriptionKey(openAIAPIKey)
+      .setDeploymentName(deploymentName)
+      .setCustomServiceName(openAIServiceName)
+      .setApiType("chat_completions")
+      .setPreviousResponseId("resp_test123")
+      .setPromptTemplate("What is {text}?")
+      .setOutputCol("output")
+
+    val exception = intercept[IllegalArgumentException] {
+      promptWithPrevId.transform(df.limit(1))
+    }
+    assert(exception.getMessage.contains("previousResponseId/previousResponseIdCol parameters are only supported when apiType is 'responses'"))
+  }
+
+  test("previousResponseIdCol parameter throws error when apiType is not responses") {
+    val dfWithIds = df.withColumn("prev_id", F.lit("resp_test123"))
+    val promptWithPrevIdCol = new OpenAIPrompt()
+      .setSubscriptionKey(openAIAPIKey)
+      .setDeploymentName(deploymentName)
+      .setCustomServiceName(openAIServiceName)
+      .setApiType("chat_completions")
+      .setPreviousResponseIdCol("prev_id")
+      .setPromptTemplate("What is {text}?")
+      .setOutputCol("output")
+
+    val exception = intercept[IllegalArgumentException] {
+      promptWithPrevIdCol.transform(dfWithIds.limit(1))
+    }
+    assert(exception.getMessage.contains("previousResponseId/previousResponseIdCol parameters are only supported when apiType is 'responses'"))
+  }
+
   override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
     super.assertDFEq(df1.drop("out", "outParsed"), df2.drop("out", "outParsed"))(eq)
   }
