@@ -142,6 +142,24 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   def setStore(v: Boolean): this.type = setScalarParam(store, v)
 
+  val previousResponseId: ServiceParam[String] = new ServiceParam[String](
+    this,
+    "previousResponseId",
+    "The ID of a previous response to use as context for chaining requests. " +
+      "Use this for multi-turn conversations or follow-up requests. " +
+      "Only applicable when using the 'responses' API type.",
+    isRequired = false) {
+    override val payloadName: String = "previous_response_id"
+  }
+
+  def getPreviousResponseId: String = getScalarParam(previousResponseId)
+
+  def setPreviousResponseId(v: String): this.type = setScalarParam(previousResponseId, v)
+
+  def getPreviousResponseIdCol: String = getVectorParam(previousResponseId)
+
+  def setPreviousResponseIdCol(v: String): this.type = setVectorParam(previousResponseId, v)
+
   val columnTypes = new StringStringMapParam(
     this, "columnTypes", "A map from column names to their types. Supported types are 'text' and 'path'.")
   private def validateColumnType(value: String) = {

@@ -81,6 +81,23 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
 
   def setStore(v: Boolean): this.type = setScalarParam(store, v)
 
+  val previousResponseId: ServiceParam[String] = new ServiceParam[String](
+    this,
+    "previousResponseId",
+    "The ID of a previous response to use as context for chaining requests. " +
+      "Use this for multi-turn conversations or follow-up requests.",
+    isRequired = false) {
+    override val payloadName: String = "previous_response_id"
+  }
+
+  def getPreviousResponseId: String = getScalarParam(previousResponseId)
+
+  def setPreviousResponseId(v: String): this.type = setScalarParam(previousResponseId, v)
+
+  def getPreviousResponseIdCol: String = getVectorParam(previousResponseId)
+
+  def setPreviousResponseIdCol(v: String): this.type = setVectorParam(previousResponseId, v)
+
   override private[openai] val sharedTextParams: Seq[ServiceParam[_]] = Seq(
     maxTokens,
     temperature,
@@ -95,7 +112,8 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
     bestOf,
     logProbs,
     responseFormat,
-    store
+    store,
+    previousResponseId
   )
 }
 
