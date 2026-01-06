@@ -193,7 +193,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
     val optionalParams = transformer.getOptionalParams(messages.head)
 
     assert(optionalParams.contains("store"))
-    assert(optionalParams("store"))
+    assert(optionalParams("store").asInstanceOf[Boolean])
   }
 
   test("store parameter defaults to false") {

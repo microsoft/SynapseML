@@ -8,7 +8,7 @@ import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
-import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.functions.{col, lit}
 import org.apache.spark.sql.types.{ArrayType, StringType, StructType}
 import org.scalactic.Equality
 import com.microsoft.azure.synapse.ml.services.aifoundry.AIFoundryAPIKey
@@ -535,7 +535,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
   }
 
   test("previousResponseIdCol parameter throws error when apiType is not responses") {
-    val dfWithIds = df.withColumn("prev_id", F.lit("resp_test123"))
+    val dfWithIds = df.withColumn("prev_id", lit("resp_test123"))
     val promptWithPrevIdCol = new OpenAIPrompt()
       .setSubscriptionKey(openAIAPIKey)
       .setDeploymentName(deploymentName)
