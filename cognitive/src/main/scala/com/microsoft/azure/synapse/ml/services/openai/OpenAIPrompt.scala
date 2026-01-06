@@ -396,8 +396,13 @@ class OpenAIPrompt(override val uid: String) extends Transformer
           "Please set .setApiType(\"responses\") to use this parameter."
         )
       }
-      val previousResponseIdColParam = this.getParam(previousResponseId.name + "__values")
-      if (isSet(previousResponseId) || (previousResponseIdColParam != null && isSet(previousResponseIdColParam))) {
+      // Check if previousResponseId is set (scalar or column version)
+      val hasScalarPrevId = isSet(previousResponseId)
+      val hasColPrevId = Try(this.getParam(previousResponseId.name + "__values"))
+        .toOption
+        .exists(param => isSet(param))
+
+      if (hasScalarPrevId || hasColPrevId) {
         throw new IllegalArgumentException(
           "previousResponseId/previousResponseIdCol parameters are only supported when apiType is 'responses'. " +
           "Please set .setApiType(\"responses\") to use these parameters."
