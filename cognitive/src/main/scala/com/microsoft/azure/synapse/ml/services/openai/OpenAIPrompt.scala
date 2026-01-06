@@ -135,7 +135,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   val store: ServiceParam[Boolean] = new ServiceParam[Boolean](
     this,
     "store",
-    "Whether to store the generated response for use in model distillation or evals. " +
+    "Whether to store the generated model response for later retrieval via API. " +
       "Only applicable when using the 'responses' API type.",
     isRequired = false)
 

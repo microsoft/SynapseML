@@ -74,7 +74,7 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
   val store: ServiceParam[Boolean] = new ServiceParam[Boolean](
     this,
     "store",
-    "Whether to store the generated response for use in model distillation or evals.",
+    "Whether to store the generated model response for later retrieval via API.",
     isRequired = false)
 
   def getStore: Boolean = getScalarParam(store)
