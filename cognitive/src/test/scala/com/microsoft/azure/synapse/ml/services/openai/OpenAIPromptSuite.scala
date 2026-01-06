@@ -8,7 +8,7 @@ import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
-import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.functions.{col, lit}
 import org.apache.spark.sql.types.{ArrayType, StringType, StructType}
 import org.scalactic.Equality
 import com.microsoft.azure.synapse.ml.services.aifoundry.AIFoundryAPIKey
@@ -395,6 +395,161 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
           "type" -> "object"
         )
       )
+    ))
+  }
+
+  test("store parameter defaults to false") {
+    val p = new OpenAIPrompt()
+    assert(!p.getStore)
+  }
+
+  test("store parameter can be set") {
+    val p = new OpenAIPrompt()
+      .setStore(true)
+    assert(p.getStore)
+  }
+
+  test("previousResponseId parameter can be set") {
+    val p = new OpenAIPrompt()
+      .setPreviousResponseId("resp_test123")
+    assert(p.getPreviousResponseId == "resp_test123")
+  }
+
+  test("previousResponseIdCol parameter can be set") {
+    val p = new OpenAIPrompt()
+      .setPreviousResponseIdCol("prev_id_column")
+    assert(p.getPreviousResponseIdCol == "prev_id_column")
+  }
+
+  test("store=true with Responses API returns struct with response and id") {
+    val storePrompt = new OpenAIPrompt()
+      .setSubscriptionKey(openAIAPIKey)
+      .setDeploymentName(deploymentName)
+      .setCustomServiceName(openAIServiceName)
+      .setApiVersion("2025-04-01-preview")
+      .setApiType("responses")
+      .setStore(true)
+      .setPromptTemplate("What is {text}?")
+      .setOutputCol("store_output")
+      .setTemperature(0)
+
+    val result = storePrompt.transform(df.limit(1))
+    val schema = result.schema
+    val outputSchema = schema("store_output").dataType.asInstanceOf[StructType]
+
+    // Verify output is a struct with response and id fields
+    assert(outputSchema.fieldNames.contains("response"))
+    assert(outputSchema.fieldNames.contains("id"))
+
+    val row = result.select("store_output").collect().head.getStruct(0)
+    val response = row.getAs[String]("response")
+    val id = row.getAs[String]("id")
+
+    assert(response != null && response.nonEmpty)
+    assert(id != null && id.startsWith("resp_"), s"Expected id starting with 'resp_', got: $id")
+  }
+
+  test("store=true with returnUsage=true returns struct with response, usage, and id") {
+    val storeUsagePrompt = new OpenAIPrompt()
+      .setSubscriptionKey(openAIAPIKey)
+      .setDeploymentName(deploymentName)
+      .setCustomServiceName(openAIServiceName)
+      .setApiVersion("2025-04-01-preview")
+      .setApiType("responses")
+      .setStore(true)
+      .setReturnUsage(true)
+      .setPromptTemplate("What is {text}?")
+      .setOutputCol("store_usage_output")
+      .setTemperature(0)
+
+    val result = storeUsagePrompt.transform(df.limit(1))
+    val schema = result.schema
+    val outputSchema = schema("store_usage_output").dataType.asInstanceOf[StructType]
+
+    // Verify output is a struct with response, usage, and id fields
+    assert(outputSchema.fieldNames.contains("response"))
+    assert(outputSchema.fieldNames.contains("usage"))
+    assert(outputSchema.fieldNames.contains("id"))
+
+    val row = result.select("store_usage_output").collect().head.getStruct(0)
+    val response = row.getAs[String]("response")
+    val id = row.getAs[String]("id")
+    val usage = row.getAs[Row]("usage")
+
+    assert(response != null && response.nonEmpty)
+    assert(id != null && id.startsWith("resp_"))
+    assert(usage != null)
+  }
+
+  test("store=false does not change output structure") {
+    val noStorePrompt = new OpenAIPrompt()
+      .setSubscriptionKey(openAIAPIKey)
+      .setDeploymentName(deploymentName)
+      .setCustomServiceName(openAIServiceName)
+      .setApiVersion("2025-04-01-preview")
+      .setApiType("responses")
+      .setStore(false)
+      .setPromptTemplate("What is {text}?")
+      .setOutputCol("no_store_output")
+      .setTemperature(0)
+
+    val result = noStorePrompt.transform(df.limit(1))
+    val schema = result.schema
+
+    // Output should be a string, not a struct
+    assert(schema("no_store_output").dataType == StringType)
+  }
+
+  test("store parameter throws error when apiType is not responses") {
+    val promptWithStore = new OpenAIPrompt()
+      .setSubscriptionKey(openAIAPIKey)
+      .setDeploymentName(deploymentName)
+      .setCustomServiceName(openAIServiceName)
+      .setApiType("chat_completions")
+      .setStore(true)
+      .setPromptTemplate("What is {text}?")
+      .setOutputCol("output")
+
+    val exception = intercept[IllegalArgumentException] {
+      promptWithStore.transform(df.limit(1))
+    }
+    assert(exception.getMessage.contains("store parameter is only supported when apiType is 'responses'"))
+  }
+
+  test("previousResponseId parameter throws error when apiType is not responses") {
+    val promptWithPrevId = new OpenAIPrompt()
+      .setSubscriptionKey(openAIAPIKey)
+      .setDeploymentName(deploymentName)
+      .setCustomServiceName(openAIServiceName)
+      .setApiType("chat_completions")
+      .setPreviousResponseId("resp_test123")
+      .setPromptTemplate("What is {text}?")
+      .setOutputCol("output")
+
+    val exception = intercept[IllegalArgumentException] {
+      promptWithPrevId.transform(df.limit(1))
+    }
+    assert(exception.getMessage.contains(
+      "previousResponseId/previousResponseIdCol parameters are only supported when apiType is 'responses'"
+    ))
+  }
+
+  test("previousResponseIdCol parameter throws error when apiType is not responses") {
+    val dfWithIds = df.withColumn("prev_id", lit("resp_test123"))
+    val promptWithPrevIdCol = new OpenAIPrompt()
+      .setSubscriptionKey(openAIAPIKey)
+      .setDeploymentName(deploymentName)
+      .setCustomServiceName(openAIServiceName)
+      .setApiType("chat_completions")
+      .setPreviousResponseIdCol("prev_id")
+      .setPromptTemplate("What is {text}?")
+      .setOutputCol("output")
+
+    val exception = intercept[IllegalArgumentException] {
+      promptWithPrevIdCol.transform(dfWithIds.limit(1))
+    }
+    assert(exception.getMessage.contains(
+      "previousResponseId/previousResponseIdCol parameters are only supported when apiType is 'responses'"
     ))
   }
 

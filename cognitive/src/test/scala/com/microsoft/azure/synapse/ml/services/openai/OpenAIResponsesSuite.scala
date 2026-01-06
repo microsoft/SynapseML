@@ -183,6 +183,61 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
     }
   }
 
+  test("store parameter should be included in optional params when set") {
+    val transformer = new OpenAIResponses()
+      .setDeploymentName(deploymentName)
+      .setStore(true)
+
+    val rawMessages = Seq(OpenAIMessage("user", "Test store"))
+    val messages: Seq[Row] = rawMessages.toDF("role", "content", "name").collect()
+    val optionalParams = transformer.getOptionalParams(messages.head)
+
+    assert(optionalParams.contains("store"))
+    assert(optionalParams("store").asInstanceOf[Boolean])
+  }
+
+  test("store parameter defaults to false") {
+    val transformer = new OpenAIResponses()
+      .setDeploymentName(deploymentName)
+
+    assert(!transformer.getStore)
+  }
+
+  test("previousResponseId parameter should be included in optional params when set") {
+    val transformer = new OpenAIResponses()
+      .setDeploymentName(deploymentName)
+      .setPreviousResponseId("resp_test123")
+
+    val rawMessages = Seq(OpenAIMessage("user", "Test chaining"))
+    val messages: Seq[Row] = rawMessages.toDF("role", "content", "name").collect()
+    val optionalParams = transformer.getOptionalParams(messages.head)
+
+    assert(optionalParams.contains("previous_response_id"))
+    assert(optionalParams("previous_response_id") == "resp_test123")
+  }
+
+  test("Basic Usage with store=true returns response with id") {
+    val responsesWithStore = new OpenAIResponses()
+      .setDeploymentName(deploymentName)
+      .setCustomServiceName(openAIServiceName)
+      .setApiVersion("2025-04-01-preview")
+      .setMaxTokens(100)
+      .setOutputCol("out")
+      .setMessagesCol("messages")
+      .setTemperature(0)
+      .setSubscriptionKey(openAIAPIKey)
+      .setStore(true)
+
+    val result = responsesWithStore.transform(goodDf).collect()
+    result.foreach { row =>
+      val responseRow = row.getAs[Row]("out")
+      if (responseRow != null) {
+        val id = responseRow.getAs[String]("id")
+        assert(id != null && id.startsWith("resp_"), s"Expected response id starting with 'resp_', got: $id")
+      }
+    }
+  }
+
   test("getStringEntity serializes contentParts for multimodal payloads") {
     val transformer = new OpenAIResponses()
     val contentParts = Seq(

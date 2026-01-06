@@ -71,6 +71,33 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
     setResponseFormat(Map("type" -> value.paylodName))
   }
 
+  val store: ServiceParam[Boolean] = new ServiceParam[Boolean](
+    this,
+    "store",
+    "Whether to store the generated model response for later retrieval via API.",
+    isRequired = false)
+
+  def getStore: Boolean = getScalarParam(store)
+
+  def setStore(v: Boolean): this.type = setScalarParam(store, v)
+
+  val previousResponseId: ServiceParam[String] = new ServiceParam[String](
+    this,
+    "previousResponseId",
+    "The ID of a previous response to use as context for chaining requests. " +
+      "Use this for multi-turn conversations or follow-up requests.",
+    isRequired = false) {
+    override val payloadName: String = "previous_response_id"
+  }
+
+  def getPreviousResponseId: String = getScalarParam(previousResponseId)
+
+  def setPreviousResponseId(v: String): this.type = setScalarParam(previousResponseId, v)
+
+  def getPreviousResponseIdCol: String = getVectorParam(previousResponseId)
+
+  def setPreviousResponseIdCol(v: String): this.type = setVectorParam(previousResponseId, v)
+
   override private[openai] val sharedTextParams: Seq[ServiceParam[_]] = Seq(
     maxTokens,
     temperature,
@@ -84,7 +111,9 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
     frequencyPenalty,
     bestOf,
     logProbs,
-    responseFormat
+    responseFormat,
+    store,
+    previousResponseId
   )
 }
 
@@ -102,7 +131,10 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
 
   override private[ml] def internalServiceType: String = "openai"
 
-  setDefault(apiVersion -> Left("2025-04-01-preview"))
+  setDefault(
+    apiVersion -> Left("2025-04-01-preview"),
+    store -> Left(false)
+  )
 
   override def setCustomServiceName(v: String): this.type = {
     setUrl(s"https://$v.openai.azure.com/" + urlPath.stripPrefix("/"))

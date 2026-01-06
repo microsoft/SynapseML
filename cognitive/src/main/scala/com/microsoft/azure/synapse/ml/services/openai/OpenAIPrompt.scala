@@ -8,7 +8,7 @@ import com.microsoft.azure.synapse.ml.core.spark.Functions
 import com.microsoft.azure.synapse.ml.io.binary.BinaryFileReader
 import com.microsoft.azure.synapse.ml.io.http.{ConcurrencyParams, HasErrorCol, HasURL}
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
-import com.microsoft.azure.synapse.ml.param.{GlobalParams, HasGlobalParams, StringStringMapParam}
+import com.microsoft.azure.synapse.ml.param.{GlobalParams, HasGlobalParams, ServiceParam, StringStringMapParam}
 import com.microsoft.azure.synapse.ml.services._
 import com.microsoft.azure.synapse.ml.services.aifoundry.{AIFoundryChatCompletion, HasAIFoundryTextParamsExtended}
 import HasReturnUsage.{UsageFieldMapping, UsageMappings}
@@ -37,6 +37,7 @@ import scala.util.{Try, Using}
 
 object OpenAIPrompt extends ComplexParamsReadable[OpenAIPrompt]
 
+// scalastyle:off number.of.methods
 class OpenAIPrompt(override val uid: String) extends Transformer
   with HasAIFoundryTextParamsExtended
   with HasOpenAITextParamsExtended with HasMessagesInput
@@ -131,6 +132,35 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   def setApiType(value: String): this.type = set(apiType, value)
 
+  val store: ServiceParam[Boolean] = new ServiceParam[Boolean](
+    this,
+    "store",
+    "Whether to store the generated model response for later retrieval via API. " +
+      "Only applicable when using the 'responses' API type.",
+    isRequired = false)
+
+  def getStore: Boolean = getScalarParam(store)
+
+  def setStore(v: Boolean): this.type = setScalarParam(store, v)
+
+  val previousResponseId: ServiceParam[String] = new ServiceParam[String](
+    this,
+    "previousResponseId",
+    "The ID of a previous response to use as context for chaining requests. " +
+      "Use this for multi-turn conversations or follow-up requests. " +
+      "Only applicable when using the 'responses' API type.",
+    isRequired = false) {
+    override val payloadName: String = "previous_response_id"
+  }
+
+  def getPreviousResponseId: String = getScalarParam(previousResponseId)
+
+  def setPreviousResponseId(v: String): this.type = setScalarParam(previousResponseId, v)
+
+  def getPreviousResponseIdCol: String = getVectorParam(previousResponseId)
+
+  def setPreviousResponseIdCol(v: String): this.type = setVectorParam(previousResponseId, v)
+
   val columnTypes = new StringStringMapParam(
     this, "columnTypes", "A map from column names to their types. Supported types are 'text' and 'path'.")
   private def validateColumnType(value: String) = {
@@ -176,7 +206,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     systemPrompt -> defaultSystemPrompt,
     apiType -> "chat_completions",
     columnTypes -> Map.empty,
-    timeout -> 360.0
+    timeout -> 360.0,
+    store -> Left(false)
   )
 
   override def setCustomServiceName(v: String): this.type = {
@@ -262,25 +293,37 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       None
   }
 
-  private def withUsageColumn(
-      df: DataFrame,
+  private def buildOutputColumn(
       responseCol: Column,
       parsedCol: Column,
-      mappingOpt: Option[UsageFieldMapping]): DataFrame = {
-    mappingOpt match {
-      case Some(mapping) =>
-        val usageCol = normalizeUsageColumn(responseCol.getField("usage"), mapping)
-        df.withColumn(
-          getOutputCol,
-          F.when(parsedCol.isNotNull,
-            F.struct(parsedCol.alias("response"), usageCol.alias("usage"))
+      usageMappingOpt: Option[UsageFieldMapping],
+      includeResponseId: Boolean): Column = {
+
+    val includeUsage = usageMappingOpt.isDefined
+
+    (includeUsage, includeResponseId) match {
+      case (true, true) =>
+        val usageCol = normalizeUsageColumn(responseCol.getField("usage"), usageMappingOpt.get)
+        val idCol = responseCol.getField("id")
+        F.when(parsedCol.isNotNull,
+          F.struct(
+            parsedCol.alias("response"),
+            usageCol.alias("usage"),
+            idCol.alias("id")
           )
         )
-      case None =>
-        df.withColumn(
-          getOutputCol,
-          F.when(parsedCol.isNotNull, parsedCol)
+      case (true, false) =>
+        val usageCol = normalizeUsageColumn(responseCol.getField("usage"), usageMappingOpt.get)
+        F.when(parsedCol.isNotNull,
+          F.struct(parsedCol.alias("response"), usageCol.alias("usage"))
         )
+      case (false, true) =>
+        val idCol = responseCol.getField("id")
+        F.when(parsedCol.isNotNull,
+          F.struct(parsedCol.alias("response"), idCol.alias("id"))
+        )
+      case (false, false) =>
+        F.when(parsedCol.isNotNull, parsedCol)
     }
   }
 
@@ -296,12 +339,13 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
     val responseCol = F.col(service.getOutputCol)
     val parsedOutputCol = getParser.parse(service.getOutputMessageText(service.getOutputCol))
-    val withParsed = withUsageColumn(
-      transformed,
-      responseCol,
-      parsedOutputCol,
-      if (getReturnUsage) usageMappingFor(service) else None
-    )
+
+    val isResponsesApi = service.isInstanceOf[OpenAIResponses]
+    val shouldIncludeId = isResponsesApi && getStore
+    val usageMappingOpt = if (getReturnUsage) usageMappingFor(service) else None
+
+    val outputColumn = buildOutputColumn(responseCol, parsedOutputCol, usageMappingOpt, shouldIncludeId)
+    val withParsed = transformed.withColumn(getOutputCol, outputColumn)
 
     val results = withParsed.drop(service.getOutputCol)
 
@@ -343,8 +387,34 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     (dfWithFilenames, pathColumnNames, filenameColMapping, templateWithFilenameRefs)
   }
 
+  private def validateResponsesApiParams(): Unit = {
+    val currentApiType = if (isSet(apiType)) getApiType else "chat_completions"
+    if (currentApiType != "responses") {
+      if (isSet(store) && getStore) {
+        throw new IllegalArgumentException(
+          "store parameter is only supported when apiType is 'responses'. " +
+          "Please set .setApiType(\"responses\") to use this parameter."
+        )
+      }
+      // Check if previousResponseId is set (scalar or column version)
+      val hasScalarPrevId = isSet(previousResponseId)
+      val hasColPrevId = Try(this.getParam(previousResponseId.name + "__values"))
+        .toOption
+        .exists(param => isSet(param))
+
+      if (hasScalarPrevId || hasColPrevId) {
+        throw new IllegalArgumentException(
+          "previousResponseId/previousResponseIdCol parameters are only supported when apiType is 'responses'. " +
+          "Please set .setApiType(\"responses\") to use these parameters."
+        )
+      }
+    }
+  }
+
   override def transform(dataset: Dataset[_]): DataFrame = {
     transferGlobalParamsToParamMap()
+    validateResponsesApiParams()
+
     logTransform[DataFrame]({
       val df = dataset.toDF
       val service = getOpenAIChatService
@@ -599,6 +669,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     StructType(fieldsWithoutError ++ errorFieldOpt.toSeq)
   }
 }
+// scalastyle:on number.of.methods
 
 trait OutputParser {
   def parse(responseCol: Column): Column
