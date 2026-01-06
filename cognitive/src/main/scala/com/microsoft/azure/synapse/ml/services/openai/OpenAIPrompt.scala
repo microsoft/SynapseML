@@ -292,25 +292,37 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       None
   }
 
-  private def withUsageColumn(
-      df: DataFrame,
+  private def buildOutputColumn(
       responseCol: Column,
       parsedCol: Column,
-      mappingOpt: Option[UsageFieldMapping]): DataFrame = {
-    mappingOpt match {
-      case Some(mapping) =>
-        val usageCol = normalizeUsageColumn(responseCol.getField("usage"), mapping)
-        df.withColumn(
-          getOutputCol,
-          F.when(parsedCol.isNotNull,
-            F.struct(parsedCol.alias("response"), usageCol.alias("usage"))
+      usageMappingOpt: Option[UsageFieldMapping],
+      includeResponseId: Boolean): Column = {
+
+    val includeUsage = usageMappingOpt.isDefined
+
+    (includeUsage, includeResponseId) match {
+      case (true, true) =>
+        val usageCol = normalizeUsageColumn(responseCol.getField("usage"), usageMappingOpt.get)
+        val idCol = responseCol.getField("id")
+        F.when(parsedCol.isNotNull,
+          F.struct(
+            parsedCol.alias("response"),
+            usageCol.alias("usage"),
+            idCol.alias("id")
           )
         )
-      case None =>
-        df.withColumn(
-          getOutputCol,
-          F.when(parsedCol.isNotNull, parsedCol)
+      case (true, false) =>
+        val usageCol = normalizeUsageColumn(responseCol.getField("usage"), usageMappingOpt.get)
+        F.when(parsedCol.isNotNull,
+          F.struct(parsedCol.alias("response"), usageCol.alias("usage"))
         )
+      case (false, true) =>
+        val idCol = responseCol.getField("id")
+        F.when(parsedCol.isNotNull,
+          F.struct(parsedCol.alias("response"), idCol.alias("id"))
+        )
+      case (false, false) =>
+        F.when(parsedCol.isNotNull, parsedCol)
     }
   }
 
@@ -326,12 +338,13 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
     val responseCol = F.col(service.getOutputCol)
     val parsedOutputCol = getParser.parse(service.getOutputMessageText(service.getOutputCol))
-    val withParsed = withUsageColumn(
-      transformed,
-      responseCol,
-      parsedOutputCol,
-      if (getReturnUsage) usageMappingFor(service) else None
-    )
+
+    val isResponsesApi = service.isInstanceOf[OpenAIResponses]
+    val shouldIncludeId = isResponsesApi && getStore
+    val usageMappingOpt = if (getReturnUsage) usageMappingFor(service) else None
+
+    val outputColumn = buildOutputColumn(responseCol, parsedOutputCol, usageMappingOpt, shouldIncludeId)
+    val withParsed = transformed.withColumn(getOutputCol, outputColumn)
 
     val results = withParsed.drop(service.getOutputCol)
 
