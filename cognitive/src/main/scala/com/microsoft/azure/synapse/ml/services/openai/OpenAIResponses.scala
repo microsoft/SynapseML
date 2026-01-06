@@ -71,6 +71,16 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
     setResponseFormat(Map("type" -> value.paylodName))
   }
 
+  val store: ServiceParam[Boolean] = new ServiceParam[Boolean](
+    this,
+    "store",
+    "Whether to store the generated response for use in model distillation or evals.",
+    isRequired = false)
+
+  def getStore: Boolean = getScalarParam(store)
+
+  def setStore(v: Boolean): this.type = setScalarParam(store, v)
+
   override private[openai] val sharedTextParams: Seq[ServiceParam[_]] = Seq(
     maxTokens,
     temperature,
@@ -84,7 +94,8 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
     frequencyPenalty,
     bestOf,
     logProbs,
-    responseFormat
+    responseFormat,
+    store
   )
 }
 
@@ -102,7 +113,10 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
 
   override private[ml] def internalServiceType: String = "openai"
 
-  setDefault(apiVersion -> Left("2025-04-01-preview"))
+  setDefault(
+    apiVersion -> Left("2025-04-01-preview"),
+    store -> Left(false)
+  )
 
   override def setCustomServiceName(v: String): this.type = {
     setUrl(s"https://$v.openai.azure.com/" + urlPath.stripPrefix("/"))
