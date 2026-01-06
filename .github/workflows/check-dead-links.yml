@@ -23,4 +23,4 @@ jobs:
           sudo apt-get install -y wget
       - name: Scan for dead links
         run: |
-          wget --spider --recursive --no-verbose --tries=3 --retry-connrefused --no-clobber --directory-prefix=site-check --reject-regex="robots\.txt" https://microsoft.github.io/SynapseML/
+          wget --spider --recursive --no-verbose --tries=3 --retry-connrefused --no-clobber --directory-prefix=site-check https://microsoft.github.io/SynapseML/
