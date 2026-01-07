@@ -414,15 +414,25 @@ class OpenAIPrompt(override val uid: String) extends Transformer
         )
       }
       // Check if previousResponseId is set (scalar or column version)
-      val hasScalarPrevId = isSet(previousResponseId)
-      val hasColPrevId = Try(this.getParam(previousResponseId.name + "__values"))
-        .toOption
-        .exists(param => isSet(param))
+      val hasPrevId = get(previousResponseId)
+        .orElse(getDefault(previousResponseId))
+        .isDefined
 
-      if (hasScalarPrevId || hasColPrevId) {
+      if (hasPrevId) {
         throw new IllegalArgumentException(
           "previousResponseId/previousResponseIdCol parameters are only supported when apiType is 'responses'. " +
           "Please set .setApiType(\"responses\") to use these parameters."
+        )
+      }
+    }
+
+    // Check if usageCol is set for a service that doesn't support usage
+    if (isSet(usageCol)) {
+      val service = getOpenAIChatService
+      if (usageMappingFor(service).isEmpty) {
+        throw new IllegalArgumentException(
+          s"usageCol parameter is not supported for apiType='${getApiType}'. " +
+          "Usage tracking is only supported for 'chat_completions', 'responses', and AI Foundry chat APIs."
         )
       }
     }
@@ -672,8 +682,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     var withoutServiceOutput = StructType(serviceSchema.filterNot(_.name == service.getOutputCol))
     var resultSchema = withoutServiceOutput.add(getOutputCol, outputDataType)
 
-    // Add usageCol if set
-    if (isSet(usageCol)) {
+    // Add usageCol if set and supported by the service
+    if (isSet(usageCol) && usageMappingFor(service).isDefined) {
       resultSchema = resultSchema.add(getUsageCol, UsageStructType)
     }
 
