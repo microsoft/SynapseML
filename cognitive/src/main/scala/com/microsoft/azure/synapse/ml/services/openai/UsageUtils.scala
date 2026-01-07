@@ -3,36 +3,15 @@
 
 package com.microsoft.azure.synapse.ml.services.openai
 
-import org.apache.spark.ml.param.{BooleanParam, Params}
 import org.apache.spark.sql.Column
 import org.apache.spark.sql.functions.{array, lit, map_from_arrays, struct, typedLit}
 import org.apache.spark.sql.types.{LongType, MapType, StringType, StructField, StructType}
 
-trait HasReturnUsage extends Params {
-  import HasReturnUsage._
-
-  final val returnUsage: BooleanParam = new BooleanParam(
-    this,
-    "returnUsage",
-    "Whether to include usage statistics alongside the response output."
-  )
-
-  setDefault(returnUsage -> false)
-
-  final def getReturnUsage: Boolean = $(returnUsage)
-
-  final def setReturnUsage(value: Boolean): this.type = set(returnUsage, value)
-
-  protected def usageStructType: StructType = UsageStructType
-
-  protected def normalizeUsageColumn(column: Column,
-                                     mapping: UsageFieldMapping): Column =
-    HasReturnUsage.normalize(column, mapping)
-
-  protected def emptyUsageColumn: Column = HasReturnUsage.EmptyUsageColumn
-}
-
-object HasReturnUsage {
+/**
+ * Utility object for normalizing usage statistics from different OpenAI API responses
+ * into a consistent schema format.
+ */
+object UsageUtils {
 
   final case class UsageFieldMapping(inputTokens: Option[String],
                                      outputTokens: Option[String],
@@ -100,7 +79,14 @@ object HasReturnUsage {
       case _ => EmptyDetailsMapColumn
     }
 
-  private[openai] def normalize(usage: Column, mapping: UsageFieldMapping): Column = {
+  /**
+   * Normalizes usage information from an OpenAI API response into a consistent schema.
+   *
+   * @param usage The usage column from the API response
+   * @param mapping The field mapping for the specific API type
+   * @return A column with normalized usage struct
+   */
+  def normalize(usage: Column, mapping: UsageFieldMapping): Column = {
     val inputTokensCol = tokenValue(usage, mapping.inputTokens)
     val outputTokensCol = tokenValue(usage, mapping.outputTokens)
     val totalTokensCol = tokenValue(usage, mapping.totalTokens)
@@ -115,12 +101,4 @@ object HasReturnUsage {
       outputDetailsCol.alias("output_token_details")
     ).cast(UsageStructType)
   }
-
-  private[openai] val EmptyUsageColumn: Column = struct(
-    NullLongColumn.alias("input_tokens"),
-    NullLongColumn.alias("output_tokens"),
-    NullLongColumn.alias("total_tokens"),
-    EmptyDetailsMapColumn.alias("input_token_details"),
-    EmptyDetailsMapColumn.alias("output_token_details")
-  ).cast(UsageStructType)
 }
