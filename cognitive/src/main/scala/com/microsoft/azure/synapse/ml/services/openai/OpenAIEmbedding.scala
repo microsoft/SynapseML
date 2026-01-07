@@ -98,45 +98,31 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
   override val subscriptionKeyHeaderName: String = "api-key"
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    // Store service response in temporary column
-    val tempResponseCol = s"__temp_${getOutputCol}_response"
-    val parsed = super.transform(dataset).withColumnRenamed(getOutputCol, tempResponseCol)
+    val parsed = super.transform(dataset)
+    val serviceOutputCol = getOutputCol
+    val tempCol = s"__${serviceOutputCol}_response"
 
-    val responseCol = col(tempResponseCol)
-    val embeddingArrayCol = element_at(responseCol.getField("data"), 1).getField("embedding")
-    val vectorCol = array_to_vector(embeddingArrayCol)
+    val withTemp = parsed.withColumnRenamed(serviceOutputCol, tempCol)
+    val response = col(tempCol)
 
-    // Add vector to outputCol
-    var result = parsed.withColumn(
-      getOutputCol,
-      when(responseCol.isNotNull, vectorCol)
-    )
+    val embedding = element_at(response.getField("data"), 1).getField("embedding")
+    var result = withTemp.withColumn(serviceOutputCol, when(response.isNotNull, array_to_vector(embedding)))
 
-    // Add usageCol if set
     if (isSet(usageCol)) {
-      val usageColumn = when(
-        responseCol.isNotNull,
-        UsageUtils.normalize(
-          responseCol.getField("usage"),
-          UsageMappings.Embeddings
-        )
-      )
-      result = result.withColumn(getUsageCol, usageColumn)
+      val usage = UsageUtils.normalize(response.getField("usage"), UsageMappings.Embeddings)
+      result = result.withColumn(getUsageCol, when(response.isNotNull, usage))
     }
 
-    // Drop temporary column
-    result.drop(tempResponseCol)
+    result.drop(tempCol)
   }
 
   override def transformSchema(schema: StructType): StructType = {
     val baseSchema = super.transformSchema(schema)
     val fieldsWithoutOutput = baseSchema.fields.filterNot(_.name == getOutputCol)
 
-    // outputCol always returns vector
     val outputField = StructField(getOutputCol, VectorType, nullable = true)
     var resultSchema = StructType(fieldsWithoutOutput :+ outputField)
 
-    // Add usageCol if set
     if (isSet(usageCol)) {
       resultSchema = resultSchema.add(getUsageCol, UsageStructType)
     }
