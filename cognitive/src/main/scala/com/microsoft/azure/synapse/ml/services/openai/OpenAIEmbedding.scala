@@ -98,24 +98,19 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
   override val subscriptionKeyHeaderName: String = "api-key"
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions._
-
-    val parsed = super.transform(dataset)
+    var result = super.transform(dataset)
     val serviceOutputCol = getOutputCol
-    val tempCol = parsed.withDerivativeCol(serviceOutputCol)
+    val response = col(serviceOutputCol)
 
-    val withTemp = parsed.withColumnRenamed(serviceOutputCol, tempCol)
-    val response = col(tempCol)
-
-    val embedding = element_at(response.getField("data"), 1).getField("embedding")
-    var result = withTemp.withColumn(serviceOutputCol, when(response.isNotNull, array_to_vector(embedding)))
-
+    // Extract usage first while the struct is still intact
     if (isSet(usageCol)) {
       val usage = UsageUtils.normalize(response.getField("usage"), UsageMappings.Embeddings)
       result = result.withColumn(getUsageCol, when(response.isNotNull, usage))
     }
 
-    result.drop(tempCol)
+    // Now overwrite outputCol with just the vector
+    val embedding = element_at(response.getField("data"), 1).getField("embedding")
+    result.withColumn(serviceOutputCol, when(response.isNotNull, array_to_vector(embedding)))
   }
 
   override def transformSchema(schema: StructType): StructType = {
