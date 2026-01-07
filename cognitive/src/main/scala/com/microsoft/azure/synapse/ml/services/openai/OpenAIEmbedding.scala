@@ -19,16 +19,24 @@ import scala.language.existentials
 import org.apache.spark.sql.functions.{col, element_at, struct, when}
 import spray.json.DefaultJsonProtocol._
 import spray.json._
-import HasReturnUsage.UsageMappings
+import UsageUtils.{UsageFieldMapping, UsageMappings, UsageStructType}
+import org.apache.spark.ml.param.Param
 
 object OpenAIEmbedding extends ComplexParamsReadable[OpenAIEmbedding]
 
 class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
-  with HasOpenAIEmbeddingParams with HasCognitiveServiceInput with SynapseMLLogging
-  with HasReturnUsage {
+  with HasOpenAIEmbeddingParams with HasCognitiveServiceInput with SynapseMLLogging {
   logClass(FeatureNames.AiServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAIEmbedding"))
+
+  val usageCol: Param[String] = new Param[String](
+    this, "usageCol",
+    "Column to hold usage statistics. Set this parameter to enable usage tracking.")
+
+  def getUsageCol: String = $(usageCol)
+
+  def setUsageCol(value: String): this.type = set(usageCol, value)
 
   def urlPath: String = ""
 
@@ -90,47 +98,49 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
   override val subscriptionKeyHeaderName: String = "api-key"
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    val parsed = super.transform(dataset)
-    val responseCol = col(getOutputCol)
+    // Store service response in temporary column
+    val tempResponseCol = s"__temp_${getOutputCol}_response"
+    val parsed = super.transform(dataset).withColumnRenamed(getOutputCol, tempResponseCol)
+
+    val responseCol = col(tempResponseCol)
     val embeddingArrayCol = element_at(responseCol.getField("data"), 1).getField("embedding")
     val vectorCol = array_to_vector(embeddingArrayCol)
-    if (getReturnUsage) {
-      val usageCol = normalizeUsageColumn(
-        responseCol.getField("usage"),
-        UsageMappings.Embeddings
-      )
-      parsed.withColumn(
-        getOutputCol,
-        when(responseCol.isNotNull,
-          struct(
-            vectorCol.alias("response"),
-            usageCol.alias("usage")
-          )
+
+    // Add vector to outputCol
+    var result = parsed.withColumn(
+      getOutputCol,
+      when(responseCol.isNotNull, vectorCol)
+    )
+
+    // Add usageCol if set
+    if (isSet(usageCol)) {
+      val usageColumn = when(
+        responseCol.isNotNull,
+        UsageUtils.normalize(
+          responseCol.getField("usage"),
+          UsageMappings.Embeddings
         )
       )
-    } else {
-      parsed.withColumn(
-        getOutputCol,
-        when(responseCol.isNotNull, vectorCol)
-      )
+      result = result.withColumn(getUsageCol, usageColumn)
     }
+
+    // Drop temporary column
+    result.drop(tempResponseCol)
   }
 
   override def transformSchema(schema: StructType): StructType = {
     val baseSchema = super.transformSchema(schema)
     val fieldsWithoutOutput = baseSchema.fields.filterNot(_.name == getOutputCol)
-    val outputField = if (getReturnUsage) {
-      StructField(
-        getOutputCol,
-        StructType(Seq(
-          StructField("response", VectorType, nullable = true),
-          StructField("usage", usageStructType, nullable = true)
-        )),
-        nullable = true
-      )
-    } else {
-      StructField(getOutputCol, VectorType, nullable = true)
+
+    // outputCol always returns vector
+    val outputField = StructField(getOutputCol, VectorType, nullable = true)
+    var resultSchema = StructType(fieldsWithoutOutput :+ outputField)
+
+    // Add usageCol if set
+    if (isSet(usageCol)) {
+      resultSchema = resultSchema.add(getUsageCol, UsageStructType)
     }
-    StructType(fieldsWithoutOutput :+ outputField)
+
+    resultSchema
   }
 }

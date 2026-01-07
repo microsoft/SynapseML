@@ -127,41 +127,33 @@ class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with Ope
     })
   }
 
-  test("returnUsage default (unset) keeps vector output") {
-    val e = usageEmbedding("usage_default_vec")
+  test("usageCol not set keeps vector output") {
+    val e = usageEmbedding("embeddings")
     val schema = e.transformSchema(df.schema)
     assert(schema(e.getOutputCol).dataType == SQLDataTypes.VectorType)
+    assert(!schema.fieldNames.contains("usage"))
 
-    val row = e.transform(df.limit(1)).select("usage_default_vec").collect().head
+    val row = e.transform(df.limit(1)).select("embeddings").collect().head
     val vector = row.getAs[Vector](0)
     assert(vector.size > 0)
   }
 
-  test("returnUsage set to false keeps vector output") {
-    val e = usageEmbedding("usage_false_vec").setReturnUsage(false)
+  test("usageCol set emits vector in outputCol and usage in separate column") {
+    val e = usageEmbedding("embeddings").setUsageCol("usage")
     val schema = e.transformSchema(df.schema)
     assert(schema(e.getOutputCol).dataType == SQLDataTypes.VectorType)
+    assert(schema.fieldNames.contains("usage"))
 
-    val row = e.transform(df.limit(1)).select("usage_false_vec").collect().head
-    val vector = row.getAs[Vector](0)
+    val result = e.transform(df.limit(1))
+    val row = result.select("embeddings", "usage").collect().head
+
+    // Vector is in embeddings column
+    val vector = row.getAs[Vector]("embeddings")
     assert(vector.size > 0)
-  }
 
-  test("returnUsage true emits structured response and usage map") {
-    val e = usageEmbedding("usage_true_struct").setReturnUsage(true)
-    val schema = e.transformSchema(df.schema)
-    val structType = schema(e.getOutputCol).dataType.asInstanceOf[StructType]
-    assert(structType.fieldNames.contains("response"))
-    assert(structType.fieldNames.contains("usage"))
-
-    val outputRow = e.transform(df.limit(1)).select("usage_true_struct").collect().head
-    val struct = outputRow.getAs[Row](0)
-    assert(struct != null)
-    val vector = struct.getAs[Vector]("response")
-    assert(vector.size > 0)
-    val usageRowOpt = Option(struct.getAs[Row]("usage"))
-    assert(usageRowOpt.isDefined)
-    val usageRow = usageRowOpt.get
+    // Usage is in separate usage column
+    val usageRow = row.getAs[Row]("usage")
+    assert(usageRow != null)
     val usageFields = usageRow.schema.fieldNames.toSet
     assert(usageFields.contains("input_tokens"))
     assert(usageFields.contains("total_tokens"))
@@ -173,34 +165,42 @@ class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with Ope
     assert(outputDetails != null)
   }
 
-  test("null input returns null output with returnUsage false") {
+  test("null input returns null output without usageCol") {
     val dfWithNull = Seq(
       Some("Once upon a time"),
       None,
       Some("SynapseML is ")
     ).toDF("text")
 
-    val e = usageEmbedding("null_test_vec")
+    val e = usageEmbedding("embeddings")
     val results = e.transform(dfWithNull).collect()
 
-    assert(results(0).getAs[Vector]("null_test_vec") != null)
-    assert(results(1).getAs[Vector]("null_test_vec") == null)
-    assert(results(2).getAs[Vector]("null_test_vec") != null)
+    assert(results(0).getAs[Vector]("embeddings") != null)
+    assert(results(1).getAs[Vector]("embeddings") == null)
+    assert(results(2).getAs[Vector]("embeddings") != null)
   }
 
-  test("null input returns null output with returnUsage true") {
+  test("null input returns null output with usageCol set") {
     val dfWithNull = Seq(
       Some("Once upon a time"),
       None,
       Some("SynapseML is ")
     ).toDF("text")
 
-    val e = usageEmbedding("null_test_usage").setReturnUsage(true)
+    val e = usageEmbedding("embeddings").setUsageCol("usage")
     val results = e.transform(dfWithNull).collect()
 
-    assert(results(0).getAs[Row]("null_test_usage") != null)
-    assert(results(1).getAs[Row]("null_test_usage") == null)
-    assert(results(2).getAs[Row]("null_test_usage") != null)
+    // First row: both vector and usage should be present
+    assert(results(0).getAs[Vector]("embeddings") != null)
+    assert(results(0).getAs[Row]("usage") != null)
+
+    // Second row: null input should result in null outputs
+    assert(results(1).getAs[Vector]("embeddings") == null)
+    assert(results(1).getAs[Row]("usage") == null)
+
+    // Third row: both vector and usage should be present
+    assert(results(2).getAs[Vector]("embeddings") != null)
+    assert(results(2).getAs[Row]("usage") != null)
   }
 
 

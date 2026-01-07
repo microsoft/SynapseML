@@ -56,8 +56,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   override private[ml] def internalServiceType: String = "openai"
 
-  // Import usage types from HasReturnUsage
-  import HasReturnUsage.{UsageFieldMapping, UsageMappings, UsageStructType}
+  // Import usage utilities
+  import UsageUtils.{UsageFieldMapping, UsageMappings, UsageStructType}
 
   val usageCol: Param[String] = new Param[String](
     this, "usageCol",
@@ -322,7 +322,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   private def buildUsageColumn(
       responseCol: Column,
       usageMapping: UsageFieldMapping): Column = {
-    HasReturnUsage.normalize(responseCol.getField("usage"), usageMapping)
+    UsageUtils.normalize(responseCol.getField("usage"), usageMapping)
   }
 
   // Build response ID column when store=true
