@@ -98,9 +98,11 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
   override val subscriptionKeyHeaderName: String = "api-key"
 
   override def transform(dataset: Dataset[_]): DataFrame = {
+    import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions._
+
     val parsed = super.transform(dataset)
     val serviceOutputCol = getOutputCol
-    val tempCol = s"__${serviceOutputCol}_response"
+    val tempCol = parsed.withDerivativeCol(serviceOutputCol)
 
     val withTemp = parsed.withColumnRenamed(serviceOutputCol, tempCol)
     val response = col(tempCol)
