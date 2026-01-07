@@ -217,16 +217,19 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     ).toDF("text", "category")
 
     val p = usagePrompt("null_test_usage").setUsageCol("usage_col")
-    val results = p.transform(dfWithNull)
+    val results = p.transform(dfWithNull).select("null_test_usage", "usage_col").collect()
 
-    // outputCol should have null for null input
-    val outputResults = results.select("null_test_usage").collect()
-    assert(outputResults(0).getSeq[String](0) != null)
-    assert(outputResults(1).get(0) == null)
-    assert(outputResults(2).getSeq[String](0) != null)
+    // First row: both output and usage should be present
+    assert(results(0).getSeq[String](0) != null)
+    assert(results(0).getAs[Row](1) != null)
 
-    // usageCol should exist but may be null/empty for null inputs
-    assert(results.schema.fieldNames.contains("usage_col"))
+    // Second row: null input results in null output and null usage
+    assert(results(1).get(0) == null)
+    assert(results(1).get(1) == null)
+
+    // Third row: both output and usage should be present
+    assert(results(2).getSeq[String](0) != null)
+    assert(results(2).getAs[Row](1) != null)
   }
 
   test("Basic Usage JSON - without explicit post-processing") {

@@ -328,12 +328,12 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     if (isSet(usageCol)) {
       usageMappingFor(service).foreach { mapping =>
         val usage = UsageUtils.normalize(responseCol.getField("usage"), mapping)
-        result = result.withColumn(getUsageCol, usage)
+        result = result.withColumn(getUsageCol, F.when(responseCol.isNotNull, usage))
       }
     }
 
     if (service.isInstanceOf[OpenAIResponses] && getStore) {
-      result = result.withColumn(getResponseIdCol, responseCol.getField("id"))
+      result = result.withColumn(getResponseIdCol, F.when(responseCol.isNotNull, responseCol.getField("id")))
     }
 
     result = result.drop(serviceOutputCol)
