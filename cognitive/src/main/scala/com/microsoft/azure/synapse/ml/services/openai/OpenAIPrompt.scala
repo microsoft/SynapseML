@@ -70,10 +70,9 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     this, "responseIdCol",
     "Column to hold response ID when store=true. Auto-generated if not explicitly set.")
 
-  def getResponseIdCol: String = {
-    if (isSet(responseIdCol)) $(responseIdCol)
-    else s"${uid}_responseId"
-  }
+  setDefault(responseIdCol -> s"${uid}_responseId")
+
+  def getResponseIdCol: String = $(responseIdCol)
 
   def setResponseIdCol(value: String): this.type = set(responseIdCol, value)
 
