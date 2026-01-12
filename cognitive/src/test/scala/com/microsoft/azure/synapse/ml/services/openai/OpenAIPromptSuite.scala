@@ -360,7 +360,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       ),
       (
         "What's in this image?",
-        null.asInstanceOf[String]
+        null // scalasty:ignore
       ),
       (
         "What's in this image?",
