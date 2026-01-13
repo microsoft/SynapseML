@@ -86,6 +86,29 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     }
   }
 
+  // scalastyle:off null
+  test("createMessagesForRow returns null when all path columns are null") {
+    val prompt = new OpenAIPrompt()
+    val attachments = Map("filePath" -> null)
+    val messages = prompt.createMessagesForRow("Summarize the file", attachments, Seq("filePath"))
+    assert(messages == null)
+  }
+
+  test("createMessagesForRow returns messages when at least one path column has value") {
+    val prompt = new OpenAIPrompt()
+    val tempFile = Files.createTempFile("synapseml-openai", ".txt")
+    try {
+      Files.write(tempFile, "example content".getBytes(StandardCharsets.UTF_8))
+      val attachments = Map("filePath" -> null, "anotherPath" -> tempFile.toString)
+      val messages = prompt.createMessagesForRow("Summarize", attachments, Seq("filePath", "anotherPath"))
+      assert(messages != null)
+      assert(messages.nonEmpty)
+    } finally {
+      Files.deleteIfExists(tempFile)
+    }
+  }
+  // scalastyle:on null
+
   test("RAI Usage") {
     val result = prompt
       .setDeploymentName(deploymentName)
@@ -319,6 +342,45 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     .foreach { case (row, keyword) =>
       assert(row.getString(0).toLowerCase.contains(keyword))
     }
+  }
+
+  test("null path columns return null output") {
+    val promptResponses = new OpenAIPrompt()
+      .setSubscriptionKey(openAIAPIKey)
+      .setDeploymentName(deploymentName)
+      .setCustomServiceName(openAIServiceName)
+      .setApiVersion("2025-04-01-preview")
+      .setApiType("responses")
+      .setColumnType("images", "path")
+      .setOutputCol("outParsed")
+      .setPromptTemplate("{questions}: {images}")
+
+    val urlDF = Seq(
+      (
+        "What's in this document?",
+        "https://mmlspark.blob.core.windows.net/datasets/OCR/paper.pdf"
+      ),
+      (
+        "What's in this image?",
+        null // scalastyle:ignore null
+      ),
+      (
+        "What's in this image?",
+        "https://mmlspark.blob.core.windows.net/datasets/OCR/test2.png"
+      )
+    ).toDF("questions", "images")
+
+    val results = promptResponses
+      .transform(urlDF)
+      .select("outParsed")
+      .collect()
+
+    // First row: valid path, should have output
+    assert(results(0).getString(0) != null)
+    // Second row: null path, should have null output
+    assert(results(1).get(0) == null)
+    // Third row: valid path, should have output
+    assert(results(2).getString(0) != null)
   }
 
   ignore("Custom EndPoint") {

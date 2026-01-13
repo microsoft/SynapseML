@@ -462,13 +462,19 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     attachmentMap: Map[String, String],
     attachmentOrder: Seq[String]
   ): Seq[OpenAICompositeMessage] = {
+    // Filter to get only non-null, non-empty path values
     val orderedAttachments = attachmentOrder.flatMap { columnName =>
-      attachmentMap.get(columnName).map(_.trim).filter(_.nonEmpty)
+      attachmentMap.get(columnName).flatMap(v => Option(v).map(_.trim).filter(_.nonEmpty))
     }
 
-    val contentParts = buildContentParts(userMessage, orderedAttachments)
-    val messages = getPromptsForMessage(Left(contentParts))
-    messages
+    // If there are path columns but all are null/empty, pass through null
+    if (attachmentOrder.nonEmpty && orderedAttachments.isEmpty) {
+      null //scalastyle:ignore null
+    } else {
+      val contentParts = buildContentParts(userMessage, orderedAttachments)
+      val messages = getPromptsForMessage(Left(contentParts))
+      messages
+    }
   }
 
   private def buildContentParts(promptText: String, attachmentPaths: Seq[String]): Seq[Map[String, String]] = {
