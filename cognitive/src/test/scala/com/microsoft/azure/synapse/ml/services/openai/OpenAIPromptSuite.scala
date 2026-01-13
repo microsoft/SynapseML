@@ -86,9 +86,10 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     }
   }
 
+  // scalastyle:off null
   test("createMessagesForRow returns null when all path columns are null") {
     val prompt = new OpenAIPrompt()
-    val attachments = Map("filePath" -> null.asInstanceOf[String])
+    val attachments = Map("filePath" -> null)
     val messages = prompt.createMessagesForRow("Summarize the file", attachments, Seq("filePath"))
     assert(messages == null)
   }
@@ -98,7 +99,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     val tempFile = Files.createTempFile("synapseml-openai", ".txt")
     try {
       Files.write(tempFile, "example content".getBytes(StandardCharsets.UTF_8))
-      val attachments = Map("filePath" -> null.asInstanceOf[String], "anotherPath" -> tempFile.toString)
+      val attachments = Map("filePath" -> null, "anotherPath" -> tempFile.toString)
       val messages = prompt.createMessagesForRow("Summarize", attachments, Seq("filePath", "anotherPath"))
       assert(messages != null)
       assert(messages.nonEmpty)
@@ -106,6 +107,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       Files.deleteIfExists(tempFile)
     }
   }
+  // scalastyle:on null
 
   test("RAI Usage") {
     val result = prompt
@@ -360,7 +362,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       ),
       (
         "What's in this image?",
-        null // scalasty:ignore
+        null // scalastyle:ignore null
       ),
       (
         "What's in this image?",
