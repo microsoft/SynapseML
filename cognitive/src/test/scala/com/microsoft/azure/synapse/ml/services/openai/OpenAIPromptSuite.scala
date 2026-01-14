@@ -434,6 +434,75 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     }
   }
 
+  test("file size limit produces error when exceeded") {
+    val tempFile = Files.createTempFile("synapseml-openai-size-test", ".txt")
+    try {
+      // Write content that exceeds 0.00001 MB (~10 bytes limit)
+      Files.write(tempFile, "This content is larger than 10 bytes".getBytes(StandardCharsets.UTF_8))
+
+      val promptWithLimit = new OpenAIPrompt()
+        .setSubscriptionKey(openAIAPIKey)
+        .setDeploymentName(deploymentName)
+        .setCustomServiceName(openAIServiceName)
+        .setApiVersion("2025-04-01-preview")
+        .setApiType("responses")
+        .setColumnType("filePath", "path")
+        .setFileSizeLimitMB(0.00001) // ~10 bytes limit
+        .setOutputCol("outParsed")
+        .setPromptTemplate("{questions}: {filePath}")
+
+      val testDF = Seq(
+        ("Summarize this file", tempFile.toString)
+      ).toDF("questions", "filePath")
+
+      val result = promptWithLimit.transform(testDF)
+      val rows = result.select("outParsed", promptWithLimit.getErrorCol).collect()
+
+      // Should have null output and error message about size limit
+      assert(rows(0).get(0) == null, "Should have null output when file exceeds size limit")
+      val errorStruct = rows(0).getAs[Row](1)
+      assert(errorStruct != null, "Should have error when file exceeds size limit")
+      val errorMsg = errorStruct.getAs[String]("response")
+      assert(errorMsg.contains("exceeds limit"), s"Error should mention exceeds limit: $errorMsg")
+    } finally {
+      Files.deleteIfExists(tempFile)
+    }
+  }
+
+  test("invalid file extension produces error when validFileExtensions is set") {
+    val tempFile = Files.createTempFile("synapseml-openai-ext-test", ".xyz")
+    try {
+      Files.write(tempFile, "test content".getBytes(StandardCharsets.UTF_8))
+
+      val promptWithExtLimit = new OpenAIPrompt()
+        .setSubscriptionKey(openAIAPIKey)
+        .setDeploymentName(deploymentName)
+        .setCustomServiceName(openAIServiceName)
+        .setApiVersion("2025-04-01-preview")
+        .setApiType("responses")
+        .setColumnType("filePath", "path")
+        .setValidFileExtensions(Array("pdf", "png", "txt"))
+        .setOutputCol("outParsed")
+        .setPromptTemplate("{questions}: {filePath}")
+
+      val testDF = Seq(
+        ("Summarize this file", tempFile.toString)
+      ).toDF("questions", "filePath")
+
+      val result = promptWithExtLimit.transform(testDF)
+      val rows = result.select("outParsed", promptWithExtLimit.getErrorCol).collect()
+
+      // Should have null output and error message about invalid extension
+      assert(rows(0).get(0) == null, "Should have null output for invalid extension")
+      val errorStruct = rows(0).getAs[Row](1)
+      assert(errorStruct != null, "Should have error for invalid extension")
+      val errorMsg = errorStruct.getAs[String]("response")
+      assert(errorMsg.contains("not valid"), s"Error should mention not valid: $errorMsg")
+    } finally {
+      Files.deleteIfExists(tempFile)
+    }
+  }
+
   ignore("Custom EndPoint") {
     lazy val accessToken: String = sys.env.getOrElse("CUSTOM_ACCESS_TOKEN", "")
     lazy val customRootUrlValue: String = sys.env.getOrElse("CUSTOM_ROOT_URL", "")

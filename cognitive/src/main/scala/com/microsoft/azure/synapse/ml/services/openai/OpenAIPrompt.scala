@@ -208,6 +208,23 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   def setColumnTypes(v: java.util.HashMap[String, String]): this.type =
     set(columnTypes, v.asScala.toMap)
 
+  val fileSizeLimitMB: Param[Double] = new Param[Double](
+    this, "fileSizeLimitMB",
+    "Maximum file size in megabytes for path columns. Files exceeding this limit will produce an error.")
+
+  def getFileSizeLimitMB: Double = $(fileSizeLimitMB)
+
+  def setFileSizeLimitMB(value: Double): this.type = set(fileSizeLimitMB, value)
+
+  val validFileExtensions: Param[Array[String]] = new Param[Array[String]](
+    this, "validFileExtensions",
+    "Valid file extensions for path columns (e.g., Array(\"pdf\", \"png\", \"jpg\")). " +
+      "Files with other extensions will produce an error.")
+
+  def getValidFileExtensions: Array[String] = $(validFileExtensions)
+
+  def setValidFileExtensions(value: Array[String]): this.type = set(validFileExtensions, value)
+
   private val defaultSystemPrompt = "You are an AI chatbot who wants to answer user's questions and complete tasks. " +
     "Follow their instructions carefully and be brief if they don't say otherwise."
 
@@ -511,10 +528,28 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   private def prepareFile(filePathStr: String): (String, Array[Byte], String, String) = {
     val filePath = new HPath(filePathStr)
     val fileBytes = BinaryFileReader.readSingleFileBytes(filePath)
+
+    if (isSet(fileSizeLimitMB)) {
+      val limitBytes = (getFileSizeLimitMB * 1024 * 1024).toLong
+      if (fileBytes.length > limitBytes) {
+        val fileSizeMB = fileBytes.length / (1024.0 * 1024.0)
+        throw new IllegalArgumentException(
+          f"File '$filePathStr' size ($fileSizeMB%.2f MB) exceeds limit (${getFileSizeLimitMB}%.2f MB)")
+      }
+    }
+
     val fileName = filePath.getName
     val extension = fileName.lastIndexOf('.') match {
       case idx if idx >= 0 => fileName.substring(idx + 1).toLowerCase
       case _ => ""
+    }
+
+    if (isSet(validFileExtensions)) {
+      val valid = getValidFileExtensions.map(_.toLowerCase)
+      if (!valid.contains(extension)) {
+        throw new IllegalArgumentException(
+          s"File '$filePathStr' has extension '$extension' which is not supported.")
+      }
     }
 
     // Use URLConnection to infer MIME type from byte content
