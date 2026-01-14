@@ -179,7 +179,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   val columnTypes = new StringStringMapParam(
     this, "columnTypes", "A map from column names to their types. Supported types are 'text' and 'path'.")
   private def validateColumnType(value: String) = {
-    if (value.equalsIgnoreCase("path") || value.equalsIgnoreCase("text")) {
+    if ((value.equalsIgnoreCase("path") && value != "path") || (value.equalsIgnoreCase("text") && value != "text")) {
       logWarning(s"Column type '$value' is deprecated. Please use lowercase 'path' or 'text' instead.")
     }
     require(value == "text" || value == "path",
@@ -219,29 +219,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     set(fileSizeLimitMB, value)
   }
 
-  val validFileExtensions: Param[Array[String]] = new Param[Array[String]](
-    this, "validFileExtensions",
-    "Valid file extensions for path columns (e.g., Array(\"pdf\", \"png\", \"jpg\")). " +
-      "Files with other extensions will produce an error.")
-
-  def getValidFileExtensions: Array[String] = $(validFileExtensions)
-
-  def setValidFileExtensions(value: Array[String]): this.type = {
-    require(value != null && value.nonEmpty, "validFileExtensions cannot be null or empty")
-
-    val normalized = value.map { ext =>
-      require(ext != null, "validFileExtensions cannot contain null entries")
-      val trimmed = ext.trim
-      require(trimmed.nonEmpty, "validFileExtensions cannot contain empty or blank entries")
-      require(
-        !trimmed.contains('.') && !trimmed.contains('/') && !trimmed.contains('\\'),
-        s"Invalid file extension '$ext'. Use extensions without dots or path separators, e.g., 'pdf', 'png'."
-      )
-      trimmed
-    }
-
-    set(validFileExtensions, normalized)
-  }
   private val defaultSystemPrompt = "You are an AI chatbot who wants to answer user's questions and complete tasks. " +
     "Follow their instructions carefully and be brief if they don't say otherwise."
 
@@ -561,15 +538,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       case _ => ""
     }
 
-    if (isSet(validFileExtensions)) {
-      val valid = getValidFileExtensions.map(_.toLowerCase)
-      if (!valid.contains(extension)) {
-        throw new IllegalArgumentException(
-          s"File '$filePathStr' has extension '$extension' which is not supported. " +
-            s"Valid extensions are: ${valid.mkString(", ")}")
-      }
-    }
-
     // Use URLConnection to infer MIME type from byte content
     val mimeType = Option(URLConnection.guessContentTypeFromStream(new ByteArrayInputStream(fileBytes))).getOrElse(
       // Fallback to URLConnection.guessContentTypeFromName if content-based detection fails
@@ -596,7 +564,9 @@ class OpenAIPrompt(override val uid: String) extends Transformer
         )
       case "audio" =>
         throw new IllegalArgumentException("Audio input is not supported in the current API version.")
-      case _ =>
+      case "unsupported" =>
+        throw new IllegalArgumentException(s"Unsupported file type: MIME type '$mimeType'.")
+      case "file" =>
         Map(
           "type" -> "input_file",
           "filename" -> fileName,
@@ -615,7 +585,9 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       case "text" =>
         stringMessageWrapper(s"Content: ${new String(fileBytes, StandardCharsets.UTF_8)}")
       case _ =>
-        throw new IllegalArgumentException(s"Multimodal Input is not supported in Chat Completions API.")
+        throw new IllegalArgumentException(
+          s"File type $mimeType is not supported in Chat Completions API. " +
+            "Only text files are supported. Use apiType='responses' for multimodal input.")
     }
   }
 
@@ -636,7 +608,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     else if (mimeType.startsWith("image/") && imageExtensions.contains(extension)) "image"
     else if (mimeType.startsWith("audio/") && audioExtensions.contains(extension)) "audio"
     else if (mimeType.startsWith("text/") || textExtensions.contains(extension)) "text"
-    else "file"
+    else "unsupported"
   }
 
   private[openai] def hasAIFoundryModel: Boolean = this.isDefined(model)
