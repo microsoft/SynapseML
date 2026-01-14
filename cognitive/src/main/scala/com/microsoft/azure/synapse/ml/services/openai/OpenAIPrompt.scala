@@ -266,9 +266,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   private def configureService(
     service: OpenAIServicesBase with HasTextOutput,
     df: DataFrame,
-    promptCol: Column,
-    createMessagesUDF: UserDefinedFunction,
-    attachmentsColumn: Column
+    messagesCol: Column
   ): (DataFrame, String, OpenAIServicesBase with HasTextOutput) = {
     // All services are now HasMessagesInput (OpenAIChatCompletion, OpenAIResponses, AIFoundryChatCompletion)
     // Legacy OpenAICompletion did not support MessagesInput which is no longer used in this class.
@@ -285,7 +283,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     val messageColName = getMessagesCol
 
     (
-      df.withColumn(messageColName, createMessagesUDF(promptCol, attachmentsColumn)),
+      df.withColumn(messageColName, messagesCol),
       messageColName,
       messagesService.setMessagesCol(messageColName).asInstanceOf[OpenAIServicesBase with HasTextOutput]
     )
@@ -413,21 +411,30 @@ class OpenAIPrompt(override val uid: String) extends Transformer
           typedLit(Map.empty[String, String])
         }
 
-      val createMessagesUDF = udf[Seq[OpenAICompositeMessage], String, Map[String, String]] {
+      // UDF returns (messages, error)
+      val createMessagesUDF = udf[(Seq[OpenAICompositeMessage], String), String, Map[String, String]] {
         (userMessage, attachmentMap) =>
-          if (userMessage == null) {
-            null //scalastyle:ignore null
-          } else {
+          if (userMessage == null) (null, null) //scalastyle:ignore null
+          else Try {
             createMessagesForRow(
               userMessage,
               Option(attachmentMap).getOrElse(Map.empty[String, String]),
               pathColumnNames
             )
+          } match {
+            case scala.util.Success(msgs) => (msgs, null) //scalastyle:ignore null
+            case scala.util.Failure(e) => (null, e.getMessage) //scalastyle:ignore null
           }
       }
 
+      val fileResultCol = createMessagesUDF(promptCol, attachmentsColumn)
+      val fileErrorStruct = toErrorStruct(fileResultCol.getField("_2"))
+      val dfWithFile = dfWithFilenames
+        .withColumn(getMessagesCol, fileResultCol.getField("_1"))
+        .withColumn(getErrorCol, fileErrorStruct)
+
       val (dfTemplated, inputColName, serviceConfigured) =
-        configureService(service, dfWithFilenames, promptCol, createMessagesUDF, attachmentsColumn)
+        configureService(service, dfWithFile, F.col(getMessagesCol))
       val result = generateText(serviceConfigured, dfTemplated)
 
       val resultCleaned = filenameColMapping.values.foldLeft(result) { (df, colName) =>
@@ -436,6 +443,22 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
       if (getDropPrompt) resultCleaned.drop(inputColName) else resultCleaned
     }, dataset.columns.length)
+  }
+
+  private def toErrorStruct(errorStr: Column): Column = {
+    val statusSchema = T.StructType(Seq(
+      T.StructField("protocolVersion", T.StructType(Seq(
+        T.StructField("protocol", T.StringType),
+        T.StructField("major", T.IntegerType),
+        T.StructField("minor", T.IntegerType)
+      ))),
+      T.StructField("statusCode", T.IntegerType),
+      T.StructField("reasonPhrase", T.StringType)
+    ))
+    F.when(errorStr.isNotNull, F.struct(
+      errorStr.as("response"),
+      F.lit(null).cast(statusSchema).as("status") //scalastyle:ignore null
+    ))
   }
 
   private[openai] def stringMessageWrapper(str: String): Map[String, String] = {
