@@ -566,7 +566,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       if (!valid.contains(extension)) {
         throw new IllegalArgumentException(
           s"File '$filePathStr' has extension '$extension' which is not supported. " +
-            s"Valid extensions are: ${valid.mkString(\", \")}")
+            s"Valid extensions are: ${valid.mkString(", ")}")
       }
     }
 
