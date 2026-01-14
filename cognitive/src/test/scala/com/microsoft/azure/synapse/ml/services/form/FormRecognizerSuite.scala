@@ -10,7 +10,7 @@ import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, Transformer
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers.retry
 import com.microsoft.azure.synapse.ml.services._
-import com.microsoft.azure.synapse.ml.services.bing.BingImageSearch
+import com.microsoft.azure.synapse.ml.services.TestImageDownloader
 import com.microsoft.azure.synapse.ml.services.form.FormsFlatteners._
 import com.microsoft.azure.synapse.ml.stages.UDFTransformer
 import org.apache.commons.io.IOUtils
@@ -103,9 +103,8 @@ trait FormRecognizerUtils extends TestBase with CognitiveKey with Flaky {
   def createTestDataframe(baseUrl: String, docs: Seq[String], returnBytes: Boolean): DataFrame = {
     val df = docs.map(doc => baseUrl + doc).toDF("source")
     if (returnBytes) {
-      BingImageSearch
-        .downloadFromUrls("source", "imageBytes", 4, 10000)
-        .transform(df)
+      TestImageDownloader
+        .downloadFromUrls(df, "source", "imageBytes")
         .select("imageBytes")
     } else {
       df
