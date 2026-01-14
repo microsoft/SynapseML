@@ -214,7 +214,10 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   def getFileSizeLimitMB: Double = $(fileSizeLimitMB)
 
-  def setFileSizeLimitMB(value: Double): this.type = set(fileSizeLimitMB, value)
+  def setFileSizeLimitMB(value: Double): this.type = {
+    require(value > 0, "File size limit must be positive")
+    set(fileSizeLimitMB, value)
+  }
 
   val validFileExtensions: Param[Array[String]] = new Param[Array[String]](
     this, "validFileExtensions",
@@ -223,8 +226,22 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   def getValidFileExtensions: Array[String] = $(validFileExtensions)
 
-  def setValidFileExtensions(value: Array[String]): this.type = set(validFileExtensions, value)
+  def setValidFileExtensions(value: Array[String]): this.type = {
+    require(value != null && value.nonEmpty, "validFileExtensions cannot be null or empty")
 
+    val normalized = value.map { ext =>
+      require(ext != null, "validFileExtensions cannot contain null entries")
+      val trimmed = ext.trim
+      require(trimmed.nonEmpty, "validFileExtensions cannot contain empty or blank entries")
+      require(
+        !trimmed.contains('.') && !trimmed.contains('/') && !trimmed.contains('\\'),
+        s"Invalid file extension '$ext'. Use extensions without dots or path separators, e.g., 'pdf', 'png'."
+      )
+      trimmed
+    }
+
+    set(validFileExtensions, normalized)
+  }
   private val defaultSystemPrompt = "You are an AI chatbot who wants to answer user's questions and complete tasks. " +
     "Follow their instructions carefully and be brief if they don't say otherwise."
 
@@ -548,7 +565,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       val valid = getValidFileExtensions.map(_.toLowerCase)
       if (!valid.contains(extension)) {
         throw new IllegalArgumentException(
-          s"File '$filePathStr' has extension '$extension' which is not supported.")
+          s"File '$filePathStr' has extension '$extension' which is not supported. " +
+            s"Valid extensions are: ${valid.mkString(\", \")}")
       }
     }
 
