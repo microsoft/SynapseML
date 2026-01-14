@@ -497,7 +497,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       val errorStruct = rows(0).getAs[Row](1)
       assert(errorStruct != null, "Should have error for invalid extension")
       val errorMsg = errorStruct.getAs[String]("response")
-      assert(errorMsg.contains("not valid"), s"Error should mention not valid: $errorMsg")
+      assert(errorMsg.contains("not supported"), s"Error should mention not supported: $errorMsg")
     } finally {
       Files.deleteIfExists(tempFile)
     }
