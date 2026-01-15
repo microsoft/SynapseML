@@ -179,13 +179,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   val columnTypes = new StringStringMapParam(
     this, "columnTypes", "A map from column names to their types. Supported types are 'text' and 'path'.")
   private def validateColumnType(value: String) = {
-    if ((value.equalsIgnoreCase("path") && value != "path") || (value.equalsIgnoreCase("text") && value != "text")) {
-      logWarning(s"Column type '$value' is deprecated. Please use lowercase 'path' or 'text' instead.")
-    }
     require(value == "text" || value == "path",
       s"Unsupported column type: $value. Supported types are 'text' and 'path'.")
-    require(value != "responses" || this.getApiType == "responses",
-      s"Column type 'path' is only supported when apiType is set to 'responses'.")
   }
 
   def getColumnTypes: Map[String, String] = $(columnTypes)
@@ -216,7 +211,17 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   def setFileSizeLimitMB(value: Double): this.type = {
     require(value > 0, "File size limit must be positive")
+    fileSizeLimitBytesCache = Some((value * 1024 * 1024).toLong)
     set(fileSizeLimitMB, value)
+  }
+
+  @transient private var fileSizeLimitBytesCache: Option[Long] = None
+
+  private def getFileSizeLimitBytes: Long = {
+    if (fileSizeLimitBytesCache.isEmpty && isSet(fileSizeLimitMB)) {
+      fileSizeLimitBytesCache = Some((getFileSizeLimitMB * 1024 * 1024).toLong)
+    }
+    fileSizeLimitBytesCache.getOrElse(0L)
   }
 
   private val defaultSystemPrompt = "You are an AI chatbot who wants to answer user's questions and complete tasks. " +
@@ -523,13 +528,10 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     val filePath = new HPath(filePathStr)
     val fileBytes = BinaryFileReader.readSingleFileBytes(filePath)
 
-    if (isSet(fileSizeLimitMB)) {
-      val limitBytes = (getFileSizeLimitMB * 1024 * 1024).toLong
-      if (fileBytes.length > limitBytes) {
-        val fileSizeMB = fileBytes.length / (1024.0 * 1024.0)
-        throw new IllegalArgumentException(
-          f"File '$filePathStr' size ($fileSizeMB%.2f MB) exceeds limit (${getFileSizeLimitMB}%.2f MB)")
-      }
+    if (isSet(fileSizeLimitMB) && fileBytes.length > getFileSizeLimitBytes) {
+      val fileSizeMB = fileBytes.length / (1024.0 * 1024.0)
+      throw new IllegalArgumentException(
+        f"File '$filePathStr' size $fileSizeMB%.2f MB exceeds limit ${getFileSizeLimitMB}%.2f MB")
     }
 
     val fileName = filePath.getName
@@ -565,7 +567,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       case "audio" =>
         throw new IllegalArgumentException("Audio input is not supported in the current API version.")
       case "unsupported" =>
-        throw new IllegalArgumentException(s"Unsupported file type: MIME type '$mimeType'.")
+        throw new IllegalArgumentException(s"Unsupported file type: $mimeType.")
       case "file" =>
         Map(
           "type" -> "input_file",
@@ -587,7 +589,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       case _ =>
         throw new IllegalArgumentException(
           s"File type $mimeType is not supported in Chat Completions API. " +
-            "Only text files are supported. Use apiType='responses' for multimodal input.")
+            "Only text files are supported. Use apiType='responses' for file input.")
     }
   }
 
