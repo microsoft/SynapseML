@@ -383,6 +383,92 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     assert(results(2).getString(0) != null)
   }
 
+  test("file preparation error stores error in errorCol instead of failing") {
+    // Create a valid temp file for the working rows
+    val tempFile = Files.createTempFile("synapseml-openai-test", ".txt")
+    try {
+      Files.write(tempFile, "test content for file".getBytes(StandardCharsets.UTF_8))
+
+      val promptWithPath = new OpenAIPrompt()
+        .setSubscriptionKey(openAIAPIKey)
+        .setDeploymentName(deploymentName)
+        .setCustomServiceName(openAIServiceName)
+        .setApiVersion("2025-04-01-preview")
+        .setApiType("responses")
+        .setColumnType("filePath", "path")
+        .setOutputCol("outParsed")
+        .setPromptTemplate("{questions}: {filePath}")
+
+      val testDF = Seq(
+        ("Summarize this file", tempFile.toString),  // valid file
+        ("Summarize this file", "/nonexistent/path/to/file.txt"),  // non-existent local file
+        ("Summarize this file", tempFile.toString)  // valid file
+      ).toDF("questions", "filePath")
+
+      val result = promptWithPath.transform(testDF)
+      val rows = result.select("outParsed", promptWithPath.getErrorCol).collect()
+      // display result
+      result.show(false)
+
+      // Helper to extract error message from error struct
+      def getErrorMessage(row: Row, idx: Int): String = {
+        val errorStruct = row.getAs[Row](idx)
+        if (errorStruct == null) null else errorStruct.getAs[String]("response") // scalastyle:ignore null
+      }
+
+      // First row: valid file - should have output, no error
+      assert(rows(0).getString(0) != null, "First row should have output")
+      assert(rows(0).get(1) == null, "First row should have no error")
+
+      // Second row: non-existent file - should have null output and error message
+      assert(rows(1).get(0) == null, "Second row should have null output for file not found")
+      val errorMsg = getErrorMessage(rows(1), 1)
+      assert(errorMsg != null, "Second row should have error message for file not found")
+      assert(errorMsg.nonEmpty, "Error message should not be empty")
+
+      // Third row: valid file - should have output, no error
+      assert(rows(2).getString(0) != null, "Third row should have output")
+      assert(rows(2).get(1) == null, "Third row should have no error")
+    } finally {
+      Files.deleteIfExists(tempFile)
+    }
+  }
+
+  test("file size limit produces error when exceeded") {
+    val tempFile = Files.createTempFile("synapseml-openai-size-test", ".txt")
+    try {
+      // Write content that exceeds 0.00001 MB (~10 bytes limit)
+      Files.write(tempFile, "This content is larger than 10 bytes".getBytes(StandardCharsets.UTF_8))
+
+      val promptWithLimit = new OpenAIPrompt()
+        .setSubscriptionKey(openAIAPIKey)
+        .setDeploymentName(deploymentName)
+        .setCustomServiceName(openAIServiceName)
+        .setApiVersion("2025-04-01-preview")
+        .setApiType("responses")
+        .setColumnType("filePath", "path")
+        .setFileSizeLimitMB(0.00001) // ~10 bytes limit
+        .setOutputCol("outParsed")
+        .setPromptTemplate("{questions}: {filePath}")
+
+      val testDF = Seq(
+        ("Summarize this file", tempFile.toString)
+      ).toDF("questions", "filePath")
+
+      val result = promptWithLimit.transform(testDF)
+      val rows = result.select("outParsed", promptWithLimit.getErrorCol).collect()
+
+      // Should have null output and error message about size limit
+      assert(rows(0).get(0) == null, "Should have null output when file exceeds size limit")
+      val errorStruct = rows(0).getAs[Row](1)
+      assert(errorStruct != null, "Should have error when file exceeds size limit")
+      val errorMsg = errorStruct.getAs[String]("response")
+      assert(errorMsg.contains("exceeds limit"), s"Error should mention exceeds limit: $errorMsg")
+    } finally {
+      Files.deleteIfExists(tempFile)
+    }
+  }
+
   ignore("Custom EndPoint") {
     lazy val accessToken: String = sys.env.getOrElse("CUSTOM_ACCESS_TOKEN", "")
     lazy val customRootUrlValue: String = sys.env.getOrElse("CUSTOM_ROOT_URL", "")
