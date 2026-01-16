@@ -209,19 +209,12 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   def getFileSizeLimitMB: Double = $(fileSizeLimitMB)
 
+  private var fileSizeLimitBytes: Long = 0L
+
   def setFileSizeLimitMB(value: Double): this.type = {
     require(value > 0, "File size limit must be positive")
-    fileSizeLimitBytesCache = Some((value * 1024 * 1024).toLong)
+    fileSizeLimitBytes = (value * 1024 * 1024).toLong
     set(fileSizeLimitMB, value)
-  }
-
-  @transient private var fileSizeLimitBytesCache: Option[Long] = None
-
-  private def getFileSizeLimitBytes: Long = {
-    if (fileSizeLimitBytesCache.isEmpty && isSet(fileSizeLimitMB)) {
-      fileSizeLimitBytesCache = Some((getFileSizeLimitMB * 1024 * 1024).toLong)
-    }
-    fileSizeLimitBytesCache.getOrElse(0L)
   }
 
   private val defaultSystemPrompt = "You are an AI chatbot who wants to answer user's questions and complete tasks. " +
@@ -528,7 +521,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     val filePath = new HPath(filePathStr)
     val fileBytes = BinaryFileReader.readSingleFileBytes(filePath)
 
-    if (isSet(fileSizeLimitMB) && fileBytes.length > getFileSizeLimitBytes) {
+    if (isSet(fileSizeLimitMB) && fileBytes.length > fileSizeLimitBytes) {
       val fileSizeMB = fileBytes.length / (1024.0 * 1024.0)
       throw new IllegalArgumentException(
         f"File '$filePathStr' size $fileSizeMB%.2f MB exceeds limit ${getFileSizeLimitMB}%.2f MB")
