@@ -146,8 +146,7 @@ object FabricClient extends RESTUtils {
     Map(
       "Authorization" -> s"${getMLWorkloadAADAuthHeader}",
       "RequestId" -> UUID.randomUUID().toString,
-      "Content-Type" -> "application/json",
-      "x-ms-workload-resource-moniker" -> UUID.randomUUID().toString
+      "Content-Type" -> "application/json"
     )
   }
 
