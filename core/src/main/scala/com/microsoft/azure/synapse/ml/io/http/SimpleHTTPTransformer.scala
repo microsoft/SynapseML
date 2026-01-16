@@ -14,7 +14,7 @@ import org.apache.spark.ml._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.functions.col
+import org.apache.spark.sql.functions.{col, coalesce}
 import org.apache.spark.sql.types.{StringType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
@@ -133,10 +133,17 @@ class SimpleHTTPTransformer(val uid: String)
       .setInputCol(parsedInputCol)
       .setOutputCol(unparsedOutputCol))
 
-    val parseErrors = Some(Lambda(_
-      .withColumn(getErrorCol, ErrorUtils.addErrorUDF(col(unparsedOutputCol)))
-      .withColumn(unparsedOutputCol, ErrorUtils.NullifyResponseUDF(col(getErrorCol), col(unparsedOutputCol)))
-    ))
+    val parseErrors = Some(Lambda(df => {
+      val serviceError = ErrorUtils.addErrorUDF(col(unparsedOutputCol))
+      // Preserve existing errorCol if present (e.g., from prep errors), otherwise use service error
+      val errorExpr = if (df.columns.contains(getErrorCol)) {
+        coalesce(col(getErrorCol), serviceError)
+      } else {
+        serviceError
+      }
+      df.withColumn(getErrorCol, errorExpr)
+        .withColumn(unparsedOutputCol, ErrorUtils.NullifyResponseUDF(col(getErrorCol), col(unparsedOutputCol)))
+    }))
 
     val outputParser =
       Some(getOutputParser

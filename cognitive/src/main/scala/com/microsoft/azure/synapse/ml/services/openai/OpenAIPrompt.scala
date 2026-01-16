@@ -179,13 +179,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   val columnTypes = new StringStringMapParam(
     this, "columnTypes", "A map from column names to their types. Supported types are 'text' and 'path'.")
   private def validateColumnType(value: String) = {
-    if (value.equalsIgnoreCase("path") || value.equalsIgnoreCase("text")) {
-      logWarning(s"Column type '$value' is deprecated. Please use lowercase 'path' or 'text' instead.")
-    }
     require(value == "text" || value == "path",
       s"Unsupported column type: $value. Supported types are 'text' and 'path'.")
-    require(value != "responses" || this.getApiType == "responses",
-      s"Column type 'path' is only supported when apiType is set to 'responses'.")
   }
 
   def getColumnTypes: Map[String, String] = $(columnTypes)
@@ -207,6 +202,27 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   def setColumnTypes(v: java.util.HashMap[String, String]): this.type =
     set(columnTypes, v.asScala.toMap)
+
+  val fileSizeLimitMB: Param[Double] = new Param[Double](
+    this, "fileSizeLimitMB",
+    "Maximum file size in megabytes for path columns. Files exceeding this limit will produce an error.")
+
+  def getFileSizeLimitMB: Double = $(fileSizeLimitMB)
+
+  private var fileSizeLimitBytes: Long = 0L
+
+  def setFileSizeLimitMB(value: Double): this.type = {
+    require(value > 0, "File size limit must be positive")
+    fileSizeLimitBytes = (value * 1024 * 1024).toLong
+    set(fileSizeLimitMB, value)
+  }
+
+  private def getFileSizeLimitBytes: Long = {
+    if (fileSizeLimitBytes == 0L && isSet(fileSizeLimitMB)) {
+      fileSizeLimitBytes = (getFileSizeLimitMB * 1024 * 1024).toLong
+    }
+    fileSizeLimitBytes
+  }
 
   private val defaultSystemPrompt = "You are an AI chatbot who wants to answer user's questions and complete tasks. " +
     "Follow their instructions carefully and be brief if they don't say otherwise."
@@ -266,9 +282,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   private def configureService(
     service: OpenAIServicesBase with HasTextOutput,
     df: DataFrame,
-    promptCol: Column,
-    createMessagesUDF: UserDefinedFunction,
-    attachmentsColumn: Column
+    messagesCol: Column
   ): (DataFrame, String, OpenAIServicesBase with HasTextOutput) = {
     // All services are now HasMessagesInput (OpenAIChatCompletion, OpenAIResponses, AIFoundryChatCompletion)
     // Legacy OpenAICompletion did not support MessagesInput which is no longer used in this class.
@@ -285,7 +299,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     val messageColName = getMessagesCol
 
     (
-      df.withColumn(messageColName, createMessagesUDF(promptCol, attachmentsColumn)),
+      df.withColumn(messageColName, messagesCol),
       messageColName,
       messagesService.setMessagesCol(messageColName).asInstanceOf[OpenAIServicesBase with HasTextOutput]
     )
@@ -413,21 +427,30 @@ class OpenAIPrompt(override val uid: String) extends Transformer
           typedLit(Map.empty[String, String])
         }
 
-      val createMessagesUDF = udf[Seq[OpenAICompositeMessage], String, Map[String, String]] {
+      // UDF returns (messages, error)
+      val createMessagesUDF = udf[(Seq[OpenAICompositeMessage], String), String, Map[String, String]] {
         (userMessage, attachmentMap) =>
-          if (userMessage == null) {
-            null //scalastyle:ignore null
-          } else {
+          if (userMessage == null) (null, null) //scalastyle:ignore null
+          else Try {
             createMessagesForRow(
               userMessage,
               Option(attachmentMap).getOrElse(Map.empty[String, String]),
               pathColumnNames
             )
+          } match {
+            case scala.util.Success(msgs) => (msgs, null) //scalastyle:ignore null
+            case scala.util.Failure(e) => (null, e.getMessage) //scalastyle:ignore null
           }
       }
 
+      val fileResultCol = createMessagesUDF(promptCol, attachmentsColumn)
+      val fileErrorStruct = toErrorStruct(fileResultCol.getField("_2"))
+      val dfWithFile = dfWithFilenames
+        .withColumn(getMessagesCol, fileResultCol.getField("_1"))
+        .withColumn(getErrorCol, fileErrorStruct)
+
       val (dfTemplated, inputColName, serviceConfigured) =
-        configureService(service, dfWithFilenames, promptCol, createMessagesUDF, attachmentsColumn)
+        configureService(service, dfWithFile, F.col(getMessagesCol))
       val result = generateText(serviceConfigured, dfTemplated)
 
       val resultCleaned = filenameColMapping.values.foldLeft(result) { (df, colName) =>
@@ -436,6 +459,22 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
       if (getDropPrompt) resultCleaned.drop(inputColName) else resultCleaned
     }, dataset.columns.length)
+  }
+
+  private def toErrorStruct(errorStr: Column): Column = {
+    val statusSchema = T.StructType(Seq(
+      T.StructField("protocolVersion", T.StructType(Seq(
+        T.StructField("protocol", T.StringType),
+        T.StructField("major", T.IntegerType),
+        T.StructField("minor", T.IntegerType)
+      ))),
+      T.StructField("statusCode", T.IntegerType),
+      T.StructField("reasonPhrase", T.StringType)
+    ))
+    F.when(errorStr.isNotNull, F.struct(
+      errorStr.as("response"),
+      F.lit(null).cast(statusSchema).as("status") //scalastyle:ignore null
+    ))
   }
 
   private[openai] def stringMessageWrapper(str: String): Map[String, String] = {
@@ -488,6 +527,13 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   private def prepareFile(filePathStr: String): (String, Array[Byte], String, String) = {
     val filePath = new HPath(filePathStr)
     val fileBytes = BinaryFileReader.readSingleFileBytes(filePath)
+
+    if (isSet(fileSizeLimitMB) && fileBytes.length > getFileSizeLimitBytes) {
+      val fileSizeMB = fileBytes.length / (1024.0 * 1024.0)
+      throw new IllegalArgumentException(
+        f"File '$filePathStr' size $fileSizeMB%.2f MB exceeds limit ${getFileSizeLimitMB}%.2f MB")
+    }
+
     val fileName = filePath.getName
     val extension = fileName.lastIndexOf('.') match {
       case idx if idx >= 0 => fileName.substring(idx + 1).toLowerCase
@@ -520,7 +566,9 @@ class OpenAIPrompt(override val uid: String) extends Transformer
         )
       case "audio" =>
         throw new IllegalArgumentException("Audio input is not supported in the current API version.")
-      case _ =>
+      case "unsupported" =>
+        throw new IllegalArgumentException(s"Unsupported file type: $mimeType.")
+      case "file" =>
         Map(
           "type" -> "input_file",
           "filename" -> fileName,
@@ -539,7 +587,9 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       case "text" =>
         stringMessageWrapper(s"Content: ${new String(fileBytes, StandardCharsets.UTF_8)}")
       case _ =>
-        throw new IllegalArgumentException(s"Multimodal Input is not supported in Chat Completions API.")
+        throw new IllegalArgumentException(
+          s"File type $mimeType is not supported in Chat Completions API. " +
+            "Only text files are supported. Use apiType='responses' for file input.")
     }
   }
 
@@ -560,7 +610,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     else if (mimeType.startsWith("image/") && imageExtensions.contains(extension)) "image"
     else if (mimeType.startsWith("audio/") && audioExtensions.contains(extension)) "audio"
     else if (mimeType.startsWith("text/") || textExtensions.contains(extension)) "text"
-    else "file"
+    else "unsupported"
   }
 
   private[openai] def hasAIFoundryModel: Boolean = this.isDefined(model)
