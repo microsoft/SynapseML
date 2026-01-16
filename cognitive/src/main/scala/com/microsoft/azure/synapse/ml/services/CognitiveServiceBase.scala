@@ -397,12 +397,10 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
     } else if (aadTokenOpt.nonEmpty) {
       aadTokenOpt.foreach { s =>
         headers += (aadHeaderName -> ("Bearer " + s))
-        headers += ("x-ms-workload-resource-moniker" -> UUID.randomUUID().toString)
       }
     } else if (customAuthHeaderOpt.nonEmpty) {
       customAuthHeaderOpt.foreach { s =>
         headers += (aadHeaderName -> s)
-        headers += ("x-ms-workload-resource-moniker" -> UUID.randomUUID().toString)
       }
     }
 
