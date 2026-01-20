@@ -21,25 +21,28 @@ class LightGBMDataset(val datasetPtr: SWIGTYPE_p_void) extends AutoCloseable {
 
   def getField[T: ClassTag](fieldName: String): Array[T] = {
     // The result length
-    val tmpOutLenPtr = lightgbmlib.new_int32_tp()
+    val tmpOutLenPtr = lightgbmlib.new_int64_tp()
     // The type of the result array
     val outTypePtr = lightgbmlib.new_int32_tp()
     // The pointer to the result
     val outArray = lightgbmlib.new_voidpp()
     lightgbmlib.LGBM_DatasetGetField(datasetPtr, fieldName, tmpOutLenPtr, outArray, outTypePtr)
     val outType = lightgbmlib.int32_tp_value(outTypePtr)
-    val outLength = lightgbmlib.int32_tp_value(tmpOutLenPtr)
+    val outLength = lightgbmlib.int64_tp_value(tmpOutLenPtr)
     // Note: hacky workaround for now until new pointer manipulation functions are added
     val voidptr = lightgbmlib.voidpp_value(outArray)
     val address = new SwigPtrWrapper(voidptr).getCPtrValue()
     if (outType == lightgbmlibConstants.C_API_DTYPE_INT32) {
-      (0 until outLength).map(index =>
+      (0L until outLength).map(index =>
         lightgbmlibJNI.intArray_getitem(address, index).asInstanceOf[T]).toArray
+    } else if (outType == lightgbmlibConstants.C_API_DTYPE_INT64) {
+      (0L until outLength).map(index =>
+        lightgbmlibJNI.longArray_getitem(address, index).asInstanceOf[T]).toArray
     } else if (outType == lightgbmlibConstants.C_API_DTYPE_FLOAT32) {
-      (0 until outLength).map(index =>
+      (0L until outLength).map(index =>
         lightgbmlibJNI.floatArray_getitem(address, index).asInstanceOf[T]).toArray
     } else if (outType == lightgbmlibConstants.C_API_DTYPE_FLOAT64) {
-      (0 until outLength).map(index =>
+      (0L until outLength).map(index =>
         lightgbmlibJNI.doubleArray_getitem(address, index).asInstanceOf[T]).toArray
     } else {
       throw new Exception("Unknown type returned from native lightgbm in LightGBMDataset getField")
@@ -49,11 +52,11 @@ class LightGBMDataset(val datasetPtr: SWIGTYPE_p_void) extends AutoCloseable {
   /** Get the number of rows in the Dataset.
     * @return The number of rows.
     */
-  def numData(): Int = {
-    val numDataPtr = lightgbmlib.new_intp()
+  def numData(): Long = {
+    val numDataPtr = lightgbmlib.new_int64_tp()
     LightGBMUtils.validate(lightgbmlib.LGBM_DatasetGetNumData(datasetPtr, numDataPtr), "DatasetGetNumData")
-    val numData = lightgbmlib.intp_value(numDataPtr)
-    lightgbmlib.delete_intp(numDataPtr)
+    val numData = lightgbmlib.int64_tp_value(numDataPtr)
+    lightgbmlib.delete_int64_tp(numDataPtr)
     numData
   }
 
@@ -82,7 +85,7 @@ class LightGBMDataset(val datasetPtr: SWIGTYPE_p_void) extends AutoCloseable {
     }
   }
 
-  def addFloatField(field: Array[Double], fieldName: String, numRows: Int): Unit = {
+  def addFloatField(field: Array[Double], fieldName: String, numRows: Long): Unit = {
     // Generate the column and add to dataset
     var colArray: Option[SWIGTYPE_p_float] = None
     try {
@@ -96,7 +99,7 @@ class LightGBMDataset(val datasetPtr: SWIGTYPE_p_void) extends AutoCloseable {
     }
   }
 
-  def addFloatField(field: floatChunkedArray, fieldName: String, numRows: Int): Unit = {
+  def addFloatField(field: floatChunkedArray, fieldName: String, numRows: Long): Unit = {
     val coalescedLabelArray = lightgbmlib.new_floatArray(field.get_add_count())
     try {
       field.coalesce_to(coalescedLabelArray)
@@ -107,7 +110,7 @@ class LightGBMDataset(val datasetPtr: SWIGTYPE_p_void) extends AutoCloseable {
     }
   }
 
-  def addFloatField(field: SWIGTYPE_p_float, fieldName: String, numRows: Int): Unit = {
+  def addFloatField(field: SWIGTYPE_p_float, fieldName: String, numRows: Long): Unit = {
     // Add the column to dataset
     val colAsVoidPtr = lightgbmlib.float_to_voidp_ptr(field)
     val data32bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT32
@@ -116,7 +119,7 @@ class LightGBMDataset(val datasetPtr: SWIGTYPE_p_void) extends AutoCloseable {
       "DatasetSetField")
   }
 
-  def addDoubleField(field: Array[Double], fieldName: String, numRows: Int): Unit = {
+  def addDoubleField(field: Array[Double], fieldName: String, numRows: Long): Unit = {
     // Generate the column and add to dataset
     var colArray: Option[SWIGTYPE_p_double] = None
     try {
@@ -130,7 +133,7 @@ class LightGBMDataset(val datasetPtr: SWIGTYPE_p_void) extends AutoCloseable {
     }
   }
 
-  def addDoubleField(field: doubleChunkedArray, fieldName: String, numRows: Int): Unit = {
+  def addDoubleField(field: doubleChunkedArray, fieldName: String, numRows: Long): Unit = {
     val coalescedLabelArray = lightgbmlib.new_doubleArray(field.get_add_count())
     try {
       field.coalesce_to(coalescedLabelArray)
@@ -141,7 +144,7 @@ class LightGBMDataset(val datasetPtr: SWIGTYPE_p_void) extends AutoCloseable {
     }
   }
 
-  def addDoubleField(field: SWIGTYPE_p_double, fieldName: String, numRows: Int): Unit = {
+  def addDoubleField(field: SWIGTYPE_p_double, fieldName: String, numRows: Long): Unit = {
     // Add the column to dataset
     val colAsVoidPtr = lightgbmlib.double_to_voidp_ptr(field)
     val data64bitType = lightgbmlibConstants.C_API_DTYPE_FLOAT64
@@ -150,7 +153,7 @@ class LightGBMDataset(val datasetPtr: SWIGTYPE_p_void) extends AutoCloseable {
       "DatasetSetField")
   }
 
-  def addIntField(field: Array[Int], fieldName: String, numRows: Int): Unit = {
+  def addIntField(field: Array[Int], fieldName: String, numRows: Long): Unit = {
     // Generate the column and add to dataset
     var colArray: Option[SWIGTYPE_p_int] = None
     try {
