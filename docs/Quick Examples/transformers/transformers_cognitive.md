@@ -45,11 +45,6 @@ import AzureSearch, {toc as AzureSearchTOC} from './cognitive/_AzureSearch.md';
 <AzureSearch/>
 
 
-import BingImageSearch, {toc as BingImageSearchTOC} from './cognitive/_BingImageSearch.md';
-
-<BingImageSearch/>
-
-
 export const toc = [...TextAnalyticsTOC, ...TranslatorTOC, ...ComputerVisionTOC,
 ...FormRecognizerTOC, ...AnomalyDetectionTOC, ...FaceTOC, ...SpeechToTextTOC,
-...AzureSearchTOC, ...BingImageSearchTOC]
+...AzureSearchTOC]

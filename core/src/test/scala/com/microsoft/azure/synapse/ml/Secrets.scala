@@ -63,7 +63,6 @@ object Secrets {
 
   lazy val AnomalyApiKey: String = getSecret("anomaly-api-key")
   lazy val AzureSearchKey: String = getSecret("azure-search-key")
-  lazy val BingSearchKey: String = getSecret("bing-search-key")
   lazy val TranslatorKey: String = getSecret("translator-key")
   lazy val AzureMapsKey: String = getSecret("azuremaps-api-key")
   lazy val PowerbiURL: String = getSecret("powerbi-url")
