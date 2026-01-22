@@ -365,3 +365,9 @@ testWebsiteDocs := {
     Seq("python", s"${join(baseDirectory.value, "website/doctest.py")}", version.value)
   )
 }
+
+val pythonStyle = TaskKey[Unit]("pythonStyle", "run python style check")
+pythonStyle := {
+  runCmd(activateCondaEnv ++ "black --diff --color .")
+  runCmd(activateCondaEnv ++ "black --check -q .".split(" ").toSeq)
+}
