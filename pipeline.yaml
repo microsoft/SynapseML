@@ -42,6 +42,38 @@ schedules:
         - master
 
 parameters:
+  - name: testStyle
+    displayName: Run Style Tests
+    type: boolean
+    default: true
+  - name: testUnit
+    displayName: Run Unit Tests
+    type: boolean
+    default: true
+  - name: testPython
+    displayName: Run Python Tests
+    type: boolean
+    default: true
+  - name: testR
+    displayName: Run R Tests
+    type: boolean
+    default: true
+  - name: testE2E
+    displayName: Run E2E Tests
+    type: boolean
+    default: true
+  - name: testWebsiteSamples
+    displayName: Run Website Samples Tests
+    type: boolean
+    default: true
+  - name: websiteAutoDeploy
+    displayName: Website Auto Deployment
+    type: boolean
+    default: true
+  - name: publishArtifacts
+    displayName: Publish Artifacts
+    type: boolean
+    default: true
   - name: runSynapseExtensionE2ETests
     displayName: Run Synapse Extension E2E Tests
     type: boolean
@@ -65,7 +97,7 @@ variables:
 jobs:
 - job: Style
   cancelTimeoutInMinutes: 0
-  condition: eq(variables.runTests, 'True')
+  condition: and(eq(variables.runTests, 'True'), eq('${{ parameters.testStyle }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
   steps:
@@ -86,6 +118,7 @@ jobs:
 
 - job: Publish
   cancelTimeoutInMinutes: 0
+  condition: eq('${{ parameters.publishArtifacts }}', true)
   pool:
     vmImage: $(UBUNTU_VERSION)
   steps:
@@ -138,6 +171,7 @@ jobs:
 - job: E2E
   timeoutInMinutes: 120
   cancelTimeoutInMinutes: 0
+  condition: and(eq(variables.runTests, 'True'), eq('${{ parameters.testE2E }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
   strategy:
@@ -357,7 +391,7 @@ jobs:
 - job: PythonTests
   timeoutInMinutes: 120
   cancelTimeoutInMinutes: 0
-  condition: eq(variables.runTests, 'True')
+  condition: and(eq(variables.runTests, 'True'), eq('${{ parameters.testPython }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
   strategy:
@@ -446,7 +480,7 @@ jobs:
 - job: RTests
   timeoutInMinutes: 60
   cancelTimeoutInMinutes: 0
-  condition: eq(variables.runTests, 'True')
+  condition: and(eq(variables.runTests, 'True'), eq('${{ parameters.testR }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
   strategy:
@@ -527,7 +561,7 @@ jobs:
 
 - job: WebsiteSamplesTests
   cancelTimeoutInMinutes: 0
-  condition: eq(variables.runTests, 'True')
+  condition: and(eq(variables.runTests, 'True'), eq('${{ parameters.testWebsiteSamples }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
   steps:
@@ -567,6 +601,7 @@ jobs:
 
 - job: WebsiteAutoDeployment
   cancelTimeoutInMinutes: 0
+  condition: eq('${{ parameters.websiteAutoDeploy }}', true)
   pool:
     vmImage: $(UBUNTU_VERSION)
   steps:
@@ -614,7 +649,7 @@ jobs:
 - job: UnitTests
   cancelTimeoutInMinutes: 1
   timeoutInMinutes: 80
-  condition: eq(variables.runTests, 'True')
+  condition: and(eq(variables.runTests, 'True'), eq('${{ parameters.testUnit }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
   strategy:
