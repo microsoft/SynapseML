@@ -251,8 +251,13 @@ object CodegenPlugin extends AutoPlugin {
       val publishLocalResult: Unit = (publishLocal dependsOn packagePython).value
       val rootPublishLocalResult: Unit = (LocalRootProject / Compile / publishLocal).value
       runCmd(
-        activateCondaEnv ++ Seq("pip", "install", "-I",
-          s"${name.value.replace("-", "_")}-${pythonizedVersion(version.value)}-py2.py3-none-any.whl"),
+        activateCondaEnv ++ Seq(
+          "pip",
+          "install",
+          "-I",
+          "--no-deps",
+          s"${name.value.replace("-", "_")}-${pythonizedVersion(version.value)}-py2.py3-none-any.whl"
+        ),
         join(codegenDir.value, "package", "python"))
     },
     publishPython := {
