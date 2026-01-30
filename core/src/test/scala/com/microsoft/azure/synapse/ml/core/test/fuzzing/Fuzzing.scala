@@ -372,8 +372,15 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
     val stage = rTestObjects().head.stage
     val stageName = camelToSnake(getClassName(stage))
     // stage may be in a different jar than the one specified in conf
-    val stageJar = stage.getClass.getProtectionDomain().getCodeSource().getLocation().toString.split("/").last
-    val stageProject = stageJar.replaceFirst("^synapseml-([^_]+)_.*", "$1")
+    // Use conf.jarName to get the project name (fixes Java 17 class loading behavior difference)
+    val stageProject = conf.jarName.flatMap { jarName =>
+      "synapseml-([a-z0-9\\-]+)_".r.findFirstMatchIn(jarName).map(_.group(1))
+    }.getOrElse {
+      // Fallback for edge cases
+      val location = stage.getClass.getProtectionDomain.getCodeSource.getLocation.toString
+      val pathParts = location.split("/")
+      pathParts.takeWhile(_ != "target").lastOption.getOrElse("core")
+    }
     val stageSrcDir = conf.rSrcDir.toString.replaceFirst("^(.*)/[^/]+(/target/.*)", "$1/" + stageProject + "$2")
     val srcFile = FileUtilities.join(stageSrcDir, s"ml_$stageName.R")
     val srcPath = srcFile.toString.replaceAllLiterally("\\", "\\\\")
