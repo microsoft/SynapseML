@@ -372,8 +372,19 @@ trait RTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality w
     val stage = rTestObjects().head.stage
     val stageName = camelToSnake(getClassName(stage))
     // stage may be in a different jar than the one specified in conf
-    val stageJar = stage.getClass.getProtectionDomain().getCodeSource().getLocation().toString.split("/").last
-    val stageProject = stageJar.replaceFirst("^synapseml-([^_]+)_.*", "$1")
+    // In Java 17, getCodeSource().getLocation() may return a classes directory instead of a jar.
+    // We extract the project name from the code source path by finding the directory before /target/
+    // This works for both classes directories and jars in the target directory.
+    // e.g., /home/.../core/target/scala-2.13/classes/ -> core
+    // e.g., /home/.../cognitive/target/scala-2.13/synapseml-cognitive_2.13.jar -> cognitive
+    val stageProject = {
+      val location = stage.getClass.getProtectionDomain.getCodeSource.getLocation.toString
+      val pathParts = location.split("/")
+      val targetIdx = pathParts.indexOf("target")
+      require(targetIdx > 0,
+        s"Expected stage class location to contain /target/, but got: $location")
+      pathParts(targetIdx - 1)
+    }
     val stageSrcDir = conf.rSrcDir.toString.replaceFirst("^(.*)/[^/]+(/target/.*)", "$1/" + stageProject + "$2")
     val srcFile = FileUtilities.join(stageSrcDir, s"ml_$stageName.R")
     val srcPath = srcFile.toString.replaceAllLiterally("\\", "\\\\")

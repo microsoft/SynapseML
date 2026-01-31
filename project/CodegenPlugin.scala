@@ -179,9 +179,31 @@ object CodegenPlugin extends AutoPlugin {
     (Test / compile).value
     val arg = codegenArgs.value
     Def.task {
-      val r = (Test / runner).value
       val cp = (Test / fullClasspath).value
-      r.run("com.microsoft.azure.synapse.ml.codegen.RCodegen", cp.files, Seq(arg), streams.value.log).get
+      val log = streams.value.log
+      // Ensure java.sql module is visible to Scala reflection when running RCodegen
+      val javaOpts = (Test / javaOptions).value ++ Seq(
+        "--add-modules=java.sql",
+        "--add-opens=java.sql/java.sql=ALL-UNNAMED"
+      )
+      val opts = ForkOptions()
+        .withRunJVMOptions(javaOpts.toVector)
+        .withOutputStrategy(OutputStrategy.LoggedOutput(log))
+
+      // Write arg to temp file to avoid quoting issues
+      val tempFile = File.createTempFile("rcodegen_conf", ".json")
+      FileUtils.writeStringToFile(tempFile, arg, "UTF-8")
+
+      val exitCode = Fork.java(
+        opts,
+        Seq(
+          "-cp",
+          cp.files.map(_.getAbsolutePath).mkString(File.pathSeparator),
+          "com.microsoft.azure.synapse.ml.codegen.RCodegen",
+          "@" + tempFile.getAbsolutePath
+        )
+      )
+      if (exitCode != 0) sys.error(s"RCodegen failed with exit code $exitCode")
     }
   } tag (RCodeGenTag)
 
@@ -190,9 +212,31 @@ object CodegenPlugin extends AutoPlugin {
     (Test / compile).value
     val arg = testgenArgs.value
     Def.task {
-      val r = (Test / runner).value
       val cp = (Test / fullClasspath).value
-      r.run("com.microsoft.azure.synapse.ml.codegen.RTestGen", cp.files, Seq(arg), streams.value.log).get
+      val log = streams.value.log
+      // Ensure java.sql module is visible to Scala reflection when running RTestGen
+      val javaOpts = (Test / javaOptions).value ++ Seq(
+        "--add-modules=java.sql",
+        "--add-opens=java.sql/java.sql=ALL-UNNAMED"
+      )
+      val opts = ForkOptions()
+        .withRunJVMOptions(javaOpts.toVector)
+        .withOutputStrategy(OutputStrategy.LoggedOutput(log))
+
+      // Write arg to temp file to avoid quoting issues
+      val tempFile = File.createTempFile("rtestgen_conf", ".json")
+      FileUtils.writeStringToFile(tempFile, arg, "UTF-8")
+
+      val exitCode = Fork.java(
+        opts,
+        Seq(
+          "-cp",
+          cp.files.map(_.getAbsolutePath).mkString(File.pathSeparator),
+          "com.microsoft.azure.synapse.ml.codegen.RTestGen",
+          "@" + tempFile.getAbsolutePath
+        )
+      )
+      if (exitCode != 0) sys.error(s"RTestGen failed with exit code $exitCode")
     }
   } tag (RTestGenTag)
 
