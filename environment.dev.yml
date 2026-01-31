@@ -4,7 +4,7 @@ channels:
   - default
 dependencies:
   # Core language/runtime
-  - python=3.12.11
+  - python=3.13
   - requests=2.26.0
   - pip=25.2
   # Build / tooling
@@ -16,8 +16,8 @@ dependencies:
   - pip:
     # Core data / Spark stack
     - pyarrow==22.0.0
-    - pyspark==4.0.1
-    - pandas==2.0.3
+    - pyspark==4.1.1
+    - pandas==2.3.3
     - wheel
 
     # Docs and testing
@@ -43,7 +43,7 @@ dependencies:
     - numpy
 
     # Lightweight extras commonly used in examples / tools
-    - onnxmltools==1.7.0
+    - onnxmltools==1.12.0
     - matplotlib
     - Pillow
     - langchain==0.0.152
