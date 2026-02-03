@@ -1,9 +1,32 @@
 steps:
+  # Cache Ivy dependencies (Maven/Ivy artifacts downloaded by SBT)
   - task: Cache@2
     inputs:
-      key: 'ivy | "$(Agent.OS)" | **/build.sbt'
+      key: 'ivy-v2 | "$(Agent.OS)" | build.sbt | project/build.sbt | project/plugins.sbt'
       restoreKeys: |
-        ivy | "$(Agent.OS)"
-        ivy
-      path: $(Pipeline.Workspace)/../../.ivy2/cache
-    displayName: Cache local ivy repo
+        ivy-v2 | "$(Agent.OS)" | build.sbt | project/build.sbt
+        ivy-v2 | "$(Agent.OS)" | build.sbt
+        ivy-v2 | "$(Agent.OS)"
+      path: ~/.ivy2/cache
+    displayName: Cache Ivy dependencies
+    continueOnError: true
+
+  # Cache SBT boot directory (Scala compiler, SBT launcher)
+  - task: Cache@2
+    inputs:
+      key: 'sbt-boot-v2 | "$(Agent.OS)" | project/build.properties'
+      restoreKeys: |
+        sbt-boot-v2 | "$(Agent.OS)"
+      path: ~/.sbt/boot
+    displayName: Cache SBT boot
+    continueOnError: true
+
+  # Cache Coursier (SBT's dependency resolver cache)
+  - task: Cache@2
+    inputs:
+      key: 'coursier-v2 | "$(Agent.OS)" | build.sbt | project/build.sbt'
+      restoreKeys: |
+        coursier-v2 | "$(Agent.OS)"
+      path: ~/.cache/coursier/v1
+    displayName: Cache Coursier
+    continueOnError: true
