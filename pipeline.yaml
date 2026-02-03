@@ -146,18 +146,7 @@ jobs:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksCPUTests"
       databricks-gpu:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksGPUTests"
-#      databricks-rapids tests have been disabled because these tests are failing.
-#      This test will be re-enabled once the issue is fixed.
-#      databricks-rapids:
-#        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksRapidsTests"
-#      TODO: Re-enable the Synapse E2E tests once the environment in live.
-#      synapse:
-#        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseTests"
-#      ${{ if eq(parameters.runSynapseExtensionE2ETests, true) }}:
-#        synapse-internal:
-#          TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseExtension.SynapseExtensionsTests"
   steps:
-    #- template: templates/ivy_cache.yml
     - template: templates/update_cli.yml
     - template: templates/conda.yml
     - template: templates/kv.yml
@@ -179,82 +168,6 @@ jobs:
         testResultsFiles: '**/test-reports/TEST-*.xml'
         failTaskOnFailedTests: true
       condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
-
-
-#
-#- job: PublishDocker
-#  displayName: PublishDocker
-#  pool:
-#    vmImage: ubuntu-22.04
-#  steps:
-#    - task: AzureCLI@2
-#      displayName: 'Get Docker Tag + Version'
-#      inputs:
-#        azureSubscription: 'SynapseML Build'
-#        scriptLocation: inlineScript
-#        scriptType: bash
-#        inlineScript: |
-#          VERSION=$(sbt "core/version" | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
-#          echo '##vso[task.setvariable variable=version]'$VERSION
-#          echo '##vso[task.setvariable variable=gittag]'$(git tag -l --points-at HEAD)
-#    - task: Docker@2
-#      displayName: Demo Image Build
-#      inputs:
-#        containerRegistry: 'SynapseML MCR MSI'
-#        repository: 'public/mmlspark/build-demo'
-#        command: 'build'
-#        buildContext: "."
-#        Dockerfile: 'tools/docker/demo/Dockerfile'
-#        tags: $(version)
-#        arguments: --build-arg SYNAPSEML_VERSION=$(version)
-#    - task: Docker@2
-#      displayName: Demo Image Push
-#      inputs:
-#        containerRegistry: 'SynapseML MCR MSI'
-#        repository: 'public/mmlspark/build-demo'
-#        command: 'push'
-#        tags: $(version)
-#    - task: Docker@2
-#      displayName: Minimal Image Build
-#      inputs:
-#        containerRegistry: 'SynapseML MCR MSI'
-#        repository: 'public/mmlspark/build-minimal'
-#        command: 'build'
-#        buildContext: "."
-#        Dockerfile: 'tools/docker/minimal/Dockerfile'
-#        tags: $(version)
-#        arguments: --build-arg SYNAPSEML_VERSION=$(version)
-#    - task: Docker@2
-#      displayName: Minimal Image Push
-#      inputs:
-#        containerRegistry: 'SynapseML MCR MSI'
-#        repository: 'public/mmlspark/build-minimal'
-#        command: 'push'
-#        tags: $(version)
-#    - task: Docker@2
-#      condition: and(eq(variables.isMaster, true), startsWith(variables['gittag'], 'v'))
-#      displayName: Release Image Build
-#      inputs:
-#        containerRegistry: 'SynapseML MCR MSI'
-#        repository: 'public/mmlspark/release'
-#        command: 'build'
-#        buildContext: "."
-#        Dockerfile: 'tools/docker/demo/Dockerfile'
-#        tags: |
-#          $(version)
-#          latest
-#        arguments: --build-arg SYNAPSEML_VERSION=$(version)
-#    - task: Docker@2
-#      condition: and(eq(variables.isMaster, true), startsWith(variables['gittag'], 'v'))
-#      displayName: Release Image Push
-#      inputs:
-#        containerRegistry: 'SynapseML MCR MSI'
-#        repository: 'public/mmlspark/release'
-#        command: 'push'
-#        tags: |
-#          $(version)
-#          latest
-#    - task: ComponentGovernanceComponentDetection@0
 
 - job: Release
   cancelTimeoutInMinutes: 0
