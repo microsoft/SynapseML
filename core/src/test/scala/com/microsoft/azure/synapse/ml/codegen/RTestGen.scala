@@ -86,12 +86,15 @@ object RTestGen {
       conf.rTestThatDir.mkdirs()
     }
 
-    // For local and CI testing we prefer to load the freshly built core jar directly via
+    // For local and CI testing we prefer to load the freshly built main jar directly via
     // spark.jars, rather than relying on Maven resolution of a potentially unpublished
     // SNAPSHOT coordinate. Keep Avro on spark.jars.packages so Spark can resolve it
     // from the usual repositories.
+    // Note: conf.jarName may be the tests jar (ending with -tests.jar), but we need the main jar
+    // which contains the actual classes. We derive it by removing the -tests suffix.
     val localCoreJar: Option[String] = conf.jarName.map { jar =>
-      new File(conf.targetDir, jar).getAbsolutePath.replaceAllLiterally("\\", "\\\\")
+      val mainJar = jar.replace("-tests.jar", ".jar")
+      new File(conf.targetDir, mainJar).getAbsolutePath.replaceAllLiterally("\\", "\\\\")
     }
     val avroOnlyPackages: String = SparkMavenPackageList
       .split(",")

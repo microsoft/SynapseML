@@ -67,10 +67,11 @@ pathParts(targetIdx - 1)  // e.g., "core" or "cognitive"
 
 **Problem:** R tests tried to load `synapseml-core` via Maven coordinates, but SNAPSHOT versions may not be published.
 
-**Fix:** `core/src/test/scala/.../RTestGen.scala` - Load freshly built JAR directly via `spark.jars` config:
+**Fix:** `core/src/test/scala/.../RTestGen.scala` - Load freshly built JAR directly via `spark.jars` config. Also convert the tests JAR name to the main JAR name (remove `-tests` suffix) since the config passes the tests JAR but we need the main JAR containing the actual classes:
 ```scala
 val localCoreJar: Option[String] = conf.jarName.map { jar =>
-  new File(conf.targetDir, jar).getAbsolutePath
+  val mainJar = jar.replace("-tests.jar", ".jar")
+  new File(conf.targetDir, mainJar).getAbsolutePath
 }
 // Use spark.jars for local JAR, spark.jars.packages only for Avro
 ```
