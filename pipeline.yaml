@@ -171,6 +171,8 @@ jobs:
 
 - job: Release
   cancelTimeoutInMinutes: 0
+  # Skip Release job entirely for non-master branches to avoid AME approval prompts
+  condition: eq(variables.isMaster, true)
   pool:
     vmImage: $(UBUNTU_VERSION)
   steps:
