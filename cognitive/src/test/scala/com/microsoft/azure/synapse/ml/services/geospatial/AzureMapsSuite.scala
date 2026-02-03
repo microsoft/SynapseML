@@ -207,52 +207,61 @@ class AzMapsPointInPolygonSuite extends TransformerFuzzing[CheckPointInPolygon] 
     .setUserDataIdentifier(udid)
     .setErrorCol("errors")
 
+  // Azure Maps Spatial API was retired - cleanup will fail, so we ignore errors
   override def afterAll(): Unit = {
-    val queryParams = URLEncodingUtils.format(Map("api-version" -> "1.0",
-      "subscription-key" -> azureMapsKey))
-    tryWithRetries() { () =>
-      val deleteRequest = new HttpDelete(new URI("https://us.atlas.microsoft.com/mapData/"
-        + udid + "?" + queryParams))
-      deleteRequest.setHeader("User-Agent",
-        s"synapseml/${BuildInfo.version}${HeaderValues.PlatformInfo}")
-      RESTHelpers.safeSend(deleteRequest, expectedCodes = Set(204))
+    try {
+      val queryParams = URLEncodingUtils.format(Map("api-version" -> "1.0",
+        "subscription-key" -> azureMapsKey))
+      tryWithRetries() { () =>
+        val deleteRequest = new HttpDelete(new URI("https://us.atlas.microsoft.com/mapData/"
+          + udid + "?" + queryParams))
+        deleteRequest.setHeader("User-Agent",
+          s"synapseml/${BuildInfo.version}${HeaderValues.PlatformInfo}")
+        RESTHelpers.safeSend(deleteRequest, expectedCodes = Set(204))
+      }
+    } catch {
+      case _: Exception => // Ignore - API is retired
     }
   }
 
+  // Azure Maps Spatial API was retired - setup will fail, so we ignore errors
   override def beforeAll(): Unit = {
     super.beforeAll()
+    try {
+      // Setup a polygon to use
+      val testPolygon =
+        """
+          |{ "type": "FeatureCollection", "features": [
+          |    {
+          |      "type": "Feature",
+          |      "properties": { "geometryId": "test_geometry_id" },
+          |      "geometry": {"type": "Polygon", "coordinates": [[[-122.14290618896484,47.67856488312544],
+          |      [-122.03956604003906,47.67856488312544],[-122.03956604003906,47.7483271435476],
+          |      [-122.14290618896484,47.7483271435476],[-122.14290618896484,47.67856488312544]]]} } ] }
+          |""".stripMargin
+      val queryParams = URLEncodingUtils.format(Map("api-version" -> "1.0", "subscription-key" -> azureMapsKey))
+      val createRequest = new HttpPost(new URI("https://us.atlas.microsoft.com/mapData/upload?" + queryParams +
+        "&dataFormat=geojson"))
+      createRequest.setHeader("Content-Type", "application/json")
+      createRequest.setEntity(new StringEntity(testPolygon))
+      val response = RESTHelpers.safeSend(createRequest, expectedCodes = Set(202))
+      val locationUrl = response.getFirstHeader("location").getValue
+      assert(locationUrl != null)
 
-    // Setup a polygon to use
-    val testPolygon =
-      """
-        |{ "type": "FeatureCollection", "features": [
-        |    {
-        |      "type": "Feature",
-        |      "properties": { "geometryId": "test_geometry_id" },
-        |      "geometry": {"type": "Polygon", "coordinates": [[[-122.14290618896484,47.67856488312544],
-        |      [-122.03956604003906,47.67856488312544],[-122.03956604003906,47.7483271435476],
-        |      [-122.14290618896484,47.7483271435476],[-122.14290618896484,47.67856488312544]]]} } ] }
-        |""".stripMargin
-    val queryParams = URLEncodingUtils.format(Map("api-version" -> "1.0", "subscription-key" -> azureMapsKey))
-    val createRequest = new HttpPost(new URI("https://us.atlas.microsoft.com/mapData/upload?" + queryParams +
-      "&dataFormat=geojson"))
-    createRequest.setHeader("Content-Type", "application/json")
-    createRequest.setEntity(new StringEntity(testPolygon))
-    val response = RESTHelpers.safeSend(createRequest, expectedCodes = Set(202))
-    val locationUrl = response.getFirstHeader("location").getValue
-    assert(locationUrl != null)
-
-    tryWithRetries(Array(3000, 5000, 10000, 20000, 30000)) { () =>
-      val getLongRunningResult = new HttpGet(new URI(locationUrl + "&" + queryParams))
-      val lroResult = RESTHelpers.sendAndParseJson(getLongRunningResult, expectedCodes = Set(201))
-        .convertTo[LongRunningOperationResult]
-      val resourceLocation = lroResult.resourceLocation.getOrElse("")
-      if (resourceLocation.isEmpty) {
-        throw new RuntimeException("Resource location is empty in LongRunningOperationResult")
+      tryWithRetries(Array(3000, 5000, 10000, 20000, 30000)) { () =>
+        val getLongRunningResult = new HttpGet(new URI(locationUrl + "&" + queryParams))
+        val lroResult = RESTHelpers.sendAndParseJson(getLongRunningResult, expectedCodes = Set(201))
+          .convertTo[LongRunningOperationResult]
+        val resourceLocation = lroResult.resourceLocation.getOrElse("")
+        if (resourceLocation.isEmpty) {
+          throw new RuntimeException("Resource location is empty in LongRunningOperationResult")
+        }
+        val uri = new URI(resourceLocation)
+        val path = uri.getPath
+        udid = path.split("/").last
       }
-      val uri = new URI(resourceLocation)
-      val path = uri.getPath
-      udid = path.split("/").last
+    } catch {
+      case _: Exception => // Ignore - API is retired
     }
   }
 
