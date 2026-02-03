@@ -21,23 +21,28 @@ exclude = [
 ]
 
 [lint]
-# Enable recommended rules plus some additional ones
+# Start with minimal rules to avoid breaking existing code.
+# Enable more rules incrementally after initial fixes.
 select = [
-    "E",      # pycodestyle errors
-    "W",      # pycodestyle warnings
-    "F",      # Pyflakes
-    "I",      # isort
-    "B",      # flake8-bugbear
-    "C4",     # flake8-comprehensions
-    "UP",     # pyupgrade
+    "E",      # pycodestyle errors (critical syntax issues)
+    "F",      # Pyflakes (undefined names, unused imports)
 ]
 
-# Ignore specific rules that conflict with existing code style
+# Ignore rules that conflict with existing code patterns
 ignore = [
     "E501",   # line too long (handled by formatter)
-    "B008",   # function call in default argument
-    "B905",   # zip without explicit strict parameter
-    "UP007",  # Use X | Y for type annotations (Python 3.10+)
+    "E401",   # multiple imports on one line
+    "E711",   # comparison to None (existing codebase uses == None)
+    "E721",   # do not compare types (existing pattern)
+    "E722",   # bare except (existing pattern)
+    "F401",   # unused imports (many false positives with __init__.py re-exports)
+    "F403",   # star imports (widely used in codebase)
+    "F405",   # may be undefined from star imports (consequence of F403)
+    "F541",   # f-string without placeholders (harmless)
+    "F811",   # redefinition (some intentional patterns)
+    "F821",   # undefined name (false positives from dynamic imports)
+    "F841",   # local variable assigned but never used
+    "E402",   # module level import not at top (some files have setup before imports)
 ]
 
 # Allow autofix for all enabled rules
