@@ -92,10 +92,31 @@ object RTestGen {
     // from the usual repositories.
     // Note: conf.jarName may be the tests jar (ending with -tests.jar), but we need the main jar
     // which contains the actual classes. We derive it by removing the -tests suffix.
-    val localCoreJar: Option[String] = conf.jarName.map { jar =>
+    // Also, non-core modules depend on core, so we need to load the core JAR as well.
+    val localModuleJar: Option[String] = conf.jarName.map { jar =>
       val mainJar = jar.replace("-tests.jar", ".jar")
       new File(conf.targetDir, mainJar).getAbsolutePath.replaceAllLiterally("\\", "\\\\")
     }
+
+    // For non-core modules, also load the core JAR since they depend on it
+    val localCoreJar: Option[String] = if (!conf.name.contains("core")) {
+      conf.jarName.map { jar =>
+        // Derive core jar name from current module's jar name
+        // e.g., synapseml-opencv_2.13-1.0.0.jar -> synapseml-core_2.13-1.0.0.jar
+        val mainJar = jar.replace("-tests.jar", ".jar")
+        val coreJarName = mainJar.replaceFirst("synapseml-[^_]+_", "synapseml-core_")
+        // Core target dir is sibling to current module's target dir
+        val coreTargetDir = new File(conf.targetDir).getParentFile.getParentFile.getParentFile
+          .toPath.resolve("core/target/scala-2.13").toFile
+        new File(coreTargetDir, coreJarName).getAbsolutePath.replaceAllLiterally("\\", "\\\\")
+      }
+    } else {
+      None
+    }
+
+    // Combine module JAR and core JAR (if applicable) into comma-separated list
+    val allJars = Seq(localModuleJar, localCoreJar).flatten.mkString(",")
+
     val avroOnlyPackages: String = SparkMavenPackageList
       .split(",")
       .filterNot(_.startsWith("com.microsoft.azure:synapseml_"))
@@ -111,7 +132,7 @@ object RTestGen {
          |conf <- spark_config()
          |conf$$sparklyr.shell.conf <- c(
          |  "spark.app.name=SparklyRTests",
-         |  ${localCoreJar.map(p => s""""spark.jars=$p",""").getOrElse("")}
+         |  ${if (allJars.nonEmpty) s""""spark.jars=$allJars",""" else ""}
          |  "spark.jars.packages=$avroOnlyPackages",
          |  "spark.jars.repositories=$SparkMavenRepositoryList,file:///Users/brendan/.m2/repository",
          |  "spark.executor.heartbeatInterval=60s",
