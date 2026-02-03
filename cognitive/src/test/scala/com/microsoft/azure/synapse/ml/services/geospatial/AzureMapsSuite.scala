@@ -16,6 +16,7 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.col
 import org.scalactic.Equality
+import org.scalatest.Ignore
 
 import java.net.URI
 
@@ -162,6 +163,8 @@ class AzMapsSearchReverseAddressSuite extends TransformerFuzzing[ReverseAddressG
   override def reader: MLReadable[_] = ReverseAddressGeocoder
 }
 
+// Azure Maps Spatial API (including Point in Polygon) was retired on September 30, 2025
+@Ignore
 class AzMapsPointInPolygonSuite extends TransformerFuzzing[CheckPointInPolygon] with AzureMapsKey {
 
   import spark.implicits._
