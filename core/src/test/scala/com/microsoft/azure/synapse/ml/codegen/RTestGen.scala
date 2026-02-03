@@ -130,9 +130,11 @@ object RTestGen {
          |options(sparklyr.verbose = TRUE)
          |
          |conf <- spark_config()
+         |# Use sparklyr.shell.jars to add JARs to spark-submit --jars (driver classpath)
+         |# This is required for sparklyr's Gateway to find the classes
+         |${if (allJars.nonEmpty) s"""conf$$sparklyr.shell.jars <- "$allJars"""" else ""}
          |conf$$sparklyr.shell.conf <- c(
          |  "spark.app.name=SparklyRTests",
-         |  ${if (allJars.nonEmpty) s""""spark.jars=$allJars",""" else ""}
          |  "spark.jars.packages=$avroOnlyPackages",
          |  "spark.jars.repositories=$SparkMavenRepositoryList,file:///Users/brendan/.m2/repository",
          |  "spark.executor.heartbeatInterval=60s",
