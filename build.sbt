@@ -340,7 +340,10 @@ lazy val root = (project in file("."))
       "",
       "msdata.pkgs.visualstudio.com",
       "msdata", Secrets.adoFeedToken),
-    ThisBuild / useCoursier := false
+    // Re-enable Coursier for faster dependency resolution.
+    // Was disabled in 2023 for ADO feed publishing, but credentials are only for publishing,
+    // not for fetching dependencies. Coursier should work fine.
+    ThisBuild / useCoursier := true
   ))
 
 val setupTask = TaskKey[Unit]("setup", "set up library for intellij")
