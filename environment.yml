@@ -49,6 +49,7 @@ dependencies:
     - openai==0.27.5
     - black==22.3.0
     - black[jupyter]==22.3.0
+    - ruff==0.1.9
     - mistletoe
     - markdownify
     - pypandoc

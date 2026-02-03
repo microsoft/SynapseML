@@ -1,0 +1,53 @@
+# Ruff configuration for SynapseML Python code
+# https://docs.astral.sh/ruff/configuration/
+
+# Target Python version
+target-version = "py311"
+
+# Maximum line length (matches black configuration)
+line-length = 120
+
+# Exclude common non-source directories
+exclude = [
+    ".git",
+    ".venv",
+    "__pycache__",
+    "build",
+    "dist",
+    "target",
+    "*.egg-info",
+    ".eggs",
+    "node_modules",
+]
+
+[lint]
+# Enable recommended rules plus some additional ones
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+]
+
+# Ignore specific rules that conflict with existing code style
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B008",   # function call in default argument
+    "B905",   # zip without explicit strict parameter
+    "UP007",  # Use X | Y for type annotations (Python 3.10+)
+]
+
+# Allow autofix for all enabled rules
+fixable = ["ALL"]
+unfixable = []
+
+[lint.per-file-ignores]
+# Tests can have unused imports (fixtures) and assertions
+"**/test_*.py" = ["F401", "B011"]
+"**/*_test.py" = ["F401", "B011"]
+
+[lint.isort]
+known-first-party = ["synapseml"]
