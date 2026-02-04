@@ -39,8 +39,8 @@ class EntityLinkingSuite extends TransformerFuzzing[AnalyzeText] with TextEndpoi
     assert(entities.contains("Bill Gates"))
   }
 
-  test("api-version 2022-10-01-preview") {
-    val result = model.setApiVersion("2022-10-01-preview").transform(df)
+  test("api-version 2024-11-01") {
+    val result = model.setApiVersion("2024-11-01").transform(df)
       .withColumn("documents", col("response.documents"))
       .withColumn("entityNames", map(col("documents.id"), col("documents.entities.name")))
     val entities = result.head.getAs[Map[String, Seq[String]]]("entityNames")("0")
@@ -94,8 +94,8 @@ class EntityRecognitionSuite extends TransformerFuzzing[AnalyzeText] with TextEn
     assert(entities.contains("Bill Gates"))
   }
 
-  test("api-version 2022-10-01-preview") {
-    val result = model.setApiVersion("2022-10-01-preview").transform(df)
+  test("api-version 2024-11-01") {
+    val result = model.setApiVersion("2024-11-01").transform(df)
       .withColumn("documents", col("response.documents"))
       .withColumn("entityNames", map(col("documents.id"), col("documents.entities.text")))
     val entities = result.head.getAs[Map[String, Seq[String]]]("entityNames")("0")
@@ -150,8 +150,8 @@ class KeyPhraseSuite extends TransformerFuzzing[AnalyzeText] with TextEndpoint {
     assert(keyPhrases.contains("Text Analytics"))
   }
 
-  test("api-version 2022-10-01-preview") {
-    val result = model.setApiVersion("2022-10-01-preview").transform(df)
+  test("api-version 2024-11-01") {
+    val result = model.setApiVersion("2024-11-01").transform(df)
       .withColumn("documents", col("response.documents"))
       .withColumn("keyPhrases", col("documents.keyPhrases"))
     val keyPhrases = result.collect()(1).getAs[Seq[String]]("keyPhrases")
@@ -206,8 +206,8 @@ class LanguageDetectionSuite extends TransformerFuzzing[AnalyzeText] with TextEn
     assert(detectedLanguages.contains("Spanish"))
   }
 
-  test("api-version 2022-10-01-preview") {
-    val result = model.setApiVersion("2022-10-01-preview").transform(df)
+  test("api-version 2024-11-01") {
+    val result = model.setApiVersion("2024-11-01").transform(df)
       .withColumn("documents", col("response.documents"))
       .withColumn("detectedLanguage", col("documents.detectedLanguage.name"))
     val detectedLanguages = result.collect()(1).getAs[Seq[String]]("detectedLanguage")
@@ -264,8 +264,8 @@ class AnalyzeTextPIISuite extends TransformerFuzzing[AnalyzeText] with TextEndpo
     assert(!redactedText.contains("111000025"))
   }
 
-  test("api-version 2022-10-01-preview") {
-    val result = model.setApiVersion("2022-10-01-preview").transform(df)
+  test("api-version 2024-11-01") {
+    val result = model.setApiVersion("2024-11-01").transform(df)
       .withColumn("documents", col("response.documents"))
       .withColumn("redactedText", col("documents.redactedText"))
       .withColumn("entities", col("documents.entities.text"))
@@ -324,8 +324,8 @@ class SentimentAnalysisSuite extends TransformerFuzzing[AnalyzeText] with TextEn
     assert(result(1).getAs[String]("sentiment") == "negative")
   }
 
-  test("api-version 2022-10-01-preview") {
-    val result = model.setApiVersion("2022-10-01-preview").transform(df)
+  test("api-version 2024-11-01") {
+    val result = model.setApiVersion("2024-11-01").transform(df)
       .withColumn("documents", col("response.documents"))
       .withColumn("sentiment", col("documents.sentiment"))
       .collect()
