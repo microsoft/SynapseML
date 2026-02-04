@@ -340,10 +340,18 @@ lazy val root = (project in file("."))
       "",
       "msdata.pkgs.visualstudio.com",
       "msdata", Secrets.adoFeedToken),
-    // Coursier disabled for ADO feed compatibility (see commit 9d51784af6).
-    // Attempted re-enable in build-improvements branch caused UnitTests core failures.
-    ThisBuild / useCoursier := false
+    // Re-enable Coursier with log4j version pinning to avoid resolution conflicts
+    ThisBuild / useCoursier := true
   ))
+
+// Force consistent log4j versions to fix Coursier resolution conflict
+// (log4j-1.2-api must match log4j-core version to avoid VerifyError)
+ThisBuild / dependencyOverrides ++= Seq(
+  "org.apache.logging.log4j" % "log4j-api" % "2.20.0",
+  "org.apache.logging.log4j" % "log4j-core" % "2.20.0",
+  "org.apache.logging.log4j" % "log4j-1.2-api" % "2.20.0",
+  "org.apache.logging.log4j" % "log4j-slf4j2-impl" % "2.20.0"
+)
 
 val setupTask = TaskKey[Unit]("setup", "set up library for intellij")
 setupTask := {
