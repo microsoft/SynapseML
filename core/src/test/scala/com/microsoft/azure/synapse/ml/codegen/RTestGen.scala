@@ -130,9 +130,9 @@ object RTestGen {
          |options(sparklyr.verbose = TRUE)
          |
          |conf <- spark_config()
-         |# Use both driver-class-path (for sparklyr Gateway) and jars (for SparkContext/executors)
-         |${if (allJars.nonEmpty) s"""conf[["sparklyr.shell.driver-class-path"]] <- "$allJars"""" else ""}
-         |${if (allJars.nonEmpty) s"""conf[["sparklyr.shell.jars"]] <- "$allJars"""" else ""}
+         |# Use sparklyr.jars.default to add JARs - this is the recommended way for sparklyr
+         |# It ensures JARs are on both driver and executor classpath
+         |${if (allJars.nonEmpty) s"""conf[["sparklyr.jars.default"]] <- c(${allJars.split(",").map(j => s""""$j"""").mkString(", ")})""" else ""}
          |conf$$sparklyr.shell.conf <- c(
          |  "spark.app.name=SparklyRTests",
          |  "spark.jars.packages=$avroOnlyPackages",
