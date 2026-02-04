@@ -86,41 +86,51 @@ object RTestGen {
       conf.rTestThatDir.mkdirs()
     }
 
-    // For local and CI testing we prefer to load the freshly built main jar directly via
-    // spark.jars, rather than relying on Maven resolution of a potentially unpublished
-    // SNAPSHOT coordinate. Keep Avro on spark.jars.packages so Spark can resolve it
-    // from the usual repositories.
-    // Note: conf.jarName may be the tests jar (ending with -tests.jar), but we need the main jar
-    // which contains the actual classes. We derive it by removing the -tests suffix.
-    // Also, non-core modules depend on core, so we need to load the core JAR as well.
-    val localModuleJar: Option[String] = conf.jarName.map { jar =>
-      val mainJar = jar.replace("-tests.jar", ".jar")
-      new File(conf.targetDir, mainJar).getAbsolutePath.replaceAllLiterally("\\", "\\\\")
+    // For R tests, we need to use the core assembly JAR which includes all dependencies.
+    // The thin JARs don't include dependencies like spray-json which are needed at runtime.
+    // The assembly JAR is built by `sbt core/assembly` and contains everything.
+    val coreTargetDir = {
+      val targetDir = new File(conf.targetDir)
+      if (conf.name.contains("core")) {
+        targetDir
+      } else {
+        // Non-core modules: core is a sibling directory
+        targetDir.getParentFile.getParentFile.getParentFile.toPath.resolve("core/target/scala-2.13").toFile
+      }
     }
 
-    // For non-core modules, also load the core JAR since they depend on it
-    val localCoreJar: Option[String] = if (!conf.name.contains("core")) {
+    // Find the core assembly JAR (pattern: synapseml-core-assembly-*.jar)
+    val assemblyJars = coreTargetDir.listFiles().filter { f =>
+      f.getName.startsWith("synapseml-core-assembly-") && f.getName.endsWith(".jar")
+    }
+    val coreAssemblyJar: Option[String] = assemblyJars.headOption.map { jar =>
+      jar.getAbsolutePath.replaceAllLiterally("\\", "\\\\")
+    }
+
+    // For non-core modules, also include the module's own JAR for module-specific classes
+    val moduleJar: Option[String] = if (!conf.name.contains("core")) {
       conf.jarName.map { jar =>
-        // Derive core jar name from current module's jar name
-        // e.g., synapseml-opencv_2.13-1.0.0.jar -> synapseml-core_2.13-1.0.0.jar
         val mainJar = jar.replace("-tests.jar", ".jar")
-        val coreJarName = mainJar.replaceFirst("synapseml-[^_]+_", "synapseml-core_")
-        // Core target dir is sibling to current module's target dir
-        val coreTargetDir = new File(conf.targetDir).getParentFile.getParentFile.getParentFile
-          .toPath.resolve("core/target/scala-2.13").toFile
-        new File(coreTargetDir, coreJarName).getAbsolutePath.replaceAllLiterally("\\", "\\\\")
+        new File(conf.targetDir, mainJar).getAbsolutePath.replaceAllLiterally("\\", "\\\\")
       }
     } else {
       None
     }
 
-    // Combine module JAR and core JAR (if applicable) into comma-separated list
-    val allJars = Seq(localModuleJar, localCoreJar).flatten.mkString(",")
+    // Combine JARs: core assembly first, then module JAR if applicable
+    val allJars = Seq(coreAssemblyJar, moduleJar).flatten
 
     val avroOnlyPackages: String = SparkMavenPackageList
       .split(",")
       .filterNot(_.startsWith("com.microsoft.azure:synapseml_"))
       .mkString(",")
+
+    // Format JARs for R: c("/path/jar1", "/path/jar2")
+    val jarsRVector = if (allJars.nonEmpty) {
+      s"""c(${allJars.map(j => s""""$j"""").mkString(", ")})"""
+    } else {
+      ""
+    }
 
     writeFile(join(conf.rTestThatDir, "setup.R"),
       s"""
@@ -132,7 +142,7 @@ object RTestGen {
          |conf <- spark_config()
          |# Use sparklyr.jars.default to add JARs - this is the recommended way for sparklyr
          |# It ensures JARs are on both driver and executor classpath
-         |${if (allJars.nonEmpty) s"""conf[["sparklyr.jars.default"]] <- c(${allJars.split(",").map(j => s""""$j"""").mkString(", ")})""" else ""}
+         |${if (allJars.nonEmpty) s"""conf[["sparklyr.jars.default"]] <- $jarsRVector""" else ""}
          |conf$$sparklyr.shell.conf <- c(
          |  "spark.app.name=SparklyRTests",
          |  "spark.jars.packages=$avroOnlyPackages",
