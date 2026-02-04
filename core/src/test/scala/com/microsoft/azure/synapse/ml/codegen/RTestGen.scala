@@ -85,6 +85,35 @@ object RTestGen {
     if (!conf.rTestThatDir.exists()) {
       conf.rTestThatDir.mkdirs()
     }
+
+    // For local and CI testing we prefer to load the freshly built jars directly via
+    // spark.jars, rather than relying on Maven resolution of a potentially unpublished
+    // SNAPSHOT coordinate. Keep Avro on spark.jars.packages so Spark can resolve it
+    // from the usual repositories.
+    // Note: testgenJarName provides a "-tests.jar" but we need production jars for
+    // runtime classes. We collect all synapseml module jars since modules depend on each other.
+    val moduleNames = Seq("core", "cognitive", "deep-learning", "lightgbm", "opencv", "vw")
+    val projectRoot = new File(conf.topDir).getParentFile
+    val allModuleJars: Seq[String] = moduleNames.flatMap { moduleName =>
+      val scalaVersionDirs = Seq("scala-2.12", "scala-2.13")
+      scalaVersionDirs.flatMap { scalaDir =>
+        val targetDir = new File(projectRoot, s"$moduleName/target/$scalaDir")
+        if (targetDir.exists()) {
+          targetDir.listFiles()
+            .filter(f => f.getName.startsWith("synapseml-") && f.getName.endsWith(".jar"))
+            .filterNot(f => f.getName.contains("-tests"))
+            .map(_.getAbsolutePath.replace("\\", "\\\\"))
+        } else Seq.empty
+      }
+    }
+    val localJarsString: String = if (allModuleJars.nonEmpty) {
+      s""""spark.jars=${allModuleJars.mkString(",")}","""
+    } else ""
+    val avroOnlyPackages: String = SparkMavenPackageList
+      .split(",")
+      .filterNot(_.startsWith("com.microsoft.azure:synapseml_"))
+      .mkString(",")
+
     writeFile(join(conf.rTestThatDir, "setup.R"),
       s"""
          |${useLibrary("sparklyr")}
@@ -95,7 +124,8 @@ object RTestGen {
          |conf <- spark_config()
          |conf$$sparklyr.shell.conf <- c(
          |  "spark.app.name=SparklyRTests",
-         |  "spark.jars.packages=$SparkMavenPackageList",
+         |  $localJarsString
+         |  "spark.jars.packages=$avroOnlyPackages",
          |  "spark.jars.repositories=$SparkMavenRepositoryList",
          |  "spark.executor.heartbeatInterval=60s",
          |  "spark.sql.shuffle.partitions=10",
