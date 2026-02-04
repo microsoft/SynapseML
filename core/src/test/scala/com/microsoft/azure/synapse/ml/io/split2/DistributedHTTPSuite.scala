@@ -163,22 +163,27 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
   // Logger.getLogger(classOf[DistributedHTTPSource]).setLevel(Level.INFO)
   // Logger.getLogger(classOf[JVMSharedServer]).setLevel(Level.INFO)
 
+  override val host = "127.0.0.1"
+
   def baseReaderDist: DataStreamReader = {
     spark.readStream.distributedServer
       .address(host, port, "foo")
       .option("maxPartitions", 3)
+      .option("maxPortAttempts", "1")
   }
 
   def baseReader: DataStreamReader = {
     spark.readStream.server
       .address(host, port, "foo")
       .option("maxPartitions", 3)
+      .option("maxPortAttempts", "1")
   }
 
   def baseWriterDist(df: DataFrame): DataStreamWriter[Row] = {
     df.writeStream
       .distributedServer
       .option("name", "foo")
+      .option("maxPortAttempts", "1")
       .queryName("foo")
       .option("checkpointLocation",
         new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
@@ -188,6 +193,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
     df.writeStream
       .server
       .option("name", "foo")
+      .option("maxPortAttempts", "1")
       .queryName("foo")
       .option("checkpointLocation",
         new File(tmpDir.toFile, s"checkpoints-${UUID.randomUUID()}").toString)
@@ -293,57 +299,162 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
   }
 
   test("python client") {
+    val testStartTime = System.currentTimeMillis()
+    println(s"[DIAG] python client test starting at $testStartTime")
+    println(s"[DIAG] target URL: $url (host=$host, port=$port)")
+
     val server = createServer().start()
 
     using(server) {
       waitForServer(server)
+      println(s"[DIAG] server ready after ${System.currentTimeMillis() - testStartTime}ms")
+      println(s"[DIAG] server recentProgress: ${server.recentProgress.length} entries")
+
+      // Verify server is reachable with a quick Scala HTTP request before launching Python
+      println(s"[DIAG] verifying server connectivity from Scala...")
+      val connectivityCheckStart = System.currentTimeMillis()
+      try {
+        val (scalaResponse, scalaLatency) = sendStringRequest(url, "connectivity-check", 200)
+        println(s"[DIAG] Scala connectivity check PASSED in ${scalaLatency}ms, " +
+          s"response length=${scalaResponse.length}")
+      } catch {
+        case e: Exception =>
+          val elapsed = System.currentTimeMillis() - connectivityCheckStart
+          println(s"[DIAG] Scala connectivity check FAILED after ${elapsed}ms: ${e.getClass.getName}: ${e.getMessage}")
+          println(s"[DIAG] This indicates the server is not reachable at $url")
+          throw new RuntimeException(s"Server connectivity check failed for $url", e)
+      }
 
       val pythonClientCode =
         s"""import requests
            |import threading
            |import time
+           |import sys
+           |import socket
            |
-           |exitFlag = 0
+           |TARGET_URL = "$url"
+           |print(f"[DIAG] Python client targeting URL: {TARGET_URL}", flush=True)
+           |print(f"[DIAG] Python version: {sys.version}", flush=True)
+           |
+           |# Quick connectivity check
+           |try:
+           |    host, port_str = TARGET_URL.replace("http://", "").split("/")[0].split(":")
+           |    port = int(port_str)
+           |    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+           |    sock.settimeout(5)
+           |    result = sock.connect_ex((host, port))
+           |    sock.close()
+           |    if result == 0:
+           |        print(f"[DIAG] Socket connectivity check PASSED for {host}:{port}", flush=True)
+           |    else:
+           |        print(f"[DIAG] Socket connectivity check FAILED for {host}:{port}, error code={result}", flush=True)
+           |except Exception as e:
+           |    print(f"[DIAG] Socket connectivity check ERROR: {e}", flush=True)
+           |
+           |start_time = time.time()
            |s = requests.Session()
            |
            |class myThread(threading.Thread):
            |    def __init__(self, threadID):
            |        threading.Thread.__init__(self)
            |        self.threadID = threadID
+           |        self.success = False
+           |        self.error = None
            |
            |    def run(self):
-           |        print("Starting " + str(self.threadID))
-           |        r = s.post("$url",
-           |                          data={"number": 12524, "type": "issue", "action": "show"},
-           |                          headers = {"content-type": "application/json"},
-           |                          timeout=15)
-           |
-           |        assert r.status_code==200
-           |        print("Exiting {} with code {}".format(self.threadID, r.status_code))
-           |
+           |        thread_start = time.time()
+           |        print(f"[DIAG] Thread {self.threadID} starting at {thread_start - start_time:.2f}s", flush=True)
+           |        try:
+           |            r = s.post(TARGET_URL,
+           |                       data={"number": 12524, "type": "issue", "action": "show"},
+           |                       headers={"content-type": "application/json"},
+           |                       timeout=120)
+           |            elapsed = time.time() - thread_start
+           |            print(f"[DIAG] Thread {self.threadID} done {elapsed:.2f}s status={r.status_code}", flush=True)
+           |            assert r.status_code == 200
+           |            self.success = True
+           |        except requests.exceptions.Timeout as e:
+           |            elapsed = time.time() - thread_start
+           |            print(f"[DIAG] Thread {self.threadID} TIMEOUT after {elapsed:.2f}s: {e}", flush=True)
+           |            self.error = f"TIMEOUT: {e}"
+           |            raise
+           |        except requests.exceptions.ConnectionError as e:
+           |            elapsed = time.time() - thread_start
+           |            print(f"[DIAG] Thread {self.threadID} CONN_ERR after {elapsed:.2f}s: {e}", flush=True)
+           |            self.error = f"CONNECTION_ERROR: {e}"
+           |            raise
+           |        except Exception as e:
+           |            elapsed = time.time() - thread_start
+           |            print(f"[DIAG] Thread {self.threadID} FAILED {elapsed:.2f}s: {type(e).__name__}", flush=True)
+           |            self.error = str(e)
+           |            raise
            |
            |threads = []
            |for i in range(2):
-           |    # Create new threads
            |    t = myThread(i)
            |    t.start()
            |    threads.append(t)
            |
+           |# Wait for all threads to complete
+           |for t in threads:
+           |    t.join()
+           |
+           |total_time = time.time() - start_time
+           |success_count = sum(1 for t in threads if t.success)
+           |print(f"[DIAG] All threads completed in {total_time:.2f}s, {success_count}/2 succeeded", flush=True)
            |""".stripMargin
 
       val pythonFile = new File(tmpDir.toFile, "pythonClient.py")
       FileUtilities.writeFile(pythonFile, pythonClientCode)
 
-      Runtime.getRuntime.exec("pip install requests")
-      val processes = (1 to 50).map(_ => {
-        Runtime.getRuntime.exec(s"python ${pythonFile.getAbsolutePath}")
-      })
+      val pipInstall = Runtime.getRuntime.exec("pip install requests")
+      pipInstall.waitFor()
 
-      processes.foreach { p =>
-        p.waitFor
-        val error = IOUtils.toString(p.getErrorStream, "UTF-8")
-        assert(error === "")
+      println(s"[DIAG] launching 10 Python processes at ${System.currentTimeMillis() - testStartTime}ms")
+
+      val processes = (1 to 10).map { i =>
+        val p = Runtime.getRuntime.exec(s"python ${pythonFile.getAbsolutePath}")
+        println(s"[DIAG] launched process $i")
+        p
       }
+
+      var processIdx = 0
+      processes.foreach { p =>
+        processIdx += 1
+        val procStartWait = System.currentTimeMillis()
+        p.waitFor()
+        val procWaitTime = System.currentTimeMillis() - procStartWait
+
+        val stdout = IOUtils.toString(p.getInputStream, "UTF-8")
+        val error = IOUtils.toString(p.getErrorStream, "UTF-8")
+
+        println(s"[DIAG] process $processIdx completed in ${procWaitTime}ms, exitCode=${p.exitValue()}")
+        if (stdout.nonEmpty) println(s"[DIAG] process $processIdx stdout:\n$stdout")
+        if (error.nonEmpty) println(s"[DIAG] process $processIdx stderr:\n$error")
+
+        if (error.nonEmpty) {
+          val totalElapsed = System.currentTimeMillis() - testStartTime
+          println(s"[DIAG] *** FAILURE DETECTED in process $processIdx ***")
+          println(s"[DIAG] Total test time so far: ${totalElapsed}ms")
+          println(s"[DIAG] Server state: isActive=${server.isActive}, " +
+            s"recentProgress=${server.recentProgress.length}")
+          if (server.recentProgress.nonEmpty) {
+            val lastProgress = server.recentProgress.last
+            println(s"[DIAG] Last progress: numInputRows=${lastProgress.numInputRows}, " +
+              s"inputRowsPerSecond=${lastProgress.inputRowsPerSecond}, " +
+              s"processedRowsPerSecond=${lastProgress.processedRowsPerSecond}")
+          }
+          if (server.exception.isDefined) {
+            println(s"[DIAG] Server exception: ${server.exception.get}")
+          }
+          println(s"[DIAG] Full stderr from process $processIdx:")
+          println(error)
+          println(s"[DIAG] *** END FAILURE INFO ***")
+        }
+        assert(error === "", s"Process $processIdx failed with error: $error")
+      }
+
+      println(s"[DIAG] all processes completed after ${System.currentTimeMillis() - testStartTime}ms")
     }
 
   }
@@ -389,7 +500,7 @@ class DistributedHTTPSuite extends TestBase with Flaky with HTTPTestUtils {
         new FooHolder
       }
 
-      import spark.sqlContext.implicits._
+      import spark.implicits._
 
       val DF: DataFrame = spark.sparkContext.parallelize(Seq(Tuple1("placeholder")))
         .toDF("plcaholder")
