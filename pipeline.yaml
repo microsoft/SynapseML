@@ -65,6 +65,8 @@ variables:
   UBUNTU_VERSION: ubuntu-22.04
   ComponentDetection.Timeout: 900
   isMaster: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
+  # Only run coverage on PR builds to speed up scheduled/manual builds
+  isPR: $[eq(variables['Build.Reason'], 'PullRequest')]
 
 jobs:
 - job: Style
@@ -672,8 +674,14 @@ jobs:
         inlineScript: |
           ulimit -c unlimited
           export SBT_OPTS="-XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss2M  -Duser.timezone=GMT"
-          (timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
-          (${FLAKY:-false} && timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**")
+          # Only run coverage on PR builds for faster scheduled/manual builds
+          if [ "$(isPR)" = "True" ]; then
+            COV_CMD="coverage"
+          else
+            COV_CMD=""
+          fi
+          (timeout 30m sbt $COV_CMD "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
+          (${FLAKY:-false} && timeout 30m sbt $COV_CMD "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**")
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
@@ -688,6 +696,7 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: 'sbt coverageReport'
-      condition: succeededOrFailed()
+      condition: and(succeededOrFailed(), eq(variables.isPR, true))
     - template: templates/kv.yml
-    - template: templates/codecov.yml
+    - ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
+      - template: templates/codecov.yml
