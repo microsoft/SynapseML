@@ -54,6 +54,10 @@ parameters:
       - dev
       - daily
       - weekly
+  - name: publishRelease
+    displayName: Publish Release (requires master + tag)
+    type: boolean
+    default: false
 
 variables:
   runTests: True
@@ -169,104 +173,106 @@ jobs:
         failTaskOnFailedTests: true
       condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
 
-- job: Release
-  cancelTimeoutInMinutes: 0
-  # Skip Release job entirely for non-master branches to avoid AME approval prompts
-  condition: eq(variables.isMaster, true)
-  pool:
-    vmImage: $(UBUNTU_VERSION)
-  steps:
-    - template: templates/update_cli.yml
-    - bash: |
-        echo '##vso[task.setvariable variable=tag]'$(git tag -l --points-at HEAD)
-      displayName: 'Get Git Tag'
-    - bash: |
-        set -e
-        wget https://github.com/git-chglog/git-chglog/releases/download/0.8.0/git-chglog_linux_amd64
-        chmod +x git-chglog_linux_amd64
-        ./git-chglog_linux_amd64 -o CHANGELOG.md $TAG
-      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
-    - task: GitHubRelease@1
-      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
-      inputs:
-        gitHubConnection: 'MMLSpark Github'
-        repositoryName: '$(Build.Repository.Name)'
-        action: 'create'
-        target: '$(Build.SourceVersion)'
-        tagSource: 'gitTag'
-        releaseNotesFile: 'CHANGELOG.md'
-        isDraft: true
-    - bash: echo "##vso[task.prependpath]$CONDA/bin"
-      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
-      displayName: Add conda to PATH
-    - bash: sudo chown -R $(whoami):$(id -ng) $(CONDA_CACHE_DIR)
-      displayName: Fix directory permissions
-      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
-    - task: Cache@2
-      displayName: Use cached Anaconda environment
-      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
-      inputs:
-        key: 'conda | "$(Agent.OS)" | environment.yml'
-        restoreKeys: |
-          python | "$(Agent.OS)"
-          python
-        path: $(CONDA_CACHE_DIR)
-        cacheHitVar: CONDA_CACHE_RESTORED
-    - bash: |
-        conda env create --force -f environment.yml -v
-      condition: and(eq(variables.isMaster, true), and(startsWith(variables['tag'], 'v'), eq(variables.CONDA_CACHE_RESTORED, 'false')))
-      displayName: Create Anaconda environment
-    - task: AzureKeyVault@2
-      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        keyVaultName: mmlspark-keys
-    - bash: |
-        set -e
-        source activate synapseml
-        sbt publishPypi
-      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
-      env:
-        STORAGE-KEY: $(storage-key)
-        NEXUS-UN: $(nexus-un)
-        NEXUS-PW: $(nexus-pw)
-        PGP-PRIVATE: $(pgp-private)
-        PGP-PUBLIC: $(pgp-public)
-        PGP-PW: $(pgp-pw)
-        PYPI-API-TOKEN: $(pypi-api-token)
-        SYNAPSEML_ENABLE_PUBLISH: true
-      displayName: 'publish python package to pypi'
-    - bash: |
-        set -e
-        source activate synapseml
-        sbt publishLocalSigned
-        python tools/esrp/prepare_jar.py
-      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
-      env:
-        STORAGE-KEY: $(storage-key)
-        NEXUS-UN: $(nexus-un)
-        NEXUS-PW: $(nexus-pw)
-        PGP-PRIVATE: $(pgp-private)
-        PGP-PUBLIC: $(pgp-public)
-        PGP-PW: $(pgp-pw)
-        SYNAPSEML_ENABLE_PUBLISH: true
-      displayName: 'publish jar package to maven central'
-    - task: EsrpRelease@9
-      inputs:
-        connectedservicename: 'SynapseML-ESRP-Service-Connection'
-        usemanagedidentity: true
-        keyvaultname: 'esrp-kv-ame'
-        signcertname: 'esrp-release-mi-cert'
-        clientid: '1fc1c0d1-5a85-4081-8f1e-12a8c225b9a6'
-        contenttype: maven
-        folderlocation: '/home/vsts/.ivy2/local/com.microsoft.azure/'
-        owners: 'zhoubo@microsoft.com,marcozo@microsoft.com,romanbat@microsoft.com'
-        approvers: 'romanbat@microsoft.com,markus.weimer@microsoft.com,negust@microsoft.com'
-        mainpublisher: synapseml
-        domaintenantid: '33e01921-4d64-4f8c-a055-5bdaffd5e33d'
-      displayName: 'ESRP Publish Package'
-      condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
-
+# Release job is wrapped in compile-time conditional to prevent AME approval prompts
+# when publishRelease parameter is false (default). The ESRP task references esrp-kv-ame
+# which triggers approval even when runtime conditions would skip the step.
+- ${{ if eq(parameters.publishRelease, true) }}:
+  - job: Release
+    cancelTimeoutInMinutes: 0
+    condition: eq(variables.isMaster, true)
+    pool:
+      vmImage: $(UBUNTU_VERSION)
+    steps:
+      - template: templates/update_cli.yml
+      - bash: |
+          echo '##vso[task.setvariable variable=tag]'$(git tag -l --points-at HEAD)
+        displayName: 'Get Git Tag'
+      - bash: |
+          set -e
+          wget https://github.com/git-chglog/git-chglog/releases/download/0.8.0/git-chglog_linux_amd64
+          chmod +x git-chglog_linux_amd64
+          ./git-chglog_linux_amd64 -o CHANGELOG.md $TAG
+        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
+      - task: GitHubRelease@1
+        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
+        inputs:
+          gitHubConnection: 'MMLSpark Github'
+          repositoryName: '$(Build.Repository.Name)'
+          action: 'create'
+          target: '$(Build.SourceVersion)'
+          tagSource: 'gitTag'
+          releaseNotesFile: 'CHANGELOG.md'
+          isDraft: true
+      - bash: echo "##vso[task.prependpath]$CONDA/bin"
+        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
+        displayName: Add conda to PATH
+      - bash: sudo chown -R $(whoami):$(id -ng) $(CONDA_CACHE_DIR)
+        displayName: Fix directory permissions
+        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
+      - task: Cache@2
+        displayName: Use cached Anaconda environment
+        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
+        inputs:
+          key: 'conda | "$(Agent.OS)" | environment.yml'
+          restoreKeys: |
+            python | "$(Agent.OS)"
+            python
+          path: $(CONDA_CACHE_DIR)
+          cacheHitVar: CONDA_CACHE_RESTORED
+      - bash: |
+          conda env create --force -f environment.yml -v
+        condition: and(eq(variables.isMaster, true), and(startsWith(variables['tag'], 'v'), eq(variables.CONDA_CACHE_RESTORED, 'false')))
+        displayName: Create Anaconda environment
+      - task: AzureKeyVault@2
+        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
+        inputs:
+          azureSubscription: 'SynapseML Build'
+          keyVaultName: mmlspark-keys
+      - bash: |
+          set -e
+          source activate synapseml
+          sbt publishPypi
+        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
+        env:
+          STORAGE-KEY: $(storage-key)
+          NEXUS-UN: $(nexus-un)
+          NEXUS-PW: $(nexus-pw)
+          PGP-PRIVATE: $(pgp-private)
+          PGP-PUBLIC: $(pgp-public)
+          PGP-PW: $(pgp-pw)
+          PYPI-API-TOKEN: $(pypi-api-token)
+          SYNAPSEML_ENABLE_PUBLISH: true
+        displayName: 'publish python package to pypi'
+      - bash: |
+          set -e
+          source activate synapseml
+          sbt publishLocalSigned
+          python tools/esrp/prepare_jar.py
+        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
+        env:
+          STORAGE-KEY: $(storage-key)
+          NEXUS-UN: $(nexus-un)
+          NEXUS-PW: $(nexus-pw)
+          PGP-PRIVATE: $(pgp-private)
+          PGP-PUBLIC: $(pgp-public)
+          PGP-PW: $(pgp-pw)
+          SYNAPSEML_ENABLE_PUBLISH: true
+        displayName: 'publish jar package to maven central'
+      - task: EsrpRelease@9
+        inputs:
+          connectedservicename: 'SynapseML-ESRP-Service-Connection'
+          usemanagedidentity: true
+          keyvaultname: 'esrp-kv-ame'
+          signcertname: 'esrp-release-mi-cert'
+          clientid: '1fc1c0d1-5a85-4081-8f1e-12a8c225b9a6'
+          contenttype: maven
+          folderlocation: '/home/vsts/.ivy2/local/com.microsoft.azure/'
+          owners: 'zhoubo@microsoft.com,marcozo@microsoft.com,romanbat@microsoft.com'
+          approvers: 'romanbat@microsoft.com,markus.weimer@microsoft.com,negust@microsoft.com'
+          mainpublisher: synapseml
+          domaintenantid: '33e01921-4d64-4f8c-a055-5bdaffd5e33d'
+        displayName: 'ESRP Publish Package'
+        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
 
 
 - job: PythonTests
