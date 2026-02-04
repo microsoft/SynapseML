@@ -61,6 +61,7 @@ variables:
   UBUNTU_VERSION: ubuntu-22.04
   ComponentDetection.Timeout: 900
   isMaster: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
+  isPR: $[eq(variables['Build.Reason'], 'PullRequest')]
 
 jobs:
 - job: Style
@@ -394,7 +395,11 @@ jobs:
         scriptType: bash
         inlineScript: |
           source activate synapseml
-          sbt coverage getDatasets installPipPackage
+          COVERAGE_CMD=""
+          if [ "$(Build.Reason)" == "PullRequest" ]; then
+            COVERAGE_CMD="coverage"
+          fi
+          sbt $COVERAGE_CMD getDatasets installPipPackage
           sbt publishM2
     - task: AzureCLI@2
       displayName: 'Test Python Code'
@@ -412,19 +417,24 @@ jobs:
           echo "SBT_OPTS=$SBT_OPTS"
           IGNORE_TEST_PATH_FLAG=""
           TEST_SUB_PATH_FLAG=""
+          COVERAGE_CMD=""
           if [ -n "$(IGNORE_TEST_PATH)" ]; then
             IGNORE_TEST_PATH_FLAG="-DpythonIgnoreTestPath=$(IGNORE_TEST_PATH)"
           fi
           if [ -n "$(TEST_SUB_PATH)" ]; then
             TEST_SUB_PATH_FLAG="-DpythonSubTestPath=$(TEST_SUB_PATH)"
           fi
+          if [ "$(Build.Reason)" == "PullRequest" ]; then
+            COVERAGE_CMD="coverage"
+          fi
           echo "IGNORE_TEST_PATH=$IGNORE_TEST_PATH"
           echo "TEST_SUB_PATH=$TEST_SUB_PATH"
           echo "IGNORE_TEST_PATH_FLAG=$IGNORE_TEST_PATH_FLAG"
           echo "TEST_SUB_PATH_FLAG=$TEST_SUB_PATH_FLAG"
-          (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython) || \
-          (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython) || \
-          (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython)
+          echo "COVERAGE_CMD=$COVERAGE_CMD"
+          (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" $COVERAGE_CMD testPython) || \
+          (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" $COVERAGE_CMD testPython) || \
+          (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" $COVERAGE_CMD testPython)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
@@ -439,8 +449,10 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: 'sbt coverageReport'
-      condition: succeededOrFailed()
+      condition: and(eq(variables.isPR, true), succeededOrFailed())
     - template: templates/codecov.yml
+      parameters:
+        condition: and(eq(variables.isPR, true), succeededOrFailed())
 
 
 - job: RTests
@@ -499,7 +511,11 @@ jobs:
           set -e
           export SBT_OPTS="-Xms2G -Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=4G -Xss5M  -Duser.timezone=GMT"
           source activate synapseml
-          timeout 20m sbt -DskipCodegen=true "project $(PACKAGE)" coverage testR
+          COVERAGE_CMD=""
+          if [ "$(Build.Reason)" == "PullRequest" ]; then
+            COVERAGE_CMD="coverage"
+          fi
+          timeout 20m sbt -DskipCodegen=true "project $(PACKAGE)" $COVERAGE_CMD testR
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
@@ -514,8 +530,10 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: 'sbt coverageReport'
-      condition: succeededOrFailed()
+      condition: and(eq(variables.isPR, true), succeededOrFailed())
     - template: templates/codecov.yml
+      parameters:
+        condition: and(eq(variables.isPR, true), succeededOrFailed())
 
 - job: BuildAndCacheCondaEnv
   cancelTimeoutInMinutes: 0
@@ -545,7 +563,11 @@ jobs:
         scriptType: bash
         inlineScript: |
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-          (sbt coverage testWebsiteDocs)
+          COVERAGE_CMD=""
+          if [ "$(Build.Reason)" == "PullRequest" ]; then
+            COVERAGE_CMD="coverage"
+          fi
+          (sbt $COVERAGE_CMD testWebsiteDocs)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
@@ -560,8 +582,10 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: 'sbt coverageReport'
-      condition: succeededOrFailed()
+      condition: and(eq(variables.isPR, true), succeededOrFailed())
     - template: templates/codecov.yml
+      parameters:
+        condition: and(eq(variables.isPR, true), succeededOrFailed())
 
 
 
@@ -751,8 +775,12 @@ jobs:
         inlineScript: |
           ulimit -c unlimited
           export SBT_OPTS="-XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss2M  -Duser.timezone=GMT"
-          (timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
-          (${FLAKY:-false} && timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**")
+          COVERAGE_CMD=""
+          if [ "$(Build.Reason)" == "PullRequest" ]; then
+            COVERAGE_CMD="coverage"
+          fi
+          (timeout 30m sbt $COVERAGE_CMD "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
+          (${FLAKY:-false} && timeout 30m sbt $COVERAGE_CMD "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**")
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
@@ -767,6 +795,8 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: 'sbt coverageReport'
-      condition: succeededOrFailed()
+      condition: and(eq(variables.isPR, true), succeededOrFailed())
     - template: templates/kv.yml
     - template: templates/codecov.yml
+      parameters:
+        condition: and(eq(variables.isPR, true), succeededOrFailed())

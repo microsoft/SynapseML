@@ -1,3 +1,8 @@
+parameters:
+  - name: condition
+    type: string
+    default: succeededOrFailed()
+
 steps:
   - bash: |
       set -e
@@ -8,4 +13,4 @@ steps:
       echo "Codecov Upload Complete" # Ensure that uploading failure does not stop the pipeline
     retryCountOnTaskFailure: 1
     displayName: Upload Coverage Report To Codecov.io
-    condition: succeededOrFailed()
+    condition: ${{ parameters.condition }}
