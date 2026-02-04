@@ -24,9 +24,13 @@ object BuildUtils {
   }
 
   def pythonizedVersion(version: String): String = {
+    // PEP 440 normalizes versions to lowercase, so we must match that.
+    // Use + for local version identifier (PEP 440) to preserve suffixes.
     version match {
-      case s if s.contains("-") => s.split("-".head).head + ".dev1"
-      case s => s
+      case s if s.contains("-") =>
+        val parts = s.split("-", 2)
+        (parts(0) + "+" + parts(1).replace("-", ".")).toLowerCase
+      case s => s.toLowerCase
     }
   }
 
