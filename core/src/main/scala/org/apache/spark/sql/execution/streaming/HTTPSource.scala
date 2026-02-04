@@ -169,10 +169,10 @@ class HTTPSource(name: String, host: String, port: Int, sqlContext: SQLContext)
           )
           field.set(df, newPlan)
         case None =>
-          logError("DEBUG: logicalPlan field not found")
+          logError("logicalPlan field not found - streaming may not work correctly")
       }
     } catch {
-      case e: Exception => logError(s"DEBUG: Reflection hack failed: $e")
+      case e: Exception => logError(s"Reflection hack failed: $e - streaming may not work correctly")
     }
   }
 

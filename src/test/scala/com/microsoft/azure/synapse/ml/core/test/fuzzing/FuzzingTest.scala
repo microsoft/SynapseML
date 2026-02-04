@@ -78,7 +78,9 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.services.form.AnalyzeCustomModel",
       "com.microsoft.azure.synapse.ml.services.anomaly.DetectLastMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.services.anomaly.SimpleFitMultivariateAnomaly",
-      "com.microsoft.azure.synapse.ml.services.geospatial.AzureMapsTraitsSuite$TestableMapsAsyncReply"
+      "com.microsoft.azure.synapse.ml.services.geospatial.AzureMapsTraitsSuite$TestableMapsAsyncReply",
+      // Azure Maps Spatial service retired on 9/30/2025
+      "com.microsoft.azure.synapse.ml.services.geospatial.CheckPointInPolygon"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
@@ -141,7 +143,9 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.services.form.AnalyzeCustomModel",
       "com.microsoft.azure.synapse.ml.services.anomaly.DetectLastMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.services.anomaly.SimpleFitMultivariateAnomaly",
-      "com.microsoft.azure.synapse.ml.services.geospatial.AzureMapsTraitsSuite$TestableMapsAsyncReply"
+      "com.microsoft.azure.synapse.ml.services.geospatial.AzureMapsTraitsSuite$TestableMapsAsyncReply",
+      // Azure Maps Spatial service retired on 9/30/2025
+      "com.microsoft.azure.synapse.ml.services.geospatial.CheckPointInPolygon"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
@@ -201,7 +205,9 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.services.form.AnalyzeCustomModel",
       "com.microsoft.azure.synapse.ml.services.anomaly.DetectLastMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.services.anomaly.SimpleFitMultivariateAnomaly",
-      "com.microsoft.azure.synapse.ml.services.geospatial.AzureMapsTraitsSuite$TestableMapsAsyncReply"
+      "com.microsoft.azure.synapse.ml.services.geospatial.AzureMapsTraitsSuite$TestableMapsAsyncReply",
+      // Azure Maps Spatial service retired on 9/30/2025
+      "com.microsoft.azure.synapse.ml.services.geospatial.CheckPointInPolygon"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
@@ -263,7 +269,9 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.services.form.AnalyzeCustomModel",
       "com.microsoft.azure.synapse.ml.services.anomaly.DetectLastMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.services.anomaly.SimpleFitMultivariateAnomaly",
-      "com.microsoft.azure.synapse.ml.services.geospatial.AzureMapsTraitsSuite$TestableMapsAsyncReply"
+      "com.microsoft.azure.synapse.ml.services.geospatial.AzureMapsTraitsSuite$TestableMapsAsyncReply",
+      // Azure Maps Spatial service retired on 9/30/2025
+      "com.microsoft.azure.synapse.ml.services.geospatial.CheckPointInPolygon"
     )
     val applicableStages = pipelineStages.filter(t => !exemptions(t.getClass.getName))
     val applicableClasses = applicableStages.map(_.getClass.asInstanceOf[Class[_]]).toSet
