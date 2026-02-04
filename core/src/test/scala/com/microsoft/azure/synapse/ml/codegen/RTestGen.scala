@@ -130,9 +130,9 @@ object RTestGen {
          |options(sparklyr.verbose = TRUE)
          |
          |conf <- spark_config()
-         |# Use sparklyr.shell.driver-class-path to add JARs to driver classpath
-         |# This ensures sparklyr's Gateway can find the SynapseML classes
+         |# Use both driver-class-path (for sparklyr Gateway) and jars (for SparkContext/executors)
          |${if (allJars.nonEmpty) s"""conf[["sparklyr.shell.driver-class-path"]] <- "$allJars"""" else ""}
+         |${if (allJars.nonEmpty) s"""conf[["sparklyr.shell.jars"]] <- "$allJars"""" else ""}
          |conf$$sparklyr.shell.conf <- c(
          |  "spark.app.name=SparklyRTests",
          |  "spark.jars.packages=$avroOnlyPackages",
