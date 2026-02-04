@@ -340,18 +340,26 @@ lazy val root = (project in file("."))
       "",
       "msdata.pkgs.visualstudio.com",
       "msdata", Secrets.adoFeedToken),
-    // Re-enable Coursier with log4j version pinning to avoid resolution conflicts
-    ThisBuild / useCoursier := true
+    // Coursier disabled - causes log4j version conflicts that result in:
+    // java.lang.VerifyError: class org.apache.log4j.bridge.LogEventAdapter overrides final method
+    // Even with dependencyOverrides, Coursier resolves differently than Ivy.
+    // TODO: Investigate Coursier compatibility with Spark's log4j setup
+    ThisBuild / useCoursier := false
   ))
 
-// Force consistent log4j versions to fix Coursier resolution conflict
-// (log4j-1.2-api must match log4j-core version to avoid VerifyError)
+// Force consistent log4j versions to fix Coursier resolution conflict.
+// The VerifyError occurs when log4j-1.2-api version doesn't match log4j-api.
+// Use dependencyOverrides to force all log4j artifacts to same version,
+// and add eviction warnings to catch any mismatches.
 ThisBuild / dependencyOverrides ++= Seq(
   "org.apache.logging.log4j" % "log4j-api" % "2.20.0",
   "org.apache.logging.log4j" % "log4j-core" % "2.20.0",
   "org.apache.logging.log4j" % "log4j-1.2-api" % "2.20.0",
   "org.apache.logging.log4j" % "log4j-slf4j2-impl" % "2.20.0"
 )
+
+// Strict conflict management - fail on version mismatches
+ThisBuild / evictionErrorLevel := Level.Warn
 
 val setupTask = TaskKey[Unit]("setup", "set up library for intellij")
 setupTask := {
