@@ -14,11 +14,11 @@ import com.microsoft.azure.synapse.ml.stages.UDFTransformer
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
 import org.apache.spark.ml.feature.VectorAssembler
-import org.apache.spark.ml.linalg.{Vector, Vectors}
+import org.apache.spark.ml.linalg.{DenseVector, SQLDataTypes, Vector, Vectors}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions.avg
-import org.apache.spark.sql.types.DoubleType
+import org.apache.spark.sql.functions.{avg, col}
+import org.apache.spark.sql.types.{ArrayType, DataType, DoubleType}
 import org.scalactic.{Equality, TolerantNumerics}
 
 class VectorSHAPExplainerSuite extends TestBase
@@ -27,6 +27,50 @@ class VectorSHAPExplainerSuite extends TestBase
   implicit val doubleEquality: Equality[Double] = TolerantNumerics.tolerantDoubleEquality(1E-3)
 
   override val sortInDataframeEquality = true
+
+  // The equality comparison for the weights matrices are quite complicated,
+  // creating an override here to handle the logic.
+  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
+    assert(DataType.equalsStructurally(df1.schema, df2.schema))
+
+    val arrayOfVectorFields = df1.schema.fields.filter {
+      f => DataType.equalsStructurally(f.dataType, ArrayType(SQLDataTypes.VectorType))
+    }.map(_.name)
+
+    // Non-matrix columns, defer to super.assertDFEq
+    val otherFields = df1.schema.fields.map(_.name).filterNot(arrayOfVectorFields.contains)
+
+    super.assertDFEq(
+      df1.select(otherFields.map(col): _*),
+      df2.select(otherFields.map(col): _*)
+    )(eq)
+
+    val (a, b) = (df1.select(arrayOfVectorFields.map(col): _*), df2.select(arrayOfVectorFields.map(col): _*)) match {
+      case (x, y) =>
+        val sorted = if (sortInDataframeEquality) {
+          (x.sort(arrayOfVectorFields.map(col): _*), y.sort(arrayOfVectorFields.map(col): _*))
+        } else {
+          (x, y)
+        }
+
+        (sorted._1.collect, sorted._2.collect)
+    }
+
+    assert(a.length === b.length)
+    a.indices foreach { // For each row
+      i =>
+        arrayOfVectorFields.indices foreach {
+          j => // For each matrix type column
+            val x: scala.collection.Seq[DenseVector] = a(i).getAs[scala.collection.Seq[DenseVector]](j)
+            val y: scala.collection.Seq[DenseVector] = b(i).getAs[scala.collection.Seq[DenseVector]](j)
+            assert(x.length === y.length)
+            x.indices foreach {
+              k =>
+                x(k) === y(k)
+            }
+        }
+    }
+  }
 
   import spark.implicits._
 
@@ -65,7 +109,7 @@ class VectorSHAPExplainerSuite extends TestBase
     val predicted = model.transform(infer)
     val (probability, shapValues, r2) = kernelShap
       .transform(predicted)
-      .select("probability", "shapValues", "r2").as[(Vector, Seq[Vector], Vector)]
+      .select("probability", "shapValues", "r2").as[(Vector, scala.collection.Seq[Vector], Vector)]
       .head
 
     // println((probability, shapValues, r2))
@@ -114,7 +158,7 @@ class VectorSHAPExplainerSuite extends TestBase
 
     val actual: Seq[(Vector, Double)] = shap.transform(testDf).orderBy("x").collect()
       .map {
-        row => (row.getAs[Seq[Vector]]("shaps").head, row.getAs[Vector]("r2")(0))
+        row => (row.getAs[scala.collection.Seq[Vector]]("shaps").head, row.getAs[Vector]("r2")(0))
       }
 
     val expected: Seq[(Vector, Double)] = Seq(

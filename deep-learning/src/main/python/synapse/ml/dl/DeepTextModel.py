@@ -1,16 +1,18 @@
-from horovod.spark.lightning import TorchModel
 import numpy as np
 import torch
-from horovod.spark.lightning import TorchModel
-from synapse.ml.dl.PredictionParams import TextPredictionParams
 from pyspark.ml.param import Param, Params, TypeConverters
 from pyspark.sql.functions import col, udf
 from pyspark.sql.types import DoubleType
+from synapse.ml.dl.PredictionParams import TextPredictionParams
+from synapse.ml.dl._horovod import HOROVOD_AVAILABLE, TorchModelBase, require_horovod
 from synapse.ml.dl.utils import keywords_catch
 from transformers import AutoTokenizer
 
 
-class DeepTextModel(TorchModel, TextPredictionParams):
+class DeepTextModel(
+    TorchModelBase if HOROVOD_AVAILABLE else TextPredictionParams,
+    TextPredictionParams if HOROVOD_AVAILABLE else object,
+):
     tokenizer = Param(Params._dummy(), "tokenizer", "tokenizer")
 
     checkpoint = Param(
@@ -39,6 +41,7 @@ class DeepTextModel(TorchModel, TextPredictionParams):
         prediction_col="prediction",
     ):
         super(DeepTextModel, self).__init__()
+        require_horovod("DeepTextModel")
 
         self._setDefault(
             optimizer=None,

@@ -1,0 +1,57 @@
+name: synapseml
+channels:
+  - conda-forge
+  - default
+dependencies:
+  # Core language/runtime
+  - python=3.12.11
+  - requests=2.26.0
+  - pip=25.2
+  # Build / tooling
+  - cmake<=3.27
+  - openjdk=17
+  # Note: R and heavy deep learning deps are intentionally omitted here to keep
+  # the dev/test environment lighter and faster to build. The full environment
+  # (including R, torch, horovod, etc.) remains defined in environment.yml for CI.
+  - pip:
+    # Core data / Spark stack
+    - pyarrow==22.0.0
+    - pyspark==4.0.1
+    - pandas==2.0.3
+    - wheel
+
+    # Docs and testing
+    - sphinx==5.0.2
+    - sphinx_paramlinks==0.5.2
+    - sphinx_rtd_theme
+    - coverage
+    - pytest
+    - pytest-cov
+    - nbconvert
+    - nbformat
+    - pytest-codeblocks
+
+    # Misc utilities and tooling
+    - pyyaml
+    - PyGithub
+    - tqdm
+    - ipython
+    - azure-storage-blob
+    - jupyter
+    - twine
+    - mlflow
+    - numpy
+
+    # Lightweight extras commonly used in examples / tools
+    - onnxmltools==1.7.0
+    - matplotlib
+    - Pillow
+    - langchain==0.0.152
+    - openai==0.27.5
+    - black==22.3.0
+    - black[jupyter]==22.3.0
+    - mistletoe
+    - markdownify
+    - pypandoc
+    - traitlets
+    - opencv-python

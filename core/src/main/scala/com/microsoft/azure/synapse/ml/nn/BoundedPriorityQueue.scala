@@ -29,14 +29,15 @@ class BoundedPriorityQueue[A](maxSize: Int)(implicit ord: Ordering[A])
   override def size: Int = underlying.size
 
   //scalastyle:off method.name
-  override def ++=(xs: TraversableOnce[A]): this.type = {
-    xs.foreach {
-      this += _
+  //scalastyle:off method.name
+  override def addAll(xs: IterableOnce[A]): this.type = {
+    xs.iterator.foreach {
+      this.addOne(_)
     }
     this
   }
 
-  override def +=(elem: A): this.type = {
+  override def addOne(elem: A): this.type = {
     if (size < maxSize) {
       underlying.offer(elem)
     } else {
@@ -45,9 +46,7 @@ class BoundedPriorityQueue[A](maxSize: Int)(implicit ord: Ordering[A])
     this
   }
 
-  override def +=(elem1: A, elem2: A, elems: A*): this.type = {
-    this += elem1 += elem2 ++= elems
-  }
+  override def knownSize: Int = size
   //scalastyle:on method.name
 
   override def clear(): Unit = {

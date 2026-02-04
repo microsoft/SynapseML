@@ -165,13 +165,13 @@ class AnalyzeTextLongRunningOperations(override val uid: String) extends Cogniti
   protected def postprocessResponse(responseOpt: Row): Option[Seq[Row]] = {
     Option(responseOpt).map { response =>
       val tasks = response.getAs[Row]("tasks")
-      val items = tasks.getAs[Seq[Row]]("items")
+      val items = tasks.getAs[scala.collection.Seq[Row]]("items").toSeq
       items.flatMap(item => {
         val results = item.getAs[Row]("results")
         val stats = results.getAs[Row]("statistics")
-        val docs = results.getAs[Seq[Row]]("documents").map(
+        val docs = results.getAs[scala.collection.Seq[Row]]("documents").map(
           doc => (doc.getAs[String]("id"), doc)).toMap
-        val errors = results.getAs[Seq[Row]]("errors").map(
+        val errors = results.getAs[scala.collection.Seq[Row]]("errors").map(
           error => (error.getAs[String]("id"), error)).toMap
         val modelVersion = results.getAs[String]("modelVersion")
         (0 until (docs.size + errors.size)).map { i =>

@@ -15,6 +15,6 @@ class WrappableTests extends TestBase {
     test ("test CompanionModelClassName") {
         val regressorCompanionModelClasName = new TestRegressor().getCompanionModelClassName
         assert(regressorCompanionModelClasName.equals(
-            "com.microsoft.azure.synapse.ml.codegen.WrappableTests.TestRegressorModel"))
+            "com.microsoft.azure.synapse.ml.codegen.TestRegressorModel"))
     }
 }

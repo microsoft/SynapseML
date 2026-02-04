@@ -33,7 +33,7 @@ trait FormRecognizerV3Utils extends TestBase {
 
   def resultAssert(result: Array[Row], str1: String, str2: String): Unit = {
     assert(result.head.getString(2).contains(str1))
-    assert(result.head.getSeq(3).head.asInstanceOf[HashMap.HashTrieMap[String, _]]
+    assert(result.head.getSeq(3).head.asInstanceOf[scala.collection.immutable.Map[String, _]]
       .keys.toSeq.sortWith(_ < _).mkString(",").contains(str2))
   }
 

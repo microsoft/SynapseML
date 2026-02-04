@@ -22,7 +22,13 @@ object CodeGen {
   import CodeGenUtils._
 
   def main(args: Array[String]): Unit = {
-    val conf = args.head.parseJson.convertTo[CodegenConfig]
+    val json = if (args.head.startsWith("@")) {
+      val source = scala.io.Source.fromFile(args.head.substring(1))
+      try source.mkString finally source.close()
+    } else {
+      args.head
+    }
+    val conf = json.parseJson.convertTo[CodegenConfig]
     clean(conf.packageDir)
     rGen(conf)
     pyGen(conf)

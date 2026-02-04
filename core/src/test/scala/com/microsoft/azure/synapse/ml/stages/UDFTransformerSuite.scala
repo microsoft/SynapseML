@@ -11,11 +11,20 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.udf
 import org.scalatest.Assertion
 
+object UDFTransformerTestHelpers {
+  val StringToIntegerUDF: UserDefinedFunction = udf((_: String) => 1)
+  val IntToStringUDF: UserDefinedFunction = udf((_: Integer) => "test")
+  val LongToStringUDF: UserDefinedFunction = udf((_: Long) => "test")
+  val DoubleToStringUDF: UserDefinedFunction = udf((_: Double) => "test")
+  val DoubleLongToStringUDF: UserDefinedFunction = udf((_: Double, _: Long) => "test")
+  val BooleanToStringUDF: UserDefinedFunction = udf((_: Boolean) => "test")
+}
+
 class UDFTransformerSuite extends TestBase with TransformerFuzzing[UDFTransformer] {
   lazy val baseDF: DataFrame = makeBasicDF()
   lazy val baseNullableDF: DataFrame = makeBasicNullableDF()
   lazy val outCol = "out"
-  lazy val stringToIntegerUDF: UserDefinedFunction = udf((_: String) => 1)
+  lazy val stringToIntegerUDF: UserDefinedFunction = UDFTransformerTestHelpers.StringToIntegerUDF
 
   def udfTransformerTest(baseDF: DataFrame,
                          testUDF: UserDefinedFunction,
@@ -53,35 +62,35 @@ class UDFTransformerSuite extends TestBase with TransformerFuzzing[UDFTransforme
   }
 
   test("Apply udf to column in a data frame: Integer to String") {
-    val intToStringUDF = udf((_: Integer) => "test")
+    val intToStringUDF = UDFTransformerTestHelpers.IntToStringUDF
     val inColName = "numbers"
     udfTransformerTest(baseDF, intToStringUDF, inColName)
     udfTransformerTest(baseNullableDF, intToStringUDF, inColName)
   }
 
   test("Apply udf to column in a data frame: Long to String") {
-    val longToStringUDF = udf((_: Long) => "test")
+    val longToStringUDF = UDFTransformerTestHelpers.LongToStringUDF
     val inColName = "longs"
     udfTransformerTest(baseDF, longToStringUDF, inColName)
     udfTransformerTest(baseNullableDF, longToStringUDF, inColName)
   }
 
   test("Apply udf to column in a data frame: Double to String") {
-    val doubleToStringUDF = udf((_: Double) => "test")
+    val doubleToStringUDF = UDFTransformerTestHelpers.DoubleToStringUDF
     val inColName = "doubles"
     udfTransformerTest(baseDF, doubleToStringUDF, inColName)
     udfTransformerTest(baseNullableDF, doubleToStringUDF, inColName)
   }
 
   test("Apply udf to columns in a data frame: (Double, Long) -> String") {
-    val doubleToStringUDF = udf((_: Double, _: Long) => "test")
+    val doubleToStringUDF = UDFTransformerTestHelpers.DoubleLongToStringUDF
     val inColNames = Array("doubles", "longs")
     udfMultiColTransformerTest(baseDF, doubleToStringUDF, inColNames)
     udfMultiColTransformerTest(baseNullableDF, doubleToStringUDF, inColNames)
   }
 
   test("Apply udf to column in a data frame: Boolean to String") {
-    val booleanToStringUDF = udf((_: Boolean) => "test")
+    val booleanToStringUDF = UDFTransformerTestHelpers.BooleanToStringUDF
     val inColName = "booleans"
     udfTransformerTest(baseDF, booleanToStringUDF, inColName)
     udfTransformerTest(baseNullableDF, booleanToStringUDF, inColName)

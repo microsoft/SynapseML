@@ -23,10 +23,10 @@ trait DataFrameEquality extends Serializable {
       }
   }
 
-  @transient implicit lazy val seqEq: Equality[Seq[_]] = new Equality[Seq[_]] {
-    override def areEqual(a: Seq[_], b: Any): Boolean = {
+  @transient implicit lazy val seqEq: Equality[scala.collection.Seq[_]] = new Equality[scala.collection.Seq[_]] {
+    override def areEqual(a: scala.collection.Seq[_], b: Any): Boolean = {
       b match {
-        case bSeq: Seq[_] =>
+        case bSeq: scala.collection.Seq[_] =>
           a.zip(bSeq).forall {
             case (lhs, rhs) =>
               lhs.getClass match {
@@ -52,8 +52,8 @@ trait DataFrameEquality extends Serializable {
           val isEq = a(j) match {
             case lhs: DenseVector =>
               lhs === b(j)
-            case lhs: Seq[_] =>
-              seqEq.areEqual(lhs, b(j).asInstanceOf[Seq[_]])
+            case lhs: scala.collection.Seq[_] =>
+              seqEq.areEqual(lhs, b(j).asInstanceOf[scala.collection.Seq[_]])
             case lhs: Array[Byte] =>
               lhs === b(j)
             case lhs: Double if lhs.isNaN =>

@@ -3,16 +3,20 @@ channels:
   - conda-forge
   - default
 dependencies:
-  - python=3.11.8
+  - python=3.12.11
   - requests=2.26.0
   - pip=25.2
-  - r-base=4.1.1
-  - r-sparklyr=1.8.1
-  - r-devtools=2.4.2
+  - r-base=4.4
+  - r-sparklyr=1.9.3
+  - r-devtools=2.4.5
   - cmake<=3.27
+  - openjdk=17
   - pip:
-    - pyarrow==10.0.1
-    - pyspark==3.5.0
+    # For Python 3.12, older PyArrow releases (e.g. 11.0.0) lack pre-built
+    # wheels and force a from-source build with system Arrow. Use a newer
+    # version that provides cp312 wheels.
+    - pyarrow==22.0.0
+    - pyspark==4.0.1
     - pandas==2.0.3
     - wheel
     - sphinx==5.0.2
@@ -31,10 +35,13 @@ dependencies:
     - azure-storage-blob
     - jupyter
     - twine
-    - mlflow
+    - mlflow==1.26.1
+    - protobuf>=4.25,<5
     - numpy
-    - torch==2.1.0
-    - torchvision==0.16.0
+    # For Python 3.12, PyTorch 2.1.0 wheels are not available; use the
+    # first PyTorch release that supports 3.12 and its matching torchvision.
+    - torch==2.2.0
+    - torchvision==0.17.0
     # horovod package was depreciated in 2023, this commit has horovod compile with c++17
     # Ref: https://github.com/horovod/horovod/issues/3996#issuecomment-2098507345
     - git+https://github.com/horovod/horovod.git@3a31d933a13c7c885b8a673f4172b17914ad334d

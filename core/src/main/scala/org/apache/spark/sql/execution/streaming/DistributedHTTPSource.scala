@@ -8,6 +8,8 @@ import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
+import org.apache.spark.sql.catalyst.plans.logical.LocalRelation
+import org.apache.spark.sql.catalyst.expressions.AttributeReference
 import org.apache.spark.sql.connector.read.streaming.{Offset => OffsetV2}
 import org.apache.spark.sql.execution.streaming.continuous.HTTPSourceV2
 import org.apache.spark.sql.sources.{DataSourceRegister, StreamSinkProvider, StreamSourceProvider}
@@ -99,6 +101,8 @@ class JVMSharedServer(name: String, host: String,
   @GuardedBy("this")
   private var requestsAccepted = 0L
   @GuardedBy("this")
+  private var requestsResponded = 0L
+  @GuardedBy("this")
   private var currentBatch = 0L
   @GuardedBy("this")
   private var earliestBatch = 0L
@@ -106,10 +110,15 @@ class JVMSharedServer(name: String, host: String,
   private var nPartitions = 0
 
   val serverIdentity: String = UUID.randomUUID().toString
+  private val serverStartTime: Long = System.currentTimeMillis()
 
   @GuardedBy("this")
   private val batchesToRequests: mutable.HashMap[Long, MultiChannelMap[ID, Request]] =
     new mutable.HashMap[Long, MultiChannelMap[ID, Request]]()
+
+  // Track request timestamps for diagnostics
+  @GuardedBy("this")
+  private val requestTimestamps: mutable.HashMap[ID, Long] = new mutable.HashMap[ID, Long]()
 
   def updateNPartitions(n: Int): Unit = synchronized {
     nPartitions = n
@@ -131,7 +140,16 @@ class JVMSharedServer(name: String, host: String,
         val mcm = batchesToRequests.getOrElse(i, new MultiChannelMap[ID, Request](nPartitions))
         mcm.nextList().map(p => (p._1, p._2._1))
       }
-    logDebug(s"getting ${requests.length} on $address batch $currentBatch")
+    val pendingCount = batchesToRequests.values.map(_.size).sum
+    // Use println for diagnostics to ensure visibility regardless of log level
+    // scalastyle:off println
+    if (requests.nonEmpty || pendingCount > 0) {
+      println(s"[DIAG-SERVER] getRequests: fetched ${requests.length} requests for batch ($start, $end], " +
+        s"currentBatch=$currentBatch, pending=$pendingCount, " +
+        s"seen=$requestsSeen, responded=$requestsResponded, " +
+        s"uptime=${System.currentTimeMillis() - serverStartTime}ms")
+    }
+    // scalastyle:on println
     requests
   }
 
@@ -143,17 +161,38 @@ class JVMSharedServer(name: String, host: String,
   }
 
   def respond(batch: Long, uuid: String, response: HTTPResponseData): Unit = synchronized {
-    val request = batchesToRequests(batch).get(uuid)._2
-    response.respondToHTTPExchange(request)
+    val requestTime = requestTimestamps.getOrElse(uuid, 0L)
+    val latencyMs = if (requestTime > 0) System.currentTimeMillis() - requestTime else -1
+    requestsResponded += 1
+
+    try {
+      val request = batchesToRequests(batch).get(uuid)._2
+      response.respondToHTTPExchange(request)
+      // scalastyle:off println
+      println(s"[DIAG-SERVER] respond: sent response for batch $batch, " +
+        s"latency=${latencyMs}ms, totalResponded=$requestsResponded")
+      // scalastyle:on println
+    } catch {
+      case e: Exception =>
+        // scalastyle:off println
+        println(s"[DIAG-SERVER] respond: FAILED for batch $batch, " +
+          s"latency=${latencyMs}ms, error=${e.getMessage}")
+        // scalastyle:on println
+        throw e
+    } finally {
+      requestTimestamps.remove(uuid)
+    }
   }
 
   private class RequestHandler extends HttpHandler {
 
     override def handle(request: HttpExchange): Unit = synchronized {
+      val receiveTime = System.currentTimeMillis()
       requestsSeen += 1
       val requestData = HTTPRequestData.fromHTTPExchange(request)
       val uuid = UUID.randomUUID().toString
       requestsAccepted += 1
+      requestTimestamps.update(uuid, receiveTime)
       val cb = currentBatch.longValue()
       batchesToRequests.get(cb) match {
         case None =>
@@ -162,7 +201,12 @@ class JVMSharedServer(name: String, host: String,
           batchesToRequests.update(cb, mcm)
         case Some(mcm) => mcm.addToNextList(uuid, (requestData, request))
       }
-      logDebug(s"handling $requestData batch: $currentBatch ip: $address")
+      val pendingCount = batchesToRequests.values.map(_.size).sum
+      // scalastyle:off println
+      println(s"[DIAG-SERVER] handle: received request, batch=$cb, " +
+        s"seen=$requestsSeen, pending=$pendingCount, " +
+        s"uptime=${receiveTime - serverStartTime}ms")
+      // scalastyle:on println
     }
   }
 
@@ -192,10 +236,23 @@ class JVMSharedServer(name: String, host: String,
   val machine: String = InetAddress.getLocalHost.toString
 
   def stop(): Unit = synchronized {
+    // scalastyle:off println
+    println(s"[DIAG-SERVER] stop: server stopping. Final stats: " +
+      s"seen=$requestsSeen, responded=$requestsResponded, " +
+      s"pending=${batchesToRequests.values.map(_.size).sum}, " +
+      s"uptime=${System.currentTimeMillis() - serverStartTime}ms")
+    // scalastyle:on println
     server.stop(0)
     server.synchronized {
       server.notifyAll()
     }
+  }
+
+  def getDiagnostics: String = synchronized {
+    s"JVMSharedServer[address=$address, uptime=${System.currentTimeMillis() - serverStartTime}ms, " +
+      s"requestsSeen=$requestsSeen, requestsResponded=$requestsResponded, " +
+      s"pendingRequests=${batchesToRequests.values.map(_.size).sum}, " +
+      s"currentBatch=$currentBatch, nPartitions=$nPartitions]"
   }
 
 }
@@ -249,10 +306,52 @@ class DistributedHTTPSource(name: String,
   }
 
   private[spark] val serverInfoDFStreaming = {
+    // In Spark 4.0, internalCreateDataFrame(rdd, schema, isStreaming=true) was removed.
+    // We need isStreaming=true for getBatch() to satisfy Spark's streaming validation.
+    //
+    // The workaround uses reflection to set isStreaming=true on a LocalRelation.
+    // However, LocalRelation loses the RDD's partitioning, which would cause requests
+    // to be unevenly distributed (some partitions would never receive their requests).
+    //
+    // To fix this, we repartition after the reflection hack to restore the correct
+    // number of partitions for proper request distribution.
     val serializer = infoEnc.createSerializer()
     val serverInfoConfRDD = serverInfoDF.rdd.map(serializer)
-    sqlContext.sparkSession.internalCreateDataFrame(
-      serverInfoConfRDD, schema, isStreaming = true)
+    val numPartitions = maxPartitions.getOrElse(sqlContext.sparkContext.defaultParallelism)
+    val rowRdd = serverInfoConfRDD.map(ir => Row.fromSeq(ir.toSeq(schema)))
+    val df = sqlContext.sparkSession.createDataFrame(rowRdd, schema)
+
+    // Reflection hack to set isStreaming=true
+    try {
+      @scala.annotation.tailrec
+      def findField(c: Class[_]): Option[java.lang.reflect.Field] = {
+        if (c == null) None
+        else {
+          try { Some(c.getDeclaredField("logicalPlan")) }
+          catch { case _: NoSuchFieldException => findField(c.getSuperclass) }
+        }
+      }
+
+      findField(df.getClass) match {
+        case Some(field) =>
+          field.setAccessible(true)
+          val attributes = schema.map(f =>
+            AttributeReference(f.name, f.dataType, f.nullable, f.metadata)())
+          val newPlan = LocalRelation(
+            attributes,
+            serverInfoConfRDD.collect().toSeq,
+            isStreaming = true
+          )
+          field.set(df, newPlan)
+        case None =>
+          logError("logicalPlan field not found - streaming may not work correctly")
+      }
+    } catch {
+      case e: Exception => logError(s"Reflection hack failed: $e - streaming may not work correctly")
+    }
+
+    // Restore proper partitioning (lost by LocalRelation.collect())
+    df.repartition(numPartitions)
   }
 
   @GuardedBy("this")
@@ -267,6 +366,9 @@ class DistributedHTTPSource(name: String,
   // Note we assume that this function is only called once during the polling of a new batch
   override def getOffset: Option[Offset] = synchronized {
     currentOffset += 1
+    // scalastyle:off println
+    println(s"[DIAG-SOURCE] getOffset: offset=${currentOffset.offset}")
+    // scalastyle:on println
     Some(currentOffset)
   }
 
@@ -274,7 +376,9 @@ class DistributedHTTPSource(name: String,
   override def getBatch(start: Option[Offset], end: Offset): DataFrame = synchronized {
     val startOrdinal = start.map(_.asInstanceOf[LongOffset]).getOrElse(LongOffset(-1)).offset
     val endOrdinal = Option(end).map(_.asInstanceOf[LongOffset]).getOrElse(LongOffset(-1)).offset
-
+    // scalastyle:off println
+    println(s"[DIAG-SOURCE] getBatch: processing ($startOrdinal, $endOrdinal]")
+    // scalastyle:on println
 
     val toRow = HTTPRequestData.makeToRowConverter
     serverInfoDFStreaming.mapPartitions { _ =>
@@ -319,13 +423,19 @@ class DistributedHTTPSourceProvider extends StreamSourceProvider with DataSource
                             providerName: String,
                             parameters: Map[String, String]): (String, StructType) = {
     if (!parameters.contains("host")) {
-      throw new AnalysisException("Set a host to read from with option(\"host\", ...).")
+      throw new AnalysisException(
+        errorClass = "INTERNAL_ERROR",
+        messageParameters = Map("message" -> "Set a host to read from with option(\"host\", ...)."))
     }
     if (!parameters.contains("port")) {
-      throw new AnalysisException("Set a port to read from with option(\"port\", ...).")
+      throw new AnalysisException(
+        errorClass = "INTERNAL_ERROR",
+        messageParameters = Map("message" -> "Set a port to read from with option(\"port\", ...)."))
     }
     if (!parameters.contains("path")) {
-      throw new AnalysisException("Set a name of the API which is used for routing")
+      throw new AnalysisException(
+        errorClass = "INTERNAL_ERROR",
+        messageParameters = Map("message" -> "Set a name of the API which is used for routing"))
     }
     ("DistributedHTTP", HTTPSourceV2.Schema)
   }
@@ -363,7 +473,9 @@ class DistributedHTTPSink(val options: Map[String, String])
     extends Sink with Logging with Serializable {
 
   if (!options.contains("name")) {
-    throw new AnalysisException("Set a name of an API to reply to")
+    throw new AnalysisException(
+      errorClass = "INTERNAL_ERROR",
+      messageParameters = Map("message" -> "Set a name of an API to reply to"))
   }
   override def name: String = options("name")
 

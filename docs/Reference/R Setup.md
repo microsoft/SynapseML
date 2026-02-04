@@ -55,7 +55,7 @@ Installing all dependencies may be time-consuming.  When complete, run:
 library(sparklyr)
 library(dplyr)
 config <- spark_config()
-config$sparklyr.defaultPackages <- "com.microsoft.azure:synapseml_2.12:1.1.2"
+config$sparklyr.defaultPackages <- "com.microsoft.azure:synapseml_2.12:1.1.1"
 sc <- spark_connect(master = "local", config = config)
 ...
 ```
@@ -120,7 +120,7 @@ and then use spark_connect with method = "databricks":
 
 ```R
 install.packages("devtools")
-devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-1.1.2.zip")
+devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-1.1.1.zip")
 library(sparklyr)
 library(dplyr)
 sc <- spark_connect(method = "databricks")

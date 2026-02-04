@@ -194,7 +194,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
 
     get(categoricalSlotIndexes)
       .getOrElse(Array.empty[Int])
-      .union(categoricalIndexes).distinct
+      .union(categoricalIndexes).distinct.toArray
   }
 
   private def getSlotNamesWithMetadata(featuresSchema: StructField): Option[Array[String]] = {

@@ -128,7 +128,18 @@ class DataConversion(override val uid: String) extends Transformer
     if (inType == StringType && outType == BooleanType) throw new Exception("String to Boolean not supported")
     val res = inType match {
       case TimestampType => fromDateConversion(df, outType, columnName)
-      case _ => df.withColumn(columnName, df(columnName).cast(outType).as(columnName))
+      case StringType if Seq(ByteType, ShortType, IntegerType, LongType).contains(outType) =>
+        import org.apache.spark.sql.functions.{coalesce, expr}
+        val targetTypeSql = outType.sql
+        df.withColumn(columnName,
+          coalesce(
+            expr(s"try_cast($columnName as $targetTypeSql)"),
+            expr(s"try_cast(try_cast($columnName as DOUBLE) as $targetTypeSql)")
+          ).as(columnName))
+      case _ =>
+        import org.apache.spark.sql.functions.expr
+        val targetTypeSql = outType.sql
+        df.withColumn(columnName, expr(s"try_cast($columnName as $targetTypeSql)").as(columnName))
     }
     res
   }

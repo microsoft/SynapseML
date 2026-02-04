@@ -4,16 +4,19 @@
 import numpy as np
 import torch
 import torchvision.transforms as transforms
-from horovod.spark.lightning import TorchModel
 from PIL import Image
-from synapse.ml.dl.PredictionParams import VisionPredictionParams
 from pyspark.ml.param import Param, Params, TypeConverters
 from pyspark.sql.functions import col, udf
 from pyspark.sql.types import DoubleType
+from synapse.ml.dl.PredictionParams import VisionPredictionParams
+from synapse.ml.dl._horovod import HOROVOD_AVAILABLE, TorchModelBase, require_horovod
 from synapse.ml.dl.utils import keywords_catch
 
 
-class DeepVisionModel(TorchModel, VisionPredictionParams):
+class DeepVisionModel(
+    TorchModelBase if HOROVOD_AVAILABLE else VisionPredictionParams,
+    VisionPredictionParams if HOROVOD_AVAILABLE else object,
+):
     transform_fn = Param(
         Params._dummy(),
         "transform_fn",
@@ -38,6 +41,7 @@ class DeepVisionModel(TorchModel, VisionPredictionParams):
         prediction_col="prediction",
     ):
         super(DeepVisionModel, self).__init__()
+        require_horovod("DeepVisionModel")
 
         self._setDefault(
             optimizer=None,
