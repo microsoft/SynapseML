@@ -116,6 +116,8 @@ object DatabricksUtilities {
     .filterNot(_.getAbsolutePath.contains("Explanation Dashboard")) // TODO Remove this exclusion
     .filterNot(_.getAbsolutePath.contains("Isolation Forests")) // TODO Remove this exclusion when raiwidgets is fixed
     .filterNot(_.getAbsolutePath.contains("Snow Leopard Detection")) // TODO Remove this exclusion
+    .filterNot(_.getAbsolutePath.contains("Flooding Risk")) // Azure Maps Spatial API retired 9/30/2025
+    .filterNot(_.getAbsolutePath.contains("Geospatial Services")) // Azure Maps Spatial API retired 9/30/2025
 
   val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter { file =>
     file.getAbsolutePath.contains("Fine-tune") || file.getAbsolutePath.contains("Phi Model")
