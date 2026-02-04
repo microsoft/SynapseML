@@ -23,6 +23,20 @@ class CheckPointInPolygon(override val uid: String)
     with HasSubscriptionKey with HasSetGeography with HasLatLonPairInput with HasUserDataIdInput {
   logClass(FeatureNames.Geospatial)
 
+  import org.apache.spark.sql.{DataFrame, Dataset}
+
+  // Azure Maps Spatial service was retired on September 30, 2025.
+  // See: https://azure.microsoft.com/updates/azure-maps-creator-retirement
+  private def retiredServiceError(): Nothing = {
+    throw new UnsupportedOperationException(
+      "CheckPointInPolygon is no longer functional. " +
+      "The Azure Maps Spatial service was retired on September 30, 2025. " +
+      "See: https://azure.microsoft.com/updates/azure-maps-creator-retirement"
+    )
+  }
+
+  override def transform(dataset: Dataset[_]): DataFrame = retiredServiceError()
+
   protected def inputFunc: Row => Option[HttpRequestBase] = {
     { row: Row =>
       if (shouldSkip(row)) {
