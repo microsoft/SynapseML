@@ -101,6 +101,10 @@ variables:
   UBUNTU_VERSION: ubuntu-22.04
   ComponentDetection.Timeout: 900
   isMaster: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
+  isTag: $[startsWith(variables['Build.SourceBranch'], 'refs/tags/')]
+  isPR: $[eq(variables['Build.Reason'], 'PullRequest')]
+  # Run coverage only on PRs, master, or tag builds to speed up feature branch builds
+  runCoverage: $[or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))]
 
 jobs:
 - job: Style
@@ -432,7 +436,8 @@ jobs:
         scriptType: bash
         inlineScript: |
           source activate synapseml
-          sbt coverage getDatasets installPipPackage
+          if [ "$(runCoverage)" = "True" ]; then COV_CMD="coverage"; else COV_CMD=""; fi
+          sbt $COV_CMD getDatasets installPipPackage
           sbt publishM2
     - task: AzureCLI@2
       displayName: 'Test Python Code'
@@ -477,8 +482,9 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: 'sbt coverageReport'
-      condition: succeededOrFailed()
-    - template: templates/codecov.yml
+      condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
+    - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
+      - template: templates/codecov.yml
 - job: RTests
   timeoutInMinutes: 60
   cancelTimeoutInMinutes: 0
@@ -550,8 +556,9 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: 'sbt coverageReport'
-      condition: succeededOrFailed()
-    - template: templates/codecov.yml
+      condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
+    - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
+      - template: templates/codecov.yml
 
 - job: BuildAndCacheCondaEnv
   cancelTimeoutInMinutes: 0
@@ -581,7 +588,8 @@ jobs:
         scriptType: bash
         inlineScript: |
           (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-          (sbt coverage testWebsiteDocs)
+          if [ "$(runCoverage)" = "True" ]; then COV_CMD="coverage"; else COV_CMD=""; fi
+          (sbt $COV_CMD testWebsiteDocs)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
@@ -596,8 +604,9 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: 'sbt coverageReport'
-      condition: succeededOrFailed()
-    - template: templates/codecov.yml
+      condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
+    - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
+      - template: templates/codecov.yml
 
 - job: WebsiteAutoDeployment
   condition: eq('${{ parameters.websiteAutoDeploy }}', true)
@@ -784,8 +793,10 @@ jobs:
         inlineScript: |
           ulimit -c unlimited
           export SBT_OPTS="-XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss2M  -Duser.timezone=GMT"
-          (timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
-          (${FLAKY:-false} && timeout 30m sbt coverage "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**")
+          # Only run coverage on PRs, master, or tag builds
+          if [ "$(runCoverage)" = "True" ]; then COV_CMD="coverage"; else COV_CMD=""; fi
+          (timeout 30m sbt $COV_CMD "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
+          (${FLAKY:-false} && timeout 30m sbt $COV_CMD "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**")
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
@@ -800,6 +811,7 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: 'sbt coverageReport'
-      condition: succeededOrFailed()
+      condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
     - template: templates/kv.yml
-    - template: templates/codecov.yml
+    - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
+      - template: templates/codecov.yml
