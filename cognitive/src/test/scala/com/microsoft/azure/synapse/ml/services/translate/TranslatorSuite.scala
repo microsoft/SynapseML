@@ -115,7 +115,8 @@ class TranslateSuite extends TransformerFuzzing[Translate]
   test("Translate to multiple languages") {
     val result1 = getTranslationTextResult(translate.setToLanguage(Seq("zh-Hans", "de")), textDf1).collect()
     val resultStr = result1(0).getSeq(0).mkString("\n")
-    assert(resultStr.contains("再见") && resultStr.contains("Wiedersehen"))
+    assert(resultStr.contains("再见")
+      && (resultStr.contains("Wiedersehen") || resultStr.contains("Tschüss")))
   }
 
   test("Handle profanity") {

@@ -4,7 +4,7 @@
 import os, json, subprocess, unittest
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
-from langchain.chat_models import AzureChatOpenAI
+from langchain_openai import AzureChatOpenAI
 from synapse.ml.services.langchain import LangchainTransformer
 from pyspark.sql import SQLContext
 from synapse.ml.core.init_spark import *
@@ -26,8 +26,12 @@ class LangchainTransformTest(unittest.TestCase):
         openai_api_version = "2025-01-01-preview"
         openai_api_type = "azure"
 
-        os.environ["OPENAI_API_TYPE"] = openai_api_type
+        # Set environment variables for langchain-openai (new style)
+        os.environ["AZURE_OPENAI_API_KEY"] = openai_api_key
+        os.environ["AZURE_OPENAI_ENDPOINT"] = openai_api_base
         os.environ["OPENAI_API_VERSION"] = openai_api_version
+        # Legacy env vars for backward compatibility
+        os.environ["OPENAI_API_TYPE"] = openai_api_type
         os.environ["OPENAI_API_BASE"] = openai_api_base
         os.environ["OPENAI_API_KEY"] = openai_api_key
 
@@ -37,7 +41,8 @@ class LangchainTransformTest(unittest.TestCase):
         # construction of llm
         llm = AzureChatOpenAI(
             api_version="2025-01-01-preview",
-            deployment_name="gpt-4o",
+            azure_deployment="gpt-4o",
+            azure_endpoint=openai_api_base,
             temperature=0,
             verbose=False,
         )

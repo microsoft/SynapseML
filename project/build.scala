@@ -24,8 +24,8 @@ object BuildUtils {
   }
 
   def pythonizedVersion(version: String): String = {
-    // PEP 440 normalizes version strings to lowercase, and pip/wheel create filenames
-    // using the normalized version. We must match this to find the wheel file.
+    // PEP 440 normalizes versions to lowercase, so wheel filenames use lowercase.
+    // We must match that normalization here to correctly reference generated wheels.
     version match {
       case s if s.contains("-") =>
         val Array(base, suffix @ _*) = s.split("-", 2)

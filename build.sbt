@@ -9,10 +9,10 @@ import scala.xml.transform.{RewriteRule, RuleTransformer}
 import scala.xml.{Node => XmlNode, NodeSeq => XmlNodeSeq, _}
 
 val condaEnvName = "synapseml"
-val sparkVersion = "4.0.1"
+val sparkVersion = "4.1.1"
 name := "synapseml"
 ThisBuild / organization := "com.microsoft.azure"
-ThisBuild / scalaVersion := "2.13.16"
+ThisBuild / scalaVersion := "2.13.17"
 
 val scalaMajorVersion = 2.13
 
@@ -24,9 +24,10 @@ val excludes = Seq(
 
 val coreDependencies = Seq(
   // Excluding protobuf-java, as spark-core is bringing the older version transitively.
-  "org.apache.spark" %% "spark-core" % sparkVersion % "compile" exclude("com.google.protobuf", "protobuf-java"),
-  "org.apache.spark" %% "spark-mllib" % sparkVersion % "compile",
-  "org.apache.spark" %% "spark-avro" % sparkVersion % "compile",
+  // Excluding netty-codec-native-quic because its POM uses ${packaging.type} which sbt/Ivy cannot resolve.
+  "org.apache.spark" %% "spark-core" % sparkVersion % "compile" exclude("com.google.protobuf", "protobuf-java") exclude("io.netty", "netty-codec-native-quic"),
+  "org.apache.spark" %% "spark-mllib" % sparkVersion % "compile" exclude("io.netty", "netty-codec-native-quic"),
+  "org.apache.spark" %% "spark-avro" % sparkVersion % "compile" exclude("io.netty", "netty-codec-native-quic"),
   "org.apache.spark" %% "spark-tags" % sparkVersion % "test",
   "com.globalmentor" % "hadoop-bare-naked-local-fs" % "0.1.0" % "test",
   "org.scalatest" %% "scalatest" % "3.2.14" % "test")
@@ -37,7 +38,7 @@ val extraDependencies = Seq(
   "com.jcraft" % "jsch" % "0.1.54",
   "org.apache.httpcomponents.client5" % "httpclient5" % "5.1.3",
   "org.apache.httpcomponents" % "httpmime" % "4.5.13",
-  "com.linkedin.isolation-forest" %% "isolation-forest_4.0.1" % "4.0.7"
+  "com.linkedin.isolation-forest" %% "isolation-forest_4.1.1" % "4.0.11"
 ).map(d => d excludeAll (excludes: _*))
 val dependencies = coreDependencies ++ extraDependencies
 

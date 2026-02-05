@@ -230,20 +230,73 @@ class LangchainTransformer(
             ]
         )
 
+        # Extract serializable configuration BEFORE defining the UDF
+        # This avoids capturing 'self' which contains unpicklable chain objects
+        subscription_key = self.getSubscriptionKey()
+        url = self.getUrl()
+        api_version = self.getApiVersion()
+        is_synapse_internal = self.running_on_synapse_internal
+        url_is_set = self.isSet(self.url)
+
+        # Extract chain configuration - we need to serialize the prompt
+        # and LLM configuration, not the live objects (which contain thread locks)
+        chain = self.getChain()
+
+        # Extract prompt template - this is serializable
+        prompt_template = None
+        prompt_input_vars = None
+        if hasattr(chain, "prompt") and chain.prompt is not None:
+            prompt_template = chain.prompt.template
+            prompt_input_vars = chain.prompt.input_variables
+
+        # Extract LLM configuration if available
+        llm_config = {}
+        if hasattr(chain, "llm") and chain.llm is not None:
+            llm = chain.llm
+            # Get model/deployment name
+            if hasattr(llm, "deployment_name"):
+                llm_config["deployment"] = llm.deployment_name
+            elif hasattr(llm, "azure_deployment"):
+                llm_config["deployment"] = llm.azure_deployment
+            elif hasattr(llm, "model_name"):
+                llm_config["deployment"] = llm.model_name
+            elif hasattr(llm, "model"):
+                llm_config["deployment"] = llm.model
+            # Get API version from LLM if available
+            if hasattr(llm, "openai_api_version"):
+                llm_config["api_version"] = llm.openai_api_version
+            elif hasattr(llm, "api_version"):
+                llm_config["api_version"] = llm.api_version
+            # Get other config
+            if hasattr(llm, "temperature"):
+                llm_config["temperature"] = llm.temperature
+            # Detect the LLM class type for reconstruction
+            llm_class_name = type(llm).__name__
+            llm_config["class_name"] = llm_class_name
+
+        llm_config_json = json.dumps(llm_config) if llm_config else None
+
         @udf(schema)
         def udfFunction(x):
             import openai
+            import os
             from packaging import version
 
-            if self.running_on_synapse_internal and not self.isSet(self.url):
+            if is_synapse_internal and not url_is_set:
                 from synapse.ml.fabric.prerun.openai_prerun import OpenAIPrerun
 
-                OpenAIPrerun(api_base=self.getUrl()).init_personalized_session(None)
+                OpenAIPrerun(api_base=url).init_personalized_session(None)
             else:
-                openai.api_type = "azure"
-                openai.api_key = self.getSubscriptionKey()
-                openai.api_base = self.getUrl()
-                openai.api_version = self.getApiVersion()
+                # For openai >= 1.0.0, use environment variables instead of module-level attributes
+                if version.parse(openai.__version__) >= version.parse("1.0.0"):
+                    os.environ["AZURE_OPENAI_API_KEY"] = subscription_key
+                    os.environ["AZURE_OPENAI_ENDPOINT"] = url
+                    os.environ["OPENAI_API_VERSION"] = api_version
+                else:
+                    openai.api_type = "azure"
+                    openai.api_key = subscription_key
+                    openai.api_base = url
+                    openai.api_version = api_version
 
             error_messages = {}
             if version.parse(openai.__version__) < version.parse("1.0.0"):
@@ -257,16 +310,81 @@ class LangchainTransformer(
                     openai.error.RateLimitError: "OpenAI API request exceeded rate limit: {}",
                 }
             else:
-                {
+                error_messages = {
                     openai.OpenAIError: "OpenAI API returned an API Error: {}",
                 }
 
             try:
-                result = self.getChain().run(x)
+                # Reconstruct the chain on the worker using serializable config
+                from langchain.chains import LLMChain
+                from langchain.prompts import PromptTemplate
+
+                # Parse LLM config
+                llm_cfg = json.loads(llm_config_json) if llm_config_json else {}
+
+                # Reconstruct the LLM on the worker
+                # This avoids pickling the httpx client which has thread locks
+                llm_class = llm_cfg.get("class_name", "AzureChatOpenAI")
+                deployment = llm_cfg.get("deployment", "gpt-4")
+                temperature = llm_cfg.get("temperature", 0)
+                # Use LLM's API version if available, otherwise use transformer's
+                llm_api_version = llm_cfg.get("api_version", api_version)
+
+                if llm_class == "AzureChatOpenAI":
+                    from langchain_openai import AzureChatOpenAI
+
+                    worker_llm = AzureChatOpenAI(
+                        api_version=llm_api_version,
+                        azure_deployment=deployment,
+                        azure_endpoint=url,
+                        temperature=temperature,
+                    )
+                elif llm_class == "AzureOpenAI":
+                    from langchain_openai import AzureOpenAI
+
+                    worker_llm = AzureOpenAI(
+                        api_version=llm_api_version,
+                        azure_deployment=deployment,
+                        azure_endpoint=url,
+                        temperature=temperature,
+                    )
+                else:
+                    # Fall back to AzureChatOpenAI for unknown types
+                    from langchain_openai import AzureChatOpenAI
+
+                    worker_llm = AzureChatOpenAI(
+                        api_version=llm_api_version,
+                        azure_deployment=deployment,
+                        azure_endpoint=url,
+                        temperature=temperature,
+                    )
+
+                # Reconstruct the prompt
+                worker_prompt = PromptTemplate(
+                    input_variables=prompt_input_vars,
+                    template=prompt_template,
+                )
+
+                # Create the chain
+                worker_chain = LLMChain(llm=worker_llm, prompt=worker_prompt)
+
+                result = worker_chain.run(x)
                 error_message = ""
-            except tuple(error_messages.keys()) as e:
+            except Exception as e:
                 result = ""
-                error_message = error_messages[type(e)].format(e)
+                # Find matching error message by checking inheritance hierarchy
+                error_msg_template = None
+                for err_type, msg_template in error_messages.items():
+                    if isinstance(e, err_type):
+                        error_msg_template = msg_template
+                        break
+                if error_msg_template:
+                    error_message = error_msg_template.format(e)
+                else:
+                    # Generic fallback for any other exception
+                    error_message = (
+                        f"Error during chain execution: {type(e).__name__}: {e}"
+                    )
 
             return result, error_message
 

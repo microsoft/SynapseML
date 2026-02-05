@@ -3,7 +3,7 @@ channels:
   - conda-forge
   - default
 dependencies:
-  - python=3.12.11
+  - python=3.13
   - requests=2.26.0
   - pip=25.2
   - r-base=4.4
@@ -12,15 +12,13 @@ dependencies:
   - cmake<=3.27
   - openjdk=17
   - pip:
-    # For Python 3.12, older PyArrow releases (e.g. 11.0.0) lack pre-built
-    # wheels and force a from-source build with system Arrow. Use a newer
-    # version that provides cp312 wheels.
-    - pyarrow==22.0.0
-    - pyspark==4.0.1
-    - pandas==2.0.3
+    # PyArrow 18.0.0 provides wheels for Python 3.13 and satisfies mlflow 2.x constraint (pyarrow<19).
+    - pyarrow==18.0.0
+    - pyspark==4.1.1
+    - pandas==2.3.3
     - wheel
-    - sphinx==5.0.2
-    - sphinx_paramlinks==0.5.2
+    - sphinx==7.4.7
+    - sphinx_paramlinks==0.6.0
     - sphinx_rtd_theme
     - coverage
     - pytest
@@ -35,25 +33,26 @@ dependencies:
     - azure-storage-blob
     - jupyter
     - twine
-    - mlflow==1.26.1
-    - protobuf>=4.25,<5
+    - mlflow==2.20.0
+    - protobuf>=4.25
     - numpy
-    # For Python 3.12, PyTorch 2.1.0 wheels are not available; use the
-    # first PyTorch release that supports 3.12 and its matching torchvision.
-    - torch==2.2.0
-    - torchvision==0.17.0
+    # For Python 3.13, use PyTorch 2.6+ which has Python 3.13 wheels.
+    - torch==2.9.1
+    - torchvision==0.24.1
     # horovod package was depreciated in 2023, this commit has horovod compile with c++17
     # Ref: https://github.com/horovod/horovod/issues/3996#issuecomment-2098507345
     - git+https://github.com/horovod/horovod.git@3a31d933a13c7c885b8a673f4172b17914ad334d
     - petastorm>=0.11.0
-    - pytorch_lightning==1.5.0
-    - onnxmltools==1.7.0
+    - pytorch_lightning==2.4.0
+    - onnxmltools==1.12.0
     - matplotlib
     - Pillow
     - transformers==4.49.0
     - huggingface-hub==0.26.0
-    - langchain==0.0.152
-    - openai==0.27.5
+    - langchain==0.3.0
+    - langchain-community==0.3.0
+    - langchain-openai==0.3.0
+    - openai>=1.58.1
     - black==22.3.0
     - black[jupyter]==22.3.0
     - mistletoe

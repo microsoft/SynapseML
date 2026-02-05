@@ -45,7 +45,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   with HasURL with HasCustomCogServiceDomain with ConcurrencyParams
   with HasSubscriptionKey with HasAADToken with HasCustomAuthHeader
   with HasCognitiveServiceInput
-  with ComplexParamsWritable with SynapseMLLogging with HasGlobalParams with Wrappable {
+  with ComplexParamsWritable with SynapseMLLogging with HasGlobalParams
+  with Wrappable {
 
   override protected lazy val pyInternalWrapper: Boolean = true
 
