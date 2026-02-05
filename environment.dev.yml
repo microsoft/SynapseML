@@ -4,7 +4,7 @@ channels:
   - default
 dependencies:
   # Core language/runtime
-  - python=3.12.11
+  - python=3.13
   - requests=2.26.0
   - pip=25.2
   # Build / tooling
@@ -15,14 +15,15 @@ dependencies:
   # (including R, torch, horovod, etc.) remains defined in environment.yml for CI.
   - pip:
     # Core data / Spark stack
-    - pyarrow==22.0.0
-    - pyspark==4.0.1
-    - pandas==2.0.3
+    # PyArrow 18.0.0 provides wheels for Python 3.13 and satisfies mlflow 2.x constraint (pyarrow<19).
+    - pyarrow==18.0.0
+    - pyspark==4.1.1
+    - pandas==2.3.3
     - wheel
 
     # Docs and testing
-    - sphinx==5.0.2
-    - sphinx_paramlinks==0.5.2
+    - sphinx==7.4.7
+    - sphinx_paramlinks==0.6.0
     - sphinx_rtd_theme
     - coverage
     - pytest
@@ -39,15 +40,17 @@ dependencies:
     - azure-storage-blob
     - jupyter
     - twine
-    - mlflow
+    - mlflow==2.20.0
     - numpy
 
     # Lightweight extras commonly used in examples / tools
-    - onnxmltools==1.7.0
+    - onnxmltools==1.12.0
     - matplotlib
     - Pillow
-    - langchain==0.0.152
-    - openai==0.27.5
+    - langchain==0.3.0
+    - langchain-community==0.3.0
+    - langchain-openai==0.3.0
+    - openai>=1.58.1
     - black==22.3.0
     - black[jupyter]==22.3.0
     - mistletoe
