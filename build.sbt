@@ -251,6 +251,9 @@ val settings = Seq(
   Test / scalastyleConfig := (ThisBuild / baseDirectory).value / "scalastyle-test-config.xml",
   Test / logBuffered := false,
   Test / parallelExecution := false,
+  // Enable parallel compilation backend for faster builds
+  Compile / scalacOptions ++= Seq("-Ybackend-parallelism", "8"),
+  Test / scalacOptions ++= Seq("-Ybackend-parallelism", "8"),
   Test / publishArtifact := true,
   assembly / test := {},
   assembly / assemblyMergeStrategy := {
