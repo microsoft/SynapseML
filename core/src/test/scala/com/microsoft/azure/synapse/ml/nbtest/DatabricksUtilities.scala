@@ -32,11 +32,11 @@ object DatabricksUtilities {
 
   // ADB Info
   val Region = "eastus"
-  val PoolName = "synapseml-build-17.3"
-  val GpuPoolName = "synapseml-build-17.3-gpu"
-  val AdbRuntime = "17.3.x-scala2.13"
-  // https://docs.databricks.com/en/release-notes/runtime/17.3lts-ml.html
-  val AdbGpuRuntime = "17.3.x-gpu-ml-scala2.13"
+  val PoolName = "synapseml-build-18.0"
+  val GpuPoolName = "synapseml-build-18.0-gpu"
+  val AdbRuntime = "18.0.x-scala2.13"
+  // https://docs.databricks.com/en/release-notes/runtime/18.0.html
+  val AdbGpuRuntime = "18.0.x-gpu-ml-scala2.13"
   val NumWorkers = 5
   val AutoTerminationMinutes = 15
 

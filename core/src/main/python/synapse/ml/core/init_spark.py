@@ -204,7 +204,7 @@ def init_spark():
         packages = (
             "com.microsoft.azure:synapseml_2.13:"
             + version_for_packages
-            + ",org.apache.spark:spark-avro_2.13:4.0.1"
+            + ",org.apache.spark:spark-avro_2.13:4.1.1"
         )
         builder = base_builder.config("spark.jars.packages", packages).config(
             "spark.jars.repositories", repos

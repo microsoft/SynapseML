@@ -1,18 +1,11 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 
-# TODO: Upgrade to langchain>=0.3 + langchain-openai>=0.2 + openai>=1.0.
-# The CompatAzureChatOpenAI subclass works around langchain==0.0.152
-# always sending max_tokens (rejected by reasoning models). Upgrading makes
-# it unnecessary because langchain-openai 0.2+ natively uses
-# max_completion_tokens and the openai 1.x SDK omits unset params.
-
 import os, json, subprocess, unittest
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
-from langchain.chat_models import AzureChatOpenAI
+from langchain_openai import AzureChatOpenAI
 from synapse.ml.services.langchain import LangchainTransformer
-from synapse.ml.services.langchain.LangchainTransform import CompatAzureChatOpenAI
 from pyspark.sql import SQLContext
 from synapse.ml.core.init_spark import *
 
@@ -33,8 +26,12 @@ class LangchainTransformTest(unittest.TestCase):
         openai_api_version = "2025-01-01-preview"
         openai_api_type = "azure"
 
-        os.environ["OPENAI_API_TYPE"] = openai_api_type
+        # Set environment variables for langchain-openai (new style)
+        os.environ["AZURE_OPENAI_API_KEY"] = openai_api_key
+        os.environ["AZURE_OPENAI_ENDPOINT"] = openai_api_base
         os.environ["OPENAI_API_VERSION"] = openai_api_version
+        # Legacy env vars for backward compatibility
+        os.environ["OPENAI_API_TYPE"] = openai_api_type
         os.environ["OPENAI_API_BASE"] = openai_api_base
         os.environ["OPENAI_API_KEY"] = openai_api_key
 
@@ -47,10 +44,10 @@ class LangchainTransformTest(unittest.TestCase):
         )
 
         # construction of llm
-        llm = CompatAzureChatOpenAI(
+        llm = AzureChatOpenAI(
             api_version="2025-01-01-preview",
-            deployment_name="gpt-4o",
-            model_kwargs={"max_completion_tokens": 100},
+            azure_deployment="gpt-4o",
+            azure_endpoint=openai_api_base,
             temperature=0,
             verbose=False,
         )
@@ -95,10 +92,11 @@ class LangchainTransformTest(unittest.TestCase):
         # Verify that OpenAI API errors are captured in errorCol rather than
         # crashing the Spark job.  We force a reliable InvalidRequestError by
         # setting max_completion_tokens=0 (below the API minimum of 1).
-        error_llm = CompatAzureChatOpenAI(
+        error_llm = AzureChatOpenAI(
             api_version="2025-01-01-preview",
-            deployment_name="gpt-4o",
-            model_kwargs={"max_completion_tokens": 0},
+            azure_deployment="gpt-4o",
+            azure_endpoint=self.url,
+            max_completion_tokens=0,
             temperature=0,
             verbose=False,
         )
@@ -128,22 +126,23 @@ class LangchainTransformTest(unittest.TestCase):
             ), f"Expected 'invalid' in error message, got: {error_val}"
 
     def test_langchainTransformReasoningModelErrorCapture(self):
-        # Verify that using plain AzureChatOpenAI (without the compat
-        # workaround) against a reasoning model deployment captures the
-        # max_tokens rejection in errorCol rather than crashing the Spark job.
-        # This is the error a customer would hit with langchain==0.0.152.
-        raw_llm = AzureChatOpenAI(
+        # Verify that API errors from a second transformer (with different
+        # error-triggering config) are captured in errorCol deterministically.
+        # Uses max_completion_tokens=-1 which the API rejects as invalid.
+        error_llm2 = AzureChatOpenAI(
             api_version="2025-01-01-preview",
-            deployment_name="gpt-4o",
+            azure_deployment="gpt-4o",
+            azure_endpoint=self.url,
+            max_completion_tokens=-1,
             temperature=0,
             verbose=False,
         )
-        raw_chain = LLMChain(llm=raw_llm, prompt=self.copy_prompt)
-        raw_transformer = (
+        error_chain2 = LLMChain(llm=error_llm2, prompt=self.copy_prompt)
+        error_transformer2 = (
             LangchainTransformer()
             .setInputCol("technology")
             .setOutputCol("copied_technology")
-            .setChain(raw_chain)
+            .setChain(error_chain2)
             .setSubscriptionKey(self.subscriptionKey)
             .setUrl(self.url)
         )
@@ -151,22 +150,21 @@ class LangchainTransformTest(unittest.TestCase):
         dataframes_to_test = spark.createDataFrame(
             [(0, "hello")], ["label", "technology"]
         )
-        transformed_df = raw_transformer.transform(dataframes_to_test)
+        transformed_df = error_transformer2.transform(dataframes_to_test)
         collected = transformed_df.collect()
         error_col_values = [row.errorCol for row in collected]
 
         for error_val in error_col_values:
             assert (
                 error_val and len(error_val) > 0
-            ), "Expected an error in errorCol when using plain AzureChatOpenAI with reasoning model"
+            ), "Expected an error in errorCol for invalid max_completion_tokens"
 
     def test_langchainTransformNonReasoningModel(self):
-        # Verify that the compat workaround works with non-reasoning models too.
-        # gpt-4.1-mini on synapseml-openai-2 is a non-reasoning model.
-        non_reasoning_llm = CompatAzureChatOpenAI(
+        # Verify that LangchainTransformer works with a different model deployment.
+        non_reasoning_llm = AzureChatOpenAI(
             api_version="2025-01-01-preview",
-            deployment_name="gpt-4.1-mini",
-            model_kwargs={"max_completion_tokens": 100},
+            azure_deployment="gpt-4.1-mini",
+            azure_endpoint=self.url,
             temperature=0,
             verbose=False,
         )
@@ -186,7 +184,7 @@ class LangchainTransformTest(unittest.TestCase):
         self._assert_chain_output(non_reasoning_transformer, dataframes_to_test)
 
     @unittest.skip(
-        "Skipping this test because not supported for langchain.chat_models.AzureChatOpenAI."
+        "langchain 0.3 load_chain_from_config does not support langchain-openai LLM types (no _type key)."
     )
     def test_save_load(self):
         dataframes_to_test = spark.createDataFrame(

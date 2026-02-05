@@ -117,7 +117,7 @@ object RTestGen {
          |     "--add-opens=java.base/sun.util.calendar=ALL-UNNAMED ",
          |     "--add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED"), collapse = ""), "'")
          |
-         |sc <- spark_connect(master = "local", version = "4.0", config = conf)
+         |sc <- spark_connect(master = "local", spark_home = Sys.getenv("SPARK_HOME"), config = conf)
          |
          |""".stripMargin, StandardOpenOption.CREATE)
 

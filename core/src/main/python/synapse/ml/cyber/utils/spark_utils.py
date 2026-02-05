@@ -99,11 +99,11 @@ class DataFrameUtils:
             output_schema = t.StructType(
                 df.schema.fields + [t.StructField(col_name, t.LongType(), True)],
             )
-            return (
-                df.rdd.zipWithIndex()
-                .map(lambda line: (list(line[0]) + [line[1] + start_index]))
-                .toDF(output_schema)
+            indexed_rdd = df.rdd.zipWithIndex().map(
+                lambda line: (list(line[0]) + [line[1] + start_index])
             )
+            spark = DataFrameUtils.get_spark_session(df)
+            return spark.createDataFrame(indexed_rdd, output_schema)
 
 
 def to_camel_case(prefix: str, varname: str) -> str:

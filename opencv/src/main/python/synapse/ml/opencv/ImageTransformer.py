@@ -43,12 +43,16 @@ def toNDArray(image):
     Returns:
         array: The image as a 1-dimensional array
     """
-    if image.nChannels == 1:
-        return np.asarray(image.data, dtype=np.uint8).reshape(
-            (image.height, image.width, 1)
-        )
+    data = image.data
+    if isinstance(data, (bytes, bytearray)):
+        arr = np.frombuffer(data, dtype=np.uint8)
+    else:
+        arr = np.asarray(data, dtype=np.uint8)
 
-    return np.asarray(image.data, dtype=np.uint8).reshape(
+    if image.nChannels == 1:
+        return arr.reshape((image.height, image.width, 1))
+
+    return arr.reshape(
         (image.height, image.width, 3),
     )[:, :, (2, 1, 0)]
 
