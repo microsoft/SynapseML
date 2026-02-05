@@ -251,6 +251,15 @@ class DistributedHTTPSource(name: String,
   }
 
   private[spark] val serverInfoDFStreaming = {
+    // In Spark 4.0, internalCreateDataFrame(rdd, schema, isStreaming=true) was removed.
+    // We need isStreaming=true for getBatch() to satisfy Spark's streaming validation.
+    //
+    // The workaround uses reflection to set isStreaming=true on a LocalRelation.
+    // However, LocalRelation loses the RDD's partitioning, which causes requests
+    // to be unevenly distributed (some partitions would never receive their requests).
+    //
+    // To fix this, we repartition after the reflection hack to restore the correct
+    // number of partitions for proper request distribution.
     val serializer = infoEnc.createSerializer()
     val serverInfoConfRDD = serverInfoDF.rdd.map(serializer)
     val rowRdd = serverInfoConfRDD.map(ir => Row.fromSeq(ir.toSeq(schema)))
@@ -284,12 +293,15 @@ class DistributedHTTPSource(name: String,
           )
           field.set(df, newPlan)
         case None =>
-          logError("DEBUG: logicalPlan field not found")
+          logError("logicalPlan field not found - Loss of partitioning may cause request distribution issues")
       }
     } catch {
-      case e: Exception => logError(s"DEBUG: Reflection hack failed: $e")
+      case e: Exception =>
+        logError(s"Reflection hack failed: $e - Loss of partitioning may cause request distribution issues")
     }
-    df
+
+    // Restore proper partitioning (lost by LocalRelation.collect())
+    df.repartition(serverInfoConfRDD.getNumPartitions)
   }
 
   @GuardedBy("this")

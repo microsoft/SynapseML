@@ -331,8 +331,8 @@ class SentimentAnalysisLROSuite extends TransformerFuzzing[AnalyzeTextLongRunnin
     assert(result(1).getAs[String]("sentiment") == "negative")
   }
 
-  test("api-version 2022-10-01-preview") {
-    val result = model.setApiVersion("2022-10-01-preview").transform(df)
+  test("api-version 2024-11-01") {
+    val result = model.setApiVersion("2024-11-01").transform(df)
                       .withColumn("documents", col("response.documents"))
                       .withColumn("sentiment", col("documents.sentiment"))
                       .collect()
@@ -400,8 +400,8 @@ class KeyPhraseLROSuite extends TransformerFuzzing[AnalyzeTextLongRunningOperati
     assert(keyPhrases.contains("Text Analytics"))
   }
 
-  test("api-version 2022-10-01-preview") {
-    val result = model.setApiVersion("2022-10-01-preview").transform(df)
+  test("api-version 2024-11-01") {
+    val result = model.setApiVersion("2024-11-01").transform(df)
                       .withColumn("documents", col("response.documents"))
                       .withColumn("keyPhrases", col("documents.keyPhrases"))
     val keyPhrases = result.collect()(1).getAs[scala.collection.Seq[String]]("keyPhrases")
@@ -459,8 +459,8 @@ class AnalyzeTextPIILORSuite extends TransformerFuzzing[AnalyzeTextLongRunningOp
     assert(!redactedText.contains("111000025"))
   }
 
-  test("api-version 2022-10-01-preview") {
-    val result = model.setApiVersion("2022-10-01-preview").transform(df)
+  test("api-version 2024-11-01") {
+    val result = model.setApiVersion("2024-11-01").transform(df)
                       .withColumn("documents", col("response.documents"))
                       .withColumn("redactedText", col("documents.redactedText"))
                       .withColumn("entities", col("documents.entities.text"))
@@ -521,8 +521,8 @@ class EntityLinkingLROSuite extends TransformerFuzzing[AnalyzeTextLongRunningOpe
     assert(entities.contains("Bill Gates"))
   }
 
-  test("api-version 2022-10-01-preview") {
-    val result = model.setApiVersion("2022-10-01-preview").transform(df)
+  test("api-version 2024-11-01") {
+    val result = model.setApiVersion("2024-11-01").transform(df)
                       .withColumn("documents", col("response.documents"))
                       .withColumn("entityNames", map(col("documents.id"), col("documents.entities.name")))
     val entities = result.head.getAs[Map[String, scala.collection.Seq[String]]]("entityNames")("0")
@@ -577,8 +577,8 @@ class EntityRecognitionLROSuite extends TransformerFuzzing[AnalyzeTextLongRunnin
     assert(entities.contains("Bill Gates"))
   }
 
-  test("api-version 2022-10-01-preview") {
-    val result = model.setApiVersion("2022-10-01-preview").transform(df)
+  test("api-version 2024-11-01") {
+    val result = model.setApiVersion("2024-11-01").transform(df)
                       .withColumn("documents", col("response.documents"))
                       .withColumn("entityNames", map(col("documents.id"), col("documents.entities.text")))
     val entities = result.head.getAs[Map[String, scala.collection.Seq[String]]]("entityNames")("0")

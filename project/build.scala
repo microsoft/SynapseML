@@ -24,12 +24,14 @@ object BuildUtils {
   }
 
   def pythonizedVersion(version: String): String = {
+    // PEP 440 normalizes version strings to lowercase, and pip/wheel create filenames
+    // using the normalized version. We must match this to find the wheel file.
     version match {
       case s if s.contains("-") =>
         val Array(base, suffix @ _*) = s.split("-", 2)
         // Use a PEP 440 local version to preserve the spark suffix (e.g., 1.1.0+spark4.0)
-        base + "+" + suffix.mkString.replace("-", ".")
-      case s => s
+        (base + "+" + suffix.mkString.replace("-", ".")).toLowerCase
+      case s => s.toLowerCase
     }
   }
 

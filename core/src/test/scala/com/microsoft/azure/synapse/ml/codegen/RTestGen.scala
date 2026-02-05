@@ -86,18 +86,6 @@ object RTestGen {
       conf.rTestThatDir.mkdirs()
     }
 
-    // For local and CI testing we prefer to load the freshly built core jar directly via
-    // spark.jars, rather than relying on Maven resolution of a potentially unpublished
-    // SNAPSHOT coordinate. Keep Avro on spark.jars.packages so Spark can resolve it
-    // from the usual repositories.
-    val localCoreJar: Option[String] = conf.jarName.map { jar =>
-      new File(conf.targetDir, jar).getAbsolutePath.replaceAllLiterally("\\", "\\\\")
-    }
-    val avroOnlyPackages: String = SparkMavenPackageList
-      .split(",")
-      .filterNot(_.startsWith("com.microsoft.azure:synapseml_"))
-      .mkString(",")
-
     writeFile(join(conf.rTestThatDir, "setup.R"),
       s"""
          |${useLibrary("sparklyr")}
@@ -108,9 +96,8 @@ object RTestGen {
          |conf <- spark_config()
          |conf$$sparklyr.shell.conf <- c(
          |  "spark.app.name=SparklyRTests",
-         |  ${localCoreJar.map(p => s""""spark.jars=$p",""").getOrElse("")}
-         |  "spark.jars.packages=$avroOnlyPackages",
-         |  "spark.jars.repositories=$SparkMavenRepositoryList,file:///Users/brendan/.m2/repository",
+         |  "spark.jars.packages=$SparkMavenPackageList",
+         |  "spark.jars.repositories=$SparkMavenRepositoryList",
          |  "spark.executor.heartbeatInterval=60s",
          |  "spark.sql.shuffle.partitions=10",
          |  "spark.sql.crossJoin.enabled=true")
