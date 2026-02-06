@@ -162,8 +162,13 @@ object FabricNotebookTests {
     "FloodingRisk",
     "GeospatialServices",
     // Fabric-specific exclusions
-    "TransferLearn",        // Large image downloads may timeout on SJD
-    "CreateaSparkCluster",  // Setup guide, not a test
-    "SetupCognitiveServices" // Setup guide, not a test
+    "TransferLearn",         // Large image downloads may timeout on SJD
+    "CreateaSparkCluster",   // Setup guide, not a test
+    "SetupCognitiveServices", // Setup guide, not a test
+    // Temporarily disabled — slowest notebooks on Databricks (>10m each)
+    "PDPandICEExplainers",   // ~12m on Databricks
+    "HyperOpt",              // ~11m on Databricks
+    "SparkMLvsSynapseML",    // ~6m on Databricks
+    "ClassificationusingVWnativeFormat" // Timed out on Databricks (34m)
   )
 }
