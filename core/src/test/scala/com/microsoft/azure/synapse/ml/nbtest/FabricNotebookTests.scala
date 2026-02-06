@@ -142,7 +142,7 @@ class FabricNotebookTests extends TestBase with HasFabricNotebookTestConnection 
 }
 
 object FabricNotebookTests {
-  val MaxConcurrency: Int = 50
+  val MaxConcurrency: Int = 3
 
   // Exclude-based filtering, mirroring DatabricksUtilities.CPUNotebooks.
   // Same exclusions as Databricks CPU, plus Fabric-specific ones.
