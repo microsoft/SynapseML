@@ -96,8 +96,6 @@ class FabricNotebookTests extends TestBase with HasFabricNotebookTestConnection 
   val selectedPythonFiles: Array[File] = FileUtilities
     .recursiveListFiles(SharedNotebookE2ETestUtilities.NotebooksDir)
     .filter(_.getAbsolutePath.endsWith(".py"))
-    // Only include notebooks that don't require external API keys
-    .filter(f => FabricNotebookTests.IncludedNotebooks.exists(f.getAbsolutePath.contains))
     .filterNot(f => FabricNotebookTests.ExcludedNotebooks.exists(f.getAbsolutePath.contains))
     .sortBy(_.getAbsolutePath)
 
@@ -135,38 +133,26 @@ class FabricNotebookTests extends TestBase with HasFabricNotebookTestConnection 
 }
 
 object FabricNotebookTests {
-  // Notebooks that work on Fabric without external API keys.
-  // These exercise core SynapseML Spark/ML functionality.
-  val IncludedNotebooks: Seq[String] = Seq(
-    "Classification",
-    "Regression",
-    "LightGBM",
-    "VowpalWabbit",
-    "CausalInference",
-    "HyperOpt",
-    "RandomSearch",
-    "DataBalance",
-    "ImageTransformations",
-    "ONNXModelInference",
-    "TrainClassifier",
-    "TrainRegressor",
-    "DataCleaning",
-    "SparkMLvsSynapseML",
-    "DeployingaClassifier",
-    "ContextualBandits",
-    "AnomalousAccessDetection",
-    "Explainers",
-    "OnePlusOne"
-  )
-
-  // Notebooks to exclude even if they match includes above
+  // Exclude-based filtering, mirroring DatabricksUtilities.CPUNotebooks.
+  // Same exclusions as Databricks CPU, plus Fabric-specific ones.
   val ExcludedNotebooks: Seq[String] = Seq(
-    "GPU",
+    // Same as Databricks CPU exclusions
     "FineTune",
     "Finetune",
+    "GPU",
     "PhiModel",
     "LanguageModel",
-    "TransferLearn",      // Needs image download that may timeout
-    "ChatCompletion"      // Needs Azure AI Foundry key
+    "MultivariateAnomalyDetection",
+    "Audiobooks",
+    "Art",
+    "ExplanationDashboard",
+    "IsolationForests",
+    "SnowLeopardDetection",
+    "FloodingRisk",
+    "GeospatialServices",
+    // Fabric-specific exclusions
+    "TransferLearn",        // Large image downloads may timeout on SJD
+    "CreateaSparkCluster",  // Setup guide, not a test
+    "SetupCognitiveServices" // Setup guide, not a test
   )
 }
