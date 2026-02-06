@@ -42,10 +42,16 @@ class FabricNotebookTests extends TestBase with HasFabricNotebookTestConnection 
 
   val trivialScript: String =
     """
+      |from pyspark.sql import SparkSession
+      |
+      |spark = SparkSession.builder.getOrCreate()
+      |
       |# Trivial 1+1 test
       |result = 1 + 1
       |assert result == 2, f"Expected 2, got {result}"
       |print(f"SUCCESS: 1 + 1 = {result}")
+      |
+      |spark.stop()
       |""".stripMargin
 
   lazy val notebookFile: File = {

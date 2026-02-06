@@ -55,8 +55,7 @@ private[fabric] class FabricOperations(clientId: String, redirectUri: String, wo
 
     val sparkSettingsEntries = scala.collection.mutable.ListBuffer(
       s"'spark.executorEnv.IS_$platform': 'true'",
-      "'spark.executor.heartbeatInterval': '60s'",
-      "'spark.yarn.user.classpath.first': 'true'"
+      "'spark.executor.heartbeatInterval': '60s'"
     )
 
     if (includePackages) {
