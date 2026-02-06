@@ -241,7 +241,7 @@ jobs:
         inlineScript: |
           set -e
           source activate synapseml
-          sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.FabricNotebookTests"
+          sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.FabricSmokeTests com.microsoft.azure.synapse.ml.nbtest.FabricNotebookTests"
       env:
         INTEGRATION_ENV: $(sempy-integration-region)
         INTEGRATION_ACCOUNT: $(sempy-integration-account)
