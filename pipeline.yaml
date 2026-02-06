@@ -672,9 +672,6 @@ jobs:
       anomaly:
         PACKAGE: "services.anomaly"
         FLAKY: "true"
-      bing:
-        PACKAGE: "services.bing"
-        FLAKY: "true"
       face:
         PACKAGE: "services.face"
         FLAKY: "true"
