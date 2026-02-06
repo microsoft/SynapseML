@@ -193,12 +193,9 @@ jobs:
 #      This test will be re-enabled once the issue is fixed.
 #      databricks-rapids:
 #        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksRapidsTests"
-#      TODO: Re-enable the Synapse E2E tests once the environment in live.
-#      synapse:
-#        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseTests"
-#      ${{ if eq(parameters.runFabricE2ETests, true) }}:
-#        synapse-internal:
-#          TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseExtension.SynapseExtensionsTests"
+      ${{ if eq(parameters.runFabricE2ETests, true) }}:
+        fabric:
+          TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.FabricNotebookTests"
   steps:
     #- template: templates/ivy_cache.yml
     - template: templates/update_cli.yml
@@ -215,6 +212,10 @@ jobs:
           set -e
           source activate synapseml
           sbt "testOnly $(TEST-CLASS)"
+      env:
+        INTEGRATION_ENV: $(sempy-integration-region)
+        INTEGRATION_ACCOUNT: $(sempy-integration-account)
+        INTEGRATION_CERTIFICATE: $(sempy-integration-certificate)
       condition: and(succeeded(), eq(variables.runTests, 'True'))
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
