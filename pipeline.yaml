@@ -201,6 +201,7 @@ jobs:
     - template: templates/update_cli.yml
     - template: templates/conda.yml
     - template: templates/kv.yml
+    - template: templates/fabric_kv.yml
     - template: templates/publish.yml
     - task: AzureCLI@2
       displayName: 'E2E'
