@@ -9,7 +9,8 @@ steps:
       KeyVaultName: '$(fabric-test-kv-name)'
       SecretsFilter: >
         sempy-integration-region,
-        sempy-integration-account
+        sempy-integration-account,
+        sempy-integration-workspace-prefix
       RunAsPreJob: false
 
   # Compute certificate secret name from account

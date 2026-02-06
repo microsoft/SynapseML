@@ -12,6 +12,7 @@ import DefaultJsonProtocol._
  * Configuration is resolved at runtime from environment variables:
  * - INTEGRATION_ENV: The environment to use (default: "prod")
  * - INTEGRATION_ACCOUNT: The account email in format "username@tenant"
+ * - INTEGRATION_WORKSPACE_PREFIX: Workspace name prefix (workspace = "{prefix} {username}")
  * - INTEGRATION_CERTIFICATE: base64-encoded .pfx certificate for auth
  */
 object FabricTestConstants {
@@ -39,13 +40,16 @@ object FabricTestConstants {
   val INTEGRATION_APP_ID: String = "871c010f-5e61-4fb1-83ac-98610a7e9110"
   val INTEGRATION_REDIRECT_URI: String = "https://app.powerbi.com/signin"
 
+  private lazy val workspacePrefix: String = sys.env.getOrElse("INTEGRATION_WORKSPACE_PREFIX",
+    throw new IllegalArgumentException("INTEGRATION_WORKSPACE_PREFIX environment variable must be set"))
+
   /**
    * Resolves the integration workspace ID at runtime by querying the Fabric API.
-   * Looks for a workspace named "SemPy {INTEGRATION_USERNAME}".
+   * Looks for a workspace named "{INTEGRATION_WORKSPACE_PREFIX} {INTEGRATION_USERNAME}".
    */
   def getIntegrationWorkspaceId(): String = {
     val client = FabricAuthenticatedHttpClient(INTEGRATION_APP_ID, INTEGRATION_REDIRECT_URI)
-    val expectedWorkspaceName = s"SemPy $INTEGRATION_USERNAME"
+    val expectedWorkspaceName = s"$workspacePrefix $INTEGRATION_USERNAME"
 
     val response = client.getRequest("https://api.fabric.microsoft.com/v1/workspaces")
     val workspaces = response.asJsObject.fields("value").convertTo[List[JsObject]]
