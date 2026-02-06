@@ -9,9 +9,9 @@ import com.microsoft.azure.synapse.ml.fabric.{FabricTestConstants, HasFabricOper
 
 import java.io.{File, PrintWriter}
 import java.time.LocalDateTime
-import java.util.concurrent.TimeUnit
+import java.util.concurrent.{Executors, TimeUnit}
 import scala.concurrent.duration.Duration
-import scala.concurrent.{Await, Future, blocking}
+import scala.concurrent.{Await, ExecutionContext, Future, blocking}
 
 trait HasFabricNotebookTestConnection extends HasFabricOperationsConnection {
   fabricClientId = Some(FabricTestConstants.INTEGRATION_APP_ID)
@@ -104,35 +104,46 @@ class FabricNotebookTests extends TestBase with HasFabricNotebookTestConnection 
 
   val storeArtifactId: String = fabric.createStoreArtifact()
 
-  selectedPythonFiles.foreach(createAndExecuteSJD)
+  val executorService = Executors.newFixedThreadPool(FabricNotebookTests.MaxConcurrency)
+  implicit val executionContext: ExecutionContext = ExecutionContext.fromExecutor(executorService)
 
-  def createAndExecuteSJD(notebookFile: File): Unit = {
+  // Submit all SJDs in parallel, each Future handles create -> upload -> submit -> monitor
+  val futures: Array[(Future[String], String)] = selectedPythonFiles.map { notebookFile =>
     val notebookName = fabric.getBlobNameFromFilepath(notebookFile.getPath)
-    val artifactId = fabric.createSJDArtifact(notebookFile.getPath)
-    val notebookBlobPath = fabric.uploadNotebookToAzure(notebookFile)
-    fabric.updateSJDArtifact(notebookBlobPath, artifactId, storeArtifactId)
-    blocking {
-      Thread.sleep(3000) //scalastyle:ignore
+    val future = Future {
+      val artifactId = fabric.createSJDArtifact(notebookFile.getPath)
+      val notebookBlobPath = fabric.uploadNotebookToAzure(notebookFile)
+      fabric.updateSJDArtifact(notebookBlobPath, artifactId, storeArtifactId)
+      blocking { Thread.sleep(3000) } //scalastyle:ignore
+      val jobInstanceId = fabric.submitJob(artifactId)
+      blocking { Thread.sleep(10000) } //scalastyle:ignore
+      Await.result(
+        fabric.monitorJob(artifactId, jobInstanceId),
+        Duration(fabric.timeoutInMillis.toLong, TimeUnit.MILLISECONDS))
     }
-    val jobInstanceId = fabric.submitJob(artifactId)
-    blocking {
-      Thread.sleep(10000) //scalastyle:ignore
-    }
+    (future, notebookName)
+  }
+
+  futures.foreach { case (future, notebookName) =>
     test(notebookName) {
       try {
-        val result = Await.ready(
-          fabric.monitorJob(artifactId, jobInstanceId),
-          Duration(fabric.timeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
-        assert(result.isSuccess)
+        Await.result(future, Duration(fabric.timeoutInMillis.toLong, TimeUnit.MILLISECONDS))
       } catch {
         case t: Throwable =>
           throw new RuntimeException(s"Job failed for $notebookName", t)
       }
     }
   }
+
+  override def afterAll(): Unit = {
+    executorService.shutdown()
+    super.afterAll()
+  }
 }
 
 object FabricNotebookTests {
+  val MaxConcurrency: Int = 5
+
   // Exclude-based filtering, mirroring DatabricksUtilities.CPUNotebooks.
   // Same exclusions as Databricks CPU, plus Fabric-specific ones.
   val ExcludedNotebooks: Seq[String] = Seq(
