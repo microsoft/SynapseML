@@ -156,6 +156,7 @@ object FabricNotebookTests {
     "YourFirstModels",
     "ContextualBandits",
     "AnomalousAccessDetection",
+    "Explainers",
     "OnePlusOne"
   )
 
