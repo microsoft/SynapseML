@@ -45,6 +45,8 @@ trait TranslatorUtils extends TestBase {
 class TranslateSuite extends TransformerFuzzing[Translate]
   with TranslatorKey with Flaky with TranslatorUtils {
 
+  import spark.implicits._
+
   def translate: Translate = new Translate()
     .setSubscriptionKey(translatorKey)
     .setLocation("eastus")
@@ -62,10 +64,17 @@ class TranslateSuite extends TransformerFuzzing[Translate]
   }
 
   test("Translate multiple pieces of text with language autodetection") {
-    val result1 = getTranslationTextResult(translate.setToLanguage(Seq("zh-Hans")), textDf2).collect()
-    val resultStr = result1(0).getSeq(0).mkString("\n")
-    assert((resultStr.contains("早上好") || resultStr.contains("早安"))
-        && (resultStr.contains("再见") || resultStr.contains("拜拜")))
+    // Use concrete nouns to avoid brittle assertions on ambiguous translations
+    val multiTextDf = Seq(List("elephant", "volcano")).toDF("text")
+    val result1 = getTranslationTextResult(translate.setToLanguage(Seq("zh-Hans")), multiTextDf).collect()
+    val translations = result1(0).getSeq[String](0)
+    assert(translations.length == 2)
+    // Round-trip back to English to verify correctness without asserting specific foreign strings
+    val backDf = Seq(translations.map(t => List(t)): _*).toDF("text")
+    val backResults = getTranslationTextResult(translate.setToLanguage(Seq("en")), backDf).collect()
+    val backStr = backResults.map(_.getSeq[String](0).head.toLowerCase).mkString(" ")
+    assert(backStr.contains("elephant") && backStr.contains("volcano"),
+      s"Round-trip failed: got '$backStr'")
 
     val translate1: Translate = new Translate()
       .setSubscriptionKey(translatorKey)
@@ -100,22 +109,36 @@ class TranslateSuite extends TransformerFuzzing[Translate]
   }
 
   test("Translate with transliteration") {
+    val elephantDf = Seq(List("elephant")).toDF("text")
     val results = translate
       .setToLanguage(Seq("zh-Hans"))
       .setToScript("Latn")
-      .transform(textDf1)
+      .transform(elephantDf)
       .withColumn("translation", flatten(col("translation.translations")))
       .withColumn("transliteration", col("translation.transliteration.text"))
       .withColumn("translation", col("translation.text"))
       .select("translation", "transliteration").collect()
-    assert(results.head.getSeq(0).mkString("\n").contains("再见"))
-    assert(results.head.getSeq(1).mkString("\n").replaceAllLiterally(" ", "").contains("zàijiàn"))
+    assert(results.head.getSeq(0).mkString("\n").contains("大象"))
+    assert(results.head.getSeq(1).mkString("\n").replaceAllLiterally(" ", "").contains("dàxiàng"))
   }
 
   test("Translate to multiple languages") {
-    val result1 = getTranslationTextResult(translate.setToLanguage(Seq("zh-Hans", "de")), textDf1).collect()
-    val resultStr = result1(0).getSeq(0).mkString("\n")
-    assert(resultStr.contains("再见") && resultStr.contains("Wiedersehen"))
+    // Use a concrete noun ("elephant") that has unambiguous, stable translations
+    // and verify via round-trip back to English
+    val elephantDf = Seq(List("elephant")).toDF("text")
+    val result1 = getTranslationTextResult(translate.setToLanguage(Seq("zh-Hans", "de")), elephantDf).collect()
+    val translations = result1(0).getSeq[String](0)
+    assert(translations.length == 2)
+
+    // Round-trip: translate each result back to English
+    translations.foreach { t =>
+      val backDf = Seq(List(t)).toDF("text")
+      val backResult = getTranslationTextResult(
+        translate.setToLanguage(Seq("en")), backDf).collect()
+      val backStr = backResult(0).getSeq[String](0).head.toLowerCase
+      assert(backStr.contains("elephant"),
+        s"Round-trip failed: '$t' translated back to '$backStr' instead of 'elephant'")
+    }
   }
 
   test("Handle profanity") {
@@ -138,33 +161,34 @@ class TranslateSuite extends TransformerFuzzing[Translate]
   }
 
   test("Obtain alignment information") {
+    val elephantDf = Seq(List("elephant")).toDF("text")
     val results = translate
       .setFromLanguage("en")
       .setToLanguage(Seq("fr"))
       .setIncludeAlignment(true)
-      .transform(textDf1)
+      .transform(elephantDf)
       .withColumn("translation", flatten(col("translation.translations")))
       .withColumn("alignment", col("translation.alignment.proj"))
       .withColumn("translation", col("translation.text"))
       .select("translation", "alignment").collect()
-    assert(results.head.getSeq(0).mkString("\n").contains("Au revoir"))
-    //assert(results.head.getSeq(1).mkString("\n") === "0:2-0:8")
+    assert(results.head.getSeq[String](0).head.toLowerCase.contains("léphant"))
   }
 
   test("Obtain sentence boundaries") {
+    val elephantDf = Seq(List("elephant")).toDF("text")
     val results = translate
       .setFromLanguage("en")
       .setToLanguage(Seq("fr"))
       .setIncludeSentenceLength(true)
-      .transform(textDf1)
+      .transform(elephantDf)
       .withColumn("translation", flatten(col("translation.translations")))
       .withColumn("srcSentLen", flatten(col("translation.sentLen.srcSentLen")))
       .withColumn("transSentLen", flatten(col("translation.sentLen.transSentLen")))
       .withColumn("translation", col("translation.text"))
       .select("translation", "srcSentLen", "transSentLen").collect()
-    assert(results.head.getSeq(0).mkString("\n").contains("Au revoir"))
-    assert(results.head.getSeq(1).mkString("\n") === "3")
-    assert(results.head.getSeq(2).mkString("\n") === "9")
+    assert(results.head.getSeq[String](0).head.toLowerCase.contains("léphant"))
+    assert(results.head.getSeq(1).mkString("\n") === "8")
+    assert(results.head.getSeq(2).mkString("\n") === "8")
   }
 
   test("Translate with dynamic dictionary") {
