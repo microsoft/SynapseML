@@ -196,6 +196,7 @@ jobs:
       ${{ if eq(parameters.runFabricE2ETests, true) }}:
         fabric:
           TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.FabricNotebookTests"
+          FABRIC_TEST: "true"
   steps:
     #- template: templates/ivy_cache.yml
     - template: templates/update_cli.yml
