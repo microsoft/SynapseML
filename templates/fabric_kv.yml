@@ -4,7 +4,6 @@ steps:
   # (loaded by kv.yml): fabric-test-kv-name, fabric-cert-kv-name
   - task: AzureKeyVault@2
     displayName: 'Get Fabric Test Credentials from Key Vault'
-    condition: eq(variables['FABRIC_TEST'], 'true')
     inputs:
       azureSubscription: 'SynapseMLFabricTestCreds'
       KeyVaultName: '$(fabric-test-kv-name)'
@@ -24,12 +23,10 @@ steps:
       echo "Computed certificate secret name: ${cert_name}"
       echo "##vso[task.setvariable variable=cert-adminuser-bami]${cert_name}"
     displayName: 'Compute certificate secret name from account'
-    condition: eq(variables['FABRIC_TEST'], 'true')
 
   # Download the account certificate
   - task: AzureCLI@2
     displayName: 'Get certificate from Key Vault'
-    condition: eq(variables['FABRIC_TEST'], 'true')
     inputs:
       azureSubscription: 'SynapseMLFabricTestCreds'
       scriptType: 'bash'
