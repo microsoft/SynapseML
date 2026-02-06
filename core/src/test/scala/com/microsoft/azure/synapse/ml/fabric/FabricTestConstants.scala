@@ -13,8 +13,6 @@ import DefaultJsonProtocol._
  * - INTEGRATION_ENV: The environment to use (default: "prod")
  * - INTEGRATION_ACCOUNT: The account email in format "username@tenant"
  * - INTEGRATION_CERTIFICATE: base64-encoded .pfx certificate for auth
- *
- * See: https://aka.ms/fabrictenants
  */
 object FabricTestConstants {
 
