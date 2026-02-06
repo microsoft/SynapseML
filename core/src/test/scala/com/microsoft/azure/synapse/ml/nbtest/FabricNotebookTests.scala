@@ -153,7 +153,6 @@ object FabricNotebookTests {
     "DataCleaning",
     "SparkMLvsSynapseML",
     "DeployingaClassifier",
-    "YourFirstModels",
     "ContextualBandits",
     "AnomalousAccessDetection",
     "Explainers",
