@@ -13,7 +13,7 @@ steps:
       RunAsPreJob: false
 
   # Compute certificate secret name from account
-  # E.g. adminuser01@msitprimary1106.onmicrosoft.com => adminuser01-msitprimary1106
+  # E.g. user@tenant.onmicrosoft.com => user-tenant
   - bash: |
       account="$(sempy-integration-account)"
       username=$(echo "$account" | cut -d'@' -f1)
