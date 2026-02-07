@@ -37,12 +37,8 @@ jobs:
 
         # Create a minimal Dockerfile with the marker baked in
         mkdir -p $(Build.SourcesDirectory)/tools/docker/test
-        cat > $(Build.SourcesDirectory)/tools/docker/test/Dockerfile <<'DEOF'
-FROM ubuntu:22.04
-ARG MARKER
-RUN apt-get update && apt-get install -y bash && rm -rf /var/lib/apt/lists/*
-RUN echo "${MARKER}" > /marker.txt
-DEOF
+        printf 'FROM ubuntu:22.04\nARG MARKER\nRUN apt-get update && apt-get install -y bash && rm -rf /var/lib/apt/lists/*\nRUN echo "${MARKER}" > /marker.txt\n' \
+          > $(Build.SourcesDirectory)/tools/docker/test/Dockerfile
       name: push
       displayName: 'Prepare marker and Dockerfile'
 
