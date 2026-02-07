@@ -19,7 +19,7 @@ resources:
   containers:
     - container: testimg
       image: mmlsparkmcr.azurecr.io/synapseml/ci-test:latest
-      endpoint: 'SynapseML MCR MSI'
+      endpoint: 'SynapseML MCR'
 
 pool:
   vmImage: ubuntu-22.04
@@ -28,38 +28,30 @@ jobs:
 - job: PushImage
   displayName: 'Step 1: Build and push test image with unique marker'
   steps:
-    - bash: |
-        set -e
-        MARKER="built-at-$(date +%s)-$(Build.BuildId)"
-        echo "Marker: $MARKER"
-        echo "##vso[task.setvariable variable=marker;isOutput=true]$MARKER"
-        echo "##vso[task.setvariable variable=testMarker]$MARKER"
+    - task: AzureCLI@2
+      displayName: 'Build and push test image'
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          set -e
+          MARKER="built-at-$(date +%s)-$(Build.BuildId)"
+          echo "Marker: $MARKER"
+          echo "##vso[task.setvariable variable=marker;isOutput=true]$MARKER"
 
-        # Create a minimal Dockerfile with the marker baked in
-        mkdir -p $(Build.SourcesDirectory)/tools/docker/test
-        printf 'FROM ubuntu:22.04\nARG MARKER\nRUN apt-get update && apt-get install -y bash && rm -rf /var/lib/apt/lists/*\nRUN echo "${MARKER}" > /marker.txt\n' \
-          > $(Build.SourcesDirectory)/tools/docker/test/Dockerfile
+          az acr login --name mmlsparkmcr
+
+          printf 'FROM ubuntu:22.04\nARG MARKER\nRUN apt-get update && apt-get install -y bash && rm -rf /var/lib/apt/lists/*\nRUN echo "${MARKER}" > /marker.txt\n' \
+            > /tmp/Dockerfile.test
+
+          docker build --build-arg MARKER="$MARKER" \
+            -t mmlsparkmcr.azurecr.io/synapseml/ci-test:latest \
+            -f /tmp/Dockerfile.test /tmp
+
+          docker push mmlsparkmcr.azurecr.io/synapseml/ci-test:latest
+          echo "Pushed image with marker: $MARKER"
       name: push
-      displayName: 'Prepare marker and Dockerfile'
-
-    - task: Docker@2
-      displayName: 'Build test image'
-      inputs:
-        containerRegistry: 'SynapseML MCR MSI'
-        repository: 'synapseml/ci-test'
-        command: 'build'
-        buildContext: '$(Build.SourcesDirectory)/tools/docker/test'
-        Dockerfile: '$(Build.SourcesDirectory)/tools/docker/test/Dockerfile'
-        tags: latest
-        arguments: '--build-arg MARKER=$(testMarker)'
-
-    - task: Docker@2
-      displayName: 'Push test image'
-      inputs:
-        containerRegistry: 'SynapseML MCR MSI'
-        repository: 'synapseml/ci-test'
-        command: 'push'
-        tags: latest
 
 - job: UseImage
   displayName: 'Step 2: Run inside container and check for marker'
