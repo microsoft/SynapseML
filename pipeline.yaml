@@ -18,8 +18,8 @@ pr: none
 resources:
   containers:
     - container: testimg
-      image: mmlsparkmcr.azurecr.io/synapseml/ci-test:latest
-      endpoint: 'SynapseML MCR'
+      image: synapsemlenyaacr.azurecr.io/synapseml/ci-test:latest
+      endpoint: 'synapsemlenyaacr'
 
 pool:
   vmImage: ubuntu-22.04
@@ -40,16 +40,16 @@ jobs:
           echo "Marker: $MARKER"
           echo "##vso[task.setvariable variable=marker;isOutput=true]$MARKER"
 
-          az acr login --name mmlsparkmcr
+          az acr login --name synapsemlenyaacr
 
           printf 'FROM ubuntu:22.04\nARG MARKER\nRUN apt-get update && apt-get install -y bash && rm -rf /var/lib/apt/lists/*\nRUN echo "${MARKER}" > /marker.txt\n' \
             > /tmp/Dockerfile.test
 
           docker build --build-arg MARKER="$MARKER" \
-            -t mmlsparkmcr.azurecr.io/synapseml/ci-test:latest \
+            -t synapsemlenyaacr.azurecr.io/synapseml/ci-test:latest \
             -f /tmp/Dockerfile.test /tmp
 
-          docker push mmlsparkmcr.azurecr.io/synapseml/ci-test:latest
+          docker push synapsemlenyaacr.azurecr.io/synapseml/ci-test:latest
           echo "Pushed image with marker: $MARKER"
       name: push
 
