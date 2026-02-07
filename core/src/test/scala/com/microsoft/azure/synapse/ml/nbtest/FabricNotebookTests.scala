@@ -96,7 +96,7 @@ class FabricNotebookTests extends TestBase with HasFabricNotebookTestConnection 
   val selectedPythonFiles: Array[File] = FileUtilities
     .recursiveListFiles(SharedNotebookE2ETestUtilities.NotebooksDir)
     .filter(_.getAbsolutePath.endsWith(".py"))
-    .filterNot(f => FabricNotebookTests.ExcludedNotebooks.exists(f.getAbsolutePath.contains))
+    .filter(f => FabricNotebookTests.IncludedNotebooks.exists(f.getName.startsWith))
     .sortBy(_.getAbsolutePath)
 
   selectedPythonFiles.foreach(x => println(s"Fabric notebook to be tested: $x"))
@@ -144,31 +144,18 @@ class FabricNotebookTests extends TestBase with HasFabricNotebookTestConnection 
 object FabricNotebookTests {
   val MaxConcurrency: Int = 3
 
-  // Exclude-based filtering, mirroring DatabricksUtilities.CPUNotebooks.
-  // Same exclusions as Databricks CPU, plus Fabric-specific ones.
-  val ExcludedNotebooks: Seq[String] = Seq(
-    // Same as Databricks CPU exclusions
-    "FineTune",
-    "Finetune",
-    "GPU",
-    "PhiModel",
-    "LanguageModel",
-    "MultivariateAnomalyDetection",
-    "Audiobooks",
-    "Art",
-    "ExplanationDashboard",
-    "IsolationForests",
-    "SnowLeopardDetection",
-    "FloodingRisk",
-    "GeospatialServices",
-    // Fabric-specific exclusions
-    "TransferLearn",         // Large image downloads may timeout on SJD
-    "CreateaSparkCluster",   // Setup guide, not a test
-    "SetupCognitiveServices", // Setup guide, not a test
-    // Temporarily disabled — slowest notebooks on Databricks (>10m each)
-    "PDPandICEExplainers",   // ~12m on Databricks
-    "HyperOpt",              // ~11m on Databricks
-    "SparkMLvsSynapseML",    // ~6m on Databricks
-    "ClassificationusingVWnativeFormat" // Timed out on Databricks (34m)
+  // Include-based filtering: start with a small core set of self-contained notebooks
+  // that don't require API keys (no Cognitive Services, OpenAI, etc.).
+  // These cover the key SynapseML algorithms: LightGBM, VW, Causal Inference,
+  // Classification, Regression, and Responsible AI.
+  val IncludedNotebooks: Seq[String] = Seq(
+    "ExploreAlgorithmsClassificationQuickstartTrainClassifier",
+    "ExploreAlgorithmsRegressionQuickstartDataCleaning",
+    "ExploreAlgorithmsRegressionQuickstartTrainRegressor",
+    "ExploreAlgorithmsLightGBMQuickstartClassificationRankingandRegression",
+    "ExploreAlgorithmsVowpalWabbitQuickstartClassificationQuantileRegressionandRegression",
+    "ExploreAlgorithmsVowpalWabbitQuickstartClassificationusingSparkMLVectors",
+    "ExploreAlgorithmsCausalInferenceQuickstartMeasureCausalEffects",
+    "ExploreAlgorithmsResponsibleAIQuickstartDataBalanceAnalysis"
   )
 }
