@@ -28,33 +28,42 @@ jobs:
 - job: PushImage
   displayName: 'Step 1: Build and push test image with unique marker'
   steps:
-    - task: Docker@2
-      displayName: 'Login to ACR'
-      inputs:
-        command: login
-        containerRegistry: 'SynapseML MCR MSI'
-
     - bash: |
         set -e
         MARKER="built-at-$(date +%s)-$(Build.BuildId)"
         echo "Marker: $MARKER"
         echo "##vso[task.setvariable variable=marker;isOutput=true]$MARKER"
+        echo "##vso[task.setvariable variable=testMarker]$MARKER"
 
         # Create a minimal Dockerfile with the marker baked in
-        cat > /tmp/Dockerfile.test <<EOF
-        FROM ubuntu:22.04
-        RUN apt-get update && apt-get install -y bash && rm -rf /var/lib/apt/lists/*
-        RUN echo "$MARKER" > /marker.txt
-        CMD ["bash"]
-        EOF
-
-        docker build -t mmlsparkmcr.azurecr.io/synapseml/ci-test:latest \
-                     -f /tmp/Dockerfile.test /tmp
-        docker push mmlsparkmcr.azurecr.io/synapseml/ci-test:latest
-
-        echo "Pushed image with marker: $MARKER"
+        mkdir -p $(Build.SourcesDirectory)/tools/docker/test
+        cat > $(Build.SourcesDirectory)/tools/docker/test/Dockerfile <<'DEOF'
+FROM ubuntu:22.04
+ARG MARKER
+RUN apt-get update && apt-get install -y bash && rm -rf /var/lib/apt/lists/*
+RUN echo "${MARKER}" > /marker.txt
+DEOF
       name: push
-      displayName: 'Build and push image with unique marker'
+      displayName: 'Prepare marker and Dockerfile'
+
+    - task: Docker@2
+      displayName: 'Build test image'
+      inputs:
+        containerRegistry: 'SynapseML MCR MSI'
+        repository: 'synapseml/ci-test'
+        command: 'build'
+        buildContext: '$(Build.SourcesDirectory)/tools/docker/test'
+        Dockerfile: '$(Build.SourcesDirectory)/tools/docker/test/Dockerfile'
+        tags: latest
+        arguments: '--build-arg MARKER=$(testMarker)'
+
+    - task: Docker@2
+      displayName: 'Push test image'
+      inputs:
+        containerRegistry: 'SynapseML MCR MSI'
+        repository: 'synapseml/ci-test'
+        command: 'push'
+        tags: latest
 
 - job: UseImage
   displayName: 'Step 2: Run inside container and check for marker'
