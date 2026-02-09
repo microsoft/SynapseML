@@ -609,7 +609,7 @@ jobs:
       - template: templates/codecov.yml
 
 - job: WebsiteAutoDeployment
-  condition: eq('${{ parameters.websiteAutoDeploy }}', true)
+  condition: and(eq('${{ parameters.websiteAutoDeploy }}', true), ne(variables['Build.Reason'], 'Schedule'))
   cancelTimeoutInMinutes: 0
   pool:
     vmImage: $(UBUNTU_VERSION)
