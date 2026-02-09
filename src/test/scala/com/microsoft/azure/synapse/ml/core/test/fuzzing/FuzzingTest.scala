@@ -40,7 +40,6 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.causal.DiffInDiffModel",
       "com.microsoft.azure.synapse.ml.causal.OrthoForestDMLModel",
       "com.microsoft.azure.synapse.ml.services.DocumentTranslator",
-      "com.microsoft.azure.synapse.ml.services.bing.BingImageSearch",
       "com.microsoft.azure.synapse.ml.services.translate.DocumentTranslator",
       "org.apache.spark.ml.feature.FastVectorAssembler",
       "com.microsoft.azure.synapse.ml.featurize.ValueIndexerModel",
@@ -103,7 +102,6 @@ class FuzzingTest extends TestBase {
     val exemptions: Set[String] = Set(
       "com.microsoft.azure.synapse.ml.services.text.TextAnalyze",
       "com.microsoft.azure.synapse.ml.services.translate.DocumentTranslator",
-      "com.microsoft.azure.synapse.ml.services.bing.BingImageSearch",
       "com.microsoft.azure.synapse.ml.causal.DiffInDiffModel",
       "com.microsoft.azure.synapse.ml.automl.BestModel",
       "com.microsoft.azure.synapse.ml.automl.TuneHyperparameters",
@@ -169,7 +167,6 @@ class FuzzingTest extends TestBase {
     val exemptions: Set[String] = Set(
       "com.microsoft.azure.synapse.ml.services.text.TextAnalyze",
       "com.microsoft.azure.synapse.ml.services.translate.DocumentTranslator",
-      "com.microsoft.azure.synapse.ml.services.bing.BingImageSearch",
       "com.microsoft.azure.synapse.ml.automl.TuneHyperparameters",
       "com.microsoft.azure.synapse.ml.causal.DoubleMLModel",
       "com.microsoft.azure.synapse.ml.causal.DiffInDiffModel",
@@ -231,7 +228,6 @@ class FuzzingTest extends TestBase {
 
   test("Verify all stages can be tested in R") {
     val exemptions: Set[String] = Set(
-      "com.microsoft.azure.synapse.ml.services.bing.BingImageSearch",
       "com.microsoft.azure.synapse.ml.services.text.TextAnalyze",
       "com.microsoft.azure.synapse.ml.services.translate.DocumentTranslator",
       "com.microsoft.azure.synapse.ml.automl.TuneHyperparameters",
