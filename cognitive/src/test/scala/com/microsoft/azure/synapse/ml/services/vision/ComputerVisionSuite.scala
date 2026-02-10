@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.services.vision
 
 import com.microsoft.azure.synapse.ml.services._
-import com.microsoft.azure.synapse.ml.services.bing.BingImageSearch
+import com.microsoft.azure.synapse.ml.services.testutils.ImageDownloadUtils
 import com.microsoft.azure.synapse.ml.core.spark.FluentAPI._
 import com.microsoft.azure.synapse.ml.core.test.base.{Flaky, TestBase}
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{GetterSetterFuzzing, TestObject, TransformerFuzzing}
@@ -14,7 +14,7 @@ import org.apache.spark.sql.functions.{col, typedLit}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import org.scalactic.Equality
 
-trait OCRUtils extends TestBase {
+trait OCRUtils extends TestBase with ImageDownloadUtils {
 
   import spark.implicits._
 
@@ -28,9 +28,8 @@ trait OCRUtils extends TestBase {
     "https://mmlspark.blob.core.windows.net/datasets/OCR/paper.pdf"
   ).toDF("url")
 
-  lazy val bytesDF: DataFrame = BingImageSearch
-    .downloadFromUrls("url", "imageBytes", 4, 10000)
-    .transform(df)
+  lazy val bytesDF: DataFrame = df
+    .withColumn("imageBytes", downloadBytesUdf(col("url")))
     .select("imageBytes")
 
 }
@@ -84,7 +83,7 @@ class OCRSuite extends TransformerFuzzing[OCR] with CognitiveKey with Flaky with
 }
 
 class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage]
-  with CognitiveKey with Flaky with GetterSetterFuzzing[AnalyzeImage] {
+  with CognitiveKey with Flaky with GetterSetterFuzzing[AnalyzeImage] with ImageDownloadUtils {
 
   import spark.implicits._
 
@@ -115,9 +114,8 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage]
   def ai: AnalyzeImage = baseAI
     .setImageUrlCol("url")
 
-  lazy val bytesDF: DataFrame = BingImageSearch
-    .downloadFromUrls("url", "imageBytes", 4, 10000)
-    .transform(df)
+  lazy val bytesDF: DataFrame = df
+    .withColumn("imageBytes", downloadBytesUdf(col("url")))
     .drop("url")
 
   def bytesAI: AnalyzeImage = baseAI
@@ -306,7 +304,7 @@ class ReadImageSuite extends TransformerFuzzing[ReadImage]
 }
 
 class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDomainSpecificContent]
-  with CognitiveKey with Flaky {
+  with CognitiveKey with Flaky with ImageDownloadUtils {
 
   import spark.implicits._
 
@@ -321,9 +319,8 @@ class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDo
     .setImageUrlCol("url")
     .setOutputCol("celebs")
 
-  lazy val bytesDF: DataFrame = BingImageSearch
-    .downloadFromUrls("url", "imageBytes", 4, 10000)
-    .transform(df)
+  lazy val bytesDF: DataFrame = df
+    .withColumn("imageBytes", downloadBytesUdf(col("url")))
     .select("imageBytes")
 
   lazy val bytesCeleb: RecognizeDomainSpecificContent = new RecognizeDomainSpecificContent()
@@ -362,7 +359,7 @@ class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDo
 }
 
 class GenerateThumbnailsSuite extends TransformerFuzzing[GenerateThumbnails]
-  with CognitiveKey with Flaky {
+  with CognitiveKey with Flaky with ImageDownloadUtils {
 
   import spark.implicits._
 
@@ -377,9 +374,8 @@ class GenerateThumbnailsSuite extends TransformerFuzzing[GenerateThumbnails]
     .setImageUrlCol("url")
     .setOutputCol("thumbnails")
 
-  lazy val bytesDF: DataFrame = BingImageSearch
-    .downloadFromUrls("url", "imageBytes", 4, 10000)
-    .transform(df)
+  lazy val bytesDF: DataFrame = df
+    .withColumn("imageBytes", downloadBytesUdf(col("url")))
     .select("imageBytes")
 
   lazy val bytesGT: GenerateThumbnails = new GenerateThumbnails()
@@ -405,7 +401,7 @@ class GenerateThumbnailsSuite extends TransformerFuzzing[GenerateThumbnails]
   override def reader: MLReadable[_] = GenerateThumbnails
 }
 
-class TagImageSuite extends TransformerFuzzing[TagImage] with CognitiveKey with Flaky {
+class TagImageSuite extends TransformerFuzzing[TagImage] with CognitiveKey with Flaky with ImageDownloadUtils {
 
   import spark.implicits._
 
@@ -419,9 +415,8 @@ class TagImageSuite extends TransformerFuzzing[TagImage] with CognitiveKey with 
     .setImageUrlCol("url")
     .setOutputCol("tags")
 
-  lazy val bytesDF: DataFrame = BingImageSearch
-    .downloadFromUrls("url", "imageBytes", 4, 10000)
-    .transform(df)
+  lazy val bytesDF: DataFrame = df
+    .withColumn("imageBytes", downloadBytesUdf(col("url")))
     .select("imageBytes")
 
   lazy val bytesTI: TagImage = new TagImage()
@@ -461,7 +456,7 @@ class TagImageSuite extends TransformerFuzzing[TagImage] with CognitiveKey with 
 }
 
 class DescribeImageSuite extends TransformerFuzzing[DescribeImage]
-  with CognitiveKey with Flaky {
+  with CognitiveKey with Flaky with ImageDownloadUtils {
 
   import spark.implicits._
 
@@ -476,9 +471,8 @@ class DescribeImageSuite extends TransformerFuzzing[DescribeImage]
     .setImageUrlCol("url")
     .setOutputCol("descriptions")
 
-  lazy val bytesDF: DataFrame = BingImageSearch
-    .downloadFromUrls("url", "imageBytes", 4, 10000)
-    .transform(df)
+  lazy val bytesDF: DataFrame = df
+    .withColumn("imageBytes", downloadBytesUdf(col("url")))
     .select("imageBytes")
 
   lazy val bytesDI: DescribeImage = new DescribeImage()
