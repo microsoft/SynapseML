@@ -60,7 +60,7 @@ def find_secret(secret_name, keyvault):
             from notebookutils.mssparkutils.credentials import getSecret
 
             return getSecret(keyvault, secret_name)
-        elif running_on_synapse_internal():
+        elif running_on_synapse_internal() or running_on_fabric_python():
             from notebookutils.mssparkutils.credentials import getSecret
 
             keyVaultURL = f"https://{keyvault}.vault.azure.net/"

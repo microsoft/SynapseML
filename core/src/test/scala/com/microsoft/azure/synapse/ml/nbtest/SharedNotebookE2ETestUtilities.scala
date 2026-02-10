@@ -31,13 +31,20 @@ object SharedNotebookE2ETestUtilities {
       |    from IPython import get_ipython
       |    from IPython.terminal.interactiveshell import TerminalInteractiveShell
       |    from synapse.ml.core.platform import materializing_display as display
-      |    from pyspark.sql import SparkSession
       |
-      |    spark = SparkSession.builder.getOrCreate()
       |    try:
       |        shell = TerminalInteractiveShell.instance()
       |    except:
       |        pass
+      |
+      |# Always ensure spark session exists (needed for Fabric SJDs and local runs)
+      |from pyspark.sql import SparkSession
+      |spark = SparkSession.builder.getOrCreate()
+      |
+      |# Provide display function if not already defined (e.g. on Fabric SJDs)
+      |if 'display' not in dir():
+      |    def display(df):
+      |        df.show()
       |
       |""".stripMargin
 
