@@ -10,7 +10,7 @@ import org.apache.spark.ml.util.Identifiable
 class VerifyMapParam extends TestBase {
 
   private object TestParams extends Params {
-    override val uid: String = Identifiable.randomUID("TestParams")
+    override val uid: String = Identifiable.randomUID("TestParams") // scalastyle:ignore field.name
     override def copy(extra: ParamMap): Params = this
   }
 

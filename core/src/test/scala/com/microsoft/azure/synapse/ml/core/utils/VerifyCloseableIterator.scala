@@ -10,7 +10,9 @@ class VerifyCloseableIterator extends TestBase {
   test("iterating through all elements calls cleanup") {
     var cleaned = false
     val iter = new CloseableIterator(List(1, 2, 3).iterator, { cleaned = true })
+    // scalastyle:off while
     while (iter.hasNext) iter.next()
+    // scalastyle:on while
     assert(cleaned)
   }
 

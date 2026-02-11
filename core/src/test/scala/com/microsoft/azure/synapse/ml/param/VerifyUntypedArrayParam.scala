@@ -6,12 +6,13 @@ package com.microsoft.azure.synapse.ml.param
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.param.AnyJsonFormat._
 import org.apache.spark.ml.param.{ParamMap, Params}
+import org.apache.spark.ml.util.Identifiable
 import spray.json._
 
 class VerifyUntypedArrayParam extends TestBase {
 
   private object TestParams extends Params {
-    override val uid: String = org.apache.spark.ml.util.Identifiable.randomUID("TestParams")
+    override val uid: String = Identifiable.randomUID("TestParams") // scalastyle:ignore field.name
     override def copy(extra: ParamMap): Params = this
   }
 

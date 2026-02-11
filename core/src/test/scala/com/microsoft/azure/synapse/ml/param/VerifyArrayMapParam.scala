@@ -12,7 +12,7 @@ import ArrayMapJsonProtocol._
 class VerifyArrayMapParam extends TestBase {
 
   private object TestParams extends Params {
-    override val uid: String = Identifiable.randomUID("TestParams")
+    override val uid: String = Identifiable.randomUID("TestParams") // scalastyle:ignore field.name
     override def copy(extra: ParamMap): Params = this
   }
 

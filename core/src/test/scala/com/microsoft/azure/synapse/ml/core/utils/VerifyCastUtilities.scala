@@ -35,7 +35,9 @@ class VerifyCastUtilities extends TestBase {
   }
 
   test("cast null to StringType") {
+    // scalastyle:off null
     val result = null.asInstanceOf[Any].toDataType(StringType)
     assert(result === null)
+    // scalastyle:on null
   }
 }
