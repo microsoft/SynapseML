@@ -9,6 +9,27 @@ import scala.xml.transform.{RewriteRule, RuleTransformer}
 import scala.xml.{Node => XmlNode, NodeSeq => XmlNodeSeq, _}
 
 val condaEnvName = "synapseml"
+// When a specific tag is checked out, use that tag as the version instead of dynver.
+// This avoids ambiguity when multiple tags point to the same commit, since dynver uses
+// git-describe which picks arbitrarily among tags on the same commit.
+// Priority: BUILD_SOURCEBRANCH env var (ADO CI) > git reflog (local checkout) > dynver
+ThisBuild / version := {
+  import scala.sys.process._
+  sys.env.get("BUILD_SOURCEBRANCH")
+    .filter(_.startsWith("refs/tags/v"))
+    .map(_.stripPrefix("refs/tags/v"))
+    .orElse {
+      scala.util.Try(Seq("git", "reflog", "-1", "--format=%gs").!!.trim)
+        .toOption
+        .filter(_.startsWith("checkout: moving from "))
+        .flatMap("checkout: moving from .* to (v[0-9].*)".r.findFirstMatchIn(_))
+        .map(_.group(1).stripPrefix("v"))
+        .filter(v => scala.util.Try(Seq("git", "tag", "-l", s"v$v").!!.trim).toOption.exists(_.nonEmpty))
+    }
+    .getOrElse((ThisBuild / version).value)
+}
+
+
 val sparkVersion = "4.1.1"
 name := "synapseml"
 ThisBuild / organization := "com.microsoft.azure"
