@@ -58,8 +58,12 @@ parameters:
     displayName: Run R Tests
     type: boolean
     default: true
-  - name: testE2E
-    displayName: Run E2E Tests
+  - name: testDatabricksE2E
+    displayName: Run Databricks E2E Tests
+    type: boolean
+    default: true
+  - name: testFabricE2E
+    displayName: Run Fabric E2E Tests
     type: boolean
     default: true
   - name: testWebsiteSamples
@@ -82,10 +86,6 @@ parameters:
     displayName: Publish Release
     type: boolean
     default: false
-  - name: runFabricE2ETests
-    displayName: Run Fabric E2E Tests
-    type: boolean
-    default: true
   - name: SYNAPSE_ENVIRONMENT
     displayName: Fabric E2E Test Environment
     type: string
@@ -177,8 +177,9 @@ jobs:
         condition: and(succeeded(), eq(variables.isMaster, true))
         displayName: Publish Badges
 
-- job: E2E
-  condition: eq('${{ parameters.testE2E }}', true)
+- job: DatabricksE2E
+  displayName: 'Databricks E2E'
+  condition: eq('${{ parameters.testDatabricksE2E }}', true)
   timeoutInMinutes: 120
   cancelTimeoutInMinutes: 0
   pool:
@@ -193,12 +194,6 @@ jobs:
 #      This test will be re-enabled once the issue is fixed.
 #      databricks-rapids:
 #        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksRapidsTests"
-#      TODO: Re-enable the Synapse E2E tests once the environment in live.
-#      synapse:
-#        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseTests"
-#      ${{ if eq(parameters.runFabricE2ETests, true) }}:
-#        synapse-internal:
-#          TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseExtension.SynapseExtensionsTests"
   steps:
     #- template: templates/ivy_cache.yml
     - template: templates/update_cli.yml
@@ -215,6 +210,43 @@ jobs:
           set -e
           source activate synapseml
           sbt "testOnly $(TEST-CLASS)"
+      condition: and(succeeded(), eq(variables.runTests, 'True'))
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results'
+      inputs:
+        testResultsFiles: '**/test-reports/TEST-*.xml'
+        failTaskOnFailedTests: true
+      condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
+
+- job: FabricE2E
+  displayName: 'Fabric E2E'
+  condition: eq('${{ parameters.testFabricE2E }}', true)
+  timeoutInMinutes: 120
+  cancelTimeoutInMinutes: 0
+  pool:
+    vmImage: $(UBUNTU_VERSION)
+  steps:
+    #- template: templates/ivy_cache.yml
+    - template: templates/update_cli.yml
+    - template: templates/conda.yml
+    - template: templates/kv.yml
+    - template: templates/fabric_kv.yml
+    - template: templates/publish.yml
+    - task: AzureCLI@2
+      displayName: 'E2E'
+      inputs:
+        azureSubscription:  'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          set -e
+          source activate synapseml
+          sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.FabricSmokeTests com.microsoft.azure.synapse.ml.nbtest.FabricNotebookTests"
+      env:
+        INTEGRATION_ENV: $(sempy-integration-region)
+        INTEGRATION_ACCOUNT: $(sempy-integration-account)
+        INTEGRATION_CERTIFICATE: $(sempy-integration-certificate)
+        INTEGRATION_WORKSPACE_PREFIX: $(sempy-integration-workspace-prefix)
       condition: and(succeeded(), eq(variables.runTests, 'True'))
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
@@ -671,9 +703,6 @@ jobs:
         PACKAGE: "services.geospatial"
       anomaly:
         PACKAGE: "services.anomaly"
-        FLAKY: "true"
-      bing:
-        PACKAGE: "services.bing"
         FLAKY: "true"
       face:
         PACKAGE: "services.face"

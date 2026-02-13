@@ -10,7 +10,7 @@ import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, Transformer
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers.retry
 import com.microsoft.azure.synapse.ml.services._
-import com.microsoft.azure.synapse.ml.services.bing.BingImageSearch
+import com.microsoft.azure.synapse.ml.services.testutils.ImageDownloadUtils
 import com.microsoft.azure.synapse.ml.services.form.FormsFlatteners._
 import com.microsoft.azure.synapse.ml.stages.UDFTransformer
 import org.apache.commons.io.IOUtils
@@ -96,16 +96,14 @@ object FormRecognizerUtils extends CognitiveKey {
   }
 }
 
-trait FormRecognizerUtils extends TestBase with CognitiveKey with Flaky {
+trait FormRecognizerUtils extends TestBase with CognitiveKey with Flaky with ImageDownloadUtils {
 
   import spark.implicits._
 
   def createTestDataframe(baseUrl: String, docs: Seq[String], returnBytes: Boolean): DataFrame = {
     val df = docs.map(doc => baseUrl + doc).toDF("source")
     if (returnBytes) {
-      BingImageSearch
-        .downloadFromUrls("source", "imageBytes", 4, 10000)
-        .transform(df)
+      df.withColumn("imageBytes", downloadBytesUdf(col("source")))
         .select("imageBytes")
     } else {
       df
