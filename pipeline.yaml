@@ -86,14 +86,6 @@ parameters:
     displayName: Publish Release
     type: boolean
     default: false
-  - name: SYNAPSE_ENVIRONMENT
-    displayName: Fabric E2E Test Environment
-    type: string
-    default: weekly
-    values:
-      - dev
-      - daily
-      - weekly
 
 variables:
   runTests: True
