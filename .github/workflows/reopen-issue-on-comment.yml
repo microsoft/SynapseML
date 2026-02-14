@@ -10,12 +10,9 @@ jobs:
   reopen_issue:
     runs-on: ubuntu-latest
     permissions:
-      issues: write 
-      statuses: write
+      issues: write
+    if: github.event.issue.state == 'closed'
     steps:
-      - name: Print context
-        run: |
-          echo "$GITHUB_CONTEXT"
       - name: Reopen Issue
         run: |
           curl \
@@ -25,7 +22,5 @@ jobs:
           https://api.github.com/repos/${{ github.repository }}/issues/${{ github.event.issue.number }} \
           -d '{"state":"open"}' \
           --fail
-    env:
-      GITHUB_CONTEXT: ${{ toJson(github) }}
 
       
