@@ -17,10 +17,22 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Install dependencies
+      - name: Fetch sitemap URLs
         run: |
-          sudo apt-get update
-          sudo apt-get install -y wget
+          curl -s https://microsoft.github.io/SynapseML/sitemap.xml \
+            | grep -oP '<loc>[^<]+</loc>' \
+            | sed 's/<\/?loc>//g' \
+            > urls.txt
+          echo "Found $(wc -l < urls.txt) URLs in sitemap"
+
       - name: Scan for dead links
-        run: |
-          wget --spider --recursive --no-verbose --tries=3 --retry-connrefused --no-clobber --directory-prefix=site-check https://microsoft.github.io/SynapseML/
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --no-progress
+            --max-concurrency 8
+            --max-retries 5
+            --retry-wait-time 5
+            --timeout 30
+            --accept '100..=103,200..=299,503'
+            urls.txt
