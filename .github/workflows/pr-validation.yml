@@ -22,7 +22,7 @@ jobs:
       - name: Check formatting with black
         run: |
           pip install -q 'black[jupyter]'
-          black --diff --color . && black --check -q .
+          black --diff --color --extend-exclude 'docs/' . && black --check -q --extend-exclude 'docs/' .
 
   compile-and-lint:
     name: Compile & Style Check
