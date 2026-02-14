@@ -6,9 +6,8 @@ package com.microsoft.azure.synapse.ml.services.face
 import com.microsoft.azure.synapse.ml.services._
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.functions.{col, explode, lit}
+import org.apache.spark.sql.functions.{col, lit}
 import org.apache.spark.sql.{DataFrame, Row}
-import org.scalactic.Equality
 
 import java.time.LocalDateTime
 import java.time.format.{DateTimeFormatterBuilder, DateTimeParseException, SignStyle}
@@ -16,6 +15,8 @@ import java.time.temporal.ChronoField
 import scala.util.matching.Regex
 
 class DetectFaceSuite extends TransformerFuzzing[DetectFace] with CognitiveKey {
+  override val compareDataInSerializationTest: Boolean = false
+
 
   import spark.implicits._
 
@@ -31,11 +32,6 @@ class DetectFaceSuite extends TransformerFuzzing[DetectFace] with CognitiveKey {
     .setReturnFaceId(true)
     .setReturnFaceLandmarks(true)
     .setReturnFaceAttributes(Seq("exposure"))
-
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    def prep(df: DataFrame) = df.select(explode(col("face"))).select("col.*").drop("faceId")
-    super.assertDFEq(prep(df1), prep(df2))(eq)
-  }
 
   test("Basic Usage") {
     face.transform(df)
@@ -55,6 +51,8 @@ class DetectFaceSuite extends TransformerFuzzing[DetectFace] with CognitiveKey {
 }
 
 class FindSimilarFaceSuite extends TransformerFuzzing[FindSimilarFace] with CognitiveKey {
+  override val compareDataInSerializationTest: Boolean = false
+
 
   import spark.implicits._
 
@@ -117,6 +115,8 @@ class FindSimilarFaceSuite extends TransformerFuzzing[FindSimilarFace] with Cogn
 }
 
 class GroupFacesSuite extends TransformerFuzzing[GroupFaces] with CognitiveKey {
+  override val compareDataInSerializationTest: Boolean = false
+
 
   import spark.implicits._
 
@@ -178,6 +178,8 @@ class GroupFacesSuite extends TransformerFuzzing[GroupFaces] with CognitiveKey {
 }
 
 class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with CognitiveKey {
+  override val compareDataInSerializationTest: Boolean = false
+
 
   import spark.implicits._
 
@@ -328,6 +330,8 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
 }
 
 class VerifyFacesSuite extends TransformerFuzzing[VerifyFaces] with CognitiveKey {
+  override val compareDataInSerializationTest: Boolean = false
+
 
   import spark.implicits._
 

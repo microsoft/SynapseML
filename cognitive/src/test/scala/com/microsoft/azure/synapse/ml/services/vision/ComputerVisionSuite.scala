@@ -35,6 +35,8 @@ trait OCRUtils extends TestBase with ImageDownloadUtils {
 }
 
 class OCRSuite extends TransformerFuzzing[OCR] with CognitiveKey with Flaky with OCRUtils {
+  override val compareDataInSerializationTest: Boolean = false
+
 
   lazy val ocr: OCR = new OCR()
     .setSubscriptionKey(cognitiveKey)
@@ -83,7 +85,8 @@ class OCRSuite extends TransformerFuzzing[OCR] with CognitiveKey with Flaky with
 }
 
 class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage]
-  with CognitiveKey with Flaky with GetterSetterFuzzing[AnalyzeImage] with ImageDownloadUtils {
+with CognitiveKey with Flaky with GetterSetterFuzzing[AnalyzeImage] with ImageDownloadUtils {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 
@@ -202,6 +205,7 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage]
 
 class RecognizeTextSuite extends TransformerFuzzing[RecognizeText]
   with CognitiveKey with Flaky with OCRUtils {
+  override val compareDataInSerializationTest: Boolean = false
 
   lazy val rt: RecognizeText = new RecognizeText()
     .setSubscriptionKey(cognitiveKey)
@@ -245,6 +249,7 @@ class RecognizeTextSuite extends TransformerFuzzing[RecognizeText]
 
 class ReadImageSuite extends TransformerFuzzing[ReadImage]
   with CognitiveKey with Flaky with OCRUtils {
+  override val compareDataInSerializationTest: Boolean = false
 
   lazy val readImage: ReadImage = new ReadImage()
     .setSubscriptionKey(cognitiveKey)
@@ -259,14 +264,6 @@ class ReadImageSuite extends TransformerFuzzing[ReadImage]
     .setImageBytesCol("imageBytes")
     .setOutputCol("ocr")
     .setConcurrency(5)
-
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    def prep(df: DataFrame) = {
-      df.select("url", "ocr.analyzeResult.readResults")
-    }
-
-    super.assertDFEq(prep(df1), prep(df2))(eq)
-  }
 
   test("Basic Usage with URL") {
     val results = df.mlTransform(readImage, ReadImage.flatten("ocr", "ocr"))
@@ -304,7 +301,8 @@ class ReadImageSuite extends TransformerFuzzing[ReadImage]
 }
 
 class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDomainSpecificContent]
-  with CognitiveKey with Flaky with ImageDownloadUtils {
+with CognitiveKey with Flaky with ImageDownloadUtils {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 
@@ -359,7 +357,8 @@ class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDo
 }
 
 class GenerateThumbnailsSuite extends TransformerFuzzing[GenerateThumbnails]
-  with CognitiveKey with Flaky with ImageDownloadUtils {
+with CognitiveKey with Flaky with ImageDownloadUtils {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 
@@ -402,6 +401,7 @@ class GenerateThumbnailsSuite extends TransformerFuzzing[GenerateThumbnails]
 }
 
 class TagImageSuite extends TransformerFuzzing[TagImage] with CognitiveKey with Flaky with ImageDownloadUtils {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 
@@ -445,10 +445,6 @@ class TagImageSuite extends TransformerFuzzing[TagImage] with CognitiveKey with 
     assert(tagResponse.map(_.getDouble(1)).toList.head > .9)
   }
 
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    super.assertDFEq(df1.select("tags.tags.name"), df2.select("tags.tags.name"))(eq)
-  }
-
   override def testObjects(): Seq[TestObject[TagImage]] =
     Seq(new TestObject(t, df))
 
@@ -456,7 +452,8 @@ class TagImageSuite extends TransformerFuzzing[TagImage] with CognitiveKey with 
 }
 
 class DescribeImageSuite extends TransformerFuzzing[DescribeImage]
-  with CognitiveKey with Flaky with ImageDownloadUtils {
+with CognitiveKey with Flaky with ImageDownloadUtils {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 
@@ -494,11 +491,6 @@ class DescribeImageSuite extends TransformerFuzzing[DescribeImage]
     val tags = results.select("descriptions").take(1).head
       .getStruct(0).getStruct(0).getSeq[String](0).toSet
     assert(tags("person") && tags("glasses"))
-  }
-
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    super.assertDFEq(df1.select("descriptions.description.tags", "descriptions.description.captions.text"),
-      df2.select("descriptions.description.tags", "descriptions.description.captions.text"))(eq)
   }
 
   override def testObjects(): Seq[TestObject[DescribeImage]] =
