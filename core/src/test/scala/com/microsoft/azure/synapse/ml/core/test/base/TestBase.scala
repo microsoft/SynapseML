@@ -22,7 +22,7 @@ import org.scalatest.time.{Seconds, Span}
 
 import java.io.File
 import java.nio.file.{Files, Path}
-import scala.concurrent._
+import scala.concurrent.blocking
 import scala.reflect.ClassTag
 
 trait SparkSessionManagement {
@@ -147,7 +147,18 @@ object TestBase extends SparkSessionManagement {
 
 }
 
-abstract class TestBase extends AnyFunSuite with BeforeAndAfterEachTestData with BeforeAndAfterAll {
+abstract class TestBase extends AnyFunSuite with BeforeAndAfterEachTestData with BeforeAndAfterAll with TimeLimits {
+
+  // Global per-test timeout (10 minutes). Override in subclass if needed.
+  val testTimeoutInSeconds: Int = 10 * 60
+
+  override def test(testName: String, testTags: Tag*)(testFun: => Any)(implicit pos: Position): Unit = {
+    super.test(testName, testTags: _*) {
+      failAfter(Span(testTimeoutInSeconds, Seconds)) {
+        testFun
+      }
+    }
+  }
 
   lazy val sparkProvider: SparkSessionManagement = TestBase
 

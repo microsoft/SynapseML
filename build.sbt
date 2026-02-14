@@ -104,7 +104,12 @@ getDatasetsTask := {
   val f = new File(d, datasetName)
   if (!d.exists()) d.mkdirs()
   if (!f.exists()) {
-    FileUtils.copyURLToFile(datasetUrl, f)
+    val cached = new File(sys.env.getOrElse("DATASET_CACHE", "/opt/datasets"), datasetName)
+    if (cached.exists()) {
+      java.nio.file.Files.copy(cached.toPath, f.toPath)
+    } else {
+      FileUtils.copyURLToFile(datasetUrl, f)
+    }
     UnzipUtils.unzip(f, d)
   }
 }
