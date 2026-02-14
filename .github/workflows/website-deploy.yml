@@ -1,4 +1,4 @@
-name: Website Preview Build
+name: Website Deploy
 
 on:
   push:
@@ -7,17 +7,22 @@ on:
       - 'docs/**'
       - 'website/**'
       - 'tools/docgen/**'
-      - '.github/workflows/website-preview.yml'
+      - '.github/workflows/website-deploy.yml'
   pull_request:
     paths:
       - 'docs/**'
       - 'website/**'
       - 'tools/docgen/**'
-      - '.github/workflows/website-preview.yml'
+      - '.github/workflows/website-deploy.yml'
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
 concurrency:
-  group: website-preview-${{ github.ref }}
+  group: website-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -54,9 +59,31 @@ jobs:
           yarn install
           yarn build
 
-      - name: Upload build artifact
+      - name: Upload artifact (PR preview)
+        if: github.event_name == 'pull_request'
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: website-build
           path: website/build
           retention-days: 7
+
+      - name: Upload Pages artifact
+        if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3
+        with:
+          path: website/build
+
+  deploy:
+    if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Configure Pages
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4
