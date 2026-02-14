@@ -1,5 +1,11 @@
 resources:
-- repo: self
+  containers:
+    - container: ci
+      image: mmlsparkmcr.azurecr.io/synapseml/ci:ci-latest
+      endpoint: 'SynapseML MCR'
+  repositories:
+    - repository: self
+      type: self
 
 trigger:
   branches:
@@ -95,12 +101,71 @@ variables:
   runCoverage: $[or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))]
 
 jobs:
-- job: Style
+- job: BuildCIImage
+  displayName: 'Ensure CI Image'
   cancelTimeoutInMinutes: 0
-  condition: and(eq(variables.runTests, 'True'), eq('${{ parameters.testStyle }}', true))
+  timeoutInMinutes: 60
   pool:
     vmImage: $(UBUNTU_VERSION)
   steps:
+    - bash: |
+        set -e
+        echo "=== Disk space BEFORE cleanup ==="
+        df -h / | grep -E 'Filesystem|/$'
+        sudo rm -rf /usr/local/lib/android || true
+        sudo rm -rf /usr/lib/google-cloud-sdk || true
+        sudo rm -rf /usr/share/dotnet || true
+        sudo rm -rf /opt/ghc || true
+        sudo rm -rf /opt/hostedtoolcache || true
+        sudo rm -rf /usr/local/share/boost || true
+        sudo rm -rf /usr/share/swift || true
+        sudo rm -rf /usr/local/.ghcup || true
+        sudo rm -rf /usr/share/miniconda || true
+        sudo rm -rf /usr/local/share/chromium || true
+        sudo docker image prune -af || true
+        echo "=== Disk space AFTER cleanup ==="
+        df -h / | grep -E 'Filesystem|/$'
+      displayName: 'Free disk space'
+    - task: Docker@2
+      displayName: 'Login to ACR'
+      inputs:
+        command: login
+        containerRegistry: 'SynapseML MCR'
+    - bash: |
+        set -e
+        HASH=$(cat environment.yml project/plugins.sbt project/build.properties build.sbt sonatype.sbt tools/docker/ci/Dockerfile | sha256sum | cut -c1-12)
+        TAG="ci-${HASH}"
+        LATEST_TAG="ci-latest"
+        REGISTRY="mmlsparkmcr.azurecr.io"
+        REPO="synapseml/ci"
+        echo "Content hash: $TAG"
+
+        if docker manifest inspect "${REGISTRY}/${REPO}:${TAG}" > /dev/null 2>&1; then
+          echo "Image ${TAG} exists. Re-tagging server-side as ${LATEST_TAG}."
+          docker buildx imagetools create \
+            --tag "${REGISTRY}/${REPO}:${LATEST_TAG}" \
+            "${REGISTRY}/${REPO}:${TAG}"
+        else
+          echo "Image ${TAG} not found. Building..."
+          docker pull "${REGISTRY}/${REPO}:${LATEST_TAG}" || true
+          docker build \
+            --cache-from "${REGISTRY}/${REPO}:${LATEST_TAG}" \
+            -t "${REGISTRY}/${REPO}:${TAG}" \
+            -t "${REGISTRY}/${REPO}:${LATEST_TAG}" \
+            -f tools/docker/ci/Dockerfile .
+          docker push "${REGISTRY}/${REPO}:${TAG}"
+          docker push "${REGISTRY}/${REPO}:${LATEST_TAG}"
+        fi
+      displayName: 'Check/Build CI Image'
+
+- job: Style
+  cancelTimeoutInMinutes: 0
+  condition: and(succeeded(), eq(variables.runTests, 'True'), eq('${{ parameters.testStyle }}', true))
+  pool:
+    vmImage: $(UBUNTU_VERSION)
+  container: ci
+  steps:
+    - template: templates/free_disk.yml
     - task: AzureCLI@2
       displayName: 'Scala Style Check'
       inputs:
@@ -108,7 +173,6 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: 'sbt scalastyle test:scalastyle'
-    - template: templates/conda.yml
     - bash: |
         set -e
         source activate synapseml
@@ -116,14 +180,13 @@ jobs:
       displayName: 'Python Style Check'
 - ${{ if eq(parameters.publishArtifacts, true) }}:
   - job: Publish
-    condition: eq('${{ parameters.publishArtifacts }}', true)
+    condition: and(succeeded(), eq('${{ parameters.publishArtifacts }}', true))
     cancelTimeoutInMinutes: 0
     pool:
       vmImage: $(UBUNTU_VERSION)
+    container: ci
     steps:
-      #- template: templates/ivy_cache.yml
-      - template: templates/update_cli.yml
-      - template: templates/conda.yml
+      - template: templates/free_disk.yml
       - template: templates/kv.yml
       - task: MavenAuthenticate@0
         name: mavenAuthPublicPackages
@@ -139,7 +202,6 @@ jobs:
           scriptType: bash
           inlineScript: |
             set -e
-            sudo apt-get install graphviz doxygen -y
             source activate synapseml
             sbt packagePython uploadNotebooks
             sbt -DskipCodegen=true publishBlob publishDocs publishR publishPython
@@ -172,6 +234,7 @@ jobs:
   cancelTimeoutInMinutes: 0
   pool:
     vmImage: $(UBUNTU_VERSION)
+  container: ci
   strategy:
     matrix:
       databricks-cpu:
@@ -183,9 +246,7 @@ jobs:
 #      databricks-rapids:
 #        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksRapidsTests"
   steps:
-    #- template: templates/ivy_cache.yml
-    - template: templates/update_cli.yml
-    - template: templates/conda.yml
+    - template: templates/free_disk.yml
     - template: templates/kv.yml
     - template: templates/publish.yml
     - task: AzureCLI@2
@@ -214,7 +275,6 @@ jobs:
   pool:
     vmImage: $(UBUNTU_VERSION)
   steps:
-    #- template: templates/ivy_cache.yml
     - template: templates/update_cli.yml
     - template: templates/conda.yml
     - template: templates/kv.yml
@@ -419,9 +479,10 @@ jobs:
 - job: PythonTests
   timeoutInMinutes: 120
   cancelTimeoutInMinutes: 0
-  condition: and(eq(variables.runTests, 'True'), eq('${{ parameters.testPython }}', true))
+  condition: and(succeeded(), eq(variables.runTests, 'True'), eq('${{ parameters.testPython }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
+  container: ci
   strategy:
     matrix:
       core:
@@ -443,9 +504,7 @@ jobs:
       cognitive:
         PACKAGE: "cognitive"
   steps:
-    #- template: templates/ivy_cache.yml
-    - template: templates/update_cli.yml
-    - template: templates/conda.yml
+    - template: templates/free_disk.yml
     - template: templates/kv.yml
     - task: AzureCLI@2
       displayName: 'Install and package deps'
@@ -457,11 +516,9 @@ jobs:
         inlineScript: |
           source activate synapseml
           if [ "$(runCoverage)" = "True" ]; then COV_CMD="coverage"; else COV_CMD=""; fi
-          sbt $COV_CMD getDatasets installPipPackage
-          sbt publishM2
+          sbt $COV_CMD getDatasets "project core" installPipPackage publishM2 "project $(PACKAGE)" installPipPackage publishM2
     - task: AzureCLI@2
       displayName: 'Test Python Code'
-      retryCountOnTaskFailure: 1
       timeoutInMinutes: 40
       inputs:
         azureSubscription: 'SynapseML Build'
@@ -470,7 +527,7 @@ jobs:
         inlineScript: |
           set -e
           source activate synapseml
-          export SBT_OPTS="-Xms2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss5M  -Duser.timezone=GMT"
+          export SBT_OPTS="-Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss5M  -Duser.timezone=GMT"
           echo "##vso[task.setvariable variable=SBT_OPTS]$SBT_OPTS"
           echo "SBT_OPTS=$SBT_OPTS"
           IGNORE_TEST_PATH_FLAG=""
@@ -485,7 +542,6 @@ jobs:
           echo "TEST_SUB_PATH=$TEST_SUB_PATH"
           echo "IGNORE_TEST_PATH_FLAG=$IGNORE_TEST_PATH_FLAG"
           echo "TEST_SUB_PATH_FLAG=$TEST_SUB_PATH_FLAG"
-          (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython) || \
           (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython) || \
           (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython)
     - task: PublishTestResults@2
@@ -508,9 +564,10 @@ jobs:
 - job: RTests
   timeoutInMinutes: 60
   cancelTimeoutInMinutes: 0
-  condition: and(eq(variables.runTests, 'True'), eq('${{ parameters.testR }}', true))
+  condition: and(succeeded(), eq(variables.runTests, 'True'), eq('${{ parameters.testR }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
+  container: ci
   strategy:
     matrix:
       core:
@@ -526,9 +583,8 @@ jobs:
       cognitive:
         PACKAGE: "cognitive"
   steps:
+    - template: templates/free_disk.yml
     #- template: templates/ivy_cache_2.yml
-    - template: templates/update_cli.yml
-    - template: templates/conda.yml
     - template: templates/kv.yml
     - task: AzureCLI@2
       displayName: 'Prepare for tests'
@@ -540,18 +596,15 @@ jobs:
         scriptType: bash
         inlineScript: |
           set -e
-          export SBT_OPTS="-Xms2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss5M  -Duser.timezone=GMT"
+          export SBT_OPTS="-Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss5M  -Duser.timezone=GMT"
           source activate synapseml
-          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
-          sbt codegen
-          sbt publishM2
+          timeout 5m sbt setup codegen publishM2
           SPARK_VERSION=3.5.0
           HADOOP_VERSION=3
-          # wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
-          wget https://mmlspark.blob.core.windows.net/installers/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
+          wget -q https://mmlspark.blob.core.windows.net/installers/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
     - task: AzureCLI@2
       displayName: 'Test R Code'
-      retryCountOnTaskFailure: 3
+      retryCountOnTaskFailure: 1
       timeoutInMinutes: 20
       inputs:
         azureSubscription: 'SynapseML Build'
@@ -559,7 +612,7 @@ jobs:
         scriptType: bash
         inlineScript: |
           set -e
-          export SBT_OPTS="-Xms2G -Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=4G -Xss5M  -Duser.timezone=GMT"
+          export SBT_OPTS="-Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss5M  -Duser.timezone=GMT"
           source activate synapseml
           timeout 20m sbt -DskipCodegen=true "project $(PACKAGE)" coverage testR
     - task: PublishTestResults@2
@@ -580,23 +633,15 @@ jobs:
     - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
       - template: templates/codecov.yml
 
-- job: BuildAndCacheCondaEnv
-  cancelTimeoutInMinutes: 0
-  condition: eq(variables.runTests, 'True')
-  pool:
-    vmImage: $(UBUNTU_VERSION)
-  steps:
-    - template: templates/conda.yml
-
 - job: WebsiteSamplesTests
   cancelTimeoutInMinutes: 0
-  condition: and(eq(variables.runTests, 'True'), eq('${{ parameters.testWebsiteSamples }}', true))
+  condition: and(succeeded(), eq(variables.runTests, 'True'), eq('${{ parameters.testWebsiteSamples }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
+  container: ci
   steps:
+    - template: templates/free_disk.yml
     #- template: templates/ivy_cache.yml
-    - template: templates/update_cli.yml
-    - template: templates/conda.yml
     - template: templates/kv.yml
     - template: templates/publish.yml
     - task: AzureCLI@2
@@ -607,9 +652,10 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
-          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
+          export SBT_OPTS="-Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss2M -Duser.timezone=GMT"
           if [ "$(runCoverage)" = "True" ]; then COV_CMD="coverage"; else COV_CMD=""; fi
-          (sbt $COV_CMD testWebsiteDocs)
+          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
+          sbt $COV_CMD testWebsiteDocs
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
@@ -630,117 +676,164 @@ jobs:
 
 - job: UnitTests
   cancelTimeoutInMinutes: 1
-  timeoutInMinutes: 80
-  condition: and(eq(variables.runTests, 'True'), eq('${{ parameters.testUnit }}', true))
+  timeoutInMinutes: 50
+  condition: and(succeeded(), eq(variables.runTests, 'True'), eq('${{ parameters.testUnit }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
+  container: ci
   strategy:
     matrix:
       automl:
         PACKAGE: "automl"
+        PROJECT: "core"
       causal:
         PACKAGE: "causal"
+        PROJECT: "core"
       onnx:
         PACKAGE: "onnx"
+        PROJECT: "deepLearning"
       geospatial:
         PACKAGE: "services.geospatial"
+        PROJECT: "cognitive"
       anomaly:
         PACKAGE: "services.anomaly"
+        PROJECT: "cognitive"
         FLAKY: "true"
       face:
         PACKAGE: "services.face"
+        PROJECT: "cognitive"
         FLAKY: "true"
       form:
         PACKAGE: "services.form"
+        PROJECT: "cognitive"
         FLAKY: "true"
       language:
         PACKAGE: "services.language"
+        PROJECT: "cognitive"
         FLAKY: "true"
       openai:
         PACKAGE: "services.openai"
+        PROJECT: "cognitive"
         FLAKY: "true"
       aifoundry:
         PACKAGE: "services.aifoundry"
+        PROJECT: "cognitive"
         FLAKY: "true"
       search1:
         PACKAGE: "services.search.split1"
+        PROJECT: "cognitive"
         FFMPEG: "true"
         FLAKY: "true"
       search2:
         PACKAGE: "services.search.split2"
+        PROJECT: "cognitive"
         FFMPEG: "true"
         FLAKY: "true"
-      speech:
+      speech1:
         PACKAGE: "services.speech"
+        PROJECT: "cognitive"
+        TEST_CLASSES: "com.microsoft.azure.synapse.ml.services.speech.SpeechToTextSDKSuite"
+        FFMPEG: "true"
+        FLAKY: "true"
+      speech2:
+        PACKAGE: "services.speech"
+        PROJECT: "cognitive"
+        TEST_CLASSES: "com.microsoft.azure.synapse.ml.services.speech.ConversationTranscriptionSuite com.microsoft.azure.synapse.ml.services.speech.SpeechToTextSuite com.microsoft.azure.synapse.ml.services.speech.TextToSpeechSuite com.microsoft.azure.synapse.ml.services.speech.SpeakerEmotionInferenceSuite"
         FFMPEG: "true"
         FLAKY: "true"
       text:
         PACKAGE: "services.text"
+        PROJECT: "cognitive"
         FLAKY: "true"
       translate:
         PACKAGE: "services.translate"
+        PROJECT: "cognitive"
         FLAKY: "true"
       vision:
         PACKAGE: "services.vision"
+        PROJECT: "cognitive"
         FLAKY: "true"
       core:
         PACKAGE: "core"
+        PROJECT: "core"
       explainers1:
         PACKAGE: "explainers.split1"
+        PROJECT: "core"
       explainers2:
         PACKAGE: "explainers.split2"
+        PROJECT: "deepLearning"
       explainers3:
         PACKAGE: "explainers.split3"
+        PROJECT: "deepLearning"
       exploratory:
         PACKAGE: "exploratory"
+        PROJECT: "core"
       featurize:
         PACKAGE: "featurize"
+        PROJECT: "core"
       image:
         PACKAGE: "image"
+        PROJECT: "core"
       io1:
         PACKAGE: "io.split1"
+        PROJECT: "core"
         FLAKY: "true"
       io2:
         PACKAGE: "io.split2"
+        PROJECT: "core"
         FLAKY: "true"
       isolationforest:
         PACKAGE: "isolationforest"
+        PROJECT: "core"
       flaky:
         PACKAGE: "flaky"           #TODO fix flaky test so isolation is not needed
+        PROJECT: "core"
         FLAKY: "true"
       lightgbm1:
         PACKAGE: "lightgbm.split1" #TODO speed up LGBM Tests and remove split
+        PROJECT: "lightgbm"
         FLAKY: "true"
       lightgbm2:
         PACKAGE: "lightgbm.split2"
+        PROJECT: "lightgbm"
         FLAKY: "true"
       lightgbm3:
         PACKAGE: "lightgbm.split3"
+        PROJECT: "lightgbm"
         FLAKY: "true"
       lightgbm4:
         PACKAGE: "lightgbm.split4"
+        PROJECT: "lightgbm"
         FLAKY: "true"
       lightgbm5:
         PACKAGE: "lightgbm.split5"
+        PROJECT: "lightgbm"
         FLAKY: "true"
       lightgbm6:
         PACKAGE: "lightgbm.split6"
+        PROJECT: "lightgbm"
         FLAKY: "true"
       opencv:
         PACKAGE: "opencv"
+        PROJECT: "opencv"
       recommendation:
         PACKAGE: "recommendation"
+        PROJECT: "core"
       stages:
         PACKAGE: "stages"
+        PROJECT: "core"
       nn:
         PACKAGE: "nn"
+        PROJECT: "core"
       train:
         PACKAGE: "train"
+        PROJECT: "core"
       vw:
         PACKAGE: "vw"
+        PROJECT: "vw"
   steps:
+    - template: templates/free_disk.yml
     #- template: templates/ivy_cache.yml
-    - template: templates/update_cli.yml
     - task: AzureCLI@2
       displayName: 'Setup repo'
       retryCountOnTaskFailure: 1
@@ -749,14 +842,10 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
-          (timeout 30s pip install requests) || (echo "retrying" && timeout 30s pip install requests)
-          (${FFMPEG:-false} && sudo apt-get update && \
-          sudo apt-get install ffmpeg libgstreamer1.0-0 \
-          gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly -y)
-          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
+          export SBT_OPTS="-Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss2M -Duser.timezone=GMT"
+          sbt getDatasets "project $(PROJECT)" Test/compile
     - task: AzureCLI@2
       displayName: 'Unit Test'
-      retryCountOnTaskFailure: 1
       timeoutInMinutes: 90
       inputs:
         azureSubscription: 'SynapseML Build'
@@ -764,11 +853,13 @@ jobs:
         scriptType: bash
         inlineScript: |
           ulimit -c unlimited
-          export SBT_OPTS="-XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss2M  -Duser.timezone=GMT"
+          echo "Available CPUs: $(nproc)"
+          export SBT_OPTS="-Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss2M -Duser.timezone=GMT -Dscala.concurrent.context.numThreads=8 -Dscala.concurrent.context.maxThreads=8"
           # Only run coverage on PRs, master, or tag builds
           if [ "$(runCoverage)" = "True" ]; then COV_CMD="coverage"; else COV_CMD=""; fi
-          (timeout 30m sbt $COV_CMD "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
-          (${FLAKY:-false} && timeout 30m sbt $COV_CMD "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**")
+          TEST_SPEC="${TEST_CLASSES:-com.microsoft.azure.synapse.ml.$(PACKAGE).**}"
+          (timeout 30m sbt $COV_CMD "project $(PROJECT)" "testOnly $TEST_SPEC") ||
+          (${FLAKY:-false} && timeout 30m sbt $COV_CMD "project $(PROJECT)" "testOnly $TEST_SPEC")
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:

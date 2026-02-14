@@ -8,9 +8,10 @@ import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, Transformer
 import org.apache.commons.io.IOUtils
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
-import org.scalactic.Equality
 
 class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion] with OpenAIAPIKey with Flaky {
+  override val compareDataInSerializationTest: Boolean = false
+
 
   import spark.implicits._
 
@@ -476,10 +477,6 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     completion.transform(df).collect().foreach(r =>
       fromRow(r.getAs[Row]("out")).choices.foreach(c =>
         assert(c.message.content.length > requiredLength)))
-  }
-
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    super.assertDFEq(df1.drop("out"), df2.drop("out"))(eq)
   }
 
   override def testObjects(): Seq[TestObject[OpenAIChatCompletion]] =

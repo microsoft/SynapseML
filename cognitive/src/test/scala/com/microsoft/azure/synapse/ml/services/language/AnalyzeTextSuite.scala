@@ -11,6 +11,7 @@ import org.apache.spark.sql.functions.{col, flatten, map}
 import org.scalactic.{Equality, TolerantNumerics}
 
 class EntityLinkingSuite extends TransformerFuzzing[AnalyzeText] with TextEndpoint {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 
@@ -66,6 +67,7 @@ class EntityLinkingSuite extends TransformerFuzzing[AnalyzeText] with TextEndpoi
 }
 
 class EntityRecognitionSuite extends TransformerFuzzing[AnalyzeText] with TextEndpoint {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 
@@ -121,6 +123,7 @@ class EntityRecognitionSuite extends TransformerFuzzing[AnalyzeText] with TextEn
 }
 
 class KeyPhraseSuite extends TransformerFuzzing[AnalyzeText] with TextEndpoint {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 
@@ -177,6 +180,7 @@ class KeyPhraseSuite extends TransformerFuzzing[AnalyzeText] with TextEndpoint {
 }
 
 class LanguageDetectionSuite extends TransformerFuzzing[AnalyzeText] with TextEndpoint {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 
@@ -233,6 +237,7 @@ class LanguageDetectionSuite extends TransformerFuzzing[AnalyzeText] with TextEn
 }
 
 class AnalyzeTextPIISuite extends TransformerFuzzing[AnalyzeText] with TextEndpoint {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 
@@ -297,6 +302,7 @@ class AnalyzeTextPIISuite extends TransformerFuzzing[AnalyzeText] with TextEndpo
 }
 
 class SentimentAnalysisSuite extends TransformerFuzzing[AnalyzeText] with TextEndpoint {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 

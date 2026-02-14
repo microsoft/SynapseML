@@ -1,0 +1,6 @@
+steps:
+  - script: |
+      sudo rm -rf /usr/local/lib/android /usr/lib/google-cloud-sdk /usr/share/dotnet /opt/ghc || true
+      df -h /
+    displayName: 'Free disk space'
+    target: host

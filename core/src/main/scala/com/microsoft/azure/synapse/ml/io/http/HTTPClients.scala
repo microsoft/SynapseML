@@ -83,11 +83,15 @@ object HandlingUtils extends SparkLogging {
     }
   }
 
+  private val MaxBackoffMs: Long = 60000L // 1 minute cap for 429 backoff
+
   //scalastyle:off cyclomatic.complexity
+  //scalastyle:off method.length
   private[ml] def sendWithRetries(client: CloseableHttpClient,
                                   request: HttpRequestBase,
                                   retriesLeft: Array[Int],
-                                  extraCodesToRetry: Set[Int] = Set()
+                                  extraCodesToRetry: Set[Int] = Set(),
+                                  backoff429Ms: Long = 0
                                  ): CloseableHttpResponse = {
     try {
       val response = client.execute(request)
@@ -107,7 +111,6 @@ object HandlingUtils extends SparkLogging {
                   case _ => request.getURI
                 }
               }")
-              Thread.sleep(h.getValue.toLong * 1000)
             }
           false
         case code =>
@@ -129,12 +132,25 @@ object HandlingUtils extends SparkLogging {
       if (dontRetry || retriesLeft.isEmpty) {
         response
       } else {
+        val hasRetryAfter = code == 429 && response.getFirstHeader("Retry-After") != null
+        val retryAfterMs = if (hasRetryAfter) {
+          response.getFirstHeader("Retry-After").getValue.toLong * 1000
+        } else 0L
         response.close()
-        Thread.sleep(retriesLeft.head.toLong)
         if (code == 429) { // Do not count rate limiting in number of failures
-          sendWithRetries(client, request, retriesLeft)
+          val nextBackoff = if (hasRetryAfter) {
+            // Server told us when to retry; use Retry-After value
+            retryAfterMs
+          } else {
+            // No Retry-After header; use exponential backoff
+            val current = math.max(backoff429Ms, retriesLeft.head.toLong)
+            math.min(current * 2, MaxBackoffMs)
+          }
+          Thread.sleep(nextBackoff)
+          sendWithRetries(client, request, retriesLeft, extraCodesToRetry, nextBackoff)
         } else {
-          sendWithRetries(client, request, retriesLeft.tail)
+          Thread.sleep(retriesLeft.head.toLong)
+          sendWithRetries(client, request, retriesLeft.tail, extraCodesToRetry)
         }
       }
     } catch {
@@ -143,6 +159,7 @@ object HandlingUtils extends SparkLogging {
         keepTrying(client, request, retriesLeft, e)
     }
   }
+  //scalastyle:on method.length
   //scalastyle:on cyclomatic.complexity
 
   def advanced(retryTimes: Int*)(client: CloseableHttpClient,

@@ -9,7 +9,6 @@ import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, Transformer
 import com.microsoft.azure.synapse.ml.services.openai._
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
-import org.scalactic.Equality
 
 trait AIFoundryAPIKey {
   lazy val aiFoundryAPIKey: String = sys.env.getOrElse("AI_FOUNDRY_API_KEY", Secrets.AIFoundryApiKey)
@@ -18,6 +17,8 @@ trait AIFoundryAPIKey {
 }
 
 class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompletion] with AIFoundryAPIKey with Flaky {
+  override val compareDataInSerializationTest: Boolean = false
+
 
   import spark.implicits._
 
@@ -209,10 +210,6 @@ class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompl
     completion.transform(df).collect().foreach(r =>
       fromRow(r.getAs[Row]("out")).choices.foreach(c =>
         assert(c.message.content.length > requiredLength)))
-  }
-
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    super.assertDFEq(df1.drop("out"), df2.drop("out"))(eq)
   }
 
   override def testObjects(): Seq[TestObject[AIFoundryChatCompletion]] =

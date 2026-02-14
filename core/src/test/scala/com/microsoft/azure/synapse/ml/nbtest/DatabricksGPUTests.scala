@@ -7,9 +7,9 @@ import com.microsoft.azure.synapse.ml.nbtest.DatabricksUtilities._
 
 class DatabricksGPUTests extends DatabricksTestHelper {
 
-  val clusterId: String = createClusterInPool(GPUClusterName, AdbGpuRuntime, 2, GpuPoolId)
+  val clusterId: String = createClusterInPool(GPUClusterName, AdbGpuRuntime, 3, GpuPoolId)
 
-  databricksTestHelper(clusterId, GPULibraries, GPUNotebooks, 1, List())
+  databricksTestHelper(clusterId, GPULibraries, GPUNotebooks, 3, List())
 
   protected override def afterAll(): Unit = {
     afterAllHelper(clusterId, GPUClusterName)

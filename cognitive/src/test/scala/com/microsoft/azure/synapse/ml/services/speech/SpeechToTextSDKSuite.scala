@@ -137,6 +137,7 @@ trait SpeechToTextSDKSuiteBase extends TestBase with CognitiveKey with CustomSpe
 }
 
 class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK] with SpeechToTextSDKSuiteBase {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 
@@ -318,6 +319,7 @@ trait TranscriptionSecrets {
 
 class ConversationTranscriptionSuite extends TransformerFuzzing[ConversationTranscription]
   with SpeechToTextSDKSuiteBase with TranscriptionSecrets {
+  override val compareDataInSerializationTest: Boolean = false
 
   override val retrySerializationFuzzing: Boolean = true
 

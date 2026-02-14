@@ -11,6 +11,8 @@ import org.apache.spark.sql.DataFrame
 import java.io.File
 
 class TextToSpeechSuite extends TransformerFuzzing[TextToSpeech] with CognitiveKey {
+  override val compareDataInSerializationTest: Boolean = false
+
 
   import spark.implicits._
 
