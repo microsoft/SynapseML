@@ -21,7 +21,7 @@ jobs:
 
       - name: Check formatting with black
         run: |
-          pip install -q 'black[jupyter]'
+          pip install -q 'black[jupyter]==22.3.0'
           black --diff --color --extend-exclude 'docs/' . && black --check -q --extend-exclude 'docs/' .
 
   compile-and-lint:
