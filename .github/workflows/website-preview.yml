@@ -8,6 +8,12 @@ on:
       - 'website/**'
       - 'tools/docgen/**'
       - '.github/workflows/website-preview.yml'
+  pull_request:
+    paths:
+      - 'docs/**'
+      - 'website/**'
+      - 'tools/docgen/**'
+      - '.github/workflows/website-preview.yml'
   workflow_dispatch:
 
 concurrency:
