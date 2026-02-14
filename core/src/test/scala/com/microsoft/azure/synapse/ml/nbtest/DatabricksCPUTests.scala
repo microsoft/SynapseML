@@ -11,7 +11,7 @@ class DatabricksCPUTests extends DatabricksTestHelper {
 
   val clusterId: String = createClusterInPool(ClusterName, AdbRuntime, NumWorkers, PoolId, memory = Some("7g"))
 
-  databricksTestHelper(clusterId, Libraries, CPUNotebooks, 5)
+  databricksTestHelper(clusterId, Libraries, CPUNotebooks, 15)
 
   protected override def afterAll(): Unit = {
     afterAllHelper(clusterId, ClusterName)

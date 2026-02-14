@@ -88,10 +88,6 @@ parameters:
     displayName: Publish Release
     type: boolean
     default: false
-  - name: testFabricE2E
-    displayName: Run Fabric E2E Tests
-    type: boolean
-    default: true
 
 variables:
   runTests: True
