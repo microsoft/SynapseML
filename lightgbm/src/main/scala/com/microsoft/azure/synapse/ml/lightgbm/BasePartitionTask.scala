@@ -140,6 +140,13 @@ abstract class BasePartitionTask extends Serializable with Logging {
 
       try {
         if (taskCtx.shouldExecuteTraining) {
+          //close socket before lightgbm bind port
+          try {
+            taskCtx.networkTopologyInfo.localSocket.close()
+          } catch {
+            case e: Exception => log.warn("close local bind port socket failed ")
+          }
+
           // If participating in training, initialize the network ring of communication
           NetworkManager.initLightGBMNetwork(taskCtx, log)
 
