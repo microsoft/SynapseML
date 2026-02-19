@@ -42,9 +42,15 @@ object PyCodegen {
     val initFile = new File(dir, "__init__.py")
     if (packageFolder != "/cognitive"){
       if (packageFolder != "") {
-        writeFile(initFile, conf.packageHelp(importStrings))
+        if (initFile.exists()) {
+          prependToFile(initFile, conf.packageHelp(importStrings))
+        } else {
+          writeFile(initFile, conf.packageHelp(importStrings))
+        }
       } else if (initFile.exists()) {
-        initFile.delete()
+        if (initFile.length() == 0) {
+          initFile.delete()
+        }
       }
     }
     dir.listFiles().filter(_.isDirectory).foreach(f =>
