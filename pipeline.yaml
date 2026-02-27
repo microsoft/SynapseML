@@ -107,7 +107,7 @@ jobs:
         azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
         scriptType: bash
-        inlineScript: 'sbt scalastyle test:scalastyle'
+        inlineScript: 'sbt scalastyle "Test / scalastyle"'
     - template: templates/conda.yml
     - bash: |
         set -e
