@@ -2,6 +2,13 @@ codecov:
   notify:
     require_ci_to_pass: no
 
+comment:
+  layout: "reach,diff,flags,files"
+  behavior: new
+  require_changes: false
+  require_base: false
+  require_head: true
+
 coverage:
   precision: 2
   round: down
