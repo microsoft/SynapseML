@@ -47,13 +47,17 @@ class VerifyPlatformDetails extends TestBase {
     assert(PlatformDetails.runningOnFabric() === PlatformDetails.runningOnSynapseInternal())
   }
 
-  test("on non-Synapse/Fabric/Databricks environment, CurrentPlatform should be unknown or binder") {
-    // In a typical test environment (not Synapse, Fabric, or Databricks),
-    // the platform should be either unknown or binder (if running in binder)
+  test("CurrentPlatform returns a known platform value") {
     val platform = PlatformDetails.CurrentPlatform
-    // We can't assert exactly which one it is, but we verify it's one of them
+    // Expected platforms when running tests on a local/dev environment
     val expectedOnDev = Set(PlatformDetails.PlatformUnknown, PlatformDetails.PlatformBinder)
-    // This test just verifies the code runs without error
-    assert(platform.nonEmpty)
+    // Allow-list of platforms that may legitimately appear in CI (e.g., Synapse or Databricks)
+    val ciPlatforms = Set(
+      PlatformDetails.PlatformSynapseInternal,
+      PlatformDetails.PlatformSynapse,
+      PlatformDetails.PlatformDatabricks
+    )
+    // Verify that the platform is either a dev-expected value or a known CI platform
+    assert(expectedOnDev.contains(platform) || ciPlatforms.contains(platform))
   }
 }

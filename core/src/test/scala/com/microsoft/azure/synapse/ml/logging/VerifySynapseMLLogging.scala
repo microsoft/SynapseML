@@ -82,10 +82,12 @@ class VerifySynapseMLLogging extends TestBase {
   }
 
   test("SynapseMLLogging.LoggedClasses is a mutable set") {
-    val initialSize = SynapseMLLogging.LoggedClasses.size
-    SynapseMLLogging.LoggedClasses.add("TestClass")
-    assert(SynapseMLLogging.LoggedClasses.contains("TestClass"))
-    // Clean up
-    SynapseMLLogging.LoggedClasses.remove("TestClass")
+    try {
+      SynapseMLLogging.LoggedClasses.add("TestClass")
+      assert(SynapseMLLogging.LoggedClasses.contains("TestClass"))
+    } finally {
+      // Clean up to avoid leaking state into other tests
+      SynapseMLLogging.LoggedClasses.remove("TestClass")
+    }
   }
 }
