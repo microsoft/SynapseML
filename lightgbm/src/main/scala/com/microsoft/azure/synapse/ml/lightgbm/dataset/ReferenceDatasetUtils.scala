@@ -16,6 +16,7 @@ object ReferenceDatasetUtils {
                                        numRows: Long,
                                        numCols: Int,
                                        sampledRowData: Array[Row],
+                                       featureNames: Option[Array[String]],
                                        measures: InstrumentationMeasures,
                                        log: Logger): Array[Byte] = {
     log.info(s"Creating reference training dataset with ${sampledRowData.length} samples and config: $datasetParams")
@@ -46,9 +47,19 @@ object ReferenceDatasetUtils {
         datasetParams,
         datasetVoidPtr), "Dataset create from samples")
 
-
-      // 2. Serialize the raw dataset to a native buffer
       val datasetHandle: SWIGTYPE_p_void = lightgbmlib.voidpp_value(datasetVoidPtr)
+
+      // 2. Set feature names BEFORE serialization to avoid duplicate name errors in Spark 3.5+
+      // This must happen after dataset creation but before serialization
+      featureNames.foreach { names =>
+        if (names.nonEmpty) {
+          log.info(s"Setting ${names.length} feature names on reference dataset")
+          LightGBMUtils.validate(lightgbmlib.LGBM_DatasetSetFeatureNames(datasetHandle, names, numCols),
+            "Dataset set feature names")
+        }
+      }
+
+      // 3. Serialize the raw dataset to a native buffer
       LightGBMUtils.validate(lightgbmlib.LGBM_DatasetSerializeReferenceToBinary(
         datasetHandle,
         bufferHandlePtr,
