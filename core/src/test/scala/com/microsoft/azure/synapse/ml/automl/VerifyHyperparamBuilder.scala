@@ -4,20 +4,21 @@
 package com.microsoft.azure.synapse.ml.automl
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import org.apache.spark.ml.param.{IntParam, Params, DoubleParam, LongParam, FloatParam}
+import org.apache.spark.ml.param.{IntParam, Params, ParamMap, DoubleParam, LongParam, FloatParam}
 
 class VerifyHyperparamBuilder extends TestBase {
 
-  // Helper trait for creating test params
-  private trait TestParams extends Params {
+  // Helper class for creating test params
+  private class TestParams extends Params {
     override val uid: String = "test"
     val intParam = new IntParam(this, "intParam", "test int param")
     val doubleParam = new DoubleParam(this, "doubleParam", "test double param")
     val longParam = new LongParam(this, "longParam", "test long param")
     val floatParam = new FloatParam(this, "floatParam", "test float param")
+    override def copy(extra: ParamMap): Params = this
   }
 
-  private object TestParamsInstance extends TestParams
+  private val TestParamsInstance = new TestParams
 
   test("IntRangeHyperParam generates values within range") {
     val param = new IntRangeHyperParam(10, 20, seed = 42)
@@ -119,15 +120,17 @@ class VerifyHyperparamBuilder extends TestBase {
   test("HyperParamUtils.getRangeHyperParam returns IntRangeHyperParam for Int") {
     val result = HyperParamUtils.getRangeHyperParam(1, 10)
     assert(result.isInstanceOf[IntRangeHyperParam])
-    assert(result.min === 1)
-    assert(result.max === 10)
+    val intResult = result.asInstanceOf[IntRangeHyperParam]
+    assert(intResult.min === 1)
+    assert(intResult.max === 10)
   }
 
   test("HyperParamUtils.getRangeHyperParam returns DoubleRangeHyperParam for Double") {
     val result = HyperParamUtils.getRangeHyperParam(0.0, 1.0)
     assert(result.isInstanceOf[DoubleRangeHyperParam])
-    assert(result.min === 0.0)
-    assert(result.max === 1.0)
+    val doubleResult = result.asInstanceOf[DoubleRangeHyperParam]
+    assert(doubleResult.min === 0.0)
+    assert(doubleResult.max === 1.0)
   }
 
   test("HyperParamUtils.getRangeHyperParam returns LongRangeHyperParam for Long") {

@@ -14,15 +14,15 @@ class VerifyGlobalParams extends TestBase {
   case object TestIntKey extends GlobalKey[Int]
   case object AnotherStringKey extends GlobalKey[String]
 
-  override def beforeEach(): Unit = {
-    super.beforeEach()
-    // Reset global params between tests
+  // Helper to reset state before each test
+  private def resetGlobalState(): Unit = {
     GlobalParams.resetGlobalParam(TestStringKey)
     GlobalParams.resetGlobalParam(TestIntKey)
     GlobalParams.resetGlobalParam(AnotherStringKey)
   }
 
   test("setGlobalParam and getGlobalParam work for String") {
+    resetGlobalState()
     GlobalParams.setGlobalParam(TestStringKey, "test-value")
     val result = GlobalParams.getGlobalParam(TestStringKey)
     assert(result === Some("test-value"))

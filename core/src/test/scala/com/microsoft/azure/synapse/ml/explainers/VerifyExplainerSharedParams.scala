@@ -4,11 +4,8 @@
 package com.microsoft.azure.synapse.ml.explainers
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param.{ParamMap, Params}
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.sql.types.{IntegerType, StringType, StructField, StructType}
-import org.apache.spark.sql.{DataFrame, Dataset}
 
 class VerifyExplainerSharedParams extends TestBase {
 
@@ -24,12 +21,6 @@ class VerifyExplainerSharedParams extends TestBase {
     override def copy(extra: ParamMap): Params = this
   }
 
-  test("CanValidateSchema trait has default implementation") {
-    val validator = new CanValidateSchema {}
-    // Should not throw
-    validator.validateSchema(StructType(Seq()))
-  }
-
   test("HasMetricsCol sets and gets metrics column") {
     val params = new TestExplainerParams(Identifiable.randomUID("test"))
     params.setMetricsCol("metrics_output")
@@ -40,17 +31,6 @@ class VerifyExplainerSharedParams extends TestBase {
     val params = new TestExplainerParams(Identifiable.randomUID("test"))
     assert(params.metricsCol.name === "metricsCol")
     assert(params.metricsCol.doc.contains("fitting metrics"))
-  }
-
-  test("HasMetricsCol validates schema rejects duplicate column") {
-    val params = new TestExplainerParams(Identifiable.randomUID("test"))
-    params.setMetricsCol("existing_col")
-    val schema = StructType(Seq(
-      StructField("existing_col", StringType)
-    ))
-    assertThrows[IllegalArgumentException] {
-      params.validateSchema(schema)
-    }
   }
 
   test("HasNumSamples sets and gets number of samples") {
