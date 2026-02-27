@@ -56,12 +56,14 @@ class VerifySynapseMLLogging extends TestBase {
     assert(fields.errorMessage === "Test exception message")
   }
 
-  test("RequiredErrorFields handles null exception message") {
-    val exception = new RuntimeException(null: String)
+  test("RequiredErrorFields handles exception with no message") {
+    // scalastyle:off null
+    val exception = new RuntimeException(None.orNull: String)
     val fields = new RequiredErrorFields(exception)
 
     assert(fields.errorType === "java.lang.RuntimeException")
-    assert(fields.errorMessage === null)
+    assert(Option(fields.errorMessage).isEmpty)
+    // scalastyle:on null
   }
 
   test("SynapseMLLogging.HadoopKeysToLog contains expected mappings") {

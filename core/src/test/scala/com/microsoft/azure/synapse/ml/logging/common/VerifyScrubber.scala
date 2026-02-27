@@ -9,7 +9,10 @@ class VerifyScrubber extends TestBase {
 
   test("SASScrubber scrubs SAS signature from URL") {
     // SAS tokens typically contain sig= followed by base64-like encoded signature
+    // Dummy URL for testing - not a real endpoint
+    // scalastyle:off line.size.limit
     val urlWithSas = "https://storage.blob.core.windows.net/container/file?sig=abcdefghijklmnopqrstuvwxyz0123456789ABCDEFG%3d"
+    // scalastyle:on line.size.limit
     val result = SASScrubber.scrub(urlWithSas)
     assert(result.contains("sig=####"))
     assert(!result.contains("abcdefghijklmnopqrstuvwxyz"))
