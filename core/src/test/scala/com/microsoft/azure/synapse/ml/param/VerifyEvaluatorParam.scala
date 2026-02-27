@@ -4,7 +4,9 @@
 package com.microsoft.azure.synapse.ml.param
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import org.apache.spark.ml.evaluation.{BinaryClassificationEvaluator, MulticlassClassificationEvaluator, RegressionEvaluator}
+import org.apache.spark.ml.evaluation.{
+  BinaryClassificationEvaluator, MulticlassClassificationEvaluator, RegressionEvaluator
+}
 import org.apache.spark.ml.param.{ParamMap, Params}
 
 class VerifyEvaluatorParam extends TestBase {
