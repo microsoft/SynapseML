@@ -382,4 +382,33 @@ class VerifyLightGBMCommon extends TestBase with LightGBMTestUtils {
 
     assert(predictions.count() == 4)
   }
+
+  test("Verify duplicate explicit slotNames are made unique") {
+    import org.apache.spark.ml.linalg.Vectors
+
+    val data = Seq(
+      (0.0, Vectors.dense(1.0, 2.0, 3.0)),
+      (1.0, Vectors.dense(2.0, 3.0, 4.0)),
+      (0.0, Vectors.dense(3.0, 4.0, 5.0)),
+      (1.0, Vectors.dense(4.0, 5.0, 6.0))
+    )
+
+    val df = spark.createDataFrame(data).toDF(labelCol, featuresCol)
+
+    val duplicateNames = Array("Column_", "Column_", "Column_")
+    val model = new LightGBMClassifier()
+      .setFeaturesCol(featuresCol)
+      .setLabelCol(labelCol)
+      .setDefaultListenPort(getAndIncrementPort())
+      .setNumLeaves(5)
+      .setNumIterations(5)
+      .setObjective("binary")
+      .setSlotNames(duplicateNames)
+      .setExecutionMode("streaming")
+
+    val trainedModel = model.fit(df)
+    val predictions = trainedModel.transform(df)
+
+    assert(predictions.count() == 4)
+  }
 }
