@@ -294,4 +294,92 @@ class VerifyLightGBMCommon extends TestBase with LightGBMTestUtils {
       (conv(up.last) + conv(down.head)) / fromInt(2)
     }
   }
+
+  test("Verify duplicate feature names are handled correctly (Spark 3.5+ fix)") {
+    // This test verifies the fix for the error:
+    // "Dataset create from samples call failed in LightGBM with error: Feature (Column_) appears more than one time"
+    // This issue occurs in Spark 3.5+ due to changes in AttributeGroup metadata handling.
+
+    import org.apache.spark.ml.attribute.{AttributeGroup, NumericAttribute}
+    import org.apache.spark.ml.linalg.Vectors
+    import org.apache.spark.sql.types.{DoubleType, StructField, StructType}
+
+    // Create a DataFrame with a features column that has duplicate attribute names
+    // This simulates what can happen in Spark 3.5+ when VectorAssembler creates metadata
+    val data = Seq(
+      (0.0, Vectors.dense(1.0, 2.0, 3.0, 4.0)),
+      (1.0, Vectors.dense(2.0, 3.0, 4.0, 5.0)),
+      (0.0, Vectors.dense(3.0, 4.0, 5.0, 6.0)),
+      (1.0, Vectors.dense(4.0, 5.0, 6.0, 7.0))
+    )
+
+    val df = spark.createDataFrame(data).toDF(labelCol, featuresCol)
+
+    // Create attributes with duplicate names (simulating Spark 3.5+ behavior)
+    val attrs = Array(
+      NumericAttribute.defaultAttr.withName("Column_").withIndex(0),
+      NumericAttribute.defaultAttr.withName("Column_").withIndex(1),  // Duplicate name
+      NumericAttribute.defaultAttr.withName("Column_").withIndex(2),  // Duplicate name
+      NumericAttribute.defaultAttr.withName("unique_col").withIndex(3)
+    )
+    val attrGroup = new AttributeGroup(featuresCol, attrs.map(_.asInstanceOf[org.apache.spark.ml.attribute.Attribute]))
+
+    // Apply the metadata with duplicate names to the features column
+    val dfWithDuplicateNames = df.withColumn(
+      featuresCol,
+      df(featuresCol).as(featuresCol, attrGroup.toMetadata())
+    )
+
+    // Create and fit the model - this should NOT throw the error anymore
+    val model = new LightGBMClassifier()
+      .setFeaturesCol(featuresCol)
+      .setLabelCol(labelCol)
+      .setDefaultListenPort(getAndIncrementPort())
+      .setNumLeaves(5)
+      .setNumIterations(5)
+      .setObjective("binary")
+      .setExecutionMode("streaming")
+
+    // This should succeed without throwing "Feature (Column_) appears more than one time"
+    val trainedModel = model.fit(dfWithDuplicateNames)
+    val predictions = trainedModel.transform(dfWithDuplicateNames)
+
+    // Verify predictions were generated
+    assert(predictions.count() == 4)
+    assert(predictions.select("prediction").collect().length == 4)
+  }
+
+  test("Verify explicit slotNames parameter overrides metadata") {
+    // This test verifies that explicitly setting slotNames takes precedence
+    // over metadata-derived names
+
+    import org.apache.spark.ml.linalg.Vectors
+
+    val data = Seq(
+      (0.0, Vectors.dense(1.0, 2.0, 3.0)),
+      (1.0, Vectors.dense(2.0, 3.0, 4.0)),
+      (0.0, Vectors.dense(3.0, 4.0, 5.0)),
+      (1.0, Vectors.dense(4.0, 5.0, 6.0))
+    )
+
+    val df = spark.createDataFrame(data).toDF(labelCol, featuresCol)
+
+    // Create model with explicit slotNames
+    val explicitNames = Array("feature_a", "feature_b", "feature_c")
+    val model = new LightGBMClassifier()
+      .setFeaturesCol(featuresCol)
+      .setLabelCol(labelCol)
+      .setDefaultListenPort(getAndIncrementPort())
+      .setNumLeaves(5)
+      .setNumIterations(5)
+      .setObjective("binary")
+      .setSlotNames(explicitNames)
+      .setExecutionMode("streaming")
+
+    // Fit and verify
+    val trainedModel = model.fit(df)
+    val predictions = trainedModel.transform(df)
+
+    assert(predictions.count() == 4)
+  }
 }
