@@ -208,10 +208,43 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
           val colNames = attributes.indices.map(_.toString).toArray
           attributes.foreach(attr =>
             attr.index.foreach(index => colNames(index) = attr.name.getOrElse(index.toString)))
-          Some(colNames)
+          // Ensure unique feature names to avoid LightGBM error:
+          // "Feature (Column_) appears more than one time"
+          // This can occur in Spark 3.5+ due to changes in AttributeGroup metadata handling
+          Some(ensureUniqueFeatureNames(colNames))
         }
       )
     }
+  }
+
+  /** Ensures all feature names are unique by appending indices to duplicates.
+    * This is necessary because LightGBM requires unique feature names, and in Spark 3.5+
+    * the AttributeGroup metadata handling may produce duplicate names (e.g., "Column_0", "Column_0").
+    *
+    * @param names The array of feature names that may contain duplicates.
+    * @return An array of unique feature names.
+    */
+  private def ensureUniqueFeatureNames(names: Array[String]): Array[String] = {
+    val nameCounts = scala.collection.mutable.Map[String, Int]()
+    val uniqueNames = names.map { name =>
+      val count = nameCounts.getOrElse(name, 0)
+      nameCounts(name) = count + 1
+      if (count > 0) {
+        s"${name}_$count"
+      } else {
+        name
+      }
+    }
+
+    // Check if any names were duplicated and log a warning
+    val duplicates = nameCounts.filter(_._2 > 1).keys.toSeq
+    if (duplicates.nonEmpty) {
+      logWarning(s"Duplicate feature names detected and renamed: ${duplicates.mkString(", ")}. " +
+        "This may occur in Spark 3.5+ due to changes in metadata handling. " +
+        "Consider setting the 'slotNames' parameter explicitly to avoid this.")
+    }
+
+    uniqueNames
   }
 
   private def validateSlotNames(featuresSchema: StructField): Unit = {
