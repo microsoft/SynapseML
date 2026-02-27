@@ -18,7 +18,7 @@ class VerifyHyperparamBuilder extends TestBase {
     override def copy(extra: ParamMap): Params = this
   }
 
-  private val TestParamsInstance = new TestParams
+  private val testParamsInstance = new TestParams
 
   test("IntRangeHyperParam generates values within range") {
     val param = new IntRangeHyperParam(10, 20, seed = 42)
@@ -94,16 +94,16 @@ class VerifyHyperparamBuilder extends TestBase {
 
   test("HyperparamBuilder adds single hyperparam") {
     val builder = new HyperparamBuilder()
-    builder.addHyperparam(TestParamsInstance.intParam, new IntRangeHyperParam(1, 10))
+    builder.addHyperparam(testParamsInstance.intParam, new IntRangeHyperParam(1, 10))
     val result = builder.build()
     assert(result.length === 1)
-    assert(result.head._1 === TestParamsInstance.intParam)
+    assert(result.head._1 === testParamsInstance.intParam)
   }
 
   test("HyperparamBuilder adds multiple hyperparams") {
     val builder = new HyperparamBuilder()
-      .addHyperparam(TestParamsInstance.intParam, new IntRangeHyperParam(1, 10))
-      .addHyperparam(TestParamsInstance.doubleParam, new DoubleRangeHyperParam(0.0, 1.0))
+      .addHyperparam(testParamsInstance.intParam, new IntRangeHyperParam(1, 10))
+      .addHyperparam(testParamsInstance.doubleParam, new DoubleRangeHyperParam(0.0, 1.0))
     val result = builder.build()
     assert(result.length === 2)
   }
@@ -111,8 +111,8 @@ class VerifyHyperparamBuilder extends TestBase {
   test("HyperparamBuilder supports method chaining") {
     val builder = new HyperparamBuilder()
     val result = builder
-      .addHyperparam(TestParamsInstance.intParam, new IntRangeHyperParam(1, 10))
-      .addHyperparam(TestParamsInstance.doubleParam, new DoubleRangeHyperParam(0.0, 1.0))
+      .addHyperparam(testParamsInstance.intParam, new IntRangeHyperParam(1, 10))
+      .addHyperparam(testParamsInstance.doubleParam, new DoubleRangeHyperParam(0.0, 1.0))
       .build()
     assert(result.length === 2)
   }
