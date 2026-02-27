@@ -18,6 +18,7 @@ import org.apache.spark.ml.{ComplexParamsWritable, Estimator, Model}
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 
+import scala.annotation.tailrec
 import scala.collection.immutable.HashSet
 import scala.language.existentials
 import scala.math.min
@@ -199,7 +200,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
 
   private def getSlotNamesWithMetadata(featuresSchema: StructField): Option[Array[String]] = {
     if (getSlotNames.nonEmpty) {
-      Some(getSlotNames)
+      Some(ensureUniqueFeatureNames(getSlotNames))
     } else {
       AttributeGroup.fromStructField(featuresSchema).attributes.flatMap(attributes =>
         if (attributes.isEmpty) {
@@ -272,6 +273,25 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
         }
       })
     }
+  }
+
+  private def shouldRetryWithBulk(error: Throwable): Boolean = {
+    @tailrec
+    def hasRetryableMessage(current: Throwable): Boolean = {
+      if (current == null) {
+        false
+      } else {
+        val message = Option(current.getMessage).getOrElse("").toLowerCase
+        val duplicateFeatureNames = message.contains("appears more than one time")
+        val datasetCreateFailure = message.contains("dataset create")
+        if (duplicateFeatureNames && datasetCreateFailure) {
+          true
+        } else {
+          hasRetryableMessage(current.getCause)
+        }
+      }
+    }
+    hasRetryableMessage(error)
   }
 
   /**
@@ -436,56 +456,69 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     * @return The LightGBM Model from the trained LightGBM Booster.
     */
   private def trainOneDataBatch(dataset: Dataset[_], batchIndex: Int, batchCount: Int): TrainedModel = {
-    val measures = new InstrumentationMeasures()
-    setBatchPerformanceMeasure(batchIndex, measures)
+    try {
+      val measures = new InstrumentationMeasures()
+      setBatchPerformanceMeasure(batchIndex, measures)
 
-    val numTasksPerExecutor = ClusterUtil.getNumTasksPerExecutor(dataset.sparkSession, log)
-    val numTasks = determineNumTasks(dataset, getNumTasks, numTasksPerExecutor)
-    val sc = dataset.sparkSession.sparkContext
+      val numTasksPerExecutor = ClusterUtil.getNumTasksPerExecutor(dataset.sparkSession, log)
+      val numTasks = determineNumTasks(dataset, getNumTasks, numTasksPerExecutor)
+      val sc = dataset.sparkSession.sparkContext
 
-    val df = prepareDataframe(dataset, numTasks)
+      val df = prepareDataframe(dataset, numTasks)
 
-    val (trainingData, validationData) =
-      if (get(validationIndicatorCol).isDefined && dataset.columns.contains(getValidationIndicatorCol))
-        (df.filter(x => !x.getBoolean(x.fieldIndex(getValidationIndicatorCol))),
-          Some(sc.broadcast(collectValidationData(df, measures))))
-      else (df, None)
+      val (trainingData, validationData) =
+        if (get(validationIndicatorCol).isDefined && dataset.columns.contains(getValidationIndicatorCol))
+          (df.filter(x => !x.getBoolean(x.fieldIndex(getValidationIndicatorCol))),
+            Some(sc.broadcast(collectValidationData(df, measures))))
+        else (df, None)
 
-    val preprocessedDF = preprocessData(trainingData)
+      val preprocessedDF = preprocessData(trainingData)
 
-    val (numCols, numInitScoreClasses) = calculateColumnStatistics(preprocessedDF, measures)
+      val (numCols, numInitScoreClasses) = calculateColumnStatistics(preprocessedDF, measures)
 
-    val featuresSchema = dataset.schema(getFeaturesCol)
-    val generalTrainParams: BaseTrainParams = getTrainParams(numTasks, featuresSchema, numTasksPerExecutor)
-    val trainParams = addCustomTrainParams(generalTrainParams, dataset)
-    log.info(s"LightGBM batch $batchIndex of $batchCount, parameters: ${trainParams.toString()}")
+      val featuresSchema = dataset.schema(getFeaturesCol)
+      val generalTrainParams: BaseTrainParams = getTrainParams(numTasks, featuresSchema, numTasksPerExecutor)
+      val trainParams = addCustomTrainParams(generalTrainParams, dataset)
+      log.info(s"LightGBM batch $batchIndex of $batchCount, parameters: ${trainParams.toString()}")
 
-    val isStreamingMode = getDataTransferMode == LightGBMConstants.StreamingDataTransferMode
-    val (serializedReferenceDataset: Option[Array[Byte]], partitionCounts: Option[Array[Long]]) =
-      if (isStreamingMode) {
-        val (referenceDataset, partitionCounts) =
-          calculateRowStatistics(trainingData, trainParams, numCols, featuresSchema, measures)
+      val isStreamingMode = getDataTransferMode == LightGBMConstants.StreamingDataTransferMode
+      val (serializedReferenceDataset: Option[Array[Byte]], partitionCounts: Option[Array[Long]]) =
+        if (isStreamingMode) {
+          val (referenceDataset, partitionCounts) =
+            calculateRowStatistics(trainingData, trainParams, numCols, featuresSchema, measures)
 
-        // Save the reference Dataset so it's available to client and other batches
-        if (getReferenceDataset.isEmpty) {
-          log.info(s"Saving reference dataset of length: ${referenceDataset.length}")
-          setReferenceDataset(referenceDataset)
+          // Save the reference Dataset so it's available to client and other batches
+          if (getReferenceDataset.isEmpty) {
+            log.info(s"Saving reference dataset of length: ${referenceDataset.length}")
+            setReferenceDataset(referenceDataset)
+          }
+          (Some(referenceDataset), Some(partitionCounts))
+        } else (None, None)
+
+      validateSlotNames(featuresSchema)
+      executeTraining(preprocessedDF,
+                      validationData,
+                      serializedReferenceDataset,
+                      partitionCounts,
+                      trainParams,
+                      numCols,
+                      numInitScoreClasses,
+                      batchIndex,
+                      numTasks,
+                      numTasksPerExecutor,
+                      measures)
+    } catch {
+      case ex if getDataTransferMode == LightGBMConstants.StreamingDataTransferMode && shouldRetryWithBulk(ex) =>
+        log.warn("Detected duplicate feature names while creating LightGBM dataset in streaming mode. " +
+          "Retrying this batch with dataTransferMode=bulk.")
+        val originalMode = getDataTransferMode
+        setDataTransferMode(LightGBMConstants.BulkDataTransferMode)
+        try {
+          trainOneDataBatch(dataset, batchIndex, batchCount)
+        } finally {
+          setDataTransferMode(originalMode)
         }
-        (Some(referenceDataset), Some(partitionCounts))
-      } else (None, None)
-
-    validateSlotNames(featuresSchema)
-    executeTraining(preprocessedDF,
-                    validationData,
-                    serializedReferenceDataset,
-                    partitionCounts,
-                    trainParams,
-                    numCols,
-                    numInitScoreClasses,
-                    batchIndex,
-                    numTasks,
-                    numTasksPerExecutor,
-                    measures)
+    }
   }
 
   private def determineNumTasks(dataset: Dataset[_], configNumTasks: Int, numTasksPerExecutor: Int) = {
