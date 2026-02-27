@@ -217,29 +217,39 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     }
   }
 
-  /** Ensures all feature names are unique by appending indices to duplicates.
-    * This is necessary because LightGBM requires unique feature names, and in Spark 3.5+
-    * the AttributeGroup metadata handling may produce duplicate names (e.g., "Column_0", "Column_0").
+  /**
+    * Ensures all feature names are unique by appending indices to duplicates.
+    * This is necessary because Spark 3.5+ can generate duplicate feature names
+    * in AttributeGroup metadata, which causes LightGBM to fail with:
+    * "Feature (Column_) appears more than one time"
     *
     * @param names The array of feature names that may contain duplicates.
-    * @return An array of unique feature names.
+    * @return An array with unique feature names.
     */
   private def ensureUniqueFeatureNames(names: Array[String]): Array[String] = {
     val nameCounts = scala.collection.mutable.Map[String, Int]()
+    val seenNames = scala.collection.mutable.Set[String]()
     val uniqueNames = names.map { name =>
       val count = nameCounts.getOrElse(name, 0)
       nameCounts(name) = count + 1
       if (count > 0) {
-        s"${name}_$count"
+        // Find a unique suffix
+        var newName = s"${name}_$count"
+        while (seenNames.contains(newName)) {
+          nameCounts(name) = nameCounts(name) + 1
+          newName = s"${name}_${nameCounts(name)}"
+        }
+        seenNames.add(newName)
+        newName
       } else {
+        seenNames.add(name)
         name
       }
     }
 
-    // Check if any names were duplicated and log a warning
     val duplicates = nameCounts.filter(_._2 > 1).keys.toSeq
     if (duplicates.nonEmpty) {
-      logWarning(s"Duplicate feature names detected and renamed: ${duplicates.mkString(", ")}. " +
+      log.warn(s"Duplicate feature names detected and renamed: ${duplicates.mkString(", ")}. " +
         "This may occur in Spark 3.5+ due to changes in metadata handling. " +
         "Consider setting the 'slotNames' parameter explicitly to avoid this.")
     }
@@ -455,7 +465,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     val (serializedReferenceDataset: Option[Array[Byte]], partitionCounts: Option[Array[Long]]) =
       if (isStreamingMode) {
         val (referenceDataset, partitionCounts) =
-          calculateRowStatistics(trainingData, trainParams, numCols, measures)
+          calculateRowStatistics(trainingData, trainParams, numCols, featuresSchema, measures)
 
         // Save the reference Dataset so it's available to client and other batches
         if (getReferenceDataset.isEmpty) {
@@ -536,12 +546,14 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     * @param dataframe The dataset to train on.
     * @param trainingParams The training parameters.
     * @param numCols The number of feature columns.
+    * @param featuresSchema The schema of the features column.
     * @param measures Instrumentation measures.
     * @return The serialized Dataset reference and an array of partition counts.
     */
   private def calculateRowStatistics(dataframe: DataFrame,
                                      trainingParams: BaseTrainParams,
                                      numCols: Int,
+                                     featuresSchema: StructField,
                                      measures: InstrumentationMeasures): (Array[Byte], Array[Long]) = {
     measures.markRowStatisticsStart()
 
@@ -555,6 +567,9 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     val datasetParams = getDatasetCreationParams(
       trainingParams.generalParams.categoricalFeatures,
       trainingParams.executionParams.numThreads)
+
+    // Get feature names to set on the reference dataset (ensures unique names for Spark 3.5+)
+    val featureNames = getSlotNamesWithMetadata(featuresSchema)
 
     // Either get a reference dataset (as bytes) from params, or calculate it
     val precalculatedDataset = getReferenceDataset
@@ -574,6 +589,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
         totalNumRows,
         numCols,
         collectedSampleData,
+        featureNames,
         measures,
         log)
     }
