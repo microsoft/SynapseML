@@ -43,9 +43,7 @@ class VerifySynapseMLLogging extends TestBase {
     val map = fields.toMap
 
     assert(map("errorType") === "ErrorType")
-    // Note: there appears to be a bug in the code where errorMessage maps to errorType
-    // This test documents the current behavior
-    assert(map("errorMessage") === "ErrorType")
+    assert(map("errorMessage") === "ErrorMessage")
   }
 
   test("RequiredErrorFields can be created from Exception") {
