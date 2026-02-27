@@ -505,6 +505,7 @@ jobs:
       condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
     - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
       - template: templates/codecov.yml
+    - template: templates/publish_coverage_ado.yml
 - job: RTests
   timeoutInMinutes: 60
   cancelTimeoutInMinutes: 0
@@ -579,6 +580,7 @@ jobs:
       condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
     - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
       - template: templates/codecov.yml
+    - template: templates/publish_coverage_ado.yml
 
 - job: BuildAndCacheCondaEnv
   cancelTimeoutInMinutes: 0
@@ -627,6 +629,7 @@ jobs:
       condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
     - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
       - template: templates/codecov.yml
+    - template: templates/publish_coverage_ado.yml
 
 - job: UnitTests
   cancelTimeoutInMinutes: 1
@@ -787,3 +790,4 @@ jobs:
     - template: templates/kv.yml
     - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
       - template: templates/codecov.yml
+    - template: templates/publish_coverage_ado.yml

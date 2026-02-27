@@ -1,0 +1,8 @@
+steps:
+  - task: PublishCodeCoverageResults@2
+    displayName: 'Publish Code Coverage to Azure DevOps'
+    inputs:
+      summaryFileLocation: '**/scoverage-report/scoverage.xml'
+      pathToSources: '$(Build.SourcesDirectory)'
+      failIfCoverageEmpty: false
+    condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
