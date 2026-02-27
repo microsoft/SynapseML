@@ -233,12 +233,11 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
       val count = nameCounts.getOrElse(name, 0)
       nameCounts(name) = count + 1
       if (count > 0) {
-        // Find a unique suffix
-        var newName = s"${name}_$count"
-        while (seenNames.contains(newName)) {
-          nameCounts(name) = nameCounts(name) + 1
-          newName = s"${name}_${nameCounts(name)}"
-        }
+        // Find a unique suffix using Stream to avoid while loop
+        val newName = Iterator.from(count)
+          .map(i => s"${name}_$i")
+          .find(n => !seenNames.contains(n))
+          .get // Safe because Iterator.from is infinite
         seenNames.add(newName)
         newName
       } else {
