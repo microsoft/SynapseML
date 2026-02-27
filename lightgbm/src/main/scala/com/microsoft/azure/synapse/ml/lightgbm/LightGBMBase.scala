@@ -452,61 +452,12 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     * creates a driver thread, and runs mapPartitions on the dataset.
     *
     * @param dataset    The dataset to train on.
-    * @param batchIndex In running in batch training mode, gets the batch number.
-    * @return The LightGBM Model from the trained LightGBM Booster.
-    */
+   * @param batchIndex In running in batch training mode, gets the batch number.
+   * @return The LightGBM Model from the trained LightGBM Booster.
+   */
   private def trainOneDataBatch(dataset: Dataset[_], batchIndex: Int, batchCount: Int): TrainedModel = {
     try {
-      val measures = new InstrumentationMeasures()
-      setBatchPerformanceMeasure(batchIndex, measures)
-
-      val numTasksPerExecutor = ClusterUtil.getNumTasksPerExecutor(dataset.sparkSession, log)
-      val numTasks = determineNumTasks(dataset, getNumTasks, numTasksPerExecutor)
-      val sc = dataset.sparkSession.sparkContext
-
-      val df = prepareDataframe(dataset, numTasks)
-
-      val (trainingData, validationData) =
-        if (get(validationIndicatorCol).isDefined && dataset.columns.contains(getValidationIndicatorCol))
-          (df.filter(x => !x.getBoolean(x.fieldIndex(getValidationIndicatorCol))),
-            Some(sc.broadcast(collectValidationData(df, measures))))
-        else (df, None)
-
-      val preprocessedDF = preprocessData(trainingData)
-
-      val (numCols, numInitScoreClasses) = calculateColumnStatistics(preprocessedDF, measures)
-
-      val featuresSchema = dataset.schema(getFeaturesCol)
-      val generalTrainParams: BaseTrainParams = getTrainParams(numTasks, featuresSchema, numTasksPerExecutor)
-      val trainParams = addCustomTrainParams(generalTrainParams, dataset)
-      log.info(s"LightGBM batch $batchIndex of $batchCount, parameters: ${trainParams.toString()}")
-
-      val isStreamingMode = getDataTransferMode == LightGBMConstants.StreamingDataTransferMode
-      val (serializedReferenceDataset: Option[Array[Byte]], partitionCounts: Option[Array[Long]]) =
-        if (isStreamingMode) {
-          val (referenceDataset, partitionCounts) =
-            calculateRowStatistics(trainingData, trainParams, numCols, featuresSchema, measures)
-
-          // Save the reference Dataset so it's available to client and other batches
-          if (getReferenceDataset.isEmpty) {
-            log.info(s"Saving reference dataset of length: ${referenceDataset.length}")
-            setReferenceDataset(referenceDataset)
-          }
-          (Some(referenceDataset), Some(partitionCounts))
-        } else (None, None)
-
-      validateSlotNames(featuresSchema)
-      executeTraining(preprocessedDF,
-                      validationData,
-                      serializedReferenceDataset,
-                      partitionCounts,
-                      trainParams,
-                      numCols,
-                      numInitScoreClasses,
-                      batchIndex,
-                      numTasks,
-                      numTasksPerExecutor,
-                      measures)
+      trainOneDataBatchInternal(dataset, batchIndex, batchCount)
     } catch {
       case ex if getDataTransferMode == LightGBMConstants.StreamingDataTransferMode && shouldRetryWithBulk(ex) =>
         log.warn("Detected duplicate feature names while creating LightGBM dataset in streaming mode. " +
@@ -514,11 +465,64 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
         val originalMode = getDataTransferMode
         setDataTransferMode(LightGBMConstants.BulkDataTransferMode)
         try {
-          trainOneDataBatch(dataset, batchIndex, batchCount)
+          trainOneDataBatchInternal(dataset, batchIndex, batchCount)
         } finally {
           setDataTransferMode(originalMode)
         }
     }
+  }
+
+  private def trainOneDataBatchInternal(dataset: Dataset[_], batchIndex: Int, batchCount: Int): TrainedModel = {
+    val measures = new InstrumentationMeasures()
+    setBatchPerformanceMeasure(batchIndex, measures)
+
+    val numTasksPerExecutor = ClusterUtil.getNumTasksPerExecutor(dataset.sparkSession, log)
+    val numTasks = determineNumTasks(dataset, getNumTasks, numTasksPerExecutor)
+    val sc = dataset.sparkSession.sparkContext
+
+    val df = prepareDataframe(dataset, numTasks)
+
+    val (trainingData, validationData) =
+      if (get(validationIndicatorCol).isDefined && dataset.columns.contains(getValidationIndicatorCol))
+        (df.filter(x => !x.getBoolean(x.fieldIndex(getValidationIndicatorCol))),
+          Some(sc.broadcast(collectValidationData(df, measures))))
+      else (df, None)
+
+    val preprocessedDF = preprocessData(trainingData)
+
+    val (numCols, numInitScoreClasses) = calculateColumnStatistics(preprocessedDF, measures)
+
+    val featuresSchema = dataset.schema(getFeaturesCol)
+    val generalTrainParams: BaseTrainParams = getTrainParams(numTasks, featuresSchema, numTasksPerExecutor)
+    val trainParams = addCustomTrainParams(generalTrainParams, dataset)
+    log.info(s"LightGBM batch $batchIndex of $batchCount, parameters: ${trainParams.toString()}")
+
+    val isStreamingMode = getDataTransferMode == LightGBMConstants.StreamingDataTransferMode
+    val (serializedReferenceDataset: Option[Array[Byte]], partitionCounts: Option[Array[Long]]) =
+      if (isStreamingMode) {
+        val (referenceDataset, partitionCounts) =
+          calculateRowStatistics(trainingData, trainParams, numCols, featuresSchema, measures)
+
+        // Save the reference Dataset so it's available to client and other batches
+        if (getReferenceDataset.isEmpty) {
+          log.info(s"Saving reference dataset of length: ${referenceDataset.length}")
+          setReferenceDataset(referenceDataset)
+        }
+        (Some(referenceDataset), Some(partitionCounts))
+      } else (None, None)
+
+    validateSlotNames(featuresSchema)
+    executeTraining(preprocessedDF,
+                    validationData,
+                    serializedReferenceDataset,
+                    partitionCounts,
+                    trainParams,
+                    numCols,
+                    numInitScoreClasses,
+                    batchIndex,
+                    numTasks,
+                    numTasksPerExecutor,
+                    measures)
   }
 
   private def determineNumTasks(dataset: Dataset[_], configNumTasks: Int, numTasksPerExecutor: Int) = {
