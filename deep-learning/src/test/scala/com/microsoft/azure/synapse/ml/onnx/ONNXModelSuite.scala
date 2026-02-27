@@ -50,8 +50,9 @@ class ONNXModelSuite extends TestBase
   private implicit val eqFloat: Equality[Float] = TolerantNumerics.tolerantFloatEquality(1E-5f)
   private implicit val eqMap: Equality[Map[Long, Float]] = mapEq[Long, Float]
   private implicit val eqSeqDouble: Equality[Seq[Double]] = (a: Seq[Double], b: Any) => {
-    b match {
-      case sd: Seq[Double] => a.zip(sd).forall(x => x._1 === x._2)
+    // Using @unchecked because Seq[Double] type parameter is erased at runtime
+    (b: @unchecked) match {
+      case sd: Seq[Double @unchecked] => a.zip(sd).forall(x => x._1 === x._2)
       case _ => false
     }
   }
