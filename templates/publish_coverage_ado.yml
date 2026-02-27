@@ -2,7 +2,9 @@ steps:
   - task: PublishCodeCoverageResults@2
     displayName: 'Publish Code Coverage to Azure DevOps'
     inputs:
-      summaryFileLocation: '**/scoverage-report/scoverage.xml'
+      # Use Cobertura format XML which Azure DevOps understands
+      # scoverage generates this with coverageOutputCobertura := true in build.sbt
+      summaryFileLocation: '**/scoverage-report/cobertura.xml'
       pathToSources: '$(Build.SourcesDirectory)'
       failIfCoverageEmpty: false
     condition: and(succeededOrFailed(), eq(variables.runCoverage, true))

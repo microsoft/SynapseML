@@ -298,7 +298,9 @@ val settings = Seq(
   // Scoverage settings
   coverageExcludedPackages := coverageExclusions,
   coverageFailOnMinimum := false,
-  coverageHighlighting := true
+  coverageHighlighting := true,
+  // Enable Cobertura XML output for Azure DevOps code coverage reporting
+  coverageOutputCobertura := true
 )
 ThisBuild / publishMavenStyle := true
 
