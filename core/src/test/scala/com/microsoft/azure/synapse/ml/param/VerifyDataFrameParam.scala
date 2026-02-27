@@ -108,11 +108,13 @@ class VerifyDataFrameParam extends TestBase {
 
   test("DataFrameEquality handles DenseVector columns") {
     val holder = new TestParamsHolder
-    val schema = StructType(Seq(StructField("vec", new org.apache.spark.ml.linalg.VectorUDT())))
-    val data1 = Seq(Row(Vectors.dense(1.0, 2.0)), Row(Vectors.dense(3.0, 4.0)))
-    val data2 = Seq(Row(Vectors.dense(1.0, 2.0)), Row(Vectors.dense(3.0, 4.0)))
-    val df1 = spark.createDataFrame(spark.sparkContext.parallelize(data1), schema)
-    val df2 = spark.createDataFrame(spark.sparkContext.parallelize(data2), schema)
+    // Create DataFrames with vector columns using VectorAssembler
+    import org.apache.spark.ml.feature.VectorAssembler
+    val baseData1 = Seq((1.0, 2.0), (3.0, 4.0)).toDF("a", "b")
+    val baseData2 = Seq((1.0, 2.0), (3.0, 4.0)).toDF("a", "b")
+    val assembler = new VectorAssembler().setInputCols(Array("a", "b")).setOutputCol("vec")
+    val df1 = assembler.transform(baseData1).select("vec")
+    val df2 = assembler.transform(baseData2).select("vec")
     holder.dfParam.assertEquality(df1, df2)
   }
 
