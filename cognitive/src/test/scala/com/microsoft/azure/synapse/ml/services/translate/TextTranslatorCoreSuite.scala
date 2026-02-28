@@ -73,9 +73,9 @@ class TextTranslatorCoreSuite extends TestBase {
     assert(t.getOrDefault(t.category) == Left("general"))
     assert(t.getOrDefault(t.profanityAction) == Left("NoAction"))
     assert(t.getOrDefault(t.profanityMarker) == Left("Asterisk"))
-    assert(t.getOrDefault(t.includeAlignment) == Left(false))
-    assert(t.getOrDefault(t.includeSentenceLength) == Left(false))
-    assert(t.getOrDefault(t.allowFallback) == Left(true))
+    assertResult(Left(false))(t.getOrDefault(t.includeAlignment))
+    assertResult(Left(false))(t.getOrDefault(t.includeSentenceLength))
+    assertResult(Left(true))(t.getOrDefault(t.allowFallback))
   }
 
   test("translate rejects invalid enum parameters") {
@@ -131,7 +131,7 @@ class TextTranslatorCoreSuite extends TestBase {
     val emptyToDf = Seq((Seq("hello"), Seq.empty[String])).toDF("text", "toLanguage")
     assert(t.buildRequest(emptyToDf.schema, emptyToDf.head()).isEmpty)
 
-    val nullToDf = Seq((Seq("hello"), null.asInstanceOf[Seq[String]])).toDF("text", "toLanguage")
+    val nullToDf = Seq((Seq("hello"), Option.empty[Seq[String]])).toDF("text", "toLanguage")
     assert(t.buildRequest(nullToDf.schema, nullToDf.head()).isEmpty)
   }
 

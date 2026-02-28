@@ -72,7 +72,7 @@ class AnalyzeTextCoreOfflineSuite extends AnyFunSuite {
   test("analyze text request-building is deterministic for language detection") {
     val transformer = new TestableAnalyzeText()
       .setKind("LanguageDetection")
-      .setText(Seq("Hello", null))
+      .setText(Seq("Hello", ""))
       .setCountryHint("US")
       .setModelVersion("2024-10-01")
       .setLoggingOptOut(true)

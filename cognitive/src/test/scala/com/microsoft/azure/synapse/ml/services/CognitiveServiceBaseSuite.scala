@@ -148,9 +148,12 @@ class CognitiveServiceBaseSuite extends TestBase {
     assert(harness.urlParamNames == Set("urlVersion"))
     assert(!harness.shouldSkipRow(row))
     assert(harness.valueAnyOpt(row, harness.urlVersion).contains("2024-10-01"))
-    assert(harness.valueMap(row, Set(harness.urlVersion)) == Map("requiredText" -> "hello", "optionalText" -> "fallback"))
+    assert(
+      harness.valueMap(row, Set(harness.urlVersion)) ==
+        Map("requiredText" -> "hello", "optionalText" -> "fallback")
+    )
 
-    val missingRequired = Seq((null.asInstanceOf[String], "2024-10-01")).toDF("requiredCol", "versionCol").head()
+    val missingRequired = Seq((Option.empty[String], "2024-10-01")).toDF("requiredCol", "versionCol").head()
     assert(harness.shouldSkipRow(missingRequired))
   }
 
