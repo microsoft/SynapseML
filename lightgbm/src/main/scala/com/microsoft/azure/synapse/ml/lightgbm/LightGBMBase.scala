@@ -258,21 +258,18 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
   }
 
   private def validateSlotNames(featuresSchema: StructField): Unit = {
-    val metadata = AttributeGroup.fromStructField(featuresSchema)
-    if (metadata.attributes.isDefined) {
-      val slotNamesOpt = getSlotNamesWithMetadata(featuresSchema)
-      val pattern = new Regex("[\",:\\[\\]{}]")
-      slotNamesOpt.foreach(slotNames => {
-        val badSlotNames = slotNames.flatMap(slotName =>
-          if (pattern.findFirstIn(slotName).isEmpty) None else Option(slotName))
-        if (!badSlotNames.isEmpty) {
-          throw new IllegalArgumentException(
-            s"Invalid slot names detected in features column: ${badSlotNames.mkString(",")}" +
-            " \n Special characters \" , : \\ [ ] { } will cause unexpected behavior in LGBM unless changed." +
-            " This error can be fixed by renaming the problematic columns prior to vector assembly.")
-        }
-      })
-    }
+    val slotNamesOpt = getSlotNamesWithMetadata(featuresSchema)
+    val pattern = new Regex("[\",:\\[\\]{}]")
+    slotNamesOpt.foreach(slotNames => {
+      val badSlotNames = slotNames.flatMap(slotName =>
+        if (pattern.findFirstIn(slotName).isEmpty) None else Option(slotName))
+      if (!badSlotNames.isEmpty) {
+        throw new IllegalArgumentException(
+          s"Invalid slot names detected in features column: ${badSlotNames.mkString(",")}" +
+          " \n Special characters \" , : \\ [ ] { } will cause unexpected behavior in LGBM unless changed." +
+          " This error can be fixed by renaming the problematic columns prior to vector assembly.")
+      }
+    })
   }
 
   private def shouldRetryWithBulk(error: Throwable): Boolean = {
