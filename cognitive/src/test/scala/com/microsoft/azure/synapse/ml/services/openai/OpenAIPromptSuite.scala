@@ -580,11 +580,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
   }
 
   test("responses payload maps model to model field and nests verbosity/reasoning for gpt-5 usage") {
-    class TestableOpenAIPrompt extends OpenAIPrompt {
-      def buildEntity(row: Row): Option[AbstractHttpEntity] = prepareEntity(row)
-    }
-
-    val p = new TestableOpenAIPrompt()
+    val p = new OpenAIPrompt()
       .setApiType("responses")
       .setMessagesCol("messages")
       .setModel("gpt-5-mini")
@@ -596,7 +592,11 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       Seq(OpenAIMessage("user", "Describe what you see in this image."))
     ).toDF("messages").collect().head
 
-    val payloadJson = EntityUtils.toString(p.buildEntity(requestRow).get).parseJson.asJsObject
+    val prepareEntity = classOf[OpenAIPrompt].getDeclaredMethod("prepareEntity")
+    prepareEntity.setAccessible(true)
+    val buildEntity = prepareEntity.invoke(p).asInstanceOf[Row => Option[AbstractHttpEntity]]
+
+    val payloadJson = EntityUtils.toString(buildEntity(requestRow).get).parseJson.asJsObject
 
     assert(payloadJson.fields.contains("input"))
     assert(!payloadJson.fields.contains("messages"))
