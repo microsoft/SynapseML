@@ -384,6 +384,12 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   private def validateResponsesApiParams(): Unit = {
     val currentApiType = if (isSet(apiType)) getApiType else "chat_completions"
 
+    if (currentApiType == "responses" && hasAIFoundryModel) {
+      throw new IllegalArgumentException(
+        "apiType='responses' is not supported with AI Foundry chat endpoints. " +
+          "Use .setApiType(\"chat_completions\") or configure an OpenAI endpoint with deploymentName.")
+    }
+
     if (currentApiType != "responses") {
       if (isSet(store) && getStore) {
         throw new IllegalArgumentException(
@@ -613,16 +619,21 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     else "unsupported"
   }
 
-  private[openai] def hasAIFoundryModel: Boolean = this.isDefined(model)
+  private def isAIFoundryEndpoint: Boolean = {
+    val host = get(url).orElse(getDefault(url)).flatMap { raw =>
+      Try(new URI(raw).getHost).toOption.orElse(Try(new URL(raw).getHost).toOption)
+    }
+    host.exists(_.toLowerCase.endsWith("services.ai.azure.com"))
+  }
+
+  private[openai] def hasAIFoundryModel: Boolean = this.isDefined(model) && isAIFoundryEndpoint
 
   //deployment name can be set by user, it doesn't have to match with model name
   private def getOpenAIChatService: OpenAIServicesBase with HasTextOutput = {
-
     val completion: OpenAIServicesBase with HasTextOutput =
       if (hasAIFoundryModel) {
         new AIFoundryChatCompletion()
-      }
-      else {
+      } else {
         // Use the apiType parameter to decide between chat_completions and responses
         getApiType match {
           case "responses" => new OpenAIResponses()
@@ -633,6 +644,13 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     extractParamMap().toSeq
       .filter(p => !localParamNames.contains(p.param.name) && completion.hasParam(p.param.name))
       .foreach(p => completion.set(completion.getParam(p.param.name), p.value))
+
+    completion match {
+      case resp: OpenAIResponses
+          if this.isDefined(model) && get(deploymentName).orElse(getDefault(deploymentName)).isEmpty =>
+        resp.setDeploymentName(getModel)
+      case _ =>
+    }
 
     completion
   }

@@ -6,12 +6,15 @@ package com.microsoft.azure.synapse.ml.services.openai
 import com.microsoft.azure.synapse.ml.Secrets.{AIFoundryApiKey, getAccessToken}
 import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import org.apache.http.entity.AbstractHttpEntity
+import org.apache.http.util.EntityUtils
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.{col, lit}
 import org.apache.spark.sql.types.{ArrayType, StringType, StructType}
 import org.scalactic.Equality
 import com.microsoft.azure.synapse.ml.services.aifoundry.AIFoundryAPIKey
+import spray.json._
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
@@ -58,6 +61,39 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .setPostProcessing("csv")
       .setOutputCol(outputCol)
       .setTemperature(0)
+  }
+
+  private def responsesPrompt(outputCol: String, deployment: String): OpenAIPrompt = {
+    new OpenAIPrompt()
+      .setSubscriptionKey(openAIAPIKey)
+      .setDeploymentName(deployment)
+      .setCustomServiceName(openAIServiceName)
+      .setApiType("responses")
+      .setApiVersion("2025-04-01-preview")
+      .setOutputCol(outputCol)
+      .setTemperature(0)
+  }
+
+  private def assertResponsesOutputForDeployment(
+      deployment: String,
+      outputCol: String,
+      expectedToken: String): Unit = {
+    val prompt = responsesPrompt(outputCol, deployment)
+      .setPromptTemplate(s"Return exactly the word $expectedToken for {text}.")
+
+    if (deployment.toLowerCase.contains("gpt-5")) {
+      prompt.setReasoningEffort("low")
+      prompt.setVerbosity("low")
+    }
+
+    val output = prompt.transform(df.limit(1))
+      .select(outputCol)
+      .collect()
+      .head
+      .getString(0)
+
+    assert(output != null)
+    assert(output.toLowerCase.contains(expectedToken.toLowerCase))
   }
 
   test("createMessagesForRow generates contentParts for path columns when using Chat Completions API") {
@@ -144,7 +180,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     assert(nonNullCount == 3)
   }
 
-    test("Basic Usage Responses API") {
+  test("Basic Usage Responses API") {
     val nonNullCount = prompt
       .setPromptTemplate("give me a comma separated list of 5 {category}, starting with {text} ")
       .setApiType("responses")
@@ -156,6 +192,20 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .collect()
       .count(r => Option(r.getSeq[String](0)).isDefined)
     assert(nonNullCount == 3)
+  }
+
+  test("Responses API OpenAIPrompt returns text for gpt-4.1 outputs") {
+    assertResponsesOutputForDeployment(
+      deploymentName4p1,
+      "responses_gpt41_output",
+      "fruit")
+  }
+
+  test("Responses API OpenAIPrompt returns text for gpt-5 outputs") {
+    assertResponsesOutputForDeployment(
+      deploymentName5,
+      "responses_gpt5_output",
+      "fruit")
   }
 
   test("Basic Usage JSON") {
@@ -574,6 +624,36 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     val p = new OpenAIPrompt()
       .setPreviousResponseIdCol("prev_id_column")
     assert(p.getPreviousResponseIdCol == "prev_id_column")
+  }
+
+  test("responses payload maps model to model field and nests verbosity/reasoning for gpt-5 usage") {
+    class TestableOpenAIPrompt extends OpenAIPrompt {
+      def buildEntity(row: Row): Option[AbstractHttpEntity] = prepareEntity(row)
+    }
+
+    val p = new TestableOpenAIPrompt()
+      .setApiType("responses")
+      .setMessagesCol("messages")
+      .setModel("gpt-5-mini")
+      .setVerbosity("low")
+      .setReasoningEffort("low")
+      .setStore(false)
+
+    val requestRow = Seq(
+      Seq(OpenAIMessage("user", "Describe what you see in this image."))
+    ).toDF("messages").collect().head
+
+    val payloadJson = EntityUtils.toString(p.buildEntity(requestRow).get).parseJson.asJsObject
+
+    assert(payloadJson.fields.contains("input"))
+    assert(!payloadJson.fields.contains("messages"))
+    assert(payloadJson.fields.get("model").contains(JsString("gpt-5-mini")))
+
+    val text = payloadJson.fields("text").asJsObject
+    assert(text.fields.get("verbosity").contains(JsString("low")))
+
+    val reasoning = payloadJson.fields("reasoning").asJsObject
+    assert(reasoning.fields.get("effort").contains(JsString("low")))
   }
 
   test("store=true with Responses API returns response in outputCol and id in auto-generated responseIdCol") {
