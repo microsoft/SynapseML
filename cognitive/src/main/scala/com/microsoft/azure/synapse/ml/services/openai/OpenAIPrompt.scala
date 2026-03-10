@@ -381,33 +381,46 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     (dfWithFilenames, pathColumnNames, filenameColMapping, templateWithFilenameRefs)
   }
 
-  private def validateResponsesApiParams(): Unit = {
-    val currentApiType = if (isSet(apiType)) getApiType else "chat_completions"
+  private def resolvedApiType: String = if (isSet(apiType)) getApiType else "chat_completions"
 
+  private def hasPreviousResponseIdConfigured: Boolean = {
+    get(previousResponseId).orElse(getDefault(previousResponseId)).isDefined
+  }
+
+  private def validateResponsesApiCompatibility(currentApiType: String): Unit = {
     if (currentApiType == "responses" && hasAIFoundryModel) {
       throw new IllegalArgumentException(
         "apiType='responses' is not supported with AI Foundry chat endpoints. " +
           "Use .setApiType(\"chat_completions\") or configure an OpenAI endpoint with deploymentName.")
     }
+  }
 
-    if (currentApiType != "responses") {
-      if (isSet(store) && getStore) {
-        throw new IllegalArgumentException(
-          "store parameter requires apiType='responses'. Use .setApiType(\"responses\")")
-      }
-
-      if (get(previousResponseId).orElse(getDefault(previousResponseId)).isDefined) {
-        throw new IllegalArgumentException(
-          "previousResponseId requires apiType='responses'. Use .setApiType(\"responses\")")
-      }
+  private def validateResponsesOnlyParams(currentApiType: String): Unit = {
+    if (currentApiType != "responses" && isSet(store) && getStore) {
+      throw new IllegalArgumentException(
+        "store parameter requires apiType='responses'. Use .setApiType(\"responses\")")
     }
 
+    if (currentApiType != "responses" && hasPreviousResponseIdConfigured) {
+      throw new IllegalArgumentException(
+        "previousResponseId requires apiType='responses'. Use .setApiType(\"responses\")")
+    }
+  }
+
+  private def validateUsageColSupport(currentApiType: String): Unit = {
     if (isSet(usageCol) && !hasAIFoundryModel &&
-        getApiType != "chat_completions" && getApiType != "responses") {
+        currentApiType != "chat_completions" && currentApiType != "responses") {
       throw new IllegalArgumentException(
         s"usageCol not supported for apiType='$currentApiType'. " +
-        "Use 'chat_completions', 'responses', or AI Foundry chat APIs.")
+          "Use 'chat_completions', 'responses', or AI Foundry chat APIs.")
     }
+  }
+
+  private def validateResponsesApiParams(): Unit = {
+    val currentApiType = resolvedApiType
+    validateResponsesApiCompatibility(currentApiType)
+    validateResponsesOnlyParams(currentApiType)
+    validateUsageColSupport(currentApiType)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {

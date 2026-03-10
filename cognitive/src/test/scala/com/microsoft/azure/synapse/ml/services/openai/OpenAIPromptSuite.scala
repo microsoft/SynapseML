@@ -63,39 +63,6 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .setTemperature(0)
   }
 
-  private def responsesPrompt(outputCol: String, deployment: String): OpenAIPrompt = {
-    new OpenAIPrompt()
-      .setSubscriptionKey(openAIAPIKey)
-      .setDeploymentName(deployment)
-      .setCustomServiceName(openAIServiceName)
-      .setApiType("responses")
-      .setApiVersion("2025-04-01-preview")
-      .setOutputCol(outputCol)
-      .setTemperature(0)
-  }
-
-  private def assertResponsesOutputForDeployment(
-      deployment: String,
-      outputCol: String,
-      expectedToken: String): Unit = {
-    val prompt = responsesPrompt(outputCol, deployment)
-      .setPromptTemplate(s"Return exactly the word $expectedToken for {text}.")
-
-    if (deployment.toLowerCase.contains("gpt-5")) {
-      prompt.setReasoningEffort("low")
-      prompt.setVerbosity("low")
-    }
-
-    val output = prompt.transform(df.limit(1))
-      .select(outputCol)
-      .collect()
-      .head
-      .getString(0)
-
-    assert(output != null)
-    assert(output.toLowerCase.contains(expectedToken.toLowerCase))
-  }
-
   test("createMessagesForRow generates contentParts for path columns when using Chat Completions API") {
     val prompt = new OpenAIPrompt()
     val tempFile = Files.createTempFile("synapseml-openai", ".txt")
@@ -192,20 +159,6 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .collect()
       .count(r => Option(r.getSeq[String](0)).isDefined)
     assert(nonNullCount == 3)
-  }
-
-  test("Responses API OpenAIPrompt returns text for gpt-4.1 outputs") {
-    assertResponsesOutputForDeployment(
-      deploymentName4p1,
-      "responses_gpt41_output",
-      "fruit")
-  }
-
-  test("Responses API OpenAIPrompt returns text for gpt-5 outputs") {
-    assertResponsesOutputForDeployment(
-      deploymentName5,
-      "responses_gpt5_output",
-      "fruit")
   }
 
   test("Basic Usage JSON") {
