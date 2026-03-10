@@ -72,9 +72,6 @@ object BuildUtils {
   def activateCondaEnv: Seq[String] = {
     if (sys.props("os.name").toLowerCase.contains("windows")) {
       osPrefix ++ Seq("activate", condaEnvName, "&&")
-    } else if (sys.env.get("CONDA_DEFAULT_ENV").contains(condaEnvName)) {
-      // Avoid nesting `conda run` inside an already activated environment.
-      Seq()
     } else {
       Seq("conda", "run", "-n", condaEnvName, "--no-capture-output")
       //TODO figure out why this doesn't work
