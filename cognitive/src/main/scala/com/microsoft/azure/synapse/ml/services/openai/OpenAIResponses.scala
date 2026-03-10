@@ -226,9 +226,9 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   override private[openai] def getOutputMessageText(outputColName: String): org.apache.spark.sql.Column = {
     val outputEntries = F.col(outputColName).getField("output")
     val lastOutputEntry = F.element_at(outputEntries, -1)
-    val contentParts = lastOutputEntry.getField("content")
-    val textParts = F.filter(contentParts, part => part.getField("text").isNotNull)
-    F.element_at(textParts, 1).getField("text")
+    val textValues = F.transform(lastOutputEntry.getField("content"), part => part.getField("text"))
+    val definedTextValues = F.filter(textValues, text => text.isNotNull)
+    F.element_at(definedTextValues, 1)
   }
 
   private def outputEntries(outputRow: Row): Seq[Row] = {
@@ -239,11 +239,17 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
     outputEntries(outputRow).lastOption
   }
 
+  private def firstDefinedText(contentParts: Seq[Row]): Option[String] = {
+    contentParts.iterator
+      .flatMap(part => Option(part.getAs[String]("text")))
+      .toSeq
+      .headOption
+  }
+
   private def lastOutputText(outputRow: Row): Option[String] = {
-    lastOutputEntry(outputRow).iterator.flatMap { outputEntry =>
-      Option(outputEntry.getAs[Seq[Row]]("content")).getOrElse(Seq.empty).iterator
-        .flatMap(part => Option(part.getAs[String]("text")))
-    }.find(_.nonEmpty)
+    lastOutputEntry(outputRow).flatMap { outputEntry =>
+      firstDefinedText(Option(outputEntry.getAs[Seq[Row]]("content")).getOrElse(Seq.empty))
+    }
   }
 
   override private[openai] def isContentFiltered(outputRow: Row): Boolean = {

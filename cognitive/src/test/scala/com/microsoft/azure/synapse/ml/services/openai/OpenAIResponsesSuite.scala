@@ -333,6 +333,33 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
     assert(!transformer.isContentFiltered(responseDf.collect().head))
   }
 
+  test("Responses preserve empty text output in both paths") {
+    val transformer = new OpenAIResponses()
+    val responseJson =
+      """{
+        |  "id":"resp_test",
+        |  "object":"response",
+        |  "created_at":"1",
+        |  "model":"gpt-5",
+        |  "output":[
+        |    {"type":"message","status":"completed","content":[{"type":"output_text","text":""}]}
+        |  ],
+        |  "system_fingerprint":null,
+        |  "usage":null
+        |}""".stripMargin
+
+    val responseDf = spark.read.schema(ResponsesModelResponse.schema).json(Seq(responseJson).toDS)
+    val wrappedDf = responseDf.select(F.struct(responseDf.columns.map(F.col): _*).as("out"))
+
+    val textRow = wrappedDf
+      .select(transformer.getOutputMessageText("out").as("text"))
+      .collect()
+      .head
+
+    assert(textRow.getAs[String]("text") == "")
+    assert(!transformer.isContentFiltered(responseDf.collect().head))
+  }
+
   test("Responses prefer text from the last output item when multiple messages exist") {
     val transformer = new OpenAIResponses()
     val responseJson =
