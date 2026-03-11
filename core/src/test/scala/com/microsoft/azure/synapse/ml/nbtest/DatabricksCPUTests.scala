@@ -5,21 +5,30 @@ package com.microsoft.azure.synapse.ml.nbtest
 
 import com.microsoft.azure.synapse.ml.nbtest.DatabricksUtilities._
 
+import java.time.LocalDateTime
 import scala.language.existentials
 
-class DatabricksCPUTests extends DatabricksTestHelper {
+// Split CPU E2E tests into 3 partitions that run as separate ADO matrix entries.
+// Each partition creates its own cluster and runs ~15 notebooks in parallel.
+// All 3 partitions start simultaneously on different ADO agents.
 
-  val clusterId: String = createClusterInPool(ClusterName, AdbRuntime, NumWorkers, PoolId, memory = Some("7g"))
+class DatabricksCPUTests1 extends DatabricksTestHelper {
+  private val clusterName = s"mmlspark-build-cpu1-${LocalDateTime.now()}"
+  val clusterId: String = createClusterInPool(clusterName, AdbRuntime, NumWorkers, PoolId, memory = Some("7g"))
+  databricksTestHelper(clusterId, Libraries, cpuNotebookPartition(0), NumWorkers)
+  protected override def afterAll(): Unit = { afterAllHelper(clusterId, clusterName); super.afterAll() }
+}
 
-  databricksTestHelper(clusterId, Libraries, CPUNotebooks, 5)
+class DatabricksCPUTests2 extends DatabricksTestHelper {
+  private val clusterName = s"mmlspark-build-cpu2-${LocalDateTime.now()}"
+  val clusterId: String = createClusterInPool(clusterName, AdbRuntime, NumWorkers, PoolId, memory = Some("7g"))
+  databricksTestHelper(clusterId, Libraries, cpuNotebookPartition(1), NumWorkers)
+  protected override def afterAll(): Unit = { afterAllHelper(clusterId, clusterName); super.afterAll() }
+}
 
-  protected override def afterAll(): Unit = {
-    afterAllHelper(clusterId, ClusterName)
-    super.afterAll()
-  }
-
-  ignore("list running jobs for convenience") {
-    val obj = databricksGet("jobs/runs/list?active_only=true&limit=1000")
-    println(obj)
-  }
+class DatabricksCPUTests3 extends DatabricksTestHelper {
+  private val clusterName = s"mmlspark-build-cpu3-${LocalDateTime.now()}"
+  val clusterId: String = createClusterInPool(clusterName, AdbRuntime, NumWorkers, PoolId, memory = Some("7g"))
+  databricksTestHelper(clusterId, Libraries, cpuNotebookPartition(2), NumWorkers)
+  protected override def afterAll(): Unit = { afterAllHelper(clusterId, clusterName); super.afterAll() }
 }

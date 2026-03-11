@@ -97,7 +97,10 @@ object DatabricksUtilities {
   ).toJson.compactPrint
 
   // Execution Params
-  val TimeoutInMillis: Int = 50 * 60 * 1000
+  // Per-notebook timeout: 20 min for most notebooks.
+  // Observed max actual execution time is ~7 min for CPU notebooks.
+  // GPU fine-tuning notebooks can take up to 25 min, so GPU tests override this.
+  val TimeoutInMillis: Int = 20 * 60 * 1000
 
   val DocsDir = FileUtilities.join(BuildInfo.baseDirectory.getParent, "docs").getCanonicalFile()
   val NotebookFiles: Array[File] = FileUtilities.recursiveListFiles(DocsDir)
@@ -118,6 +121,14 @@ object DatabricksUtilities {
     .filterNot(_.getAbsolutePath.contains("Snow Leopard Detection")) // TODO Remove this exclusion
     .filterNot(_.getAbsolutePath.contains("Flooding Risk")) // Azure Maps Spatial API retired 9/30/2025
     .filterNot(_.getAbsolutePath.contains("Geospatial Services")) // Azure Maps Spatial API retired 9/30/2025
+
+  // Split CPU notebooks into 3 partitions for parallel ADO matrix jobs.
+  // Each partition creates its own cluster, so all 3 run simultaneously.
+  private val sortedCPUNotebooks = CPUNotebooks.sortBy(_.getName)
+  val NumCPUPartitions = 3
+  def cpuNotebookPartition(partIndex: Int): Seq[File] = {
+    sortedCPUNotebooks.zipWithIndex.filter(_._2 % NumCPUPartitions == partIndex).map(_._1)
+  }
 
   val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter { file =>
     file.getAbsolutePath.contains("Fine-tune") || file.getAbsolutePath.contains("Phi Model")
@@ -273,13 +284,14 @@ object DatabricksUtilities {
     ()
   }
 
-  def submitRun(clusterId: String, notebookPath: String): Long = {
+  def submitRun(clusterId: String, notebookPath: String,
+                timeoutSeconds: Int = TimeoutInMillis / 1000): Long = {
     val body =
       s"""
          |{
          |  "run_name": "test1",
          |  "existing_cluster_id": "$clusterId",
-         |  "timeout_seconds": ${TimeoutInMillis / 1000},
+         |  "timeout_seconds": $timeoutSeconds,
          |  "notebook_task": {
          |    "notebook_path": "$notebookPath",
          |    "base_parameters": []
@@ -367,14 +379,15 @@ object DatabricksUtilities {
     }
   }
 
-  def runNotebook(clusterId: String, notebookFile: File): Unit = {
+  def runNotebook(clusterId: String, notebookFile: File,
+                  timeoutSeconds: Int = TimeoutInMillis / 1000): Unit = {
     val dirPaths = DocsDir.toURI.relativize(notebookFile.getParentFile.toURI).getPath
     val folderToCreate = Folder + "/" + dirPaths
     println(s"Creating folder $folderToCreate")
     workspaceMkDir(folderToCreate)
     val destination: String = folderToCreate + notebookFile.getName
     uploadNotebook(notebookFile, destination)
-    val runId: Long = submitRun(clusterId, destination)
+    val runId: Long = submitRun(clusterId, destination, timeoutSeconds)
     val run: DatabricksNotebookRun = DatabricksNotebookRun(runId, notebookFile.getName)
     println(s"Successfully submitted job run id ${run.runId} for notebook ${run.notebookName}")
     DatabricksState.JobIdsToCancel.append(run.runId)
@@ -439,17 +452,20 @@ abstract class DatabricksTestHelper extends TestBase {
                            libraries: String,
                            notebooks: Seq[File],
                            maxConcurrency: Int,
-                           retries: List[Int] = List(1000 * 15)): Unit = {
+                           retries: List[Int] = List(1000 * 15),
+                           timeoutMs: Int = TimeoutInMillis): Unit = {
 
     println("Checking if cluster is active")
-    tryWithRetries(Seq.fill(60 * 20)(1000).toArray) { () =>
+    // Pool-backed clusters start in ~1.5-3.5 min; allow up to 10 min
+    tryWithRetries(Seq.fill(60 * 10)(1000).toArray) { () =>
       assert(isClusterActive(clusterId))
     }
 
     Thread.sleep(1000) // Ensure cluster is not overwhelmed
     println("Installing libraries")
     installLibraries(clusterId, libraries)
-    tryWithRetries(Seq.fill(60 * 6)(1000).toArray) { () =>
+    // Library install typically takes ~1.5-3 min; allow up to 10 min
+    tryWithRetries(Seq.fill(60 * 10)(1000).toArray) { () =>
       assert(areLibrariesInstalled(clusterId))
     }
 
@@ -461,13 +477,13 @@ abstract class DatabricksTestHelper extends TestBase {
     val futures = notebooks.map { notebook =>
       Future {
         retry(retries, { () =>
-          runNotebook(clusterId, notebook)
+          runNotebook(clusterId, notebook, timeoutMs / 1000)
         })
       }
     }
     futures.zip(notebooks).foreach { case (f, nb) =>
       test(nb.getName) {
-        Await.result(f, Duration(TimeoutInMillis.toLong, TimeUnit.MILLISECONDS))
+        Await.result(f, Duration(timeoutMs.toLong, TimeUnit.MILLISECONDS))
       }
     }
 
