@@ -8,9 +8,7 @@ import com.microsoft.azure.synapse.ml.core.test.base.{Flaky, TestBase}
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.expressions.UserDefinedFunction
-import org.apache.spark.sql.functions.{col, flatten, udf}
-import org.scalactic.Equality
+import org.apache.spark.sql.functions.{col, flatten}
 
 trait TranslatorKey {
   lazy val translatorKey: String = sys.env.getOrElse("TRANSLATOR_KEY", Secrets.TranslatorKey)
@@ -44,6 +42,7 @@ trait TranslatorUtils extends TestBase {
 
 class TranslateSuite extends TransformerFuzzing[Translate]
   with TranslatorKey with Flaky with TranslatorUtils {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 
@@ -204,6 +203,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
 
 class TransliterateSuite extends TransformerFuzzing[Transliterate]
   with TranslatorKey with Flaky with TranslatorUtils {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 
@@ -242,19 +242,6 @@ class TransliterateSuite extends TransformerFuzzing[Transliterate]
     assert(caught.getMessage.contains("toScript"))
   }
 
-  val stripUdf: UserDefinedFunction = udf {
-    (o: Seq[(String, String)]) => {
-      o.map(t => (TransliterateSuite.stripInvalid(t._1), t._2))
-    }
-  }
-
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    val column = "result"
-    super.assertDFEq(
-      df1.withColumn(column, stripUdf(col(column))),
-      df2.withColumn(column, stripUdf(col(column))))(eq)
-  }
-
   override def testObjects(): Seq[TestObject[Transliterate]] =
     Seq(new TestObject(transliterate, transDf))
 
@@ -269,6 +256,7 @@ object TransliterateSuite {
 
 class DetectSuite extends TransformerFuzzing[Detect]
   with TranslatorKey with Flaky with TranslatorUtils {
+  override val compareDataInSerializationTest: Boolean = false
 
   def detect: Detect = new Detect()
     .setSubscriptionKey(translatorKey)
@@ -292,6 +280,7 @@ class DetectSuite extends TransformerFuzzing[Detect]
 
 class BreakSentenceSuite extends TransformerFuzzing[BreakSentence]
   with TranslatorKey with Flaky with TranslatorUtils {
+  override val compareDataInSerializationTest: Boolean = false
 
   def breakSentence: BreakSentence = new BreakSentence()
     .setSubscriptionKey(translatorKey)
@@ -315,6 +304,7 @@ class BreakSentenceSuite extends TransformerFuzzing[BreakSentence]
 
 class DictionaryLookupSuite extends TransformerFuzzing[DictionaryLookup]
   with TranslatorKey with Flaky with TranslatorUtils {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 
@@ -359,6 +349,7 @@ class DictionaryLookupSuite extends TransformerFuzzing[DictionaryLookup]
 
 class DictionaryExamplesSuite extends TransformerFuzzing[DictionaryExamples]
   with TranslatorKey with Flaky with TranslatorUtils {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 

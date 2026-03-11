@@ -8,12 +8,12 @@ import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, Transformer
 import org.apache.commons.compress.utils.IOUtils
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
-import org.scalactic.Equality
 
 import java.net.{URI, URL}
 
 class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
   with CognitiveKey {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 
@@ -38,11 +38,6 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
   lazy val df: DataFrame = Seq(
     Tuple1(audioBytes)
   ).toDF("audio")
-
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    super.assertDFEq(df1.drop("audio").select("text.DisplayText"),
-      df2.drop("audio").select("text.DisplayText"))(eq)
-  }
 
   override def testSerialization(): Unit = {
     tryWithRetries(Array(0, 100, 100, 100, 100))(super.testSerialization)

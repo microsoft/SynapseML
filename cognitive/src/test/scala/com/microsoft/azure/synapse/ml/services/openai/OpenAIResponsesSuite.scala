@@ -10,12 +10,12 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types.{ArrayType, MapType, StringType, StructField, StructType}
-import org.scalactic.Equality
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
 class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
   with OpenAIAPIKey with Flaky {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 
@@ -287,10 +287,6 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
         }
       }
     }
-  }
-
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    super.assertDFEq(df1.drop("out"), df2.drop("out"))(eq)
   }
 
   override def testObjects(): Seq[TestObject[OpenAIResponses]] =

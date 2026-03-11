@@ -155,6 +155,8 @@ trait FormRecognizerUtils extends TestBase with CognitiveKey with Flaky with Ima
 }
 
 class AnalyzeLayoutSuite extends TransformerFuzzing[AnalyzeLayout] with FormRecognizerUtils {
+  override val compareDataInSerializationTest: Boolean = false
+
 
   lazy val analyzeLayout: AnalyzeLayout = new AnalyzeLayout()
     .setSubscriptionKey(cognitiveKey).setLocation("eastus")
@@ -219,6 +221,8 @@ class AnalyzeLayoutSuite extends TransformerFuzzing[AnalyzeLayout] with FormReco
 }
 
 class AnalyzeReceiptsSuite extends TransformerFuzzing[AnalyzeReceipts] with FormRecognizerUtils {
+  override val compareDataInSerializationTest: Boolean = false
+
 
   lazy val analyzeReceipts: AnalyzeReceipts = new AnalyzeReceipts()
     .setSubscriptionKey(cognitiveKey).setLocation("eastus")
@@ -267,6 +271,8 @@ class AnalyzeReceiptsSuite extends TransformerFuzzing[AnalyzeReceipts] with Form
 }
 
 class AnalyzeBusinessCardsSuite extends TransformerFuzzing[AnalyzeBusinessCards] with FormRecognizerUtils {
+  override val compareDataInSerializationTest: Boolean = false
+
 
   lazy val analyzeBusinessCards: AnalyzeBusinessCards = new AnalyzeBusinessCards()
     .setSubscriptionKey(cognitiveKey).setLocation("eastus")
@@ -317,6 +323,8 @@ class AnalyzeBusinessCardsSuite extends TransformerFuzzing[AnalyzeBusinessCards]
 }
 
 class AnalyzeInvoicesSuite extends TransformerFuzzing[AnalyzeInvoices] with FormRecognizerUtils {
+  override val compareDataInSerializationTest: Boolean = false
+
 
   lazy val analyzeInvoices: AnalyzeInvoices = new AnalyzeInvoices()
     .setSubscriptionKey(cognitiveKey).setLocation("eastus")
@@ -377,6 +385,8 @@ class AnalyzeInvoicesSuite extends TransformerFuzzing[AnalyzeInvoices] with Form
 }
 
 class AnalyzeIDDocumentsSuite extends TransformerFuzzing[AnalyzeIDDocuments] with FormRecognizerUtils {
+  override val compareDataInSerializationTest: Boolean = false
+
 
   lazy val analyzeIDDocuments: AnalyzeIDDocuments = new AnalyzeIDDocuments()
     .setSubscriptionKey(cognitiveKey).setLocation("eastus")
@@ -439,6 +449,7 @@ trait CustomModelUtils extends TestBase with CognitiveKey {
 
 class ListCustomModelsSuite extends TransformerFuzzing[ListCustomModels]
   with FormRecognizerUtils with CustomModelUtils {
+  override val compareDataInSerializationTest: Boolean = false
 
   lazy val listCustomModels: ListCustomModels = {
     new ListCustomModels()

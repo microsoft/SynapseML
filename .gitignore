@@ -91,3 +91,4 @@ metastore_db/
 *_local\.*
 condaenv.*.requirements.txt
 *.env
+pipeline.yaml.bak

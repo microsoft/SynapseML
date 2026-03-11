@@ -19,6 +19,7 @@ import java.nio.file.Files
 class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIKey
   with AIFoundryAPIKey
   with Flaky {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 

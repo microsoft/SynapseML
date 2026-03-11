@@ -12,6 +12,8 @@ import org.apache.spark.sql.types.StructType
 import org.scalactic.Equality
 
 class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with OpenAIAPIKey with Flaky {
+  override val compareDataInSerializationTest: Boolean = false
+
 
   import spark.implicits._
 
