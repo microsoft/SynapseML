@@ -124,10 +124,10 @@ object DatabricksUtilities {
 
   // Split CPU notebooks into 3 partitions for parallel ADO matrix jobs.
   // Each partition creates its own cluster, so all 3 run simultaneously.
-  private val sortedCPUNotebooks = CPUNotebooks.sortBy(_.getName)
+  private val SortedCPUNotebooks = CPUNotebooks.sortBy(_.getName)
   val NumCPUPartitions = 3
   def cpuNotebookPartition(partIndex: Int): Seq[File] = {
-    sortedCPUNotebooks.zipWithIndex.filter(_._2 % NumCPUPartitions == partIndex).map(_._1)
+    SortedCPUNotebooks.zipWithIndex.filter(_._2 % NumCPUPartitions == partIndex).map(_._1)
   }
 
   val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter { file =>
@@ -388,7 +388,7 @@ object DatabricksUtilities {
     val destination: String = folderToCreate + notebookFile.getName
     uploadNotebook(notebookFile, destination)
     val runId: Long = submitRun(clusterId, destination, timeoutSeconds)
-    val run: DatabricksNotebookRun = DatabricksNotebookRun(runId, notebookFile.getName)
+    val run: DatabricksNotebookRun = DatabricksNotebookRun(runId, notebookFile.getName, timeoutSeconds * 1000)
     println(s"Successfully submitted job run id ${run.runId} for notebook ${run.notebookName}")
     DatabricksState.JobIdsToCancel.append(run.runId)
     run.monitor(logLevel = 0)
@@ -446,6 +446,10 @@ object DatabricksState {
 
 abstract class DatabricksTestHelper extends TestBase {
 
+  // E2E notebooks run on remote Databricks clusters and take longer than unit tests.
+  // Override the 10-min TestBase timeout to match the per-notebook timeout.
+  override val testTimeoutInSeconds: Int = TimeoutInMillis / 1000
+
   import DatabricksUtilities._
 
   def databricksTestHelper(clusterId: String,
@@ -498,8 +502,8 @@ abstract class DatabricksTestHelper extends TestBase {
   }
 }
 
-case class DatabricksNotebookRun(runId: Long, notebookName: String) {
+case class DatabricksNotebookRun(runId: Long, notebookName: String, timeoutMs: Int = TimeoutInMillis) {
   def monitor(logLevel: Int = 2): Unit = {
-    monitorJob(runId, TimeoutInMillis, logLevel)
+    monitorJob(runId, timeoutMs, logLevel)
   }
 }

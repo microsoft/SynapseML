@@ -9,6 +9,7 @@ class DatabricksGPUTests extends DatabricksTestHelper {
 
   // GPU fine-tuning notebooks can take up to 25 min; use 30 min timeout
   private val gpuTimeoutMs = 30 * 60 * 1000
+  override val testTimeoutInSeconds: Int = gpuTimeoutMs / 1000
 
   val clusterId: String = createClusterInPool(GPUClusterName, AdbGpuRuntime, 3, GpuPoolId)
 
