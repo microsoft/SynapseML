@@ -124,10 +124,10 @@ object DatabricksUtilities {
 
   // Split CPU notebooks into 3 partitions for parallel ADO matrix jobs.
   // Each partition creates its own cluster, so all 3 run simultaneously.
-  private val sortedCPUNotebooks = CPUNotebooks.sortBy(_.getName)
+  private val SortedCPUNotebooks = CPUNotebooks.sortBy(_.getName)
   val NumCPUPartitions = 3
   def cpuNotebookPartition(partIndex: Int): Seq[File] = {
-    sortedCPUNotebooks.zipWithIndex.filter(_._2 % NumCPUPartitions == partIndex).map(_._1)
+    SortedCPUNotebooks.zipWithIndex.filter(_._2 % NumCPUPartitions == partIndex).map(_._1)
   }
 
   val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter { file =>
