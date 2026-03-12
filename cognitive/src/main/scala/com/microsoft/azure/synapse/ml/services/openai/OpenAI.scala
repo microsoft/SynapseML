@@ -315,7 +315,7 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
 
   val reasoningEffort: ServiceParam[String] = new ServiceParam[String](
     this, "reasoningEffort",
-    "Reasoning effort hint for the model. Accepts 'minimal','low','medium','high' or any user string.",
+    "Reasoning effort hint for the model. Accepts 'none','minimal','low','medium','high','xhigh' or any user string.",
     isRequired = false) {
     override val payloadName: String = "reasoning_effort"
   }
