@@ -41,7 +41,7 @@ case class RequiredErrorFields(errorType: String,
   def toMap: Map[String, String] = {
     Map(
       "errorType" -> errorType,
-      "errorMessage" -> errorType
+      "errorMessage" -> errorMessage
     )
   }
 }

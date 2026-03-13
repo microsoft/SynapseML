@@ -47,7 +47,7 @@ jobs:
           sudo apt-get install -yq sbt
 
       - name: Scalastyle check
-        run: sbt scalastyle test:scalastyle
+        run: sbt scalastyle "Test / scalastyle"
 
       - name: Compile
-        run: sbt compile test:compile
+        run: sbt compile "Test / compile"

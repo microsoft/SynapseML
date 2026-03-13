@@ -12,7 +12,7 @@ import org.apache.spark.ml._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
 
-import java.lang.reflect.ParameterizedType
+import java.lang.reflect.{InvocationTargetException, Modifier, ParameterizedType}
 import scala.language.existentials
 
 /** Tests to validate fuzzing of modules. */
@@ -433,7 +433,19 @@ class FuzzingTest extends TestBase {
 
   private lazy val readers: List[MLReadable[_]] = JarLoadingUtils.instantiateObjects[MLReadable[_]]()
 
-  private lazy val pipelineStages: List[PipelineStage] = JarLoadingUtils.instantiateServices[PipelineStage]()
+  private lazy val pipelineStages: List[PipelineStage] = {
+    JarLoadingUtils.AllClasses
+      .filter(classOf[PipelineStage].isAssignableFrom(_))
+      .filter(clazz => !Modifier.isAbstract(clazz.getModifiers))
+      .filterNot(clazz => clazz.getName.contains("$") || clazz.getSimpleName.startsWith("Testable"))
+      .map { clazz =>
+        try {
+          clazz.getConstructor().newInstance().asInstanceOf[PipelineStage]
+        } catch {
+          case e: InvocationTargetException => throw e.getCause
+        }
+      }
+  }
 
   private lazy val experimentFuzzers: List[ExperimentFuzzing[_ <: PipelineStage]] =
     JarLoadingUtils.instantiateServices[ExperimentFuzzing[_ <: PipelineStage]]()
