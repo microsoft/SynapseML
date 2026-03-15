@@ -329,7 +329,7 @@ Issue](https://help.github.com/articles/creating-an-issue/).
 
 - [Vowpal Wabbit](https://github.com/VowpalWabbit/vowpal_wabbit)
 
-- [LightGBM](https://github.com/Microsoft/LightGBM)
+- [LightGBM](https://github.com/lightgbm-org/LightGBM)
 
 - [DMTK: Microsoft Distributed Machine Learning Toolkit](https://github.com/Microsoft/DMTK)
 

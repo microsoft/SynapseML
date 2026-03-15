@@ -8,7 +8,7 @@ sidebar_label: Overview
 
 ### LightGBM
 
-[LightGBM](https://github.com/Microsoft/LightGBM) is an open-source,
+[LightGBM](https://github.com/lightgbm-org/LightGBM) is an open-source,
 distributed, high-performance gradient boosting (GBDT, GBRT, GBM, or
 MART) framework. This framework specializes in creating high-quality and
 GPU enabled decision tree algorithms for ranking, classification, and
@@ -22,11 +22,11 @@ many other machine learning tasks. LightGBM is part of Microsoft's
     workloads.
 -   **Performance**: LightGBM on Spark is 10-30% faster than SparkML on
     the Higgs dataset, and achieves a 15% increase in AUC.  [Parallel
-    experiments](https://github.com/Microsoft/LightGBM/blob/master/docs/Experiments.rst#parallel-experiment)
+    experiments](https://github.com/lightgbm-org/LightGBM/blob/master/docs/Experiments.rst#parallel-experiment)
     have verified that LightGBM can achieve a linear speed-up by using
     multiple machines for training in specific settings.
 -   **Functionality**: LightGBM offers a wide array of [tunable
-    parameters](https://github.com/Microsoft/LightGBM/blob/master/docs/Parameters.rst),
+    parameters](https://github.com/lightgbm-org/LightGBM/blob/master/docs/Parameters.rst),
     that one can use to customize their decision tree system. LightGBM on
     Spark also supports new types of problems such as quantile regression.
 -   **Cross platform** LightGBM on Spark is available on Spark, PySpark, and SparklyR
@@ -107,10 +107,10 @@ both places, *passThroughArgs* takes precedence.
 LightGBM on Spark uses the Simple Wrapper and Interface Generator (SWIG)
 to add Java support for LightGBM. These Java Binding use the Java Native
 Interface call into the [distributed C++
-API](https://github.com/Microsoft/LightGBM/blob/master/include/LightGBM/c_api.h).
+API](https://github.com/lightgbm-org/LightGBM/blob/master/include/LightGBM/c_api.h).
 
 We initialize LightGBM by calling
-[`LGBM_NetworkInit`](https://github.com/Microsoft/LightGBM/blob/master/include/LightGBM/c_api.h)
+[`LGBM_NetworkInit`](https://github.com/lightgbm-org/LightGBM/blob/master/include/LightGBM/c_api.h)
 with the Spark executors within a MapPartitions call. We then pass each
 workers partitions into LightGBM to create the in-memory distributed
 dataset for LightGBM.  We can then train LightGBM to produce a model
@@ -201,7 +201,7 @@ For streaming mode, only one Dataset is created per partition, so *useSingleData
 ### Data Sampling
 
 In order for LightGBM algorithm to work, it must first create a set of bin boundaries for optimization. It does this calculation by
-first sampling the data before any training or inferencing starts. ([LightGBM docs](https://github.com/Microsoft/LightGBM)). The number of
+first sampling the data before any training or inferencing starts. ([LightGBM docs](https://github.com/lightgbm-org/LightGBM)). The number of
 samples to use is set using *binSampleCount*, which must be a minimal percent of the data or LightGBM rejects it.
 
 For *bulk* mode, this sampling is automatically done over the entire data, and each executor uses its own partitions to calculate samples for only
