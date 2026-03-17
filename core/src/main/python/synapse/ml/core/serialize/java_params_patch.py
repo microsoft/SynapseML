@@ -1,3 +1,5 @@
+import importlib
+
 from pyspark.ml.wrapper import JavaParams, JavaWrapper
 from py4j.java_gateway import JavaObject
 from pyspark import RDD, SparkContext
@@ -8,6 +10,8 @@ import pyspark
 from pyspark.ml import PipelineModel
 from pyspark.ml.util import DefaultParamsReader
 from pyspark.sql.types import DataType
+
+_ALLOWED_MODULE_PREFIXES = ("pyspark.", "synapse.ml.")
 
 
 @staticmethod
@@ -23,12 +27,15 @@ def _mml_from_java(java_stage):
         """
         Loads Python class from its name.
         """
+        if not clazz.startswith(_ALLOWED_MODULE_PREFIXES):
+            raise ImportError(
+                f"Refusing to load class '{clazz}': "
+                f"module must start with one of {_ALLOWED_MODULE_PREFIXES}"
+            )
         parts = clazz.split(".")
         module = ".".join(parts[:-1])
-        m = __import__(module)
-        for comp in parts[1:]:
-            m = getattr(m, comp)
-        return m
+        m = importlib.import_module(module)
+        return getattr(m, parts[-1])
 
     stage_name = java_stage.getClass().getName().replace("org.apache.spark", "pyspark")
     stage_name = stage_name.replace("com.microsoft.azure.synapse.ml", "synapse.ml")
@@ -63,12 +70,15 @@ def _mml_loadParamsInstance(path, sc):
         """
         Loads Python class from its name.
         """
+        if not clazz.startswith(_ALLOWED_MODULE_PREFIXES):
+            raise ImportError(
+                f"Refusing to load class '{clazz}': "
+                f"module must start with one of {_ALLOWED_MODULE_PREFIXES}"
+            )
         parts = clazz.split(".")
         module = ".".join(parts[:-1])
-        m = __import__(module)
-        for comp in parts[1:]:
-            m = getattr(m, comp)
-        return m
+        m = importlib.import_module(module)
+        return getattr(m, parts[-1])
 
     metadata = DefaultParamsReader.loadMetadata(path, sc)
     if DefaultParamsReader.isPythonParamsInstance(metadata):

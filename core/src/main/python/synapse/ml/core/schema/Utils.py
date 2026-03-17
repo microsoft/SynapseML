@@ -2,6 +2,7 @@
 # Licensed under the MIT License. See LICENSE in project root for information.
 
 import sys
+import importlib
 
 if sys.version >= "3":
     basestring = str
@@ -10,6 +11,8 @@ from pyspark.ml.util import JavaMLReadable, JavaMLReader, MLReadable
 from pyspark.ml.wrapper import JavaParams
 from pyspark.ml.common import inherit_doc, _java2py
 from pyspark import SparkContext
+
+_ALLOWED_MODULE_PREFIXES = ("pyspark.", "synapse.ml.")
 
 
 def from_java(java_stage, stage_name):
@@ -36,12 +39,15 @@ def from_java(java_stage, stage_name):
         Returns:
             object: The python object
         """
+        if not clazz.startswith(_ALLOWED_MODULE_PREFIXES):
+            raise ImportError(
+                f"Refusing to load class '{clazz}': "
+                f"module must start with one of {_ALLOWED_MODULE_PREFIXES}"
+            )
         parts = clazz.split(".")
         module = ".".join(parts[:-1])
-        m = __import__(module)
-        for comp in parts[1:]:
-            m = getattr(m, comp)
-        return m
+        m = importlib.import_module(module)
+        return getattr(m, parts[-1])
 
     # Generate a default new instance from the stage_name class.
     py_type = __get_class(stage_name)
