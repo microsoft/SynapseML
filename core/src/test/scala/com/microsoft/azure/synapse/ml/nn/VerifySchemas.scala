@@ -6,7 +6,9 @@ package com.microsoft.azure.synapse.ml.nn
 import breeze.linalg.DenseVector
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream, ObjectInputStream, ObjectOutputStream}
+import com.microsoft.azure.synapse.ml.core.utils.SafeObjectInputStream
+
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, ObjectOutputStream}
 
 class VerifySchemas extends TestBase {
 
@@ -57,12 +59,28 @@ class VerifySchemas extends TestBase {
     oos.close()
 
     val bais = new ByteArrayInputStream(baos.toByteArray)
-    val ois = new ObjectInputStream(bais)
+    val ois = new SafeObjectInputStream(bais, SafeObjectInputStream.DefaultNNAllowedPrefixes)
     val deserialized = ois.readObject().asInstanceOf[BestMatch]
     ois.close()
 
     assert(deserialized.index === 7)
     assert(deserialized.distance === 2.5)
+  }
+
+  test("SafeObjectInputStream rejects unauthorized classes") {
+    val malicious = new java.util.concurrent.atomic.AtomicReference[String]("payload")
+    val baos = new ByteArrayOutputStream()
+    val oos = new ObjectOutputStream(baos)
+    oos.writeObject(malicious)
+    oos.close()
+
+    val bais = new ByteArrayInputStream(baos.toByteArray)
+    val restrictedPrefixes = Set("com.microsoft.azure.synapse.ml.nn.")
+    val ois = new SafeObjectInputStream(bais, restrictedPrefixes)
+    assertThrows[java.io.InvalidClassException] {
+      ois.readObject()
+    }
+    ois.close()
   }
 
 }
