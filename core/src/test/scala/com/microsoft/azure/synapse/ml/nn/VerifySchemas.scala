@@ -84,4 +84,68 @@ class VerifySchemas extends TestBase {
     assert(result.failed.get.isInstanceOf[java.io.InvalidClassException])
   }
 
+  test("SafeObjectInputStream allows primitive arrays") {
+    val data = Array(1.0, 2.0, 3.0)
+    val baos = new ByteArrayOutputStream()
+    using(new ObjectOutputStream(baos)) { oos =>
+      oos.writeObject(data)
+    }
+
+    val bais = new ByteArrayInputStream(baos.toByteArray)
+    val deserialized = using(new SafeObjectInputStream(bais, Set("java.lang."))) { ois =>
+      ois.readObject().asInstanceOf[Array[Double]]
+    }.get
+
+    assert(deserialized.sameElements(data))
+  }
+
+  test("SafeObjectInputStream allows object arrays with permitted component type") {
+    val data = Array("hello", "world")
+    val baos = new ByteArrayOutputStream()
+    using(new ObjectOutputStream(baos)) { oos =>
+      oos.writeObject(data)
+    }
+
+    val bais = new ByteArrayInputStream(baos.toByteArray)
+    val deserialized = using(new SafeObjectInputStream(bais, Set("java.lang."))) { ois =>
+      ois.readObject().asInstanceOf[Array[String]]
+    }.get
+
+    assert(deserialized.sameElements(data))
+  }
+
+  test("SafeObjectInputStream rejects object arrays with disallowed component type") {
+    val data = Array(new java.util.concurrent.atomic.AtomicInteger(1))
+    val baos = new ByteArrayOutputStream()
+    using(new ObjectOutputStream(baos)) { oos =>
+      oos.writeObject(data)
+    }
+
+    val bais = new ByteArrayInputStream(baos.toByteArray)
+    val result = using(new SafeObjectInputStream(bais, Set("java.lang."))) { ois =>
+      ois.readObject()
+    }
+    assert(result.isFailure)
+    assert(result.failed.get.isInstanceOf[java.io.InvalidClassException])
+  }
+
+  test("SafeObjectInputStream rejects dynamic proxies with disallowed interfaces") {
+    val proxy = java.lang.reflect.Proxy.newProxyInstance(
+      getClass.getClassLoader,
+      Array(classOf[Runnable]),
+      (_: Any, _: java.lang.reflect.Method, _: Array[AnyRef]) => None.orNull
+    )
+    val baos = new ByteArrayOutputStream()
+    using(new ObjectOutputStream(baos)) { oos =>
+      oos.writeObject(proxy)
+    }
+
+    val bais = new ByteArrayInputStream(baos.toByteArray)
+    val result = using(new SafeObjectInputStream(bais, Set("com.microsoft.azure.synapse.ml.nn."))) { ois =>
+      ois.readObject()
+    }
+    assert(result.isFailure)
+    assert(result.failed.get.isInstanceOf[java.io.InvalidClassException])
+  }
+
 }
