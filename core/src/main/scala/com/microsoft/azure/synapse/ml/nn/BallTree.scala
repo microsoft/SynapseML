@@ -171,8 +171,12 @@ object ConditionalBallTree {
       leafSize)
   }
 
+  def load[L, V](filename: String): ConditionalBallTree[L, V] = {
+    load(filename, SafeObjectInputStream.DefaultNNAllowedPrefixes)
+  }
+
   def load[L, V](filename: String,
-                 allowedPrefixes: Set[String] = SafeObjectInputStream.DefaultNNAllowedPrefixes
+                 allowedPrefixes: Set[String]
                 ): ConditionalBallTree[L, V] = {
     using(new FileInputStream(filename)) { fileIn =>
       using(new SafeObjectInputStream(fileIn, allowedPrefixes)) { in =>

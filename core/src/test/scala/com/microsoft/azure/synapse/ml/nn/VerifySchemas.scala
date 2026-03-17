@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.nn
 import breeze.linalg.DenseVector
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 
+import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.core.utils.SafeObjectInputStream
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, ObjectOutputStream}
@@ -54,14 +55,14 @@ class VerifySchemas extends TestBase {
   test("BestMatch is serializable") {
     val bm = BestMatch(7, 2.5)
     val baos = new ByteArrayOutputStream()
-    val oos = new ObjectOutputStream(baos)
-    oos.writeObject(bm)
-    oos.close()
+    using(new ObjectOutputStream(baos)) { oos =>
+      oos.writeObject(bm)
+    }
 
     val bais = new ByteArrayInputStream(baos.toByteArray)
-    val ois = new SafeObjectInputStream(bais, SafeObjectInputStream.DefaultNNAllowedPrefixes)
-    val deserialized = ois.readObject().asInstanceOf[BestMatch]
-    ois.close()
+    val deserialized = using(new SafeObjectInputStream(bais, SafeObjectInputStream.DefaultNNAllowedPrefixes)) { ois =>
+      ois.readObject().asInstanceOf[BestMatch]
+    }.get
 
     assert(deserialized.index === 7)
     assert(deserialized.distance === 2.5)
@@ -70,17 +71,17 @@ class VerifySchemas extends TestBase {
   test("SafeObjectInputStream rejects unauthorized classes") {
     val malicious = new java.util.concurrent.atomic.AtomicReference[String]("payload")
     val baos = new ByteArrayOutputStream()
-    val oos = new ObjectOutputStream(baos)
-    oos.writeObject(malicious)
-    oos.close()
+    using(new ObjectOutputStream(baos)) { oos =>
+      oos.writeObject(malicious)
+    }
 
     val bais = new ByteArrayInputStream(baos.toByteArray)
     val restrictedPrefixes = Set("com.microsoft.azure.synapse.ml.nn.")
-    val ois = new SafeObjectInputStream(bais, restrictedPrefixes)
-    assertThrows[java.io.InvalidClassException] {
+    val result = using(new SafeObjectInputStream(bais, restrictedPrefixes)) { ois =>
       ois.readObject()
     }
-    ois.close()
+    assert(result.isFailure)
+    assert(result.failed.get.isInstanceOf[java.io.InvalidClassException])
   }
 
 }

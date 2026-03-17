@@ -19,9 +19,36 @@ class SafeObjectInputStream(
     allowedPrefixes: Set[String]
 ) extends ContextObjectInputStream(input) {
 
+  /** Extracts the component type name from a JVM array descriptor.
+    * Primitive arrays (e.g. `[I`, `[D`) return None since they are always safe.
+    * Object arrays (e.g. `[Lcom.example.Foo;`) return the fully-qualified class name.
+    * Multi-dimensional arrays are unwrapped recursively (e.g. `[[Ljava.lang.String;`).
+    */
+  private def extractArrayComponentName(className: String): Option[String] = {
+    val stripped = className.dropWhile(_ == '[')
+    if (stripped.startsWith("L") && stripped.endsWith(";")) {
+      Some(stripped.substring(1, stripped.length - 1))
+    } else {
+      None // primitive array (B, C, D, F, I, J, S, Z)
+    }
+  }
+
+  private def isAllowed(className: String): Boolean = {
+    allowedPrefixes.exists(prefix => className.startsWith(prefix))
+  }
+
   protected override def resolveClass(desc: ObjectStreamClass): Class[_] = {
     val className = desc.getName
-    if (!allowedPrefixes.exists(prefix => className.startsWith(prefix))) {
+    val allowed = if (className.startsWith("[")) {
+      extractArrayComponentName(className) match {
+        case Some(componentName) => isAllowed(componentName)
+        case None => true // primitive arrays are always safe
+      }
+    } else {
+      isAllowed(className)
+    }
+
+    if (!allowed) {
       throw new InvalidClassException(
         className,
         "Deserialization of this class is not allowed. " +
@@ -29,6 +56,25 @@ class SafeObjectInputStream(
       )
     }
     super.resolveClass(desc)
+  }
+
+  /** Rejects dynamic proxy deserialization unless every interface is allowlisted.
+    *
+    * Dynamic proxies are a known deserialization attack vector (e.g. via
+    * `java.lang.reflect.Proxy` with malicious `InvocationHandler` chains).
+    * SynapseML model serialization does not use proxies, so this rejects
+    * them by default while still validating interface names for safety.
+    */
+  protected override def resolveProxyClass(interfaces: Array[String]): Class[_] = {
+    val disallowed = interfaces.filterNot(isAllowed)
+    if (disallowed.nonEmpty) {
+      throw new InvalidClassException(
+        disallowed.mkString(", "),
+        "Deserialization of dynamic proxy is not allowed. " +
+          "Proxy interface(s) not in the approved allowlist."
+      )
+    }
+    super.resolveProxyClass(interfaces)
   }
 }
 
@@ -44,8 +90,7 @@ object SafeObjectInputStream {
     "java.lang.",
     "java.util.",
     "java.io.",
-    "java.math.",
-    "[" // Java array type descriptors
+    "java.math."
   )
 
   /** Broader allowlist suitable for general SynapseML model deserialization
@@ -66,7 +111,6 @@ object SafeObjectInputStream {
     "java.time.",
     "org.apache.hadoop.io.",
     "com.microsoft.ml.lightgbm.",
-    "org.vowpalwabbit.",
-    "[" // Java array type descriptors
+    "org.vowpalwabbit."
   )
 }
