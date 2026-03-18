@@ -7,7 +7,7 @@ from pyspark.ml.common import _to_java_object_rdd, _java2py
 from pyspark.ml import PipelineModel
 from pyspark.ml.util import DefaultParamsReader
 from pyspark.sql.types import DataType
-from synapse.ml.core.serialize._safe_import import safe_import_class
+from synapse.ml.core.serialize._safe_import import secure_import_class
 
 
 @staticmethod
@@ -22,7 +22,7 @@ def _mml_from_java(java_stage):
     stage_name = java_stage.getClass().getName().replace("org.apache.spark", "pyspark")
     stage_name = stage_name.replace("com.microsoft.azure.synapse.ml", "synapse.ml")
     # Generate a default new instance from the stage_name class.
-    py_type = safe_import_class(stage_name)
+    py_type = secure_import_class(stage_name)
     if issubclass(py_type, JavaParams):
         # Load information from java_stage to the instance.
         py_stage = py_type()
@@ -56,7 +56,7 @@ def _mml_loadParamsInstance(path, sc):
         pythonClassName = pythonClassName.replace(
             "com.microsoft.azure.synapse.ml", "synapse.ml"
         )
-    py_type = safe_import_class(pythonClassName)
+    py_type = secure_import_class(pythonClassName)
     instance = py_type.load(path)
     return instance
 

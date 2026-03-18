@@ -5,7 +5,7 @@
 Secure dynamic class loading for SynapseML model deserialization.
 
 All classname-based imports during model loading MUST go through
-``safe_import_class`` to prevent arbitrary code execution via
+``secure_import_class`` to prevent arbitrary code execution via
 crafted model metadata.
 """
 
@@ -14,7 +14,7 @@ import importlib
 _ALLOWED_MODULE_PREFIXES = ("pyspark.", "synapse.ml.")
 
 
-def safe_import_class(fully_qualified_name):
+def secure_import_class(fully_qualified_name):
     """
     Import a Python class by its fully-qualified name, restricted to
     an allowlist of trusted module prefixes.
