@@ -48,6 +48,7 @@ from pyspark.sql.functions import udf, col
 from pyspark.sql.types import StructType, StructField, StringType
 from typing import cast, Optional, TypeVar, Type
 from synapse.ml.core.platform import running_on_synapse_internal
+from synapse.ml.core.serialize._safe_import import secure_import_class
 
 OPENAI_API_VERSION = "2022-12-01"
 RL = TypeVar("RL", bound="MLReadable")
@@ -82,21 +83,9 @@ class LangchainTransformerParamsWriter(DefaultParamsWriter):
 
 
 class LangchainTransformerParamsReader(DefaultParamsReader):
-    @staticmethod
-    def __get_class(clazz: str) -> Type[RL]:
-        """
-        Loads Python class from its name.
-        """
-        parts = clazz.split(".")
-        module = ".".join(parts[:-1])
-        m = __import__(module, fromlist=[parts[-1]])
-        return getattr(m, parts[-1])
-
     def load(self, path: str) -> RL:
         metadata = LangchainTransformerParamsReader.loadMetadata(path, self.sc)
-        py_type: Type[RL] = LangchainTransformerParamsReader.__get_class(
-            metadata["class"]
-        )
+        py_type: Type[RL] = secure_import_class(metadata["class"])
         instance = py_type()
         cast("Params", instance)._resetUid(metadata["uid"])
         # deserialize the chain before setting Params
