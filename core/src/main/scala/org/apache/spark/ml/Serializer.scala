@@ -4,7 +4,7 @@
 package org.apache.spark.ml
 
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities._
-import com.microsoft.azure.synapse.ml.core.utils.SafeObjectInputStream
+import com.microsoft.azure.synapse.ml.core.utils.ContextObjectInputStream
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkContext
 import org.apache.spark.ml.util.MLWritable
@@ -59,7 +59,7 @@ object Serializer {
   }
 
   def read[A](is: InputStream)(implicit ttag: TypeTag[A]): A = {
-    using(new SafeObjectInputStream(is, SafeObjectInputStream.DefaultAllowedPrefixes)) { in =>
+    using(new ContextObjectInputStream(is)) { in =>
       in.readObject.asInstanceOf[A]
     }.get
   }

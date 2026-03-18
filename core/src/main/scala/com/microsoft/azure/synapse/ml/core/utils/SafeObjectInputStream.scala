@@ -92,25 +92,4 @@ object SafeObjectInputStream {
     "java.io.",
     "java.math."
   )
-
-  /** Broader allowlist suitable for general SynapseML model deserialization
-    * via [[org.apache.spark.ml.Serializer]]. Covers all SynapseML modules,
-    * Spark ML types, and common numeric/ML library dependencies while
-    * excluding packages commonly exploited in deserialization attacks.
-    */
-  val DefaultAllowedPrefixes: Set[String] = Set(
-    "com.microsoft.azure.synapse.ml.",
-    "org.apache.spark.",
-    "breeze.",
-    "scala.",
-    "java.lang.",
-    "java.util.",
-    "java.io.",
-    "java.math.",
-    "java.sql.",
-    "java.time.",
-    "org.apache.hadoop.io.",
-    "com.microsoft.ml.lightgbm.",
-    "org.vowpalwabbit."
-  )
 }
