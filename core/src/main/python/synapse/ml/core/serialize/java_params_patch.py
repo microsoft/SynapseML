@@ -1,17 +1,13 @@
-import importlib
-
 from pyspark.ml.wrapper import JavaParams, JavaWrapper
 from py4j.java_gateway import JavaObject
 from pyspark import RDD, SparkContext
-from pyspark.serializers import PickleSerializer, AutoBatchedSerializer
-from pyspark.sql import DataFrame, SQLContext
+from pyspark.serializers import PickleSerializer
+from pyspark.sql import DataFrame
 from pyspark.ml.common import _to_java_object_rdd, _java2py
-import pyspark
 from pyspark.ml import PipelineModel
 from pyspark.ml.util import DefaultParamsReader
 from pyspark.sql.types import DataType
-
-_ALLOWED_MODULE_PREFIXES = ("pyspark.", "synapse.ml.")
+from synapse.ml.core.serialize._safe_import import safe_import_class
 
 
 @staticmethod
@@ -23,24 +19,10 @@ def _mml_from_java(java_stage):
     Meta-algorithms such as Pipeline should override this method as a classmethod.
     """
 
-    def __get_class(clazz):
-        """
-        Loads Python class from its name.
-        """
-        if not clazz.startswith(_ALLOWED_MODULE_PREFIXES):
-            raise ImportError(
-                f"Refusing to load class '{clazz}': "
-                f"module must start with one of {_ALLOWED_MODULE_PREFIXES}"
-            )
-        parts = clazz.split(".")
-        module = ".".join(parts[:-1])
-        m = importlib.import_module(module)
-        return getattr(m, parts[-1])
-
     stage_name = java_stage.getClass().getName().replace("org.apache.spark", "pyspark")
     stage_name = stage_name.replace("com.microsoft.azure.synapse.ml", "synapse.ml")
     # Generate a default new instance from the stage_name class.
-    py_type = __get_class(stage_name)
+    py_type = safe_import_class(stage_name)
     if issubclass(py_type, JavaParams):
         # Load information from java_stage to the instance.
         py_stage = py_type()
@@ -66,20 +48,6 @@ def _mml_loadParamsInstance(path, sc):
     This assumes the instance inherits from :py:class:`MLReadable`.
     """
 
-    def __get_class(clazz):
-        """
-        Loads Python class from its name.
-        """
-        if not clazz.startswith(_ALLOWED_MODULE_PREFIXES):
-            raise ImportError(
-                f"Refusing to load class '{clazz}': "
-                f"module must start with one of {_ALLOWED_MODULE_PREFIXES}"
-            )
-        parts = clazz.split(".")
-        module = ".".join(parts[:-1])
-        m = importlib.import_module(module)
-        return getattr(m, parts[-1])
-
     metadata = DefaultParamsReader.loadMetadata(path, sc)
     if DefaultParamsReader.isPythonParamsInstance(metadata):
         pythonClassName = metadata["class"]
@@ -88,7 +56,7 @@ def _mml_loadParamsInstance(path, sc):
         pythonClassName = pythonClassName.replace(
             "com.microsoft.azure.synapse.ml", "synapse.ml"
         )
-    py_type = __get_class(pythonClassName)
+    py_type = safe_import_class(pythonClassName)
     instance = py_type.load(path)
     return instance
 

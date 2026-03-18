@@ -29,7 +29,6 @@ Example Usage:
 
 
 import json
-import importlib
 from os import error
 from langchain.chains.loading import load_chain_from_config
 from pyspark import keyword_only
@@ -49,11 +48,10 @@ from pyspark.sql.functions import udf, col
 from pyspark.sql.types import StructType, StructField, StringType
 from typing import cast, Optional, TypeVar, Type
 from synapse.ml.core.platform import running_on_synapse_internal
+from synapse.ml.core.serialize._safe_import import safe_import_class
 
 OPENAI_API_VERSION = "2022-12-01"
 RL = TypeVar("RL", bound="MLReadable")
-
-_ALLOWED_MODULE_PREFIXES = ("pyspark.", "synapse.ml.")
 
 
 class LangchainTransformerParamsWriter(DefaultParamsWriter):
@@ -85,26 +83,9 @@ class LangchainTransformerParamsWriter(DefaultParamsWriter):
 
 
 class LangchainTransformerParamsReader(DefaultParamsReader):
-    @staticmethod
-    def __get_class(clazz: str) -> Type[RL]:
-        """
-        Loads Python class from its name.
-        """
-        if not clazz.startswith(_ALLOWED_MODULE_PREFIXES):
-            raise ImportError(
-                f"Refusing to load class '{clazz}': "
-                f"module must start with one of {_ALLOWED_MODULE_PREFIXES}"
-            )
-        parts = clazz.split(".")
-        module = ".".join(parts[:-1])
-        m = importlib.import_module(module)
-        return getattr(m, parts[-1])
-
     def load(self, path: str) -> RL:
         metadata = LangchainTransformerParamsReader.loadMetadata(path, self.sc)
-        py_type: Type[RL] = LangchainTransformerParamsReader.__get_class(
-            metadata["class"]
-        )
+        py_type: Type[RL] = safe_import_class(metadata["class"])
         instance = py_type()
         cast("Params", instance)._resetUid(metadata["uid"])
         # deserialize the chain before setting Params
