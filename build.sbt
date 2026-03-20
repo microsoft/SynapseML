@@ -28,7 +28,7 @@ ThisBuild / version := {
 }
 
 
-val sparkVersion = "3.5.0"
+val sparkVersion = "3.5.5"
 name := "synapseml"
 ThisBuild / organization := "com.microsoft.azure"
 ThisBuild / scalaVersion := "2.12.17"
