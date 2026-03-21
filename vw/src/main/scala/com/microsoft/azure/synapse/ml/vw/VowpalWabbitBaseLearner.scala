@@ -181,6 +181,7 @@ trait VowpalWabbitBaseLearner extends VowpalWabbitBase {
 
     // dispatch to exectuors and collect the model of the first partition (everybody has the same at the end anyway)
     // important to trigger collect() here so that the spanning tree is still up
+    // Note: barrier execution requires RDD API - no DataFrame equivalent exists in Spark
     if (getUseBarrierExecutionMode)
       df.rdd.barrier().mapPartitions(inputRows => trainIteration(inputRows, localInitialModel)).collect().toSeq
     else
@@ -395,8 +396,7 @@ trait VowpalWabbitBaseLearner extends VowpalWabbitBase {
     }
     else {
       // VW internal coordination
-      val df = prepareDataSet(dataset)
-      val numTasks = df.rdd.getNumPartitions
+      val (df, numTasks) = prepareDataSet(dataset)
 
       // get the final command line args
       val vwArgs = getCommandLineArgs

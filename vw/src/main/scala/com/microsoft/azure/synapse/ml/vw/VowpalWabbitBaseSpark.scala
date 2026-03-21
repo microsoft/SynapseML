@@ -5,7 +5,6 @@ package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.core.contracts.HasWeightCol
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
-import org.apache.spark.SparkContext
 import org.apache.spark.ml.param.shared.{HasFeaturesCol, HasLabelCol}
 import org.apache.spark.sql.{DataFrame, Row, SparkSession, types => T}
 import org.vowpalwabbit.spark.VowpalWabbitExample

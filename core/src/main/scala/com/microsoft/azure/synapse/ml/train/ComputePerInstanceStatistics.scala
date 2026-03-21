@@ -71,7 +71,7 @@ class ComputePerInstanceStatistics(override val uid: String) extends Transformer
             if (levels.get.length > 2) levels.get.length else 2
           } else {
             // Otherwise compute unique levels
-            dataset.select(col(labelColumnName).cast(DoubleType)).rdd.distinct().count().toInt
+            dataset.select(col(labelColumnName).cast(DoubleType)).distinct().count().toInt
           }
 
         val logLossFunc = udf((scoredLabel: Double, scores: org.apache.spark.ml.linalg.Vector) =>

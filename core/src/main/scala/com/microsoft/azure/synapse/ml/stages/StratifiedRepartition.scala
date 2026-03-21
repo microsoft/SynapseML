@@ -6,13 +6,14 @@ package com.microsoft.azure.synapse.ml.stages
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasLabelCol
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
-import org.apache.spark.RangePartitioner
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.param.shared.HasSeed
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Dataset}
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.apache.spark.sql.expressions.Window
+import org.apache.spark.sql.functions.{col, lit, max => sqlMax, rand, row_number, spark_partition_id}
 
 /** Constants for <code>StratifiedRepartition</code>. */
 object SPConstants {
@@ -49,32 +50,58 @@ class StratifiedRepartition(val uid: String) extends Transformer with Wrappable
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
-      // Count unique values in label column
-      val distinctLabelCounts = dataset.select(getLabelCol).groupBy(getLabelCol).count().collect()
-      val labelToCount = distinctLabelCounts.map(row => (row.getInt(0), row.getLong(1)))
-      val labelToFraction =
-        getMode match {
-          case SPConstants.Equal => getEqualLabelCount(labelToCount, dataset)
-          case SPConstants.Mixed =>
-            val equalLabelToCount = getEqualLabelCount(labelToCount, dataset)
-            val normalizedRatio = equalLabelToCount.map { case (label, count) => count }.sum / labelToCount.length
-            labelToCount.map { case (label, count) => (label, count / normalizedRatio) }.toMap
-          case SPConstants.Original => labelToCount.map { case (label, count) => (label, 1.0) }.toMap
-          case _ => throw new Exception(s"Unknown mode specified to StratifiedRepartition: $getMode")
-        }
-      val labelColIndex = dataset.schema.fieldIndex(getLabelCol)
-      val spdata = dataset.toDF().rdd.keyBy(row => row.getInt(labelColIndex))
-        .sampleByKeyExact(true, labelToFraction, getSeed)
-        .mapPartitions(keyToRow => keyToRow.zipWithIndex.map { case ((key, row), index) => (index, row) })
-      val rangePartitioner = new RangePartitioner(dataset.rdd.getNumPartitions, spdata)
-      val rspdata = spdata.partitionBy(rangePartitioner).mapPartitions(keyToRow =>
-        keyToRow.map { case (key, row) => row }).persist()
-      dataset.sqlContext.createDataFrame(rspdata, dataset.schema)
+      val df = dataset.toDF()
+      val labelToFraction = computeLabelFractions(df)
+      val sampled = stratifiedSample(df, labelToFraction)
+      val numPartitions = getNumPartitions(df)
+      roundRobinRepartition(sampled, numPartitions)
     }, dataset.columns.length)
   }
 
-  private def getEqualLabelCount(labelToCount: Array[(Int, Long)], dataset: Dataset[_]): Map[Int, Double] = {
-    val maxLabelCount = Math.max(labelToCount.map { case (label, count) => count }.max, dataset.rdd.getNumPartitions)
+  private def computeLabelFractions(df: DataFrame): Map[Int, Double] = {
+    val distinctLabelCounts = df.select(getLabelCol).groupBy(getLabelCol).count().collect()
+    val labelToCount = distinctLabelCounts.map(row => (row.getInt(0), row.getLong(1)))
+    getMode match {
+      case SPConstants.Equal => getEqualLabelCount(labelToCount, df)
+      case SPConstants.Mixed =>
+        val equalLabelToCount = getEqualLabelCount(labelToCount, df)
+        val normalizedRatio = equalLabelToCount.map { case (_, count) => count }.sum / labelToCount.length
+        labelToCount.map { case (label, count) => (label, count / normalizedRatio) }.toMap
+      case SPConstants.Original => labelToCount.map { case (label, _) => (label, 1.0) }.toMap
+      case _ => throw new Exception(s"Unknown mode specified to StratifiedRepartition: $getMode")
+    }
+  }
+
+  private def stratifiedSample(df: DataFrame, labelToFraction: Map[Int, Double]): DataFrame = {
+    val spark = df.sparkSession
+    val emptyDF = spark.createDataFrame(java.util.Collections.emptyList[Row](), df.schema)
+    val labelDFs = labelToFraction.map { case (label, fraction) =>
+      val labelData = df.filter(col(getLabelCol) === lit(label))
+      val wholeReplicates = math.floor(fraction).toInt
+      val fractionalPart = fraction - wholeReplicates
+      val wholePart = if (wholeReplicates > 0) {
+        (1 to wholeReplicates).map(_ => labelData).reduce(_ union _)
+      } else emptyDF
+      val fracPart = if (fractionalPart > 0) {
+        labelData.sample(withReplacement = false, fractionalPart, getSeed)
+      } else emptyDF
+      wholePart.union(fracPart)
+    }
+    labelDFs.reduce(_ union _)
+  }
+
+  private def getNumPartitions(df: DataFrame): Int =
+    df.select(spark_partition_id().as("_pid")).agg(sqlMax("_pid")).head().getInt(0) + 1
+
+  private def roundRobinRepartition(df: DataFrame, numPartitions: Int): DataFrame = {
+    val windowSpec = Window.partitionBy(col(getLabelCol)).orderBy(rand(getSeed))
+    val withPartition = df.withColumn("_rr_idx", row_number().over(windowSpec) % lit(numPartitions))
+    withPartition.repartitionByRange(numPartitions, col("_rr_idx")).drop("_rr_idx")
+  }
+
+  private def getEqualLabelCount(labelToCount: Array[(Int, Long)], df: DataFrame): Map[Int, Double] = {
+    val numPartitions = getNumPartitions(df)
+    val maxLabelCount = Math.max(labelToCount.map { case (_, count) => count }.max, numPartitions)
     labelToCount.map { case (label, count) => (label, maxLabelCount.toDouble / count) }.toMap
   }
 
