@@ -100,6 +100,7 @@ class HTTPSource(name: String, host: String, port: Int, sqlContext: SQLContext)
         row.asInstanceOf[InternalRow]
       }
     }
+    // Note: internalCreateDataFrame with isStreaming requires RDD - no DataFrame alternative exists
     val rawBatch = if (rawList.nonEmpty) {
       sqlContext.sparkContext.parallelize(rawList)
     } else {

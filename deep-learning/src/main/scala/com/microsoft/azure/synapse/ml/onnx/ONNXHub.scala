@@ -9,10 +9,11 @@ import com.microsoft.azure.synapse.ml.core.utils.FaultToleranceUtils
 import com.microsoft.azure.synapse.ml.onnx.ONNXHub.DefaultCacheDir
 import org.apache.commons.codec.digest.DigestUtils
 import org.apache.commons.io.IOUtils
+import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.hadoop.io.{IOUtils => HUtils}
-import org.apache.spark.SparkContext
 import org.apache.spark.internal.Logging
+import org.apache.spark.sql.SparkSession
 import spray.json._
 
 import java.io.BufferedInputStream
@@ -77,6 +78,14 @@ object ONNXHub {
   val DefaultRetryCount = 3
   val DefaultRetryTimeoutInSeconds = 600
 
+  /** SparkSession.active throws when no session is bound to the calling thread, which can happen
+    * for lazily initialized members such as DefaultCacheDir.
+    */
+  private def hadoopConf: Configuration =
+    SparkSession.getActiveSession
+      .getOrElse(SparkSession.builder().getOrCreate())
+      .sparkContext.hadoopConfiguration
+
   lazy val DefaultCacheDir: Path = {
     sys.env.get("ONNX_HOME")
       .map(oh => new Path(oh, "hub"))
@@ -84,7 +93,7 @@ object ONNXHub {
         .map(xch => new Path(new Path(xch, "onnx"), "hub")))
       .getOrElse({
         val home = new Path("placeholder")
-          .getFileSystem(SparkContext.getOrCreate().hadoopConfiguration)
+          .getFileSystem(hadoopConf)
           .getHomeDirectory
         FileUtilities.join(home, ".cache", "onnx", "hub")
       })
@@ -201,7 +210,7 @@ class ONNXHub(val modelCacheDir: Path,
       urlCon.setReadTimeout(readTimeout)
       using(new BufferedInputStream(urlCon.getInputStream)) { is =>
           using(fs.create(path)) { os =>
-          HUtils.copyBytes(is, os, SparkContext.getOrCreate().hadoopConfiguration)
+          HUtils.copyBytes(is, os, ONNXHub.hadoopConf)
         }
       }
     }
@@ -219,7 +228,7 @@ class ONNXHub(val modelCacheDir: Path,
     Seq(selectedModel.metadata.modelSha.map(sha => s"${sha}_${modelPathArr.last}").getOrElse(modelPathArr.last))
 
     val localModelPath = FileUtilities.join(getDir, localModelDirs: _*)
-    val fs = localModelPath.getFileSystem(SparkContext.getOrCreate().hadoopConfiguration)
+    val fs = localModelPath.getFileSystem(ONNXHub.hadoopConf)
 
     if (forceReload || !fs.exists(localModelPath)) {
       if (!verifyRepoRef(repo)) {

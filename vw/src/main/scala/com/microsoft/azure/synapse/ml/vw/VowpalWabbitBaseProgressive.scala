@@ -92,10 +92,9 @@ trait VowpalWabbitBaseProgressive
   def getAdditionalOutputSchema: StructType
 
   override def transform(dataset: Dataset[_]): DataFrame = {
-    val df = prepareDataSet(dataset)
+    val (df, numTasks) = prepareDataSet(dataset)
     val schema = transformSchema(df.schema)
 
-    val numTasks = df.rdd.getNumPartitions
     val synchronizationSchedule = interPassSyncSchedule(df)
 
     // schedule multiple mapPartitions in

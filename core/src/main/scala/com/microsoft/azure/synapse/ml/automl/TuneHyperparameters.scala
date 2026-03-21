@@ -7,6 +7,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasEvaluationMetric
 import com.microsoft.azure.synapse.ml.core.metrics.MetricConstants
+import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.{EstimatorArrayParam, ParamSpace, ParamSpaceParam}
 import com.microsoft.azure.synapse.ml.train.{ComputeModelStatistics, TrainedClassifierModel, TrainedRegressorModel}
@@ -17,8 +18,8 @@ import org.apache.spark.ml.classification.ClassificationModel
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.regression.RegressionModel
 import org.apache.spark.ml.util._
-import org.apache.spark.mllib.util.MLUtils
 import org.apache.spark.sql._
+import org.apache.spark.sql.functions.{lit, rand}
 import org.apache.spark.sql.types.StructType
 
 import java.lang.reflect.Method
@@ -148,10 +149,19 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
   //scalastyle:off method.length
   override def fit(dataset: Dataset[_]): TuneHyperparametersModel = {  //scalastyle:ignore cyclomatic.complexity
     logFit({
-      val sparkSession = dataset.sparkSession
-      val splits = MLUtils.kFold(dataset.toDF.rdd, getNumFolds, getSeed)
+      val df = dataset.toDF
+      val nFolds = getNumFolds
+      val foldCol = DatasetExtensions.findUnusedColumnName("kfoldRand", df)
+      // Assign each row to a fold by bucketing a random value, mirroring MLUtils.kFold. Persisting
+      // keeps the assignment stable so that a row cannot fall into both or neither side of a fold.
+      val dfWithFold = df.withColumn(foldCol, rand(getSeed)).cache()
+      val splits = (0 until nFolds).map { fold =>
+        val foldIndex = (dfWithFold(foldCol) * lit(nFolds)).cast("int")
+        val training = dfWithFold.filter(foldIndex =!= lit(fold)).drop(foldCol)
+        val validation = dfWithFold.filter(foldIndex === lit(fold)).drop(foldCol)
+        (training, validation)
+      }.toArray
       val hyperParams = getParamSpace.paramMaps
-      val schema = dataset.schema
       val executionContext = getExecutionContext
       val (evaluationMetricColumnName, operator): (String, Ordering[Double]) =
         EvaluationUtils.getMetricWithOperator(getModels.head, getEvaluationMetric)
@@ -163,8 +173,8 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
       val numModels = getModels.length
 
       val metrics = splits.zipWithIndex.map { case ((training, validation), _) =>
-        val trainingDataset = sparkSession.createDataFrame(training, schema).cache()
-        val validationDataset = sparkSession.createDataFrame(validation, schema).cache()
+        val trainingDataset = training.cache()
+        val validationDataset = validation.cache()
 
         val modelParams = ListBuffer[ParamMap]()
         for (n <- 0 until getNumRuns) {
@@ -210,6 +220,8 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
         validationDataset.unpersist()
         foldMetrics
       }.transpose.map(_.sum / $(numFolds)) // Calculate average metric over all splits
+
+      dfWithFold.unpersist()
 
       val (bestMetric, bestIndex) = metrics.zipWithIndex.maxBy(_._1)(operator)
       // Compute best model fit on dataset

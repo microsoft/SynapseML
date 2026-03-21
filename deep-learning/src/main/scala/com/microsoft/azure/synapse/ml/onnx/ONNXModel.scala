@@ -27,7 +27,7 @@ import org.apache.spark.sql._
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
-import org.apache.spark.{SparkContext, TaskContext}
+import org.apache.spark.TaskContext
 
 import java.util
 import scala.collection.JavaConverters._
@@ -196,8 +196,21 @@ class ONNXModel(override val uid: String)
   }
 
   def setModelLocation(path: String): this.type = {
-    val modelBytes = SparkContext.getOrCreate().binaryFiles(path).first()._2.toArray
-    this.setModelPayload(modelBytes)
+    val spark = SparkSession.builder().getOrCreate()
+    val hadoopConf = spark.sparkContext.hadoopConfiguration
+    val hadoopPath = new org.apache.hadoop.fs.Path(path)
+    val fs = hadoopPath.getFileSystem(hadoopConf)
+    val fileLength = fs.getFileStatus(hadoopPath).getLen
+    require(fileLength <= Int.MaxValue,
+      s"ONNX model at $path is $fileLength bytes, which exceeds the maximum supported size of ${Int.MaxValue} bytes.")
+    val stream = fs.open(hadoopPath)
+    try {
+      val modelBytes = new Array[Byte](fileLength.toInt)
+      stream.readFully(modelBytes)
+      this.setModelPayload(modelBytes)
+    } finally {
+      stream.close()
+    }
   }
 
   def sliceAtOutput(output: String): ONNXModel = {

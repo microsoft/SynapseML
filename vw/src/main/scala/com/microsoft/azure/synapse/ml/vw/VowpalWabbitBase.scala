@@ -119,25 +119,32 @@ trait VowpalWabbitBase
   // get list of columns needed as input
   protected def getInputColumns: Seq[String]
 
-  protected def prepareDataSet(dataset: Dataset[_]): DataFrame = {
+  protected def prepareDataSet(dataset: Dataset[_]): (DataFrame, Int) = {
     // follow LightGBM pattern
     val numTasksPerExec = ClusterUtil.getNumTasksPerExecutor(dataset.sparkSession, log)
     val numExecutorTasks = ClusterUtil.getNumExecutorTasks(dataset.sparkSession, numTasksPerExec, log)
-    val numTasks = min(numExecutorTasks, dataset.rdd.getNumPartitions)
+    // Note: coalesce never increases the partition count and no DataFrame API exposes it, so the
+    // partition count must come from the RDD. Reporting more tasks than Spark actually runs would
+    // make AllReduce wait for nodes that never connect.
+    val numPartitions = dataset.rdd.getNumPartitions
+    val numTasks = min(numExecutorTasks, numPartitions)
 
     // Need to pass all columns as sub-cl
     val dfSubset = dataset.toDF()
 
     // Reduce number of partitions to number of executor cores
-    if (dataset.rdd.getNumPartitions > numTasks) {
-      if (getUseBarrierExecutionMode) { // see [SPARK-24820][SPARK-24821]
-        dfSubset.repartition(numTasks)
-      }
-      else {
-        dfSubset.coalesce(numTasks)
-      }
-    } else
-      dfSubset
+    val partitionedDf =
+      if (numPartitions > numTasks) {
+        if (getUseBarrierExecutionMode) { // see [SPARK-24820][SPARK-24821]
+          dfSubset.repartition(numTasks)
+        }
+        else {
+          dfSubset.coalesce(numTasks)
+        }
+      } else
+        dfSubset
+
+    (partitionedDf, numTasks)
   }
 
   /**

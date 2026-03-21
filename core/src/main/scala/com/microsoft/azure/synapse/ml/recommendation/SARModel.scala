@@ -259,6 +259,7 @@ class SARModel(override val uid: String) extends Model[SARModel]
   }
 
   private def factorMatrix(side: RecommendationSide): CoordinateMatrix = {
+    // Note: CoordinateMatrix from MLlib requires RDD input - .rdd conversion is necessary
     val entries = side.factors
       .select(col(side.indexColumn), col(side.vectorColumn))
       .rdd

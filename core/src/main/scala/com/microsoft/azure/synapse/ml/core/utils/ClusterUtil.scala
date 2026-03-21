@@ -5,7 +5,6 @@ package com.microsoft.azure.synapse.ml.core.utils
 
 import java.net.InetAddress
 import org.apache.http.conn.util.InetAddressUtils
-import org.apache.spark.SparkContext
 import org.apache.spark.injections.BlockManagerUtils
 import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 import org.slf4j.Logger
@@ -19,7 +18,7 @@ object ClusterUtil {
     * @return The number of tasks per executor.
     */
   def getNumTasksPerExecutor(spark: SparkSession, log: Logger): Int = {
-    val confTaskCpus = getTaskCpus(spark.sparkContext, log)
+    val confTaskCpus = getTaskCpus(spark, log)
     try {
       val confCores = spark.sparkContext.getConf.get("spark.executor.cores").toInt
       val tasksPerExec = confCores / confTaskCpus
@@ -104,9 +103,9 @@ object ClusterUtil {
     }
   }
 
-  def getTaskCpus(sparkContext: SparkContext, log: Logger): Int = {
+  def getTaskCpus(spark: SparkSession, log: Logger): Int = {
     try {
-      val taskCpusConfig = sparkContext.getConf.getOption("spark.task.cpus")
+      val taskCpusConfig = spark.sparkContext.getConf.getOption("spark.task.cpus")
       if (taskCpusConfig.isEmpty) {
         log.info("ClusterUtils did not detect spark.task.cpus config set, using default 1 instead")
       }

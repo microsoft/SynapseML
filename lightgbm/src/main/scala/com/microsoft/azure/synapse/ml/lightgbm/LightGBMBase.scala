@@ -686,6 +686,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
 
     val encoder = Encoders.kryo[PartitionResult]
     measures.markTrainingStart()
+    // Note: barrier execution requires RDD API - no DataFrame equivalent exists in Spark
     val results: Array[PartitionResult] =
       if (getUseBarrierExecutionMode)
         dataframe.rdd.barrier().mapPartitions(mapPartitionsFunc).collect()

@@ -218,14 +218,11 @@ object SyntheticEstimator {
   }
 
   private[causal] def assignRowIndex(df: DataFrame, colName: String): DataFrame = {
-    df.sparkSession.createDataFrame(
-      df.rdd.zipWithIndex.map(element =>
-        Row.fromSeq(Seq(element._2) ++ element._1.toSeq)
-      ),
-      StructType(
-        Array(StructField(colName, LongType, nullable = false)) ++ df.schema.fields
-      )
-    )
+    // Indices must be dense and 0-based: MatrixOps.size and VectorOps.size derive dimensions
+    // from max(index) + 1, so gaps would inflate the inferred sizes.
+    val windowSpec = Window.orderBy(df.columns.map(col): _*)
+    df.withColumn(colName, (row_number().over(windowSpec) - 1).cast(LongType))
+      .select(col(colName) +: df.columns.map(col): _*)
   }
 
   private[causal] def createIndex(data: DataFrame, inputCol: String, indexCol: String): DataFrame = {
