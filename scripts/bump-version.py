@@ -7,7 +7,7 @@ word-boundary-aware regex to prevent partial matches (e.g., won't
 corrupt '1.1.15' when bumping '1.1.1' → '1.1.2').
 
 Usage:
-    python bump-version.py --from 1.0.11 --to 1.0.12 [--dry-run] [--repo-root /path/to/SynapseML]
+    python scripts/bump-version.py --from 1.0.11 --to 1.0.12 [--dry-run] [--repo-root /path/to/SynapseML]
 
 Features:
     - Word-boundary-aware regex (won't match 1.0.11 inside 1.0.115)
