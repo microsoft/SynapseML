@@ -113,8 +113,10 @@ def process_file(
     Process a single file, replacing old_version with new_version.
     Returns (count_of_replacements, list_of_change_descriptions).
     """
+    # Read as binary to preserve original line endings (CRLF vs LF)
     try:
-        content = file_path.read_text(encoding="utf-8")
+        raw = file_path.read_bytes()
+        content = raw.decode("utf-8")
     except (UnicodeDecodeError, PermissionError):
         return 0, []
 
@@ -143,7 +145,8 @@ def process_file(
 
     if not dry_run:
         new_content = regex.sub(new_version, content)
-        file_path.write_text(new_content, encoding="utf-8")
+        # Write back as binary to preserve original line endings
+        file_path.write_bytes(new_content.encode("utf-8"))
 
     return count, changes
 
