@@ -66,9 +66,9 @@ def build_version_regex(old_version: str) -> re.Pattern:
         - '1.0.1' matching inside '1.0.1.0'              (followed by .digit — internal version)
     """
     escaped = re.escape(old_version)
-    # (?<!\d)   = not preceded by a digit
-    # (?![\d.]) = not followed by a digit or dot
-    return re.compile(r"(?<!\d)" + escaped + r"(?![\d.])")
+    # (?<!\d)      = not preceded by a digit
+    # (?!\d|\.\d)  = not followed by a digit or by dot+digit (still allows punctuation '.')
+    return re.compile(r"(?<!\d)" + escaped + r"(?!\d|\.\d)")
 
 
 def should_skip_dir(dir_name: str) -> bool:
