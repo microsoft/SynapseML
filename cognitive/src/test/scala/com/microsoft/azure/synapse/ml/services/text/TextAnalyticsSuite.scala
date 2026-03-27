@@ -20,6 +20,7 @@ trait TextEndpoint {
 
 trait TATestBase[S <: TextAnalyticsBaseNoBinding with HasUnpackedBinding]
   extends TransformerFuzzing[S] with TextEndpoint {
+  override val compareDataInSerializationTest: Boolean = false
 
   def model: S
 

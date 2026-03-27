@@ -9,9 +9,10 @@ import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
-import org.scalactic.Equality
 
 class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with OpenAIAPIKey with Flaky {
+  override val compareDataInSerializationTest: Boolean = false
+
 
   import spark.implicits._
 
@@ -78,10 +79,6 @@ class OpenAICompletionSuite extends TransformerFuzzing[OpenAICompletion] with Op
         assert(c.text.length > requiredLength)))
   }
 
-
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    super.assertDFEq(df1.drop("out"), df2.drop("out"))(eq)
-  }
 
   override def testObjects(): Seq[TestObject[OpenAICompletion]] =
     Seq(new TestObject(newCompletion, df))

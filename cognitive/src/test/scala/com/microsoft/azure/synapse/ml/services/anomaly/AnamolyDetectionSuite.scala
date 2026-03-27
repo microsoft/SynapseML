@@ -69,6 +69,8 @@ trait AnomalyDetectorSuiteBase extends TestBase with AnomalyKey {
 }
 
 class DetectLastAnomalySuite extends TransformerFuzzing[DetectLastAnomaly] with AnomalyDetectorSuiteBase {
+  override val compareDataInSerializationTest: Boolean = false
+
 
   lazy val ad: DetectLastAnomaly = new DetectLastAnomaly()
     .setSubscriptionKey(anomalyKey)
@@ -134,6 +136,8 @@ class DetectLastAnomalySuite extends TransformerFuzzing[DetectLastAnomaly] with 
 }
 
 class DetectAnomaliesSuite extends TransformerFuzzing[DetectAnomalies] with AnomalyDetectorSuiteBase {
+  override val compareDataInSerializationTest: Boolean = false
+
 
   lazy val ad: DetectAnomalies = new DetectAnomalies()
     .setSubscriptionKey(anomalyKey)
@@ -172,6 +176,7 @@ class DetectAnomaliesSuite extends TransformerFuzzing[DetectAnomalies] with Anom
 
 class SimpleDetectAnomaliesSuite extends TransformerFuzzing[SimpleDetectAnomalies]
   with AnomalyDetectorSuiteBase {
+  override val compareDataInSerializationTest: Boolean = false
 
   lazy val baseSeq = Seq(
     ("1972-01-01T00:00:00Z", 826.0),

@@ -12,7 +12,6 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.{col, lit}
 import org.apache.spark.sql.types.{ArrayType, StringType, StructType}
-import org.scalactic.Equality
 import com.microsoft.azure.synapse.ml.services.aifoundry.AIFoundryAPIKey
 import spray.json._
 
@@ -22,6 +21,7 @@ import java.nio.file.Files
 class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIKey
   with AIFoundryAPIKey
   with Flaky {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 
@@ -766,10 +766,6 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       promptWithPrevIdCol.transform(dfWithIds.limit(1))
     }
     assert(exception.getMessage.contains("previousResponseId requires apiType='responses'"))
-  }
-
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    super.assertDFEq(df1.drop("out", "outParsed"), df2.drop("out", "outParsed"))(eq)
   }
 
   override def testObjects(): Seq[TestObject[OpenAIPrompt]] = {

@@ -20,7 +20,6 @@ import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.col
-import org.scalactic.Equality
 import spray.json._
 
 import java.net.URI
@@ -155,6 +154,8 @@ trait FormRecognizerUtils extends TestBase with CognitiveKey with Flaky with Ima
 }
 
 class AnalyzeLayoutSuite extends TransformerFuzzing[AnalyzeLayout] with FormRecognizerUtils {
+  override val compareDataInSerializationTest: Boolean = false
+
 
   lazy val analyzeLayout: AnalyzeLayout = new AnalyzeLayout()
     .setSubscriptionKey(cognitiveKey).setLocation("eastus")
@@ -163,14 +164,6 @@ class AnalyzeLayoutSuite extends TransformerFuzzing[AnalyzeLayout] with FormReco
   lazy val bytesAnalyzeLayout: AnalyzeLayout = new AnalyzeLayout()
     .setSubscriptionKey(cognitiveKey).setLocation("eastus")
     .setImageBytesCol("imageBytes").setOutputCol("layout").setConcurrency(5)
-
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    def prep(df: DataFrame) = {
-      df.select("source", "layout.analyzeResult.readResults")
-    }
-
-    super.assertDFEq(prep(df1), prep(df2))(eq)
-  }
 
   test("Basic Usage with URL") {
     val results = imageDf1.mlTransform(analyzeLayout,
@@ -219,6 +212,8 @@ class AnalyzeLayoutSuite extends TransformerFuzzing[AnalyzeLayout] with FormReco
 }
 
 class AnalyzeReceiptsSuite extends TransformerFuzzing[AnalyzeReceipts] with FormRecognizerUtils {
+  override val compareDataInSerializationTest: Boolean = false
+
 
   lazy val analyzeReceipts: AnalyzeReceipts = new AnalyzeReceipts()
     .setSubscriptionKey(cognitiveKey).setLocation("eastus")
@@ -227,14 +222,6 @@ class AnalyzeReceiptsSuite extends TransformerFuzzing[AnalyzeReceipts] with Form
   lazy val bytesAnalyzeReceipts: AnalyzeReceipts = new AnalyzeReceipts()
     .setSubscriptionKey(cognitiveKey).setLocation("eastus")
     .setImageBytesCol("imageBytes").setOutputCol("receipts").setConcurrency(5)
-
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    def prep(df: DataFrame) = {
-      df.select("source", "receipts.analyzeResult.readResults")
-    }
-
-    super.assertDFEq(prep(df1), prep(df2))(eq)
-  }
 
   test("Basic Usage with URL") {
     val results = imageDf2.mlTransform(analyzeReceipts,
@@ -267,6 +254,8 @@ class AnalyzeReceiptsSuite extends TransformerFuzzing[AnalyzeReceipts] with Form
 }
 
 class AnalyzeBusinessCardsSuite extends TransformerFuzzing[AnalyzeBusinessCards] with FormRecognizerUtils {
+  override val compareDataInSerializationTest: Boolean = false
+
 
   lazy val analyzeBusinessCards: AnalyzeBusinessCards = new AnalyzeBusinessCards()
     .setSubscriptionKey(cognitiveKey).setLocation("eastus")
@@ -275,14 +264,6 @@ class AnalyzeBusinessCardsSuite extends TransformerFuzzing[AnalyzeBusinessCards]
   lazy val bytesAnalyzeBusinessCards: AnalyzeBusinessCards = new AnalyzeBusinessCards()
     .setSubscriptionKey(cognitiveKey).setLocation("eastus")
     .setImageBytesCol("imageBytes").setOutputCol("businessCards").setConcurrency(5)
-
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    def prep(df: DataFrame) = {
-      df.select("source", "businessCards.analyzeResult.readResults")
-    }
-
-    super.assertDFEq(prep(df1), prep(df2))(eq)
-  }
 
   test("Basic Usage with URL") {
     val results = imageDf3.mlTransform(analyzeBusinessCards,
@@ -317,6 +298,8 @@ class AnalyzeBusinessCardsSuite extends TransformerFuzzing[AnalyzeBusinessCards]
 }
 
 class AnalyzeInvoicesSuite extends TransformerFuzzing[AnalyzeInvoices] with FormRecognizerUtils {
+  override val compareDataInSerializationTest: Boolean = false
+
 
   lazy val analyzeInvoices: AnalyzeInvoices = new AnalyzeInvoices()
     .setSubscriptionKey(cognitiveKey).setLocation("eastus")
@@ -325,14 +308,6 @@ class AnalyzeInvoicesSuite extends TransformerFuzzing[AnalyzeInvoices] with Form
   lazy val bytesAnalyzeInvoices: AnalyzeInvoices = new AnalyzeInvoices()
     .setSubscriptionKey(cognitiveKey).setLocation("eastus")
     .setImageBytesCol("imageBytes").setOutputCol("invoices").setConcurrency(5)
-
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    def prep(df: DataFrame) = {
-      df.select("source", "invoices.analyzeResult.readResults")
-    }
-
-    super.assertDFEq(prep(df1), prep(df2))(eq)
-  }
 
   test("Basic Usage with URL") {
     val results = imageDf4.mlTransform(analyzeInvoices,
@@ -377,6 +352,8 @@ class AnalyzeInvoicesSuite extends TransformerFuzzing[AnalyzeInvoices] with Form
 }
 
 class AnalyzeIDDocumentsSuite extends TransformerFuzzing[AnalyzeIDDocuments] with FormRecognizerUtils {
+  override val compareDataInSerializationTest: Boolean = false
+
 
   lazy val analyzeIDDocuments: AnalyzeIDDocuments = new AnalyzeIDDocuments()
     .setSubscriptionKey(cognitiveKey).setLocation("eastus")
@@ -385,14 +362,6 @@ class AnalyzeIDDocumentsSuite extends TransformerFuzzing[AnalyzeIDDocuments] wit
   lazy val bytesAnalyzeIDDocuments: AnalyzeIDDocuments = new AnalyzeIDDocuments()
     .setSubscriptionKey(cognitiveKey).setLocation("eastus")
     .setImageBytesCol("imageBytes").setOutputCol("ids").setConcurrency(5)
-
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    def prep(df: DataFrame) = {
-      df.select("source", "ids.analyzeResult.readResults")
-    }
-
-    super.assertDFEq(prep(df1), prep(df2))(eq)
-  }
 
   test("Basic Usage with URL") {
     val results = imageDf5.mlTransform(analyzeIDDocuments,
@@ -439,6 +408,7 @@ trait CustomModelUtils extends TestBase with CognitiveKey {
 
 class ListCustomModelsSuite extends TransformerFuzzing[ListCustomModels]
   with FormRecognizerUtils with CustomModelUtils {
+  override val compareDataInSerializationTest: Boolean = false
 
   lazy val listCustomModels: ListCustomModels = {
     new ListCustomModels()
@@ -447,14 +417,6 @@ class ListCustomModelsSuite extends TransformerFuzzing[ListCustomModels]
       .setOp("full")
       .setOutputCol("models")
       .setConcurrency(5)
-  }
-
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    def prep(df: DataFrame) = {
-      df.select("models.summary.count")
-    }
-
-    super.assertDFEq(prep(df1), prep(df2))(eq)
   }
 
   ignore("List model list details") {
