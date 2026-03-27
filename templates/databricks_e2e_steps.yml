@@ -1,7 +1,5 @@
 steps:
-  - template: sbt_cache.yml
-  - template: update_cli.yml
-  - template: conda.yml
+  - template: free_disk.yml
   - template: kv.yml
   - template: publish.yml
   - task: AzureCLI@2
