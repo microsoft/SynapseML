@@ -1,4 +1,8 @@
 resources:
+  containers:
+  - container: ci
+    image: mmlsparkmcr.azurecr.io/synapseml/ci:ci-cc980b65de98
+    endpoint: 'SynapseML MCR'
   repositories:
   - repository: SynapseML-Internal
     type: git
@@ -97,6 +101,7 @@ variables:
   CONDA_CACHE_DIR: /usr/share/miniconda/envs
   UBUNTU_VERSION: ubuntu-22.04
   ComponentDetection.Timeout: 900
+  CI_IMAGE_TAG: ci-cc980b65de98
   isMaster: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
   isTag: $[startsWith(variables['Build.SourceBranch'], 'refs/tags/')]
   isPR: $[eq(variables['Build.Reason'], 'PullRequest')]
@@ -172,37 +177,112 @@ jobs:
         maxAttempts: 7
         maxBackoffSeconds: 180
 
-- job: Style
-  dependsOn: BuildAndCacheSbt
+
+- job: BuildCIImage
+  displayName: 'Build trusted CI image'
   cancelTimeoutInMinutes: 0
-  condition: and(succeeded(), eq(variables.runTests, 'True'), eq('${{ parameters.testStyle }}', true))
+  timeoutInMinutes: 60
+  condition: and(succeeded(), eq(variables.isMaster, true), ne(variables.isPR, true))
   pool:
     vmImage: $(UBUNTU_VERSION)
   steps:
-    - template: templates/sbt_cache.yml
+    - checkout: self
+      fetchDepth: 1
+    - bash: |
+        set -euo pipefail
+        echo "=== Disk space BEFORE cleanup ==="
+        df -h / | grep -E 'Filesystem|/$'
+        sudo rm -rf /usr/local/lib/android || true
+        sudo rm -rf /usr/lib/google-cloud-sdk || true
+        sudo rm -rf /usr/share/dotnet || true
+        sudo rm -rf /opt/ghc || true
+        sudo rm -rf /opt/hostedtoolcache || true
+        sudo rm -rf /usr/local/share/boost || true
+        sudo rm -rf /usr/share/swift || true
+        sudo rm -rf /usr/local/.ghcup || true
+        sudo rm -rf /usr/share/miniconda || true
+        sudo rm -rf /usr/local/share/chromium || true
+        sudo docker image prune -af || true
+        echo "=== Disk space AFTER cleanup ==="
+        df -h / | grep -E 'Filesystem|/$'
+      displayName: 'Free disk space'
+    - task: Docker@2
+      displayName: 'Login to ACR'
+      inputs:
+        command: login
+        containerRegistry: 'SynapseML MCR'
+    - bash: |
+        set -euo pipefail
+        HASH=$(sha256sum environment.yml project/plugins.sbt project/build.properties build.sbt sonatype.sbt tools/docker/ci/Dockerfile | sha256sum | cut -c1-12)
+        TAG="ci-${HASH}"
+        EXPECTED_TAG="$(CI_IMAGE_TAG)"
+        LATEST_TAG="ci-latest"
+        REGISTRY="mmlsparkmcr.azurecr.io"
+        REPO="synapseml/ci"
+        echo "Content hash: $TAG"
+
+        if [ "$TAG" != "$EXPECTED_TAG" ]; then
+          echo "##vso[task.logissue type=error]CI_IMAGE_TAG ($EXPECTED_TAG) does not match dependency hash ($TAG). Update the pipeline image tag with the Dockerfile/dependency change."
+          exit 1
+        fi
+
+        IMAGE_EXISTS=false
+        for i in 1 2 3; do
+          if docker manifest inspect "${REGISTRY}/${REPO}:${TAG}" > /dev/null 2>&1; then
+            IMAGE_EXISTS=true
+            break
+          fi
+          [ $i -lt 3 ] && echo "Manifest inspect attempt $i failed, retrying..." && sleep 5
+        done
+
+        if [ "$IMAGE_EXISTS" = "true" ]; then
+          echo "Image $TAG exists. Re-tagging server-side as $LATEST_TAG."
+          docker buildx imagetools create \
+            --tag "${REGISTRY}/${REPO}:${LATEST_TAG}" \
+            "${REGISTRY}/${REPO}:${TAG}"
+        else
+          echo "Image $TAG not found. Building from trusted master."
+          docker pull "${REGISTRY}/${REPO}:${LATEST_TAG}" || true
+          docker build \
+            --cache-from "${REGISTRY}/${REPO}:${LATEST_TAG}" \
+            -t "${REGISTRY}/${REPO}:${TAG}" \
+            -t "${REGISTRY}/${REPO}:${LATEST_TAG}" \
+            -f tools/docker/ci/Dockerfile .
+          docker push "${REGISTRY}/${REPO}:${TAG}"
+          docker push "${REGISTRY}/${REPO}:${LATEST_TAG}"
+        fi
+      displayName: 'Check/Build CI Image'
+
+- job: Style
+  dependsOn:
+    - BuildAndCacheSbt
+    - BuildCIImage
+  cancelTimeoutInMinutes: 0
+  condition: and(not(failed()), not(canceled()), eq(variables.runTests, 'True'), eq('${{ parameters.testStyle }}', true))
+  pool:
+    vmImage: $(UBUNTU_VERSION)
+  container: ci
+  steps:
+    - template: templates/free_disk.yml
     - bash: sbt scalastyle test:scalastyle
       displayName: 'Scala Style Check'
-    - task: UsePythonVersion@0
-      inputs:
-        versionSpec: '3.11'
-        architecture: 'x64'
-        disableDownloadFromRegistry: true
     - bash: |
         set -e
-        python -m pip install -q 'black[jupyter]==22.3.0'
+        source activate synapseml
         black --diff --color . && black --check -q .
       displayName: 'Python Style Check'
 - ${{ if eq(parameters.publishArtifacts, true) }}:
   - job: Publish
-    dependsOn: BuildAndCacheSbt
-    condition: and(succeeded(), eq('${{ parameters.publishArtifacts }}', true))
+    dependsOn:
+      - BuildAndCacheSbt
+      - BuildCIImage
+    condition: and(not(failed()), not(canceled()), eq('${{ parameters.publishArtifacts }}', true))
     cancelTimeoutInMinutes: 0
     pool:
       vmImage: $(UBUNTU_VERSION)
+    container: ci
     steps:
-      - template: templates/sbt_cache.yml
-      - template: templates/update_cli.yml
-      - template: templates/conda.yml
+      - template: templates/free_disk.yml
       - template: templates/kv.yml
       - bash: |
           set -euo pipefail
@@ -249,15 +329,18 @@ jobs:
           inlineScript: |
             set -e
             sbt publishBadges
-        condition: and(succeeded(), eq(variables.isMaster, true))
+        condition: and(not(failed()), not(canceled()), eq(variables.isMaster, true))
         displayName: Publish Badges
 
 - job: DatabricksCPUE2E
-  dependsOn: BuildAndCacheSbt
+  dependsOn:
+    - BuildAndCacheSbt
+    - BuildCIImage
   displayName: 'Databricks CPU E2E'
   condition: >-
     and(
-      succeeded(),
+      not(failed()),
+      not(canceled()),
       eq(variables.runTests, 'True'),
       eq('${{ parameters.testDatabricksE2E }}', true),
       eq(dependencies.BuildAndCacheSbt.outputs['detectDatabricksImpact.runDatabricksCpuE2E'], 'true')
@@ -266,6 +349,7 @@ jobs:
   cancelTimeoutInMinutes: 0
   pool:
     vmImage: $(UBUNTU_VERSION)
+  container: ci
   variables:
     MML_ADB_AUTH_TYPE: "aad"
     MML_ADB_WORKSPACE_HOST: "adb-1885762835647850.10.azuredatabricks.net"
@@ -286,11 +370,14 @@ jobs:
     - template: templates/databricks_e2e_steps.yml
 
 - job: DatabricksGPUE2E
-  dependsOn: BuildAndCacheSbt
+  dependsOn:
+    - BuildAndCacheSbt
+    - BuildCIImage
   displayName: 'Databricks GPU E2E'
   condition: >-
     and(
-      succeeded(),
+      not(failed()),
+      not(canceled()),
       eq(variables.runTests, 'True'),
       eq('${{ parameters.testDatabricksE2E }}', true),
       eq(dependencies.BuildAndCacheSbt.outputs['detectDatabricksImpact.runDatabricksGpuE2E'], 'true')
@@ -299,6 +386,7 @@ jobs:
   cancelTimeoutInMinutes: 0
   pool:
     vmImage: $(UBUNTU_VERSION)
+  container: ci
   variables:
     TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksGPUTests"
     MML_ADB_AUTH_TYPE: "aad"
@@ -309,11 +397,14 @@ jobs:
     - template: templates/databricks_e2e_steps.yml
 
 - job: FabricE2E
-  dependsOn: BuildAndCacheSbt
+  dependsOn:
+    - BuildAndCacheSbt
+    - BuildCIImage
   displayName: 'Fabric E2E'
   condition: >-
     and(
-      succeeded(),
+      not(failed()),
+      not(canceled()),
       eq(variables.runTests, 'True'),
       eq('${{ parameters.testFabricE2E }}', true),
       ne(variables['System.PullRequest.IsFork'], 'True')
@@ -322,10 +413,9 @@ jobs:
   cancelTimeoutInMinutes: 5
   pool:
     vmImage: $(UBUNTU_VERSION)
+  container: ci
   steps:
-    - template: templates/sbt_cache.yml
-    - template: templates/update_cli.yml
-    - template: templates/conda.yml
+    - template: templates/free_disk.yml
     - template: templates/kv.yml
       parameters:
         secretsFilter: >
@@ -372,6 +462,7 @@ jobs:
         INTEGRATION_ACCOUNT: $(sempy-integration-account)
         INTEGRATION_CERTIFICATE: $(sempy-integration-certificate)
         INTEGRATION_WORKSPACE_PREFIX: $(sempy-integration-workspace-prefix)
+      condition: and(not(failed()), not(canceled()), eq(variables.runTests, 'True'))
     - bash: |
         set -euo pipefail
         artifact_root='$(Build.ArtifactStagingDirectory)/fabric-e2e'
@@ -607,12 +698,15 @@ jobs:
         condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
 
 - job: PythonTests
-  dependsOn: BuildAndCacheSbt
+  dependsOn:
+    - BuildAndCacheSbt
+    - BuildCIImage
   timeoutInMinutes: 120
   cancelTimeoutInMinutes: 0
-  condition: and(succeeded(), eq(variables.runTests, 'True'), eq('${{ parameters.testPython }}', true))
+  condition: and(not(failed()), not(canceled()), eq(variables.runTests, 'True'), eq('${{ parameters.testPython }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
+  container: ci
   strategy:
     matrix:
       core:
@@ -634,15 +728,12 @@ jobs:
       cognitive:
         PACKAGE: "cognitive"
   steps:
-    - template: templates/sbt_cache.yml
-    - template: templates/update_cli.yml
-    - template: templates/conda.yml
+    - template: templates/free_disk.yml
     - template: templates/kv.yml
     - bash: |
         source activate synapseml
         if [ "$(runCoverage)" = "True" ]; then COV_CMD="coverage"; else COV_CMD=""; fi
-        sbt $COV_CMD getDatasets installPipPackage
-        sbt publishM2
+        sbt $COV_CMD getDatasets "project core" installPipPackage publishM2 "project $(PACKAGE)" installPipPackage publishM2
       displayName: 'Install and package deps'
       timeoutInMinutes: 40
     - task: AzureCLI@2
@@ -656,7 +747,7 @@ jobs:
         inlineScript: |
           set -e
           source activate synapseml
-          export SBT_OPTS="-Xms2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss5M  -Duser.timezone=GMT"
+          export SBT_OPTS="-Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss5M  -Duser.timezone=GMT"
           echo "##vso[task.setvariable variable=SBT_OPTS]$SBT_OPTS"
           echo "SBT_OPTS=$SBT_OPTS"
           IGNORE_TEST_PATH_FLAG=""
@@ -671,7 +762,6 @@ jobs:
           echo "TEST_SUB_PATH=$TEST_SUB_PATH"
           echo "IGNORE_TEST_PATH_FLAG=$IGNORE_TEST_PATH_FLAG"
           echo "TEST_SUB_PATH_FLAG=$TEST_SUB_PATH_FLAG"
-          (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython) || \
           (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython) || \
           (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython)
     - task: PublishTestResults@2
@@ -688,12 +778,15 @@ jobs:
       - template: templates/codecov.yml
     - template: templates/publish_coverage_ado.yml
 - job: RTests
-  dependsOn: BuildAndCacheSbt
+  dependsOn:
+    - BuildAndCacheSbt
+    - BuildCIImage
   timeoutInMinutes: 60
   cancelTimeoutInMinutes: 0
-  condition: and(succeeded(), eq(variables.runTests, 'True'), eq('${{ parameters.testR }}', true))
+  condition: and(not(failed()), not(canceled()), eq(variables.runTests, 'True'), eq('${{ parameters.testR }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
+  container: ci
   strategy:
     matrix:
       core:
@@ -709,21 +802,16 @@ jobs:
       cognitive:
         PACKAGE: "cognitive"
   steps:
-    - template: templates/sbt_cache.yml
-    - template: templates/update_cli.yml
-    - template: templates/conda.yml
+    - template: templates/free_disk.yml
     - template: templates/kv.yml
     - bash: |
         set -e
-        export SBT_OPTS="-Xms2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss5M  -Duser.timezone=GMT"
+        export SBT_OPTS="-Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss5M  -Duser.timezone=GMT"
         source activate synapseml
-        bash tools/ci/sbt_retry.sh setup
-        sbt codegen
-        sbt publishM2
+        timeout 30m sbt setup codegen publishM2
         SPARK_VERSION=3.5.0
         HADOOP_VERSION=3
-        # wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
-        wget https://mmlspark.blob.core.windows.net/installers/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
+        wget -q https://mmlspark.blob.core.windows.net/installers/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
       displayName: 'Prepare for tests'
       retryCountOnTaskFailure: 1
       timeoutInMinutes: 60
@@ -737,7 +825,7 @@ jobs:
         scriptType: bash
         inlineScript: |
           set -e
-          export SBT_OPTS="-Xms2G -Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=4G -Xss5M  -Duser.timezone=GMT"
+          export SBT_OPTS="-Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss5M  -Duser.timezone=GMT"
           source activate synapseml
           timeout 20m sbt -DskipCodegen=true "project $(PACKAGE)" coverage testR
     - task: PublishTestResults@2
@@ -755,15 +843,16 @@ jobs:
     - template: templates/publish_coverage_ado.yml
 
 - job: WebsiteSamplesTests
-  dependsOn: BuildAndCacheSbt
+  dependsOn:
+    - BuildAndCacheSbt
+    - BuildCIImage
   cancelTimeoutInMinutes: 0
-  condition: and(succeeded(), eq(variables.runTests, 'True'), eq('${{ parameters.testWebsiteSamples }}', true))
+  condition: and(not(failed()), not(canceled()), eq(variables.runTests, 'True'), eq('${{ parameters.testWebsiteSamples }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
+  container: ci
   steps:
-    - template: templates/sbt_cache.yml
-    - template: templates/update_cli.yml
-    - template: templates/conda.yml
+    - template: templates/free_disk.yml
     - template: templates/kv.yml
     - template: templates/publish.yml
     - task: AzureCLI@2
@@ -774,9 +863,10 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
-          bash tools/ci/sbt_retry.sh setup
+          export SBT_OPTS="-Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss2M -Duser.timezone=GMT"
           if [ "$(runCoverage)" = "True" ]; then COV_CMD="coverage"; else COV_CMD=""; fi
-          (sbt $COV_CMD testWebsiteDocs)
+          (timeout 30m sbt setup) || (echo "retrying" && timeout 30m sbt setup)
+          sbt $COV_CMD testWebsiteDocs
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
@@ -796,66 +886,86 @@ jobs:
         failIfCoverageEmpty: false
 
 - job: UnitTests
-  dependsOn: BuildAndCacheSbt
+  dependsOn:
+    - BuildAndCacheSbt
+    - BuildCIImage
   cancelTimeoutInMinutes: 1
-  timeoutInMinutes: 80
-  condition: and(succeeded(), eq(variables.runTests, 'True'), eq('${{ parameters.testUnit }}', true))
+  timeoutInMinutes: 100
+  condition: and(not(failed()), not(canceled()), eq(variables.runTests, 'True'), eq('${{ parameters.testUnit }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
+  container: ci
   strategy:
     matrix:
       automl:
         PACKAGE: "automl"
+        PROJECT: "core"
       causal:
         PACKAGE: "causal"
+        PROJECT: "core"
       onnx:
         PACKAGE: "onnx"
+        PROJECT: "deepLearning"
       geospatial:
         PACKAGE: "services.geospatial"
+        PROJECT: "cognitive"
       face:
         PACKAGE: "services.face"
+        PROJECT: "cognitive"
         FLAKY: "true"
       form:
         PACKAGE: "services.form"
+        PROJECT: "cognitive"
         FLAKY: "true"
       language:
         PACKAGE: "services.language"
+        PROJECT: "cognitive"
         FLAKY: "true"
       openai:
         PACKAGE: "services.openai"
+        PROJECT: "cognitive"
         FLAKY: "true"
       aifoundry:
         PACKAGE: "services.aifoundry"
+        PROJECT: "cognitive"
         FLAKY: "true"
       search1:
         PACKAGE: "services.search.split1"
+        PROJECT: "cognitive"
         FFMPEG: "true"
         FLAKY: "true"
       search2:
         PACKAGE: "services.search.split2"
+        PROJECT: "cognitive"
         FFMPEG: "true"
         FLAKY: "true"
       speech1:
         PACKAGE: "services.speech"
+        PROJECT: "cognitive"
         TEST_CLASSES: "com.microsoft.azure.synapse.ml.services.speech.SpeechToTextSDKSuite"
         FFMPEG: "true"
         FLAKY: "true"
       speech2:
         PACKAGE: "services.speech"
+        PROJECT: "cognitive"
         TEST_CLASSES: "com.microsoft.azure.synapse.ml.services.speech.ConversationTranscriptionSuite com.microsoft.azure.synapse.ml.services.speech.SpeechToTextSuite com.microsoft.azure.synapse.ml.services.speech.TextToSpeechSuite com.microsoft.azure.synapse.ml.services.speech.SpeakerEmotionInferenceSuite"
         FFMPEG: "true"
         FLAKY: "true"
       text:
         PACKAGE: "services.text"
+        PROJECT: "cognitive"
         FLAKY: "true"
       translate:
         PACKAGE: "services.translate"
+        PROJECT: "cognitive"
         FLAKY: "true"
       vision:
         PACKAGE: "services.vision"
+        PROJECT: "cognitive"
         FLAKY: "true"
       core:
         PACKAGE: "core"
+        PROJECT: "core"
         TEST_CLASSES: >-
           com.microsoft.azure.synapse.ml.core.**
           com.microsoft.azure.synapse.ml.codegen.**
@@ -863,61 +973,84 @@ jobs:
           com.microsoft.azure.synapse.ml.nbtest.DatabricksUtilitiesSuite
       explainers1:
         PACKAGE: "explainers.split1"
+        PROJECT: "core"
       explainers2:
         PACKAGE: "explainers.split2"
+        PROJECT: "deepLearning"
       explainers3:
         PACKAGE: "explainers.split3"
+        PROJECT: "deepLearning"
       exploratory:
         PACKAGE: "exploratory"
+        PROJECT: "core"
       featurize:
         PACKAGE: "featurize"
+        PROJECT: "core"
       image:
         PACKAGE: "image"
+        PROJECT: "core"
       io1:
         PACKAGE: "io.split1"
+        PROJECT: "core"
         FLAKY: "true"
       io2:
         PACKAGE: "io.split2"
+        PROJECT: "core"
         FLAKY: "true"
       isolationforest:
         PACKAGE: "isolationforest"
+        PROJECT: "core"
       flaky:
         PACKAGE: "flaky"           #TODO fix flaky test so isolation is not needed
+        PROJECT: "core"
         FLAKY: "true"
       lightgbm1:
         PACKAGE: "lightgbm.split1" #TODO speed up LGBM Tests and remove split
+        PROJECT: "lightgbm"
         FLAKY: "true"
       lightgbm2:
         PACKAGE: "lightgbm.split2"
+        PROJECT: "lightgbm"
         FLAKY: "true"
       lightgbm3:
         PACKAGE: "lightgbm.split3"
+        PROJECT: "lightgbm"
         FLAKY: "true"
       lightgbm4:
         PACKAGE: "lightgbm.split4"
+        PROJECT: "lightgbm"
         FLAKY: "true"
       lightgbm5:
         PACKAGE: "lightgbm.split5"
+        PROJECT: "lightgbm"
         FLAKY: "true"
       lightgbm6:
         PACKAGE: "lightgbm.split6"
+        PROJECT: "lightgbm"
         FLAKY: "true"
       opencv:
         PACKAGE: "opencv"
+        PROJECT: "opencv"
       recommendation:
         PACKAGE: "recommendation"
+        PROJECT: "core"
       stages:
         PACKAGE: "stages"
+        PROJECT: "core"
       nn:
         PACKAGE: "nn"
+        PROJECT: "core"
       train:
         PACKAGE: "train"
+        PROJECT: "core"
       vw:
         PACKAGE: "vw"
+        PROJECT: "vw"
       # Suites whose packages no other leg claims. PipelineTestCoverageSuite fails the build when
       # a new suite lands in a package this matrix never names.
       misc:
         PACKAGE: "misc"
+        PROJECT: "core"
         TEST_CLASSES: >-
           com.microsoft.azure.synapse.ml.param.**
           com.microsoft.azure.synapse.ml.logging.**
@@ -942,14 +1075,10 @@ jobs:
           com.microsoft.azure.synapse.ml.services.search.SearchIndexRetentionSuite
           com.microsoft.azure.synapse.ml.services.speech.SpeechToTextSDKSecuritySuite
   steps:
-    - template: templates/sbt_cache.yml
-    - template: templates/update_cli.yml
+    - template: templates/free_disk.yml
     - bash: |
-        (timeout 30s pip install requests) || (echo "retrying" && timeout 30s pip install requests)
-        (${FFMPEG:-false} && sudo apt-get update && \
-        sudo apt-get install ffmpeg libgstreamer1.0-0 \
-        gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly -y)
-        bash tools/ci/sbt_retry.sh setup
+        export SBT_OPTS="-Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss2M -Duser.timezone=GMT"
+        sbt getDatasets "project $(PROJECT)" Test/compile
       displayName: 'Setup repo'
       retryCountOnTaskFailure: 1
     - task: AzureCLI@2
@@ -962,12 +1091,13 @@ jobs:
         scriptType: bash
         inlineScript: |
           ulimit -c unlimited
-          export SBT_OPTS="-XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss2M  -Duser.timezone=GMT"
+          echo "Available CPUs: $(nproc)"
+          export SBT_OPTS="-Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss2M -Duser.timezone=GMT -Dscala.concurrent.context.numThreads=8 -Dscala.concurrent.context.maxThreads=8"
           # Only run coverage on PRs, master, or tag builds
           if [ "$(runCoverage)" = "True" ]; then COV_CMD="coverage"; else COV_CMD=""; fi
           TEST_SPEC="${TEST_CLASSES:-com.microsoft.azure.synapse.ml.$(PACKAGE).**}"
-          (timeout 30m sbt $COV_CMD "testOnly $TEST_SPEC") ||
-          (${FLAKY:-false} && timeout 30m sbt $COV_CMD "testOnly $TEST_SPEC")
+          (timeout 30m sbt $COV_CMD "project $(PROJECT)" "testOnly $TEST_SPEC") ||
+          (${FLAKY:-false} && timeout 30m sbt $COV_CMD "project $(PROJECT)" "testOnly $TEST_SPEC")
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
