@@ -240,7 +240,7 @@ class SearchWriterSuiteUtilities extends TestBase with AzureSearchKey
 
   lazy val df4: DataFrame = createTestData(4)
   lazy val df10: DataFrame = createTestData(10)
-  lazy val bigDF: DataFrame = createTestData(10000)
+  lazy val bigDF: DataFrame = createTestData(100)
 
   lazy val ad: AddDocuments = {
     new AddDocuments()
@@ -297,7 +297,7 @@ class SearchWriterSuitePart1 extends SearchWriterSuiteUtilities
   }
 
   test("Run azure-search tests with waits") {
-    val testsToRun = Set(1, 2) //, 3)
+    val testsToRun = Set(1, 2, 3)
 
     def dependsOn(testNumber: Int, f: => Unit): Unit = {
       if (testsToRun(testNumber)) {
@@ -326,11 +326,11 @@ class SearchWriterSuitePart1 extends SearchWriterSuiteUtilities
 
     //push docs with custom batch size
     lazy val in3 = generateIndexName()
-    dependsOn(3, writeHelper(bigDF, in3, isVectorField=false, Map("batchSize" -> "2000")))
+    dependsOn(3, writeHelper(bigDF, in3, isVectorField=false, Map("batchSize" -> "20")))
 
     dependsOn(1, retryWithBackoff(assertSize(in1, 4)))
     dependsOn(2, retryWithBackoff(assertSize(in2, 10)))
-    dependsOn(3, retryWithBackoff(assertSize(in3, 10000)))
+    dependsOn(3, retryWithBackoff(assertSize(in3, 100)))
 
   }
 
