@@ -670,8 +670,14 @@ jobs:
         PACKAGE: "services.search.split2"
         FFMPEG: "true"
         FLAKY: "true"
-      speech:
+      speech1:
         PACKAGE: "services.speech"
+        TEST_CLASSES: "com.microsoft.azure.synapse.ml.services.speech.SpeechToTextSDKSuite"
+        FFMPEG: "true"
+        FLAKY: "true"
+      speech2:
+        PACKAGE: "services.speech"
+        TEST_CLASSES: "com.microsoft.azure.synapse.ml.services.speech.ConversationTranscriptionSuite com.microsoft.azure.synapse.ml.services.speech.SpeechToTextSuite com.microsoft.azure.synapse.ml.services.speech.TextToSpeechSuite com.microsoft.azure.synapse.ml.services.speech.SpeakerEmotionInferenceSuite"
         FFMPEG: "true"
         FLAKY: "true"
       text:
@@ -767,8 +773,9 @@ jobs:
           export SBT_OPTS="-XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss2M  -Duser.timezone=GMT"
           # Only run coverage on PRs, master, or tag builds
           if [ "$(runCoverage)" = "True" ]; then COV_CMD="coverage"; else COV_CMD=""; fi
-          (timeout 30m sbt $COV_CMD "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**") ||
-          (${FLAKY:-false} && timeout 30m sbt $COV_CMD "testOnly com.microsoft.azure.synapse.ml.$(PACKAGE).**")
+          TEST_SPEC="${TEST_CLASSES:-com.microsoft.azure.synapse.ml.$(PACKAGE).**}"
+          (timeout 30m sbt $COV_CMD "testOnly $TEST_SPEC") ||
+          (${FLAKY:-false} && timeout 30m sbt $COV_CMD "testOnly $TEST_SPEC")
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
