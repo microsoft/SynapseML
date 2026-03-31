@@ -17,7 +17,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
   lazy val completion: OpenAIChatCompletion = new OpenAIChatCompletion()
     .setDeploymentName(deploymentName)
     .setCustomServiceName(openAIServiceName)
-    .setMaxTokens(5000)
+    .setMaxCompletionTokens(5000)
     .setOutputCol("out")
     .setMessagesCol("messages")
     .setTemperature(0)
@@ -140,6 +140,24 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
   test("Basic Usage") {
     testCompletion(completion, goodDf)
     testCompletion(completion, slowDf)
+  }
+
+  test("Reasoning model with maxCompletionTokens") {
+    val reasoningCompletion = new OpenAIChatCompletion()
+      .setDeploymentName(deploymentName5)
+      .setCustomServiceName(openAIServiceName)
+      .setMaxCompletionTokens(500)
+      .setOutputCol("out")
+      .setMessagesCol("messages")
+      .setSubscriptionKey(openAIAPIKey)
+
+    val df = Seq(
+      Seq(
+        OpenAIMessage("user", "What is 2+2?")
+      )
+    ).toDF("messages")
+
+    testCompletion(reasoningCompletion, df, requiredLength = 1)
   }
 
   test("Robustness to bad inputs") {
@@ -351,6 +369,51 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     assert(!params.contains("reasoning_effort"))
   }
 
+  test("maxCompletionTokens sends max_completion_tokens on wire") {
+    val completion = new OpenAIChatCompletion()
+      .setDeploymentName(deploymentName4p1)
+      .setMaxCompletionTokens(500)
+
+    val messages: Seq[Row] = Seq(
+      OpenAIMessage("user", "Test message")
+    ).toDF("role", "content", "name").collect()
+
+    val params = completion.getOptionalParams(messages.head)
+    assert(params.contains("max_completion_tokens"))
+    assert(!params.contains("max_tokens"))
+    assert(params("max_completion_tokens") == 500)
+  }
+
+  test("deprecated maxTokens remapped to max_completion_tokens on wire") {
+    val completion = new OpenAIChatCompletion()
+      .setDeploymentName(deploymentName4p1)
+      .setMaxTokens(200)
+
+    val messages: Seq[Row] = Seq(
+      OpenAIMessage("user", "Test message")
+    ).toDF("role", "content", "name").collect()
+
+    val params = completion.getOptionalParams(messages.head)
+    assert(params.contains("max_completion_tokens"))
+    assert(!params.contains("max_tokens"))
+    assert(params("max_completion_tokens") == 200)
+  }
+
+  test("setting both maxTokens and maxCompletionTokens throws") {
+    val completion = new OpenAIChatCompletion()
+      .setDeploymentName(deploymentName4p1)
+      .setMaxTokens(100)
+      .setMaxCompletionTokens(200)
+
+    val messages: Seq[Row] = Seq(
+      OpenAIMessage("user", "Test message")
+    ).toDF("role", "content", "name").collect()
+
+    assertThrows[IllegalArgumentException] {
+      completion.getOptionalParams(messages.head)
+    }
+  }
+
   test("setResponseFormat should throw exception if invalid format"){
     val completion = new OpenAIChatCompletion()
       .setDeploymentName(deploymentName4p1)
@@ -430,7 +493,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     val completion = new OpenAIChatCompletion()
       .setDeploymentName(deploymentName4p1)
       .setCustomServiceName(openAIServiceName)
-      .setMaxTokens(500)
+      .setMaxCompletionTokens(500)
       .setOutputCol("out")
       .setMessagesCol("messages")
       .setTemperature(0)
@@ -444,7 +507,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     val completion = new OpenAIChatCompletion()
       .setDeploymentName(deploymentName4p1)
       .setCustomServiceName(openAIServiceName)
-      .setMaxTokens(5000)
+      .setMaxCompletionTokens(5000)
       .setOutputCol("out")
       .setMessagesCol("messages")
       .setTemperature(0)

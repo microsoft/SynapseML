@@ -39,6 +39,11 @@ class OpenAICompletion(override val uid: String) extends OpenAIServicesBase(uid)
     s"${getUrl}openai/deployments/${getValue(row, deploymentName)}/completions"
   }
 
+  override private[ml] def getOptionalParams(r: Row): Map[String, Any] = {
+    val base = super.getOptionalParams(r)
+    resolveMaxTokens(base, "max_tokens")
+  }
+
   override protected[openai] def prepareEntity: Row => Option[AbstractHttpEntity] = {
     r =>
       lazy val optionalParams: Map[String, Any] = getOptionalParams(r)

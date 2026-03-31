@@ -74,6 +74,7 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
 
   override private[openai] val sharedTextParams: Seq[ServiceParam[_]] = Seq(
     maxTokens,
+    maxCompletionTokens,
     temperature,
     topP,
     user,
@@ -113,6 +114,11 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
 
   override protected def prepareUrlRoot: Row => String = { row =>
     s"${getUrl}openai/deployments/${getValue(row, deploymentName)}/chat/completions"
+  }
+
+  override private[ml] def getOptionalParams(r: Row): Map[String, Any] = {
+    val base = super.getOptionalParams(r)
+    resolveMaxTokens(base, "max_completion_tokens")
   }
 
   override protected[openai] def prepareEntity: Row => Option[AbstractHttpEntity] = {

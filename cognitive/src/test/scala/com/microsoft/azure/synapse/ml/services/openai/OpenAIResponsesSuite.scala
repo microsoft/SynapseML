@@ -24,7 +24,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
     .setDeploymentName(deploymentName)
     .setCustomServiceName(openAIServiceName)
     .setApiVersion("2025-04-01-preview")
-    .setMaxTokens(500)
+    .setMaxCompletionTokens(500)
     .setOutputCol("out")
     .setMessagesCol("messages")
     .setTemperature(0)
@@ -222,7 +222,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
       .setDeploymentName(deploymentName)
       .setCustomServiceName(openAIServiceName)
       .setApiVersion("2025-04-01-preview")
-      .setMaxTokens(100)
+      .setMaxCompletionTokens(100)
       .setOutputCol("out")
       .setMessagesCol("messages")
       .setTemperature(0)
@@ -431,6 +431,53 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
 
     assert(transformer.isContentFiltered(outputRow))
     assert(transformer.getFilterReason(outputRow) == "content_filter")
+  }
+
+  test("maxCompletionTokens sends max_output_tokens on wire for responses") {
+    val transformer = new OpenAIResponses()
+      .setDeploymentName(deploymentName)
+      .setMaxCompletionTokens(500)
+
+    val messages: Seq[Row] = Seq(
+      OpenAIMessage("user", "Test message")
+    ).toDF("role", "content", "name").collect()
+
+    val params = transformer.getOptionalParams(messages.head)
+    assert(params.contains("max_output_tokens"))
+    assert(!params.contains("max_tokens"))
+    assert(!params.contains("max_completion_tokens"))
+    assert(params("max_output_tokens") == 500)
+  }
+
+  test("deprecated maxTokens remapped to max_output_tokens on wire for responses") {
+    val transformer = new OpenAIResponses()
+      .setDeploymentName(deploymentName)
+      .setMaxTokens(200)
+
+    val messages: Seq[Row] = Seq(
+      OpenAIMessage("user", "Test message")
+    ).toDF("role", "content", "name").collect()
+
+    val params = transformer.getOptionalParams(messages.head)
+    assert(params.contains("max_output_tokens"))
+    assert(!params.contains("max_tokens"))
+    assert(!params.contains("max_completion_tokens"))
+    assert(params("max_output_tokens") == 200)
+  }
+
+  test("setting both maxTokens and maxCompletionTokens throws for responses") {
+    val transformer = new OpenAIResponses()
+      .setDeploymentName(deploymentName)
+      .setMaxTokens(100)
+      .setMaxCompletionTokens(200)
+
+    val messages: Seq[Row] = Seq(
+      OpenAIMessage("user", "Test message")
+    ).toDF("role", "content", "name").collect()
+
+    assertThrows[IllegalArgumentException] {
+      transformer.getOptionalParams(messages.head)
+    }
   }
 
   private def testResponses(model: OpenAIResponses,
