@@ -15,7 +15,7 @@
 # limitations under the License.
 #
 
-FROM mcr.microsoft.com/openjdk/jdk:11-mariner
+FROM mcr.microsoft.com/openjdk/jdk:11-mariner@sha256:844a36373ab341f993c7258addee6d7d66b6ef93c264ea4b367d96fc5663b7d1
 
 ARG spark_jars=jars
 ARG img_path=kubernetes/dockerfiles
