@@ -58,16 +58,16 @@ parameters:
     displayName: Run R Tests
     type: boolean
     default: true
-  - name: testE2E
-    displayName: Run E2E Tests
+  - name: testDatabricksE2E
+    displayName: Run Databricks E2E Tests
+    type: boolean
+    default: true
+  - name: testFabricE2E
+    displayName: Run Fabric E2E Tests
     type: boolean
     default: true
   - name: testWebsiteSamples
     displayName: Run Website Samples Tests
-    type: boolean
-    default: true
-  - name: websiteAutoDeploy
-    displayName: Website Auto Deployment
     type: boolean
     default: true
   - name: publishArtifacts
@@ -82,18 +82,6 @@ parameters:
     displayName: Publish Release
     type: boolean
     default: false
-  - name: runFabricE2ETests
-    displayName: Run Fabric E2E Tests
-    type: boolean
-    default: true
-  - name: SYNAPSE_ENVIRONMENT
-    displayName: Fabric E2E Test Environment
-    type: string
-    default: weekly
-    values:
-      - dev
-      - daily
-      - weekly
 
 variables:
   runTests: True
@@ -177,8 +165,9 @@ jobs:
         condition: and(succeeded(), eq(variables.isMaster, true))
         displayName: Publish Badges
 
-- job: E2E
-  condition: eq('${{ parameters.testE2E }}', true)
+- job: DatabricksE2E
+  displayName: 'Databricks E2E'
+  condition: eq('${{ parameters.testDatabricksE2E }}', true)
   timeoutInMinutes: 120
   cancelTimeoutInMinutes: 0
   pool:
@@ -193,12 +182,6 @@ jobs:
 #      This test will be re-enabled once the issue is fixed.
 #      databricks-rapids:
 #        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksRapidsTests"
-#      TODO: Re-enable the Synapse E2E tests once the environment in live.
-#      synapse:
-#        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseTests"
-#      ${{ if eq(parameters.runFabricE2ETests, true) }}:
-#        synapse-internal:
-#          TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.SynapseExtension.SynapseExtensionsTests"
   steps:
     #- template: templates/ivy_cache.yml
     - template: templates/update_cli.yml
@@ -222,10 +205,46 @@ jobs:
         testResultsFiles: '**/test-reports/TEST-*.xml'
         failTaskOnFailedTests: true
       condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
+
+- job: FabricE2E
+  displayName: 'Fabric E2E'
+  condition: eq('${{ parameters.testFabricE2E }}', true)
+  timeoutInMinutes: 120
+  cancelTimeoutInMinutes: 0
+  pool:
+    vmImage: $(UBUNTU_VERSION)
+  steps:
+    #- template: templates/ivy_cache.yml
+    - template: templates/update_cli.yml
+    - template: templates/conda.yml
+    - template: templates/kv.yml
+    - template: templates/fabric_kv.yml
+    - template: templates/publish.yml
+    - task: AzureCLI@2
+      displayName: 'E2E'
+      inputs:
+        azureSubscription:  'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          set -e
+          source activate synapseml
+          sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.FabricSmokeTests com.microsoft.azure.synapse.ml.nbtest.FabricNotebookTests"
+      env:
+        INTEGRATION_ENV: $(sempy-integration-region)
+        INTEGRATION_ACCOUNT: $(sempy-integration-account)
+        INTEGRATION_CERTIFICATE: $(sempy-integration-certificate)
+        INTEGRATION_WORKSPACE_PREFIX: $(sempy-integration-workspace-prefix)
+      condition: and(succeeded(), eq(variables.runTests, 'True'))
+    - task: PublishTestResults@2
+      displayName: 'Publish Test Results'
+      inputs:
+        testResultsFiles: '**/test-reports/TEST-*.xml'
+        failTaskOnFailedTests: true
+      condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
 #
-- job: PublishDocker
-  condition: eq('${{ parameters.publishDockerImages }}', true)
-  displayName: PublishDocker
+- job: BuildDocker
+  displayName: BuildDocker
   pool:
     vmImage: ubuntu-22.04
   steps:
@@ -239,17 +258,30 @@ jobs:
           VERSION=$(sbt "core/version" | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
           echo '##vso[task.setvariable variable=version]'$VERSION
           echo '##vso[task.setvariable variable=gittag]'$(git tag -l --points-at HEAD)
+    # Build all images (runs on every build to validate Dockerfiles)
     - task: Docker@2
       displayName: Demo Image Build
       inputs:
-        containerRegistry: 'SynapseML MCR MSI'
-        repository: 'public/mmlspark/build-demo'
         command: 'build'
         buildContext: "."
         Dockerfile: 'tools/docker/demo/Dockerfile'
-        tags: $(version)
-        arguments: --build-arg SYNAPSEML_VERSION=$(version)
+        arguments: --build-arg SYNAPSEML_VERSION=$(version) -t mmlspark-demo:$(version)
     - task: Docker@2
+      displayName: Minimal Image Build
+      inputs:
+        command: 'build'
+        buildContext: "."
+        Dockerfile: 'tools/docker/minimal/Dockerfile'
+        arguments: --build-arg SYNAPSEML_VERSION=$(version) -t mmlspark-minimal:$(version)
+    # Push demo and minimal on every master build
+    - bash: |
+        set -e
+        docker tag mmlspark-demo:$(version) mmlsparkmcr.azurecr.io/public/mmlspark/build-demo:$(version)
+        docker tag mmlspark-minimal:$(version) mmlsparkmcr.azurecr.io/public/mmlspark/build-minimal:$(version)
+      condition: and(eq(variables.isMaster, true), eq('${{ parameters.publishDockerImages }}', true))
+      displayName: Tag Dev Images for ACR
+    - task: Docker@2
+      condition: and(eq(variables.isMaster, true), eq('${{ parameters.publishDockerImages }}', true))
       displayName: Demo Image Push
       inputs:
         containerRegistry: 'SynapseML MCR MSI'
@@ -257,37 +289,22 @@ jobs:
         command: 'push'
         tags: $(version)
     - task: Docker@2
-      displayName: Minimal Image Build
-      inputs:
-        containerRegistry: 'SynapseML MCR MSI'
-        repository: 'public/mmlspark/build-minimal'
-        command: 'build'
-        buildContext: "."
-        Dockerfile: 'tools/docker/minimal/Dockerfile'
-        tags: $(version)
-        arguments: --build-arg SYNAPSEML_VERSION=$(version)
-    - task: Docker@2
+      condition: and(eq(variables.isMaster, true), eq('${{ parameters.publishDockerImages }}', true))
       displayName: Minimal Image Push
       inputs:
         containerRegistry: 'SynapseML MCR MSI'
         repository: 'public/mmlspark/build-minimal'
         command: 'push'
         tags: $(version)
+    # Push release only on tagged releases
+    - bash: |
+        set -e
+        docker tag mmlspark-demo:$(version) mmlsparkmcr.azurecr.io/public/mmlspark/release:$(version)
+        docker tag mmlspark-demo:$(version) mmlsparkmcr.azurecr.io/public/mmlspark/release:latest
+      condition: and(eq('${{ parameters.publishDockerImages }}', true), eq(variables.isMaster, true), startsWith(variables['gittag'], 'v'))
+      displayName: Tag Release Image for ACR
     - task: Docker@2
-      condition: and(eq(variables.isMaster, true), startsWith(variables['gittag'], 'v'))
-      displayName: Release Image Build
-      inputs:
-        containerRegistry: 'SynapseML MCR MSI'
-        repository: 'public/mmlspark/release'
-        command: 'build'
-        buildContext: "."
-        Dockerfile: 'tools/docker/demo/Dockerfile'
-        tags: |
-          $(version)
-          latest
-        arguments: --build-arg SYNAPSEML_VERSION=$(version)
-    - task: Docker@2
-      condition: and(eq(variables.isMaster, true), startsWith(variables['gittag'], 'v'))
+      condition: and(eq('${{ parameters.publishDockerImages }}', true), eq(variables.isMaster, true), startsWith(variables['gittag'], 'v'))
       displayName: Release Image Push
       inputs:
         containerRegistry: 'SynapseML MCR MSI'
@@ -608,51 +625,6 @@ jobs:
     - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
       - template: templates/codecov.yml
 
-- job: WebsiteAutoDeployment
-  condition: eq('${{ parameters.websiteAutoDeploy }}', true)
-  cancelTimeoutInMinutes: 0
-  pool:
-    vmImage: $(UBUNTU_VERSION)
-  steps:
-    - checkout: self
-      persistCredentials: true
-    - template: templates/update_cli.yml
-    - template: templates/conda.yml
-    - template: templates/kv.yml
-    - task: NodeTool@0
-      inputs:
-        versionSpec: '16.x'
-      displayName: 'Install Node.js'
-    - task: AzureCLI@2
-      displayName: 'Convert notebooks to markdowns'
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: |
-          source activate synapseml
-          sbt convertNotebooks
-    - bash: |
-        set -e
-        yarn install
-        cd website
-        yarn
-        yarn build
-      displayName: 'yarn install and build'
-    - bash: |
-        set -e
-        git config --global user.name "${GH_NAME}"
-        git config --global user.email "${GH_EMAIL}"
-        git checkout -b main
-        echo "machine github.com login ${GH_NAME} password ${GH_TOKEN}" > ~/.netrc
-        cd website
-        GIT_USER="${GH_NAME}" yarn deploy
-      condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/master'))
-      env:
-        GH_NAME: $(gh-name)
-        GH_EMAIL: $(gh-email)
-        GH_TOKEN: $(gh-token)
-      displayName: 'yarn deploy'
 - job: UnitTests
   cancelTimeoutInMinutes: 1
   timeoutInMinutes: 80
@@ -671,9 +643,6 @@ jobs:
         PACKAGE: "services.geospatial"
       anomaly:
         PACKAGE: "services.anomaly"
-        FLAKY: "true"
-      bing:
-        PACKAGE: "services.bing"
         FLAKY: "true"
       face:
         PACKAGE: "services.face"

@@ -7,6 +7,7 @@ import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.http.util.EntityUtils
 import org.apache.spark.ml.util.MLReadable
+import org.apache.spark.sql.{functions => F}
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types.{ArrayType, MapType, StringType, StructField, StructType}
@@ -273,6 +274,163 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
     val secondPartType = parts(1).asJsObject.fields("type").convertTo[String]
     assert(firstPartType == "input_text")
     assert(secondPartType == "input_file")
+  }
+
+  test("Responses extract output text from the last output item when reasoning appears first") {
+    val transformer = new OpenAIResponses()
+    val responseJson =
+      """{
+        |  "id":"resp_test",
+        |  "object":"response",
+        |  "created_at":"1",
+        |  "model":"gpt-5",
+        |  "output":[
+        |    {"type":"reasoning","status":"completed","content":null},
+        |    {"type":"message","status":"completed","content":[{"type":"output_text","text":"{\"answer\":\"fruit\"}"}]}
+        |  ],
+        |  "system_fingerprint":null,
+        |  "usage":null
+        |}""".stripMargin
+
+    val responseDf = spark.read.schema(ResponsesModelResponse.schema).json(Seq(responseJson).toDS)
+    val wrappedDf = responseDf.select(F.struct(responseDf.columns.map(F.col): _*).as("out"))
+
+    val text = wrappedDf
+      .select(transformer.getOutputMessageText("out").as("text"))
+      .collect()
+      .head
+      .getAs[String]("text")
+
+    assert(text == """{"answer":"fruit"}""")
+    assert(!transformer.isContentFiltered(responseDf.collect().head))
+  }
+
+  test("Responses extract output text from gpt-4.1 message output") {
+    val transformer = new OpenAIResponses()
+    val responseJson =
+      """{
+        |  "id":"resp_test",
+        |  "object":"response",
+        |  "created_at":"1",
+        |  "model":"gpt-4.1",
+        |  "output":[
+        |    {"type":"message","status":"completed","content":[{"type":"output_text","text":"{\"answer\":\"fruit\"}"}]}
+        |  ],
+        |  "system_fingerprint":null,
+        |  "usage":null
+        |}""".stripMargin
+
+    val responseDf = spark.read.schema(ResponsesModelResponse.schema).json(Seq(responseJson).toDS)
+    val wrappedDf = responseDf.select(F.struct(responseDf.columns.map(F.col): _*).as("out"))
+
+    val text = wrappedDf
+      .select(transformer.getOutputMessageText("out").as("text"))
+      .collect()
+      .head
+      .getAs[String]("text")
+
+    assert(text == """{"answer":"fruit"}""")
+    assert(!transformer.isContentFiltered(responseDf.collect().head))
+  }
+
+  test("Responses preserve empty text output in both paths") {
+    val transformer = new OpenAIResponses()
+    val responseJson =
+      """{
+        |  "id":"resp_test",
+        |  "object":"response",
+        |  "created_at":"1",
+        |  "model":"gpt-5",
+        |  "output":[
+        |    {"type":"message","status":"completed","content":[{"type":"output_text","text":""}]}
+        |  ],
+        |  "system_fingerprint":null,
+        |  "usage":null
+        |}""".stripMargin
+
+    val responseDf = spark.read.schema(ResponsesModelResponse.schema).json(Seq(responseJson).toDS)
+    val wrappedDf = responseDf.select(F.struct(responseDf.columns.map(F.col): _*).as("out"))
+
+    val textRow = wrappedDf
+      .select(transformer.getOutputMessageText("out").as("text"))
+      .collect()
+      .head
+
+    assert(textRow.getAs[String]("text") == "")
+    assert(!transformer.isContentFiltered(responseDf.collect().head))
+  }
+
+  test("Responses prefer text from the last output item when multiple messages exist") {
+    val transformer = new OpenAIResponses()
+    val responseJson =
+      """{
+        |  "id":"resp_test",
+        |  "object":"response",
+        |  "created_at":"1",
+        |  "model":"gpt-5",
+        |  "output":[
+        |    {"type":"message","status":"completed","content":[{"type":"output_text","text":"{\"answer\":\"stale\"}"}]},
+        |    {"type":"message","status":"completed","content":[{"type":"output_text","text":"{\"answer\":\"final\"}"}]}
+        |  ],
+        |  "system_fingerprint":null,
+        |  "usage":null
+        |}""".stripMargin
+
+    val responseDf = spark.read.schema(ResponsesModelResponse.schema).json(Seq(responseJson).toDS)
+    val wrappedDf = responseDf.select(F.struct(responseDf.columns.map(F.col): _*).as("out"))
+
+    val text = wrappedDf
+      .select(transformer.getOutputMessageText("out").as("text"))
+      .collect()
+      .head
+      .getAs[String]("text")
+
+    assert(text == """{"answer":"final"}""")
+  }
+
+  test("Responses content filtering keeps status reason when no text exists") {
+    val transformer = new OpenAIResponses()
+    val responseJson =
+      """{
+        |  "id":"resp_test",
+        |  "object":"response",
+        |  "created_at":"1",
+        |  "model":"gpt-5",
+        |  "output":[
+        |    {"type":"message","status":"content_filter","content":null}
+        |  ],
+        |  "system_fingerprint":null,
+        |  "usage":null
+        |}""".stripMargin
+
+    val responseDf = spark.read.schema(ResponsesModelResponse.schema).json(Seq(responseJson).toDS)
+    val outputRow = responseDf.collect().head
+
+    assert(transformer.isContentFiltered(outputRow))
+    assert(transformer.getFilterReason(outputRow) == "content_filter")
+  }
+
+  test("Responses content filtering uses the last output item status reason") {
+    val transformer = new OpenAIResponses()
+    val responseJson =
+      """{
+        |  "id":"resp_test",
+        |  "object":"response",
+        |  "created_at":"1",
+        |  "model":"gpt-5",
+        |  "output":[
+        |    {"type":"reasoning","status":"completed","content":null},
+        |    {"type":"message","status":"content_filter","content":null}
+        |  ],
+        |  "system_fingerprint":null,
+        |  "usage":null
+        |}""".stripMargin
+
+    val responseDf = spark.read.schema(ResponsesModelResponse.schema).json(Seq(responseJson).toDS)
+    val outputRow = responseDf.collect().head
+
+    assert(transformer.isContentFiltered(outputRow))
+    assert(transformer.getFilterReason(outputRow) == "content_filter")
   }
 
   private def testResponses(model: OpenAIResponses,

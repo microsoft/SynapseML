@@ -6,12 +6,15 @@ package com.microsoft.azure.synapse.ml.services.openai
 import com.microsoft.azure.synapse.ml.Secrets.{AIFoundryApiKey, getAccessToken}
 import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import org.apache.http.entity.AbstractHttpEntity
+import org.apache.http.util.EntityUtils
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.{col, lit}
 import org.apache.spark.sql.types.{ArrayType, StringType, StructType}
 import org.scalactic.Equality
 import com.microsoft.azure.synapse.ml.services.aifoundry.AIFoundryAPIKey
+import spray.json._
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
@@ -144,7 +147,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     assert(nonNullCount == 3)
   }
 
-    test("Basic Usage Responses API") {
+  test("Basic Usage Responses API") {
     val nonNullCount = prompt
       .setPromptTemplate("give me a comma separated list of 5 {category}, starting with {text} ")
       .setApiType("responses")
@@ -574,6 +577,36 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     val p = new OpenAIPrompt()
       .setPreviousResponseIdCol("prev_id_column")
     assert(p.getPreviousResponseIdCol == "prev_id_column")
+  }
+
+  test("responses payload maps model to model field and nests verbosity/reasoning for gpt-5 usage") {
+    val p = new OpenAIPrompt()
+      .setApiType("responses")
+      .setMessagesCol("messages")
+      .setModel("gpt-5-mini")
+      .setVerbosity("low")
+      .setReasoningEffort("low")
+      .setStore(false)
+
+    val requestRow = Seq(
+      Seq(OpenAIMessage("user", "Describe what you see in this image."))
+    ).toDF("messages").collect().head
+
+    val prepareEntity = classOf[OpenAIPrompt].getDeclaredMethod("prepareEntity")
+    prepareEntity.setAccessible(true)
+    val buildEntity = prepareEntity.invoke(p).asInstanceOf[Row => Option[AbstractHttpEntity]]
+
+    val payloadJson = EntityUtils.toString(buildEntity(requestRow).get).parseJson.asJsObject
+
+    assert(payloadJson.fields.contains("input"))
+    assert(!payloadJson.fields.contains("messages"))
+    assert(payloadJson.fields.get("model").contains(JsString("gpt-5-mini")))
+
+    val text = payloadJson.fields("text").asJsObject
+    assert(text.fields.get("verbosity").contains(JsString("low")))
+
+    val reasoning = payloadJson.fields("reasoning").asJsObject
+    assert(reasoning.fields.get("effort").contains(JsString("low")))
   }
 
   test("store=true with Responses API returns response in outputCol and id in auto-generated responseIdCol") {

@@ -1,8 +1,7 @@
 import warnings
-from synapse.ml.services.bing import *
 
-# Raise a deprecation warning for the entire submodule
 warnings.warn(
-    "Importing from 'synapse.ml.cognitive.bing' is deprecated. Use 'synapse.ml.services.bing' instead.",
+    "The 'synapse.ml.cognitive.bing' module has been removed. "
+    "Bing Search API v7 has been retired and BingImageSearch is no longer available.",
     DeprecationWarning,
 )

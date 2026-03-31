@@ -1,0 +1,36 @@
+steps:
+  # Fetch Fabric test credentials from Key Vault.
+  # Keyvault names are resolved indirectly from mmlspark-keys
+  # (loaded by kv.yml): fabric-test-kv-name, fabric-cert-kv-name
+  - task: AzureKeyVault@2
+    displayName: 'Get Fabric Test Credentials from Key Vault'
+    inputs:
+      azureSubscription: 'SynapseMLFabricTestCreds'
+      KeyVaultName: '$(fabric-test-kv-name)'
+      SecretsFilter: >
+        sempy-integration-region,
+        sempy-integration-account,
+        sempy-integration-workspace-prefix
+      RunAsPreJob: false
+
+  # Compute certificate secret name from account
+  # E.g. user@tenant.onmicrosoft.com => user-tenant
+  - bash: |
+      account="$(sempy-integration-account)"
+      username=$(echo "$account" | cut -d'@' -f1)
+      tenant=$(echo "$account" | cut -d'@' -f2 | cut -d'.' -f1)
+      cert_name="${username}-${tenant}"
+      echo "Computed certificate secret name: ${cert_name}"
+      echo "##vso[task.setvariable variable=cert-adminuser-bami]${cert_name}"
+    displayName: 'Compute certificate secret name from account'
+
+  # Download the account certificate
+  - task: AzureCLI@2
+    displayName: 'Get certificate from Key Vault'
+    inputs:
+      azureSubscription: 'SynapseMLFabricTestCreds'
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      inlineScript: |
+        cert_value=$(az keyvault secret show --vault-name "$(fabric-cert-kv-name)" --name "$(cert-adminuser-bami)" --query "value" -o tsv)
+        echo "##vso[task.setvariable variable=sempy-integration-certificate;issecret=true]$cert_value"
