@@ -19,11 +19,37 @@ jobs:
 
       - name: Fetch sitemap URLs
         run: |
-          curl -s https://microsoft.github.io/SynapseML/sitemap.xml \
-            | grep -oP '<loc>[^<]+</loc>' \
-            | sed 's/<\/?loc>//g' \
+          set -euo pipefail
+
+          SITEMAP_URL="https://microsoft.github.io/SynapseML/sitemap.xml"
+
+          # Download sitemap to a file with retries and error reporting
+          HTTP_CODE=$(curl --silent --show-error --compressed \
+            --retry 3 --retry-delay 5 \
+            -o sitemap.xml -w '%{http_code}' \
+            "$SITEMAP_URL")
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "::error::Failed to fetch sitemap from $SITEMAP_URL (HTTP $HTTP_CODE)"
+            exit 1
+          fi
+
+          SITEMAP_SIZE=$(wc -c < sitemap.xml)
+          echo "Downloaded sitemap: $SITEMAP_SIZE bytes"
+
+          # Extract URLs using POSIX extended regex (portable, no PCRE dependency)
+          grep -oE '<loc>[^<]+</loc>' sitemap.xml \
+            | sed 's/<\/*loc>//g' \
             > urls.txt
-          echo "Found $(wc -l < urls.txt) URLs in sitemap"
+
+          URL_COUNT=$(wc -l < urls.txt)
+          echo "Found $URL_COUNT URLs in sitemap"
+
+          if [ "$URL_COUNT" -eq 0 ]; then
+            echo "::error::Sitemap at $SITEMAP_URL contained no URLs (file was $SITEMAP_SIZE bytes)"
+            head -c 500 sitemap.xml
+            exit 1
+          fi
 
       - name: Scan for dead links
         uses: lycheeverse/lychee-action@v2
@@ -34,5 +60,5 @@ jobs:
             --max-retries 5
             --retry-wait-time 5
             --timeout 30
-            --accept '100..=103,200..=299,503'
+            --accept 100..=103,200..=299,503
             urls.txt
