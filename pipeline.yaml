@@ -288,7 +288,7 @@ jobs:
       condition: and(eq(variables.isMaster, true), eq('${{ parameters.publishDockerImages }}', true))
       displayName: Demo Image Push
       inputs:
-        containerRegistry: 'SynapseML MCR MSI'
+        containerRegistry: 'SynapseML MCR'
         repository: 'public/mmlspark/build-demo'
         command: 'push'
         tags: $(version)
@@ -296,7 +296,7 @@ jobs:
       condition: and(eq(variables.isMaster, true), eq('${{ parameters.publishDockerImages }}', true))
       displayName: Minimal Image Push
       inputs:
-        containerRegistry: 'SynapseML MCR MSI'
+        containerRegistry: 'SynapseML MCR'
         repository: 'public/mmlspark/build-minimal'
         command: 'push'
         tags: $(version)
@@ -311,7 +311,7 @@ jobs:
       condition: and(eq('${{ parameters.publishDockerImages }}', true), eq(variables.isMaster, true), startsWith(variables['gittag'], 'v'))
       displayName: Release Image Push
       inputs:
-        containerRegistry: 'SynapseML MCR MSI'
+        containerRegistry: 'SynapseML MCR'
         repository: 'public/mmlspark/release'
         command: 'push'
         tags: |
