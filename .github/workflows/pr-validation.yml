@@ -2,7 +2,7 @@ name: PR Validation
 
 on:
   pull_request:
-    branches: [ "master" ]
+    branches: [ "master", "spark4.1" ]
     paths-ignore: [ "**.md", "docs/**", "website/**" ]
 
 jobs:
