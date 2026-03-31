@@ -243,9 +243,8 @@ jobs:
         failTaskOnFailedTests: true
       condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
 #
-- job: PublishDocker
-  condition: eq('${{ parameters.publishDockerImages }}', true)
-  displayName: PublishDocker
+- job: BuildDocker
+  displayName: BuildDocker
   pool:
     vmImage: ubuntu-22.04
   steps:
@@ -259,17 +258,30 @@ jobs:
           VERSION=$(sbt "core/version" | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
           echo '##vso[task.setvariable variable=version]'$VERSION
           echo '##vso[task.setvariable variable=gittag]'$(git tag -l --points-at HEAD)
+    # Build all images (runs on every build to validate Dockerfiles)
     - task: Docker@2
       displayName: Demo Image Build
       inputs:
-        containerRegistry: 'SynapseML MCR MSI'
-        repository: 'public/mmlspark/build-demo'
         command: 'build'
         buildContext: "."
         Dockerfile: 'tools/docker/demo/Dockerfile'
-        tags: $(version)
-        arguments: --build-arg SYNAPSEML_VERSION=$(version)
+        arguments: --build-arg SYNAPSEML_VERSION=$(version) -t mmlspark-demo:$(version)
     - task: Docker@2
+      displayName: Minimal Image Build
+      inputs:
+        command: 'build'
+        buildContext: "."
+        Dockerfile: 'tools/docker/minimal/Dockerfile'
+        arguments: --build-arg SYNAPSEML_VERSION=$(version) -t mmlspark-minimal:$(version)
+    # Push demo and minimal on every master build
+    - bash: |
+        set -e
+        docker tag mmlspark-demo:$(version) mmlsparkmcr.azurecr.io/public/mmlspark/build-demo:$(version)
+        docker tag mmlspark-minimal:$(version) mmlsparkmcr.azurecr.io/public/mmlspark/build-minimal:$(version)
+      condition: and(eq(variables.isMaster, true), eq('${{ parameters.publishDockerImages }}', true))
+      displayName: Tag Dev Images for ACR
+    - task: Docker@2
+      condition: and(eq(variables.isMaster, true), eq('${{ parameters.publishDockerImages }}', true))
       displayName: Demo Image Push
       inputs:
         containerRegistry: 'SynapseML MCR MSI'
@@ -277,37 +289,22 @@ jobs:
         command: 'push'
         tags: $(version)
     - task: Docker@2
-      displayName: Minimal Image Build
-      inputs:
-        containerRegistry: 'SynapseML MCR MSI'
-        repository: 'public/mmlspark/build-minimal'
-        command: 'build'
-        buildContext: "."
-        Dockerfile: 'tools/docker/minimal/Dockerfile'
-        tags: $(version)
-        arguments: --build-arg SYNAPSEML_VERSION=$(version)
-    - task: Docker@2
+      condition: and(eq(variables.isMaster, true), eq('${{ parameters.publishDockerImages }}', true))
       displayName: Minimal Image Push
       inputs:
         containerRegistry: 'SynapseML MCR MSI'
         repository: 'public/mmlspark/build-minimal'
         command: 'push'
         tags: $(version)
+    # Push release only on tagged releases
+    - bash: |
+        set -e
+        docker tag mmlspark-demo:$(version) mmlsparkmcr.azurecr.io/public/mmlspark/release:$(version)
+        docker tag mmlspark-demo:$(version) mmlsparkmcr.azurecr.io/public/mmlspark/release:latest
+      condition: and(eq('${{ parameters.publishDockerImages }}', true), eq(variables.isMaster, true), startsWith(variables['gittag'], 'v'))
+      displayName: Tag Release Image for ACR
     - task: Docker@2
-      condition: and(eq(variables.isMaster, true), startsWith(variables['gittag'], 'v'))
-      displayName: Release Image Build
-      inputs:
-        containerRegistry: 'SynapseML MCR MSI'
-        repository: 'public/mmlspark/release'
-        command: 'build'
-        buildContext: "."
-        Dockerfile: 'tools/docker/demo/Dockerfile'
-        tags: |
-          $(version)
-          latest
-        arguments: --build-arg SYNAPSEML_VERSION=$(version)
-    - task: Docker@2
-      condition: and(eq(variables.isMaster, true), startsWith(variables['gittag'], 'v'))
+      condition: and(eq('${{ parameters.publishDockerImages }}', true), eq(variables.isMaster, true), startsWith(variables['gittag'], 'v'))
       displayName: Release Image Push
       inputs:
         containerRegistry: 'SynapseML MCR MSI'

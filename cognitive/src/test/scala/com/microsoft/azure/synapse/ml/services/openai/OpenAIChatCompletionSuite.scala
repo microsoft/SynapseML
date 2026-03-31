@@ -218,13 +218,13 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
       OpenAIMessage("user", "Hello reasoning")
     ).toDF("role", "content", "name").collect()
 
-    completion.setVerbosity("high").setReasoningEffort("minimal")
+    completion.setVerbosity("high").setReasoningEffort("low")
     val params = completion.getOptionalParams(messages.head)
 
     assert(params.contains("verbosity"))
     assert(params("verbosity") == "high")
     assert(params.contains("reasoning_effort"))
-    assert(params("reasoning_effort") == "minimal")
+    assert(params("reasoning_effort") == "low")
     assert(!params.contains("temperature"))
     assert(!params.contains("top_p"))
     assert(!params.contains("seed"))
@@ -248,6 +248,9 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     completion.setReasoningEffort("minimal")
     assert(completion.getReasoningEffort == "minimal")
 
+    completion.setReasoningEffort("none")
+    assert(completion.getReasoningEffort == "none")
+
     completion.setReasoningEffort("low")
     assert(completion.getReasoningEffort == "low")
 
@@ -256,6 +259,9 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
 
     completion.setReasoningEffort("high")
     assert(completion.getReasoningEffort == "high")
+
+    completion.setReasoningEffort("xhigh")
+    assert(completion.getReasoningEffort == "xhigh")
   }
 
   test("verbosity parameter correctly serialized in payload") {
@@ -275,7 +281,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
   test("reasoning_effort parameter correctly serialized in payload") {
     val completion = new OpenAIChatCompletion()
       .setDeploymentName(deploymentName4p1)
-      .setReasoningEffort("medium")
+      .setReasoningEffort("low")
 
     val messages: Seq[Row] = Seq(
       OpenAIMessage("user", "Test message")
@@ -283,14 +289,14 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
 
     val params = completion.getOptionalParams(messages.head)
     assert(params.contains("reasoning_effort"))
-    assert(params("reasoning_effort") == "medium")
+    assert(params("reasoning_effort") == "low")
   }
 
   test("both verbosity and reasoning_effort serialized together") {
     val completion = new OpenAIChatCompletion()
       .setDeploymentName(deploymentName4p1)
       .setVerbosity("low")
-      .setReasoningEffort("high")
+      .setReasoningEffort("low")
 
     val messages: Seq[Row] = Seq(
       OpenAIMessage("user", "Test message")
@@ -300,7 +306,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     assert(params.contains("verbosity"))
     assert(params("verbosity") == "low")
     assert(params.contains("reasoning_effort"))
-    assert(params("reasoning_effort") == "high")
+    assert(params("reasoning_effort") == "low")
   }
 
   test("verbosity accepts custom string values") {

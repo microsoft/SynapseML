@@ -6,7 +6,9 @@ package com.microsoft.azure.synapse.ml.nn
 import breeze.linalg.{DenseVector, norm, _}
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 
-import java.io._
+import com.microsoft.azure.synapse.ml.core.utils.SafeObjectInputStream
+
+import java.io.{FileInputStream, FileOutputStream, ObjectOutputStream, Serializable}
 import scala.collection.JavaConverters._
 
 private case class Query(point: DenseVector[Double],
@@ -170,8 +172,14 @@ object ConditionalBallTree {
   }
 
   def load[L, V](filename: String): ConditionalBallTree[L, V] = {
+    load(filename, SafeObjectInputStream.DefaultNNAllowedPrefixes)
+  }
+
+  def load[L, V](filename: String,
+                 allowedPrefixes: Set[String]
+                ): ConditionalBallTree[L, V] = {
     using(new FileInputStream(filename)) { fileIn =>
-      using(new ObjectInputStream(fileIn)) { in =>
+      using(new SafeObjectInputStream(fileIn, allowedPrefixes)) { in =>
         in.readObject().asInstanceOf[ConditionalBallTree[L, V]]
       }
     }.get.get
