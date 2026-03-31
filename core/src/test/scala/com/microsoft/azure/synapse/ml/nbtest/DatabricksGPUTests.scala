@@ -7,9 +7,12 @@ import com.microsoft.azure.synapse.ml.nbtest.DatabricksUtilities._
 
 class DatabricksGPUTests extends DatabricksTestHelper {
 
-  val clusterId: String = createClusterInPool(GPUClusterName, AdbGpuRuntime, 2, GpuPoolId)
+  // GPU fine-tuning notebooks can take up to 25 min; use 30 min timeout
+  private val gpuTimeoutMs = 30 * 60 * 1000
 
-  databricksTestHelper(clusterId, GPULibraries, GPUNotebooks, 1, List())
+  val clusterId: String = createClusterInPool(GPUClusterName, AdbGpuRuntime, 3, GpuPoolId)
+
+  databricksTestHelper(clusterId, GPULibraries, GPUNotebooks, 3, List(), gpuTimeoutMs)
 
   protected override def afterAll(): Unit = {
     afterAllHelper(clusterId, GPUClusterName)

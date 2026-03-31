@@ -174,8 +174,12 @@ jobs:
     vmImage: $(UBUNTU_VERSION)
   strategy:
     matrix:
-      databricks-cpu:
-        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksCPUTests"
+      databricks-cpu-1:
+        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksCPUTests1"
+      databricks-cpu-2:
+        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksCPUTests2"
+      databricks-cpu-3:
+        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksCPUTests3"
       databricks-gpu:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksGPUTests"
 #      databricks-rapids tests have been disabled because these tests are failing.
