@@ -10,6 +10,7 @@ from pyspark.ml.util import JavaMLReadable, JavaMLReader, MLReadable
 from pyspark.ml.wrapper import JavaParams
 from pyspark.ml.common import inherit_doc, _java2py
 from pyspark import SparkContext
+from synapse.ml.core.serialize._safe_import import secure_import_class
 
 
 def from_java(java_stage, stage_name):
@@ -26,25 +27,8 @@ def from_java(java_stage, stage_name):
         object: The python wrapper
     """
 
-    def __get_class(clazz):
-        """
-        Loads a python object from its class
-
-        Args:
-            clazz (str): The name of the class
-
-        Returns:
-            object: The python object
-        """
-        parts = clazz.split(".")
-        module = ".".join(parts[:-1])
-        m = __import__(module)
-        for comp in parts[1:]:
-            m = getattr(m, comp)
-        return m
-
     # Generate a default new instance from the stage_name class.
-    py_type = __get_class(stage_name)
+    py_type = secure_import_class(stage_name)
     if issubclass(py_type, JavaParams):
         # Load information from java_stage to the instance.
         py_stage = py_type()

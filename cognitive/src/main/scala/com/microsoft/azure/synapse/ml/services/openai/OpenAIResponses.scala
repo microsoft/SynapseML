@@ -224,19 +224,43 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   }
 
   override private[openai] def getOutputMessageText(outputColName: String): org.apache.spark.sql.Column = {
-    F.element_at(F.element_at(F.col(outputColName).getField("output"), 1)
-      .getField("content"), 1).getField("text")
+    val outputEntries = F.col(outputColName).getField("output")
+    val lastOutputEntry = F.element_at(outputEntries, -1)
+    val textValues = F.transform(lastOutputEntry.getField("content"), part => part.getField("text"))
+    val definedTextValues = F.filter(textValues, text => text.isNotNull)
+    F.element_at(definedTextValues, 1)
+  }
+
+  private def outputEntries(outputRow: Row): Seq[Row] = {
+    Option(outputRow).flatMap(r => Option(r.getAs[Seq[Row]]("output"))).getOrElse(Seq.empty)
+  }
+
+  private def lastOutputEntry(outputRow: Row): Option[Row] = {
+    outputEntries(outputRow).lastOption
+  }
+
+  private def firstDefinedText(contentParts: Seq[Row]): Option[String] = {
+    contentParts.iterator
+      .flatMap(part => Option(part.getAs[String]("text")))
+      .toSeq
+      .headOption
+  }
+
+  private def lastOutputText(outputRow: Row): Option[String] = {
+    lastOutputEntry(outputRow).flatMap { outputEntry =>
+      firstDefinedText(Option(outputEntry.getAs[Seq[Row]]("content")).getOrElse(Seq.empty))
+    }
   }
 
   override private[openai] def isContentFiltered(outputRow: Row): Boolean = {
-    val result = ResponsesModelResponse.makeFromRowConverter(outputRow)
-    val firstOutput = result.output.head
-    Option(firstOutput.content).isEmpty
+    lastOutputText(outputRow).isEmpty
   }
 
   override private[openai] def getFilterReason(outputRow: Row): String = {
-    val result = ResponsesModelResponse.makeFromRowConverter(outputRow)
-    result.output.head.status
+    lastOutputEntry(outputRow).iterator
+      .flatMap(outputEntry => Option(outputEntry.getAs[String]("status")))
+      .find(_.nonEmpty)
+      .getOrElse("content_filtered_or_empty")
   }
 
 }
