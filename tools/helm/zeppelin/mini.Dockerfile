@@ -1,4 +1,4 @@
-FROM mcr.microsoft.com/mmlspark/spark2.4:v4_mini
+FROM mcr.microsoft.com/mmlspark/spark2.4:v4_mini@sha256:a7da0d7cd86ab374d1f0dc7ae4cd35260f8798f8e40a4e4e818748f61a389279
 MAINTAINER Dalitso Banda <dalitsohb@gmail.com>
 
 ADD patch_beam.patch /tmp/patch_beam.patch

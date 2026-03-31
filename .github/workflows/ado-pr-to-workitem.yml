@@ -10,7 +10,7 @@ jobs:
   alert:
     runs-on: ubuntu-latest
     steps:
-    - uses: danhellem/github-actions-pr-to-work-item@master
+    - uses: danhellem/github-actions-pr-to-work-item@496254e48adbe7f1ed14a8afb71dc520b2c052ac # master
       env:
         ado_token: '${{ secrets.ADO_PERSONAL_ACCESS_TOKEN }}'
         github_token: '${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}'
