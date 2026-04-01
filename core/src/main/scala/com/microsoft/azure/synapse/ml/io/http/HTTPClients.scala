@@ -16,7 +16,7 @@ import org.apache.spark.sql.types.StringType
 
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, blocking}
-import scala.util.Try
+import scala.util.{Random, Try}
 
 trait Handler {
 
@@ -74,20 +74,26 @@ object HandlingUtils extends SparkLogging {
   private def keepTrying(client: CloseableHttpClient,
                          request: HttpRequestBase,
                          retriesLeft: Array[Int],
-                         e: Throwable): CloseableHttpResponse = {
+                         e: Throwable,
+                         extraCodesToRetry: Set[Int] = Set(),
+                         backoff429Ms: Long = 0): CloseableHttpResponse = {
     if (retriesLeft.isEmpty) {
       throw e
     } else {
       Thread.sleep(retriesLeft.head.toLong)
-      sendWithRetries(client, request, retriesLeft.tail)
+      sendWithRetries(client, request, retriesLeft.tail, extraCodesToRetry, backoff429Ms)
     }
   }
 
+  private val MaxBackoffMs: Long = 60000L // 1 minute cap for 429 backoff
+
   //scalastyle:off cyclomatic.complexity
+  //scalastyle:off method.length
   private[ml] def sendWithRetries(client: CloseableHttpClient,
                                   request: HttpRequestBase,
                                   retriesLeft: Array[Int],
-                                  extraCodesToRetry: Set[Int] = Set()
+                                  extraCodesToRetry: Set[Int] = Set(),
+                                  backoff429Ms: Long = 0
                                  ): CloseableHttpResponse = {
     try {
       val response = client.execute(request)
@@ -107,7 +113,6 @@ object HandlingUtils extends SparkLogging {
                   case _ => request.getURI
                 }
               }")
-              Thread.sleep(h.getValue.toLong * 1000)
             }
           false
         case code =>
@@ -129,20 +134,42 @@ object HandlingUtils extends SparkLogging {
       if (dontRetry || retriesLeft.isEmpty) {
         response
       } else {
+        // Retry-After may be delta-seconds (e.g. "120") or an HTTP-date.
+        // Parse as Long; if it's an HTTP-date or otherwise non-numeric, fall back to exponential backoff.
+        // Cap server-provided values to MaxBackoffMs; Retry-After: 0 means "retry immediately" (RFC 7231).
+        val retryAfterMs = if (code == 429) {
+          Option(response.getFirstHeader("Retry-After"))
+            .flatMap(h => Try(h.getValue.toLong * 1000).toOption)
+            .filter(_ >= 0)
+            .map(math.min(_, MaxBackoffMs))
+        } else None
         response.close()
-        Thread.sleep(retriesLeft.head.toLong)
         if (code == 429) { // Do not count rate limiting in number of failures
-          sendWithRetries(client, request, retriesLeft)
+          val baseBackoff = retryAfterMs.getOrElse {
+            // No usable Retry-After header; use exponential backoff
+            val current = math.max(backoff429Ms, retriesLeft.head.toLong)
+            math.min(current * 2, MaxBackoffMs)
+          }
+          // Add jitter (up to 10% of base) to prevent thundering herd
+          val jitter = Random.nextInt(math.max((baseBackoff / 10).toInt, 1))
+          val sleepMs = math.min(baseBackoff + jitter, MaxBackoffMs)
+          val source = if (retryAfterMs.isDefined) "Retry-After header" else "exponential backoff"
+          logInfo(s"429 rate-limited on ${request.getURI}: " +
+            s"sleeping ${sleepMs}ms ($source, jitter=${jitter}ms)")
+          Thread.sleep(sleepMs)
+          sendWithRetries(client, request, retriesLeft, extraCodesToRetry, baseBackoff)
         } else {
-          sendWithRetries(client, request, retriesLeft.tail)
+          Thread.sleep(retriesLeft.head.toLong)
+          sendWithRetries(client, request, retriesLeft.tail, extraCodesToRetry)
         }
       }
     } catch {
       case e: java.io.IOException =>
         logError("Encountering a connection error", e)
-        keepTrying(client, request, retriesLeft, e)
+        keepTrying(client, request, retriesLeft, e, extraCodesToRetry, backoff429Ms)
     }
   }
+  //scalastyle:on method.length
   //scalastyle:on cyclomatic.complexity
 
   def advanced(retryTimes: Int*)(client: CloseableHttpClient,
