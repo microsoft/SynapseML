@@ -1,32 +1,62 @@
 #!/usr/bin/env python3
 """
-SynapseML Version Bump Script
+SynapseML Version Bump Script — Context-Anchored Substitution
 
-Safely updates version strings across the SynapseML repository using
-word-boundary-aware regex to prevent partial matches (e.g., won't
-corrupt '1.1.15' when bumping '1.1.1' → '1.1.2').
+Replaces SynapseML version strings ONLY when they appear within a known
+SynapseML-specific context. A bare version number like "1.1.0" is NEVER
+blindly replaced — every replacement must be anchored by surrounding text
+that proves it refers to SynapseML (e.g., "synapseml_2.12:1.1.0").
+
+Designed for fully unattended automated releases. The script will FAIL
+rather than make an ambiguous replacement.
 
 Usage:
-    python scripts/bump-version.py --from 1.0.11 --to 1.0.12 [--dry-run] [--repo-root /path/to/SynapseML]
-
-Features:
-    - Word-boundary-aware regex (won't match 1.0.11 inside 1.0.115)
-    - Denylist to skip versioned_docs/, .git/, node_modules/, etc.
-    - Supports all file types: .md, .sbt, .scala, .csproj, .ipynb, .py, .json, .yaml
-    - Dry-run mode to preview changes without modifying files
-    - Summary report of all changes made
+    python scripts/bump-version.py --from 1.1.0 --to 1.1.1 --dry-run
+    python scripts/bump-version.py --from 1.1.0 --to 1.1.1
 """
 
-import argparse
-import os
-import re
-import sys
+import argparse, os, re, sys
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
-# Directories to NEVER modify
+# ── Context patterns ───────────────────────────────────────────────────────────
+# SELF-ANCHORED: pattern contains SynapseML-identifying text. Safe anywhere.
+SELF_ANCHORED = [
+    "synapseml_2.12:{V}",
+    "synapseml=={V}",
+    "synapseml-{V}.zip",
+    "synapseml:{V}",
+    "SynapseMLExamplesv{V}.dbc",
+    "SynapseML/v{V}",
+    "SynapseML v{V}",
+    "SynapseML {V}",
+    "SYNAPSEML_VERSION={V}",
+    'SYNAPSEML_VERSION="{V}"',
+    'SYNAPSEML_VERSION", "{V}"',
+    "mmlspark/release:{V}",
+    "/docs/{V}/",
+    "version-{V}-blue",
+]
+
+# LINE-ANCHORED: pattern + keyword must co-exist on the same line.
+LINE_ANCHORED = [
+    ("--version {V}", ["SynapseML"]),
+    ('% "{V}"', ["synapseml"]),
+    ("{V} version for", ["spark", "Spark"]),
+    ("`{V}` tag", ["mmlspark"]),
+]
+
+# FILE-ANCHORED: pattern only safe in specific files.
+FILE_ANCHORED = [
+    ('version = "{V}"', ["website/docusaurus.config.js"]),
+    ('version: "{V}"', ["website/docusaurus.config.js"]),
+]
+
+# ── Denylists and allowlists ──────────────────────────────────────────────────
 DENYLIST_DIRS = {
     ".git",
+    ".docusaurus",
     "node_modules",
     "target",
     ".idea",
@@ -34,275 +64,494 @@ DENYLIST_DIRS = {
     "__pycache__",
     ".metals",
     ".bloop",
-    "versioned_docs",       # Historical doc snapshots — must not be touched
-    "versioned_sidebars",   # Associated sidebar configs for old doc versions
+    "versioned_docs",
+    "versioned_sidebars",
+    "build",
+    "dist",
 }
-
-# File names to NEVER modify
 DENYLIST_FILES = {
     "CHANGELOG.md",
     "CHANGES.md",
-    "bump-version.py",      # Don't modify ourselves
-    "package.json",         # NPM deps may coincidentally match SynapseML version
+    "bump-version.py",
+    "test_bump_version.py",
+    "package.json",
     "package-lock.json",
     "yarn.lock",
+    "versions.json",
 }
-
-# File extensions to scan
 ALLOWED_EXTENSIONS = {
-    ".md", ".sbt", ".scala", ".csproj", ".fsproj", ".props",
-    ".ipynb", ".py", ".json", ".yaml", ".yml", ".xml",
-    ".txt", ".cfg", ".toml", ".sh", ".bash", ".ps1",
-    ".rst", ".html", ".htm",
+    ".md",
+    ".sbt",
+    ".scala",
+    ".csproj",
+    ".fsproj",
+    ".props",
+    ".ipynb",
+    ".py",
+    ".json",
+    ".yaml",
+    ".yml",
+    ".xml",
+    ".txt",
+    ".cfg",
+    ".toml",
+    ".sh",
+    ".bash",
+    ".ps1",
+    ".rst",
+    ".html",
+    ".htm",
+    ".js",
+    ".jsx",
+    ".ts",
+    ".tsx",
+    ".mjs",
+}
+ALLOWED_NAMES = {"Dockerfile", "start", "Makefile"}
+
+EXPECTED_FILES = {
+    "README.md",
+    "start",
+    "docs/Get Started/Install SynapseML.md",
+    "docs/Reference/Docker Setup.md",
+    "docs/Reference/Dotnet Setup.md",
+    "docs/Reference/R Setup.md",
+    "docs/Reference/Quickstart - LightGBM in Dotnet.md",
+    "docs/Explore Algorithms/Deep Learning/Getting Started.md",
+    "docs/Explore Algorithms/Other Algorithms/Cyber ML.md",
+    "docs/Explore Algorithms/Regression/Quickstart - Train Regressor.ipynb",
+    "tools/docker/demo/Dockerfile",
+    "tools/docker/demo/README.md",
+    "tools/docker/demo/init_notebook.py",
+    "tools/docker/minimal/Dockerfile",
+    "website/docusaurus.config.js",
+    "website/src/pages/index.js",
 }
 
-
-def build_version_regex(old_version: str) -> re.Pattern:
-    """
-    Build a regex that matches the old version string only when it is NOT
-    surrounded by other digits or followed by a dot+digit. This prevents:
-        - '1.0.1' matching inside '1.0.15' or '1.0.10'  (followed by digit)
-        - '1.0.1' matching inside '21.0.1'               (preceded by digit)
-        - '1.0.1' matching inside '1.0.1.0'              (followed by .digit — internal version)
-    """
-    escaped = re.escape(old_version)
-    # (?<!\d)      = not preceded by a digit
-    # (?!\d|\.\d)  = not followed by a digit or by dot+digit (still allows punctuation '.')
-    return re.compile(r"(?<!\d)" + escaped + r"(?!\d|\.\d)")
+# ── Helpers ────────────────────────────────────────────────────────────────────
 
 
-def should_skip_dir(dir_name: str) -> bool:
-    """Check if a directory should be skipped."""
-    return dir_name in DENYLIST_DIRS
+def _bare_regex(version):
+    return re.compile(r"(?<![\d.])" + re.escape(version) + r"(?!\d|\.\d)")
 
 
-def should_skip_file(file_path: Path) -> bool:
-    """Check if a file should be skipped."""
-    if file_path.name in DENYLIST_FILES:
+def _template_regex(template, version):
+    parts = template.split("{V}")
+    if len(parts) == 2:
+        return re.compile(
+            re.escape(parts[0]) + re.escape(version) + re.escape(parts[1])
+        )
+    return re.compile(re.escape(parts[0]) + re.escape(version))
+
+
+def _skip_dir(name):
+    return name in DENYLIST_DIRS or name.startswith(".")
+
+
+def _skip_file(rel):
+    if rel.name in DENYLIST_FILES:
         return True
-    if file_path.suffix not in ALLOWED_EXTENSIONS:
-        return True
-    for part in file_path.parts:
-        if part in DENYLIST_DIRS:
+    for p in rel.parts:
+        if p in DENYLIST_DIRS:
             return True
-    return False
+    return rel.suffix not in ALLOWED_EXTENSIONS and rel.name not in ALLOWED_NAMES
 
 
-def find_files(repo_root: Path) -> List[Path]:
-    """Walk the repo and return all files that should be scanned."""
-    files = []
-    for dirpath, dirnames, filenames in os.walk(repo_root):
-        # Prune denylisted directories in-place to avoid descending
-        dirnames[:] = [d for d in dirnames if not should_skip_dir(d)]
-
-        for filename in filenames:
-            file_path = Path(dirpath) / filename
-            if not should_skip_file(file_path.relative_to(repo_root)):
-                files.append(file_path)
-    return sorted(files)
+def _find_files(root):
+    out = []
+    for dp, dn, fn in os.walk(root):
+        dn[:] = sorted(d for d in dn if not _skip_dir(d))
+        for f in fn:
+            fp = Path(dp) / f
+            if not _skip_file(fp.relative_to(root)):
+                out.append(fp)
+    return sorted(out)
 
 
-def process_file(
-    file_path: Path,
-    regex: re.Pattern,
-    old_version: str,
-    new_version: str,
-    dry_run: bool,
-) -> Tuple[int, List[str]]:
-    """
-    Process a single file, replacing old_version with new_version.
-    Returns (count_of_replacements, list_of_change_descriptions).
-    """
-    # Read as binary to preserve original line endings (CRLF vs LF)
+def _read(path):
     try:
-        raw = file_path.read_bytes()
-        content = raw.decode("utf-8")
-    except (UnicodeDecodeError, PermissionError):
-        return 0, []
+        return path.read_bytes().decode("utf-8")
+    except (FileNotFoundError, UnicodeDecodeError, PermissionError) as e:
+        print(f"  WARNING: {type(e).__name__}: {path}", file=sys.stderr)
+        return None
 
-    matches = list(regex.finditer(content))
-    if not matches:
-        return 0, []
 
-    changes = []
+# ── Analysis ───────────────────────────────────────────────────────────────────
+
+
+@dataclass
+class Match:
+    line_num: int
+    line_text: str
+    pattern: str
+    start: int
+    end: int
+
+
+@dataclass
+class FileResult:
+    path: Path
+    rel: Path
+    content: str
+    matches: list = field(default_factory=list)
+    unanchored: list = field(default_factory=list)
+
+
+def analyze(fp, rel, content, old_v, bare_re, self_a, line_a, file_a):
+    res = FileResult(fp, rel, content)
+    rel_str = str(rel)
     lines = content.split("\n")
-    seen_lines = set()
-    for match in matches:
-        line_num = content[:match.start()].count("\n") + 1
-        if line_num not in seen_lines:
-            seen_lines.add(line_num)
-            line_text = lines[line_num - 1].strip()
-            # Truncate long lines, showing context around the version
-            if len(line_text) > 120:
-                idx = line_text.find(old_version)
-                if idx >= 0:
-                    start = max(0, idx - 40)
-                    end = min(len(line_text), idx + len(old_version) + 40)
-                    line_text = "..." + line_text[start:end] + "..."
-            changes.append(f"  L{line_num}: {line_text}")
 
-    count = len(matches)
+    for m in bare_re.finditer(content):
+        ln = content[: m.start()].count("\n") + 1
+        lt = lines[ln - 1]
+        anchored = False
 
-    if not dry_run:
-        new_content = regex.sub(new_version, content)
-        # Write back as binary to preserve original line endings
-        file_path.write_bytes(new_content.encode("utf-8"))
+        # Self-anchored: check a window around the match
+        for tmpl, rx in self_a:
+            ws = max(0, m.start() - 200)
+            we = min(len(content), m.end() + 200)
+            if rx.search(content[ws:we]):
+                res.matches.append(Match(ln, lt.strip(), tmpl, m.start(), m.end()))
+                anchored = True
+                break
 
-    return count, changes
+        if not anchored:
+            for tmpl, rx, kws in line_a:
+                if rx.search(lt) and any(k.lower() in lt.lower() for k in kws):
+                    res.matches.append(
+                        Match(
+                            ln,
+                            lt.strip(),
+                            f"{tmpl} [line:{','.join(kws)}]",
+                            m.start(),
+                            m.end(),
+                        )
+                    )
+                    anchored = True
+                    break
+
+        if not anchored:
+            for tmpl, rx, files in file_a:
+                if rx.search(lt) and rel_str in files:
+                    res.matches.append(
+                        Match(
+                            ln,
+                            lt.strip(),
+                            f"{tmpl} [file:{rel_str}]",
+                            m.start(),
+                            m.end(),
+                        )
+                    )
+                    anchored = True
+                    break
+
+        if not anchored:
+            res.unanchored.append((ln, lt.strip()))
+
+    return res
 
 
-def run_safety_checks(regex: re.Pattern, old_version: str) -> bool:
-    """Verify the regex behaves correctly with known edge cases."""
-    test_cases = [
-        # (input, should_match, description)
-        (old_version, True, "exact match"),
-        (f"v{old_version}", True, "with v prefix"),
-        (f"{old_version}-spark4.0", True, "with -spark suffix"),
-        (f"/{old_version}/", True, "in URL path"),
-        (f'"{old_version}"', True, "in quotes"),
-        (f":{old_version}", True, "after colon (Maven coord)"),
-        (f"{old_version}\\n", True, "at end of line"),
-        # These must NOT match
-        (f"{old_version}0", False, "followed by extra digit (e.g. 1.0.110)"),
-        (f"{old_version}5", False, "followed by digit 5 (e.g. 1.0.115)"),
-        (f"1{old_version}", False, "preceded by digit"),
-        (f"{old_version}.0", False, "followed by .0 (internal version like 1.0.11.0)"),
-        (f"{old_version}.1", False, "followed by .1 (e.g. 1.0.11.1)"),
-    ]
+def apply(content, old_v, new_v, matches):
+    for m in sorted(matches, key=lambda x: x.start, reverse=True):
+        content = content[: m.start] + new_v + content[m.end :]
+    return content
 
-    print("Regex safety verification:")
-    all_passed = True
-    for test_input, should_match, description in test_cases:
-        found = bool(regex.search(test_input))
-        passed = found == should_match
-        icon = "OK" if passed else "FAIL"
-        if not passed:
-            all_passed = False
-        expected = "match" if should_match else "no match"
-        actual = "match" if found else "no match"
-        print(f"  [{icon}] '{test_input}' -- {description} (expected: {expected}, got: {actual})")
-    print()
-    return all_passed
+
+# ── Main ───────────────────────────────────────────────────────────────────────
+
+
+def _detect_version(root):
+    """Auto-detect current SynapseML version from docusaurus.config.js."""
+    cfg = root / "website" / "docusaurus.config.js"
+    if not cfg.exists():
+        sys.exit(
+            "Error: cannot auto-detect version — website/docusaurus.config.js not found."
+        )
+    m = re.search(r'let version\s*=\s*"([^"]+)"', cfg.read_text())
+    if not m:
+        sys.exit("Error: cannot parse version from website/docusaurus.config.js.")
+    return m.group(1)
+
+
+def _validate_version_bump(old_v, new_v):
+    """Validate version format and bump direction."""
+    vp = re.compile(r"^\d+\.\d+\.\d+$")
+    if not vp.match(old_v):
+        sys.exit(f"Error: current version '{old_v}' is not X.Y.Z format.")
+    if not vp.match(new_v):
+        sys.exit(
+            f"Error: target version '{new_v}' is not X.Y.Z format. "
+            "SynapseML OSS uses exactly 3 components (e.g., 1.1.3)."
+        )
+    if old_v == new_v:
+        sys.exit(f"Error: current version is already {old_v}.")
+
+    old_parts = tuple(int(x) for x in old_v.split("."))
+    new_parts = tuple(int(x) for x in new_v.split("."))
+    if new_parts <= old_parts:
+        sys.exit(f"Error: target version {new_v} is not greater than current {old_v}.")
+
+
+def _run_docusaurus(root, new_v, dry_run):
+    """Create versioned docs snapshot via docusaurus (requires website/docs/)."""
+    import subprocess
+
+    website = root / "website"
+    docs_dir = website / "docs"
+
+    if not docs_dir.exists():
+        print()
+        print("⚠ Skipping docusaurus docs:version — website/docs/ does not exist.")
+        print("  This folder is generated by 'sbt convertNotebooks'.")
+        print("  To create the versioned docs snapshot:")
+        print("    1. sbt convertNotebooks")
+        print(f"    2. yarn --cwd website run docusaurus docs:version {new_v}")
+        return True  # not a failure, just a prerequisite not met
+
+    cmd = ["yarn", "run", "docusaurus", "docs:version", new_v]
+    if dry_run:
+        print(f"[DRY RUN] Would run: {' '.join(cmd)} (in {website})")
+        return True
+    print(f"Creating docs version snapshot: {new_v}...")
+    r = subprocess.run(cmd, cwd=str(website), capture_output=True, text=True)
+    if r.returncode != 0:
+        print(f"ERROR: docusaurus docs:version failed:\n{r.stderr}", file=sys.stderr)
+        return False
+    print(f"✓ Docs version {new_v} created.")
+    return True
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Safely bump SynapseML version strings across the repository.",
-        formatter_class=argparse.RawDescriptionHelpFormatter,
+    ap = argparse.ArgumentParser(
+        description="Context-anchored SynapseML version bump.",
         epilog="""
 Examples:
-    # Preview what would change (recommended first step)
-    python bump-version.py --from 1.0.11 --to 1.0.12 --dry-run
+    # Preview bump (auto-detects current version):
+    python scripts/bump-version.py --to 1.1.3 --dry-run
 
-    # Apply changes
-    python bump-version.py --from 1.0.11 --to 1.0.12
+    # Apply bump + create versioned docs:
+    python scripts/bump-version.py --to 1.1.3
 
-    # Specify a different repo root
-    python bump-version.py --from 1.0.11 --to 1.0.12 --repo-root /path/to/SynapseML
+    # Override auto-detected current version:
+    python scripts/bump-version.py --from 1.1.2 --to 1.1.3
         """,
+        formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument(
-        "--from", dest="old_version", required=True,
-        help="Current version to replace (e.g., 1.0.11). No 'v' prefix.",
+    ap.add_argument(
+        "--from",
+        dest="old_version",
+        default=None,
+        help="Current version (auto-detected from docusaurus.config.js if omitted).",
     )
-    parser.add_argument(
-        "--to", dest="new_version", required=True,
-        help="New version to set (e.g., 1.0.12). No 'v' prefix.",
+    ap.add_argument(
+        "--to",
+        dest="new_version",
+        required=True,
+        help="Target version. Must be X.Y.Z format, greater than current.",
     )
-    parser.add_argument(
-        "--repo-root", dest="repo_root", default=".",
-        help="Path to the SynapseML repo root. Defaults to current directory.",
+    ap.add_argument("--repo-root", dest="repo_root", default=".")
+    ap.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview changes without modifying files.",
     )
-    parser.add_argument(
-        "--dry-run", action="store_true",
-        help="Preview changes without modifying any files.",
+    ap.add_argument(
+        "--skip-docs", action="store_true", help="Skip docusaurus docs:version step."
     )
-    parser.add_argument(
-        "--verbose", "-v", action="store_true",
-        help="Show every changed line (always shown in dry-run mode).",
+    ap.add_argument("--verbose", "-v", action="store_true")
+    args = ap.parse_args()
+
+    root = Path(args.repo_root).resolve()
+    if not root.is_dir():
+        sys.exit(f"Error: '{root}' is not a directory.")
+    if not (root / ".git").exists():
+        sys.exit(f"Error: '{root}' has no .git — not a repo.")
+
+    new_v = args.new_version.removeprefix("v")
+    old_v = (
+        args.old_version.removeprefix("v")
+        if args.old_version
+        else _detect_version(root)
     )
 
-    args = parser.parse_args()
-    old_version = args.old_version.lstrip("v")
-    new_version = args.new_version.lstrip("v")
-    repo_root = Path(args.repo_root).resolve()
+    _validate_version_bump(old_v, new_v)
 
-    # Validation
-    if not repo_root.is_dir():
-        print(f"Error: repo root '{repo_root}' is not a directory.", file=sys.stderr)
-        sys.exit(1)
+    # Build regexes
+    bare_re = _bare_regex(old_v)
+    self_a = [(t, _template_regex(t, old_v)) for t in SELF_ANCHORED]
+    line_a = [(t, _template_regex(t, old_v), k) for t, k in LINE_ANCHORED]
+    file_a = [(t, _template_regex(t, old_v), f) for t, f in FILE_ANCHORED]
 
-    if old_version == new_version:
-        print("Error: --from and --to versions are the same.", file=sys.stderr)
-        sys.exit(1)
-
-    version_pattern = re.compile(r"^\d+\.\d+\.\d+(\.\d+)?$")
-    for label, ver in [("--from", old_version), ("--to", new_version)]:
-        if not version_pattern.match(ver):
-            print(f"Error: invalid {label} version format: '{ver}'. Expected X.Y.Z or X.Y.Z.W", file=sys.stderr)
-            sys.exit(1)
-
-    # Header
     mode = "[DRY RUN] " if args.dry_run else ""
-    print(f"{mode}Bumping version: {old_version} -> {new_version}")
-    print(f"Repository root: {repo_root}")
-    print(f"Regex pattern:   (?<!\\d){re.escape(old_version)}(?![\\d.])")
+    print(f"{mode}Bumping: {old_v} -> {new_v}")
+    print(f"Root: {root}")
+    print(
+        f"Patterns: {len(SELF_ANCHORED)} self + {len(LINE_ANCHORED)} line + {len(FILE_ANCHORED)} file anchored"
+    )
     print()
 
-    regex = build_version_regex(old_version)
+    # Scan
+    files = _find_files(root)
+    print(f"Scanning {len(files)} files...")
 
-    # Run safety checks
-    if not run_safety_checks(regex, old_version):
-        print("Error: Regex safety checks failed! Aborting.", file=sys.stderr)
+    results = []
+    all_unanchored = []
+    for fp in files:
+        rel = fp.relative_to(root)
+        content = _read(fp)
+        if content is None:
+            continue
+        r = analyze(fp, rel, content, old_v, bare_re, self_a, line_a, file_a)
+        if r.matches or r.unanchored:
+            results.append(r)
+        for ln, lt in r.unanchored:
+            all_unanchored.append((str(rel), ln, lt))
+
+    # HARD FAIL on unanchored matches
+    if all_unanchored:
+        print("\n" + "!" * 70)
+        print("FATAL: Version references found with NO SynapseML context anchor:")
+        print("!" * 70)
+        for path, ln, lt in all_unanchored:
+            t = lt[:120] + "..." if len(lt) > 120 else lt
+            print(f"  {path}:{ln}: {t}")
+        print("\nCannot safely replace these. Add a context pattern or add")
+        print("SynapseML-identifying text near the version in the source file.")
         sys.exit(1)
 
-    # Find and process files
-    files = find_files(repo_root)
-    print(f"Scanning {len(files)} files...")
-    print()
-
-    total_replacements = 0
-    files_modified = []
-
-    for file_path in files:
-        rel_path = file_path.relative_to(repo_root)
-        count, changes = process_file(file_path, regex, old_version, new_version, args.dry_run)
-        if count > 0:
-            total_replacements += count
-            files_modified.append((rel_path, count, changes))
+    # Manifest check
+    modified = {str(r.rel) for r in results if r.matches}
+    missing = sorted(EXPECTED_FILES - modified)
+    if missing:
+        print("\n" + "!" * 70)
+        print("WARNING: Expected files NOT updated:")
+        print("!" * 70)
+        for f in missing:
+            e = (root / f).exists()
+            print(f"  {f}  ({'exists, no version match' if e else 'FILE MISSING'})")
+        print()
 
     # Summary
+    total = sum(len(r.matches) for r in results)
+    changed = [r for r in results if r.matches]
+    print("\n" + "=" * 60)
+    print(f"{mode}{len(changed)} files, {total} context-anchored replacements:")
     print("=" * 60)
-    if args.dry_run:
-        print(f"[DRY RUN] Would modify {len(files_modified)} files ({total_replacements} replacements):")
-    else:
-        print(f"Modified {len(files_modified)} files ({total_replacements} replacements):")
-    print("=" * 60)
-
-    for rel_path, count, changes in files_modified:
-        print(f"\n  {rel_path}  ({count} replacement{'s' if count != 1 else ''})")
+    for r in changed:
+        print(f"\n  {r.rel}  ({len(r.matches)} replacements)")
         if args.verbose or args.dry_run:
-            limit = 10
-            for change in changes[:limit]:
-                print(f"    {change}")
-            if len(changes) > limit:
-                print(f"    ... and {len(changes) - limit} more lines")
-
-    if not files_modified:
-        print("\n  No files contain the version string. Is --from correct?")
-
+            seen = set()
+            for m in r.matches:
+                k = (m.line_num, m.pattern)
+                if k not in seen:
+                    seen.add(k)
+                    t = (
+                        m.line_text[:100] + "..."
+                        if len(m.line_text) > 100
+                        else m.line_text
+                    )
+                    print(f"    L{m.line_num} [{m.pattern}]: {t}")
+    if not changed:
+        print("\n  No contextual matches. Is --from correct?")
     print()
+
+    # Write
     if args.dry_run:
-        print("No files were modified. Run without --dry-run to apply changes.")
+        print("No files modified. Run without --dry-run to apply.")
+        if not args.skip_docs:
+            _run_docusaurus(root, new_v, dry_run=True)
     else:
-        print("Done! Review changes with:")
-        print("  git diff --stat")
-        print("  git diff")
-        print()
-        print("Next steps:")
-        print(f"  1. Rebuild docs:  sbt convertNotebooks && yarn run docusaurus docs:version {new_version}")
-        print(f"  2. Commit:        git add -A && git commit -m 'chore: Bump version to v{new_version}'")
-        print(f"  3. Create PR:     title 'chore: Bump version to v{new_version}'")
+        fails = []
+        for r in changed:
+            new_content = apply(r.content, old_v, new_v, r.matches)
+            try:
+                r.path.write_bytes(new_content.encode("utf-8"))
+            except OSError as e:
+                print(f"  ERROR writing {r.rel}: {e}", file=sys.stderr)
+                fails.append(r.rel)
+        if fails:
+            print(f"ERROR: {len(fails)} writes failed. Run 'git checkout .' to revert.")
+            sys.exit(1)
+
+        # Post-condition verification
+        old_re = _bare_regex(old_v)
+        new_re = _bare_regex(new_v)
+        new_count = 0
+        stale = []
+        for r in changed:
+            written = _read(r.path)
+            if written is None:
+                stale.append((str(r.rel), "unreadable"))
+                continue
+            if old_re.search(written):
+                stale.append((str(r.rel), "old version still present"))
+            new_count += len(list(new_re.finditer(written)))
+        if stale:
+            print("\n" + "!" * 70)
+            print("Post-condition violated: old version still present")
+            print("!" * 70)
+            for path, reason in stale:
+                print(f"  {path}: {reason}")
+            print("\nRun 'git checkout .' to revert.")
+            sys.exit(1)
+        if new_count != total:
+            print("\n" + "!" * 70)
+            print(
+                f"Post-condition violated: expected {total} new-version occurrences, found {new_count}"
+            )
+            print("!" * 70)
+            print("\nRun 'git checkout .' to revert.")
+            sys.exit(1)
+        print(
+            f"✓ Post-condition verified: 0 old version remaining, {total} replacements confirmed"
+        )
+
+        # ── Broad sweep: warn about old version in ANY text file ───────────
+        modified_set = {str(r.rel) for r in changed}
+        sweep_hits = []
+        for dp, dn, fn in os.walk(root):
+            dn[:] = [d for d in dn if not _skip_dir(d)]
+            for f in fn:
+                fp = Path(dp) / f
+                rel_str = str(fp.relative_to(root))
+                if rel_str in modified_set or f in (
+                    "bump-version.py",
+                    "test_bump_version.py",
+                ):
+                    continue
+                try:
+                    text = fp.read_bytes().decode("utf-8")
+                except (UnicodeDecodeError, PermissionError, FileNotFoundError):
+                    continue
+                hits = list(bare_re.finditer(text))
+                if hits:
+                    sweep_hits.append((rel_str, len(hits)))
+        if sweep_hits:
+            print()
+            print(
+                "⚠ SWEEP WARNING: old version found in files NOT modified by this bump:"
+            )
+            for path, count in sorted(sweep_hits):
+                print(f"  {path} ({count} occurrence{'s' if count != 1 else ''})")
+            print("  These may be intentionally excluded (denylisted/unscanned),")
+            print("  or may need a new context pattern. Review and update if needed.")
+
+        print(f"\nDone! {len(changed)} files updated.")
+
+        # ── Step 3: Docusaurus versioned docs ──────────────────────────────
+        if not args.skip_docs:
+            if not _run_docusaurus(root, new_v, dry_run=False):
+                print("Version strings updated but docs versioning failed.")
+                print(
+                    "Run manually: yarn --cwd website run docusaurus docs:version "
+                    + new_v
+                )
+                sys.exit(1)
+
+        print(f"\nAll done! Version bumped {old_v} → {new_v}.")
+        print(f"\nNext steps:")
+        print(f"  git add -u && git commit -m 'chore: Bump version to v{new_v}'")
 
 
 if __name__ == "__main__":
