@@ -91,3 +91,7 @@ metastore_db/
 *_local\.*
 condaenv.*.requirements.txt
 *.env
+
+# Dev-loop artifacts
+.dev-loop/
+.dev-loop-artifacts/

@@ -111,20 +111,44 @@ case object OpenAIApiTypeKey extends GlobalKey[String]
 
 // scalastyle:off number.of.methods
 trait HasOpenAITextParams extends HasOpenAISharedParams {
+  @deprecated("Use maxCompletionTokens instead - max_tokens is rejected by reasoning models", "1.0.16")
   val maxTokens: ServiceParam[Int] = new ServiceParam[Int](
     this, "maxTokens",
-    "The maximum number of tokens to generate. Has minimum of 0.",
+    "The maximum number of tokens to generate. Has minimum of 0." +
+      " Deprecated: use maxCompletionTokens for compatibility with reasoning models.",
     isRequired = false) {
     override val payloadName: String = "max_tokens"
   }
 
+  @deprecated("Use setMaxCompletionTokens instead", "1.0.16")
   def getMaxTokens: Int = getScalarParam(maxTokens)
 
+  @deprecated("Use setMaxCompletionTokens instead", "1.0.16")
   def setMaxTokens(v: Int): this.type = setScalarParam(maxTokens, v)
 
+  @deprecated("Use setMaxCompletionTokensCol instead", "1.0.16")
   def getMaxTokensCol: String = getVectorParam(maxTokens)
 
+  @deprecated("Use setMaxCompletionTokensCol instead", "1.0.16")
   def setMaxTokensCol(v: String): this.type = setVectorParam(maxTokens, v)
+
+  val maxCompletionTokens: ServiceParam[Int] = new ServiceParam[Int](
+    this, "maxCompletionTokens",
+    "The maximum number of completion tokens to generate. Has minimum of 0." +
+      " Works with both reasoning and non-reasoning models." +
+      " Sent as max_completion_tokens for chat completions," +
+      " max_output_tokens for responses API, and max_tokens for legacy completions.",
+    isRequired = false) {
+    override val payloadName: String = "max_completion_tokens"
+  }
+
+  def getMaxCompletionTokens: Int = getScalarParam(maxCompletionTokens)
+
+  def setMaxCompletionTokens(v: Int): this.type = setScalarParam(maxCompletionTokens, v)
+
+  def getMaxCompletionTokensCol: String = getVectorParam(maxCompletionTokens)
+
+  def setMaxCompletionTokensCol(v: String): this.type = setVectorParam(maxCompletionTokens, v)
 
   val temperature: ServiceParam[Double] = new ServiceParam[Double](
     this, "temperature",
@@ -329,6 +353,7 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
 
   private[openai] val sharedTextParams: Seq[ServiceParam[_]] = Seq(
     maxTokens,
+    maxCompletionTokens,
     temperature,
     topP,
     user,
@@ -349,6 +374,23 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
     sharedTextParams.flatMap { param =>
       getValueOpt(r, param).map { value => param.payloadName -> value }
     }.toMap
+  }
+
+  /** Resolve maxTokens / maxCompletionTokens into a single (wireKey -> value) entry.
+   *  Errors if both are set. Returns an empty map if neither is set. */
+  protected def resolveMaxTokens(params: Map[String, Any],
+                                 wireKey: String): Map[String, Any] = {
+    val hasLegacy = params.contains("max_tokens")
+    val hasModern = params.contains("max_completion_tokens")
+    require(!(hasLegacy && hasModern),
+      "Cannot set both maxTokens (deprecated) and maxCompletionTokens. Use maxCompletionTokens only.")
+    if (hasModern) {
+      (params - "max_completion_tokens").updated(wireKey, params("max_completion_tokens"))
+    } else if (hasLegacy) {
+      (params - "max_tokens").updated(wireKey, params("max_tokens"))
+    } else {
+      params
+    }
   }
 }
 // scalastyle:on number.of.methods

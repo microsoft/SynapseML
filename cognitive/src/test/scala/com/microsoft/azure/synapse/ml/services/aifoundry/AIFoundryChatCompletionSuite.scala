@@ -24,7 +24,7 @@ class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompl
   lazy val completion: AIFoundryChatCompletion = new AIFoundryChatCompletion()
     .setCustomServiceName(aiFoundryServiceName)
     .setApiVersion("2024-05-01-preview")
-    .setMaxTokens(2048)
+    .setMaxCompletionTokens(2048)
     .setOutputCol("out")
     .setMessagesCol("messages")
     .setTemperature(0)
@@ -63,7 +63,7 @@ class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompl
   import spark.implicits._
 
   def promptCompletion: AIFoundryChatCompletion = new AIFoundryChatCompletion()
-    .setMaxTokens(200)
+    .setMaxCompletionTokens(200)
     .setOutputCol("out")
     .setMessagesCol("prompt")
 
@@ -194,7 +194,7 @@ class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompl
       .setCustomServiceName(aiFoundryServiceName)
       .setModel(aiFoundryModelName)
       .setApiVersion("2024-05-01-preview")
-      .setMaxTokens(500)
+      .setMaxCompletionTokens(500)
       .setOutputCol("out")
       .setMessagesCol("messages")
       .setTemperature(0)

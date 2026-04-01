@@ -11,7 +11,7 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
   import spark.implicits._
 
   def promptCompletion: OpenAIChatCompletion = new OpenAIChatCompletion()
-    .setMaxTokens(200)
+    .setMaxCompletionTokens(200)
     .setOutputCol("out")
     .setMessagesCol("prompt")
 

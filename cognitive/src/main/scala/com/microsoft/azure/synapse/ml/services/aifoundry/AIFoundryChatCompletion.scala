@@ -27,6 +27,7 @@ trait HasAIFoundryTextParamsExtended extends HasOpenAITextParamsExtended {
 
   override val sharedTextParams: Seq[ServiceParam[_]] = Seq(
     maxTokens,
+    maxCompletionTokens,
     temperature,
     topP,
     user,

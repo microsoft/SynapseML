@@ -246,7 +246,7 @@ class LangchainTransformer(
                     openai.error.RateLimitError: "OpenAI API request exceeded rate limit: {}",
                 }
             else:
-                {
+                error_messages = {
                     openai.OpenAIError: "OpenAI API returned an API Error: {}",
                 }
 
@@ -255,7 +255,16 @@ class LangchainTransformer(
                 error_message = ""
             except tuple(error_messages.keys()) as e:
                 result = ""
-                error_message = error_messages[type(e)].format(e)
+                # Use exact type match first, fall back to base class message
+                fmt = error_messages.get(type(e))
+                if fmt is None:
+                    for exc_type, msg in error_messages.items():
+                        if isinstance(e, exc_type):
+                            fmt = msg
+                            break
+                if fmt is None:
+                    fmt = "OpenAI API returned an error: {}"
+                error_message = fmt.format(e)
 
             return result, error_message
 

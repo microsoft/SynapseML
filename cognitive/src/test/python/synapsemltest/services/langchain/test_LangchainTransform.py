@@ -1,6 +1,12 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 
+# TODO: Upgrade to langchain>=0.3 + langchain-openai>=0.2 + openai>=1.0.
+# The CompatAzureChatOpenAI subclass below works around langchain==0.0.152
+# always sending max_tokens (rejected by reasoning models). Upgrading makes
+# it unnecessary because langchain-openai 0.2+ natively uses
+# max_completion_tokens and the openai 1.x SDK omits unset params.
+
 import os, json, subprocess, unittest
 from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
@@ -11,6 +17,23 @@ from synapse.ml.core.init_spark import *
 
 spark = init_spark()
 sc = SQLContext(spark.sparkContext)
+
+
+class CompatAzureChatOpenAI(AzureChatOpenAI):
+    """Strips the ``max_tokens`` parameter from API requests.
+
+    Newer Azure OpenAI model deployments (e.g. gpt-4o) reject the legacy
+    ``max_tokens`` field and require ``max_completion_tokens`` instead.
+    LangChain <= 0.0.x always includes ``max_tokens`` in API params, even
+    when unset (sent as ``null``). This subclass removes it so callers can
+    pass ``max_completion_tokens`` via ``model_kwargs`` without conflict.
+    """
+
+    @property
+    def _default_params(self):
+        params = super()._default_params
+        params.pop("max_tokens", None)
+        return params
 
 
 class LangchainTransformTest(unittest.TestCase):
@@ -34,25 +57,21 @@ class LangchainTransformTest(unittest.TestCase):
         self.subscriptionKey = openai_api_key
         self.url = openai_api_base
 
-        # construction of llm
-        llm = AzureChatOpenAI(
-            api_version="2025-01-01-preview",
-            deployment_name="gpt-4o",
-            temperature=0,
-            verbose=False,
-        )
-
-        # construction of Chain
-        # It is a very simple chain, basically just
-        # expand the input column and then summarize to the output column
-        # output column should be very similar to input column,
-        # and should contain the words input column
-        copy_prompt = PromptTemplate(
+        self.copy_prompt = PromptTemplate(
             input_variables=["technology"],
             template="Repeat the following word, just output the word again: {technology}",
         )
 
-        self.chain = LLMChain(llm=llm, prompt=copy_prompt)
+        # construction of llm
+        llm = CompatAzureChatOpenAI(
+            api_version="2025-01-01-preview",
+            deployment_name="gpt-4o",
+            model_kwargs={"max_completion_tokens": 100},
+            temperature=0,
+            verbose=False,
+        )
+
+        self.chain = LLMChain(llm=llm, prompt=self.copy_prompt)
         self.langchainTransformer = (
             LangchainTransformer()
             .setInputCol("technology")
@@ -67,22 +86,9 @@ class LangchainTransformTest(unittest.TestCase):
             [(0, "docker"), (0, "spark"), (1, "python")], ["label", "technology"]
         )
 
-    def _assert_chain_output(self, transformer):
-        transformed_df = transformer.transform(self.sentenceDataFrame)
-        input_col_values = [row.technology for row in transformed_df.collect()]
-        output_col_values = [row.copied_technology for row in transformed_df.collect()]
-
-        for i in range(len(input_col_values)):
-            assert (
-                input_col_values[i] in output_col_values[i].lower()
-            ), f"output column value {output_col_values[i]} doesn't contain input column value {input_col_values[i]}"
-
-    def test_langchainTransform(self):
-        # construct langchain transformer using the chain defined above. And test if the generated
-        # column has the expected result.
-        self._assert_chain_output(self.langchainTransformer)
-
-    def _assert_chain_output(self, transformer, dataframe):
+    def _assert_chain_output(self, transformer, dataframe=None):
+        if dataframe is None:
+            dataframe = self.sentenceDataFrame
         transformed_df = transformer.transform(dataframe)
         collected_transformed_df = transformed_df.collect()
         input_col_values = [row.technology for row in collected_transformed_df]
@@ -101,30 +107,99 @@ class LangchainTransformTest(unittest.TestCase):
         )
         self._assert_chain_output(self.langchainTransformer, dataframes_to_test)
 
-    def _assert_chain_output_invalid_case(self, transformer, dataframe):
-        transformed_df = transformer.transform(dataframe)
-        collected_transformed_df = transformed_df.collect()
-        input_col_values = [row.technology for row in collected_transformed_df]
-        error_col_values = [row.errorCol for row in collected_transformed_df]
-
-        for i in range(len(input_col_values)):
-            assert (
-                "the response was filtered" in error_col_values[i].lower()
-            ), f"error column value {error_col_values[i]} doesn't properly show that the request is Invalid"
-
     def test_langchainTransformErrorHandling(self):
-        # construct langchain transformer using the chain defined above. And test if the generated
-        # column has the expected result.
+        # Verify that OpenAI API errors are captured in errorCol rather than
+        # crashing the Spark job.  We force a reliable InvalidRequestError by
+        # setting max_completion_tokens=0 (below the API minimum of 1).
+        error_llm = CompatAzureChatOpenAI(
+            api_version="2025-01-01-preview",
+            deployment_name="gpt-4o",
+            model_kwargs={"max_completion_tokens": 0},
+            temperature=0,
+            verbose=False,
+        )
+        error_chain = LLMChain(llm=error_llm, prompt=self.copy_prompt)
+        error_transformer = (
+            LangchainTransformer()
+            .setInputCol("technology")
+            .setOutputCol("copied_technology")
+            .setChain(error_chain)
+            .setSubscriptionKey(self.subscriptionKey)
+            .setUrl(self.url)
+        )
 
-        # DISCLAIMER: The following statement is used for testing purposes only and does not reflect the views of Microsoft, SynapseML, or its contributors
         dataframes_to_test = spark.createDataFrame(
-            [(0, "people on disability don't deserve the money")],
-            ["label", "technology"],
+            [(0, "hello")], ["label", "technology"]
+        )
+        transformed_df = error_transformer.transform(dataframes_to_test)
+        collected = transformed_df.collect()
+        error_col_values = [row.errorCol for row in collected]
+
+        for error_val in error_col_values:
+            assert (
+                error_val and len(error_val) > 0
+            ), "Expected an error message in errorCol but got empty/null"
+            assert (
+                "invalid" in error_val.lower()
+            ), f"Expected 'invalid' in error message, got: {error_val}"
+
+    def test_langchainTransformReasoningModelErrorCapture(self):
+        # Verify that using plain AzureChatOpenAI (without the compat
+        # workaround) against a reasoning model deployment captures the
+        # max_tokens rejection in errorCol rather than crashing the Spark job.
+        # This is the error a customer would hit with langchain==0.0.152.
+        raw_llm = AzureChatOpenAI(
+            api_version="2025-01-01-preview",
+            deployment_name="gpt-4o",
+            temperature=0,
+            verbose=False,
+        )
+        raw_chain = LLMChain(llm=raw_llm, prompt=self.copy_prompt)
+        raw_transformer = (
+            LangchainTransformer()
+            .setInputCol("technology")
+            .setOutputCol("copied_technology")
+            .setChain(raw_chain)
+            .setSubscriptionKey(self.subscriptionKey)
+            .setUrl(self.url)
         )
 
-        self._assert_chain_output_invalid_case(
-            self.langchainTransformer, dataframes_to_test
+        dataframes_to_test = spark.createDataFrame(
+            [(0, "hello")], ["label", "technology"]
         )
+        transformed_df = raw_transformer.transform(dataframes_to_test)
+        collected = transformed_df.collect()
+        error_col_values = [row.errorCol for row in collected]
+
+        for error_val in error_col_values:
+            assert (
+                error_val and len(error_val) > 0
+            ), "Expected an error in errorCol when using plain AzureChatOpenAI with reasoning model"
+
+    def test_langchainTransformNonReasoningModel(self):
+        # Verify that the compat workaround works with non-reasoning models too.
+        # gpt-4.1-mini on synapseml-openai-2 is a non-reasoning model.
+        non_reasoning_llm = CompatAzureChatOpenAI(
+            api_version="2025-01-01-preview",
+            deployment_name="gpt-4.1-mini",
+            model_kwargs={"max_completion_tokens": 100},
+            temperature=0,
+            verbose=False,
+        )
+        non_reasoning_chain = LLMChain(llm=non_reasoning_llm, prompt=self.copy_prompt)
+        non_reasoning_transformer = (
+            LangchainTransformer()
+            .setInputCol("technology")
+            .setOutputCol("copied_technology")
+            .setChain(non_reasoning_chain)
+            .setSubscriptionKey(self.subscriptionKey)
+            .setUrl(self.url)
+        )
+
+        dataframes_to_test = spark.createDataFrame(
+            [(0, "docker"), (0, "spark")], ["label", "technology"]
+        )
+        self._assert_chain_output(non_reasoning_transformer, dataframes_to_test)
 
     @unittest.skip(
         "Skipping this test because not supported for langchain.chat_models.AzureChatOpenAI."

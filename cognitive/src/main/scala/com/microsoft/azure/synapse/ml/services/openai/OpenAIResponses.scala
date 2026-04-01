@@ -100,6 +100,7 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
 
   override private[openai] val sharedTextParams: Seq[ServiceParam[_]] = Seq(
     maxTokens,
+    maxCompletionTokens,
     temperature,
     topP,
     user,
@@ -153,7 +154,8 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
 
   override private[ml] def getOptionalParams(r: Row): Map[String, Any] = {
     val base = super.getOptionalParams(r) - "reasoning_effort"
-    val withModel = mergeModel(base, r)
+    val withTokens = resolveMaxTokens(base, "max_output_tokens")
+    val withModel = mergeModel(withTokens, r)
     val withText = mergeTextVerbosity(withModel, r)
     val withReasoning = mergeReasoning(withText, r)
     dropSamplingForGpt5(withReasoning)
