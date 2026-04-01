@@ -160,6 +160,27 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     testCompletion(reasoningCompletion, df, requiredLength = 1)
   }
 
+  test("Deprecated maxTokens remapped for reasoning model") {
+    // This is the exact scenario that broke CI: setMaxTokens against a reasoning model.
+    // The library must remap max_tokens → max_completion_tokens on the wire,
+    // otherwise reasoning models reject the request.
+    val reasoningCompletion = new OpenAIChatCompletion()
+      .setDeploymentName(deploymentName5)
+      .setCustomServiceName(openAIServiceName)
+      .setMaxTokens(500)
+      .setOutputCol("out")
+      .setMessagesCol("messages")
+      .setSubscriptionKey(openAIAPIKey)
+
+    val df = Seq(
+      Seq(
+        OpenAIMessage("user", "What is 2+2?")
+      )
+    ).toDF("messages")
+
+    testCompletion(reasoningCompletion, df, requiredLength = 1)
+  }
+
   test("Robustness to bad inputs") {
     val results = completion.transform(badDf).collect()
     assert(Option(results.head.getAs[Row](completion.getErrorCol)).isDefined)
