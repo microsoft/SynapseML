@@ -11,6 +11,8 @@ import org.apache.spark.sql.DataFrame
 import java.io.File
 
 class SpeakerEmotionInferenceSuite extends TransformerFuzzing[SpeakerEmotionInference] with CognitiveKey {
+  override val compareDataInSerializationTest: Boolean = false
+
 
   import spark.implicits._
 

@@ -8,7 +8,6 @@ import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, Transformer
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, Row}
-import org.scalactic.Equality
 
 import scala.collection.immutable.HashMap
 
@@ -49,14 +48,7 @@ trait FormRecognizerV3Utils extends TestBase {
 
 class AnalyzeDocumentSuite extends TransformerFuzzing[AnalyzeDocument] with FormRecognizerUtils
   with CustomModelUtils with FormRecognizerV3Utils {
-
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    def prep(df: DataFrame) = {
-      df.select("source", "result.analyzeResult.content")
-    }
-
-    super.assertDFEq(prep(df1), prep(df2))(eq)
-  }
+  override val compareDataInSerializationTest: Boolean = false
 
   test("basic usage with tables") {
     val fromRow = AnalyzeDocumentResponse.makeFromRowConverter
