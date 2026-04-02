@@ -1,6 +1,10 @@
-target
-.idea
-.git
-tools/docker/Dockerfile.dev
-pipeline.yaml
-.dockerignore
+# Allowlist: only send files referenced by COPY instructions in Dockerfiles.
+# CI Dockerfile:  environment.yml, project/, build.sbt, sonatype.sbt
+# Demo Dockerfile: tools/docker/demo/init_notebook.py, docs/
+*
+!environment.yml
+!project/
+!build.sbt
+!sonatype.sbt
+!tools/docker/demo/init_notebook.py
+!docs/
