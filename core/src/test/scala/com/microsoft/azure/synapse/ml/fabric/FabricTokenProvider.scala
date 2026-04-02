@@ -12,7 +12,7 @@ import spray.json.DefaultJsonProtocol.StringJsonFormat
 import spray.json._
 
 import java.util.Base64
-import scala.jdk.CollectionConverters.seqAsJavaListConverter
+import scala.jdk.CollectionConverters._
 
 case class AccessTokenConfiguration(ClientId: String,
                                     RedirectUri: String,

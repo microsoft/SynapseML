@@ -132,12 +132,27 @@ class CleanMissingData(override val uid: String) extends Estimator[CleanMissingD
             .collect()(0)
         rowToValues(row)
       case CleanMissingData.CustomOpt =>
-        // Note: All column types supported for custom value
-        colsToClean.map(_ => getCustomValue)
+        // Convert custom value to appropriate type for each column
+        colsToClean.map { colName =>
+          val dataType = dataset.schema(colName).dataType
+          convertCustomValue(getCustomValue, dataType)
+        }
       case _ =>
         Array[String]()
     }
     outputCols.zip(metrics).toMap
+  }
+
+  private def convertCustomValue(value: String, dataType: DataType): Any = {
+    dataType match {
+      case _: IntegerType => value.toDouble.toInt
+      case _: LongType => value.toDouble.toLong
+      case _: FloatType => value.toFloat
+      case _: DoubleType => value.toDouble
+      case _: BooleanType => value.toBoolean
+      case _: StringType => value
+      case _ => value
+    }
   }
 
 }

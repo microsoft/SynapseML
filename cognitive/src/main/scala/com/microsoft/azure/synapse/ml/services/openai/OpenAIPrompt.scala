@@ -3,6 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.services.openai
 
+import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.spark.Functions
 import com.microsoft.azure.synapse.ml.io.binary.BinaryFileReader
@@ -44,7 +45,9 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   with HasURL with HasCustomCogServiceDomain with ConcurrencyParams
   with HasSubscriptionKey with HasAADToken with HasCustomAuthHeader
   with HasCognitiveServiceInput
-  with ComplexParamsWritable with SynapseMLLogging with HasGlobalParams {
+  with ComplexParamsWritable with SynapseMLLogging with HasGlobalParams with Wrappable {
+
+  override protected lazy val pyInternalWrapper: Boolean = true
 
   logClass(FeatureNames.AiServices.OpenAI)
 
@@ -268,7 +271,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       val isFiltered = originalOutput.exists(completion.isContentFiltered)
 
       if (isFiltered) {
-        val updatedRowSeq = row.toSeq.updated(
+        val updatedRowSeq = row.toSeq.toVector.updated(
           row.fieldIndex(errorCol),
           Row(completion.getFilterReason(originalOutput.get), null) //scalastyle:ignore null
         )

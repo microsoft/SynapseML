@@ -53,7 +53,7 @@ class Repartition(val uid: String) extends Transformer with Wrappable with Defau
       else if (getN < dataset.rdd.getNumPartitions)
         dataset.coalesce(getN).toDF()
       else
-        dataset.sqlContext.createDataFrame(
+        dataset.sparkSession.createDataFrame(
           dataset.rdd.repartition(getN).asInstanceOf[RDD[Row]],
           dataset.schema)
     }, dataset.columns.length)

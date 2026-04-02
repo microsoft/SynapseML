@@ -242,9 +242,9 @@ class AnalyzeText(override val uid: String) extends CognitiveServicesBase(uid)
     Option(responseOpt).map { response =>
       val results = response.getAs[Row]("results")
       val stats = results.getAs[Row]("statistics")
-      val docs = results.getAs[Seq[Row]]("documents").map(
+      val docs = results.getAs[scala.collection.Seq[Row]]("documents").map(
         doc => (doc.getAs[String]("id"), doc)).toMap
-      val errors = results.getAs[Seq[Row]]("errors").map(
+      val errors = results.getAs[scala.collection.Seq[Row]]("errors").map(
         error => (error.getAs[String]("id"), error)).toMap
       val modelVersion = results.getAs[String]("modelVersion")
       (0 until (docs.size + errors.size)).map { i =>

@@ -179,7 +179,7 @@ abstract class LIMEBase(override val uid: String)
     val modelOutput = scored.withColumn(explainTargetCol, this.extractTarget(scored.schema, targetClasses))
 
     val fitted = modelOutput.groupByKey(row => row.getAs[Long](idCol)).mapGroups {
-      case (id: Long, rows: Iterator[Row]) =>
+      (id: Long, rows: Iterator[Row]) =>
         val (inputs, outputs, weights) = rows.map {
           row =>
             val input = row.getAs[Vector](stateCol).toBreeze
