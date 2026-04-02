@@ -57,8 +57,8 @@ class PredictionBufferKeep(predictionSchema: StructType,
     */
   def result(model: Array[Byte]): Seq[Row] = {
     // Row w/ model and everything else empty
-    Row.fromSeq(model +: (0 to predictionSchema.length).map({ _ => null})) +:
-      predictions
+    (Row.fromSeq(model +: (0 to predictionSchema.length).map({ _ => null})) +:
+      predictions).toSeq
   }
   // scalastyle:on null
 

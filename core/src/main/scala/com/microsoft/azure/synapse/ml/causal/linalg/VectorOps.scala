@@ -43,8 +43,6 @@ trait VectorOps[T] {
 
 object DVectorOps extends VectorOps[DVector] {
 
-  private implicit val VectorEntryEncoder: Encoder[VectorEntry] = Encoders.product[VectorEntry]
-
   /**
     * sqrt( x'*x )
     */
@@ -96,6 +94,7 @@ object DVectorOps extends VectorOps[DVector] {
   def make(size: Long, value: => Double): DVector = {
     val spark = SparkSession.active
     import spark.implicits._
+    implicit val vectorEntryEncoder: Encoder[VectorEntry] = Encoders.product[VectorEntry]
     val data = 0L until size
     spark
       .sparkContext

@@ -12,7 +12,12 @@ from pyspark.ml.param.shared import (
 from pyspark.ml.util import DefaultParamsReadable, DefaultParamsWritable
 from pyspark.sql import Row, SparkSession
 from pyspark.sql.types import StringType, StructField, StructType
-from transformers import AutoModelForCausalLM, AutoTokenizer
+
+
+def _load_transformers():
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    return AutoModelForCausalLM, AutoTokenizer
 
 
 class _PeekableIterator:
@@ -77,6 +82,7 @@ class _BroadcastableModel:
         self.model_config = model_config
 
     def load_model(self):
+        AutoModelForCausalLM, AutoTokenizer = _load_transformers()
         if self.model_path and os.path.exists(self.model_path):
             model_config = self.model_config.get_config()
             self.model = AutoModelForCausalLM.from_pretrained(
@@ -294,6 +300,7 @@ class HuggingFaceCausalLM(
             model = lc_object.model
             tokenizer = lc_object.tokenizer
         else:
+            AutoModelForCausalLM, AutoTokenizer = _load_transformers()
             model_name = self.getModelName()
             model_config = self.getModelConfig().get_config()
             model = AutoModelForCausalLM.from_pretrained(model_name, **model_config)

@@ -32,12 +32,19 @@ object JarLoadingUtils {
   def instantiateServices[T: ClassTag](instantiate: Class[_] => Any, jarName: Option[String]): List[T] = {
     AllClasses
       .filter(classTag[T].runtimeClass.isAssignableFrom(_))
-      .filter(c => jarName.forall({
+      .filter(c => jarName.forall({ name =>
         val jarResource = c.getResource("/" + c.getName.replace('.', '/') + ".class")
         if (jarResource == null) {
           throw new IOException(s"Could not find resource for class ${c.getSimpleName}")
         }
-        jarResource.toString.contains(_)
+        val resourcePath = jarResource.toString
+        val strippedSnapshot = name.replaceFirst("(-tests)?-SNAPSHOT\\.jar$", "")
+        val strippedJar = name.replaceFirst("(-tests)?\\.jar$", "")
+        val moduleHint = "synapseml-([a-z0-9\\-]+)_".r.findFirstMatchIn(name).map(_.group(1))
+        resourcePath.contains(name) ||
+          (strippedSnapshot != name && resourcePath.contains(strippedSnapshot)) ||
+          (strippedJar != name && resourcePath.contains(strippedJar)) ||
+          moduleHint.exists(hint => resourcePath.contains("/" + hint + "/target/"))
       }))
       .filter(clazz => !Modifier.isAbstract(clazz.getModifiers))
       .map(instantiate(_)).asInstanceOf[List[T]]

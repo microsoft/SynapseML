@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.core.ml
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions._
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import org.apache.spark._
+import org.apache.spark.SparkRuntimeException
 import org.apache.spark.ml.feature.OneHotEncoder
 import org.apache.spark.ml.linalg.SparseVector
 import org.apache.spark.sql.DataFrame
@@ -82,7 +83,7 @@ class OneHotEncoderSpec extends TestBase {
   }
 
   private def testOHE(data: DataFrame) = {
-    assertSparkException[SparkException](
+    assertSparkException[Exception](
       new OneHotEncoder()
         .setInputCols(Array("categoryIndex")).setOutputCols(Array("encodedOutput")),
       data.toDF("id", "categoryIndex"))

@@ -7,6 +7,7 @@ package com.microsoft.azure.synapse.ml.fabric
 
 import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.build.BuildInfo
+import com.microsoft.azure.synapse.ml.core.env.PackageUtils
 import com.microsoft.azure.synapse.ml.core.env.PackageUtils.SparkMavenRepositoryList
 import com.microsoft.azure.synapse.ml.fabric.FabricSchemas._
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
@@ -62,7 +63,7 @@ private[fabric] class FabricOperations(clientId: String, redirectUri: String, wo
 
     if (includePackages) {
       val packages: String =
-        "com.microsoft.azure:synapseml-core_2.12:" + BuildInfo.version
+        s"com.microsoft.azure:synapseml-core_${PackageUtils.ScalaVersionSuffix}:" + BuildInfo.version
       sparkSettingsEntries.prepend(s"'spark.jars.packages' : '$packages'")
       sparkSettingsEntries.prepend(s"'spark.jars.repositories' : '$SparkMavenRepositoryList'")
     }

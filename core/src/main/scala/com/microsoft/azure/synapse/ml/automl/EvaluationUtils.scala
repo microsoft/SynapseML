@@ -45,8 +45,8 @@ object EvaluationUtils {
 
   //scalastyle:off cyclomatic.complexity
   def getMetricWithOperator(modelType: String, evaluationMetric: String): (String, Ordering[Double]) = {
-    val chooseHighest = Ordering.Double
-    val chooseLowest = Ordering.Double.reverse
+    val chooseHighest: Ordering[Double] = Ordering[Double]
+    val chooseLowest: Ordering[Double] = Ordering[Double].reverse
     val (evaluationMetricColumnName, operator): (String, Ordering[Double]) = modelType match {
       case SchemaConstants.RegressionKind => evaluationMetric match {
         case MetricConstants.MseSparkMetric  => (MetricConstants.MseColumnName,  chooseLowest)

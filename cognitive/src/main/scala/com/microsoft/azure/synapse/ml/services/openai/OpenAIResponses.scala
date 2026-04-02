@@ -148,7 +148,7 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   override protected[openai] def prepareEntity: Row => Option[AbstractHttpEntity] = {
     r =>
       lazy val optionalParams: Map[String, Any] = getOptionalParams(r)
-      val messages = r.getAs[Seq[Row]](getMessagesCol)
+      val messages = r.getAs[scala.collection.Seq[Row]](getMessagesCol).toSeq
       Some(getStringEntity(messages, optionalParams))
   }
 
@@ -234,7 +234,9 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   }
 
   private def outputEntries(outputRow: Row): Seq[Row] = {
-    Option(outputRow).flatMap(r => Option(r.getAs[Seq[Row]]("output"))).getOrElse(Seq.empty)
+    Option(outputRow)
+      .flatMap(r => Option(r.getAs[scala.collection.Seq[Row]]("output")))
+      .getOrElse(Seq.empty).toSeq
   }
 
   private def lastOutputEntry(outputRow: Row): Option[Row] = {
@@ -250,7 +252,9 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
 
   private def lastOutputText(outputRow: Row): Option[String] = {
     lastOutputEntry(outputRow).flatMap { outputEntry =>
-      firstDefinedText(Option(outputEntry.getAs[Seq[Row]]("content")).getOrElse(Seq.empty))
+      firstDefinedText(
+        Option(outputEntry.getAs[scala.collection.Seq[Row]]("content"))
+          .getOrElse(Seq.empty).toSeq)
     }
   }
 

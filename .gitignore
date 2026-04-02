@@ -95,3 +95,12 @@ condaenv.*.requirements.txt
 # Dev-loop artifacts
 .dev-loop/
 .dev-loop-artifacts/
+
+# Local MLflow runs and saved models (development artifacts)
+mlruns/
+mlflow-save-model-0/
+
+# Agent
+.agent/
+.agents/
+AGENTS.md

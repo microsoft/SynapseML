@@ -26,6 +26,7 @@ class VowpalWabbitFeaturizer(override val uid: String) extends Transformer
   with HasInputCols with HasOutputCol with HasNumBits with HasSumCollisions
   with Wrappable with ComplexParamsWritable with SynapseMLLogging
 {
+  override protected lazy val pyInternalWrapper = true
   logClass(FeatureNames.VowpalWabbit)
   def this() = this(Identifiable.randomUID("VowpalWabbitFeaturizer"))
 

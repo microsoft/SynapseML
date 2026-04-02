@@ -22,6 +22,7 @@ trait AzureMapsKey {
   lazy val azureMapsKey: String = sys.env.getOrElse("AZURE_MAPS_KEY", Secrets.AzureMapsKey)
 }
 
+
 class AzMapsSearchAddressSuite extends TransformerFuzzing[AddressGeocoder] with AzureMapsKey {
   override val compareDataInSerializationTest: Boolean = false
 
@@ -79,6 +80,7 @@ class AzMapsSearchAddressSuite extends TransformerFuzzing[AddressGeocoder] with 
 
   override def reader: MLReadable[_] = AddressGeocoder
 }
+
 
 class AzMapsSearchReverseAddressSuite extends TransformerFuzzing[ReverseAddressGeocoder] with AzureMapsKey {
   override val compareDataInSerializationTest: Boolean = false

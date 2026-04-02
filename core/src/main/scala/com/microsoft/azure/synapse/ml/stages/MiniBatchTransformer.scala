@@ -192,22 +192,22 @@ class FlattenBatch(val uid: String)
 
   def this() = this(Identifiable.randomUID("FlattenBatch"))
 
-  def transpose(nestedSeq: Seq[Any]): Seq[Seq[Any]] = {
+  def transpose(nestedSeq: scala.collection.Seq[Any]): scala.collection.Seq[scala.collection.Seq[Any]] = {
 
     val innerLength = nestedSeq.filter {
       case null => false  //scalastyle:ignore null
-      case _: Seq[Any] => true
+      case _: scala.collection.Seq[Any] => true
       case _ => false
-    }.head.asInstanceOf[Seq[Any]].length
+    }.head.asInstanceOf[scala.collection.Seq[Any]].length
 
     assert(nestedSeq.forall{
       case null => true  //scalastyle:ignore null
-      case innerSeq: Seq[Any] => innerSeq.lengthCompare(innerLength) == 0
+      case innerSeq: scala.collection.Seq[Any] => innerSeq.lengthCompare(innerLength) == 0
       case _ => true
     })
     (0 until innerLength).map(i => nestedSeq.map{
       case null => null  //scalastyle:ignore null
-      case innerSeq: Seq[Any] => innerSeq(i)
+      case innerSeq: scala.collection.Seq[Any] => innerSeq(i)
       case any => any
     })
   }
@@ -219,7 +219,7 @@ class FlattenBatch(val uid: String)
 
       dataset.toDF().mapPartitions(it =>
         it.flatMap { rowOfLists =>
-          val transposed: Seq[Seq[Any]] = transpose(
+          val transposed: scala.collection.Seq[scala.collection.Seq[Any]] = transpose(
             (0 until rowOfLists.length)
               .map(i => {
                 if (rowOfLists.isNullAt(i)) {
