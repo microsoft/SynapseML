@@ -47,3 +47,12 @@ class DatabricksCPUTests5 extends DatabricksTestHelper {
   databricksTestHelper(clusterId, Libraries, cpuNotebookPartition(4), NumWorkers)
   protected override def afterAll(): Unit = { afterAllHelper(clusterId, clusterName); super.afterAll() }
 }
+
+// Streaming notebook (Deploying a Classifier) runs alone — its server.stop() cancels
+// all SparkContext jobs on Spark 4.0, which would kill concurrent notebooks.
+class DatabricksCPUStreamingTests extends DatabricksTestHelper {
+  private val clusterName = s"mmlspark-build-cpu-streaming-${LocalDateTime.now()}"
+  val clusterId: String = createClusterInPool(clusterName, AdbRuntime, NumWorkers, PoolId, memory = Some("7g"))
+  databricksTestHelper(clusterId, Libraries, StreamingNotebooks, 1)
+  protected override def afterAll(): Unit = { afterAllHelper(clusterId, clusterName); super.afterAll() }
+}

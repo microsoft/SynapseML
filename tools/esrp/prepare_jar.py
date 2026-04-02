@@ -67,13 +67,13 @@ for top_dir in os.listdir(root_dir):
     flatten_dir(path_to_jars)
 
     for file in os.listdir(path_to_jars):
-        if "_2.12" in file and version not in file:
+        if "_2.13" in file and version not in file:
             old_file_path = os.path.join(path_to_jars, file)
-            name_parts = file.split("_2.12")
+            name_parts = file.split("_2.13")
             if name_parts[1].startswith(".") or name_parts[1].startswith("-"):
                 sep_char = ""
             else:
                 sep_char = "-"
-            new_file = f"{name_parts[0]}_2.12-{version}{sep_char}{name_parts[1]}"
+            new_file = f"{name_parts[0]}_2.13-{version}{sep_char}{name_parts[1]}"
             new_file_path = os.path.join(path_to_jars, new_file)
             shutil.move(old_file_path, new_file_path)

@@ -9,7 +9,7 @@ import org.apache.spark.ml.util.Identifiable
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
-import scala.collection.JavaConverters._
+import scala.jdk.CollectionConverters._
 
 class VerifyJsonEncodableParam extends TestBase {
 
@@ -35,10 +35,8 @@ class VerifyJsonEncodableParam extends TestBase {
   }
 
   test("JsonEncodableParam jsonEncode/jsonDecode roundtrip for Seq[Int]") {
-    implicit val seqFormat: JsonFormat[Seq[Int]] =
-      immSeqFormat[Int].asInstanceOf[JsonFormat[Seq[Int]]]
-    val param = new JsonEncodableParam[Seq[Int]](TestParams, "seqParam", "a seq param")
-    val original = Seq(1, 2, 3)
+    val param = new JsonEncodableParam[List[Int]](TestParams, "seqParam", "a seq param")
+    val original = List(1, 2, 3)
     val encoded = param.jsonEncode(original)
     val decoded = param.jsonDecode(encoded)
     assert(decoded === original)

@@ -36,9 +36,10 @@ import java.util.{Optional, UUID}
 import javax.annotation.concurrent.GuardedBy
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
+import scala.collection.concurrent.TrieMap
 import scala.collection.mutable
 import scala.collection.mutable.ListBuffer
-import scala.collection.parallel.mutable.{ParHashMap, ParHashSet}
+
 import scala.concurrent.ExecutionContext.Implicits.global
 import scala.concurrent.Future
 import scala.util.Try
@@ -97,7 +98,7 @@ private[streaming] object HTTPOffset {
   }
 
   def increment(offset: HTTPOffset): HTTPOffset = {
-    HTTPOffset(offset.partitionToValue.mapValues(v => v + 1))
+    HTTPOffset(offset.partitionToValue.mapValues(v => v + 1).toMap)
   }
 
 }
@@ -234,7 +235,7 @@ private[streaming] class HTTPMicroBatchReader(continuous: Boolean, options: Case
 
   override def latestOffset: Offset = {
     if (endOffset == currentOffset) {
-      endOffset = HTTPOffset(endOffset.partitionToValue.mapValues(i => i + 1))
+      endOffset = HTTPOffset(endOffset.partitionToValue.mapValues(i => i + 1).toMap)
     }
     endOffset
   }
@@ -342,22 +343,22 @@ private[streaming] case class HTTPInputPartition(continuous: Boolean,
 
 object HTTPSourceStateHolder {
 
-  private val ServiceInformation: mutable.Map[String, ParHashSet[ServiceInfo]] = mutable.Map()
+  private val ServiceInformation: mutable.Map[String, mutable.HashSet[ServiceInfo]] = mutable.Map()
 
-  private[streaming] def initServiceInfo(name: String, path: String): Unit = {
+  private[streaming] def initServiceInfo(name: String, path: String): Unit = synchronized {
     assert(HTTPSourceStateHolder.ServiceInformation.get(name).isEmpty,
       "Cannot make 2 services with the same name")
-    HTTPSourceStateHolder.ServiceInformation.update(name, new ParHashSet[ServiceInfo]())
+    HTTPSourceStateHolder.ServiceInformation.update(name, new mutable.HashSet[ServiceInfo]())
   }
 
-  private[streaming] def addServiceInfo(name: String, info: ServiceInfo): Unit = {
+  private[streaming] def addServiceInfo(name: String, info: ServiceInfo): Unit = synchronized {
     val infoSet = HTTPSourceStateHolder.ServiceInformation
-      .getOrElse(info.path, new ParHashSet[ServiceInfo]())
+      .getOrElse(info.path, new mutable.HashSet[ServiceInfo]())
     infoSet += info
     HTTPSourceStateHolder.ServiceInformation.update(info.name, infoSet)
   }
 
-  private[streaming] def removeServiceInfo(name: String): Unit = {
+  private[streaming] def removeServiceInfo(name: String): Unit = synchronized {
     HTTPSourceStateHolder.ServiceInformation.remove(name)
     ()
   }
@@ -546,7 +547,7 @@ private[streaming] class WorkerServer(val name: String,
 
   def replyTo(machineIP: String, id: String, data: HTTPResponseData): Unit = {
     if (machineIP == localIp) {
-      routingTable.get(id)
+      routingTable.remove(id)
         .orElse {
           logWarning(s"Could not find request $id");
           None
@@ -555,7 +556,6 @@ private[streaming] class WorkerServer(val name: String,
           logDebug(s"Replying to request")
           HTTPServerUtils.respond(request.e, data)
           request.e.close()
-          routingTable.remove(id)
         }
 
     } else {
@@ -701,7 +701,7 @@ private[streaming] class WorkerServer(val name: String,
     forwardingSession = Some(session)
   }
 
-  private val routingTable: ParHashMap[String, CachedRequest] = ParHashMap()
+  private val routingTable: TrieMap[String, CachedRequest] = TrieMap()
 
   override def close(): Unit = {
     logDebug("stopping 2 ")

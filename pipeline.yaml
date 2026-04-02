@@ -101,6 +101,7 @@ jobs:
   pool:
     vmImage: $(UBUNTU_VERSION)
   steps:
+    - template: templates/java_setup.yml
     - task: AzureCLI@2
       displayName: 'Scala Style Check'
       inputs:
@@ -184,6 +185,8 @@ jobs:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksCPUTests4"
       databricks-cpu-5:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksCPUTests5"
+      databricks-cpu-streaming:
+        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksCPUStreamingTests"
       databricks-gpu-1:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksGPUTests1"
       databricks-gpu-2:
@@ -224,7 +227,7 @@ jobs:
   timeoutInMinutes: 120
   cancelTimeoutInMinutes: 0
   pool:
-    vmImage: $(UBUNTU_VERSION)
+    vmImage: ubuntu-22.04
   steps:
     #- template: templates/ivy_cache.yml
     - template: templates/update_cli.yml
@@ -466,8 +469,8 @@ jobs:
         inlineScript: |
           source activate synapseml
           if [ "$(runCoverage)" = "True" ]; then COV_CMD="coverage"; else COV_CMD=""; fi
-          sbt $COV_CMD getDatasets installPipPackage
-          sbt publishM2
+          sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED $COV_CMD getDatasets installPipPackage
+          sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED publishM2
     - task: AzureCLI@2
       displayName: 'Test Python Code'
       retryCountOnTaskFailure: 1
@@ -479,7 +482,7 @@ jobs:
         inlineScript: |
           set -e
           source activate synapseml
-          export SBT_OPTS="-Xms2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss5M  -Duser.timezone=GMT"
+          export SBT_OPTS="-Xms2G -Xss5M  -Duser.timezone=GMT"
           echo "##vso[task.setvariable variable=SBT_OPTS]$SBT_OPTS"
           echo "SBT_OPTS=$SBT_OPTS"
           IGNORE_TEST_PATH_FLAG=""
@@ -494,9 +497,9 @@ jobs:
           echo "TEST_SUB_PATH=$TEST_SUB_PATH"
           echo "IGNORE_TEST_PATH_FLAG=$IGNORE_TEST_PATH_FLAG"
           echo "TEST_SUB_PATH_FLAG=$TEST_SUB_PATH_FLAG"
-          (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython) || \
-          (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython) || \
-          (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython)
+          (sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" testPython) || \
+          (sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" testPython) || \
+          (sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" testPython)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
@@ -510,7 +513,7 @@ jobs:
         azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
         scriptType: bash
-        inlineScript: 'sbt coverageReport'
+        inlineScript: 'sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED coverageReport'
       condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
     - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
       - template: templates/codecov.yml
@@ -549,12 +552,13 @@ jobs:
         scriptType: bash
         inlineScript: |
           set -e
-          export SBT_OPTS="-Xms2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss5M  -Duser.timezone=GMT"
+          export SBT_OPTS="-Xms2G -Xss5M  -Duser.timezone=GMT"
+          export JAVA_TOOL_OPTIONS="--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED"
           source activate synapseml
-          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
+          (timeout 10m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED setup) || (echo "retrying" && timeout 10m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED setup) || (echo "retrying" && timeout 10m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED setup)
           sbt codegen
           sbt publishM2
-          SPARK_VERSION=3.5.0
+          SPARK_VERSION=4.0.1
           HADOOP_VERSION=3
           # wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
           wget https://mmlspark.blob.core.windows.net/installers/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
@@ -568,9 +572,10 @@ jobs:
         scriptType: bash
         inlineScript: |
           set -e
-          export SBT_OPTS="-Xms2G -Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -XX:MaxPermSize=4G -Xss5M  -Duser.timezone=GMT"
+          export SBT_OPTS="-Xms2G -Xmx4G -Xss5M  -Duser.timezone=GMT"
+          export JAVA_TOOL_OPTIONS="--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED"
           source activate synapseml
-          timeout 20m sbt -DskipCodegen=true "project $(PACKAGE)" coverage testR
+          timeout 20m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED -DskipCodegen=true "project $(PACKAGE)" testR
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
@@ -584,7 +589,7 @@ jobs:
         azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
         scriptType: bash
-        inlineScript: 'sbt coverageReport'
+        inlineScript: 'sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED coverageReport'
       condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
     - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
       - template: templates/codecov.yml
@@ -616,9 +621,9 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
-          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
+          (timeout 10m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED setup) || (echo "retrying" && timeout 10m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED setup) || (echo "retrying" && timeout 10m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED setup)
           if [ "$(runCoverage)" = "True" ]; then COV_CMD="coverage"; else COV_CMD=""; fi
-          (sbt $COV_CMD testWebsiteDocs)
+          (sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED $COV_CMD testWebsiteDocs)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
@@ -632,7 +637,7 @@ jobs:
         azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
         scriptType: bash
-        inlineScript: 'sbt coverageReport'
+        inlineScript: 'sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED coverageReport'
       condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
     - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
       - template: templates/codecov.yml
@@ -768,7 +773,7 @@ jobs:
           (${FFMPEG:-false} && sudo apt-get update && \
           sudo apt-get install ffmpeg libgstreamer1.0-0 \
           gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly -y)
-          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
+          (timeout 10m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED setup) || (echo "retrying" && timeout 10m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED setup) || (echo "retrying" && timeout 10m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED setup)
     - task: AzureCLI@2
       displayName: 'Unit Test'
       retryCountOnTaskFailure: 1
@@ -779,12 +784,12 @@ jobs:
         scriptType: bash
         inlineScript: |
           ulimit -c unlimited
-          export SBT_OPTS="-XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss2M  -Duser.timezone=GMT"
+          export SBT_OPTS="-Xss2M  -Duser.timezone=GMT"
           # Only run coverage on PRs, master, or tag builds
           if [ "$(runCoverage)" = "True" ]; then COV_CMD="coverage"; else COV_CMD=""; fi
           TEST_SPEC="${TEST_CLASSES:-com.microsoft.azure.synapse.ml.$(PACKAGE).**}"
-          (timeout 30m sbt $COV_CMD "testOnly $TEST_SPEC") ||
-          (${FLAKY:-false} && timeout 30m sbt $COV_CMD "testOnly $TEST_SPEC")
+          (timeout 30m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED $COV_CMD "testOnly $TEST_SPEC") ||
+          (${FLAKY:-false} && timeout 30m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED $COV_CMD "testOnly $TEST_SPEC")
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
@@ -798,7 +803,7 @@ jobs:
         azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
         scriptType: bash
-        inlineScript: 'sbt coverageReport'
+        inlineScript: 'sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED coverageReport'
       condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
     - template: templates/kv.yml
     - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:

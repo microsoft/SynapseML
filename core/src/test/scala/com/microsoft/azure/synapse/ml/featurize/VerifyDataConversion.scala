@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.core.schema.SparkSchema
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
@@ -97,10 +97,13 @@ class VerifyDataConversions extends TestBase with TransformerFuzzing[DataConvers
   at the least 32 bits, so a very large number will end up being a very large negative number
   */
   test("Test convert to Byte") {
-    val expectedDF = Seq((1: Byte, 1: Byte, 2: Byte, 3: Byte, 4: Byte, 5: Byte, 6: Byte, 7: Byte, 8: Byte),
-      (0: Byte, 9: Byte, 10: Byte, 11: Byte, 12: Byte, 14: Byte, 127: Byte, 16: Byte, 17: Byte),
-      (1: Byte, -127: Byte, 89: Byte, 99: Byte, 99: Byte, 18: Byte, 20: Byte, 100: Byte, -56: Byte))
-      .toDF("bool", "byte", "short", "int", "long", "float", "double", "intstring", "doublestring")
+    val schema = StructType(Seq("bool", "byte", "short", "int", "long", "float", "double", "intstring", "doublestring")
+      .map(StructField(_, ByteType, true)))
+    val expectedDF = spark.createDataFrame(spark.sparkContext.parallelize(Seq(
+      Row(1.toByte, 1.toByte, 2.toByte, 3.toByte, 4.toByte, 5.toByte, 6.toByte, 7.toByte, 8.toByte),
+      Row(0.toByte, 9.toByte, 10.toByte, 11.toByte, 12.toByte, 14.toByte, 127.toByte, 16.toByte, 17.toByte),
+      Row(1.toByte, -127.toByte, 89.toByte, null, null, 18.toByte, 20.toByte, 100.toByte, null) //scalastyle:ignore null
+    )), schema)
     val res =  generateRes("byte", masterInDF)
     assert(res.schema("bool").dataType == ByteType)
     assert(res.schema("short").dataType == ByteType)
@@ -121,10 +124,14 @@ class VerifyDataConversions extends TestBase with TransformerFuzzing[DataConvers
   at the least 32 bits, so a very large number will end up being a very large negative number
   */
   test("Test convert to Short") {
-    val expectedDF = Seq((1: Short, 1: Short, 2: Short, 3: Short, 4: Short, 5: Short, 6: Short, 7: Short, 8: Short),
-      (0: Short, 9: Short, 10: Short, 11: Short, 12: Short, 14: Short, 15: Short, 16: Short, 17: Short),
-      (1: Short, -127: Short, 345: Short, -32669: Short, 99: Short, 18: Short, 20: Short, 100: Short, 200: Short))
-      .toDF("bool", "byte", "short", "int", "long", "float", "double", "intstring", "doublestring")
+    val schema = StructType(Seq("bool", "byte", "short", "int", "long", "float", "double", "intstring", "doublestring")
+      .map(StructField(_, ShortType, true)))
+    val expectedDF = spark.createDataFrame(spark.sparkContext.parallelize(Seq(
+      Row(1.toShort, 1.toShort, 2.toShort, 3.toShort, 4.toShort, 5.toShort, 6.toShort, 7.toShort, 8.toShort),
+      Row(0.toShort, 9.toShort, 10.toShort, 11.toShort, 12.toShort, 14.toShort, 15.toShort, 16.toShort, 17.toShort),
+      Row(1.toShort, -127.toShort, 345.toShort, null, null, 18.toShort, //scalastyle:ignore null
+        20.toShort, 100.toShort, 200.toShort) //scalastyle:ignore null
+    )), schema)
     assert(expectedDF.except(generateRes("short", masterInDF)).count == 0)
   }
 
@@ -137,10 +144,13 @@ class VerifyDataConversions extends TestBase with TransformerFuzzing[DataConvers
   at the least 32 bits, so a very large number will end up being a very large negative number
   */
   test("Test convert to Integer") {
-    val expectedDF = Seq((1, 1, 2, 3, 4, 5, 6, 7, 8),
-      (0, 9, 10, 11, 12, 14, 15, 16, 17),
-      (1, -127, 345, 32867, -2147483549, 18, 20, 100, 200))
-      .toDF("bool", "byte", "short", "int", "long", "float", "double", "intstring", "doublestring")
+    val schema = StructType(Seq("bool", "byte", "short", "int", "long", "float", "double", "intstring", "doublestring")
+      .map(StructField(_, IntegerType, true)))
+    val expectedDF = spark.createDataFrame(spark.sparkContext.parallelize(Seq(
+      Row(1, 1, 2, 3, 4, 5, 6, 7, 8),
+      Row(0, 9, 10, 11, 12, 14, 15, 16, 17),
+      Row(1, -127, 345, 32867, null, 18, 20, 100, 200) //scalastyle:ignore null
+    )), schema)
     assert(expectedDF.except(generateRes("integer", masterInDF)).count == 0)
   }
 

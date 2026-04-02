@@ -18,7 +18,7 @@ os.environ["PYSPARK_DRIVER_PYTHON"] = "jupyter"
 os.environ["PYSPARK_DRIVER_PYTHON_OPTS"] = "notebook"
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:{}")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.13:{}")
         .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
         .getOrCreate())
 

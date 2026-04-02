@@ -8,9 +8,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from pytorch_lightning.utilities import _module_available
-from urllib.error import URLError
 import time
+from urllib.error import URLError
+
+try:
+    from pytorch_lightning.utilities import _module_available
+except ImportError:  # pragma: no cover - fallback for PL>=2.4
+    from lightning_utilities.core.imports import module_available as _module_available
 
 _TORCHVISION_AVAILABLE = _module_available("torchvision")
 if _TORCHVISION_AVAILABLE:
@@ -218,15 +222,8 @@ class LitDeepVisionModel(pl.LightningModule):
 
     def validation_step(self, batch, batch_idx):
         loss = self._step(batch, True)
-        self.log("val_loss", loss)
-
-    def validation_epoch_end(self, outputs):
-        avg_loss = (
-            torch.stack([x["val_loss"] for x in outputs]).mean()
-            if len(outputs) > 0
-            else float("inf")
-        )
-        self.log("avg_val_loss", avg_loss)
+        self.log("val_loss", loss, prog_bar=True, on_step=False, on_epoch=True)
+        return loss
 
     def test_step(self, batch, batch_idx):
         loss = self._step(batch, False)

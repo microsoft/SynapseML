@@ -27,9 +27,13 @@ class VerifyFastVectorAssembler extends TestBase {
   test("Verify fast vector assembler does not keep metadata for non-categorical columns") {
     val fastAssembler = new FastVectorAssembler().setInputCols(inputCols).setOutputCol(outputCol)
     val transformedDataset = fastAssembler.transform(mockDataset)
-    // Assert metadata is empty
-    assert(transformedDataset.schema(outputCol).metadata.toString() ==
-      "{\"ml_attr\":{\"attrs\":{},\"num_attrs\":0}}")
+    // Assert metadata structure (field order may vary in different Spark versions)
+    val metadata = transformedDataset.schema(outputCol).metadata
+    assert(metadata.contains("ml_attr"))
+    val mlAttr = metadata.getMetadata("ml_attr")
+    assert(mlAttr.getLong("num_attrs") == 0)
+    assert(mlAttr.contains("attrs"))
+    assert(mlAttr.getMetadata("attrs").toString == "{}")
   }
 
   test("Verify fast vector assembler throws when the first column is not categorical") {

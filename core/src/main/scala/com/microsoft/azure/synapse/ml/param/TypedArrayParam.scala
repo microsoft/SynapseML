@@ -20,11 +20,11 @@ abstract class TypedArrayParam[T: TypeTag](parent: Params,
     with WrappableParam[Seq[T]] {
   type ValueType = T
 
-  def w(v: java.util.ArrayList[T]): ParamPair[Seq[T]] = w(v.asScala)
+  def w(v: java.util.ArrayList[T]): ParamPair[Seq[T]] = w(v.asScala.toSeq)
 
   override def rValue(v: Seq[T]): String = {
     implicit val defaultFormat = seqFormat[T]
-    RWrappableParam.rDefaultRender(v)
+    RWrappableParam.rDefaultRender(v)(seqFormat[T].asInstanceOf[JsonFormat[Seq[T]]])
   }
 
   override def rConstructorLine(v: Seq[T]): String = {
@@ -53,7 +53,7 @@ class TypedIntArrayParam(parent: Params,
   extends JsonEncodableParam[Seq[Int]](parent, name, doc, isValid) with WrappableParam[Seq[Int]] {
   type ValueType = Int
 
-  def w(v: java.util.ArrayList[Int]): ParamPair[Seq[Int]] = w(v.asScala)
+  def w(v: java.util.ArrayList[Int]): ParamPair[Seq[Int]] = w(v.asScala.toSeq)
 
 }
 
@@ -64,6 +64,6 @@ class TypedDoubleArrayParam(parent: Params,
   extends JsonEncodableParam[Seq[Double]](parent, name, doc, isValid) with WrappableParam[Seq[Double]] {
   type ValueType = Double
 
-  def w(v: java.util.ArrayList[Double]): ParamPair[Seq[Double]] = w(v.asScala)
+  def w(v: java.util.ArrayList[Double]): ParamPair[Seq[Double]] = w(v.asScala.toSeq)
 
 }
