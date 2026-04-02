@@ -31,6 +31,7 @@ Example Usage:
 import json
 from os import error
 from langchain.chains.loading import load_chain_from_config
+from langchain.chat_models import AzureChatOpenAI
 from pyspark import keyword_only
 from pyspark.ml import Transformer
 from pyspark.ml.param.shared import (
@@ -52,6 +53,30 @@ from synapse.ml.core.serialize._safe_import import secure_import_class
 
 OPENAI_API_VERSION = "2022-12-01"
 RL = TypeVar("RL", bound="MLReadable")
+
+
+class CompatAzureChatOpenAI(AzureChatOpenAI):
+    """Strips the ``max_tokens`` parameter from API requests.
+
+    Newer Azure OpenAI model deployments (e.g. gpt-4o, o1) reject the legacy
+    ``max_tokens`` field and require ``max_completion_tokens`` instead.
+    LangChain <= 0.0.x always includes ``max_tokens`` in API params, even
+    when unset (sent as ``null``). This subclass removes it so callers can
+    pass ``max_completion_tokens`` via ``model_kwargs`` without conflict.
+
+    Example::
+
+        llm = CompatAzureChatOpenAI(
+            deployment_name="gpt-4o",
+            model_kwargs={"max_completion_tokens": 100},
+        )
+    """
+
+    @property
+    def _default_params(self):
+        params = super()._default_params
+        params.pop("max_tokens", None)
+        return params
 
 
 class LangchainTransformerParamsWriter(DefaultParamsWriter):

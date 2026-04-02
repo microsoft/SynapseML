@@ -180,8 +180,16 @@ jobs:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksCPUTests2"
       databricks-cpu-3:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksCPUTests3"
-      databricks-gpu:
-        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksGPUTests"
+      databricks-cpu-4:
+        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksCPUTests4"
+      databricks-cpu-5:
+        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksCPUTests5"
+      databricks-gpu-1:
+        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksGPUTests1"
+      databricks-gpu-2:
+        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksGPUTests2"
+      databricks-gpu-3:
+        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksGPUTests3"
 #      databricks-rapids tests have been disabled because these tests are failing.
 #      This test will be re-enabled once the issue is fixed.
 #      databricks-rapids:
