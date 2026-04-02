@@ -5,18 +5,29 @@ package com.microsoft.azure.synapse.ml.nbtest
 
 import com.microsoft.azure.synapse.ml.nbtest.DatabricksUtilities._
 
-class DatabricksGPUTests extends DatabricksTestHelper {
+// Split GPU tests into separate classes so they run as parallel ADO matrix entries.
+// Each creates its own cluster because Horovod fine-tuning uses all workers.
 
-  // GPU fine-tuning notebooks can take up to 25 min; use 30 min timeout
+class DatabricksGPUTests1 extends DatabricksTestHelper {
   private val gpuTimeoutMs = 30 * 60 * 1000
+  private val clusterName = s"mmlspark-build-gpu1-${java.time.LocalDateTime.now()}"
+  val clusterId: String = createClusterInPool(clusterName, AdbGpuRuntime, 2, GpuPoolId)
+  databricksTestHelper(clusterId, GPULibraries, gpuNotebook(0), 1, List(), gpuTimeoutMs)
+  protected override def afterAll(): Unit = { afterAllHelper(clusterId, clusterName); super.afterAll() }
+}
 
-  val clusterId: String = createClusterInPool(GPUClusterName, AdbGpuRuntime, 3, GpuPoolId)
+class DatabricksGPUTests2 extends DatabricksTestHelper {
+  private val gpuTimeoutMs = 30 * 60 * 1000
+  private val clusterName = s"mmlspark-build-gpu2-${java.time.LocalDateTime.now()}"
+  val clusterId: String = createClusterInPool(clusterName, AdbGpuRuntime, 2, GpuPoolId)
+  databricksTestHelper(clusterId, GPULibraries, gpuNotebook(1), 1, List(), gpuTimeoutMs)
+  protected override def afterAll(): Unit = { afterAllHelper(clusterId, clusterName); super.afterAll() }
+}
 
-  databricksTestHelper(clusterId, GPULibraries, GPUNotebooks, 3, List(), gpuTimeoutMs)
-
-  protected override def afterAll(): Unit = {
-    afterAllHelper(clusterId, GPUClusterName)
-    super.afterAll()
-  }
-
+class DatabricksGPUTests3 extends DatabricksTestHelper {
+  private val gpuTimeoutMs = 30 * 60 * 1000
+  private val clusterName = s"mmlspark-build-gpu3-${java.time.LocalDateTime.now()}"
+  val clusterId: String = createClusterInPool(clusterName, AdbGpuRuntime, 2, GpuPoolId)
+  databricksTestHelper(clusterId, GPULibraries, gpuNotebook(2), 1, List(), gpuTimeoutMs)
+  protected override def afterAll(): Unit = { afterAllHelper(clusterId, clusterName); super.afterAll() }
 }

@@ -486,10 +486,11 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
     val fromRow = ResponsesModelResponse.makeFromRowConverter
     model.transform(df).collect().foreach { row =>
       val responseRow = row.getAs[Row]("out")
-      if (responseRow != null) {
-        fromRow(responseRow).output.foreach { choice =>
-          assert(choice.content.length > requiredLength)
-        }
+      assert(responseRow != null, "Expected non-null response from Responses API")
+      fromRow(responseRow).output.foreach { choice =>
+        val text = choice.content.map(_.text).mkString
+        assert(text.length > requiredLength,
+          s"Expected text length > $requiredLength but got ${text.length}")
       }
     }
   }

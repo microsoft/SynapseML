@@ -2,7 +2,7 @@
 # Licensed under the MIT License. See LICENSE in project root for information.
 
 # TODO: Upgrade to langchain>=0.3 + langchain-openai>=0.2 + openai>=1.0.
-# The CompatAzureChatOpenAI subclass below works around langchain==0.0.152
+# The CompatAzureChatOpenAI subclass works around langchain==0.0.152
 # always sending max_tokens (rejected by reasoning models). Upgrading makes
 # it unnecessary because langchain-openai 0.2+ natively uses
 # max_completion_tokens and the openai 1.x SDK omits unset params.
@@ -12,28 +12,12 @@ from langchain.chains import LLMChain
 from langchain.prompts import PromptTemplate
 from langchain.chat_models import AzureChatOpenAI
 from synapse.ml.services.langchain import LangchainTransformer
+from synapse.ml.services.langchain.LangchainTransform import CompatAzureChatOpenAI
 from pyspark.sql import SQLContext
 from synapse.ml.core.init_spark import *
 
 spark = init_spark()
 sc = SQLContext(spark.sparkContext)
-
-
-class CompatAzureChatOpenAI(AzureChatOpenAI):
-    """Strips the ``max_tokens`` parameter from API requests.
-
-    Newer Azure OpenAI model deployments (e.g. gpt-4o) reject the legacy
-    ``max_tokens`` field and require ``max_completion_tokens`` instead.
-    LangChain <= 0.0.x always includes ``max_tokens`` in API params, even
-    when unset (sent as ``null``). This subclass removes it so callers can
-    pass ``max_completion_tokens`` via ``model_kwargs`` without conflict.
-    """
-
-    @property
-    def _default_params(self):
-        params = super()._default_params
-        params.pop("max_tokens", None)
-        return params
 
 
 class LangchainTransformTest(unittest.TestCase):

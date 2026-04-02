@@ -126,7 +126,7 @@ object DatabricksUtilities {
   // Each partition creates its own cluster, so all 3 run simultaneously.
   // Sort by absolute path for stable, deterministic partitioning across machines.
   private val SortedCPUNotebooks = CPUNotebooks.sortBy(_.getAbsolutePath)
-  val NumCPUPartitions = 3
+  val NumCPUPartitions = 5
   def cpuNotebookPartition(partIndex: Int): Seq[File] = {
     SortedCPUNotebooks.zipWithIndex.filter(_._2 % NumCPUPartitions == partIndex).map(_._1)
   }
@@ -134,6 +134,10 @@ object DatabricksUtilities {
   val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter { file =>
     file.getAbsolutePath.contains("Fine-tune") || file.getAbsolutePath.contains("Phi Model")
   }
+
+  private val SortedGPUNotebooks = GPUNotebooks.sortBy(_.getAbsolutePath)
+
+  def gpuNotebook(index: Int): Seq[File] = Seq(SortedGPUNotebooks(index))
 
   val RapidsNotebooks: Seq[File] = ParallelizableNotebooks.filter(_.getAbsolutePath.contains("GPU"))
 

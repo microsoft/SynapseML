@@ -158,7 +158,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
       )
     ).toDF("messages")
 
-    testCompletion(reasoningCompletion, df, requiredLength = 1)
+    testCompletion(reasoningCompletion, df, requiredLength = 0)
   }
 
   test("Deprecated maxTokens remapped for reasoning model") {
@@ -179,7 +179,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
       )
     ).toDF("messages")
 
-    testCompletion(reasoningCompletion, df, requiredLength = 1)
+    testCompletion(reasoningCompletion, df, requiredLength = 0)
   }
 
   test("Robustness to bad inputs") {

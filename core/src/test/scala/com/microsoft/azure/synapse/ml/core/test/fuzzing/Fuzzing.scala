@@ -18,9 +18,6 @@ import org.apache.spark.sql.DataFrame
 import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
-import scala.concurrent.{Await, Future}
-import scala.concurrent.ExecutionContext.Implicits.global
-import scala.concurrent.duration.Duration
 import scala.util.Random
 
 // scalastyle:off file.size.limit
@@ -494,23 +491,15 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends TestBase 
       val loadedStage = reader.load(path)
       (stage, loadedStage) match {
         case (e1: Estimator[_], e2: Estimator[_]) =>
+          val df1 = e1.fit(fitDF).transform(transDF)
+          val df2 = e2.fit(fitDF).transform(transDF)
           if (compareDataInSerializationTest) {
-            val f1 = Future(e1.fit(fitDF).transform(transDF))
-            val f2 = Future(e2.fit(fitDF).transform(transDF))
-            val (df1, df2) = Await.result(f1.zip(f2), Duration.Inf)
             assertDFEq(df1, df2)
-          } else {
-            // Just verify save/load/fit/transform succeed — no comparison needed.
-            // API-backed estimators produce non-deterministic schemas (field ordering varies).
-            val f1 = Future(e1.fit(fitDF).transform(transDF))
-            val f2 = Future(e2.fit(fitDF).transform(transDF))
-            Await.result(f1.zip(f2), Duration.Inf)
           }
         case (t1: Transformer, t2: Transformer) =>
           if (compareDataInSerializationTest) {
-            val f1 = Future(t1.transform(transDF))
-            val f2 = Future(t2.transform(transDF))
-            val (df1, df2) = Await.result(f1.zip(f2), Duration.Inf)
+            val df1 = t1.transform(transDF)
+            val df2 = t2.transform(transDF)
             assertDFEq(df1, df2)
           } else {
             assert(t1.transformSchema(transDF.schema) == t2.transformSchema(transDF.schema))
