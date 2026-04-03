@@ -363,6 +363,40 @@ class VerifySendWithRetries extends TestBase {
     }
   }
 
+  test("429 with CapacityLimitExceeded and chunked encoding (no Content-Length) is not retried") {
+    val port = getFreePort
+    val requestCount = new AtomicInteger(0)
+    val capacityBody =
+      """{"error":{"code":"CapacityLimitExceeded","message":"Serverless capacity limit exceeded"}}"""
+    val server = startServer(port) { exchange =>
+      val n = requestCount.incrementAndGet()
+      if (n == 1) {
+        // Send with Content-Length = 0 (chunked) to simulate no Content-Length header
+        exchange.sendResponseHeaders(429, 0)
+        val os = exchange.getResponseBody
+        os.write(capacityBody.getBytes("UTF-8"))
+        os.close()
+        exchange.close()
+      } else {
+        respond(exchange, 200, """{"ok":true}""")
+      }
+    }
+    try {
+      val client = HttpClients.createDefault()
+      val request = new HttpGet(s"http://localhost:$port/test")
+      val response = HandlingUtils.sendWithRetries(
+        client, request, Array(100, 100, 100))
+      val code = response.getStatusLine.getStatusCode
+      response.close()
+      client.close()
+
+      assert(code === 429, "Chunked capacity-exceeded 429 should be returned immediately")
+      assert(requestCount.get() === 1, "Should not retry on chunked CapacityLimitExceeded")
+    } finally {
+      server.stop(0)
+    }
+  }
+
   test("429 with Retry-After 0 means retry immediately") {
     val port = getFreePort
     val requestCount = new AtomicInteger(0)

@@ -110,12 +110,12 @@ object HandlingUtils extends SparkLogging {
           val MaxInspectionBytes = 1024 * 1024L
           val bodyStr = Option(response.getEntity).flatMap { entity =>
             val contentLength = entity.getContentLength
-            if (contentLength >= 0 && contentLength <= MaxInspectionBytes) {
+            if (contentLength > MaxInspectionBytes) {
+              None
+            } else {
               response.setEntity(new BufferedHttpEntity(entity))
               Option(response.getEntity)
                 .flatMap(e => Try(IOUtils.toString(e.getContent, "UTF-8")).toOption)
-            } else {
-              None
             }
           }.getOrElse("")
           if (bodyStr.contains("CapacityLimitExceeded")) {
