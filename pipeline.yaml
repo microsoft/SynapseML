@@ -917,11 +917,21 @@ jobs:
           export CREATE_SEMPY_WRITER=false
           export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
           echo "Running non-Fabric Internal tests against OSS $(OSS_VERSION)..."
-          for pkg in spark.aifunc powerbi ebm predict; do
+          # Only spark.aifunc is runnable without Fabric creds.
+          # powerbi/ebm/predict extend HasSparkSession which eagerly inits
+          # FabricTestConstants (requires INTEGRATION_ACCOUNT from fabrictest-cert-admin-kv).
+          FAILURES=0
+          for pkg in spark.aifunc; do
             echo "=== Testing $pkg ==="
-            sbt "testOnly com.microsoft.azure.synapse.ml.$pkg.**" || \
+            if ! sbt "testOnly com.microsoft.azure.synapse.ml.$pkg.**"; then
               echo "##vso[task.logissue type=warning]$pkg tests failed"
+              FAILURES=$((FAILURES + 1))
+            fi
           done
+          if [ $FAILURES -gt 0 ]; then
+            echo "##vso[task.logissue type=warning]$FAILURES test package(s) failed"
+            exit 1
+          fi
     - task: PublishTestResults@2
       displayName: 'Publish Internal Test Results'
       inputs:
