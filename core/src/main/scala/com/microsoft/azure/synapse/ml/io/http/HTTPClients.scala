@@ -7,6 +7,7 @@ import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpPost, HttpRequestBase}
+import org.apache.http.entity.BufferedHttpEntity
 import org.apache.http.impl.client.{CloseableHttpClient, HttpClientBuilder}
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager
 import org.apache.spark.injections.UDFUtils
@@ -104,17 +105,37 @@ object HandlingUtils extends SparkLogging {
         case 201 => true
         case 202 => true
         case 429 =>
-          Option(response.getFirstHeader("Retry-After"))
-            .foreach { h =>
-              logInfo(s"waiting ${h.getValue} on ${
-                request match {
-                  case p: HttpPost => p.getURI + "   " +
-                    Try(IOUtils.toString(p.getEntity.getContent, "UTF-8")).getOrElse("")
-                  case _ => request.getURI
-                }
-              }")
+          // Inspect body to distinguish capacity errors from transient rate limits.
+          // Guard with Content-Length cap to avoid buffering unexpectedly large payloads.
+          val MaxInspectionBytes = 1024 * 1024L
+          val bodyStr = Option(response.getEntity).flatMap { entity =>
+            val contentLength = entity.getContentLength
+            if (contentLength > MaxInspectionBytes) {
+              None
+            } else {
+              response.setEntity(new BufferedHttpEntity(entity))
+              Option(response.getEntity)
+                .flatMap(e => Try(IOUtils.toString(e.getContent, "UTF-8")).toOption)
             }
-          false
+          }.getOrElse("")
+          if (bodyStr.contains("CapacityLimitExceeded")) {
+            // Fabric capacity-exceeded 429s are NOT transient rate limits —
+            // retrying will not help and causes hangs
+            logWarning(s"Capacity limit exceeded (non-retryable 429) on ${request.getURI}")
+            true
+          } else {
+            Option(response.getFirstHeader("Retry-After"))
+              .foreach { h =>
+                logInfo(s"waiting ${h.getValue} on ${
+                  request match {
+                    case p: HttpPost => p.getURI + "   " +
+                      Try(IOUtils.toString(p.getEntity.getContent, "UTF-8")).getOrElse("")
+                    case _ => request.getURI
+                  }
+                }")
+              }
+            false
+          }
         case code =>
           logWarning(s"got error  $code: ${response.getStatusLine.getReasonPhrase} on ${
             request match {
