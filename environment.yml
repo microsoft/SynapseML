@@ -24,8 +24,6 @@ dependencies:
     - nbconvert
     - nbformat
     - pyyaml
-    - PyGithub
-    - tqdm
     - ipython
     - pytest-codeblocks
     - azure-storage-blob
@@ -48,9 +46,7 @@ dependencies:
     - huggingface-hub==0.26.0
     - langchain==0.0.152
     - openai==0.27.5
-    - black==22.3.0
     - black[jupyter]==22.3.0
-    - mistletoe
     - markdownify
     - pypandoc
     - traitlets

@@ -46,7 +46,6 @@ val coreDependencies = Seq(
   "org.apache.spark" %% "spark-core" % sparkVersion % "compile" exclude("com.google.protobuf", "protobuf-java"),
   "org.apache.spark" %% "spark-mllib" % sparkVersion % "compile",
   "org.apache.spark" %% "spark-avro" % sparkVersion % "compile",
-  "org.apache.spark" %% "spark-tags" % sparkVersion % "test",
   "com.globalmentor" % "hadoop-bare-naked-local-fs" % "0.1.0" % "test",
   "org.scalatest" %% "scalatest" % "3.2.14" % "test")
 val extraDependencies = Seq(
@@ -54,8 +53,8 @@ val extraDependencies = Seq(
   "org.scalactic" %% "scalactic" % "3.2.14",
   "io.spray" %% "spray-json" % "1.3.5",
   "com.jcraft" % "jsch" % "0.1.54",
-  "org.apache.httpcomponents.client5" % "httpclient5" % "5.1.3",
-  "org.apache.httpcomponents" % "httpmime" % "4.5.13",
+  "org.apache.httpcomponents" % "httpclient" % "4.5.13",
+  "org.apache.httpcomponents" % "httpmime" % "4.5.13" % "test",
   "com.linkedin.isolation-forest" %% "isolation-forest_3.5.0" % "3.0.5"
     exclude("com.google.protobuf", "protobuf-java") exclude("org.apache.spark", "spark-mllib_2.12")
     exclude("org.apache.spark", "spark-core_2.12") exclude("org.apache.spark", "spark-avro_2.12")
