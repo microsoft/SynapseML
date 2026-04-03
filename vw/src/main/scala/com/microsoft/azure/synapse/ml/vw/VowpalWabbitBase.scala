@@ -119,25 +119,22 @@ trait VowpalWabbitBase
   // get list of columns needed as input
   protected def getInputColumns: Seq[String]
 
-  protected def prepareDataSet(dataset: Dataset[_]): DataFrame = {
+  protected def prepareDataSet(dataset: Dataset[_]): (DataFrame, Int) = {
     // follow LightGBM pattern
     val numTasksPerExec = ClusterUtil.getNumTasksPerExecutor(dataset.sparkSession, log)
     val numExecutorTasks = ClusterUtil.getNumExecutorTasks(dataset.sparkSession, numTasksPerExec, log)
-    val numTasks = min(numExecutorTasks, dataset.rdd.getNumPartitions)
 
     // Need to pass all columns as sub-cl
     val dfSubset = dataset.toDF()
 
     // Reduce number of partitions to number of executor cores
-    if (dataset.rdd.getNumPartitions > numTasks) {
-      if (getUseBarrierExecutionMode) { // see [SPARK-24820][SPARK-24821]
-        dfSubset.repartition(numTasks)
-      }
-      else {
-        dfSubset.coalesce(numTasks)
-      }
-    } else
-      dfSubset
+    // coalesce is a no-op when numTasks >= current partitions
+    if (getUseBarrierExecutionMode) {
+      (dfSubset.repartition(numExecutorTasks), numExecutorTasks)
+    }
+    else {
+      (dfSubset.coalesce(numExecutorTasks), numExecutorTasks)
+    }
   }
 
   /**
