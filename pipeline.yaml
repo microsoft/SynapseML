@@ -914,7 +914,7 @@ jobs:
           set -e
           cd $(Build.SourcesDirectory)/SynapseML-Internal
           source activate synapseml-internal
-          export CREATE_SEMPY_WRITER=true
+          export CREATE_SEMPY_WRITER=false
           export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
           echo "Running non-Fabric Internal tests against OSS $(OSS_VERSION)..."
           for pkg in spark.aifunc powerbi ebm predict; do
