@@ -865,9 +865,21 @@ jobs:
           echo "Compiling SynapseML-Internal against OSS $(OSS_VERSION)..."
           sbt compile Test/compile
     - bash: |
-        set -e
         echo "##vso[task.prependpath]$CONDA/bin"
+      displayName: 'Add conda to PATH'
+    - bash: |
         sudo chown -R $(whoami):$(id -ng) $(CONDA_CACHE_DIR)
+      displayName: 'Fix conda directory permissions'
+    - task: PipAuthenticate@1
+      displayName: 'Private Conda Feed Authentication'
+      inputs:
+        artifactFeeds: 'A365/Synapse-Conda'
+    - bash: |
+        conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
+        conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+      displayName: 'Accept Anaconda TOS'
+    - bash: |
+        set -e
         conda env create --yes -f $(Build.SourcesDirectory)/SynapseML-Internal/environment.yaml -v || \
           conda env create --yes -f $(Build.SourcesDirectory)/SynapseML-Internal/environment.yaml -v
         conda clean --all -y
