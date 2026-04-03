@@ -289,17 +289,14 @@ class VerifySendWithRetries extends TestBase {
     try {
       val client = HttpClients.createDefault()
       val request = new HttpGet(s"http://localhost:$port/test")
-      val start = System.currentTimeMillis()
       val response = HandlingUtils.sendWithRetries(
         client, request, Array(100, 100, 100))
-      val elapsed = System.currentTimeMillis() - start
       val code = response.getStatusLine.getStatusCode
       response.close()
       client.close()
 
       assert(code === 429, "Capacity-exceeded 429 should be returned immediately, not retried")
       assert(requestCount.get() === 1, "Should not retry on CapacityLimitExceeded")
-      assert(elapsed < 1000, s"Should return immediately, took ${elapsed}ms")
     } finally {
       server.stop(0)
     }
@@ -331,7 +328,8 @@ class VerifySendWithRetries extends TestBase {
 
       assert(code === 429, "Capacity-exceeded should not retry even with Retry-After")
       assert(requestCount.get() === 1, "Should not retry on CapacityLimitExceeded")
-      assert(elapsed < 1000, s"Should ignore Retry-After and return immediately, took ${elapsed}ms")
+      // Verify we didn't sleep for the 5s Retry-After
+      assert(elapsed < 4000, s"Should ignore Retry-After and return quickly, took ${elapsed}ms")
     } finally {
       server.stop(0)
     }

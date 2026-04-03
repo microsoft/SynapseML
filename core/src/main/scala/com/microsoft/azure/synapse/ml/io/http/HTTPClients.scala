@@ -105,18 +105,23 @@ object HandlingUtils extends SparkLogging {
         case 201 => true
         case 202 => true
         case 429 =>
-          // Buffer the response entity so the body can be inspected
-          // and still returned to the caller if we don't retry
-          if (response.getEntity != null) {
-            response.setEntity(new BufferedHttpEntity(response.getEntity))
-          }
-          val bodyStr = Option(response.getEntity)
-            .flatMap(e => Try(IOUtils.toString(e.getContent, "UTF-8")).toOption)
-            .getOrElse("")
+          // Inspect body to distinguish capacity errors from transient rate limits.
+          // Guard with Content-Length cap to avoid buffering unexpectedly large payloads.
+          val MaxInspectionBytes = 1024 * 1024L
+          val bodyStr = Option(response.getEntity).flatMap { entity =>
+            val contentLength = entity.getContentLength
+            if (contentLength >= 0 && contentLength <= MaxInspectionBytes) {
+              response.setEntity(new BufferedHttpEntity(entity))
+              Option(response.getEntity)
+                .flatMap(e => Try(IOUtils.toString(e.getContent, "UTF-8")).toOption)
+            } else {
+              None
+            }
+          }.getOrElse("")
           if (bodyStr.contains("CapacityLimitExceeded")) {
             // Fabric capacity-exceeded 429s are NOT transient rate limits —
             // retrying will not help and causes hangs
-            logWarning(s"Capacity limit exceeded (non-retryable 429) on ${request.getURI}: $bodyStr")
+            logWarning(s"Capacity limit exceeded (non-retryable 429) on ${request.getURI}")
             true
           } else {
             Option(response.getFirstHeader("Retry-After"))
