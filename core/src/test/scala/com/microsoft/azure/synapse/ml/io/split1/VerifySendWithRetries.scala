@@ -273,6 +273,98 @@ class VerifySendWithRetries extends TestBase {
     }
   }
 
+  test("429 with CapacityLimitExceeded body is not retried") {
+    val port = getFreePort
+    val requestCount = new AtomicInteger(0)
+    val capacityBody =
+      """{"error":{"code":"CapacityLimitExceeded","message":"Serverless capacity limit exceeded"}}"""
+    val server = startServer(port) { exchange =>
+      val n = requestCount.incrementAndGet()
+      if (n == 1) {
+        respond(exchange, 429, capacityBody)
+      } else {
+        respond(exchange, 200, """{"ok":true}""")
+      }
+    }
+    try {
+      val client = HttpClients.createDefault()
+      val request = new HttpGet(s"http://localhost:$port/test")
+      val start = System.currentTimeMillis()
+      val response = HandlingUtils.sendWithRetries(
+        client, request, Array(100, 100, 100))
+      val elapsed = System.currentTimeMillis() - start
+      val code = response.getStatusLine.getStatusCode
+      response.close()
+      client.close()
+
+      assert(code === 429, "Capacity-exceeded 429 should be returned immediately, not retried")
+      assert(requestCount.get() === 1, "Should not retry on CapacityLimitExceeded")
+      assert(elapsed < 1000, s"Should return immediately, took ${elapsed}ms")
+    } finally {
+      server.stop(0)
+    }
+  }
+
+  test("429 with CapacityLimitExceeded ignores Retry-After header") {
+    val port = getFreePort
+    val requestCount = new AtomicInteger(0)
+    val capacityBody =
+      """{"error":{"code":"CapacityLimitExceeded","message":"Serverless capacity limit exceeded"}}"""
+    val server = startServer(port) { exchange =>
+      val n = requestCount.incrementAndGet()
+      if (n == 1) {
+        respond(exchange, 429, capacityBody, headers = Map("Retry-After" -> "5"))
+      } else {
+        respond(exchange, 200, """{"ok":true}""")
+      }
+    }
+    try {
+      val client = HttpClients.createDefault()
+      val request = new HttpGet(s"http://localhost:$port/test")
+      val start = System.currentTimeMillis()
+      val response = HandlingUtils.sendWithRetries(
+        client, request, Array(100, 100, 100))
+      val elapsed = System.currentTimeMillis() - start
+      val code = response.getStatusLine.getStatusCode
+      response.close()
+      client.close()
+
+      assert(code === 429, "Capacity-exceeded should not retry even with Retry-After")
+      assert(requestCount.get() === 1, "Should not retry on CapacityLimitExceeded")
+      assert(elapsed < 1000, s"Should ignore Retry-After and return immediately, took ${elapsed}ms")
+    } finally {
+      server.stop(0)
+    }
+  }
+
+  test("429 with non-capacity error body still retries normally") {
+    val port = getFreePort
+    val requestCount = new AtomicInteger(0)
+    val rateLimitBody = """{"error":{"code":"RateLimitExceeded","message":"Too many requests"}}"""
+    val server = startServer(port) { exchange =>
+      val n = requestCount.incrementAndGet()
+      if (n <= 2) {
+        respond(exchange, 429, rateLimitBody)
+      } else {
+        respond(exchange, 200, """{"ok":true}""")
+      }
+    }
+    try {
+      val client = HttpClients.createDefault()
+      val request = new HttpGet(s"http://localhost:$port/test")
+      val response = HandlingUtils.sendWithRetries(
+        client, request, Array(100, 100, 100))
+      val code = response.getStatusLine.getStatusCode
+      response.close()
+      client.close()
+
+      assert(code === 200, "Non-capacity 429 should still retry and eventually succeed")
+      assert(requestCount.get() === 3, "Should have retried past the rate-limit 429s")
+    } finally {
+      server.stop(0)
+    }
+  }
+
   test("429 with Retry-After 0 means retry immediately") {
     val port = getFreePort
     val requestCount = new AtomicInteger(0)
