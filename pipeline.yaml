@@ -813,7 +813,7 @@ jobs:
 - job: InternalCompat
   displayName: 'SynapseML-Internal Compatibility Check'
   cancelTimeoutInMinutes: 0
-  timeoutInMinutes: 40
+  timeoutInMinutes: 90
   continueOnError: true
   pool:
     vmImage: $(UBUNTU_VERSION)
@@ -879,10 +879,23 @@ jobs:
         conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
       displayName: 'Accept Anaconda TOS'
     - bash: |
+        echo "=== Disk space BEFORE cleanup ==="
+        df -h / | grep -E 'Filesystem|/$'
+        echo "Removing unused pre-installed SDKs and runtimes..."
+        sudo rm -rf /usr/local/lib/android || true
+        sudo rm -rf /usr/share/dotnet || true
+        sudo rm -rf /opt/ghc || true
+        sudo rm -rf /usr/local/share/boost || true
+        docker system prune -af --volumes 2>/dev/null || true
+        echo "=== Disk space AFTER cleanup ==="
+        df -h / | grep -E 'Filesystem|/$'
+      displayName: 'Free disk space (remove unused SDKs)'
+    - bash: |
         set -e
         conda env create --yes -f $(Build.SourcesDirectory)/SynapseML-Internal/environment.yaml -v || \
           conda env create --yes -f $(Build.SourcesDirectory)/SynapseML-Internal/environment.yaml -v
         conda clean --all -y
+        pip cache purge
       displayName: 'Create Internal conda env'
     - task: AzureKeyVault@2
       displayName: 'Fetch AI service secrets'
