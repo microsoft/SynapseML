@@ -304,7 +304,9 @@ def _run_convert_notebooks(root, dry_run):
     print("Running sbt convertNotebooks (generates website/docs/ from source)...")
     r = subprocess.run(cmd, cwd=str(root), capture_output=True, text=True)
     if r.returncode != 0:
-        print(f"ERROR: sbt convertNotebooks failed:\n{r.stderr[-2000:]}", file=sys.stderr)
+        print(
+            f"ERROR: sbt convertNotebooks failed:\n{r.stderr[-2000:]}", file=sys.stderr
+        )
         return False
     print("✓ website/docs/ generated from notebooks.")
     return True
@@ -319,8 +321,10 @@ def _run_docusaurus(root, new_v, dry_run):
 
     if not docs_dir.exists():
         print()
-        print("ERROR: website/docs/ does not exist after convertNotebooks.",
-              file=sys.stderr)
+        print(
+            "ERROR: website/docs/ does not exist after convertNotebooks.",
+            file=sys.stderr,
+        )
         print("  Cannot create versioned docs snapshot.", file=sys.stderr)
         return False
 
@@ -576,13 +580,12 @@ Examples:
                 print("Version strings updated but convertNotebooks failed.")
                 print("Fix the build issue, then run manually:")
                 print("  sbt convertNotebooks")
-                print(
-                    "  yarn --cwd website run docusaurus docs:version "
-                    + new_v
-                )
+                print("  yarn --cwd website run docusaurus docs:version " + new_v)
                 sys.exit(1)
             if not _run_docusaurus(root, new_v, dry_run=False):
-                print("Version strings updated and docs generated, but versioning failed.")
+                print(
+                    "Version strings updated and docs generated, but versioning failed."
+                )
                 print(
                     "Run manually: yarn --cwd website run docusaurus docs:version "
                     + new_v
