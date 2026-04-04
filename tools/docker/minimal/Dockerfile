@@ -1,6 +1,6 @@
 FROM mcr.microsoft.com/mirror/docker/library/ubuntu:22.04
 
-ARG SYNAPSEML_VERSION=1.1.2
+ARG SYNAPSEML_VERSION=1.1.3
 ARG DEBIAN_FRONTEND=noninteractive
 
 ENV SPARK_VERSION=3.5.4
