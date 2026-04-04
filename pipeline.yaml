@@ -103,6 +103,10 @@ jobs:
   steps:
     - bash: sbt scalastyle test:scalastyle
       displayName: 'Scala Style Check'
+    - task: UsePythonVersion@0
+      displayName: 'Use Python 3'
+      inputs:
+        versionSpec: '3.10'
     - bash: |
         set -e
         pip install -q "black[jupyter]==22.3.0"
