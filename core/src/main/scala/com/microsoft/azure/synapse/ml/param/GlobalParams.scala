@@ -28,8 +28,10 @@ object GlobalParams {
 
   def getParam[T](p: Param[T]): Option[T] = {
     ParamToKeyMap.get(p).flatMap { key =>
-      key match {
-        case k: GlobalKey[T] =>
+      // Using @unchecked because GlobalKey[T] type parameter is erased at runtime,
+      // but we know the types are correct due to how registerParam stores them
+      (key: @unchecked) match {
+        case k: GlobalKey[T @unchecked] =>
           getGlobalParam(k)
         case _ => None
       }
