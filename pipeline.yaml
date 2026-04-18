@@ -803,3 +803,117 @@ jobs:
     - template: templates/kv.yml
     - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
       - template: templates/codecov.yml
+
+- job: ReleaseBranchCompat
+  displayName: 'Release Branch Compatibility Check'
+  cancelTimeoutInMinutes: 0
+  timeoutInMinutes: 60
+  continueOnError: true
+  condition: and(eq(variables.isPR, true), eq(variables['System.PullRequest.TargetBranch'], 'refs/heads/master'))
+  pool:
+    vmImage: $(UBUNTU_VERSION)
+  strategy:
+    matrix:
+      spark4.0:
+        RELEASE_BRANCH: spark4.0
+        JAVA_VERSION: 17
+        SBT_JAVA_OPTS: "-J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED"
+  steps:
+    - checkout: self
+      fetchDepth: 0
+
+    - task: JavaToolInstaller@0
+      displayName: 'Set up JDK $(JAVA_VERSION)'
+      inputs:
+        versionSpec: $(JAVA_VERSION)
+        jdkArchitectureOption: x64
+        jdkSourceOption: PreInstalled
+
+    - bash: |
+        set -e
+        echo "=== Current HEAD (PR merge commit) ==="
+        git log --oneline -1
+        PR_HEAD=$(git rev-parse HEAD)
+        echo "PR HEAD: $PR_HEAD"
+
+        echo "=== Fetching release branch $(RELEASE_BRANCH) ==="
+        git fetch origin $(RELEASE_BRANCH)
+        RELEASE_TIP=$(git rev-parse FETCH_HEAD)
+        echo "Release branch tip: $RELEASE_TIP"
+
+        # Find commits unique to the release branch (not in master)
+        # These are the release-specific patches we need to replay
+        MASTER_BASE=$(git merge-base FETCH_HEAD $PR_HEAD)
+        UNIQUE_COMMITS=$(git rev-list --count $MASTER_BASE..$RELEASE_TIP)
+        echo "Release branch has $UNIQUE_COMMITS unique commit(s) to replay"
+
+        echo "=== Attempting rebase of $(RELEASE_BRANCH) onto PR HEAD ==="
+        git checkout FETCH_HEAD
+        git rebase --onto $PR_HEAD $MASTER_BASE 2>&1 || {
+          echo "##vso[task.logissue type=warning]Rebase of $(RELEASE_BRANCH) onto this PR has merge conflicts"
+          echo ""
+          echo "=== Conflicting files ==="
+          git diff --name-only --diff-filter=U 2>/dev/null || true
+          git rebase --abort 2>/dev/null || true
+          exit 1
+        }
+        echo "Rebase succeeded — $(RELEASE_BRANCH) patches apply cleanly onto this PR"
+      displayName: 'Rebase $(RELEASE_BRANCH) onto PR HEAD'
+
+    - task: AzureCLI@2
+      displayName: 'Compile $(RELEASE_BRANCH) after rebase'
+      timeoutInMinutes: 20
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          set -e
+          export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
+          echo "=== Compiling $(RELEASE_BRANCH) rebased onto PR HEAD ==="
+          sbt $(SBT_JAVA_OPTS) compile test:compile
+          echo "$(RELEASE_BRANCH) compiles successfully after rebase"
+
+    - task: AzureCLI@2
+      displayName: 'Setup repo for tests'
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          (timeout 30s pip install requests) || (echo "retrying" && timeout 30s pip install requests)
+          (timeout 5m sbt $(SBT_JAVA_OPTS) setup) || (echo "retrying" && timeout 5m sbt $(SBT_JAVA_OPTS) setup) || (echo "retrying" && timeout 5m sbt $(SBT_JAVA_OPTS) setup)
+
+    - template: templates/kv.yml
+
+    - task: AzureCLI@2
+      displayName: 'Unit tests on $(RELEASE_BRANCH) after rebase'
+      timeoutInMinutes: 60
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          set -e
+          export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
+          echo "=== Running unit tests on $(RELEASE_BRANCH) rebased onto PR HEAD ==="
+          FAILURES=0
+          for pkg in core automl causal featurize image isolationforest stages recommendation nn train vw opencv exploratory; do
+            echo "=== Testing $pkg ==="
+            if ! timeout 10m sbt $(SBT_JAVA_OPTS) "testOnly com.microsoft.azure.synapse.ml.$pkg.**"; then
+              echo "##vso[task.logissue type=warning]$pkg tests failed on $(RELEASE_BRANCH)"
+              FAILURES=$((FAILURES + 1))
+            fi
+          done
+          if [ $FAILURES -gt 0 ]; then
+            echo "##vso[task.logissue type=warning]$FAILURES package(s) failed on $(RELEASE_BRANCH)"
+            exit 1
+          fi
+          echo "All unit tests passed on $(RELEASE_BRANCH)"
+
+    - task: PublishTestResults@2
+      displayName: 'Publish $(RELEASE_BRANCH) Test Results'
+      inputs:
+        testResultsFiles: '**/test-reports/TEST-*.xml'
+        failTaskOnFailedTests: false
+      condition: succeededOrFailed()
