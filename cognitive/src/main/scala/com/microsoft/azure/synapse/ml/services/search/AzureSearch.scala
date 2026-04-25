@@ -261,10 +261,15 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
    * (see [[https://github.com/microsoft/SynapseML/issues/2420]]) because the writer
    * JSON-escaped the entire string.
    *
-   * For each field declared as `Edm.GeographyPoint` in the index, if the corresponding
-   * DataFrame column is a `StringType`, parse it into the canonical
+   * For each '''top-level''' field declared as `Edm.GeographyPoint` in the index, if the
+   * corresponding DataFrame column is a `StringType`, parse it into the canonical
    * `StructType(type: StringType, coordinates: ArrayType(DoubleType))` so that downstream
-   * `to_json` emits a proper GeoJSON object. Columns that are already structured are left as-is.
+   * `to_json` emits a proper GeoJSON object. Columns that are already structured are
+   * left as-is. GeographyPoint fields nested inside complex types are not auto-converted
+   * (mirrors the existing top-level-only handling in `convertDateTimeToISO8601`).
+   *
+   * Parsing uses Spark's `FAILFAST` mode so malformed GeoJSON surfaces an explicit
+   * exception instead of being silently coerced to `null` and shipped to Azure Search.
    *
    * @param df DataFrame with potential GeographyPoint columns
    * @param indexJson JSON string containing the index schema
@@ -275,6 +280,7 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
       StructField("type", StringType),
       StructField("coordinates", ArrayType(DoubleType))
     ))
+    val parseOptions = Map("mode" -> "FAILFAST")
     val geoFields = parseIndexJson(indexJson).fields
       .filter(_.`type` == "Edm.GeographyPoint")
       .map(_.name)
@@ -283,7 +289,7 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
         currentDF.schema(fieldName).dataType match {
           case StringType =>
             currentDF.withColumn(fieldName,
-              when(col(fieldName).isNotNull, from_json(col(fieldName), geoStructType))
+              when(col(fieldName).isNotNull, from_json(col(fieldName), geoStructType, parseOptions))
             )
           case _ =>
             // Already a struct (or otherwise compatible); checkSchemaParity will validate.
