@@ -200,6 +200,10 @@ class SearchWriterSuite extends SearchWriterSuiteUtilities {
       )
     )
 
+    // With fatalErrors=true (default) any 400 from Azure Search becomes a thrown
+    // RuntimeException, so reaching this `assertSize` proves the documents were
+    // accepted as valid spatial objects -- a count of 2 is only achievable if the
+    // GeoJSON strings were correctly parsed and serialized as GeoJSON objects.
     retryWithBackoff(assertSize(in, 2))
 
   }
@@ -261,6 +265,29 @@ class SearchWriterSuite extends SearchWriterSuiteUtilities {
 
     val converted = AzureSearchWriter.convertGeographyPointToStruct(df, indexJson)
     assert(converted.schema("location").dataType == schema("location").dataType)
+  }
+
+  test("convertGeographyPointToStruct fails fast on malformed GeoJSON instead of silently nulling") {
+    val df = spark.createDataFrame(Seq(
+      ("0", "{not valid json")
+    )).toDF("id", "location")
+
+    val indexJson =
+      """
+        |{
+        |  "name": "unit-test-geo",
+        |  "fields": [
+        |    { "name": "id", "type": "Edm.String", "key": true },
+        |    { "name": "location", "type": "Edm.GeographyPoint" }
+        |  ]
+        |}
+        |""".stripMargin
+
+    val converted = AzureSearchWriter.convertGeographyPointToStruct(df, indexJson)
+    // FAILFAST surfaces parse errors when the row is materialized, not at plan time.
+    intercept[org.apache.spark.SparkException] {
+      converted.collect()
+    }
   }
 
 }
