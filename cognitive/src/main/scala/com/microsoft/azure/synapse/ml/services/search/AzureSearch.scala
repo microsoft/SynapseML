@@ -258,18 +258,19 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
    * (e.g. `{"type":"Point","coordinates":[lon, lat]}`), not as a JSON-encoded string.
    * Users frequently have their GeoJSON readily available as a string column, and
    * passing it as a `StringType` previously caused a `400 Bad Request`
-   * (see issue #2420) because the writer JSON-escaped the entire string.
+   * (see [[https://github.com/microsoft/SynapseML/issues/2420]]) because the writer
+   * JSON-escaped the entire string.
    *
    * For each field declared as `Edm.GeographyPoint` in the index, if the corresponding
    * DataFrame column is a `StringType`, parse it into the canonical
-   * `struct<type:string, coordinates:array<double>>` so that downstream `to_json`
-   * emits a proper GeoJSON object. Columns that are already structured are left as-is.
+   * `StructType(type: StringType, coordinates: ArrayType(DoubleType))` so that downstream
+   * `to_json` emits a proper GeoJSON object. Columns that are already structured are left as-is.
    *
    * @param df DataFrame with potential GeographyPoint columns
    * @param indexJson JSON string containing the index schema
    * @return DataFrame with string GeographyPoint columns converted to GeoJSON structs
    */
-  private def convertGeographyPointToStruct(df: DataFrame, indexJson: String): DataFrame = {
+  private[ml] def convertGeographyPointToStruct(df: DataFrame, indexJson: String): DataFrame = {
     val geoStructType = StructType(Seq(
       StructField("type", StringType),
       StructField("coordinates", ArrayType(DoubleType))
@@ -285,7 +286,7 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
               when(col(fieldName).isNotNull, from_json(col(fieldName), geoStructType))
             )
           case _ =>
-            // Already a struct (or otherwise compatible) — let checkSchemaParity validate it.
+            // Already a struct (or otherwise compatible); checkSchemaParity will validate.
             currentDF
         }
       } else {
