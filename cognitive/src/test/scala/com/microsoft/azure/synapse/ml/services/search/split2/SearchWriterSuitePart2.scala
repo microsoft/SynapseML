@@ -171,4 +171,37 @@ class SearchWriterSuite extends SearchWriterSuiteUtilities {
 
   }
 
+  test("Handle GeoJSON GeographyPoint fields supplied as strings") {
+
+    val in = generateIndexName()
+    val df = spark.createDataFrame(Seq(
+      ("upload", "0", """{"type":"Point","coordinates":[-122.3493, 47.6205]}"""),
+      ("upload", "1", """{"type":"Point","coordinates":[-122.3351, 47.6080]}""")
+    )).toDF("searchAction", "id", "location")
+
+    val indexJson =
+      s"""
+         |{
+         |  "name": "$in",
+         |  "fields": [
+         |    { "name": "id", "type": "Edm.String", "key": true, "searchable": true, "retrievable": true },
+         |    { "name": "location", "type": "Edm.GeographyPoint", "searchable": false,
+         |     "filterable": true, "retrievable": true, "sortable": true }
+         |  ]
+         |}
+         |""".stripMargin
+
+    AzureSearchWriter.write(df,
+      Map(
+        "subscriptionKey" -> azureSearchKey,
+        "actionCol" -> "searchAction",
+        "serviceName" -> testServiceName,
+        "indexJson" -> indexJson
+      )
+    )
+
+    retryWithBackoff(assertSize(in, 2))
+
+  }
+
 }
