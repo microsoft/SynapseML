@@ -284,8 +284,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     df: DataFrame,
     messagesCol: Column
   ): (DataFrame, String, OpenAIServicesBase with HasTextOutput) = {
-    // All services are now HasMessagesInput (OpenAIChatCompletion, OpenAIResponses, AIFoundryChatCompletion)
-    // Legacy OpenAICompletion did not support MessagesInput which is no longer used in this class.
     val messagesService = service.asInstanceOf[HasMessagesInput]
 
     if (isSet(responseFormat)) {
@@ -639,7 +637,12 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     host.exists(_.toLowerCase.endsWith("services.ai.azure.com"))
   }
 
-  private[openai] def hasAIFoundryModel: Boolean = this.isDefined(model) && isAIFoundryEndpoint
+  private def isOpenAIV1Endpoint: Boolean = {
+    get(url).orElse(getDefault(url)).exists(OpenAIEndpointUtils.isV1BaseUrl)
+  }
+
+  private[openai] def hasAIFoundryModel: Boolean =
+    this.isDefined(model) && isAIFoundryEndpoint && !isOpenAIV1Endpoint
 
   //deployment name can be set by user, it doesn't have to match with model name
   private def getOpenAIChatService: OpenAIServicesBase with HasTextOutput = {
@@ -658,11 +661,10 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       .filter(p => !localParamNames.contains(p.param.name) && completion.hasParam(p.param.name))
       .foreach(p => completion.set(completion.getParam(p.param.name), p.value))
 
-    completion match {
-      case resp: OpenAIResponses
-          if this.isDefined(model) && get(deploymentName).orElse(getDefault(deploymentName)).isEmpty =>
-        resp.setDeploymentName(getModel)
-      case _ =>
+    if (this.isDefined(model) &&
+        get(deploymentName).orElse(getDefault(deploymentName)).isEmpty &&
+        (isOpenAIV1Endpoint || completion.isInstanceOf[OpenAIResponses])) {
+      completion.setDeploymentName(getModel)
     }
 
     completion
