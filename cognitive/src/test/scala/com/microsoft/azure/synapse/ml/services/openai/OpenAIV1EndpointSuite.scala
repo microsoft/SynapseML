@@ -124,6 +124,17 @@ class OpenAIV1EndpointSuite extends TestBase {
     assert(payload.fields.contains("input"))
   }
 
+  test("responses v1 endpoint requires deployment name as model") {
+    val transformer = new OpenAIResponses()
+      .setUrl("https://example.services.ai.azure.com/openai/v1")
+      .setMessagesCol("messages")
+
+    val err = intercept[IllegalArgumentException] {
+      requestPayload(transformer, messagesRow)
+    }
+    assert(err.getMessage.contains("No deployment/model name provided for OpenAI v1 endpoint"))
+  }
+
   test("responses keeps legacy Azure URL shape when URL is not an OpenAI v1 base") {
     val transformer = new OpenAIResponses()
       .setUrl("https://example.openai.azure.com/")
