@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.services.openai
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
+import com.microsoft.azure.synapse.ml.services.HasCognitiveServiceInput
 import org.apache.http.entity.AbstractHttpEntity
 import org.apache.http.util.EntityUtils
 import org.apache.spark.sql.Row
@@ -15,22 +16,18 @@ class OpenAIV1EndpointSuite extends TestBase {
 
   import spark.implicits._
 
-  private class InspectableChatCompletion extends OpenAIChatCompletion {
-    def requestUrl(row: Row): String = prepareUrl.apply(row)
-    def requestPayload(row: Row): JsObject =
-      EntityUtils.toString(prepareEntity.apply(row).get).parseJson.asJsObject
-  }
+  private val prepareUrl = classOf[HasCognitiveServiceInput].getDeclaredMethod("prepareUrl")
+  prepareUrl.setAccessible(true)
 
-  private class InspectableEmbedding extends OpenAIEmbedding {
-    def requestUrl(row: Row): String = prepareUrl.apply(row)
-    def requestPayload(row: Row): JsObject =
-      EntityUtils.toString(prepareEntity.apply(row).get).parseJson.asJsObject
-  }
+  private val prepareEntity = classOf[HasCognitiveServiceInput].getDeclaredMethod("prepareEntity")
+  prepareEntity.setAccessible(true)
 
-  private class InspectableResponses extends OpenAIResponses {
-    def requestUrl(row: Row): String = prepareUrl.apply(row)
-    def requestPayload(row: Row): JsObject =
-      EntityUtils.toString(prepareEntity.apply(row).get).parseJson.asJsObject
+  private def requestUrl(transformer: HasCognitiveServiceInput, row: Row): String =
+    prepareUrl.invoke(transformer).asInstanceOf[Row => String].apply(row)
+
+  private def requestPayload(transformer: HasCognitiveServiceInput, row: Row): JsObject = {
+    val entityBuilder = prepareEntity.invoke(transformer).asInstanceOf[Row => Option[AbstractHttpEntity]]
+    EntityUtils.toString(entityBuilder.apply(row).get).parseJson.asJsObject
   }
 
   private val messageSchema = StructType(Seq(
@@ -52,89 +49,89 @@ class OpenAIV1EndpointSuite extends TestBase {
   }
 
   test("chat completions uses OpenAI v1 base URL without api-version and sends model") {
-    val transformer = new InspectableChatCompletion()
+    val transformer = new OpenAIChatCompletion()
       .setUrl("https://example.services.ai.azure.com/openai/v1")
       .setDeploymentName("gpt-4o")
       .setMessagesCol("messages")
       .setApiVersion("2025-04-01-preview")
 
     val row = messagesRow
-    assert(transformer.requestUrl(row) == "https://example.services.ai.azure.com/openai/v1/chat/completions")
+    assert(requestUrl(transformer, row) == "https://example.services.ai.azure.com/openai/v1/chat/completions")
 
-    val payload = transformer.requestPayload(row)
+    val payload = requestPayload(transformer, row)
     assert(payload.fields.get("model").contains(JsString("gpt-4o")))
     assert(payload.fields.contains("messages"))
   }
 
   test("chat completions keeps legacy Azure deployment URL and api-version") {
-    val transformer = new InspectableChatCompletion()
+    val transformer = new OpenAIChatCompletion()
       .setUrl("https://example.openai.azure.com/")
       .setDeploymentName("gpt-4o")
       .setMessagesCol("messages")
       .setApiVersion("2025-04-01-preview")
 
     val row = messagesRow
-    assert(transformer.requestUrl(row) ==
+    assert(requestUrl(transformer, row) ==
       "https://example.openai.azure.com/openai/deployments/gpt-4o/chat/completions" +
         "?api-version=2025-04-01-preview")
-    assert(!transformer.requestPayload(row).fields.contains("model"))
+    assert(!requestPayload(transformer, row).fields.contains("model"))
   }
 
   test("embeddings uses OpenAI v1 base URL and sends deployment as model") {
-    val transformer = new InspectableEmbedding()
+    val transformer = new OpenAIEmbedding()
       .setUrl("https://example.services.ai.azure.com/openai/v1")
       .setDeploymentName("text-embedding-3-large")
       .setTextCol("text")
       .setApiVersion("2025-04-01-preview")
 
     val row = Seq("hello").toDF("text").collect().head
-    assert(transformer.requestUrl(row) == "https://example.services.ai.azure.com/openai/v1/embeddings")
+    assert(requestUrl(transformer, row) == "https://example.services.ai.azure.com/openai/v1/embeddings")
 
-    val payload = transformer.requestPayload(row)
+    val payload = requestPayload(transformer, row)
     assert(payload.fields.get("model").contains(JsString("text-embedding-3-large")))
     assert(payload.fields.get("input").contains(JsString("hello")))
   }
 
   test("embeddings keeps legacy Azure deployment URL and api-version") {
-    val transformer = new InspectableEmbedding()
+    val transformer = new OpenAIEmbedding()
       .setUrl("https://example.openai.azure.com/")
       .setDeploymentName("text-embedding-3-large")
       .setTextCol("text")
       .setApiVersion("2025-04-01-preview")
 
     val row = Seq("hello").toDF("text").collect().head
-    assert(transformer.requestUrl(row) ==
+    assert(requestUrl(transformer, row) ==
       "https://example.openai.azure.com/openai/deployments/text-embedding-3-large/embeddings" +
         "?api-version=2025-04-01-preview")
 
-    val payload = transformer.requestPayload(row)
+    val payload = requestPayload(transformer, row)
     assert(!payload.fields.contains("model"))
     assert(payload.fields.get("input").contains(JsString("hello")))
   }
 
   test("responses uses OpenAI v1 base URL without api-version") {
-    val transformer = new InspectableResponses()
+    val transformer = new OpenAIResponses()
       .setUrl("https://example.services.ai.azure.com/openai/v1")
       .setDeploymentName("gpt-5-mini")
       .setMessagesCol("messages")
       .setApiVersion("2025-04-01-preview")
 
     val row = messagesRow
-    assert(transformer.requestUrl(row) == "https://example.services.ai.azure.com/openai/v1/responses")
+    assert(requestUrl(transformer, row) == "https://example.services.ai.azure.com/openai/v1/responses")
 
-    val payload = transformer.requestPayload(row)
+    val payload = requestPayload(transformer, row)
     assert(payload.fields.get("model").contains(JsString("gpt-5-mini")))
     assert(payload.fields.contains("input"))
   }
 
   test("responses keeps legacy Azure URL shape when URL is not an OpenAI v1 base") {
-    val transformer = new InspectableResponses()
+    val transformer = new OpenAIResponses()
       .setUrl("https://example.openai.azure.com/")
       .setDeploymentName("gpt-5-mini")
       .setMessagesCol("messages")
       .setApiVersion("2025-04-01-preview")
 
-    assert(transformer.requestUrl(messagesRow) ==
+    assert(requestUrl(transformer, messagesRow) ==
       "https://example.openai.azure.com/openai/responses?api-version=2025-04-01-preview")
   }
 
