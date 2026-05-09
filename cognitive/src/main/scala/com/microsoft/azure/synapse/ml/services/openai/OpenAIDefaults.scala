@@ -47,8 +47,7 @@ object OpenAIDefaults {
   }
 
   def setURL(v: String): Unit = {
-    val url = if (v.endsWith("/")) v else v + "/"
-    GlobalParams.setGlobalParam(URLKey, url)
+    GlobalParams.setGlobalParam(URLKey, v)
   }
 
   def getURL: Option[String] = {

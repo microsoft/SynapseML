@@ -113,7 +113,11 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   }
 
   override protected def prepareUrlRoot: Row => String = { row =>
-    s"${getUrl}openai/deployments/${getValue(row, deploymentName)}/chat/completions"
+    if (isOpenAIV1BaseUrl) {
+      endpointUrl("chat/completions")
+    } else {
+      endpointUrl(s"openai/deployments/${getValue(row, deploymentName)}/chat/completions")
+    }
   }
 
   override private[ml] def getOptionalParams(r: Row): Map[String, Any] = {
@@ -125,7 +129,7 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
     r =>
       lazy val optionalParams: Map[String, Any] = getOptionalParams(r)
       val messages = r.getAs[Seq[Row]](getMessagesCol)
-      Some(getStringEntity(messages, optionalParams))
+      Some(getStringEntity(messages, withV1DeploymentModel(optionalParams, r)))
   }
 
   override val subscriptionKeyHeaderName: String = "api-key"

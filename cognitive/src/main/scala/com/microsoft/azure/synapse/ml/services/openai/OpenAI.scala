@@ -14,32 +14,8 @@ import org.apache.spark.sql.Row
 import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
 
+import java.util.Locale
 import scala.language.existentials
-
-trait HasPromptInputs extends HasServiceParams {
-  val prompt: ServiceParam[String] = new ServiceParam[String](
-    this, "prompt", "The text to complete", isRequired = false)
-
-  def getPrompt: String = getScalarParam(prompt)
-
-  def setPrompt(v: String): this.type = setScalarParam(prompt, v)
-
-  def getPromptCol: String = getVectorParam(prompt)
-
-  def setPromptCol(v: String): this.type = setVectorParam(prompt, v)
-
-  val batchPrompt: ServiceParam[Seq[String]] = new ServiceParam[Seq[String]](
-    this, "batchPrompt", "Sequence of prompts to complete", isRequired = false)
-
-  def getBatchPrompt: Seq[String] = getScalarParam(batchPrompt)
-
-  def setBatchPrompt(v: Seq[String]): this.type = setScalarParam(batchPrompt, v)
-
-  def getBatchPromptCol: String = getVectorParam(batchPrompt)
-
-  def setBatchPromptCol(v: String): this.type = setVectorParam(batchPrompt, v)
-
-}
 
 trait HasMessagesInput extends Params {
   val messagesCol: Param[String] = new Param[String](
@@ -53,6 +29,29 @@ trait HasMessagesInput extends Params {
 
 case object OpenAIDeploymentNameKey extends GlobalKey[Either[String, String]]
 case object OpenAIEmbeddingDeploymentNameKey extends GlobalKey[Either[String, String]]
+
+private[openai] object OpenAIEndpointUtils {
+  private def stripTrailingSlashes(value: String): String = value.replaceAll("/+$", "")
+
+  private def withoutQueryOrFragment(value: String): String = {
+    val stopAt = Seq(value.indexOf("?"), value.indexOf("#")).filter(_ >= 0) match {
+      case Seq() => value.length
+      case indexes => indexes.min
+    }
+    value.take(stopAt)
+  }
+
+  def appendPath(baseUrl: String, path: String): String = {
+    val separator = if (baseUrl.endsWith("/")) "" else "/"
+    baseUrl + separator + path.stripPrefix("/")
+  }
+
+  def isV1BaseUrl(baseUrl: String): Boolean = {
+    stripTrailingSlashes(withoutQueryOrFragment(baseUrl))
+      .toLowerCase(Locale.ROOT)
+      .endsWith("/v1")
+  }
+}
 
 trait HasOpenAISharedParams extends HasServiceParams with HasAPIVersion {
 
@@ -137,7 +136,7 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
     "The maximum number of completion tokens to generate. Has minimum of 0." +
       " Works with both reasoning and non-reasoning models." +
       " Sent as max_completion_tokens for chat completions," +
-      " max_output_tokens for responses API, and max_tokens for legacy completions.",
+      " and max_output_tokens for responses API.",
     isRequired = false) {
     override val payloadName: String = "max_completion_tokens"
   }
@@ -455,6 +454,39 @@ trait HasTextOutput {
 abstract class OpenAIServicesBase(override val uid: String) extends CognitiveServicesBase(uid: String)
   with HasOpenAISharedParams with OpenAIFabricSetting {
   setDefault(timeout -> 360.0)
+
+  override def setUrl(value: String): this.type = set(url, value)
+
+  protected[openai] def isOpenAIV1BaseUrl: Boolean =
+    get(url).orElse(getDefault(url)).exists(OpenAIEndpointUtils.isV1BaseUrl)
+
+  protected[openai] def endpointUrl(path: String): String = OpenAIEndpointUtils.appendPath(getUrl, path)
+
+  protected[openai] def withV1DeploymentModel(params: Map[String, Any], row: Row): Map[String, Any] = {
+    if (isOpenAIV1BaseUrl && !params.contains("model")) {
+      params.updated("model", getValue(row, deploymentName))
+    } else {
+      params
+    }
+  }
+
+  private def warnIfV1ApiVersionConfigured(): Unit = {
+    if (isOpenAIV1BaseUrl && (get(apiVersion).nonEmpty || GlobalParams.getParam(apiVersion).nonEmpty)) {
+      logWarning(
+        "apiVersion is ignored when the OpenAI URL is a v1 base URL. " +
+          "Remove apiVersion or use a non-v1 endpoint.")
+    }
+  }
+
+  override protected def getUrlParams: Array[ServiceParam[_]] = {
+    val params = super.getUrlParams
+    if (isOpenAIV1BaseUrl) {
+      warnIfV1ApiVersionConfigured()
+      params.filterNot(_.name == apiVersion.name)
+    } else {
+      params
+    }
+  }
 
   private def usingDefaultOpenAIEndpoint(): Boolean = {
     getUrl == FabricClient.MLWorkloadEndpointML + "/cognitive/openai/"
