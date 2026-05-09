@@ -14,10 +14,8 @@ import org.apache.spark.sql.Row
 import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
 
-import java.net.URI
 import java.util.Locale
 import scala.language.existentials
-import scala.util.Try
 
 trait HasMessagesInput extends Params {
   val messagesCol: Param[String] = new Param[String](
@@ -35,15 +33,23 @@ case object OpenAIEmbeddingDeploymentNameKey extends GlobalKey[Either[String, St
 private[openai] object OpenAIEndpointUtils {
   private def stripTrailingSlashes(value: String): String = value.replaceAll("/+$", "")
 
+  private def withoutQueryOrFragment(value: String): String = {
+    val stopAt = Seq(value.indexOf("?"), value.indexOf("#")).filter(_ >= 0) match {
+      case Seq() => value.length
+      case indexes => indexes.min
+    }
+    value.take(stopAt)
+  }
+
   def appendPath(baseUrl: String, path: String): String = {
-    val normalizedBase = if (baseUrl.endsWith("/")) baseUrl else baseUrl + "/"
-    normalizedBase + path.stripPrefix("/")
+    val separator = if (baseUrl.endsWith("/")) "" else "/"
+    baseUrl + separator + path.stripPrefix("/")
   }
 
   def isV1BaseUrl(baseUrl: String): Boolean = {
-    val path = Try(new URI(baseUrl.trim).getPath).toOption.getOrElse("")
-    val normalizedPath = stripTrailingSlashes(path).toLowerCase(Locale.ROOT)
-    normalizedPath == "/v1" || normalizedPath.endsWith("/openai/v1")
+    stripTrailingSlashes(withoutQueryOrFragment(baseUrl))
+      .toLowerCase(Locale.ROOT)
+      .endsWith("/v1")
   }
 }
 
@@ -449,6 +455,8 @@ abstract class OpenAIServicesBase(override val uid: String) extends CognitiveSer
   with HasOpenAISharedParams with OpenAIFabricSetting {
   setDefault(timeout -> 360.0)
 
+  override def setUrl(value: String): this.type = set(url, value)
+
   protected[openai] def isOpenAIV1BaseUrl: Boolean =
     get(url).orElse(getDefault(url)).exists(OpenAIEndpointUtils.isV1BaseUrl)
 
@@ -463,10 +471,10 @@ abstract class OpenAIServicesBase(override val uid: String) extends CognitiveSer
   }
 
   private def warnIfV1ApiVersionConfigured(): Unit = {
-    if (isOpenAIV1BaseUrl && get(apiVersion).nonEmpty) {
+    if (isOpenAIV1BaseUrl && (get(apiVersion).nonEmpty || GlobalParams.getParam(apiVersion).nonEmpty)) {
       logWarning(
         "apiVersion is ignored when the OpenAI URL is a v1 base URL. " +
-          "Remove apiVersion or use an Azure OpenAI endpoint without /openai/v1.")
+          "Remove apiVersion or use a non-v1 endpoint.")
     }
   }
 

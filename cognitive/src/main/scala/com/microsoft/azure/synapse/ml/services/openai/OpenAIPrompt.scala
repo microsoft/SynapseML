@@ -241,6 +241,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     store -> Left(false)
   )
 
+  override def setUrl(value: String): this.type = set(url, value)
+
   override def setCustomServiceName(v: String): this.type = {
     setUrl(s"https://$v.openai.azure.com/" + urlPath.stripPrefix("/"))
   }
