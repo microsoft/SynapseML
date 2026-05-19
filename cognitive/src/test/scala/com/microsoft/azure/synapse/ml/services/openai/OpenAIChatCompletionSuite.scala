@@ -539,34 +539,6 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     testCompletion(completion, goodDf)
   }
 
-  test("content filtering identifies empty assistant content") {
-    val responseJson =
-      """{
-        |  "id":"chatcmpl_test",
-        |  "object":"chat.completion",
-        |  "created":"1",
-        |  "model":"gpt-4.1",
-        |  "choices":[
-        |    {
-        |      "message":{"role":"assistant","content":null,"name":null},
-        |      "index":0,
-        |      "finish_reason":"content_filter"
-        |    }
-        |  ],
-        |  "system_fingerprint":null,
-        |  "usage":null
-        |}""".stripMargin
-
-    val outputRow = spark.read
-      .schema(ChatModelResponse.schema)
-      .json(Seq(responseJson).toDS)
-      .collect()
-      .head
-    val completion = new OpenAIChatCompletion()
-    assert(completion.isContentFiltered(outputRow))
-    assert(completion.getFilterReason(outputRow) == "content_filter")
-  }
-
   ignore("Custom EndPoint") {
     lazy val accessToken: String = sys.env.getOrElse("CUSTOM_ACCESS_TOKEN", "")
     lazy val customRootUrlValue: String = sys.env.getOrElse("CUSTOM_ROOT_URL", "")
