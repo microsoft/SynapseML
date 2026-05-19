@@ -14,11 +14,10 @@ class SpeechToTextSDKSecuritySuite extends TestBase {
   private val extraFfmpegArgs = Seq("-t", "2.5")
   private val ffmpegProtocolWhitelist = "http,https,tcp,tls,crypto"
 
-  test("recorded file names are passed to ffmpeg without a shell") {
+  test("audio streams are passed to ffmpeg without a shell") {
     val command = SpeechSDKBase.makeFfmpegCommand(
       uriWithShellMetacharacters,
-      extraFfmpegArgs,
-      Some(recordedFileNameWithShellMetacharacters))
+      extraFfmpegArgs)
 
     assert(command.head == "ffmpeg")
     val whitelistIndex = command.indexOf("-protocol_whitelist")
@@ -30,20 +29,16 @@ class SpeechToTextSDKSecuritySuite extends TestBase {
     assert(!command.contains("-c"))
     assert(!command.contains("|"))
     assert(!command.contains("tee"))
-    assert(command.last == recordedFileNameWithShellMetacharacters)
-    assert(command.count(_ == recordedFileNameWithShellMetacharacters) == 1)
-    assert(command.forall(arg =>
-      arg == recordedFileNameWithShellMetacharacters || !arg.contains(recordedFileNameWithShellMetacharacters)))
+    assert(!command.contains(recordedFileNameWithShellMetacharacters))
     assert(command.contains(uriWithShellMetacharacters))
     assert(command.count(_ == uriWithShellMetacharacters) == 1)
-    assert(command.sliding(extraFfmpegArgs.length).count(_ == extraFfmpegArgs) == 2)
+    assert(command.sliding(extraFfmpegArgs.length).count(_ == extraFfmpegArgs) == 1)
   }
 
-  test("ffmpeg command omits recorded output when audio recording is disabled") {
+  test("ffmpeg command writes only to stdout") {
     val command = SpeechSDKBase.makeFfmpegCommand(
       uriWithShellMetacharacters,
-      extraFfmpegArgs,
-      None)
+      extraFfmpegArgs)
 
     assert(command.head == "ffmpeg")
     assert(command.last == "pipe:1")
@@ -63,25 +58,44 @@ class SpeechToTextSDKSecuritySuite extends TestBase {
       " http://example.com/audio.m3u8"
     ).foreach { uri =>
       intercept[IllegalArgumentException] {
-        SpeechSDKBase.makeFfmpegCommand(uri, Seq(), None)
+        SpeechSDKBase.makeFfmpegCommand(uri, Seq())
       }
     }
   }
 
   test("ffmpeg command accepts uppercase http schemes") {
     val uri = "HTTPS://example.com/audio.m3u8"
-    val command = SpeechSDKBase.makeFfmpegCommand(uri, Seq(), None)
+    val command = SpeechSDKBase.makeFfmpegCommand(uri, Seq())
 
     assert(command.contains(uri))
   }
 
+  test("recorded file names are validated as local paths") {
+    assert(SpeechSDKBase.validateRecordedFileName(recordedFileNameWithShellMetacharacters) ==
+      recordedFileNameWithShellMetacharacters)
+
+    Seq(
+      "-out.mp3",
+      "http://example.com/out.mp3",
+      "https://example.com/out.mp3",
+      "file:///tmp/out.mp3",
+      "pipe:1",
+      "data:text/plain,hello",
+      "concat:/tmp/a|/tmp/b"
+    ).foreach { fileName =>
+      intercept[IllegalArgumentException] {
+        SpeechSDKBase.validateRecordedFileName(fileName)
+      }
+    }
+  }
+
   test("recorded file names must be non-empty") {
     intercept[IllegalArgumentException] {
-      SpeechSDKBase.makeFfmpegCommand(uriWithShellMetacharacters, Seq(), Some(""))
+      SpeechSDKBase.validateRecordedFileName("")
     }
     intercept[IllegalArgumentException] {
       val missingProperty = System.getProperty("synapseml.speech.recordedFileName.missing")
-      SpeechSDKBase.makeFfmpegCommand(uriWithShellMetacharacters, Seq(), Some(missingProperty))
+      SpeechSDKBase.validateRecordedFileName(missingProperty)
     }
   }
 }

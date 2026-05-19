@@ -8,6 +8,7 @@ import com.microsoft.azure.synapse.ml.services._
 import com.microsoft.azure.synapse.ml.services.speech.SpeechFormat._
 import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.schema.{DatasetExtensions, SparkBindings}
+import com.microsoft.azure.synapse.ml.core.utils.OsUtils
 import com.microsoft.azure.synapse.ml.io.http.HasURL
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.ServiceParam
@@ -17,6 +18,7 @@ import com.microsoft.cognitiveservices.speech.transcription.{Conversation, Conve
   ConversationTranscriptionEventArgs, Participant}
 import com.microsoft.cognitiveservices.speech.util.EventHandler
 import org.apache.commons.io.FilenameUtils
+import org.apache.commons.io.input.TeeInputStream
 import org.apache.hadoop.fs.Path
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.injections.SConf
@@ -29,7 +31,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import spray.json._
 
-import java.io.{BufferedInputStream, ByteArrayInputStream, Closeable, InputStream}
+import java.io.{BufferedInputStream, ByteArrayInputStream, Closeable, FileOutputStream, IOException, InputStream}
 import java.lang.ProcessBuilder.Redirect
 import java.net.{URI, URL}
 import java.util.{Locale, UUID}
@@ -44,6 +46,8 @@ private[speech] object SpeechSDKBase {
   private val FfmpegOutputArgs = Seq("-acodec", "mp3", "-ab", "257k", "-f", "mp3")
   private val FfmpegProtocolWhitelist = "http,https,tcp,tls,crypto"
   private val HttpSchemes = Set("http", "https")
+  private val UriSchemePattern = "^[A-Za-z][A-Za-z0-9+.-]*:.*".r
+  private val WindowsDrivePathPattern = "^[A-Za-z]:[\\\\/].*".r
 
   def parseUri(uri: String): Option[URI] = Try(new URI(uri)).toOption
 
@@ -58,22 +62,27 @@ private[speech] object SpeechSDKBase {
     parsedUri
   }
 
+  def validateRecordedFileName(fileName: String): String = {
+    val fn = Option(fileName).filter(_.trim.nonEmpty).getOrElse {
+      throw new IllegalArgumentException("Recorded file name must be non-empty when recordAudioData is true")
+    }
+    val hasUriScheme = UriSchemePattern.pattern.matcher(fn).matches()
+    val isWindowsDrivePath = WindowsDrivePathPattern.pattern.matcher(fn).matches()
+
+    require(!fn.startsWith("-"), "Recorded file name must not start with '-'")
+    require(!fn.contains('\u0000'), "Recorded file name must not contain NUL characters")
+    require(!hasUriScheme || (OsUtils.IsWindows && isWindowsDrivePath),
+      "Recorded file name must be a local file path without a URI scheme")
+    fn
+  }
+
   def makeFfmpegCommand(uri: String,
-                        extraArgs: Seq[String],
-                        recordedFileName: Option[String]): Seq[String] = {
+                        extraArgs: Seq[String]): Seq[String] = {
     validateFfmpegUri(uri)
     val outputArgs = extraArgs ++ FfmpegOutputArgs
-    val body = Seq("ffmpeg", "-y",
+    Seq("ffmpeg", "-y",
       "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "2000",
       "-protocol_whitelist", FfmpegProtocolWhitelist, "-i", uri) ++ outputArgs ++ Seq("pipe:1")
-
-    recordedFileName match {
-      case Some(fn) =>
-        require(Option(fn).exists(_.nonEmpty), "Recorded file name must be non-empty when recordAudioData is true")
-        body ++ outputArgs ++ Seq(fn)
-      case None =>
-        body
-    }
   }
 }
 
@@ -288,14 +297,29 @@ abstract class SpeechSDKBase extends Transformer
       val isHttpUri = parsedUriOpt.exists(SpeechSDKBase.isHttpUri)
 
       if (Set("m3u8", "m4a")(extension) && isHttpUri) {
-        val recordedFileName = if (getRecordAudioData) Some(row.getAs[String](getRecordedFileNameCol)) else None
-        val ffmpegCommand = SpeechSDKBase.makeFfmpegCommand(uri, getExtraFfmpegArgs.toSeq, recordedFileName)
+        val recordedFileName = if (getRecordAudioData) {
+          Some(SpeechSDKBase.validateRecordedFileName(row.getAs[String](getRecordedFileNameCol)))
+        } else {
+          None
+        }
+        val ffmpegCommand = SpeechSDKBase.makeFfmpegCommand(uri, getExtraFfmpegArgs.toSeq)
         val proc = new ProcessBuilder()
           .redirectError(Redirect.INHERIT)
           .redirectInput(Redirect.INHERIT)
           .command(ffmpegCommand: _*)
           .start()
-        val stream = proc.getInputStream
+        val stream = recordedFileName match {
+          case Some(fn) =>
+            try {
+              new TeeInputStream(proc.getInputStream, new FileOutputStream(fn), true)
+            } catch {
+              case e: IOException =>
+                proc.destroy()
+                throw e
+            }
+          case None =>
+            proc.getInputStream
+        }
 
         if (getExtraFfmpegArgs.contains("-t")) {
           val timeLimit = getExtraFfmpegArgs(getExtraFfmpegArgs.indexOf("-t") + 1).toInt
