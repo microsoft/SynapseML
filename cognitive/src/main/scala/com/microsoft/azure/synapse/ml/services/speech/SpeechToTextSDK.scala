@@ -32,23 +32,40 @@ import spray.json._
 import java.io.{BufferedInputStream, ByteArrayInputStream, Closeable, InputStream}
 import java.lang.ProcessBuilder.Redirect
 import java.net.{URI, URL}
-import java.util.UUID
+import java.util.{Locale, UUID}
 import java.util.concurrent.{LinkedBlockingQueue, TimeUnit}
 import scala.concurrent.{ExecutionContext, Future, blocking}
 import scala.language.existentials
+import scala.util.Try
 
 object SpeechToTextSDK extends ComplexParamsReadable[SpeechToTextSDK]
 
 private[speech] object SpeechSDKBase {
   private val FfmpegOutputArgs = Seq("-acodec", "mp3", "-ab", "257k", "-f", "mp3")
+  private val FfmpegProtocolWhitelist = "http,https,tcp,tls,crypto"
+  private val HttpSchemes = Set("http", "https")
+
+  def parseUri(uri: String): Option[URI] = Try(new URI(uri)).toOption
+
+  def isHttpUri(uri: URI): Boolean =
+    Option(uri.getScheme).map(_.toLowerCase(Locale.ROOT)).exists(HttpSchemes)
+
+  def validateFfmpegUri(uri: String): URI = {
+    val parsedUri = parseUri(uri).getOrElse {
+      throw new IllegalArgumentException("ffmpeg input URI must be a valid http(s) URI")
+    }
+    require(isHttpUri(parsedUri), "ffmpeg input URI must use the http or https scheme")
+    parsedUri
+  }
 
   def makeFfmpegCommand(uri: String,
                         extraArgs: Seq[String],
                         recordedFileName: Option[String]): Seq[String] = {
+    validateFfmpegUri(uri)
     val outputArgs = extraArgs ++ FfmpegOutputArgs
     val body = Seq("ffmpeg", "-y",
       "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "2000",
-      "-i", uri) ++ outputArgs ++ Seq("pipe:1")
+      "-protocol_whitelist", FfmpegProtocolWhitelist, "-i", uri) ++ outputArgs ++ Seq("pipe:1")
 
     recordedFileName match {
       case Some(fn) =>
@@ -262,12 +279,17 @@ abstract class SpeechSDKBase extends Transformer
                         dynamicParamRow: Row): (InputStream, String) = {
     if (isUriAudio) { //scalastyle:ignore cyclomatic.complexity
       val uri = row.getAs[String](getAudioDataCol)
-      val recordedFileName = if (getRecordAudioData) Some(row.getAs[String](getRecordedFileNameCol)) else None
-      val ffmpegCommand = SpeechSDKBase.makeFfmpegCommand(uri, getExtraFfmpegArgs.toSeq, recordedFileName)
+      val parsedUriOpt = SpeechSDKBase.parseUri(uri)
+      val extension = parsedUriOpt
+        .flatMap(parsedUri => Option(parsedUri.getPath))
+        .map(FilenameUtils.getExtension)
+        .getOrElse(FilenameUtils.getExtension(uri))
+        .toLowerCase(Locale.ROOT)
+      val isHttpUri = parsedUriOpt.exists(SpeechSDKBase.isHttpUri)
 
-      val extension = FilenameUtils.getExtension(new URI(uri).getPath).toLowerCase()
-
-      if (Set("m3u8", "m4a")(extension) && uri.startsWith("http")) {
+      if (Set("m3u8", "m4a")(extension) && isHttpUri) {
+        val recordedFileName = if (getRecordAudioData) Some(row.getAs[String](getRecordedFileNameCol)) else None
+        val ffmpegCommand = SpeechSDKBase.makeFfmpegCommand(uri, getExtraFfmpegArgs.toSeq, recordedFileName)
         val proc = new ProcessBuilder()
           .redirectError(Redirect.INHERIT)
           .redirectInput(Redirect.INHERIT)
@@ -292,7 +314,7 @@ abstract class SpeechSDKBase extends Transformer
         }
 
         (stream, "mp3")
-      } else if (uri.startsWith("http")) {
+      } else if (isHttpUri) {
         val conn = new URL(uri).openConnection
         conn.setConnectTimeout(5000) //scalastyle:ignore magic.number
         conn.setReadTimeout(5000) //scalastyle:ignore magic.number
