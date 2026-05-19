@@ -8,7 +8,6 @@ import com.microsoft.azure.synapse.ml.services._
 import com.microsoft.azure.synapse.ml.services.speech.SpeechFormat._
 import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.schema.{DatasetExtensions, SparkBindings}
-import com.microsoft.azure.synapse.ml.core.utils.OsUtils
 import com.microsoft.azure.synapse.ml.io.http.HasURL
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.ServiceParam
@@ -40,9 +39,29 @@ import scala.language.existentials
 
 object SpeechToTextSDK extends ComplexParamsReadable[SpeechToTextSDK]
 
+private[speech] object SpeechSDKBase {
+  private val FfmpegOutputArgs = Seq("-acodec", "mp3", "-ab", "257k", "-f", "mp3")
+
+  def makeFfmpegCommand(uri: String,
+                        extraArgs: Seq[String],
+                        recordedFileName: Option[String]): Seq[String] = {
+    val body = Seq("ffmpeg", "-y",
+      "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "2000",
+      "-i", uri) ++ extraArgs ++ FfmpegOutputArgs ++ Seq("pipe:1")
+
+    recordedFileName match {
+      case Some(fn) =>
+        require(Option(fn).exists(_.nonEmpty), "Recorded file name must be non-empty when recordAudioData is true")
+        body ++ FfmpegOutputArgs ++ Seq(fn)
+      case None =>
+        body
+    }
+  }
+}
+
 //scalastyle:off no.finalize
 private[ml] class BlockingQueueIterator[T](lbq: LinkedBlockingQueue[Option[T]],
-                                           onClose: => Unit) extends Iterator[T] with Closeable {
+                                            onClose: => Unit) extends Iterator[T] with Closeable {
   var nextVar: Option[T] = None
   var isDone = false
   var takeAnother = true
@@ -242,21 +261,8 @@ abstract class SpeechSDKBase extends Transformer
                         dynamicParamRow: Row): (InputStream, String) = {
     if (isUriAudio) { //scalastyle:ignore cyclomatic.complexity
       val uri = row.getAs[String](getAudioDataCol)
-      val ffmpegCommand: Seq[String] = {
-        val body = Seq("ffmpeg", "-y",
-          "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "2000",
-          "-i", uri) ++ getExtraFfmpegArgs ++ Seq("-acodec", "mp3", "-ab", "257k", "-f", "mp3", "pipe:1")
-
-        if (getRecordAudioData && OsUtils.IsWindows) {
-          val fn = row.getAs[String](getRecordedFileNameCol)
-          body ++ Seq("-acodec", "mp3", "-ab", "257k", "-f", "mp3", fn)
-        } else if (getRecordAudioData && !OsUtils.IsWindows) {
-          val fn = row.getAs[String](getRecordedFileNameCol)
-          Seq("/bin/sh", "-c", (body ++ Seq("|", "tee", fn)).mkString(" "))
-        } else {
-          body
-        }
-      }
+      val recordedFileName = if (getRecordAudioData) Some(row.getAs[String](getRecordedFileNameCol)) else None
+      val ffmpegCommand = SpeechSDKBase.makeFfmpegCommand(uri, getExtraFfmpegArgs.toSeq, recordedFileName)
 
       val extension = FilenameUtils.getExtension(new URI(uri).getPath).toLowerCase()
 
