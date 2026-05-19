@@ -246,7 +246,7 @@ class DoubleMLEstimator(override val uid: String)
       4. Cross-fit treatment and outcome models with the second split, residual model with the first split.
       5. Average slopes from the two residual models.
     */
-    val splits = dataset.randomSplit(getSampleSplitRatio)
+    val splits = dataset.toDF().randomSplit(getSampleSplitRatio)
     val (train, test) = (splits(0).cache, splits(1).cache)
     val residualsDF1 = calculateResiduals(train, test).select(outcomeResidualCol, treatmentResidualVecCol)
     val residualsDF2 = calculateResiduals(test, train).select(outcomeResidualCol, treatmentResidualVecCol)
