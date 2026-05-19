@@ -104,7 +104,7 @@ class OrthoForestDMLEstimator(override val uid: String)
       4. Cross-fit treatment and outcome models with the second split, residual model with the first split.
       5. Average slopes from the two residual models is eqiuivalent to fitting one tree
     */
-    val splits = dataset.toDF().randomSplit(getSampleSplitRatio)
+    val splits = dataset.randomSplit(getSampleSplitRatio)
     val (train, test) = (splits(0).cache, splits(1).cache)
     val residualsDF1 = calculateResiduals(train, test)
     val residualsDF2 = calculateResiduals(test, train)

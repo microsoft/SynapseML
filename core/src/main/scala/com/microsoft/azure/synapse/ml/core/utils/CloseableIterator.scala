@@ -26,6 +26,9 @@ class CloseableIterator[+T](delegate: Iterator[T], cleanup: => Unit) extends Ite
     catch {
       case _: Throwable =>
     }
+
+    super.finalize()
   }
 }
 //scalastyle:on no.finalize
+

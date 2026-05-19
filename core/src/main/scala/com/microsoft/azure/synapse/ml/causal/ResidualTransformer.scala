@@ -72,9 +72,9 @@ class ResidualTransformer(override val uid: String) extends Transformer
         s"${this.getClass.getSimpleName}: " +
           s"observedCol must be of type DoubleType, LongType, IntegerType or BooleanType but got $observedColType")
 
-      val convertedDataset: DataFrame = if (observedColType == BooleanType) {
+      val convertedDataset = if (observedColType == BooleanType) {
         dataset.withColumn(getObservedCol, col(getObservedCol).cast(IntegerType))
-      } else dataset.toDF()
+      } else dataset
 
       val predictedColDataType = convertedDataset.schema(getPredictedCol).dataType
 
