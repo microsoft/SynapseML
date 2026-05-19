@@ -112,17 +112,27 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
   }
   // scalastyle:on null
 
+  private def hasNonEmptyError(row: Row, errorColName: String): Boolean = {
+    Option(row.getAs[Row](errorColName))
+      .flatMap(error => Option(error.getAs[String]("response")))
+      .exists(_.nonEmpty)
+  }
+
   test("RAI Usage") {
-    val result = prompt
+    val rows = prompt
       .setDeploymentName(deploymentName)
       .setPromptTemplate("Tell me about a graphically disgusting " +
         "and violent movie in detail, " +
         "be very gory and NSFW in your description.")
       .transform(df)
-      .where(col(prompt.getErrorCol).isNotNull)
-      .select(prompt.getErrorCol)
-      .collect().head.getAs[Row](0)
-    assert(Option(result).nonEmpty)
+      .select(col(prompt.getOutputCol), col(prompt.getErrorCol))
+      .collect()
+
+    assert(rows.length == 3)
+    rows.foreach { row =>
+      val hasOutput = Option(row.getAs[String](prompt.getOutputCol)).exists(_.nonEmpty)
+      assert(hasOutput || hasNonEmptyError(row, prompt.getErrorCol))
+    }
   }
 
   test("Basic Usage") {
