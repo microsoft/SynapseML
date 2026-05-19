@@ -45,14 +45,15 @@ private[speech] object SpeechSDKBase {
   def makeFfmpegCommand(uri: String,
                         extraArgs: Seq[String],
                         recordedFileName: Option[String]): Seq[String] = {
+    val outputArgs = extraArgs ++ FfmpegOutputArgs
     val body = Seq("ffmpeg", "-y",
       "-reconnect", "1", "-reconnect_streamed", "1", "-reconnect_delay_max", "2000",
-      "-i", uri) ++ extraArgs ++ FfmpegOutputArgs ++ Seq("pipe:1")
+      "-i", uri) ++ outputArgs ++ Seq("pipe:1")
 
     recordedFileName match {
       case Some(fn) =>
         require(Option(fn).exists(_.nonEmpty), "Recorded file name must be non-empty when recordAudioData is true")
-        body ++ FfmpegOutputArgs ++ Seq(fn)
+        body ++ outputArgs ++ Seq(fn)
       case None =>
         body
     }

