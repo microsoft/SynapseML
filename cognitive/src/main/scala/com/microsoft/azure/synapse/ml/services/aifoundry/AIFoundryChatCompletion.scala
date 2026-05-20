@@ -58,9 +58,8 @@ class AIFoundryChatCompletion(override val uid: String) extends OpenAIChatComple
     setUrl(s"https://$v.services.ai.azure.com/" + urlPath.stripPrefix("/"))
   }
 
-  override protected def prepareUrlRoot: Row => String = { row =>
-    s"${getUrl}models/chat/completions"
+  override protected def prepareUrlRoot: Row => String = { _ =>
+    endpointUrl("models/chat/completions")
   }
 
 }
-
