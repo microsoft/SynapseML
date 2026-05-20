@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: Quick review checklist for python and scala code changes before callings it done.
+description: Review SynapseML Python and Scala code changes. Use before finalizing PR reviews or implementation changes to check security, compatibility, style, generated code, and targeted tests.
 ---
 
 # Code Review
@@ -21,8 +21,8 @@ Use this skill when reviewing SynapseML changes.
 Apply when changes touch serialization, I/O, network, or authentication code.
 
 ### Deserialization (CWE-502)
-- [ ] No raw `ObjectInputStream.readObject()` — use `SafeObjectInputStream` with an allowlist
-- [ ] `resolveClass` allowlist validates array component types — never allowlist the `[` prefix
+- [ ] No raw `ObjectInputStream.readObject()`: use `SafeObjectInputStream` with an allowlist
+- [ ] `resolveClass` allowlist validates array component types. Never allowlist the `[` prefix
       directly; array handling must extract and validate the component class name
 - [ ] `resolveProxyClass` is overridden to block or validate dynamic proxy interfaces
 - [ ] Allowlist uses package-prefix matching, not blocklisting
@@ -46,7 +46,7 @@ Apply when changes modify public classes, traits, or companion objects.
 
 ### Binary Compatibility (JVM)
 - [ ] No method signature changes on existing public methods (default parameters
-      generate synthetic bridges — use explicit overloads instead)
+      generate synthetic bridges; use explicit overloads instead)
 - [ ] No removed or renamed public classes, traits, or objects
 - [ ] Companion object `extends DefaultParamsReadable[T]` preserved if it existed
 
@@ -61,7 +61,7 @@ Apply when changes modify public classes, traits, or companion objects.
 - [ ] `Wrappable` trait mixed in if the class needs a Python wrapper
 - [ ] `SynapseMLLogging` trait mixed in; `logClass()` called in constructor
 - [ ] No wildcard imports where explicit imports suffice (`java.io._` → named imports)
-- [ ] No RDD API usage — DataFrame/Dataset only
+- [ ] No RDD API usage. Use DataFrame/Dataset only
 - [ ] Lines ≤ 120 chars, files ≤ 800 lines
 
 ## Python Checklist
