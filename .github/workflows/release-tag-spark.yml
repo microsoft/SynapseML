@@ -1,0 +1,111 @@
+name: Release Tag — Spark Branch Tags
+
+# Triggers when a release rebase PR is merged into spark4.0 or spark4.1.
+# Creates the spark and python derivative tags automatically.
+#
+# Part of the SynapseML Fabric Release Guide (Steps 1.4–1.5).
+# See also: release-tag.yml (triggers the rebase PR).
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - spark4.0
+      - spark4.1
+
+permissions:
+  contents: write
+
+jobs:
+  create-spark-tags:
+    name: Create spark & python tags
+    runs-on: ubuntu-latest
+
+    if: >-
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.head.ref, 'release/')
+
+    steps:
+      - name: Extract version and target
+        id: info
+        run: |
+          BRANCH="${{ github.event.pull_request.head.ref }}"
+          TARGET="${{ github.event.pull_request.base.ref }}"
+
+          # Extract version from branch name: release/v1.1.2-spark4.0 → 1.1.2
+          VERSION=$(echo "$BRANCH" | sed -E 's|release/v([0-9]+\.[0-9]+\.[0-9]+)-.*|\1|')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+
+          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "❌ Could not extract version from branch '$BRANCH'"
+            exit 1
+          fi
+
+          # Map branch to python version
+          case "$TARGET" in
+            spark4.0) echo "python_ver=3.12" >> "$GITHUB_OUTPUT" ;;
+            spark4.1) echo "python_ver=3.13" >> "$GITHUB_OUTPUT" ;;
+            *) echo "❌ Unknown target: $TARGET"; exit 1 ;;
+          esac
+
+          echo "📦 Version: $VERSION, Target: $TARGET"
+
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Create and push tags
+        run: |
+          VERSION="${{ steps.info.outputs.version }}"
+          TARGET="${{ steps.info.outputs.target }}"
+          PYTHON_VER="${{ steps.info.outputs.python_ver }}"
+
+          SPARK_TAG="v${VERSION}-${TARGET}"
+          PYTHON_TAG="v${VERSION}-python${PYTHON_VER}"
+
+          for TAG in "$SPARK_TAG" "$PYTHON_TAG"; do
+            if git rev-parse "$TAG" >/dev/null 2>&1; then
+              echo "⚠️ $TAG already exists — skipping"
+            else
+              git tag "$TAG"
+              echo "🏷️ Created $TAG"
+            fi
+          done
+
+          git push origin "$SPARK_TAG" "$PYTHON_TAG" 2>/dev/null || true
+          echo "✅ Tags pushed"
+
+      - name: Cleanup release branch
+        run: |
+          git push origin --delete "${{ github.event.pull_request.head.ref }}" || true
+          echo "🧹 Cleaned up release branch"
+
+      - name: Summary
+        run: |
+          VERSION="${{ steps.info.outputs.version }}"
+          TARGET="${{ steps.info.outputs.target }}"
+          PYTHON_VER="${{ steps.info.outputs.python_ver }}"
+          echo ""
+          echo "═══════════════════════════════════════════════════"
+          echo "  Spark Branch Tags — Summary"
+          echo "═══════════════════════════════════════════════════"
+          echo ""
+          echo "  ✅ v${VERSION}-${TARGET} tag created"
+          echo "  ✅ v${VERSION}-python${PYTHON_VER} tag created"
+          echo "  🧹 Release branch cleaned up"
+          echo ""
+          echo "  Next steps:"
+          echo "    1. Queue ADO pipeline 17563 for refs/tags/v${VERSION}-${TARGET}"
+          echo "    2. Approve ESRP signing on SAW machine"
+          echo "    3. Proceed to Step 2 (SynapseML-Internal)"
+          echo ""
+          echo "  Pipeline: https://msdata.visualstudio.com/A365/_build?definitionId=17563"
+          echo "═══════════════════════════════════════════════════"
