@@ -3,12 +3,99 @@
 
 package com.microsoft.azure.synapse.ml.services.language
 
+import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.services.text.{SentimentAssessment, TextEndpoint}
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.azure.synapse.ml.io.http.{HTTPRequestData, HTTPResponseData, HTTPSchema}
+import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.{col, flatten, map}
 import org.scalactic.{Equality, TolerantNumerics}
+
+object AnalyzeTextErrorRoutingTestData extends Serializable {
+  val ResponseWithDocumentError: String =
+    """{
+      |  "kind": "PiiEntityRecognition",
+      |  "results": {
+      |    "documents": [
+      |      {
+      |        "id": "0",
+      |        "redactedText": "My SSN is ***********",
+      |        "entities": [],
+      |        "warnings": [],
+      |        "statistics": null
+      |      }
+      |    ],
+      |    "errors": [
+      |      {
+      |        "id": "1",
+      |        "error": {
+      |          "code": "InvalidArgument",
+      |          "message": "Document exceeds the service character limit.",
+      |          "target": "documents.1",
+      |          "details": null,
+      |          "innererror": {
+      |            "code": "InvalidDocument",
+      |            "innerError": "DocumentTooLong"
+      |          }
+      |        }
+      |      }
+      |    ],
+      |    "modelVersion": "test",
+      |    "statistics": {
+      |      "documentsCount": 2,
+      |      "validDocumentsCount": 1,
+      |      "erroneousDocumentsCount": 1,
+      |      "transactionsCount": 2
+      |    }
+      |  }
+      |}""".stripMargin
+
+  def okResponseHandler(
+      client: CloseableHttpClient,
+      request: HTTPRequestData): HTTPResponseData = {
+    HTTPSchema.stringToResponse(ResponseWithDocumentError, 200, "OK")
+  }
+}
+
+class AnalyzeTextErrorRoutingSuite extends TestBase {
+  import spark.implicits._
+
+  test("AnalyzeText moves document-level 200 response errors to errorCol") {
+    val model = new AnalyzeText()
+      .setSubscriptionKey("unused")
+      .setLocation("eastus")
+      .setTextCol("text")
+      .setLanguage("en")
+      .setKind("PiiEntityRecognition")
+      .setOutputCol("response")
+      .setErrorCol("error")
+      .setHandler(AnalyzeTextErrorRoutingTestData.okResponseHandler _)
+
+    val rows = model.transform(Seq("valid text", "too long").toDF("text").coalesce(1))
+      .select("response", "error")
+      .collect()
+
+    assert(rows.length == 2)
+
+    val successResponse = rows.head.getAs[Row]("response")
+    assert(successResponse.getAs[Row]("documents") != null)
+    assert(successResponse.getAs[Row]("errors") == null)
+    assert(rows.head.getAs[Row]("error") == null)
+
+    val failedResponse = rows(1).getAs[Row]("response")
+    assert(failedResponse.getAs[Row]("documents") == null)
+    assert(failedResponse.getAs[Row]("errors") == null)
+
+    val error = rows(1).getAs[Row]("error")
+    assert(error != null)
+    val errorResponse = error.getAs[String]("response")
+    assert(errorResponse.contains("InvalidArgument"))
+    assert(errorResponse.contains("Document exceeds the service character limit."))
+    assert(error.getAs[Row]("status") == null)
+  }
+}
 
 class EntityLinkingSuite extends TransformerFuzzing[AnalyzeText] with TextEndpoint {
   override val compareDataInSerializationTest: Boolean = false
