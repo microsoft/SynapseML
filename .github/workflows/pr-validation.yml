@@ -51,9 +51,11 @@ jobs:
           EOF
           chmod +x "$HOME/.local/bin/sbt"
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.local/bin:$PATH"
+          sbt sbtVersion
 
       - name: Scalastyle check
-        run: "$HOME/.local/bin/sbt" scalastyle test:scalastyle
+        run: sbt scalastyle test:scalastyle
 
       - name: Compile
-        run: "$HOME/.local/bin/sbt" compile test:compile
+        run: sbt compile test:compile
