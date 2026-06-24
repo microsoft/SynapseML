@@ -53,7 +53,7 @@ jobs:
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
 
       - name: Scalastyle check
-        run: sbt scalastyle test:scalastyle
+        run: "$HOME/.local/bin/sbt" scalastyle test:scalastyle
 
       - name: Compile
-        run: sbt compile test:compile
+        run: "$HOME/.local/bin/sbt" compile test:compile
