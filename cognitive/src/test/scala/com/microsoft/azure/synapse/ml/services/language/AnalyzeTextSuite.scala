@@ -78,17 +78,19 @@ class AnalyzeTextErrorRoutingSuite extends TestBase {
       .collect()
 
     assert(rows.length == 2)
+    val (failedRows, successRows) = rows.partition(row => row.getAs[Row]("error") != null)
+    assert(successRows.length == 1)
+    assert(failedRows.length == 1)
 
-    val successResponse = rows.head.getAs[Row]("response")
+    val successResponse = successRows.head.getAs[Row]("response")
     assert(successResponse.getAs[Row]("documents") != null)
     assert(successResponse.getAs[Row]("errors") == null)
-    assert(rows.head.getAs[Row]("error") == null)
 
-    val failedResponse = rows(1).getAs[Row]("response")
+    val failedResponse = failedRows.head.getAs[Row]("response")
     assert(failedResponse.getAs[Row]("documents") == null)
     assert(failedResponse.getAs[Row]("errors") == null)
 
-    val error = rows(1).getAs[Row]("error")
+    val error = failedRows.head.getAs[Row]("error")
     assert(error != null)
     val errorResponse = error.getAs[String]("response")
     assert(errorResponse.contains("InvalidArgument"))
