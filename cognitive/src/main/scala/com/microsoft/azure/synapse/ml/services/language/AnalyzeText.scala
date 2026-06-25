@@ -4,16 +4,18 @@
 package com.microsoft.azure.synapse.ml.services.language
 
 import com.microsoft.azure.synapse.ml.logging.{ FeatureNames, SynapseMLLogging }
+import com.microsoft.azure.synapse.ml.io.http.ErrorUtils
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.services._
 import com.microsoft.azure.synapse.ml.services.text.{ TADocument, TextAnalyticsAutoBatch }
-import com.microsoft.azure.synapse.ml.stages.{ FixedMiniBatchTransformer, FlattenBatch, HasBatchSize, UDFTransformer }
+import com.microsoft.azure.synapse.ml.stages.{ FixedMiniBatchTransformer, FlattenBatch, HasBatchSize, Lambda,
+  UDFTransformer }
 import org.apache.http.entity.{ AbstractHttpEntity, StringEntity }
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.{ ComplexParamsReadable, NamespaceInjections, PipelineModel }
 import org.apache.spark.ml.param.{ Param, ParamValidators }
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.sql.Row
+import org.apache.spark.sql.{ Column, Row, functions => F }
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.types.{ ArrayType, DataType, StructType }
 import spray.json._
@@ -258,17 +260,45 @@ class AnalyzeText(override val uid: String) extends CognitiveServicesBase(uid)
     }
   }
 
-  protected def postprocessResponseUdf: UserDefinedFunction = {
+  private def postprocessedOutputType: StructType = {
     val responseType = responseDataType.asInstanceOf[StructType]
     val results = responseType("results").dataType.asInstanceOf[StructType]
-    val outputType = ArrayType(
-      new StructType()
-        .add("statistics", results("statistics").dataType)
-        .add("documents", results("documents").dataType.asInstanceOf[ArrayType].elementType)
-        .add("errors", results("errors").dataType.asInstanceOf[ArrayType].elementType)
-        .add("modelVersion", results("modelVersion").dataType)
-    )
+    new StructType()
+      .add("statistics", results("statistics").dataType)
+      .add("documents", results("documents").dataType.asInstanceOf[ArrayType].elementType)
+      .add("errors", results("errors").dataType.asInstanceOf[ArrayType].elementType)
+      .add("modelVersion", results("modelVersion").dataType)
+  }
+
+  protected def postprocessResponseUdf: UserDefinedFunction = {
+    val outputType = ArrayType(postprocessedOutputType)
     UDFUtils.oldUdf(postprocessResponse _, outputType)
+  }
+
+  private def responseErrorToErrorCol(error: Column): Column = {
+    F.when(error.isNotNull, F.struct(
+      F.to_json(error).as("response"),
+      F.lit(null).cast(ErrorUtils.ErrorSchema("status").dataType).as("status") // scalastyle:ignore null
+    ))
+  }
+
+  private def outputWithoutResponseError(output: Column): Column = {
+    val outputType = postprocessedOutputType
+    F.when(output.isNotNull, F.struct(
+      output.getField("statistics").as("statistics"),
+      output.getField("documents").as("documents"),
+      F.lit(null).cast(outputType("errors").dataType).as("errors"), // scalastyle:ignore null
+      output.getField("modelVersion").as("modelVersion")
+    )).otherwise(F.lit(null).cast(outputType)) // scalastyle:ignore null
+  }
+
+  private def moveResponseErrorsToErrorCol(
+      dataset: org.apache.spark.sql.Dataset[_]): org.apache.spark.sql.DataFrame = {
+    val df = dataset.toDF
+    val output = F.col(getOutputCol)
+    val responseError = output.getField("errors")
+    df.withColumn(getErrorCol, F.coalesce(F.col(getErrorCol), responseErrorToErrorCol(responseError)))
+      .withColumn(getOutputCol, F.when(responseError.isNotNull, outputWithoutResponseError(output)).otherwise(output))
   }
 
   override protected def getInternalTransformer(schema: StructType): PipelineModel = {
@@ -293,8 +323,14 @@ class AnalyzeText(override val uid: String) extends CognitiveServicesBase(uid)
       None
     }
 
+    val moveResponseErrors = if (shouldAutoBatch(schema)) {
+      Some(Lambda(moveResponseErrorsToErrorCol _).setTransformSchema((schema: StructType) => schema))
+    } else {
+      None
+    }
+
     NamespaceInjections.pipelineModel(
-      Array(batcher, Some(pipe), Some(postprocess), flatten).flatten
+      Array(batcher, Some(pipe), Some(postprocess), flatten, moveResponseErrors).flatten
     )
   }
 
