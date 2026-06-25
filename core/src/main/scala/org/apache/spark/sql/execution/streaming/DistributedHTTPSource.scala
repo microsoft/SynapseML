@@ -224,9 +224,8 @@ class DistributedHTTPSource(name: String,
   // TODO do this by hooking deeper into spark,
   // TODO allow for dynamic allocation
   private[spark] val serverInfoDF: DataFrame = {
-    val serverInfo = sqlContext.sparkContext
-      .parallelize(Seq(Tuple1("placeholder")),
-        maxPartitions.getOrElse(sqlContext.sparkContext.defaultParallelism))
+    val numParts = maxPartitions.getOrElse(sqlContext.sparkSession.sparkContext.defaultParallelism)
+    val serverInfo = sqlContext.sparkSession.range(0, numParts, 1, numParts)
       .toDF("empty")
       .mapPartitions { _ =>
         val s = server.get
@@ -249,6 +248,7 @@ class DistributedHTTPSource(name: String,
   }
 
   private[spark] val serverInfoDFStreaming = {
+    // Note: internalCreateDataFrame with isStreaming requires RDD - no DataFrame alternative exists
     val serializer = infoEnc.createSerializer()
     val serverInfoConfRDD = serverInfoDF.rdd.map(serializer)
     sqlContext.sparkSession.internalCreateDataFrame(

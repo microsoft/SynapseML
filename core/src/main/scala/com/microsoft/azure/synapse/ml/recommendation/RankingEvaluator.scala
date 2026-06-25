@@ -130,6 +130,7 @@ class RankingEvaluator(override val uid: String)
   /** @group setParam */
   def setPredictionCol(value: String): this.type = set(predictionCol, value)
 
+  // Note: RankingMetrics from MLlib requires RDD input - .rdd conversion is necessary
   def getMetrics(dataset: Dataset[_]): AdvancedRankingMetrics = {
     val predictionAndLabels = dataset
       .select(getPredictionCol, getLabelCol)

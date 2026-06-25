@@ -266,6 +266,9 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
       .drop(Array(predictionColumnName, labelColumnName))
   }
 
+  // Note: MLlib metrics (BinaryClassificationMetrics, MulticlassMetrics, RegressionMetrics)
+  // require RDD input. These .rdd conversions are necessary until Spark provides
+  // DataFrame-based equivalents for all metrics.
   private def selectAndCastToRDD(dataset: Dataset[_],
                                  predictionColumnName: String,
                                  labelColumnName: String): RDD[(Double, Double)] = {

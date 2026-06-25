@@ -17,7 +17,6 @@ import org.apache.spark.ml.classification.ClassificationModel
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.regression.RegressionModel
 import org.apache.spark.ml.util._
-import org.apache.spark.mllib.util.MLUtils
 import org.apache.spark.sql._
 import org.apache.spark.sql.types.StructType
 
@@ -149,9 +148,21 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
   override def fit(dataset: Dataset[_]): TuneHyperparametersModel = {  //scalastyle:ignore cyclomatic.complexity
     logFit({
       val sparkSession = dataset.sparkSession
-      val splits = MLUtils.kFold(dataset.toDF.rdd, getNumFolds, getSeed)
+      import org.apache.spark.sql.functions.{rand, lit}
+      val df = dataset.toDF
+      val nFolds = getNumFolds
+      // DataFrame-based k-fold splitting: assign each row to a fold using hash of random value
+      val dfWithFold = df.withColumn("_kfold_rand", rand(getSeed))
+      val splits = (0 until nFolds).map { fold =>
+        val training = dfWithFold
+          .filter((dfWithFold("_kfold_rand") * lit(nFolds)).cast("int") =!= lit(fold))
+          .drop("_kfold_rand")
+        val validation = dfWithFold
+          .filter((dfWithFold("_kfold_rand") * lit(nFolds)).cast("int") === lit(fold))
+          .drop("_kfold_rand")
+        (training, validation)
+      }.toArray
       val hyperParams = getParamSpace.paramMaps
-      val schema = dataset.schema
       val executionContext = getExecutionContext
       val (evaluationMetricColumnName, operator): (String, Ordering[Double]) =
         EvaluationUtils.getMetricWithOperator(getModels.head, getEvaluationMetric)
@@ -163,8 +174,8 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
       val numModels = getModels.length
 
       val metrics = splits.zipWithIndex.map { case ((training, validation), _) =>
-        val trainingDataset = sparkSession.createDataFrame(training, schema).cache()
-        val validationDataset = sparkSession.createDataFrame(validation, schema).cache()
+        val trainingDataset = training.cache()
+        val validationDataset = validation.cache()
 
         val modelParams = ListBuffer[ParamMap]()
         for (n <- 0 until getNumRuns) {

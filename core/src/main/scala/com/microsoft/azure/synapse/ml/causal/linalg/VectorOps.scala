@@ -96,10 +96,8 @@ object DVectorOps extends VectorOps[DVector] {
   def make(size: Long, value: => Double): DVector = {
     val spark = SparkSession.active
     import spark.implicits._
-    val data = 0L until size
     spark
-      .sparkContext
-      .parallelize(data)
+      .range(0, size)
       .toDF("i")
       .withColumn("value", lit(value))
       .as[VectorEntry]

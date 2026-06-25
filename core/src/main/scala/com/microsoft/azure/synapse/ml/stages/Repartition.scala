@@ -8,9 +8,8 @@ import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
-import org.apache.spark.rdd.RDD
 import org.apache.spark.sql.types._
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.apache.spark.sql.{DataFrame, Dataset}
 
 object Repartition extends DefaultParamsReadable[Repartition]
 
@@ -50,12 +49,8 @@ class Repartition(val uid: String) extends Transformer with Wrappable with Defau
     logTransform[DataFrame]({
       if (getDisable)
         dataset.toDF
-      else if (getN < dataset.rdd.getNumPartitions)
-        dataset.coalesce(getN).toDF()
       else
-        dataset.sqlContext.createDataFrame(
-          dataset.rdd.repartition(getN).asInstanceOf[RDD[Row]],
-          dataset.schema)
+        dataset.repartition(getN).toDF()
     }, dataset.columns.length)
   }
 
