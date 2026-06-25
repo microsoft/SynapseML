@@ -101,17 +101,15 @@ jobs:
   pool:
     vmImage: $(UBUNTU_VERSION)
   steps:
-    - task: AzureCLI@2
+    - bash: sbt scalastyle test:scalastyle
       displayName: 'Scala Style Check'
+    - task: UsePythonVersion@0
+      displayName: 'Use Python 3'
       inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: 'sbt scalastyle test:scalastyle'
-    - template: templates/conda.yml
+        versionSpec: '3.10'
     - bash: |
         set -e
-        source activate synapseml
+        pip install -q "black[jupyter]==22.3.0"
         black --diff --color . && black --check -q .
       displayName: 'Python Style Check'
 - ${{ if eq(parameters.publishArtifacts, true) }}:
