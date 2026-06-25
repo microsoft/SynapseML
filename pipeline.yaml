@@ -1,5 +1,11 @@
 resources:
-- repo: self
+  repositories:
+  - repository: self
+    type: self
+  - repository: SynapseML-Internal
+    type: git
+    name: A365/SynapseML-Internal
+    ref: master
 
 trigger:
   branches:
@@ -915,5 +921,209 @@ jobs:
       displayName: 'Publish $(RELEASE_BRANCH) Test Results'
       inputs:
         testResultsFiles: '**/test-reports/TEST-*.xml'
+        failTaskOnFailedTests: false
+      condition: succeededOrFailed()
+- job: InternalCompat
+  displayName: 'SynapseML-Internal Compatibility Check'
+  cancelTimeoutInMinutes: 0
+  timeoutInMinutes: 90
+  continueOnError: true
+  pool:
+    vmImage: $(UBUNTU_VERSION)
+  steps:
+    - checkout: self
+    - checkout: SynapseML-Internal
+    - task: AzureCLI@2
+      displayName: 'Publish OSS to local Maven'
+      timeoutInMinutes: 20
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          set -e
+          cd $(Build.SourcesDirectory)/SynapseML
+          export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
+          OSS_VERSION=$(sbt -no-colors "core/version" 2>&1 | grep '^\[info\] [0-9]' | tail -1 | sed 's/\[info\] //')
+          echo "OSS version: $OSS_VERSION"
+          if [ -z "$OSS_VERSION" ]; then
+            echo "##vso[task.logissue type=error]Failed to determine OSS version"
+            exit 1
+          fi
+          echo "##vso[task.setvariable variable=OSS_VERSION]$OSS_VERSION"
+          sbt publishM2
+    - bash: |
+        set -e
+        cd $(Build.SourcesDirectory)/SynapseML-Internal
+
+        echo "=== Retargeting Internal to OSS version $(OSS_VERSION) ==="
+        [ -n "$(OSS_VERSION)" ] || { echo "##vso[task.logissue type=error]OSS_VERSION is not set"; exit 1; }
+        sed -i 's|val synapseMLVersion = ".*"|val synapseMLVersion = "$(OSS_VERSION)"|' build.sbt
+        sed -i '/^resolvers ++= Seq(/a\  Resolver.mavenLocal,' build.sbt
+
+        echo "=== Modified build.sbt ==="
+        grep -n 'synapseMLVersion' build.sbt
+        grep -n -A4 'resolvers ++=' build.sbt
+      displayName: 'Retarget Internal to this build'
+    - task: AzureCLI@2
+      displayName: 'Compile Internal against OSS'
+      timeoutInMinutes: 15
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          set -e
+          cd $(Build.SourcesDirectory)/SynapseML-Internal
+          export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
+          echo "Compiling SynapseML-Internal against OSS $(OSS_VERSION)..."
+          sbt compile Test/compile
+    - bash: |
+        echo "##vso[task.prependpath]$CONDA/bin"
+      displayName: 'Add conda to PATH'
+    - bash: |
+        sudo chown -R $(whoami):$(id -ng) $(CONDA_CACHE_DIR)
+      displayName: 'Fix conda directory permissions'
+    - task: PipAuthenticate@1
+      displayName: 'Private Conda Feed Authentication'
+      inputs:
+        artifactFeeds: 'A365/Synapse-Conda'
+    - bash: |
+        conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
+        conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+      displayName: 'Accept Anaconda TOS'
+    - bash: |
+        echo "=== Disk space BEFORE cleanup ==="
+        df -h / | grep -E 'Filesystem|/$'
+        echo "Removing unused pre-installed SDKs and runtimes..."
+        sudo rm -rf /usr/local/lib/android || true
+        sudo rm -rf /usr/share/dotnet || true
+        sudo rm -rf /opt/ghc || true
+        sudo rm -rf /usr/local/share/boost || true
+        docker system prune -af --volumes 2>/dev/null || true
+        echo "=== Disk space AFTER cleanup ==="
+        df -h / | grep -E 'Filesystem|/$'
+      displayName: 'Free disk space (remove unused SDKs)'
+    - bash: |
+        set -e
+        conda env create --yes -f $(Build.SourcesDirectory)/SynapseML-Internal/environment.yaml -v || \
+          conda env create --yes -f $(Build.SourcesDirectory)/SynapseML-Internal/environment.yaml -v
+        conda clean --all -y
+        pip cache purge
+      displayName: 'Create Internal conda env'
+    - task: AzureKeyVault@2
+      displayName: 'Fetch AI service secrets'
+      retryCountOnTaskFailure: 3
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        keyVaultName: mmlspark-keys
+    - template: templates/fabric_kv.yml
+    - task: AzureCLI@2
+      displayName: 'Run Internal Scala tests'
+      timeoutInMinutes: 60
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          set -e
+          cd $(Build.SourcesDirectory)/SynapseML-Internal
+          eval "$(conda shell.bash hook)"
+          conda activate synapseml-internal
+          export CREATE_SEMPY_WRITER=false
+          export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
+          echo "Running Internal tests against OSS $(OSS_VERSION)..."
+          FAILURES=0
+          for pkg in spark.aifunc powerbi ebm predict nbtest; do
+            echo "=== Testing $pkg ==="
+            if ! sbt "testOnly com.microsoft.azure.synapse.ml.$pkg.**"; then
+              echo "##vso[task.logissue type=warning]$pkg tests failed"
+              FAILURES=$((FAILURES + 1))
+            fi
+          done
+          if [ $FAILURES -gt 0 ]; then
+            echo "##vso[task.logissue type=warning]$FAILURES test package(s) failed"
+            exit 1
+          fi
+      env:
+        INTEGRATION_ENV: $(sempy-integration-region)
+        INTEGRATION_ACCOUNT: $(sempy-integration-account)
+        INTEGRATION_CERTIFICATE: $(sempy-integration-certificate)
+    - task: AzureCLI@2
+      displayName: 'Package Internal Python against OSS'
+      timeoutInMinutes: 15
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          set -e
+          cd $(Build.SourcesDirectory)/SynapseML-Internal
+          eval "$(conda shell.bash hook)"
+          conda activate synapseml-internal
+          export CREATE_SEMPY_WRITER=false
+          export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
+          echo "Packaging Internal Python against OSS $(OSS_VERSION)..."
+          sbt packagePython
+          sbt publishM2
+      condition: succeededOrFailed()
+    - task: AzureCLI@2
+      displayName: 'Run Internal Python tests (AIFunc)'
+      timeoutInMinutes: 30
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          set -e
+          cd $(Build.SourcesDirectory)/SynapseML-Internal
+          eval "$(conda shell.bash hook)"
+          conda activate synapseml-internal
+          export CREATE_SEMPY_WRITER=false
+          export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
+          echo "Running Internal Python tests against OSS $(OSS_VERSION)..."
+          FAILURES=0
+          for suite in AIFuncPandas AIFuncPandasMultimodal AIFuncPySpark AIFuncPySparkMultimodal; do
+            echo "=== Testing Python $suite ==="
+            if ! sbt "testPython${suite}"; then
+              echo "##vso[task.logissue type=warning]Python $suite tests failed"
+              FAILURES=$((FAILURES + 1))
+            fi
+          done
+          if [ $FAILURES -gt 0 ]; then
+            echo "##vso[task.logissue type=warning]$FAILURES Python test suite(s) failed"
+            exit 1
+          fi
+      condition: succeededOrFailed()
+    - task: AzureCLI@2
+      displayName: 'Run Internal Python tests (ExcludeAIFunc)'
+      timeoutInMinutes: 30
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          set -e
+          cd $(Build.SourcesDirectory)/SynapseML-Internal
+          eval "$(conda shell.bash hook)"
+          conda activate synapseml-internal
+          export CREATE_SEMPY_WRITER=false
+          export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
+          echo "Creating MLflow model fixtures..."
+          python ./src/test/python/make_mlflow_models.py
+          echo "Running ExcludeAIFunc Python tests against OSS $(OSS_VERSION)..."
+          sbt testPythonExcludeAIFunc
+      condition: succeededOrFailed()
+    - task: PublishTestResults@2
+      displayName: 'Publish Internal Scala Test Results'
+      inputs:
+        testResultsFiles: '**/test-reports/TEST-*.xml'
+        failTaskOnFailedTests: false
+      condition: succeededOrFailed()
+    - task: PublishTestResults@2
+      displayName: 'Publish Internal Python Test Results'
+      inputs:
+        testResultsFiles: '**/python-test-*.xml'
+        searchFolder: '$(Build.SourcesDirectory)/SynapseML-Internal'
         failTaskOnFailedTests: false
       condition: succeededOrFailed()
