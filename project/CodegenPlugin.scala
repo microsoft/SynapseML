@@ -268,7 +268,6 @@ object CodegenPlugin extends AutoPlugin {
     installPipPackage := {
       val packagePythonResult: Unit = packagePython.value
       val publishLocalResult: Unit = (publishLocal dependsOn packagePython).value
-      val rootPublishLocalResult: Unit = (LocalRootProject / Compile / publishLocal).value
       val packageDir = join(codegenDir.value, "package", "python")
       val wheel = findBuiltPythonWheel(packageDir, name.value)
       runCmd(
