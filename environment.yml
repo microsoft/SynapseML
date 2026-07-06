@@ -3,7 +3,7 @@ channels:
   - conda-forge
   - default
 dependencies:
-  - python=3.13
+  - python=3.14
   - requests=2.26.0
   - pip=25.2
   - r-base=4.4
@@ -12,8 +12,8 @@ dependencies:
   - cmake<=3.27
   - openjdk=17
   - pip:
-    # PyArrow 18.0.0 provides wheels for Python 3.13 and satisfies mlflow 2.x constraint (pyarrow<19).
-    - pyarrow==18.0.0
+    # PyArrow 22.0.0 is the first release with cp314 (Python 3.14) wheels.
+    - pyarrow==22.0.0
     - pyspark==4.1.1
     - pandas==2.3.3
     - wheel
@@ -33,16 +33,20 @@ dependencies:
     - azure-storage-blob
     - jupyter
     - twine
-    - mlflow==2.20.0
+    # mlflow 3.6.0 is the first release whose pyarrow constraint (<23) admits
+    # pyarrow 22 required for Python 3.14. NOTE: this is a 2.x -> 3.x major bump.
+    - mlflow==3.6.0
     - protobuf>=4.25
     - numpy
-    # For Python 3.13, use PyTorch 2.6+ which has Python 3.13 wheels.
+    # PyTorch 2.9.1 provides cp314 (Python 3.14) linux wheels.
     - torch==2.9.1
     - torchvision==0.24.1
     # horovod package was deprecated in 2023, this commit has horovod compile with c++17
     # Ref: https://github.com/horovod/horovod/issues/3996#issuecomment-2098507345
-    # Pre-built wheel for faster CI (built from commit 3a31d93 on Python 3.13)
-    - https://mmlspark.blob.core.windows.net/installers/horovod-0.28.1-cp313-cp313-linux_x86_64.whl
+    # TODO(py3.14): No cp314 horovod wheel exists yet; the cp313 pre-built wheel
+    # below cannot install on Python 3.14. Needs a rebuilt cp314 wheel. Horovod
+    # is deprecated and horovod-dependent tests are expected to skip gracefully.
+    # - https://mmlspark.blob.core.windows.net/installers/horovod-0.28.1-cp313-cp313-linux_x86_64.whl
     - petastorm>=0.11.0
     - pytorch_lightning==2.4.0
     - onnxmltools==1.12.0

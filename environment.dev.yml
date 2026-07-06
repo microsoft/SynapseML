@@ -4,7 +4,7 @@ channels:
   - default
 dependencies:
   # Core language/runtime
-  - python=3.13
+  - python=3.14
   - requests=2.26.0
   - pip=25.2
   # Build / tooling
@@ -15,8 +15,8 @@ dependencies:
   # (including R, torch, horovod, etc.) remains defined in environment.yml for CI.
   - pip:
     # Core data / Spark stack
-    # PyArrow 18.0.0 provides wheels for Python 3.13 and satisfies mlflow 2.x constraint (pyarrow<19).
-    - pyarrow==18.0.0
+    # PyArrow 22.0.0 is the first release with cp314 (Python 3.14) wheels.
+    - pyarrow==22.0.0
     - pyspark==4.1.1
     - pandas==2.3.3
     - wheel
@@ -40,7 +40,9 @@ dependencies:
     - azure-storage-blob
     - jupyter
     - twine
-    - mlflow==2.20.0
+    # mlflow 3.6.0 is the first release whose pyarrow constraint (<23) admits
+    # pyarrow 22 required for Python 3.14. NOTE: this is a 2.x -> 3.x major bump.
+    - mlflow==3.6.0
     - numpy
 
     # Lightweight extras commonly used in examples / tools
