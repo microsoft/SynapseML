@@ -27,7 +27,6 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
     .setMaxCompletionTokens(500)
     .setOutputCol("out")
     .setMessagesCol("messages")
-    .setTemperature(0)
     .setSubscriptionKey(openAIAPIKey)
 
   lazy val goodDf: DataFrame = Seq(
@@ -225,7 +224,6 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
       .setMaxCompletionTokens(100)
       .setOutputCol("out")
       .setMessagesCol("messages")
-      .setTemperature(0)
       .setSubscriptionKey(openAIAPIKey)
       .setStore(true)
 
@@ -283,7 +281,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
         |  "id":"resp_test",
         |  "object":"response",
         |  "created_at":"1",
-        |  "model":"gpt-5",
+        |  "model":"gpt-5.1",
         |  "output":[
         |    {"type":"reasoning","status":"completed","content":null},
         |    {"type":"message","status":"completed","content":[{"type":"output_text","text":"{\"answer\":\"fruit\"}"}]}
@@ -305,14 +303,14 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
     assert(!transformer.isContentFiltered(responseDf.collect().head))
   }
 
-  test("Responses extract output text from gpt-4.1 message output") {
+  test("Responses extract output text from message-only output") {
     val transformer = new OpenAIResponses()
     val responseJson =
       """{
         |  "id":"resp_test",
         |  "object":"response",
         |  "created_at":"1",
-        |  "model":"gpt-4.1",
+        |  "model":"gpt-5.1",
         |  "output":[
         |    {"type":"message","status":"completed","content":[{"type":"output_text","text":"{\"answer\":\"fruit\"}"}]}
         |  ],
@@ -340,7 +338,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
         |  "id":"resp_test",
         |  "object":"response",
         |  "created_at":"1",
-        |  "model":"gpt-5",
+        |  "model":"gpt-5.1",
         |  "output":[
         |    {"type":"message","status":"completed","content":[{"type":"output_text","text":""}]}
         |  ],
@@ -367,7 +365,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
         |  "id":"resp_test",
         |  "object":"response",
         |  "created_at":"1",
-        |  "model":"gpt-5",
+        |  "model":"gpt-5.1",
         |  "output":[
         |    {"type":"message","status":"completed","content":[{"type":"output_text","text":"{\"answer\":\"stale\"}"}]},
         |    {"type":"message","status":"completed","content":[{"type":"output_text","text":"{\"answer\":\"final\"}"}]}
@@ -395,7 +393,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
         |  "id":"resp_test",
         |  "object":"response",
         |  "created_at":"1",
-        |  "model":"gpt-5",
+        |  "model":"gpt-5.1",
         |  "output":[
         |    {"type":"message","status":"content_filter","content":null}
         |  ],
@@ -417,7 +415,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
         |  "id":"resp_test",
         |  "object":"response",
         |  "created_at":"1",
-        |  "model":"gpt-5",
+        |  "model":"gpt-5.1",
         |  "output":[
         |    {"type":"reasoning","status":"completed","content":null},
         |    {"type":"message","status":"content_filter","content":null}

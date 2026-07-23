@@ -30,8 +30,9 @@ Example Usage:
 
 import json
 from os import error
-from langchain.chains.loading import load_chain_from_config
-from langchain.chat_models import AzureChatOpenAI
+from langchain_classic.chains.loading import load_chain_from_config
+from langchain_core.load import dumps, loads
+from langchain_openai import AzureChatOpenAI
 from pyspark import keyword_only
 from pyspark.ml import Transformer
 from pyspark.ml.param.shared import (
@@ -51,44 +52,42 @@ from typing import cast, Optional, TypeVar, Type
 from synapse.ml.core.platform import running_on_synapse_internal
 from synapse.ml.core.serialize._safe_import import secure_import_class
 
-OPENAI_API_VERSION = "2022-12-01"
+OPENAI_API_VERSION = None
 RL = TypeVar("RL", bound="MLReadable")
 
 
 class CompatAzureChatOpenAI(AzureChatOpenAI):
-    """Strips the ``max_tokens`` parameter from API requests.
+    """Backward-compatible Azure chat class using the current LangChain client."""
 
-    Newer Azure OpenAI model deployments (e.g. gpt-4o, o1) reject the legacy
-    ``max_tokens`` field and require ``max_completion_tokens`` instead.
-    LangChain <= 0.0.x always includes ``max_tokens`` in API params, even
-    when unset (sent as ``null``). This subclass removes it so callers can
-    pass ``max_completion_tokens`` via ``model_kwargs`` without conflict.
 
-    Example::
-
-        llm = CompatAzureChatOpenAI(
-            deployment_name="gpt-4o",
-            model_kwargs={"max_completion_tokens": 100},
-        )
-    """
-
-    @property
-    def _default_params(self):
-        params = super()._default_params
-        params.pop("max_tokens", None)
-        return params
+def _chain_result_to_string(result) -> str:
+    if isinstance(result, str):
+        return result
+    if hasattr(result, "content"):
+        return str(result.content)
+    if isinstance(result, dict):
+        for key in ("text", "output", "result"):
+            if key in result:
+                return str(result[key])
+        return json.dumps(result, default=str)
+    return str(result)
 
 
 class LangchainTransformerParamsWriter(DefaultParamsWriter):
     @staticmethod
     def _chain_serializer(chain) -> Optional[str]:
-        if chain.memory is not None:
+        if getattr(chain, "memory", None) is not None:
             raise NotImplementedError(
                 "Memory saving is not currently supported in Langchain. "
                 "Therefore, it is not possible to save this LangchainTransformer object, "
                 "as its chain contains memory."
             )
-        return json.dumps(chain.dict())
+        try:
+            return dumps(chain)
+        except TypeError as e:
+            raise NotImplementedError(
+                "This LangChain Runnable cannot be serialized by langchain-core."
+            ) from e
 
     def saveImpl(self, path: str) -> None:
         params = self.instance._paramMap
@@ -114,9 +113,13 @@ class LangchainTransformerParamsReader(DefaultParamsReader):
         instance = py_type()
         cast("Params", instance)._resetUid(metadata["uid"])
         # deserialize the chain before setting Params
-        metadata["paramMap"]["chain"] = load_chain_from_config(
-            json.loads(metadata["paramMap"]["chain"])
-        )
+        serialized_chain = metadata["paramMap"]["chain"]
+        try:
+            metadata["paramMap"]["chain"] = loads(serialized_chain)
+        except (ImportError, TypeError, ValueError):
+            metadata["paramMap"]["chain"] = load_chain_from_config(
+                json.loads(serialized_chain)
+            )
         LangchainTransformerParamsReader.getAndSetParams(instance, metadata)
         return instance
 
@@ -204,7 +207,11 @@ class LangchainTransformer(
         return self._set(apiVersion=value)
 
     def getApiVersion(self):
-        return self.getOrDefault(self.apiVersion)
+        return (
+            self.getOrDefault(self.apiVersion)
+            if self.isDefined(self.apiVersion)
+            else None
+        )
 
     def setInputCol(self, value: str):
         """
@@ -254,10 +261,12 @@ class LangchainTransformer(
 
                 OpenAIPrerun(api_base=self.getUrl()).init_personalized_session(None)
             else:
-                openai.api_type = "azure"
-                openai.api_key = self.getSubscriptionKey()
-                openai.api_base = self.getUrl()
-                openai.api_version = self.getApiVersion()
+                if self.isSet(self.subscriptionKey):
+                    openai.api_key = self.getSubscriptionKey()
+                if self.isSet(self.url):
+                    openai.api_base = self.getUrl()
+                if self.isSet(self.apiVersion):
+                    openai.api_version = self.getApiVersion()
 
             error_messages = {}
             if version.parse(openai.__version__) < version.parse("1.0.0"):
@@ -276,7 +285,14 @@ class LangchainTransformer(
                 }
 
             try:
-                result = self.getChain().run(x)
+                chain = self.getChain()
+                if hasattr(chain, "invoke"):
+                    result = chain.invoke(x)
+                elif hasattr(chain, "run"):
+                    result = chain.run(x)
+                else:
+                    raise TypeError("LangChain value must define invoke() or run().")
+                result = _chain_result_to_string(result)
                 error_message = ""
             except tuple(error_messages.keys()) as e:
                 result = ""

@@ -46,8 +46,11 @@ dependencies:
     - Pillow
     - transformers==4.49.0
     - huggingface-hub==0.26.0
-    - langchain==0.0.152
-    - openai==0.27.5
+    - langchain==1.3.14
+    - langchain-classic==1.0.8
+    - langchain-community==0.4.2
+    - langchain-openai==1.4.0
+    - openai==2.47.0
     - black==22.3.0
     - black[jupyter]==22.3.0
     - mistletoe

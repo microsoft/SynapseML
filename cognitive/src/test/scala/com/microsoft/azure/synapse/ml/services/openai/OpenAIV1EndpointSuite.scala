@@ -82,14 +82,14 @@ class OpenAIV1EndpointSuite extends TestBase {
     OpenAIDefaults.setURL(versionedPath)
     try {
       val transformer = new OpenAIChatCompletion()
-        .setDeploymentName("gpt-4o")
+        .setDeploymentName("gpt-5.1")
         .setMessagesCol("messages")
       transformer.transferGlobalParamsToParamMap()
 
       assert(OpenAIDefaults.getURL.contains(versionedPath))
       assert(transformer.getUrl == versionedPath)
       assert(requestUrl(transformer, messagesRow) ==
-        versionedPath + "/openai/deployments/gpt-4o/chat/completions?api-version=2025-04-01-preview")
+        versionedPath + "/openai/deployments/gpt-5.1/chat/completions?api-version=2025-04-01-preview")
     } finally {
       OpenAIDefaults.resetURL()
     }
@@ -98,7 +98,7 @@ class OpenAIV1EndpointSuite extends TestBase {
   test("chat completions uses OpenAI v1 base URL without api-version and sends model") {
     val transformer = new OpenAIChatCompletion()
       .setUrl("https://example.services.ai.azure.com/openai/v1")
-      .setDeploymentName("gpt-4o")
+      .setDeploymentName("gpt-5.1")
       .setMessagesCol("messages")
       .setApiVersion("2025-04-01-preview")
 
@@ -106,7 +106,7 @@ class OpenAIV1EndpointSuite extends TestBase {
     assert(requestUrl(transformer, row) == "https://example.services.ai.azure.com/openai/v1/chat/completions")
 
     val payload = requestPayload(transformer, row)
-    assert(payload.fields.get("model").contains(JsString("gpt-4o")))
+    assert(payload.fields.get("model").contains(JsString("gpt-5.1")))
     assert(payload.fields.contains("messages"))
   }
 
@@ -123,7 +123,7 @@ class OpenAIV1EndpointSuite extends TestBase {
     ).foreach { case (baseUrl, expectedUrl) =>
         val transformer = new OpenAIChatCompletion()
           .setUrl(baseUrl)
-          .setDeploymentName("gpt-4o")
+          .setDeploymentName("gpt-5.1")
           .setMessagesCol("messages")
           .setApiVersion("2025-04-01-preview")
 
@@ -135,13 +135,13 @@ class OpenAIV1EndpointSuite extends TestBase {
     Seq("https://example.openai.azure.com", "https://example.openai.azure.com/").foreach { baseUrl =>
       val transformer = new OpenAIChatCompletion()
         .setUrl(baseUrl)
-        .setDeploymentName("gpt-4o")
+        .setDeploymentName("gpt-5.1")
         .setMessagesCol("messages")
         .setApiVersion("2025-04-01-preview")
 
       val row = messagesRow
       assert(requestUrl(transformer, row) ==
-        "https://example.openai.azure.com/openai/deployments/gpt-4o/chat/completions" +
+        "https://example.openai.azure.com/openai/deployments/gpt-5.1/chat/completions" +
           "?api-version=2025-04-01-preview")
       assert(!requestPayload(transformer, row).fields.contains("model"))
     }
@@ -151,12 +151,12 @@ class OpenAIV1EndpointSuite extends TestBase {
     Seq("https://example.services.ai.azure.com", "https://example.services.ai.azure.com/").foreach { baseUrl =>
       val transformer = new OpenAIChatCompletion()
         .setUrl(baseUrl)
-        .setDeploymentName("gpt-4o")
+        .setDeploymentName("gpt-5.1")
         .setMessagesCol("messages")
         .setApiVersion("2025-04-01-preview")
 
       assert(requestUrl(transformer, messagesRow) ==
-        "https://example.services.ai.azure.com/openai/deployments/gpt-4o/chat/completions" +
+        "https://example.services.ai.azure.com/openai/deployments/gpt-5.1/chat/completions" +
           "?api-version=2025-04-01-preview")
     }
   }
@@ -165,7 +165,7 @@ class OpenAIV1EndpointSuite extends TestBase {
     Seq("https://example.services.ai.azure.com", "https://example.services.ai.azure.com/").foreach { baseUrl =>
       val transformer = new AIFoundryChatCompletion()
         .setUrl(baseUrl)
-        .setModel("gpt-4o")
+        .setModel("gpt-5.1")
         .setMessagesCol("messages")
         .setApiVersion("2025-04-01-preview")
 
@@ -177,24 +177,24 @@ class OpenAIV1EndpointSuite extends TestBase {
   test("non-v1 URL paths remain permissive and use legacy request construction") {
     val transformer = new OpenAIChatCompletion()
       .setUrl("https://example.openai.azure.com/openai")
-      .setDeploymentName("gpt-4o")
+      .setDeploymentName("gpt-5.1")
       .setMessagesCol("messages")
       .setApiVersion("2025-04-01-preview")
 
     assert(requestUrl(transformer, messagesRow) ==
-      "https://example.openai.azure.com/openai/openai/deployments/gpt-4o/chat/completions" +
+      "https://example.openai.azure.com/openai/openai/deployments/gpt-5.1/chat/completions" +
         "?api-version=2025-04-01-preview")
   }
 
   test("custom non-Azure URL strings remain permissive") {
     val transformer = new OpenAIChatCompletion()
       .setUrl("https://proxy.contoso.com/openai")
-      .setDeploymentName("gpt-4o")
+      .setDeploymentName("gpt-5.1")
       .setMessagesCol("messages")
       .setApiVersion("2025-04-01-preview")
 
     assert(requestUrl(transformer, messagesRow) ==
-      "https://proxy.contoso.com/openai/openai/deployments/gpt-4o/chat/completions" +
+      "https://proxy.contoso.com/openai/openai/deployments/gpt-5.1/chat/completions" +
         "?api-version=2025-04-01-preview")
   }
 
@@ -202,12 +202,12 @@ class OpenAIV1EndpointSuite extends TestBase {
     OpenAIDefaults.setURL("https://example.openai.azure.com/openai")
     try {
       val transformer = new OpenAIChatCompletion()
-        .setDeploymentName("gpt-4o")
+        .setDeploymentName("gpt-5.1")
         .setMessagesCol("messages")
       transformer.transferGlobalParamsToParamMap()
 
       assert(requestUrl(transformer, messagesRow) ==
-        "https://example.openai.azure.com/openai/openai/deployments/gpt-4o/chat/completions" +
+        "https://example.openai.azure.com/openai/openai/deployments/gpt-5.1/chat/completions" +
           "?api-version=2025-04-01-preview")
     } finally {
       OpenAIDefaults.resetURL()
@@ -230,7 +230,7 @@ class OpenAIV1EndpointSuite extends TestBase {
     OpenAIDefaults.setApiVersion("2025-04-01-preview")
     try {
       val transformer = new OpenAIChatCompletion()
-        .setDeploymentName("gpt-4o")
+        .setDeploymentName("gpt-5.1")
         .setMessagesCol("messages")
       transformer.transferGlobalParamsToParamMap()
 
@@ -331,7 +331,7 @@ class OpenAIV1EndpointSuite extends TestBase {
   test("OpenAIPrompt treats services.ai.azure.com/openai/v1 as OpenAI v1, not models chat endpoint") {
     val prompt = new OpenAIPrompt()
       .setUrl("https://example.services.ai.azure.com/openai/v1")
-      .setModel("gpt-4o")
+      .setModel("gpt-5.1")
       .setMessagesCol("messages")
 
     val prepareEntity = classOf[OpenAIPrompt].getDeclaredMethod("prepareEntity")
@@ -339,7 +339,7 @@ class OpenAIV1EndpointSuite extends TestBase {
     val buildEntity = prepareEntity.invoke(prompt).asInstanceOf[Row => Option[AbstractHttpEntity]]
 
     val payload = EntityUtils.toString(buildEntity(messagesRow).get).parseJson.asJsObject
-    assert(payload.fields.get("model").contains(JsString("gpt-4o")))
+    assert(payload.fields.get("model").contains(JsString("gpt-5.1")))
     assert(payload.fields.contains("messages"))
   }
 }

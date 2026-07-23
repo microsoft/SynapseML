@@ -5,13 +5,42 @@ package com.microsoft.azure.synapse.ml.services.openai
 
 import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import org.apache.spark.sql.{DataFrame, Row}
+import org.scalatest.TestData
 
 class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
 
   import spark.implicits._
 
+  private def resetDefaults(): Unit = {
+    OpenAIDefaults.resetDeploymentName()
+    OpenAIDefaults.resetSubscriptionKey()
+    OpenAIDefaults.resetTemperature()
+    OpenAIDefaults.resetSeed()
+    OpenAIDefaults.resetTopP()
+    OpenAIDefaults.resetURL()
+    OpenAIDefaults.resetApiVersion()
+    OpenAIDefaults.resetModel()
+    OpenAIDefaults.resetEmbeddingDeploymentName()
+    OpenAIDefaults.resetVerbosity()
+    OpenAIDefaults.resetReasoningEffort()
+    OpenAIDefaults.resetApiType()
+  }
+
+  protected override def beforeEach(td: TestData): Unit = {
+    super.beforeEach(td)
+    resetDefaults()
+  }
+
+  protected override def afterEach(td: TestData): Unit = {
+    try {
+      resetDefaults()
+    } finally {
+      super.afterEach(td)
+    }
+  }
+
   def promptCompletion: OpenAIChatCompletion = new OpenAIChatCompletion()
-    .setMaxCompletionTokens(200)
+    .setMaxCompletionTokens(1000)
     .setOutputCol("out")
     .setMessagesCol("prompt")
 
@@ -35,7 +64,7 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
   test("Completion w Globals") {
     OpenAIDefaults.setDeploymentName(deploymentName)
     OpenAIDefaults.setSubscriptionKey(openAIAPIKey)
-    OpenAIDefaults.setTemperature(0.05)
+    OpenAIDefaults.setReasoningEffort("low")
     OpenAIDefaults.setURL(s"https://$openAIServiceName.openai.azure.com/")
 
     val fromRow = ChatModelResponse.makeFromRowConverter
@@ -57,7 +86,7 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
   test("OpenAIPrompt w Globals") {
     OpenAIDefaults.setDeploymentName(deploymentName)
     OpenAIDefaults.setSubscriptionKey(openAIAPIKey)
-    OpenAIDefaults.setTemperature(0.05)
+    OpenAIDefaults.setReasoningEffort("low")
     OpenAIDefaults.setURL(s"https://$openAIServiceName.openai.azure.com/")
 
     val nonNullCount = prompt
@@ -72,7 +101,6 @@ class OpenAIDefaultsSuite extends Flaky with OpenAIAPIKey {
 
     assert(prompt.getDeploymentName == deploymentName)
     assert(prompt.getSubscriptionKey == openAIAPIKey)
-    assert(prompt.getTemperature == 0.05)
   }
 
   test("Test Getters") {
