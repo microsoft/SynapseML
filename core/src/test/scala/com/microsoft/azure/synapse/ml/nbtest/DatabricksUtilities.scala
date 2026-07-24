@@ -443,6 +443,10 @@ object DatabricksUtilities {
     ()
   }
 
+  private[nbtest] def getClusterStatus(clusterId: String): DatabricksClusterStartup.ClusterStatus = {
+    DatabricksClusterStartup.parseClusterStatus(databricksGet(s"clusters/get?cluster_id=$clusterId"))
+  }
+
   def submitRun(clusterId: String, notebookPath: String,
                 timeoutSeconds: Int = TimeoutInMillis / 1000): Long = {
     val body =
@@ -461,10 +465,9 @@ object DatabricksUtilities {
   }
 
   def isClusterActive(clusterId: String): Boolean = {
-    val clusterObj = databricksGet(s"clusters/get?cluster_id=$clusterId")
-    val state = clusterObj.select[String]("state")
-    println(s"Cluster State: $state")
-    state == "RUNNING"
+    val status = getClusterStatus(clusterId)
+    println(s"Cluster State: ${status.state}")
+    status.state == "RUNNING"
   }
 
   def areLibrariesInstalled(clusterId: String): Boolean = {
@@ -616,9 +619,7 @@ abstract class DatabricksTestHelper extends TestBase {
 
     println("Checking if cluster is active")
     // Pool-backed clusters start in ~1.5-3.5 min; allow up to 10 min
-    tryWithRetries(Seq.fill(60 * 10)(1000).toArray) { () =>
-      assert(isClusterActive(clusterId))
-    }
+    DatabricksClusterStartup.waitForClusterActive(clusterId, getClusterStatus)
 
     Thread.sleep(1000) // Ensure cluster is not overwhelmed
     println("Installing libraries")
