@@ -14,9 +14,10 @@ Example Usage:
     ...                       .setInputCol("input_column_name")
     ...                       .setOutputCol("output_column_name")
     ...                       .setChain(pre_defined_chain)
-    ...                       .setSubscriptionKey(OPENAI_API_KEY)
-    ...                       .setUrl(baseURL)
     >>> transformer.transform(sentenceDataFrame)
+
+The chain must be Spark-picklable. Modern OpenAI client objects contain
+non-picklable HTTP state and cannot be captured directly by this transformer.
 
 If the chain does not have memory, you can also save and load the
 Langchain Transformer. The saving of chains with memory is currently
@@ -29,11 +30,10 @@ Example Usage:
 
 
 import json
-from os import error
-from langchain_classic.chains.loading import load_chain_from_config
+import pickle
 from langchain_core.load import dumps, loads
-from langchain_openai import AzureChatOpenAI
-from pyspark import keyword_only
+from openai import OpenAIError
+from pyspark import cloudpickle, keyword_only
 from pyspark.ml import Transformer
 from pyspark.ml.param.shared import (
     HasInputCol,
@@ -56,13 +56,23 @@ OPENAI_API_VERSION = None
 RL = TypeVar("RL", bound="MLReadable")
 
 
-class CompatAzureChatOpenAI(AzureChatOpenAI):
-    """Backward-compatible Azure chat class using the current LangChain client."""
+def _validate_chain_for_spark(chain) -> None:
+    if not hasattr(chain, "invoke") and not hasattr(chain, "run"):
+        raise TypeError("LangChain value must define invoke() or run().")
+
+    try:
+        cloudpickle.dumps(chain)
+    except (pickle.PicklingError, TypeError) as pickling_error:
+        raise TypeError(
+            "LangChain value must be Spark-picklable. Modern OpenAI clients "
+            "contain non-picklable HTTP state and cannot be captured by "
+            "LangchainTransformer."
+        ) from pickling_error
 
 
 def _chain_result_to_string(result) -> str:
     if isinstance(result, str):
-        return result
+        return str(result)
     if hasattr(result, "content"):
         return str(result.content)
     if isinstance(result, dict):
@@ -114,12 +124,11 @@ class LangchainTransformerParamsReader(DefaultParamsReader):
         cast("Params", instance)._resetUid(metadata["uid"])
         # deserialize the chain before setting Params
         serialized_chain = metadata["paramMap"]["chain"]
-        try:
-            metadata["paramMap"]["chain"] = loads(serialized_chain)
-        except (ImportError, TypeError, ValueError):
-            metadata["paramMap"]["chain"] = load_chain_from_config(
-                json.loads(serialized_chain)
-            )
+        metadata["paramMap"]["chain"] = loads(
+            serialized_chain,
+            allowed_objects="core",
+            secrets_from_env=False,
+        )
         LangchainTransformerParamsReader.getAndSetParams(instance, metadata)
         return instance
 
@@ -243,6 +252,13 @@ class LangchainTransformer(
         do langchain transformation for the input column,
         and save the transformed values to the output column.
         """
+        chain = self.getChain()
+        _validate_chain_for_spark(chain)
+        initialize_prerun = self.running_on_synapse_internal and not self.isSet(
+            self.url
+        )
+        prerun_url = self.getUrl() if initialize_prerun else None
+
         # Define the schema for the output of the UDF
         schema = StructType(
             [
@@ -253,39 +269,12 @@ class LangchainTransformer(
 
         @udf(schema)
         def udfFunction(x):
-            import openai
-            from packaging import version
-
-            if self.running_on_synapse_internal and not self.isSet(self.url):
+            if initialize_prerun:
                 from synapse.ml.fabric.prerun.openai_prerun import OpenAIPrerun
 
-                OpenAIPrerun(api_base=self.getUrl()).init_personalized_session(None)
-            else:
-                if self.isSet(self.subscriptionKey):
-                    openai.api_key = self.getSubscriptionKey()
-                if self.isSet(self.url):
-                    openai.api_base = self.getUrl()
-                if self.isSet(self.apiVersion):
-                    openai.api_version = self.getApiVersion()
-
-            error_messages = {}
-            if version.parse(openai.__version__) < version.parse("1.0.0"):
-                error_messages = {
-                    openai.error.Timeout: "OpenAI API request timed out, please retry your request after a brief wait and contact us if the issue persists: {}",
-                    openai.error.APIError: "OpenAI API returned an API Error: {}",
-                    openai.error.APIConnectionError: "OpenAI API request failed to connect, check your network settings, proxy configuration, SSL certificates, or firewall rules: {}",
-                    openai.error.InvalidRequestError: "OpenAI API request was invalid: {}",
-                    openai.error.AuthenticationError: "OpenAI API request was not authorized, please check your API key or token and make sure it is correct and active. You may need to generate a new one from your account dashboard: {}",
-                    openai.error.PermissionError: "OpenAI API request was not permitted, make sure your API key has the appropriate permissions for the action or model accessed: {}",
-                    openai.error.RateLimitError: "OpenAI API request exceeded rate limit: {}",
-                }
-            else:
-                error_messages = {
-                    openai.OpenAIError: "OpenAI API returned an API Error: {}",
-                }
+                OpenAIPrerun(api_base=prerun_url).init_personalized_session(None)
 
             try:
-                chain = self.getChain()
                 if hasattr(chain, "invoke"):
                     result = chain.invoke(x)
                 elif hasattr(chain, "run"):
@@ -294,18 +283,9 @@ class LangchainTransformer(
                     raise TypeError("LangChain value must define invoke() or run().")
                 result = _chain_result_to_string(result)
                 error_message = ""
-            except tuple(error_messages.keys()) as e:
+            except OpenAIError as e:
                 result = ""
-                # Use exact type match first, fall back to base class message
-                fmt = error_messages.get(type(e))
-                if fmt is None:
-                    for exc_type, msg in error_messages.items():
-                        if isinstance(e, exc_type):
-                            fmt = msg
-                            break
-                if fmt is None:
-                    fmt = "OpenAI API returned an error: {}"
-                error_message = fmt.format(e)
+                error_message = f"OpenAI API returned an API Error: {e}"
 
             return result, error_message
 
