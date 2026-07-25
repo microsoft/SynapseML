@@ -32,6 +32,6 @@ If you're unsure about what to test, where to add tests, or how to run tests, pl
    Make sure you choose the correct class `estimators/transformers` and namespace.
 2. Follow the pattern in markdown file and add another section for your new API, including pyspark, scala (and .NET potentially) samples.
 3. Make sure the `DocTable` points to correct API link.
-4. Navigate to website folder, and run `yarn run start` to make sure the website renders correctly.
+4. Navigate to website folder, and run `npm start` to make sure the website renders correctly.
 5. Don't forget to add `<!--pytest-codeblocks:cont-->` before each python code blocks to enable auto-tests for python samples.
 6. Make sure the `WebsiteSamplesTests` job pass in the pipeline.
