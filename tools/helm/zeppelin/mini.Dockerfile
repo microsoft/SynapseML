@@ -14,6 +14,7 @@ RUN echo "$LOG_TAG setting python dependencies" && \
     apk add --no-cache python && \
     pip install --no-cache-dir --upgrade pip setuptools && \
     rm -rf /root/.cache && \
+
     echo "$LOG_TAG Install essentials" && \
     apk add --no-cache git wget curl && \
     apk add --no-cache && \
@@ -94,6 +95,7 @@ RUN echo "$LOG_TAG setting python dependencies" && \
     rm -rf ${Z_HOME}/interpreter/livy && \
     rm -rf ${Z_HOME}/interpreter/angular && \
     rm -rf ${Z_HOME}/interpreter/hbase && \
+
     echo "$LOG_TAG installing python related packages" && \
     apk add --no-cache g++ python-dev python3-dev build-base wget freetype-dev libpng-dev openblas-dev && \
     pip3 install -U pip && \

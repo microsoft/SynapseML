@@ -43,6 +43,7 @@ RUN set -ex && \
     mkdir -p /opt/spark && \
     mv spark-${APACHE_SPARK_VERSION}-bin-without-hadoop /tmp/spark_bin && \
     echo Spark ${APACHE_SPARK_VERSION} installed in /opt/spark && \
+
     cp -r /tmp/spark_bin/${spark_jars} /opt/spark/jars && \
     cp -r /tmp/spark_bin/bin /opt/spark/bin && \
     cp -r /tmp/spark_bin/sbin /opt/spark/sbin && \
@@ -51,12 +52,14 @@ RUN set -ex && \
     cp -r /tmp/spark_bin/${k8s_tests} /opt/spark/tests && \
     cp -r /tmp/spark_bin/data /opt/spark/data && \
     cp -r /tmp/spark_bin/python /opt/spark/python && \
+
     touch /opt/spark/RELEASE && \
     rm /bin/sh && \
     ln -sv /bin/bash /bin/sh && \
     echo "auth required pam_wheel.so use_uid" >> /etc/pam.d/su && \
     chgrp root /etc/passwd && chmod ug+rw /etc/passwd && \
     rm -r /tmp/spark_bin && \
+
     echo "downloading hadoop" && \
     cd /tmp && \
     wget http://apache.claz.org/hadoop/common/hadoop-${HADOOP_VERSION}/hadoop-${HADOOP_VERSION}.tar.gz -O - | \
