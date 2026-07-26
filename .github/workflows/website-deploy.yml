@@ -49,15 +49,16 @@ jobs:
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
-          node-version: '18'
-          cache: 'yarn'
-          cache-dependency-path: website/yarn.lock
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: website/package-lock.json
 
       - name: Install and build website
+        working-directory: website
         run: |
-          cd website
-          yarn install
-          yarn build
+          npm ci
+          npm test
+          npm run build
 
       - name: Upload artifact (PR preview)
         if: github.event_name == 'pull_request'

@@ -15,7 +15,7 @@ const snippets = [
   {
     label: "Cognitive Services",
     further:
-      "docs/Explore%20Algorithms/AI%20Services/Overview#text-analytics-sample",
+      "docs/Explore%20Algorithms/AI%20Services/Overview#perform-sentiment-analysis-on-text",
     config: `from synapse.ml.cognitive import *
 
 sentiment_df = (TextSentiment()

@@ -1,13 +1,16 @@
-const math = require('remark-math')
-const katex = require('rehype-katex')
 const path = require('path');
+const preprocessLegacyMarkdown = require('./legacyMarkdownPreprocessor');
 let version = "1.1.3";
 
-module.exports = {
+module.exports = async function createConfigAsync() {
+    return {
     title: 'SynapseML',
     tagline: 'Simple and Distributed Machine Learning',
     url: 'https://microsoft.github.io',
     baseUrl: '/SynapseML/',
+    markdown: {
+        preprocessor: preprocessLegacyMarkdown,
+    },
     favicon: 'img/favicon.ico',
     organizationName: 'microsoft',
     projectName: 'SynapseML',
@@ -17,8 +20,8 @@ module.exports = {
     },
     stylesheets: [
         {
-            href: "https://cdn.jsdelivr.net/npm/katex@0.13.11/dist/katex.min.css",
-            integrity: "sha384-Um5gpz1odJg5Z4HAmzPtgZKdTBHZdw8S29IecapCSB31ligYPhHQZMIlWLYQGVoc",
+            href: "https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css",
+            integrity: "sha384-5TcZemv2l/9On385z///+d7MSYlvIEw9FuZTIdZ14vJLqWphw7e7ZPuOiCHJcFCP",
             crossorigin: "anonymous",
         },
     ],
@@ -138,8 +141,8 @@ module.exports = {
             {
                 docs: {
                     sidebarPath: require.resolve('./sidebars.js'),
-                    remarkPlugins: [math],
-                    rehypePlugins: [katex],
+                    remarkPlugins: [(await import('remark-math')).default],
+                    rehypePlugins: [(await import('rehype-katex')).default],
                 },
                 theme: {
                     customCss: require.resolve('./src/css/custom.css'),
@@ -477,4 +480,5 @@ module.exports = {
             },
         ],
     ],
+    };
 };

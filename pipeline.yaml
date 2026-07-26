@@ -763,7 +763,6 @@ jobs:
   steps:
     #- template: templates/ivy_cache.yml
     - template: templates/update_cli.yml
-    - template: templates/kv.yml
     - task: AzureCLI@2
       displayName: 'Setup repo'
       retryCountOnTaskFailure: 1
@@ -809,6 +808,14 @@ jobs:
         inlineScript: 'sbt coverageReport'
       condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
     - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
+      - task: AzureKeyVault@2
+        displayName: Load Codecov token
+        condition: succeededOrFailed()
+        retryCountOnTaskFailure: 3
+        inputs:
+          azureSubscription: 'SynapseML Build'
+          keyVaultName: mmlspark-keys
+          SecretsFilter: codecov-token
       - template: templates/codecov.yml
 
 - job: ReleaseBranchCompat
