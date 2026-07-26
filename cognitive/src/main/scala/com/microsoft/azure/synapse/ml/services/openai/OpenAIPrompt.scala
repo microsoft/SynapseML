@@ -121,7 +121,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   }
 
   def setPostProcessingOptions(v: java.util.HashMap[String, String]): this.type =
-    set(postProcessingOptions, v.asScala.toMap)
+    setPostProcessingOptions(v.asScala.toMap)
 
   val dropPrompt = new BooleanParam(
     this, "dropPrompt", "whether to drop the column of prompts after templating (when using legacy models)")
