@@ -53,6 +53,34 @@ class EnsembleByKeySuite extends TestBase with TransformerFuzzing[EnsembleByKey]
     df1.show()
   }
 
+  test("transformSchema should match the transformed schema for both collapse modes") {
+    val scoreDFDouble = spark.createDataFrame(
+      Seq((0, "foo", 1.0),
+          (1, "bar", 4.0),
+          (1, "bar", 0.0)))
+      .toDF("id", "group", "score")
+    val scoreDFFloat = spark.createDataFrame(
+      Seq((0, "foo", 1.0f),
+          (1, "bar", 4.0f),
+          (1, "bar", 0.0f)))
+      .toDF("id", "group", "score")
+
+    Seq(scoreDFDouble, scoreDFFloat).foreach { scoreDF =>
+      Seq(true, false).foreach { collapseGroup =>
+        val transformer = new EnsembleByKey()
+          .setKey("group")
+          .setCol("score")
+          .setCollapseGroup(collapseGroup)
+        val transformedSchema = transformer.transformSchema(scoreDF.schema)
+        val transformed = transformer.transform(scoreDF)
+
+        withClue(s"dataType=${scoreDF.schema("score").dataType}, collapseGroup=$collapseGroup: ") {
+          assert(transformed.schema === transformedSchema)
+        }
+      }
+    }
+  }
+
   lazy val testDF: DataFrame = {
     val initialTestDF = spark.createDataFrame(
       Seq((0, "foo", 1.0, .1),

@@ -83,12 +83,15 @@ class EnsembleByKey(val uid: String) extends Transformer
 
   setDefault(collapseGroup -> true)
 
+  private def setDefaultColNames(): Unit = {
+    if (get(colNames).isEmpty) {
+      setDefault(colNames -> getCols.map(name => s"$getStrategy($name)"))
+    }
+  }
+
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
-
-      if (get(colNames).isEmpty) {
-        setDefault(colNames -> getCols.map(name => s"$getStrategy($name)"))
-      }
+      setDefaultColNames()
 
       transformSchema(dataset.schema)
 
@@ -130,25 +133,31 @@ class EnsembleByKey(val uid: String) extends Transformer
   }
 
   def transformSchema(schema: StructType): StructType = {
-    val colSet = getCols.toSet
-    val colToNewName = getCols.zip(getColNames).toMap
+    setDefaultColNames()
 
-    val newFields = schema.fields.flatMap { f =>
-      if (!colSet(f.name)) None
-      else {
-        val newField = StructField(colToNewName(f.name), f.dataType)
-        f.dataType match {
-          case _: DoubleType => Some(newField)
-          case _: FloatType => Some(newField)
-          case fdt if fdt == VectorType => Some(newField)
-          case t => throw new IllegalArgumentException(s"Cannot operate on type $t with strategy $getStrategy")
-        }
+    val inputNames = getCols
+    val outputNames = getColNames
+    val keyNames = getKeys
+
+    val aggregateFields = inputNames.zip(outputNames).map { case (inputName, outputName) =>
+      val inputField = schema(inputName)
+      inputField.dataType match {
+        case _: DoubleType => StructField(outputName, DoubleType)
+        case _: FloatType => StructField(outputName, DoubleType)
+        case fdt if fdt == VectorType => StructField(outputName, inputField.dataType)
+        case t => throw new IllegalArgumentException(s"Cannot operate on type $t with strategy $getStrategy")
       }
     }
 
-    val keyFields = schema.fields.filter(f => colSet(f.name))
-    val fields =
-      (if (getCollapseGroup) schema.fields else keyFields).++(newFields)
+    val keyFields = keyNames.map(schema(_))
+    val fields = if (getCollapseGroup) {
+      keyFields ++ aggregateFields
+    } else {
+      val keyNameSet = keyNames.toSet
+      val outputNameSet = outputNames.toSet
+      val inputFields = schema.fields.filterNot(f => keyNameSet(f.name) || outputNameSet(f.name))
+      keyFields ++ inputFields ++ aggregateFields
+    }
 
     new StructType(fields)
   }
