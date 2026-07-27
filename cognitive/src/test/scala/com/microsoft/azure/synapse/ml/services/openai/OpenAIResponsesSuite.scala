@@ -25,6 +25,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
     .setCustomServiceName(openAIServiceName)
     .setApiVersion("2025-04-01-preview")
     .setMaxCompletionTokens(500)
+    .setReasoningEffort("low")
     .setOutputCol("out")
     .setMessagesCol("messages")
     .setSubscriptionKey(openAIAPIKey)
@@ -481,15 +482,14 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
   private def testResponses(model: OpenAIResponses,
                             df: DataFrame,
                             requiredLength: Int = 10): Unit = {
-    val fromRow = ResponsesModelResponse.makeFromRowConverter
-    model.transform(df).collect().foreach { row =>
-      val responseRow = row.getAs[Row]("out")
-      assert(responseRow != null, "Expected non-null response from Responses API")
-      fromRow(responseRow).output.foreach { choice =>
-        val text = choice.content.map(_.text).mkString
+    model.transform(df)
+      .select(model.getOutputMessageText(model.getOutputCol).as("text"))
+      .collect()
+      .foreach { row =>
+        val text = row.getAs[String]("text")
+        assert(text != null, "Expected non-null text from Responses API")
         assert(text.length > requiredLength,
           s"Expected text length > $requiredLength but got ${text.length}")
-      }
     }
   }
 
