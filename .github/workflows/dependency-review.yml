@@ -21,9 +21,3 @@ jobs:
         with:
           fail-on-severity: high
           comment-summary-in-pr: always
-          # Docusaurus invokes serve-handler without any glob-based rewrites,
-          # redirects, headers, or directory-listing patterns, so untrusted
-          # input cannot reach brace-expansion. The first patched major is
-          # incompatible with serve-handler's minimatch 3 API. Track removal
-          # of this exception in AB#5469322 when upstream releases a safe path.
-          allow-ghsas: GHSA-mh99-v99m-4gvg

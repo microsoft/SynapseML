@@ -5,8 +5,13 @@
   "engines": {
     "node": ">=24.0"
   },
+  "allowScripts": {
+    "brace-expansion": false,
+    "core-js": false
+  },
   "scripts": {
     "test": "node --test",
+    "postinstall": "node scripts/patchServeHandler.cjs",
     "start": "docusaurus start",
     "build": "docusaurus build",
     "swizzle": "docusaurus swizzle",
@@ -21,6 +26,7 @@
     "@docusaurus/theme-classic": "3.10.2",
     "@docusaurus/theme-search-algolia": "3.10.2",
     "@mdx-js/react": "^3.1.1",
+    "brace-expansion": "file:vendor/brace-expansion-5.0.8.tgz",
     "classnames": "^2.5.1",
     "clsx": "^2.1.1",
     "copy-text-to-clipboard": "^3.2.0",
@@ -34,17 +40,20 @@
   "overrides": {
     "ajv@<6.14.0": "6.14.0",
     "ajv@>=7.0.0-alpha.0 <8.18.0": "8.20.0",
-    "brace-expansion@<1.1.16": "1.1.16",
+    "brace-expansion": "$brace-expansion",
     "cross-spawn@>=7.0.0 <7.0.5": "7.0.6",
     "fast-uri@<3.1.4": "3.1.4",
     "follow-redirects@<=1.15.11": "1.16.0",
     "js-yaml@>=4.0.0 <4.3.0": "4.3.0",
     "lodash@<=4.17.23": "4.18.1",
     "micromatch@<4.0.8": "4.0.8",
+    "minimatch@3.1.5": "10.2.5",
     "path-to-regexp@>=0.2.0 <1.9.0": "1.9.0",
     "serialize-javascript": "7.0.7",
     "shell-quote@<1.10.0": "1.10.0",
+    "update-notifier@6.0.2": "7.3.1",
     "uuid@<11.1.1": "11.1.1",
+    "webpack-dev-server@5.2.6": "6.0.0",
     "websocket-driver@<0.7.5": "0.7.5",
     "ws@>=7.0.0 <7.5.11": "7.5.11"
   },
