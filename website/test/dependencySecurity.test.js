@@ -19,6 +19,10 @@ function packageEntries(packageName) {
   });
 }
 
+function packageVersions(packageName) {
+  return [...new Set(packageEntries(packageName).map(([, packageData]) => packageData.version))].sort();
+}
+
 test('keeps Component Governance dependency remediations pinned', () => {
   const braceExpansion = packageLock.packages['node_modules/brace-expansion'];
 
@@ -27,6 +31,8 @@ test('keeps Component Governance dependency remediations pinned', () => {
   assert.equal(packageLock.packages['node_modules/minimatch'].version, '10.2.5');
   assert.equal(packageLock.packages['node_modules/update-notifier'].version, '7.3.1');
   assert.equal(packageLock.packages['node_modules/webpack-dev-server'].version, '6.0.0');
+  assert.deepEqual(packageVersions('debug'), ['4.4.3']);
+  assert.deepEqual(packageVersions('glob-parent'), ['6.0.2']);
   assert.deepEqual(packageEntries('keyv'), []);
   assert.deepEqual(packageEntries('string_decoder'), []);
 });
@@ -57,10 +63,16 @@ test('denies nonessential dependency install scripts', () => {
 
 test('loads the overridden glob dependencies through their reviewed APIs', () => {
   const {expand} = require('brace-expansion');
+  const compression = require('compression');
+  const globParent = require('glob-parent');
   const {minimatch} = require('minimatch');
   const serveHandler = require('serve-handler');
+  const serveIndex = require('serve-index');
 
   assert.deepEqual(expand('{docs,api}/*.html'), ['docs/*.html', 'api/*.html']);
+  assert.equal(typeof compression(), 'function');
+  assert.equal(globParent('docs/**/*.html'), 'docs');
   assert.equal(minimatch('docs/index.html', '**/*.html'), true);
   assert.equal(typeof serveHandler, 'function');
+  assert.equal(typeof serveIndex(websiteDir), 'function');
 });
