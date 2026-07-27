@@ -32,7 +32,7 @@ dependencies:
     - jupyter
     - twine
     - mlflow==2.21.3
-    - numpy
+    - numpy==1.26.4
     - torch==2.1.0
     - torchvision==0.16.0
     # horovod package was deprecated in 2023, this commit has horovod compile with c++17
