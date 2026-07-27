@@ -6,7 +6,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 ENV SPARK_VERSION=3.5.4
 ENV HADOOP_VERSION=3
 ENV SYNAPSEML_VERSION=${SYNAPSEML_VERSION}
-ENV JAVA_HOME /usr/lib/jvm/java-1.11.0-openjdk-amd64
+ENV JAVA_HOME=/usr/lib/jvm/java-1.11.0-openjdk-amd64
 
 # Install required packages
 RUN apt-get -qq update \
@@ -34,7 +34,7 @@ RUN curl -sSL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64
     && pip install --upgrade "PyJWT>=2.12.0" \
     && conda clean --all --yes
 
-ENV PATH /usr/local/bin:$PATH
+ENV PATH=/usr/local/bin:${PATH}
 
 # Download and install Spark
 RUN wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz \
@@ -42,9 +42,9 @@ RUN wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SP
     && mv spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION} /opt/spark \
     && rm spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
 
-ENV SPARK_HOME /opt/spark
-ENV PYTHONPATH $SPARK_HOME/python/:$SPARK_HOME/python/lib/py4j*:$PYTHON_PATH
-ENV PATH $SPARK_HOME/bin/:$SPARK_HOME/python/:$PATH
+ENV SPARK_HOME=/opt/spark
+ENV PYTHONPATH=${SPARK_HOME}/python/:${SPARK_HOME}/python/lib/py4j*
+ENV PATH=${SPARK_HOME}/bin/:${SPARK_HOME}/python/:${PATH}
 
 RUN apt-get remove --purge -y \
         curl \

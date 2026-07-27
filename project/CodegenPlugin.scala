@@ -78,6 +78,8 @@ object CodegenPlugin extends AutoPlugin {
 
     val packagePython = TaskKey[Unit]("packagePython", "Package python sdk")
     val installPipPackage = TaskKey[Unit]("installPipPackage", "install python sdk")
+    val preparePythonTests = TaskKey[Unit]("preparePythonTests",
+      "install local python packages required by tests")
     val removePipPackage = TaskKey[Unit]("removePipPackage",
       "remove the installed synapseml pip package from local env")
 
@@ -300,8 +302,20 @@ object CodegenPlugin extends AutoPlugin {
     pyCodegen := pyCodeGenImpl.value,
     pythonIgnoreTestPath := sys.props.get("pythonIgnoreTestPath"),
     pythonSubTestPath := sys.props.get("pythonSubTestPath"),
+    preparePythonTests := Def.taskDyn {
+      if (thisProjectRef.value.project == "core") {
+        Def.task {
+          installPipPackage.value
+        }
+      } else {
+        Def.sequential(
+          LocalProject("core") / installPipPackage,
+          installPipPackage
+        )
+      }
+    }.value,
     testPython := {
-      installPipPackage.value
+      preparePythonTests.value
       pyTestgen.value
       val mainTargetDir = join(baseDirectory.value.getParent, "target")
       val baseTestPath = genTestPackageNamespace.value

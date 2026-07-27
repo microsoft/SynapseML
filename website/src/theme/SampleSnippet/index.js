@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from "react";
 import clsx from "clsx";
-import Highlight, { defaultProps } from "prism-react-renderer";
+import {Highlight} from "prism-react-renderer";
 import copy from "copy-text-to-clipboard";
 import {useColorMode} from '@docusaurus/theme-common';
 import Translate, { translate } from "@docusaurus/Translate";
@@ -31,7 +31,7 @@ function SampleSnippet(props) {
     setMounted(true);
   }, []);
 
-  const {isDarkTheme} = useColorMode();;
+  const {isDarkTheme} = useColorMode();
   const lightModeTheme = prism.theme || monokai;
   const darkModeTheme = prism.darkTheme || lightModeTheme;
   const prismTheme = isDarkTheme ? darkModeTheme : lightModeTheme;
@@ -50,7 +50,6 @@ function SampleSnippet(props) {
 
   return (
     <Highlight
-      {...defaultProps}
       key={mounted}
       theme={prismTheme}
       code={config}
@@ -61,9 +60,9 @@ function SampleSnippet(props) {
           <div className={clsx(styles.codeBlockContent, lang)}>
             <pre className={`${className}`} style={style}>
               {tokens.map((line, i) => (
-                <div {...getLineProps({ line, key: i })}>
+                <div key={i} {...getLineProps({line})}>
                   {line.map((token, key) => (
-                    <span {...getTokenProps({ token, key })} />
+                    <span key={key} {...getTokenProps({token})} />
                   ))}
                 </div>
               ))}

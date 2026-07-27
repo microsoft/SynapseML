@@ -7,9 +7,13 @@ import spray.json.DefaultJsonProtocol._
 import spray.json._
 
 import java.io.IOException
+import java.time.Instant
 import scala.sys.process._
+import scala.util.Try
 
 object Secrets {
+  private[ml] case class ExpiringAccessToken(value: String, expiresAt: Instant)
+
   private val KvName = "mmlspark-build-keys"
   private[ml] val SubscriptionID = "e342c2c0-f844-4b18-9208-52c8c234c30e"
 
@@ -47,10 +51,32 @@ object Secrets {
     secretJson.parseJson.asJsObject().fields("value").convertTo[String]
   }
 
-  def getAccessToken(reqResource: String): String = {
+  private def getAccessTokenFields(reqResource: String): Map[String, JsValue] = {
     println(s"[info] token for perms: $reqResource from $AccountString")
     val json = exec(s"az account get-access-token --resource $reqResource --output json")
-    json.parseJson.asJsObject().fields("accessToken").convertTo[String]
+    json.parseJson.asJsObject().fields
+  }
+
+  def getAccessToken(reqResource: String): String = {
+    getAccessTokenFields(reqResource)("accessToken").convertTo[String]
+  }
+
+  private[ml] def parseExpiringAccessToken(fields: Map[String, JsValue]): ExpiringAccessToken = {
+    val expiresOn = fields.get("expires_on").flatMap {
+      case JsNumber(value) => Try(value.toLongExact).toOption
+      case JsString(value) => Try(value.toLong).toOption
+      case _ => None
+    }.getOrElse {
+      throw new IllegalStateException("Azure CLI access token response did not include a valid expires_on epoch value")
+    }
+    ExpiringAccessToken(
+      fields("accessToken").convertTo[String],
+      Instant.ofEpochSecond(expiresOn)
+    )
+  }
+
+  private[ml] def getAccessTokenWithExpiry(reqResource: String): ExpiringAccessToken = {
+    parseExpiringAccessToken(getAccessTokenFields(reqResource))
   }
 
   lazy val CognitiveApiKey: String = getSecret("cognitive-api-key")

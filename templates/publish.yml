@@ -1,6 +1,7 @@
 steps:
   - task: AzureCLI@2
     displayName: 'Publish Artifacts'
+    retryCountOnTaskFailure: 4
     inputs:
       azureSubscription: 'SynapseML Build'
       scriptLocation: inlineScript

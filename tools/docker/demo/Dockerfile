@@ -6,7 +6,7 @@ ARG DEBIAN_FRONTEND=noninteractive
 ENV SPARK_VERSION=3.5.4
 ENV HADOOP_VERSION=3
 ENV SYNAPSEML_VERSION=${SYNAPSEML_VERSION}
-ENV JAVA_HOME /usr/lib/jvm/java-1.11.0-openjdk-amd64
+ENV JAVA_HOME=/usr/lib/jvm/java-1.11.0-openjdk-amd64
 
 # Install required packages
 RUN apt-get -qq update \
@@ -34,7 +34,7 @@ RUN curl -sSL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64
     && pip install --upgrade "PyJWT>=2.12.0" \
     && conda clean --all --yes
 
-ENV PATH /usr/local/bin:$PATH
+ENV PATH=/usr/local/bin:${PATH}
 
 # Download and install Spark
 RUN wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz \
@@ -57,9 +57,9 @@ RUN cd /opt/spark/jars \
          curl -fsSLO "https://repo1.maven.org/maven2/io/netty/netty-transport-native-kqueue/${NETTY_VERSION}/netty-transport-native-kqueue-${NETTY_VERSION}-${cls}.jar"; \
        done
 
-ENV SPARK_HOME /opt/spark
-ENV PYTHONPATH $SPARK_HOME/python/:$SPARK_HOME/python/lib/py4j*:$PYTHON_PATH
-ENV PATH $SPARK_HOME/bin/:$SPARK_HOME/python/:$PATH
+ENV SPARK_HOME=/opt/spark
+ENV PYTHONPATH=${SPARK_HOME}/python/:${SPARK_HOME}/python/lib/py4j*
+ENV PATH=${SPARK_HOME}/bin/:${SPARK_HOME}/python/:${PATH}
 
 RUN apt-get remove --purge -y \
         curl \
@@ -80,7 +80,7 @@ RUN jupyter-notebook --generate-config \
 # Copy the init script for jupyter startup.
 COPY tools/docker/demo/init_notebook.py /root/.ipython/profile_default/startup/init_notebook.py
 COPY docs docs
-WORKDIR docs
+WORKDIR /docs
 
 # Jupyter Notebook UI
 EXPOSE 8888

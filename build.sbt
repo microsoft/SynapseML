@@ -383,6 +383,6 @@ val testWebsiteDocs = TaskKey[Unit]("testWebsiteDocs",
   "test code blocks inside markdowns under folder website/docs/documentation")
 testWebsiteDocs := {
   runCmd(
-    Seq("python", s"${join(baseDirectory.value, "website/doctest.py")}", version.value)
+    activateCondaEnv ++ Seq("python", s"${join(baseDirectory.value, "website/doctest.py")}", version.value)
   )
 }
