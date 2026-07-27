@@ -83,6 +83,16 @@ def _chain_result_to_string(result) -> str:
     return str(result)
 
 
+def _contains_not_implemented(value) -> bool:
+    if isinstance(value, dict):
+        if value.get("lc") == 1 and value.get("type") == "not_implemented":
+            return True
+        return any(_contains_not_implemented(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_contains_not_implemented(item) for item in value)
+    return False
+
+
 class LangchainTransformerParamsWriter(DefaultParamsWriter):
     @staticmethod
     def _chain_serializer(chain) -> Optional[str]:
@@ -93,11 +103,16 @@ class LangchainTransformerParamsWriter(DefaultParamsWriter):
                 "as its chain contains memory."
             )
         try:
-            return dumps(chain)
+            serialized_chain = dumps(chain)
         except TypeError as e:
             raise NotImplementedError(
                 "This LangChain Runnable cannot be serialized by langchain-core."
             ) from e
+        if _contains_not_implemented(json.loads(serialized_chain)):
+            raise NotImplementedError(
+                "This LangChain Runnable cannot be serialized by langchain-core."
+            )
+        return serialized_chain
 
     def saveImpl(self, path: str) -> None:
         params = self.instance._paramMap

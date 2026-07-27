@@ -72,6 +72,21 @@ class LangchainRunnableTest(unittest.TestCase):
         self.assertEqual(loaded_transformer.getInputCol(), "value")
         self.assertEqual(loaded_transformer.getOutputCol(), "result")
 
+    def test_transformer_rejects_non_serializable_runnable_on_save(self):
+        transformer = (
+            LangchainTransformer()
+            .setInputCol("value")
+            .setOutputCol("result")
+            .setChain(RunnableLambda(lambda value: value))
+        )
+
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = str(Path(temp_dir) / "langchain-transformer")
+            with self.assertRaisesRegex(
+                NotImplementedError, "cannot be serialized by langchain-core"
+            ):
+                transformer.save(path)
+
     def test_transformer_rejects_plain_callable(self):
         transformer = (
             LangchainTransformer()
