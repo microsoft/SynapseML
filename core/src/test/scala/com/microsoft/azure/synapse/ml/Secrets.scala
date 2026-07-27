@@ -9,6 +9,7 @@ import spray.json._
 import java.io.IOException
 import java.time.Instant
 import scala.sys.process._
+import scala.util.Try
 
 object Secrets {
   private[ml] case class ExpiringAccessToken(value: String, expiresAt: Instant)
@@ -61,11 +62,16 @@ object Secrets {
   }
 
   private[ml] def parseExpiringAccessToken(fields: Map[String, JsValue]): ExpiringAccessToken = {
-    val expiresOn = fields.getOrElse("expires_on",
-      throw new IllegalStateException("Azure CLI access token response did not include expires_on"))
+    val expiresOn = fields.get("expires_on").flatMap {
+      case JsNumber(value) => Try(value.toLongExact).toOption
+      case JsString(value) => Try(value.toLong).toOption
+      case _ => None
+    }.getOrElse {
+      throw new IllegalStateException("Azure CLI access token response did not include a valid expires_on epoch value")
+    }
     ExpiringAccessToken(
       fields("accessToken").convertTo[String],
-      Instant.ofEpochSecond(expiresOn.convertTo[Long])
+      Instant.ofEpochSecond(expiresOn)
     )
   }
 

@@ -1,7 +1,9 @@
 steps:
   - bash: |
       set -euo pipefail
-      codecov_path="$(Agent.TempDirectory)/codecov"
+      temp_dir="${AGENT_TEMPDIRECTORY:-${TMPDIR:-/tmp}}"
+      codecov_path="$(mktemp "${temp_dir%/}/codecov.XXXXXX")"
+      trap 'rm -f "$codecov_path"' EXIT
       curl --fail --silent --show-error --location --retry 3 \
         --proto '=https' --tlsv1.2 \
         --output "$codecov_path" \

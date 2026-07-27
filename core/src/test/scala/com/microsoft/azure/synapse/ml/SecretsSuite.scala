@@ -11,20 +11,26 @@ import java.time.Instant
 class SecretsSuite extends AnyFunSuite {
 
   test("Parse Azure CLI access token expiry") {
-    val token = Secrets.parseExpiringAccessToken(Map(
-      "accessToken" -> JsString("test-token"),
-      "expires_on" -> JsNumber(1777000000L)
-    ))
+    Seq(JsNumber(1777000000L), JsString("1777000000")).foreach { expiry =>
+      val token = Secrets.parseExpiringAccessToken(Map(
+        "accessToken" -> JsString("test-token"),
+        "expires_on" -> expiry
+      ))
 
-    assert(token.value === "test-token")
-    assert(token.expiresAt === Instant.ofEpochSecond(1777000000L))
+      assert(token.value === "test-token")
+      assert(token.expiresAt === Instant.ofEpochSecond(1777000000L))
+    }
   }
 
-  test("Reject Azure CLI access token without numeric expiry") {
-    val error = intercept[IllegalStateException] {
-      Secrets.parseExpiringAccessToken(Map("accessToken" -> JsString("test-token")))
-    }
+  test("Reject Azure CLI access token without a valid numeric expiry") {
+    Seq(None, Some(JsString("not-an-epoch"))).foreach { expiry =>
+      val fields = Map("accessToken" -> JsString("test-token")) ++ expiry.map("expires_on" -> _)
+      val error = intercept[IllegalStateException] {
+        Secrets.parseExpiringAccessToken(fields)
+      }
 
-    assert(error.getMessage === "Azure CLI access token response did not include expires_on")
+      assert(error.getMessage ===
+        "Azure CLI access token response did not include a valid expires_on epoch value")
+    }
   }
 }
