@@ -238,6 +238,11 @@ class DatabricksUtilitiesSuite extends AnyFunSuite {
          |{
          |  "instance_pools": [
          |    {
+         |      "instance_pool_id": "retired-pool",
+         |      "instance_pool_name": "${DatabricksUtilities.GpuPoolName}",
+         |      "node_type_id": "Standard_NC6s_v3"
+         |    },
+         |    {
          |      "instance_pool_id": "t4-pool",
          |      "instance_pool_name": "${DatabricksUtilities.GpuPoolName}",
          |      "node_type_id": "${DatabricksUtilities.GpuPoolNodeType}"
@@ -271,7 +276,7 @@ class DatabricksUtilitiesSuite extends AnyFunSuite {
         Some(DatabricksUtilities.GpuPoolNodeType)
       )
     }
-    assert(error.getMessage.contains("uses node type 'Standard_NC6s_v3'"))
+    assert(error.getMessage.contains("uses node type(s) 'Standard_NC6s_v3'"))
     assert(error.getMessage.contains(s"expected '${DatabricksUtilities.GpuPoolNodeType}'"))
   }
 

@@ -313,14 +313,25 @@ object DatabricksUtilities {
       jsonObj: JsValue,
       name: String,
       expectedNodeType: Option[String]): String = {
-    val pool = jsonObj.select[Array[JsValue]]("instance_pools")
-      .find(_.select[String]("instance_pool_name") == name)
-      .getOrElse(throw new IllegalArgumentException(s"Databricks instance pool '$name' was not found"))
-    expectedNodeType.foreach { expected =>
-      val actual = pool.select[String]("node_type_id")
-      require(
-        actual == expected,
-        s"Databricks instance pool '$name' uses node type '$actual'; expected '$expected'")
+    val namedPools = jsonObj.select[Array[JsValue]]("instance_pools")
+      .filter(_.select[String]("instance_pool_name") == name)
+    if (namedPools.isEmpty) {
+      throw new IllegalArgumentException(s"Databricks instance pool '$name' was not found")
+    }
+
+    val pool = expectedNodeType match {
+      case Some(expected) =>
+        namedPools.find(_.select[String]("node_type_id") == expected).getOrElse {
+          val actualNodeTypes = namedPools
+            .map(_.select[String]("node_type_id"))
+            .distinct
+            .sorted
+            .map(nodeType => s"'$nodeType'")
+            .mkString(", ")
+          throw new IllegalArgumentException(
+            s"Databricks instance pool '$name' uses node type(s) $actualNodeTypes; expected '$expected'")
+        }
+      case None => namedPools.head
     }
     pool.select[String]("instance_pool_id")
   }
