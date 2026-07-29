@@ -3,37 +3,94 @@
 
 package com.microsoft.azure.synapse.ml.lightgbm.split1
 
-import com.microsoft.azure.synapse.ml.lightgbm.TrainUtils
+import com.microsoft.azure.synapse.ml.lightgbm.{LightGBMRegressor, TrainUtils}
 import org.scalatest.funsuite.AnyFunSuite
 
 class TrainUtilsSuite extends AnyFunSuite {
 
-  test("Improvement tolerance requires sufficient improvement for lower-is-better metrics") {
-    val bestScore = 1.0
-    val tolerance = 0.25
+  private val lowerIsBetterMetrics = Seq(
+    "rmse",
+    "l1",
+    "mae",
+    "l2",
+    "mse",
+    "binary_logloss",
+    "binary_error",
+    "multi_logloss",
+    "multi_error",
+    "mape",
+    "quantile",
+    "huber",
+    "fair",
+    "poisson",
+    "gamma",
+    "gamma_deviance",
+    "tweedie",
+    "cross_entropy",
+    "kullback_leibler")
 
-    assert(TrainUtils.isImprovement("rmse", 0.5, bestScore, tolerance))
-    assert(!TrainUtils.isImprovement("rmse", 0.75, bestScore, tolerance))
-    assert(!TrainUtils.isImprovement("rmse", 0.875, bestScore, tolerance))
-    assert(!TrainUtils.isImprovement("rmse", 1.125, bestScore, tolerance))
-  }
+  private val higherIsBetterMetrics = Seq(
+    "auc",
+    "auc_mu",
+    "ndcg@1",
+    "ndcg@10",
+    "map@1",
+    "map@10",
+    "average_precision")
 
-  test("Improvement tolerance remains correct for higher-is-better metrics") {
-    val bestScore = 0.5
-    val tolerance = 0.25
+  private val tolerances = Seq(0.0, 0.25, 2.0, 25.0)
 
-    Seq("auc", "ndcg@1", "map@1", "average_precision").foreach { metric =>
-      assert(TrainUtils.isImprovement(metric, 1.0, bestScore, tolerance))
-      assert(!TrainUtils.isImprovement(metric, 0.75, bestScore, tolerance))
-      assert(!TrainUtils.isImprovement(metric, 0.625, bestScore, tolerance))
-      assert(!TrainUtils.isImprovement(metric, 0.375, bestScore, tolerance))
+  test("Improvement tolerance is symmetric across metrics and tolerance values") {
+    val bestScore = 100.0
+    val margin = 0.125
+
+    tolerances.foreach { tolerance =>
+      lowerIsBetterMetrics.foreach { metric =>
+        assert(TrainUtils.isImprovement(metric, bestScore - tolerance - margin, bestScore, tolerance))
+        assert(!TrainUtils.isImprovement(metric, bestScore - tolerance, bestScore, tolerance))
+        assert(!TrainUtils.isImprovement(metric, bestScore - tolerance / 2, bestScore, tolerance))
+        assert(!TrainUtils.isImprovement(metric, bestScore + margin, bestScore, tolerance))
+      }
+
+      higherIsBetterMetrics.foreach { metric =>
+        assert(TrainUtils.isImprovement(metric, bestScore + tolerance + margin, bestScore, tolerance))
+        assert(!TrainUtils.isImprovement(metric, bestScore + tolerance, bestScore, tolerance))
+        assert(!TrainUtils.isImprovement(metric, bestScore + tolerance / 2, bestScore, tolerance))
+        assert(!TrainUtils.isImprovement(metric, bestScore - margin, bestScore, tolerance))
+      }
     }
   }
 
-  test("Zero improvement tolerance requires strict improvement") {
-    assert(TrainUtils.isImprovement("rmse", 0.9, 1.0, 0.0))
-    assert(!TrainUtils.isImprovement("rmse", 1.0, 1.0, 0.0))
-    assert(TrainUtils.isImprovement("auc", 0.6, 0.5, 0.0))
-    assert(!TrainUtils.isImprovement("auc", 0.5, 0.5, 0.0))
+  test("Zero early stopping rounds disable wrapper early stopping") {
+    assert(!TrainUtils.shouldStopEarly(
+      iteration = 100,
+      bestIteration = 0,
+      earlyStoppingRound = 0))
+  }
+
+  test("Positive early stopping rounds stop only when the round boundary is reached") {
+    assert(!TrainUtils.shouldStopEarly(iteration = 4, bestIteration = 0, earlyStoppingRound = 5))
+    assert(TrainUtils.shouldStopEarly(iteration = 5, bestIteration = 0, earlyStoppingRound = 5))
+    assert(TrainUtils.shouldStopEarly(iteration = 10, bestIteration = 5, earlyStoppingRound = 5))
+  }
+
+  test("Early stopping parameters accept valid values and reject invalid values") {
+    val learner = new LightGBMRegressor()
+
+    assert(learner.getEarlyStoppingRound == 0)
+    assert(learner.getImprovementTolerance == 0.0)
+
+    Seq(0, 1, 100, Int.MaxValue).foreach { earlyStoppingRound =>
+      assert(learner.setEarlyStoppingRound(earlyStoppingRound).getEarlyStoppingRound == earlyStoppingRound)
+    }
+    assertThrows[IllegalArgumentException](learner.setEarlyStoppingRound(-1))
+
+    Seq(0.0, 0.25, 25.0, Double.MaxValue).foreach { tolerance =>
+      assert(learner.setImprovementTolerance(tolerance).getImprovementTolerance == tolerance)
+    }
+
+    Seq(-0.25, Double.NegativeInfinity, Double.NaN).foreach { tolerance =>
+      assertThrows[IllegalArgumentException](learner.setImprovementTolerance(tolerance))
+    }
   }
 }

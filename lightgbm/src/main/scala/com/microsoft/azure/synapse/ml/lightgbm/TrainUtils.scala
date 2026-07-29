@@ -26,6 +26,12 @@ private[lightgbm] object TrainUtils extends Serializable {
     }
   }
 
+  private[lightgbm] def shouldStopEarly(iteration: Int,
+                                        bestIteration: Int,
+                                        earlyStoppingRound: Int): Boolean = {
+    earlyStoppingRound > 0 && iteration - bestIteration >= earlyStoppingRound
+  }
+
   def createBooster(trainParams: BaseTrainParams,
                     trainDataset: LightGBMDataset,
                     validDatasetOpt: Option[LightGBMDataset]): LightGBMBooster = {
@@ -163,7 +169,8 @@ private[lightgbm] object TrainUtils extends Serializable {
         state.bestScore(index) = evalScore
         state.bestIteration(index) = state.iteration
         state.bestScores(index) = evalResults.map(_._2)
-      } else if (state.iteration - state.bestIteration(index) >= state.ctx.trainingCtx.earlyStoppingRound) {
+      } else if (shouldStopEarly(state.iteration, state.bestIteration(index),
+        state.ctx.trainingCtx.earlyStoppingRound)) {
         state.isFinished = true
         log.info("Early stopping, best iteration is " + state.bestIteration(index))
         state.bestIterationResult = Some(state.bestIteration(index))
