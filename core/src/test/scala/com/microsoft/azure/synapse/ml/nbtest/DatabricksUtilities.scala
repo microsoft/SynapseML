@@ -36,6 +36,7 @@ object DatabricksUtilities {
   val Region = "eastus"
   val PoolName = "synapseml-build-14.3"
   val GpuPoolName = "synapseml-build-14.3-gpu"
+  private[nbtest] val GpuPoolNodeType = "Standard_NC16as_T4_v3"
   val AdbRuntime = "14.3.x-scala2.12"
   // https://docs.databricks.com/en/release-notes/runtime/14.3lts-ml.html
   val AdbGpuRuntime = "14.3.x-gpu-ml-scala2.12"
@@ -168,7 +169,7 @@ object DatabricksUtilities {
   }
 
   lazy val PoolId: String = getPoolIdByName(PoolName)
-  lazy val GpuPoolId: String = getPoolIdByName(GpuPoolName)
+  lazy val GpuPoolId: String = getPoolIdByNameAndNodeType(GpuPoolName, GpuPoolNodeType)
   lazy val ClusterName = s"mmlspark-build-${LocalDateTime.now()}"
   lazy val GPUClusterName = s"mmlspark-build-gpu-${LocalDateTime.now()}"
   lazy val RapidsClusterName = s"mmlspark-build-rapids-${LocalDateTime.now()}"
@@ -300,9 +301,28 @@ object DatabricksUtilities {
 
   def getPoolIdByName(name: String): String = {
     val jsonObj = databricksGet("instance-pools/list", apiVersion = "2.0")
-    val cluster = jsonObj.select[Array[JsValue]]("instance_pools")
-      .filter(_.select[String]("instance_pool_name") == name).head
-    cluster.select[String]("instance_pool_id")
+    selectPoolId(jsonObj, name, None)
+  }
+
+  private def getPoolIdByNameAndNodeType(name: String, nodeType: String): String = {
+    val jsonObj = databricksGet("instance-pools/list", apiVersion = "2.0")
+    selectPoolId(jsonObj, name, Some(nodeType))
+  }
+
+  private[nbtest] def selectPoolId(
+      jsonObj: JsValue,
+      name: String,
+      expectedNodeType: Option[String]): String = {
+    val pool = jsonObj.select[Array[JsValue]]("instance_pools")
+      .find(_.select[String]("instance_pool_name") == name)
+      .getOrElse(throw new IllegalArgumentException(s"Databricks instance pool '$name' was not found"))
+    expectedNodeType.foreach { expected =>
+      val actual = pool.select[String]("node_type_id")
+      require(
+        actual == expected,
+        s"Databricks instance pool '$name' uses node type '$actual'; expected '$expected'")
+    }
+    pool.select[String]("instance_pool_id")
   }
 
   def workspaceMkDir(dir: String): Unit = {

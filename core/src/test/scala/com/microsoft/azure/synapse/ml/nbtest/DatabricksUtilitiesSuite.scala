@@ -232,6 +232,49 @@ class DatabricksUtilitiesSuite extends AnyFunSuite {
     assert(!request.fields.contains("driver_instance_pool_id"))
   }
 
+  test("Require the migrated T4 node type for the stable GPU pool") {
+    val pools =
+      s"""
+         |{
+         |  "instance_pools": [
+         |    {
+         |      "instance_pool_id": "t4-pool",
+         |      "instance_pool_name": "${DatabricksUtilities.GpuPoolName}",
+         |      "node_type_id": "${DatabricksUtilities.GpuPoolNodeType}"
+         |    }
+         |  ]
+         |}
+         |""".stripMargin.parseJson
+
+    assert(DatabricksUtilities.selectPoolId(
+      pools,
+      DatabricksUtilities.GpuPoolName,
+      Some(DatabricksUtilities.GpuPoolNodeType)
+    ) === "t4-pool")
+
+    val retiredPool =
+      s"""
+         |{
+         |  "instance_pools": [
+         |    {
+         |      "instance_pool_id": "retired-pool",
+         |      "instance_pool_name": "${DatabricksUtilities.GpuPoolName}",
+         |      "node_type_id": "Standard_NC6s_v3"
+         |    }
+         |  ]
+         |}
+         |""".stripMargin.parseJson
+    val error = intercept[IllegalArgumentException] {
+      DatabricksUtilities.selectPoolId(
+        retiredPool,
+        DatabricksUtilities.GpuPoolName,
+        Some(DatabricksUtilities.GpuPoolNodeType)
+      )
+    }
+    assert(error.getMessage.contains("uses node type 'Standard_NC6s_v3'"))
+    assert(error.getMessage.contains(s"expected '${DatabricksUtilities.GpuPoolNodeType}'"))
+  }
+
   test("Parse Databricks cluster termination details") {
     val status = DatabricksClusterStartup.parseClusterStatus(
       """
