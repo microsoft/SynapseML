@@ -31,7 +31,7 @@ dependencies:
     - azure-storage-blob
     - jupyter
     - twine
-    - mlflow
+    - mlflow==2.21.3
     - numpy
     - torch==2.1.0
     - torchvision==0.16.0
