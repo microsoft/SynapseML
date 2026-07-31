@@ -101,12 +101,7 @@ private[nbtest] object DatabricksClusterStartup {
         if (!canRetry(attempt)) {
           throw failure
         }
-        val reason = failure match {
-          case clusterFailure: ClusterStartupException =>
-            clusterFailure.status.terminationCode.getOrElse("UNKNOWN")
-          case _: TimeoutException => "STARTUP_TIMEOUT"
-          case _ => "UNKNOWN"
-        }
+        val reason = retryReason(failure)
         println(
           s"Cluster $clusterId hit retriable startup condition $reason; retrying " +
             s"after ${retryDelayMs / 1000} seconds")
@@ -128,6 +123,15 @@ private[nbtest] object DatabricksClusterStartup {
       }
     }
     attemptStartup(1)
+  }
+
+  private def retryReason(failure: Throwable): String = {
+    failure match {
+      case clusterFailure: ClusterStartupException =>
+        clusterFailure.status.terminationCode.getOrElse("UNKNOWN")
+      case _: TimeoutException => "STARTUP_TIMEOUT"
+      case _ => "UNKNOWN"
+    }
   }
 
   private def cleanupFailedCluster(
