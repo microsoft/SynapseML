@@ -5,8 +5,8 @@ trigger:
   branches:
     include:
     - master
-    - spark3.3
     - spark3.5
+    - spark4.1
   paths:
     exclude:
     - README.md
@@ -21,8 +21,8 @@ pr:
   branches:
     include:
     - master
-    - spark3.3
     - spark3.5
+    - spark4.1
   paths:
     exclude:
     - README.md
@@ -91,6 +91,7 @@ variables:
   isMaster: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
   isTag: $[startsWith(variables['Build.SourceBranch'], 'refs/tags/')]
   isPR: $[eq(variables['Build.Reason'], 'PullRequest')]
+  SYNAPSEML_GPU_SMOKE_TESTS: $[eq(variables['Build.Reason'], 'PullRequest')]
   # Run coverage only on PRs, master, or tag builds to speed up feature branch builds
   runCoverage: $[or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))]
 
@@ -168,7 +169,7 @@ jobs:
 - job: DatabricksE2E
   displayName: 'Databricks E2E'
   condition: eq('${{ parameters.testDatabricksE2E }}', true)
-  timeoutInMinutes: 180
+  timeoutInMinutes: 300
   cancelTimeoutInMinutes: 0
   pool:
     vmImage: $(UBUNTU_VERSION)
@@ -775,7 +776,21 @@ jobs:
           (${FFMPEG:-false} && sudo apt-get update && \
           sudo apt-get install ffmpeg libgstreamer1.0-0 \
           gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly -y)
-          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
+          # Matrix jobs start together, so stagger retries when Maven Central rate-limits sbt bootstrap.
+          retry_sbt_setup() {
+            for attempt in 1 2 3; do
+              if timeout 5m sbt setup; then
+                return 0
+              fi
+              if [ "$attempt" -eq 3 ]; then
+                return 1
+              fi
+              delay=$((attempt * 30 + RANDOM % 30))
+              echo "sbt setup attempt $attempt failed; retrying in ${delay}s"
+              sleep "$delay"
+            done
+          }
+          retry_sbt_setup
     - task: AzureCLI@2
       displayName: 'Unit Test'
       retryCountOnTaskFailure: 1
@@ -828,8 +843,12 @@ jobs:
     vmImage: $(UBUNTU_VERSION)
   strategy:
     matrix:
-      spark4.0:
-        RELEASE_BRANCH: spark4.0
+      spark3.5:
+        RELEASE_BRANCH: spark3.5
+        JAVA_VERSION: 17
+        SBT_JAVA_OPTS: "-J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED"
+      spark4.1:
+        RELEASE_BRANCH: spark4.1
         JAVA_VERSION: 17
         SBT_JAVA_OPTS: "-J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED"
   steps:

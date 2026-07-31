@@ -232,6 +232,104 @@ class DatabricksUtilitiesSuite extends AnyFunSuite {
     assert(!request.fields.contains("driver_instance_pool_id"))
   }
 
+  test("Include notebook base parameters in submitted runs") {
+    val request = DatabricksUtilities.createSubmitRunRequest(
+      "cluster-id",
+      "/SynapseMLBuild/test-notebook",
+      300,
+      Map("synapseml_ci_smoke" -> "true")
+    ).parseJson.asJsObject
+    val notebookTask = request.fields("notebook_task").asJsObject
+
+    assert(notebookTask.fields("notebook_path").convertTo[String] === "/SynapseMLBuild/test-notebook")
+    assert(notebookTask.fields("base_parameters").convertTo[Map[String, String]] ===
+      Map("synapseml_ci_smoke" -> "true"))
+  }
+
+  test("Require the migrated T4 node type for the stable GPU pool") {
+    val pools =
+      s"""
+         |{
+         |  "instance_pools": [
+         |    {
+         |      "instance_pool_id": "retired-pool",
+         |      "instance_pool_name": "${DatabricksUtilities.GpuPoolName}",
+         |      "node_type_id": "Standard_NC6s_v3",
+         |      "max_capacity": 2
+         |    },
+         |    {
+         |      "instance_pool_id": "undersized-t4-pool",
+         |      "instance_pool_name": "${DatabricksUtilities.GpuPoolName}",
+         |      "node_type_id": "${DatabricksUtilities.GpuPoolNodeType}",
+         |      "max_capacity": 2
+         |    },
+         |    {
+         |      "instance_pool_id": "t4-pool",
+         |      "instance_pool_name": "${DatabricksUtilities.GpuPoolName}",
+         |      "node_type_id": "${DatabricksUtilities.GpuPoolNodeType}",
+         |      "max_capacity": 4
+         |    }
+         |  ]
+         |}
+         |""".stripMargin.parseJson
+
+    assert(DatabricksUtilities.selectPoolId(
+      pools,
+      DatabricksUtilities.GpuPoolName,
+      Some(DatabricksUtilities.GpuPoolNodeType),
+      Some(DatabricksUtilities.GpuPoolMinimumCapacity)
+    ) === "t4-pool")
+
+    val retiredPool =
+      s"""
+         |{
+         |  "instance_pools": [
+         |    {
+         |      "instance_pool_id": "retired-pool",
+         |      "instance_pool_name": "${DatabricksUtilities.GpuPoolName}",
+         |      "node_type_id": "Standard_NC6s_v3",
+         |      "max_capacity": 4
+         |    }
+         |  ]
+         |}
+         |""".stripMargin.parseJson
+    val error = intercept[IllegalArgumentException] {
+      DatabricksUtilities.selectPoolId(
+        retiredPool,
+        DatabricksUtilities.GpuPoolName,
+        Some(DatabricksUtilities.GpuPoolNodeType),
+        Some(DatabricksUtilities.GpuPoolMinimumCapacity)
+      )
+    }
+    assert(error.getMessage.contains("uses node type(s) 'Standard_NC6s_v3'"))
+    assert(error.getMessage.contains(s"expected '${DatabricksUtilities.GpuPoolNodeType}'"))
+
+    val undersizedPool =
+      s"""
+         |{
+         |  "instance_pools": [
+         |    {
+         |      "instance_pool_id": "undersized-pool",
+         |      "instance_pool_name": "${DatabricksUtilities.GpuPoolName}",
+         |      "node_type_id": "${DatabricksUtilities.GpuPoolNodeType}",
+         |      "max_capacity": 2
+         |    }
+         |  ]
+         |}
+         |""".stripMargin.parseJson
+    val capacityError = intercept[IllegalArgumentException] {
+      DatabricksUtilities.selectPoolId(
+        undersizedPool,
+        DatabricksUtilities.GpuPoolName,
+        Some(DatabricksUtilities.GpuPoolNodeType),
+        Some(DatabricksUtilities.GpuPoolMinimumCapacity)
+      )
+    }
+    assert(capacityError.getMessage.contains("has maximum capacity value(s) 2"))
+    assert(capacityError.getMessage.contains(
+      s"expected at least ${DatabricksUtilities.GpuPoolMinimumCapacity}"))
+  }
+
   test("Parse Databricks cluster termination details") {
     val status = DatabricksClusterStartup.parseClusterStatus(
       """
@@ -270,39 +368,76 @@ class DatabricksUtilitiesSuite extends AnyFunSuite {
     assert(failure.getMessage.contains("No GPU capacity"))
   }
 
-  test("Retry only stockout cluster failures and reduce GPU workers") {
-    val createdAttempts = mutable.ArrayBuffer.empty[Int]
-    val cleanedClusters = mutable.ArrayBuffer.empty[String]
-    val result = DatabricksClusterStartup.createActiveCluster(
-      attempt => {
-        createdAttempts += attempt
-        s"cluster-$attempt"
-      },
-      clusterId => {
-        if (clusterId == "cluster-1") {
-          throw new DatabricksClusterStartup.ClusterStartupException(
-            clusterId,
-            DatabricksClusterStartup.ClusterStatus(
-              "TERMINATED",
-              Some("CLOUD_PROVIDER_RESOURCE_STOCKOUT")
+  test("Retry capacity-related cluster failures") {
+    Seq(
+      "CLOUD_PROVIDER_RESOURCE_STOCKOUT",
+      "INSTANCE_GROUP_MAX_CAPACITY_REACHED",
+      "INSTANCE_POOL_MAX_CAPACITY_REACHED"
+    ).foreach { terminationCode =>
+      val createdAttempts = mutable.ArrayBuffer.empty[Int]
+      val cleanedClusters = mutable.ArrayBuffer.empty[String]
+      val result = DatabricksClusterStartup.createActiveCluster(
+        attempt => {
+          createdAttempts += attempt
+          s"cluster-$attempt"
+        },
+        clusterId => {
+          if (clusterId == "cluster-1") {
+            throw new DatabricksClusterStartup.ClusterStartupException(
+              clusterId,
+              DatabricksClusterStartup.ClusterStatus(
+                "TERMINATED",
+                Some(terminationCode)
+              )
             )
-          )
-        }
-      },
-      clusterId => cleanedClusters += clusterId,
-      retryDelayMs = 0,
-      sleep = _ => ()
-    )
+          }
+        },
+        clusterId => cleanedClusters += clusterId,
+        retryDelayMs = 0,
+        sleep = _ => ()
+      )
 
-    assert(result === "cluster-2")
-    assert(createdAttempts === Seq(1, 2))
-    assert(cleanedClusters === Seq("cluster-1"))
-    assert(DatabricksClusterStartup.gpuWorkerCount(1) === 2)
-    assert(DatabricksClusterStartup.gpuWorkerCount(2) === 1)
-    assert(DatabricksClusterStartup.gpuWorkerCount(3) === 1)
+      assert(result === "cluster-2")
+      assert(createdAttempts === Seq(1, 2))
+      assert(cleanedClusters === Seq("cluster-1"))
+    }
+    assert(DatabricksUtilities.GpuWorkersPerRun === 1)
+    assert(DatabricksUtilities.GpuConcurrentRuns === 3)
+    assert(DatabricksUtilities.GpuPoolMinimumCapacity === 3)
   }
 
-  test("Do not retry non-stockout cluster failures") {
+  test("Retry pool contention within the configured duration") {
+    val createdAttempts = mutable.ArrayBuffer.empty[Int]
+    val cleanedClusters = mutable.ArrayBuffer.empty[String]
+    var currentTime = 0L
+    val failure = intercept[DatabricksClusterStartup.ClusterStartupException] {
+      DatabricksClusterStartup.createActiveCluster(
+        attempt => {
+          createdAttempts += attempt
+          s"cluster-$attempt"
+        },
+        clusterId => throw new DatabricksClusterStartup.ClusterStartupException(
+          clusterId,
+          DatabricksClusterStartup.ClusterStatus(
+            "TERMINATED",
+            Some("INSTANCE_POOL_MAX_CAPACITY_REACHED")
+          )
+        ),
+        clusterId => cleanedClusters += clusterId,
+        maxAttempts = Int.MaxValue,
+        retryDelayMs = 30,
+        maxRetryDurationMs = Some(90),
+        sleep = delay => currentTime += delay,
+        currentTimeMillis = () => currentTime
+      )
+    }
+
+    assert(failure.status.terminationCode.contains("INSTANCE_POOL_MAX_CAPACITY_REACHED"))
+    assert(createdAttempts === Seq(1, 2, 3, 4))
+    assert(cleanedClusters === Seq("cluster-1", "cluster-2", "cluster-3", "cluster-4"))
+  }
+
+  test("Do not retry non-capacity cluster failures") {
     val createdAttempts = mutable.ArrayBuffer.empty[Int]
     val failure = intercept[DatabricksClusterStartup.ClusterStartupException] {
       DatabricksClusterStartup.createActiveCluster(
@@ -324,7 +459,7 @@ class DatabricksUtilitiesSuite extends AnyFunSuite {
     assert(createdAttempts === Seq(1))
   }
 
-  test("Continue stockout retries when failed-cluster cleanup fails") {
+  test("Continue capacity retries when failed-cluster cleanup fails") {
     val result = DatabricksClusterStartup.createActiveCluster(
       attempt => s"cluster-$attempt",
       clusterId => {
@@ -346,7 +481,30 @@ class DatabricksUtilitiesSuite extends AnyFunSuite {
     assert(result === "cluster-2")
   }
 
-  test("Clean up timed-out clusters without retrying them") {
+  test("Retry timed-out clusters after cleanup") {
+    val createdAttempts = mutable.ArrayBuffer.empty[Int]
+    val cleanedClusters = mutable.ArrayBuffer.empty[String]
+    val result = DatabricksClusterStartup.createActiveCluster(
+      attempt => {
+        createdAttempts += attempt
+        s"cluster-$attempt"
+      },
+      clusterId => {
+        if (clusterId == "cluster-1") {
+          throw new java.util.concurrent.TimeoutException("cluster stayed pending")
+        }
+      },
+      clusterId => cleanedClusters += clusterId,
+      retryDelayMs = 0,
+      sleep = _ => ()
+    )
+
+    assert(result === "cluster-2")
+    assert(createdAttempts === Seq(1, 2))
+    assert(cleanedClusters === Seq("cluster-1"))
+  }
+
+  test("Stop retrying timed-out clusters at the configured attempt limit") {
     val createdAttempts = mutable.ArrayBuffer.empty[Int]
     val cleanedClusters = mutable.ArrayBuffer.empty[String]
     intercept[java.util.concurrent.TimeoutException] {
@@ -357,13 +515,14 @@ class DatabricksUtilitiesSuite extends AnyFunSuite {
         },
         _ => throw new java.util.concurrent.TimeoutException("cluster stayed pending"),
         clusterId => cleanedClusters += clusterId,
+        maxAttempts = 2,
         retryDelayMs = 0,
         sleep = _ => ()
       )
     }
 
-    assert(createdAttempts === Seq(1))
-    assert(cleanedClusters === Seq("cluster-1"))
+    assert(createdAttempts === Seq(1, 2))
+    assert(cleanedClusters === Seq("cluster-1", "cluster-2"))
   }
 
   test("Select all GPU notebooks in deterministic order") {

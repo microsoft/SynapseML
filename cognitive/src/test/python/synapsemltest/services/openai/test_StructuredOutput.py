@@ -62,17 +62,20 @@ class TestStructuredOutput(unittest.TestCase):
     def setUpClass(cls):
         defaults = OpenAIDefaults()
         defaults.reset_model()
+        defaults.reset_temperature()
+        defaults.reset_top_p()
+        defaults.reset_seed()
 
         cls.subscriptionKey = json.loads(
             subprocess.check_output(
                 "az keyvault secret show --vault-name mmlspark-build-keys"
-                " --name openai-api-key-2",
+                " --name openai-api-key-3",
                 shell=True,
             )
         )["value"]
-        cls.url = "https://synapseml-openai-2.openai.azure.com/"
+        cls.url = "https://synapseml-openai-3.openai.azure.com/"
         cls.api_version = "2025-04-01-preview"
-        cls.deploymentName = "gpt-4.1-mini"
+        cls.deploymentName = "gpt-5-mini"
 
         cls.df = spark.createDataFrame([("Paris", "City")], ["text", "category"])
 
