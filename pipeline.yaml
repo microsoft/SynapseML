@@ -168,7 +168,7 @@ jobs:
 - job: DatabricksE2E
   displayName: 'Databricks E2E'
   condition: eq('${{ parameters.testDatabricksE2E }}', true)
-  timeoutInMinutes: 180
+  timeoutInMinutes: 300
   cancelTimeoutInMinutes: 0
   pool:
     vmImage: $(UBUNTU_VERSION)
@@ -775,7 +775,21 @@ jobs:
           (${FFMPEG:-false} && sudo apt-get update && \
           sudo apt-get install ffmpeg libgstreamer1.0-0 \
           gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly -y)
-          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
+          # Matrix jobs start together, so stagger retries when Maven Central rate-limits sbt bootstrap.
+          retry_sbt_setup() {
+            for attempt in 1 2 3; do
+              if timeout 5m sbt setup; then
+                return 0
+              fi
+              if [ "$attempt" -eq 3 ]; then
+                return 1
+              fi
+              delay=$((attempt * 30 + RANDOM % 30))
+              echo "sbt setup attempt $attempt failed; retrying in ${delay}s"
+              sleep "$delay"
+            done
+          }
+          retry_sbt_setup
     - task: AzureCLI@2
       displayName: 'Unit Test'
       retryCountOnTaskFailure: 1

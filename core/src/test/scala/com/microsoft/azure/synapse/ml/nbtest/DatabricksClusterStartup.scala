@@ -82,17 +82,34 @@ private[nbtest] object DatabricksClusterStartup {
       cleanupCluster: String => Unit,
       maxAttempts: Int = 3,
       retryDelayMs: Long = 30 * 1000L,
-      sleep: Long => Unit = millis => Thread.sleep(millis)): String = {
+      maxRetryDurationMs: Option[Long] = None,
+      sleep: Long => Unit = millis => Thread.sleep(millis),
+      currentTimeMillis: () => Long = () => System.currentTimeMillis()): String = {
     require(maxAttempts > 0, "maxAttempts must be positive")
+    require(maxRetryDurationMs.forall(_ > 0), "maxRetryDurationMs must be positive")
+    val retryDeadline = maxRetryDurationMs.map(currentTimeMillis() + _)
+
+    def canRetry(attempt: Int): Boolean = {
+      attempt < maxAttempts &&
+        retryDeadline.forall(currentTimeMillis() + retryDelayMs <= _)
+    }
+
     def attemptStartup(attempt: Int): String = {
       val clusterId = createCluster(attempt)
       def retryStartup(failure: Throwable): String = {
         cleanupFailedCluster(clusterId, cleanupCluster, failure)
-        if (attempt == maxAttempts) {
+        if (!canRetry(attempt)) {
           throw failure
         }
+        val reason = failure match {
+          case clusterFailure: ClusterStartupException =>
+            clusterFailure.status.terminationCode.getOrElse("UNKNOWN")
+          case _: TimeoutException => "STARTUP_TIMEOUT"
+          case _ => "UNKNOWN"
+        }
         println(
-          s"Cluster $clusterId failed to start; retrying after ${retryDelayMs / 1000} seconds")
+          s"Cluster $clusterId hit retriable startup condition $reason; retrying " +
+            s"after ${retryDelayMs / 1000} seconds")
         sleep(retryDelayMs)
         attemptStartup(attempt + 1)
       }
@@ -126,9 +143,5 @@ private[nbtest] object DatabricksClusterStartup {
           s"Failed to clean up cluster $clusterId after startup failure: " +
             cleanupFailure.getMessage)
     }
-  }
-
-  def gpuWorkerCount(attempt: Int): Int = {
-    if (attempt == 1) 2 else 1
   }
 }

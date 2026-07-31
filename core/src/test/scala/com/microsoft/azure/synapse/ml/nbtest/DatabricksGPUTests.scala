@@ -9,21 +9,23 @@ import com.microsoft.azure.synapse.ml.nbtest.DatabricksClusterStartup._
 class DatabricksGPUTests extends DatabricksTestHelper {
 
   private val gpuTimeoutMs = 30 * 60 * 1000
-  // Reuse the scarce GPU workers sequentially while the driver runs from the CPU pool.
+  private val gpuCapacityWaitMs = 3L * 60 * 60 * 1000
+  // Use one worker per run so concurrent builds can share the GPU pool.
   val clusterId: String = createActiveCluster(
     attempt => {
-      val workerCount = gpuWorkerCount(attempt)
-      println(s"Creating GPU cluster startup attempt $attempt with $workerCount worker(s)")
+      println(s"Creating GPU cluster startup attempt $attempt with $GpuWorkersPerRun worker(s)")
       createClusterInPool(
         GPUClusterName,
         AdbGpuRuntime,
-        workerCount,
+        GpuWorkersPerRun,
         GpuPoolId,
         driverInstancePoolId = Some(PoolId)
       )
     },
     clusterId => waitForClusterActive(clusterId, getClusterStatus),
-    permanentDeleteCluster
+    permanentDeleteCluster,
+    maxAttempts = Int.MaxValue,
+    maxRetryDurationMs = Some(gpuCapacityWaitMs)
   )
 
   databricksTestHelper(clusterId, GPULibraries, GPUNotebooks, 1, List(), gpuTimeoutMs)
