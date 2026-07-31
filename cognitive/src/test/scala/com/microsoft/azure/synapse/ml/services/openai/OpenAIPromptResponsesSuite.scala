@@ -31,7 +31,6 @@ class OpenAIPromptResponsesSuite extends Flaky with OpenAIAPIKey {
       .setApiType("responses")
       .setApiVersion("2025-04-01-preview")
       .setOutputCol(outputCol)
-      .setTemperature(0)
   }
 
   private def assertResponsesOutputForDeployment(
@@ -56,17 +55,17 @@ class OpenAIPromptResponsesSuite extends Flaky with OpenAIAPIKey {
     assert(output.toLowerCase.contains(expectedToken.toLowerCase))
   }
 
-  test("Responses API OpenAIPrompt returns text for gpt-4.1 outputs") {
+  test("Responses API OpenAIPrompt returns text for gpt-5-mini outputs") {
     assertResponsesOutputForDeployment(
-      deploymentName4p1,
-      "responses_gpt41_output",
+      deploymentNameMini,
+      "responses_gpt5mini_output",
       "fruit")
   }
 
-  test("Responses API OpenAIPrompt returns text for gpt-5 outputs") {
+  test("Responses API OpenAIPrompt returns text for gpt-5.1 outputs") {
     assertResponsesOutputForDeployment(
-      deploymentName5,
-      "responses_gpt5_output",
+      deploymentName5p1,
+      "responses_gpt51_output",
       "fruit")
   }
 }

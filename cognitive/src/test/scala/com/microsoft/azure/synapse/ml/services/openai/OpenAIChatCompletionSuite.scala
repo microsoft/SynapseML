@@ -21,7 +21,6 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     .setMaxCompletionTokens(5000)
     .setOutputCol("out")
     .setMessagesCol("messages")
-    .setTemperature(0)
     .setSubscriptionKey(openAIAPIKey)
 
   lazy val goodDf: DataFrame = Seq(
@@ -145,7 +144,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
 
   test("Reasoning model with maxCompletionTokens") {
     val reasoningCompletion = new OpenAIChatCompletion()
-      .setDeploymentName(deploymentName5)
+      .setDeploymentName(deploymentNameMini)
       .setCustomServiceName(openAIServiceName)
       .setMaxCompletionTokens(500)
       .setOutputCol("out")
@@ -166,7 +165,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     // The library must remap max_tokens → max_completion_tokens on the wire,
     // otherwise reasoning models reject the request.
     val reasoningCompletion = new OpenAIChatCompletion()
-      .setDeploymentName(deploymentName5)
+      .setDeploymentName(deploymentNameMini)
       .setCustomServiceName(openAIServiceName)
       .setMaxTokens(500)
       .setOutputCol("out")
@@ -192,7 +191,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
 
   test("getOptionalParam should include responseFormat"){
     val completion = new OpenAIChatCompletion()
-      .setDeploymentName(deploymentName4p1)
+      .setDeploymentName(deploymentName)
 
     def validateResponseFormat(params: Map[String, Any], responseFormat: String): Unit = {
       val responseFormatPayloadName = this.completion.responseFormat.payloadName
@@ -230,10 +229,10 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     validateResponseFormat(optionalParams4, "text")
   }
 
-  test("optional params for gpt-4.1-mini include numeric sampling only") {
+  test("optional params include configured numeric sampling values") {
     // Simulated usage: numeric sampling parameters only
     val completion = new OpenAIChatCompletion()
-      .setDeploymentName(deploymentName4p1)
+      .setDeploymentName("sampling-compatible-model")
 
     val messages: Seq[Row] = Seq(
       OpenAIMessage("user", "Sample prompt")
@@ -252,7 +251,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
   test("optional params for gpt-5-mini include reasoning controls only") {
     // Simulated usage: verbosity / reasoning_effort only (no temperature/top_p/seed)
     val completion = new OpenAIChatCompletion()
-      .setDeploymentName(deploymentName5)
+      .setDeploymentName(deploymentNameMini)
 
     val messages: Seq[Row] = Seq(
       OpenAIMessage("user", "Hello reasoning")
@@ -272,7 +271,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
 
   test("verbosity and reasoning_effort getters and setters") {
     val completion = new OpenAIChatCompletion()
-      .setDeploymentName(deploymentName5)
+      .setDeploymentName(deploymentNameMini)
 
     // Test verbosity
     completion.setVerbosity("low")
@@ -306,7 +305,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
 
   test("verbosity parameter correctly serialized in payload") {
     val completion = new OpenAIChatCompletion()
-      .setDeploymentName(deploymentName4p1)
+      .setDeploymentName(deploymentName)
       .setVerbosity("high")
 
     val messages: Seq[Row] = Seq(
@@ -320,7 +319,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
 
   test("reasoning_effort parameter correctly serialized in payload") {
     val completion = new OpenAIChatCompletion()
-      .setDeploymentName(deploymentName4p1)
+      .setDeploymentName(deploymentName)
       .setReasoningEffort("low")
 
     val messages: Seq[Row] = Seq(
@@ -334,7 +333,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
 
   test("both verbosity and reasoning_effort serialized together") {
     val completion = new OpenAIChatCompletion()
-      .setDeploymentName(deploymentName4p1)
+      .setDeploymentName(deploymentName)
       .setVerbosity("low")
       .setReasoningEffort("low")
 
@@ -351,7 +350,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
 
   test("verbosity accepts custom string values") {
     val completion = new OpenAIChatCompletion()
-      .setDeploymentName(deploymentName4p1)
+      .setDeploymentName(deploymentName)
       .setVerbosity("custom_value")
 
     val messages: Seq[Row] = Seq(
@@ -365,7 +364,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
 
   test("reasoning_effort accepts custom string values") {
     val completion = new OpenAIChatCompletion()
-      .setDeploymentName(deploymentName4p1)
+      .setDeploymentName(deploymentName)
       .setReasoningEffort("custom_reasoning")
 
     val messages: Seq[Row] = Seq(
@@ -379,7 +378,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
 
   test("parameters not included when not set") {
     val completion = new OpenAIChatCompletion()
-      .setDeploymentName(deploymentName4p1)
+      .setDeploymentName(deploymentName)
       // Don't set verbosity or reasoning_effort
 
     val messages: Seq[Row] = Seq(
@@ -393,7 +392,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
 
   test("maxCompletionTokens sends max_completion_tokens on wire") {
     val completion = new OpenAIChatCompletion()
-      .setDeploymentName(deploymentName4p1)
+      .setDeploymentName(deploymentName)
       .setMaxCompletionTokens(500)
 
     val messages: Seq[Row] = Seq(
@@ -408,7 +407,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
 
   test("deprecated maxTokens remapped to max_completion_tokens on wire") {
     val completion = new OpenAIChatCompletion()
-      .setDeploymentName(deploymentName4p1)
+      .setDeploymentName(deploymentName)
       .setMaxTokens(200)
 
     val messages: Seq[Row] = Seq(
@@ -423,7 +422,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
 
   test("setting both maxTokens and maxCompletionTokens throws") {
     val completion = new OpenAIChatCompletion()
-      .setDeploymentName(deploymentName4p1)
+      .setDeploymentName(deploymentName)
       .setMaxTokens(100)
       .setMaxCompletionTokens(200)
 
@@ -438,7 +437,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
 
   test("setResponseFormat should throw exception if invalid format"){
     val completion = new OpenAIChatCompletion()
-      .setDeploymentName(deploymentName4p1)
+      .setDeploymentName(deploymentName)
 
     val messages: Seq[Row] = Seq(
       OpenAIMessage("user", "test")
@@ -472,7 +471,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
 
   test("setResponseFormat should throw exception if json_schema JSON string missing type") {
     val completion = new OpenAIChatCompletion()
-      .setDeploymentName(deploymentName4p1)
+      .setDeploymentName(deploymentName)
     val badJson =
       """{
         |  "json_schema": {
@@ -488,13 +487,13 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
 
   test("reject bare json_schema string in setResponseFormat"){
     val completion = new OpenAIChatCompletion()
-      .setDeploymentName(deploymentName5)
+      .setDeploymentName(deploymentNameMini)
     assertThrows[IllegalArgumentException] {
       completion.setResponseFormat("json_schema")
     }
   }
 
-  test("validate that gpt4p1 accepts json_object response format") {
+  test("validate that gpt-5-mini accepts json_object response format") {
     val goodDf: DataFrame = Seq(
       Seq(
         OpenAIMessage("system", "Respond with JSON. You are an AI chatbot with red as your favorite color"),
@@ -513,26 +512,24 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     ).toDF("messages")
 
     val completion = new OpenAIChatCompletion()
-      .setDeploymentName(deploymentName4p1)
+      .setDeploymentName(deploymentName)
       .setCustomServiceName(openAIServiceName)
       .setMaxCompletionTokens(500)
       .setOutputCol("out")
       .setMessagesCol("messages")
-      .setTemperature(0)
       .setSubscriptionKey(openAIAPIKey)
       .setResponseFormat("json_object")
 
     testCompletion(completion, goodDf)
   }
 
-  test("validate that gpt4 accepts text response format") {
+  test("validate that gpt-5-mini accepts text response format") {
     val completion = new OpenAIChatCompletion()
-      .setDeploymentName(deploymentName4p1)
+      .setDeploymentName(deploymentName)
       .setCustomServiceName(openAIServiceName)
       .setMaxCompletionTokens(5000)
       .setOutputCol("out")
       .setMessagesCol("messages")
-      .setTemperature(0)
       .setSubscriptionKey(openAIAPIKey)
       .setResponseFormat("text")
 
@@ -545,7 +542,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
         |  "id":"chatcmpl_test",
         |  "object":"chat.completion",
         |  "created":"1",
-        |  "model":"gpt-4.1",
+        |  "model":"gpt-5.1",
         |  "choices":[
         |    {
         |      "message":{"role":"assistant","content":null,"name":null},
@@ -570,17 +567,16 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
   ignore("Custom EndPoint") {
     lazy val accessToken: String = sys.env.getOrElse("CUSTOM_ACCESS_TOKEN", "")
     lazy val customRootUrlValue: String = sys.env.getOrElse("CUSTOM_ROOT_URL", "")
-    lazy val customHeadersValues: Map[String, String] = Map("X-ModelType" -> "gpt-4-turbo-chat-completions")
+    lazy val customHeadersValues: Map[String, String] = Map("X-ModelType" -> "gpt-5.1-chat-completions")
 
     val customEndpointCompletion = new OpenAIChatCompletion()
       .setCustomUrlRoot(customRootUrlValue)
       .setOutputCol("out")
       .setMessagesCol("messages")
-      .setTemperature(0)
 
     if (accessToken.isEmpty) {
       customEndpointCompletion.setSubscriptionKey(openAIAPIKey)
-        .setDeploymentName(deploymentName4p1)
+        .setDeploymentName(deploymentName)
         .setCustomServiceName(openAIServiceName)
     } else {
       customEndpointCompletion.setAADToken(accessToken)

@@ -4,13 +4,15 @@ channels:
   - default
 dependencies:
   - python=3.11.8
-  - requests=2.26.0
-  - pip=25.2
+  # SynapseML-Internal uses 2.32.3; LangChain Community requires 2.32.5+.
+  - requests=2.32.5
+  - pip=21.3
   - r-base=4.1.1
   - r-sparklyr=1.8.1
   - r-devtools=2.4.2
   - cmake<=3.27
   - pip:
+    # Petastorm needs legacy Parquet and fsspec APIs removed after PyArrow 10; MLflow accepts this pin.
     - pyarrow==10.0.1
     - pyspark==3.5.0
     - pandas==2.0.3
@@ -28,13 +30,14 @@ dependencies:
     - tqdm
     - ipython
     - pytest-codeblocks
-    - azure-storage-blob
-    - jupyter
+    - azure-storage-blob==12.19.1
+    - jupyter==1.1.0
     - twine
     - mlflow==2.21.3
-    - numpy
-    - torch==2.1.0
-    - torchvision==0.16.0
+    # Internal uses 1.23.5; LangChain Community requires NumPy 1.26.2+.
+    - numpy==1.26.4
+    - torch==2.1.2
+    - torchvision==0.16.2
     # horovod package was deprecated in 2023, this commit has horovod compile with c++17
     # Ref: https://github.com/horovod/horovod/issues/3996#issuecomment-2098507345
     # Pre-built wheel for faster CI (built from same commit on Ubuntu 22.04 + Python 3.11)
@@ -46,8 +49,11 @@ dependencies:
     - Pillow
     - transformers==4.49.0
     - huggingface-hub==0.26.0
-    - langchain==0.0.152
-    - openai==0.27.5
+    - langchain==1.3.14
+    - langchain-classic==1.0.8
+    - langchain-community==0.4.2
+    - langchain-openai==1.4.0
+    - openai==2.47.0
     - black==22.3.0
     - black[jupyter]==22.3.0
     - mistletoe

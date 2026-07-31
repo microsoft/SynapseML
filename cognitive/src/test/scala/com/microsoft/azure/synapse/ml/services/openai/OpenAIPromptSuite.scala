@@ -36,7 +36,6 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     .setDeploymentName(deploymentName)
     .setCustomServiceName(openAIServiceName)
     .setOutputCol("outParsed")
-    .setTemperature(0)
 
   lazy val aiFoundryPrompt: OpenAIPrompt = new OpenAIPrompt()
     .setSubscriptionKey(aiFoundryAPIKey)
@@ -60,7 +59,6 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .setPromptTemplate("List two {category}, starting with {text}.")
       .setPostProcessing("csv")
       .setOutputCol(outputCol)
-      .setTemperature(0)
   }
 
   test("createMessagesForRow generates contentParts for path columns when using Chat Completions API") {
@@ -173,7 +171,8 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
 
   test("Basic Usage JSON") {
     prompt.setPromptTemplate(
-        """Split a word into prefix and postfix a respond in JSON.
+        """Return only one JSON object with exactly the top-level string fields "prefix" and "suffix".
+          |Do not nest the object under the input word.
           |Cherry: {{"prefix": "Che", "suffix": "rry"}}
           |{text}:
           |""".stripMargin)
@@ -270,7 +269,8 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
 
   test("Basic Usage JSON - without explicit post-processing") {
     prompt.setPromptTemplate(
-                """Split a word into prefix and postfix a respond in JSON
+                """Return only one JSON object with exactly the top-level string fields "prefix" and "suffix".
+                  |Do not nest the object under the input word.
                   |Cherry: {{"prefix": "Che", "suffix": "rry"}}
                   |{text}:
                   |""".stripMargin)
@@ -304,9 +304,9 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .setDeploymentName(deploymentName)
       .setCustomServiceName(openAIServiceName)
       .setOutputCol("outParsed")
-      .setTemperature(0)
       .setPromptTemplate(
-        """Split a word into prefix and postfix in JSON format
+        """Return only one JSON object with exactly the top-level string fields "prefix" and "suffix".
+          |Do not nest the object under the input word.
           |Cherry: {{"prefix": "Che", "suffix": "rry"}}
           |{text}:
           |""".stripMargin)
@@ -485,12 +485,11 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
   ignore("Custom EndPoint") {
     lazy val accessToken: String = sys.env.getOrElse("CUSTOM_ACCESS_TOKEN", "")
     lazy val customRootUrlValue: String = sys.env.getOrElse("CUSTOM_ROOT_URL", "")
-    lazy val customHeadersValues: Map[String, String] = Map("X-ModelType" -> "gpt-4-turbo-chat-completions")
+    lazy val customHeadersValues: Map[String, String] = Map("X-ModelType" -> "gpt-5.1-chat-completions")
 
     lazy val customPrompt: OpenAIPrompt = new OpenAIPrompt()
       .setCustomUrlRoot(customRootUrlValue)
       .setOutputCol("outParsed")
-      .setTemperature(0)
 
     if (accessToken.isEmpty) {
       customPrompt.setSubscriptionKey(openAIAPIKey)
@@ -589,7 +588,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     assert(p.getPreviousResponseIdCol == "prev_id_column")
   }
 
-  test("responses payload maps model to model field and nests verbosity/reasoning for gpt-5 usage") {
+  test("responses payload maps model to model field and nests verbosity/reasoning for gpt-5-mini usage") {
     val p = new OpenAIPrompt()
       .setApiType("responses")
       .setMessagesCol("messages")
@@ -628,7 +627,6 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .setStore(true)
       .setPromptTemplate("What is {text}?")
       .setOutputCol("store_output")
-      .setTemperature(0)
 
     val result = storePrompt.transform(df.limit(1))
     val schema = result.schema
@@ -658,7 +656,6 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .setUsageCol("usage")
       .setPromptTemplate("What is {text}?")
       .setOutputCol("store_usage_output")
-      .setTemperature(0)
 
     val result = storeUsagePrompt.transform(df.limit(1))
     val schema = result.schema
@@ -694,7 +691,6 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .setResponseIdCol("custom_id")
       .setPromptTemplate("What is {text}?")
       .setOutputCol("output")
-      .setTemperature(0)
 
     val result = customIdPrompt.transform(df.limit(1))
     val schema = result.schema
@@ -716,7 +712,6 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .setStore(false)
       .setPromptTemplate("What is {text}?")
       .setOutputCol("no_store_output")
-      .setTemperature(0)
 
     val result = noStorePrompt.transform(df.limit(1))
     val schema = result.schema
