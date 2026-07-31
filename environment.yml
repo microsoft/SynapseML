@@ -12,8 +12,8 @@ dependencies:
   - r-devtools=2.4.2
   - cmake<=3.27
   - pip:
-    # SynapseML-Internal uses 22.0.0; MLflow 2.21.3 requires PyArrow <20.
-    - pyarrow==19.0.1
+    # Petastorm needs legacy Parquet and fsspec APIs removed after PyArrow 10; MLflow accepts this pin.
+    - pyarrow==10.0.1
     - pyspark==3.5.0
     - pandas==2.0.3
     - wheel
