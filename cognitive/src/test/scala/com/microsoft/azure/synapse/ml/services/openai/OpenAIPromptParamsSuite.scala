@@ -13,23 +13,45 @@ class OpenAIPromptParamsSuite extends AnyFunSuite {
     result
   }
 
-  test("Java setPostProcessingOptions should infer csv mode from delimiter") {
-    val prompt = new OpenAIPrompt()
+  test("Scala and Java setPostProcessingOptions should infer csv and json modes") {
+    Seq(
+      Map("delimiter" -> ";") -> "csv",
+      Map("jsonSchema" -> "value STRING") -> "json"
+    ).foreach { case (options, expectedMode) =>
+      val scalaPrompt = new OpenAIPrompt().setPostProcessingOptions(options)
+      val javaPrompt = new OpenAIPrompt().setPostProcessingOptions(javaMap(options.toSeq: _*))
 
-    prompt.setPostProcessingOptions(javaMap("delimiter" -> ";"))
-
-    assert(prompt.getPostProcessing === "csv")
-  }
-
-  test("Java setPostProcessingOptions should require regexGroup with regex") {
-    val prompt = new OpenAIPrompt()
-
-    intercept[IllegalArgumentException] {
-      prompt.setPostProcessingOptions(javaMap("regex" -> ".*"))
+      assert(scalaPrompt.getPostProcessing === expectedMode)
+      assert(scalaPrompt.getPostProcessingOptions === options)
+      assert(javaPrompt.getPostProcessing === expectedMode)
+      assert(javaPrompt.getPostProcessingOptions === options)
     }
   }
 
-  test("Java setPostProcessingOptions should reject options rejected by Scala overload") {
+  test("Scala and Java setPostProcessingOptions should accept valid regex options") {
+    val options = Map("regex" -> "value=(.*)", "regexGroup" -> "1")
+    val scalaPrompt = new OpenAIPrompt().setPostProcessingOptions(options)
+    val javaPrompt = new OpenAIPrompt().setPostProcessingOptions(javaMap(options.toSeq: _*))
+
+    assert(scalaPrompt.getPostProcessing === "regex")
+    assert(scalaPrompt.getPostProcessingOptions === options)
+    assert(javaPrompt.getPostProcessing === "regex")
+    assert(javaPrompt.getPostProcessingOptions === options)
+  }
+
+  test("Scala and Java setPostProcessingOptions should require regexGroup with regex") {
+    val scalaError = intercept[IllegalArgumentException] {
+      new OpenAIPrompt().setPostProcessingOptions(Map("regex" -> ".*"))
+    }
+    val javaError = intercept[IllegalArgumentException] {
+      new OpenAIPrompt().setPostProcessingOptions(javaMap("regex" -> ".*"))
+    }
+
+    assert(scalaError.getMessage === "requirement failed: regexGroup must be specified with regex")
+    assert(javaError.getMessage === scalaError.getMessage)
+  }
+
+  test("Scala and Java setPostProcessingOptions should reject unsupported options") {
     val scalaError = intercept[IllegalArgumentException] {
       new OpenAIPrompt().setPostProcessingOptions(Map("invalidOption" -> "value"))
     }
@@ -38,5 +60,27 @@ class OpenAIPromptParamsSuite extends AnyFunSuite {
     }
 
     assert(javaError.getMessage === scalaError.getMessage)
+  }
+
+  test("Scala and Java setPostProcessingOptions should reject conflicting explicit modes") {
+    Seq(
+      ("json", Map("delimiter" -> ","), "csv"),
+      ("csv", Map("jsonSchema" -> "value STRING"), "json"),
+      ("json", Map("regex" -> ".*", "regexGroup" -> "0"), "regex")
+    ).foreach { case (explicitMode, options, inferredMode) =>
+      val scalaError = intercept[IllegalArgumentException] {
+        new OpenAIPrompt()
+          .setPostProcessing(explicitMode)
+          .setPostProcessingOptions(options)
+      }
+      val javaError = intercept[IllegalArgumentException] {
+        new OpenAIPrompt()
+          .setPostProcessing(explicitMode)
+          .setPostProcessingOptions(javaMap(options.toSeq: _*))
+      }
+
+      assert(scalaError.getMessage === s"requirement failed: postProcessing must be '$inferredMode'")
+      assert(javaError.getMessage === scalaError.getMessage)
+    }
   }
 }
