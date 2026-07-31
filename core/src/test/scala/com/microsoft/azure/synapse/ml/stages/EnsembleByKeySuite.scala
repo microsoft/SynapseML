@@ -6,8 +6,9 @@ package com.microsoft.azure.synapse.ml.stages
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.feature.VectorAssembler
-import org.apache.spark.ml.linalg.DenseVector
+import org.apache.spark.ml.linalg.{DenseVector, SQLDataTypes}
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.types.{DoubleType, Metadata, StructField}
 
 class EnsembleByKeySuite extends TestBase with TransformerFuzzing[EnsembleByKey] {
 
@@ -53,32 +54,85 @@ class EnsembleByKeySuite extends TestBase with TransformerFuzzing[EnsembleByKey]
     df1.show()
   }
 
-  test("transformSchema should match the transformed schema for both collapse modes") {
-    val scoreDFDouble = spark.createDataFrame(
-      Seq((0, "foo", 1.0),
-          (1, "bar", 4.0),
-          (1, "bar", 0.0)))
-      .toDF("id", "group", "score")
-    val scoreDFFloat = spark.createDataFrame(
-      Seq((0, "foo", 1.0f),
-          (1, "bar", 4.0f),
-          (1, "bar", 0.0f)))
-      .toDF("id", "group", "score")
+  test("transformSchema should match mixed aggregate output for default and explicit names") {
+    val input = mixedTypeDF
+    val inputNames = Array("doubleScore", "floatScore", "features")
+    val defaultNames = inputNames.map(name => s"mean($name)")
+    val explicitNames = Array("averageDouble", "averageFloat", "averageFeatures")
+    val keyNames = Array("group", "region")
 
-    Seq(scoreDFDouble, scoreDFFloat).foreach { scoreDF =>
+    assert(input.schema("features").metadata !== Metadata.empty)
+
+    Seq(defaultNames -> false, explicitNames -> true).foreach { case (outputNames, useExplicitNames) =>
       Seq(true, false).foreach { collapseGroup =>
         val transformer = new EnsembleByKey()
-          .setKey("group")
-          .setCol("score")
+          .setKeys(keyNames)
+          .setCols(inputNames)
           .setCollapseGroup(collapseGroup)
-        val transformedSchema = transformer.transformSchema(scoreDF.schema)
-        val transformed = transformer.transform(scoreDF)
+        if (useExplicitNames) {
+          transformer.setColNames(outputNames)
+        }
 
-        withClue(s"dataType=${scoreDF.schema("score").dataType}, collapseGroup=$collapseGroup: ") {
-          assert(transformed.schema === transformedSchema)
+        val transformedSchema = transformer.transformSchema(input.schema)
+        val actualSchema = transformer.transform(input).schema
+        val expectedNames = if (collapseGroup) {
+          keyNames ++ outputNames
+        } else {
+          keyNames ++ input.columns.filterNot((keyNames ++ outputNames).contains) ++ outputNames
+        }
+
+        withClue(s"explicitNames=$useExplicitNames, collapseGroup=$collapseGroup: ") {
+          assert(transformedSchema === actualSchema)
+          assert(actualSchema.fieldNames === expectedNames)
+          assert(actualSchema(outputNames(0)) === StructField(outputNames(0), DoubleType))
+          assert(actualSchema(outputNames(1)) === StructField(outputNames(1), DoubleType))
+          assert(actualSchema(outputNames(2)) ===
+            StructField(outputNames(2), SQLDataTypes.VectorType, nullable = false))
         }
       }
     }
+  }
+
+  test("non-collapsed output should overwrite numeric and vector columns") {
+    val input = mixedTypeDF
+    val overwrittenNames = Array("doubleScore", "floatScore", "features")
+    val transformer = new EnsembleByKey()
+      .setKeys("group", "region")
+      .setCols(overwrittenNames)
+      .setColNames(overwrittenNames)
+      .setCollapseGroup(false)
+
+    val transformedSchema = transformer.transformSchema(input.schema)
+    val transformed = transformer.transform(input)
+
+    assert(transformed.schema === transformedSchema)
+    assert(transformed.columns ===
+      Array("group", "region", "id", "component1", "component2") ++ overwrittenNames)
+    assert(transformed.schema("features").metadata === Metadata.empty)
+    assert(!transformed.schema("features").nullable)
+
+    val actual = transformed.orderBy("id")
+      .select("doubleScore", "floatScore", "features")
+      .collect()
+      .map(row => (row.getDouble(0), row.getDouble(1), row.getAs[DenseVector](2)))
+    val expected = Array(
+      (1.0, 1.0, new DenseVector(Array(1.0, 0.1))),
+      (2.0, 2.0, new DenseVector(Array(2.0, -2.5))),
+      (2.0, 2.0, new DenseVector(Array(2.0, -2.5))))
+
+    assert(actual === expected)
+  }
+
+  test("default output names should follow updated input columns before transform") {
+    val transformer = new EnsembleByKey()
+      .setKeys("group", "region")
+      .setCol("doubleScore")
+
+    transformer.transformSchema(mixedTypeDF.schema)
+    transformer.setCols("doubleScore", "floatScore")
+
+    assert(transformer.transformSchema(mixedTypeDF.schema).fieldNames ===
+      Array("group", "region", "mean(doubleScore)", "mean(floatScore)"))
   }
 
   lazy val testDF: DataFrame = {
@@ -90,6 +144,19 @@ class EnsembleByKeySuite extends TestBase with TransformerFuzzing[EnsembleByKey]
 
     new VectorAssembler().setInputCols(Array("score1", "score2"))
       .setOutputCol("v1").transform(initialTestDF)
+  }
+
+  lazy val mixedTypeDF: DataFrame = {
+    val initialTestDF = spark.createDataFrame(
+      Seq((0, "west", "foo", 1.0, 1.0f, 1.0, 0.1),
+          (1, "east", "bar", 4.0, 4.0f, 4.0, -2.0),
+          (2, "east", "bar", 0.0, 0.0f, 0.0, -3.0)))
+      .toDF("id", "region", "group", "doubleScore", "floatScore", "component1", "component2")
+
+    new VectorAssembler()
+      .setInputCols(Array("component1", "component2"))
+      .setOutputCol("features")
+      .transform(initialTestDF)
   }
 
   lazy val testModel: EnsembleByKey = new EnsembleByKey().setKey("label1").setCol("score1")
