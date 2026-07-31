@@ -84,7 +84,7 @@ class EnsembleByKey(val uid: String) extends Transformer
   setDefault(collapseGroup -> true)
 
   private def setDefaultColNames(): Unit = {
-    if (get(colNames).isEmpty) {
+    if (!isSet(colNames)) {
       setDefault(colNames -> getCols.map(name => s"$getStrategy($name)"))
     }
   }
@@ -144,7 +144,7 @@ class EnsembleByKey(val uid: String) extends Transformer
       inputField.dataType match {
         case _: DoubleType => StructField(outputName, DoubleType)
         case _: FloatType => StructField(outputName, DoubleType)
-        case fdt if fdt == VectorType => StructField(outputName, inputField.dataType)
+        case fdt if fdt == VectorType => StructField(outputName, VectorType, nullable = false)
         case t => throw new IllegalArgumentException(s"Cannot operate on type $t with strategy $getStrategy")
       }
     }
