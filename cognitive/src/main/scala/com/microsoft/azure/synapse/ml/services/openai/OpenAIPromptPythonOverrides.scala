@@ -9,6 +9,9 @@ private[openai] object OpenAIPromptPythonOverrides {
   def methods(baseMethods: String, paramsArgs: String): String = baseMethods + {
     s"""
       |def setPostProcessingOptions(self, value):
+      |    if not value:
+      |        self._set(postProcessingOptions=value)
+      |        return self
       |    if self.isSet(self.postProcessing):
       |        self._java_obj = self._java_obj.setPostProcessing(self.getPostProcessing())
       |    java_value = SparkContext._active_spark_context._jvm.java.util.HashMap()

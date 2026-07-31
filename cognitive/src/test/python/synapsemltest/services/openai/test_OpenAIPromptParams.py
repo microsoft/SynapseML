@@ -12,6 +12,16 @@ spark = init_spark()
 
 
 class TestOpenAIPromptParams(unittest.TestCase):
+    def test_empty_post_processing_options_remain_compatible(self):
+        prompts = [
+            OpenAIPrompt(postProcessingOptions={}),
+            OpenAIPrompt().setPostProcessingOptions({}),
+        ]
+
+        for prompt in prompts:
+            self.assertEqual(prompt.getPostProcessing(), "")
+            self.assertEqual(prompt.getPostProcessingOptions(), {})
+
     def test_set_post_processing_options_infers_csv_and_json_modes(self):
         cases = [
             ({"delimiter": ";"}, "csv"),
