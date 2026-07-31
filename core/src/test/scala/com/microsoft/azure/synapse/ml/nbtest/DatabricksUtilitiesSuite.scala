@@ -318,39 +318,45 @@ class DatabricksUtilitiesSuite extends AnyFunSuite {
     assert(failure.getMessage.contains("No GPU capacity"))
   }
 
-  test("Retry only stockout cluster failures and reduce GPU workers") {
-    val createdAttempts = mutable.ArrayBuffer.empty[Int]
-    val cleanedClusters = mutable.ArrayBuffer.empty[String]
-    val result = DatabricksClusterStartup.createActiveCluster(
-      attempt => {
-        createdAttempts += attempt
-        s"cluster-$attempt"
-      },
-      clusterId => {
-        if (clusterId == "cluster-1") {
-          throw new DatabricksClusterStartup.ClusterStartupException(
-            clusterId,
-            DatabricksClusterStartup.ClusterStatus(
-              "TERMINATED",
-              Some("CLOUD_PROVIDER_RESOURCE_STOCKOUT")
+  test("Retry capacity-related cluster failures and reduce GPU workers") {
+    Seq(
+      "CLOUD_PROVIDER_RESOURCE_STOCKOUT",
+      "INSTANCE_GROUP_MAX_CAPACITY_REACHED",
+      "INSTANCE_POOL_MAX_CAPACITY_REACHED"
+    ).foreach { terminationCode =>
+      val createdAttempts = mutable.ArrayBuffer.empty[Int]
+      val cleanedClusters = mutable.ArrayBuffer.empty[String]
+      val result = DatabricksClusterStartup.createActiveCluster(
+        attempt => {
+          createdAttempts += attempt
+          s"cluster-$attempt"
+        },
+        clusterId => {
+          if (clusterId == "cluster-1") {
+            throw new DatabricksClusterStartup.ClusterStartupException(
+              clusterId,
+              DatabricksClusterStartup.ClusterStatus(
+                "TERMINATED",
+                Some(terminationCode)
+              )
             )
-          )
-        }
-      },
-      clusterId => cleanedClusters += clusterId,
-      retryDelayMs = 0,
-      sleep = _ => ()
-    )
+          }
+        },
+        clusterId => cleanedClusters += clusterId,
+        retryDelayMs = 0,
+        sleep = _ => ()
+      )
 
-    assert(result === "cluster-2")
-    assert(createdAttempts === Seq(1, 2))
-    assert(cleanedClusters === Seq("cluster-1"))
+      assert(result === "cluster-2")
+      assert(createdAttempts === Seq(1, 2))
+      assert(cleanedClusters === Seq("cluster-1"))
+    }
     assert(DatabricksClusterStartup.gpuWorkerCount(1) === 2)
     assert(DatabricksClusterStartup.gpuWorkerCount(2) === 1)
     assert(DatabricksClusterStartup.gpuWorkerCount(3) === 1)
   }
 
-  test("Do not retry non-stockout cluster failures") {
+  test("Do not retry non-capacity cluster failures") {
     val createdAttempts = mutable.ArrayBuffer.empty[Int]
     val failure = intercept[DatabricksClusterStartup.ClusterStartupException] {
       DatabricksClusterStartup.createActiveCluster(
@@ -372,7 +378,7 @@ class DatabricksUtilitiesSuite extends AnyFunSuite {
     assert(createdAttempts === Seq(1))
   }
 
-  test("Continue stockout retries when failed-cluster cleanup fails") {
+  test("Continue capacity retries when failed-cluster cleanup fails") {
     val result = DatabricksClusterStartup.createActiveCluster(
       attempt => s"cluster-$attempt",
       clusterId => {
@@ -394,7 +400,30 @@ class DatabricksUtilitiesSuite extends AnyFunSuite {
     assert(result === "cluster-2")
   }
 
-  test("Clean up timed-out clusters without retrying them") {
+  test("Retry timed-out clusters after cleanup") {
+    val createdAttempts = mutable.ArrayBuffer.empty[Int]
+    val cleanedClusters = mutable.ArrayBuffer.empty[String]
+    val result = DatabricksClusterStartup.createActiveCluster(
+      attempt => {
+        createdAttempts += attempt
+        s"cluster-$attempt"
+      },
+      clusterId => {
+        if (clusterId == "cluster-1") {
+          throw new java.util.concurrent.TimeoutException("cluster stayed pending")
+        }
+      },
+      clusterId => cleanedClusters += clusterId,
+      retryDelayMs = 0,
+      sleep = _ => ()
+    )
+
+    assert(result === "cluster-2")
+    assert(createdAttempts === Seq(1, 2))
+    assert(cleanedClusters === Seq("cluster-1"))
+  }
+
+  test("Stop retrying timed-out clusters at the configured attempt limit") {
     val createdAttempts = mutable.ArrayBuffer.empty[Int]
     val cleanedClusters = mutable.ArrayBuffer.empty[String]
     intercept[java.util.concurrent.TimeoutException] {
@@ -405,13 +434,14 @@ class DatabricksUtilitiesSuite extends AnyFunSuite {
         },
         _ => throw new java.util.concurrent.TimeoutException("cluster stayed pending"),
         clusterId => cleanedClusters += clusterId,
+        maxAttempts = 2,
         retryDelayMs = 0,
         sleep = _ => ()
       )
     }
 
-    assert(createdAttempts === Seq(1))
-    assert(cleanedClusters === Seq("cluster-1"))
+    assert(createdAttempts === Seq(1, 2))
+    assert(cleanedClusters === Seq("cluster-1", "cluster-2"))
   }
 
   test("Select all GPU notebooks in deterministic order") {

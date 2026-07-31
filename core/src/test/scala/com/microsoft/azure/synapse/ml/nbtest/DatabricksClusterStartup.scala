@@ -10,7 +10,11 @@ import java.util.concurrent.TimeoutException
 import scala.util.control.NonFatal
 
 private[nbtest] object DatabricksClusterStartup {
-  private val CloudProviderResourceStockout = "CLOUD_PROVIDER_RESOURCE_STOCKOUT"
+  private val RetriableTerminationCodes = Set(
+    "CLOUD_PROVIDER_RESOURCE_STOCKOUT",
+    "INSTANCE_GROUP_MAX_CAPACITY_REACHED",
+    "INSTANCE_POOL_MAX_CAPACITY_REACHED"
+  )
 
   final case class ClusterStatus(
       state: String,
@@ -22,7 +26,7 @@ private[nbtest] object DatabricksClusterStartup {
       val status: ClusterStatus)
     extends RuntimeException(clusterStartupFailureMessage(clusterId, status)) {
 
-    def isRetriable: Boolean = status.terminationCode.contains(CloudProviderResourceStockout)
+    def isRetriable: Boolean = status.terminationCode.exists(RetriableTerminationCodes.contains)
   }
 
   private def clusterStartupFailureMessage(clusterId: String, status: ClusterStatus): String = {
@@ -82,20 +86,25 @@ private[nbtest] object DatabricksClusterStartup {
     require(maxAttempts > 0, "maxAttempts must be positive")
     def attemptStartup(attempt: Int): String = {
       val clusterId = createCluster(attempt)
+      def retryStartup(failure: Throwable): String = {
+        cleanupFailedCluster(clusterId, cleanupCluster, failure)
+        if (attempt == maxAttempts) {
+          throw failure
+        }
+        println(
+          s"Cluster $clusterId failed to start; retrying after ${retryDelayMs / 1000} seconds")
+        sleep(retryDelayMs)
+        attemptStartup(attempt + 1)
+      }
+
       try {
         waitForActive(clusterId)
         clusterId
       } catch {
-        case failure: ClusterStartupException =>
-          cleanupFailedCluster(clusterId, cleanupCluster, failure)
-          if (!failure.isRetriable || attempt == maxAttempts) {
-            throw failure
-          }
-          println(
-            s"Cluster $clusterId hit a cloud resource stockout; retrying startup " +
-              s"after ${retryDelayMs / 1000} seconds")
-          sleep(retryDelayMs)
-          attemptStartup(attempt + 1)
+        case failure: ClusterStartupException if failure.isRetriable =>
+          retryStartup(failure)
+        case failure: TimeoutException =>
+          retryStartup(failure)
         case NonFatal(failure) =>
           cleanupFailedCluster(clusterId, cleanupCluster, failure)
           throw failure
