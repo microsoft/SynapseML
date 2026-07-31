@@ -830,8 +830,8 @@ jobs:
     matrix:
       spark3.5:
         RELEASE_BRANCH: spark3.5
-        JAVA_VERSION: 11
-        SBT_JAVA_OPTS: ""
+        JAVA_VERSION: 17
+        SBT_JAVA_OPTS: "-J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED"
       spark4.1:
         RELEASE_BRANCH: spark4.1
         JAVA_VERSION: 17
