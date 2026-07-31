@@ -5,8 +5,8 @@ trigger:
   branches:
     include:
     - master
-    - spark3.3
     - spark3.5
+    - spark4.1
   paths:
     exclude:
     - README.md
@@ -21,8 +21,8 @@ pr:
   branches:
     include:
     - master
-    - spark3.3
     - spark3.5
+    - spark4.1
   paths:
     exclude:
     - README.md
@@ -843,8 +843,12 @@ jobs:
     vmImage: $(UBUNTU_VERSION)
   strategy:
     matrix:
-      spark4.0:
-        RELEASE_BRANCH: spark4.0
+      spark3.5:
+        RELEASE_BRANCH: spark3.5
+        JAVA_VERSION: 17
+        SBT_JAVA_OPTS: "-J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED"
+      spark4.1:
+        RELEASE_BRANCH: spark4.1
         JAVA_VERSION: 17
         SBT_JAVA_OPTS: "-J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED"
   steps:

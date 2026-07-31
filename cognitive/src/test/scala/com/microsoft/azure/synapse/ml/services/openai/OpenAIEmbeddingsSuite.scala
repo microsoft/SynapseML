@@ -91,7 +91,7 @@ class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with Ope
     val originalEmbedding = OpenAIDefaults.getEmbeddingDeploymentName
 
     // Set a general default that is not an embedding model and a valid embedding default
-    OpenAIDefaults.setDeploymentName("gpt-4.1-mini")
+    OpenAIDefaults.setDeploymentName("gpt-5-mini")
     OpenAIDefaults.setEmbeddingDeploymentName("text-embedding-ada-002")
 
     val t = new OpenAIEmbedding()
