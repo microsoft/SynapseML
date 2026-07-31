@@ -135,6 +135,17 @@ class EnsembleByKeySuite extends TestBase with TransformerFuzzing[EnsembleByKey]
       Array("group", "region", "mean(doubleScore)", "mean(floatScore)"))
   }
 
+  test("transformSchema should reject unsupported aggregate types") {
+    val input = spark.createDataFrame(Seq(("foo", 1))).toDF("group", "score")
+    val transformer = new EnsembleByKey().setKey("group").setCol("score")
+
+    val error = intercept[IllegalArgumentException] {
+      transformer.transformSchema(input.schema)
+    }
+
+    assert(error.getMessage === "Cannot operate on type IntegerType with strategy mean")
+  }
+
   lazy val testDF: DataFrame = {
     val initialTestDF = spark.createDataFrame(
       Seq((0, "foo", 1.0, .1),
