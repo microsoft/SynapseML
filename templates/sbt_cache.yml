@@ -1,0 +1,39 @@
+# Reusable sbt bootstrap cache for CI jobs.
+#
+# Every hosted-agent matrix job cold-bootstraps the sbt launcher
+# (org.scala-sbt:sbt:<version>) and resolves Ivy dependencies from public Maven
+# Central. Running ~30 of these concurrently (across overlapping PR builds)
+# triggers HTTP 429 rate limiting and fails "Setup repo" before tests run.
+#
+# These caches make steady-state builds restore the sbt launcher and resolved
+# dependencies from Azure's cache service instead of Maven Central, so jobs do
+# not cold-bootstrap at all. The BuildAndCacheSbt prewarm job populates them.
+#
+# Cache keys are derived from the bootstrap inputs so they invalidate exactly
+# when those inputs change:
+#   * project/build.properties pins sbt.version -> launcher boot key
+#   * project/plugins.sbt + build.sbt pin plugins/deps -> Ivy resolution key
+# restoreKeys provide a safe partial fallback: sbt validates a restored cache
+# and re-fetches only what is missing. continueOnError keeps a cache-service
+# hiccup or a corrupt entry non-fatal - the job falls back to a normal
+# (staggered, retried) bootstrap rather than failing.
+steps:
+  - task: Cache@2
+    displayName: Cache sbt launcher boot
+    inputs:
+      key: 'sbtboot | "$(Agent.OS)" | project/build.properties'
+      restoreKeys: |
+        sbtboot | "$(Agent.OS)"
+        sbtboot
+      path: $(Pipeline.Workspace)/../../.sbt/boot
+    continueOnError: true
+  - task: Cache@2
+    displayName: Cache sbt ivy dependencies
+    inputs:
+      key: 'sbtivy | "$(Agent.OS)" | project/build.properties | project/plugins.sbt | **/build.sbt'
+      restoreKeys: |
+        sbtivy | "$(Agent.OS)" | project/build.properties | project/plugins.sbt
+        sbtivy | "$(Agent.OS)"
+        sbtivy
+      path: $(Pipeline.Workspace)/../../.ivy2/cache
+    continueOnError: true

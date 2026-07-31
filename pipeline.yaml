@@ -102,6 +102,7 @@ jobs:
   pool:
     vmImage: $(UBUNTU_VERSION)
   steps:
+    - template: templates/sbt_cache.yml
     - task: AzureCLI@2
       displayName: 'Scala Style Check'
       inputs:
@@ -122,7 +123,7 @@ jobs:
     pool:
       vmImage: $(UBUNTU_VERSION)
     steps:
-      #- template: templates/ivy_cache.yml
+      - template: templates/sbt_cache.yml
       - template: templates/update_cli.yml
       - template: templates/conda.yml
       - template: templates/kv.yml
@@ -196,7 +197,7 @@ jobs:
 #      databricks-rapids:
 #        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksRapidsTests"
   steps:
-    #- template: templates/ivy_cache.yml
+    - template: templates/sbt_cache.yml
     - template: templates/update_cli.yml
     - template: templates/conda.yml
     - template: templates/kv.yml
@@ -227,7 +228,7 @@ jobs:
   pool:
     vmImage: $(UBUNTU_VERSION)
   steps:
-    #- template: templates/ivy_cache.yml
+    - template: templates/sbt_cache.yml
     - template: templates/update_cli.yml
     - template: templates/conda.yml
     - template: templates/kv.yml
@@ -261,6 +262,7 @@ jobs:
   pool:
     vmImage: ubuntu-22.04
   steps:
+    - template: templates/sbt_cache.yml
     - task: AzureCLI@2
       displayName: 'Get Docker Tag + Version'
       inputs:
@@ -456,7 +458,7 @@ jobs:
       cognitive:
         PACKAGE: "cognitive"
   steps:
-    #- template: templates/ivy_cache.yml
+    - template: templates/sbt_cache.yml
     - template: templates/update_cli.yml
     - template: templates/conda.yml
     - template: templates/kv.yml
@@ -539,7 +541,7 @@ jobs:
       cognitive:
         PACKAGE: "cognitive"
   steps:
-    #- template: templates/ivy_cache_2.yml
+    - template: templates/sbt_cache.yml
     - template: templates/update_cli.yml
     - template: templates/conda.yml
     - template: templates/kv.yml
@@ -555,7 +557,7 @@ jobs:
           set -e
           export SBT_OPTS="-Xms2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss5M  -Duser.timezone=GMT"
           source activate synapseml
-          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
+          bash tools/ci/sbt_retry.sh setup
           sbt codegen
           sbt publishM2
           SPARK_VERSION=3.5.0
@@ -601,13 +603,37 @@ jobs:
   steps:
     - template: templates/conda.yml
 
+- job: BuildAndCacheSbt
+  displayName: 'Prewarm sbt bootstrap cache'
+  cancelTimeoutInMinutes: 0
+  condition: eq(variables.runTests, 'True')
+  pool:
+    vmImage: $(UBUNTU_VERSION)
+  steps:
+    - template: templates/update_cli.yml
+    - template: templates/sbt_cache.yml
+    - task: AzureCLI@2
+      displayName: 'Warm sbt launcher + ivy cache'
+      continueOnError: true
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          # Populate ~/.sbt/boot (sbt launcher) and ~/.ivy2/cache (resolved
+          # dependencies) once per pipeline run so the fan-out matrix jobs restore
+          # them from Azure's cache service instead of cold-bootstrapping from
+          # public Maven Central. Best-effort: continueOnError lets the fan-out
+          # jobs fall back to their own staggered bootstrap if warming fails.
+          bash tools/ci/sbt_retry.sh update
+
 - job: WebsiteSamplesTests
   cancelTimeoutInMinutes: 0
   condition: and(eq(variables.runTests, 'True'), eq('${{ parameters.testWebsiteSamples }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
   steps:
-    #- template: templates/ivy_cache.yml
+    - template: templates/sbt_cache.yml
     - template: templates/update_cli.yml
     - template: templates/conda.yml
     - template: templates/kv.yml
@@ -620,7 +646,7 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
-          (timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup) || (echo "retrying" && timeout 5m sbt setup)
+          bash tools/ci/sbt_retry.sh setup
           if [ "$(runCoverage)" = "True" ]; then COV_CMD="coverage"; else COV_CMD=""; fi
           (sbt $COV_CMD testWebsiteDocs)
     - task: PublishTestResults@2
@@ -762,7 +788,7 @@ jobs:
       vw:
         PACKAGE: "vw"
   steps:
-    #- template: templates/ivy_cache.yml
+    - template: templates/sbt_cache.yml
     - template: templates/update_cli.yml
     - task: AzureCLI@2
       displayName: 'Setup repo'
@@ -776,21 +802,7 @@ jobs:
           (${FFMPEG:-false} && sudo apt-get update && \
           sudo apt-get install ffmpeg libgstreamer1.0-0 \
           gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly -y)
-          # Matrix jobs start together, so stagger retries when Maven Central rate-limits sbt bootstrap.
-          retry_sbt_setup() {
-            for attempt in 1 2 3; do
-              if timeout 5m sbt setup; then
-                return 0
-              fi
-              if [ "$attempt" -eq 3 ]; then
-                return 1
-              fi
-              delay=$((attempt * 30 + RANDOM % 30))
-              echo "sbt setup attempt $attempt failed; retrying in ${delay}s"
-              sleep "$delay"
-            done
-          }
-          retry_sbt_setup
+          bash tools/ci/sbt_retry.sh setup
     - task: AzureCLI@2
       displayName: 'Unit Test'
       retryCountOnTaskFailure: 1
@@ -893,6 +905,7 @@ jobs:
         echo "Rebase succeeded — $(RELEASE_BRANCH) patches apply cleanly onto this PR"
       displayName: 'Rebase $(RELEASE_BRANCH) onto PR HEAD'
 
+    - template: templates/sbt_cache.yml
     - task: AzureCLI@2
       displayName: 'Compile $(RELEASE_BRANCH) after rebase'
       timeoutInMinutes: 20
@@ -915,7 +928,7 @@ jobs:
         scriptType: bash
         inlineScript: |
           (timeout 30s pip install requests) || (echo "retrying" && timeout 30s pip install requests)
-          (timeout 5m sbt $(SBT_JAVA_OPTS) setup) || (echo "retrying" && timeout 5m sbt $(SBT_JAVA_OPTS) setup) || (echo "retrying" && timeout 5m sbt $(SBT_JAVA_OPTS) setup)
+          bash tools/ci/sbt_retry.sh $(SBT_JAVA_OPTS) setup
 
     - template: templates/kv.yml
 
