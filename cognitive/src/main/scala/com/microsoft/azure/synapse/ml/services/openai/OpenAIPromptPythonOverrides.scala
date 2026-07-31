@@ -6,6 +6,29 @@ package com.microsoft.azure.synapse.ml.services.openai
 import com.microsoft.azure.synapse.ml.codegen.GenerationUtils
 
 private[openai] object OpenAIPromptPythonOverrides {
+  private val DefaultInitParamLoop =
+    """    if java_obj is None:
+      |        for k,v in kwargs.items():
+      |            if v is not None:
+      |                getattr(self, "set" + k[0].upper() + k[1:])(v)
+      |""".stripMargin
+
+  private val OptionsLastInitParamLoop =
+    """    if java_obj is None:
+      |        post_processing_options = kwargs.pop("postProcessingOptions", None)
+      |        for k,v in kwargs.items():
+      |            if v is not None:
+      |                getattr(self, "set" + k[0].upper() + k[1:])(v)
+      |        if post_processing_options is not None:
+      |            self.setPostProcessingOptions(post_processing_options)
+      |""".stripMargin
+
+  def initFunc(defaultInitFunc: String): String = {
+    val result = defaultInitFunc.replace(DefaultInitParamLoop, OptionsLastInitParamLoop)
+    require(result != defaultInitFunc, "OpenAIPrompt Python initializer template did not match")
+    result
+  }
+
   def methods(baseMethods: String, paramsArgs: String): String = baseMethods + {
     s"""
       |def setPostProcessingOptions(self, value):

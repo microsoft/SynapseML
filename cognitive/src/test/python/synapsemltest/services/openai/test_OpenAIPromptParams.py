@@ -71,6 +71,33 @@ class TestOpenAIPromptParams(unittest.TestCase):
                 postProcessingOptions={"delimiter": ";"},
             )
 
+    def test_constructor_rejects_conflicts_regardless_of_keyword_order(self):
+        cases = [
+            {
+                "postProcessingOptions": {"delimiter": ";"},
+                "postProcessing": "json",
+            },
+            {
+                "postProcessing": "json",
+                "postProcessingOptions": {"delimiter": ";"},
+            },
+        ]
+
+        for kwargs in cases:
+            with self.subTest(kwargs=kwargs):
+                with self.assertRaisesRegex(
+                    IllegalArgumentException,
+                    "postProcessing must be 'csv'",
+                ):
+                    OpenAIPrompt(**kwargs)
+
+        prompt = OpenAIPrompt(
+            postProcessingOptions={"delimiter": ";"},
+            postProcessing="csv",
+        )
+        self.assertEqual(prompt.getPostProcessing(), "csv")
+        self.assertEqual(prompt.getPostProcessingOptions(), {"delimiter": ";"})
+
     def test_set_post_processing_options_rejects_conflicting_explicit_modes(self):
         cases = [
             ("json", {"delimiter": ","}, "csv"),

@@ -126,6 +126,9 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   override def pyAdditionalMethods: String =
     OpenAIPromptPythonOverrides.methods(super.pyAdditionalMethods, pyParamsArgs)
 
+  override def pyInitFunc(): String =
+    OpenAIPromptPythonOverrides.initFunc(super.pyInitFunc())
+
   val dropPrompt = new BooleanParam(
     this, "dropPrompt", "whether to drop the column of prompts after templating (when using legacy models)")
 
