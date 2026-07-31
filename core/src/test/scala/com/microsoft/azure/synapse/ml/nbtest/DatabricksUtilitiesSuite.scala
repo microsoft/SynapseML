@@ -232,6 +232,20 @@ class DatabricksUtilitiesSuite extends AnyFunSuite {
     assert(!request.fields.contains("driver_instance_pool_id"))
   }
 
+  test("Include notebook base parameters in submitted runs") {
+    val request = DatabricksUtilities.createSubmitRunRequest(
+      "cluster-id",
+      "/SynapseMLBuild/test-notebook",
+      300,
+      Map("synapseml_ci_smoke" -> "true")
+    ).parseJson.asJsObject
+    val notebookTask = request.fields("notebook_task").asJsObject
+
+    assert(notebookTask.fields("notebook_path").convertTo[String] === "/SynapseMLBuild/test-notebook")
+    assert(notebookTask.fields("base_parameters").convertTo[Map[String, String]] ===
+      Map("synapseml_ci_smoke" -> "true"))
+  }
+
   test("Require the migrated T4 node type for the stable GPU pool") {
     val pools =
       s"""

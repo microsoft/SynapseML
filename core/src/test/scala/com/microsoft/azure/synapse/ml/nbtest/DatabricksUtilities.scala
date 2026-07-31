@@ -504,20 +504,31 @@ object DatabricksUtilities {
     DatabricksClusterStartup.parseClusterStatus(databricksGet(s"clusters/get?cluster_id=$clusterId"))
   }
 
-  def submitRun(clusterId: String, notebookPath: String,
-                timeoutSeconds: Int = TimeoutInMillis / 1000): Long = {
-    val body =
-      s"""
-         |{
-         |  "run_name": "test1",
-         |  "existing_cluster_id": "$clusterId",
-         |  "timeout_seconds": $timeoutSeconds,
-         |  "notebook_task": {
-         |    "notebook_path": "$notebookPath",
-         |    "base_parameters": []
-         |  }
-         |}
-      """.stripMargin
+  private[nbtest] def createSubmitRunRequest(
+      clusterId: String,
+      notebookPath: String,
+      timeoutSeconds: Int,
+      baseParameters: Map[String, String]): String = {
+    val baseParametersJson = baseParameters.toJson.compactPrint
+    s"""
+      |{
+      |  "run_name": "test1",
+      |  "existing_cluster_id": "$clusterId",
+      |  "timeout_seconds": $timeoutSeconds,
+      |  "notebook_task": {
+      |    "notebook_path": "$notebookPath",
+      |    "base_parameters": $baseParametersJson
+      |  }
+      |}
+     """.stripMargin
+  }
+
+  def submitRun(
+      clusterId: String,
+      notebookPath: String,
+      timeoutSeconds: Int = TimeoutInMillis / 1000,
+      baseParameters: Map[String, String] = Map.empty): Long = {
+    val body = createSubmitRunRequest(clusterId, notebookPath, timeoutSeconds, baseParameters)
     databricksPost("jobs/runs/submit", body).select[Long]("run_id")
   }
 
@@ -598,15 +609,18 @@ object DatabricksUtilities {
     }
   }
 
-  def runNotebook(clusterId: String, notebookFile: File,
-                  timeoutSeconds: Int = TimeoutInMillis / 1000): Unit = {
+  def runNotebook(
+      clusterId: String,
+      notebookFile: File,
+      timeoutSeconds: Int = TimeoutInMillis / 1000,
+      baseParameters: Map[String, String] = Map.empty): Unit = {
     val dirPaths = DocsDir.toURI.relativize(notebookFile.getParentFile.toURI).getPath
     val folderToCreate = Folder + "/" + dirPaths
     println(s"Creating folder $folderToCreate")
     workspaceMkDir(folderToCreate)
     val destination: String = folderToCreate + notebookFile.getName
     uploadNotebook(notebookFile, destination)
-    val runId: Long = submitRun(clusterId, destination, timeoutSeconds)
+    val runId: Long = submitRun(clusterId, destination, timeoutSeconds, baseParameters)
     val run: DatabricksNotebookRun = DatabricksNotebookRun(runId, notebookFile.getName, timeoutSeconds * 1000)
     println(s"Successfully submitted job run id ${run.runId} for notebook ${run.notebookName}")
     DatabricksState.JobIdsToCancel.append(run.runId)
@@ -672,7 +686,8 @@ abstract class DatabricksTestHelper extends TestBase {
                            notebooks: Seq[File],
                            maxConcurrency: Int,
                            retries: List[Int] = List(1000 * 15),
-                           timeoutMs: Int = TimeoutInMillis): Unit = {
+                           timeoutMs: Int = TimeoutInMillis,
+                           baseParameters: Map[String, String] = Map.empty): Unit = {
 
     println("Checking if cluster is active")
     // Pool-backed clusters start in ~1.5-3.5 min; allow up to 10 min
@@ -694,7 +709,7 @@ abstract class DatabricksTestHelper extends TestBase {
     val futures = notebooks.map { notebook =>
       Future {
         retry(retries, { () =>
-          runNotebook(clusterId, notebook, timeoutMs / 1000)
+          runNotebook(clusterId, notebook, timeoutMs / 1000, baseParameters)
         })
       }
     }

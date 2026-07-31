@@ -91,6 +91,7 @@ variables:
   isMaster: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
   isTag: $[startsWith(variables['Build.SourceBranch'], 'refs/tags/')]
   isPR: $[eq(variables['Build.Reason'], 'PullRequest')]
+  SYNAPSEML_GPU_SMOKE_TESTS: $[eq(variables['Build.Reason'], 'PullRequest')]
   # Run coverage only on PRs, master, or tag builds to speed up feature branch builds
   runCoverage: $[or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))]
 

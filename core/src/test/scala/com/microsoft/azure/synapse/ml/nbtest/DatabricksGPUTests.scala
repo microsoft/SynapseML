@@ -10,6 +10,7 @@ class DatabricksGPUTests extends DatabricksTestHelper {
 
   private val gpuTimeoutMs = 30 * 60 * 1000
   private val gpuCapacityWaitMs = 3L * 60 * 60 * 1000
+  private val gpuSmokeTests = sys.env.get("SYNAPSEML_GPU_SMOKE_TESTS").exists(_.equalsIgnoreCase("true"))
   // Use one worker per run so concurrent builds can share the GPU pool.
   val clusterId: String = createActiveCluster(
     attempt => {
@@ -28,7 +29,15 @@ class DatabricksGPUTests extends DatabricksTestHelper {
     maxRetryDurationMs = Some(gpuCapacityWaitMs)
   )
 
-  databricksTestHelper(clusterId, GPULibraries, GPUNotebooks, 1, List(), gpuTimeoutMs)
+  databricksTestHelper(
+    clusterId,
+    GPULibraries,
+    GPUNotebooks,
+    1,
+    retries = List(),
+    timeoutMs = gpuTimeoutMs,
+    baseParameters = Map("synapseml_ci_smoke" -> gpuSmokeTests.toString)
+  )
 
   protected override def afterAll(): Unit = {
     afterAllHelper(clusterId, GPUClusterName)
