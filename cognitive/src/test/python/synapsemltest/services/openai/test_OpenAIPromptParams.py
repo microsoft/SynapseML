@@ -71,7 +71,19 @@ class TestOpenAIPromptParams(unittest.TestCase):
                 postProcessingOptions={"delimiter": ";"},
             )
 
-    def test_constructor_rejects_conflicts_regardless_of_keyword_order(self):
+    def test_constructor_infers_modes_and_rejects_conflicts(self):
+        inference_cases = [
+            ({"delimiter": ";"}, "csv"),
+            ({"jsonSchema": "{}"}, "json"),
+            ({"regex": "(.*)", "regexGroup": "1"}, "regex"),
+        ]
+
+        for options, expected_mode in inference_cases:
+            with self.subTest(options=options):
+                prompt = OpenAIPrompt(postProcessingOptions=options)
+                self.assertEqual(prompt.getPostProcessing(), expected_mode)
+                self.assertEqual(prompt.getPostProcessingOptions(), options)
+
         cases = [
             {
                 "postProcessingOptions": {"delimiter": ";"},
