@@ -10,7 +10,11 @@ import java.util.concurrent.TimeoutException
 import scala.util.control.NonFatal
 
 private[nbtest] object DatabricksClusterStartup {
-  private val CloudProviderResourceStockout = "CLOUD_PROVIDER_RESOURCE_STOCKOUT"
+  private val RetriableTerminationCodes = Set(
+    "CLOUD_PROVIDER_RESOURCE_STOCKOUT",
+    "INSTANCE_GROUP_MAX_CAPACITY_REACHED",
+    "INSTANCE_POOL_MAX_CAPACITY_REACHED"
+  )
 
   final case class ClusterStatus(
       state: String,
@@ -22,7 +26,7 @@ private[nbtest] object DatabricksClusterStartup {
       val status: ClusterStatus)
     extends RuntimeException(clusterStartupFailureMessage(clusterId, status)) {
 
-    def isRetriable: Boolean = status.terminationCode.contains(CloudProviderResourceStockout)
+    def isRetriable: Boolean = status.terminationCode.exists(RetriableTerminationCodes.contains)
   }
 
   private def clusterStartupFailureMessage(clusterId: String, status: ClusterStatus): String = {
@@ -78,30 +82,56 @@ private[nbtest] object DatabricksClusterStartup {
       cleanupCluster: String => Unit,
       maxAttempts: Int = 3,
       retryDelayMs: Long = 30 * 1000L,
-      sleep: Long => Unit = millis => Thread.sleep(millis)): String = {
+      maxRetryDurationMs: Option[Long] = None,
+      sleep: Long => Unit = millis => Thread.sleep(millis),
+      currentTimeMillis: () => Long = () => System.currentTimeMillis()): String = {
     require(maxAttempts > 0, "maxAttempts must be positive")
+    require(maxRetryDurationMs.forall(_ > 0), "maxRetryDurationMs must be positive")
+    val retryDeadline = maxRetryDurationMs.map(currentTimeMillis() + _)
+
+    def canRetry(attempt: Int): Boolean = {
+      attempt < maxAttempts &&
+        retryDeadline.forall(currentTimeMillis() + retryDelayMs <= _)
+    }
+
     def attemptStartup(attempt: Int): String = {
       val clusterId = createCluster(attempt)
+      def retryStartup(failure: Throwable): String = {
+        cleanupFailedCluster(clusterId, cleanupCluster, failure)
+        if (!canRetry(attempt)) {
+          throw failure
+        }
+        val reason = retryReason(failure)
+        println(
+          s"Cluster $clusterId hit retriable startup condition $reason; retrying " +
+            s"after ${retryDelayMs / 1000} seconds")
+        sleep(retryDelayMs)
+        attemptStartup(attempt + 1)
+      }
+
       try {
         waitForActive(clusterId)
         clusterId
       } catch {
-        case failure: ClusterStartupException =>
-          cleanupFailedCluster(clusterId, cleanupCluster, failure)
-          if (!failure.isRetriable || attempt == maxAttempts) {
-            throw failure
-          }
-          println(
-            s"Cluster $clusterId hit a cloud resource stockout; retrying startup " +
-              s"after ${retryDelayMs / 1000} seconds")
-          sleep(retryDelayMs)
-          attemptStartup(attempt + 1)
+        case failure: ClusterStartupException if failure.isRetriable =>
+          retryStartup(failure)
+        case failure: TimeoutException =>
+          retryStartup(failure)
         case NonFatal(failure) =>
           cleanupFailedCluster(clusterId, cleanupCluster, failure)
           throw failure
       }
     }
     attemptStartup(1)
+  }
+
+  private def retryReason(failure: Throwable): String = {
+    failure match {
+      case clusterFailure: ClusterStartupException =>
+        clusterFailure.status.terminationCode.getOrElse("UNKNOWN")
+      case _: TimeoutException => "STARTUP_TIMEOUT"
+      case _ => "UNKNOWN"
+    }
   }
 
   private def cleanupFailedCluster(
@@ -117,9 +147,5 @@ private[nbtest] object DatabricksClusterStartup {
           s"Failed to clean up cluster $clusterId after startup failure: " +
             cleanupFailure.getMessage)
     }
-  }
-
-  def gpuWorkerCount(attempt: Int): Int = {
-    if (attempt == 1) 2 else 1
   }
 }

@@ -36,6 +36,10 @@ object DatabricksUtilities {
   val Region = "eastus"
   val PoolName = "synapseml-build-14.3"
   val GpuPoolName = "synapseml-build-14.3-gpu"
+  private[nbtest] val GpuPoolNodeType = "Standard_NC16as_T4_v3"
+  private[nbtest] val GpuWorkersPerRun = 1
+  private[nbtest] val GpuConcurrentRuns = 3
+  private[nbtest] val GpuPoolMinimumCapacity = GpuWorkersPerRun * GpuConcurrentRuns
   val AdbRuntime = "14.3.x-scala2.12"
   // https://docs.databricks.com/en/release-notes/runtime/14.3lts-ml.html
   val AdbGpuRuntime = "14.3.x-gpu-ml-scala2.12"
@@ -168,7 +172,8 @@ object DatabricksUtilities {
   }
 
   lazy val PoolId: String = getPoolIdByName(PoolName)
-  lazy val GpuPoolId: String = getPoolIdByName(GpuPoolName)
+  lazy val GpuPoolId: String =
+    getPoolIdByNameAndNodeType(GpuPoolName, GpuPoolNodeType, GpuPoolMinimumCapacity)
   lazy val ClusterName = s"mmlspark-build-${LocalDateTime.now()}"
   lazy val GPUClusterName = s"mmlspark-build-gpu-${LocalDateTime.now()}"
   lazy val RapidsClusterName = s"mmlspark-build-rapids-${LocalDateTime.now()}"
@@ -303,9 +308,61 @@ object DatabricksUtilities {
 
   def getPoolIdByName(name: String): String = {
     val jsonObj = databricksGet("instance-pools/list", apiVersion = "2.0")
-    val cluster = jsonObj.select[Array[JsValue]]("instance_pools")
-      .filter(_.select[String]("instance_pool_name") == name).head
-    cluster.select[String]("instance_pool_id")
+    selectPoolId(jsonObj, name, None)
+  }
+
+  private def getPoolIdByNameAndNodeType(
+      name: String,
+      nodeType: String,
+      minimumCapacity: Int): String = {
+    val jsonObj = databricksGet("instance-pools/list", apiVersion = "2.0")
+    selectPoolId(jsonObj, name, Some(nodeType), Some(minimumCapacity))
+  }
+
+  private[nbtest] def selectPoolId(
+      jsonObj: JsValue,
+      name: String,
+      expectedNodeType: Option[String],
+      expectedMinimumCapacity: Option[Int] = None): String = {
+    val namedPools = jsonObj.select[Array[JsValue]]("instance_pools")
+      .filter(_.select[String]("instance_pool_name") == name)
+    if (namedPools.isEmpty) {
+      throw new IllegalArgumentException(s"Databricks instance pool '$name' was not found")
+    }
+
+    val nodeTypePools = expectedNodeType match {
+      case Some(expected) =>
+        val matchingPools = namedPools.filter(_.select[String]("node_type_id") == expected)
+        if (matchingPools.isEmpty) {
+          val actualNodeTypes = namedPools
+            .map(_.select[String]("node_type_id"))
+            .distinct
+            .sorted
+            .map(nodeType => s"'$nodeType'")
+            .mkString(", ")
+          throw new IllegalArgumentException(
+            s"Databricks instance pool '$name' uses node type(s) $actualNodeTypes; expected '$expected'")
+        }
+        matchingPools
+      case None => namedPools
+    }
+    val capacityPools = expectedMinimumCapacity match {
+      case Some(expected) =>
+        val matchingPools = nodeTypePools.filter(_.select[Int]("max_capacity") >= expected)
+        if (matchingPools.isEmpty) {
+          val actualCapacities = nodeTypePools
+            .map(_.select[Int]("max_capacity"))
+            .distinct
+            .sorted
+            .mkString(", ")
+          throw new IllegalArgumentException(
+            s"Databricks instance pool '$name' has maximum capacity value(s) $actualCapacities; " +
+              s"expected at least $expected")
+        }
+        matchingPools
+      case None => nodeTypePools
+    }
+    capacityPools.head.select[String]("instance_pool_id")
   }
 
   def workspaceMkDir(dir: String): Unit = {
@@ -450,20 +507,31 @@ object DatabricksUtilities {
     DatabricksClusterStartup.parseClusterStatus(databricksGet(s"clusters/get?cluster_id=$clusterId"))
   }
 
-  def submitRun(clusterId: String, notebookPath: String,
-                timeoutSeconds: Int = TimeoutInMillis / 1000): Long = {
-    val body =
-      s"""
-         |{
-         |  "run_name": "test1",
-         |  "existing_cluster_id": "$clusterId",
-         |  "timeout_seconds": $timeoutSeconds,
-         |  "notebook_task": {
-         |    "notebook_path": "$notebookPath",
-         |    "base_parameters": []
-         |  }
-         |}
-      """.stripMargin
+  private[nbtest] def createSubmitRunRequest(
+      clusterId: String,
+      notebookPath: String,
+      timeoutSeconds: Int,
+      baseParameters: Map[String, String]): String = {
+    val baseParametersJson = baseParameters.toJson.compactPrint
+    s"""
+      |{
+      |  "run_name": "test1",
+      |  "existing_cluster_id": "$clusterId",
+      |  "timeout_seconds": $timeoutSeconds,
+      |  "notebook_task": {
+      |    "notebook_path": "$notebookPath",
+      |    "base_parameters": $baseParametersJson
+      |  }
+      |}
+     """.stripMargin
+  }
+
+  def submitRun(
+      clusterId: String,
+      notebookPath: String,
+      timeoutSeconds: Int = TimeoutInMillis / 1000,
+      baseParameters: Map[String, String] = Map.empty): Long = {
+    val body = createSubmitRunRequest(clusterId, notebookPath, timeoutSeconds, baseParameters)
     databricksPost("jobs/runs/submit", body).select[Long]("run_id")
   }
 
@@ -544,15 +612,18 @@ object DatabricksUtilities {
     }
   }
 
-  def runNotebook(clusterId: String, notebookFile: File,
-                  timeoutSeconds: Int = TimeoutInMillis / 1000): Unit = {
+  def runNotebook(
+      clusterId: String,
+      notebookFile: File,
+      timeoutSeconds: Int = TimeoutInMillis / 1000,
+      baseParameters: Map[String, String] = Map.empty): Unit = {
     val dirPaths = DocsDir.toURI.relativize(notebookFile.getParentFile.toURI).getPath
     val folderToCreate = Folder + "/" + dirPaths
     println(s"Creating folder $folderToCreate")
     workspaceMkDir(folderToCreate)
     val destination: String = folderToCreate + notebookFile.getName
     uploadNotebook(notebookFile, destination)
-    val runId: Long = submitRun(clusterId, destination, timeoutSeconds)
+    val runId: Long = submitRun(clusterId, destination, timeoutSeconds, baseParameters)
     val run: DatabricksNotebookRun = DatabricksNotebookRun(runId, notebookFile.getName, timeoutSeconds * 1000)
     println(s"Successfully submitted job run id ${run.runId} for notebook ${run.notebookName}")
     DatabricksState.JobIdsToCancel.append(run.runId)
@@ -618,7 +689,8 @@ abstract class DatabricksTestHelper extends TestBase {
                            notebooks: Seq[File],
                            maxConcurrency: Int,
                            retries: List[Int] = List(1000 * 15),
-                           timeoutMs: Int = TimeoutInMillis): Unit = {
+                           timeoutMs: Int = TimeoutInMillis,
+                           baseParameters: Map[String, String] = Map.empty): Unit = {
 
     println("Checking if cluster is active")
     // Pool-backed clusters start in ~1.5-3.5 min; allow up to 10 min
@@ -640,7 +712,7 @@ abstract class DatabricksTestHelper extends TestBase {
     val futures = notebooks.map { notebook =>
       Future {
         retry(retries, { () =>
-          runNotebook(clusterId, notebook, timeoutMs / 1000)
+          runNotebook(clusterId, notebook, timeoutMs / 1000, baseParameters)
         })
       }
     }
