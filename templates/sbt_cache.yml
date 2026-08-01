@@ -7,12 +7,14 @@
 #
 # These caches make steady-state builds restore the sbt launcher and resolved
 # dependencies from Azure's cache service instead of Maven Central, so jobs do
-# not cold-bootstrap at all. The BuildAndCacheSbt prewarm job populates them.
+# not cold-bootstrap at all. Every sbt-running job waits for BuildAndCacheSbt,
+# which populates a missing cache key before the fan-out begins.
 #
 # Cache keys are derived from the bootstrap inputs so they invalidate exactly
 # when those inputs change:
 #   * project/build.properties pins sbt.version -> launcher boot key
-#   * project/plugins.sbt + build.sbt pin plugins/deps -> Ivy resolution key
+#   * project/plugins.sbt + build.sbt + project Scala sources pin plugins/deps
+#     -> Ivy and Coursier resolution keys
 # restoreKeys provide a safe partial fallback: sbt validates a restored cache
 # and re-fetches only what is missing. continueOnError keeps a cache-service
 # hiccup or a corrupt entry non-fatal - the job falls back to a normal
@@ -21,19 +23,40 @@ steps:
   - task: Cache@2
     displayName: Cache sbt launcher boot
     inputs:
-      key: 'sbtboot | "$(Agent.OS)" | project/build.properties'
+      key: 'sbtboot-v1 | "$(Agent.OS)" | project/build.properties'
       restoreKeys: |
-        sbtboot | "$(Agent.OS)"
-        sbtboot
+        sbtboot-v1 | "$(Agent.OS)"
+        sbtboot-v1
       path: $(Pipeline.Workspace)/../../.sbt/boot
+      cacheHitVar: SBT_BOOT_CACHE_RESTORED
     continueOnError: true
   - task: Cache@2
     displayName: Cache sbt ivy dependencies
     inputs:
-      key: 'sbtivy | "$(Agent.OS)" | project/build.properties | project/plugins.sbt | **/build.sbt'
+      key: 'sbtivy-v1 | "$(Agent.OS)" | project/build.properties | project/plugins.sbt | **/build.sbt | project/**/*.scala'
       restoreKeys: |
-        sbtivy | "$(Agent.OS)" | project/build.properties | project/plugins.sbt
-        sbtivy | "$(Agent.OS)"
-        sbtivy
+        sbtivy-v1 | "$(Agent.OS)"
+        sbtivy-v1
       path: $(Pipeline.Workspace)/../../.ivy2/cache
+      cacheHitVar: SBT_IVY_CACHE_RESTORED
     continueOnError: true
+  - task: Cache@2
+    displayName: Cache Coursier dependencies
+    inputs:
+      key: 'sbtcoursier-v1 | "$(Agent.OS)" | project/build.properties | project/plugins.sbt | **/build.sbt | project/**/*.scala'
+      restoreKeys: |
+        sbtcoursier-v1 | "$(Agent.OS)"
+        sbtcoursier-v1
+      path: $(Pipeline.Workspace)/../../.cache/coursier
+      cacheHitVar: SBT_COURSIER_CACHE_RESTORED
+    continueOnError: true
+  - bash: |
+      if [ "$(SBT_BOOT_CACHE_RESTORED)" = "true" ] &&
+         [ "$(SBT_IVY_CACHE_RESTORED)" = "true" ] &&
+         [ "$(SBT_COURSIER_CACHE_RESTORED)" = "true" ]; then
+        echo "All exact sbt caches restored; disabling the cold-cache start stagger"
+        echo "##vso[task.setvariable variable=SBT_SETUP_MAX_STAGGER_SECONDS]0"
+      else
+        echo "One or more sbt caches were not exact hits; retaining the cold-cache start stagger"
+      fi
+    displayName: Configure sbt cold-cache fallback
