@@ -176,17 +176,16 @@ jobs:
     vmImage: $(UBUNTU_VERSION)
   steps:
     - template: templates/sbt_cache.yml
-    - task: AzureCLI@2
+    - bash: sbt scalastyle test:scalastyle
       displayName: 'Scala Style Check'
+    - task: UsePythonVersion@0
       inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: 'sbt scalastyle test:scalastyle'
-    - template: templates/conda.yml
+        versionSpec: '3.11'
+        architecture: 'x64'
+        disableDownloadFromRegistry: true
     - bash: |
         set -e
-        source activate synapseml
+        python -m pip install -q 'black[jupyter]==22.3.0'
         black --diff --color . && black --check -q .
       displayName: 'Python Style Check'
 - ${{ if eq(parameters.publishArtifacts, true) }}:
@@ -342,16 +341,11 @@ jobs:
     vmImage: ubuntu-22.04
   steps:
     - template: templates/sbt_cache.yml
-    - task: AzureCLI@2
+    - bash: |
+        VERSION=$(sbt "core/version" | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
+        echo '##vso[task.setvariable variable=version]'$VERSION
+        echo '##vso[task.setvariable variable=gittag]'$(git tag -l --points-at HEAD)
       displayName: 'Get Docker Tag + Version'
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: |
-          VERSION=$(sbt "core/version" | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
-          echo '##vso[task.setvariable variable=version]'$VERSION
-          echo '##vso[task.setvariable variable=gittag]'$(git tag -l --points-at HEAD)
     # Build all images (runs on every build to validate Dockerfiles)
     - task: Docker@2
       displayName: Demo Image Build
@@ -544,18 +538,13 @@ jobs:
     - template: templates/update_cli.yml
     - template: templates/conda.yml
     - template: templates/kv.yml
-    - task: AzureCLI@2
+    - bash: |
+        source activate synapseml
+        if [ "$(runCoverage)" = "True" ]; then COV_CMD="coverage"; else COV_CMD=""; fi
+        sbt $COV_CMD getDatasets installPipPackage
+        sbt publishM2
       displayName: 'Install and package deps'
       timeoutInMinutes: 40
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: |
-          source activate synapseml
-          if [ "$(runCoverage)" = "True" ]; then COV_CMD="coverage"; else COV_CMD=""; fi
-          sbt $COV_CMD getDatasets installPipPackage
-          sbt publishM2
     - task: AzureCLI@2
       displayName: 'Test Python Code'
       retryCountOnTaskFailure: 1
@@ -591,14 +580,9 @@ jobs:
         testResultsFiles: '**/python-test-*.xml'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
-    - task: AzureCLI@2
+    - bash: sbt coverageReport
       displayName: 'Generate Codecov report'
       retryCountOnTaskFailure: 1
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: 'sbt coverageReport'
       condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
     - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
       - template: templates/codecov.yml
@@ -628,25 +612,20 @@ jobs:
     - template: templates/update_cli.yml
     - template: templates/conda.yml
     - template: templates/kv.yml
-    - task: AzureCLI@2
+    - bash: |
+        set -e
+        export SBT_OPTS="-Xms2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss5M  -Duser.timezone=GMT"
+        source activate synapseml
+        bash tools/ci/sbt_retry.sh setup
+        sbt codegen
+        sbt publishM2
+        SPARK_VERSION=3.5.0
+        HADOOP_VERSION=3
+        # wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
+        wget https://mmlspark.blob.core.windows.net/installers/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
       displayName: 'Prepare for tests'
       retryCountOnTaskFailure: 1
       timeoutInMinutes: 60
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: |
-          set -e
-          export SBT_OPTS="-Xms2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss5M  -Duser.timezone=GMT"
-          source activate synapseml
-          bash tools/ci/sbt_retry.sh setup
-          sbt codegen
-          sbt publishM2
-          SPARK_VERSION=3.5.0
-          HADOOP_VERSION=3
-          # wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
-          wget https://mmlspark.blob.core.windows.net/installers/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
     - task: AzureCLI@2
       displayName: 'Test R Code'
       retryCountOnTaskFailure: 3
@@ -666,25 +645,12 @@ jobs:
         testResultsFiles: '**/r-test-*.xml'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
-    - task: AzureCLI@2
+    - bash: sbt coverageReport
       retryCountOnTaskFailure: 1
       displayName: 'Generate Codecov report'
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: 'sbt coverageReport'
       condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
     - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
       - template: templates/codecov.yml
-
-- job: BuildAndCacheCondaEnv
-  cancelTimeoutInMinutes: 0
-  condition: eq(variables.runTests, 'True')
-  pool:
-    vmImage: $(UBUNTU_VERSION)
-  steps:
-    - template: templates/conda.yml
 
 - job: WebsiteSamplesTests
   dependsOn: BuildAndCacheSbt
@@ -715,14 +681,9 @@ jobs:
         testResultsFiles: '**/website-test-result.xml'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
-    - task: AzureCLI@2
+    - bash: sbt coverageReport
       displayName: 'Generate Codecov report'
       retryCountOnTaskFailure: 1
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: 'sbt coverageReport'
       condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
     - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
       - template: templates/codecov.yml
@@ -851,19 +812,14 @@ jobs:
   steps:
     - template: templates/sbt_cache.yml
     - template: templates/update_cli.yml
-    - task: AzureCLI@2
+    - bash: |
+        (timeout 30s pip install requests) || (echo "retrying" && timeout 30s pip install requests)
+        (${FFMPEG:-false} && sudo apt-get update && \
+        sudo apt-get install ffmpeg libgstreamer1.0-0 \
+        gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly -y)
+        bash tools/ci/sbt_retry.sh setup
       displayName: 'Setup repo'
       retryCountOnTaskFailure: 1
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: |
-          (timeout 30s pip install requests) || (echo "retrying" && timeout 30s pip install requests)
-          (${FFMPEG:-false} && sudo apt-get update && \
-          sudo apt-get install ffmpeg libgstreamer1.0-0 \
-          gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly -y)
-          bash tools/ci/sbt_retry.sh setup
     - task: AzureCLI@2
       displayName: 'Unit Test'
       retryCountOnTaskFailure: 1
@@ -886,14 +842,9 @@ jobs:
         testResultsFiles: '**/test-reports/TEST-*.xml'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
-    - task: AzureCLI@2
+    - bash: sbt coverageReport
       displayName: 'Generate Codecov report'
       retryCountOnTaskFailure: 1
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: 'sbt coverageReport'
       condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
     - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
       - task: AzureKeyVault@2
