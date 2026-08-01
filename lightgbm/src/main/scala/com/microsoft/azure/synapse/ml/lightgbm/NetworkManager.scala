@@ -44,6 +44,10 @@ case class NetworkTopologyInfo(lightgbmNetworkString: String,
 
   private def currentPortReservation: Option[Socket] = Option(portReservation).flatten
 
+  private[lightgbm] def hasPortReservation: Boolean = synchronized {
+    currentPortReservation.nonEmpty
+  }
+
   private[lightgbm] def retainPortReservation(reservation: Socket): NetworkTopologyInfo = synchronized {
     require(!reservation.isClosed, "Cannot retain a closed port reservation")
     require(reservation.isBound, "Cannot retain an unbound port reservation")
@@ -314,10 +318,29 @@ object NetworkManager {
                                                      networkInit: () => Unit,
                                                      reservePort: Int => Socket,
                                                      sleep: Long => Unit): Unit = {
+    initLightGBMNetworkWithRetry(
+      networkTopologyInfo,
+      log,
+      retry,
+      delay,
+      networkInit,
+      reservePort,
+      sleep,
+      None)
+  }
+
+  private def initLightGBMNetworkWithRetry(networkTopologyInfo: NetworkTopologyInfo,
+                                           log: Logger,
+                                           retry: Int,
+                                           delay: Long,
+                                           networkInit: () => Unit,
+                                           reservePort: Int => Socket,
+                                           sleep: Long => Unit,
+                                           previousNativeFailure: Option[Exception]): Unit = {
     val localListenPort = networkTopologyInfo.localListenPort
     log.info(s"Calling NetworkInit on local port $localListenPort " +
       s"with value ${networkTopologyInfo.lightgbmNetworkString}")
-    networkTopologyInfo.releasePortReservation()
+    releasePortReservationForNetworkInit(networkTopologyInfo, previousNativeFailure, log)
     val nativeFailure = try {
       networkInit()
       None
@@ -358,7 +381,28 @@ object NetworkManager {
           delay * 2,
           networkInit,
           reservePort,
-          sleep)
+          sleep,
+          Option(failure))
+    }
+  }
+
+  private def releasePortReservationForNetworkInit(networkTopologyInfo: NetworkTopologyInfo,
+                                                    previousNativeFailure: Option[Exception],
+                                                    log: Logger): Unit = {
+    try {
+      networkTopologyInfo.releasePortReservation()
+    } catch {
+      case releaseFailure: IOException =>
+        previousNativeFailure match {
+          case Some(nativeFailure) =>
+            addSuppressed(nativeFailure, releaseFailure)
+            if (networkTopologyInfo.hasPortReservation) {
+              throw nativeFailure
+            }
+            log.warn("Port reservation close reported a failure but ultimately closed; " +
+              "continuing the native network-init retry", releaseFailure)
+          case None => throw releaseFailure
+        }
     }
   }
 

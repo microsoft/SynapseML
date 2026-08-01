@@ -273,6 +273,46 @@ class NetworkManagerSuite extends AnyFunSuite {
     }
   }
 
+  test("Native-init retry continues when its backoff reservation closes after an initial failure") {
+    val initialReservation = bindEphemeralSocket()
+    val port = initialReservation.getLocalPort
+    val topology = NetworkTopologyInfo(s"localhost:$port", Array(0), port)
+      .retainPortReservation(initialReservation)
+    val nativeFailure = new Exception("first native init failed")
+    val handoffFailure = new IOException("first handoff close failed")
+    var initCalls = 0
+    var retryReservation: Option[FailingCloseSocket] = None
+
+    try {
+      NetworkManager.initLightGBMNetworkWithRetry(
+        topology,
+        log,
+        retry = 1,
+        delay = 1L,
+        networkInit = () => {
+          initCalls += 1
+          if (initCalls == 1) throw nativeFailure
+        },
+        reservePort = retryPort => {
+          val reservation = new FailingCloseSocket(Seq(handoffFailure))
+          reservation.bind(new InetSocketAddress(retryPort))
+          retryReservation = Option(reservation)
+          reservation
+        },
+        sleep = _ => ())
+
+      assert(initCalls == 2)
+      assert(nativeFailure.getSuppressed.toSeq == Seq(handoffFailure))
+      assert(retryReservation.exists(_.closeAttempts == 2))
+      assert(retryReservation.exists(_.isClosed))
+      assertPortAvailable(port)
+    } finally {
+      topology.releasePortReservation()
+      retryReservation.foreach(reservation => if (!reservation.isClosed) reservation.close())
+      if (!initialReservation.isClosed) initialReservation.close()
+    }
+  }
+
   test("Native-init retry preserves its failure when a competitor takes the advertised port") {
     val initialReservation = bindEphemeralSocket()
     val port = initialReservation.getLocalPort
