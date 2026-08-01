@@ -88,7 +88,7 @@ class LumpFeaturesSuite extends EstimatorFuzzing[LumpFeatures] with LumpFeatures
   test("empty learned levels via manually constructed model maps all non-null to otherValue") {
     val model = new LumpFeaturesModel()
       .setLumpRules(Map("f1" -> 2))
-      .setKeptValuesJson(Map("f1" -> "[]"))
+      .setKeptValuesJson(Map("f1" -> "{\"topK\":2,\"values\":[]}"))
       .setHandleNull("keep")
     assert(dump(model.transform(df), Seq("f1")) == List(other, other, other, other, other))
   }
@@ -137,11 +137,11 @@ class LumpFeaturesSuite extends EstimatorFuzzing[LumpFeatures] with LumpFeatures
   test("model validates state and rule consistency") {
     val mismatch = new LumpFeaturesModel()
       .setLumpRules(Map("f1" -> 1))
-      .setKeptValuesJson(Map("f2" -> "[\"red\"]"))
+      .setKeptValuesJson(Map("f2" -> "{\"topK\":1,\"values\":[\"red\"]}"))
     intercept[IllegalArgumentException] { mismatch.transform(df).collect() }
     val tooMany = new LumpFeaturesModel()
       .setLumpRules(Map("f1" -> 1))
-      .setKeptValuesJson(Map("f1" -> "[\"apple\",\"banana\"]"))
+      .setKeptValuesJson(Map("f1" -> "{\"topK\":1,\"values\":[\"apple\",\"banana\"]}"))
     intercept[IllegalArgumentException] { tooMany.transform(df).collect() }
   }
 
@@ -245,6 +245,66 @@ class LumpFeaturesSuite extends EstimatorFuzzing[LumpFeatures] with LumpFeatures
     }
     assert(ex.getMessage.toLowerCase.contains("othervalue"))
   }
+
+  test("fitted model rejects increasing or decreasing K even when distinct values are fewer than K") {
+    val twoDistinct = Seq(("apple", "x"), ("apple", "x"), ("banana", "x")).toDF("f1", "f2")
+    val model = new LumpFeatures().setLumpRules(Map("f1" -> 3)).fit(twoDistinct)
+    assert(model.getKeptValues("f1") == Seq("apple", "banana"))
+    intercept[IllegalArgumentException] { model.setLumpRules(Map("f1" -> 5)) }
+    intercept[IllegalArgumentException] { model.setLumpRules(Map("f1" -> 2)) }
+    assert(model.getLumpRules == Map("f1" -> 3))
+    assert(model.getKeptValues("f1") == Seq("apple", "banana"))
+  }
+
+  test("setting the exact fitted lumpRules map on a fitted model is an allowed no-op") {
+    val model = new LumpFeatures().setLumpRules(Map("f1" -> 1, "f2" -> 1)).fit(df)
+    val before = dump(model.transform(df), Seq("f1", "f2"))
+    val returned = model.setLumpRules(Map("f1" -> 1, "f2" -> 1))
+    assert(returned.getLumpRules == Map("f1" -> 1, "f2" -> 1))
+    assert(dump(model.transform(df), Seq("f1", "f2")) == before)
+  }
+
+  test("loaded model and its copy retain immutable fitted rules and reject incompatible changes") {
+    val model = new LumpFeatures().setLumpRules(Map("f1" -> 1, "f2" -> 1)).fit(df)
+    val path = new File(tmpDir.toFile, "lump-immutable").toString
+    model.write.overwrite().save(path)
+    val loaded = LumpFeaturesModel.load(path)
+    assert(loaded.getLumpRules == Map("f1" -> 1, "f2" -> 1))
+    assert(loaded.getKeptValues == model.getKeptValues)
+    assertDFEq(loaded.transform(df), model.transform(df))
+    intercept[IllegalArgumentException] { loaded.setLumpRules(Map("f1" -> 2, "f2" -> 1)) }
+    val copied = loaded.copy(new ParamMap())
+    assert(copied.getKeptValues == model.getKeptValues)
+    assert(copied.getLumpRules == Map("f1" -> 1, "f2" -> 1))
+    intercept[IllegalArgumentException] { copied.setLumpRules(Map("f1" -> 3, "f2" -> 1)) }
+  }
+
+  test("copy with an incompatible lumpRules ParamMap override is rejected") {
+    val model = new LumpFeatures().setLumpRules(Map("f1" -> 1)).fit(df)
+    val incompatible = new ParamMap().put(model.lumpRules, Map("f1" -> 5))
+    intercept[IllegalArgumentException] { model.copy(incompatible) }
+    val same = new ParamMap().put(model.lumpRules, Map("f1" -> 1))
+    val copied = model.copy(same)
+    assert(copied.getLumpRules == Map("f1" -> 1))
+    assert(copied.getKeptValues == model.getKeptValues)
+  }
+
+  test("model-state validation rejects lumpRules mutated through the generic Param path") {
+    val model = new LumpFeatures().setLumpRules(Map("f1" -> 1)).fit(df)
+    model.set(model.lumpRules, Map("f1" -> 5))
+    val ex = intercept[IllegalArgumentException] { model.transform(df).collect() }
+    assert(ex.getMessage.toLowerCase.contains("lumprules") || ex.getMessage.toLowerCase.contains("top-k"))
+  }
+
+  test("fitted model setLumpRules overloads (Scala Map, Java HashMap, JSON string) all reject changes") {
+    def fitted(): LumpFeaturesModel = new LumpFeatures().setLumpRules(Map("f1" -> 1)).fit(df)
+    intercept[IllegalArgumentException] { fitted().setLumpRules(Map("f1" -> 2)) }
+    val jmap = new java.util.HashMap[String, Int]()
+    jmap.put("f1", 2)
+    intercept[IllegalArgumentException] { fitted().setLumpRules(jmap) }
+    intercept[IllegalArgumentException] { fitted().setLumpRules("{\"f1\":2}") }
+  }
+
   override def testObjects(): Seq[TestObject[LumpFeatures]] = Seq(
     new TestObject(new LumpFeatures().setLumpRules(Map("f1" -> 1, "f2" -> 1)), df))
 
@@ -264,7 +324,7 @@ class LumpFeaturesModelSuite extends TransformerFuzzing[LumpFeaturesModel] with 
 
   private def persistedModel: LumpFeaturesModel = new LumpFeaturesModel()
     .setLumpRules(Map("f1" -> 1, "f2" -> 1))
-    .setKeptValuesJson(Map("f1" -> "[\"apple\"]", "f2" -> "[\"red\"]"))
+    .setKeptValuesJson(Map("f1" -> "{\"topK\":1,\"values\":[\"apple\"]}", "f2" -> "{\"topK\":1,\"values\":[\"red\"]}"))
     .setOtherValue(other)
     .setHandleNull("keep")
 
