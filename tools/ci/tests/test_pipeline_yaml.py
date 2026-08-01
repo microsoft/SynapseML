@@ -15,6 +15,7 @@ SBT_CACHE_TPL = REPO_ROOT / "templates" / "sbt_cache.yml"
 SBT_RETRY = REPO_ROOT / "tools" / "ci" / "sbt_retry.sh"
 DATABRICKS_IMPACT = REPO_ROOT / "tools" / "ci" / "databricks_impact.py"
 DATABRICKS_STEPS_TPL = REPO_ROOT / "templates" / "databricks_e2e_steps.yml"
+CLEAN_ACR_PIPELINE = REPO_ROOT / ".pipelines" / "clean-acr.yml"
 
 
 def _pipeline_text():
@@ -34,6 +35,7 @@ def _jobs(node):
 
 def test_pipeline_and_templates_parse():
     assert yaml.safe_load(PIPELINE.read_text()) is not None
+    assert yaml.safe_load(CLEAN_ACR_PIPELINE.read_text()) is not None
     for tpl in (REPO_ROOT / "templates").glob("*.yml"):
         assert yaml.safe_load(tpl.read_text()) is not None, f"{tpl} failed to parse"
 
@@ -217,6 +219,22 @@ def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
     ]
     assert len(result_steps) == 1
     assert "releaseCompatRequired" in result_steps[0]["condition"]
+
+
+def test_acr_cleanup_is_schedule_only_and_uses_dedicated_identity():
+    data = yaml.safe_load(CLEAN_ACR_PIPELINE.read_text())
+    assert data["trigger"] == "none"
+    assert data["pr"] == "none"
+    assert data["variables"]["azureServiceConnection"] == "synapseml-clean-acr"
+
+    cleanup = next(
+        step for step in data["steps"] if step.get("displayName") == "Clean ACR"
+    )
+    assert cleanup["inputs"]["azureSubscription"] == "$(azureServiceConnection)"
+    script = cleanup["inputs"]["inlineScript"]
+    assert "pip install" not in script
+    assert "clean-acr-connection-string" not in script
+    assert "python tools/acr/clean_acr.py" in script
 
 
 def test_every_sbt_running_job_waits_for_the_prewarm_cache():
