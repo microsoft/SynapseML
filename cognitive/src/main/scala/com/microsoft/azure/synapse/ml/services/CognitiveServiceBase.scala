@@ -308,6 +308,37 @@ object URLEncodingUtils {
   }
 }
 
+private[ml] object ServiceAuthHeaders {
+  def build(subscriptionKey: Option[String],
+            subscriptionKeyHeaderName: String,
+            aadHeaderName: String,
+            aadToken: Option[String],
+            customAuthHeader: Option[String],
+            customHeaders: Option[Map[String, String]],
+            telemHeaders: Option[Map[String, String]],
+            contentType: Option[String]): Map[String, String] = {
+    val headers = mutable.Map.empty[String, String]
+
+    val authHeader = subscriptionKey
+      .map(value => subscriptionKeyHeaderName -> value)
+      .orElse(aadToken.map(value => aadHeaderName -> ("Bearer " + value)))
+      .orElse(customAuthHeader.map(value => aadHeaderName -> value))
+    authHeader.foreach { case (headerName, headerValue) =>
+      headers += (headerName -> headerValue)
+    }
+
+    customHeaders.foreach(_.foreach { case (headerName, headerValue) =>
+      headers += (headerName -> headerValue)
+    })
+    telemHeaders.foreach(_.foreach { case (headerName, headerValue) =>
+      headers += (headerName -> headerValue)
+    })
+    contentType.filterNot(StringUtils.isEmpty).foreach(value => headers += ("Content-Type" -> value))
+
+    new scala.collection.immutable.TreeMap[String, String]() ++ headers
+  }
+}
+
 trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAADToken with HasCustomAuthHeader
   with HasCustomHeaders with HasTelemHeaders with SynapseMLLogging {
 
@@ -384,46 +415,15 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
 
   // Returns a list of key-value pairs representing the headers
   protected def getHeaders(row: Row, addContentType: Boolean = true): Map[String, String] = {
-    val headers = mutable.Map.empty[String, String]
-    val subscriptionKeyOpt = getValueOpt(row, subscriptionKey)
-    val aadTokenOpt = getValueOpt(row, AADToken)
-    val contentTypeValue = contentType(row)
-    val customAuthHeaderOpt = getCustomAuthHeader(row)
-    val customHeadersOpt = getCustomHeaders(row)
-    val telemHeadersOpt =  getValueOpt(row, telemHeaders)
-
-    if (subscriptionKeyOpt.nonEmpty) {
-      headers += (subscriptionKeyHeaderName -> getValue(row, subscriptionKey))
-    } else if (aadTokenOpt.nonEmpty) {
-      aadTokenOpt.foreach { s =>
-        headers += (aadHeaderName -> ("Bearer " + s))
-      }
-    } else if (customAuthHeaderOpt.nonEmpty) {
-      customAuthHeaderOpt.foreach { s =>
-        headers += (aadHeaderName -> s)
-      }
-    }
-
-    if (customHeadersOpt.nonEmpty) {
-      customHeadersOpt.foreach { m =>
-        m.foreach { case (headerName, headerValue) =>
-          headers += (headerName -> headerValue)
-        }
-      }
-    }
-
-    if (telemHeadersOpt.nonEmpty) {
-      telemHeadersOpt.foreach { m =>
-        m.foreach { case (headerName, headerValue) =>
-          headers += (headerName -> headerValue)
-        }
-      }
-    }
-
-    if (addContentType && !StringUtils.isEmpty(contentTypeValue)) {
-      headers += ("Content-Type" -> contentTypeValue)
-    }
-    new scala.collection.immutable.TreeMap[String, String]() ++ headers
+    ServiceAuthHeaders.build(
+      getValueOpt(row, subscriptionKey),
+      subscriptionKeyHeaderName,
+      aadHeaderName,
+      getValueOpt(row, AADToken),
+      getCustomAuthHeader(row),
+      getCustomHeaders(row),
+      getValueOpt(row, telemHeaders),
+      if (addContentType) Option(contentType(row)) else None)
   }
 
   protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
