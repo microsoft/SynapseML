@@ -131,33 +131,38 @@ abstract class BasePartitionTask extends Serializable with Logging {
     // Start with initialization
     val taskCtx = initialize(ctx, inputRows)
 
-    if (taskCtx.isEmptyPartition) {
-      log.warn("LightGBM task encountered empty partition, for best performance ensure no partitions are empty")
-      Array { PartitionResult(None, taskCtx.measures) }.toIterator
-    } else {
-      // Perform any data preparation work
-      val dataIntermediateState = preparePartitionData(taskCtx, inputRows)
+    try {
+      if (taskCtx.isEmptyPartition) {
+        log.warn("LightGBM task encountered empty partition, for best performance ensure no partitions are empty")
+        Array { PartitionResult(None, taskCtx.measures) }.toIterator
+      } else {
+        // Perform any data preparation work
+        val dataIntermediateState = preparePartitionData(taskCtx, inputRows)
 
-      try {
-        if (taskCtx.shouldExecuteTraining) {
-          // If participating in training, initialize the network ring of communication
-          NetworkManager.initLightGBMNetwork(taskCtx, log)
+        try {
+          if (taskCtx.shouldExecuteTraining) {
+            // If participating in training, initialize the network ring of communication
+            NetworkManager.initLightGBMNetwork(taskCtx, log)
 
-          if (ctx.useSingleDatasetMode) {
-            log.info(s"Waiting for all data prep to be done, task ${taskCtx.taskId}, partition ${taskCtx.partitionId}")
-            ctx.sharedState().dataPreparationDoneSignal.await()
+            if (ctx.useSingleDatasetMode) {
+              log.info(s"Waiting for all data prep to be done, task ${taskCtx.taskId}, " +
+                s"partition ${taskCtx.partitionId}")
+              ctx.sharedState().dataPreparationDoneSignal.await()
+            }
+
+            // Create the final Dataset for training and execute training iterations
+            finalizeDatasetAndTrain(taskCtx, dataIntermediateState)
+          } else {
+            log.info(s"Helper task ${taskCtx.taskId}, partition ${taskCtx.partitionId} finished processing rows")
+            ctx.sharedState().dataPreparationDoneSignal.countDown()
+            Array { PartitionResult(None, taskCtx.measures) }.toIterator
           }
-
-          // Create the final Dataset for training and execute training iterations
-          finalizeDatasetAndTrain(taskCtx, dataIntermediateState)
-        } else {
-          log.info(s"Helper task ${taskCtx.taskId}, partition ${taskCtx.partitionId} finished processing rows")
-          ctx.sharedState().dataPreparationDoneSignal.countDown()
-          Array { PartitionResult(None, taskCtx.measures) }.toIterator
+        } finally {
+          cleanup(taskCtx)
         }
-      } finally {
-        cleanup(taskCtx)
       }
+    } finally {
+      taskCtx.networkTopologyInfo.releasePortReservation()
     }
   }
 
@@ -196,24 +201,30 @@ abstract class BasePartitionTask extends Serializable with Logging {
                                                           shouldExecuteTraining,
                                                           taskMeasures)
 
-    // Return booster only from main worker to reduce network communication overhead
-    val shouldReturnBooster = if (isEmptyPartition) false
-      else if (!shouldExecuteTraining) false
-      else networkInfo.localListenPort == NetworkManager.getMainWorkerPort(networkInfo.lightgbmNetworkString, log)
+    var initializationSucceeded = false
+    try {
+      // Return booster only from main worker to reduce network communication overhead
+      val shouldReturnBooster = if (isEmptyPartition) false
+        else if (!shouldExecuteTraining) false
+        else networkInfo.localListenPort == NetworkManager.getMainWorkerPort(networkInfo.lightgbmNetworkString, log)
 
-    val taskCtx = getTaskContext(ctx,
-                                 partitionId,
-                                 taskId,
-                                 taskMeasures,
-                                 networkInfo,
-                                 shouldExecuteTraining,
-                                 isEmptyPartition,
-                                 shouldReturnBooster)
+      val taskCtx = getTaskContext(ctx,
+                                   partitionId,
+                                   taskId,
+                                   taskMeasures,
+                                   networkInfo,
+                                   shouldExecuteTraining,
+                                   isEmptyPartition,
+                                   shouldReturnBooster)
 
-    if (ctx.trainingParams.generalParams.verbosity > 1)
-      log.info(s"Done initializing partition: $partitionId, taskId: $taskId, executor: $getExecutorId")
-    taskMeasures.markInitializationStop()
-    taskCtx
+      if (ctx.trainingParams.generalParams.verbosity > 1)
+        log.info(s"Done initializing partition: $partitionId, taskId: $taskId, executor: $getExecutorId")
+      taskMeasures.markInitializationStop()
+      initializationSucceeded = true
+      taskCtx
+    } finally {
+      if (!initializationSucceeded) networkInfo.releasePortReservation()
+    }
   }
 
   /**
