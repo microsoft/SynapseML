@@ -40,3 +40,23 @@ python -m pytest tools/ci/tests/ -v
 sleeps) to verify retry/backoff/stagger and visible-failure behaviour.
 `test_pipeline_yaml.py` verifies `pipeline.yaml` parses and that every
 sbt-running job is wired to the shared cache template + prewarm job.
+
+## `databricks_impact.py` — conservative PR E2E gating
+
+The `BuildAndCacheSbt` job compares a pull request with its target branch and
+uses `databricks_impact.py` to decide whether the six Databricks matrix jobs can
+be skipped. Scheduled, master, tag, and manual builds always run Databricks.
+
+The detector is intentionally fail-open. It skips Databricks only when every
+changed path is clearly unrelated to runtime artifacts and notebook execution:
+
+- GitHub metadata and workflows
+- CI helper code under `tools/ci/`
+- website files
+- Markdown/reStructuredText documentation
+- non-notebook files under `docs/`
+- module test source outside the Databricks notebook and shared test infrastructure
+
+Runtime source, `.ipynb` notebooks, build definitions, pipeline/templates,
+Databricks test utilities, unknown paths, an empty diff, or a failed target
+branch fetch all keep Databricks E2E enabled.

@@ -102,6 +102,45 @@ jobs:
   pool:
     vmImage: $(UBUNTU_VERSION)
   steps:
+    - checkout: self
+      fetchDepth: 1
+    - bash: |
+        set -uo pipefail
+        run_databricks=true
+
+        if [ "$(Build.Reason)" = "PullRequest" ]; then
+          target_ref="${SYSTEM_PULLREQUEST_TARGETBRANCH:-}"
+          if [ -z "$target_ref" ]; then
+            echo "##vso[task.logissue type=warning]PR target branch was unavailable; running Databricks E2E"
+          elif git fetch --no-tags --depth=1 origin "$target_ref"; then
+            target_commit="$(git rev-parse FETCH_HEAD)"
+
+            # Azure checks out the PR merge ref, so target tip -> HEAD is the
+            # effective PR diff. A source-only checkout can only over-report
+            # target changes, which safely keeps Databricks enabled.
+            echo "Changed paths used for Databricks E2E impact detection:"
+            git diff --name-only --diff-filter=ACMRD "$target_commit" HEAD | sed 's/^/  /'
+            decision="$(
+              git diff --name-only -z --diff-filter=ACMRD "$target_commit" HEAD |
+                python3 tools/ci/databricks_impact.py --null
+            )"
+            case "$decision" in
+              true|false) run_databricks="$decision" ;;
+              *)
+                echo "##vso[task.logissue type=warning]Invalid Databricks impact result; running E2E"
+                ;;
+            esac
+          else
+            echo "##vso[task.logissue type=warning]Could not fetch PR target branch; running Databricks E2E"
+          fi
+        else
+          echo "Non-PR build; Databricks E2E remains enabled"
+        fi
+
+        echo "Databricks E2E enabled: $run_databricks"
+        echo "##vso[task.setvariable variable=runDatabricksE2E;isOutput=true]$run_databricks"
+      name: detectDatabricksImpact
+      displayName: 'Detect Databricks E2E impact'
     - template: templates/update_cli.yml
     - template: templates/sbt_cache.yml
     - bash: |
@@ -190,7 +229,12 @@ jobs:
 - job: DatabricksE2E
   dependsOn: BuildAndCacheSbt
   displayName: 'Databricks E2E'
-  condition: and(succeeded(), eq('${{ parameters.testDatabricksE2E }}', true))
+  condition: >-
+    and(
+      succeeded(),
+      eq('${{ parameters.testDatabricksE2E }}', true),
+      eq(dependencies.BuildAndCacheSbt.outputs['detectDatabricksImpact.runDatabricksE2E'], 'true')
+    )
   timeoutInMinutes: 300
   cancelTimeoutInMinutes: 0
   pool:

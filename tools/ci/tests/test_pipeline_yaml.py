@@ -13,6 +13,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 PIPELINE = REPO_ROOT / "pipeline.yaml"
 SBT_CACHE_TPL = REPO_ROOT / "templates" / "sbt_cache.yml"
 SBT_RETRY = REPO_ROOT / "tools" / "ci" / "sbt_retry.sh"
+DATABRICKS_IMPACT = REPO_ROOT / "tools" / "ci" / "databricks_impact.py"
 
 
 def _pipeline_text():
@@ -104,6 +105,35 @@ def test_prewarm_job_present():
     ]
     assert len(warm_steps) == 1
     assert warm_steps[0].get("continueOnError") is not True
+
+
+def test_databricks_e2e_uses_fail_open_pr_impact_detection():
+    assert DATABRICKS_IMPACT.exists()
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+    prewarm = jobs["BuildAndCacheSbt"]
+    databricks = jobs["DatabricksE2E"]
+
+    detection_steps = [
+        step
+        for step in prewarm["steps"]
+        if isinstance(step, dict) and step.get("name") == "detectDatabricksImpact"
+    ]
+    assert len(detection_steps) == 1
+    detection_script = detection_steps[0]["bash"]
+    assert "python3 tools/ci/databricks_impact.py --null" in detection_script
+    assert "Build.Reason" in detection_script
+    assert "SYSTEM_PULLREQUEST_TARGETBRANCH" in detection_script
+    assert "isOutput=true" in detection_script
+    assert "run_databricks=true" in detection_script
+
+    condition = databricks["condition"]
+    assert "succeeded()" in condition
+    assert "parameters.testDatabricksE2E" in condition
+    assert (
+        "dependencies.BuildAndCacheSbt.outputs"
+        "['detectDatabricksImpact.runDatabricksE2E']"
+    ) in condition
 
 
 def test_every_sbt_running_job_waits_for_the_prewarm_cache():
