@@ -3,7 +3,8 @@
 
 package com.microsoft.azure.synapse.ml.stages
 
-import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
+import com.microsoft.azure.synapse.ml.core.test.base.TestBase
+import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject, TransformerFuzzing}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.functions.col
@@ -13,12 +14,14 @@ import org.apache.spark.sql.{Column, DataFrame, Row}
 import java.io.File
 import scala.collection.JavaConverters._
 
-//scalastyle:off null
-class LumpFeaturesSuite extends EstimatorFuzzing[LumpFeatures] {
+/** Shared input fixture and projection helper used by both the estimator suite
+  * [[LumpFeaturesSuite]] and the model suite [[LumpFeaturesModelSuite]].
+  */
+trait LumpFeaturesTestData extends TestBase {
 
   import spark.implicits._
 
-  private lazy val df: DataFrame = Seq(
+  protected lazy val df: DataFrame = Seq(
     ("apple", "red"),
     ("apple", "red"),
     ("apple", "blue"),
@@ -26,14 +29,20 @@ class LumpFeaturesSuite extends EstimatorFuzzing[LumpFeatures] {
     ("cherry", "green")
   ).toDF("f1", "f2")
 
-  private val other = "__other__"
+  protected val other: String = "__other__"
 
-  private def dump(data: DataFrame, cols: Seq[String]): List[String] = {
+  protected def dump(data: DataFrame, cols: Seq[String]): List[String] = {
     val projected = data.select(cols.map(col): _*)
     projected.collect().map { r =>
       cols.indices.map(i => if (r.isNullAt(i)) "<null>" else r.get(i).toString).mkString("|")
     }.sorted.toList
   }
+}
+
+//scalastyle:off null
+class LumpFeaturesSuite extends EstimatorFuzzing[LumpFeatures] with LumpFeaturesTestData {
+
+  import spark.implicits._
 
   test("multi-column top-K retains learned values and lumps the rest") {
     val model = new LumpFeatures().setLumpRules(Map("f1" -> 1, "f2" -> 1)).fit(df)
@@ -242,5 +251,33 @@ class LumpFeaturesSuite extends EstimatorFuzzing[LumpFeatures] {
   override def reader: MLReadable[_] = LumpFeatures
 
   override def modelReader: MLReadable[_] = LumpFeaturesModel
+
+}
+
+/** Dedicated fuzzing suite for [[LumpFeaturesModel]]. LumpFeatures serializes fitted models, so the
+  * model needs its own Experiment/Serialization/Python/R fuzzer coverage. The estimator suite only
+  * registers a fuzzer for the estimator type, which left the model without any discovered fuzzer.
+  * The test object is a valid, manually constructed persisted model (learned levels supplied directly)
+  * paired with a deterministic input DataFrame.
+  */
+class LumpFeaturesModelSuite extends TransformerFuzzing[LumpFeaturesModel] with LumpFeaturesTestData {
+
+  private def persistedModel: LumpFeaturesModel = new LumpFeaturesModel()
+    .setLumpRules(Map("f1" -> 1, "f2" -> 1))
+    .setKeptValuesJson(Map("f1" -> "[\"apple\"]", "f2" -> "[\"red\"]"))
+    .setOtherValue(other)
+    .setHandleNull("keep")
+
+  test("manually constructed model retains learned values and lumps the rest deterministically") {
+    val out = persistedModel.transform(df)
+    assert(out.columns.toSeq == Seq("f1", "f2"))
+    assert(dump(out, Seq("f1", "f2")) == List(
+      s"$other|$other", s"$other|red", s"apple|$other", "apple|red", "apple|red"))
+  }
+
+  override def testObjects(): Seq[TestObject[LumpFeaturesModel]] =
+    Seq(new TestObject(persistedModel, df))
+
+  override def reader: MLReadable[_] = LumpFeaturesModel
 
 }
