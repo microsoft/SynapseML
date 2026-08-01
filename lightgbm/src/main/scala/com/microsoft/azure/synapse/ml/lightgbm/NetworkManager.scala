@@ -12,8 +12,8 @@ import org.apache.spark.internal.Logging
 import org.apache.spark.sql.SparkSession
 import org.slf4j.Logger
 
-import java.io.{BufferedReader, BufferedWriter, IOException, InputStreamReader, OutputStreamWriter}
-import java.net.{InetSocketAddress, ServerSocket, Socket}
+import java.io.{BufferedReader, BufferedWriter, InputStreamReader, OutputStreamWriter}
+import java.net.{BindException, InetSocketAddress, ServerSocket, Socket}
 import java.util.concurrent.Executors
 import scala.annotation.tailrec
 import scala.collection.mutable
@@ -39,7 +39,32 @@ case class TaskMessageInfo(status: String,
 
 case class NetworkTopologyInfo(lightgbmNetworkString: String,
                                executorPartitionIdList: Array[Int],
-                               localListenPort: Int)
+                               localListenPort: Int) {
+  @transient private var portReservation: Option[Socket] = None
+
+  private def currentPortReservation: Option[Socket] = Option(portReservation).flatten
+
+  private[lightgbm] def retainPortReservation(reservation: Socket): NetworkTopologyInfo = synchronized {
+    require(!reservation.isClosed, "Cannot retain a closed port reservation")
+    require(reservation.isBound, "Cannot retain an unbound port reservation")
+    require(reservation.getLocalPort == localListenPort,
+      s"Port reservation ${reservation.getLocalPort} does not match topology port $localListenPort")
+    require(currentPortReservation.isEmpty, s"Port $localListenPort already has a reservation")
+    portReservation = Option(reservation)
+    this
+  }
+
+  /** Release the temporary JVM reservation immediately before LightGBM binds the same port.
+    *
+    * The operation is idempotent so final cleanup can safely call it after any success or failure path.
+    */
+  private[lightgbm] def releasePortReservation(): Unit = synchronized {
+    currentPortReservation.foreach { reservation =>
+      reservation.close()
+      portReservation = None
+    }
+  }
+}
 
 object NetworkManager {
   /**
@@ -87,9 +112,8 @@ object NetworkManager {
     *
     * Establish local socket connection.
     *
-    * Note: Ideally we would start the socket connections in the C layer, this opens us up for
-    * race conditions in case other applications open sockets on cluster, but usually this
-    * should not be a problem
+    * The JVM reserves the selected port until immediately before LightGBM binds it in the C layer,
+    * limiting competition to the unavoidable handoff between the two socket implementations.
     *
     * @param ctx Information about the current training session.
     * @param log The Logger.
@@ -107,21 +131,24 @@ object NetworkManager {
                            measures: TaskInstrumentationMeasures): NetworkTopologyInfo = {
     measures.markNetworkInitializationStart()
     val networkParams = ctx.networkParams
-    val out = using(findOpenPort(ctx, log).get) {
-      openPort =>
-        val localListenPort = openPort.getLocalPort
-        log.info(s"LightGBM task $taskId connecting to host: ${networkParams.ipAddress}, port: ${networkParams.port}")
-        FaultToleranceUtils.retryWithTimeout() {
-          getNetworkTopologyInfoFromDriver(networkParams,
-                                           taskId,
-                                           partitionId,
-                                           localListenPort,
-                                           log,
-                                           shouldExecuteTraining)
-        }
-    }.get
-    measures.markNetworkInitializationStop()
-    out
+    try {
+      val reservation = findOpenPort(ctx, log)
+      withPortReservation(reservation, shouldExecuteTraining) {
+        localListenPort =>
+          log.info(s"LightGBM task $taskId connecting to host: " +
+            s"${networkParams.ipAddress}, port: ${networkParams.port}")
+          FaultToleranceUtils.retryWithTimeout() {
+            getNetworkTopologyInfoFromDriver(networkParams,
+                                             taskId,
+                                             partitionId,
+                                             localListenPort,
+                                             log,
+                                             shouldExecuteTraining)
+          }
+      }
+    } finally {
+      measures.markNetworkInitializationStop()
+    }
   }
 
   private def getNetworkTopologyInfoFromDriver(networkParams: NetworkParams,
@@ -197,6 +224,7 @@ object NetworkManager {
                           retry: Int = LightGBMConstants.NetworkRetries,
                           delay: Long = LightGBMConstants.InitialDelay): Unit = {
     log.info(s"Calling NetworkInit on local port ${ctx.localListenPort} with value ${ctx.lightGBMNetworkString}")
+    ctx.networkTopologyInfo.releasePortReservation()
     try {
       LightGBMUtils.validate(lightgbmlib.LGBM_NetworkInit(
         ctx.lightGBMNetworkString,
@@ -205,7 +233,7 @@ object NetworkManager {
         ctx.lightGBMNetworkMachineCount), "Network init")
       log.info(s"NetworkInit succeeded. LightGBM task listening on: ${ctx.localListenPort}")
     } catch {
-      case ex@(_: Exception | _: Throwable) =>
+      case ex: Exception =>
         log.info(s"NetworkInit failed with exception on local port ${ctx.localListenPort} with exception: $ex")
         Thread.sleep(delay)
         if (retry == 0) {
@@ -238,36 +266,77 @@ object NetworkManager {
     mainPort.toInt
   }
 
-  private def findOpenPort(ctx: TrainingContext, log: Logger): Option[Socket] = {
+  private def findOpenPort(ctx: TrainingContext, log: Logger): Socket = {
     val defaultListenPort: Int = ctx.networkParams.defaultListenPort
     val basePort = defaultListenPort + (LightGBMUtils.getWorkerId * ctx.numTasksPerExecutor)
-    if (basePort > LightGBMConstants.MaxPort) {
+    reserveOpenPort(basePort, log)
+  }
+
+  /** Reserve the first available port at or above basePort.
+    *
+    * Only address-in-use failures advance to another port. Other failures propagate after the candidate
+    * socket is closed, rather than silently falling back to a different port.
+    */
+  private[lightgbm] def reserveOpenPort(basePort: Int, log: Logger): Socket = {
+    reserveOpenPort(basePort, log, () => new Socket())
+  }
+
+  private[lightgbm] def reserveOpenPort(basePort: Int,
+                                        log: Logger,
+                                        createSocket: () => Socket): Socket = {
+    if (basePort < 0 || basePort > LightGBMConstants.MaxPort) {
       throw new Exception(s"Error: port $basePort out of range, possibly due to too many executors or unknown error")
     }
-    var localListenPort = basePort
-    var taskServerSocket: Option[Socket] = None
 
     @tailrec
-    def findPort(): Unit = {
-      try {
-        taskServerSocket = Option(new Socket())
-        taskServerSocket.get.bind(new InetSocketAddress(localListenPort))
+    def reservePort(localListenPort: Int): Socket = {
+      val candidate = createSocket()
+      var isReserved = false
+      val bindSucceeded = try {
+        candidate.bind(new InetSocketAddress(localListenPort))
+        isReserved = true
+        true
       } catch {
-        case _: IOException =>
+        case _: BindException =>
           log.warn(s"Could not bind to port $localListenPort...")
-          localListenPort += 1
-          if (localListenPort > LightGBMConstants.MaxPort) {
-            throw new Exception(s"Error: port $basePort out of range, possibly due to networking or firewall issues")
-          }
-          if (localListenPort - basePort > 1000) {
-            throw new Exception("Error: Could not find open port after 1k tries")
-          }
-          findPort()
+          false
+      } finally {
+        if (!isReserved) candidate.close()
+      }
+
+      if (bindSucceeded) {
+        log.info(s"Successfully bound to port $localListenPort")
+        candidate
+      } else {
+        val nextPort = localListenPort + 1
+        if (nextPort > LightGBMConstants.MaxPort) {
+          throw new Exception(s"Error: port $basePort out of range, possibly due to networking or firewall issues")
+        }
+        if (nextPort - basePort > 1000) {
+          throw new Exception("Error: Could not find open port after 1k tries")
+        }
+        reservePort(nextPort)
       }
     }
-    findPort()
-    log.info(s"Successfully bound to port $localListenPort")
-    taskServerSocket
+
+    reservePort(basePort)
+  }
+
+  /** Keep a training task's port reserved, while releasing helper and failed-task reservations immediately. */
+  private[lightgbm] def withPortReservation(reservation: Socket,
+                                            shouldExecuteTraining: Boolean)
+                                           (getTopology: Int => NetworkTopologyInfo): NetworkTopologyInfo = {
+    var retained = false
+    try {
+      val topology = getTopology(reservation.getLocalPort)
+      if (shouldExecuteTraining) {
+        topology.retainPortReservation(reservation)
+        retained = true
+      }
+      topology
+    } finally {
+      if (!retained) reservation.close()
+    }
   }
 
   private def setFinishedStatus(networkParams: NetworkParams, log: Logger): Unit = {
