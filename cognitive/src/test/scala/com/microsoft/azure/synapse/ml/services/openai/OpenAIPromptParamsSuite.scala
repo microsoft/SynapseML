@@ -9,10 +9,8 @@ import org.apache.spark.sql.types.{ArrayType, StringType, StructType}
 
 class OpenAIPromptParamsSuite extends TestBase {
 
-  private class TestableOpenAIPrompt extends OpenAIPrompt {
-    def generatedPythonClass: String = pythonClass()
-  }
-
+  private def generatedPythonClass: String =
+    classOf[OpenAIPrompt].getMethod("pythonClass").invoke(new OpenAIPrompt()).asInstanceOf[String]
   private def javaMap(values: (String, String)*): java.util.HashMap[String, String] = {
     val result = new java.util.HashMap[String, String]()
     values.foreach { case (key, value) => result.put(key, value) }
@@ -239,7 +237,7 @@ class OpenAIPromptParamsSuite extends TestBase {
   }
 
   test("Generated Python should contain validated setters and setParams implementation") {
-    val generatedClass = new TestableOpenAIPrompt().generatedPythonClass
+    val generatedClass = generatedPythonClass
 
     assert(occurrenceCount(generatedClass, "def setPostProcessingOptions") === 1)
     assert(occurrenceCount(generatedClass, "def setPostProcessing(") === 1)
