@@ -14,9 +14,18 @@ import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, I
 import org.apache.spark.mllib.linalg
 import org.apache.spark.mllib.linalg.{DenseVector, Matrices, SparseMatrix}
 import org.apache.spark.sql.expressions.{UserDefinedFunction, Window}
-import org.apache.spark.sql.functions.{col, collect_list, countDistinct, lit, max, row_number, struct, sum, udf}
-import org.apache.spark.sql.types.{DataType, DoubleType, FloatType, NumericType, StringType, StructField, StructType}
-import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.apache.spark.sql.functions.{col, collect_list, countDistinct, expr, lit, max, row_number, struct, sum, udf}
+import org.apache.spark.sql.types.{
+  DataType,
+  DoubleType,
+  FloatType,
+  IntegerType,
+  NumericType,
+  StringType,
+  StructField,
+  StructType
+}
+import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
 
 import java.text.SimpleDateFormat
 import java.util.{Calendar, Date}
@@ -73,8 +82,8 @@ class SAR(override val uid: String) extends Estimator[SARModel]
 
       // RecommendationIndexer stringifies numeric values and exposes its index columns to callers. SAR instead owns
       // typed mappings so direct identifiers round-trip without an extra pipeline stage or a lossy recovery cast.
-      val userIdMapping = buildIdMapping(dataset, getUserCol)
-      val itemIdMapping = buildIdMapping(dataset, getItemCol)
+      val (userIdMapping, userIdsFitInt) = buildIdMapping(dataset, getUserCol)
+      val (itemIdMapping, itemIdsFitInt) = buildIdMapping(dataset, getItemCol)
       val indexedUserCol = SAR.unusedColumnName(dataset, "__sar_user_index")
       val withUsers = SAR.attachIdMapping(dataset, userIdMapping, getUserCol, indexedUserCol)
       val indexedItemCol = SAR.unusedColumnName(withUsers, "__sar_item_index")
@@ -90,11 +99,13 @@ class SAR(override val uid: String) extends Estimator[SARModel]
         .setItemDataFrame(itemData)
         .setUserIdMapping(userIdMapping)
         .setItemIdMapping(itemIdMapping)
+        .setUserIdsFitInt(userIdsFitInt)
+        .setItemIdsFitInt(itemIdsFitInt)
       copyValues(model).setParent(this)
     }, dataset.columns.length)
   }
 
-  private def buildIdMapping(dataset: Dataset[_], inputCol: String): DataFrame = {
+  private def buildIdMapping(dataset: Dataset[_], inputCol: String): (DataFrame, Boolean) = {
     val values = dataset.select(col(inputCol).as(SAR.OriginalIdCol))
     val containsNull = values.filter(col(SAR.OriginalIdCol).isNull).limit(1).count() > 0
     require(!containsNull, s"SAR does not support null identifiers in column $inputCol")
@@ -105,19 +116,37 @@ class SAR(override val uid: String) extends Estimator[SARModel]
     require(valueCount <= Int.MaxValue,
       s"SAR supports at most ${Int.MaxValue} distinct identifiers in column $inputCol, but found $valueCount")
 
+    val identifierType = dataset.schema(inputCol).dataType
+    val idsFitInt = if (identifierType.isInstanceOf[NumericType]) {
+      val integerCol = SAR.unusedColumnName(distinctValues, "__sar_integer_identifier")
+      val casted = distinctValues.withColumn(
+        integerCol,
+        SAR.tryCast(SAR.OriginalIdCol, IntegerType)
+      )
+      val roundTripped = SAR.tryCast(integerCol, identifierType)
+      casted.filter(
+        casted(integerCol).isNull ||
+          roundTripped.isNull ||
+          !(roundTripped === casted(SAR.OriginalIdCol))
+      ).limit(1).count() == 0
+    } else {
+      false
+    }
+
     val deterministicOrder = Window.orderBy(col(SAR.OriginalIdCol).asc)
-    distinctValues.withColumn(
+    val mapping = distinctValues.withColumn(
       SAR.IndexCol,
       (row_number().over(deterministicOrder) - 1).cast(DoubleType)
     )
+    (mapping, idsFitInt)
   }
 
   /**
     * Retained for package-level compatibility. Fitting uses the same deterministic indexing.
     */
   private[ml] def calculateUserItemAffinities(dataset: Dataset[_]): DataFrame = {
-    val userIdMapping = buildIdMapping(dataset, getUserCol)
-    val itemIdMapping = buildIdMapping(dataset, getItemCol)
+    val userIdMapping = buildIdMapping(dataset, getUserCol)._1
+    val itemIdMapping = buildIdMapping(dataset, getItemCol)._1
     val indexedUserCol = SAR.unusedColumnName(dataset, "__sar_user_index")
     val withUsers = SAR.attachIdMapping(dataset, userIdMapping, getUserCol, indexedUserCol)
     val indexedItemCol = SAR.unusedColumnName(withUsers, "__sar_item_index")
@@ -172,8 +201,8 @@ class SAR(override val uid: String) extends Estimator[SARModel]
     * Retained for package-level compatibility. Fitting uses the same deterministic indexing.
     */
   private[ml] def calculateItemItemSimilarity(dataset: Dataset[_]): DataFrame = {
-    val userIdMapping = buildIdMapping(dataset, getUserCol)
-    val itemIdMapping = buildIdMapping(dataset, getItemCol)
+    val userIdMapping = buildIdMapping(dataset, getUserCol)._1
+    val itemIdMapping = buildIdMapping(dataset, getItemCol)._1
     val indexedUserCol = SAR.unusedColumnName(dataset, "__sar_user_index")
     val withUsers = SAR.attachIdMapping(dataset, userIdMapping, getUserCol, indexedUserCol)
     val indexedItemCol = SAR.unusedColumnName(withUsers, "__sar_item_index")
@@ -304,6 +333,11 @@ object SAR extends DefaultParamsReadable[SAR] {
       .get
   }
 
+  private[recommendation] def tryCast(columnName: String, dataType: DataType): Column = {
+    val escapedColumnName = columnName.replace("`", "``")
+    expr(s"try_cast(`$escapedColumnName` AS ${dataType.sql})")
+  }
+
   private[recommendation] def identifierTypesCompatible(actualType: DataType, trainedType: DataType): Boolean = {
     actualType == trainedType ||
       (actualType.isInstanceOf[NumericType] && trainedType.isInstanceOf[NumericType])
@@ -324,11 +358,13 @@ object SAR extends DefaultParamsReadable[SAR] {
       (frame, frame(inputCol))
     } else {
       val castedCol = unusedColumnName(dataset, "__sar_casted_identifier")
-      val casted = dataset.withColumn(castedCol, col(inputCol).cast(trainedType))
+      val casted = dataset.withColumn(castedCol, tryCast(inputCol, trainedType))
+      val roundTripped = tryCast(castedCol, actualType)
       val safelyCasted = casted.filter(
         casted(inputCol).isNotNull &&
           casted(castedCol).isNotNull &&
-          (casted(castedCol).cast(actualType) === casted(inputCol))
+          roundTripped.isNotNull &&
+          (roundTripped === casted(inputCol))
       )
       (safelyCasted, safelyCasted(castedCol))
     }

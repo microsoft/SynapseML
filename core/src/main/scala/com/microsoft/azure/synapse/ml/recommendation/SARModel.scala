@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.recommendation
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.DataFrameParam
-import org.apache.spark.ml.param.ParamMap
+import org.apache.spark.ml.param.{BooleanParam, ParamMap}
 import org.apache.spark.ml.recommendation.{BaseRecommendationModel, Constants}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.mllib.linalg.distributed.{CoordinateMatrix, MatrixEntry}
@@ -74,14 +74,43 @@ class SARModel(override val uid: String) extends Model[SARModel]
   def getItemIdMapping: DataFrame = get(itemIdMapping)
     .getOrElse(identityMapping(getItemDataFrame, getItemCol))
 
+  /** Whether user identifiers can use the established integer recommendation schema without loss. */
+  val userIdsFitInt = new BooleanParam(
+    this,
+    "userIdsFitInt",
+    "Whether all original user identifiers round-trip through IntegerType"
+  )
+
+  def setUserIdsFitInt(value: Boolean): this.type = set(userIdsFitInt, value)
+
+  def getUserIdsFitInt: Boolean = get(userIdsFitInt).getOrElse(false)
+
+  /** Whether item identifiers can use the established integer recommendation schema without loss. */
+  val itemIdsFitInt = new BooleanParam(
+    this,
+    "itemIdsFitInt",
+    "Whether all original item identifiers round-trip through IntegerType"
+  )
+
+  def setItemIdsFitInt(value: Boolean): this.type = set(itemIdsFitInt, value)
+
+  def getItemIdsFitInt: Boolean = get(itemIdsFitInt).getOrElse(false)
+
+  setDefault(userIdsFitInt -> false, itemIdsFitInt -> false)
+
   private def identityMapping(factors: DataFrame, identifierColumn: String): DataFrame = {
-    val identifier = factors(identifierColumn)
     val identifierType = factors.schema(identifierColumn).dataType
-    val integerIdentifier = identifier.cast(IntegerType)
-    factors
+    val integerCol = SAR.unusedColumnName(factors, "__sar_legacy_integer_identifier")
+    val casted = factors.withColumn(integerCol, SAR.tryCast(identifierColumn, IntegerType))
+    val identifier = casted(identifierColumn)
+    val integerIdentifier = casted(integerCol)
+    val roundTripped = SAR.tryCast(integerCol, identifierType)
+    casted
       .filter(
         identifier.isNotNull &&
-          (integerIdentifier.cast(identifierType) === identifier)
+          integerIdentifier.isNotNull &&
+          roundTripped.isNotNull &&
+          (roundTripped === identifier)
       )
       .select(
         integerIdentifier.as(SAR.OriginalIdCol),
@@ -92,20 +121,54 @@ class SARModel(override val uid: String) extends Model[SARModel]
 
   def this() = this(Identifiable.randomUID("SARModel"))
 
+  private case class RecommendationSide(
+      factors: DataFrame,
+      indexColumn: String,
+      vectorColumn: String,
+      mapping: DataFrame,
+      outputColumn: String,
+      outputAsInt: Boolean,
+      mappingIsLegacy: Boolean,
+      mayBeEmpty: Boolean)
+
+  private def userRecommendationSide(
+      factors: DataFrame,
+      mayBeEmpty: Boolean = false): RecommendationSide = {
+    RecommendationSide(
+      factors,
+      getUserCol,
+      "flatList",
+      getUserIdMapping,
+      getUserCol,
+      getUserIdsFitInt,
+      mappingIsLegacy = !isSet(userIdMapping),
+      mayBeEmpty = mayBeEmpty
+    )
+  }
+
+  private def itemRecommendationSide(
+      factors: DataFrame,
+      mayBeEmpty: Boolean = false): RecommendationSide = {
+    RecommendationSide(
+      factors,
+      getItemCol,
+      Constants.ItemAffinities,
+      getItemIdMapping,
+      getItemCol,
+      getItemIdsFitInt,
+      mappingIsLegacy = !isSet(itemIdMapping),
+      mayBeEmpty = mayBeEmpty
+    )
+  }
+
   /**
     * Returns top `numItems` items recommended for every user.
-    * User and item identifiers retain their training data types.
+    * String and non-integer numeric identifiers retain their training data types.
     */
   def recommendForAllUsers(numItems: Int): DataFrame = {
     recommendForAll(
-      RecommendationSide(getUserDataFrame, getUserCol, "flatList", getUserIdMapping, getUserCol),
-      RecommendationSide(
-        getItemDataFrame,
-        getItemCol,
-        Constants.ItemAffinities,
-        getItemIdMapping,
-        getItemCol
-      ),
+      userRecommendationSide(getUserDataFrame),
+      itemRecommendationSide(getItemDataFrame),
       numItems
     )
   }
@@ -124,14 +187,8 @@ class SARModel(override val uid: String) extends Model[SARModel]
       getUserCol
     )
     recommendForAll(
-      RecommendationSide(sourceFactors, getUserCol, "flatList", getUserIdMapping, getUserCol),
-      RecommendationSide(
-        getItemDataFrame,
-        getItemCol,
-        Constants.ItemAffinities,
-        getItemIdMapping,
-        getItemCol
-      ),
+      userRecommendationSide(sourceFactors, mayBeEmpty = true),
+      itemRecommendationSide(getItemDataFrame),
       numItems
     )
   }
@@ -139,14 +196,8 @@ class SARModel(override val uid: String) extends Model[SARModel]
   /** Returns top users for every item. The `numItems` name is retained for source compatibility. */
   def recommendForAllItems(numItems: Int): DataFrame = {
     recommendForAll(
-      RecommendationSide(
-        getItemDataFrame,
-        getItemCol,
-        Constants.ItemAffinities,
-        getItemIdMapping,
-        getItemCol
-      ),
-      RecommendationSide(getUserDataFrame, getUserCol, "flatList", getUserIdMapping, getUserCol),
+      itemRecommendationSide(getItemDataFrame),
+      userRecommendationSide(getUserDataFrame),
       numItems
     )
   }
@@ -165,24 +216,11 @@ class SARModel(override val uid: String) extends Model[SARModel]
       getItemCol
     )
     recommendForAll(
-      RecommendationSide(
-        sourceFactors,
-        getItemCol,
-        Constants.ItemAffinities,
-        getItemIdMapping,
-        getItemCol
-      ),
-      RecommendationSide(getUserDataFrame, getUserCol, "flatList", getUserIdMapping, getUserCol),
+      itemRecommendationSide(sourceFactors, mayBeEmpty = true),
+      userRecommendationSide(getUserDataFrame),
       numUsers
     )
   }
-
-  private case class RecommendationSide(
-      factors: DataFrame,
-      indexColumn: String,
-      vectorColumn: String,
-      mapping: DataFrame,
-      outputColumn: String)
 
   private def dotProduct = udf((left: Seq[Float], right: Seq[Float]) => {
     left.iterator.zip(right.iterator)
@@ -191,21 +229,13 @@ class SARModel(override val uid: String) extends Model[SARModel]
       .toFloat
   })
 
-  private def recommendationOutputMapping(mapping: DataFrame): DataFrame = {
+  private def recommendationOutputMapping(mapping: DataFrame, outputAsInt: Boolean): DataFrame = {
     val identifierType = mapping.schema(SAR.OriginalIdCol).dataType
-    if (identifierType.isInstanceOf[NumericType] && identifierType != IntegerType) {
-      val identifier = mapping(SAR.OriginalIdCol)
-      val integerIdentifier = identifier.cast(IntegerType)
-      val hasNonRoundTripIdentifier = mapping.filter(
-        identifier.isNull ||
-          integerIdentifier.isNull ||
-          !(integerIdentifier.cast(identifierType) === identifier)
-      ).limit(1).count() > 0
-      if (hasNonRoundTripIdentifier) {
-        mapping
-      } else {
-        mapping.withColumn(SAR.OriginalIdCol, integerIdentifier)
-      }
+    if (outputAsInt && identifierType.isInstanceOf[NumericType] && identifierType != IntegerType) {
+      mapping.withColumn(
+        SAR.OriginalIdCol,
+        SAR.tryCast(SAR.OriginalIdCol, IntegerType)
+      )
     } else {
       mapping
     }
@@ -216,8 +246,10 @@ class SARModel(override val uid: String) extends Model[SARModel]
       destination: RecommendationSide,
       numRecommendations: Int): DataFrame = {
     require(numRecommendations > 0, "The number of recommendations must be positive")
-    val outputSource = source.copy(mapping = recommendationOutputMapping(source.mapping))
-    val outputDestination = destination.copy(mapping = recommendationOutputMapping(destination.mapping))
+    val outputSource = source.copy(mapping = recommendationOutputMapping(source.mapping, source.outputAsInt))
+    val outputDestination = destination.copy(
+      mapping = recommendationOutputMapping(destination.mapping, destination.outputAsInt)
+    )
     val topScores = rankScores(outputSource, outputDestination, numRecommendations)
     aggregateRecommendations(
       decodeScores(topScores, outputSource, outputDestination),
@@ -239,46 +271,64 @@ class SARModel(override val uid: String) extends Model[SARModel]
     new CoordinateMatrix(entries)
   }
 
+  private def collectLegacyDestinationIndices(destination: RecommendationSide): Array[Int] = {
+    val destinationFactorIndices = destination.factors
+      .select(col(destination.indexColumn).cast(DoubleType).as(SARModel.DestinationIndexCol))
+      .distinct()
+    val destinationMappingIndices = destination.mapping
+      .select(col(SAR.IndexCol).cast(DoubleType).as(SARModel.DestinationIndexCol))
+      .distinct()
+    destinationFactorIndices
+      .join(destinationMappingIndices, Seq(SARModel.DestinationIndexCol), "inner")
+      .collect()
+      .flatMap(row => {
+        val index = row.getDouble(0)
+        if (index >= 0.0 && index <= Int.MaxValue && index == index.toInt.toDouble) {
+          Some(index.toInt)
+        } else {
+          None
+        }
+      })
+      .distinct
+      .sorted
+  }
+
+  private def topCandidates(
+      scores: Array[Double],
+      destinationIndices: Option[Array[Int]],
+      numRecommendations: Int): Array[(Double, Int)] = {
+    val candidates = destinationIndices match {
+      case Some(indices) => indices.iterator
+        .filter(_ < scores.length)
+        .map(destinationIndex => (scores(destinationIndex), destinationIndex))
+      case None => scores.iterator.zipWithIndex
+    }
+    candidates
+      .toArray
+      .sortBy { case (score, destinationIndex) => (-score, destinationIndex) }
+      .take(numRecommendations)
+  }
+
   private def rankScores(
       source: RecommendationSide,
       destination: RecommendationSide,
       numRecommendations: Int): DataFrame = {
     val spark = source.factors.sparkSession
-    if (source.factors.limit(1).count() == 0) {
+    if (source.mayBeEmpty && source.factors.isEmpty) {
       spark.createDataFrame(spark.sparkContext.emptyRDD[Row], SARModel.ScoreSchema)
     } else {
-      val destinationFactorIndices = destination.factors
-        .select(col(destination.indexColumn).cast(DoubleType).as(SARModel.DestinationIndexCol))
-        .distinct()
-      val destinationMappingIndices = destination.mapping
-        .select(col(SAR.IndexCol).cast(DoubleType).as(SARModel.DestinationIndexCol))
-        .distinct()
-      val destinationIndices = destinationFactorIndices
-        .join(destinationMappingIndices, Seq(SARModel.DestinationIndexCol), "inner")
-        .collect()
-        .flatMap(row => {
-          val index = row.getDouble(0)
-          if (index >= 0.0 && index <= Int.MaxValue && index == index.toInt.toDouble) {
-            Some(index.toInt)
-          } else {
-            None
-          }
-        })
-        .distinct
-        .sorted
+      val destinationIndices = if (destination.mappingIsLegacy) {
+        Some(collectLegacyDestinationIndices(destination))
+      } else {
+        None
+      }
       val scoreRows = factorMatrix(source)
         .toBlockMatrix()
         .multiply(factorMatrix(destination).toBlockMatrix().transpose)
         .toIndexedRowMatrix()
         .rows
         .flatMap(indexedRow => {
-          val scores = indexedRow.vector.toArray
-          destinationIndices.iterator
-            .filter(_ < scores.length)
-            .map(destinationIndex => (scores(destinationIndex), destinationIndex))
-            .toArray
-            .sortBy { case (score, destinationIndex) => (-score, destinationIndex) }
-            .take(numRecommendations)
+          topCandidates(indexedRow.vector.toArray, destinationIndices, numRecommendations)
             .zipWithIndex
             .map { case ((score, destinationIndex), rank) =>
               Row(indexedRow.index.toDouble, destinationIndex.toDouble, score.toFloat, rank + 1)
@@ -343,6 +393,7 @@ class SARModel(override val uid: String) extends Model[SARModel]
         ).as(Constants.Recommendations)
       )
   }
+
   private def getSourceFactorSubset(
       dataset: Dataset[_],
       mapping: DataFrame,

@@ -95,6 +95,8 @@ class SARIdentifierSpec extends TestBase {
     ).toDF(userCol, itemCol, ratingCol)
 
     val model = newSar.fit(numericRatings)
+    assert(!model.getUserIdsFitInt)
+    assert(!model.getItemIdsFitInt)
     val recommendations = model.recommendForAllUsers(3)
     assert(recommendations.schema(userCol).dataType == LongType)
     val recommendationType = recommendations.schema("recommendations").dataType.asInstanceOf[ArrayType]
@@ -145,6 +147,78 @@ class SARIdentifierSpec extends TestBase {
     assert(integerModel.transform(rangeChecked).count() == 1)
   }
 
+  test("SAR numeric compatibility is ANSI-safe for wide Long identifiers") {
+    import spark.implicits._
+    val previousAnsi = spark.conf.getOption("spark.sql.ansi.enabled")
+    spark.conf.set("spark.sql.ansi.enabled", "true")
+    try {
+      val integerRatings = Seq(
+        (1, 10, 1.0),
+        (1, 20, 2.0),
+        (2, 10, 3.0),
+        (2, 20, 4.0)
+      ).toDF(userCol, itemCol, ratingCol)
+      val integerModel = newSar.fit(integerRatings)
+      val rangeChecked = Seq(
+        (1L, 10L),
+        (Int.MaxValue.toLong + 1L, 10L)
+      ).toDF(userCol, itemCol)
+      assert(integerModel.transform(rangeChecked).count() == 1)
+
+      val wideRatings = Seq(
+        (3000000000L, 9000000000L, 1.0),
+        (3000000000L, 9000000001L, 2.0),
+        (4000000000L, 9000000000L, 3.0)
+      ).toDF(userCol, itemCol, ratingCol)
+      val wideModel = newSar.fit(wideRatings)
+      val recommendations = wideModel.recommendForAllUsers(2)
+      assert(recommendations.schema(userCol).dataType == LongType)
+      assert(recommendations.collect().nonEmpty)
+    } finally {
+      previousAnsi match {
+        case Some(value) => spark.conf.set("spark.sql.ansi.enabled", value)
+        case None => spark.conf.unset("spark.sql.ansi.enabled")
+      }
+    }
+  }
+
+  test("SAR mapped recommendation planning avoids repeated mapping and source scans") {
+    val model = newSar.fit(stringRatings)
+    val context = spark.sparkContext
+    val userMappingReads = context.longAccumulator("sar-user-mapping-reads")
+    val itemMappingReads = context.longAccumulator("sar-item-mapping-reads")
+    val countedUserMapping = model.getUserIdMapping
+    val countedItemMapping = model.getItemIdMapping
+    model
+      .setUserIdMapping(spark.createDataFrame(
+        countedUserMapping.rdd.map(row => {
+          userMappingReads.add(1)
+          row
+        }),
+        countedUserMapping.schema
+      ))
+      .setItemIdMapping(spark.createDataFrame(
+        countedItemMapping.rdd.map(row => {
+          itemMappingReads.add(1)
+          row
+        }),
+        countedItemMapping.schema
+      ))
+
+    val jobGroup = s"sar-recommendation-planning-${System.nanoTime()}"
+    context.setJobGroup(jobGroup, "detect eager recommendation actions")
+    try {
+      model.recommendForAllUsers(2)
+      model.recommendForAllItems(2)
+      val jobCount = context.statusTracker.getJobIdsForGroup(jobGroup).length
+      assert(userMappingReads.value == 0L)
+      assert(itemMappingReads.value == 0L)
+      assert(jobCount <= 45, s"Recommendation planning launched $jobCount jobs")
+    } finally {
+      context.clearJobGroup()
+    }
+  }
+
   test("SAR keeps established integer recommendation schemas for round-trip numeric IDs") {
     import spark.implicits._
     val numericRatings = Seq(
@@ -154,6 +228,8 @@ class SARIdentifierSpec extends TestBase {
       (1.0, 1.0, 4.0)
     ).toDF(userCol, itemCol, ratingCol)
     val model = newSar.fit(numericRatings)
+    assert(model.getUserIdsFitInt)
+    assert(model.getItemIdsFitInt)
 
     val userRecommendations = model.recommendForAllUsers(2)
     assert(userRecommendations.schema(userCol).dataType == IntegerType)
@@ -185,6 +261,8 @@ class SARIdentifierSpec extends TestBase {
 
     assert(!legacyModel.isDefined(legacyModel.userIdMapping))
     assert(!legacyModel.isDefined(legacyModel.itemIdMapping))
+    assert(!legacyModel.getUserIdsFitInt)
+    assert(!legacyModel.getItemIdsFitInt)
     assert(legacyModel.transform(numericRatings).count() == numericRatings.count())
     val integerScoring = Seq((0, 0), (1, 1)).toDF(userCol, itemCol)
     assert(legacyModel.transform(integerScoring).count() == integerScoring.count())
@@ -283,6 +361,10 @@ class SARIdentifierSpec extends TestBase {
       model.write.overwrite().save(path)
       val loaded = SARModel.load(path)
 
+      assert(loaded.isSet(loaded.userIdsFitInt))
+      assert(loaded.isSet(loaded.itemIdsFitInt))
+      assert(loaded.getUserIdsFitInt == model.getUserIdsFitInt)
+      assert(loaded.getItemIdsFitInt == model.getItemIdsFitInt)
       assert(loaded.getUserIdMapping.orderBy("index").collect().toSeq ==
         model.getUserIdMapping.orderBy("index").collect().toSeq)
       assert(loaded.getItemIdMapping.orderBy("index").collect().toSeq ==
