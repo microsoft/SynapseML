@@ -14,6 +14,7 @@ PIPELINE = REPO_ROOT / "pipeline.yaml"
 SBT_CACHE_TPL = REPO_ROOT / "templates" / "sbt_cache.yml"
 SBT_RETRY = REPO_ROOT / "tools" / "ci" / "sbt_retry.sh"
 DATABRICKS_IMPACT = REPO_ROOT / "tools" / "ci" / "databricks_impact.py"
+DATABRICKS_STEPS_TPL = REPO_ROOT / "templates" / "databricks_e2e_steps.yml"
 
 
 def _pipeline_text():
@@ -112,7 +113,8 @@ def test_databricks_e2e_uses_fail_open_pr_impact_detection():
     data = yaml.safe_load(_pipeline_text())
     jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
     prewarm = jobs["BuildAndCacheSbt"]
-    databricks = jobs["DatabricksE2E"]
+    databricks_cpu = jobs["DatabricksCPUE2E"]
+    databricks_gpu = jobs["DatabricksGPUE2E"]
 
     detection_steps = [
         step
@@ -121,19 +123,38 @@ def test_databricks_e2e_uses_fail_open_pr_impact_detection():
     ]
     assert len(detection_steps) == 1
     detection_script = detection_steps[0]["bash"]
-    assert "python3 tools/ci/databricks_impact.py --null" in detection_script
+    assert "databricks_impact.py --null --suite cpu" in detection_script
+    assert "databricks_impact.py --null --suite gpu" in detection_script
     assert "Build.Reason" in detection_script
     assert "SYSTEM_PULLREQUEST_TARGETBRANCH" in detection_script
     assert "isOutput=true" in detection_script
-    assert "run_databricks=true" in detection_script
+    assert "run_databricks_cpu=true" in detection_script
+    assert "run_databricks_gpu=true" in detection_script
+    assert "runDatabricksCpuE2E;isOutput=true" in detection_script
+    assert "runDatabricksGpuE2E;isOutput=true" in detection_script
 
-    condition = databricks["condition"]
-    assert "succeeded()" in condition
-    assert "parameters.testDatabricksE2E" in condition
+    for job, suite in ((databricks_cpu, "Cpu"), (databricks_gpu, "Gpu")):
+        condition = job["condition"]
+        assert "succeeded()" in condition
+        assert "variables.runTests" in condition
+        assert "parameters.testDatabricksE2E" in condition
+        assert (
+            "dependencies.BuildAndCacheSbt.outputs"
+            f"['detectDatabricksImpact.runDatabricks{suite}E2E']"
+        ) in condition
+        assert "DATABRICKS_SUITE" not in condition
+        assert job["steps"] == [{"template": "templates/databricks_e2e_steps.yml"}]
+
+    assert len(databricks_cpu["strategy"]["matrix"]) == 5
+    assert "strategy" not in databricks_gpu
     assert (
-        "dependencies.BuildAndCacheSbt.outputs"
-        "['detectDatabricksImpact.runDatabricksE2E']"
-    ) in condition
+        databricks_gpu["variables"]["TEST-CLASS"]
+        == "com.microsoft.azure.synapse.ml.nbtest.DatabricksGPUTests"
+    )
+
+    steps = yaml.safe_load(DATABRICKS_STEPS_TPL.read_text())["steps"]
+    assert any(step.get("displayName") == "E2E" for step in steps)
+    assert any(step.get("displayName") == "Publish Test Results" for step in steps)
 
 
 def test_every_sbt_running_job_waits_for_the_prewarm_cache():

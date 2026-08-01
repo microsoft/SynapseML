@@ -106,7 +106,8 @@ jobs:
       fetchDepth: 1
     - bash: |
         set -uo pipefail
-        run_databricks=true
+        run_databricks_cpu=true
+        run_databricks_gpu=true
 
         if [ "$(Build.Reason)" = "PullRequest" ]; then
           target_ref="${SYSTEM_PULLREQUEST_TARGETBRANCH:-}"
@@ -119,15 +120,27 @@ jobs:
             # effective PR diff. A source-only checkout can only over-report
             # target changes, which safely keeps Databricks enabled.
             echo "Changed paths used for Databricks E2E impact detection:"
-            git diff --name-only --diff-filter=ACMRD "$target_commit" HEAD | sed 's/^/  /'
-            decision="$(
-              git diff --name-only -z --diff-filter=ACMRD "$target_commit" HEAD |
-                python3 tools/ci/databricks_impact.py --null
+            changed_paths_file="$(mktemp)"
+            trap 'rm -f "$changed_paths_file"' EXIT
+            git diff --name-only -z --diff-filter=ACMRD "$target_commit" HEAD > "$changed_paths_file"
+            tr '\0' '\n' < "$changed_paths_file" | sed 's/^/  /'
+
+            cpu_decision="$(
+              python3 tools/ci/databricks_impact.py --null --suite cpu < "$changed_paths_file"
             )"
-            case "$decision" in
-              true|false) run_databricks="$decision" ;;
+            gpu_decision="$(
+              python3 tools/ci/databricks_impact.py --null --suite gpu < "$changed_paths_file"
+            )"
+            case "$cpu_decision" in
+              true|false) run_databricks_cpu="$cpu_decision" ;;
               *)
-                echo "##vso[task.logissue type=warning]Invalid Databricks impact result; running E2E"
+                echo "##vso[task.logissue type=warning]Invalid Databricks CPU impact result; running CPU E2E"
+                ;;
+            esac
+            case "$gpu_decision" in
+              true|false) run_databricks_gpu="$gpu_decision" ;;
+              *)
+                echo "##vso[task.logissue type=warning]Invalid Databricks GPU impact result; running GPU E2E"
                 ;;
             esac
           else
@@ -137,8 +150,10 @@ jobs:
           echo "Non-PR build; Databricks E2E remains enabled"
         fi
 
-        echo "Databricks E2E enabled: $run_databricks"
-        echo "##vso[task.setvariable variable=runDatabricksE2E;isOutput=true]$run_databricks"
+        echo "Databricks CPU E2E enabled: $run_databricks_cpu"
+        echo "Databricks GPU E2E enabled: $run_databricks_gpu"
+        echo "##vso[task.setvariable variable=runDatabricksCpuE2E;isOutput=true]$run_databricks_cpu"
+        echo "##vso[task.setvariable variable=runDatabricksGpuE2E;isOutput=true]$run_databricks_gpu"
       name: detectDatabricksImpact
       displayName: 'Detect Databricks E2E impact'
     - template: templates/update_cli.yml
@@ -226,14 +241,15 @@ jobs:
         condition: and(succeeded(), eq(variables.isMaster, true))
         displayName: Publish Badges
 
-- job: DatabricksE2E
+- job: DatabricksCPUE2E
   dependsOn: BuildAndCacheSbt
-  displayName: 'Databricks E2E'
+  displayName: 'Databricks CPU E2E'
   condition: >-
     and(
       succeeded(),
+      eq(variables.runTests, 'True'),
       eq('${{ parameters.testDatabricksE2E }}', true),
-      eq(dependencies.BuildAndCacheSbt.outputs['detectDatabricksImpact.runDatabricksE2E'], 'true')
+      eq(dependencies.BuildAndCacheSbt.outputs['detectDatabricksImpact.runDatabricksCpuE2E'], 'true')
     )
   timeoutInMinutes: 300
   cancelTimeoutInMinutes: 0
@@ -255,35 +271,31 @@ jobs:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksCPUTests4"
       databricks-cpu-5:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksCPUTests5"
-      databricks-gpu:
-        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksGPUTests"
-#      databricks-rapids tests have been disabled because these tests are failing.
-#      This test will be re-enabled once the issue is fixed.
-#      databricks-rapids:
-#        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksRapidsTests"
   steps:
-    - template: templates/sbt_cache.yml
-    - template: templates/update_cli.yml
-    - template: templates/conda.yml
-    - template: templates/kv.yml
-    - template: templates/publish.yml
-    - task: AzureCLI@2
-      displayName: 'E2E'
-      inputs:
-        azureSubscription:  'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: |
-          set -e
-          source activate synapseml
-          sbt "testOnly $(TEST-CLASS)"
-      condition: and(succeeded(), eq(variables.runTests, 'True'))
-    - task: PublishTestResults@2
-      displayName: 'Publish Test Results'
-      inputs:
-        testResultsFiles: '**/test-reports/TEST-*.xml'
-        failTaskOnFailedTests: true
-      condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
+    - template: templates/databricks_e2e_steps.yml
+
+- job: DatabricksGPUE2E
+  dependsOn: BuildAndCacheSbt
+  displayName: 'Databricks GPU E2E'
+  condition: >-
+    and(
+      succeeded(),
+      eq(variables.runTests, 'True'),
+      eq('${{ parameters.testDatabricksE2E }}', true),
+      eq(dependencies.BuildAndCacheSbt.outputs['detectDatabricksImpact.runDatabricksGpuE2E'], 'true')
+    )
+  timeoutInMinutes: 300
+  cancelTimeoutInMinutes: 0
+  pool:
+    vmImage: $(UBUNTU_VERSION)
+  variables:
+    TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksGPUTests"
+    MML_ADB_AUTH_TYPE: "aad"
+    MML_ADB_WORKSPACE_HOST: "adb-1885762835647850.10.azuredatabricks.net"
+    MML_ADB_WORKSPACE_RESOURCE_ID: "/subscriptions/e342c2c0-f844-4b18-9208-52c8c234c30e/resourceGroups/marhamil-mmlspark/providers/Microsoft.Databricks/workspaces/synapseml-build-adb"
+# The DatabricksRapidsTests suite remains disabled until its existing failures are fixed.
+  steps:
+    - template: templates/databricks_e2e_steps.yml
 
 - job: FabricE2E
   dependsOn: BuildAndCacheSbt
