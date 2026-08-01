@@ -530,6 +530,7 @@ class DatabricksUtilitiesSuite extends AnyFunSuite {
 
     assert(notebookNames === Seq(
       "Quickstart - Apply Phi Model with HuggingFace CausalLM.ipynb",
+      "Quickstart - End-to-end Local RAG with Phi Model.ipynb",
       "Quickstart - Fine-tune a Text Classifier.ipynb",
       "Quickstart - Fine-tune a Vision Classifier.ipynb"
     ))
