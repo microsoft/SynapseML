@@ -229,6 +229,7 @@ object DatabricksUtilities {
     Map("pypi" -> Map("package" -> "pytorch-lightning==1.5.0")),
     Map("pypi" -> Map("package" -> "torchvision==0.15.1")),
     Map("pypi" -> Map("package" -> "transformers==4.49.0")),
+    Map("pypi" -> Map("package" -> "huggingface-hub==0.26.0")),
     Map("pypi" -> Map("package" -> "sentence-transformers==4.0.2")),
     Map("pypi" -> Map("package" -> "jinja2==3.1.6")),
     Map("pypi" -> Map("package" -> "petastorm==0.12.1")),
