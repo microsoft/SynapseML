@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import org.apache.commons.io.FileUtils
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{col, desc}
-import org.apache.spark.sql.types.{ArrayType, DoubleType, FloatType, LongType, StringType, StructType}
+import org.apache.spark.sql.types.{ArrayType, FloatType, IntegerType, LongType, StringType, StructType}
 
 import java.nio.file.Files
 
@@ -106,6 +106,68 @@ class SARIdentifierSpec extends TestBase {
     assert(model.transform(numericRatings).count() == numericRatings.count())
   }
 
+  test("SAR accepts only round-trip-safe numeric scoring casts") {
+    import spark.implicits._
+    val numericRatings = Seq(
+      (1L, 10L, 1.0),
+      (1L, 20L, 2.0),
+      (2L, 10L, 3.0),
+      (2L, 20L, 4.0)
+    ).toDF(userCol, itemCol, ratingCol)
+    val model = newSar.fit(numericRatings)
+
+    val integerScoring = Seq((1, 10), (2, 20)).toDF(userCol, itemCol)
+    val integerSchema = model.transformSchema(integerScoring.schema)
+    assert(integerSchema(userCol).dataType == IntegerType)
+    assert(integerSchema(itemCol).dataType == IntegerType)
+    assert(model.transform(integerScoring).count() == 2)
+
+    val mixedDoubleScoring = Seq(
+      (1.0, 10.0),
+      (1.5, 10.0),
+      (2.0, 20.25)
+    ).toDF(userCol, itemCol)
+    val safelyScored = model.transform(mixedDoubleScoring).select(userCol, itemCol).collect()
+    assert(safelyScored.length == 1)
+    assert(safelyScored.head.getDouble(0) == 1.0)
+    assert(safelyScored.head.getDouble(1) == 10.0)
+
+    val integerModel = newSar.fit(Seq(
+      (1, 10, 1.0),
+      (1, 20, 2.0),
+      (2, 10, 3.0),
+      (2, 20, 4.0)
+    ).toDF(userCol, itemCol, ratingCol))
+    val rangeChecked = Seq(
+      (1L, 10L),
+      (Int.MaxValue.toLong + 1L, 10L)
+    ).toDF(userCol, itemCol)
+    assert(integerModel.transform(rangeChecked).count() == 1)
+  }
+
+  test("SAR keeps established integer recommendation schemas for round-trip numeric IDs") {
+    import spark.implicits._
+    val numericRatings = Seq(
+      (0.0, 0.0, 1.0),
+      (0.0, 1.0, 2.0),
+      (1.0, 0.0, 3.0),
+      (1.0, 1.0, 4.0)
+    ).toDF(userCol, itemCol, ratingCol)
+    val model = newSar.fit(numericRatings)
+
+    val userRecommendations = model.recommendForAllUsers(2)
+    assert(userRecommendations.schema(userCol).dataType == IntegerType)
+    val userRecommendationType = userRecommendations.schema("recommendations").dataType.asInstanceOf[ArrayType]
+      .elementType.asInstanceOf[StructType]
+    assert(userRecommendationType(itemCol).dataType == IntegerType)
+
+    val itemRecommendations = model.recommendForAllItems(2)
+    assert(itemRecommendations.schema(itemCol).dataType == IntegerType)
+    val itemRecommendationType = itemRecommendations.schema("recommendations").dataType.asInstanceOf[ArrayType]
+      .elementType.asInstanceOf[StructType]
+    assert(itemRecommendationType(userCol).dataType == IntegerType)
+  }
+
   test("SAR supports legacy numeric models without persisted mappings") {
     import spark.implicits._
     val numericRatings = Seq(
@@ -124,7 +186,34 @@ class SARIdentifierSpec extends TestBase {
     assert(!legacyModel.isDefined(legacyModel.userIdMapping))
     assert(!legacyModel.isDefined(legacyModel.itemIdMapping))
     assert(legacyModel.transform(numericRatings).count() == numericRatings.count())
-    assert(legacyModel.recommendForAllUsers(2).schema(userCol).dataType == DoubleType)
+    val integerScoring = Seq((0, 0), (1, 1)).toDF(userCol, itemCol)
+    assert(legacyModel.transform(integerScoring).count() == integerScoring.count())
+
+    val recommendations = legacyModel.recommendForAllUsers(2)
+    assert(recommendations.schema(userCol).dataType == IntegerType)
+    val recommendationType = recommendations.schema("recommendations").dataType.asInstanceOf[ArrayType]
+      .elementType.asInstanceOf[StructType]
+    assert(recommendationType(itemCol).dataType == IntegerType)
+  }
+
+  test("SAR legacy top-K considers only mapped destination identifiers") {
+    import spark.implicits._
+    val userFactors = Seq((0.0, Seq(0.0f, 0.0f, 0.0f))).toDF(userCol, "flatList")
+    val itemFactors = Seq(
+      (0.0, Seq(0.0f, 0.0f, 0.0f)),
+      (2.0, Seq(0.0f, 0.0f, 0.0f))
+    ).toDF(itemCol, "itemAffinities")
+    val legacyModel = new SARModel()
+      .setUserCol(userCol)
+      .setItemCol(itemCol)
+      .setUserDataFrame(userFactors)
+      .setItemDataFrame(itemFactors)
+
+    val itemIds = legacyModel.recommendForAllUsers(2)
+      .select("recommendations.item")
+      .head()
+      .getSeq[Int](0)
+    assert(itemIds == Seq(0, 2))
   }
 
   test("SAR drops unknown and null identifiers during scoring") {

@@ -154,7 +154,9 @@ class RankingSpec(unittest.TestCase):
         self.assertEqual(
             {
                 row.item
-                for row in model.recommendForAllItems(2).select("item").collect()
+                for row in model.recommendForAllItems(numItems=2)
+                .select("item")
+                .collect()
             },
             {"item-10", "item-20", "item-30"},
         )

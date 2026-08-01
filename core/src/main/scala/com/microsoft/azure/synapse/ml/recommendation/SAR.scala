@@ -14,10 +14,9 @@ import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, I
 import org.apache.spark.mllib.linalg
 import org.apache.spark.mllib.linalg.{DenseVector, Matrices, SparseMatrix}
 import org.apache.spark.sql.expressions.{UserDefinedFunction, Window}
-import org.apache.spark.sql.functions.{col, collect_list, count, countDistinct, lit, max, row_number, struct, sum, udf}
-import org.apache.spark.sql.types.{DoubleType, FloatType, NumericType, StringType, StructField, StructType}
+import org.apache.spark.sql.functions.{col, collect_list, countDistinct, lit, max, row_number, struct, sum, udf}
+import org.apache.spark.sql.types.{DataType, DoubleType, FloatType, NumericType, StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
-import org.apache.spark.storage.StorageLevel
 
 import java.text.SimpleDateFormat
 import java.util.{Calendar, Date}
@@ -107,16 +106,14 @@ class SAR(override val uid: String) extends Estimator[SARModel]
       s"SAR supports at most ${Int.MaxValue} distinct identifiers in column $inputCol, but found $valueCount")
 
     val deterministicOrder = Window.orderBy(col(SAR.OriginalIdCol).asc)
-    val mapping = distinctValues.withColumn(
+    distinctValues.withColumn(
       SAR.IndexCol,
       (row_number().over(deterministicOrder) - 1).cast(DoubleType)
-    ).persist(StorageLevel.MEMORY_AND_DISK)
-    mapping.count()
-    mapping
+    )
   }
 
   /**
-    * Retained for package-level compatibility. Fitting uses the same deterministic indexing and persists the mapping.
+    * Retained for package-level compatibility. Fitting uses the same deterministic indexing.
     */
   private[ml] def calculateUserItemAffinities(dataset: Dataset[_]): DataFrame = {
     val userIdMapping = buildIdMapping(dataset, getUserCol)
@@ -172,7 +169,7 @@ class SAR(override val uid: String) extends Estimator[SARModel]
   }
 
   /**
-    * Retained for package-level compatibility. Fitting uses the same deterministic indexing and persists the mapping.
+    * Retained for package-level compatibility. Fitting uses the same deterministic indexing.
     */
   private[ml] def calculateItemItemSimilarity(dataset: Dataset[_]): DataFrame = {
     val userIdMapping = buildIdMapping(dataset, getUserCol)
@@ -205,9 +202,8 @@ class SAR(override val uid: String) extends Estimator[SARModel]
       itemCount: Int): BSM[Double] = {
     val sparse = SparseMatrix.fromCOO(userCount, itemCount,
       dataset
-        .groupBy(indexedUserCol, indexedItemCol)
-        .agg(count(indexedItemCol))
         .select(col(indexedUserCol), col(indexedItemCol))
+        .distinct()
         .collect()
         .map(pair => (pair.getDouble(0).toInt, pair.getDouble(1).toInt, 1.0)))
     new BSM[Double](sparse.values, sparse.numRows, sparse.numCols, sparse.colPtrs, sparse.rowIndices)
@@ -308,14 +304,38 @@ object SAR extends DefaultParamsReadable[SAR] {
       .get
   }
 
+  private[recommendation] def identifierTypesCompatible(actualType: DataType, trainedType: DataType): Boolean = {
+    actualType == trainedType ||
+      (actualType.isInstanceOf[NumericType] && trainedType.isInstanceOf[NumericType])
+  }
+
   private[recommendation] def attachIdMapping(
       dataset: Dataset[_],
       mapping: DataFrame,
       inputCol: String,
       outputCol: String): DataFrame = {
-    val originalColumns = dataset.columns.map(dataset(_))
-    dataset
-      .join(mapping, dataset(inputCol) === mapping(OriginalIdCol), "inner")
+    val actualType = dataset.schema(inputCol).dataType
+    val trainedType = mapping.schema(OriginalIdCol).dataType
+    require(identifierTypesCompatible(actualType, trainedType),
+      s"Column $inputCol has type $actualType, but SAR was trained with $trainedType")
+
+    val (prepared, identifier) = if (actualType == trainedType) {
+      val frame = dataset.toDF()
+      (frame, frame(inputCol))
+    } else {
+      val castedCol = unusedColumnName(dataset, "__sar_casted_identifier")
+      val casted = dataset.withColumn(castedCol, col(inputCol).cast(trainedType))
+      val safelyCasted = casted.filter(
+        casted(inputCol).isNotNull &&
+          casted(castedCol).isNotNull &&
+          (casted(castedCol).cast(actualType) === casted(inputCol))
+      )
+      (safelyCasted, safelyCasted(castedCol))
+    }
+    val originalColumns = dataset.columns.map(prepared(_))
+
+    prepared
+      .join(mapping, identifier === mapping(OriginalIdCol), "inner")
       .select((originalColumns :+ mapping(IndexCol).as(outputCol)): _*)
   }
 }

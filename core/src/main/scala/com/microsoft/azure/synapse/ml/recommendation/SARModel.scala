@@ -19,7 +19,7 @@ import org.apache.spark.sql.functions.{
   transform => arrayTransform,
   udf
 }
-import org.apache.spark.sql.types.{DoubleType, FloatType, IntegerType, StructField, StructType}
+import org.apache.spark.sql.types.{DoubleType, FloatType, IntegerType, NumericType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 /** SAR Model
@@ -75,10 +75,19 @@ class SARModel(override val uid: String) extends Model[SARModel]
     .getOrElse(identityMapping(getItemDataFrame, getItemCol))
 
   private def identityMapping(factors: DataFrame, identifierColumn: String): DataFrame = {
-    factors.select(
-      col(identifierColumn).as(SAR.OriginalIdCol),
-      col(identifierColumn).as(SAR.IndexCol)
-    ).distinct()
+    val identifier = factors(identifierColumn)
+    val identifierType = factors.schema(identifierColumn).dataType
+    val integerIdentifier = identifier.cast(IntegerType)
+    factors
+      .filter(
+        identifier.isNotNull &&
+          (integerIdentifier.cast(identifierType) === identifier)
+      )
+      .select(
+        integerIdentifier.as(SAR.OriginalIdCol),
+        identifier.cast(DoubleType).as(SAR.IndexCol)
+      )
+      .distinct()
   }
 
   def this() = this(Identifiable.randomUID("SARModel"))
@@ -127,7 +136,7 @@ class SARModel(override val uid: String) extends Model[SARModel]
     )
   }
 
-  /** Returns top `numUsers` users recommended for every item. */
+  /** Returns top users for every item. The `numItems` name is retained for source compatibility. */
   def recommendForAllItems(numItems: Int): DataFrame = {
     recommendForAll(
       RecommendationSide(
@@ -182,13 +191,39 @@ class SARModel(override val uid: String) extends Model[SARModel]
       .toFloat
   })
 
+  private def recommendationOutputMapping(mapping: DataFrame): DataFrame = {
+    val identifierType = mapping.schema(SAR.OriginalIdCol).dataType
+    if (identifierType.isInstanceOf[NumericType] && identifierType != IntegerType) {
+      val identifier = mapping(SAR.OriginalIdCol)
+      val integerIdentifier = identifier.cast(IntegerType)
+      val hasNonRoundTripIdentifier = mapping.filter(
+        identifier.isNull ||
+          integerIdentifier.isNull ||
+          !(integerIdentifier.cast(identifierType) === identifier)
+      ).limit(1).count() > 0
+      if (hasNonRoundTripIdentifier) {
+        mapping
+      } else {
+        mapping.withColumn(SAR.OriginalIdCol, integerIdentifier)
+      }
+    } else {
+      mapping
+    }
+  }
+
   private def recommendForAll(
       source: RecommendationSide,
       destination: RecommendationSide,
       numRecommendations: Int): DataFrame = {
     require(numRecommendations > 0, "The number of recommendations must be positive")
-    val topScores = rankScores(source, destination, numRecommendations)
-    aggregateRecommendations(decodeScores(topScores, source, destination), source, destination)
+    val outputSource = source.copy(mapping = recommendationOutputMapping(source.mapping))
+    val outputDestination = destination.copy(mapping = recommendationOutputMapping(destination.mapping))
+    val topScores = rankScores(outputSource, outputDestination, numRecommendations)
+    aggregateRecommendations(
+      decodeScores(topScores, outputSource, outputDestination),
+      outputSource,
+      outputDestination
+    )
   }
 
   private def factorMatrix(side: RecommendationSide): CoordinateMatrix = {
@@ -212,13 +247,36 @@ class SARModel(override val uid: String) extends Model[SARModel]
     if (source.factors.limit(1).count() == 0) {
       spark.createDataFrame(spark.sparkContext.emptyRDD[Row], SARModel.ScoreSchema)
     } else {
+      val destinationFactorIndices = destination.factors
+        .select(col(destination.indexColumn).cast(DoubleType).as(SARModel.DestinationIndexCol))
+        .distinct()
+      val destinationMappingIndices = destination.mapping
+        .select(col(SAR.IndexCol).cast(DoubleType).as(SARModel.DestinationIndexCol))
+        .distinct()
+      val destinationIndices = destinationFactorIndices
+        .join(destinationMappingIndices, Seq(SARModel.DestinationIndexCol), "inner")
+        .collect()
+        .flatMap(row => {
+          val index = row.getDouble(0)
+          if (index >= 0.0 && index <= Int.MaxValue && index == index.toInt.toDouble) {
+            Some(index.toInt)
+          } else {
+            None
+          }
+        })
+        .distinct
+        .sorted
       val scoreRows = factorMatrix(source)
         .toBlockMatrix()
         .multiply(factorMatrix(destination).toBlockMatrix().transpose)
         .toIndexedRowMatrix()
         .rows
         .flatMap(indexedRow => {
-          indexedRow.vector.toArray.zipWithIndex
+          val scores = indexedRow.vector.toArray
+          destinationIndices.iterator
+            .filter(_ < scores.length)
+            .map(destinationIndex => (scores(destinationIndex), destinationIndex))
+            .toArray
             .sortBy { case (score, destinationIndex) => (-score, destinationIndex) }
             .take(numRecommendations)
             .zipWithIndex
@@ -343,7 +401,7 @@ class SARModel(override val uid: String) extends Model[SARModel]
   private def validateIdentifierType(schema: StructType, columnName: String, mapping: DataFrame): Unit = {
     val actualType = schema(columnName).dataType
     val trainedType = mapping.schema(SAR.OriginalIdCol).dataType
-    require(actualType == trainedType,
+    require(SAR.identifierTypesCompatible(actualType, trainedType),
       s"Column $columnName has type $actualType, but SAR was trained with $trainedType")
   }
 }
