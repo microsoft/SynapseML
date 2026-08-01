@@ -78,9 +78,11 @@ object AzureSearchAuth {
         case _ => throw new IllegalArgumentException("customHeaders must be a JSON object")
       }
     } catch {
-      case error: Exception =>
+      // Never chain the spray-json parser exception: its message echoes the raw customHeaders
+      // input, which can contain credential values. Surface a sanitized error with no cause.
+      case _: Exception =>
         throw new IllegalArgumentException(
-          "customHeaders must be a JSON object whose values are strings", error)
+          "customHeaders must be a JSON object whose values are strings")
     }
   }
 
@@ -99,7 +101,10 @@ private[search] object AzureSearchRequests {
   private def addHeaders(request: HttpRequestBase,
                          auth: AzureSearchAuth,
                          addContentType: Boolean = false): Unit = {
-    auth.headers(addContentType).foreach { case (name, value) => request.setHeader(name, value) }
+    // Mirror the shared cognitive writer path (HasCognitiveServiceInput.addHeaders), which uses
+    // addHeader, so the document writer and these management index APIs apply the deduplicated,
+    // canonical auth map from ServiceAuthHeaders.build with identical semantics.
+    auth.headers(addContentType).foreach { case (name, value) => request.addHeader(name, value) }
   }
 
   def listIndexes(auth: AzureSearchAuth,

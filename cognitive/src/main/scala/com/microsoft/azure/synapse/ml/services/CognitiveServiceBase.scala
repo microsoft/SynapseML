@@ -317,19 +317,41 @@ private[ml] object ServiceAuthHeaders {
             customHeaders: Option[Map[String, String]],
             telemHeaders: Option[Map[String, String]],
             contentType: Option[String]): Map[String, String] = {
-    val headers = mutable.Map.empty[String, String]
+    val providedCustomHeaders = customHeaders.getOrElse(Map.empty[String, String])
 
-    val authHeader = subscriptionKey
+    // Header names that carry credentials in this context, compared case-insensitively.
+    def isAuthHeaderName(name: String): Boolean =
+      name.equalsIgnoreCase(subscriptionKeyHeaderName) || name.equalsIgnoreCase(aadHeaderName)
+
+    // A credential embedded in customHeaders joins the SAME precedence step below and is
+    // canonicalized to this context's header name so mixed casing cannot duplicate it.
+    val customCredential: Option[(String, String)] =
+      providedCustomHeaders.collectFirst {
+        case (name, value) if name.equalsIgnoreCase(subscriptionKeyHeaderName) =>
+          subscriptionKeyHeaderName -> value
+      }.orElse(providedCustomHeaders.collectFirst {
+        case (name, value) if name.equalsIgnoreCase(aadHeaderName) =>
+          aadHeaderName -> value
+      })
+
+    // Resolve exactly one auth header across every credential source in a single precedence step.
+    val authHeader: Option[(String, String)] = subscriptionKey
       .map(value => subscriptionKeyHeaderName -> value)
       .orElse(aadToken.map(value => aadHeaderName -> ("Bearer " + value)))
       .orElse(customAuthHeader.map(value => aadHeaderName -> value))
+      .orElse(customCredential)
+
+    // Generic headers never carry auth: strip api-key/Authorization entries (any casing) so they
+    // can neither override the resolved credential nor duplicate it under a different case.
+    val headers = mutable.Map.empty[String, String]
+    providedCustomHeaders.foreach { case (headerName, headerValue) =>
+      if (!isAuthHeaderName(headerName)) {
+        headers += (headerName -> headerValue)
+      }
+    }
     authHeader.foreach { case (headerName, headerValue) =>
       headers += (headerName -> headerValue)
     }
-
-    customHeaders.foreach(_.foreach { case (headerName, headerValue) =>
-      headers += (headerName -> headerValue)
-    })
     telemHeaders.foreach(_.foreach { case (headerName, headerValue) =>
       headers += (headerName -> headerValue)
     })
