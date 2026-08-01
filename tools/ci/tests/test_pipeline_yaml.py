@@ -157,6 +157,68 @@ def test_databricks_e2e_uses_fail_open_pr_impact_detection():
     assert any(step.get("displayName") == "Publish Test Results" for step in steps)
 
 
+def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+    release_compat = jobs["ReleaseBranchCompat"]
+
+    condition = release_compat["condition"]
+    assert "System.PullRequest.TargetBranch" in condition
+    assert "'master'" in condition
+    assert "'refs/heads/master'" in condition
+
+    steps = release_compat["steps"]
+    assert not any(step.get("task") == "AzureCLI@2" for step in steps)
+    assert not any(step.get("template") == "templates/kv.yml" for step in steps)
+
+    rebase_steps = [
+        step
+        for step in steps
+        if isinstance(step, dict)
+        and step.get("displayName") == "Apply PR changes onto $(RELEASE_BRANCH)"
+    ]
+    assert len(rebase_steps) == 1
+    rebase_script = rebase_steps[0]["bash"]
+    assert "TARGET_HEAD=$(git rev-parse HEAD^1)" in rebase_script
+    assert "SOURCE_HEAD=$(git rev-parse HEAD^2)" in rebase_script
+    assert "git rebase --onto $RELEASE_TIP $TARGET_HEAD $SOURCE_HEAD" in rebase_script
+    assert "git rebase --onto $PR_HEAD $MASTER_BASE" not in rebase_script
+    assert 'git diff --name-only -z "$TARGET_HEAD" HEAD' in rebase_script
+    assert "pipeline.yaml|CODEOWNERS" in rebase_script
+    assert "templates/*|tools/acr/*|tools/ci/*" in rebase_script
+    assert "variable=releaseCompatRequired]false" in rebase_script
+    assert "variable=releaseCompatRequired]true" in rebase_script
+
+    validation_steps = [
+        step
+        for step in steps
+        if isinstance(step, dict)
+        and step.get("displayName") == "Validate $(RELEASE_BRANCH) after rebase"
+    ]
+    assert len(validation_steps) == 1
+    script = validation_steps[0]["bash"]
+    assert script.count("sbt $(SBT_JAVA_OPTS)") == 1
+    assert "test:compile" in script
+    assert "getDatasets" in script
+    for project in ("core", "vw", "opencv"):
+        assert f'"project {project}"' in script
+    assert "sbt_retry.sh" not in script
+    assert "for pkg in" not in script
+    assert (
+        validation_steps[0]["condition"]
+        == "and(succeeded(), eq(variables.releaseCompatRequired, 'true'))"
+    )
+
+    result_steps = [
+        step
+        for step in steps
+        if isinstance(step, dict)
+        and step.get("displayName") == "Publish $(RELEASE_BRANCH) Test Results"
+    ]
+    assert len(result_steps) == 1
+    assert "releaseCompatRequired" in result_steps[0]["condition"]
+
+
 def test_every_sbt_running_job_waits_for_the_prewarm_cache():
     """Each sbt job must restore the cache after the required prewarm job."""
     data = yaml.safe_load(_pipeline_text())
