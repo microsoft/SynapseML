@@ -131,7 +131,7 @@ abstract class BasePartitionTask extends Serializable with Logging {
     // Start with initialization
     val taskCtx = initialize(ctx, inputRows)
 
-    try {
+    NetworkManager.withCleanupPreservingPrimary(taskCtx.networkTopologyInfo.releasePortReservation()) {
       if (taskCtx.isEmptyPartition) {
         log.warn("LightGBM task encountered empty partition, for best performance ensure no partitions are empty")
         Array { PartitionResult(None, taskCtx.measures) }.toIterator
@@ -161,8 +161,6 @@ abstract class BasePartitionTask extends Serializable with Logging {
           cleanup(taskCtx)
         }
       }
-    } finally {
-      taskCtx.networkTopologyInfo.releasePortReservation()
     }
   }
 
@@ -201,8 +199,7 @@ abstract class BasePartitionTask extends Serializable with Logging {
                                                           shouldExecuteTraining,
                                                           taskMeasures)
 
-    var initializationSucceeded = false
-    try {
+    NetworkManager.withCleanupOnFailurePreservingPrimary(networkInfo.releasePortReservation()) {
       // Return booster only from main worker to reduce network communication overhead
       val shouldReturnBooster = if (isEmptyPartition) false
         else if (!shouldExecuteTraining) false
@@ -220,10 +217,7 @@ abstract class BasePartitionTask extends Serializable with Logging {
       if (ctx.trainingParams.generalParams.verbosity > 1)
         log.info(s"Done initializing partition: $partitionId, taskId: $taskId, executor: $getExecutorId")
       taskMeasures.markInitializationStop()
-      initializationSucceeded = true
       taskCtx
-    } finally {
-      if (!initializationSucceeded) networkInfo.releasePortReservation()
     }
   }
 
