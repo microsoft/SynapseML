@@ -47,6 +47,7 @@ final case class AzureSearchAuth(subscriptionKey: Option[String] = None,
       auth.aadToken,
       auth.customAuthHeader,
       Option(auth.customHeaders).filter(_.nonEmpty),
+      None, // Azure Search management requests have no automatic Fabric fallback
       None,
       if (addContentType) Some("application/json") else None)
   }

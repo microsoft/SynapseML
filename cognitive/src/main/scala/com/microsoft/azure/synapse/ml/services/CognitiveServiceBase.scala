@@ -309,12 +309,28 @@ object URLEncodingUtils {
 }
 
 private[ml] object ServiceAuthHeaders {
+  private[ml] def nonBlank(value: String): Boolean = value != null && value.trim.nonEmpty
+
+  // Deterministically select a non-blank credential embedded in customHeaders for one canonical
+  // auth header name, canonicalizing its casing. Blank values are ignored and mixed-case duplicates
+  // resolve by sorted header name, so an empty entry can never suppress a valid credential.
+  private def embeddedCredential(customHeaders: Map[String, String],
+                                 canonicalName: String): Option[(String, String)] =
+    customHeaders.toSeq
+      .collect {
+        case (name, value) if name.equalsIgnoreCase(canonicalName) && nonBlank(value) => name -> value
+      }
+      .sortBy(_._1)
+      .headOption
+      .map { case (_, value) => canonicalName -> value }
+
   def build(subscriptionKey: Option[String],
             subscriptionKeyHeaderName: String,
             aadHeaderName: String,
             aadToken: Option[String],
             customAuthHeader: Option[String],
             customHeaders: Option[Map[String, String]],
+            fabricFallbackAuthHeader: => Option[String],
             telemHeaders: Option[Map[String, String]],
             contentType: Option[String]): Map[String, String] = {
     val providedCustomHeaders = customHeaders.getOrElse(Map.empty[String, String])
@@ -323,23 +339,21 @@ private[ml] object ServiceAuthHeaders {
     def isAuthHeaderName(name: String): Boolean =
       name.equalsIgnoreCase(subscriptionKeyHeaderName) || name.equalsIgnoreCase(aadHeaderName)
 
-    // A credential embedded in customHeaders joins the SAME precedence step below and is
-    // canonicalized to this context's header name so mixed casing cannot duplicate it.
-    val customCredential: Option[(String, String)] =
-      providedCustomHeaders.collectFirst {
-        case (name, value) if name.equalsIgnoreCase(subscriptionKeyHeaderName) =>
-          subscriptionKeyHeaderName -> value
-      }.orElse(providedCustomHeaders.collectFirst {
-        case (name, value) if name.equalsIgnoreCase(aadHeaderName) =>
-          aadHeaderName -> value
-      })
-
-    // Resolve exactly one auth header across every credential source in a single precedence step.
-    val authHeader: Option[(String, String)] = subscriptionKey
+    // Resolve exactly one auth header across every credential source in a single, case-insensitive
+    // precedence step. Blank values are skipped so they cannot suppress a valid lower-priority
+    // credential, and the automatic Fabric fallback ranks below a credential embedded in
+    // customHeaders (matching how management-index requests, which have no fallback, resolve auth).
+    // fabricFallbackAuthHeader is by-name and lowest priority, so it is evaluated only when every
+    // higher-priority source above is absent. A fallback that acquires a token (and may throw) is
+    // therefore never run while a subscription key, AAD token, explicit custom-auth header, or an
+    // embedded customHeaders credential is present.
+    val authHeader: Option[(String, String)] = subscriptionKey.filter(nonBlank)
       .map(value => subscriptionKeyHeaderName -> value)
-      .orElse(aadToken.map(value => aadHeaderName -> ("Bearer " + value)))
-      .orElse(customAuthHeader.map(value => aadHeaderName -> value))
-      .orElse(customCredential)
+      .orElse(aadToken.filter(nonBlank).map(value => aadHeaderName -> ("Bearer " + value)))
+      .orElse(customAuthHeader.filter(nonBlank).map(value => aadHeaderName -> value))
+      .orElse(embeddedCredential(providedCustomHeaders, subscriptionKeyHeaderName))
+      .orElse(embeddedCredential(providedCustomHeaders, aadHeaderName))
+      .orElse(fabricFallbackAuthHeader.filter(nonBlank).map(value => aadHeaderName -> value))
 
     // Generic headers never carry auth: strip api-key/Authorization entries (any casing) so they
     // can neither override the resolved credential nor duplicate it under a different case.
@@ -414,12 +428,33 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
   protected def contentType: Row => String = { _ => "application/json" }
 
   protected def getCustomAuthHeader(row: Row): Option[String] = {
-    val providedCustomAuthHeader = getValueOpt(row, CustomAuthHeader)
-    if (providedCustomAuthHeader.isEmpty && PlatformDetails.runningOnFabric()) {
+    getValueOpt(row, CustomAuthHeader)
+  }
+
+  // The automatic Fabric fallback is eligible only when the request carries no explicit subscription
+  // key, AAD token, or custom auth header for this row, each counting only when non-blank (matching
+  // ServiceAuthHeaders.build, which discards blank values), so a blank/whitespace/null value can
+  // never mark the fallback ineligible and leave the writer or a non-Search cognitive consumer
+  // unauthenticated on Fabric. This gate intentionally does NOT parse customHeaders: precedence over
+  // a credential embedded in customHeaders is enforced by ServiceAuthHeaders.build, which evaluates
+  // the by-name fallback only after the embedded-credential step, so the fallback (and any token it
+  // fetches) is never reached when a non-blank embedded api-key/Authorization is present.
+  private[ml] def lacksExplicitAuthCredential(row: Row): Boolean =
+    !Seq(subscriptionKey, AADToken, CustomAuthHeader)
+      .exists(param => getValueOpt(row, param).exists(ServiceAuthHeaders.nonBlank))
+
+  // The automatic Fabric fallback is the lowest-priority credential. It is supplied by-name to
+  // ServiceAuthHeaders.build and therefore invoked only when build's precedence chain finds no
+  // higher-priority credential (subscription key, AAD token, explicit custom-auth header, or a
+  // credential embedded in customHeaders); it never overrides any of them. Because the token is
+  // fetched lazily inside that chain, a Fabric token-acquisition failure can never fail header
+  // preparation when a higher-priority credential is present.
+  protected def getFabricFallbackAuthHeader(row: Row): Option[String] = {
+    if (lacksExplicitAuthCredential(row) && PlatformDetails.runningOnFabric()) {
       logInfo("Using Default AAD Token On Fabric")
       Option(FabricClient.getCognitiveMWCTokenAuthHeader)
     } else {
-      providedCustomAuthHeader
+      None
     }
   }
 
@@ -437,6 +472,16 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
 
   // Returns a list of key-value pairs representing the headers
   protected def getHeaders(row: Row, addContentType: Boolean = true): Map[String, String] = {
+    buildServiceAuthHeaders(row, addContentType, getFabricFallbackAuthHeader(row))
+  }
+
+  // Assembles the final auth/custom/telemetry header map. The Fabric fallback is passed in by-name
+  // (rather than read here) so the shared credential-precedence resolution can be exercised in tests
+  // without a live Fabric environment, and so production's getFabricFallbackAuthHeader(row) is
+  // evaluated lazily -- only if ServiceAuthHeaders.build's precedence chain reaches it.
+  private[ml] def buildServiceAuthHeaders(row: Row,
+                                          addContentType: Boolean,
+                                          fabricFallbackAuthHeader: => Option[String]): Map[String, String] = {
     ServiceAuthHeaders.build(
       getValueOpt(row, subscriptionKey),
       subscriptionKeyHeaderName,
@@ -444,6 +489,7 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
       getValueOpt(row, AADToken),
       getCustomAuthHeader(row),
       getCustomHeaders(row),
+      fabricFallbackAuthHeader,
       getValueOpt(row, telemHeaders),
       if (addContentType) Option(contentType(row)) else None)
   }
