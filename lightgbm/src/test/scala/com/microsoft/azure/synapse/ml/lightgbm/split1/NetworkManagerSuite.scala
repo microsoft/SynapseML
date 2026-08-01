@@ -19,6 +19,17 @@ class NetworkManagerSuite extends AnyFunSuite {
 
   private val log = LoggerFactory.getLogger(classOf[NetworkManagerSuite])
 
+  private class FailingCloseSocket(closeFailures: Seq[IOException]) extends Socket {
+    var closeAttempts = 0
+
+    override def close(): Unit = {
+      val attempt = closeAttempts
+      closeAttempts += 1
+      if (attempt < closeFailures.length) throw closeFailures(attempt)
+      super.close()
+    }
+  }
+
   private def bindEphemeralSocket(): Socket = {
     val socket = new Socket()
     socket.bind(new InetSocketAddress(0))
@@ -114,16 +125,31 @@ class NetworkManagerSuite extends AnyFunSuite {
     }
   }
 
-  test("A failed reservation close remains retryable during final cleanup") {
-    val expected = new IOException("temporary close failure")
-    var closeAttempts = 0
-    val reservation = new Socket() {
-      override def close(): Unit = {
-        closeAttempts += 1
-        if (closeAttempts == 1) throw expected
-        super.close()
-      }
+  test("Bind failures stay primary when candidate cleanup initially fails") {
+    val bindFailure = new SocketException("network configuration failure")
+    val cleanupFailure = new IOException("candidate close failed")
+    val candidate = new FailingCloseSocket(Seq(cleanupFailure)) {
+      override def bind(bindpoint: SocketAddress): Unit = throw bindFailure
     }
+
+    try {
+      val actual = intercept[SocketException] {
+        NetworkManager.reserveOpenPort(12345, log, () => candidate)
+      }
+
+      assert(actual eq bindFailure)
+      assert(actual.getSuppressed.toSeq == Seq(cleanupFailure))
+      assert(candidate.closeAttempts == 2)
+      assert(candidate.isClosed)
+    } finally {
+      if (!candidate.isClosed) candidate.close()
+    }
+  }
+
+  test("A failed reservation close retries before retaining the socket for final cleanup") {
+    val firstFailure = new IOException("first close failure")
+    val secondFailure = new IOException("second close failure")
+    val reservation = new FailingCloseSocket(Seq(firstFailure, secondFailure))
     reservation.bind(new InetSocketAddress(0))
     val topology = NetworkTopologyInfo("", Array.empty[Int], reservation.getLocalPort)
       .retainPortReservation(reservation)
@@ -132,17 +158,159 @@ class NetworkManagerSuite extends AnyFunSuite {
       val actual = intercept[IOException] {
         topology.releasePortReservation()
       }
-      assert(actual eq expected)
+      assert(actual eq firstFailure)
+      assert(actual.getSuppressed.toSeq == Seq(secondFailure))
       assert(!reservation.isClosed)
+      assert(reservation.closeAttempts == 2)
 
       topology.releasePortReservation()
       assert(reservation.isClosed)
-      assert(closeAttempts == 2)
+      assert(reservation.closeAttempts == 3)
     } finally {
       if (!reservation.isClosed) reservation.close()
     }
   }
 
+  test("Repeated cleanup failures are suppressed without replacing the primary failure") {
+    val primaryFailure = new IllegalStateException("partition failed")
+    val firstCleanupFailure = new IOException("first reservation close failed")
+    val secondCleanupFailure = new IOException("second reservation close failed")
+    val reservation = new FailingCloseSocket(Seq(firstCleanupFailure, secondCleanupFailure))
+    reservation.bind(new InetSocketAddress(0))
+    val topology = NetworkTopologyInfo("", Array.empty[Int], reservation.getLocalPort)
+      .retainPortReservation(reservation)
+
+    try {
+      val actual = intercept[IllegalStateException] {
+        NetworkManager.withCleanupPreservingPrimary(topology.releasePortReservation()) {
+          throw primaryFailure
+        }
+      }
+
+      assert(actual eq primaryFailure)
+      assert(actual.getSuppressed.toSeq == Seq(firstCleanupFailure))
+      assert(firstCleanupFailure.getSuppressed.toSeq == Seq(secondCleanupFailure))
+      assert(reservation.closeAttempts == 2)
+      assert(!reservation.isClosed)
+
+      topology.releasePortReservation()
+      assert(reservation.closeAttempts == 3)
+      assert(reservation.isClosed)
+    } finally {
+      if (!reservation.isClosed) reservation.close()
+    }
+  }
+
+  test("Topology lookup failure stays primary when direct reservation cleanup fails") {
+    val primaryFailure = new IllegalArgumentException("topology failed")
+    val cleanupFailure = new IOException("reservation close failed")
+    val reservation = new FailingCloseSocket(Seq(cleanupFailure))
+    reservation.bind(new InetSocketAddress(0))
+
+    try {
+      val actual = intercept[IllegalArgumentException] {
+        NetworkManager.withPortReservation(reservation, shouldExecuteTraining = true) { _ =>
+          throw primaryFailure
+        }
+      }
+
+      assert(actual eq primaryFailure)
+      assert(actual.getSuppressed.toSeq == Seq(cleanupFailure))
+      assert(reservation.closeAttempts == 2)
+      assert(reservation.isClosed)
+    } finally {
+      if (!reservation.isClosed) reservation.close()
+    }
+  }
+
+  test("Native-init retry holds the advertised port throughout backoff") {
+    val initialReservation = bindEphemeralSocket()
+    val port = initialReservation.getLocalPort
+    val topology = NetworkTopologyInfo(s"localhost:$port", Array(0), port)
+      .retainPortReservation(initialReservation)
+    val firstFailure = new Exception("first native init failed")
+    var initCalls = 0
+    var retryReservation: Option[Socket] = None
+    var observedReservedBackoff = false
+
+    try {
+      NetworkManager.initLightGBMNetworkWithRetry(
+        topology,
+        log,
+        retry = 1,
+        delay = 1L,
+        networkInit = () => {
+          initCalls += 1
+          if (initCalls == 1) throw firstFailure
+          assert(retryReservation.exists(_.isClosed))
+        },
+        reservePort = retryPort => {
+          val reservation = NetworkManager.reserveExactPort(retryPort, log)
+          retryReservation = Option(reservation)
+          reservation
+        },
+        sleep = _ => {
+          assert(retryReservation.exists(reservation => !reservation.isClosed))
+          val challenger = new ServerSocket()
+          try {
+            assertThrows[BindException] {
+              challenger.bind(new InetSocketAddress(port))
+            }
+          } finally {
+            challenger.close()
+          }
+          observedReservedBackoff = true
+        })
+
+      assert(initCalls == 2)
+      assert(observedReservedBackoff)
+      assert(retryReservation.exists(_.isClosed))
+      assertPortAvailable(port)
+    } finally {
+      topology.releasePortReservation()
+      retryReservation.foreach(reservation => if (!reservation.isClosed) reservation.close())
+      if (!initialReservation.isClosed) initialReservation.close()
+    }
+  }
+
+  test("Native-init retry preserves its failure when a competitor takes the advertised port") {
+    val initialReservation = bindEphemeralSocket()
+    val port = initialReservation.getLocalPort
+    val topology = NetworkTopologyInfo(s"localhost:$port", Array(0), port)
+      .retainPortReservation(initialReservation)
+    val nativeFailure = new Exception("native init failed")
+    var initCalls = 0
+    var competitor: Option[ServerSocket] = None
+
+    try {
+      val actual = intercept[Exception] {
+        NetworkManager.initLightGBMNetworkWithRetry(
+          topology,
+          log,
+          retry = 1,
+          delay = 1L,
+          networkInit = () => {
+            initCalls += 1
+            val competingSocket = new ServerSocket()
+            competitor = Option(competingSocket)
+            competingSocket.bind(new InetSocketAddress(port))
+            throw nativeFailure
+          },
+          reservePort = retryPort => NetworkManager.reserveExactPort(retryPort, log),
+          sleep = _ => fail("Retry backoff must not start without an exact-port reservation"))
+      }
+
+      assert(actual eq nativeFailure)
+      assert(initCalls == 1)
+      assert(actual.getSuppressed.exists(_.isInstanceOf[BindException]))
+    } finally {
+      topology.releasePortReservation()
+      competitor.foreach(socket => if (!socket.isClosed) socket.close())
+      if (!initialReservation.isClosed) initialReservation.close()
+    }
+
+    assertPortAvailable(port)
+  }
 
   test("Concurrent port reservations remain unique and are all reusable after cleanup") {
     val workerCount = 6
