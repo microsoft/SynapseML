@@ -3,12 +3,13 @@
 
 package com.microsoft.azure.synapse.ml.codegen
 
-import org.apache.commons.io.FileUtils
+import org.apache.commons.io.{FileUtils, IOUtils}
 import org.scalatest.funsuite.AnyFunSuite
 
 import java.io.File
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import java.util.zip.ZipFile
 
 class PyCodegenSuite extends AnyFunSuite {
 
@@ -59,6 +60,52 @@ class PyCodegenSuite extends AnyFunSuite {
 
   private def occurrences(text: String, value: String): Int =
     text.sliding(value.length).count(_ == value)
+
+  private def buildWheel(sourceDir: File, wheelDir: File): File = {
+    wheelDir.mkdirs()
+    val python = if (System.getProperty("os.name").toLowerCase.contains("windows")) "python" else "python3"
+    val process = new ProcessBuilder(
+      python, "setup.py", "bdist_wheel", "--universal", "-d", wheelDir.getAbsolutePath)
+      .directory(sourceDir)
+      .redirectErrorStream(true)
+      .start()
+    val outputStream = process.getInputStream
+    val output = try {
+      new String(IOUtils.toByteArray(outputStream), StandardCharsets.UTF_8)
+    } finally {
+      outputStream.close()
+    }
+    assert(process.waitFor() === 0, output)
+    val wheels = Option(wheelDir.listFiles()).getOrElse(Array.empty)
+      .filter(file => file.isFile && file.getName.endsWith(".whl"))
+    assert(wheels.length === 1, s"Expected one wheel, found: ${wheels.mkString(", ")}")
+    wheels.head
+  }
+
+  private def wheelEntryContent(wheel: File, path: String): Option[String] = {
+    val archive = new ZipFile(wheel)
+    try {
+      Option(archive.getEntry(path)).map { entry =>
+        val stream = archive.getInputStream(entry)
+        try new String(IOUtils.toByteArray(stream), StandardCharsets.UTF_8) finally stream.close()
+      }
+    } finally {
+      archive.close()
+    }
+  }
+
+  private def aggregatePackageDiscovery(): String = {
+    def repositoryRoot(candidate: File): File = {
+      if (new File(candidate, "build.sbt").isFile && new File(candidate, "core").isDirectory) candidate
+      else Option(candidate.getParentFile).map(repositoryRoot)
+        .getOrElse(fail(s"Could not find repository root from ${System.getProperty("user.dir")}"))
+    }
+    val buildFile = new File(repositoryRoot(new File(System.getProperty("user.dir"))), "build.sbt")
+    val lines = readUtf8(buildFile).split("\n")
+      .filter(_.contains("|    packages=find_namespace_packages("))
+    assert(lines.length === 1)
+    lines.head.trim.stripPrefix("|    packages=").stripSuffix(",")
+  }
 
   test("nested init keeps UTF-8 manual content after deterministic generated imports") {
     withTempDir { root =>
@@ -181,6 +228,39 @@ class PyCodegenSuite extends AnyFunSuite {
       assert(readUtf8(output) === manual)
       PyCodegen.makeInitFiles(conf)
       assert(readUtf8(output) === manual)
+    }
+  }
+
+  test("component wheel includes a preserved non-empty namespace root init") {
+    withTempDir { root =>
+      val conf = codegenConfig(root)
+      val manual = "wheel_marker = \"Grüße 雪\"\n"
+      addManualInit(conf, "", manual)
+      addModule(conf, "/nested", "Widget.py")
+      PyCodegen.generatePyPackageData(conf)
+      PyCodegen.makeInitFiles(conf)
+
+      val wheel = buildWheel(conf.pySrcDir, new File(conf.targetDir, "wheel-test"))
+      assert(wheelEntryContent(wheel, "synapse/ml/__init__.py").contains(manual))
+      assert(wheelEntryContent(wheel, "synapse/ml/nested/__init__.py").nonEmpty)
+    }
+  }
+
+  test("aggregate wheel includes a preserved non-empty namespace root init") {
+    withTempDir { root =>
+      val sourceDir = new File(root, "aggregate-source")
+      val wheelDir = new File(root, "aggregate-wheel")
+      val manual = "aggregate_marker = \"café 雪\"\n"
+      writeUtf8(new File(sourceDir, "synapse/ml/__init__.py"), manual)
+      writeUtf8(new File(sourceDir, "synapse/ml/nested/__init__.py"), "")
+      val setup = "from setuptools import setup, find_namespace_packages\n" +
+        "setup(name=\"aggregate-wheel-test\", version=\"1.0.0\", packages=" +
+        aggregatePackageDiscovery() + ")\n"
+      writeUtf8(new File(sourceDir, "setup.py"), setup)
+
+      val wheel = buildWheel(sourceDir, wheelDir)
+      assert(wheelEntryContent(wheel, "synapse/ml/__init__.py").contains(manual))
+      assert(wheelEntryContent(wheel, "synapse/ml/nested/__init__.py").nonEmpty)
     }
   }
 }

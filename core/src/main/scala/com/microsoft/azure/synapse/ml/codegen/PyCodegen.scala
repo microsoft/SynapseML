@@ -173,7 +173,7 @@ object PyCodegen {
          |    long_description="SynapseML contains Microsoft's open source "
          |                     + "contributions to the Apache Spark ecosystem",
          |    license="MIT",
-         |    packages=find_namespace_packages(include=['synapse.ml.*']) ${extraPackage},
+         |    packages=find_namespace_packages(include=['synapse.ml', 'synapse.ml.*']) ${extraPackage},
          |    url="https://github.com/Microsoft/SynapseML",
          |    author="Microsoft",
          |    author_email="synapseml-support@microsoft.com",
