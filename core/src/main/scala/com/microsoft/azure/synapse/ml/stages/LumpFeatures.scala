@@ -133,7 +133,7 @@ class LumpFeatures(override val uid: String)
           .collect()
           .map(_.getString(0))
           .toList
-        (name, top.toJson.compactPrint)
+        (name, LumpFeaturesModel.encodeKept(k, top))
       }
 
       new LumpFeaturesModel(uid)
@@ -159,7 +159,52 @@ class LumpFeatures(override val uid: String)
   override def transformSchema(schema: StructType): StructType = validateAndTransformSchema(schema)
 }
 
-object LumpFeaturesModel extends DefaultParamsReadable[LumpFeaturesModel]
+object LumpFeaturesModel extends DefaultParamsReadable[LumpFeaturesModel] {
+
+  /** Encode a column fitted state as a JSON object recording both the fitted top-K and the retained
+    * values so a fitted model can later reject any incompatible lumpRules change. */
+  private[stages] def encodeKept(topK: Int, values: Seq[String]): String =
+    JsObject("topK" -> JsNumber(topK), "values" -> JsArray(values.map(JsString(_)).toVector)).compactPrint
+
+  /** Decode a column fitted state into its fitted top-K and retained values, failing clearly when the
+    * stored JSON is malformed or not the expected object shape. */
+  private[stages] def decodeKept(name: String, json: String): (Int, Seq[String]) = {
+    parseKeptJson(name, json) match {
+      case JsObject(fields) => (decodeTopK(name, json, fields), decodeValueList(name, json, fields))
+      case _ =>
+        throw new IllegalArgumentException(
+          s"keptValuesJson for column '$name' must be a JSON object with topK and values fields: '$json'.")
+    }
+  }
+
+  private def parseKeptJson(name: String, json: String): JsValue =
+    try json.parseJson
+    catch {
+      case NonFatal(e) =>
+        throw new IllegalArgumentException(s"keptValuesJson for column '$name' is not valid JSON: '$json'.", e)
+    }
+
+  private def decodeTopK(name: String, json: String, fields: Map[String, JsValue]): Int =
+    fields.get("topK") match {
+      case Some(JsNumber(n)) if n.isValidInt => n.toInt
+      case _ =>
+        throw new IllegalArgumentException(
+          s"keptValuesJson for column '$name' must contain an integer topK field: '$json'.")
+    }
+
+  private def decodeValueList(name: String, json: String, fields: Map[String, JsValue]): Seq[String] =
+    fields.get("values") match {
+      case Some(JsArray(elems)) => elems.map {
+        case JsString(v) => v
+        case other =>
+          throw new IllegalArgumentException(
+            s"keptValuesJson values for column '$name' must be strings but found: ${other.compactPrint}.")
+      }.toList
+      case _ =>
+        throw new IllegalArgumentException(
+          s"keptValuesJson for column '$name' must contain a string-array values field: '$json'.")
+    }
+}
 
 /** Model produced by [[LumpFeatures]]. Replaces, in place, every non-retained value in each rule
   * column with otherValue while retaining the learned top-K values unchanged.
@@ -172,8 +217,9 @@ class LumpFeaturesModel(override val uid: String)
 
   val keptValuesJson: StringStringMapParam = new StringStringMapParam(
     this, "keptValuesJson",
-    "Learned retained values per column, encoded as a map from column name to a JSON array of strings " +
-      "ordered by descending frequency then ascending value. Populated by LumpFeatures during fit.")
+    "Learned model-only state per column, encoded as a map from column name to a JSON object holding the " +
+      "fitted top-K (field topK) and the retained values array (field values) ordered by descending " +
+      "frequency then ascending value. Populated by LumpFeatures during fit and immutable thereafter.")
 
   def getKeptValuesJson: Map[String, String] = get(keptValuesJson).getOrElse(Map.empty)
 
@@ -183,30 +229,50 @@ class LumpFeaturesModel(override val uid: String)
     set(keptValuesJson, value.asScala.toMap)
 
   def getKeptValues: Map[String, Seq[String]] =
-    getKeptValuesJson.map { case (name, json) => (name, decodeValues(name, json)) }
+    decodedKept.map { case (name, (_, values)) => (name, values) }
 
-  private def decodeValues(name: String, json: String): Seq[String] = {
-    try {
-      json.parseJson.convertTo[List[String]]
-    } catch {
-      case NonFatal(e) =>
-        throw new IllegalArgumentException(
-          s"keptValuesJson for column '$name' is not a valid JSON array of strings: '$json'.", e)
+  private def decodedKept: Map[String, (Int, Seq[String])] =
+    getKeptValuesJson.map { case (name, json) => (name, LumpFeaturesModel.decodeKept(name, json)) }
+
+  /** The fitted top-K per column recorded at fit time; a fitted model keeps lumpRules equal to this. */
+  private def getFittedTopK: Map[String, Int] =
+    decodedKept.map { case (name, (topK, _)) => (name, topK) }
+
+  private def guardLumpRulesChange(value: Map[String, Int]): Unit = {
+    if (isDefined(keptValuesJson)) {
+      val fitted = getFittedTopK
+      require(value == fitted,
+        s"Cannot change lumpRules on a fitted LumpFeaturesModel. The model was fitted with top-K $fitted " +
+          s"but $value was requested; re-fit LumpFeatures to change the rules.")
     }
   }
+
+  override def setLumpRules(value: Map[String, Int]): this.type = {
+    guardLumpRulesChange(value)
+    set(lumpRules, value)
+  }
+
+  override def setLumpRules(value: java.util.HashMap[String, Int]): this.type =
+    setLumpRules(value.asScala.toMap)
+
+  override def setLumpRules(value: String): this.type =
+    setLumpRules(lumpRules.jsonDecode(value))
 
   protected def validateModelState(): Unit = {
     validateRules()
     val rules = getLumpRules
-    val kept = getKeptValues
+    val kept = decodedKept
     require(rules.keySet == kept.keySet,
       s"Model state is inconsistent with lumpRules: rule columns " +
         s"[${rules.keySet.toSeq.sorted.mkString(", ")}] do not match learned columns " +
         s"[${kept.keySet.toSeq.sorted.mkString(", ")}].")
     val other = getOtherValue
-    kept.foreach { case (name, values) =>
-      require(values.size <= rules(name),
-        s"Model retains ${values.size} values for column '$name' which exceeds its top-K of ${rules(name)}.")
+    kept.foreach { case (name, (topK, values)) =>
+      require(rules(name) == topK,
+        s"lumpRules top-K for column '$name' is ${rules(name)} but the model was fitted with top-K $topK. " +
+          "A fitted LumpFeaturesModel does not allow lumpRules to change after fit; re-fit to change rules.")
+      require(values.size <= topK,
+        s"Model retains ${values.size} values for column '$name' which exceeds its fitted top-K of $topK.")
       require(!values.contains(other),
         s"otherValue '$other' collides with a retained value in column '$name'. " +
           "Choose an otherValue that is not among the learned values.")
@@ -240,6 +306,9 @@ class LumpFeaturesModel(override val uid: String)
     if (declaredNullable) handled else coalesce(handled, lit(other))
   }
 
-  override def copy(extra: ParamMap): LumpFeaturesModel =
-    copyValues(new LumpFeaturesModel(uid), extra).setParent(parent)
+  override def copy(extra: ParamMap): LumpFeaturesModel = {
+    val copied = copyValues(new LumpFeaturesModel(uid), extra).setParent(parent)
+    if (copied.isDefined(copied.keptValuesJson)) copied.validateModelState()
+    copied
+  }
 }
