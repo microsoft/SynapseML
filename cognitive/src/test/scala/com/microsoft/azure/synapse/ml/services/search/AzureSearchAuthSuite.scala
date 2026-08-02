@@ -3,6 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.services.search
 
+import com.microsoft.azure.synapse.ml.services.ServiceAuthHeaders
 import org.apache.http.client.methods.{HttpGet, HttpRequestBase}
 import org.apache.spark.sql.Row
 import org.scalatest.funsuite.AnyFunSuite
@@ -374,6 +375,86 @@ class AzureSearchAuthSuite extends AnyFunSuite {
     assert(!fallbackHeaders.contains("api-key"))
   }
 
+  test("telemetry headers cannot override or duplicate the resolved auth header under any casing") {
+    // telemHeaders are merged after the resolved credential. An api-key/Authorization telemetry entry
+    // under any casing must be stripped so telemetry can neither replace the one canonical auth header
+    // nor add a second one, while a legitimate non-auth telemetry header still survives.
+    val headers = ServiceAuthHeaders.build(
+      Some("resolved-key"), "api-key", "Authorization",
+      None, None, None, None,
+      Some(Map(
+        "api-key" -> "telem-should-not-win",
+        "API-KEY" -> "telem-should-not-win-upper",
+        "Authorization" -> "telem-bearer-should-not-appear",
+        "authorization" -> "telem-bearer-lower",
+        "x-telemetry" -> "telemetry-value")),
+      None)
+    assert(headers.keys.count(_.equalsIgnoreCase("api-key")) == 1)
+    assert(headers("api-key") == "resolved-key")
+    assert(headers.keys.forall(name => !name.equalsIgnoreCase("Authorization")))
+    assert(headers("x-telemetry") == "telemetry-value")
+    assert(headers.values.forall(value => !value.contains("telem-should-not-win")))
+    assert(headers.values.forall(value => !value.contains("telem-bearer")))
+  }
+
+  test("telemetry headers cannot override the resolved auth header on the writer path") {
+    val headers = new AddDocuments()
+      .setSubscriptionKey("resolved-key")
+      .setTelemHeaders(Map(
+        "api-key" -> "telem-should-not-win",
+        "authorization" -> "telem-bearer-should-not-appear",
+        "x-telemetry" -> "telemetry-value"))
+      .buildServiceAuthHeaders(Row.empty, addContentType = false, None)
+    assert(headers.keys.count(_.equalsIgnoreCase("api-key")) == 1)
+    assert(headers("api-key") == "resolved-key")
+    assert(headers.keys.forall(name => !name.equalsIgnoreCase("Authorization")))
+    assert(headers("x-telemetry") == "telemetry-value")
+    assert(headers.values.forall(value => !value.contains("telem-should-not-win")))
+    assert(headers.values.forall(value => !value.contains("telem-bearer")))
+  }
+
+  test("legitimate non-auth telemetry headers are preserved alongside the resolved auth header") {
+    val headers = ServiceAuthHeaders.build(
+      None, "api-key", "Authorization",
+      Some("aad-token"), None, None, None,
+      Some(Map("x-telemetry-a" -> "value-a", "x-telemetry-b" -> "value-b")),
+      None)
+    assert(headers("Authorization") == "Bearer aad-token")
+    assert(headers("x-telemetry-a") == "value-a")
+    assert(headers("x-telemetry-b") == "value-b")
+    assert(headers.keys.count(_.equalsIgnoreCase("api-key")) == 0)
+  }
+
+  test("a blank alias value never conflicts with a valid credential for any relevant alias") {
+    // A blank/whitespace alias is treated as absent everywhere else, so it must not trigger a bogus
+    // conflict against a valid sibling alias. Values are never trimmed and the resolved credential is
+    // preserved verbatim, for the subscription-key, AAD, and custom-auth aliases alike.
+    val aad = AzureSearchAuth.fromOptions(Map("AADToken" -> "   ", "aadToken" -> "valid-aad-token"))
+    assert(aad.headers()("Authorization") == "Bearer valid-aad-token")
+
+    val custom = AzureSearchAuth.fromOptions(
+      Map("CustomAuthHeader" -> "  ", "customAuthHeader" -> "Custom valid-auth"))
+    assert(custom.headers()("Authorization") == "Custom valid-auth")
+
+    val key = AzureSearchAuth.fromOptions(Map("subscriptionKey" -> "   ", "aadToken" -> "valid-aad-token"))
+    assert(!key.headers().contains("api-key"))
+    assert(key.headers()("Authorization") == "Bearer valid-aad-token")
+  }
+
+  test("a genuine alias conflict is rejected without leaking credential values") {
+    val conflictA = "conflict-value-alpha"
+    val conflictB = "conflict-value-beta"
+    val error = intercept[IllegalArgumentException] {
+      AzureSearchAuth.fromOptions(Map("AADToken" -> conflictA, "aadToken" -> conflictB))
+    }
+    assert(error.getMessage.contains("Conflicting"))
+    assert(!error.getMessage.contains(conflictA))
+    assert(!error.getMessage.contains(conflictB))
+    val rendered = renderExceptionChain(error)
+    assert(!rendered.contains(conflictA))
+    assert(!rendered.contains(conflictB))
+  }
+
   // scalastyle:off null
   test("null credential option values are treated as absent and preserve precedence") {
     // Java callers can construct Some(null); normalized must treat it as absent (matching the
@@ -489,6 +570,171 @@ class AzureSearchAuthSuite extends AnyFunSuite {
     assert(error.getMessage.contains("authentication"))
     val rendered = renderExceptionChain(error)
     assert(!rendered.contains(canary))
+  }
+
+  test("a null telemetry option, Some(null), or null map is treated as empty without an NPE") {
+    def withTelem(telem: Option[Map[String, String]]): Map[String, String] = ServiceAuthHeaders.build(
+      Some("resolved-key"), "api-key", "Authorization", None, None, None, None, telem, None)
+    val nullTelem: Option[Map[String, String]] = null
+    val someNullTelem: Option[Map[String, String]] = Some(null)
+    assert(withTelem(None)("api-key") == "resolved-key")
+    assert(withTelem(nullTelem)("api-key") == "resolved-key")
+    assert(withTelem(someNullTelem)("api-key") == "resolved-key")
+  }
+
+  test("a null telemetry header name is dropped while valid telemetry headers survive") {
+    val headers = ServiceAuthHeaders.build(
+      Some("resolved-key"), "api-key", "Authorization", None, None, None, None,
+      Some(Map((null: String) -> "orphan-telemetry", "x-telemetry" -> "telemetry-value")), None)
+    assert(headers("api-key") == "resolved-key")
+    assert(headers("x-telemetry") == "telemetry-value")
+    assert(headers.keySet.forall(name => name != null))
+    assert(headers.values.forall(value => !value.contains("orphan-telemetry")))
+  }
+
+  test("a null customHeaders option, Some(null), or null map is empty at the shared boundary") {
+    def withCustom(custom: Option[Map[String, String]]): Map[String, String] = ServiceAuthHeaders.build(
+      Some("resolved-key"), "api-key", "Authorization", None, None, custom, None, None, None)
+    val nullCustom: Option[Map[String, String]] = null
+    val someNullCustom: Option[Map[String, String]] = Some(null)
+    assert(withCustom(None)("api-key") == "resolved-key")
+    assert(withCustom(nullCustom)("api-key") == "resolved-key")
+    assert(withCustom(someNullCustom)("api-key") == "resolved-key")
+  }
+
+  test("a null customHeaders name is dropped at the shared boundary while generic headers survive") {
+    val headers = ServiceAuthHeaders.build(
+      Some("resolved-key"), "api-key", "Authorization", None, None,
+      Some(Map((null: String) -> "orphan-value", "x-generic" -> "generic-value")), None, None, None)
+    assert(headers("api-key") == "resolved-key")
+    assert(headers("x-generic") == "generic-value")
+    assert(headers.keySet.forall(name => name != null))
+    assert(headers.values.forall(value => !value.contains("orphan-value")))
+  }
+
+  test("a null or blank embedded auth value at the shared boundary is never emitted as auth") {
+    val withKey = ServiceAuthHeaders.build(
+      Some("resolved-key"), "api-key", "Authorization", None, None,
+      Some(Map("api-key" -> (null: String), "x-generic" -> "generic-value")), None, None, None)
+    assert(withKey("api-key") == "resolved-key")
+    assert(withKey.keys.count(name => name.equalsIgnoreCase("api-key")) == 1)
+    assert(withKey("x-generic") == "generic-value")
+
+    val soleNull = ServiceAuthHeaders.build(
+      None, "api-key", "Authorization", None, None,
+      Some(Map("api-key" -> (null: String), "Authorization" -> "   ")), None, None, None)
+    assert(soleNull.keys.forall(name =>
+      !name.equalsIgnoreCase("api-key") && !name.equalsIgnoreCase("Authorization")))
+  }
+
+  test("writer setCustomHeaders with a null key HashMap or a null map stays null-safe") {
+    val nullKeyMap = new java.util.HashMap[String, String]()
+    nullKeyMap.put(null, "orphan-value")
+    nullKeyMap.put("x-generic", "generic-value")
+    val nullKeyHeaders = new AddDocuments()
+      .setSubscriptionKey("resolved-key")
+      .setCustomHeaders(nullKeyMap)
+      .buildServiceAuthHeaders(Row.empty, addContentType = false, None)
+    assert(nullKeyHeaders("api-key") == "resolved-key")
+    assert(nullKeyHeaders("x-generic") == "generic-value")
+    assert(nullKeyHeaders.keySet.forall(name => name != null))
+    assert(nullKeyHeaders.values.forall(value => !value.contains("orphan-value")))
+
+    val nullMap: Map[String, String] = null
+    val nullMapHeaders = new AddDocuments()
+      .setAADToken("aad-token")
+      .setCustomHeaders(nullMap)
+      .buildServiceAuthHeaders(Row.empty, addContentType = false, None)
+    assert(nullMapHeaders("Authorization") == "Bearer aad-token")
+    assert(!nullMapHeaders.contains("api-key"))
+  }
+
+  private def storedCustomHeaders(stage: AddDocuments): Map[String, String] =
+    stage.getOrDefault(stage.customHeaders).left.get
+
+  // Reproduces the exact per-param persistence step ComplexParamsWritable.getMetadataToSave runs
+  // (Param.jsonEncode): a null map, header name, or header value in the stored param throws here.
+  private def persistCustomHeaders(stage: AddDocuments): Map[String, String] =
+    stage.customHeaders.jsonDecode(
+      stage.customHeaders.jsonEncode(stage.getOrDefault(stage.customHeaders))).left.get
+
+  test("setCustomHeaders drops a null header value so the stored param persists without an NPE") {
+    val stage = new AddDocuments()
+      .setSubscriptionKey("resolved-key")
+      .setCustomHeaders(Map("x-generic" -> "generic-value", "x-null-value" -> (null: String)))
+    assert(storedCustomHeaders(stage) == Map("x-generic" -> "generic-value"))
+    assert(storedCustomHeaders(stage).values.forall(value => value != null))
+    assert(persistCustomHeaders(stage) == Map("x-generic" -> "generic-value"))
+    val headers = stage.buildServiceAuthHeaders(Row.empty, addContentType = false, None)
+    assert(headers("api-key") == "resolved-key")
+    assert(headers("x-generic") == "generic-value")
+    assert(!headers.contains("x-null-value"))
+  }
+
+  test("setCustomHeaders normalizes a null map to empty so the stored param persists without an NPE") {
+    val nullMap: Map[String, String] = null
+    val stage = new AddDocuments()
+      .setAADToken("aad-token")
+      .setCustomHeaders(nullMap)
+    assert(storedCustomHeaders(stage).isEmpty)
+    assert(persistCustomHeaders(stage).isEmpty)
+    val headers = stage.buildServiceAuthHeaders(Row.empty, addContentType = false, None)
+    assert(headers("Authorization") == "Bearer aad-token")
+    assert(!headers.contains("api-key"))
+  }
+
+  test("setCustomHeaders with a null HashMap reference normalizes to empty without an NPE") {
+    val nullHashMap: java.util.HashMap[String, String] = null
+    val stage = new AddDocuments()
+      .setSubscriptionKey("resolved-key")
+      .setCustomHeaders(nullHashMap)
+    assert(storedCustomHeaders(stage).isEmpty)
+    assert(persistCustomHeaders(stage).isEmpty)
+    val headers = stage.buildServiceAuthHeaders(Row.empty, addContentType = false, None)
+    assert(headers("api-key") == "resolved-key")
+  }
+
+  test("setCustomHeaders with a HashMap holding null key and value entries stores only valid headers") {
+    val map = new java.util.HashMap[String, String]()
+    map.put(null, "orphan-value")
+    map.put("x-null-value", null)
+    map.put("x-generic", "generic-value")
+    val stage = new AddDocuments()
+      .setSubscriptionKey("resolved-key")
+      .setCustomHeaders(map)
+    assert(storedCustomHeaders(stage) == Map("x-generic" -> "generic-value"))
+    assert(storedCustomHeaders(stage).keySet.forall(name => name != null))
+    assert(storedCustomHeaders(stage).values.forall(value => value != null))
+    assert(persistCustomHeaders(stage) == Map("x-generic" -> "generic-value"))
+    val headers = stage.buildServiceAuthHeaders(Row.empty, addContentType = false, None)
+    assert(headers("api-key") == "resolved-key")
+    assert(headers("x-generic") == "generic-value")
+    assert(headers.keySet.forall(name => name != null))
+    assert(!headers.values.exists(value => value == null || value.contains("orphan-value")))
+  }
+
+  test("normalized custom headers preserve embedded-credential precedence and persist safely") {
+    val map = new java.util.HashMap[String, String]()
+    map.put("api-key", "embedded-key")
+    map.put("x-null-value", null)
+    map.put("x-generic", "generic-value")
+    val stage = new AddDocuments().setCustomHeaders(map)
+    assert(persistCustomHeaders(stage) ==
+      Map("api-key" -> "embedded-key", "x-generic" -> "generic-value"))
+    val headers = stage.buildServiceAuthHeaders(Row.empty, addContentType = false, None)
+    assert(headers("api-key") == "embedded-key")
+    assert(headers.keys.count(name => name.equalsIgnoreCase("api-key")) == 1)
+    assert(headers("x-generic") == "generic-value")
+  }
+
+  test("the shared boundary drops a null generic header value so it is never emitted") {
+    val headers = ServiceAuthHeaders.build(
+      Some("resolved-key"), "api-key", "Authorization", None, None,
+      Some(Map("x-null-value" -> (null: String), "x-generic" -> "generic-value")), None, None, None)
+    assert(headers("api-key") == "resolved-key")
+    assert(headers("x-generic") == "generic-value")
+    assert(!headers.contains("x-null-value"))
+    assert(headers.values.forall(value => value != null))
   }
   // scalastyle:on null
 }

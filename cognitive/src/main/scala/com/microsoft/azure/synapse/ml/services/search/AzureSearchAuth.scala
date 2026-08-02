@@ -15,11 +15,12 @@ final case class AzureSearchAuth(subscriptionKey: Option[String] = None,
 
   private def nonBlank(value: String): Boolean = value != null && value.trim.nonEmpty
 
-  // Java callers can pass a null customHeaders map or entries with a null header name. Treat a null
-  // map as empty and drop null-named entries (never valid HTTP header names) so validation, toString,
-  // and ServiceAuthHeaders.build never dereference a null container or key.
+  // Java callers can pass a null customHeaders map or entries with a null header name or value. Reuse
+  // the shared cognitive-services normalizer so a null map collapses to empty and null-named or
+  // null-valued entries are dropped with identical rules to setCustomHeaders and ServiceAuthHeaders
+  // .build, keeping validation, toString, and header assembly null-safe and free of null generics.
   private def sanitizedCustomHeaders: Map[String, String] =
-    Option(customHeaders).getOrElse(Map.empty).filter { case (name, _) => name != null }
+    ServiceAuthHeaders.sanitizeHeaderMap(customHeaders)
 
   // Public/Java callers can pass a null Option container (not just Some(null)) for any credential,
   // e.g. AzureSearchAuth(null, Some(aad), None, Map.empty). Option(_).flatten collapses a null
@@ -75,7 +76,10 @@ object AzureSearchAuth {
   }
 
   private def optionValue(options: Map[String, String], names: Seq[String]): Option[String] = {
-    val values = names.flatMap(options.get).distinct
+    // Drop null/blank alias values before the conflict check so a blank alias (treated as absent
+    // everywhere else) never conflicts with a valid sibling. Values are compared verbatim -- never
+    // trimmed -- and the failure names only the option keys, never their (credential) values.
+    val values = names.flatMap(options.get).filter(ServiceAuthHeaders.nonBlank).distinct
     require(values.size <= 1, s"Conflicting Azure Search options: ${names.mkString(" and ")}")
     values.headOption
   }
@@ -101,7 +105,7 @@ object AzureSearchAuth {
 
   private[search] def fromOptions(options: Map[String, String]): AzureSearchAuth = {
     AzureSearchAuth(
-      subscriptionKey = options.get("subscriptionKey"),
+      subscriptionKey = optionValue(options, Seq("subscriptionKey")),
       aadToken = optionValue(options, Seq("AADToken", "aadToken")),
       customAuthHeader = optionValue(options, Seq("CustomAuthHeader", "customAuthHeader")),
       customHeaders = options.get("customHeaders").map(parseCustomHeaders).getOrElse(Map.empty)

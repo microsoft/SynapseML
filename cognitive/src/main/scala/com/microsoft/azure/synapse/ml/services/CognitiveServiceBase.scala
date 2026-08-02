@@ -196,18 +196,38 @@ trait HasCustomAuthHeader extends HasServiceParams {
 
 trait HasCustomHeaders extends HasServiceParams {
 
-  val customHeaders = new ServiceParam[Map[String, String]](
-    this, "customHeaders", "Map of Custom Header Key-Value Tuples."
-  )
+  // Normalize at the param's own JSON boundary so every persistence path is null-safe, not only the
+  // dedicated setters. setScalarParam(customHeaders, v), setScalarParam("customHeaders", v), and
+  // Params.set(customHeaders, Left(v)) all store the raw value that ComplexParamsWritable later feeds
+  // to jsonEncode on save (and jsonDecode on load); a null map, null header name, or null header value
+  // would otherwise NPE / trip Spray JSON's require(x ne null) right here. The explicit
+  // ServiceParam[Map[String, String]] type annotation keeps the public field/getter JVM descriptor
+  // unchanged despite the anonymous subclass. Setters and build() reapply the same normalization as
+  // defense in depth. Normalization is silent (drops null entries) rather than throwing, so validation
+  // errors never render header values.
+  val customHeaders: ServiceParam[Map[String, String]] =
+    new ServiceParam[Map[String, String]](
+      this, "customHeaders", "Map of Custom Header Key-Value Tuples.") {
+      override def jsonEncode(value: Either[Map[String, String], String]): String =
+        super.jsonEncode(value.left.map(m => ServiceAuthHeaders.sanitizeHeaderMap(m)))
+
+      override def jsonDecode(json: String): Either[Map[String, String], String] =
+        super.jsonDecode(json).left.map(m => ServiceAuthHeaders.sanitizeHeaderMap(m))
+    }
 
   def setCustomHeaders(v: Map[String, String]): this.type = {
-    setScalarParam(customHeaders, v)
+    // Normalize before storing so a null map, null header name, or null header value can never reach
+    // setScalarParam and later NPE ComplexParamsWritable/Spray JSON persistence: a null map becomes
+    // empty and null-named or null-valued entries are dropped. build() reapplies this at the shared
+    // boundary as defense in depth. Public signature and legitimate headers are unchanged.
+    setScalarParam(customHeaders, ServiceAuthHeaders.sanitizeHeaderMap(v))
   }
 
   // For Pyspark compatability accept Java HashMap as input to parameter
-  // py4J only natively supports conversions from Python Dict to Java HashMap
+  // py4J only natively supports conversions from Python Dict to Java HashMap. A null HashMap is
+  // handled here (never dereferenced) and null keys/values are dropped by the Scala overload above.
   def setCustomHeaders(v: java.util.HashMap[String, String]): this.type = {
-    setCustomHeaders(v.asScala.toMap)
+    setCustomHeaders(Option(v).map(_.asScala.toMap).getOrElse(Map.empty[String, String]))
   }
 }
 
@@ -311,6 +331,22 @@ object URLEncodingUtils {
 private[ml] object ServiceAuthHeaders {
   private[ml] def nonBlank(value: String): Boolean = value != null && value.trim.nonEmpty
 
+  // Normalize a header map from any caller (a writer-supplied java.util.HashMap included) into a
+  // null-safe Scala map that is safe both to store as a Spark param (ComplexParamsWritable/Spray
+  // JSON reject null keys and values, NPE-ing persistence) and to emit as HTTP headers: a null map
+  // collapses to empty, and any entry with a null name or null value is dropped. Non-null values are
+  // preserved verbatim; callers decide how to treat blank or auth-named entries. Setters normalize
+  // with this before setScalarParam, and build() reapplies it at the shared boundary as defense in
+  // depth.
+  private[ml] def sanitizeHeaderMap(headers: Map[String, String]): Map[String, String] =
+    Option(headers).getOrElse(Map.empty[String, String])
+      .filter { case (name, value) => name != null && value != null }
+
+  // Option overload for the shared boundary: a null outer Option, None, Some(null), or a null
+  // underlying map all collapse to empty before the same null-key/null-value normalization.
+  private def sanitizeHeaderMap(headers: Option[Map[String, String]]): Map[String, String] =
+    sanitizeHeaderMap(Option(headers).flatten.orNull)
+
   // Deterministically select a non-blank credential embedded in customHeaders for one canonical
   // auth header name, canonicalizing its casing. Blank values are ignored and mixed-case duplicates
   // resolve by sorted header name, so an empty entry can never suppress a valid credential.
@@ -333,7 +369,7 @@ private[ml] object ServiceAuthHeaders {
             fabricFallbackAuthHeader: => Option[String],
             telemHeaders: Option[Map[String, String]],
             contentType: Option[String]): Map[String, String] = {
-    val providedCustomHeaders = customHeaders.getOrElse(Map.empty[String, String])
+    val providedCustomHeaders = sanitizeHeaderMap(customHeaders)
 
     // Header names that carry credentials in this context, compared case-insensitively.
     def isAuthHeaderName(name: String): Boolean =
@@ -366,9 +402,14 @@ private[ml] object ServiceAuthHeaders {
     authHeader.foreach { case (headerName, headerValue) =>
       headers += (headerName -> headerValue)
     }
-    telemHeaders.foreach(_.foreach { case (headerName, headerValue) =>
-      headers += (headerName -> headerValue)
-    })
+    // Telemetry/generic headers never carry auth: sanitize the map and strip any
+    // api-key/Authorization entry (any casing) so telemetry can neither override the one resolved
+    // credential nor duplicate it under a different case. Non-auth telemetry headers are preserved.
+    sanitizeHeaderMap(telemHeaders).foreach { case (headerName, headerValue) =>
+      if (!isAuthHeaderName(headerName)) {
+        headers += (headerName -> headerValue)
+      }
+    }
     contentType.filterNot(StringUtils.isEmpty).foreach(value => headers += ("Content-Type" -> value))
 
     new scala.collection.immutable.TreeMap[String, String]() ++ headers
