@@ -6,7 +6,6 @@ package com.microsoft.azure.synapse.ml.stages
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.UDFParam
-import org.apache.spark.SparkContext
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable
@@ -59,8 +58,8 @@ class Lambda(val uid: String) extends Transformer with Wrappable with ComplexPar
 
   def transformSchema(schema: StructType): StructType = {
     if (get(transformSchemaFunc).isEmpty) {
-      val sc = SparkContext.getOrCreate()
-      val df = SparkSession.builder().getOrCreate().createDataFrame(sc.emptyRDD[Row], schema)
+      val spark = SparkSession.builder().getOrCreate()
+      val df = spark.createDataFrame(java.util.Collections.emptyList[Row](), schema)
       transform(df).schema
     } else {
       getTransformSchema(schema)

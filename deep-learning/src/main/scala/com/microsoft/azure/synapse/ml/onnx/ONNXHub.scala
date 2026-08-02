@@ -11,8 +11,8 @@ import org.apache.commons.codec.digest.DigestUtils
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.hadoop.io.{IOUtils => HUtils}
-import org.apache.spark.SparkContext
 import org.apache.spark.internal.Logging
+import org.apache.spark.sql.SparkSession
 import spray.json._
 
 import java.io.BufferedInputStream
@@ -84,7 +84,7 @@ object ONNXHub {
         .map(xch => new Path(new Path(xch, "onnx"), "hub")))
       .getOrElse({
         val home = new Path("placeholder")
-          .getFileSystem(SparkContext.getOrCreate().hadoopConfiguration)
+          .getFileSystem(SparkSession.active.sparkContext.hadoopConfiguration)
           .getHomeDirectory
         FileUtilities.join(home, ".cache", "onnx", "hub")
       })
@@ -201,7 +201,7 @@ class ONNXHub(val modelCacheDir: Path,
       urlCon.setReadTimeout(readTimeout)
       using(new BufferedInputStream(urlCon.getInputStream)) { is =>
           using(fs.create(path)) { os =>
-          HUtils.copyBytes(is, os, SparkContext.getOrCreate().hadoopConfiguration)
+          HUtils.copyBytes(is, os, SparkSession.active.sparkContext.hadoopConfiguration)
         }
       }
     }
@@ -219,7 +219,7 @@ class ONNXHub(val modelCacheDir: Path,
     Seq(selectedModel.metadata.modelSha.map(sha => s"${sha}_${modelPathArr.last}").getOrElse(modelPathArr.last))
 
     val localModelPath = FileUtilities.join(getDir, localModelDirs: _*)
-    val fs = localModelPath.getFileSystem(SparkContext.getOrCreate().hadoopConfiguration)
+    val fs = localModelPath.getFileSystem(SparkSession.active.sparkContext.hadoopConfiguration)
 
     if (forceReload || !fs.exists(localModelPath)) {
       if (!verifyRepoRef(repo)) {

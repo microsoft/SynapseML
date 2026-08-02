@@ -179,6 +179,7 @@ private[streaming] object DriverServiceUtils {
   }
 
   def getDriverHost: String = {
+    // Note: SparkContext needed for BlockManager access - no SparkSession equivalent
     val blockManager = SparkContext.getActive.get.env.blockManager
     blockManager.master.getMemoryStatus.toList.flatMap({ case (blockManagerId, _) =>
       if (blockManagerId.executorId == "driver") Some(getHostToIP(blockManagerId.host))

@@ -132,12 +132,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
      * barrier execution, which is unfortunate as repartition is more expensive than coalesce.
      */
     if (getUseBarrierExecutionMode) {
-      val numPartitions = df.rdd.getNumPartitions
-      if (numPartitions > numTasks) {
-        df.repartition(numTasks)
-      } else {
-        df
-      }
+      df.repartition(numTasks)
     } else {
       df.coalesce(numTasks)
     }
@@ -450,8 +445,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     // By default, we try to intelligently calculate the number of executors, but user can override this with numTasks
     if (configNumTasks > 0) configNumTasks
     else {
-      val numExecutorTasks = ClusterUtil.getNumExecutorTasks(dataset.sparkSession, numTasksPerExecutor, log)
-      min(numExecutorTasks, dataset.rdd.getNumPartitions)
+      ClusterUtil.getNumExecutorTasks(dataset.sparkSession, numTasksPerExecutor, log)
     }
   }
 
@@ -616,6 +610,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
 
     val encoder = Encoders.kryo[PartitionResult]
     measures.markTrainingStart()
+    // Note: barrier execution requires RDD API - no DataFrame equivalent exists in Spark
     val results: Array[PartitionResult] =
       if (getUseBarrierExecutionMode)
         dataframe.rdd.barrier().mapPartitions(mapPartitionsFunc).collect()

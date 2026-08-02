@@ -218,14 +218,8 @@ object SyntheticEstimator {
   }
 
   private[causal] def assignRowIndex(df: DataFrame, colName: String): DataFrame = {
-    df.sparkSession.createDataFrame(
-      df.rdd.zipWithIndex.map(element =>
-        Row.fromSeq(Seq(element._2) ++ element._1.toSeq)
-      ),
-      StructType(
-        Array(StructField(colName, LongType, nullable = false)) ++ df.schema.fields
-      )
-    )
+    df.withColumn(colName, monotonically_increasing_id())
+      .select(col(colName) +: df.columns.map(col): _*)
   }
 
   private[causal] def createIndex(data: DataFrame, inputCol: String, indexCol: String): DataFrame = {

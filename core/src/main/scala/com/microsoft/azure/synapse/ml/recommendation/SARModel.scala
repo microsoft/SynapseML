@@ -104,6 +104,7 @@ class SARModel(override val uid: String) extends Model[SARModel]
     dstOutputColumn: String,
     num: Int): DataFrame = {
 
+    // Note: CoordinateMatrix from MLlib requires RDD input - .rdd conversion is necessary
     def dfToRDDMatrxEntry(dataframe: DataFrame) = {
       dataframe.rdd
         .flatMap(row =>

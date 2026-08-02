@@ -5,9 +5,7 @@ package com.microsoft.azure.synapse.ml.core.utils
 
 import java.net.InetAddress
 import org.apache.http.conn.util.InetAddressUtils
-import org.apache.spark.SparkContext
 import org.apache.spark.injections.BlockManagerUtils
-import org.apache.spark.sql.functions.typedLit
 import org.apache.spark.sql.{Column, DataFrame, SparkSession}
 import org.slf4j.Logger
 
@@ -20,7 +18,7 @@ object ClusterUtil {
     * @return The number of tasks per executor.
     */
   def getNumTasksPerExecutor(spark: SparkSession, log: Logger): Int = {
-    val confTaskCpus = getTaskCpus(spark.sparkContext, log)
+    val confTaskCpus = getTaskCpus(spark, log)
     try {
       val confCores = spark.sparkContext.getConf.get("spark.executor.cores").toInt
       val tasksPerExec = confCores / confTaskCpus
@@ -44,13 +42,18 @@ object ClusterUtil {
     * @return The number of rows per partition (where partitionId is the array index).
     */
   def getNumRowsPerPartition(df: DataFrame, labelCol: Column): Array[Long] = {
-    val indexedRowCounts: Array[(Int, Long)] = df
-      .select(typedLit(0.toByte))
-      .rdd
-      .mapPartitionsWithIndex({case (i,rows) => Iterator((i,rows.size.toLong))}, true)
+    import org.apache.spark.sql.functions.{spark_partition_id, count, lit}
+    val partitionCounts = df
+      .select(spark_partition_id().as("partId"))
+      .groupBy("partId")
+      .agg(count(lit(1)).as("cnt"))
       .collect()
-    // Get an array where the index is implicitly the partition id
-    indexedRowCounts.sortBy(pair => pair._1).map(pair => pair._2)
+    val maxPartId = if (partitionCounts.isEmpty) 0 else partitionCounts.map(_.getInt(0)).max + 1
+    val result = Array.fill[Long](maxPartId)(0L)
+    partitionCounts.foreach { row =>
+      result(row.getInt(0)) = row.getLong(1)
+    }
+    result
   }
 
   /** Get number of default cores from sparkSession(required) or master(optional) for 1 executor.
@@ -104,9 +107,9 @@ object ClusterUtil {
     }
   }
 
-  def getTaskCpus(sparkContext: SparkContext, log: Logger): Int = {
+  def getTaskCpus(spark: SparkSession, log: Logger): Int = {
     try {
-      val taskCpusConfig = sparkContext.getConf.getOption("spark.task.cpus")
+      val taskCpusConfig = spark.sparkContext.getConf.getOption("spark.task.cpus")
       if (taskCpusConfig.isEmpty) {
         log.info("ClusterUtils did not detect spark.task.cpus config set, using default 1 instead")
       }
