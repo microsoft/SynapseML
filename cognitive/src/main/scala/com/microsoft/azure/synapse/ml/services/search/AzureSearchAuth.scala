@@ -13,12 +13,24 @@ final case class AzureSearchAuth(subscriptionKey: Option[String] = None,
                                  customAuthHeader: Option[String] = None,
                                  customHeaders: Map[String, String] = Map.empty) {
 
-  private def nonBlank(value: String): Boolean = value.trim.nonEmpty
+  private def nonBlank(value: String): Boolean = value != null && value.trim.nonEmpty
 
+  // Java callers can pass a null customHeaders map or entries with a null header name. Treat a null
+  // map as empty and drop null-named entries (never valid HTTP header names) so validation, toString,
+  // and ServiceAuthHeaders.build never dereference a null container or key.
+  private def sanitizedCustomHeaders: Map[String, String] =
+    Option(customHeaders).getOrElse(Map.empty).filter { case (name, _) => name != null }
+
+  // Public/Java callers can pass a null Option container (not just Some(null)) for any credential,
+  // e.g. AzureSearchAuth(null, Some(aad), None, Map.empty). Option(_).flatten collapses a null
+  // container to None before filtering (so .filter never NPEs) while preserving Some(null), which
+  // nonBlank then drops -- a null/blank higher-priority credential never suppresses a valid lower one,
+  // and validated/toString/header assembly read this normalized copy so they stay null-safe.
   private def normalized: AzureSearchAuth = copy(
-    subscriptionKey = subscriptionKey.filter(nonBlank),
-    aadToken = aadToken.filter(nonBlank),
-    customAuthHeader = customAuthHeader.filter(nonBlank))
+    subscriptionKey = Option(subscriptionKey).flatten.filter(nonBlank),
+    aadToken = Option(aadToken).flatten.filter(nonBlank),
+    customAuthHeader = Option(customAuthHeader).flatten.filter(nonBlank),
+    customHeaders = sanitizedCustomHeaders)
 
   private[search] def validated: AzureSearchAuth = {
     val auth = normalized
@@ -33,7 +45,7 @@ final case class AzureSearchAuth(subscriptionKey: Option[String] = None,
   }
 
   override def toString: String = {
-    val customHeaderNames = customHeaders.keys.toSeq.sorted.mkString("[", ",", "]")
+    val customHeaderNames = sanitizedCustomHeaders.keys.toSeq.sorted.mkString("[", ",", "]")
     s"AzureSearchAuth(subscriptionKey=<redacted>, aadToken=<redacted>, " +
       s"customAuthHeader=<redacted>, customHeaders=$customHeaderNames)"
   }

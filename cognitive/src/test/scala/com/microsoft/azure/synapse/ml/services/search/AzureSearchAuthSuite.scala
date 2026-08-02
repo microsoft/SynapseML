@@ -373,4 +373,122 @@ class AzureSearchAuthSuite extends AnyFunSuite {
     assert(fallbackHeaders("Authorization") == "fabric-fallback-token")
     assert(!fallbackHeaders.contains("api-key"))
   }
+
+  // scalastyle:off null
+  test("null credential option values are treated as absent and preserve precedence") {
+    // Java callers can construct Some(null); normalized must treat it as absent (matching the
+    // shared ServiceAuthHeaders null-safe rule) instead of throwing, and a null higher-priority
+    // credential must not suppress a valid lower-priority one.
+    val headers = AzureSearchAuth(
+      subscriptionKey = Some(null: String),
+      aadToken = Some("test-aad-token")).headers()
+    assert(!headers.contains("api-key"))
+    assert(headers("Authorization").contains("test-aad-token"))
+
+    val error = intercept[IllegalArgumentException] {
+      AzureSearchAuth(
+        subscriptionKey = Some(null: String),
+        aadToken = Some(null: String),
+        customAuthHeader = Some(null: String)).validated
+    }
+    assert(error.getMessage.contains("authentication"))
+  }
+
+  test("a null-valued api-key custom header is treated as absent, never a credential or NPE") {
+    val error = intercept[IllegalArgumentException] {
+      AzureSearchAuth(customHeaders = Map("api-key" -> (null: String))).validated
+    }
+    assert(error.getMessage.contains("authentication"))
+
+    val headers = AzureSearchAuth(
+      subscriptionKey = Some("test-subscription-key"),
+      customHeaders = Map("api-key" -> (null: String), "x-generic" -> "generic-value")).headers()
+    assert(headers("api-key") == "test-subscription-key")
+    assert(headers("x-generic") == "generic-value")
+  }
+
+  test("a null custom-header name is dropped during validation, header assembly, and toString") {
+    val auth = AzureSearchAuth(
+      subscriptionKey = Some("test-subscription-key"),
+      customHeaders = Map((null: String) -> "orphan-value", "x-generic" -> "generic-value"))
+    val headers = auth.validated.headers()
+    assert(headers("api-key") == "test-subscription-key")
+    assert(headers("x-generic") == "generic-value")
+    assert(headers.keySet.forall(_ != null))
+    val rendered = auth.toString
+    assert(rendered.contains("x-generic"))
+    assert(!rendered.contains("orphan-value"))
+  }
+
+  test("a null customHeaders map is treated as empty across validation, headers, and toString") {
+    val nullMap: Map[String, String] = null
+    val auth = AzureSearchAuth(subscriptionKey = Some("test-subscription-key"), customHeaders = nullMap)
+    val headers = auth.headers()
+    assert(headers("api-key") == "test-subscription-key")
+    assert(auth.toString.contains("customHeaders=[]"))
+
+    val error = intercept[IllegalArgumentException] {
+      AzureSearchAuth(customHeaders = nullMap).validated
+    }
+    assert(error.getMessage.contains("authentication"))
+  }
+
+  test("null credential inputs are rejected without leaking values in the rendered exception chain") {
+    val canary = "canary-4f21-not-a-real-secret"
+    val error = intercept[IllegalArgumentException] {
+      AzureSearchAuth(
+        subscriptionKey = Some(null: String),
+        aadToken = Some(null: String),
+        customAuthHeader = Some(null: String),
+        customHeaders = Map("api-key" -> (null: String), "x-canary" -> canary)).validated
+    }
+    assert(error.getCause == null)
+    assert(error.getMessage.contains("authentication"))
+    val rendered = renderExceptionChain(error)
+    assert(!rendered.contains(canary))
+  }
+
+  test("a null outer credential container does not suppress a valid lower-priority credential") {
+    // Public/Java callers can pass a null Option container (not Some(null)), e.g.
+    // AzureSearchAuth(null, Some(validAad), None, Map.empty). normalized must normalize the null
+    // container to None before filtering instead of calling .filter on null and NPEing, so a null
+    // higher-priority credential never suppresses a valid lower-priority one.
+    val aadHeaders = AzureSearchAuth(null, Some("test-aad-token"), None, Map.empty).headers()
+    assert(!aadHeaders.contains("api-key"))
+    assert(aadHeaders("Authorization").contains("test-aad-token"))
+
+    val nullOption: Option[String] = null
+    val customHeaders = AzureSearchAuth(
+      subscriptionKey = nullOption,
+      aadToken = nullOption,
+      customAuthHeader = Some("Custom test-auth")).headers()
+    assert(!customHeaders.contains("api-key"))
+    assert(customHeaders("Authorization") == "Custom test-auth")
+  }
+
+  test("all-null outer credential containers are rejected as missing authentication") {
+    val nullOption: Option[String] = null
+    val nullMap: Map[String, String] = null
+    val error = intercept[IllegalArgumentException] {
+      AzureSearchAuth(nullOption, nullOption, nullOption, nullMap).validated
+    }
+    assert(error.getMessage.contains("authentication"))
+  }
+
+  test("null outer credential containers are rejected without leaking values in the rendered chain") {
+    val canary = "canary-7b42-not-a-real-secret"
+    val nullOption: Option[String] = null
+    val error = intercept[IllegalArgumentException] {
+      AzureSearchAuth(
+        subscriptionKey = nullOption,
+        aadToken = nullOption,
+        customAuthHeader = nullOption,
+        customHeaders = Map("x-canary" -> canary)).validated
+    }
+    assert(error.getCause == null)
+    assert(error.getMessage.contains("authentication"))
+    val rendered = renderExceptionChain(error)
+    assert(!rendered.contains(canary))
+  }
+  // scalastyle:on null
 }
