@@ -47,19 +47,52 @@
 _Updated by the driving agent as findings are addressed._
 
 ### Issue 1
-- **Status**: Open
-- **What changed**: pending
-- **Why**: pending
-- **How verified**: pending
+- **Status**: Fixed
+- **What changed**: Non-collapsed merging now joins each generated grouping key with Spark's
+  null-safe equality operator (`<=>`) and projects a single copy of the left keys plus the right
+  aggregates before final output selection.
+- **Why**: Spark groups null keys together, so the merge must match those groups rather than
+  silently dropping their source rows through ordinary SQL equality.
+- **How verified**: Added a three-row regression with two null keys and one non-null key. The
+  non-collapsed result retains all rows and assigns the null-key group mean to both null-key rows.
 
 ### Issue 2
-- **Status**: Open
-- **What changed**: pending
-- **Why**: pending
-- **How verified**: pending
+- **Status**: Fixed
+- **What changed**: Dataset-aware resolution now reads `spark.sql.caseSensitive` from
+  `dataset.sparkSession`; schema-only resolution continues to use the active session when one
+  exists and the existing insensitive fallback otherwise.
+- **Why**: Runtime DataFrame analysis belongs to the dataset's session, which may differ from the
+  thread-local active session in multi-session and PySpark execution.
+- **How verified**: Cross-session regressions now assert that a case-sensitive dataset rejects
+  case-mismatched references even under an insensitive active session, while an insensitive
+  dataset accepts them under a sensitive active session. The no-active-session case also confirms
+  runtime follows the dataset session.
 
 ### Issue 3
-- **Status**: Open
-- **What changed**: pending
-- **Why**: pending
-- **How verified**: pending
+- **Status**: Not applicable
+- **What changed**: Vector output nullability remains `false`.
+- **Why**: Spark's `Summarizer.mean` expression itself declares a non-nullable vector output, so
+  the current `transformSchema` field exactly matches the runtime DataFrame schema. All-null
+  vectors do not produce a nullable result; Spark aborts execution with a `MatchError` while
+  updating the summarizer. Marking the field nullable would therefore create the schema mismatch.
+- **How verified**: Added an all-null vector regression that asserts exact declared/runtime schema
+  equality, verifies `mean(features)` is non-nullable, and confirms materialization fails rather
+  than returning a null vector. All 44 focused tests and both scalastyle checks pass.
+
+## Round 3 Re-review 1
+
+## Review Summary
+- **Round**: 3
+- **Theme**: Edge cases & robustness
+- **Mode**: sequential
+- **Model**: gemini-3.6-flash
+- **Artifact**: /c/Users/singhrana/Documents/SynapseML-pr-2575/reviews/pr-2575/task-2575-attempt-1-review-3-gemini-3.6-flash.md
+- **Issues Found**: 0
+- **Verdict**: CLEAN
+
+## Evidence Checklist
+- [x] Verified `mergeWithGroups` null-safe join (`<=>`) in `core/src/main/scala/com/microsoft/azure/synapse/ml/stages/EnsembleByKey.scala:569` and verified non-collapsed grouping retains null-key rows without duplicate column ambiguity in `EnsembleByKeyResolutionSuite.scala:21-36`.
+- [x] Verified runtime `spark.sql.caseSensitive` configuration resolution uses `dataset.sparkSession` in `core/src/main/scala/com/microsoft/azure/synapse/ml/stages/EnsembleByKey.scala:367-368` and verified multi-session behavior in `EnsembleByKeySuite.scala:210-234`.
+- [x] Verified empirical evidence that Spark's `Summarizer.mean` declares vector outputs non-nullable (`nullable = false`) in `core/src/main/scala/com/microsoft/azure/synapse/ml/stages/EnsembleByKey.scala:140-141` and aborts on all-null vectors rather than returning null in `EnsembleByKeyResolutionSuite.scala:38-52`.
+- [x] Ran all 44 Scala tests across `EnsembleByKeySuite` and `EnsembleByKeyResolutionSuite` via sbt (`44 succeeded, 0 failed`) and verified zero scalastyle findings across 211 source files and 151 test files.
+- [x] Verified Python implementation in `core/src/main/python/synapse/ml/stages/EnsembleByKey.py` and unit test coverage in `core/src/test/python/synapsemltest/stages/test_ensemble_by_key.py` compile cleanly.

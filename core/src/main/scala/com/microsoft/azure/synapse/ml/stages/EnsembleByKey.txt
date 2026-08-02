@@ -5,3 +5,21 @@ the first row of the column. To avoid materialization you can provide the vector
 through the ``setVectorDims`` function, which takes a mapping from
 columns (String) to dimension (Int). You can also choose to squash or keep the original
 dataset with the ``collapseGroup`` parameter.
+
+Column references support Spark field syntax, including dataset qualifiers, nested
+struct paths, array-of-struct extraction, map extraction (the referenced segment is
+cast from a string literal to the map key type, following Spark cast rules, and the
+map key type must also be orderable because Spark looks map values up by key), and
+backtick-quoted literal field names. Duplicate columns that Spark treats as one
+expression resolve like a single column, union columns that Spark marks as duplicates
+are pruned the same way Spark prunes them (only within the candidate set the requested
+qualifier and name already selected, so a duplicate-marked ``u.group`` still wins over an
+untagged ``v.group``), while references that match several distinct attributes are
+rejected as ambiguous. Because a ``StructType`` does not retain dataset aliases,
+``transformSchema`` cannot reject a qualifier that matches no dataset; ``transform``
+detects and reports that invalid qualifier when the analyzed dataset is available.
+Schema-only case resolution similarly uses the active Spark session, while runtime
+resolution uses the dataset session. If no matching active session exists and those
+sessions use different ``spark.sql.caseSensitive`` values, pipeline schema validation
+can differ from runtime resolution; keep the dataset session active while constructing
+or validating a pipeline.
