@@ -223,7 +223,7 @@ trait HasCustomHeaders extends HasServiceParams {
     setScalarParam(customHeaders, ServiceAuthHeaders.sanitizeHeaderMap(v))
   }
 
-  // For Pyspark compatability accept Java HashMap as input to parameter
+  // For Pyspark compatibility accept Java HashMap as input to parameter
   // py4J only natively supports conversions from Python Dict to Java HashMap. A null HashMap is
   // handled here (never dereferenced) and null keys/values are dropped by the Scala overload above.
   def setCustomHeaders(v: java.util.HashMap[String, String]): this.type = {
@@ -241,7 +241,7 @@ trait HasTelemHeaders extends HasServiceParams {
     setScalarParam(telemHeaders, v)
   }
 
-  // For Pyspark compatability accept Java HashMap as input to parameter
+  // For Pyspark compatibility accept Java HashMap as input to parameter
   // py4J only natively supports conversions from Python Dict to Java HashMap
   private[ml] def setTelemHeaders(v: java.util.HashMap[String, String]): this.type = {
     setTelemHeaders(v.asScala.toMap)
