@@ -537,6 +537,7 @@ class DatabricksUtilitiesSuite extends AnyFunSuite {
     assert(packages.contains("transformers==4.49.0"))
     assert(packages.contains("huggingface-hub==0.26.0"))
     assert(packages.contains("sentence-transformers==4.0.2"))
+    assert(packages.contains("accelerate==0.26.0"))
   }
 
   test("Select all GPU notebooks in deterministic order") {
