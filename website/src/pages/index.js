@@ -314,7 +314,7 @@ function Home() {
                   SynapseML can be conveniently installed on existing Spark
                   clusters via the --packages option, examples:
                   <CodeSnippet
-                    snippet={`spark-shell --packages com.microsoft.azure:synapseml_2.12:1.1.3 # Please use 1.1.3 version for Spark3.5 and 1.1.3 version for Spark3.4
+                    snippet={`spark-shell --packages com.microsoft.azure:synapseml_2.12:1.1.3 # Please use 1.1.3 version for Spark3.5 and 1.0.15 version for Spark3.4
 pyspark --packages com.microsoft.azure:synapseml_2.12:1.1.3
 spark-submit --packages com.microsoft.azure:synapseml_2.12:1.1.3 MyApp.jar `}
                     lang="bash"
@@ -405,7 +405,7 @@ spark-submit --packages com.microsoft.azure:synapseml_2.12:1.1.3 MyApp.jar `}
                   <CodeSnippet
                     snippet={`import pyspark
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:1.1.3") # Please use 1.1.3 version for Spark3.5 and 1.1.3 version for Spark3.4
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:1.1.3") # Please use 1.1.3 version for Spark3.5 and 1.0.15 version for Spark3.4
         .config("spark.jars.repositories", "https://mmlspark.blob.core.windows.net/maven")
         .getOrCreate())
 import synapse.ml`}
