@@ -10,69 +10,68 @@ description: R setup and example for SynapseML
 
 ## Installation
 
-**Requirements**: Ensure that R and
-[devtools](https://github.com/hadley/devtools) installed on your
-machine.
+**Requirements**: Install R and
+[devtools](https://github.com/hadley/devtools) on your machine.
 
-Also make sure you have Apache Spark installed. If you are using Sparklyr, you can use [spark-install](https://spark.rstudio.com/packages/sparklyr/latest/reference/spark_install.html). Be sure to specify the correct version. As of this writing, that should be version="3.2". spark_install is a bit eccentric and may install a slightly different version. Be sure that the version you get is one that you want.
+Also install a version of Apache Spark that is compatible with this SynapseML
+release. If you are using sparklyr, you can use
+[`spark_install`](https://spark.rstudio.com/packages/sparklyr/latest/reference/spark_install.html).
+On Windows, download
+[WinUtils.exe](https://github.com/steveloughran/winutils/blob/master/hadoop-3.0.0/bin/winutils.exe)
+and copy it into the `bin` directory of your Spark installation, for example,
+`C:\Users\user\AppData\Local\Spark\spark-3.3.2-bin-hadoop3\bin`.
 
-On Windows, download [WinUtils.exe](https://github.com/steveloughran/winutils/blob/master/hadoop-3.0.0/bin/winutils.exe) and copy it into the `bin` directory of your Spark installation, e.g. C:\Users\user\AppData\Local\Spark\spark-3.3.2-bin-hadoop3\bin
-
-To install the current SynapseML package for R, first install synapseml-core:
+The R bindings are published as one archive per SynapseML module. A combined
+`synapseml-1.0.6.zip` archive is not published. Install `synapseml-core` and
+the modules needed by your application (the following installs all six):
 
 ```R
-...
-devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-core-0.11.0.zip")
-...
+devtools::install_url("https://mmlspark.blob.core.windows.net/rrr/synapseml-core-1.0.6.zip")
+devtools::install_url("https://mmlspark.blob.core.windows.net/rrr/synapseml-cognitive-1.0.6.zip")
+devtools::install_url("https://mmlspark.blob.core.windows.net/rrr/synapseml-deep-learning-1.0.6.zip")
+devtools::install_url("https://mmlspark.blob.core.windows.net/rrr/synapseml-lightgbm-1.0.6.zip")
+devtools::install_url("https://mmlspark.blob.core.windows.net/rrr/synapseml-opencv-1.0.6.zip")
+devtools::install_url("https://mmlspark.blob.core.windows.net/rrr/synapseml-vw-1.0.6.zip")
 ```
 
-and then install any or all of the following packages, depending on your intended usage:
+> **Published archive compatibility:** The component archives for this release
+> were generated before the artifact endpoint migration and embed the retired
+> Azure CDN Maven resolver in their sparklyr extension registration. Until the
+> archives are regenerated and published, provide the Blob resolver explicitly
+> and pass `extensions = character()` as shown below. Otherwise, loading an R
+> wrapper before connecting can reactivate the retired resolver.
 
-synapseml-cognitive,
-synapseml-deep-learning,
-synapseml-lightgbm,
-synapseml-opencv,
-synapseml-vw
+### Importing libraries and setting up a Spark context
 
-In other words:
-
-```R
-...
-devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-cognitive-0.11.0.zip")
-devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-deep-learning-0.11.0.zip")
-devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-lightgbm-0.11.0.zip")
-devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-opencv-0.11.0.zip")
-devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-vw-0.11.0.zip")
-...
-```
-
-### Importing libraries and setting up spark context
-
-Installing all dependencies may be time-consuming.  When complete, run:
+Installing all dependencies may be time-consuming. When complete, create the
+Spark context with an explicit package coordinate and repository. For local
+sparklyr connections, `sparklyr.shell.repositories` supplies the repository to
+`spark-submit`, while `extensions = character()` prevents the wrappers' embedded
+registration from overriding it:
 
 ```R
-...
 library(sparklyr)
 library(dplyr)
+
 config <- spark_config()
 config$sparklyr.defaultPackages <- "com.microsoft.azure:synapseml_2.12:1.0.6"
-sc <- spark_connect(master = "local", config = config)
-...
+config$sparklyr.shell.repositories <- "https://mmlspark.blob.core.windows.net/maven"
+sc <- spark_connect(
+  master = "local",
+  config = config,
+  extensions = character()
+)
 ```
 
-This creates a spark context on your local machine.
-
-We then need to import the R wrappers:
+Then import the installed R wrappers:
 
 ```R
-...
- library(synapseml.core)
- library(synapseml.cognitive)
- library(synapseml.deep.learning)
- library(synapseml.lightgbm)
- library(synapseml.opencv)
- library(synapseml.vw)
-...
+library(synapseml.core)
+library(synapseml.cognitive)
+library(synapseml.deep.learning)
+library(synapseml.lightgbm)
+library(synapseml.opencv)
+library(synapseml.vw)
 ```
 
 ## Example
@@ -80,71 +79,90 @@ We then need to import the R wrappers:
 We can use the faithful dataset in R:
 
 ```R
-...
 faithful_df <- copy_to(sc, faithful)
-cmd_model = ml_clean_missing_data(
-              x=faithful_df,
-              inputCols = c("eruptions", "waiting"),
-              outputCols = c("eruptions_output", "waiting_output"),
-              only.model=TRUE)
-sdf_transform(cmd_model, faithful_df)
-...
+cmd_model <- ml_clean_missing_data(
+  x = faithful_df,
+  inputCols = c("eruptions", "waiting"),
+  outputCols = c("eruptions_output", "waiting_output"),
+  only.model = TRUE
+)
+ml_transform(cmd_model, faithful_df)
 ```
 
-You should see the output:
+You should see output similar to:
 
-```R
-...
+```text
 # Source:   table<sparklyr_tmp_17d66a9d490c> [?? x 4]
 # Database: spark_connection
    eruptions waiting eruptions_output waiting_output
-          <dbl>   <dbl>            <dbl>          <dbl>
-          1     3.600      79            3.600             79
-          2     1.800      54            1.800             54
-          3     3.333      74            3.333             74
-          4     2.283      62            2.283             62
-          5     4.533      85            4.533             85
-          6     2.883      55            2.883             55
-          7     4.700      88            4.700             88
-          8     3.600      85            3.600             85
-          9     1.950      51            1.950             51
-          10     4.350      85            4.350             85
-          # ... with more rows
-...
+       <dbl>   <dbl>            <dbl>          <dbl>
+ 1     3.600      79            3.600             79
+ 2     1.800      54            1.800             54
+ 3     3.333      74            3.333             74
+ 4     2.283      62            2.283             62
+ 5     4.533      85            4.533             85
+ 6     2.883      55            2.883             55
+ 7     4.700      88            4.700             88
+ 8     3.600      85            3.600             85
+ 9     1.950      51            1.950             51
+10     4.350      85            4.350             85
+# ... with more rows
 ```
 
 ## Azure Databricks
 
-In Azure Databricks, you can install devtools and the spark package from URL
-and then use spark_connect with method = "databricks":
+Install the R component archives from the installation block above on the
+cluster driver. SynapseML's JVM package must be available when the cluster
+starts; `spark_connect(method = "databricks")` connects to an existing Spark
+session and cannot add the JVM package afterward. Before starting or restarting
+the cluster, either:
+
+- add the Maven library `com.microsoft.azure:synapseml_2.12:1.0.6` and set its
+  repository (under **Advanced options**) to
+  `https://mmlspark.blob.core.windows.net/maven`; or
+- add both settings to the cluster's Spark configuration:
+
+```text
+spark.jars.packages com.microsoft.azure:synapseml_2.12:1.0.6
+spark.jars.repositories https://mmlspark.blob.core.windows.net/maven
+```
+
+After the cluster restarts, connect without loading the embedded extension
+metadata:
 
 ```R
-install.packages("devtools")
-devtools::install_url("https://mmlspark.azureedge.net/rrr/synapseml-1.0.6.zip")
 library(sparklyr)
 library(dplyr)
-sc <- spark_connect(method = "databricks")
+library(synapseml.core)
+library(synapseml.lightgbm)
+
+sc <- spark_connect(method = "databricks", extensions = character())
 faithful_df <- copy_to(sc, faithful)
-unfit_model = ml_light_gbmregressor(sc, maxDepth=20, featuresCol="waiting", labelCol="eruptions", numIterations=10, unfit.model=TRUE)
-ml_train_regressor(faithful_df, labelCol="eruptions", unfit_model)
+unfit_model <- ml_light_gbm_regressor(
+  sc,
+  maxDepth = 20,
+  featuresCol = "waiting",
+  labelCol = "eruptions",
+  numIterations = 10,
+  unfit.model = TRUE
+)
+ml_train_regressor(faithful_df, labelCol = "eruptions", model = unfit_model)
 ```
 
 ## Building from Source
 
 Our R bindings are built as part of the [normal build
-process](../Developer%20Setup).  To get a quick build, start at the root
-of the synapseml directory, and find the generated files. For instance,
-to find the R files for deep-learning, run
+process](../Developer%20Setup). To get a quick build, start at the root
+of the SynapseML directory and find the generated files. For example, to find
+the R files for deep-learning, run:
 
 ```bash
 sbt packageR
 ls ./deep-learning/target/scala-2.12/generated/src/R/synapseml/R
 ```
 
-You can then run R in a terminal and install the above files directly:
+You can then run R in a terminal and install the files directly:
 
 ```R
-...
 devtools::install_local("./deep-learning/target/scala-2.12/generated/src/R/synapseml/R")
-...
 ```
