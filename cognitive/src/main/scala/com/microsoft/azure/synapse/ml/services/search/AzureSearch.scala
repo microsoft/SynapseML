@@ -177,13 +177,15 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
       IndexField(
         sf.name,
         innerType,
-        None, None, None, None, None,
+        if (isVector) Some(true) else None,
+        None, None, None, None,
         if (keyCol == fullName) Some(true) else None,
         None, None, None, None,
         structFieldToSearchFields(sf.dataType,
           keyCol, searchActionCol, None, prefix = Some(prefix.getOrElse("") + sf.name + ".")),
         if (isVector) vectorCols.get.find(_.name == fullName).map(_.dimension) else None,
-        if (isVector) Some(AzureSearchAPIConstants.VectorConfigName) else None
+        None,
+        if (isVector) Some(AzureSearchAPIConstants.VectorProfileName) else None
       )
     }
   }
@@ -207,7 +209,7 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
   }
 
   /**
-   * Converts date and timestamp columns to ISO8601 format strings as required by Azure Search.
+   * Converts date and timestamp columns to ISO8601 format strings as required by Azure AI Search.
    *
    * @param df DataFrame with potential date/time columns
    * @param indexJson JSON string containing the index schema
@@ -255,8 +257,11 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
                             searchActionCol: String,
                             vectorCols: Option[Seq[VectorColParams]]): String = {
 
-    val vectorConfig = Some(VectorSearch(Seq(AlgorithmConfigs(AzureSearchAPIConstants.VectorConfigName,
-      AzureSearchAPIConstants.VectorSearchAlgorithm))))
+    val vectorConfig = Some(VectorSearch(
+      algorithms = Some(Seq(AlgorithmConfigs(AzureSearchAPIConstants.VectorConfigName,
+        AzureSearchAPIConstants.VectorSearchAlgorithm))),
+      profiles = Some(Seq(VectorProfile(AzureSearchAPIConstants.VectorProfileName,
+        AzureSearchAPIConstants.VectorConfigName)))))
     val is = IndexInfo(
       Some(indexName),
       structFieldToSearchFields(schema, keyCol, searchActionCol, vectorCols).get,
@@ -354,7 +359,7 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
       dateConvertedDF
     }
 
-    // Convert date/timestamp columns to ISO8601 strings for Azure Search
+    // Convert date/timestamp columns to ISO8601 strings for Azure AI Search
 
     val addDocuments = configureAuthentication(
       new AddDocuments()
@@ -363,7 +368,11 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
         .setActionCol(actionCol)
         .setBatchSize(batchSize)
         .setOutputCol("out")
-        .setErrorCol("error"),
+        .setErrorCol("error")
+        // Pin the document endpoint to the same api-version used to create/read the index, otherwise
+        // an explicit apiVersion option would only apply to the index APIs.
+        .setUrl(s"https://$serviceName.search.windows.net" +
+          s"/indexes/$indexName/docs/index?api-version=$apiVersion"),
       auth)
 
     addDocuments.transform(df1)
@@ -373,7 +382,7 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
 
   private def assertNoNestedVectors(fields: Seq[IndexField]): Unit = {
     def checkVectorField(field: IndexField): Unit = {
-      if (field.dimensions.nonEmpty && field.vectorSearchConfiguration.nonEmpty) {
+      if (field.isVectorField) {
         throw new IllegalArgumentException(s"Nested field ${field.name} is a vector field, vector fields in nested" +
           s" fields are not supported.")
       }
@@ -384,7 +393,7 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
 
   private def getVectorColConf(indexJson: String): Seq[(String, String)] = {
     parseIndexJson(indexJson).fields
-      .filter(f => f.vectorSearchConfiguration.nonEmpty && f.dimensions.nonEmpty)
+      .filter(_.isVectorField)
       .map(f => (f.name, f.`type`))
   }
   private def makeColsCompatible(vectorColNameTypeTuple: Seq[(String, String)],
