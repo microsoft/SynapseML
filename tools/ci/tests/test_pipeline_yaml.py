@@ -98,7 +98,7 @@ def test_prewarm_job_present():
     data = yaml.safe_load(_pipeline_text())
     jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
     assert "BuildAndCacheSbt" in jobs
-    assert "BuildAndCacheCondaEnv" in jobs  # existing prewarm preserved
+    assert "BuildAndCacheCondaEnv" not in jobs
     prewarm = jobs["BuildAndCacheSbt"]
     assert "condition" not in prewarm, "prewarm must run whenever sbt jobs can run"
     warm_steps = [
@@ -235,6 +235,42 @@ def test_acr_cleanup_is_schedule_only_and_uses_dedicated_identity():
     assert "pip install" not in script
     assert "clean-acr-connection-string" not in script
     assert "python tools/acr/clean_acr.py" in script
+
+
+def test_non_azure_setup_steps_do_not_authenticate_with_azure_cli():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+    expected_bash_steps = {
+        "Style": {"Scala Style Check"},
+        "BuildDocker": {"Get Docker Tag + Version"},
+        "PythonTests": {"Install and package deps", "Generate Codecov report"},
+        "RTests": {"Prepare for tests", "Generate Codecov report"},
+        "WebsiteSamplesTests": {"Generate Codecov report"},
+        "UnitTests": {"Setup repo", "Generate Codecov report"},
+    }
+
+    for job_name, display_names in expected_bash_steps.items():
+        steps = jobs[job_name]["steps"]
+        for display_name in display_names:
+            step = next(
+                step for step in steps if step.get("displayName") == display_name
+            )
+            assert "bash" in step, f"{job_name}/{display_name} should be a Bash step"
+            assert step.get("task") != "AzureCLI@2"
+
+
+def test_style_does_not_restore_the_full_conda_environment():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+    style = jobs["Style"]
+    templates = [step.get("template") for step in style["steps"] if "template" in step]
+    assert "templates/conda.yml" not in templates
+    python_style = next(
+        step
+        for step in style["steps"]
+        if step.get("displayName") == "Python Style Check"
+    )
+    assert "black[jupyter]==22.3.0" in python_style["bash"]
 
 
 def test_every_sbt_running_job_waits_for_the_prewarm_cache():
