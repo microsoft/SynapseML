@@ -44,19 +44,29 @@ sbt-running job is wired to the shared cache template + prewarm job.
 ## `databricks_impact.py` — conservative PR E2E gating
 
 The `BuildAndCacheSbt` job compares a pull request with its target branch and
-uses `databricks_impact.py` to decide whether the six Databricks matrix jobs can
-be skipped. Scheduled, master, tag, and manual builds always run Databricks.
+uses `databricks_impact.py` to decide independently whether the five CPU matrix
+jobs and the GPU matrix job can be skipped. Scheduled, master, tag, and manual
+builds always run both suites.
 
-The detector is intentionally fail-open. It skips Databricks only when every
-changed path is clearly unrelated to runtime artifacts and notebook execution:
+The detector mirrors the enabled test suites:
+
+- CPU runs for runtime changes in any module and non-GPU notebooks.
+- GPU runs for shared core/deep-learning runtime changes and the three
+  `Fine-tune`/`Phi Model` notebooks selected by `DatabricksGPUTests`.
+- Databricks utility changes are assigned to CPU, GPU, or both according to
+  which suite imports them.
+
+The detector is fail-open. Unknown paths, build definitions, templates,
+environment files, shared test infrastructure, missing diffs, and detection
+errors run both suites. It skips both suites only for paths known not to affect
+runtime artifacts or notebook execution:
 
 - GitHub metadata and workflows
+- unrelated pipelines and ACR/Docker/Helm tooling
 - CI helper code under `tools/ci/`
 - website files
 - Markdown/reStructuredText documentation
-- non-notebook files under `docs/`
 - module test source outside the Databricks notebook and shared test infrastructure
 
-Runtime source, `.ipynb` notebooks, build definitions, pipeline/templates,
-Databricks test utilities, unknown paths, an empty diff, or a failed target
-branch fetch all keep Databricks E2E enabled.
+Unknown non-notebook assets under `docs/` remain fail-open because notebooks may
+load adjacent data or configuration files.
