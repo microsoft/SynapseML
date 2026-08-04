@@ -10,6 +10,7 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{Column, DataFrame, Row}
+import spray.json._
 
 import java.io.File
 import scala.collection.JavaConverters._
@@ -303,6 +304,143 @@ class LumpFeaturesSuite extends EstimatorFuzzing[LumpFeatures] with LumpFeatures
     jmap.put("f1", 2)
     intercept[IllegalArgumentException] { fitted().setLumpRules(jmap) }
     intercept[IllegalArgumentException] { fitted().setLumpRules("{\"f1\":2}") }
+  }
+
+  test("minCount lumps values below the count threshold before the top-K cap applies") {
+    val model = new LumpFeatures().setLumpRules(Map("f1" -> 3)).setMinCount(2).fit(df)
+    assert(model.getKeptValues("f1") == Seq("apple"))
+    assert(dump(model.transform(df), Seq("f1")) == List(other, other, "apple", "apple", "apple"))
+  }
+
+  test("minFreq lumps values below the frequency share before the top-K cap applies") {
+    val model = new LumpFeatures().setLumpRules(Map("f1" -> 3)).setMinFreq(0.25).fit(df)
+    assert(model.getKeptValues("f1") == Seq("apple"))
+    val permissive = new LumpFeatures().setLumpRules(Map("f1" -> 3)).setMinFreq(0.15).fit(df)
+    assert(permissive.getKeptValues("f1") == Seq("apple", "banana", "cherry"))
+  }
+
+  test("top-K still caps values that clear the frequency filters") {
+    val model = new LumpFeatures().setLumpRules(Map("f1" -> 1)).setMinCount(1).setMinFreq(0.1).fit(df)
+    assert(model.getKeptValues("f1") == Seq("apple"))
+  }
+
+  test("frequency filters are per column and are computed against non-null rows only") {
+    val dfN = Seq(("apple", "red"), ("apple", "red"), (null, "red"), ("banana", "blue"))
+      .toDF("f1", "f2")
+    val model = new LumpFeatures().setLumpRules(Map("f1" -> 3, "f2" -> 3)).setMinFreq(0.5).fit(dfN)
+    // f1 has 3 non-null rows, so apple (2/3) clears 0.5 and banana (1/3) does not.
+    assert(model.getKeptValues("f1") == Seq("apple"))
+    // f2 has 4 non-null rows, so red (3/4) clears 0.5 and blue (1/4) does not.
+    assert(model.getKeptValues("f2") == Seq("red"))
+  }
+
+  test("minCount and minFreq default to no-ops and reject out-of-range values") {
+    val est = new LumpFeatures().setLumpRules(Map("f1" -> 3))
+    assert(est.getMinCount == 1)
+    assert(est.getMinFreq == 0.0)
+    intercept[IllegalArgumentException] { est.setMinCount(0) }
+    intercept[IllegalArgumentException] { est.setMinFreq(-0.1) }
+    intercept[IllegalArgumentException] { est.setMinFreq(1.1) }
+    assert(est.fit(df).getKeptValues("f1") == Seq("apple", "banana", "cherry"))
+  }
+
+  test("multi-column fit agrees with fitting each column on its own") {
+    val rules = Map("f1" -> 2, "f2" -> 2)
+    val together = new LumpFeatures().setLumpRules(rules).fit(df).getKeptValues
+    rules.foreach { case (name, k) =>
+      val alone = new LumpFeatures().setLumpRules(Map(name -> k)).fit(df).getKeptValues(name)
+      assert(together(name) == alone, s"column $name disagreed between joint and single-column fits")
+    }
+  }
+
+  test("outputCols appends lumped columns and leaves the raw columns untouched") {
+    val model = new LumpFeatures()
+      .setLumpRules(Map("f1" -> 1))
+      .setOutputCols(Map("f1" -> "f1_lumped"))
+      .fit(df)
+    val out = model.transform(df)
+    assert(out.columns.toSeq == Seq("f1", "f2", "f1_lumped"))
+    assert(dump(out, Seq("f1", "f1_lumped")) == List(
+      "apple|apple", "apple|apple", "apple|apple", s"banana|$other", s"cherry|$other"))
+  }
+
+  test("outputCols mixes appended and in-place columns with a schema that matches transform") {
+    val model = new LumpFeatures()
+      .setLumpRules(Map("f1" -> 1, "f2" -> 1))
+      .setOutputCols(Map("f2" -> "f2_lumped"))
+      .fit(df)
+    val declared = model.transformSchema(df.schema)
+    assert(declared == model.transform(df).schema)
+    assert(declared.fieldNames.toSeq == Seq("f1", "f2", "f2_lumped"))
+    assert(dump(model.transform(df), Seq("f2", "f2_lumped")) == List(
+      s"blue|$other", s"green|$other", "red|red", "red|red", "red|red"))
+    assert(dump(model.transform(df), Seq("f1")) == List(other, other, "apple", "apple", "apple"))
+  }
+
+  test("outputCols rejects unknown sources, empty, duplicate, and pre-existing destinations") {
+    intercept[IllegalArgumentException] {
+      new LumpFeatures().setLumpRules(Map("f1" -> 1)).setOutputCols(Map("nope" -> "x")).fit(df)
+    }
+    intercept[IllegalArgumentException] {
+      new LumpFeatures().setLumpRules(Map("f1" -> 1)).setOutputCols(Map("f1" -> "")).fit(df)
+    }
+    intercept[IllegalArgumentException] {
+      new LumpFeatures().setLumpRules(Map("f1" -> 1, "f2" -> 1))
+        .setOutputCols(Map("f1" -> "z", "f2" -> "z")).fit(df)
+    }
+    intercept[IllegalArgumentException] {
+      new LumpFeatures().setLumpRules(Map("f1" -> 1)).setOutputCols(Map("f1" -> "f2")).fit(df)
+    }
+  }
+
+  test("outputCols survives fit, copy, and a save-load round-trip") {
+    val model = new LumpFeatures()
+      .setLumpRules(Map("f1" -> 1))
+      .setOutputCols(Map("f1" -> "f1_lumped"))
+      .fit(df)
+    assert(model.getOutputCols == Map("f1" -> "f1_lumped"))
+    assert(model.copy(new ParamMap()).getOutputCols == Map("f1" -> "f1_lumped"))
+    val path = new File(tmpDir.toFile, "lump-outputcols").toString
+    model.write.overwrite().save(path)
+    val loaded = LumpFeaturesModel.load(path)
+    assert(loaded.getOutputCols == Map("f1" -> "f1_lumped"))
+    assertDFEq(loaded.transform(df), model.transform(df))
+  }
+
+  test("outputCols accepts the Java HashMap and JSON-string setter overloads") {
+    val jmap = new java.util.HashMap[String, String]()
+    jmap.put("f1", "f1_lumped")
+    assert(new LumpFeatures().setOutputCols(jmap).getOutputCols == Map("f1" -> "f1_lumped"))
+    val fromJson = new LumpFeatures().setOutputCols("{\"f1\":\"f1_lumped\"}")
+    assert(fromJson.getOutputCols == Map("f1" -> "f1_lumped"))
+  }
+
+  test("declared nullability follows handleNull alone even for a non-nullable input column") {
+    val schema = StructType(Seq(StructField("f1", StringType, nullable = false)))
+    val rows = Seq(Row("apple"), Row("apple"), Row("banana"))
+    val dfNN = spark.createDataFrame(rows.asJava, schema)
+    assert(!dfNN.schema("f1").nullable)
+
+    val keepModel = new LumpFeatures().setLumpRules(Map("f1" -> 1)).setHandleNull("keep").fit(dfNN)
+    val declaredKeep = keepModel.transformSchema(dfNN.schema)
+    assert(declaredKeep == keepModel.transform(dfNN).schema)
+    assert(declaredKeep("f1").nullable)
+    assert(dump(keepModel.transform(dfNN), Seq("f1")) == List(other, "apple", "apple"))
+
+    val otherModel = new LumpFeatures().setLumpRules(Map("f1" -> 1)).setHandleNull("other").fit(dfNN)
+    val declaredOther = otherModel.transformSchema(dfNN.schema)
+    assert(declaredOther == otherModel.transform(dfNN).schema)
+    assert(!declaredOther("f1").nullable)
+    assert(dump(otherModel.transform(dfNN), Seq("f1")) == List(other, "apple", "apple"))
+  }
+
+  test("getKeptValuesAsJson gives language wrappers one document with the learned values") {
+    val model = new LumpFeatures().setLumpRules(Map("f1" -> 2, "f2" -> 1)).fit(df)
+    val expected = """{"f1":["apple","banana"],"f2":["red"]}"""
+    assert(model.getKeptValuesAsJson.parseJson == expected.parseJson)
+    val dfAllNull = Seq((null.asInstanceOf[String], "red")).toDF("f1", "f2")
+    val empty = new LumpFeatures().setLumpRules(Map("f1" -> 2)).fit(dfAllNull)
+    assert(empty.getKeptValuesAsJson.parseJson == """{"f1":[]}""".parseJson)
   }
 
   override def testObjects(): Seq[TestObject[LumpFeatures]] = Seq(
