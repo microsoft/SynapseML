@@ -12,9 +12,33 @@ import spray.json._
 import scala.util.{Failure, Success, Try}
 
 object AzureSearchAPIConstants {
-  val DefaultAPIVersion = "2023-07-01-Preview"
+  /** Latest generally available Azure AI Search (formerly Azure Cognitive Search) data plane API version.
+    *
+    * The previous default, `2023-07-01-Preview`, was deprecated on 2024-04-08 and has been out of
+    * support since 2024-07-08.
+    */
+  val DefaultAPIVersion = "2026-04-01"
   val VectorConfigName = "vectorConfig"
+  val VectorProfileName = "vectorProfile"
   val VectorSearchAlgorithm = "hnsw"
+
+  /** First API version that replaced `vectorSearch.algorithmConfigurations` with
+    * `vectorSearch.algorithms` + `vectorSearch.profiles`, and field-level
+    * `vectorSearchConfiguration` with `vectorSearchProfile`.
+    */
+  val VectorProfileMinAPIVersion = "2023-11-01"
+
+  /** True when the api-version expects the profile-based vector schema.
+    *
+    * API versions are `yyyy-MM-dd` optionally followed by a preview suffix, so an ISO date prefix
+    * comparison orders them correctly. Unrecognized values are treated as current.
+    */
+  def supportsVectorProfiles(apiVersion: String): Boolean = {
+    val datePrefixLength = VectorProfileMinAPIVersion.length
+    Option(apiVersion).map(_.trim).forall { version =>
+      version.length < datePrefixLength || version.take(datePrefixLength) >= VectorProfileMinAPIVersion
+    }
+  }
 }
 import com.microsoft.azure.synapse.ml.services.search.AzureSearchAPIConstants._
 
@@ -107,7 +131,7 @@ object SearchIndex extends IndexParser with IndexLister {
     val existingIndexNames = getExisting(auth, serviceName, apiVersion)
 
     if (!existingIndexNames.contains(indexName)) {
-      val request = AzureSearchRequests.createIndex(auth, serviceName, prepareEntity(indexJson), apiVersion)
+      val request = AzureSearchRequests.createIndex(auth, serviceName, prepareEntity(indexJson, apiVersion), apiVersion)
       val response = safeSend(request, close = false)
       try {
         assert(response.getStatusLine.getStatusCode == 201)
@@ -117,17 +141,18 @@ object SearchIndex extends IndexParser with IndexLister {
     }
   }
 
-  private def prepareEntity(indexJson: String): String = {
-    validIndexJson(indexJson).get
+  private def prepareEntity(indexJson: String, apiVersion: String): String = {
+    validIndexJson(indexJson, apiVersion).get
   }
 
   // validate schema
-  private def validIndexJson(indexJson: String): Try[String] = {
-    validateIndexInfo(indexJson).map(_.toJson.compactPrint)
+  private def validIndexJson(indexJson: String, apiVersion: String): Try[String] = {
+    validateIndexInfo(indexJson, apiVersion).map(_.toJson.compactPrint)
   }
 
-  private def validateIndexInfo(indexJson: String): Try[IndexInfo] = {
-    val schema = parseIndexJson(indexJson)
+  private def validateIndexInfo(indexJson: String, apiVersion: String): Try[IndexInfo] = {
+    // Align first so the definition that is validated is exactly the one that gets sent.
+    val schema = VectorSchema.align(parseIndexJson(indexJson), apiVersion)
     for {
       _ <- validName(schema.name.get)
       _ <- validIndexFields(schema.fields)
@@ -138,14 +163,14 @@ object SearchIndex extends IndexParser with IndexLister {
     for {
       _ <- validName(field.name)
       _ <- validType(field.`type`, field.fields)
-      _ <- validSearchable(field.`type`, field.searchable)
+      _ <- validSearchable(field.`type`, field.searchable, field.dimensions)
       _ <- validSortable(field.`type`, field.sortable)
       _ <- validFacetable(field.`type`, field.facetable)
       _ <- validKey(field.`type`, field.key)
       _ <- validAnalyzer(field.analyzer, field.searchAnalyzer, field.indexAnalyzer)
       _ <- validSearchAnalyzer(field.analyzer, field.searchAnalyzer, field.indexAnalyzer)
       _ <- validIndexAnalyzer(field.analyzer, field.searchAnalyzer, field.indexAnalyzer)
-      _ <- validVectorField(field.dimensions, field.vectorSearchConfiguration)
+      _ <- validVectorField(field.dimensions, field.vectorReference)
       // TODO: Fix and add back validSynonymMaps check. SynonymMaps needs to be Option[Seq[String]] type
       //_ <- validSynonymMaps(field.synonymMap)
     } yield field
@@ -166,8 +191,11 @@ object SearchIndex extends IndexParser with IndexLister {
     tdt.map(_ => t)
   }
 
-  private def validSearchable(t: String, s: Option[Boolean]): Try[Option[Boolean]] = {
+  private def validSearchable(t: String, s: Option[Boolean], dimensions: Option[Int]): Try[Option[Boolean]] = {
     if (Set("Edm.String", "Collection(Edm.String)")(t)) {
+      Success(s)
+    } else if (dimensions.nonEmpty) {
+      // Vector fields are not Edm.String but must be searchable in 2023-11-01 and later.
       Success(s)
     } else if (s.contains(true)) {
       Failure(new IllegalArgumentException("Only Edm.String and Collection(Edm.String) fields can be searchable"))
@@ -237,8 +265,8 @@ object SearchIndex extends IndexParser with IndexLister {
 
   private def validVectorField(d: Option[Int], v: Option[String]): Try[Option[String]] = {
     if ((d.isDefined && v.isEmpty) || (v.isDefined && d.isEmpty)) {
-      Failure(new IllegalArgumentException("Both dimensions and vectorSearchConfig fields need to be defined for " +
-        "vector search"))
+      Failure(new IllegalArgumentException("Both dimensions and vectorSearchProfile (or the legacy " +
+        "vectorSearchConfiguration) fields need to be defined for vector search"))
     } else {
       Success(v)
     }
