@@ -176,17 +176,16 @@ jobs:
     vmImage: $(UBUNTU_VERSION)
   steps:
     - template: templates/sbt_cache.yml
-    - task: AzureCLI@2
+    - bash: sbt scalastyle test:scalastyle
       displayName: 'Scala Style Check'
+    - task: UsePythonVersion@0
       inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: 'sbt scalastyle test:scalastyle'
-    - template: templates/conda.yml
+        versionSpec: '3.11'
+        architecture: 'x64'
+        disableDownloadFromRegistry: true
     - bash: |
         set -e
-        source activate synapseml
+        python -m pip install -q 'black[jupyter]==22.3.0'
         black --diff --color . && black --check -q .
       displayName: 'Python Style Check'
 - ${{ if eq(parameters.publishArtifacts, true) }}:
@@ -342,16 +341,11 @@ jobs:
     vmImage: ubuntu-22.04
   steps:
     - template: templates/sbt_cache.yml
-    - task: AzureCLI@2
+    - bash: |
+        VERSION=$(sbt "core/version" | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
+        echo '##vso[task.setvariable variable=version]'$VERSION
+        echo '##vso[task.setvariable variable=gittag]'$(git tag -l --points-at HEAD)
       displayName: 'Get Docker Tag + Version'
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: |
-          VERSION=$(sbt "core/version" | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
-          echo '##vso[task.setvariable variable=version]'$VERSION
-          echo '##vso[task.setvariable variable=gittag]'$(git tag -l --points-at HEAD)
     # Build all images (runs on every build to validate Dockerfiles)
     - task: Docker@2
       displayName: Demo Image Build
@@ -544,18 +538,13 @@ jobs:
     - template: templates/update_cli.yml
     - template: templates/conda.yml
     - template: templates/kv.yml
-    - task: AzureCLI@2
+    - bash: |
+        source activate synapseml
+        if [ "$(runCoverage)" = "True" ]; then COV_CMD="coverage"; else COV_CMD=""; fi
+        sbt $COV_CMD getDatasets installPipPackage
+        sbt publishM2
       displayName: 'Install and package deps'
       timeoutInMinutes: 40
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: |
-          source activate synapseml
-          if [ "$(runCoverage)" = "True" ]; then COV_CMD="coverage"; else COV_CMD=""; fi
-          sbt $COV_CMD getDatasets installPipPackage
-          sbt publishM2
     - task: AzureCLI@2
       displayName: 'Test Python Code'
       retryCountOnTaskFailure: 1
@@ -591,14 +580,9 @@ jobs:
         testResultsFiles: '**/python-test-*.xml'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
-    - task: AzureCLI@2
+    - bash: sbt coverageReport
       displayName: 'Generate Codecov report'
       retryCountOnTaskFailure: 1
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: 'sbt coverageReport'
       condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
     - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
       - template: templates/codecov.yml
@@ -628,25 +612,20 @@ jobs:
     - template: templates/update_cli.yml
     - template: templates/conda.yml
     - template: templates/kv.yml
-    - task: AzureCLI@2
+    - bash: |
+        set -e
+        export SBT_OPTS="-Xms2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss5M  -Duser.timezone=GMT"
+        source activate synapseml
+        bash tools/ci/sbt_retry.sh setup
+        sbt codegen
+        sbt publishM2
+        SPARK_VERSION=3.5.0
+        HADOOP_VERSION=3
+        # wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
+        wget https://mmlspark.blob.core.windows.net/installers/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
       displayName: 'Prepare for tests'
       retryCountOnTaskFailure: 1
       timeoutInMinutes: 60
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: |
-          set -e
-          export SBT_OPTS="-Xms2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss5M  -Duser.timezone=GMT"
-          source activate synapseml
-          bash tools/ci/sbt_retry.sh setup
-          sbt codegen
-          sbt publishM2
-          SPARK_VERSION=3.5.0
-          HADOOP_VERSION=3
-          # wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
-          wget https://mmlspark.blob.core.windows.net/installers/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
     - task: AzureCLI@2
       displayName: 'Test R Code'
       retryCountOnTaskFailure: 3
@@ -666,25 +645,12 @@ jobs:
         testResultsFiles: '**/r-test-*.xml'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
-    - task: AzureCLI@2
+    - bash: sbt coverageReport
       retryCountOnTaskFailure: 1
       displayName: 'Generate Codecov report'
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: 'sbt coverageReport'
       condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
     - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
       - template: templates/codecov.yml
-
-- job: BuildAndCacheCondaEnv
-  cancelTimeoutInMinutes: 0
-  condition: eq(variables.runTests, 'True')
-  pool:
-    vmImage: $(UBUNTU_VERSION)
-  steps:
-    - template: templates/conda.yml
 
 - job: WebsiteSamplesTests
   dependsOn: BuildAndCacheSbt
@@ -715,14 +681,9 @@ jobs:
         testResultsFiles: '**/website-test-result.xml'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
-    - task: AzureCLI@2
+    - bash: sbt coverageReport
       displayName: 'Generate Codecov report'
       retryCountOnTaskFailure: 1
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: 'sbt coverageReport'
       condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
     - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
       - template: templates/codecov.yml
@@ -851,19 +812,14 @@ jobs:
   steps:
     - template: templates/sbt_cache.yml
     - template: templates/update_cli.yml
-    - task: AzureCLI@2
+    - bash: |
+        (timeout 30s pip install requests) || (echo "retrying" && timeout 30s pip install requests)
+        (${FFMPEG:-false} && sudo apt-get update && \
+        sudo apt-get install ffmpeg libgstreamer1.0-0 \
+        gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly -y)
+        bash tools/ci/sbt_retry.sh setup
       displayName: 'Setup repo'
       retryCountOnTaskFailure: 1
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: |
-          (timeout 30s pip install requests) || (echo "retrying" && timeout 30s pip install requests)
-          (${FFMPEG:-false} && sudo apt-get update && \
-          sudo apt-get install ffmpeg libgstreamer1.0-0 \
-          gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly -y)
-          bash tools/ci/sbt_retry.sh setup
     - task: AzureCLI@2
       displayName: 'Unit Test'
       retryCountOnTaskFailure: 1
@@ -886,14 +842,9 @@ jobs:
         testResultsFiles: '**/test-reports/TEST-*.xml'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
-    - task: AzureCLI@2
+    - bash: sbt coverageReport
       displayName: 'Generate Codecov report'
       retryCountOnTaskFailure: 1
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: 'sbt coverageReport'
       condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
     - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
       - task: AzureKeyVault@2
@@ -912,7 +863,15 @@ jobs:
   cancelTimeoutInMinutes: 0
   timeoutInMinutes: 60
   continueOnError: true
-  condition: and(succeeded(), eq(variables.isPR, true), eq(variables['System.PullRequest.TargetBranch'], 'refs/heads/master'))
+  condition: >-
+    and(
+      succeeded(),
+      eq(variables.isPR, true),
+      or(
+        eq(variables['System.PullRequest.TargetBranch'], 'master'),
+        eq(variables['System.PullRequest.TargetBranch'], 'refs/heads/master')
+      )
+    )
   pool:
     vmImage: $(UBUNTU_VERSION)
   strategy:
@@ -940,88 +899,89 @@ jobs:
         set -e
         echo "=== Current HEAD (PR merge commit) ==="
         git log --oneline -1
-        PR_HEAD=$(git rev-parse HEAD)
-        echo "PR HEAD: $PR_HEAD"
+        TARGET_HEAD=$(git rev-parse HEAD^1)
+        SOURCE_HEAD=$(git rev-parse HEAD^2)
+        echo "PR target: $TARGET_HEAD"
+        echo "PR source: $SOURCE_HEAD"
+
+        RELEASE_RELEVANT_PATHS=()
+        while IFS= read -r -d '' path; do
+          case "$path" in
+            .github/*|.pipelines/*|docs/*|templates/*|tools/acr/*|tools/ci/*|tools/docker/*|tools/helm/*|website/*)
+              ;;
+            pipeline.yaml|CODEOWNERS|CONTRIBUTING.md|LICENSE|README.md|SECURITY.md)
+              ;;
+            *)
+              RELEASE_RELEVANT_PATHS+=("$path")
+              ;;
+          esac
+        done < <(git diff --name-only -z "$TARGET_HEAD" HEAD)
+
+        if [ ${#RELEASE_RELEVANT_PATHS[@]} -eq 0 ]; then
+          echo "No release-relevant paths changed; compatibility validation is not required"
+          echo "##vso[task.setvariable variable=releaseCompatRequired]false"
+          exit 0
+        fi
+
+        echo "Release-relevant paths:"
+        printf '  %s\n' "${RELEASE_RELEVANT_PATHS[@]}"
+        echo "##vso[task.setvariable variable=releaseCompatRequired]true"
 
         echo "=== Fetching release branch $(RELEASE_BRANCH) ==="
         git fetch origin $(RELEASE_BRANCH)
         RELEASE_TIP=$(git rev-parse FETCH_HEAD)
         echo "Release branch tip: $RELEASE_TIP"
 
-        # Find commits unique to the release branch (not in master)
-        # These are the release-specific patches we need to replay
-        MASTER_BASE=$(git merge-base FETCH_HEAD $PR_HEAD)
-        UNIQUE_COMMITS=$(git rev-list --count $MASTER_BASE..$RELEASE_TIP)
-        echo "Release branch has $UNIQUE_COMMITS unique commit(s) to replay"
+        PR_COMMITS=$(git rev-list --count $TARGET_HEAD..$SOURCE_HEAD)
+        echo "PR has $PR_COMMITS commit(s) to replay onto $(RELEASE_BRANCH)"
 
-        echo "=== Attempting rebase of $(RELEASE_BRANCH) onto PR HEAD ==="
-        git checkout FETCH_HEAD
-        git rebase --onto $PR_HEAD $MASTER_BASE 2>&1 || {
-          echo "##vso[task.logissue type=warning]Rebase of $(RELEASE_BRANCH) onto this PR has merge conflicts"
+        echo "=== Attempting to apply PR changes onto $(RELEASE_BRANCH) ==="
+        git checkout $SOURCE_HEAD
+        git rebase --onto $RELEASE_TIP $TARGET_HEAD $SOURCE_HEAD 2>&1 || {
+          echo "##vso[task.logissue type=warning]PR changes conflict with $(RELEASE_BRANCH)"
           echo ""
           echo "=== Conflicting files ==="
           git diff --name-only --diff-filter=U 2>/dev/null || true
           git rebase --abort 2>/dev/null || true
           exit 1
         }
-        echo "Rebase succeeded — $(RELEASE_BRANCH) patches apply cleanly onto this PR"
-      displayName: 'Rebase $(RELEASE_BRANCH) onto PR HEAD'
+        echo "PR changes apply cleanly onto $(RELEASE_BRANCH)"
+      displayName: 'Apply PR changes onto $(RELEASE_BRANCH)'
 
     - template: templates/sbt_cache.yml
-    - task: AzureCLI@2
-      displayName: 'Compile $(RELEASE_BRANCH) after rebase'
-      timeoutInMinutes: 20
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: |
-          set -e
-          export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
-          echo "=== Compiling $(RELEASE_BRANCH) rebased onto PR HEAD ==="
-          sbt $(SBT_JAVA_OPTS) compile test:compile
-          echo "$(RELEASE_BRANCH) compiles successfully after rebase"
+    - bash: |
+        set -e
+        export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
+        CORE_TESTS="com.microsoft.azure.synapse.ml.core.** \
+        com.microsoft.azure.synapse.ml.automl.** \
+        com.microsoft.azure.synapse.ml.causal.** \
+        com.microsoft.azure.synapse.ml.featurize.** \
+        com.microsoft.azure.synapse.ml.image.** \
+        com.microsoft.azure.synapse.ml.isolationforest.** \
+        com.microsoft.azure.synapse.ml.stages.** \
+        com.microsoft.azure.synapse.ml.recommendation.** \
+        com.microsoft.azure.synapse.ml.nn.** \
+        com.microsoft.azure.synapse.ml.train.** \
+        com.microsoft.azure.synapse.ml.exploratory.**"
 
-    - task: AzureCLI@2
-      displayName: 'Setup repo for tests'
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: |
-          (timeout 30s pip install requests) || (echo "retrying" && timeout 30s pip install requests)
-          bash tools/ci/sbt_retry.sh $(SBT_JAVA_OPTS) setup
-
-    - template: templates/kv.yml
-
-    - task: AzureCLI@2
-      displayName: 'Unit tests on $(RELEASE_BRANCH) after rebase'
-      timeoutInMinutes: 60
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: |
-          set -e
-          export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
-          echo "=== Running unit tests on $(RELEASE_BRANCH) rebased onto PR HEAD ==="
-          FAILURES=0
-          for pkg in core automl causal featurize image isolationforest stages recommendation nn train vw opencv exploratory; do
-            echo "=== Testing $pkg ==="
-            if ! timeout 10m sbt $(SBT_JAVA_OPTS) "testOnly com.microsoft.azure.synapse.ml.$pkg.**"; then
-              echo "##vso[task.logissue type=warning]$pkg tests failed on $(RELEASE_BRANCH)"
-              FAILURES=$((FAILURES + 1))
-            fi
-          done
-          if [ $FAILURES -gt 0 ]; then
-            echo "##vso[task.logissue type=warning]$FAILURES package(s) failed on $(RELEASE_BRANCH)"
-            exit 1
-          fi
-          echo "All unit tests passed on $(RELEASE_BRANCH)"
+        echo "=== Compiling and testing PR changes on $(RELEASE_BRANCH) ==="
+        timeout 50m sbt $(SBT_JAVA_OPTS) \
+          test:compile \
+          getDatasets \
+          "project core" \
+          "testOnly $CORE_TESTS" \
+          "project vw" \
+          "testOnly com.microsoft.azure.synapse.ml.vw.**" \
+          "project opencv" \
+          "testOnly com.microsoft.azure.synapse.ml.opencv.**"
+        echo "$(RELEASE_BRANCH) compiles and passes compatibility tests"
+      displayName: 'Validate $(RELEASE_BRANCH) after rebase'
+      timeoutInMinutes: 55
+      condition: and(succeeded(), eq(variables.releaseCompatRequired, 'true'))
 
     - task: PublishTestResults@2
       displayName: 'Publish $(RELEASE_BRANCH) Test Results'
       inputs:
         testResultsFiles: '**/test-reports/TEST-*.xml'
         failTaskOnFailedTests: false
-      condition: succeededOrFailed()
+      condition: and(succeededOrFailed(), eq(variables.releaseCompatRequired, 'true'))
