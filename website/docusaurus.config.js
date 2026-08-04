@@ -189,7 +189,7 @@ module.exports = async function createConfigAsync() {
                         from: '/docs/features/cognitive_services/CognitiveServices%20-%20Overview/',
                     },
                     {
-                        to: '/docs/Explore Algorithms/AI Services/Multivariate Anomaly Detection/',
+                        to: '/docs/Explore Algorithms/Anomaly Detection/Quickstart - Isolation Forests/',
                         from: '/docs/features/isolation_forest/IsolationForest%20-%20Multivariate%20Anomaly%20Detection/',
                     },
                     {
@@ -257,7 +257,7 @@ module.exports = async function createConfigAsync() {
                         from: '/docs/features/responsible_ai/Interpretability%20-%20Tabular%20SHAP%20explainer/',
                     },
                     {
-                        to: '/docs/Explore Algorithms/AI Services/Multivariate Anomaly Detection/',
+                        to: '/docs/Explore Algorithms/Anomaly Detection/Quickstart - Isolation Forests/',
                         from: '/docs/features/cognitive_services/CognitiveServices%20-%20Multivariate%20Anomaly%20Detection/',
                     },
                     {
@@ -405,7 +405,7 @@ module.exports = async function createConfigAsync() {
                         from: "/docs/0.9.5/features/responsible_ai/Interpretability%20-%20Explanation%20Dashboard/",
                     },
                     {
-                        to: "/docs/Quick Examples/estimators/estimators_cognitive/",
+                        to: "/docs/Quick Examples/transformers/transformers_cognitive/",
                         from: "/docs/documentation/estimators/estimators_cognitive/",
                     },
                     {

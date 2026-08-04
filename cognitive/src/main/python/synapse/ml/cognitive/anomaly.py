@@ -1,8 +1,8 @@
 import warnings
-from synapse.ml.services.anomaly import *
 
-# Raise a deprecation warning for the entire submodule
 warnings.warn(
-    "Importing from 'synapse.ml.cognitive.anomaly' is deprecated. Use 'synapse.ml.services.anomaly' instead.",
+    "The 'synapse.ml.cognitive.anomaly' module has been removed. "
+    "The Azure AI Anomaly Detector service has been retired and its transformers "
+    "are no longer available. Use synapse.ml.isolationforest instead.",
     DeprecationWarning,
 )
