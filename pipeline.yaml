@@ -337,6 +337,7 @@ jobs:
 - job: BuildDocker
   dependsOn: BuildAndCacheSbt
   displayName: BuildDocker
+  timeoutInMinutes: 120
   pool:
     vmImage: ubuntu-22.04
   steps:

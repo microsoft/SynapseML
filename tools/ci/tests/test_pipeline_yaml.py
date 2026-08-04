@@ -259,6 +259,12 @@ def test_non_azure_setup_steps_do_not_authenticate_with_azure_cli():
             assert step.get("task") != "AzureCLI@2"
 
 
+def test_build_docker_allows_time_for_both_image_builds():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+    assert jobs["BuildDocker"]["timeoutInMinutes"] >= 120
+
+
 def test_style_does_not_restore_the_full_conda_environment():
     data = yaml.safe_load(_pipeline_text())
     jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
