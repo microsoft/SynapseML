@@ -269,7 +269,7 @@ function Home() {
   "name": "synapseml",
   "conf": {
       "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:1.1.3",
-      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+      "spark.jars.repositories": "https://mmlspark.blob.core.windows.net/maven",
       "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
       "spark.yarn.user.classpath.first": "true",
       "spark.sql.parquet.enableVectorizedReader": "false"
@@ -284,7 +284,7 @@ function Home() {
   "name": "synapseml",
   "conf": {
       "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:1.0.15",
-      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+      "spark.jars.repositories": "https://mmlspark.blob.core.windows.net/maven",
       "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
       "spark.yarn.user.classpath.first": "true",
       "spark.sql.parquet.enableVectorizedReader": "false"
@@ -301,7 +301,7 @@ function Home() {
   "name": "synapseml",
   "conf": {
       "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:[THE_SYNAPSEML_VERSION_YOU_WANT]",
-      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+      "spark.jars.repositories": "https://mmlspark.blob.core.windows.net/maven",
       "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
       "spark.yarn.user.classpath.first": "true",
       "spark.sql.parquet.enableVectorizedReader": "false"
@@ -314,7 +314,7 @@ function Home() {
                   SynapseML can be conveniently installed on existing Spark
                   clusters via the --packages option, examples:
                   <CodeSnippet
-                    snippet={`spark-shell --packages com.microsoft.azure:synapseml_2.12:1.1.3 # Please use 1.1.3 version for Spark3.5 and 1.1.3 version for Spark3.4
+                    snippet={`spark-shell --packages com.microsoft.azure:synapseml_2.12:1.1.3 # Please use 1.1.3 version for Spark3.5 and 1.0.15 version for Spark3.4
 pyspark --packages com.microsoft.azure:synapseml_2.12:1.1.3
 spark-submit --packages com.microsoft.azure:synapseml_2.12:1.1.3 MyApp.jar `}
                     lang="bash"
@@ -354,7 +354,7 @@ spark-submit --packages com.microsoft.azure:synapseml_2.12:1.1.3 MyApp.jar `}
                     ></CodeSnippet>
                     with the resolver:
                     <CodeSnippet
-                      snippet={`https://mmlspark.azureedge.net/maven`}
+                      snippet={`https://mmlspark.blob.core.windows.net/maven`}
                       lang="bash"
                     ></CodeSnippet>
                     Ensure this library is attached to your target cluster(s).
@@ -405,8 +405,8 @@ spark-submit --packages com.microsoft.azure:synapseml_2.12:1.1.3 MyApp.jar `}
                   <CodeSnippet
                     snippet={`import pyspark
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
-        .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:1.1.3") # Please use 1.1.3 version for Spark3.5 and 1.1.3 version for Spark3.4
-        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:1.1.3") # Please use 1.1.3 version for Spark3.5 and 1.0.15 version for Spark3.4
+        .config("spark.jars.repositories", "https://mmlspark.blob.core.windows.net/maven")
         .getOrCreate())
 import synapse.ml`}
                     lang="python"
@@ -416,7 +416,7 @@ import synapse.ml`}
                   If you are building a Spark application in Scala, add the
                   following lines to your build.sbt:
                   <CodeSnippet
-                    snippet={`resolvers += "SynapseML" at "https://mmlspark.azureedge.net/maven"
+                    snippet={`resolvers += "SynapseML" at "https://mmlspark.blob.core.windows.net/maven"
 libraryDependencies += "com.microsoft.azure" %% "synapseml_2.12" % "1.1.3" // Please use 1.1.3 version for Spark3.5 and 1.0.15 version for Spark3.4`}
                     lang="jsx"
                   ></CodeSnippet>

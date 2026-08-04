@@ -15,7 +15,7 @@ For Spark3.2 pool:
   "name": "synapseml",
   "conf": {
       "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.11.4,org.apache.spark:spark-avro_2.12:3.3.1",
-      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+      "spark.jars.repositories": "https://mmlspark.blob.core.windows.net/maven",
       "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
       "spark.yarn.user.classpath.first": "true",
       "spark.sql.parquet.enableVectorizedReader": "false",
@@ -31,7 +31,7 @@ For Spark3.3 pool:
   "name": "synapseml",
   "conf": {
       "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.11.4-spark3.3",
-      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+      "spark.jars.repositories": "https://mmlspark.blob.core.windows.net/maven",
       "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
       "spark.yarn.user.classpath.first": "true",
       "spark.sql.parquet.enableVectorizedReader": "false"
@@ -49,7 +49,7 @@ import pyspark
 spark = pyspark.sql.SparkSession.builder.appName("MyApp") \
             # Use 0.11.4-spark3.3 version for Spark3.3 and 0.11.4 version for Spark3.2
             .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:0.11.4") \
-            .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven") \
+            .config("spark.jars.repositories", "https://mmlspark.blob.core.windows.net/maven") \
             .getOrCreate()
 import synapse.ml
 ```
@@ -60,7 +60,7 @@ If you're building a Spark application in Scala, add the following lines to
 your `build.sbt`:
 
 ```scala
-resolvers += "SynapseML" at "https://mmlspark.azureedge.net/maven"
+resolvers += "SynapseML" at "https://mmlspark.blob.core.windows.net/maven"
 // Use 0.11.4 version for Spark3.2 and 0.11.4-spark3.3 for Spark3.3
 libraryDependencies += "com.microsoft.azure" % "synapseml_2.12" % "0.11.4"
 ```
@@ -91,7 +91,7 @@ in your workspace.
 
 For the coordinates use: `com.microsoft.azure:synapseml_2.12:0.11.4` for Spark3.2 Cluster and
  `com.microsoft.azure:synapseml_2.12:0.11.4-spark3.3` for Spark3.3 Cluster;
-Add the resolver: `https://mmlspark.azureedge.net/maven`. Ensure this library is
+Add the resolver: `https://mmlspark.blob.core.windows.net/maven`. Ensure this library is
 attached to your target cluster(s).
 
 Finally, ensure that your Spark cluster has at least Spark 3.2 and Scala 2.12.
@@ -112,7 +112,7 @@ In Microsoft Fabric notebooks please place the following in the first cell of yo
   "name": "synapseml",
   "conf": {
       "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.11.4,org.apache.spark:spark-avro_2.12:3.3.1",
-      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+      "spark.jars.repositories": "https://mmlspark.blob.core.windows.net/maven",
       "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
       "spark.yarn.user.classpath.first": "true",
       "spark.sql.parquet.enableVectorizedReader": "false",
@@ -129,7 +129,7 @@ In Microsoft Fabric notebooks please place the following in the first cell of yo
   "name": "synapseml",
   "conf": {
       "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:0.11.4-spark3.3",
-      "spark.jars.repositories": "https://mmlspark.azureedge.net/maven",
+      "spark.jars.repositories": "https://mmlspark.blob.core.windows.net/maven",
       "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
       "spark.yarn.user.classpath.first": "true",
       "spark.sql.parquet.enableVectorizedReader": "false"

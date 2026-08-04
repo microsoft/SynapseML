@@ -706,9 +706,6 @@ jobs:
         PACKAGE: "onnx"
       geospatial:
         PACKAGE: "services.geospatial"
-      anomaly:
-        PACKAGE: "services.anomaly"
-        FLAKY: "true"
       face:
         PACKAGE: "services.face"
         FLAKY: "true"

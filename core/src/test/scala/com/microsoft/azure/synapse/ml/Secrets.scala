@@ -87,14 +87,11 @@ object Secrets {
   lazy val ConversationTranscriptionUrl: String = getSecret("conversation-transcription-url")
   lazy val ConversationTranscriptionKey: String = getSecret("conversation-transcription-key")
 
-  lazy val AnomalyApiKey: String = getSecret("anomaly-api-key")
   lazy val AzureSearchKey: String = getSecret("azure-search-key")
   lazy val TranslatorKey: String = getSecret("translator-key")
   lazy val AzureMapsKey: String = getSecret("azuremaps-api-key")
   lazy val PowerbiURL: String = getSecret("powerbi-url")
   lazy val AdbToken: String = getSecret("adb-token")
-
-  lazy val MADTestStorageKey: String = getSecret("madtest-storage-key")
 
   lazy val ArtifactStore: String = getSecret("synapse-artifact-store")
   lazy val Platform: String = getSecret("synapse-platform")
