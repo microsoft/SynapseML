@@ -352,6 +352,115 @@ class NetworkManagerSuite extends AnyFunSuite {
     assertPortAvailable(port)
   }
 
+  test("Native init never starts while the advertised port is still reserved") {
+    val firstFailure = new IOException("first handoff close failed")
+    val secondFailure = new IOException("second handoff close failed")
+    val reservation = new FailingCloseSocket(Seq(firstFailure, secondFailure))
+    reservation.bind(new InetSocketAddress(0))
+    val port = reservation.getLocalPort
+    val topology = NetworkTopologyInfo(s"localhost:$port", Array(0), port)
+      .retainPortReservation(reservation)
+    var initCalls = 0
+
+    try {
+      val actual = intercept[IOException] {
+        NetworkManager.initLightGBMNetworkWithRetry(
+          topology,
+          log,
+          retry = 1,
+          delay = 1L,
+          networkInit = () => initCalls += 1,
+          reservePort = _ => fail("Reservation must not be replaced before the first native init"),
+          sleep = _ => fail("Backoff must not start before the first native init"))
+      }
+
+      assert(actual eq firstFailure)
+      assert(actual.getSuppressed.toSeq == Seq(secondFailure))
+      assert(initCalls == 0)
+      assert(topology.hasPortReservation)
+    } finally {
+      topology.releasePortReservation()
+      if (!reservation.isClosed) reservation.close()
+    }
+
+    assertPortAvailable(port)
+  }
+
+  test("Native-init retry aborts with its native failure when the backoff reservation stays open") {
+    val initialReservation = bindEphemeralSocket()
+    val port = initialReservation.getLocalPort
+    val topology = NetworkTopologyInfo(s"localhost:$port", Array(0), port)
+      .retainPortReservation(initialReservation)
+    val nativeFailure = new Exception("native init failed")
+    val firstCloseFailure = new IOException("first backoff close failed")
+    val secondCloseFailure = new IOException("second backoff close failed")
+    var initCalls = 0
+    var backoffs = 0
+    var retryReservation: Option[FailingCloseSocket] = None
+
+    try {
+      val actual = intercept[Exception] {
+        NetworkManager.initLightGBMNetworkWithRetry(
+          topology,
+          log,
+          retry = 1,
+          delay = 1L,
+          networkInit = () => {
+            initCalls += 1
+            throw nativeFailure
+          },
+          reservePort = retryPort => {
+            val reservation = new FailingCloseSocket(Seq(firstCloseFailure, secondCloseFailure))
+            reservation.bind(new InetSocketAddress(retryPort))
+            retryReservation = Option(reservation)
+            reservation
+          },
+          sleep = _ => backoffs += 1)
+      }
+
+      assert(actual eq nativeFailure)
+      assert(initCalls == 1)
+      assert(backoffs == 1)
+      assert(actual.getSuppressed.toSeq == Seq(firstCloseFailure))
+      assert(retryReservation.exists(_.closeAttempts == 2))
+      assert(retryReservation.exists(reservation => !reservation.isClosed))
+      assert(topology.hasPortReservation)
+    } finally {
+      topology.releasePortReservation()
+      retryReservation.foreach(reservation => if (!reservation.isClosed) reservation.close())
+      if (!initialReservation.isClosed) initialReservation.close()
+    }
+
+    assertPortAvailable(port)
+  }
+
+  test("Port scanning gives up after exhausting its contention window") {
+    var createdSockets = 0
+    val actual = intercept[Exception] {
+      NetworkManager.reserveOpenPort(20000, log, () => {
+        createdSockets += 1
+        new Socket() {
+          override def bind(bindpoint: SocketAddress): Unit = throw new BindException("Address already in use")
+        }
+      })
+    }
+
+    assert(actual.getMessage == "Error: Could not find open port after 1k tries")
+    assert(createdSockets == 1001)
+  }
+
+  test("Out-of-range base ports are rejected before any socket is created") {
+    var createdSockets = 0
+    val factory = () => {
+      createdSockets += 1
+      new Socket()
+    }
+
+    assertThrows[Exception](NetworkManager.reserveOpenPort(-1, log, factory))
+    assertThrows[Exception](NetworkManager.reserveOpenPort(Int.MaxValue, log, factory))
+    assert(createdSockets == 0)
+  }
+
   test("Concurrent port reservations remain unique and are all reusable after cleanup") {
     val workerCount = 6
     val competitor = bindEphemeralSocket()
