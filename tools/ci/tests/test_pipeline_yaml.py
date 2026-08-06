@@ -5,6 +5,7 @@ shared bootstrap cache, the prewarm job exists, the cache keys invalidate on the
 bootstrap inputs, and the duplicated inline retry blocks were replaced by the
 shared helper. Run with: ``python -m pytest tools/ci/tests/test_pipeline_yaml.py``.
 """
+
 from pathlib import Path
 
 import yaml
@@ -71,8 +72,10 @@ def test_sbt_cache_template_exists_and_parses():
     assert len(fallback_scripts) == 1
     fallback_script = fallback_scripts[0]
     assert "SBT_SETUP_MAX_STAGGER_SECONDS" in fallback_script
-    assert "sbt_retry.sh update" in fallback_script
+    assert 'bash "$SBT_RETRY_SCRIPT_PATH" update' in fallback_script
     assert 'if [ "$exact_hit" != "true" ]' in fallback_script
+    parameters = {parameter["name"]: parameter for parameter in data["parameters"]}
+    assert parameters["retryScriptPath"]["default"] == "tools/ci/sbt_retry.sh"
 
     fallback_step = next(
         s
@@ -85,6 +88,10 @@ def test_sbt_cache_template_exists_and_parses():
         "SBT_COURSIER_CACHE_RESTORED",
     ):
         assert f"$({cache_hit_var})" in fallback_step["env"].values()
+    assert (
+        fallback_step["env"]["SBT_RETRY_SCRIPT_PATH"]
+        == "${{ parameters.retryScriptPath }}"
+    )
 
 
 def test_sbt_retry_script_referenced_and_exists():
@@ -206,6 +213,20 @@ def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
     assert 'test "$(git config --local user.name)"' in identity_script
     assert 'test "$(git config --local user.email)"' in identity_script
 
+    helper_steps = [
+        step
+        for step in steps
+        if isinstance(step, dict)
+        and step.get("displayName") == "Stage sbt retry helper for release checkout"
+    ]
+    assert len(helper_steps) == 1
+    helper_script = helper_steps[0]["bash"]
+    assert (
+        'install -m 755 tools/ci/sbt_retry.sh "$(Agent.TempDirectory)/sbt_retry.sh"'
+        in helper_script
+    )
+    assert 'test -x "$(Agent.TempDirectory)/sbt_retry.sh"' in helper_script
+
     rebase_steps = [
         step
         for step in steps
@@ -214,6 +235,7 @@ def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
     ]
     assert len(rebase_steps) == 1
     assert steps.index(identity_steps[0]) < steps.index(rebase_steps[0])
+    assert steps.index(helper_steps[0]) < steps.index(rebase_steps[0])
     rebase_script = rebase_steps[0]["bash"]
     assert "TARGET_HEAD=$(git rev-parse HEAD^1)" in rebase_script
     assert "SOURCE_HEAD=$(git rev-parse HEAD^2)" in rebase_script
@@ -227,6 +249,16 @@ def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
     assert "CONFLICTING_FILES=$(git diff --name-only --diff-filter=U" in rebase_script
     assert "before conflict detection" in rebase_script
     assert rebase_script.count("printf '%s\\n' \"$REBASE_OUTPUT\"") == 2
+
+    cache_step = next(
+        step
+        for step in steps
+        if isinstance(step, dict) and step.get("template") == "templates/sbt_cache.yml"
+    )
+    assert steps.index(rebase_steps[0]) < steps.index(cache_step)
+    assert cache_step["parameters"]["retryScriptPath"] == (
+        "$(Agent.TempDirectory)/sbt_retry.sh"
+    )
 
     validation_steps = [
         step
