@@ -1,0 +1,88 @@
+# Reusable sbt bootstrap cache for CI jobs.
+#
+# Every hosted-agent matrix job cold-bootstraps the sbt launcher
+# (org.scala-sbt:sbt:<version>) and resolves Ivy dependencies from public Maven
+# Central. Running ~30 of these concurrently (across overlapping PR builds)
+# triggers HTTP 429 rate limiting and fails "Setup repo" before tests run.
+#
+# These caches make steady-state builds restore the sbt launcher and resolved
+# dependencies from Azure's cache service instead of Maven Central, so jobs do
+# not cold-bootstrap at all. Every sbt-running job waits for BuildAndCacheSbt,
+# which populates a missing cache key before the fan-out begins.
+#
+# Cache keys are derived from the bootstrap inputs so they invalidate exactly
+# when those inputs change:
+#   * project/build.properties pins sbt.version -> launcher boot key
+#   * root/project *.sbt files + project Scala sources pin plugins/deps
+#     -> Ivy and Coursier resolution keys
+# restoreKeys provide a safe partial fallback: sbt validates a restored cache
+# and re-fetches only what is missing. continueOnError keeps a cache-service
+# hiccup or a corrupt entry non-fatal - the job falls back to a normal
+# (staggered, retried) bootstrap rather than failing.
+parameters:
+  - name: prewarm
+    type: boolean
+    default: false
+  - name: maxAttempts
+    type: number
+    default: 5
+  - name: maxBackoffSeconds
+    type: number
+    default: 120
+
+steps:
+  - task: Cache@2
+    displayName: Cache sbt launcher boot
+    inputs:
+      key: 'sbtboot-v1 | "$(Agent.OS)" | project/build.properties'
+      restoreKeys: |
+        sbtboot-v1 | "$(Agent.OS)"
+        sbtboot-v1
+      path: $(Pipeline.Workspace)/../../.sbt/boot
+      cacheHitVar: SBT_BOOT_CACHE_RESTORED
+    continueOnError: true
+  - task: Cache@2
+    displayName: Cache sbt ivy dependencies
+    inputs:
+      key: 'sbtivy-v1 | "$(Agent.OS)" | project/build.properties | project/*.sbt | **/build.sbt | project/**/*.scala'
+      restoreKeys: |
+        sbtivy-v1 | "$(Agent.OS)"
+        sbtivy-v1
+      path: $(Pipeline.Workspace)/../../.ivy2/cache
+      cacheHitVar: SBT_IVY_CACHE_RESTORED
+    continueOnError: true
+  - task: Cache@2
+    displayName: Cache Coursier dependencies
+    inputs:
+      key: 'sbtcoursier-v1 | "$(Agent.OS)" | project/build.properties | project/*.sbt | **/build.sbt | project/**/*.scala'
+      restoreKeys: |
+        sbtcoursier-v1 | "$(Agent.OS)"
+        sbtcoursier-v1
+      path: $(Pipeline.Workspace)/../../.cache/coursier
+      cacheHitVar: SBT_COURSIER_CACHE_RESTORED
+    continueOnError: true
+  - bash: |
+      set -euo pipefail
+      exact_hit=false
+      if [ "$SBT_BOOT_CACHE_RESULT" = "true" ] &&
+         [ "$SBT_IVY_CACHE_RESULT" = "true" ] &&
+         [ "$SBT_COURSIER_CACHE_RESULT" = "true" ]; then
+        exact_hit=true
+        echo "All exact sbt caches restored; disabling the cold-cache start stagger"
+        echo "##vso[task.setvariable variable=SBT_SETUP_MAX_STAGGER_SECONDS]0"
+      else
+        echo "Shared sbt caches were unavailable or inexact; warming this agent with staggered retries"
+      fi
+
+      prewarm="$(printf '%s' "$SBT_CACHE_PREWARM" | tr '[:upper:]' '[:lower:]')"
+      if [ "$exact_hit" != "true" ] || [ "$prewarm" = "true" ]; then
+        bash tools/ci/sbt_retry.sh update
+      fi
+    displayName: Ensure sbt cache is usable
+    env:
+      SBT_BOOT_CACHE_RESULT: $(SBT_BOOT_CACHE_RESTORED)
+      SBT_IVY_CACHE_RESULT: $(SBT_IVY_CACHE_RESTORED)
+      SBT_COURSIER_CACHE_RESULT: $(SBT_COURSIER_CACHE_RESTORED)
+      SBT_CACHE_PREWARM: '${{ parameters.prewarm }}'
+      SBT_SETUP_MAX_ATTEMPTS: '${{ parameters.maxAttempts }}'
+      SBT_SETUP_MAX_BACKOFF_SECONDS: '${{ parameters.maxBackoffSeconds }}'
