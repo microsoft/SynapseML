@@ -15,3 +15,12 @@ from synapse.ml.recommendation._SARModel import _SARModel
 class SARModel(_SARModel):
     def recommendForAllUsers(self, numItems):
         return self._call_java("recommendForAllUsers", numItems)
+
+    def recommendForUserSubset(self, dataset, numItems):
+        return self._call_java("recommendForUserSubset", dataset, numItems)
+
+    def recommendForAllItems(self, numItems):
+        return self._call_java("recommendForAllItems", numItems)
+
+    def recommendForItemSubset(self, dataset, numUsers):
+        return self._call_java("recommendForItemSubset", dataset, numUsers)
