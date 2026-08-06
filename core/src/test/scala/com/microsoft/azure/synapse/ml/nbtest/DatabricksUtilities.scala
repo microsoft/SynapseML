@@ -229,6 +229,8 @@ object DatabricksUtilities {
     Map("pypi" -> Map("package" -> "pytorch-lightning==1.5.0")),
     Map("pypi" -> Map("package" -> "torchvision==0.15.1")),
     Map("pypi" -> Map("package" -> "transformers==4.49.0")),
+    Map("pypi" -> Map("package" -> "huggingface-hub==0.26.0")),
+    Map("pypi" -> Map("package" -> "sentence-transformers==4.0.2")),
     Map("pypi" -> Map("package" -> "jinja2==3.1.6")),
     Map("pypi" -> Map("package" -> "petastorm==0.12.1")),
     Map("pypi" -> Map("package" -> "protobuf==5.29.4")),
@@ -256,7 +258,6 @@ object DatabricksUtilities {
     .filterNot(_.getAbsolutePath.contains("GPU"))
     .filterNot(_.getAbsolutePath.contains("Phi Model"))
     .filterNot(_.getAbsolutePath.contains("Language Model"))
-    .filterNot(_.getAbsolutePath.contains("Multivariate Anomaly Detection")) // Deprecated
     .filterNot(_.getAbsolutePath.contains("Audiobooks")) // TODO Remove this by fixing auth
     .filterNot(_.getAbsolutePath.contains("Art")) // TODO Remove this by fixing performance
     .filterNot(_.getAbsolutePath.contains("Explanation Dashboard")) // TODO Remove this exclusion

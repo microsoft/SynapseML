@@ -525,11 +525,27 @@ class DatabricksUtilitiesSuite extends AnyFunSuite {
     assert(cleanedClusters === Seq("cluster-1", "cluster-2"))
   }
 
+  test("Pin GPU Hugging Face dependencies") {
+    val packages = DatabricksUtilities.GPULibraries.parseJson
+      .asInstanceOf[JsArray]
+      .elements
+      .flatMap { library =>
+        library.asJsObject.fields.get("pypi")
+          .map(_.asJsObject.fields("package").convertTo[String])
+      }
+
+    assert(packages.contains("transformers==4.49.0"))
+    assert(packages.contains("huggingface-hub==0.26.0"))
+    assert(packages.contains("sentence-transformers==4.0.2"))
+    assert(packages.contains("accelerate==0.26.0"))
+  }
+
   test("Select all GPU notebooks in deterministic order") {
     val notebookNames = DatabricksUtilities.GPUNotebooks.map(_.getName)
 
     assert(notebookNames === Seq(
       "Quickstart - Apply Phi Model with HuggingFace CausalLM.ipynb",
+      "Quickstart - End-to-end Local RAG with Phi Model.ipynb",
       "Quickstart - Fine-tune a Text Classifier.ipynb",
       "Quickstart - Fine-tune a Vision Classifier.ipynb"
     ))
