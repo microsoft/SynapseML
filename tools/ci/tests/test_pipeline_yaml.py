@@ -190,6 +190,22 @@ def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
     assert not any(step.get("task") == "AzureCLI@2" for step in steps)
     assert not any(step.get("template") == "templates/kv.yml" for step in steps)
 
+    identity_steps = [
+        step
+        for step in steps
+        if isinstance(step, dict)
+        and step.get("displayName") == "Configure Git identity for compatibility rebase"
+    ]
+    assert len(identity_steps) == 1
+    identity_script = identity_steps[0]["bash"]
+    assert 'git config --local user.name "SynapseML CI"' in identity_script
+    assert (
+        'git config --local user.email "synapseml-ci@users.noreply.github.com"'
+        in identity_script
+    )
+    assert 'test "$(git config --local user.name)"' in identity_script
+    assert 'test "$(git config --local user.email)"' in identity_script
+
     rebase_steps = [
         step
         for step in steps
@@ -197,6 +213,7 @@ def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
         and step.get("displayName") == "Apply PR changes onto $(RELEASE_BRANCH)"
     ]
     assert len(rebase_steps) == 1
+    assert steps.index(identity_steps[0]) < steps.index(rebase_steps[0])
     rebase_script = rebase_steps[0]["bash"]
     assert "TARGET_HEAD=$(git rev-parse HEAD^1)" in rebase_script
     assert "SOURCE_HEAD=$(git rev-parse HEAD^2)" in rebase_script
@@ -207,6 +224,9 @@ def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
     assert "templates/*|tools/acr/*|tools/ci/*" in rebase_script
     assert "variable=releaseCompatRequired]false" in rebase_script
     assert "variable=releaseCompatRequired]true" in rebase_script
+    assert "CONFLICTING_FILES=$(git diff --name-only --diff-filter=U" in rebase_script
+    assert "before conflict detection" in rebase_script
+    assert rebase_script.count("printf '%s\\n' \"$REBASE_OUTPUT\"") == 2
 
     validation_steps = [
         step

@@ -914,6 +914,14 @@ jobs:
         jdkSourceOption: PreInstalled
 
     - bash: |
+        set -euo pipefail
+        git config --local user.name "SynapseML CI"
+        git config --local user.email "synapseml-ci@users.noreply.github.com"
+        test "$(git config --local user.name)" = "SynapseML CI"
+        test "$(git config --local user.email)" = "synapseml-ci@users.noreply.github.com"
+      displayName: 'Configure Git identity for compatibility rebase'
+
+    - bash: |
         set -e
         echo "=== Current HEAD (PR merge commit) ==="
         git log --oneline -1
@@ -955,14 +963,21 @@ jobs:
 
         echo "=== Attempting to apply PR changes onto $(RELEASE_BRANCH) ==="
         git checkout $SOURCE_HEAD
-        git rebase --onto $RELEASE_TIP $TARGET_HEAD $SOURCE_HEAD 2>&1 || {
-          echo "##vso[task.logissue type=warning]PR changes conflict with $(RELEASE_BRANCH)"
-          echo ""
-          echo "=== Conflicting files ==="
-          git diff --name-only --diff-filter=U 2>/dev/null || true
+        if ! REBASE_OUTPUT=$(git rebase --onto $RELEASE_TIP $TARGET_HEAD $SOURCE_HEAD 2>&1); then
+          printf '%s\n' "$REBASE_OUTPUT"
+          CONFLICTING_FILES=$(git diff --name-only --diff-filter=U 2>/dev/null || true)
+          if [ -n "$CONFLICTING_FILES" ]; then
+            echo "##vso[task.logissue type=warning]PR changes conflict with $(RELEASE_BRANCH)"
+            echo ""
+            echo "=== Conflicting files ==="
+            printf '%s\n' "$CONFLICTING_FILES"
+          else
+            echo "##vso[task.logissue type=error]Unable to replay PR changes onto $(RELEASE_BRANCH) before conflict detection"
+          fi
           git rebase --abort 2>/dev/null || true
           exit 1
-        }
+        fi
+        printf '%s\n' "$REBASE_OUTPUT"
         echo "PR changes apply cleanly onto $(RELEASE_BRANCH)"
       displayName: 'Apply PR changes onto $(RELEASE_BRANCH)'
 
