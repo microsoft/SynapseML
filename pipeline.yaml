@@ -922,6 +922,12 @@ jobs:
       displayName: 'Configure Git identity for compatibility rebase'
 
     - bash: |
+        set -euo pipefail
+        install -m 755 tools/ci/sbt_retry.sh "$(Agent.TempDirectory)/sbt_retry.sh"
+        test -x "$(Agent.TempDirectory)/sbt_retry.sh"
+      displayName: 'Stage sbt retry helper for release checkout'
+
+    - bash: |
         set -e
         echo "=== Current HEAD (PR merge commit) ==="
         git log --oneline -1
@@ -982,6 +988,8 @@ jobs:
       displayName: 'Apply PR changes onto $(RELEASE_BRANCH)'
 
     - template: templates/sbt_cache.yml
+      parameters:
+        retryScriptPath: '$(Agent.TempDirectory)/sbt_retry.sh'
     - bash: |
         set -e
         export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"

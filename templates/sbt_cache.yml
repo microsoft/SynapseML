@@ -29,6 +29,9 @@ parameters:
   - name: maxBackoffSeconds
     type: number
     default: 120
+  - name: retryScriptPath
+    type: string
+    default: tools/ci/sbt_retry.sh
 
 steps:
   - task: Cache@2
@@ -76,7 +79,7 @@ steps:
 
       prewarm="$(printf '%s' "$SBT_CACHE_PREWARM" | tr '[:upper:]' '[:lower:]')"
       if [ "$exact_hit" != "true" ] || [ "$prewarm" = "true" ]; then
-        bash tools/ci/sbt_retry.sh update
+        bash "$SBT_RETRY_SCRIPT_PATH" update
       fi
     displayName: Ensure sbt cache is usable
     env:
@@ -86,3 +89,4 @@ steps:
       SBT_CACHE_PREWARM: '${{ parameters.prewarm }}'
       SBT_SETUP_MAX_ATTEMPTS: '${{ parameters.maxAttempts }}'
       SBT_SETUP_MAX_BACKOFF_SECONDS: '${{ parameters.maxBackoffSeconds }}'
+      SBT_RETRY_SCRIPT_PATH: '${{ parameters.retryScriptPath }}'
