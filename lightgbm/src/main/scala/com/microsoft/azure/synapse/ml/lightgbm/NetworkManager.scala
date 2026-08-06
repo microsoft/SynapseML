@@ -14,7 +14,8 @@ import org.apache.spark.sql.SparkSession
 import org.slf4j.Logger
 
 import java.io.{BufferedReader, BufferedWriter, IOException, InputStreamReader, OutputStreamWriter}
-import java.net.{BindException, ConnectException, InetSocketAddress, ServerSocket, Socket}
+import java.net.{BindException, ConnectException, InetSocketAddress, ServerSocket, Socket,
+  SocketException, SocketTimeoutException}
 import java.util.concurrent.Executors
 import scala.annotation.tailrec
 import scala.collection.mutable
@@ -27,15 +28,18 @@ case class TaskMessageInfo(status: String,
                            taskHost: String,
                            localListenPort: Int,
                            partitionId: Int,
-                           executorId: String) {
-  def this(status: String) = this(status, "", -1, -1, "") // Constructor for general messages, not Task-connected
+                           executorId: String,
+                           stageAttemptNumber: Int = 0) {
+  // Constructor for general messages, not Task-connected
+  def this(status: String, stageAttemptNumber: Int) = this(status, "", -1, -1, "", stageAttemptNumber)
 
   val isForTraining: Boolean = status == LightGBMConstants.EnabledTask
   val isForLoadOnly: Boolean = status == LightGBMConstants.IgnoreStatus
   val isFinished: Boolean = status == LightGBMConstants.FinishedStatus
 
   // Format all the information as a delimited string to send to driver
-  override def toString: String = s"$status:$taskHost:$localListenPort:$partitionId:$executorId"
+  override def toString: String =
+    s"$status:$taskHost:$localListenPort:$partitionId:$executorId:$stageAttemptNumber"
 }
 
 case class NetworkTopologyInfo(lightgbmNetworkString: String,
@@ -275,12 +279,14 @@ object NetworkManager {
             val driverOutput = io(1).asInstanceOf[BufferedWriter]
 
             // Get message to send to driver with info about this task
+            val stageAttemptNumber = Option(TaskContext.get()).map(_.stageAttemptNumber()).getOrElse(0)
             val taskStatus = TaskMessageInfo(
               if (shouldExecuteTraining) LightGBMConstants.EnabledTask else LightGBMConstants.IgnoreStatus,
               driverSocket.getLocalAddress.getHostAddress,
               localListenPort,
               partitionId,
-              LightGBMUtils.getExecutorId) // TODO can we use host for this?
+              LightGBMUtils.getExecutorId, // TODO can we use host for this?
+              stageAttemptNumber)
             val message = taskStatus.toString()
             log.info(s"task $taskId sending status message to driver: $message ")
             driverOutput.write(s"$message\n")
@@ -291,7 +297,7 @@ object NetworkManager {
               val context = BarrierTaskContext.get()
               context.barrier()
               if (context.partitionId() == 0) {
-                 setFinishedStatus(networkParams, log)
+                 setFinishedStatus(networkParams, stageAttemptNumber, log)
               }
             }
 
@@ -549,14 +555,14 @@ object NetworkManager {
     }
   }
 
-  private def setFinishedStatus(networkParams: NetworkParams, log: Logger): Unit = {
+  private def setFinishedStatus(networkParams: NetworkParams, stageAttemptNumber: Int, log: Logger): Unit = {
     using(new Socket(networkParams.ipAddress, networkParams.port)) {
       driverSocket =>
         using(new BufferedWriter(new OutputStreamWriter(driverSocket.getOutputStream))) {
           driverOutput =>
             log.info("sending finished status to driver")
             // If barrier execution mode enabled, create a barrier across tasks
-            driverOutput.write(s"${LightGBMConstants.FinishedStatus}\n")
+            driverOutput.write(s"${LightGBMConstants.FinishedStatus}:$stageAttemptNumber\n")
             driverOutput.flush()
         }.get
     }.get
@@ -566,16 +572,24 @@ object NetworkManager {
     val components = message.split(":")
     val status = components(0)
 
-    if (status == LightGBMConstants.FinishedStatus) new TaskMessageInfo(status)
-    else {
-      if (components.length != 5) throw new Exception(s"Unexpected message: $message")
+    if (status == LightGBMConstants.FinishedStatus) {
+      new TaskMessageInfo(status, parseStageAttemptNumber(components, 1))
+    } else {
+      if (components.length != 5 && components.length != 6) {  //scalastyle:ignore magic.number
+        throw new Exception(s"Unexpected message: $message")
+      }
 
       val host = components(1)
       val port = components(2).toInt
       val partitionId: Int = components(3).toInt
       val executorId = components(4)  //scalastyle:ignore magic.number
-      TaskMessageInfo(status, host, port, partitionId, executorId)
+      TaskMessageInfo(status, host, port, partitionId, executorId,
+                      parseStageAttemptNumber(components, 5))  //scalastyle:ignore magic.number
     }
+  }
+
+  private def parseStageAttemptNumber(components: Array[String], index: Int): Int = {
+    if (components.length > index) components(index).toInt else 0
   }
 }
 
@@ -596,9 +610,14 @@ case class NetworkManager(numTasks: Int,
   private val hostToMinPartition = mutable.Map[String, Int]()
   private val partitionsByExecutor = mutable.Map[String, List[Int]]()
 
+  // The Spark stage attempt whose topology is currently being collected. A barrier stage restarts
+  // as a whole, so a higher attempt number means everything gathered so far is obsolete.
+  private var currentStageAttempt = -1
+  @volatile private var shutdownRequested = false
+
   // Concatenate with commas, eg: host1:port1,host2:port2, ... etc
   // Also make sure the order is deterministic by sorting on minimum partition id
-  private lazy val networkTopologyAsString: String = {
+  private def networkTopologyAsString: String = synchronized {
     val hostPortsList = hostAndPorts.map(_._2).sortBy(hostPort => {
       val host = hostPort.split(":")(0)
       hostToMinPartition(host)
@@ -608,7 +627,7 @@ case class NetworkManager(numTasks: Int,
 
   // Create a string representing of the partitionsByExecutor map
   // e.g. executor1=partition1,partition2:executor2=partition3,partition4
-  private lazy val partitionsByExecutorAsString: String = {
+  private def partitionsByExecutorAsString: String = synchronized {
     val executorList = partitionsByExecutor.map { case (executor, partitionList) =>
       executor + "=" + partitionList.mkString(",")
     }
@@ -619,17 +638,49 @@ case class NetworkManager(numTasks: Int,
   private val networkCommunicationThread: Future[Unit] = Future {
     try {
       log.info(s"driver waiting for connections on host: $host and port: $port")
-      waitForAllTasksToReport()
-
-      // We have all the information now, so report back to workers
-      sendDataToExecutors(networkTopologyAsString, partitionsByExecutorAsString)
+      if (useBarrierExecutionMode) serveTopologyRoundsUntilShutdown() else serveTopologyRound()
     } finally {
       // Always release the sockets, including when the topology exchange fails or times out.
       closeConnections()
     }
   } (ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor()))
 
+  private def serveTopologyRound(): Unit = {
+    waitForAllTasksToReport()
+
+    // We have all the information now, so report back to workers
+    sendDataToExecutors(networkTopologyAsString, partitionsByExecutorAsString)
+  }
+
+  /** Serves topology rounds until the training job says it is done.
+    *
+    * A barrier stage is restarted in its entirety when any of its tasks fails, which is the only way
+    * a LightGBM network can legitimately re-form. Serving a single round means the restarted stage
+    * finds a closed port and dies with "connection refused", so keep listening instead.
+    */
+  @tailrec
+  private def serveTopologyRoundsUntilShutdown(): Unit = {
+    val keepServing =
+      try {
+        serveTopologyRound()
+        resetRoundState()
+        true
+      } catch {
+        case _: SocketTimeoutException =>
+          // Training can easily outlast the socket timeout, so an idle driver is not an error here.
+          log.info("driver saw no task connections within the timeout, still listening for a stage restart")
+          true
+        case socketFailure: SocketException =>
+          if (!shutdownRequested) throw socketFailure
+          log.info("driver stopped serving topology rounds")
+          false
+      }
+    if (keepServing) serveTopologyRoundsUntilShutdown()
+  }
+
   def waitForNetworkCommunicationsDone(): Unit = {
+    // In barrier mode the driver keeps listening for a restarted stage, so it never stops on its own.
+    if (useBarrierExecutionMode) closeConnections()
     Await.result(networkCommunicationThread, Duration(timeout, SECONDS))
   }
 
@@ -647,14 +698,15 @@ case class NetworkManager(numTasks: Int,
     } else {
       log.info(s"driver expecting $numTasks connections...")
 
+      // Count the tasks actually recorded rather than the connections seen, so that connections
+      // discarded as belonging to a superseded stage attempt do not end the round early.
       @tailrec
-      def connectToWorkers(numProcessedTasks: Int): Unit = {
+      def connectToWorkers(): Unit = {
         handleNextWorkerConnection()
-        val newNumProcessedTasks = numProcessedTasks + 1
-        if (newNumProcessedTasks != numTasks) connectToWorkers(newNumProcessedTasks)
+        if (reportedTaskCount < numTasks) connectToWorkers()
       }
 
-      connectToWorkers(0)
+      connectToWorkers()
     }
   }
 
@@ -673,8 +725,33 @@ case class NetworkManager(numTasks: Int,
     log.info(s"received worker message string: $messageStr")
     val message: TaskMessageInfo = parseWorkerMessage(messageStr)
 
+    if (message.stageAttemptNumber < currentStageAttempt) {
+      // A straggler from a stage attempt that Spark has already abandoned. Recording it would put a
+      // dead host:port into the topology that every surviving task then tries to connect to.
+      log.info(s"driver ignoring message from superseded stage attempt ${message.stageAttemptNumber}")
+      closeQuietly(socket)
+      false
+    } else {
+      startNewStageAttemptIfNeeded(message.stageAttemptNumber)
+      recordWorkerConnection(socket, message)
+    }
+  }
+
+  private def startNewStageAttemptIfNeeded(stageAttemptNumber: Int): Unit = {
+    if (stageAttemptNumber > currentStageAttempt) {
+      if (currentStageAttempt >= 0) {
+        log.info(s"driver starting topology round for stage attempt $stageAttemptNumber, " +
+          s"discarding the partial topology collected for attempt $currentStageAttempt")
+        resetRoundState()
+      }
+      currentStageAttempt = stageAttemptNumber
+    }
+  }
+
+  private def recordWorkerConnection(socket: Socket, message: TaskMessageInfo): Boolean = {
     if (message.isFinished) {
       log.info("driver received all tasks from barrier stage")
+      closeQuietly(socket)  // The finished message uses its own short-lived connection.
       true
     } else {
       message match {
@@ -732,13 +809,32 @@ case class NetworkManager(numTasks: Int,
     * that is still parked in accept() waiting for tasks that will never arrive.
     */
   private[lightgbm] def closeConnections(): Unit = synchronized {
+    shutdownRequested = true
     if (!driverServerSocket.isClosed) {
       log.info("driver closing all sockets and server socket")
-      hostAndPorts.foreach(hostAndPort => closeQuietly(hostAndPort._1))
-      loadOnlyHostAndPorts.foreach(closeQuietly)
+      closeRoundSockets()
       closeQuietly(driverServerSocket)
       log.info("driver done closing all sockets and server socket")
     }
+  }
+
+  /** Number of tasks whose topology has been recorded for the current stage attempt. */
+  private def reportedTaskCount: Int = synchronized {
+    hostAndPorts.length + loadOnlyHostAndPorts.length
+  }
+
+  /** Discards everything gathered for a stage attempt so the next one starts from a clean slate. */
+  private def resetRoundState(): Unit = synchronized {
+    closeRoundSockets()
+    hostAndPorts.clear()
+    loadOnlyHostAndPorts.clear()
+    hostToMinPartition.clear()
+    partitionsByExecutor.clear()
+  }
+
+  private def closeRoundSockets(): Unit = synchronized {
+    hostAndPorts.foreach(hostAndPort => closeQuietly(hostAndPort._1))
+    loadOnlyHostAndPorts.foreach(closeQuietly)
   }
 
   /** Records an accepted socket. The network thread appends while the training job may be closing
