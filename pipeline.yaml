@@ -158,15 +158,10 @@ jobs:
       displayName: 'Detect Databricks E2E impact'
     - template: templates/update_cli.yml
     - template: templates/sbt_cache.yml
-    - bash: |
-        # Populate the exact cache keys before any sbt-running matrix job starts.
-        # A failure remains visible and prevents a cold-cache fan-out.
-        bash tools/ci/sbt_retry.sh update
-      displayName: 'Warm sbt launcher and dependency caches'
-      timeoutInMinutes: 30
-      env:
-        SBT_SETUP_MAX_ATTEMPTS: 7
-        SBT_SETUP_MAX_BACKOFF_SECONDS: 180
+      parameters:
+        prewarm: true
+        maxAttempts: 7
+        maxBackoffSeconds: 180
 
 - job: Style
   dependsOn: BuildAndCacheSbt
@@ -200,6 +195,12 @@ jobs:
       - template: templates/update_cli.yml
       - template: templates/conda.yml
       - template: templates/kv.yml
+      - bash: |
+          set -euo pipefail
+          PACKAGE_VERSION=$(bash tools/ci/get_sbt_version.sh)
+          echo "Publishing SynapseML package version $PACKAGE_VERSION"
+          echo "##vso[task.setvariable variable=packageVersion]$PACKAGE_VERSION"
+        displayName: 'Resolve package version'
       - task: MavenAuthenticate@0
         name: mavenAuthPublicPackages
         displayName: Authenticate SynapseML_PublicPackages
@@ -214,6 +215,8 @@ jobs:
           scriptType: bash
           inlineScript: |
             set -e
+            test -n "$(packageVersion)"
+            echo "Publishing SynapseML package version $(packageVersion)"
             sudo apt-get install graphviz doxygen -y
             source activate synapseml
             sbt packagePython uploadNotebooks
@@ -343,7 +346,8 @@ jobs:
   steps:
     - template: templates/sbt_cache.yml
     - bash: |
-        VERSION=$(sbt "core/version" | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
+        set -euo pipefail
+        VERSION=$(bash tools/ci/get_sbt_version.sh)
         echo '##vso[task.setvariable variable=version]'$VERSION
         echo '##vso[task.setvariable variable=gittag]'$(git tag -l --points-at HEAD)
       displayName: 'Get Docker Tag + Version'
@@ -418,6 +422,20 @@ jobs:
           echo '##vso[task.setvariable variable=tag]'$(git tag -l --points-at HEAD)
         displayName: 'Get Git Tag'
       - bash: |
+          set -euo pipefail
+          PACKAGE_VERSION=$(bash tools/ci/get_sbt_version.sh)
+          EXPECTED_VERSION="${RELEASE_TAG#v}"
+          if [ "$PACKAGE_VERSION" != "$EXPECTED_VERSION" ]; then
+            echo "Package version $PACKAGE_VERSION does not match release tag $RELEASE_TAG" >&2
+            exit 1
+          fi
+          echo "Publishing release package version $PACKAGE_VERSION"
+          echo "##vso[task.setvariable variable=packageVersion]$PACKAGE_VERSION"
+        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
+        displayName: 'Validate release package version'
+        env:
+          RELEASE_TAG: $(tag)
+      - bash: |
           set -e
           wget https://github.com/git-chglog/git-chglog/releases/download/0.8.0/git-chglog_linux_amd64
           chmod +x git-chglog_linux_amd64
@@ -464,6 +482,7 @@ jobs:
       - bash: |
           set -e
           source activate synapseml
+          echo "Publishing Python package version $(packageVersion)"
           sbt publishPypi
         condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
         env:
@@ -479,6 +498,7 @@ jobs:
       - bash: |
           set -e
           source activate synapseml
+          echo "Preparing Maven package version $(packageVersion)"
           sbt publishLocalSigned
           python tools/esrp/prepare_jar.py
         condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))

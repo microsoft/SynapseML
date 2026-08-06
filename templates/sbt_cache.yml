@@ -13,12 +13,23 @@
 # Cache keys are derived from the bootstrap inputs so they invalidate exactly
 # when those inputs change:
 #   * project/build.properties pins sbt.version -> launcher boot key
-#   * project/plugins.sbt + build.sbt + project Scala sources pin plugins/deps
+#   * root/project *.sbt files + project Scala sources pin plugins/deps
 #     -> Ivy and Coursier resolution keys
 # restoreKeys provide a safe partial fallback: sbt validates a restored cache
 # and re-fetches only what is missing. continueOnError keeps a cache-service
 # hiccup or a corrupt entry non-fatal - the job falls back to a normal
 # (staggered, retried) bootstrap rather than failing.
+parameters:
+  - name: prewarm
+    type: boolean
+    default: false
+  - name: maxAttempts
+    type: number
+    default: 5
+  - name: maxBackoffSeconds
+    type: number
+    default: 120
+
 steps:
   - task: Cache@2
     displayName: Cache sbt launcher boot
@@ -33,7 +44,7 @@ steps:
   - task: Cache@2
     displayName: Cache sbt ivy dependencies
     inputs:
-      key: 'sbtivy-v1 | "$(Agent.OS)" | project/build.properties | project/plugins.sbt | **/build.sbt | project/**/*.scala'
+      key: 'sbtivy-v1 | "$(Agent.OS)" | project/build.properties | project/*.sbt | **/build.sbt | project/**/*.scala'
       restoreKeys: |
         sbtivy-v1 | "$(Agent.OS)"
         sbtivy-v1
@@ -43,7 +54,7 @@ steps:
   - task: Cache@2
     displayName: Cache Coursier dependencies
     inputs:
-      key: 'sbtcoursier-v1 | "$(Agent.OS)" | project/build.properties | project/plugins.sbt | **/build.sbt | project/**/*.scala'
+      key: 'sbtcoursier-v1 | "$(Agent.OS)" | project/build.properties | project/*.sbt | **/build.sbt | project/**/*.scala'
       restoreKeys: |
         sbtcoursier-v1 | "$(Agent.OS)"
         sbtcoursier-v1
@@ -51,12 +62,27 @@ steps:
       cacheHitVar: SBT_COURSIER_CACHE_RESTORED
     continueOnError: true
   - bash: |
-      if [ "$(SBT_BOOT_CACHE_RESTORED)" = "true" ] &&
-         [ "$(SBT_IVY_CACHE_RESTORED)" = "true" ] &&
-         [ "$(SBT_COURSIER_CACHE_RESTORED)" = "true" ]; then
+      set -euo pipefail
+      exact_hit=false
+      if [ "$SBT_BOOT_CACHE_RESULT" = "true" ] &&
+         [ "$SBT_IVY_CACHE_RESULT" = "true" ] &&
+         [ "$SBT_COURSIER_CACHE_RESULT" = "true" ]; then
+        exact_hit=true
         echo "All exact sbt caches restored; disabling the cold-cache start stagger"
         echo "##vso[task.setvariable variable=SBT_SETUP_MAX_STAGGER_SECONDS]0"
       else
-        echo "One or more sbt caches were not exact hits; retaining the cold-cache start stagger"
+        echo "Shared sbt caches were unavailable or inexact; warming this agent with staggered retries"
       fi
-    displayName: Configure sbt cold-cache fallback
+
+      prewarm="$(printf '%s' "$SBT_CACHE_PREWARM" | tr '[:upper:]' '[:lower:]')"
+      if [ "$exact_hit" != "true" ] || [ "$prewarm" = "true" ]; then
+        bash tools/ci/sbt_retry.sh update
+      fi
+    displayName: Ensure sbt cache is usable
+    env:
+      SBT_BOOT_CACHE_RESULT: $(SBT_BOOT_CACHE_RESTORED)
+      SBT_IVY_CACHE_RESULT: $(SBT_IVY_CACHE_RESTORED)
+      SBT_COURSIER_CACHE_RESULT: $(SBT_COURSIER_CACHE_RESTORED)
+      SBT_CACHE_PREWARM: '${{ parameters.prewarm }}'
+      SBT_SETUP_MAX_ATTEMPTS: '${{ parameters.maxAttempts }}'
+      SBT_SETUP_MAX_BACKOFF_SECONDS: '${{ parameters.maxBackoffSeconds }}'

@@ -13,6 +13,7 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 PIPELINE = REPO_ROOT / "pipeline.yaml"
 SBT_CACHE_TPL = REPO_ROOT / "templates" / "sbt_cache.yml"
 SBT_RETRY = REPO_ROOT / "tools" / "ci" / "sbt_retry.sh"
+SBT_VERSION = REPO_ROOT / "tools" / "ci" / "get_sbt_version.sh"
 DATABRICKS_IMPACT = REPO_ROOT / "tools" / "ci" / "databricks_impact.py"
 DATABRICKS_STEPS_TPL = REPO_ROOT / "templates" / "databricks_e2e_steps.yml"
 CLEAN_ACR_PIPELINE = REPO_ROOT / ".pipelines" / "clean-acr.yml"
@@ -50,8 +51,11 @@ def test_sbt_cache_template_exists_and_parses():
     paths = [t["inputs"]["path"] for t in tasks]
     # Boot cache invalidates on the pinned sbt version.
     assert any("build.properties" in k and "sbtboot" in k for k in keys)
-    # Ivy cache invalidates on plugins + build definitions too.
-    assert any("plugins.sbt" in k and "build.sbt" in k for k in keys)
+    # Dependency caches invalidate on every root/project sbt definition.
+    dependency_keys = [k for k in keys if "sbtboot" not in k]
+    assert all("project/*.sbt" in k for k in dependency_keys)
+    assert all("**/build.sbt" in k for k in dependency_keys)
+    assert all("project/**/*.scala" in k for k in dependency_keys)
     assert any(".sbt/boot" in p for p in paths)
     assert any(".ivy2/cache" in p for p in paths)
     assert any(".cache/coursier" in p for p in paths)
@@ -62,24 +66,33 @@ def test_sbt_cache_template_exists_and_parses():
     fallback_scripts = [
         s.get("bash", "")
         for s in steps
-        if isinstance(s, dict)
-        and s.get("displayName") == "Configure sbt cold-cache fallback"
+        if isinstance(s, dict) and s.get("displayName") == "Ensure sbt cache is usable"
     ]
     assert len(fallback_scripts) == 1
     fallback_script = fallback_scripts[0]
     assert "SBT_SETUP_MAX_STAGGER_SECONDS" in fallback_script
+    assert "sbt_retry.sh update" in fallback_script
+    assert 'if [ "$exact_hit" != "true" ]' in fallback_script
+
+    fallback_step = next(
+        s
+        for s in steps
+        if isinstance(s, dict) and s.get("displayName") == "Ensure sbt cache is usable"
+    )
     for cache_hit_var in (
         "SBT_BOOT_CACHE_RESTORED",
         "SBT_IVY_CACHE_RESTORED",
         "SBT_COURSIER_CACHE_RESTORED",
     ):
-        assert f'[ "$({cache_hit_var})" = "true" ]' in fallback_script
+        assert f"$({cache_hit_var})" in fallback_step["env"].values()
 
 
 def test_sbt_retry_script_referenced_and_exists():
     assert SBT_RETRY.exists()
+    assert SBT_VERSION.exists()
     txt = _pipeline_text()
     assert "tools/ci/sbt_retry.sh" in txt
+    assert "tools/ci/get_sbt_version.sh" in txt
 
 
 def test_no_dormant_ivy_cache_placeholders_remain():
@@ -101,13 +114,17 @@ def test_prewarm_job_present():
     assert "BuildAndCacheCondaEnv" not in jobs
     prewarm = jobs["BuildAndCacheSbt"]
     assert "condition" not in prewarm, "prewarm must run whenever sbt jobs can run"
-    warm_steps = [
+    cache_steps = [
         step
         for step in prewarm["steps"]
-        if isinstance(step, dict) and "sbt_retry.sh update" in step.get("bash", "")
+        if isinstance(step, dict) and step.get("template") == "templates/sbt_cache.yml"
     ]
-    assert len(warm_steps) == 1
-    assert warm_steps[0].get("continueOnError") is not True
+    assert len(cache_steps) == 1
+    assert cache_steps[0]["parameters"] == {
+        "prewarm": True,
+        "maxAttempts": 7,
+        "maxBackoffSeconds": 180,
+    }
 
 
 def test_databricks_e2e_uses_fail_open_pr_impact_detection():
@@ -263,6 +280,65 @@ def test_build_docker_allows_time_for_both_image_builds():
     data = yaml.safe_load(_pipeline_text())
     jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
     assert jobs["BuildDocker"]["timeoutInMinutes"] >= 120
+
+
+def test_publish_jobs_resolve_and_preserve_package_versions():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+
+    publish = jobs["Publish"]
+    publish_steps = publish["steps"]
+    assert any(step.get("task") == "MavenAuthenticate@0" for step in publish_steps)
+    assert any(step.get("template") == "templates/conda.yml" for step in publish_steps)
+    assert any(step.get("template") == "templates/kv.yml" for step in publish_steps)
+    version_step = next(
+        step
+        for step in publish_steps
+        if step.get("displayName") == "Resolve package version"
+    )
+    assert "get_sbt_version.sh" in version_step["bash"]
+    artifact_step = next(
+        step for step in publish_steps if step.get("displayName") == "Publish Artifacts"
+    )
+    artifact_script = artifact_step["inputs"]["inlineScript"]
+    for task in (
+        "packagePython uploadNotebooks",
+        "publishBlob publishDocs publishR publishPython",
+        "publishLocalSigned",
+    ):
+        assert task in artifact_script
+    assert artifact_step["env"]["SYNAPSEML_ENABLE_PUBLISH"] is True
+    assert "$(packageVersion)" in artifact_script
+
+    release = jobs["Release"]
+    release_steps = release["steps"]
+    release_version = next(
+        step
+        for step in release_steps
+        if step.get("displayName") == "Validate release package version"
+    )
+    assert "get_sbt_version.sh" in release_version["bash"]
+    assert 'EXPECTED_VERSION="${RELEASE_TAG#v}"' in release_version["bash"]
+    assert "PACKAGE_VERSION" in release_version["bash"]
+    release_guard_index = release_steps.index(release_version)
+    side_effect_steps = [
+        next(step for step in release_steps if "git-chglog" in step.get("bash", "")),
+        next(step for step in release_steps if step.get("task") == "GitHubRelease@1"),
+        next(step for step in release_steps if "publishPypi" in step.get("bash", "")),
+        next(
+            step
+            for step in release_steps
+            if "publishLocalSigned" in step.get("bash", "")
+        ),
+        next(
+            step
+            for step in release_steps
+            if step.get("displayName") == "ESRP Publish Package"
+        ),
+    ]
+    assert all(
+        release_guard_index < release_steps.index(step) for step in side_effect_steps
+    )
 
 
 def test_style_does_not_restore_the_full_conda_environment():
