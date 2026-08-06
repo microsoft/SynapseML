@@ -6,8 +6,6 @@ package com.microsoft.azure.synapse.ml.services.search
 import com.microsoft.azure.synapse.ml.services.search.AzureSearchProtocol._
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers._
 import org.apache.commons.io.IOUtils
-import org.apache.http.client.methods.{HttpGet, HttpPost}
-import org.apache.http.entity.StringEntity
 import org.apache.log4j.{LogManager, Logger}
 import spray.json._
 
@@ -30,14 +28,24 @@ trait IndexLister {
   def getExisting(key: String,
                   serviceName: String,
                   apiVersion: String = DefaultAPIVersion): Seq[String] = {
-    val indexListRequest = new HttpGet(
-      s"https://$serviceName.search.windows.net/indexes?api-version=$apiVersion&$$select=name"
-    )
-    indexListRequest.setHeader("api-key", key)
-    val indexListResponse = safeSend(indexListRequest, close = false)
-    val indexList = IOUtils.toString(indexListResponse.getEntity.getContent, "utf-8").parseJson.convertTo[IndexList]
-    indexListResponse.close()
-    for (i <- indexList.value.seq) yield i.name
+    getExisting(AzureSearchAuth.fromSubscriptionKey(key), serviceName, apiVersion)
+  }
+
+  def getExisting(auth: AzureSearchAuth,
+                  serviceName: String): Seq[String] = {
+    getExisting(auth, serviceName, DefaultAPIVersion)
+  }
+
+  def getExisting(auth: AzureSearchAuth,
+                  serviceName: String,
+                  apiVersion: String): Seq[String] = {
+    val response = safeSend(AzureSearchRequests.listIndexes(auth, serviceName, apiVersion), close = false)
+    try {
+      val indexList = IOUtils.toString(response.getEntity.getContent, "utf-8").parseJson.convertTo[IndexList]
+      indexList.value.map(_.name)
+    } finally {
+      response.close()
+    }
   }
 }
 
@@ -46,18 +54,29 @@ trait IndexJsonGetter extends IndexLister {
                                     serviceName: String,
                                     indexName: String,
                                     apiVersion: String = DefaultAPIVersion): String = {
-    val existingIndexNames = getExisting(key, serviceName, apiVersion)
+    getIndexJsonFromExistingIndex(AzureSearchAuth.fromSubscriptionKey(key), serviceName, indexName, apiVersion)
+  }
+
+  def getIndexJsonFromExistingIndex(auth: AzureSearchAuth,
+                                    serviceName: String,
+                                    indexName: String): String = {
+    getIndexJsonFromExistingIndex(auth, serviceName, indexName, DefaultAPIVersion)
+  }
+
+  def getIndexJsonFromExistingIndex(auth: AzureSearchAuth,
+                                    serviceName: String,
+                                    indexName: String,
+                                    apiVersion: String): String = {
+    val existingIndexNames = getExisting(auth, serviceName, apiVersion)
     assert(existingIndexNames.contains(indexName), s"Cannot find an existing index name with $indexName")
 
-    val indexJsonRequest = new HttpGet(
-      s"https://$serviceName.search.windows.net/indexes/$indexName?api-version=$apiVersion"
-    )
-    indexJsonRequest.setHeader("api-key", key)
-    indexJsonRequest.setHeader("Content-Type", "application/json")
-    val indexJsonResponse = safeSend(indexJsonRequest, close = false)
-    val indexJson = IOUtils.toString(indexJsonResponse.getEntity.getContent, "utf-8")
-    indexJsonResponse.close()
-    indexJson
+    val response = safeSend(
+      AzureSearchRequests.getIndex(auth, serviceName, indexName, apiVersion), close = false)
+    try {
+      IOUtils.toString(response.getEntity.getContent, "utf-8")
+    } finally {
+      response.close()
+    }
   }
 }
 
@@ -71,25 +90,35 @@ object SearchIndex extends IndexParser with IndexLister {
                          serviceName: String,
                          indexJson: String,
                          apiVersion: String = DefaultAPIVersion): Unit = {
-    val indexName = parseIndexJson(indexJson).name.get
-
-    val existingIndexNames = getExisting(key, serviceName, apiVersion)
-
-    if (!existingIndexNames.contains(indexName)) {
-      val createRequest = new HttpPost(s"https://$serviceName.search.windows.net/indexes?api-version=$apiVersion")
-      createRequest.setHeader("Content-Type", "application/json")
-      createRequest.setHeader("api-key", key)
-      createRequest.setEntity(prepareEntity(indexJson))
-      val response = safeSend(createRequest)
-      val status = response.getStatusLine.getStatusCode
-      assert(status == 201)
-      ()
-    }
-
+    createIfNoneExists(AzureSearchAuth.fromSubscriptionKey(key), serviceName, indexJson, apiVersion)
   }
 
-  private def prepareEntity(indexJson: String): StringEntity = {
-    new StringEntity(validIndexJson(indexJson).get)
+  def createIfNoneExists(auth: AzureSearchAuth,
+                         serviceName: String,
+                         indexJson: String): Unit = {
+    createIfNoneExists(auth, serviceName, indexJson, DefaultAPIVersion)
+  }
+
+  def createIfNoneExists(auth: AzureSearchAuth,
+                         serviceName: String,
+                         indexJson: String,
+                         apiVersion: String): Unit = {
+    val indexName = parseIndexJson(indexJson).name.get
+    val existingIndexNames = getExisting(auth, serviceName, apiVersion)
+
+    if (!existingIndexNames.contains(indexName)) {
+      val request = AzureSearchRequests.createIndex(auth, serviceName, prepareEntity(indexJson), apiVersion)
+      val response = safeSend(request, close = false)
+      try {
+        assert(response.getStatusLine.getStatusCode == 201)
+      } finally {
+        response.close()
+      }
+    }
+  }
+
+  private def prepareEntity(indexJson: String): String = {
+    validIndexJson(indexJson).get
   }
 
   // validate schema
@@ -219,14 +248,27 @@ object SearchIndex extends IndexParser with IndexLister {
                     key: String,
                     serviceName: String,
                     apiVersion: String = DefaultAPIVersion): (Int, Int) = {
-    val getStatsRequest = new HttpGet(
-      s"https://$serviceName.search.windows.net/indexes/$indexName/stats?api-version=$apiVersion")
-    getStatsRequest.setHeader("api-key", key)
-    val statsResponse = safeSend(getStatsRequest, close = false)
-    val stats = IOUtils.toString(statsResponse.getEntity.getContent, "utf-8").parseJson.convertTo[IndexStats]
-    statsResponse.close()
+    getStatistics(indexName, AzureSearchAuth.fromSubscriptionKey(key), serviceName, apiVersion)
+  }
 
-    (stats.documentCount, stats.storageSize)
+  def getStatistics(indexName: String,
+                    auth: AzureSearchAuth,
+                    serviceName: String): (Int, Int) = {
+    getStatistics(indexName, auth, serviceName, DefaultAPIVersion)
+  }
+
+  def getStatistics(indexName: String,
+                    auth: AzureSearchAuth,
+                    serviceName: String,
+                    apiVersion: String): (Int, Int) = {
+    val response = safeSend(
+      AzureSearchRequests.getStatistics(auth, serviceName, indexName, apiVersion), close = false)
+    try {
+      val stats = IOUtils.toString(response.getEntity.getContent, "utf-8").parseJson.convertTo[IndexStats]
+      (stats.documentCount, stats.storageSize)
+    } finally {
+      response.close()
+    }
   }
 
 }
