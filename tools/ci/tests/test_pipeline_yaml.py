@@ -187,6 +187,9 @@ def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
     data = yaml.safe_load(_pipeline_text())
     jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
     release_compat = jobs["ReleaseBranchCompat"]
+    matrix = release_compat["strategy"]["matrix"]
+    assert set(matrix) == {"spark4.1"}
+    assert matrix["spark4.1"]["RELEASE_BRANCH"] == "spark4.1"
 
     condition = release_compat["condition"]
     assert "System.PullRequest.TargetBranch" in condition
@@ -254,15 +257,16 @@ def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
         step
         for step in steps
         if isinstance(step, dict)
-        and step.get("displayName") == "Validate $(RELEASE_BRANCH) after rebase"
+        and step.get("displayName")
+        == "Validate $(RELEASE_BRANCH) after applying PR changes"
     ]
     assert len(validation_steps) == 1
     script = validation_steps[0]["bash"]
     assert script.count("sbt $(SBT_JAVA_OPTS)") == 1
     assert "test:compile" in script
-    assert "getDatasets" in script
-    for project in ("core", "vw", "opencv"):
-        assert f'"project {project}"' in script
+    assert "getDatasets" not in script
+    assert "testOnly" not in script
+    assert '"project ' not in script
     assert "sbt_retry.sh" not in script
     assert "for pkg in" not in script
     assert (
