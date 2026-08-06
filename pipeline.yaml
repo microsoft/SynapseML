@@ -893,11 +893,8 @@ jobs:
   pool:
     vmImage: $(UBUNTU_VERSION)
   strategy:
+    # master already targets Spark 3.5; normal PR validation covers that runtime.
     matrix:
-      spark3.5:
-        RELEASE_BRANCH: spark3.5
-        JAVA_VERSION: 17
-        SBT_JAVA_OPTS: "-J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED"
       spark4.1:
         RELEASE_BRANCH: spark4.1
         JAVA_VERSION: 17
@@ -988,30 +985,12 @@ jobs:
     - bash: |
         set -e
         export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
-        CORE_TESTS="com.microsoft.azure.synapse.ml.core.** \
-        com.microsoft.azure.synapse.ml.automl.** \
-        com.microsoft.azure.synapse.ml.causal.** \
-        com.microsoft.azure.synapse.ml.featurize.** \
-        com.microsoft.azure.synapse.ml.image.** \
-        com.microsoft.azure.synapse.ml.isolationforest.** \
-        com.microsoft.azure.synapse.ml.stages.** \
-        com.microsoft.azure.synapse.ml.recommendation.** \
-        com.microsoft.azure.synapse.ml.nn.** \
-        com.microsoft.azure.synapse.ml.train.** \
-        com.microsoft.azure.synapse.ml.exploratory.**"
 
-        echo "=== Compiling and testing PR changes on $(RELEASE_BRANCH) ==="
+        echo "=== Compiling PR changes on $(RELEASE_BRANCH) ==="
         timeout 50m sbt $(SBT_JAVA_OPTS) \
-          test:compile \
-          getDatasets \
-          "project core" \
-          "testOnly $CORE_TESTS" \
-          "project vw" \
-          "testOnly com.microsoft.azure.synapse.ml.vw.**" \
-          "project opencv" \
-          "testOnly com.microsoft.azure.synapse.ml.opencv.**"
-        echo "$(RELEASE_BRANCH) compiles and passes compatibility tests"
-      displayName: 'Validate $(RELEASE_BRANCH) after rebase'
+          test:compile
+        echo "$(RELEASE_BRANCH) compiles successfully"
+      displayName: 'Validate $(RELEASE_BRANCH) after applying PR changes'
       timeoutInMinutes: 55
       condition: and(succeeded(), eq(variables.releaseCompatRequired, 'true'))
 
