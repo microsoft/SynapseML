@@ -12,6 +12,7 @@ import org.apache.spark.sql.functions.{col, udf}
 import scala.language.existentials
 
 class SARSpec extends RankingTestBase with EstimatorFuzzing[SAR] {
+  override val sortInDataframeEquality = true
   override def testObjects(): List[TestObject[SAR]] = {
     List(
       new TestObject(new SAR()
@@ -54,7 +55,7 @@ class SARSpec extends RankingTestBase with EstimatorFuzzing[SAR] {
     assert(evaluator.setMetricName("mrr").evaluate(output) === 1.0)
 
     val users: DataFrame = spark
-      .createDataFrame(Seq(("0","0"),("1","1")))
+      .createDataFrame(Seq((0.0, 0.0), (1.0, 1.0)))
       .toDF(userColIndex, itemColIndex)
 
     val recs = recopipeline.stages(1).asInstanceOf[RankingAdapterModel].getRecommenderModel
@@ -109,6 +110,7 @@ class SARSpec extends RankingTestBase with EstimatorFuzzing[SAR] {
 }
 
 class SARModelSpec extends RankingTestBase with TransformerFuzzing[SARModel] {
+  override val sortInDataframeEquality = true
   override def testObjects(): Seq[TestObject[SARModel]] = {
     List(
       new TestObject(new SAR()
@@ -198,10 +200,10 @@ object SarTLCSpec extends RankingTestBase {
 
     val itemMapBC = spark.sparkContext.broadcast(recommendationIndexerModel.getItemIndex)
 
-    val filterScore = udf((items: Seq[Int], ratings: Seq[Float]) => {
+    val filterScore = udf((items: Seq[Double], ratings: Seq[Float]) => {
       items.zipWithIndex
         .filter(p => {
-          val itemId = itemMapBC.value.getOrElse[String](p._1, "-1")
+          val itemId = itemMapBC.value.getOrElse[String](p._1.toInt, "-1")
           val bol = usersProductsBC.value.contains(itemId)
           !bol
         }).map(p => (p._1, ratings.toList(p._2)))
@@ -212,17 +214,17 @@ object SarTLCSpec extends RankingTestBase {
         "recommendations")
       .select(col("customerID"), col("recommendations._1") as "itemID", col("recommendations._2") as "rating")
       .select(
-        recoverUser(col("customerID")) as "customerID",
-        recoverItem(col("itemID")(0)) as "rec1",
-        recoverItem(col("itemID")(1)) as "rec2",
-        recoverItem(col("itemID")(2)) as "rec3",
-        recoverItem(col("itemID")(3)) as "rec4",
-        recoverItem(col("itemID")(4)) as "rec5",
-        recoverItem(col("itemID")(5)) as "rec6",
-        recoverItem(col("itemID")(6)) as "rec7",
-        recoverItem(col("itemID")(7)) as "rec8",
-        recoverItem(col("itemID")(8)) as "rec9",
-        recoverItem(col("itemID")(9)) as "rec10",
+        recoverUser(col("customerID").cast("int")) as "customerID",
+        recoverItem(col("itemID")(0).cast("int")) as "rec1",
+        recoverItem(col("itemID")(1).cast("int")) as "rec2",
+        recoverItem(col("itemID")(2).cast("int")) as "rec3",
+        recoverItem(col("itemID")(3).cast("int")) as "rec4",
+        recoverItem(col("itemID")(4).cast("int")) as "rec5",
+        recoverItem(col("itemID")(5).cast("int")) as "rec6",
+        recoverItem(col("itemID")(6).cast("int")) as "rec7",
+        recoverItem(col("itemID")(7).cast("int")) as "rec8",
+        recoverItem(col("itemID")(8).cast("int")) as "rec9",
+        recoverItem(col("itemID")(9).cast("int")) as "rec10",
         col("rating")(0) as "score1",
         col("rating")(1) as "score2",
         col("rating")(2) as "score3",
