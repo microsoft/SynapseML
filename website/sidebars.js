@@ -121,6 +121,7 @@ module.exports = {
                     label: 'Anomaly Detection',
                     items: [
                         "Explore Algorithms/Anomaly Detection/Quickstart - Isolation Forests",
+                        "Explore Algorithms/Anomaly Detection/Time Series Anomaly Detection",
                     ],
                 },
                 {
