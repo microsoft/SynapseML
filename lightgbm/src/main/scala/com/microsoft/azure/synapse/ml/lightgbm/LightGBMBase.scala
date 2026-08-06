@@ -595,10 +595,17 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
                                  networkManager)
 
     // Execute the Tasks on workers
-    val lightGBMBooster = executePartitionTasks(ctx, dataframe, measures)
+    val lightGBMBooster = try {
+      val booster = executePartitionTasks(ctx, dataframe, measures)
 
-    // Wait for network to complete (should be done by now)
-    networkManager.waitForNetworkCommunicationsDone()
+      // Wait for network to complete (should be done by now)
+      networkManager.waitForNetworkCommunicationsDone()
+      booster
+    } finally {
+      // If training failed, the network thread may still be blocked accepting connections that will
+      // never arrive. Closing the driver sockets releases it and the port for the next attempt.
+      networkManager.closeConnections()
+    }
     measures.markTrainingStop()
     val model = getModel(trainParams, lightGBMBooster)
     measures.markExecutionEnd()

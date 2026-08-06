@@ -8,12 +8,13 @@ import com.microsoft.azure.synapse.ml.core.utils.{ClusterUtil, FaultToleranceUti
 import com.microsoft.azure.synapse.ml.lightgbm.NetworkManager.parseWorkerMessage
 import com.microsoft.ml.lightgbm.lightgbmlib
 import org.apache.spark.BarrierTaskContext
+import org.apache.spark.TaskContext
 import org.apache.spark.internal.Logging
 import org.apache.spark.sql.SparkSession
 import org.slf4j.Logger
 
 import java.io.{BufferedReader, BufferedWriter, IOException, InputStreamReader, OutputStreamWriter}
-import java.net.{BindException, InetSocketAddress, ServerSocket, Socket}
+import java.net.{BindException, ConnectException, InetSocketAddress, ServerSocket, Socket}
 import java.util.concurrent.Executors
 import scala.annotation.tailrec
 import scala.collection.mutable
@@ -210,18 +211,53 @@ object NetworkManager {
         localListenPort =>
           log.info(s"LightGBM task $taskId connecting to host: " +
             s"${networkParams.ipAddress}, port: ${networkParams.port}")
-          FaultToleranceUtils.retryWithTimeout() {
-            getNetworkTopologyInfoFromDriver(networkParams,
-                                             taskId,
-                                             partitionId,
-                                             localListenPort,
-                                             log,
-                                             shouldExecuteTraining)
+          try {
+            FaultToleranceUtils.retryWithTimeout() {
+              getNetworkTopologyInfoFromDriver(networkParams,
+                                               taskId,
+                                               partitionId,
+                                               localListenPort,
+                                               log,
+                                               shouldExecuteTraining)
+            }
+          } catch {
+            case connectFailure: ConnectException =>
+              throw driverUnreachableException(networkParams, taskId, partitionId, log, connectFailure)
           }
       }
     } finally {
       measures.markNetworkInitializationStop()
     }
+  }
+
+  /** Explain why a task could not reach the driver's network topology endpoint.
+    *
+    * The driver serves the topology exchange exactly once per training round and then closes its
+    * server socket. A task that Spark retries after that point can therefore only ever see
+    * "connection refused", which silently replaces the failure that caused the retry in the first
+    * place. Naming that explicitly keeps the original failure discoverable.
+    */
+  private[lightgbm] def driverUnreachableException(networkParams: NetworkParams,
+                                                   taskId: Long,
+                                                   partitionId: Int,
+                                                   log: Logger,
+                                                   cause: ConnectException): Exception = {
+    val attemptNumber = Option(TaskContext.get()).map(_.attemptNumber()).getOrElse(0)
+    val endpoint = s"${networkParams.ipAddress}:${networkParams.port}"
+    val message = if (attemptNumber > 0) {
+      s"LightGBM task $taskId (partition $partitionId) could not reach the driver network topology endpoint " +
+        s"$endpoint on retry attempt $attemptNumber. The driver serves the topology exchange once per training " +
+        "round and has already closed it, so a retried task can never rejoin the LightGBM network. This error " +
+        s"is therefore a consequence of an earlier failure: inspect the logs of the first failed attempt of " +
+        s"partition $partitionId to find the real cause. Distributed LightGBM training cannot recover from a " +
+        "partial task retry."
+    } else {
+      s"LightGBM task $taskId (partition $partitionId) could not reach the driver network topology endpoint " +
+        s"$endpoint on its first attempt. Verify that executors are allowed to open connections to the driver " +
+        "on that port, and that the driver was not shut down before training started."
+    }
+    log.error(message, cause)
+    new Exception(message, cause)
   }
 
   private def getNetworkTopologyInfoFromDriver(networkParams: NetworkParams,
@@ -581,13 +617,16 @@ case class NetworkManager(numTasks: Int,
 
   // This will be kicked off at object creation time, and can be waited on by waitForNetworkDone()
   private val networkCommunicationThread: Future[Unit] = Future {
-    log.info(s"driver waiting for connections on host: $host and port: $port")
-    waitForAllTasksToReport()
+    try {
+      log.info(s"driver waiting for connections on host: $host and port: $port")
+      waitForAllTasksToReport()
 
-    // We have all the information now, so report back to workers
-    sendDataToExecutors(networkTopologyAsString, partitionsByExecutorAsString)
-
-    closeConnections()
+      // We have all the information now, so report back to workers
+      sendDataToExecutors(networkTopologyAsString, partitionsByExecutorAsString)
+    } finally {
+      // Always release the sockets, including when the topology exchange fails or times out.
+      closeConnections()
+    }
   } (ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor()))
 
   def waitForNetworkCommunicationsDone(): Unit = {
@@ -641,12 +680,11 @@ case class NetworkManager(numTasks: Int,
       message match {
         case m if m.isForLoadOnly =>
           log.info("driver received load-only status from task")
-          loadOnlyHostAndPorts += socket
+          addSocket(loadOnlyHostAndPorts, socket)
         case m if m.isForTraining =>
           val networkInfoString = s"${message.taskHost}:${message.localListenPort}"
           log.info(s"driver received socket from task: $networkInfoString")
-          val socketAndMessage = (socket, networkInfoString)
-          hostAndPorts += socketAndMessage
+          addSocket(hostAndPorts, (socket, networkInfoString))
         case _ => throw new Exception(s"Unknown message type: ${message.toString()}")
       }
 
@@ -687,10 +725,36 @@ case class NetworkManager(numTasks: Int,
     })
   }
 
-  private def closeConnections(): Unit = {
-    log.info("driver closing all sockets and server socket")
-    hostAndPorts.foreach(_._1.close())
-    driverServerSocket.close()
-    log.info("driver done closing all sockets and server socket")
+  /** Release every driver-side socket for this training round.
+    *
+    * Safe to call more than once and from more than one thread, so both the network thread and the
+    * training job can guarantee cleanup. Closing the server socket also unblocks a network thread
+    * that is still parked in accept() waiting for tasks that will never arrive.
+    */
+  private[lightgbm] def closeConnections(): Unit = synchronized {
+    if (!driverServerSocket.isClosed) {
+      log.info("driver closing all sockets and server socket")
+      hostAndPorts.foreach(hostAndPort => closeQuietly(hostAndPort._1))
+      loadOnlyHostAndPorts.foreach(closeQuietly)
+      closeQuietly(driverServerSocket)
+      log.info("driver done closing all sockets and server socket")
+    }
+  }
+
+  /** Records an accepted socket. The network thread appends while the training job may be closing
+    * everything down, so the buffers are only ever touched under the instance lock.
+    */
+  private def addSocket[T](buffer: ListBuffer[T], entry: T): Unit = synchronized {
+    buffer += entry
+  }
+
+  private def closeQuietly(closeable: java.io.Closeable): Unit = {
+    try {
+      closeable.close()
+    } catch {
+      case closeFailure: IOException =>
+        // One socket refusing to close must not strand the others, especially the server socket.
+        log.warn(s"driver could not close a network socket cleanly: $closeFailure")
+    }
   }
 }
