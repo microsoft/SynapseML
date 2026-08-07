@@ -4,11 +4,17 @@
 package com.microsoft.azure.synapse.ml.codegen
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
+import org.apache.spark.ml.linalg.Vector
+import org.apache.spark.ml.param.ParamMap
+import org.apache.spark.ml.regression.{RegressionModel, Regressor}
+import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.sql.Dataset
 
 class WrappableTests extends TestBase {
 
-  test("test CompanionModelClassName") {
-    val regressorCompanionModelClassName = new TestRegressor().getCompanionModelClassName
-    assert(regressorCompanionModelClassName == "com.microsoft.azure.synapse.ml.codegen.TestRegressorModel")
-  }
+    test ("test CompanionModelClassName") {
+        val regressorCompanionModelClasName = new TestRegressor().getCompanionModelClassName
+        assert(regressorCompanionModelClasName.equals(
+            "com.microsoft.azure.synapse.ml.codegen.TestRegressorModel"))
+    }
 }
