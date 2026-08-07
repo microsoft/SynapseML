@@ -13,6 +13,9 @@ import java.util.zip.ZipFile
 
 class PyCodegenSuite extends AnyFunSuite {
 
+  private def pythonExecutable: String =
+    if (System.getProperty("os.name").toLowerCase.contains("windows")) "python" else "python3"
+
   private def withTempDir(testCode: File => Unit): Unit = {
     val dir = Files.createTempDirectory("py-codegen-suite").toFile
     try testCode(dir) finally FileUtils.deleteDirectory(dir)
@@ -63,9 +66,8 @@ class PyCodegenSuite extends AnyFunSuite {
 
   private def buildWheel(sourceDir: File, wheelDir: File): File = {
     wheelDir.mkdirs()
-    val python = if (System.getProperty("os.name").toLowerCase.contains("windows")) "python" else "python3"
     val process = new ProcessBuilder(
-      python, "setup.py", "bdist_wheel", "--universal", "-d", wheelDir.getAbsolutePath)
+      pythonExecutable, "setup.py", "bdist_wheel", "--universal", "-d", wheelDir.getAbsolutePath)
       .directory(sourceDir)
       .redirectErrorStream(true)
       .start()
@@ -80,6 +82,21 @@ class PyCodegenSuite extends AnyFunSuite {
       .filter(file => file.isFile && file.getName.endsWith(".whl"))
     assert(wheels.length === 1, s"Expected one wheel, found: ${wheels.mkString(", ")}")
     wheels.head
+  }
+
+  private def assertPythonCompiles(file: File): Unit = {
+    val script = "from pathlib import Path; import sys; " +
+      "path = Path(sys.argv[1]); compile(path.read_bytes(), str(path), 'exec')"
+    val process = new ProcessBuilder(pythonExecutable, "-c", script, file.getAbsolutePath)
+      .redirectErrorStream(true)
+      .start()
+    val stream = process.getInputStream
+    val output = try {
+      new String(IOUtils.toByteArray(stream), StandardCharsets.UTF_8)
+    } finally {
+      stream.close()
+    }
+    assert(process.waitFor() === 0, output)
   }
 
   private def wheelEntryContent(wheel: File, path: String): Option[String] = {
@@ -111,12 +128,13 @@ class PyCodegenSuite extends AnyFunSuite {
     withTempDir { root =>
       val conf = codegenConfig(root)
       val folder = "/custom/nested"
-      val manual = "# hand written\nmessage = \"Grüße 雪\"\n"
-      addManualInit(conf, folder, manual)
+      val prefix = "# hand written\n"
+      val body = "message = \"Grüße 雪\"\n"
+      addManualInit(conf, folder, prefix + body)
       addModule(conf, folder, "Zulu.py")
       addModule(conf, folder, "Alpha.py")
 
-      PyCodegen.makeInitFiles(conf)
+      PyCodegen.generateInitFiles(conf)
 
       val output = initFile(conf.pySrcDir, folder)
       val first = Files.readAllBytes(output.toPath)
@@ -125,10 +143,11 @@ class PyCodegenSuite extends AnyFunSuite {
       val zuluImport = "from synapse.ml.custom.nested.Zulu import *"
       assert(generated.indexOf(alphaImport) >= 0)
       assert(generated.indexOf(alphaImport) < generated.indexOf(zuluImport))
-      assert(generated.indexOf(zuluImport) < generated.indexOf(manual))
-      assert(occurrences(generated, manual) === 1)
+      assert(generated.startsWith(prefix))
+      assert(generated.indexOf(zuluImport) < generated.indexOf(body))
+      assert(occurrences(generated, body) === 1)
 
-      PyCodegen.makeInitFiles(conf)
+      PyCodegen.generateInitFiles(conf)
       assert(Files.readAllBytes(output.toPath).sameElements(first))
     }
   }
@@ -137,23 +156,23 @@ class PyCodegenSuite extends AnyFunSuite {
     withTempDir { root =>
       val absentConf = codegenConfig(new File(root, "absent"))
       ensurePackage(absentConf, "")
-      PyCodegen.makeInitFiles(absentConf)
+      PyCodegen.generateInitFiles(absentConf)
       assert(!initFile(absentConf.pySrcDir, "").exists())
 
       val emptyConf = codegenConfig(new File(root, "empty"))
       addManualInit(emptyConf, "", "")
-      PyCodegen.makeInitFiles(emptyConf)
+      PyCodegen.generateInitFiles(emptyConf)
       assert(!initFile(emptyConf.pySrcDir, "").exists())
 
       val manualConf = codegenConfig(new File(root, "manual"))
       val manual = "root_value = \"namespace 雪\"\n"
       addManualInit(manualConf, "", manual)
-      PyCodegen.makeInitFiles(manualConf)
+      PyCodegen.generateInitFiles(manualConf)
       val output = initFile(manualConf.pySrcDir, "")
       assert(output.exists())
       assert(readUtf8(output) === manual)
 
-      PyCodegen.makeInitFiles(manualConf)
+      PyCodegen.generateInitFiles(manualConf)
       assert(readUtf8(output) === manual)
     }
   }
@@ -168,7 +187,7 @@ class PyCodegenSuite extends AnyFunSuite {
       addModule(conf, folder, "Alpha.py")
       addModule(conf, folder, "OpenAICompletion.py")
 
-      PyCodegen.makeInitFiles(conf)
+      PyCodegen.generateInitFiles(conf)
 
       val output = initFile(conf.pySrcDir, folder)
       val first = Files.readAllBytes(output.toPath)
@@ -184,7 +203,7 @@ class PyCodegenSuite extends AnyFunSuite {
       assert(occurrences(generated, hook) === 1)
       assert(occurrences(generated, manual) === 1)
 
-      PyCodegen.makeInitFiles(conf)
+      PyCodegen.generateInitFiles(conf)
       assert(Files.readAllBytes(output.toPath).sameElements(first))
     }
   }
@@ -197,7 +216,7 @@ class PyCodegenSuite extends AnyFunSuite {
       addModule(conf, folder, "Zulu.py")
       addModule(conf, folder, "Alpha.py")
 
-      PyCodegen.makeInitFiles(conf)
+      PyCodegen.generateInitFiles(conf)
 
       val output = initFile(conf.pySrcDir, folder)
       val first = Files.readAllBytes(output.toPath)
@@ -209,8 +228,109 @@ class PyCodegenSuite extends AnyFunSuite {
       assert(occurrences(generated, alphaImport) === 1)
       assert(occurrences(generated, zuluImport) === 1)
 
-      PyCodegen.makeInitFiles(conf)
+      PyCodegen.generateInitFiles(conf)
       assert(Files.readAllBytes(output.toPath).sameElements(first))
+    }
+  }
+
+  test("manual Python prologue stays ahead of generated executable statements") {
+    withTempDir { root =>
+      val conf = codegenConfig(root)
+      val folder = "/prologue"
+      val prologue =
+        "\uFEFF# -*- coding: utf-8 -*-\r\n" +
+          "# leading comment\r\n" +
+          "\r\n" +
+          "\"\"\"Hand-written\r\nmodule documentation.\r\n\"\"\"\r\n" +
+          "from __future__ import absolute_import\r\n" +
+          "from __future__ import (\r\n    division,\r\n)\r\n"
+      val body = "# manual exports\r\nmanual_value = \"Grüße 雪\"\r\n"
+      addManualInit(conf, folder, prologue + body)
+      addModule(conf, folder, "Generated.py")
+
+      PyCodegen.generateInitFiles(conf)
+
+      val outputFile = initFile(conf.pySrcDir, folder)
+      val output = readUtf8(outputFile)
+      val generatedImport = "from synapse.ml.prologue.Generated import *"
+      assert(output.startsWith(prologue))
+      assert(output.indexOf("\uFEFF") === 0)
+      assert(output.indexOf("from __future__ import absolute_import") <
+        output.indexOf("__version__ ="))
+      assert(output.indexOf("division,") < output.indexOf("__version__ ="))
+      assert(output.indexOf(generatedImport) < output.indexOf(body))
+      assert(occurrences(output, "Hand-written\r\nmodule documentation.") === 1)
+
+      val first = Files.readAllBytes(outputFile.toPath)
+      PyCodegen.generateInitFiles(conf)
+      assert(Files.readAllBytes(outputFile.toPath).sameElements(first))
+    }
+  }
+
+  test("blank and comment prefix stays before generated code while manual body stays after it") {
+    withTempDir { root =>
+      val conf = codegenConfig(root)
+      val folder = "/commented"
+      val prefix = "# package policy\n\n# generated exports follow\n"
+      val body = "manual_value = 1\n"
+      addManualInit(conf, folder, prefix + body)
+      addModule(conf, folder, "Generated.py")
+
+      PyCodegen.generateInitFiles(conf)
+
+      val output = readUtf8(initFile(conf.pySrcDir, folder))
+      assert(output.startsWith(prefix))
+      assert(output.indexOf("from synapse.ml.commented.Generated import *") < output.indexOf(body))
+    }
+  }
+
+  test("inline-commented module docstring keeps following future import legal") {
+    withTempDir { root =>
+      val conf = codegenConfig(root)
+      val folder = "/inlinecomment"
+      val docstring = "\"\"\"Package documentation.\"\"\"  # retained explanation\n"
+      val futureImport = "from __future__ import absolute_import\n"
+      val body = "manual_value = 1\n"
+      addManualInit(conf, folder, docstring + futureImport + body)
+      addModule(conf, folder, "Generated.py")
+
+      PyCodegen.generateInitFiles(conf)
+
+      val outputFile = initFile(conf.pySrcDir, folder)
+      val output = readUtf8(outputFile)
+      assert(output.startsWith(docstring + futureImport))
+      assert(output.indexOf(futureImport) < output.indexOf("__version__ ="))
+      assert(output.indexOf("from synapse.ml.inlinecomment.Generated import *") < output.indexOf(body))
+      assertPythonCompiles(outputFile)
+    }
+  }
+
+  test("deleted and renamed modules do not leave stale generated initializer content") {
+    withTempDir { root =>
+      val conf = codegenConfig(root)
+      val folder = "/transitions"
+      val manual = "manual_value = \"preserved\"\n"
+      addManualInit(conf, folder, manual)
+      val oldModule = new File(packageDir(conf.pySrcDir, folder), "OldName.py")
+      writeUtf8(oldModule, "")
+
+      PyCodegen.generateInitFiles(conf)
+      val output = initFile(conf.pySrcDir, folder)
+      assert(readUtf8(output).contains("from synapse.ml.transitions.OldName import *"))
+
+      assert(oldModule.delete())
+      addModule(conf, folder, "NewName.py")
+      PyCodegen.generateInitFiles(conf)
+      val renamed = readUtf8(output)
+      assert(!renamed.contains("OldName"))
+      assert(renamed.contains("from synapse.ml.transitions.NewName import *"))
+      assert(occurrences(renamed, manual) === 1)
+
+      assert(initFile(conf.pySrcOverrideDir, folder).delete())
+      PyCodegen.generateInitFiles(conf)
+      val withoutManual = readUtf8(output)
+      assert(!withoutManual.contains(manual))
+      assert(occurrences(withoutManual, "NewName") === 1)
     }
   }
 
@@ -222,11 +342,11 @@ class PyCodegenSuite extends AnyFunSuite {
       addManualInit(conf, folder, manual)
       addModule(conf, folder, "Generated.py")
 
-      PyCodegen.makeInitFiles(conf)
+      PyCodegen.generateInitFiles(conf)
 
       val output = initFile(conf.pySrcDir, folder)
       assert(readUtf8(output) === manual)
-      PyCodegen.makeInitFiles(conf)
+      PyCodegen.generateInitFiles(conf)
       assert(readUtf8(output) === manual)
     }
   }
@@ -238,7 +358,7 @@ class PyCodegenSuite extends AnyFunSuite {
       addManualInit(conf, "", manual)
       addModule(conf, "/nested", "Widget.py")
       PyCodegen.generatePyPackageData(conf)
-      PyCodegen.makeInitFiles(conf)
+      PyCodegen.generateInitFiles(conf)
 
       val wheel = buildWheel(conf.pySrcDir, new File(conf.targetDir, "wheel-test"))
       assert(wheelEntryContent(wheel, "synapse/ml/__init__.py").contains(manual))
