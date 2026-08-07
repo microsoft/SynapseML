@@ -206,7 +206,7 @@ class LumpFeatures(override val uid: String)
       val byColumn = ranked.filter(_.retained).groupBy(_.column)
       val keptJson = rules.map { case (name, k) =>
         val top = byColumn.getOrElse(name, Seq.empty).sortBy(_.rank).map(_.value).toList
-        (name, LumpFeaturesModel.encodeKept(k, top))
+        (name, LumpFeaturesModel.encodeKept(k, top, other))
       }
 
       val model = new LumpFeaturesModel(uid)
@@ -273,19 +273,45 @@ class LumpFeatures(override val uid: String)
 
 object LumpFeaturesModel extends DefaultParamsReadable[LumpFeaturesModel] {
 
-  /** Encode a column fitted state as a JSON object recording both the fitted top-K and the retained
-    * values so a fitted model can later reject any incompatible lumpRules change. */
-  private[stages] def encodeKept(topK: Int, values: Seq[String]): String =
-    JsObject("topK" -> JsNumber(topK), "values" -> JsArray(values.map(JsString(_)).toVector)).compactPrint
+  private[stages] case class KeptState(topK: Int, values: Seq[String], otherValue: Option[String])
 
-  /** Decode a column fitted state into its fitted top-K and retained values, failing clearly when the
-    * stored JSON is malformed or not the expected object shape. */
-  private[stages] def decodeKept(name: String, json: String): (Int, Seq[String]) = {
+  override def read: MLReader[LumpFeaturesModel] = {
+    val delegate = super.read
+    new MLReader[LumpFeaturesModel] {
+      override def load(path: String): LumpFeaturesModel = {
+        delegate.session(sparkSession)
+        delegate.load(path).prepareLoadedModel()
+      }
+    }
+  }
+
+  /** Encode a column's fitted state, including the reserved fallback that was collision-checked
+    * against the fitting data. Keeping it inside learned state avoids a separately clearable Param.
+    */
+  private[stages] def encodeKept(topK: Int, values: Seq[String], otherValue: String): String =
+    encodeKept(KeptState(topK, values, Some(otherValue)))
+
+  private[stages] def encodeKept(state: KeptState): String = {
+    val base = Map[String, JsValue](
+      "topK" -> JsNumber(state.topK),
+      "values" -> JsArray(state.values.map(JsString(_)).toVector))
+    val fields = state.otherValue.fold(base)(value => base + ("otherValue" -> JsString(value)))
+    JsObject(fields).compactPrint
+  }
+
+  /** Decode one column's state. otherValue is optional only for loading artifacts written before
+    * that fit-time invariant was persisted; the reader upgrades those entries before returning.
+    */
+  private[stages] def decodeKept(name: String, json: String): KeptState = {
     parseKeptJson(name, json) match {
-      case JsObject(fields) => (decodeTopK(name, json, fields), decodeValueList(name, json, fields))
+      case JsObject(fields) =>
+        KeptState(
+          decodeTopK(name, json, fields),
+          decodeValueList(name, json, fields),
+          decodeOtherValue(name, json, fields))
       case _ =>
         throw new IllegalArgumentException(
-          s"keptValuesJson for column '$name' must be a JSON object with topK and values fields: '$json'.")
+          s"keptValuesJson for column '$name' must be a JSON object with fitted state fields: '$json'.")
     }
   }
 
@@ -316,6 +342,15 @@ object LumpFeaturesModel extends DefaultParamsReadable[LumpFeaturesModel] {
         throw new IllegalArgumentException(
           s"keptValuesJson for column '$name' must contain a string-array values field: '$json'.")
     }
+
+  private def decodeOtherValue(name: String, json: String, fields: Map[String, JsValue]): Option[String] =
+    fields.get("otherValue") match {
+      case None => None
+      case Some(JsString(value)) => Some(value)
+      case _ =>
+        throw new IllegalArgumentException(
+          s"keptValuesJson for column '$name' must contain a string otherValue field when present: '$json'.")
+    }
 }
 
 /** Model produced by [[LumpFeatures]]. Replaces every non-retained value in each rule column with
@@ -333,18 +368,30 @@ class LumpFeaturesModel(override val uid: String)
   val keptValuesJson: StringStringMapParam = new StringStringMapParam(
     this, "keptValuesJson",
     "Learned model-only state per column, encoded as a map from column name to a JSON object holding the " +
-      "fitted top-K (field topK) and the retained values array (field values) ordered by descending " +
-      "frequency then ascending value. Populated by LumpFeatures during fit and immutable thereafter.")
+      "fitted top-K, retained values, and fit-time otherValue. Populated by LumpFeatures during fit and " +
+      "immutable thereafter.")
+
+  private var learnedStateSnapshot: Option[Map[String, String]] = None
+  private var otherValueWasSetWithLearnedState: Boolean = false
 
   def getKeptValuesJson: Map[String, String] = get(keptValuesJson).getOrElse(Map.empty)
 
-  def setKeptValuesJson(value: Map[String, String]): this.type = set(keptValuesJson, value)
+  private def learnedStateChangeMessage: String =
+    "Cannot change or clear keptValuesJson on a fitted LumpFeaturesModel; re-fit LumpFeatures to change learned state."
+
+  private def guardLearnedStateChange(value: Map[String, String]): Unit =
+    learnedStateSnapshot.foreach(expected => require(value == expected, learnedStateChangeMessage))
+
+  def setKeptValuesJson(value: Map[String, String]): this.type = {
+    guardLearnedStateChange(value)
+    set(keptValuesJson, value)
+  }
 
   def setKeptValuesJson(value: java.util.HashMap[String, String]): this.type =
-    set(keptValuesJson, value.asScala.toMap)
+    setKeptValuesJson(value.asScala.toMap)
 
   def getKeptValues: Map[String, Seq[String]] =
-    decodedKept.map { case (name, (_, values)) => (name, values) }
+    decodedKept.map { case (name, state) => (name, state.values) }
 
   /** The learned values per column as one JSON object mapping column name to its retained values.
     * Language wrappers cannot reliably read the keptValuesJson param map off the JVM object, so this
@@ -355,16 +402,16 @@ class LumpFeaturesModel(override val uid: String)
       (name, JsArray(values.map(JsString(_)).toVector): JsValue)
     }).compactPrint
 
-  private def decodedKept: Map[String, (Int, Seq[String])] =
+  private def decodedKept: Map[String, LumpFeaturesModel.KeptState] =
     getKeptValuesJson.map { case (name, json) => (name, LumpFeaturesModel.decodeKept(name, json)) }
 
   /** The fitted top-K per column recorded at fit time; a fitted model keeps lumpRules equal to this. */
-  private def getFittedTopK: Map[String, Int] =
-    decodedKept.map { case (name, (topK, _)) => (name, topK) }
+  private def getFittedTopK(kept: Map[String, LumpFeaturesModel.KeptState]): Map[String, Int] =
+    kept.map { case (name, state) => (name, state.topK) }
 
   private def guardLumpRulesChange(value: Map[String, Int]): Unit = {
     if (isDefined(keptValuesJson)) {
-      val fitted = getFittedTopK
+      val fitted = getFittedTopK(decodedKept)
       require(value == fitted,
         s"Cannot change lumpRules on a fitted LumpFeaturesModel. The model was fitted with top-K $fitted " +
           s"but $value was requested; re-fit LumpFeatures to change the rules.")
@@ -382,25 +429,131 @@ class LumpFeaturesModel(override val uid: String)
   override def setLumpRules(value: String): this.type =
     setLumpRules(lumpRules.jsonDecode(value))
 
-  protected def validateModelState(): Unit = {
+  private def incompatibleOtherValue(value: String, fitted: String): String =
+    s"Cannot change otherValue on a fitted LumpFeaturesModel. The model reserved '$fitted' during fit " +
+      s"but '$value' was requested; re-fit LumpFeatures to change the fallback value."
+
+  private def fittedOtherValue(kept: Map[String, LumpFeaturesModel.KeptState]): Option[String] = {
+    val present = kept.values.flatMap(_.otherValue).toSet
+    val missing = kept.collect { case (name, state) if state.otherValue.isEmpty => name }.toSeq.sorted
+    require(present.isEmpty || missing.isEmpty,
+      s"Model state is inconsistent: fit-time otherValue is missing for column(s) [${missing.mkString(", ")}].")
+    require(present.size <= 1,
+      s"Model state contains inconsistent fit-time otherValue entries [${present.toSeq.sorted.mkString(", ")}].")
+    present.headOption
+  }
+
+  private def decodedLearnedStateSnapshot: Option[Map[String, LumpFeaturesModel.KeptState]] =
+    learnedStateSnapshot.map(_.map { case (name, json) => (name, LumpFeaturesModel.decodeKept(name, json)) })
+
+  private def guardOtherValueChange(value: String): Unit =
+    decodedLearnedStateSnapshot.flatMap(fittedOtherValue).foreach { fitted =>
+      require(value == fitted, incompatibleOtherValue(value, fitted))
+    }
+
+  override def setOtherValue(value: String): this.type = {
+    guardOtherValueChange(value)
+    set(otherValue, value)
+  }
+
+  /** Spark mutates the ParamMap before this hook. Retain an internal snapshot so learned state can
+    * be restored after generic set/clear calls, and use its embedded fallback to protect otherValue.
+    */
+  override def onParamChange(param: Param[_]): Unit = {
+    if (keptValuesJson != null && learnedStateSnapshot != null && param == keptValuesJson) {
+      handleLearnedStateChange()
+    }
+    if (otherValue != null && learnedStateSnapshot != null && param == otherValue) {
+      handleOtherValueChange()
+    }
+  }
+
+  private def handleLearnedStateChange(): Unit = {
+    val current = get(keptValuesJson)
+    learnedStateSnapshot match {
+      case None =>
+        current.foreach { value =>
+          learnedStateSnapshot = Some(value)
+          otherValueWasSetWithLearnedState = isSet(otherValue)
+        }
+      case Some(expected) if current.contains(expected) =>
+      case Some(expected) =>
+        set(keptValuesJson, expected)
+        throw new IllegalArgumentException(learnedStateChangeMessage)
+    }
+  }
+
+  private def handleOtherValueChange(): Unit = {
+    decodedLearnedStateSnapshot.flatMap(fittedOtherValue).foreach { fitted =>
+      val current = getOtherValue
+      if (current != fitted && (isSet(otherValue) || otherValueWasSetWithLearnedState)) {
+        set(otherValue, fitted)
+        throw new IllegalArgumentException(incompatibleOtherValue(current, fitted))
+      }
+      if (current == fitted && isSet(otherValue)) {
+        otherValueWasSetWithLearnedState = true
+      }
+    }
+  }
+
+  private def validateModelState(kept: Map[String, LumpFeaturesModel.KeptState]): Unit = {
     validateRules()
     val rules = getLumpRules
-    val kept = decodedKept
     require(rules.keySet == kept.keySet,
       s"Model state is inconsistent with lumpRules: rule columns " +
         s"[${rules.keySet.toSeq.sorted.mkString(", ")}] do not match learned columns " +
         s"[${kept.keySet.toSeq.sorted.mkString(", ")}].")
     val other = getOtherValue
-    kept.foreach { case (name, (topK, values)) =>
-      require(rules(name) == topK,
-        s"lumpRules top-K for column '$name' is ${rules(name)} but the model was fitted with top-K $topK. " +
+    fittedOtherValue(kept).foreach { fitted =>
+      require(other == fitted, incompatibleOtherValue(other, fitted))
+    }
+    kept.foreach { case (name, state) =>
+      require(rules(name) == state.topK,
+        s"lumpRules top-K for column '$name' is ${rules(name)} but the model was fitted with top-K " +
+          s"${state.topK}. " +
           "A fitted LumpFeaturesModel does not allow lumpRules to change after fit; re-fit to change rules.")
-      require(values.size <= topK,
-        s"Model retains ${values.size} values for column '$name' which exceeds its fitted top-K of $topK.")
-      require(!values.contains(other),
+      require(state.values.size <= state.topK,
+        s"Model retains ${state.values.size} values for column '$name' which exceeds its fitted top-K " +
+          s"of ${state.topK}.")
+      require(!state.values.contains(other),
         s"otherValue '$other' collides with a retained value in column '$name'. " +
           "Choose an otherValue that is not among the learned values.")
     }
+  }
+
+  private def validatedModelState(): Map[String, LumpFeaturesModel.KeptState] = {
+    val kept = decodedKept
+    validateModelState(kept)
+    kept
+  }
+
+  protected def validateModelState(): Unit = {
+    validateModelState(decodedKept)
+  }
+
+  private def replaceLearnedState(value: Map[String, String]): Unit = {
+    learnedStateSnapshot = None
+    otherValueWasSetWithLearnedState = false
+    set(keptValuesJson, value)
+  }
+
+  private def upgradeLegacyState(
+      kept: Map[String, LumpFeaturesModel.KeptState]): Map[String, LumpFeaturesModel.KeptState] = {
+    if (kept.values.exists(_.otherValue.isEmpty)) {
+      val upgraded = kept.map { case (name, state) =>
+        (name, if (state.otherValue.isDefined) state else state.copy(otherValue = Some(getOtherValue)))
+      }
+      replaceLearnedState(upgraded.map { case (name, state) => (name, LumpFeaturesModel.encodeKept(state)) })
+      upgraded
+    } else {
+      kept
+    }
+  }
+
+  private[stages] def prepareLoadedModel(): LumpFeaturesModel = {
+    val kept = upgradeLegacyState(decodedKept)
+    validateModelState(kept)
+    this
   }
 
   override def transformSchema(schema: StructType): StructType = {
@@ -410,12 +563,13 @@ class LumpFeaturesModel(override val uid: String)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
-      transformSchema(dataset.schema)
+      val state = validatedModelState()
+      validateAndTransformSchema(dataset.schema)
       val other = getOtherValue
       val keepNulls = getHandleNull == "keep"
-      val kept = getKeptValues
       orderedOutputs.foldLeft(dataset.toDF()) { case (acc, (name, out)) =>
-        acc.withColumn(out, lumpExpr(name, kept.getOrElse(name, Seq.empty), other, keepNulls))
+        val values = state.get(name).map(_.values).getOrElse(Seq.empty)
+        acc.withColumn(out, lumpExpr(name, values, other, keepNulls))
       }
     }, dataset.columns.length)
   }
@@ -431,9 +585,17 @@ class LumpFeaturesModel(override val uid: String)
     else coalesce(retain, lit(other))
   }
 
+  private def guardLearnedStateCopy(extra: ParamMap): Unit = {
+    extra.get(keptValuesJson).foreach { requested =>
+      val fitted = learnedStateSnapshot.getOrElse(getKeptValuesJson)
+      require(requested == fitted, learnedStateChangeMessage)
+    }
+  }
+
   override def copy(extra: ParamMap): LumpFeaturesModel = {
+    guardLearnedStateCopy(extra)
     val copied = copyValues(new LumpFeaturesModel(uid), extra).setParent(parent)
-    if (copied.isDefined(copied.keptValuesJson)) copied.validateModelState()
+    if (copied.isDefined(copied.keptValuesJson)) copied.prepareLoadedModel()
     copied
   }
 }

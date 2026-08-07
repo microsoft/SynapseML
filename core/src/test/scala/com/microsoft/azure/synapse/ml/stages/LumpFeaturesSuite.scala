@@ -102,12 +102,41 @@ class LumpFeaturesSuite extends EstimatorFuzzing[LumpFeatures] with LumpFeatures
     assert(ex.getMessage.toLowerCase.contains("othervalue"))
   }
 
-  test("model transform rejects changed otherValue that collides with a retained value") {
+  test("fitted model rejects direct otherValue mutation to an observed non-retained category") {
     val model = new LumpFeatures().setLumpRules(Map("f1" -> 1)).fit(df)
-    model.setOtherValue("apple")
-    intercept[IllegalArgumentException] {
-      model.transform(df).collect()
+    assert(model.getKeptValues("f1") == Seq("apple"))
+    val ex = intercept[IllegalArgumentException] { model.setOtherValue("banana") }
+    assert(ex.getMessage.toLowerCase.contains("othervalue"))
+    assert(model.getOtherValue == other)
+    assert(dump(model.transform(df), Seq("f1")) == List(other, other, "apple", "apple", "apple"))
+  }
+
+  test("generic otherValue Param mutation is rejected and leaves the fitted model unchanged") {
+    val model = new LumpFeatures().setLumpRules(Map("f1" -> 1)).fit(df)
+    val ex = intercept[IllegalArgumentException] {
+      model.set(model.otherValue, "banana")
     }
+    assert(ex.getMessage.toLowerCase.contains("othervalue"))
+    assert(model.getOtherValue == other)
+    assert(dump(model.transform(df), Seq("f1")) == List(other, other, "apple", "apple", "apple"))
+  }
+
+  test("generic clear and mutation cannot remove or corrupt fitted learned state") {
+    val model = new LumpFeatures()
+      .setLumpRules(Map("f1" -> 1))
+      .setOtherValue("fallback")
+      .fit(df)
+    val learned = model.getKeptValuesJson
+
+    intercept[IllegalArgumentException] { model.clear(model.getParam("keptValuesJson")) }
+    assert(model.getKeptValuesJson == learned)
+
+    intercept[IllegalArgumentException] { model.set(model.keptValuesJson, Map.empty[String, String]) }
+    assert(model.getKeptValuesJson == learned)
+
+    intercept[IllegalArgumentException] { model.clear(model.otherValue) }
+    assert(model.getOtherValue == "fallback")
+    intercept[IllegalArgumentException] { model.setOtherValue("banana") }
   }
 
   test("fit validates rules, K, column names, presence and string type") {
@@ -290,6 +319,35 @@ class LumpFeaturesSuite extends EstimatorFuzzing[LumpFeatures] with LumpFeatures
     assert(copied.getKeptValues == model.getKeptValues)
   }
 
+  test("copy rejects forged learned state, otherValue, and rules atomically but accepts identical state") {
+    val model = new LumpFeatures().setLumpRules(Map("f1" -> 1)).fit(df)
+    val learned = model.getKeptValuesJson
+    val before = dump(model.transform(df), Seq("f1"))
+
+    val incompatibleOther = new ParamMap().put(model.otherValue, "banana")
+    intercept[IllegalArgumentException] { model.copy(incompatibleOther) }
+
+    val incompatibleRules = new ParamMap().put(model.lumpRules, Map("f1" -> 2))
+    intercept[IllegalArgumentException] { model.copy(incompatibleRules) }
+
+    val forged = learned.updated("f1", LumpFeaturesModel.encodeKept(1, Seq("banana"), other))
+    val forgedState = new ParamMap().put(model.keptValuesJson, forged)
+    intercept[IllegalArgumentException] { model.copy(forgedState) }
+
+    val missingState = new ParamMap().put(model.keptValuesJson, Map.empty[String, String])
+    intercept[IllegalArgumentException] { model.copy(missingState) }
+
+    val identicalState = new ParamMap().put(model.keptValuesJson, learned)
+    val copied = model.copy(identicalState)
+    assert(copied.getKeptValuesJson == learned)
+    assertDFEq(copied.transform(df), model.transform(df))
+
+    assert(model.getOtherValue == other)
+    assert(model.getLumpRules == Map("f1" -> 1))
+    assert(model.getKeptValuesJson == learned)
+    assert(dump(model.transform(df), Seq("f1")) == before)
+  }
+
   test("model-state validation rejects lumpRules mutated through the generic Param path") {
     val model = new LumpFeatures().setLumpRules(Map("f1" -> 1)).fit(df)
     model.set(model.lumpRules, Map("f1" -> 5))
@@ -415,23 +473,59 @@ class LumpFeaturesSuite extends EstimatorFuzzing[LumpFeatures] with LumpFeatures
     assert(fromJson.getOutputCols == Map("f1" -> "f1_lumped"))
   }
 
-  test("declared nullability follows handleNull alone even for a non-nullable input column") {
+  test("estimator and model nullability follow handleNull even for a non-nullable input column") {
     val schema = StructType(Seq(StructField("f1", StringType, nullable = false)))
     val rows = Seq(Row("apple"), Row("apple"), Row("banana"))
     val dfNN = spark.createDataFrame(rows.asJava, schema)
     assert(!dfNN.schema("f1").nullable)
 
-    val keepModel = new LumpFeatures().setLumpRules(Map("f1" -> 1)).setHandleNull("keep").fit(dfNN)
+    val keepEstimator = new LumpFeatures().setLumpRules(Map("f1" -> 1)).setHandleNull("keep")
+    assert(keepEstimator.transformSchema(dfNN.schema)("f1").nullable)
+    val keepModel = keepEstimator.fit(dfNN)
     val declaredKeep = keepModel.transformSchema(dfNN.schema)
     assert(declaredKeep == keepModel.transform(dfNN).schema)
     assert(declaredKeep("f1").nullable)
     assert(dump(keepModel.transform(dfNN), Seq("f1")) == List(other, "apple", "apple"))
 
-    val otherModel = new LumpFeatures().setLumpRules(Map("f1" -> 1)).setHandleNull("other").fit(dfNN)
+    val otherEstimator = new LumpFeatures().setLumpRules(Map("f1" -> 1)).setHandleNull("other")
+    assert(!otherEstimator.transformSchema(dfNN.schema)("f1").nullable)
+    val otherModel = otherEstimator.fit(dfNN)
     val declaredOther = otherModel.transformSchema(dfNN.schema)
     assert(declaredOther == otherModel.transform(dfNN).schema)
     assert(!declaredOther("f1").nullable)
     assert(dump(otherModel.transform(dfNN), Seq("f1")) == List(other, "apple", "apple"))
+  }
+
+  test("fit-time otherValue survives save-load and protects observed non-retained categories") {
+    val fallback = "fallback"
+    val model = new LumpFeatures().setLumpRules(Map("f1" -> 1)).setOtherValue(fallback).fit(df)
+    val path = new File(tmpDir.toFile, "lump-fitted-other").toString
+    model.write.overwrite().save(path)
+    val loaded = LumpFeaturesModel.load(path)
+    val state = loaded.getKeptValuesJson("f1").parseJson.asJsObject.fields
+    assert(state("otherValue") == JsString(fallback))
+    assert(!loaded.hasParam("fittedOtherValue"))
+    assert(loaded.getKeptValues("f1") == Seq("apple"))
+    intercept[IllegalArgumentException] { loaded.setOtherValue("banana") }
+    intercept[IllegalArgumentException] { loaded.set(loaded.otherValue, "banana") }
+    assert(loaded.getOtherValue == fallback)
+    assertDFEq(loaded.transform(df), model.transform(df))
+  }
+
+  test("loading legacy model state initializes and enforces the fitted otherValue") {
+    val legacy = new LumpFeaturesModel()
+      .setLumpRules(Map("f1" -> 1))
+      .setOtherValue("fallback")
+      .setKeptValuesJson(Map("f1" -> "{\"topK\":1,\"values\":[\"apple\"]}"))
+    assert(!legacy.getKeptValuesJson("f1").parseJson.asJsObject.fields.contains("otherValue"))
+    val path = new File(tmpDir.toFile, "lump-legacy-other").toString
+    legacy.write.overwrite().save(path)
+    val loaded = LumpFeaturesModel.load(path)
+    val upgraded = loaded.getKeptValuesJson("f1").parseJson.asJsObject.fields
+    assert(upgraded("otherValue") == JsString("fallback"))
+    intercept[IllegalArgumentException] { loaded.setOtherValue("banana") }
+    intercept[IllegalArgumentException] { loaded.clear(loaded.getParam("keptValuesJson")) }
+    assert(loaded.getOtherValue == "fallback")
   }
 
   test("getKeptValuesAsJson gives language wrappers one document with the learned values") {
@@ -462,8 +556,10 @@ class LumpFeaturesModelSuite extends TransformerFuzzing[LumpFeaturesModel] with 
 
   private def persistedModel: LumpFeaturesModel = new LumpFeaturesModel()
     .setLumpRules(Map("f1" -> 1, "f2" -> 1))
-    .setKeptValuesJson(Map("f1" -> "{\"topK\":1,\"values\":[\"apple\"]}", "f2" -> "{\"topK\":1,\"values\":[\"red\"]}"))
     .setOtherValue(other)
+    .setKeptValuesJson(Map(
+      "f1" -> LumpFeaturesModel.encodeKept(1, Seq("apple"), other),
+      "f2" -> LumpFeaturesModel.encodeKept(1, Seq("red"), other)))
     .setHandleNull("keep")
 
   test("manually constructed model retains learned values and lumps the rest deterministically") {
