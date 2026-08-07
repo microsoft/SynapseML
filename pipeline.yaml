@@ -998,8 +998,100 @@ jobs:
           "${REPLAY_PATHS[@]}" > "$PATCH_PATH"
         test -s "$PATCH_PATH"
 
+        PREREQUISITES_CONFIG=".pipelines/release-compat-prerequisites.txt"
+        CONFIGURED_PREREQUISITES=()
+        if git cat-file -e "$PR_MERGE_HEAD:$PREREQUISITES_CONFIG" 2>/dev/null; then
+          LINE_NUMBER=0
+          while IFS= read -r RAW_LINE || [ -n "$RAW_LINE" ]; do
+            LINE_NUMBER=$((LINE_NUMBER + 1))
+            PREREQUISITE="${RAW_LINE#"${RAW_LINE%%[![:space:]]*}"}"
+            PREREQUISITE="${PREREQUISITE%"${PREREQUISITE##*[![:space:]]}"}"
+            case "$PREREQUISITE" in
+              ""|\#*)
+                continue
+                ;;
+            esac
+            if [[ ! "$PREREQUISITE" =~ ^[0-9a-fA-F]{40}$ ]]; then
+              echo "##vso[task.logissue type=error]Invalid prerequisite at $PREREQUISITES_CONFIG:$LINE_NUMBER; expected a full 40-character commit SHA"
+              exit 1
+            fi
+            if ! git cat-file -e "$PREREQUISITE^{commit}" 2>/dev/null; then
+              echo "##vso[task.logissue type=error]Release compatibility prerequisite $PREREQUISITE is unavailable"
+              exit 1
+            fi
+            if ! git merge-base --is-ancestor "$PREREQUISITE" "$TARGET_HEAD"; then
+              echo "##vso[task.logissue type=error]Release compatibility prerequisite $PREREQUISITE is not an ancestor of PR target $TARGET_HEAD"
+              exit 1
+            fi
+            CONFIGURED_PREREQUISITES+=("$PREREQUISITE")
+          done < <(git show "$PR_MERGE_HEAD:$PREREQUISITES_CONFIG")
+        fi
+
+        PREREQUISITE_COMMITS=()
+        PREREQUISITE_PATCHES=()
+        for PREREQUISITE in "${CONFIGURED_PREREQUISITES[@]}"; do
+          if ! PREREQUISITE_PARENT=$(git rev-parse "$PREREQUISITE^1" 2>/dev/null); then
+            echo "##vso[task.logissue type=error]Release compatibility prerequisite $PREREQUISITE has no first parent"
+            exit 1
+          fi
+          PREREQUISITE_PATHS=()
+          while IFS= read -r -d '' path; do
+            case "$path" in
+              .github/*|.pipelines/*|docs/*|templates/*|tools/acr/*|tools/ci/*|tools/docker/*|tools/helm/*|website/*)
+                ;;
+              pipeline.yaml|CODEOWNERS|CONTRIBUTING.md|LICENSE|README.md|SECURITY.md)
+                ;;
+              *)
+                PREREQUISITE_PATHS+=("$path")
+                ;;
+            esac
+          done < <(git diff --name-only -z "$PREREQUISITE_PARENT" "$PREREQUISITE")
+
+          if [ ${#PREREQUISITE_PATHS[@]} -eq 0 ]; then
+            echo "Prerequisite $PREREQUISITE has no release-relevant paths; skipping"
+            continue
+          fi
+
+          PREREQUISITE_PATCH="$(Agent.TempDirectory)/release-compat-prerequisite-$PREREQUISITE.patch"
+          git diff --binary --full-index "$PREREQUISITE_PARENT" "$PREREQUISITE" -- \
+            "${PREREQUISITE_PATHS[@]}" > "$PREREQUISITE_PATCH"
+          if [ ! -s "$PREREQUISITE_PATCH" ]; then
+            echo "##vso[task.logissue type=error]Prerequisite $PREREQUISITE produced an empty release patch"
+            exit 1
+          fi
+          PREREQUISITE_COMMITS+=("$PREREQUISITE")
+          PREREQUISITE_PATCHES+=("$PREREQUISITE_PATCH")
+        done
+
         echo "=== Attempting to apply release-relevant PR changes onto $(RELEASE_BRANCH) ==="
         git checkout --detach $RELEASE_TIP
+        for index in "${!PREREQUISITE_COMMITS[@]}"; do
+          PREREQUISITE="${PREREQUISITE_COMMITS[$index]}"
+          PREREQUISITE_PATCH="${PREREQUISITE_PATCHES[$index]}"
+          echo "=== Applying release compatibility prerequisite $PREREQUISITE ==="
+          if git apply --reverse --check --index "$PREREQUISITE_PATCH" >/dev/null 2>&1; then
+            echo "Prerequisite $PREREQUISITE is already present on $(RELEASE_BRANCH); skipping"
+            continue
+          fi
+          if ! APPLY_OUTPUT=$(git apply --3way --index "$PREREQUISITE_PATCH" 2>&1); then
+            printf '%s\n' "$APPLY_OUTPUT"
+            CONFLICTING_FILES=$(git diff --name-only --diff-filter=U 2>/dev/null || true)
+            if [ -n "$CONFLICTING_FILES" ]; then
+              echo "##vso[task.logissue type=error]Prerequisite $PREREQUISITE conflicts with $(RELEASE_BRANCH)"
+              echo ""
+              echo "=== Conflicting files ==="
+              printf '%s\n' "$CONFLICTING_FILES"
+            else
+              echo "##vso[task.logissue type=error]Unable to apply prerequisite $PREREQUISITE before conflict detection"
+            fi
+            echo "=== Checkout status after prerequisite failure ==="
+            git status --short
+            exit 1
+          fi
+          printf '%s\n' "$APPLY_OUTPUT"
+          echo "Prerequisite $PREREQUISITE applies cleanly"
+        done
+
         if ! APPLY_OUTPUT=$(git apply --3way --index "$PATCH_PATH" 2>&1); then
           printf '%s\n' "$APPLY_OUTPUT"
           CONFLICTING_FILES=$(git diff --name-only --diff-filter=U 2>/dev/null || true)
