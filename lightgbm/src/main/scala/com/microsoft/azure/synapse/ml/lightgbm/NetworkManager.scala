@@ -74,7 +74,7 @@ case class NetworkTopologyInfo(lightgbmNetworkString: String,
     }
   }
 }
-object NetworkManager {
+
 object NetworkManager {
   private val MaxSocketCloseAttempts = 2
 
