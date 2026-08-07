@@ -4,16 +4,16 @@
 package com.microsoft.azure.synapse.ml.services.search
 
 import com.microsoft.azure.synapse.ml.services.search.AzureSearchProtocol._
+import org.apache.http.{HttpEntity, HttpVersion}
+import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet}
+import org.apache.http.entity.{BasicHttpEntity, StringEntity}
+import org.apache.http.message.{BasicHttpResponse, BasicStatusLine}
 import org.scalatest.funsuite.AnyFunSuite
 import spray.json._
 
-/** Secret-free coverage for the Azure AI Search vector schema migration.
-  *
-  * `2023-11-01` renamed `vectorSearch.algorithmConfigurations` to `vectorSearch.algorithms`, added
-  * `vectorSearch.profiles`, and replaced field-level `vectorSearchConfiguration` with
-  * `vectorSearchProfile`. These tests pin both directions of that translation plus the api-version
-  * gate that selects it.
-  */
+import java.io.{IOException, InputStream}
+
+/** Secret-free coverage for the Azure AI Search vector schema migration. */
 class VectorSchemaMigrationSuite extends AnyFunSuite {
 
   private val legacyIndexJson =
@@ -26,12 +26,27 @@ class VectorSchemaMigrationSuite extends AnyFunSuite {
       |      "name": "vectorCol",
       |      "type": "Collection(Edm.Single)",
       |      "dimensions": 3,
-      |      "vectorSearchConfiguration": "vectorConfig"
+      |      "vectorSearchConfiguration": "hnswConfig",
+      |      "futureFieldOption": { "mode": "kept" }
       |    }
       |  ],
       |  "vectorSearch": {
-      |    "algorithmConfigurations": [ { "name": "vectorConfig", "kind": "hnsw" } ]
-      |  }
+      |    "algorithmConfigurations": [
+      |      {
+      |        "name": "hnswConfig",
+      |        "kind": "hnsw",
+      |        "parameters": { "m": 4, "efConstruction": 400, "efSearch": 500, "metric": "cosine" },
+      |        "futureAlgorithmOption": "kept"
+      |      },
+      |      {
+      |        "name": "exhaustiveConfig",
+      |        "kind": "exhaustiveKnn",
+      |        "parameters": { "metric": "euclidean" }
+      |      }
+      |    ],
+      |    "futureVectorSearchOption": { "enabled": true }
+      |  },
+      |  "futureRootOption": [1, 2, 3]
       |}
     """.stripMargin
 
@@ -46,131 +61,292 @@ class VectorSchemaMigrationSuite extends AnyFunSuite {
       |      "type": "Collection(Edm.Single)",
       |      "searchable": true,
       |      "dimensions": 3,
-      |      "vectorSearchProfile": "vectorProfile"
+      |      "vectorSearchProfile": "vectorProfile",
+      |      "futureFieldOption": { "mode": "kept" }
       |    }
       |  ],
       |  "vectorSearch": {
-      |    "algorithms": [ { "name": "vectorConfig", "kind": "hnsw" } ],
-      |    "profiles": [ { "name": "vectorProfile", "algorithm": "vectorConfig" } ]
-      |  }
+      |    "algorithms": [
+      |      {
+      |        "name": "hnswConfig",
+      |        "kind": "hnsw",
+      |        "parameters": { "m": 8, "efConstruction": 500, "efSearch": 700, "metric": "cosine" },
+      |        "futureAlgorithmOption": "kept"
+      |      },
+      |      {
+      |        "name": "exhaustiveConfig",
+      |        "kind": "exhaustiveKnn",
+      |        "parameters": { "metric": "dotProduct" }
+      |      }
+      |    ],
+      |    "profiles": [
+      |      {
+      |        "name": "vectorProfile",
+      |        "algorithm": "hnswConfig",
+      |        "vectorizer": "aoaiVectorizer",
+      |        "compression": "scalarCompression",
+      |        "futureProfileOption": 7
+      |      }
+      |    ],
+      |    "vectorizers": [
+      |      {
+      |        "name": "aoaiVectorizer",
+      |        "kind": "azureOpenAI",
+      |        "azureOpenAIParameters": {
+      |          "resourceUri": "https://example.openai.azure.com",
+      |          "deploymentId": "embedding",
+      |          "modelName": "text-embedding-3-small"
+      |        },
+      |        "futureVectorizerOption": true
+      |      }
+      |    ],
+      |    "compressions": [
+      |      {
+      |        "name": "scalarCompression",
+      |        "kind": "scalarQuantization",
+      |        "rescoringOptions": { "enableRescoring": true, "defaultOversampling": 4.0 },
+      |        "futureCompressionOption": "kept"
+      |      }
+      |    ],
+      |    "futureVectorSearchOption": { "enabled": true }
+      |  },
+      |  "futureRootOption": { "mode": "kept" }
       |}
     """.stripMargin
 
-  private def parse(json: String): IndexInfo = json.parseJson.convertTo[IndexInfo]
+  private def parse(json: String): JsValue = json.parseJson
 
-  private def vectorField(index: IndexInfo): IndexField =
-    index.fields.find(_.name == "vectorCol").get
+  private def objectAt(value: JsValue, key: String): JsObject =
+    value.asJsObject.fields(key).asJsObject
 
-  test("default api version is a supported, non-deprecated version") {
-    // 2023-07-01-Preview was deprecated 2024-04-08 and unsupported from 2024-07-08.
-    assert(AzureSearchAPIConstants.DefaultAPIVersion != "2023-07-01-Preview")
+  private def vectorField(value: JsValue): JsObject =
+    value.asJsObject.fields("fields").asInstanceOf[JsArray].elements
+      .map(_.asJsObject)
+      .find(_.fields.get("name").contains(JsString("vectorCol")))
+      .get
+
+  private class RecordingSearchIndexClient(existingIndexName: String,
+                                           remoteIndexJson: String) extends SearchIndexClient {
+    var listCalls = 0
+    var getCalls = 0
+    var createCalls = 0
+
+    override def getExisting(auth: AzureSearchAuth,
+                             serviceName: String,
+                             apiVersion: String): Seq[String] = {
+      listCalls += 1
+      Seq(existingIndexName)
+    }
+
+    override def getIndexJson(auth: AzureSearchAuth,
+                              serviceName: String,
+                              indexName: String,
+                              apiVersion: String): String = {
+      getCalls += 1
+      remoteIndexJson
+    }
+
+    override def createIndex(auth: AzureSearchAuth,
+                             serviceName: String,
+                             indexJson: String,
+                             apiVersion: String): Int = {
+      createCalls += 1
+      201 // scalastyle:ignore magic.number
+    }
+  }
+
+  private class TrackingResponse(responseEntity: HttpEntity)
+    extends BasicHttpResponse(new BasicStatusLine(HttpVersion.HTTP_1_1, 200, "OK"))
+      with CloseableHttpResponse { // scalastyle:ignore magic.number
+
+    @volatile var closed = false
+    setEntity(responseEntity)
+
+    override def close(): Unit = closed = true
+  }
+
+  test("api version gate uses the 2023-10-01-Preview boundary") {
+    Seq("2023-07-01-Preview", "2023-09-30", "2020-06-30")
+      .foreach(v => assert(!AzureSearchAPIConstants.supportsVectorProfiles(v), s"$v should use legacy schema"))
+
+    Seq("2023-10-01-Preview", "2023-10-01", "2023-11-01", "2024-03-01-preview", "2026-04-01")
+      .foreach(v => assert(AzureSearchAPIConstants.supportsVectorProfiles(v), s"$v should use profiles"))
+
     assert(AzureSearchAPIConstants.supportsVectorProfiles(AzureSearchAPIConstants.DefaultAPIVersion))
   }
 
-  test("api version gate selects the correct vector schema generation") {
-    Seq("2023-11-01", "2024-07-01", "2025-09-01", "2026-04-01", "2024-03-01-preview")
-      .foreach(v => assert(AzureSearchAPIConstants.supportsVectorProfiles(v), s"$v should use profiles"))
-
-    Seq("2023-07-01-Preview", "2023-10-01-Preview", "2020-06-30", "2019-05-06")
-      .foreach(v => assert(!AzureSearchAPIConstants.supportsVectorProfiles(v), s"$v should use legacy schema"))
+  test("invalid api versions fail explicitly") {
+    Seq("", "not-a-version", "2023-13-01", "2023-10").foreach { version =>
+      val error = intercept[IllegalArgumentException] {
+        AzureSearchAPIConstants.supportsVectorProfiles(version)
+      }
+      assert(error.getMessage.contains("apiVersion"))
+    }
   }
 
-  test("legacy index json is upgraded to the profile based schema") {
-    val aligned = VectorSchema.align(parse(legacyIndexJson), "2026-04-01")
-    val field = vectorField(aligned)
+  test("published VectorSearch and IndexField case class shapes remain source compatible") {
+    val algorithms = Seq(AlgorithmConfigs("vectorConfig", "hnsw"))
+    val vectorSearch = VectorSearch(algorithms)
+    val VectorSearch(extractedAlgorithms) = vectorSearch
+    assert(extractedAlgorithms == algorithms)
+    assert(vectorSearch.productArity == 1)
 
-    assert(field.vectorSearchProfile.contains("vectorConfig"))
-    assert(field.vectorSearchConfiguration.isEmpty)
-    // Vector fields must be searchable in 2023-11-01 and later.
-    assert(field.searchable.contains(true))
+    val field = IndexField(
+      "vectorCol", "Collection(Edm.Single)", None, None, None, None, None, None,
+      None, None, None, None, None, Some(3), Some("vectorConfig"))
+    val IndexField(name, fieldType, searchable, filterable, sortable, facetable, retrievable, key,
+      analyzer, searchAnalyzer, indexAnalyzer, synonymMap, fields, dimensions, vectorConfiguration) = field
 
-    val vectorSearch = aligned.vectorSearch.get
-    assert(vectorSearch.algorithms.get.map(_.name) == Seq("vectorConfig"))
-    assert(vectorSearch.algorithmConfigurations.isEmpty)
-    // A same-named profile keeps the pre-existing field reference resolvable.
-    assert(vectorSearch.profiles.get == Seq(VectorProfile("vectorConfig", "vectorConfig")))
+    assert(name == "vectorCol")
+    assert(fieldType == "Collection(Edm.Single)")
+    assert(Seq(searchable, filterable, sortable, facetable, retrievable, key).forall(_.isEmpty))
+    assert(Seq(analyzer, searchAnalyzer, indexAnalyzer).forall(_.isEmpty))
+    assert(synonymMap.isEmpty && fields.isEmpty)
+    assert(dimensions.contains(3) && vectorConfiguration.contains("vectorConfig"))
+    assert(field.copy(name = "copy").productArity == 15)
   }
 
-  test("modern index json is downgraded when an older api version is pinned") {
-    val aligned = VectorSchema.align(parse(modernIndexJson), "2023-07-01-Preview")
-    val field = vectorField(aligned)
+  test("public parsers accept modern aliases without changing the published model") {
+    val parsed = new IndexParser {}.parseIndexJson(modernIndexJson)
+    val field = parsed.fields.find(_.name == "vectorCol").get
 
-    // The field referenced a profile; the legacy schema needs the underlying algorithm name.
-    assert(field.vectorSearchConfiguration.contains("vectorConfig"))
-    assert(field.vectorSearchProfile.isEmpty)
-    // Pre-2023-11-01 rejects searchable vector fields.
-    assert(field.searchable.isEmpty)
+    assert(field.vectorSearchConfiguration.contains("vectorProfile"))
+    assert(parsed.vectorSearch.get.algorithmConfigurations.map(_.name) ==
+      Seq("hnswConfig", "exhaustiveConfig"))
 
-    val vectorSearch = aligned.vectorSearch.get
-    assert(vectorSearch.algorithmConfigurations.get.map(_.name) == Seq("vectorConfig"))
-    assert(vectorSearch.algorithms.isEmpty)
-    assert(vectorSearch.profiles.isEmpty)
+    val publicJson = parsed.toJson.asJsObject
+    assert(objectAt(publicJson, "vectorSearch").fields.contains("algorithmConfigurations"))
+    assert(vectorField(publicJson).fields.contains("vectorSearchConfiguration"))
   }
 
-  test("alignment is idempotent in both directions") {
-    val modern = VectorSchema.align(parse(modernIndexJson), "2026-04-01")
-    assert(VectorSchema.align(modern, "2026-04-01") == modern)
+  test("legacy JSON is modernized by renaming only required keys") {
+    val original = parse(legacyIndexJson)
+    val aligned = VectorSchema.align(original, "2023-10-01-Preview")
+    val originalVectorSearch = objectAt(original, "vectorSearch")
+    val alignedVectorSearch = objectAt(aligned, "vectorSearch")
+    val alignedField = vectorField(aligned)
 
-    val legacy = VectorSchema.align(parse(legacyIndexJson), "2023-07-01-Preview")
+    assert(alignedVectorSearch.fields("algorithms") ==
+      originalVectorSearch.fields("algorithmConfigurations"))
+    assert(alignedVectorSearch.fields("futureVectorSearchOption") ==
+      originalVectorSearch.fields("futureVectorSearchOption"))
+    assert(alignedVectorSearch.fields("profiles") == JsArray(Vector(
+      JsObject("name" -> JsString("hnswConfig"), "algorithm" -> JsString("hnswConfig")),
+      JsObject("name" -> JsString("exhaustiveConfig"), "algorithm" -> JsString("exhaustiveConfig")))))
+    assert(!alignedVectorSearch.fields.contains("algorithmConfigurations"))
+
+    assert(alignedField.fields("vectorSearchProfile") == JsString("hnswConfig"))
+    assert(alignedField.fields("searchable").convertTo[Boolean])
+    assert(alignedField.fields("futureFieldOption") == vectorField(original).fields("futureFieldOption"))
+    assert(!alignedField.fields.contains("vectorSearchConfiguration"))
+    assert(aligned.asJsObject.fields("futureRootOption") == original.asJsObject.fields("futureRootOption"))
+  }
+
+  test("the actual REST entity preserves complete modern vector JSON") {
+    val original = parse(modernIndexJson)
+    val entity = parse(SearchIndex.prepareEntity(modernIndexJson, "2026-04-01"))
+
+    assert(entity == original)
+    val vectorSearchKeys = objectAt(entity, "vectorSearch").fields.keySet
+    assert(Seq("algorithms", "profiles", "vectorizers", "compressions").forall(vectorSearchKeys))
+  }
+
+  test("legacy REST preparation preserves parameters and unknown fields") {
+    val prepared = parse(SearchIndex.prepareEntity(legacyIndexJson, "2026-04-01"))
+    val originalVectorSearch = objectAt(parse(legacyIndexJson), "vectorSearch")
+    val preparedVectorSearch = objectAt(prepared, "vectorSearch")
+
+    assert(preparedVectorSearch.fields("algorithms") ==
+      originalVectorSearch.fields("algorithmConfigurations"))
+    assert(preparedVectorSearch.fields("futureVectorSearchOption") ==
+      originalVectorSearch.fields("futureVectorSearchOption"))
+    assert(prepared.asJsObject.fields("futureRootOption") ==
+      parse(legacyIndexJson).asJsObject.fields("futureRootOption"))
+  }
+
+  test("legacy api path is explicit and refuses lossy modern downgrades") {
+    val legacy = parse(legacyIndexJson)
     assert(VectorSchema.align(legacy, "2023-07-01-Preview") == legacy)
+
+    val error = intercept[IllegalArgumentException] {
+      VectorSchema.align(parse(modernIndexJson), "2023-07-01-Preview")
+    }
+    assert(error.getMessage.contains("cannot be losslessly sent"))
+    assert(error.getMessage.contains("2023-10-01-Preview"))
   }
 
-  test("round tripping legacy json through the modern schema preserves the vector binding") {
-    val modern = VectorSchema.align(parse(legacyIndexJson), "2026-04-01")
-    val backToLegacy = VectorSchema.align(modern, "2023-07-01-Preview")
+  test("existing legacy indexes fail early instead of implying an automatic migration") {
+    val error = intercept[IllegalArgumentException] {
+      VectorSchema.requireCompatibleExistingIndex(parse(legacyIndexJson), "2026-04-01")
+    }
+    assert(error.getMessage.contains("createIfNoneExists does not update or migrate"))
+    assert(error.getMessage.contains("apiVersion=2023-07-01-Preview"))
+    assert(error.getMessage.contains("Create or Update Index"))
 
-    assert(vectorField(backToLegacy).vectorSearchConfiguration.contains("vectorConfig"))
-    assert(backToLegacy.vectorSearch.get.algorithmConfigurations.get.map(_.name) == Seq("vectorConfig"))
+    VectorSchema.requireCompatibleExistingIndex(parse(legacyIndexJson), "2023-07-01-Preview")
+    VectorSchema.requireCompatibleExistingIndex(parse(modernIndexJson), "2026-04-01")
   }
 
-  test("both schema generations parse and expose a single vector reference") {
-    assert(vectorField(parse(legacyIndexJson)).vectorReference.contains("vectorConfig"))
-    assert(vectorField(parse(modernIndexJson)).vectorReference.contains("vectorProfile"))
-    assert(vectorField(parse(legacyIndexJson)).isVectorField)
-    assert(vectorField(parse(modernIndexJson)).isVectorField)
+  test("existing modern indexes reject a legacy api version") {
+    val error = intercept[IllegalArgumentException] {
+      VectorSchema.requireCompatibleExistingIndex(parse(modernIndexJson), "2023-07-01-Preview")
+    }
+    assert(error.getMessage.contains("profile-based vector schema"))
+    assert(error.getMessage.contains("2023-10-01-Preview or later"))
   }
 
-  test("non vector indexes are unchanged by alignment") {
-    val json =
-      """
-        |{
-        |  "name": "plain-index",
-        |  "fields": [ { "name": "id", "type": "Edm.String", "key": true } ]
-        |}
-      """.stripMargin
-    val parsed = parse(json)
+  test("createIfNoneExists validates the actual remote index with one list and one GET") {
+    val remoteLegacyJson = legacyIndexJson.replace("\"legacy-index\"", "\"modern-index\"")
+    val client = new RecordingSearchIndexClient("modern-index", remoteLegacyJson)
 
-    assert(VectorSchema.align(parsed, "2026-04-01") == parsed)
-    assert(VectorSchema.align(parsed, "2019-05-06") == parsed)
-    assert(!parsed.fields.head.isVectorField)
+    val error = intercept[IllegalArgumentException] {
+      SearchIndex.createIfNoneExists(
+        AzureSearchAuth(), "service", modernIndexJson, "2026-04-01", client)
+    }
+
+    assert(error.getMessage.contains("legacy vector schema"))
+    assert(client.listCalls == 1)
+    assert(client.getCalls == 1)
+    assert(client.createCalls == 0)
   }
 
-  test("serialized modern index omits legacy vector keys") {
-    val serialized = VectorSchema.align(parse(legacyIndexJson), "2026-04-01").toJson.compactPrint
+  test("internal index GET closes responses after successful and failed reads") {
+    val successResponse = new TrackingResponse(new StringEntity("""{"name":"index"}"""))
+    val successJson = IndexJsonReader.read(
+      new HttpGet("https://example.test/index"), _ => successResponse)
 
-    assert(serialized.contains("\"vectorSearchProfile\""))
-    assert(serialized.contains("\"algorithms\""))
-    assert(serialized.contains("\"profiles\""))
-    assert(!serialized.contains("\"vectorSearchConfiguration\""))
-    assert(!serialized.contains("\"algorithmConfigurations\""))
+    assert(successJson == """{"name":"index"}""")
+    assert(successResponse.closed)
+
+    val failingEntity = new BasicHttpEntity()
+    failingEntity.setContent(new InputStream {
+      override def read(): Int = throw new IOException("expected read failure")
+    })
+    val failingResponse = new TrackingResponse(failingEntity)
+
+    assertThrows[IOException] {
+      IndexJsonReader.read(new HttpGet("https://example.test/failing-index"), _ => failingResponse)
+    }
+    assert(failingResponse.closed)
   }
 
-  test("nested vector fields are translated as well") {
-    val json =
+  test("nested fields are modernized without dropping unrelated content") {
+    val nested =
       """
         |{
         |  "name": "nested-index",
         |  "fields": [
-        |    { "name": "id", "type": "Edm.String", "key": true },
         |    {
         |      "name": "parent",
         |      "type": "Edm.ComplexType",
+        |      "futureParentOption": true,
         |      "fields": [
         |        {
-        |          "name": "childVector",
+        |          "name": "vectorCol",
         |          "type": "Collection(Edm.Single)",
         |          "dimensions": 3,
-        |          "vectorSearchConfiguration": "vectorConfig"
+        |          "vectorSearchConfiguration": "vectorConfig",
+        |          "futureChildOption": "kept"
         |        }
         |      ]
         |    }
@@ -181,10 +357,21 @@ class VectorSchemaMigrationSuite extends AnyFunSuite {
         |}
       """.stripMargin
 
-    val aligned = VectorSchema.align(parse(json), "2026-04-01")
-    val child = aligned.fields.find(_.name == "parent").get.fields.get.head
+    val aligned = VectorSchema.align(parse(nested), "2026-04-01")
+    val parent = aligned.asJsObject.fields("fields").asInstanceOf[JsArray].elements.head.asJsObject
+    val child = parent.fields("fields").asInstanceOf[JsArray].elements.head.asJsObject
 
-    assert(child.vectorSearchProfile.contains("vectorConfig"))
-    assert(child.vectorSearchConfiguration.isEmpty)
+    assert(parent.fields("futureParentOption").convertTo[Boolean])
+    assert(child.fields("futureChildOption") == JsString("kept"))
+    assert(child.fields("vectorSearchProfile") == JsString("vectorConfig"))
+    assert(child.fields("searchable").convertTo[Boolean])
+  }
+
+  test("non-vector indexes are unchanged for both schema generations") {
+    val plain = parse(
+      """{"name":"plain-index","fields":[{"name":"id","type":"Edm.String","key":true}],"future":7}""")
+
+    assert(VectorSchema.align(plain, "2026-04-01") == plain)
+    assert(VectorSchema.align(plain, "2023-07-01-Preview") == plain)
   }
 }

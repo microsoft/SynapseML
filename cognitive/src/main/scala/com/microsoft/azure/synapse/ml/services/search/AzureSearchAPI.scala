@@ -6,9 +6,12 @@ package com.microsoft.azure.synapse.ml.services.search
 import com.microsoft.azure.synapse.ml.services.search.AzureSearchProtocol._
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers._
 import org.apache.commons.io.IOUtils
+import org.apache.http.client.methods.{CloseableHttpResponse, HttpRequestBase}
 import org.apache.log4j.{LogManager, Logger}
 import spray.json._
 
+import java.time.LocalDate
+import java.time.format.DateTimeParseException
 import scala.util.{Failure, Success, Try}
 
 object AzureSearchAPIConstants {
@@ -19,25 +22,36 @@ object AzureSearchAPIConstants {
     */
   val DefaultAPIVersion = "2026-04-01"
   val VectorConfigName = "vectorConfig"
-  val VectorProfileName = "vectorProfile"
   val VectorSearchAlgorithm = "hnsw"
 
   /** First API version that replaced `vectorSearch.algorithmConfigurations` with
     * `vectorSearch.algorithms` + `vectorSearch.profiles`, and field-level
     * `vectorSearchConfiguration` with `vectorSearchProfile`.
     */
-  val VectorProfileMinAPIVersion = "2023-11-01"
+  val VectorProfileMinAPIVersion = "2023-10-01-Preview"
+  private val VectorProfileMinAPIDate = LocalDate.parse("2023-10-01")
+  private val APIVersion = """^(\d{4}-\d{2}-\d{2})(?:-[A-Za-z0-9.-]+)?$""".r
 
   /** True when the api-version expects the profile-based vector schema.
     *
-    * API versions are `yyyy-MM-dd` optionally followed by a preview suffix, so an ISO date prefix
-    * comparison orders them correctly. Unrecognized values are treated as current.
+    * API versions are parsed as `yyyy-MM-dd` optionally followed by a preview suffix. Invalid values
+    * fail before a request is sent rather than being assigned a schema generation by string ordering.
     */
   def supportsVectorProfiles(apiVersion: String): Boolean = {
-    val datePrefixLength = VectorProfileMinAPIVersion.length
-    Option(apiVersion).map(_.trim).forall { version =>
-      version.length < datePrefixLength || version.take(datePrefixLength) >= VectorProfileMinAPIVersion
+    val version = Option(apiVersion).map(_.trim).filter(_.nonEmpty).getOrElse {
+      throw new IllegalArgumentException("Azure AI Search apiVersion must be non-empty")
     }
+    val date = version match {
+      case APIVersion(dateText) =>
+        try {
+          LocalDate.parse(dateText)
+        } catch {
+          case _: DateTimeParseException =>
+            throw new IllegalArgumentException(s"Invalid Azure AI Search apiVersion: $apiVersion")
+        }
+      case _ => throw new IllegalArgumentException(s"Invalid Azure AI Search apiVersion: $apiVersion")
+    }
+    !date.isBefore(VectorProfileMinAPIDate)
   }
 }
 import com.microsoft.azure.synapse.ml.services.search.AzureSearchAPIConstants._
@@ -73,6 +87,27 @@ trait IndexLister {
   }
 }
 
+private[search] object IndexJsonReader {
+  def get(auth: AzureSearchAuth,
+          serviceName: String,
+          indexName: String,
+          apiVersion: String): String = {
+    read(
+      AzureSearchRequests.getIndex(auth, serviceName, indexName, apiVersion),
+      request => safeSend(request, close = false))
+  }
+
+  private[search] def read(request: HttpRequestBase,
+                           send: HttpRequestBase => CloseableHttpResponse): String = {
+    val response = send(request)
+    try {
+      IOUtils.toString(response.getEntity.getContent, "utf-8")
+    } finally {
+      response.close()
+    }
+  }
+}
+
 trait IndexJsonGetter extends IndexLister {
   def getIndexJsonFromExistingIndex(key: String,
                                     serviceName: String,
@@ -94,10 +129,44 @@ trait IndexJsonGetter extends IndexLister {
     val existingIndexNames = getExisting(auth, serviceName, apiVersion)
     assert(existingIndexNames.contains(indexName), s"Cannot find an existing index name with $indexName")
 
-    val response = safeSend(
-      AzureSearchRequests.getIndex(auth, serviceName, indexName, apiVersion), close = false)
+    IndexJsonReader.get(auth, serviceName, indexName, apiVersion)
+  }
+}
+
+private[search] trait SearchIndexClient {
+  def getExisting(auth: AzureSearchAuth, serviceName: String, apiVersion: String): Seq[String]
+
+  def getIndexJson(auth: AzureSearchAuth,
+                   serviceName: String,
+                   indexName: String,
+                   apiVersion: String): String
+
+  def createIndex(auth: AzureSearchAuth,
+                  serviceName: String,
+                  indexJson: String,
+                  apiVersion: String): Int
+}
+
+private object DefaultSearchIndexClient extends SearchIndexClient {
+  override def getExisting(auth: AzureSearchAuth,
+                           serviceName: String,
+                           apiVersion: String): Seq[String] =
+    SearchIndex.getExisting(auth, serviceName, apiVersion)
+
+  override def getIndexJson(auth: AzureSearchAuth,
+                            serviceName: String,
+                            indexName: String,
+                            apiVersion: String): String =
+    IndexJsonReader.get(auth, serviceName, indexName, apiVersion)
+
+  override def createIndex(auth: AzureSearchAuth,
+                           serviceName: String,
+                           indexJson: String,
+                           apiVersion: String): Int = {
+    val request = AzureSearchRequests.createIndex(auth, serviceName, indexJson, apiVersion)
+    val response = safeSend(request, close = false)
     try {
-      IOUtils.toString(response.getEntity.getContent, "utf-8")
+      response.getStatusLine.getStatusCode
     } finally {
       response.close()
     }
@@ -127,43 +196,52 @@ object SearchIndex extends IndexParser with IndexLister {
                          serviceName: String,
                          indexJson: String,
                          apiVersion: String): Unit = {
+    createIfNoneExists(auth, serviceName, indexJson, apiVersion, DefaultSearchIndexClient)
+  }
+
+  private[search] def createIfNoneExists(auth: AzureSearchAuth,
+                                         serviceName: String,
+                                         indexJson: String,
+                                         apiVersion: String,
+                                         client: SearchIndexClient): Unit = {
+    AzureSearchAPIConstants.supportsVectorProfiles(apiVersion)
     val indexName = parseIndexJson(indexJson).name.get
-    val existingIndexNames = getExisting(auth, serviceName, apiVersion)
+    val existingIndexNames = client.getExisting(auth, serviceName, apiVersion)
 
     if (!existingIndexNames.contains(indexName)) {
-      val request = AzureSearchRequests.createIndex(auth, serviceName, prepareEntity(indexJson, apiVersion), apiVersion)
-      val response = safeSend(request, close = false)
-      try {
-        assert(response.getStatusLine.getStatusCode == 201)
-      } finally {
-        response.close()
-      }
+      val statusCode = client.createIndex(auth, serviceName, prepareEntity(indexJson, apiVersion), apiVersion)
+      assert(statusCode == 201)
+    } else {
+      val existingIndexJson = client.getIndexJson(auth, serviceName, indexName, apiVersion)
+      VectorSchema.requireCompatibleExistingIndex(existingIndexJson.parseJson, apiVersion)
     }
   }
 
-  private def prepareEntity(indexJson: String, apiVersion: String): String = {
+  private[search] def prepareEntity(indexJson: String, apiVersion: String): String = {
     validIndexJson(indexJson, apiVersion).get
   }
 
   // validate schema
   private def validIndexJson(indexJson: String, apiVersion: String): Try[String] = {
-    validateIndexInfo(indexJson, apiVersion).map(_.toJson.compactPrint)
+    Try(VectorSchema.align(indexJson.parseJson, apiVersion)).flatMap { aligned =>
+      validateIndexInfo(aligned, apiVersion).map(_ => aligned.compactPrint)
+    }
   }
 
-  private def validateIndexInfo(indexJson: String, apiVersion: String): Try[IndexInfo] = {
-    // Align first so the definition that is validated is exactly the one that gets sent.
-    val schema = VectorSchema.align(parseIndexJson(indexJson), apiVersion)
-    for {
-      _ <- validName(schema.name.get)
-      _ <- validIndexFields(schema.fields)
-    } yield schema
+  private def validateIndexInfo(indexJson: JsValue, apiVersion: String): Try[IndexInfo] = {
+    Try(indexJson.convertTo[IndexInfo]).flatMap { schema =>
+      for {
+        _ <- validName(schema.name.get)
+        _ <- validIndexFields(schema.fields, AzureSearchAPIConstants.supportsVectorProfiles(apiVersion))
+      } yield schema
+    }
   }
 
-  private def validIndexField(field: IndexField): Try[IndexField] = {
+  private def validIndexField(field: IndexField, supportsVectorProfiles: Boolean): Try[IndexField] = {
     for {
       _ <- validName(field.name)
       _ <- validType(field.`type`, field.fields)
-      _ <- validSearchable(field.`type`, field.searchable, field.dimensions)
+      _ <- validSearchable(field.`type`, field.searchable, field.dimensions, supportsVectorProfiles)
       _ <- validSortable(field.`type`, field.sortable)
       _ <- validFacetable(field.`type`, field.facetable)
       _ <- validKey(field.`type`, field.key)
@@ -176,8 +254,9 @@ object SearchIndex extends IndexParser with IndexLister {
     } yield field
   }
 
-  private def validIndexFields(fields: Seq[IndexField]): Try[Seq[IndexField]] = {
-    Try(fields.map(f => validIndexField(f).get))
+  private def validIndexFields(fields: Seq[IndexField],
+                               supportsVectorProfiles: Boolean): Try[Seq[IndexField]] = {
+    Try(fields.map(f => validIndexField(f, supportsVectorProfiles).get))
   }
 
   private def validName(n: String): Try[String] = {
@@ -191,14 +270,33 @@ object SearchIndex extends IndexParser with IndexLister {
     tdt.map(_ => t)
   }
 
-  private def validSearchable(t: String, s: Option[Boolean], dimensions: Option[Int]): Try[Option[Boolean]] = {
-    if (Set("Edm.String", "Collection(Edm.String)")(t)) {
-      Success(s)
-    } else if (dimensions.nonEmpty) {
-      // Vector fields are not Edm.String but must be searchable in 2023-11-01 and later.
+  private def validSearchable(t: String,
+                              s: Option[Boolean],
+                              dimensions: Option[Int],
+                              supportsVectorProfiles: Boolean): Try[Option[Boolean]] = {
+    if (dimensions.nonEmpty) {
+      validVectorSearchable(s, supportsVectorProfiles)
+    } else if (Set("Edm.String", "Collection(Edm.String)")(t)) {
       Success(s)
     } else if (s.contains(true)) {
       Failure(new IllegalArgumentException("Only Edm.String and Collection(Edm.String) fields can be searchable"))
+    } else {
+      Success(s)
+    }
+  }
+
+  private def validVectorSearchable(s: Option[Boolean],
+                                    supportsVectorProfiles: Boolean): Try[Option[Boolean]] = {
+    if (supportsVectorProfiles) {
+      if (s.contains(true)) {
+        Success(s)
+      } else {
+        Failure(new IllegalArgumentException(
+          "Vector fields must set searchable=true for api-version 2023-10-01-Preview and later"))
+      }
+    } else if (s.contains(true)) {
+      Failure(new IllegalArgumentException(
+        "Legacy vector fields cannot set searchable=true; use api-version 2023-10-01-Preview or later"))
     } else {
       Success(s)
     }
