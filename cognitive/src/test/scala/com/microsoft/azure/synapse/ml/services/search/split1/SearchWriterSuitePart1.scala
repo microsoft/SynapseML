@@ -510,7 +510,7 @@ class SearchWriterSuitePart1 extends SearchWriterSuiteUtilities
 
     val indexJson = retryWithBackoff(getIndexJsonFromExistingIndex(azureSearchKey, testServiceName, in1))
     // assert if vectorCol is a vector field
-    assert(parseIndexJson(indexJson).fields.find(_.name == "vectorCol").get.vectorSearchConfiguration.nonEmpty)
+    assert(parseIndexJson(indexJson).fields.find(_.name == "vectorCol").get.vectorReference.nonEmpty)
   }
 
   test("Infer the structure of the index from the dataframe with vector columns") {
@@ -546,9 +546,9 @@ class SearchWriterSuitePart1 extends SearchWriterSuiteUtilities
 
     // assert if vectorCols are a vector field
     val indexJson = retryWithBackoff(getIndexJsonFromExistingIndex(azureSearchKey, testServiceName, in))
-    assert(parseIndexJson(indexJson).fields.find(_.name == "vectorCol1").get.vectorSearchConfiguration.nonEmpty)
-    assert(parseIndexJson(indexJson).fields.find(_.name == "vectorCol2").get.vectorSearchConfiguration.nonEmpty)
-    assert(parseIndexJson(indexJson).fields.find(_.name == "vectorCol3").get.vectorSearchConfiguration.nonEmpty)
+    assert(parseIndexJson(indexJson).fields.find(_.name == "vectorCol1").get.vectorReference.nonEmpty)
+    assert(parseIndexJson(indexJson).fields.find(_.name == "vectorCol2").get.vectorReference.nonEmpty)
+    assert(parseIndexJson(indexJson).fields.find(_.name == "vectorCol3").get.vectorReference.nonEmpty)
   }
 
   test("Throw useful error when given vector columns in nested fields") {

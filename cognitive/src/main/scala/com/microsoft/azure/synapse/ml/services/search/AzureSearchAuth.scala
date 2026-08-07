@@ -40,7 +40,7 @@ final case class AzureSearchAuth(subscriptionKey: Option[String] = None,
     }
     require(
       auth.subscriptionKey.nonEmpty || auth.aadToken.nonEmpty || auth.customAuthHeader.nonEmpty || customCredential,
-      "Azure Search authentication requires subscriptionKey, AADToken, CustomAuthHeader, " +
+      "Azure AI Search authentication requires subscriptionKey, AADToken, CustomAuthHeader, " +
         "or an api-key/Authorization custom header")
     auth
   }
@@ -60,7 +60,7 @@ final case class AzureSearchAuth(subscriptionKey: Option[String] = None,
       auth.aadToken,
       auth.customAuthHeader,
       Option(auth.customHeaders).filter(_.nonEmpty),
-      None, // Azure Search management requests have no automatic Fabric fallback
+      None, // Azure AI Search management requests have no automatic Fabric fallback
       None,
       if (addContentType) Some("application/json") else None)
   }
@@ -80,7 +80,7 @@ object AzureSearchAuth {
     // everywhere else) never conflicts with a valid sibling. Values are compared verbatim -- never
     // trimmed -- and the failure names only the option keys, never their (credential) values.
     val values = names.flatMap(options.get).filter(ServiceAuthHeaders.nonBlank).distinct
-    require(values.size <= 1, s"Conflicting Azure Search options: ${names.mkString(" and ")}")
+    require(values.size <= 1, s"Conflicting Azure AI Search options: ${names.mkString(" and ")}")
     values.headOption
   }
 

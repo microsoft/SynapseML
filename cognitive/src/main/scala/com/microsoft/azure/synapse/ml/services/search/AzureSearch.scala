@@ -207,7 +207,7 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
   }
 
   /**
-   * Converts date and timestamp columns to ISO8601 format strings as required by Azure Search.
+   * Converts date and timestamp columns to ISO8601 format strings as required by Azure AI Search.
    *
    * @param df DataFrame with potential date/time columns
    * @param indexJson JSON string containing the index schema
@@ -278,6 +278,34 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
     documents
   }
 
+  private def resolveIndexDefinition(existingIndexJsonOpt: Option[String],
+                                     indexJsonOpt: Option[String],
+                                     vectorColsInfo: Option[String],
+                                     df: DataFrame,
+                                     indexName: String,
+                                     keyCol: Option[String],
+                                     actionCol: String): (String, DataFrame) = {
+    existingIndexJsonOpt match {
+      case Some(existingIndexJson) =>
+        val vectorColNameTypeTuple = getVectorColConf(existingIndexJson)
+        (existingIndexJson, makeColsCompatible(vectorColNameTypeTuple, df))
+      case None =>
+        indexJsonOpt match {
+          case Some(indexJson) =>
+            val vectorColNameTypeTuple = getVectorColConf(indexJson)
+            (indexJson, makeColsCompatible(vectorColNameTypeTuple, df))
+          case None =>
+            val vectorCols = vectorColsInfo.map(parseVectorColsJson)
+            val vectorColNameTypeTuple = vectorCols
+              .map(_.map(vc => (vc.name, "Collection(Edm.Single)"))).getOrElse(Seq.empty)
+            val newDF = makeColsCompatible(vectorColNameTypeTuple, df)
+            val inferredIndexJson = dfToIndexJson(
+              newDF.schema, indexName, keyCol.getOrElse(""), actionCol, vectorCols)
+            (inferredIndexJson, newDF)
+        }
+    }
+  }
+
   private def prepareDF(df: DataFrame,  //scalastyle:ignore method.length
                         options: Map[String, String] = Map()): DataFrame = {
     val applicableOptions = Set(
@@ -316,30 +344,28 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
       }
     }
 
-    val (indexJson, preppedDF) = if (getExisting(auth, serviceName, apiVersion).contains(indexName)) {
+    val existingIndexJsonOpt = if (getExisting(auth, serviceName, apiVersion).contains(indexName)) {
       if (indexJsonOpt.isDefined) {
         println(f"indexJsonOpt is specified, however an index for $indexName already exists," +
           f"we will use the index definition obtained from the existing index instead")
       }
-      val existingIndexJson = getIndexJsonFromExistingIndex(auth, serviceName, indexName, apiVersion)
-      val vectorColNameTypeTuple = getVectorColConf(existingIndexJson)
-      (existingIndexJson, makeColsCompatible(vectorColNameTypeTuple, df))
-    } else if (indexJsonOpt.isDefined) {
-      val vectorColNameTypeTuple = getVectorColConf(indexJsonOpt.get)
-      (indexJsonOpt.get, makeColsCompatible(vectorColNameTypeTuple, df))
+      val existingIndexJson = IndexJsonReader.get(auth, serviceName, indexName, apiVersion)
+      VectorSchema.requireCompatibleExistingIndex(existingIndexJson.parseJson, apiVersion)
+      Some(existingIndexJson)
     } else {
-      val vectorCols = vectorColsInfo.map(parseVectorColsJson)
-      val vectorColNameTypeTuple = vectorCols.map(_.map(vc => (vc.name, "Collection(Edm.Single)"))).getOrElse(Seq.empty)
-      val newDF = makeColsCompatible(vectorColNameTypeTuple, df)
-      val inferredIndexJson = dfToIndexJson(newDF.schema, indexName, keyCol.getOrElse(""), actionCol, vectorCols)
-      (inferredIndexJson, newDF)
+      None
     }
+
+    val (indexJson, preppedDF) = resolveIndexDefinition(
+      existingIndexJsonOpt, indexJsonOpt, vectorColsInfo, df, indexName, keyCol, actionCol)
 
     // TODO: Support vector search in nested fields
     // Throws an exception if any nested field is a vector in the schema
     parseIndexJson(indexJson).fields.foreach(_.fields.foreach(assertNoNestedVectors))
 
-    SearchIndex.createIfNoneExists(auth, serviceName, indexJson, apiVersion)
+    if (existingIndexJsonOpt.isEmpty) {
+      SearchIndex.createIfNoneExists(auth, serviceName, indexJson, apiVersion)
+    }
     val dateConvertedDF = convertDateTimeToISO8601(preppedDF, indexJson)
 
     logInfo("checking schema parity")
@@ -354,7 +380,7 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
       dateConvertedDF
     }
 
-    // Convert date/timestamp columns to ISO8601 strings for Azure Search
+    // Convert date/timestamp columns to ISO8601 strings for Azure AI Search
 
     val addDocuments = configureAuthentication(
       new AddDocuments()
@@ -363,7 +389,11 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
         .setActionCol(actionCol)
         .setBatchSize(batchSize)
         .setOutputCol("out")
-        .setErrorCol("error"),
+        .setErrorCol("error")
+        // Pin the document endpoint to the same api-version used to create/read the index, otherwise
+        // an explicit apiVersion option would only apply to the index APIs.
+        .setUrl(s"https://$serviceName.search.windows.net" +
+          s"/indexes/$indexName/docs/index?api-version=$apiVersion"),
       auth)
 
     addDocuments.transform(df1)
@@ -373,7 +403,7 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
 
   private def assertNoNestedVectors(fields: Seq[IndexField]): Unit = {
     def checkVectorField(field: IndexField): Unit = {
-      if (field.dimensions.nonEmpty && field.vectorSearchConfiguration.nonEmpty) {
+      if (field.isVectorField) {
         throw new IllegalArgumentException(s"Nested field ${field.name} is a vector field, vector fields in nested" +
           s" fields are not supported.")
       }
@@ -384,7 +414,7 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
 
   private def getVectorColConf(indexJson: String): Seq[(String, String)] = {
     parseIndexJson(indexJson).fields
-      .filter(f => f.vectorSearchConfiguration.nonEmpty && f.dimensions.nonEmpty)
+      .filter(_.isVectorField)
       .map(f => (f.name, f.`type`))
   }
   private def makeColsCompatible(vectorColNameTypeTuple: Seq[(String, String)],
