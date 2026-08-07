@@ -177,15 +177,13 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
       IndexField(
         sf.name,
         innerType,
-        if (isVector) Some(true) else None,
-        None, None, None, None,
+        None, None, None, None, None,
         if (keyCol == fullName) Some(true) else None,
         None, None, None, None,
         structFieldToSearchFields(sf.dataType,
           keyCol, searchActionCol, None, prefix = Some(prefix.getOrElse("") + sf.name + ".")),
         if (isVector) vectorCols.get.find(_.name == fullName).map(_.dimension) else None,
-        None,
-        if (isVector) Some(AzureSearchAPIConstants.VectorProfileName) else None
+        if (isVector) Some(AzureSearchAPIConstants.VectorConfigName) else None
       )
     }
   }
@@ -257,11 +255,8 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
                             searchActionCol: String,
                             vectorCols: Option[Seq[VectorColParams]]): String = {
 
-    val vectorConfig = Some(VectorSearch(
-      algorithms = Some(Seq(AlgorithmConfigs(AzureSearchAPIConstants.VectorConfigName,
-        AzureSearchAPIConstants.VectorSearchAlgorithm))),
-      profiles = Some(Seq(VectorProfile(AzureSearchAPIConstants.VectorProfileName,
-        AzureSearchAPIConstants.VectorConfigName)))))
+    val vectorConfig = Some(VectorSearch(Seq(AlgorithmConfigs(AzureSearchAPIConstants.VectorConfigName,
+      AzureSearchAPIConstants.VectorSearchAlgorithm))))
     val is = IndexInfo(
       Some(indexName),
       structFieldToSearchFields(schema, keyCol, searchActionCol, vectorCols).get,
@@ -281,6 +276,34 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
       documents.setCustomHeaders(validatedAuth.customHeaders)
     }
     documents
+  }
+
+  private def resolveIndexDefinition(existingIndexJsonOpt: Option[String],
+                                     indexJsonOpt: Option[String],
+                                     vectorColsInfo: Option[String],
+                                     df: DataFrame,
+                                     indexName: String,
+                                     keyCol: Option[String],
+                                     actionCol: String): (String, DataFrame) = {
+    existingIndexJsonOpt match {
+      case Some(existingIndexJson) =>
+        val vectorColNameTypeTuple = getVectorColConf(existingIndexJson)
+        (existingIndexJson, makeColsCompatible(vectorColNameTypeTuple, df))
+      case None =>
+        indexJsonOpt match {
+          case Some(indexJson) =>
+            val vectorColNameTypeTuple = getVectorColConf(indexJson)
+            (indexJson, makeColsCompatible(vectorColNameTypeTuple, df))
+          case None =>
+            val vectorCols = vectorColsInfo.map(parseVectorColsJson)
+            val vectorColNameTypeTuple = vectorCols
+              .map(_.map(vc => (vc.name, "Collection(Edm.Single)"))).getOrElse(Seq.empty)
+            val newDF = makeColsCompatible(vectorColNameTypeTuple, df)
+            val inferredIndexJson = dfToIndexJson(
+              newDF.schema, indexName, keyCol.getOrElse(""), actionCol, vectorCols)
+            (inferredIndexJson, newDF)
+        }
+    }
   }
 
   private def prepareDF(df: DataFrame,  //scalastyle:ignore method.length
@@ -321,30 +344,28 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
       }
     }
 
-    val (indexJson, preppedDF) = if (getExisting(auth, serviceName, apiVersion).contains(indexName)) {
+    val existingIndexJsonOpt = if (getExisting(auth, serviceName, apiVersion).contains(indexName)) {
       if (indexJsonOpt.isDefined) {
         println(f"indexJsonOpt is specified, however an index for $indexName already exists," +
           f"we will use the index definition obtained from the existing index instead")
       }
-      val existingIndexJson = getIndexJsonFromExistingIndex(auth, serviceName, indexName, apiVersion)
-      val vectorColNameTypeTuple = getVectorColConf(existingIndexJson)
-      (existingIndexJson, makeColsCompatible(vectorColNameTypeTuple, df))
-    } else if (indexJsonOpt.isDefined) {
-      val vectorColNameTypeTuple = getVectorColConf(indexJsonOpt.get)
-      (indexJsonOpt.get, makeColsCompatible(vectorColNameTypeTuple, df))
+      val existingIndexJson = IndexJsonReader.get(auth, serviceName, indexName, apiVersion)
+      VectorSchema.requireCompatibleExistingIndex(existingIndexJson.parseJson, apiVersion)
+      Some(existingIndexJson)
     } else {
-      val vectorCols = vectorColsInfo.map(parseVectorColsJson)
-      val vectorColNameTypeTuple = vectorCols.map(_.map(vc => (vc.name, "Collection(Edm.Single)"))).getOrElse(Seq.empty)
-      val newDF = makeColsCompatible(vectorColNameTypeTuple, df)
-      val inferredIndexJson = dfToIndexJson(newDF.schema, indexName, keyCol.getOrElse(""), actionCol, vectorCols)
-      (inferredIndexJson, newDF)
+      None
     }
+
+    val (indexJson, preppedDF) = resolveIndexDefinition(
+      existingIndexJsonOpt, indexJsonOpt, vectorColsInfo, df, indexName, keyCol, actionCol)
 
     // TODO: Support vector search in nested fields
     // Throws an exception if any nested field is a vector in the schema
     parseIndexJson(indexJson).fields.foreach(_.fields.foreach(assertNoNestedVectors))
 
-    SearchIndex.createIfNoneExists(auth, serviceName, indexJson, apiVersion)
+    if (existingIndexJsonOpt.isEmpty) {
+      SearchIndex.createIfNoneExists(auth, serviceName, indexJson, apiVersion)
+    }
     val dateConvertedDF = convertDateTimeToISO8601(preppedDF, indexJson)
 
     logInfo("checking schema parity")
