@@ -287,6 +287,35 @@ class VectorSchemaMigrationSuite extends AnyFunSuite {
     VectorSchema.requireCompatibleExistingIndex(parse(modernIndexJson), "2026-04-01")
   }
 
+  test("modern API responses that normalize legacy indexes still fail early") {
+    val normalizedLegacyIndex =
+      """
+        |{
+        |  "name": "legacy-index",
+        |  "fields": [
+        |    { "name": "id", "type": "Edm.String", "key": true, "dimensions": null },
+        |    {
+        |      "name": "vectorCol",
+        |      "type": "Collection(Edm.Single)",
+        |      "dimensions": 3,
+        |      "vectorSearchProfile": null
+        |    }
+        |  ],
+        |  "vectorSearch": {
+        |    "algorithms": [ { "name": "hnswConfig", "kind": "hnsw" } ],
+        |    "profiles": []
+        |  }
+        |}
+      """.stripMargin
+
+    val error = intercept[IllegalArgumentException] {
+      VectorSchema.requireCompatibleExistingIndex(parse(normalizedLegacyIndex), "2026-04-01")
+    }
+
+    assert(error.getMessage.contains("legacy vector schema"))
+    assert(error.getMessage.contains("apiVersion=2023-07-01-Preview"))
+  }
+
   test("existing modern indexes reject a legacy api version") {
     val error = intercept[IllegalArgumentException] {
       VectorSchema.requireCompatibleExistingIndex(parse(modernIndexJson), "2023-07-01-Preview")
