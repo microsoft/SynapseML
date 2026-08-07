@@ -772,6 +772,7 @@ jobs:
         PACKAGE: "core"
         TEST_CLASSES: >-
           com.microsoft.azure.synapse.ml.core.**
+          com.microsoft.azure.synapse.ml.codegen.**
           com.microsoft.azure.synapse.ml.SecretsSuite
           com.microsoft.azure.synapse.ml.nbtest.DatabricksUtilitiesSuite
       explainers1:
@@ -948,16 +949,35 @@ jobs:
 
         echo "Release-relevant paths:"
         printf '  %s\n' "${RELEASE_RELEVANT_PATHS[@]}"
-        echo "##vso[task.setvariable variable=releaseCompatRequired]true"
 
         echo "=== Fetching release branch $(RELEASE_BRANCH) ==="
         git fetch origin $(RELEASE_BRANCH)
         RELEASE_TIP=$(git rev-parse FETCH_HEAD)
         echo "Release branch tip: $RELEASE_TIP"
 
+        REPLAY_PATHS=()
+        for path in "${RELEASE_RELEVANT_PATHS[@]}"; do
+          if ! git cat-file -e "$PR_MERGE_HEAD:$path" 2>/dev/null &&
+             ! git cat-file -e "$RELEASE_TIP:$path" 2>/dev/null; then
+            echo "Skipping deletion already absent on $(RELEASE_BRANCH): $path"
+          else
+            REPLAY_PATHS+=("$path")
+          fi
+        done
+
+        if [ ${#REPLAY_PATHS[@]} -eq 0 ]; then
+          echo "No release-relevant changes remain after excluding already-absent deletions"
+          echo "##vso[task.setvariable variable=releaseCompatRequired]false"
+          exit 0
+        fi
+
+        echo "Paths to replay:"
+        printf '  %s\n' "${REPLAY_PATHS[@]}"
+        echo "##vso[task.setvariable variable=releaseCompatRequired]true"
+
         PATCH_PATH="$(Agent.TempDirectory)/release-compat.patch"
         git diff --binary --full-index "$TARGET_HEAD" "$PR_MERGE_HEAD" -- \
-          "${RELEASE_RELEVANT_PATHS[@]}" > "$PATCH_PATH"
+          "${REPLAY_PATHS[@]}" > "$PATCH_PATH"
         test -s "$PATCH_PATH"
 
         echo "=== Attempting to apply release-relevant PR changes onto $(RELEASE_BRANCH) ==="

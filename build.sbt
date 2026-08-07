@@ -173,7 +173,7 @@ packageSynapseML := {
          |    long_description="SynapseML contains Microsoft's open source "
          |                     + "contributions to the Apache Spark ecosystem",
          |    license="MIT",
-         |    packages=find_namespace_packages(include=['synapse.ml.*']),
+         |    packages=find_namespace_packages(include=['synapse.ml', 'synapse.ml.*']),
          |    url="https://github.com/Microsoft/SynapseML",
          |    author="Microsoft",
          |    author_email="synapseml-support@microsoft.com",

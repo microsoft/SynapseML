@@ -235,7 +235,12 @@ def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
         'git diff --binary --full-index "$TARGET_HEAD" "$PR_MERGE_HEAD"'
         in rebase_script
     )
-    assert '"${RELEASE_RELEVANT_PATHS[@]}" > "$PATCH_PATH"' in rebase_script
+    assert "REPLAY_PATHS=()" in rebase_script
+    assert 'git cat-file -e "$PR_MERGE_HEAD:$path"' in rebase_script
+    assert 'git cat-file -e "$RELEASE_TIP:$path"' in rebase_script
+    assert "Skipping deletion already absent on $(RELEASE_BRANCH)" in rebase_script
+    assert "[ ${#REPLAY_PATHS[@]} -eq 0 ]" in rebase_script
+    assert '"${REPLAY_PATHS[@]}" > "$PATCH_PATH"' in rebase_script
     assert "git checkout --detach $RELEASE_TIP" in rebase_script
     assert 'git apply --3way --index "$PATCH_PATH"' in rebase_script
     assert "git rebase" not in rebase_script

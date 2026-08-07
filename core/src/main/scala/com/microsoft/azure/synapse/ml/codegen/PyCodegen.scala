@@ -126,7 +126,7 @@ object PyCodegen {
          |    long_description="SynapseML contains Microsoft's open source "
          |                     + "contributions to the Apache Spark ecosystem",
          |    license="MIT",
-         |    packages=find_namespace_packages(include=['synapse.ml.*']) ${extraPackage},
+         |    packages=find_namespace_packages(include=['synapse.ml', 'synapse.ml.*']) ${extraPackage},
          |    url="https://github.com/Microsoft/SynapseML",
          |    author="Microsoft",
          |    author_email="synapseml-support@microsoft.com",
@@ -153,6 +153,11 @@ object PyCodegen {
   }
   //scalastyle:on
 
+  private[codegen] def generateInitFiles(conf: CodegenConfig): Unit = {
+    makeInitFiles(conf)
+    PythonInitMerger.preserve(conf)
+  }
+
   def pyGen(conf: CodegenConfig): Unit = {
     println(s"Generating python for ${conf.jarName}")
     clean(conf.pySrcDir)
@@ -160,7 +165,7 @@ object PyCodegen {
     generatePythonClasses(conf)
     if (conf.pySrcOverrideDir.exists())
       FileUtils.copyDirectoryToDirectory(toDir(conf.pySrcOverrideDir), toDir(conf.pySrcDir))
-    makeInitFiles(conf)
+    generateInitFiles(conf)
   }
 
   def main(args: Array[String]): Unit = {
