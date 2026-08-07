@@ -5,6 +5,7 @@ shared bootstrap cache, the prewarm job exists, the cache keys invalidate on the
 bootstrap inputs, and the duplicated inline retry blocks were replaced by the
 shared helper. Run with: ``python -m pytest tools/ci/tests/test_pipeline_yaml.py``.
 """
+
 from pathlib import Path
 
 import yaml
@@ -71,8 +72,10 @@ def test_sbt_cache_template_exists_and_parses():
     assert len(fallback_scripts) == 1
     fallback_script = fallback_scripts[0]
     assert "SBT_SETUP_MAX_STAGGER_SECONDS" in fallback_script
-    assert "sbt_retry.sh update" in fallback_script
+    assert 'bash "$SBT_RETRY_SCRIPT_PATH" update' in fallback_script
     assert 'if [ "$exact_hit" != "true" ]' in fallback_script
+    parameters = {parameter["name"]: parameter for parameter in data["parameters"]}
+    assert parameters["retryScriptPath"]["default"] == "tools/ci/sbt_retry.sh"
 
     fallback_step = next(
         s
@@ -85,6 +88,10 @@ def test_sbt_cache_template_exists_and_parses():
         "SBT_COURSIER_CACHE_RESTORED",
     ):
         assert f"$({cache_hit_var})" in fallback_step["env"].values()
+    assert (
+        fallback_step["env"]["SBT_RETRY_SCRIPT_PATH"]
+        == "${{ parameters.retryScriptPath }}"
+    )
 
 
 def test_sbt_retry_script_referenced_and_exists():
@@ -180,6 +187,9 @@ def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
     data = yaml.safe_load(_pipeline_text())
     jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
     release_compat = jobs["ReleaseBranchCompat"]
+    matrix = release_compat["strategy"]["matrix"]
+    assert set(matrix) == {"spark4.1"}
+    assert matrix["spark4.1"]["RELEASE_BRANCH"] == "spark4.1"
 
     condition = release_compat["condition"]
     assert "System.PullRequest.TargetBranch" in condition
@@ -190,21 +200,19 @@ def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
     assert not any(step.get("task") == "AzureCLI@2" for step in steps)
     assert not any(step.get("template") == "templates/kv.yml" for step in steps)
 
-    identity_steps = [
+    helper_steps = [
         step
         for step in steps
         if isinstance(step, dict)
-        and step.get("displayName") == "Configure Git identity for compatibility rebase"
+        and step.get("displayName") == "Stage sbt retry helper for release checkout"
     ]
-    assert len(identity_steps) == 1
-    identity_script = identity_steps[0]["bash"]
-    assert 'git config --local user.name "SynapseML CI"' in identity_script
+    assert len(helper_steps) == 1
+    helper_script = helper_steps[0]["bash"]
     assert (
-        'git config --local user.email "synapseml-ci@users.noreply.github.com"'
-        in identity_script
+        'install -m 755 tools/ci/sbt_retry.sh "$(Agent.TempDirectory)/sbt_retry.sh"'
+        in helper_script
     )
-    assert 'test "$(git config --local user.name)"' in identity_script
-    assert 'test "$(git config --local user.email)"' in identity_script
+    assert 'test -x "$(Agent.TempDirectory)/sbt_retry.sh"' in helper_script
 
     rebase_steps = [
         step
@@ -213,34 +221,52 @@ def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
         and step.get("displayName") == "Apply PR changes onto $(RELEASE_BRANCH)"
     ]
     assert len(rebase_steps) == 1
-    assert steps.index(identity_steps[0]) < steps.index(rebase_steps[0])
+    assert steps.index(helper_steps[0]) < steps.index(rebase_steps[0])
     rebase_script = rebase_steps[0]["bash"]
+    assert "PR_MERGE_HEAD=$(git rev-parse HEAD)" in rebase_script
     assert "TARGET_HEAD=$(git rev-parse HEAD^1)" in rebase_script
     assert "SOURCE_HEAD=$(git rev-parse HEAD^2)" in rebase_script
-    assert "git rebase --onto $RELEASE_TIP $TARGET_HEAD $SOURCE_HEAD" in rebase_script
-    assert "git rebase --onto $PR_HEAD $MASTER_BASE" not in rebase_script
     assert 'git diff --name-only -z "$TARGET_HEAD" HEAD' in rebase_script
     assert "pipeline.yaml|CODEOWNERS" in rebase_script
     assert "templates/*|tools/acr/*|tools/ci/*" in rebase_script
     assert "variable=releaseCompatRequired]false" in rebase_script
     assert "variable=releaseCompatRequired]true" in rebase_script
+    assert (
+        'git diff --binary --full-index "$TARGET_HEAD" "$PR_MERGE_HEAD"'
+        in rebase_script
+    )
+    assert '"${RELEASE_RELEVANT_PATHS[@]}" > "$PATCH_PATH"' in rebase_script
+    assert "git checkout --detach $RELEASE_TIP" in rebase_script
+    assert 'git apply --3way --index "$PATCH_PATH"' in rebase_script
+    assert "git rebase" not in rebase_script
     assert "CONFLICTING_FILES=$(git diff --name-only --diff-filter=U" in rebase_script
     assert "before conflict detection" in rebase_script
-    assert rebase_script.count("printf '%s\\n' \"$REBASE_OUTPUT\"") == 2
+    assert rebase_script.count("printf '%s\\n' \"$APPLY_OUTPUT\"") == 2
+
+    cache_step = next(
+        step
+        for step in steps
+        if isinstance(step, dict) and step.get("template") == "templates/sbt_cache.yml"
+    )
+    assert steps.index(rebase_steps[0]) < steps.index(cache_step)
+    assert cache_step["parameters"]["retryScriptPath"] == (
+        "$(Agent.TempDirectory)/sbt_retry.sh"
+    )
 
     validation_steps = [
         step
         for step in steps
         if isinstance(step, dict)
-        and step.get("displayName") == "Validate $(RELEASE_BRANCH) after rebase"
+        and step.get("displayName")
+        == "Validate $(RELEASE_BRANCH) after applying PR changes"
     ]
     assert len(validation_steps) == 1
     script = validation_steps[0]["bash"]
     assert script.count("sbt $(SBT_JAVA_OPTS)") == 1
     assert "test:compile" in script
-    assert "getDatasets" in script
-    for project in ("core", "vw", "opencv"):
-        assert f'"project {project}"' in script
+    assert "getDatasets" not in script
+    assert "testOnly" not in script
+    assert '"project ' not in script
     assert "sbt_retry.sh" not in script
     assert "for pkg in" not in script
     assert (
