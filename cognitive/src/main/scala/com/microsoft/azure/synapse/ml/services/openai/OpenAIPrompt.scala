@@ -25,7 +25,6 @@ import org.apache.spark.sql.functions.{col, typedLit, udf}
 import org.apache.spark.sql.types.{DataType, StructField, StructType}
 import spray.json.DefaultJsonProtocol._
 
-
 import java.io.ByteArrayInputStream
 import java.net.{URI, URL, URLConnection}
 import java.nio.charset.StandardCharsets
@@ -49,6 +48,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   logClass(FeatureNames.AiServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAIPrompt"))
+
+  private[openai] def generatedPythonClass: String = pythonClass()
 
   override def copy(extra: ParamMap): Transformer = {
     val copied = defaultCopy(extra).asInstanceOf[OpenAIPrompt]

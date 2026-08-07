@@ -9,12 +9,8 @@ import org.apache.spark.sql.types.{ArrayType, StringType, StructType}
 
 class OpenAIPromptParamsSuite extends TestBase {
 
-  private class TestableOpenAIPrompt extends OpenAIPrompt {
-    def generatedPythonClass: String = pythonClass()
-  }
-
   private def generatedPythonClass: String =
-    new TestableOpenAIPrompt().generatedPythonClass
+    new OpenAIPrompt().generatedPythonClass
 
   private def javaMap(values: (String, String)*): java.util.HashMap[String, String] = {
     val result = new java.util.HashMap[String, String]()
