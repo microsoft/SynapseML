@@ -168,8 +168,9 @@ private[search] object VectorSchema {
     val modernMarkers = vectorSearchContainsKey(index, ModernAlgorithmsKey) ||
       vectorSearchContainsKey(index, ProfilesKey) ||
       containsFieldKey(index, ModernFieldReferenceKey)
+    val normalizedLegacyMarkers = containsUnreferencedVectorField(index)
 
-    if (modern && legacyMarkers) {
+    if (modern && (legacyMarkers || normalizedLegacyMarkers)) {
       throw new IllegalArgumentException(
         "The index already exists with the legacy vector schema. createIfNoneExists does not update or migrate " +
           "existing indexes. Set apiVersion=2023-07-01-Preview to keep using that index, or explicitly migrate it " +
@@ -333,6 +334,27 @@ private[search] object VectorSchema {
     case JsArray(elements) => elements.exists {
       case JsObject(fields) =>
         fields.contains(key) || fields.get("fields").exists(fieldArrayContainsKey(_, key))
+      case _ => false
+    }
+    case _ => false
+  }
+
+  private def containsUnreferencedVectorField(index: JsValue): Boolean = index match {
+    case JsObject(fields) => fields.get("fields").exists(fieldArrayHasUnreferencedVector)
+    case _ => false
+  }
+
+  private def fieldArrayHasUnreferencedVector(value: JsValue): Boolean = value match {
+    case JsArray(elements) => elements.exists {
+      case JsObject(fields) =>
+        val hasDimensions = fields.get("dimensions").exists(_ != JsNull)
+        val hasReference = Seq(LegacyFieldReferenceKey, ModernFieldReferenceKey)
+          .exists(key => fields.get(key).exists {
+            case JsString(reference) => reference.nonEmpty
+            case _ => false
+          })
+        (hasDimensions && !hasReference) ||
+          fields.get("fields").exists(fieldArrayHasUnreferencedVector)
       case _ => false
     }
     case _ => false
