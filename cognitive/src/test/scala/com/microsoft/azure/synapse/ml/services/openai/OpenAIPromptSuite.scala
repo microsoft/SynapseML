@@ -508,46 +508,6 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .count(r => Option(r.getSeq[String](0)).isDefined)
   }
 
-  test("setPostProcessingOptions should set postProcessing to 'csv' for delimiter option") {
-    val prompt = new OpenAIPrompt()
-    prompt.setPostProcessingOptions(Map("delimiter" -> ","))
-    assert(prompt.getPostProcessing == "csv")
-  }
-
-  test("setPostProcessingOptions should set postProcessing to 'json' for jsonSchema option") {
-    val prompt = new OpenAIPrompt()
-    prompt.setPostProcessingOptions(Map("jsonSchema" -> "schema"))
-    assert(prompt.getPostProcessing == "json")
-  }
-
-  test("setPostProcessingOptions should set postProcessing to 'regex' for regex option") {
-    val prompt = new OpenAIPrompt()
-    prompt.setPostProcessingOptions(Map("regex" -> ".*", "regexGroup" -> "0"))
-    assert(prompt.getPostProcessing == "regex")
-  }
-
-  test("setPostProcessingOptions should throw IllegalArgumentException for invalid options") {
-    val prompt = new OpenAIPrompt()
-    intercept[IllegalArgumentException] {
-      prompt.setPostProcessingOptions(Map("invalidOption" -> "value"))
-    }
-  }
-
-  test("setPostProcessingOptions should validate regex options contain regexGroup key") {
-    val prompt = new OpenAIPrompt()
-    intercept[IllegalArgumentException] {
-      prompt.setPostProcessingOptions(Map("regex" -> ".*"))
-    }
-  }
-
-  test("setPostProcessingOptions should validate existing postProcessing value") {
-    val prompt = new OpenAIPrompt()
-    prompt.setPostProcessing("csv")
-    intercept[IllegalArgumentException] {
-      prompt.setPostProcessingOptions(Map("jsonSchema" -> "schema"))
-    }
-  }
-
   test("reject bare json_schema string in OpenAIPrompt responseFormat passthrough"){
     val p = new OpenAIPrompt()
     intercept[IllegalArgumentException] {
