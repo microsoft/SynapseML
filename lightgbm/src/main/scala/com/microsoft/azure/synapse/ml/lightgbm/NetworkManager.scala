@@ -13,8 +13,7 @@ import org.apache.spark.sql.SparkSession
 import org.slf4j.Logger
 
 import java.io.{BufferedReader, BufferedWriter, IOException, InputStreamReader, OutputStreamWriter}
-import java.net.{BindException, ConnectException, InetSocketAddress, ServerSocket, Socket,
-  SocketException, SocketTimeoutException}
+import java.net.{ConnectException, ServerSocket, Socket, SocketException, SocketTimeoutException}
 import java.util.concurrent.Executors
 import scala.annotation.tailrec
 import scala.collection.mutable
@@ -76,71 +75,17 @@ case class NetworkTopologyInfo(lightgbmNetworkString: String,
 }
 
 object NetworkManager {
-  private val MaxSocketCloseAttempts = 2
+  private def addSuppressed(primaryFailure: Throwable, secondaryFailure: Throwable): Unit =
+    NetworkManagerSocketSupport.addSuppressed(primaryFailure, secondaryFailure)
 
-  private def addSuppressed(primaryFailure: Throwable, secondaryFailure: Throwable): Unit = {
-    if (primaryFailure ne secondaryFailure) primaryFailure.addSuppressed(secondaryFailure)
-  }
+  private[lightgbm] def closeSocketWithRetry(socket: Socket): Unit =
+    NetworkManagerSocketSupport.closeSocketWithRetry(socket)
 
-  /** Close a socket with one immediate retry, retaining every observed cleanup failure. */
-  private[lightgbm] def closeSocketWithRetry(socket: Socket): Unit = {
-    @tailrec
-    def attemptClose(attemptsRemaining: Int,
-                     firstFailure: Option[IOException]): Option[IOException] = {
-      if (socket.isClosed || attemptsRemaining == 0) {
-        firstFailure
-      } else {
-        val updatedFailure = try {
-          socket.close()
-          firstFailure
-        } catch {
-          case failure: IOException =>
-            firstFailure.foreach(existing => addSuppressed(existing, failure))
-            firstFailure.orElse(Option(failure))
-        }
-        attemptClose(attemptsRemaining - 1, updatedFailure)
-      }
-    }
+  private[lightgbm] def withCleanupPreservingPrimary[T](cleanup: => Unit)(operation: => T): T =
+    NetworkManagerSocketSupport.withCleanupPreservingPrimary(cleanup)(operation)
 
-    val closeFailure = attemptClose(MaxSocketCloseAttempts, None).orElse {
-      if (socket.isClosed) None else Option(new IOException("Socket remained open after cleanup attempts"))
-    }
-    closeFailure.foreach(throw _)
-  }
-
-  /** Run cleanup without allowing it to replace a failure from the protected operation.
-    *
-    * The Throwable catch is deliberately limited to recording and immediately rethrowing the original
-    * failure; it is not a fallback or recovery boundary.
-    */
-  private[lightgbm] def withCleanupPreservingPrimary[T](cleanup: => Unit)(operation: => T): T = {
-    var primaryFailure: Option[Throwable] = None
-    try {
-      operation
-    } catch {
-      case failure: Throwable =>
-        primaryFailure = Option(failure)
-        throw failure
-    } finally {
-      try {
-        cleanup
-      } catch {
-        case cleanupFailure: Throwable if primaryFailure.isDefined =>
-          addSuppressed(primaryFailure.get, cleanupFailure)
-      }
-    }
-  }
-
-  /** Run cleanup only when the protected operation fails, preserving that primary failure. */
-  private[lightgbm] def withCleanupOnFailurePreservingPrimary[T]
-      (cleanup: => Unit)(operation: => T): T = {
-    var completed = false
-    withCleanupPreservingPrimary(if (!completed) cleanup) {
-      val result = operation
-      completed = true
-      result
-    }
-  }
+  private[lightgbm] def withCleanupOnFailurePreservingPrimary[T](cleanup: => Unit)(operation: => T): T =
+    NetworkManagerSocketSupport.withCleanupOnFailurePreservingPrimary(cleanup)(operation)
 
   private final case class WorkerMessage(status: String,
                                          taskHost: String,
@@ -485,85 +430,21 @@ object NetworkManager {
     reserveOpenPort(basePort, log)
   }
 
-  /** Reserve the first available port at or above basePort.
-    *
-    * Only address-in-use failures advance to another port. Other failures propagate after the candidate
-    * socket is closed, rather than silently falling back to a different port.
-    */
-  private[lightgbm] def reserveOpenPort(basePort: Int, log: Logger): Socket = {
-    reserveOpenPort(basePort, log, () => new Socket())
-  }
+  private[lightgbm] def reserveOpenPort(basePort: Int, log: Logger): Socket =
+    NetworkManagerSocketSupport.reserveOpenPort(basePort, log)
 
   private[lightgbm] def reserveOpenPort(basePort: Int,
                                         log: Logger,
-                                        createSocket: () => Socket): Socket = {
-    validatePort(basePort)
+                                        createSocket: () => Socket): Socket =
+    NetworkManagerSocketSupport.reserveOpenPort(basePort, log, createSocket)
 
-    @tailrec
-    def reservePort(localListenPort: Int): Socket = {
-      val bindResult: Either[BindException, Socket] = try {
-        Right(reserveExactPort(localListenPort, log, createSocket))
-      } catch {
-        // A suppressed exception means candidate cleanup failed, so proceeding would leak a socket.
-        case contention: BindException if contention.getSuppressed.isEmpty => Left(contention)
-      }
+  private[lightgbm] def reserveExactPort(localListenPort: Int, log: Logger): Socket =
+    NetworkManagerSocketSupport.reserveExactPort(localListenPort, log)
 
-      bindResult match {
-        case Right(reservation) => reservation
-        case Left(_) =>
-          log.warn(s"Could not bind to port $localListenPort...")
-          val nextPort = localListenPort + 1
-          if (nextPort > LightGBMConstants.MaxPort) {
-            throw new Exception(s"Error: port $basePort out of range, " +
-              "possibly due to networking or firewall issues")
-          }
-          if (nextPort - basePort > 1000) {
-            throw new Exception("Error: Could not find open port after 1k tries")
-          }
-          reservePort(nextPort)
-      }
-    }
-
-    reservePort(basePort)
-  }
-
-  /** Reserve one exact port. Native-init retries cannot change the previously advertised port. */
-  private[lightgbm] def reserveExactPort(localListenPort: Int, log: Logger): Socket = {
-    reserveExactPort(localListenPort, log, () => new Socket())
-  }
-
-  private def reserveExactPort(localListenPort: Int,
-                               log: Logger,
-                               createSocket: () => Socket): Socket = {
-    validatePort(localListenPort)
-    val candidate = createSocket()
-    withCleanupOnFailurePreservingPrimary(closeSocketWithRetry(candidate)) {
-      candidate.bind(new InetSocketAddress(localListenPort))
-      log.info(s"Successfully bound to port $localListenPort")
-      candidate
-    }
-  }
-
-  private def validatePort(port: Int): Unit = {
-    if (port < 0 || port > LightGBMConstants.MaxPort) {
-      throw new Exception(s"Error: port $port out of range, possibly due to too many executors or unknown error")
-    }
-  }
-
-  /** Keep a training task's port reserved, while releasing helper and failed-task reservations immediately. */
   private[lightgbm] def withPortReservation(reservation: Socket,
                                             shouldExecuteTraining: Boolean)
-                                           (getTopology: Int => NetworkTopologyInfo): NetworkTopologyInfo = {
-    var retained = false
-    withCleanupPreservingPrimary(if (!retained) closeSocketWithRetry(reservation)) {
-      val topology = getTopology(reservation.getLocalPort)
-      if (shouldExecuteTraining) {
-        topology.retainPortReservation(reservation)
-        retained = true
-      }
-      topology
-    }
-  }
+                                           (getTopology: Int => NetworkTopologyInfo): NetworkTopologyInfo =
+    NetworkManagerSocketSupport.withPortReservation(reservation, shouldExecuteTraining)(getTopology)
 
   private def setFinishedStatus(networkParams: NetworkParams, stageAttemptNumber: Int, log: Logger): Unit = {
     using(new Socket(networkParams.ipAddress, networkParams.port)) {
