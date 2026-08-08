@@ -3,6 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.nbtest
 
+import java.util.concurrent.{CountDownLatch, Executors, TimeUnit}
 import org.scalatest.funsuite.AnyFunSuite
 
 import scala.collection.mutable.ArrayBuffer
@@ -65,5 +66,18 @@ class FabricTestArtifactTrackerSuite extends AnyFunSuite {
     assert(FabricNotebookTests.isTestArtifactName("OnePlusOne-20260808-01-09-17"))
     assert(!FabricNotebookTests.isTestArtifactName("LakehouseForManualTesting"))
     assert(!FabricNotebookTests.isTestArtifactName("CustomerNotebook-20260808-01-09-17"))
+  }
+
+  test("Wait for notebook tasks before artifact cleanup") {
+    val executor = Executors.newSingleThreadExecutor()
+    val completed = new CountDownLatch(1)
+    executor.submit(new Runnable {
+      override def run(): Unit = completed.countDown()
+    })
+
+    FabricNotebookTests.shutdownExecutor(executor)
+
+    assert(completed.await(0, TimeUnit.SECONDS))
+    assert(executor.isTerminated)
   }
 }

@@ -9,7 +9,7 @@ import com.microsoft.azure.synapse.ml.fabric.{FabricTestConstants, HasFabricOper
 
 import java.io.{File, PrintWriter}
 import java.time.LocalDateTime
-import java.util.concurrent.{Executors, TimeUnit}
+import java.util.concurrent.{ExecutorService, Executors, TimeUnit}
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future, blocking}
 
@@ -28,10 +28,11 @@ trait HasFabricNotebookTestConnection extends HasFabricOperationsConnection {
 
 class FabricTestCleanup extends TestBase with HasFabricNotebookTestConnection {
   test("Clean up old artifacts") {
+    val cutoff = LocalDateTime.now().minusDays(3)
     fabric.listArtifacts()
       .filter(artifact =>
         FabricNotebookTests.isTestArtifactName(artifact.displayName) &&
-          artifact.lastUpdatedDate.isBefore(LocalDateTime.now().minusDays(3)))
+          artifact.lastUpdatedDate.isBefore(cutoff))
       .foreach(artifact => {
         println(s"Artifact cleanup: scheduling artifact ${artifact.displayName} for deletion.")
         println(s"Last Update Date: ${artifact.lastUpdatedDate.toString()}")
@@ -146,8 +147,8 @@ class FabricNotebookTests extends TestBase with HasFabricNotebookTestConnection 
   }
 
   override def afterAll(): Unit = {
-    executorService.shutdown()
     try {
+      FabricNotebookTests.shutdownExecutor(executorService)
       cleanupTrackedArtifacts()
     } finally {
       super.afterAll()
@@ -157,8 +158,26 @@ class FabricNotebookTests extends TestBase with HasFabricNotebookTestConnection 
 
 object FabricNotebookTests {
   val MaxConcurrency: Int = 3
+  private val ExecutorShutdownTimeoutSeconds = 30L
   private val StoreArtifactName = "^(Lakehouse|Warehouse)\\d{14}$".r
   private val SJDArtifactName = "^(OnePlusOne|ExploreAlgorithms.+)-\\d{8}-\\d{2}-\\d{2}-\\d{2}$".r
+
+  private[nbtest] def shutdownExecutor(executorService: ExecutorService): Unit = {
+    try {
+      executorService.shutdown()
+      if (!executorService.awaitTermination(ExecutorShutdownTimeoutSeconds, TimeUnit.SECONDS)) {
+        executorService.shutdownNow()
+        if (!executorService.awaitTermination(ExecutorShutdownTimeoutSeconds, TimeUnit.SECONDS)) {
+          throw new IllegalStateException("Fabric notebook tasks did not stop before artifact cleanup")
+        }
+      }
+    } catch {
+      case e: InterruptedException =>
+        executorService.shutdownNow()
+        Thread.currentThread().interrupt()
+        throw e
+    }
+  }
 
   private[nbtest] def isTestArtifactName(displayName: String): Boolean = {
     StoreArtifactName.pattern.matcher(displayName).matches() ||

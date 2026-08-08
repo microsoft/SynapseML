@@ -25,6 +25,7 @@ private[nbtest] final class FabricTestArtifactTracker(deleteArtifact: String => 
         case e: RuntimeException if Option(e.getMessage).exists(_.contains("PowerBIEntityNotFound")) =>
           println(s"Artifact $artifactId was already deleted.")
         case NonFatal(e) =>
+          println(s"Artifact cleanup failed for artifact $artifactId: $e")
           failures += e
       }
     }
