@@ -65,19 +65,51 @@ class FabricTestArtifactTrackerSuite extends AnyFunSuite {
       "ExploreAlgorithmsRegressionQuickstartTrainRegressor-20260808-01-09-17"))
     assert(FabricNotebookTests.isTestArtifactName("OnePlusOne-20260808-01-09-17"))
     assert(!FabricNotebookTests.isTestArtifactName("LakehouseForManualTesting"))
+    assert(!FabricNotebookTests.isTestArtifactName(
+      "ExploreAlgorithmsAdHocNotebook-20260808-01-09-17"))
     assert(!FabricNotebookTests.isTestArtifactName("CustomerNotebook-20260808-01-09-17"))
   }
 
   test("Wait for notebook tasks before artifact cleanup") {
     val executor = Executors.newSingleThreadExecutor()
     val completed = new CountDownLatch(1)
-    executor.submit(new Runnable {
-      override def run(): Unit = completed.countDown()
-    })
+    try {
+      executor.submit(new Runnable {
+        override def run(): Unit = completed.countDown()
+      })
 
-    FabricNotebookTests.shutdownExecutor(executor)
+      FabricNotebookTests.shutdownExecutor(executor)
 
-    assert(completed.await(0, TimeUnit.SECONDS))
-    assert(executor.isTerminated)
+      assert(completed.await(0, TimeUnit.SECONDS))
+      assert(executor.isTerminated)
+    } finally {
+      executor.shutdownNow()
+    }
+  }
+
+  test("Interrupt notebook tasks that do not stop gracefully") {
+    val executor = Executors.newSingleThreadExecutor()
+    val started = new CountDownLatch(1)
+    val interrupted = new CountDownLatch(1)
+    try {
+      executor.submit(new Runnable {
+        override def run(): Unit = {
+          started.countDown()
+          try {
+            new CountDownLatch(1).await()
+          } catch {
+            case _: InterruptedException => interrupted.countDown()
+          }
+        }
+      })
+
+      assert(started.await(5, TimeUnit.SECONDS))
+      FabricNotebookTests.shutdownExecutor(executor, 1, TimeUnit.SECONDS)
+
+      assert(interrupted.await(0, TimeUnit.SECONDS))
+      assert(executor.isTerminated)
+    } finally {
+      executor.shutdownNow()
+    }
   }
 }

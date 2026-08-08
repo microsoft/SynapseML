@@ -196,12 +196,13 @@ def test_fabric_e2e_cleans_stale_artifacts_before_running_tests():
 
     script = e2e_steps[0]["inputs"]["inlineScript"]
     cleanup_command = (
-        'sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.FabricTestCleanup"'
+        '"testOnly com.microsoft.azure.synapse.ml.nbtest.FabricTestCleanup"'
     )
     test_command = (
-        'sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.FabricSmokeTests '
+        '"testOnly com.microsoft.azure.synapse.ml.nbtest.FabricSmokeTests '
         'com.microsoft.azure.synapse.ml.nbtest.FabricNotebookTests"'
     )
+    assert script.count("sbt ") == 1
     assert cleanup_command in script
     assert test_command in script
     assert script.index(cleanup_command) < script.index(test_command)

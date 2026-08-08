@@ -158,31 +158,6 @@ class FabricNotebookTests extends TestBase with HasFabricNotebookTestConnection 
 
 object FabricNotebookTests {
   val MaxConcurrency: Int = 3
-  private val ExecutorShutdownTimeoutSeconds = 30L
-  private val StoreArtifactName = "^(Lakehouse|Warehouse)\\d{14}$".r
-  private val SJDArtifactName = "^(OnePlusOne|ExploreAlgorithms.+)-\\d{8}-\\d{2}-\\d{2}-\\d{2}$".r
-
-  private[nbtest] def shutdownExecutor(executorService: ExecutorService): Unit = {
-    try {
-      executorService.shutdown()
-      if (!executorService.awaitTermination(ExecutorShutdownTimeoutSeconds, TimeUnit.SECONDS)) {
-        executorService.shutdownNow()
-        if (!executorService.awaitTermination(ExecutorShutdownTimeoutSeconds, TimeUnit.SECONDS)) {
-          throw new IllegalStateException("Fabric notebook tasks did not stop before artifact cleanup")
-        }
-      }
-    } catch {
-      case e: InterruptedException =>
-        executorService.shutdownNow()
-        Thread.currentThread().interrupt()
-        throw e
-    }
-  }
-
-  private[nbtest] def isTestArtifactName(displayName: String): Boolean = {
-    StoreArtifactName.pattern.matcher(displayName).matches() ||
-      SJDArtifactName.pattern.matcher(displayName).matches()
-  }
 
   // Include-based filtering: start with a small core set of self-contained notebooks
   // that don't require API keys (no Cognitive Services, OpenAI, etc.).
@@ -199,4 +174,40 @@ object FabricNotebookTests {
     // "ExploreAlgorithmsVowpalWabbitQuickstartClassificationQuantileRegressionandRegression",
     // "ExploreAlgorithmsVowpalWabbitQuickstartClassificationusingSparkMLVectors",
   )
+
+  private val ExecutorShutdownTimeoutSeconds = 30L
+  private val StoreArtifactName = "^(Lakehouse|Warehouse)\\d{14}$".r
+  private val SJDArtifactName = "^(.+)-\\d{8}-\\d{2}-\\d{2}-\\d{2}$".r
+  private val TestSJDNames = (IncludedNotebooks :+ "OnePlusOne").toSet
+
+  private[nbtest] def shutdownExecutor(executorService: ExecutorService): Unit = {
+    shutdownExecutor(executorService, ExecutorShutdownTimeoutSeconds, TimeUnit.SECONDS)
+  }
+
+  private[nbtest] def shutdownExecutor(executorService: ExecutorService,
+                                       timeout: Long,
+                                       timeUnit: TimeUnit): Unit = {
+    try {
+      executorService.shutdown()
+      if (!executorService.awaitTermination(timeout, timeUnit)) {
+        executorService.shutdownNow()
+        if (!executorService.awaitTermination(timeout, timeUnit)) {
+          throw new IllegalStateException("Fabric notebook tasks did not stop before artifact cleanup")
+        }
+      }
+    } catch {
+      case e: InterruptedException =>
+        executorService.shutdownNow()
+        Thread.currentThread().interrupt()
+        throw e
+    }
+  }
+
+  private[nbtest] def isTestArtifactName(displayName: String): Boolean = {
+    displayName match {
+      case StoreArtifactName(_) => true
+      case SJDArtifactName(name) => TestSJDNames(name)
+      case _ => false
+    }
+  }
 }
