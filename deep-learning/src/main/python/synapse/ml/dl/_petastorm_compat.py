@@ -247,7 +247,6 @@ class _LegacyParquetDataset:
             filters=filters,
             **kwargs,
         )
-        self.schema = self._dataset.schema
         self.fs = _filesystem_for_petastorm(filesystem)
         if self.fs is None:
             self.fs = _ArrowFilesystemAdapter(self._dataset.filesystem)
@@ -258,6 +257,7 @@ class _LegacyParquetDataset:
         self.metadata = self._read_metadata("_metadata")
         self.common_metadata = self._read_metadata("_common_metadata")
         self.files = self._filtered_files()
+        self.schema = self._read_schema()
         self.partitions, partition_keys = self._build_partitions(self.files)
         self.pieces = [
             _LegacyParquetDatasetPiece(
@@ -291,6 +291,15 @@ class _LegacyParquetDataset:
             return None
         with self.fs.open(path, "rb") as metadata_file:
             return pq.read_metadata(metadata_file)
+
+    def _read_schema(self):
+        for metadata in (self.metadata, self.common_metadata):
+            if metadata is not None:
+                return metadata.schema
+
+        files = self.files or list(self._dataset.files)
+        with self.fs.open(files[0], "rb") as parquet_file:
+            return pq.ParquetFile(parquet_file).schema
 
     def _filtered_files(self):
         filter_expression = getattr(self._dataset, "_filter_expression", None)

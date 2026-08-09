@@ -249,7 +249,7 @@ def test_legacy_parquet_dataset_normalizes_file_uris(tmp_path):
     assert dataset.pieces[0].read().column("id").to_pylist() == [1, 2, 3]
     assert (
         dataset.pieces[0].get_metadata(dataset.fs.open).schema.to_arrow_schema()
-        == dataset.schema
+        == dataset.schema.to_arrow_schema()
     )
 
     second_path = dataset_path / "part-00001.parquet"
@@ -263,6 +263,20 @@ def test_legacy_parquet_dataset_normalizes_file_uris(tmp_path):
     assert [
         piece.read().column("id").to_pylist() for piece in multi_file_dataset.pieces
     ] == [[1, 2, 3], [4]]
+
+
+def test_legacy_parquet_dataset_exposes_horovod_schema_interface(tmp_path):
+    ensure_petastorm_compatibility()
+    _write_dataset(tmp_path)
+
+    dataset = pq.ParquetDataset(tmp_path.as_uri())
+
+    assert dataset.schema.to_arrow_schema() == pa.schema(
+        [
+            ("id", pa.int64()),
+            ("value", pa.float64()),
+        ]
+    )
 
 
 def test_explicit_filesystem_avoids_uri_resolution(monkeypatch):
