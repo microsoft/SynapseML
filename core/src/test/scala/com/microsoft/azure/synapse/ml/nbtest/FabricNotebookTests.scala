@@ -9,7 +9,7 @@ import com.microsoft.azure.synapse.ml.fabric.{FabricTestConstants, HasFabricOper
 
 import java.io.{File, PrintWriter}
 import java.time.LocalDateTime
-import java.util.concurrent.{Executors, TimeUnit}
+import java.util.concurrent.{ExecutorService, Executors, TimeUnit}
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future, blocking}
 
@@ -17,25 +17,28 @@ trait HasFabricNotebookTestConnection extends HasFabricOperationsConnection {
   fabricClientId = Some(FabricTestConstants.INTEGRATION_APP_ID)
   fabricRedirectUri = Some(FabricTestConstants.INTEGRATION_REDIRECT_URI)
   fabricWorkspaceId = Some(FabricTestConstants.INTEGRATION_WORKSPACE_ID)
+
+  private val artifactTracker =
+    new FabricTestArtifactTracker(artifactId => fabric.deleteArtifact(artifactId))
+
+  protected def trackArtifact(artifactId: String): String = artifactTracker.track(artifactId)
+
+  protected def cleanupTrackedArtifacts(): Unit = artifactTracker.cleanup()
 }
 
 class FabricTestCleanup extends TestBase with HasFabricNotebookTestConnection {
   test("Clean up old artifacts") {
+    val cutoff = LocalDateTime.now().minusDays(3)
     fabric.listArtifacts()
+      .filter(artifact =>
+        FabricNotebookTests.isTestArtifactName(artifact.displayName) &&
+          artifact.lastUpdatedDate.isBefore(cutoff))
       .foreach(artifact => {
-        if (artifact.lastUpdatedDate.isBefore(LocalDateTime.now().minusDays(3))) {
-          println(s"Artifact cleanup: deleting artifact ${artifact.displayName}.")
-          println(s"Last Update Date: ${artifact.lastUpdatedDate.toString()}")
-          try {
-            fabric.deleteArtifact(artifact.objectId)
-          } catch {
-            case e: RuntimeException if e.getMessage.contains("PowerBIEntityNotFound") =>
-              println(s"Artifact ${artifact.displayName} not found. It may have already been deleted.")
-            case t: Throwable =>
-              throw t
-          }
-        }
+        println(s"Artifact cleanup: scheduling artifact ${artifact.displayName} for deletion.")
+        println(s"Last Update Date: ${artifact.lastUpdatedDate.toString()}")
+        trackArtifact(artifact.objectId)
       })
+    cleanupTrackedArtifacts()
   }
 }
 
@@ -64,11 +67,11 @@ class FabricSmokeTests extends TestBase with HasFabricNotebookTestConnection {
     f
   }
 
-  val storeArtifactId: String = fabric.createStoreArtifact()
+  val storeArtifactId: String = trackArtifact(fabric.createStoreArtifact())
 
   test("OnePlusOne") {
     val notebookName = fabric.getBlobNameFromFilepath(notebookFile.getPath)
-    val artifactId = fabric.createSJDArtifact(notebookFile.getPath)
+    val artifactId = trackArtifact(fabric.createSJDArtifact(notebookFile.getPath))
     val notebookBlobPath = fabric.uploadNotebookToAzure(notebookFile)
     fabric.updateSJDArtifact(notebookBlobPath, artifactId, storeArtifactId, includePackages = false)
     blocking {
@@ -88,6 +91,14 @@ class FabricSmokeTests extends TestBase with HasFabricNotebookTestConnection {
         throw new RuntimeException(s"Job failed for $notebookName", t)
     }
   }
+
+  override def afterAll(): Unit = {
+    try {
+      cleanupTrackedArtifacts()
+    } finally {
+      super.afterAll()
+    }
+  }
 }
 
 class FabricNotebookTests extends TestBase with HasFabricNotebookTestConnection {
@@ -102,7 +113,7 @@ class FabricNotebookTests extends TestBase with HasFabricNotebookTestConnection 
   selectedPythonFiles.foreach(x => println(s"Fabric notebook to be tested: $x"))
   assert(selectedPythonFiles.nonEmpty, "No notebooks found to test")
 
-  val storeArtifactId: String = fabric.createStoreArtifact()
+  val storeArtifactId: String = trackArtifact(fabric.createStoreArtifact())
 
   val executorService = Executors.newFixedThreadPool(FabricNotebookTests.MaxConcurrency)
   implicit val executionContext: ExecutionContext = ExecutionContext.fromExecutor(executorService)
@@ -111,7 +122,7 @@ class FabricNotebookTests extends TestBase with HasFabricNotebookTestConnection 
   val futures: Array[(Future[String], String)] = selectedPythonFiles.map { notebookFile =>
     val notebookName = fabric.getBlobNameFromFilepath(notebookFile.getPath)
     val future = Future {
-      val artifactId = fabric.createSJDArtifact(notebookFile.getPath)
+      val artifactId = trackArtifact(fabric.createSJDArtifact(notebookFile.getPath))
       val notebookBlobPath = fabric.uploadNotebookToAzure(notebookFile)
       fabric.updateSJDArtifact(notebookBlobPath, artifactId, storeArtifactId)
       blocking { Thread.sleep(3000) } //scalastyle:ignore
@@ -136,8 +147,12 @@ class FabricNotebookTests extends TestBase with HasFabricNotebookTestConnection 
   }
 
   override def afterAll(): Unit = {
-    executorService.shutdown()
-    super.afterAll()
+    try {
+      FabricNotebookTests.shutdownExecutor(executorService)
+      cleanupTrackedArtifacts()
+    } finally {
+      super.afterAll()
+    }
   }
 }
 
@@ -159,4 +174,40 @@ object FabricNotebookTests {
     // "ExploreAlgorithmsVowpalWabbitQuickstartClassificationQuantileRegressionandRegression",
     // "ExploreAlgorithmsVowpalWabbitQuickstartClassificationusingSparkMLVectors",
   )
+
+  private val ExecutorShutdownTimeoutSeconds = 30L
+  private val StoreArtifactName = "^(Lakehouse|Warehouse)\\d{14}$".r
+  private val SJDArtifactName = "^(.+)-\\d{8}-\\d{2}-\\d{2}-\\d{2}$".r
+  private val TestSJDNames = (IncludedNotebooks :+ "OnePlusOne").toSet
+
+  private[nbtest] def shutdownExecutor(executorService: ExecutorService): Unit = {
+    shutdownExecutor(executorService, ExecutorShutdownTimeoutSeconds, TimeUnit.SECONDS)
+  }
+
+  private[nbtest] def shutdownExecutor(executorService: ExecutorService,
+                                       timeout: Long,
+                                       timeUnit: TimeUnit): Unit = {
+    try {
+      executorService.shutdown()
+      if (!executorService.awaitTermination(timeout, timeUnit)) {
+        executorService.shutdownNow()
+        if (!executorService.awaitTermination(timeout, timeUnit)) {
+          throw new IllegalStateException("Fabric notebook tasks did not stop before artifact cleanup")
+        }
+      }
+    } catch {
+      case e: InterruptedException =>
+        executorService.shutdownNow()
+        Thread.currentThread().interrupt()
+        throw e
+    }
+  }
+
+  private[nbtest] def isTestArtifactName(displayName: String): Boolean = {
+    displayName match {
+      case StoreArtifactName(_) => true
+      case SJDArtifactName(name) => TestSJDNames(name)
+      case _ => false
+    }
+  }
 }

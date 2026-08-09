@@ -58,6 +58,7 @@ htmlcov
 
 # Files created by remark-link
 package-lock.json
+!website/package-lock.json
 node_modules/
 .Rproj.user
 

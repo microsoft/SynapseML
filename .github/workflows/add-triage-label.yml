@@ -11,7 +11,7 @@ jobs:
       issues: write
     steps:
       - name: Label issues
-        uses: andymckay/labeler@e6c4322d0397f3240f0e7e30a33b5c5df2d39e90
+        uses: andymckay/labeler@e6c4322d0397f3240f0e7e30a33b5c5df2d39e90 # 1.0.4
         with:
           add-labels: "triage"
           repo-token: ${{ secrets.GITHUB_TOKEN }}

@@ -9,12 +9,49 @@ import org.apache.spark.TaskContext
 import org.apache.spark.ml.evaluation.{BinaryClassificationEvaluator, MulticlassClassificationEvaluator}
 import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.ml.util.MLReadable
+import org.apache.spark.scheduler.{
+  SparkListener,
+  SparkListenerJobEnd,
+  SparkListenerJobStart,
+  SparkListenerStageSubmitted
+}
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{DoubleType, IntegerType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 import java.io.File
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.{CountDownLatch, TimeUnit}
+
+private[vw] class BarrierExecutionListener(markerJobGroup: String) extends SparkListener {
+  private val barrierObserved = new AtomicBoolean(false)
+  private val markerCompleted = new CountDownLatch(1)
+  @volatile private var markerJobId = -1
+
+  override def onStageSubmitted(stageSubmitted: SparkListenerStageSubmitted): Unit = {
+    if (stageSubmitted.stageInfo.rddInfos.exists(_.isBarrier)) {
+      barrierObserved.set(true)
+    }
+  }
+
+  override def onJobStart(jobStart: SparkListenerJobStart): Unit = {
+    if (Option(jobStart.properties).exists(_.getProperty("spark.jobGroup.id") == markerJobGroup)) {
+      markerJobId = jobStart.jobId
+    }
+  }
+
+  override def onJobEnd(jobEnd: SparkListenerJobEnd): Unit = {
+    if (jobEnd.jobId == markerJobId) {
+      markerCompleted.countDown()
+    }
+  }
+
+  def awaitMarker(): Boolean = markerCompleted.await(30, TimeUnit.SECONDS)
+
+  def sawBarrier: Boolean = barrierObserved.get()
+}
 
 class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[VowpalWabbitClassifier] {
   lazy val moduleName = "vw"
@@ -133,8 +170,13 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
     assert(labelOneCnt == 275)
   }
 
-  private def testVerifyVowpalWabbitClassifierWithLibSVM(useBarrierMode: Boolean): Unit = {
-    val dataset = getAlaTrainDataFrame()
+  private def testVerifyVowpalWabbitClassifierWithLibSVM(useBarrierMode: Boolean,
+                                                          localNumPartitions: Int,
+                                                          expectBarrierExecution: Boolean): Unit = {
+    val dataset = getAlaTrainDataFrame(localNumPartitions)
+    val sparkContext = spark.sparkContext
+    val markerJobGroup = s"vw-barrier-test-${UUID.randomUUID()}"
+    val listener = new BarrierExecutionListener(markerJobGroup)
 
     val vw = new VowpalWabbitClassifier()
       .setPassThroughArgs("--passes 3")
@@ -143,7 +185,18 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
       .setUseBarrierExecutionMode(useBarrierMode)
       .setLabelConversion(false)
 
-    val classifier = vw.fit(dataset)
+    sparkContext.addSparkListener(listener)
+    val classifier = try {
+      val fittedModel = vw.fit(dataset)
+      sparkContext.setJobGroup(markerJobGroup, "Wait for barrier execution listener")
+      sparkContext.parallelize(Seq(1), 1).count()
+      assert(listener.awaitMarker(), "Timed out waiting for Spark listener events")
+      assert(listener.sawBarrier == expectBarrierExecution)
+      fittedModel
+    } finally {
+      sparkContext.clearJobGroup()
+      sparkContext.removeSparkListener(listener)
+    }
     assert(classifier.getModel.length > 400)
 
     val labelOneCnt = classifier.transform(dataset).select("prediction").filter(_.getDouble(0) == 1.0).count()
@@ -156,11 +209,24 @@ class VerifyVowpalWabbitClassifier extends Benchmarks with EstimatorFuzzing[Vowp
   }
 
   test("Verify VowpalWabbit Classifier can be run with libsvm (barrier mode)") {
-    testVerifyVowpalWabbitClassifierWithLibSVM(true)
+    testVerifyVowpalWabbitClassifierWithLibSVM(
+      useBarrierMode = true,
+      localNumPartitions = numPartitions,
+      expectBarrierExecution = true)
   }
 
   test("Verify VowpalWabbit Classifier can be run with libsvm (no barrier mode)") {
-    testVerifyVowpalWabbitClassifierWithLibSVM(false)
+    testVerifyVowpalWabbitClassifierWithLibSVM(
+      useBarrierMode = false,
+      localNumPartitions = numPartitions,
+      expectBarrierExecution = false)
+  }
+
+  test("Verify VowpalWabbit Classifier skips barrier mode for one partition") {
+    testVerifyVowpalWabbitClassifierWithLibSVM(
+      useBarrierMode = true,
+      localNumPartitions = 1,
+      expectBarrierExecution = false)
   }
 
   test("Verify VowpalWabbit Classifier does not generate duplicate options (short)") {

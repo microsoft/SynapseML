@@ -4,7 +4,7 @@ import styles from './styles.module.css';
 import useDocusaurusContext from '@docusaurus/useDocusaurusContext';
 import {useColorMode} from '@docusaurus/theme-common';
 
-import Highlight, { defaultProps } from "prism-react-renderer";
+import {Highlight} from "prism-react-renderer";
 
 import monokai from "@site/src/plugins/prism_themes/monokai";
 
@@ -38,13 +38,13 @@ function CodeSnippet(props) {
   } = props;
 
   return (
-    <Highlight {...defaultProps} key={mounted} theme={prismTheme} code={snippet} language={lang}>
+    <Highlight key={mounted} theme={prismTheme} code={snippet} language={lang}>
       {({ className, style, tokens, getLineProps, getTokenProps }) => (
         <pre className={`${className} ${styles.codeSnippet}`} style={style}>
           {tokens.map((line, i) => (
-            <div {...getLineProps({ line, key: i })}>
+            <div key={i} {...getLineProps({line})}>
               {line.map((token, key) => (
-                <span {...getTokenProps({ token, key })} />
+                <span key={key} {...getTokenProps({token})} />
               ))}
             </div>
           ))}

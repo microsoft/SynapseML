@@ -1,11 +1,23 @@
 steps:
   - bash: |
-      set -e
-      curl -Os https://cli.codecov.io/latest/linux/codecov
-      chmod +x codecov
+      set -euo pipefail
+      temp_dir="${AGENT_TEMPDIRECTORY:-${TMPDIR:-/tmp}}"
+      codecov_path="$(mktemp "${temp_dir%/}/codecov.XXXXXX")"
+      trap 'rm -f "$codecov_path"' EXIT
+      curl --fail --silent --show-error --location --retry 3 \
+        --proto '=https' --tlsv1.2 \
+        --output "$codecov_path" \
+        "https://cli.codecov.io/${CODECOV_VERSION}/linux/codecov"
+      printf '%s  %s\n' "$CODECOV_SHA256" "$codecov_path" |
+        sha256sum --check --strict
+      chmod +x "$codecov_path"
       echo "Starting Codecov Upload"
-      ./codecov --verbose upload-process -t $(codecov-token) --dir .
-      echo "Codecov Upload Complete" # Ensure that uploading failure does not stop the pipeline
+      "$codecov_path" --verbose upload-process --dir .
+      echo "Codecov Upload Complete"
+    env:
+      CODECOV_TOKEN: $(codecov-token)
+      CODECOV_VERSION: v11.3.1
+      CODECOV_SHA256: ca1d64196d2d34771084afe76ea657d581bf628e31d993ff8e52ea09cc88a56d
     retryCountOnTaskFailure: 1
     displayName: Upload Coverage Report To Codecov.io
     condition: succeededOrFailed()

@@ -1,13 +1,16 @@
-const math = require('remark-math')
-const katex = require('rehype-katex')
 const path = require('path');
+const preprocessLegacyMarkdown = require('./legacyMarkdownPreprocessor');
 let version = "1.1.3";
 
-module.exports = {
+module.exports = async function createConfigAsync() {
+    return {
     title: 'SynapseML',
     tagline: 'Simple and Distributed Machine Learning',
     url: 'https://microsoft.github.io',
     baseUrl: '/SynapseML/',
+    markdown: {
+        preprocessor: preprocessLegacyMarkdown,
+    },
     favicon: 'img/favicon.ico',
     organizationName: 'microsoft',
     projectName: 'SynapseML',
@@ -17,8 +20,8 @@ module.exports = {
     },
     stylesheets: [
         {
-            href: "https://cdn.jsdelivr.net/npm/katex@0.13.11/dist/katex.min.css",
-            integrity: "sha384-Um5gpz1odJg5Z4HAmzPtgZKdTBHZdw8S29IecapCSB31ligYPhHQZMIlWLYQGVoc",
+            href: "https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css",
+            integrity: "sha384-5TcZemv2l/9On385z///+d7MSYlvIEw9FuZTIdZ14vJLqWphw7e7ZPuOiCHJcFCP",
             crossorigin: "anonymous",
         },
     ],
@@ -138,8 +141,8 @@ module.exports = {
             {
                 docs: {
                     sidebarPath: require.resolve('./sidebars.js'),
-                    remarkPlugins: [math],
-                    rehypePlugins: [katex],
+                    remarkPlugins: [(await import('remark-math')).default],
+                    rehypePlugins: [(await import('rehype-katex')).default],
                 },
                 theme: {
                     customCss: require.resolve('./src/css/custom.css'),
@@ -186,7 +189,7 @@ module.exports = {
                         from: '/docs/features/cognitive_services/CognitiveServices%20-%20Overview/',
                     },
                     {
-                        to: '/docs/Explore Algorithms/AI Services/Multivariate Anomaly Detection/',
+                        to: '/docs/Explore Algorithms/Anomaly Detection/Quickstart - Isolation Forests/',
                         from: '/docs/features/isolation_forest/IsolationForest%20-%20Multivariate%20Anomaly%20Detection/',
                     },
                     {
@@ -254,7 +257,7 @@ module.exports = {
                         from: '/docs/features/responsible_ai/Interpretability%20-%20Tabular%20SHAP%20explainer/',
                     },
                     {
-                        to: '/docs/Explore Algorithms/AI Services/Multivariate Anomaly Detection/',
+                        to: '/docs/Explore Algorithms/Anomaly Detection/Quickstart - Isolation Forests/',
                         from: '/docs/features/cognitive_services/CognitiveServices%20-%20Multivariate%20Anomaly%20Detection/',
                     },
                     {
@@ -402,7 +405,7 @@ module.exports = {
                         from: "/docs/0.9.5/features/responsible_ai/Interpretability%20-%20Explanation%20Dashboard/",
                     },
                     {
-                        to: "/docs/Quick Examples/estimators/estimators_cognitive/",
+                        to: "/docs/Quick Examples/transformers/transformers_cognitive/",
                         from: "/docs/documentation/estimators/estimators_cognitive/",
                     },
                     {
@@ -477,4 +480,5 @@ module.exports = {
             },
         ],
     ],
+    };
 };

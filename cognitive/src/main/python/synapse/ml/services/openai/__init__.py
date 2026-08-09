@@ -1,3 +1,6 @@
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See LICENSE in project root for information.
+
 """
 Python surface helpers for synapse.ml.services.openai.
 
@@ -32,9 +35,26 @@ def _export(class_name: str) -> None:
     __all__.append(class_name)
 
 
+if "__getattr__" not in globals():
+
+    def __getattr__(name):
+        if name == "OpenAICompletion":
+            import warnings
+
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", FutureWarning)
+                from synapse.ml.services.openai.OpenAICompletion import (
+                    OpenAICompletion,
+                    warn_openai_completion_deprecated,
+                )
+            warn_openai_completion_deprecated(stacklevel=2)
+            globals()["OpenAICompletion"] = OpenAICompletion
+            return OpenAICompletion
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
 for _cls in (
     "OpenAIChatCompletion",
-    "OpenAICompletion",
     "OpenAIDefaults",
     "OpenAIEmbedding",
     "OpenAIPrompt",

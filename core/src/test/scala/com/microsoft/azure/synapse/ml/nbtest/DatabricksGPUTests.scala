@@ -4,30 +4,43 @@
 package com.microsoft.azure.synapse.ml.nbtest
 
 import com.microsoft.azure.synapse.ml.nbtest.DatabricksUtilities._
+import com.microsoft.azure.synapse.ml.nbtest.DatabricksClusterStartup._
 
-// Split GPU tests into separate classes so they run as parallel ADO matrix entries.
-// Each creates its own cluster because Horovod fine-tuning uses all workers.
+class DatabricksGPUTests extends DatabricksTestHelper {
 
-class DatabricksGPUTests1 extends DatabricksTestHelper {
   private val gpuTimeoutMs = 30 * 60 * 1000
-  private val clusterName = s"mmlspark-build-gpu1-${java.time.LocalDateTime.now()}"
-  val clusterId: String = createClusterInPool(clusterName, AdbGpuRuntime, 2, GpuPoolId)
-  databricksTestHelper(clusterId, GPULibraries, gpuNotebook(0), 1, List(), gpuTimeoutMs)
-  protected override def afterAll(): Unit = { afterAllHelper(clusterId, clusterName); super.afterAll() }
-}
+  private val gpuCapacityWaitMs = 3L * 60 * 60 * 1000
+  private val gpuSmokeTests = sys.env.get("SYNAPSEML_GPU_SMOKE_TESTS").exists(_.equalsIgnoreCase("true"))
+  // Use one worker per run so concurrent builds can share the GPU pool.
+  val clusterId: String = createActiveCluster(
+    attempt => {
+      println(s"Creating GPU cluster startup attempt $attempt with $GpuWorkersPerRun worker(s)")
+      createClusterInPool(
+        GPUClusterName,
+        AdbGpuRuntime,
+        GpuWorkersPerRun,
+        GpuPoolId,
+        driverInstancePoolId = Some(PoolId)
+      )
+    },
+    clusterId => waitForClusterActive(clusterId, getClusterStatus),
+    permanentDeleteCluster,
+    maxAttempts = Int.MaxValue,
+    maxRetryDurationMs = Some(gpuCapacityWaitMs)
+  )
 
-class DatabricksGPUTests2 extends DatabricksTestHelper {
-  private val gpuTimeoutMs = 30 * 60 * 1000
-  private val clusterName = s"mmlspark-build-gpu2-${java.time.LocalDateTime.now()}"
-  val clusterId: String = createClusterInPool(clusterName, AdbGpuRuntime, 2, GpuPoolId)
-  databricksTestHelper(clusterId, GPULibraries, gpuNotebook(1), 1, List(), gpuTimeoutMs)
-  protected override def afterAll(): Unit = { afterAllHelper(clusterId, clusterName); super.afterAll() }
-}
+  databricksTestHelper(
+    clusterId,
+    GPULibraries,
+    GPUNotebooks,
+    1,
+    retries = List(),
+    timeoutMs = gpuTimeoutMs,
+    baseParameters = Map("synapseml_ci_smoke" -> gpuSmokeTests.toString)
+  )
 
-class DatabricksGPUTests3 extends DatabricksTestHelper {
-  private val gpuTimeoutMs = 30 * 60 * 1000
-  private val clusterName = s"mmlspark-build-gpu3-${java.time.LocalDateTime.now()}"
-  val clusterId: String = createClusterInPool(clusterName, AdbGpuRuntime, 2, GpuPoolId)
-  databricksTestHelper(clusterId, GPULibraries, gpuNotebook(2), 1, List(), gpuTimeoutMs)
-  protected override def afterAll(): Unit = { afterAllHelper(clusterId, clusterName); super.afterAll() }
+  protected override def afterAll(): Unit = {
+    afterAllHelper(clusterId, GPUClusterName)
+    super.afterAll()
+  }
 }

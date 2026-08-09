@@ -5,7 +5,7 @@ SynapseML Version Bump Script — Context-Anchored Substitution
 Replaces SynapseML version strings ONLY when they appear within a known
 SynapseML-specific context. A bare version number like "1.1.0" is NEVER
 blindly replaced — every replacement must be anchored by surrounding text
-that proves it refers to SynapseML (e.g., "synapseml_2.12:1.1.0").
+that proves it refers to SynapseML (e.g., "synapseml_2.13:1.1.0").
 
 Designed for fully unattended automated releases. The script will FAIL
 rather than make an ambiguous replacement.
@@ -24,6 +24,7 @@ from typing import List, Optional, Tuple
 # SELF-ANCHORED: pattern contains SynapseML-identifying text. Safe anywhere.
 SELF_ANCHORED = [
     "synapseml_2.12:{V}",
+    "synapseml_2.13:{V}",
     "synapseml=={V}",
     "synapseml-{V}.zip",
     "synapseml:{V}",
@@ -328,7 +329,7 @@ def _run_docusaurus(root, new_v, dry_run):
         print("  Cannot create versioned docs snapshot.", file=sys.stderr)
         return False
 
-    cmd = ["yarn", "run", "docusaurus", "docs:version", new_v]
+    cmd = ["npm", "exec", "--", "docusaurus", "docs:version", new_v]
     if dry_run:
         print(f"[DRY RUN] Would run: {' '.join(cmd)} (in {website})")
         return True
@@ -580,14 +581,14 @@ Examples:
                 print("Version strings updated but convertNotebooks failed.")
                 print("Fix the build issue, then run manually:")
                 print("  sbt convertNotebooks")
-                print("  yarn --cwd website run docusaurus docs:version " + new_v)
+                print("  npm --prefix website exec -- docusaurus docs:version " + new_v)
                 sys.exit(1)
             if not _run_docusaurus(root, new_v, dry_run=False):
                 print(
                     "Version strings updated and docs generated, but versioning failed."
                 )
                 print(
-                    "Run manually: yarn --cwd website run docusaurus docs:version "
+                    "Run manually: npm --prefix website exec -- docusaurus docs:version "
                     + new_v
                 )
                 sys.exit(1)

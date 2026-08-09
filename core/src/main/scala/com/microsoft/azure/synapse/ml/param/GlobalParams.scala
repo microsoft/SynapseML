@@ -10,34 +10,31 @@ import scala.collection.mutable
 trait GlobalKey[T]
 
 object GlobalParams {
-  private val ParamToKeyMap: mutable.Map[Any, GlobalKey[_]] = mutable.Map.empty
-  private val GlobalParams: mutable.Map[GlobalKey[_], Any] = mutable.Map.empty
+  private val ParamToKeyMap: mutable.Map[Any, GlobalKey[Any]] = mutable.Map.empty
+  private val GlobalParams: mutable.Map[GlobalKey[Any], Any] = mutable.Map.empty
 
+  private def untypedKey[T](key: GlobalKey[T]): GlobalKey[Any] = {
+    key.asInstanceOf[GlobalKey[Any]]
+  }
 
   def setGlobalParam[T](key: GlobalKey[T], value: T): Unit = {
-    GlobalParams(key) = value
+    GlobalParams(untypedKey(key)) = value
   }
 
   def getGlobalParam[T](key: GlobalKey[T]): Option[T] = {
-    GlobalParams.get(key.asInstanceOf[GlobalKey[Any]]).map(_.asInstanceOf[T])
+    GlobalParams.get(untypedKey(key)).map(_.asInstanceOf[T])
   }
 
   def resetGlobalParam[T](key: GlobalKey[T]): Unit = {
-    GlobalParams -= key
+    GlobalParams -= untypedKey(key)
   }
 
   def getParam[T](p: Param[T]): Option[T] = {
-    ParamToKeyMap.get(p).flatMap { key =>
-      key match {
-        case k: GlobalKey[T] =>
-          getGlobalParam(k)
-        case _ => None
-      }
-    }
+    ParamToKeyMap.get(p).flatMap(GlobalParams.get).map(_.asInstanceOf[T])
   }
 
   def registerParam[T](p: Param[T], key: GlobalKey[T]): Unit = {
-    ParamToKeyMap(p) = key
+    ParamToKeyMap(p) = untypedKey(key)
   }
 }
 
