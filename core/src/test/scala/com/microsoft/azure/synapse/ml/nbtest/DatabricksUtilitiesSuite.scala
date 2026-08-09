@@ -544,6 +544,8 @@ class DatabricksUtilitiesSuite extends AnyFunSuite {
     assert(packages.contains("huggingface-hub==0.26.0"))
     assert(packages.contains("sentence-transformers==4.0.2"))
     assert(packages.contains("accelerate==0.26.0"))
+    assert(!packages.exists(_.startsWith("torch==")))
+    assert(!packages.exists(_.startsWith("torchvision==")))
   }
 
   test("Select all GPU notebooks in deterministic order") {

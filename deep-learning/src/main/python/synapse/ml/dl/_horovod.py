@@ -19,6 +19,9 @@ SparkBackendBase: Optional[Type[object]]
 
 if _module_available("horovod"):
     try:
+        from synapse.ml.dl._petastorm_compat import ensure_petastorm_compatibility
+
+        ensure_petastorm_compatibility()
         import horovod  # type: ignore
 
         if horovod.__version__ != _REQUIRED_VERSION:  # type: ignore[attr-defined]
