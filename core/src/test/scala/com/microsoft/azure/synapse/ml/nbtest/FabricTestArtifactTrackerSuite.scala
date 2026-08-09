@@ -62,9 +62,16 @@ class FabricTestArtifactTrackerSuite extends AnyFunSuite {
   test("Recognize only SynapseML Fabric test artifact names") {
     assert(FabricNotebookTests.isTestArtifactName("Lakehouse20260808010917"))
     assert(FabricNotebookTests.isTestArtifactName(
+      "Lakehouse20260808010917-0123456789abcdef0123456789abcdef"))
+    assert(FabricNotebookTests.isTestArtifactName(
       "ExploreAlgorithmsRegressionQuickstartTrainRegressor-20260808-01-09-17"))
+    assert(FabricNotebookTests.isTestArtifactName(
+      "ExploreAlgorithmsRegressionQuickstartTrainRegressor-20260808-01-09-17-" +
+        "0123456789abcdef0123456789abcdef"))
     assert(FabricNotebookTests.isTestArtifactName("OnePlusOne-20260808-01-09-17"))
     assert(!FabricNotebookTests.isTestArtifactName("LakehouseForManualTesting"))
+    assert(!FabricNotebookTests.isTestArtifactName(
+      "Lakehouse20260808010917-not-a-unique-id"))
     assert(!FabricNotebookTests.isTestArtifactName(
       "ExploreAlgorithmsAdHocNotebook-20260808-01-09-17"))
     assert(!FabricNotebookTests.isTestArtifactName("CustomerNotebook-20260808-01-09-17"))

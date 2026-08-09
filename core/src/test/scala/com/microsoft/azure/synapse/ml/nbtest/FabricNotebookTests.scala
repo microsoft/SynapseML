@@ -176,8 +176,9 @@ object FabricNotebookTests {
   )
 
   private val ExecutorShutdownTimeoutSeconds = 30L
-  private val StoreArtifactName = "^(Lakehouse|Warehouse)\\d{14}$".r
-  private val SJDArtifactName = "^(.+)-\\d{8}-\\d{2}-\\d{2}-\\d{2}$".r
+  private val UniqueArtifactSuffix = "(?:-[0-9a-fA-F]{32})?"
+  private val StoreArtifactName = s"^(Lakehouse|Warehouse)\\d{14}$UniqueArtifactSuffix$$".r
+  private val SJDArtifactName = s"^(.+)-\\d{8}-\\d{2}-\\d{2}-\\d{2}$UniqueArtifactSuffix$$".r
   private val TestSJDNames = (IncludedNotebooks :+ "OnePlusOne").toSet
 
   private[nbtest] def shutdownExecutor(executorService: ExecutorService): Unit = {
