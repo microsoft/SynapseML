@@ -12,6 +12,7 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 BUILD_SBT = REPO_ROOT / "build.sbt"
+PLUGINS_SBT = REPO_ROOT / "project" / "plugins.sbt"
 PIPELINE = REPO_ROOT / "pipeline.yaml"
 SBT_CACHE_TPL = REPO_ROOT / "templates" / "sbt_cache.yml"
 SBT_RETRY = REPO_ROOT / "tools" / "ci" / "sbt_retry.sh"
@@ -218,7 +219,20 @@ def test_spark41_ci_uses_supported_runtime():
         data["variables"]["JAVA_TOOL_OPTIONS"]
         == "--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED"
     )
+    assert 'addSbtPlugin("org.scoverage" % "sbt-scoverage" % "2.4.0")' in (
+        PLUGINS_SBT.read_text()
+    )
     assert jobs["FabricE2E"]["condition"] is False
+
+    python_steps = jobs["PythonTests"]["steps"]
+    python_test = next(
+        step for step in python_steps if step.get("displayName") == "Test Python Code"
+    )
+    python_script = python_test["inputs"]["inlineScript"]
+    assert "$(IGNORE_TEST_PATH)" not in python_script
+    assert "$(TEST_SUB_PATH)" not in python_script
+    assert "${IGNORE_TEST_PATH:-}" in python_script
+    assert "${TEST_SUB_PATH:-}" in python_script
 
     r_steps = jobs["RTests"]["steps"]
     prepare = next(

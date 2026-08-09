@@ -330,6 +330,12 @@ class DatabricksUtilitiesSuite extends AnyFunSuite {
       s"expected at least ${DatabricksUtilities.GpuPoolMinimumCapacity}"))
   }
 
+  test("Reuse the migrated T4 pool with the Spark 4.1 Databricks runtime") {
+    assert(DatabricksUtilities.PoolName === "synapseml-build-18.0")
+    assert(DatabricksUtilities.GpuPoolName === "synapseml-build-14.3-gpu")
+    assert(DatabricksUtilities.AdbGpuRuntime === "18.0.x-gpu-ml-scala2.13")
+  }
+
   test("Parse Databricks cluster termination details") {
     val status = DatabricksClusterStartup.parseClusterStatus(
       """
