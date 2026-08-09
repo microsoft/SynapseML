@@ -183,6 +183,31 @@ def test_databricks_e2e_uses_fail_open_pr_impact_detection():
     assert any(step.get("displayName") == "Publish Test Results" for step in steps)
 
 
+def test_fabric_e2e_cleans_stale_artifacts_before_running_tests():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+    fabric_e2e = jobs["FabricE2E"]
+    e2e_steps = [
+        step
+        for step in fabric_e2e["steps"]
+        if isinstance(step, dict) and step.get("displayName") == "E2E"
+    ]
+    assert len(e2e_steps) == 1
+
+    script = e2e_steps[0]["inputs"]["inlineScript"]
+    cleanup_command = (
+        '"testOnly com.microsoft.azure.synapse.ml.nbtest.FabricTestCleanup"'
+    )
+    test_command = (
+        '"testOnly com.microsoft.azure.synapse.ml.nbtest.FabricSmokeTests '
+        'com.microsoft.azure.synapse.ml.nbtest.FabricNotebookTests"'
+    )
+    assert script.count("sbt ") == 1
+    assert cleanup_command in script
+    assert test_command in script
+    assert script.index(cleanup_command) < script.index(test_command)
+
+
 def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
     data = yaml.safe_load(_pipeline_text())
     jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
