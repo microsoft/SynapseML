@@ -22,7 +22,7 @@ class FabricArtifactNamesSuite extends AnyFunSuite {
   test("Add a unique suffix to store artifact names") {
     assert(
       FabricArtifactNames.store("Lakehouse", testTime, testId) ==
-        "Lakehouse20260809021835-0123456789abcdef0123456789abcdef")
+        "Lakehouse202608090218350123456789abcdef0123456789abcdef")
   }
 
   test("Distinguish artifacts created with the same timestamp") {

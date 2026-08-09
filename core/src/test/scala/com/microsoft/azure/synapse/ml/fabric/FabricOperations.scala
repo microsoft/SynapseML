@@ -45,7 +45,7 @@ private[fabric] object FabricArtifactNames {
     s"$runName-${SjdTimestampFormat.format(now)}-${compact(uniqueId)}"
 
   private[fabric] def store(storeName: String, now: LocalDateTime, uniqueId: UUID): String =
-    s"$storeName${StoreTimestampFormat.format(now)}-${compact(uniqueId)}"
+    s"$storeName${StoreTimestampFormat.format(now)}${compact(uniqueId)}"
 
   private def compact(uniqueId: UUID): String = uniqueId.toString.replace("-", "")
 }
