@@ -12,14 +12,16 @@ import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
 import com.microsoft.azure.synapse.ml.nbtest.DatabricksUtilities.{TimeoutInMillis, monitorJob}
 import com.microsoft.azure.synapse.ml.nbtest.SprayImplicits._
 import org.apache.commons.io.IOUtils
-import org.apache.http.client.methods.{HttpGet, HttpPost}
+import org.apache.http.client.config.RequestConfig
+import org.apache.http.client.methods.{HttpGet, HttpPost, HttpRequestBase}
 import org.apache.http.entity.StringEntity
 import org.sparkproject.guava.io.BaseEncoding
 import spray.json.DefaultJsonProtocol._
 import spray.json.{JsArray, JsObject, JsValue, _}
 
 import java.io.{File, FileInputStream}
-import java.time.LocalDateTime
+import java.time.{Instant, LocalDateTime}
+import java.util.Locale
 import java.util.concurrent.{Executors, TimeUnit, TimeoutException}
 import scala.collection.mutable
 import scala.concurrent.duration.Duration
@@ -33,19 +35,146 @@ object DatabricksUtilities {
   // ADB Info
   val Region = "eastus"
   val PoolName = "synapseml-build-18.0"
-  val GpuPoolName = "synapseml-build-18.0-gpu"
+  // Instance pools are runtime-agnostic, so Spark 4.1 shares the migrated T4 pool instead of duplicating GPU quota.
+  val GpuPoolName = "synapseml-build-14.3-gpu"
+  private[nbtest] val GpuPoolNodeType = "Standard_NC16as_T4_v3"
+  private[nbtest] val GpuWorkersPerRun = 1
+  private[nbtest] val GpuConcurrentRuns = 3
+  private[nbtest] val GpuPoolMinimumCapacity = GpuWorkersPerRun * GpuConcurrentRuns
   val AdbRuntime = "18.0.x-scala2.13"
   // https://docs.databricks.com/en/release-notes/runtime/18.0.html
   val AdbGpuRuntime = "18.0.x-gpu-ml-scala2.13"
   val NumWorkers = 5
   val AutoTerminationMinutes = 15
 
-  lazy val Token: String = sys.env.getOrElse("MML_ADB_TOKEN", Secrets.AdbToken)
-  lazy val AuthValue: String = "Basic " + BaseEncoding.base64()
-    .encode(("token:" + Token).getBytes("UTF-8"))
+  private[nbtest] val AadAuthType = "aad"
+  private[nbtest] val PatAuthType = "pat"
+  private[nbtest] val DatabricksAadResource = "2ff814a6-3304-4ab8-85cb-cd0e6f879c1d"
+  private[nbtest] val AzureManagementResource = "https://management.core.windows.net/"
+  private[nbtest] val AadWorkspaceHost = "adb-1885762835647850.10.azuredatabricks.net"
+  private[nbtest] val AadWorkspaceResourceId =
+    "/subscriptions/e342c2c0-f844-4b18-9208-52c8c234c30e/resourceGroups/" +
+      "marhamil-mmlspark/providers/Microsoft.Databricks/workspaces/synapseml-build-adb"
+  private val TokenRefreshBufferSeconds = 5 * 60L
+
+  private[nbtest] final case class WorkspaceConfig(host: String, resourceId: String)
+
+  private[nbtest] final class AadHeaderCache(
+      tokenProvider: String => Secrets.ExpiringAccessToken,
+      workspaceConfig: () => WorkspaceConfig,
+      clock: () => Instant = () => Instant.now()) {
+
+    @volatile private var cachedHeaders: Option[(Instant, Seq[(String, String)])] = None
+
+    def getValidHeaders(): Seq[(String, String)] = synchronized {
+      val config = workspaceConfig()
+      val now = clock()
+      cachedHeaders.filter { case (expiresAt, _) => hasSufficientTokenLifetime(expiresAt, now) }
+        .map(_._2)
+        .getOrElse {
+          val databricksToken = requireToken(tokenProvider(DatabricksAadResource), "Databricks")
+          val managementToken = requireToken(tokenProvider(AzureManagementResource), "Azure management")
+          val expiresAt = if (databricksToken.expiresAt.isBefore(managementToken.expiresAt)) {
+            databricksToken.expiresAt
+          } else {
+            managementToken.expiresAt
+          }
+          val headers = aadAuthHeaderValues(
+            databricksToken.value,
+            managementToken.value,
+            config.resourceId
+          )
+          cachedHeaders = Some(expiresAt -> headers)
+          headers
+        }
+    }
+
+    private def requireToken(token: Secrets.ExpiringAccessToken, name: String): Secrets.ExpiringAccessToken = {
+      if (token.value.trim.isEmpty) {
+        throw new IllegalStateException(s"$name access token was empty")
+      }
+      token
+    }
+  }
+
+  private lazy val AuthType: String =
+    sys.env.getOrElse("MML_ADB_AUTH_TYPE", PatAuthType).toLowerCase(Locale.ROOT)
+
+  private def requiredEnv(environment: Map[String, String], name: String): String = {
+    environment.get(name).map(_.trim).filter(_.nonEmpty).getOrElse {
+      throw new IllegalArgumentException(s"$name must be set when MML_ADB_AUTH_TYPE=$AadAuthType")
+    }
+  }
+
+  private[nbtest] def aadWorkspaceConfig(environment: Map[String, String]): WorkspaceConfig = {
+    val host = requiredEnv(environment, "MML_ADB_WORKSPACE_HOST")
+    val resourceId = requiredEnv(environment, "MML_ADB_WORKSPACE_RESOURCE_ID")
+    if (host != AadWorkspaceHost || resourceId != AadWorkspaceResourceId) {
+      throw new IllegalArgumentException(
+        "Databricks AAD authentication is restricted to the trusted SynapseML build workspace")
+    }
+    WorkspaceConfig(host, resourceId)
+  }
+
+  private lazy val TrustedAadWorkspace = aadWorkspaceConfig(sys.env)
+
+  private[nbtest] def hasSufficientTokenLifetime(expiresAt: Instant, now: Instant): Boolean = {
+    expiresAt.isAfter(now.plusSeconds(TokenRefreshBufferSeconds))
+  }
+
+  private[nbtest] def aadAuthHeaderValues(
+      databricksToken: String,
+      managementToken: String,
+      resourceId: String): Seq[(String, String)] = {
+    Seq(
+      "Authorization" -> s"Bearer $databricksToken",
+      "X-Databricks-Azure-SP-Management-Token" -> managementToken,
+      "X-Databricks-Azure-Workspace-Resource-Id" -> resourceId
+    )
+  }
+
+  private val AadHeaders = new AadHeaderCache(
+    Secrets.getAccessTokenWithExpiry,
+    () => TrustedAadWorkspace
+  )
+
+  private def aadAuthHeaders: Seq[(String, String)] = AadHeaders.getValidHeaders()
+
+  private lazy val PatAuthHeaders: Seq[(String, String)] = {
+    val token = sys.env.getOrElse("MML_ADB_TOKEN", Secrets.AdbToken)
+    val authValue = "Basic " + BaseEncoding.base64()
+      .encode(("token:" + token).getBytes("UTF-8"))
+    Seq("Authorization" -> authValue)
+  }
+
+  private[nbtest] def selectAuthHeaders(
+      authType: String,
+      aadHeaders: => Seq[(String, String)],
+      patHeaders: => Seq[(String, String)]): Seq[(String, String)] = authType match {
+    case AadAuthType => aadHeaders
+    case PatAuthType => patHeaders
+    case other =>
+      throw new IllegalArgumentException(
+        s"Unsupported MML_ADB_AUTH_TYPE '$other'. Expected '$AadAuthType' or '$PatAuthType'.")
+  }
+
+  private def authHeaders: Seq[(String, String)] = {
+    selectAuthHeaders(AuthType, aadAuthHeaders, PatAuthHeaders)
+  }
+
+  private[nbtest] def disableRedirects(request: HttpRequestBase): Unit = {
+    val currentConfig = Option(request.getConfig).getOrElse(RESTHelpers.RequestConfigVal)
+    request.setConfig(RequestConfig.copy(currentConfig).setRedirectsEnabled(false).build())
+  }
+
+  private def addAuthHeaders(request: HttpRequestBase): Unit = {
+    disableRedirects(request)
+    authHeaders.foreach { case (name, value) => request.addHeader(name, value) }
+  }
 
   lazy val PoolId: String = getPoolIdByName(PoolName)
-  lazy val GpuPoolId: String = getPoolIdByName(GpuPoolName)
+  lazy val GpuPoolId: String =
+    getPoolIdByNameAndNodeType(GpuPoolName, GpuPoolNodeType, GpuPoolMinimumCapacity)
   lazy val ClusterName = s"mmlspark-build-${LocalDateTime.now()}"
   lazy val GPUClusterName = s"mmlspark-build-gpu-${LocalDateTime.now()}"
   lazy val RapidsClusterName = s"mmlspark-build-rapids-${LocalDateTime.now()}"
@@ -61,8 +190,11 @@ object DatabricksUtilities {
     "onnxmltools==1.7.0",
     "lightgbm",
     "mlflow==2.21.3",
-    "openai==0.28.1",
-    "langchain==0.0.331",
+    "langchain==1.3.14",
+    "langchain-classic==1.0.8",
+    "langchain-community==0.4.2",
+    "langchain-openai==1.4.0",
+    "openai==2.47.0",
     "pdf2image",
     "pdfminer.six",
     "sqlparse",
@@ -73,7 +205,19 @@ object DatabricksUtilities {
     "pytesseract"
   )
 
-  def baseURL(apiVersion: String): String = s"https://$Region.azuredatabricks.net/api/$apiVersion/"
+  private[nbtest] def workspaceHost(authType: String, aadHost: => String): String = {
+    authType match {
+      case AadAuthType => aadHost
+      case PatAuthType => s"$Region.azuredatabricks.net"
+      case other =>
+        throw new IllegalArgumentException(
+          s"Unsupported MML_ADB_AUTH_TYPE '$other'. Expected '$AadAuthType' or '$PatAuthType'.")
+    }
+  }
+
+  def baseURL(apiVersion: String): String = {
+    s"https://${workspaceHost(AuthType, TrustedAadWorkspace.host)}/api/$apiVersion/"
+  }
 
   val Libraries: String = (
     List(Map("maven" -> Map("coordinates" -> PackageMavenCoordinate, "repo" -> PackageRepository))) ++
@@ -84,8 +228,9 @@ object DatabricksUtilities {
   val GPULibraries: String = List(
     Map("maven" -> Map("coordinates" -> PackageMavenCoordinate, "repo" -> PackageRepository)),
     Map("pypi" -> Map("package" -> "pytorch-lightning==1.5.0")),
-    Map("pypi" -> Map("package" -> "torchvision==0.17.0")),
     Map("pypi" -> Map("package" -> "transformers==4.49.0")),
+    Map("pypi" -> Map("package" -> "huggingface-hub==0.26.0")),
+    Map("pypi" -> Map("package" -> "sentence-transformers==4.0.2")),
     Map("pypi" -> Map("package" -> "jinja2==3.1.6")),
     Map("pypi" -> Map("package" -> "petastorm==0.12.1")),
     Map("pypi" -> Map("package" -> "protobuf==5.29.4")),
@@ -113,7 +258,6 @@ object DatabricksUtilities {
     .filterNot(_.getAbsolutePath.contains("GPU"))
     .filterNot(_.getAbsolutePath.contains("Phi Model"))
     .filterNot(_.getAbsolutePath.contains("Language Model"))
-    .filterNot(_.getAbsolutePath.contains("Multivariate Anomaly Detection")) // Deprecated
     .filterNot(_.getAbsolutePath.contains("Audiobooks")) // TODO Remove this by fixing auth
     .filterNot(_.getAbsolutePath.contains("Art")) // TODO Remove this by fixing performance
     .filterNot(_.getAbsolutePath.contains("Explanation Dashboard")) // TODO Remove this exclusion
@@ -142,17 +286,15 @@ object DatabricksUtilities {
 
   val GPUNotebooks: Seq[File] = ParallelizableNotebooks.filter { file =>
     file.getAbsolutePath.contains("Fine-tune") || file.getAbsolutePath.contains("Phi Model")
-  }
+  }.sortBy(_.getAbsolutePath)
 
-  private val SortedGPUNotebooks = GPUNotebooks.sortBy(_.getAbsolutePath)
-
-  def gpuNotebook(index: Int): Seq[File] = Seq(SortedGPUNotebooks(index))
+  def gpuNotebook(index: Int): Seq[File] = Seq(GPUNotebooks(index))
 
   val RapidsNotebooks: Seq[File] = ParallelizableNotebooks.filter(_.getAbsolutePath.contains("GPU"))
 
   def databricksGet(path: String, apiVersion: String = "2.0"): JsValue = {
     val request = new HttpGet(baseURL(apiVersion) + path)
-    request.addHeader("Authorization", AuthValue)
+    addAuthHeaders(request)
     val random = new Random() // Use a jittered retry to avoid overwhelming
     RESTHelpers.sendAndParseJson(request, backoffs = List.fill(3) {
       1000 + random.nextInt(1000)
@@ -162,7 +304,7 @@ object DatabricksUtilities {
   //TODO convert all this to typed code
   def databricksPost(path: String, body: String, apiVersion: String = "2.0"): JsValue = {
     val request = new HttpPost(baseURL(apiVersion) + path)
-    request.addHeader("Authorization", AuthValue)
+    addAuthHeaders(request)
     request.setEntity(new StringEntity(body))
     RESTHelpers.sendAndParseJson(request)
   }
@@ -176,9 +318,61 @@ object DatabricksUtilities {
 
   def getPoolIdByName(name: String): String = {
     val jsonObj = databricksGet("instance-pools/list", apiVersion = "2.0")
-    val cluster = jsonObj.select[Array[JsValue]]("instance_pools")
-      .filter(_.select[String]("instance_pool_name") == name).head
-    cluster.select[String]("instance_pool_id")
+    selectPoolId(jsonObj, name, None)
+  }
+
+  private def getPoolIdByNameAndNodeType(
+      name: String,
+      nodeType: String,
+      minimumCapacity: Int): String = {
+    val jsonObj = databricksGet("instance-pools/list", apiVersion = "2.0")
+    selectPoolId(jsonObj, name, Some(nodeType), Some(minimumCapacity))
+  }
+
+  private[nbtest] def selectPoolId(
+      jsonObj: JsValue,
+      name: String,
+      expectedNodeType: Option[String],
+      expectedMinimumCapacity: Option[Int] = None): String = {
+    val namedPools = jsonObj.select[Array[JsValue]]("instance_pools")
+      .filter(_.select[String]("instance_pool_name") == name)
+    if (namedPools.isEmpty) {
+      throw new IllegalArgumentException(s"Databricks instance pool '$name' was not found")
+    }
+
+    val nodeTypePools = expectedNodeType match {
+      case Some(expected) =>
+        val matchingPools = namedPools.filter(_.select[String]("node_type_id") == expected)
+        if (matchingPools.isEmpty) {
+          val actualNodeTypes = namedPools
+            .map(_.select[String]("node_type_id"))
+            .distinct
+            .sorted
+            .map(nodeType => s"'$nodeType'")
+            .mkString(", ")
+          throw new IllegalArgumentException(
+            s"Databricks instance pool '$name' uses node type(s) $actualNodeTypes; expected '$expected'")
+        }
+        matchingPools
+      case None => namedPools
+    }
+    val capacityPools = expectedMinimumCapacity match {
+      case Some(expected) =>
+        val matchingPools = nodeTypePools.filter(_.select[Int]("max_capacity") >= expected)
+        if (matchingPools.isEmpty) {
+          val actualCapacities = nodeTypePools
+            .map(_.select[Int]("max_capacity"))
+            .distinct
+            .sorted
+            .mkString(", ")
+          throw new IllegalArgumentException(
+            s"Databricks instance pool '$name' has maximum capacity value(s) $actualCapacities; " +
+              s"expected at least $expected")
+        }
+        matchingPools
+      case None => nodeTypePools
+    }
+    capacityPools.head.select[String]("instance_pool_id")
   }
 
   def workspaceMkDir(dir: String): Unit = {
@@ -229,8 +423,26 @@ object DatabricksUtilities {
                           numWorkers: Int,
                           poolId: String,
                           initScripts: String = "[]",
-                          memory: Option[String] = None): String = {
+                          memory: Option[String] = None,
+                          driverInstancePoolId: Option[String] = None): String = {
+    databricksPost("clusters/create", createClusterRequest(
+      clusterName,
+      sparkVersion,
+      numWorkers,
+      poolId,
+      initScripts,
+      memory,
+      driverInstancePoolId
+    )).select[String]("cluster_id")
+  }
 
+  private[nbtest] def createClusterRequest(clusterName: String,
+                                           sparkVersion: String,
+                                           numWorkers: Int,
+                                           poolId: String,
+                                           initScripts: String = "[]",
+                                           memory: Option[String] = None,
+                                           driverInstancePoolId: Option[String] = None): String = {
     val memoryConf = memory.map { m =>
       s"""
          |"spark.executor.memory": "$m",
@@ -238,25 +450,28 @@ object DatabricksUtilities {
          |""".stripMargin
     }.getOrElse("")
 
-    val body =
-      s"""
-         |{
-         |  "cluster_name": "$clusterName",
-         |  "spark_version": "$sparkVersion",
-         |  "num_workers": $numWorkers,
-         |  "autotermination_minutes": $AutoTerminationMinutes,
-         |  "instance_pool_id": "$poolId",
-         |  "spark_conf": {
-         |        $memoryConf
-         |        "spark.sql.shuffle.partitions": "auto"
-         |  },
-         |  "spark_env_vars": {
-         |     "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
-         |   },
-         |  "init_scripts": $initScripts
-         |}
-      """.stripMargin
-    databricksPost("clusters/create", body).select[String]("cluster_id")
+    val driverPoolConf = driverInstancePoolId
+      .map(id => s""""driver_instance_pool_id": "$id",""")
+      .getOrElse("")
+
+    s"""
+      |{
+      |  "cluster_name": "$clusterName",
+      |  "spark_version": "$sparkVersion",
+      |  "num_workers": $numWorkers,
+      |  "autotermination_minutes": $AutoTerminationMinutes,
+      |  "instance_pool_id": "$poolId",
+      |  $driverPoolConf
+      |  "spark_conf": {
+      |        $memoryConf
+      |        "spark.sql.shuffle.partitions": "auto"
+      |  },
+      |  "spark_env_vars": {
+      |     "PYSPARK_PYTHON": "/databricks/python3/bin/python3"
+      |   },
+      |  "init_scripts": $initScripts
+      |}
+     """.stripMargin
   }
 
   def installLibraries(clusterId: String, libraries: String): Unit = {
@@ -298,28 +513,42 @@ object DatabricksUtilities {
     ()
   }
 
-  def submitRun(clusterId: String, notebookPath: String,
-                timeoutSeconds: Int = TimeoutInMillis / 1000): Long = {
-    val body =
-      s"""
-         |{
-         |  "run_name": "test1",
-         |  "existing_cluster_id": "$clusterId",
-         |  "timeout_seconds": $timeoutSeconds,
-         |  "notebook_task": {
-         |    "notebook_path": "$notebookPath",
-         |    "base_parameters": []
-         |  }
-         |}
-      """.stripMargin
+  private[nbtest] def getClusterStatus(clusterId: String): DatabricksClusterStartup.ClusterStatus = {
+    DatabricksClusterStartup.parseClusterStatus(databricksGet(s"clusters/get?cluster_id=$clusterId"))
+  }
+
+  private[nbtest] def createSubmitRunRequest(
+      clusterId: String,
+      notebookPath: String,
+      timeoutSeconds: Int,
+      baseParameters: Map[String, String]): String = {
+    val baseParametersJson = baseParameters.toJson.compactPrint
+    s"""
+      |{
+      |  "run_name": "test1",
+      |  "existing_cluster_id": "$clusterId",
+      |  "timeout_seconds": $timeoutSeconds,
+      |  "notebook_task": {
+      |    "notebook_path": "$notebookPath",
+      |    "base_parameters": $baseParametersJson
+      |  }
+      |}
+     """.stripMargin
+  }
+
+  def submitRun(
+      clusterId: String,
+      notebookPath: String,
+      timeoutSeconds: Int = TimeoutInMillis / 1000,
+      baseParameters: Map[String, String] = Map.empty): Long = {
+    val body = createSubmitRunRequest(clusterId, notebookPath, timeoutSeconds, baseParameters)
     databricksPost("jobs/runs/submit", body).select[Long]("run_id")
   }
 
   def isClusterActive(clusterId: String): Boolean = {
-    val clusterObj = databricksGet(s"clusters/get?cluster_id=$clusterId")
-    val state = clusterObj.select[String]("state")
-    println(s"Cluster State: $state")
-    state == "RUNNING"
+    val status = getClusterStatus(clusterId)
+    println(s"Cluster State: ${status.state}")
+    status.state == "RUNNING"
   }
 
   def areLibrariesInstalled(clusterId: String): Boolean = {
@@ -393,15 +622,18 @@ object DatabricksUtilities {
     }
   }
 
-  def runNotebook(clusterId: String, notebookFile: File,
-                  timeoutSeconds: Int = TimeoutInMillis / 1000): Unit = {
+  def runNotebook(
+      clusterId: String,
+      notebookFile: File,
+      timeoutSeconds: Int = TimeoutInMillis / 1000,
+      baseParameters: Map[String, String] = Map.empty): Unit = {
     val dirPaths = DocsDir.toURI.relativize(notebookFile.getParentFile.toURI).getPath
     val folderToCreate = Folder + "/" + dirPaths
     println(s"Creating folder $folderToCreate")
     workspaceMkDir(folderToCreate)
     val destination: String = folderToCreate + notebookFile.getName
     uploadNotebook(notebookFile, destination)
-    val runId: Long = submitRun(clusterId, destination, timeoutSeconds)
+    val runId: Long = submitRun(clusterId, destination, timeoutSeconds, baseParameters)
     val run: DatabricksNotebookRun = DatabricksNotebookRun(runId, notebookFile.getName, timeoutSeconds * 1000)
     println(s"Successfully submitted job run id ${run.runId} for notebook ${run.notebookName}")
     DatabricksState.JobIdsToCancel.append(run.runId)
@@ -467,13 +699,12 @@ abstract class DatabricksTestHelper extends TestBase {
                            notebooks: Seq[File],
                            maxConcurrency: Int,
                            retries: List[Int] = List(1000 * 15),
-                           timeoutMs: Int = TimeoutInMillis): Unit = {
+                           timeoutMs: Int = TimeoutInMillis,
+                           baseParameters: Map[String, String] = Map.empty): Unit = {
 
     println("Checking if cluster is active")
     // Pool-backed clusters start in ~1.5-3.5 min; allow up to 10 min
-    tryWithRetries(Seq.fill(60 * 10)(1000).toArray) { () =>
-      assert(isClusterActive(clusterId))
-    }
+    DatabricksClusterStartup.waitForClusterActive(clusterId, getClusterStatus)
 
     Thread.sleep(1000) // Ensure cluster is not overwhelmed
     println("Installing libraries")
@@ -491,13 +722,13 @@ abstract class DatabricksTestHelper extends TestBase {
     val futures = notebooks.map { notebook =>
       Future {
         retry(retries, { () =>
-          runNotebook(clusterId, notebook, timeoutMs / 1000)
+          runNotebook(clusterId, notebook, timeoutMs / 1000, baseParameters)
         })
       }
     }
     futures.zip(notebooks).foreach { case (f, nb) =>
       test(nb.getName) {
-        Await.result(f, Duration(timeoutMs.toLong, TimeUnit.MILLISECONDS))
+        Await.result(f, Duration(timeoutMs.toLong + 2 * 60 * 1000, TimeUnit.MILLISECONDS))
       }
     }
 

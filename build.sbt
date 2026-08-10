@@ -60,6 +60,10 @@ val extraDependencies = Seq(
   "org.apache.httpcomponents.client5" % "httpclient5" % "5.1.3",
   "org.apache.httpcomponents" % "httpmime" % "4.5.13",
   "com.linkedin.isolation-forest" %% "isolation-forest_4.1.1" % "4.0.11"
+    exclude("org.apache.spark", s"spark-avro_$scalaMajorVersion")
+    exclude("org.apache.spark", s"spark-core_$scalaMajorVersion")
+    exclude("org.apache.spark", s"spark-mllib_$scalaMajorVersion")
+    exclude("org.apache.spark", s"spark-sql_$scalaMajorVersion")
 ).map(d => d excludeAll (excludes: _*))
 val dependencies = coreDependencies ++ extraDependencies
 
@@ -174,7 +178,7 @@ packageSynapseML := {
          |    long_description="SynapseML contains Microsoft's open source "
          |                     + "contributions to the Apache Spark ecosystem",
          |    license="MIT",
-         |    packages=find_namespace_packages(include=['synapse.ml.*']),
+         |    packages=find_namespace_packages(include=['synapse.ml', 'synapse.ml.*']),
          |    url="https://github.com/Microsoft/SynapseML",
          |    author="Microsoft",
          |    author_email="synapseml-support@microsoft.com",
@@ -493,6 +497,6 @@ val testWebsiteDocs = TaskKey[Unit]("testWebsiteDocs",
   "test code blocks inside markdowns under folder website/docs/documentation")
 testWebsiteDocs := {
   runCmd(
-    Seq("python", s"${join(baseDirectory.value, "website/doctest.py")}", version.value)
+    activateCondaEnv ++ Seq("python", s"${join(baseDirectory.value, "website/doctest.py")}", version.value)
   )
 }

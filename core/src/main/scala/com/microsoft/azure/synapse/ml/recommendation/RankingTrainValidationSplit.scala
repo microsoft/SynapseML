@@ -13,14 +13,13 @@ import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{Model, _}
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.{collect_list, rank => r, _}
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.types.{IntegerType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset}
 
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
-import scala.util.Random
 
 class RankingTrainValidationSplit(override val uid: String) extends Estimator[RankingTrainValidationSplitModel]
   with RankingTrainValidationSplitParams with Wrappable with ComplexParamsWritable
@@ -168,75 +167,58 @@ class RankingTrainValidationSplit(override val uid: String) extends Estimator[Ra
   def filterRatings(dataset: Dataset[_]): DataFrame = filterByUserRatingCount(dataset)
     .join(filterByItemCount(dataset), $(userCol))
 
-  def splitDF(dataset: DataFrame): Array[DataFrame] = {  //scalastyle:ignore method.length
-    val shuffleFlag = true
-    val shuffleBC = dataset.sparkSession.sparkContext.broadcast(shuffleFlag)
+  def splitDF(dataset: DataFrame): Array[DataFrame] = { //scalastyle:ignore method.length
+    val usedColumnNames = scala.collection.mutable.Set(dataset.columns: _*)
+    def unusedColumnName(baseName: String): String = {
+      val name = Iterator.from(0)
+        .map(index => if (index == 0) baseName else s"${baseName}_$index")
+        .find(candidate => !usedColumnNames.contains(candidate))
+        .get
+      usedColumnNames += name
+      name
+    }
 
-    if (dataset.columns.contains(getRatingCol)) {
-      val wrapColumn = udf((itemId: Double, rating: Double) => Array(itemId, rating))
+    val entryCol = unusedColumnName("__ranking_split_entry")
+    val entriesCol = unusedColumnName("__ranking_split_entries")
+    val trainCol = unusedColumnName("__ranking_split_train")
+    val testCol = unusedColumnName("__ranking_split_test")
+    val expandedCol = unusedColumnName("__ranking_split_expanded")
+    val orderField = "__ranking_split_order"
+    val itemField = "__ranking_split_item"
+    val ratingField = "__ranking_split_rating"
+    val hasRating = dataset.columns.contains(getRatingCol)
+    val entryFields = Seq(
+      rand().as(orderField),
+      col(getItemCol).as(itemField)
+    ) ++ (if (hasRating) Seq(col(getRatingCol).as(ratingField)) else Seq.empty)
 
-      val sliceudf = udf(
-        (r: Seq[Array[Double]]) => r.slice(0, math.round(r.length * $(trainRatio)).toInt))
-
-      val shuffle = udf((r: Seq[Array[Double]]) =>
-        if (shuffleBC.value) Random.shuffle(r)
-        else r
+    val groupedEntries = dataset
+      .select(col(getUserCol), struct(entryFields: _*).as(entryCol))
+      .groupBy(col(getUserCol))
+      .agg(sort_array(collect_list(col(entryCol))).as(entriesCol))
+    val trainLength = round(size(col(entriesCol)) * lit($(trainRatio))).cast(IntegerType)
+    val splitEntries = groupedEntries
+      .withColumn(trainCol, slice(col(entriesCol), lit(1), trainLength))
+      .withColumn(
+        testCol,
+        slice(col(entriesCol), trainLength + lit(1), size(col(entriesCol)) - trainLength)
       )
-      val dropudf = udf((r: Seq[Array[Double]]) => r.drop(math.round(r.length * $(trainRatio)).toInt))
 
-      val testds = dataset
-        .withColumn("itemIDRating", wrapColumn(col(getItemCol), col(getRatingCol)))
-        .groupBy(col(getUserCol))
-        .agg(collect_list(col("itemIDRating")))
-        .withColumn("shuffle", shuffle(col("collect_list(itemIDRating)")))
-        .withColumn("train", sliceudf(col("shuffle")))
-        .withColumn("test", dropudf(col("shuffle")))
-        .drop(col("collect_list(itemIDRating)")).drop(col("shuffle"))
-      //.cache()
-
-      val train = testds
-        .select(getUserCol, "train")
-        .withColumn("itemIdRating", explode(col("train")))
-        .drop("train")
-        .withColumn(getItemCol, col("itemIdRating").getItem(0))
-        .withColumn(getRatingCol, col("itemIdRating").getItem(1))
-        .drop("itemIdRating")
-
-      val test = testds
-        .select(getUserCol, "test")
-        .withColumn("itemIdRating", explode(col("test")))
-        .drop("test")
-        .withColumn(getItemCol, col("itemIdRating").getItem(0))
-        .withColumn(getRatingCol, col("itemIdRating").getItem(1))
-        .drop("itemIdRating")
-
-      Array(train, test)
+    def expand(partitionCol: String): DataFrame = {
+      val expanded = splitEntries
+        .select(col(getUserCol), explode(col(partitionCol)).as(expandedCol))
+      val outputColumns = Seq(
+        col(getUserCol),
+        col(expandedCol).getField(itemField).as(getItemCol)
+      ) ++ (if (hasRating) {
+        Seq(col(expandedCol).getField(ratingField).as(getRatingCol))
+      } else {
+        Seq.empty
+      })
+      expanded.select(outputColumns: _*)
     }
-    else {
-      val sliceudf = udf(
-        (r: Seq[Double]) => r.slice(0, math.round(r.length * $(trainRatio)).toInt))
-      val dropudf = udf((r: Seq[Double]) => r.drop(math.round(r.length * $(trainRatio)).toInt))
 
-      val testDS = dataset
-        .groupBy(col(getUserCol))
-        .agg(collect_list(col(getItemCol)).alias("shuffle"))
-        .withColumn("train", sliceudf(col("shuffle")))
-        .withColumn("test", dropudf(col("shuffle")))
-        .drop(col(s"collect_list($getItemCol")).drop(col("shuffle"))
-        .cache()
-
-      val train = testDS
-        .select(getUserCol, "train")
-        .withColumn(getItemCol, explode(col("train")))
-        .drop("train")
-
-      val test = testDS
-        .select(getUserCol, "test")
-        .withColumn(getItemCol, explode(col("test")))
-        .drop("test")
-
-      Array(train, test)
-    }
+    Array(expand(trainCol), expand(testCol))
   }
 
   def prepareTestData(validationDataset: DataFrame, recs: DataFrame, k: Int): Dataset[_] = {

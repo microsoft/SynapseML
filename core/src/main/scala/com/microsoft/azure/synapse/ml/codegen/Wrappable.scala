@@ -312,6 +312,23 @@ trait PythonWrappable extends BaseWrappable {
 
   }
 
+  protected def pySetParamsFunc: String = {
+    s"""|@keyword_only
+        |def setParams(
+        |    self,
+        |${indent(pyParamsArgs, 1)}
+        |    ):
+        |    "\""
+        |    Set the (keyword only) parameters
+        |    "\""
+        |    if hasattr(self, "_input_kwargs"):
+        |        kwargs = self._input_kwargs
+        |    else:
+        |        kwargs = self.__init__._input_kwargs
+        |    return self._set(**kwargs)
+        |""".stripMargin
+  }
+
   //scalastyle:off method.length
   protected def pythonClass(): String = {
     s"""|$copyrightLines
@@ -343,19 +360,7 @@ trait PythonWrappable extends BaseWrappable {
         |
         |${indent(pyInitFunc(), 1)}
         |
-        |    @keyword_only
-        |    def setParams(
-        |        self,
-        |${indent(pyParamsArgs, 2)}
-        |        ):
-        |        "\""
-        |        Set the (keyword only) parameters
-        |        "\""
-        |        if hasattr(self, \"_input_kwargs\"):
-        |            kwargs = self._input_kwargs
-        |        else:
-        |            kwargs = self.__init__._input_kwargs
-        |        return self._set(**kwargs)
+        |${indent(pySetParamsFunc, 1)}
         |
         |    @classmethod
         |    def read(cls):

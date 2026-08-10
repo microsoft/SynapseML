@@ -266,17 +266,30 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
     is.toJson.compactPrint
   }
 
+  private[search] def configureAuthentication(documents: AddDocuments,
+                                              auth: AzureSearchAuth): AddDocuments = {
+    val validatedAuth = auth.validated
+    validatedAuth.subscriptionKey.foreach(value => documents.setSubscriptionKey(value))
+    validatedAuth.aadToken.foreach(value => documents.setAADToken(value))
+    validatedAuth.customAuthHeader.foreach(value => documents.setCustomAuthHeader(value))
+    if (validatedAuth.customHeaders.nonEmpty) {
+      documents.setCustomHeaders(validatedAuth.customHeaders)
+    }
+    documents
+  }
+
   private def prepareDF(df: DataFrame,  //scalastyle:ignore method.length
                         options: Map[String, String] = Map()): DataFrame = {
     val applicableOptions = Set(
-      "subscriptionKey", "actionCol", "serviceName", "indexName", "indexJson",
-      "apiVersion", "batchSize", "fatalErrors", "filterNulls", "keyCol", "vectorCols"
+      "subscriptionKey", "AADToken", "aadToken", "CustomAuthHeader", "customAuthHeader", "customHeaders",
+      "actionCol", "serviceName", "indexName", "indexJson", "apiVersion", "batchSize", "fatalErrors",
+      "filterNulls", "keyCol", "vectorCols"
     )
 
     options.keys.foreach(k =>
       assert(applicableOptions(k), s"$k not an applicable option ${applicableOptions.toList}"))
 
-    val subscriptionKey = options("subscriptionKey")
+    val auth = AzureSearchAuth.fromOptions(options)
     val actionCol = options.getOrElse("actionCol", "@search.action")
     val serviceName = options("serviceName")
     val indexJsonOpt = options.get("indexJson")
@@ -303,12 +316,12 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
       }
     }
 
-    val (indexJson, preppedDF) = if (getExisting(subscriptionKey, serviceName, apiVersion).contains(indexName)) {
+    val (indexJson, preppedDF) = if (getExisting(auth, serviceName, apiVersion).contains(indexName)) {
       if (indexJsonOpt.isDefined) {
         println(f"indexJsonOpt is specified, however an index for $indexName already exists," +
           f"we will use the index definition obtained from the existing index instead")
       }
-      val existingIndexJson = getIndexJsonFromExistingIndex(subscriptionKey, serviceName, indexName)
+      val existingIndexJson = getIndexJsonFromExistingIndex(auth, serviceName, indexName, apiVersion)
       val vectorColNameTypeTuple = getVectorColConf(existingIndexJson)
       (existingIndexJson, makeColsCompatible(vectorColNameTypeTuple, df))
     } else if (indexJsonOpt.isDefined) {
@@ -326,7 +339,7 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
     // Throws an exception if any nested field is a vector in the schema
     parseIndexJson(indexJson).fields.foreach(_.fields.foreach(assertNoNestedVectors))
 
-    SearchIndex.createIfNoneExists(subscriptionKey, serviceName, indexJson, apiVersion)
+    SearchIndex.createIfNoneExists(auth, serviceName, indexJson, apiVersion)
     val dateConvertedDF = convertDateTimeToISO8601(preppedDF, indexJson)
 
     logInfo("checking schema parity")
@@ -343,15 +356,17 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
 
     // Convert date/timestamp columns to ISO8601 strings for Azure Search
 
-    new AddDocuments()
-      .setSubscriptionKey(subscriptionKey)
-      .setServiceName(serviceName)
-      .setIndexName(indexName)
-      .setActionCol(actionCol)
-      .setBatchSize(batchSize)
-      .setOutputCol("out")
-      .setErrorCol("error")
-      .transform(df1)
+    val addDocuments = configureAuthentication(
+      new AddDocuments()
+        .setServiceName(serviceName)
+        .setIndexName(indexName)
+        .setActionCol(actionCol)
+        .setBatchSize(batchSize)
+        .setOutputCol("out")
+        .setErrorCol("error"),
+      auth)
+
+    addDocuments.transform(df1)
       .withColumn("error",
         UDFUtils.oldUdf(checkForErrors(fatalErrors) _, ErrorUtils.ErrorSchema)(col("error"), col("input")))
   }

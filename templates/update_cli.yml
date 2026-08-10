@@ -1,8 +1,7 @@
 steps:
   - task: UsePythonVersion@0
     inputs:
-      versionSpec: '3.9.25'
+      versionSpec: '3.11'
       architecture: 'x64'
+      disableDownloadFromRegistry: true
   - template: java_setup.yml
-  - bash: pip install azure-cli==2.60.0
-    displayName: 'Upgrade Azure CLI'

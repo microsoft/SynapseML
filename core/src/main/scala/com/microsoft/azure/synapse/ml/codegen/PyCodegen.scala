@@ -13,10 +13,39 @@ import org.apache.spark.ml.{Estimator, Model}
 import spray.json._
 
 import java.io.File
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
 
 object PyCodegen {
 
   import CodeGenUtils._
+
+  private val DeprecatedOpenAICompletionFile = "OpenAICompletion.py"
+  private val ManualInitPackageFolders = Set("/cognitive", "/dl", "/hf")
+
+  private val OpenAICompletionImportHook: String =
+    """
+      |def __getattr__(name):
+      |    if name == "OpenAICompletion":
+      |        import warnings
+      |
+      |        with warnings.catch_warnings():
+      |            warnings.simplefilter("ignore", FutureWarning)
+      |            from synapse.ml.services.openai.OpenAICompletion import (
+      |                OpenAICompletion,
+      |                warn_openai_completion_deprecated,
+      |            )
+      |        warn_openai_completion_deprecated(stacklevel=2)
+      |        globals()["OpenAICompletion"] = OpenAICompletion
+      |        return OpenAICompletion
+      |    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+      |""".stripMargin
+
+  private def isOpenAICompletionStub(packageFolder: String, fileName: String): Boolean =
+    packageFolder == "/services/openai" && fileName == DeprecatedOpenAICompletionFile
+
+  private def initFileExtra(packageFolder: String): String =
+    if (packageFolder == "/services/openai") OpenAICompletionImportHook else ""
 
   def generatePythonClasses(conf: CodegenConfig): Unit = {
     val instantiatedClasses = instantiateServices[PythonWrappable](conf.jarName)
@@ -29,84 +58,35 @@ object PyCodegen {
   private def makeInitFiles(conf: CodegenConfig, packageFolder: String = ""): Unit = {
     val dir = join(conf.pySrcDir, "synapse", "ml", packageFolder)
     val packageString = if (packageFolder != "") packageFolder.replace("/", ".") else ""
-    val importStrings = buildImportStrings(dir, packageFolder, packageString)
+    val importStrings = if (packageFolder == "/services") {
+      dir.listFiles.filter(_.isDirectory)
+        .filter(folder => folder.getName != "langchain").sorted
+        .map(folder => s"from synapse.ml$packageString.${folder.getName} import *\n").mkString("")
+    } else {
+      dir.listFiles.filter(_.isFile).sorted
+        .map(_.getName)
+        .filter(name => name.endsWith(".py") && !name.startsWith("_") && !name.startsWith("test"))
+        .filterNot(name => isOpenAICompletionStub(packageFolder, name))
+        .map(name => s"from synapse.ml$packageString.${getBaseName(name)} import *\n").mkString("")
+    }
     val initFile = new File(dir, "__init__.py")
-    if (packageFolder != "/cognitive" && packageFolder != "/dl"){
-      val patchedImportStrings = patchImportStrings(packageFolder, importStrings)
-      persistInitFile(conf, packageFolder, initFile, patchedImportStrings)
+    if (!ManualInitPackageFolders(packageFolder)) {
+      if (packageFolder != "") {
+        writeFile(initFile, conf.packageHelp(importStrings) + initFileExtra(packageFolder))
+      } else if (initFile.exists()) {
+        initFile.delete()
+      }
     }
-    safeListFiles(dir).filter(_.isDirectory).foreach { f =>
+    dir.listFiles().filter(_.isDirectory).foreach(f =>
       makeInitFiles(conf, packageFolder + "/" + f.getName)
-    }
-  }
-
-  private def buildImportStrings(dir: File, packageFolder: String, packageString: String): String = {
-    if (packageFolder == "/services") {
-      serviceImports(dir, packageString)
-    } else {
-      standardImports(dir, packageFolder, packageString)
-    }
-  }
-
-  private def serviceImports(dir: File, packageString: String): String = {
-    safeListFiles(dir)
-      .filter(_.isDirectory)
-      .filter(_.getName != "langchain")
-      .sortBy(_.getName)
-      .map(folder => s"from synapse.ml$packageString.${folder.getName} import *\n")
-      .mkString("")
-  }
-
-  private def standardImports(dir: File, packageFolder: String, packageString: String): String = {
-    val files = safeListFiles(dir).filter(_.isFile).map(_.getName)
-    val baseImports = files.sorted
-      .filter(name => name.endsWith(".py") && !name.startsWith("_") && !name.startsWith("test"))
-      .map(name => s"from synapse.ml$packageString.${getBaseName(name)} import *\n")
-    val iceImport =
-      if (needsIceImport(packageFolder, files)) Seq(s"from synapse.ml$packageString.ICETransformer import *\n")
-      else Seq.empty
-    (iceImport ++ baseImports).mkString("")
-  }
-
-  private def needsIceImport(packageFolder: String, files: Seq[String]): Boolean = {
-    // In 1.1.0 the explainers package surface always includes ICETransformer
-    // alongside the LIME/SHAP variants. When generating per-module wheels,
-    // some modules (e.g., deep-learning) only see the LIME/SHAP wrappers
-    // locally but rely on the core wheel to supply ICETransformer.py.
-    // Ensure the generated __init__ for /explainers keeps exporting ICETransformer
-    // so imports like `from synapse.ml.explainers import ICETransformer` continue
-    // to resolve to the class rather than the module.
-    packageFolder == "/explainers" && !files.contains("ICETransformer.py")
-  }
-
-  private def patchImportStrings(packageFolder: String, importStrings: String): String = {
-    if (packageFolder == "/core") {
-      s"from synapse.ml.core.serialize import java_params_patch as _java_params_patch\n$importStrings"
-    } else {
-      importStrings
-    }
-  }
-
-  private def persistInitFile(conf: CodegenConfig,
-                              packageFolder: String,
-                              initFile: File,
-                              contents: String): Unit = {
-    if (packageFolder.nonEmpty) {
-      writeFile(initFile, conf.packageHelp(contents))
-    } else if (initFile.exists()) {
-      initFile.delete()
-    }
-  }
-
-  private def safeListFiles(dir: File): Seq[File] = {
-    Option(dir.listFiles).map(_.toSeq).getOrElse(Seq.empty)
+    )
   }
 
   //noinspection ScalaStyle
   //scalastyle:off
   def generatePyPackageData(conf: CodegenConfig): Unit = {
     if (!conf.pySrcDir.exists()) {
-      conf.pySrcDir.mkdirs()
+      conf.pySrcDir.mkdir()
     }
     val extraPackage = if (conf.name.endsWith("core")) {
       " + [\"mmlspark\"]"
@@ -117,15 +97,16 @@ object PyCodegen {
       s"""MINIMUM_SUPPORTED_PYTHON_VERSION = "3.8"""".stripMargin
     } else ""
     val extraRequirements = if (conf.name.contains("deep-learning")) {
+      // There's `Already borrowed` error found in transformers 4.16.2 when using tokenizers
       s"""extras_require={"extras": [
          |    "cmake",
-         |    "horovod @ git+https://github.com/horovod/horovod.git@3a31d933a13c7c885b8a673f4172b17914ad334d",
-         |    "pytorch_lightning==1.5.0",
-         |    "torch==2.2.0",
-         |    "torchvision==0.17.0",
-         |    "transformers==4.49.0",
+         |    "horovod==0.28.1",
+         |    "pytorch_lightning>=1.5.0,<1.5.10",
+         |    "torch==1.13.1",
+         |    "torchvision>=0.14.1",
+         |    "transformers==4.32.1",
          |    "petastorm>=0.12.0",
-         |    "huggingface-hub==0.26.0",
+         |    "huggingface-hub>=0.8.1",
          |]},
          |python_requires=f">={MINIMUM_SUPPORTED_PYTHON_VERSION}",""".stripMargin
     } else ""
@@ -148,7 +129,7 @@ object PyCodegen {
          |    long_description="SynapseML contains Microsoft's open source "
          |                     + "contributions to the Apache Spark ecosystem",
          |    license="MIT",
-         |    packages=find_namespace_packages(include=['synapse.ml.*']) ${extraPackage},
+         |    packages=find_namespace_packages(include=['synapse.ml', 'synapse.ml.*']) ${extraPackage},
          |    url="https://github.com/Microsoft/SynapseML",
          |    author="Microsoft",
          |    author_email="synapseml-support@microsoft.com",
@@ -175,6 +156,11 @@ object PyCodegen {
   }
   //scalastyle:on
 
+  private[codegen] def generateInitFiles(conf: CodegenConfig): Unit = {
+    makeInitFiles(conf)
+    PythonInitMerger.preserve(conf)
+  }
+
   def pyGen(conf: CodegenConfig): Unit = {
     println(s"Generating python for ${conf.jarName}")
     clean(conf.pySrcDir)
@@ -182,17 +168,20 @@ object PyCodegen {
     generatePythonClasses(conf)
     if (conf.pySrcOverrideDir.exists())
       FileUtils.copyDirectoryToDirectory(toDir(conf.pySrcOverrideDir), toDir(conf.pySrcDir))
-    makeInitFiles(conf)
+    generateInitFiles(conf)
+  }
+
+  private[codegen] def parseConfigArg(arg: String): CodegenConfig = {
+    val json = if (arg.startsWith("@")) {
+      new String(Files.readAllBytes(new File(arg.substring(1)).toPath), StandardCharsets.UTF_8)
+    } else {
+      arg
+    }
+    json.parseJson.convertTo[CodegenConfig]
   }
 
   def main(args: Array[String]): Unit = {
-    val json = if (args.head.startsWith("@")) {
-      val source = scala.io.Source.fromFile(args.head.substring(1))
-      try source.mkString finally source.close()
-    } else {
-      args.head
-    }
-    val conf = json.parseJson.convertTo[CodegenConfig]
+    val conf = parseConfigArg(args.head)
     clean(conf.pyPackageDir)
     pyGen(conf)
   }

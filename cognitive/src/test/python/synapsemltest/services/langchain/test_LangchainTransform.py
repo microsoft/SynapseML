@@ -1,202 +1,772 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 
-import os, json, subprocess, unittest
-from langchain.chains import LLMChain
-from langchain.prompts import PromptTemplate
-from langchain_openai import AzureChatOpenAI
+import json
+import tempfile
+import threading
+import unittest
+from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from unittest.mock import patch
+
+from langchain_classic.chains import LLMChain
+from langchain_classic.output_parsers.regex import RegexParser
+from langchain_core.load import dumps
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import PromptTemplate
+from langchain_core.runnables import (
+    RunnableLambda,
+    RunnableParallel,
+    RunnablePassthrough,
+)
+from langchain_openai import AzureChatOpenAI, AzureOpenAI, ChatOpenAI
+from openai import OpenAIError
+
+from synapse.ml.core.init_spark import init_spark
 from synapse.ml.services.langchain import LangchainTransformer
-from pyspark.sql import SQLContext
-from synapse.ml.core.init_spark import *
+from synapse.ml.services.langchain._LangchainSerialization import (
+    load_chain_for_worker,
+    load_persisted_chain,
+    prepare_chain_for_worker,
+    prepare_serialized_chain,
+)
+from synapse.ml.services.openai.OpenAIDefaults import OpenAIDefaults
 
 spark = init_spark()
-sc = SQLContext(spark.sparkContext)
 
 
-class LangchainTransformTest(unittest.TestCase):
-    def __init__(self, *args, **kwargs):
-        super(LangchainTransformTest, self).__init__(*args, **kwargs)
-        # fetching openai_api_key
-        secretJson = subprocess.check_output(
-            "az keyvault secret show --vault-name mmlspark-build-keys --name openai-api-key-2",
-            shell=True,
+@contextmanager
+def openai_server():
+    requests = []
+
+    class OpenAIHandler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            content_length = int(self.headers.get("Content-Length", "0"))
+            self.rfile.read(content_length)
+            requests.append(
+                {
+                    "authorization": self.headers.get("Authorization"),
+                    "api_key": self.headers.get("api-key"),
+                    "path": self.path,
+                }
+            )
+            if "/chat/completions" in self.path:
+                choices = [
+                    {
+                        "index": 0,
+                        "message": {
+                            "role": "assistant",
+                            "content": "configured",
+                        },
+                        "finish_reason": "stop",
+                    }
+                ]
+                object_type = "chat.completion"
+                response_id = "chatcmpl-test"
+            else:
+                choices = [
+                    {
+                        "index": 0,
+                        "text": "configured",
+                        "finish_reason": "stop",
+                        "logprobs": None,
+                    }
+                ]
+                object_type = "text_completion"
+                response_id = "cmpl-test"
+            response = json.dumps(
+                {
+                    "id": response_id,
+                    "object": object_type,
+                    "created": 1,
+                    "model": "gpt-5.1",
+                    "choices": choices,
+                    "usage": {
+                        "prompt_tokens": 1,
+                        "completion_tokens": 1,
+                        "total_tokens": 2,
+                    },
+                }
+            ).encode("utf-8")
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Content-Length", str(len(response)))
+            self.end_headers()
+            self.wfile.write(response)
+
+        def log_message(self, _, *args):
+            pass
+
+    server = ThreadingHTTPServer(("127.0.0.1", 0), OpenAIHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        yield server.server_port, requests
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join()
+
+
+class LangchainRunnableTest(unittest.TestCase):
+    def tearDown(self):
+        defaults = OpenAIDefaults()
+        defaults.reset_subscription_key()
+        defaults.reset_URL()
+        defaults.reset_api_version()
+
+    def test_transformer_invokes_runnable(self):
+        class TextAccessor(str):
+            pass
+
+        transformer = (
+            LangchainTransformer()
+            .setInputCol("value")
+            .setOutputCol("result")
+            .setChain(RunnableLambda(lambda value: TextAccessor(f"echo:{value}")))
         )
-        openai_api_key = json.loads(secretJson)["value"]
-        openai_api_base = "https://synapseml-openai-2.openai.azure.com/"
-        openai_api_version = "2025-01-01-preview"
-        openai_api_type = "azure"
 
-        # Set environment variables for langchain-openai (new style)
-        os.environ["AZURE_OPENAI_API_KEY"] = openai_api_key
-        os.environ["AZURE_OPENAI_ENDPOINT"] = openai_api_base
-        os.environ["OPENAI_API_VERSION"] = openai_api_version
-        # Legacy env vars for backward compatibility
-        os.environ["OPENAI_API_TYPE"] = openai_api_type
-        os.environ["OPENAI_API_BASE"] = openai_api_base
-        os.environ["OPENAI_API_KEY"] = openai_api_key
+        row = transformer.transform(
+            spark.createDataFrame([("test",)], ["value"])
+        ).first()
 
-        self.subscriptionKey = openai_api_key
-        self.url = openai_api_base
+        self.assertEqual(row.result, "echo:test")
+        self.assertEqual(row.errorCol, "")
 
-        self.copy_prompt = PromptTemplate(
-            input_variables=["technology"],
-            template="Repeat the following word, just output the word again: {technology}",
+    def test_transformer_applies_inline_settings_on_workers(self):
+        with openai_server() as (port, requests):
+            llm = ChatOpenAI(
+                model="gpt-5.1",
+                base_url="http://127.0.0.1:1/v1/",
+                api_key="old-key",
+                max_retries=0,
+            )
+            try:
+                transformer = (
+                    LangchainTransformer()
+                    .setInputCol("value")
+                    .setOutputCol("result")
+                    .setChain(llm)
+                    .setSubscriptionKey("inline-key")
+                    .setUrl(f"http://127.0.0.1:{port}/v1/")
+                )
+
+                rows = transformer.transform(
+                    spark.createDataFrame(
+                        [("first",), ("second",)], ["value"]
+                    ).repartition(2)
+                ).collect()
+            finally:
+                llm.client._client.close()
+
+        self.assertEqual([row.result for row in rows], ["configured", "configured"])
+        self.assertEqual(len(requests), 2)
+        self.assertTrue(
+            all(request["authorization"] == "Bearer inline-key" for request in requests)
+        )
+        self.assertTrue(
+            all(request["path"] == "/v1/chat/completions" for request in requests)
         )
 
-        # construction of llm
+    def test_transformer_captures_modern_openai_error(self):
+        def raise_openai_error(_):
+            raise OpenAIError("modern OpenAI SDK error")
+
+        transformer = (
+            LangchainTransformer()
+            .setInputCol("value")
+            .setOutputCol("result")
+            .setChain(RunnableLambda(raise_openai_error))
+        )
+
+        row = transformer.transform(
+            spark.createDataFrame([("test",)], ["value"])
+        ).first()
+
+        self.assertEqual(row.result, "")
+        self.assertIn("modern OpenAI SDK error", row.errorCol)
+
+    def test_transformer_azure_key_override_disables_ad_token_auth(self):
+        with openai_server() as (port, requests):
+            llm = AzureOpenAI(
+                model="gpt-5.1",
+                azure_endpoint="http://127.0.0.1:1/",
+                azure_deployment="deployment",
+                api_version="old-version",
+                api_key="old-key",
+                max_retries=0,
+            )
+            try:
+                transformer = (
+                    LangchainTransformer()
+                    .setInputCol("value")
+                    .setOutputCol("result")
+                    .setChain(llm)
+                    .setSubscriptionKey("inline-key")
+                    .setUrl(f"http://127.0.0.1:{port}/")
+                    .setApiVersion("new-version")
+                )
+
+                row = transformer.transform(
+                    spark.createDataFrame([("test",)], ["value"])
+                ).first()
+            finally:
+                llm.client._client.close()
+
+        self.assertEqual(row.result, "configured")
+        self.assertEqual(len(requests), 1)
+        self.assertEqual(requests[0]["api_key"], "inline-key")
+        self.assertTrue(
+            requests[0]["path"].startswith("/openai/deployments/deployment/completions")
+        )
+
+    def test_inline_settings_override_openai_defaults(self):
+        defaults = OpenAIDefaults()
+        defaults.set_subscription_key("global-key")
+        defaults.set_URL("https://global.openai.azure.com/")
+        defaults.set_api_version("global-version")
+
+        transformer = LangchainTransformer()
+        self.assertEqual(
+            transformer._get_effective_openai_settings()[:3],
+            (
+                "global-key",
+                "https://global.openai.azure.com/",
+                "global-version",
+            ),
+        )
+
+        transformer.setSubscriptionKey("inline-key")
+        transformer.setUrl("https://inline.openai.azure.com/")
+        transformer.setApiVersion("inline-version")
+        self.assertEqual(
+            transformer._get_effective_openai_settings()[:3],
+            (
+                "inline-key",
+                "https://inline.openai.azure.com/",
+                "inline-version",
+            ),
+        )
+
+    def test_worker_reconstruction_preserves_direct_client(self):
+        llm = ChatOpenAI(
+            model="gpt-5.1",
+            base_url="https://proxy.example.com/custom/openai/",
+            api_key="direct-key",
+        )
+        loaded = None
+        try:
+            config = prepare_chain_for_worker(llm, None, None, None)
+            self.assertIsNotNone(config)
+            loaded = load_chain_for_worker(config)
+            self.assertEqual(
+                str(loaded.root_client.base_url),
+                "https://proxy.example.com/custom/openai/",
+            )
+            self.assertEqual(loaded.openai_api_key.get_secret_value(), "direct-key")
+        finally:
+            llm.root_client.close()
+            if loaded is not None:
+                loaded.root_client.close()
+
+    def test_worker_reconstruction_normalizes_azure_urls(self):
+        chat_llm = ChatOpenAI(
+            model="gpt-5.1",
+            base_url="https://old.openai.azure.com/openai/v1/",
+            api_key="old-key",
+        )
+        azure_llm = AzureChatOpenAI(
+            model="gpt-5.1",
+            azure_endpoint="https://old.openai.azure.com/",
+            api_version="old-version",
+            api_key="old-key",
+            azure_ad_token_provider=lambda: "old-token",
+            azure_ad_async_token_provider=lambda: "old-async-token",
+        )
+        loaded_chat = None
+        loaded_azure = None
+        try:
+            loaded_chat = load_chain_for_worker(
+                prepare_chain_for_worker(
+                    chat_llm,
+                    "new-key",
+                    "https://new.openai.azure.com/openai/",
+                    None,
+                )
+            )
+            azure_config = prepare_chain_for_worker(
+                azure_llm,
+                "new-key",
+                "https://new.openai.azure.com/openai/",
+                "new-version",
+            )
+            self.assertIsNotNone(azure_config)
+            loaded_azure = load_chain_for_worker(azure_config)
+
+            self.assertEqual(
+                str(loaded_chat.root_client.base_url),
+                "https://new.openai.azure.com/openai/v1/",
+            )
+            self.assertEqual(
+                loaded_azure.azure_endpoint,
+                "https://new.openai.azure.com/",
+            )
+            self.assertEqual(loaded_azure.openai_api_version, "new-version")
+            self.assertIsNone(loaded_azure.root_client._azure_ad_token)
+            self.assertIsNone(loaded_azure.root_async_client._azure_ad_token)
+        finally:
+            chat_llm.root_client.close()
+            azure_llm.root_client.close()
+            if loaded_chat is not None:
+                loaded_chat.root_client.close()
+            if loaded_azure is not None:
+                loaded_azure.root_client.close()
+
+    def test_worker_reconstruction_rejects_conflicting_direct_keys(self):
+        first = ChatOpenAI(model="gpt-5.1", api_key="first-key")
+        second = ChatOpenAI(model="gpt-5.1", api_key="second-key")
+        try:
+            chain = RunnableParallel(first=first, second=second)
+            with self.assertRaisesRegex(ValueError, "conflicting values"):
+                prepare_chain_for_worker(chain, None, None, None)
+        finally:
+            first.root_client.close()
+            second.root_client.close()
+
+    def test_worker_reconstruction_clears_azure_completion_token(self):
+        llm = AzureOpenAI(
+            model="gpt-5.1",
+            azure_endpoint="https://old.openai.azure.com/",
+            azure_deployment="deployment",
+            api_version="old-version",
+            api_key="old-key",
+        )
+        loaded = None
+        try:
+            loaded = load_chain_for_worker(
+                prepare_chain_for_worker(
+                    llm,
+                    "trusted-key",
+                    "https://trusted.openai.azure.com/",
+                    "trusted-version",
+                )
+            )
+
+            self.assertIsNone(loaded.client._client._azure_ad_token)
+            self.assertIsNone(loaded.async_client._client._azure_ad_token)
+        finally:
+            llm.client._client.close()
+            if loaded is not None:
+                loaded.client._client.close()
+
+    def test_worker_reconstruction_supports_classic_components(self):
+        parser = RegexParser(regex=r"(.*)", output_keys=["value"])
+        config = prepare_chain_for_worker(parser, None, None, None)
+
+        loaded = load_chain_for_worker(config)
+
+        self.assertIsInstance(loaded, RegexParser)
+        self.assertEqual(loaded.invoke("classic"), {"value": "classic"})
+
+    def test_worker_settings_override_nested_request_transport(self):
         llm = AzureChatOpenAI(
-            api_version="2025-01-01-preview",
-            azure_deployment="gpt-4o",
-            azure_endpoint=openai_api_base,
-            temperature=0,
-            verbose=False,
+            model="gpt-5.1",
+            azure_endpoint="https://old.openai.azure.com/",
+            api_version="old-version",
+            api_key="old-key",
+            model_kwargs={
+                "extra_headers": {
+                    "api-key": "old-key",
+                    "Host": "old.openai.azure.com",
+                    "X-Keep": "header",
+                },
+                "extra_query": {
+                    "api-version": "old-version",
+                    "keep": "query",
+                },
+            },
         )
+        loaded = None
+        try:
+            loaded = load_chain_for_worker(
+                prepare_chain_for_worker(
+                    llm,
+                    "trusted-key",
+                    "https://trusted.openai.azure.com/",
+                    "trusted-version",
+                )
+            )
 
-        self.chain = LLMChain(llm=llm, prompt=self.copy_prompt)
-        self.langchainTransformer = (
+            self.assertEqual(
+                loaded.model_kwargs["extra_headers"],
+                {"X-Keep": "header"},
+            )
+            self.assertEqual(
+                loaded.model_kwargs["extra_query"],
+                {"keep": "query"},
+            )
+        finally:
+            llm.root_client.close()
+            if loaded is not None:
+                loaded.root_client.close()
+
+    def test_transformer_saves_serializable_runnable(self):
+        transformer = (
             LangchainTransformer()
-            .setInputCol("technology")
-            .setOutputCol("copied_technology")
-            .setChain(self.chain)
-            .setSubscriptionKey(self.subscriptionKey)
-            .setUrl(self.url)
+            .setInputCol("value")
+            .setOutputCol("result")
+            .setChain(PromptTemplate.from_template("Define {value}"))
         )
 
-        # construction of test dataframe
-        self.sentenceDataFrame = spark.createDataFrame(
-            [(0, "docker"), (0, "spark"), (1, "python")], ["label", "technology"]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = str(Path(temp_dir) / "langchain-transformer")
+            transformer.save(path)
+            loaded_transformer = LangchainTransformer.load(path)
+
+        self.assertIsInstance(loaded_transformer.getChain(), PromptTemplate)
+        self.assertEqual(loaded_transformer.getInputCol(), "value")
+        self.assertEqual(loaded_transformer.getOutputCol(), "result")
+
+    def test_writer_sanitizes_transport_before_persisting(self):
+        llm = AzureChatOpenAI(
+            model="gpt-5.1",
+            azure_endpoint="https://artifact.openai.azure.com/",
+            api_version="artifact-version",
+            api_key="artifact-key",
+            azure_ad_token_provider=lambda: "artifact-token",
+            azure_ad_async_token_provider=lambda: "artifact-async-token",
+            default_headers={"Authorization": "artifact-key"},
+            model_kwargs={
+                "extra_headers": {"api-key": "artifact-key"},
+                "extra_query": {"api-version": "artifact-version"},
+            },
         )
+        try:
+            serialized = LangchainTransformer().write()._chain_serializer(llm)
+            serialized_config = json.loads(serialized)
 
-    def _assert_chain_output(self, transformer, dataframe=None):
-        if dataframe is None:
-            dataframe = self.sentenceDataFrame
-        transformed_df = transformer.transform(dataframe)
-        collected_transformed_df = transformed_df.collect()
-        input_col_values = [row.technology for row in collected_transformed_df]
-        output_col_values = [row.copied_technology for row in collected_transformed_df]
+            self.assertNotIn("artifact-key", serialized)
+            self.assertNotIn("artifact-token", serialized)
+            self.assertNotIn("artifact-async-token", serialized)
+            self.assertNotIn("not_implemented", serialized)
+            self.assertNotIn("azure_endpoint", serialized_config["kwargs"])
+            self.assertNotIn("default_headers", serialized_config["kwargs"])
+            self.assertNotIn(
+                "extra_headers", serialized_config["kwargs"]["model_kwargs"]
+            )
+            self.assertNotIn("extra_query", serialized_config["kwargs"]["model_kwargs"])
+        finally:
+            llm.root_client.close()
 
-        for i in range(len(input_col_values)):
-            assert (
-                input_col_values[i] in output_col_values[i].lower()
-            ), f"output column value {output_col_values[i]} doesn't contain input column value {input_col_values[i]}"
-
-    def test_langchainTransform(self):
-        # construct langchain transformer using the chain defined above. And test if the generated
-        # column has the expected result.
-        dataframes_to_test = spark.createDataFrame(
-            [(0, "docker"), (0, "spark"), (1, "python")], ["label", "technology"]
+    def test_transformer_saves_legacy_openai_chain_with_trusted_settings(self):
+        llm = ChatOpenAI(
+            model="gpt-5.1",
+            base_url="https://old.openai.azure.com/openai/v1/",
+            api_key="old-key",
+            default_headers={"X-Untrusted": "header"},
+            default_query={"untrusted": "query"},
+            model_kwargs={
+                "extra_headers": {
+                    "Host": "attacker.example",
+                    "api-key": "artifact-key",
+                },
+                "extra_query": {
+                    "api-version": "artifact-version",
+                    "artifact": "query",
+                },
+            },
         )
-        self._assert_chain_output(self.langchainTransformer, dataframes_to_test)
+        loaded_transformer = None
+        try:
+            transformer = (
+                LangchainTransformer()
+                .setInputCol("value")
+                .setOutputCol("result")
+                .setChain(
+                    LLMChain(
+                        llm=llm,
+                        prompt=PromptTemplate.from_template("{value}"),
+                    )
+                )
+                .setSubscriptionKey("inline-key")
+                .setUrl("https://new.openai.azure.com/")
+            )
 
-    def test_langchainTransformErrorHandling(self):
-        # Verify that OpenAI API errors are captured in errorCol rather than
-        # crashing the Spark job.  We force a reliable InvalidRequestError by
-        # setting max_completion_tokens=0 (below the API minimum of 1).
-        error_llm = AzureChatOpenAI(
-            api_version="2025-01-01-preview",
-            azure_deployment="gpt-4o",
-            azure_endpoint=self.url,
-            max_completion_tokens=0,
-            temperature=0,
-            verbose=False,
+            with tempfile.TemporaryDirectory() as temp_dir:
+                path = str(Path(temp_dir) / "langchain-transformer")
+                transformer.save(path)
+                loaded_transformer = LangchainTransformer.load(path)
+
+            loaded_llm = loaded_transformer.getChain().llm
+            self.assertEqual(
+                str(loaded_llm.root_client.base_url),
+                "https://new.openai.azure.com/openai/v1/",
+            )
+            self.assertEqual(loaded_llm.openai_api_key.get_secret_value(), "inline-key")
+            self.assertIsNone(loaded_llm.default_headers)
+            self.assertIsNone(loaded_llm.default_query)
+            self.assertNotIn("extra_headers", loaded_llm.model_kwargs)
+            self.assertNotIn("extra_query", loaded_llm.model_kwargs)
+        finally:
+            llm.root_client.close()
+            if loaded_transformer is not None:
+                loaded_transformer.getChain().llm.root_client.close()
+
+    def test_persisted_chain_strips_nested_transport_aliases(self):
+        llm = ChatOpenAI(
+            model="gpt-5.1",
+            base_url="https://old.openai.azure.com/openai/v1/",
+            api_key="old-key",
         )
-        error_chain = LLMChain(llm=error_llm, prompt=self.copy_prompt)
-        error_transformer = (
+        loaded = None
+        try:
+            manifest = json.loads(dumps(llm))
+            manifest["kwargs"]["model_kwargs"] = {
+                "api_key": "artifact-key",
+                "base_url": "https://attacker.example/v1/",
+                "default_headers": {"Authorization": "artifact-key"},
+                "default_query": {"api-version": "artifact-version"},
+                "openai_api_version": "artifact-version",
+            }
+            config = prepare_serialized_chain(
+                json.dumps(manifest),
+                {},
+                "trusted-key",
+                "https://trusted.openai.azure.com/",
+                None,
+                sanitize_transport=True,
+            )
+
+            loaded = load_persisted_chain(config)
+
+            self.assertEqual(
+                str(loaded.root_client.base_url),
+                "https://trusted.openai.azure.com/openai/v1/",
+            )
+            self.assertEqual(loaded.openai_api_key.get_secret_value(), "trusted-key")
+            self.assertFalse(
+                set(manifest["kwargs"]["model_kwargs"]) & set(loaded.model_kwargs)
+            )
+        finally:
+            llm.root_client.close()
+            if loaded is not None:
+                loaded.root_client.close()
+
+    def test_saved_azure_chain_preserves_chain_api_version(self):
+        llm = AzureChatOpenAI(
+            model="gpt-5.1",
+            azure_endpoint="https://old.openai.azure.com/",
+            api_version="chain-version",
+            api_key="old-key",
+        )
+        loaded_transformer = None
+        try:
+            transformer = (
+                LangchainTransformer()
+                .setInputCol("value")
+                .setOutputCol("result")
+                .setChain(llm)
+                .setSubscriptionKey("trusted-key")
+                .setUrl("https://trusted.openai.azure.com/")
+            )
+
+            with tempfile.TemporaryDirectory() as temp_dir:
+                path = str(Path(temp_dir) / "langchain-transformer")
+                transformer.save(path)
+                loaded_transformer = LangchainTransformer.load(path)
+
+            self.assertEqual(
+                loaded_transformer.getChain().openai_api_version,
+                "chain-version",
+            )
+        finally:
+            llm.root_client.close()
+            if loaded_transformer is not None:
+                loaded_transformer.getChain().root_client.close()
+
+    def test_saved_chain_cannot_reference_trusted_openai_secret(self):
+        prompt = PromptTemplate.from_template("{value}:{leak}")
+        llm = ChatOpenAI(
+            model="gpt-5.1",
+            base_url="https://old.openai.azure.com/openai/v1/",
+            api_key="old-key",
+        )
+        try:
+            manifest = json.loads(dumps(prompt))
+            manifest["kwargs"]["partial_variables"] = {
+                "leak": {
+                    "lc": 1,
+                    "type": "secret",
+                    "id": ["OPENAI_API_KEY"],
+                }
+            }
+            manifest["kwargs"]["metadata"] = {
+                "client": json.loads(dumps(llm)),
+            }
+
+            with self.assertRaisesRegex(
+                ValueError, "cannot reference external secrets"
+            ):
+                prepare_serialized_chain(
+                    json.dumps(manifest),
+                    {},
+                    "trusted-secret",
+                    "https://trusted.openai.azure.com/",
+                    None,
+                    sanitize_transport=True,
+                )
+        finally:
+            llm.root_client.close()
+
+    def test_saved_chain_uses_internal_default_url(self):
+        class InternalLangchainTransformer(LangchainTransformer):
+            def __init__(self):
+                super().__init__()
+                self.running_on_synapse_internal = True
+                self._setDefault(url="https://internal.openai.azure.com/")
+
+        defaults = OpenAIDefaults()
+        cases = (
+            (
+                "global-url",
+                None,
+                "global-key",
+                "https://global.openai.azure.com/",
+                "https://global.openai.azure.com/openai/v1/",
+            ),
+            (
+                "global-internal",
+                None,
+                "global-key",
+                None,
+                "https://internal.openai.azure.com/openai/v1/",
+            ),
+            (
+                "saved-internal",
+                "saved-key",
+                None,
+                None,
+                "https://internal.openai.azure.com/openai/v1/",
+            ),
+        )
+        for (
+            name,
+            saved_key,
+            global_key,
+            global_url,
+            expected_url,
+        ) in cases:
+            with self.subTest(name=name):
+                defaults.reset_subscription_key()
+                defaults.reset_URL()
+                if global_key is not None:
+                    defaults.set_subscription_key(global_key)
+                if global_url is not None:
+                    defaults.set_URL(global_url)
+                llm = ChatOpenAI(
+                    model="gpt-5.1",
+                    base_url="https://artifact.example/v1/",
+                    api_key="artifact-key",
+                )
+                loaded_transformer = None
+                try:
+                    transformer = (
+                        LangchainTransformer()
+                        .setInputCol("value")
+                        .setOutputCol("result")
+                        .setChain(llm)
+                    )
+                    if saved_key is not None:
+                        transformer.setSubscriptionKey(saved_key)
+                    else:
+                        transformer.setUrl("https://attacker.example/")
+                    with tempfile.TemporaryDirectory() as temp_dir:
+                        path = str(Path(temp_dir) / "langchain-transformer")
+                        transformer.save(path)
+                        with patch(
+                            "synapse.ml.services.langchain.LangchainTransform.secure_import_class",
+                            return_value=InternalLangchainTransformer,
+                        ):
+                            loaded_transformer = LangchainTransformer.load(path)
+
+                    loaded_llm = loaded_transformer.getChain()
+                    self.assertEqual(
+                        str(loaded_llm.root_client.base_url),
+                        expected_url,
+                    )
+                    self.assertEqual(
+                        loaded_llm.openai_api_key.get_secret_value(),
+                        saved_key or global_key,
+                    )
+                finally:
+                    llm.root_client.close()
+                    if loaded_transformer is not None:
+                        loaded_transformer.getChain().root_client.close()
+
+    def test_saved_openai_chain_requires_key_and_url(self):
+        llm = ChatOpenAI(
+            model="gpt-5.1",
+            base_url="https://saved.openai.azure.com/openai/v1/",
+            api_key="saved-key",
+        )
+        try:
+            transformer = (
+                LangchainTransformer()
+                .setInputCol("value")
+                .setOutputCol("result")
+                .setChain(llm)
+            )
+            with tempfile.TemporaryDirectory() as temp_dir:
+                path = str(Path(temp_dir) / "langchain-transformer")
+                transformer.save(path)
+                OpenAIDefaults().set_subscription_key("global-key")
+                with self.assertRaisesRegex(ValueError, "requires both"):
+                    LangchainTransformer.load(path)
+        finally:
+            llm.root_client.close()
+
+    def test_transformer_rejects_non_serializable_runnable_on_save(self):
+        transformer = (
             LangchainTransformer()
-            .setInputCol("technology")
-            .setOutputCol("copied_technology")
-            .setChain(error_chain)
-            .setSubscriptionKey(self.subscriptionKey)
-            .setUrl(self.url)
+            .setInputCol("value")
+            .setOutputCol("result")
+            .setChain(RunnableLambda(lambda value: value))
         )
 
-        dataframes_to_test = spark.createDataFrame(
-            [(0, "hello")], ["label", "technology"]
-        )
-        transformed_df = error_transformer.transform(dataframes_to_test)
-        collected = transformed_df.collect()
-        error_col_values = [row.errorCol for row in collected]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = str(Path(temp_dir) / "langchain-transformer")
+            with self.assertRaisesRegex(
+                NotImplementedError, "cannot be serialized by langchain-core"
+            ):
+                transformer.save(path)
 
-        for error_val in error_col_values:
-            assert (
-                error_val and len(error_val) > 0
-            ), "Expected an error message in errorCol but got empty/null"
-            assert (
-                "invalid" in error_val.lower()
-            ), f"Expected 'invalid' in error message, got: {error_val}"
-
-    def test_langchainTransformReasoningModelErrorCapture(self):
-        # Verify that API errors from a second transformer (with different
-        # error-triggering config) are captured in errorCol deterministically.
-        # Uses max_completion_tokens=-1 which the API rejects as invalid.
-        error_llm2 = AzureChatOpenAI(
-            api_version="2025-01-01-preview",
-            azure_deployment="gpt-4o",
-            azure_endpoint=self.url,
-            max_completion_tokens=-1,
-            temperature=0,
-            verbose=False,
-        )
-        error_chain2 = LLMChain(llm=error_llm2, prompt=self.copy_prompt)
-        error_transformer2 = (
+    def test_transformer_rejects_unsupported_classic_component_on_save(self):
+        transformer = (
             LangchainTransformer()
-            .setInputCol("technology")
-            .setOutputCol("copied_technology")
-            .setChain(error_chain2)
-            .setSubscriptionKey(self.subscriptionKey)
-            .setUrl(self.url)
+            .setInputCol("value")
+            .setOutputCol("result")
+            .setChain(RegexParser(regex=r"(.*)", output_keys=["value"]))
         )
 
-        dataframes_to_test = spark.createDataFrame(
-            [(0, "hello")], ["label", "technology"]
-        )
-        transformed_df = error_transformer2.transform(dataframes_to_test)
-        collected = transformed_df.collect()
-        error_col_values = [row.errorCol for row in collected]
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = str(Path(temp_dir) / "langchain-transformer")
+            with self.assertRaisesRegex(
+                NotImplementedError, "cannot be serialized by langchain-core"
+            ):
+                transformer.save(path)
 
-        for error_val in error_col_values:
-            assert (
-                error_val and len(error_val) > 0
-            ), "Expected an error in errorCol for invalid max_completion_tokens"
-
-    def test_langchainTransformNonReasoningModel(self):
-        # Verify that LangchainTransformer works with a different model deployment.
-        non_reasoning_llm = AzureChatOpenAI(
-            api_version="2025-01-01-preview",
-            azure_deployment="gpt-4.1-mini",
-            azure_endpoint=self.url,
-            temperature=0,
-            verbose=False,
-        )
-        non_reasoning_chain = LLMChain(llm=non_reasoning_llm, prompt=self.copy_prompt)
-        non_reasoning_transformer = (
+    def test_transformer_rejects_plain_callable(self):
+        transformer = (
             LangchainTransformer()
-            .setInputCol("technology")
-            .setOutputCol("copied_technology")
-            .setChain(non_reasoning_chain)
-            .setSubscriptionKey(self.subscriptionKey)
-            .setUrl(self.url)
+            .setInputCol("value")
+            .setOutputCol("result")
+            .setChain(lambda value: value)
         )
 
-        dataframes_to_test = spark.createDataFrame(
-            [(0, "docker"), (0, "spark")], ["label", "technology"]
-        )
-        self._assert_chain_output(non_reasoning_transformer, dataframes_to_test)
-
-    @unittest.skip(
-        "langchain 0.3 load_chain_from_config does not support langchain-openai LLM types (no _type key)."
-    )
-    def test_save_load(self):
-        dataframes_to_test = spark.createDataFrame(
-            [(0, "docker"), (0, "spark"), (1, "python")], ["label", "technology"]
-        )
-        temp_dir = "tmp"
-        os.makedirs(temp_dir, exist_ok=True)
-        path = os.path.join(temp_dir, "langchainTransformer")
-        self.langchainTransformer.save(path)
-        loaded_transformer = LangchainTransformer.load(path)
-        self._assert_chain_output(loaded_transformer, dataframes_to_test)
+        with self.assertRaisesRegex(TypeError, "must define invoke"):
+            transformer.transform(spark.createDataFrame([("test",)], ["value"]))
 
 
 if __name__ == "__main__":
-    result = unittest.main()
+    unittest.main()

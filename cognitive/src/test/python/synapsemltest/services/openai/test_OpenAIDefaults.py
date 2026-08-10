@@ -18,6 +18,18 @@ sc = SQLContext(spark.sparkContext)
 
 
 class TestOpenAIDefaults(unittest.TestCase):
+    def tearDown(self):
+        defaults = OpenAIDefaults()
+        defaults.reset_deployment_name()
+        defaults.reset_subscription_key()
+        defaults.reset_temperature()
+        defaults.reset_seed()
+        defaults.reset_top_p()
+        defaults.reset_URL()
+        defaults.reset_api_version()
+        defaults.reset_model()
+        defaults.reset_embedding_deployment_name()
+
     def test_setters_and_getters(self):
         defaults = OpenAIDefaults()
 
@@ -108,7 +120,7 @@ class TestOpenAIDefaults(unittest.TestCase):
         cmd = (
             "az keyvault secret show "
             "--vault-name mmlspark-build-keys "
-            "--name openai-api-key-2"
+            "--name openai-api-key-3"
         )
         secret_json = subprocess.check_output(cmd, shell=True)
         openai_api_key = json.loads(secret_json)["value"]
@@ -123,10 +135,9 @@ class TestOpenAIDefaults(unittest.TestCase):
         )
 
         defaults = OpenAIDefaults()
-        defaults.set_deployment_name("gpt-4.1-mini")
+        defaults.set_deployment_name("gpt-5-mini")
         defaults.set_subscription_key(openai_api_key)
-        defaults.set_temperature(0.05)
-        defaults.set_URL("https://synapseml-openai-2.openai.azure.com/")
+        defaults.set_URL("https://synapseml-openai-3.openai.azure.com/")
 
         prompt = OpenAIPrompt()
         prompt = prompt.setOutputCol("outParsed")

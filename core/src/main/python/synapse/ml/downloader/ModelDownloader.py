@@ -9,7 +9,7 @@ if sys.version >= "3":
 from pyspark.ml.param.shared import *
 from synapse.ml.core.schema.Utils import *
 
-DEFAULT_URL = "https://mmlspark.azureedge.net/datasets/CNTKModels/"
+DEFAULT_URL = "https://mmlspark.blob.core.windows.net/datasets/CNTKModels/"
 
 
 class ModelSchema:

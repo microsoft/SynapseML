@@ -1,6 +1,10 @@
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See LICENSE in project root for information.
+
 import io
 import os
 import re
+import subprocess
 import sys
 
 
@@ -19,7 +23,7 @@ os.environ["PYSPARK_DRIVER_PYTHON_OPTS"] = "notebook"
 
 spark = (pyspark.sql.SparkSession.builder.appName("MyApp")
         .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.13:{}")
-        .config("spark.jars.repositories", "https://mmlspark.azureedge.net/maven")
+        .config("spark.jars.repositories", "https://mmlspark.blob.core.windows.net/maven")
         .getOrCreate())
 
 def getSecret(secretName):
@@ -60,10 +64,17 @@ def main(version):
     folder = os.path.join(cur_path, "docs", "Quick Examples")
     iterate_over_documentation(folder, version)
     os.chdir(folder)
-    os.system(
-        "pytest --codeblocks --junit-xml={}".format(
-            os.path.join(cur_path, "target", "website-test-result.xml"),
-        ),
+    subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "pytest",
+            "--codeblocks",
+            "--junit-xml={}".format(
+                os.path.join(cur_path, "target", "website-test-result.xml"),
+            ),
+        ],
+        check=True,
     )
 
 

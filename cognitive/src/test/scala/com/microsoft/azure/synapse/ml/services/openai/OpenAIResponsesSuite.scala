@@ -25,9 +25,9 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
     .setCustomServiceName(openAIServiceName)
     .setApiVersion("2025-04-01-preview")
     .setMaxCompletionTokens(500)
+    .setReasoningEffort("low")
     .setOutputCol("out")
     .setMessagesCol("messages")
-    .setTemperature(0)
     .setSubscriptionKey(openAIAPIKey)
 
   lazy val goodDf: DataFrame = Seq(
@@ -225,7 +225,6 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
       .setMaxCompletionTokens(100)
       .setOutputCol("out")
       .setMessagesCol("messages")
-      .setTemperature(0)
       .setSubscriptionKey(openAIAPIKey)
       .setStore(true)
 
@@ -283,7 +282,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
         |  "id":"resp_test",
         |  "object":"response",
         |  "created_at":"1",
-        |  "model":"gpt-5",
+        |  "model":"gpt-5.1",
         |  "output":[
         |    {"type":"reasoning","status":"completed","content":null},
         |    {"type":"message","status":"completed","content":[{"type":"output_text","text":"{\"answer\":\"fruit\"}"}]}
@@ -305,14 +304,14 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
     assert(!transformer.isContentFiltered(responseDf.collect().head))
   }
 
-  test("Responses extract output text from gpt-4.1 message output") {
+  test("Responses extract output text from message-only output") {
     val transformer = new OpenAIResponses()
     val responseJson =
       """{
         |  "id":"resp_test",
         |  "object":"response",
         |  "created_at":"1",
-        |  "model":"gpt-4.1",
+        |  "model":"gpt-5.1",
         |  "output":[
         |    {"type":"message","status":"completed","content":[{"type":"output_text","text":"{\"answer\":\"fruit\"}"}]}
         |  ],
@@ -340,7 +339,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
         |  "id":"resp_test",
         |  "object":"response",
         |  "created_at":"1",
-        |  "model":"gpt-5",
+        |  "model":"gpt-5.1",
         |  "output":[
         |    {"type":"message","status":"completed","content":[{"type":"output_text","text":""}]}
         |  ],
@@ -367,7 +366,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
         |  "id":"resp_test",
         |  "object":"response",
         |  "created_at":"1",
-        |  "model":"gpt-5",
+        |  "model":"gpt-5.1",
         |  "output":[
         |    {"type":"message","status":"completed","content":[{"type":"output_text","text":"{\"answer\":\"stale\"}"}]},
         |    {"type":"message","status":"completed","content":[{"type":"output_text","text":"{\"answer\":\"final\"}"}]}
@@ -395,7 +394,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
         |  "id":"resp_test",
         |  "object":"response",
         |  "created_at":"1",
-        |  "model":"gpt-5",
+        |  "model":"gpt-5.1",
         |  "output":[
         |    {"type":"message","status":"content_filter","content":null}
         |  ],
@@ -417,7 +416,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
         |  "id":"resp_test",
         |  "object":"response",
         |  "created_at":"1",
-        |  "model":"gpt-5",
+        |  "model":"gpt-5.1",
         |  "output":[
         |    {"type":"reasoning","status":"completed","content":null},
         |    {"type":"message","status":"content_filter","content":null}
@@ -483,15 +482,14 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
   private def testResponses(model: OpenAIResponses,
                             df: DataFrame,
                             requiredLength: Int = 10): Unit = {
-    val fromRow = ResponsesModelResponse.makeFromRowConverter
-    model.transform(df).collect().foreach { row =>
-      val responseRow = row.getAs[Row]("out")
-      assert(responseRow != null, "Expected non-null response from Responses API")
-      fromRow(responseRow).output.foreach { choice =>
-        val text = choice.content.map(_.text).mkString
+    model.transform(df)
+      .select(model.getOutputMessageText(model.getOutputCol).as("text"))
+      .collect()
+      .foreach { row =>
+        val text = row.getAs[String]("text")
+        assert(text != null, "Expected non-null text from Responses API")
         assert(text.length > requiredLength,
           s"Expected text length > $requiredLength but got ${text.length}")
-      }
     }
   }
 

@@ -166,6 +166,10 @@ class TestMustAnchor:
         r = _analyze(f'"com.microsoft.azure" % "synapseml_2.12" % "{V}"')
         assert r.matches and not r.unanchored
 
+    def test_scala_213_maven_coord(self):
+        r = _analyze(f'"com.microsoft.azure" % "synapseml_2.13" % "{V}"')
+        assert r.matches and not r.unanchored
+
     def test_pip_install(self):
         r = _analyze(f"pip install synapseml=={V}")
         assert r.matches and not r.unanchored
@@ -392,6 +396,46 @@ class TestSkipFile:
     @pytest.mark.parametrize("ext", sorted(ALLOWED_EXTENSIONS))
     def test_all_allowed_extensions(self, ext):
         assert not _skip_file(Path(f"test{ext}"))
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# Docusaurus versioning command
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+class TestRunDocusaurus:
+    def test_uses_local_npm_binary(self, tmp_path, monkeypatch):
+        website = tmp_path / "website"
+        (website / "docs").mkdir(parents=True)
+        calls = []
+
+        def fake_run(cmd, **kwargs):
+            calls.append((cmd, kwargs))
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+
+        assert bump._run_docusaurus(tmp_path, "2.0.0", dry_run=False)
+        assert calls == [
+            (
+                ["npm", "exec", "--", "docusaurus", "docs:version", "2.0.0"],
+                {
+                    "cwd": str(website),
+                    "capture_output": True,
+                    "text": True,
+                },
+            )
+        ]
+
+    def test_requires_generated_docs(self, tmp_path, monkeypatch):
+        (tmp_path / "website").mkdir()
+
+        def fail_if_called(*args, **kwargs):
+            raise AssertionError("subprocess should not run without generated docs")
+
+        monkeypatch.setattr(subprocess, "run", fail_if_called)
+
+        assert not bump._run_docusaurus(tmp_path, "2.0.0", dry_run=False)
 
 
 # ══════════════════════════════════════════════════════════════════════════════

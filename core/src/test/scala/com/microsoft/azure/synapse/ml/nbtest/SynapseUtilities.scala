@@ -200,8 +200,8 @@ object SynapseUtilities {
 
     val excludes: String = Seq(
       "org.scala-lang:scala-reflect",
-      "org.apache.spark:spark-tags_2.12",
-      "org.scalatest:scalatest_2.12",
+      "org.apache.spark:spark-tags_2.13",
+      "org.scalatest:scalatest_2.13",
       "org.slf4j:slf4j-api").mkString(",")
     val runName = abfssPath.split('/').last.replace(".py", "")
     val livyPayload: String =

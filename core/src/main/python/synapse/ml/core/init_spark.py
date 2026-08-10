@@ -181,7 +181,7 @@ def init_spark():
     # its transitive dependencies (module jars + external libs) can be
     # resolved without requiring the snapshot to exist remotely.
     m2_repo_root = Path(os.path.expanduser("~")) / ".m2" / "repository"
-    remote_repo = "https://mmlspark.azureedge.net/maven"
+    remote_repo = "https://mmlspark.blob.core.windows.net/maven"
     if _is_snapshot_version(__spark_package_version__):
         repos = f"file:{m2_repo_root.as_posix()},{remote_repo}"
     else:
