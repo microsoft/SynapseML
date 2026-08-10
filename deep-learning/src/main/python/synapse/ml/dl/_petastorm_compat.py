@@ -24,6 +24,7 @@ from fsspec.utils import tokenize
 
 _ORIGINAL_PARQUET_DATASET = pq.ParquetDataset
 _PATCHED = False
+_IS_WINDOWS = os.name == "nt"
 _HIVE_DEFAULT_PARTITION = "__HIVE_DEFAULT_PARTITION__"
 
 
@@ -446,6 +447,25 @@ def _needs_parquet_dataset_adapter():
     return major_version >= 14 or "ParquetDatasetPiece" not in pq.__dict__
 
 
+def _subprocess_environment(env=None):
+    child_env = os.environ.copy() if env is None else env.copy()
+    if _IS_WINDOWS:
+        return child_env
+
+    conda_prefix = child_env.get("CONDA_PREFIX")
+    if not conda_prefix:
+        return child_env
+
+    conda_library_path = posixpath.join(conda_prefix, "lib")
+    library_paths = [
+        path
+        for path in child_env.get("LD_LIBRARY_PATH", "").split(os.pathsep)
+        if path and path != conda_library_path
+    ]
+    child_env["LD_LIBRARY_PATH"] = os.pathsep.join([conda_library_path] + library_paths)
+    return child_env
+
+
 def _exec_in_new_process(func, *args, **kwargs):
     import dill
 
@@ -459,7 +479,8 @@ def _exec_in_new_process(func, *args, **kwargs):
                 "-m",
                 "synapse.ml.dl._petastorm_process_entrypoint",
                 runnable_path,
-            ]
+            ],
+            env=_subprocess_environment(),
         )
     except BaseException:
         if os.path.exists(runnable_path):

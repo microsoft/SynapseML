@@ -52,7 +52,10 @@ if _module_available("horovod"):
     try:
         import cloudpickle
 
-        from synapse.ml.dl._petastorm_compat import ensure_petastorm_compatibility
+        from synapse.ml.dl._petastorm_compat import (
+            _subprocess_environment,
+            ensure_petastorm_compatibility,
+        )
 
         ensure_petastorm_compatibility()
         import horovod  # type: ignore
@@ -75,6 +78,7 @@ if _module_available("horovod"):
                 env = {} if env is None else env
                 full_env = self._env or os.environ.copy()
                 full_env.update(env)
+                full_env = _subprocess_environment(full_env)
                 full_env.pop("CUDA_VISIBLE_DEVICES", None)
 
                 def run_serialized(
@@ -173,10 +177,13 @@ if _module_available("horovod"):
                         .collect()[0]
                     )
 
+                worker_env = dict(env)
+                if "LD_LIBRARY_PATH" in full_env:
+                    worker_env["LD_LIBRARY_PATH"] = full_env["LD_LIBRARY_PATH"]
                 return super().run(
                     run_serialized,
                     args=run_args,
-                    env=env,
+                    env=worker_env,
                 )
 
         TorchEstimatorBase = _TorchEstimator  # type: ignore[assignment]

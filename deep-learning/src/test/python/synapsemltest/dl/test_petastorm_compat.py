@@ -92,6 +92,23 @@ def test_lightning_stage_adapter_normalizes_enum_values(monkeypatch):
     assert calls == ["fit"]
 
 
+def test_subprocess_environment_prefers_conda_native_libraries(monkeypatch):
+    monkeypatch.setattr(_petastorm_compat, "_IS_WINDOWS", False)
+    original_env = {
+        "CONDA_PREFIX": "/opt/conda/envs/synapseml",
+        "LD_LIBRARY_PATH": ("/usr/lib" + os.pathsep + "/opt/conda/envs/synapseml/lib"),
+    }
+
+    child_env = _petastorm_compat._subprocess_environment(original_env)
+
+    assert child_env is not original_env
+    assert child_env["LD_LIBRARY_PATH"].split(os.pathsep) == [
+        "/opt/conda/envs/synapseml/lib",
+        "/usr/lib",
+    ]
+    assert original_env["LD_LIBRARY_PATH"].startswith("/usr/lib")
+
+
 def test_petastorm_process_reader_bootstraps_compatibility(tmp_path):
     ensure_petastorm_compatibility()
     from petastorm import make_batch_reader
@@ -482,12 +499,13 @@ def test_horovod_worker_bootstraps_petastorm_before_loading_trainer(tmp_path):
         """
     )
 
-    subprocess.run(
+    result = subprocess.run(
         [sys.executable, "-c", script, str(payload_path)],
-        check=True,
         capture_output=True,
+        env=_petastorm_compat._subprocess_environment(),
         text=True,
     )
+    assert result.returncode == 0, result.stderr
 
 
 def test_default_horovod_backend_serializes_trainer_before_worker_launch(
@@ -510,13 +528,21 @@ def test_default_horovod_backend_serializes_trainer_before_worker_launch(
     backend._env = None
     backend._kwargs = {}
     backend._num_proc = 2
+    monkeypatch.setattr(_petastorm_compat, "_IS_WINDOWS", False)
+    monkeypatch.setenv("CONDA_PREFIX", "/opt/conda/envs/synapseml")
+    monkeypatch.setenv("LD_LIBRARY_PATH", "/usr/lib")
 
     def add_one(value):
         return value + 1
 
-    assert backend.run(add_one, args=(1,), env={"TEST_ENV": "1"}) == [2]
+    run_env = {"TEST_ENV": "1"}
+    assert backend.run(add_one, args=(1,), env=run_env) == [2]
     assert captured["fn"].__name__ == "run_serialized"
-    assert captured["env"] == {"TEST_ENV": "1"}
+    assert captured["env"] == {
+        "TEST_ENV": "1",
+        "LD_LIBRARY_PATH": ("/opt/conda/envs/synapseml/lib" + os.pathsep + "/usr/lib"),
+    }
+    assert run_env == {"TEST_ENV": "1"}
 
 
 def test_default_horovod_backend_runs_single_process_on_executor(monkeypatch):
