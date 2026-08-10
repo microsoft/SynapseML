@@ -25,10 +25,30 @@ import java.net.URLEncoder
 import java.nio.file.{Files, Path}
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.util.UUID
 import scala.annotation.tailrec
 import scala.concurrent.{ExecutionContext, Future, TimeoutException, blocking}
 import scala.util.Try
 import scala.util.control.Breaks.{break, breakable}
+
+private[fabric] object FabricArtifactNames {
+  private val SjdTimestampFormat = DateTimeFormatter.ofPattern("yyyyMMdd-HH-mm-ss")
+  private val StoreTimestampFormat = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
+
+  def sjd(runName: String): String =
+    sjd(runName, LocalDateTime.now(), UUID.randomUUID())
+
+  def store(storeName: String): String =
+    store(storeName, LocalDateTime.now(), UUID.randomUUID())
+
+  private[fabric] def sjd(runName: String, now: LocalDateTime, uniqueId: UUID): String =
+    s"$runName-${SjdTimestampFormat.format(now)}-${compact(uniqueId)}"
+
+  private[fabric] def store(storeName: String, now: LocalDateTime, uniqueId: UUID): String =
+    s"$storeName${StoreTimestampFormat.format(now)}${compact(uniqueId)}"
+
+  private def compact(uniqueId: UUID): String = uniqueId.toString.replace("-", "")
+}
 
 private[fabric] class FabricOperations(clientId: String, redirectUri: String, workspaceId: String)
   extends FabricInternalConnection(clientId, redirectUri, workspaceId) {
@@ -94,14 +114,12 @@ private[fabric] class FabricOperations(clientId: String, redirectUri: String, wo
 
   def createSJDArtifact(path: String, artifactType: String): String = {
     val runName = getBlobNameFromFilepath(path).replace(".py", "")
-
-    val dtf = DateTimeFormatter.ofPattern("yyyyMMdd-HH-mm-ss")
-    val now = dtf.format(LocalDateTime.now)
+    val displayName = FabricArtifactNames.sjd(runName)
 
     val reqBody: String =
       s"""
          |{
-         |  "displayName": "$runName-$now",
+         |  "displayName": "$displayName",
          |  "description": "Synapse Spark Job Definition $artifactType",
          |  "artifactType": "$artifactType"
          |}
@@ -113,13 +131,12 @@ private[fabric] class FabricOperations(clientId: String, redirectUri: String, wo
 
   def createStoreArtifact(): String = {
     val store = Secrets.ArtifactStore.capitalize
-    val dtf = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
-    val now = dtf.format(LocalDateTime.now)
+    val displayName = FabricArtifactNames.store(store)
 
     val reqBody: String =
       s"""
          |{
-         |  "displayName": "$store$now",
+         |  "displayName": "$displayName",
          |  "description": "SynapseML Test Infra $store",
          |  "artifactType": "$store"
          |}
