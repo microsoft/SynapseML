@@ -38,13 +38,11 @@ dependencies:
     - mlflow==2.21.3
     - protobuf>=4.25
     - numpy
-    # For Python 3.13, use PyTorch 2.6+ which has Python 3.13 wheels.
-    - torch==2.9.1
-    - torchvision==0.24.1
-    # horovod package was deprecated in 2023, this commit has horovod compile with c++17
-    # Ref: https://github.com/horovod/horovod/issues/3996#issuecomment-2098507345
-    # Pre-built wheel for faster CI (built from commit 3a31d93 on Python 3.13)
-    - https://mmlspark.blob.core.windows.net/installers/horovod-0.28.1-cp313-cp313-linux_x86_64.whl
+    # CPU-only wheels avoid unused CUDA downloads in local/CI; DBR GPU notebooks use runtime-provided CUDA.
+    - "https://download.pytorch.org/whl/cpu/torch-2.9.1%2Bcpu-cp313-cp313-manylinux_2_28_x86_64.whl#sha256=39b3dff6d8fba240ae0d1bede4ca11c2531ae3b47329206512d99e17907ff74b"
+    - "https://download.pytorch.org/whl/cpu/torchvision-0.24.1%2Bcpu-cp313-cp313-manylinux_2_28_x86_64.whl#sha256=19eb1744686a992522bf9ab8bf4b3245c2202e93a39b1fe1fcb2b8d2ca982048"
+    # Horovod v0.28.1 with upstream GCC, C++17, and Python 3.13 fixes; includes PyTorch and Gloo.
+    - "https://mmlsparkbuildsynapse.blob.core.windows.net/synapse-extension/horovod/0.28.1/horovod-0.28.1-1-cp313-cp313-linux_x86_64.whl#sha256=7f0aac69b6f961b37357e53a4a983b3a4d921c77cbcbff05854f4201e0b38d53"
     - petastorm>=0.11.0
     - pytorch_lightning==2.4.0
     - onnxmltools==1.12.0

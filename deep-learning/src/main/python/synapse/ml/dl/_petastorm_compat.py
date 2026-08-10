@@ -1,10 +1,11 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 
-"""Compatibility shims for Petastorm 0.12.1 on modern PyArrow and NumPy."""
+"""Compatibility shims for Horovod's Petastorm and Lightning integrations."""
 
 from __future__ import annotations
 
+import functools
 import os
 import posixpath
 import subprocess
@@ -404,6 +405,40 @@ def _install_numpy_aliases():
             setattr(np, name, value)
 
 
+def _install_lightning_stage_adapter():
+    # Lightning 1.5 uses a stage enum to form attribute names. Python 3.11+
+    # renders it as TrainerFn.FITTING instead of its "fit" string value.
+    try:
+        from pytorch_lightning.core.datamodule import LightningDataModule
+    except (AttributeError, ImportError):
+        return
+
+    track_data_hook_calls = getattr(LightningDataModule, "_track_data_hook_calls", None)
+    if track_data_hook_calls is None or getattr(
+        track_data_hook_calls, "_synapseml_stage_adapter", False
+    ):
+        return
+
+    def track_with_normalized_stage(obj, fn):
+        tracked_fn = track_data_hook_calls(obj, fn)
+
+        @functools.wraps(tracked_fn)
+        def wrapped_fn(*args, **kwargs):
+            if args:
+                stage = getattr(args[0], "value", args[0])
+                args = (stage,) + args[1:]
+            elif "stage" in kwargs:
+                kwargs["stage"] = getattr(kwargs["stage"], "value", kwargs["stage"])
+            return tracked_fn(*args, **kwargs)
+
+        return wrapped_fn
+
+    track_with_normalized_stage._synapseml_stage_adapter = True
+    LightningDataModule._track_data_hook_calls = staticmethod(
+        track_with_normalized_stage
+    )
+
+
 def _needs_parquet_dataset_adapter():
     # PyArrow 14 retains ParquetDatasetPiece but defaults to the incompatible
     # Dataset API, which rejects Petastorm's legacy constructor arguments.
@@ -441,6 +476,7 @@ def _install_process_pool_launcher():
 def ensure_petastorm_compatibility():
     global _PATCHED
 
+    _install_lightning_stage_adapter()
     if _PATCHED:
         return
 

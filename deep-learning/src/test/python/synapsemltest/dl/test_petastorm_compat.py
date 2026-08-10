@@ -1,15 +1,19 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 
+import os
 import subprocess
 import sys
 import textwrap
+import types
 
+import cloudpickle
 import numpy as np
 import pyarrow as pa
 import pyarrow.parquet as pq
+import pytest
 
-from synapse.ml.dl import _petastorm_compat
+from synapse.ml.dl import _horovod, _petastorm_compat
 from synapse.ml.dl._petastorm_compat import ensure_petastorm_compatibility
 
 
@@ -39,6 +43,53 @@ def test_petastorm_batch_reader_supports_modern_pyarrow(tmp_path):
 
     assert batch.id.tolist() == [1, 2, 3]
     assert batch.value.tolist() == [10.0, 20.0, 30.0]
+
+
+def test_lightning_stage_adapter_normalizes_enum_values(monkeypatch):
+    class FakeLightningDataModule:
+        @staticmethod
+        def _track_data_hook_calls(obj, fn):
+            def wrapped_fn(*args, **kwargs):
+                stage = args[0] if args else kwargs["stage"]
+                getattr(obj, f"_has_setup_{stage}")
+                return fn(*args, **kwargs)
+
+            return wrapped_fn
+
+    datamodule_module = types.ModuleType("pytorch_lightning.core.datamodule")
+    datamodule_module.LightningDataModule = FakeLightningDataModule
+    core_module = types.ModuleType("pytorch_lightning.core")
+    core_module.datamodule = datamodule_module
+    lightning_module = types.ModuleType("pytorch_lightning")
+    lightning_module.core = core_module
+    monkeypatch.setitem(sys.modules, "pytorch_lightning", lightning_module)
+    monkeypatch.setitem(sys.modules, "pytorch_lightning.core", core_module)
+    monkeypatch.setitem(
+        sys.modules,
+        "pytorch_lightning.core.datamodule",
+        datamodule_module,
+    )
+
+    _petastorm_compat._install_lightning_stage_adapter()
+    patched_tracker = FakeLightningDataModule._track_data_hook_calls
+    _petastorm_compat._install_lightning_stage_adapter()
+    assert FakeLightningDataModule._track_data_hook_calls is patched_tracker
+
+    class TrainerStage:
+        value = "fit"
+
+        def __str__(self):
+            return "TrainerFn.FITTING"
+
+    calls = []
+    datamodule = types.SimpleNamespace(_has_setup_fit=False)
+    tracked_setup = patched_tracker(
+        datamodule,
+        lambda stage: calls.append(stage),
+    )
+    tracked_setup(stage=TrainerStage())
+
+    assert calls == ["fit"]
 
 
 def test_petastorm_process_reader_bootstraps_compatibility(tmp_path):
@@ -383,3 +434,170 @@ def test_horovod_module_does_not_require_petastorm_extras_when_unavailable():
         capture_output=True,
         text=True,
     )
+
+
+def test_horovod_worker_bootstraps_petastorm_before_loading_trainer(tmp_path):
+    def require_legacy_pyarrow_alias():
+        from pyarrow.filesystem import LocalFileSystem
+
+        return LocalFileSystem is not None
+
+    payload_path = tmp_path / "worker-payload.pkl"
+    payload_path.write_bytes(
+        cloudpickle.dumps(
+            (
+                _horovod._serialize_petastorm_compatibility(),
+                cloudpickle.dumps(require_legacy_pyarrow_alias),
+            )
+        )
+    )
+    script = textwrap.dedent(
+        """
+        import cloudpickle
+        from pathlib import Path
+        import pyarrow as pa
+        import pyarrow.fs as pafs
+        import sys
+        import types
+
+        assert "pyarrow.filesystem" not in sys.modules
+        serialized_compatibility, serialized_fn = cloudpickle.loads(
+            Path(sys.argv[1]).read_bytes()
+        )
+        filesystem_module = types.ModuleType("pyarrow.filesystem")
+        filesystem_module.LocalFileSystem = pafs.LocalFileSystem
+        sys.modules["pyarrow.filesystem"] = filesystem_module
+        pa.filesystem = filesystem_module
+        hdfs_module = types.ModuleType("pyarrow.hdfs")
+        hdfs_module.HadoopFileSystem = pafs.HadoopFileSystem
+        sys.modules["pyarrow.hdfs"] = hdfs_module
+        pa.hdfs = hdfs_module
+        apply_compatibility = cloudpickle.loads(serialized_compatibility)
+        del sys.modules["pyarrow.filesystem"]
+        del pa.filesystem
+        del sys.modules["pyarrow.hdfs"]
+        del pa.hdfs
+        apply_compatibility()
+        assert cloudpickle.loads(serialized_fn)()
+        """
+    )
+
+    subprocess.run(
+        [sys.executable, "-c", script, str(payload_path)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+
+def test_default_horovod_backend_serializes_trainer_before_worker_launch(
+    monkeypatch,
+):
+    if not _horovod.HOROVOD_AVAILABLE:
+        pytest.skip("Horovod is not installed")
+
+    backend_type = _horovod.SparkBackendBase
+    backend_base_type = backend_type.__mro__[1]
+    captured = {}
+
+    def fake_run(self, fn, args=(), kwargs=None, env=None):
+        captured["fn"] = fn
+        captured["env"] = env
+        return [fn(*args, **(kwargs or {}))]
+
+    monkeypatch.setattr(backend_base_type, "run", fake_run)
+    backend = backend_type.__new__(backend_type)
+    backend._env = None
+    backend._kwargs = {}
+    backend._num_proc = 2
+
+    def add_one(value):
+        return value + 1
+
+    assert backend.run(add_one, args=(1,), env={"TEST_ENV": "1"}) == [2]
+    assert captured["fn"].__name__ == "run_serialized"
+    assert captured["env"] == {"TEST_ENV": "1"}
+
+
+def test_default_horovod_backend_runs_single_process_on_executor(monkeypatch):
+    if not _horovod.HOROVOD_AVAILABLE:
+        pytest.skip("Horovod is not installed")
+
+    import horovod.runner
+    from pyspark import SparkContext, TaskContext
+
+    backend_type = _horovod.SparkBackendBase
+    captured = {}
+
+    def fake_horovod_run(fn, args=(), **kwargs):
+        captured["runner_kwargs"] = kwargs
+        return [fn(*args)]
+
+    class FakeGpuResource:
+        addresses = ["7"]
+
+    class FakeTaskContext:
+        @staticmethod
+        def resources():
+            return {"gpu": FakeGpuResource()}
+
+    class FakeRDD:
+        def mapPartitions(self, fn):
+            self.values = list(fn(iter([None])))
+            return self
+
+        def collect(self):
+            return self.values
+
+    class FakeSparkContext:
+        @staticmethod
+        def parallelize(values, num_slices):
+            captured["parallelize"] = (values, num_slices)
+            return FakeRDD()
+
+    monkeypatch.setattr(horovod.runner, "run", fake_horovod_run)
+    monkeypatch.setattr(
+        SparkContext, "getOrCreate", staticmethod(lambda: FakeSparkContext())
+    )
+    monkeypatch.setattr(TaskContext, "get", staticmethod(lambda: FakeTaskContext()))
+    monkeypatch.setenv("CUDA_VISIBLE_DEVICES", "original")
+    monkeypatch.setenv("HOROVOD_SPARK_USE_LOCAL_RANK_GPU_INDEX", "original")
+    monkeypatch.delenv("BASE_ENV", raising=False)
+    monkeypatch.delenv("TEST_ENV", raising=False)
+
+    backend = backend_type.__new__(backend_type)
+    backend._env = {
+        "BASE_ENV": "base",
+        "CUDA_VISIBLE_DEVICES": "driver",
+    }
+    backend._kwargs = {"verbose": 2}
+    backend._num_proc = 1
+
+    def inspect_environment(value):
+        import os
+
+        return (
+            value,
+            os.environ["BASE_ENV"],
+            os.environ["TEST_ENV"],
+            os.environ["CUDA_VISIBLE_DEVICES"],
+            os.environ["HOROVOD_SPARK_USE_LOCAL_RANK_GPU_INDEX"],
+        )
+
+    assert backend.run(
+        inspect_environment,
+        args=(1,),
+        env={"TEST_ENV": "worker"},
+    ) == [(1, "base", "worker", "7", "1")]
+    assert captured["parallelize"] == ([None], 1)
+    assert captured["runner_kwargs"] == {
+        "num_proc": 1,
+        "use_gloo": True,
+        "use_mpi": False,
+        "network_interfaces": ["lo"],
+        "verbose": 2,
+    }
+    assert "BASE_ENV" not in os.environ
+    assert "TEST_ENV" not in os.environ
+    assert os.environ["CUDA_VISIBLE_DEVICES"] == "original"
+    assert os.environ["HOROVOD_SPARK_USE_LOCAL_RANK_GPU_INDEX"] == "original"
