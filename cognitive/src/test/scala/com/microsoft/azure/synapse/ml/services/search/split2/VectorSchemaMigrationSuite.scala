@@ -1,8 +1,9 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.azure.synapse.ml.services.search
+package com.microsoft.azure.synapse.ml.services.search.split2
 
+import com.microsoft.azure.synapse.ml.services.search._
 import com.microsoft.azure.synapse.ml.services.search.AzureSearchProtocol._
 import org.apache.http.{HttpEntity, HttpVersion}
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpGet}
