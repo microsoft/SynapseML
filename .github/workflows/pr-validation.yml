@@ -55,7 +55,34 @@ jobs:
           sbt sbtVersion
 
       - name: Scalastyle check
-        run: sbt scalastyle test:scalastyle
+        run: |
+          set -o pipefail
+          sbt scalastyle test:scalastyle 2>&1 | tee "$RUNNER_TEMP/scalastyle-output.log"
+
+      - name: Annotate scalastyle violations
+        if: failure()
+        run: |
+          set -uo pipefail
+          log="$RUNNER_TEMP/scalastyle-output.log"
+          [ -f "$log" ] || exit 0
+          workspace="${GITHUB_WORKSPACE%/}/"
+          violations="$(grep -aE '^\[(error|warn)\] .+\.scala:[0-9]+:[0-9]+: ' "$log" || true)"
+          if [ -z "$violations" ]; then
+            echo "No scalastyle violations found in the log; the failure is reported in the step above."
+            exit 0
+          fi
+          while IFS= read -r violation; do
+            case "$violation" in
+              '[warn]'*) severity="warning" ;;
+              *) severity="error" ;;
+            esac
+            body="${violation#*] }"
+            location="${body%%: *}"
+            message="${body#*: }"
+            file="${location%%:*}"
+            position="${location#*:}"
+            echo "::${severity} file=${file#"$workspace"},line=${position%%:*},col=${position#*:}::${message}"
+          done <<< "$violations"
 
       - name: Compile
         run: sbt compile test:compile
