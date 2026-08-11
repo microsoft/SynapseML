@@ -4,12 +4,12 @@
 package com.microsoft.azure.synapse.ml.core.test.pipeline
 
 import com.microsoft.azure.synapse.ml.build.BuildInfo
+import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.usingSource
 import org.scalatest.funsuite.AnyFunSuite
 
 import java.io.File
 import scala.annotation.tailrec
 import scala.io.Source
-import scala.util.Using
 
 /**
   * Guards against test suites that silently never run in CI.
@@ -34,16 +34,21 @@ class PipelineTestCoverageSuite extends AnyFunSuite {
     "nbtest.SynapseTestCleanup"
   ).map(suffix => s"$rootPackage.$suffix")
 
-  /** ScalaTest entry points. Anything extending these, directly or transitively, is a suite. */
-  private val scalaTestBaseTypes = Set(
-    "Suite", "FunSuite", "FlatSpec", "WordSpec", "FreeSpec", "PropSpec", "FeatureSpec", "FunSpec",
-    "AnyFunSuite", "AnyFlatSpec", "AnyWordSpec", "AnyFreeSpec", "AnyPropSpec", "AnyFeatureSpec", "AnyFunSpec"
-  )
+  /**
+    * ScalaTest entry points. Anything extending these, directly or transitively, is a suite.
+    * The `*Like` traits are separate entry points, not subtypes of the classes, so both spellings
+    * are needed -- `AnalyzeTextLROSuite` extends `AnyFunSuiteLike` directly.
+    */
+  private val scalaTestBaseTypes: Set[String] = {
+    val styles = Set("Suite", "FunSuite", "FlatSpec", "WordSpec", "FreeSpec", "PropSpec", "FeatureSpec", "FunSpec")
+    val spellings = styles ++ styles.map("Any" + _)
+    spellings ++ spellings.map(_ + "Like") + "TestSuite" + "TestSuiteLike"
+  }
 
   private val repoRoot: File = BuildInfo.baseDirectory.getParentFile
 
   private def readFile(file: File): String =
-    Using.resource(Source.fromFile(file, "UTF-8"))(_.mkString)
+    usingSource(Source.fromFile(file, "UTF-8"))(_.mkString).get
 
   private def scalaFilesUnder(dir: File): Seq[File] = {
     if (!dir.isDirectory) Seq.empty
@@ -61,12 +66,21 @@ class PipelineTestCoverageSuite extends AnyFunSuite {
 
   private case class Declaration(name: String, parents: Seq[String], isConcreteClass: Boolean)
 
+  /**
+    * Declarations routinely wrap, e.g. `class Foo(bar: String)\n  extends TestBase`, so match
+    * against a whitespace-flattened copy of the source. The segment between the name and
+    * `extends` may not cross another declaration keyword, which keeps a class without an
+    * `extends` clause from borrowing the next declaration's parents.
+    */
   private val declarationPattern =
-    raw"(?m)^\s*(abstract class|case class|class|trait)\s+(\w+)[^\n]*?\bextends\s+([^\{]+)".r
+    raw"(?<![\w.])(abstract class|case class|class|trait) (\w+)\b" +
+      raw"((?:(?!\b(?:class|trait|object)\b).)*?) extends ([^\{]*?)" +
+      raw"(?=\s*\{|\s+(?:abstract class|case class|class|trait|object)\b|$$)"
 
-  private def parseDeclarations(source: String): Seq[Declaration] =
-    declarationPattern.findAllMatchIn(source).map { m =>
-      val parents = m.group(3)
+  private def parseDeclarations(source: String): Seq[Declaration] = {
+    val flattened = source.replaceAll("\\s+", " ")
+    declarationPattern.r.findAllMatchIn(flattened).map { m =>
+      val parents = m.group(4)
         .split("\\bwith\\b")
         .map(_.trim.takeWhile(c => c.isLetterOrDigit || c == '.' || c == '_'))
         .map(name => name.split('.').lastOption.getOrElse(name))
@@ -74,6 +88,7 @@ class PipelineTestCoverageSuite extends AnyFunSuite {
         .toSeq
       Declaration(m.group(2), parents, m.group(1) == "class" || m.group(1) == "case class")
     }.toSeq
+  }
 
   /** Walks the local extends graph so suites are found by ancestry, not by naming convention. */
   private def suiteTypeNames(declarations: Seq[Declaration]): Set[String] = {
@@ -122,18 +137,35 @@ class PipelineTestCoverageSuite extends AnyFunSuite {
     val sources = testSourceFiles.map(file => file -> readFile(file))
     assert(sources.size > 100, s"Expected to scan the whole repo, only found ${sources.size} test files")
 
-    val suiteTypes = suiteTypeNames(sources.flatMap { case (_, source) => parseDeclarations(source) })
+    val parsed = sources.map { case (file, source) =>
+      val pkg = raw"(?m)^package\s+([\w.]+)".r.findFirstMatchIn(source).map(_.group(1))
+      (file, pkg, parseDeclarations(source))
+    }
+    val suiteTypes = suiteTypeNames(parsed.flatMap { case (_, _, decls) => decls })
 
-    val orphans = sources.flatMap { case (file, source) =>
-      raw"(?m)^package\s+([\w.]+)".r.findFirstMatchIn(source).map(_.group(1)).toSeq.flatMap { pkg =>
-        parseDeclarations(source)
+    val discovered = parsed.flatMap { case (file, pkg, decls) =>
+      pkg.toSeq.flatMap { p =>
+        decls
           .filter(decl => decl.isConcreteClass && decl.parents.exists(suiteTypes))
-          .map(decl => s"$pkg.${decl.name}")
-          .filterNot(fqcn => dedicatedStageSuites.exists(fqcn.startsWith))
-          .filterNot(isCovered(_, specs))
-          .map(fqcn => s"$fqcn (${file.getName})")
+          .map(decl => s"$p.${decl.name}" -> file.getName)
       }
-    }.distinct.sorted
+    }.distinct
+
+    // Without this the guard would pass vacuously if source parsing ever silently broke.
+    assert(discovered.size > 200, s"Only discovered ${discovered.size} suites; source parsing looks broken")
+    Seq(
+      "com.microsoft.azure.synapse.ml.services.language.AnalyzeTextLROSuite", // wraps, extends AnyFunSuiteLike
+      "com.microsoft.azure.synapse.ml.stages.EnsembleByKeySuite",
+      "com.microsoft.azure.synapse.ml.services.search.AzureSearchAuthSuite"
+    ).foreach { known =>
+      assert(discovered.exists(_._1 == known), s"Suite discovery missed $known")
+    }
+
+    val orphans = discovered
+      .filterNot { case (fqcn, _) => dedicatedStageSuites.exists(fqcn.startsWith) }
+      .filterNot { case (fqcn, _) => isCovered(fqcn, specs) }
+      .map { case (fqcn, fileName) => s"$fqcn ($fileName)" }
+      .sorted
 
     assert(orphans.isEmpty,
       s"${orphans.size} test suite(s) are never run by CI. Add them to the UnitTests matrix in " +
