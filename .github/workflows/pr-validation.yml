@@ -66,7 +66,10 @@ jobs:
           log="$RUNNER_TEMP/scalastyle-output.log"
           [ -f "$log" ] || exit 0
           workspace="${GITHUB_WORKSPACE%/}/"
-          violations="$(grep -aE '^\[(error|warn)\] .+\.scala:[0-9]+:[0-9]+: ' "$log" || true)"
+          # sbt colorizes its output, so strip ANSI escapes before matching
+          violations="$(sed -e 's/\x1B\[[0-9;]*[a-zA-Z]//g' "$log" \
+            | grep -aE '^\[(error|warn)\] .+\.scala:[0-9]+(:[0-9]+)?: ' \
+            | awk '!seen[$0]++' || true)"
           if [ -z "$violations" ]; then
             echo "No scalastyle violations found in the log; the failure is reported in the step above."
             exit 0
@@ -81,7 +84,14 @@ jobs:
             message="${body#*: }"
             file="${location%%:*}"
             position="${location#*:}"
-            echo "::${severity} file=${file#"$workspace"},line=${position%%:*},col=${position#*:}::${message}"
+            lineno="${position%%:*}"
+            # File-level checks (line length, tabs, EOF newline) report no column
+            if [ "$position" = "$lineno" ]; then
+              column=""
+            else
+              column=",col=${position#*:}"
+            fi
+            echo "::${severity} file=${file#"$workspace"},line=${lineno}${column}::${message}"
           done <<< "$violations"
 
       - name: Compile
