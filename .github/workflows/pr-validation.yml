@@ -74,6 +74,18 @@ jobs:
             echo "No scalastyle violations found in the log; the failure is reported in the step above."
             exit 0
           fi
+          # Workflow commands treat %, CR and LF specially; property values
+          # additionally need : and , encoded
+          encode() {
+            local value="${1//%/%25}"
+            value="${value//$'\r'/%0D}"
+            value="${value//$'\n'/%0A}"
+            if [ "${2:-}" = "property" ]; then
+              value="${value//:/%3A}"
+              value="${value//,/%2C}"
+            fi
+            printf '%s' "$value"
+          }
           while IFS= read -r violation; do
             case "$violation" in
               '[warn]'*) severity="warning" ;;
@@ -91,7 +103,7 @@ jobs:
             else
               column=",col=${position#*:}"
             fi
-            echo "::${severity} file=${file#"$workspace"},line=${lineno}${column}::${message}"
+            echo "::${severity} file=$(encode "${file#"$workspace"}" property),line=${lineno}${column}::$(encode "$message")"
           done <<< "$violations"
 
       - name: Compile

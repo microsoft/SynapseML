@@ -872,6 +872,7 @@ jobs:
         displayName: Load Codecov token
         condition: succeededOrFailed()
         retryCountOnTaskFailure: 3
+        continueOnError: true
         inputs:
           azureSubscription: 'SynapseML Build'
           keyVaultName: mmlspark-keys
