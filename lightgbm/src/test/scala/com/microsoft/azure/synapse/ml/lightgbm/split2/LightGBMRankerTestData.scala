@@ -52,7 +52,6 @@ abstract class LightGBMRankerTestData extends Benchmarks with EstimatorFuzzing[L
       .setDefaultListenPort(getAndIncrementPort())
       .setRepartitionByGroupingColumn(false)
       .setDataTransferMode(dataTransferMode)
-      .setUseBarrierExecutionMode(true)
       .setNumLeaves(5)
       .setNumIterations(10)
   }

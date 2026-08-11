@@ -10,7 +10,6 @@ import org.apache.spark.sql._
 import org.slf4j.Logger
 
 
-// scalastyle:off method.length
 object ReferenceDatasetUtils {
   def createReferenceDatasetFromSample(datasetParams: String,
                                        featuresCol: String,
@@ -40,24 +39,28 @@ object ReferenceDatasetUtils {
       lightgbmlib.delete_intp(lenPtr)
     }
   }
-  // scalastyle:on method.length
 
   private def createDatasetFromSamples(sampledData: SampledData,
                                        numCols: Int,
                                        numRows: Long,
                                        datasetParams: String): SWIGTYPE_p_void = {
     val datasetVoidPtr = lightgbmlib.voidpp_handle()
-    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromSampledColumn(
-      sampledData.getSampleData,
-      sampledData.getSampleIndices,
-      numCols,
-      sampledData.getRowCounts,
-      sampledData.numRows,
-      1, // Used for allocation and must be > 0, but we don't use this reference set for data collection
-      numRows,
-      datasetParams,
-      datasetVoidPtr), "Dataset create from samples")
-    lightgbmlib.voidpp_value(datasetVoidPtr)
+    try {
+      LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromSampledColumn(
+        sampledData.getSampleData,
+        sampledData.getSampleIndices,
+        numCols,
+        sampledData.getRowCounts,
+        sampledData.numRows,
+        1, // Used for allocation and must be > 0, but we don't use this reference set for data collection
+        numRows,
+        datasetParams,
+        datasetVoidPtr), "Dataset create from samples")
+      lightgbmlib.voidpp_value(datasetVoidPtr)
+    } finally {
+      // Frees the void** container only. The Dataset it points at is freed by LGBM_DatasetFree.
+      lightgbmlib.delete_voidpp(datasetVoidPtr)
+    }
   }
 
   private def setFeatureNamesIfProvided(datasetHandle: SWIGTYPE_p_void,
@@ -65,7 +68,13 @@ object ReferenceDatasetUtils {
                                         numCols: Int,
                                         log: Logger): Unit = {
     featureNames.foreach { names =>
-      if (names.nonEmpty) {
+      if (names.length != numCols) {
+        // LGBM_DatasetSetFeatureNames reads numCols entries from the array, so a shorter array
+        // would be an out-of-bounds native read. Skip naming rather than risk it; LightGBM then
+        // falls back to its own generated names, which is the behavior prior to this feature.
+        log.warn(s"Skipping feature names on reference dataset: got ${names.length} names " +
+          s"for $numCols feature columns.")
+      } else if (names.nonEmpty) {
         log.info(s"Setting ${names.length} feature names on reference dataset")
         LightGBMUtils.validate(lightgbmlib.LGBM_DatasetSetFeatureNames(datasetHandle, names, numCols),
           "Dataset set feature names")

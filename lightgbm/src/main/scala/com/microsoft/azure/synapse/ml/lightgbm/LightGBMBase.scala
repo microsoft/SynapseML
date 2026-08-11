@@ -18,7 +18,6 @@ import org.apache.spark.ml.{ComplexParamsWritable, Estimator, Model}
 import org.apache.spark.sql._
 import org.apache.spark.sql.types._
 
-import scala.annotation.tailrec
 import scala.collection.immutable.HashSet
 import scala.language.existentials
 import scala.math.min
@@ -219,39 +218,54 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
   }
 
   /**
-    * Ensures all feature names are unique by appending indices to duplicates.
-    * This is necessary because Spark 3.5+ can generate duplicate feature names
-    * in AttributeGroup metadata, which causes LightGBM to fail with:
-    * "Feature (Column_) appears more than one time"
+    * Maps a feature name to the form LightGBM compares internally. LightGBM replaces every space
+    * with an underscore before checking for duplicates, so "a b" and "a_b" are the same feature
+    * as far as the native library is concerned even though they differ in Scala.
+    */
+  private def normalizeFeatureName(name: String): String = name.replace(' ', '_')
+
+  /**
+    * Ensures all feature names are unique by appending a numeric suffix to repeated names.
+    * LightGBM rejects a Dataset whose feature names repeat, failing the native
+    * LGBM_DatasetSetFeatureNames call with "Feature (X) appears more than one time", and Spark
+    * can surface repeated names through AttributeGroup metadata on the features column.
+    *
+    * Uniqueness is decided on the normalized form (see normalizeFeatureName), because that is
+    * what LightGBM compares. The original names are what get emitted, so this only affects which
+    * names are considered to collide.
+    *
+    * Every original name is reserved up front, so a generated name can never collide with an
+    * original that appears later in the array. Generated names are reserved as they are handed
+    * out, so they cannot collide with each other either. Order is preserved, which matters
+    * because feature names are positional in LightGBM.
     *
     * @param names The array of feature names that may contain duplicates.
-    * @return An array with unique feature names.
+    * @return An array of unique feature names, in the original order.
     */
   private def ensureUniqueFeatureNames(names: Array[String]): Array[String] = {
-    val nameCounts = scala.collection.mutable.Map[String, Int]()
-    val seenNames = scala.collection.mutable.Set[String]()
+    val reserved = scala.collection.mutable.HashSet[String](names.map(normalizeFeatureName): _*)
+    val emitted = scala.collection.mutable.HashSet[String]()
+    val renamed = scala.collection.mutable.ArrayBuffer[String]()
+
     val uniqueNames = names.map { name =>
-      val count = nameCounts.getOrElse(name, 0)
-      nameCounts(name) = count + 1
-      if (count > 0) {
-        // Find a unique suffix using Stream to avoid while loop
-        val newName = Iterator.from(count)
-          .map(i => s"${name}_$i")
-          .find(n => !seenNames.contains(n))
-          .get // Safe because Iterator.from is infinite
-        seenNames.add(newName)
-        newName
-      } else {
-        seenNames.add(name)
+      if (emitted.add(normalizeFeatureName(name))) {
         name
+      } else {
+        // Terminates because only finitely many names are reserved.
+        val uniqueName = Iterator.from(1)
+          .map(suffix => s"${name}_$suffix")
+          .find(candidate => !reserved.contains(normalizeFeatureName(candidate)))
+          .get
+        reserved.add(normalizeFeatureName(uniqueName))
+        emitted.add(normalizeFeatureName(uniqueName))
+        renamed += name
+        uniqueName
       }
     }
 
-    val duplicates = nameCounts.filter(_._2 > 1).keys.toSeq
-    if (duplicates.nonEmpty) {
-      log.warn(s"Duplicate feature names detected and renamed: ${duplicates.mkString(", ")}. " +
-        "This may occur in Spark 3.5+ due to changes in metadata handling. " +
-        "Consider setting the 'slotNames' parameter explicitly to avoid this.")
+    if (renamed.nonEmpty) {
+      log.warn(s"Duplicate feature names detected and renamed: ${renamed.distinct.mkString(", ")}. " +
+        "Set the 'slotNames' parameter explicitly to control feature naming.")
     }
 
     uniqueNames
@@ -270,25 +284,6 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
           " This error can be fixed by renaming the problematic columns prior to vector assembly.")
       }
     })
-  }
-
-  private def shouldRetryWithBulk(error: Throwable): Boolean = {
-    @tailrec
-    def hasRetryableMessage(current: Throwable): Boolean = {
-      if (current == null) {
-        false
-      } else {
-        val message = Option(current.getMessage).getOrElse("").toLowerCase
-        val duplicateFeatureNames = message.contains("appears more than one time")
-        val datasetCreateFailure = message.contains("dataset create")
-        if (duplicateFeatureNames && datasetCreateFailure) {
-          true
-        } else {
-          hasRetryableMessage(current.getCause)
-        }
-      }
-    }
-    hasRetryableMessage(error)
   }
 
   /**
@@ -449,27 +444,10 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     * creates a driver thread, and runs mapPartitions on the dataset.
     *
     * @param dataset    The dataset to train on.
-   * @param batchIndex In running in batch training mode, gets the batch number.
-   * @return The LightGBM Model from the trained LightGBM Booster.
-   */
+    * @param batchIndex In running in batch training mode, gets the batch number.
+    * @return The LightGBM Model from the trained LightGBM Booster.
+    */
   private def trainOneDataBatch(dataset: Dataset[_], batchIndex: Int, batchCount: Int): TrainedModel = {
-    try {
-      trainOneDataBatchInternal(dataset, batchIndex, batchCount)
-    } catch {
-      case ex if getDataTransferMode == LightGBMConstants.StreamingDataTransferMode && shouldRetryWithBulk(ex) =>
-        log.warn("Detected duplicate feature names while creating LightGBM dataset in streaming mode. " +
-          "Retrying this batch with dataTransferMode=bulk.")
-        val originalMode = getDataTransferMode
-        setDataTransferMode(LightGBMConstants.BulkDataTransferMode)
-        try {
-          trainOneDataBatchInternal(dataset, batchIndex, batchCount)
-        } finally {
-          setDataTransferMode(originalMode)
-        }
-    }
-  }
-
-  private def trainOneDataBatchInternal(dataset: Dataset[_], batchIndex: Int, batchCount: Int): TrainedModel = {
     val measures = new InstrumentationMeasures()
     setBatchPerformanceMeasure(batchIndex, measures)
 
@@ -490,6 +468,10 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     val (numCols, numInitScoreClasses) = calculateColumnStatistics(preprocessedDF, measures)
 
     val featuresSchema = dataset.schema(getFeaturesCol)
+    // Validate before any native LightGBM call that consumes feature names (e.g. reference
+    // Dataset creation below), so an invalid name surfaces as an actionable error naming the
+    // offending columns rather than an opaque native failure.
+    validateSlotNames(featuresSchema)
     val generalTrainParams: BaseTrainParams = getTrainParams(numTasks, featuresSchema, numTasksPerExecutor)
     val trainParams = addCustomTrainParams(generalTrainParams, dataset)
     log.info(s"LightGBM batch $batchIndex of $batchCount, parameters: ${trainParams.toString()}")
@@ -508,7 +490,6 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
         (Some(referenceDataset), Some(partitionCounts))
       } else (None, None)
 
-    validateSlotNames(featuresSchema)
     executeTraining(preprocessedDF,
                     validationData,
                     serializedReferenceDataset,
