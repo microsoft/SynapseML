@@ -31,8 +31,14 @@ object ReferenceDatasetUtils {
       measures.markSamplingStop()
 
       val datasetHandle = createDatasetFromSamples(sampledData, numCols, numRows, datasetParams)
-      setFeatureNamesIfProvided(datasetHandle, featureNames, numCols, log)
-      serializeAndCleanup(datasetHandle, bufferHandlePtr, lenPtr, log)
+      try {
+        setFeatureNamesIfProvided(datasetHandle, featureNames, numCols, log)
+        serializeReference(datasetHandle, bufferHandlePtr, lenPtr, log)
+      } finally {
+        // Free unconditionally so a failure while naming or serializing cannot leak the native
+        // Dataset. Deliberately not validated: throwing here would mask the original failure.
+        lightgbmlib.LGBM_DatasetFree(datasetHandle)
+      }
     } finally {
       sampledData.delete()
       lightgbmlib.delete_voidpp(bufferHandlePtr)
@@ -82,15 +88,14 @@ object ReferenceDatasetUtils {
     }
   }
 
-  private def serializeAndCleanup(datasetHandle: SWIGTYPE_p_void,
-                                  bufferHandlePtr: SWIGTYPE_p_p_void,
-                                  lenPtr: SWIGTYPE_p_int,
-                                  log: Logger): Array[Byte] = {
+  private def serializeReference(datasetHandle: SWIGTYPE_p_void,
+                                 bufferHandlePtr: SWIGTYPE_p_p_void,
+                                 lenPtr: SWIGTYPE_p_int,
+                                 log: Logger): Array[Byte] = {
     LightGBMUtils.validate(lightgbmlib.LGBM_DatasetSerializeReferenceToBinary(
       datasetHandle, bufferHandlePtr, lenPtr), "Serialize ref")
     val bufferLen: Int = lightgbmlib.intp_value(lenPtr)
     log.info(s"Created serialized reference dataset of length $bufferLen")
-    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetFree(datasetHandle), "Free Dataset")
     toByteArray(bufferHandlePtr, bufferLen)
   }
 

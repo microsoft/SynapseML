@@ -280,7 +280,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
       if (!badSlotNames.isEmpty) {
         throw new IllegalArgumentException(
           s"Invalid slot names detected in features column: ${badSlotNames.mkString(",")}" +
-          " \n Special characters \" , : \\ [ ] { } will cause unexpected behavior in LGBM unless changed." +
+          " \n Special characters \" , : [ ] { } will cause unexpected behavior in LGBM unless changed." +
           " This error can be fixed by renaming the problematic columns prior to vector assembly.")
       }
     })
