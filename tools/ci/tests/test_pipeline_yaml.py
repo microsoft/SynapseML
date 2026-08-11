@@ -385,7 +385,9 @@ def test_release_compat_prerequisites_are_full_shas():
         for line in RELEASE_COMPAT_PREREQUISITES.read_text().splitlines()
         if line.strip() and not line.lstrip().startswith("#")
     ]
-    assert lines, "expected at least one prerequisite commit"
+    # The list is meant to drain to empty once every validated release branch carries the
+    # backports, and the replay script already treats an absent or empty list as a no-op, so
+    # only the shape of the entries that are present is validated here.
     assert all(re.fullmatch(r"[0-9a-fA-F]{40}", line) for line in lines)
     assert len(lines) == len(set(lines)), "prerequisite commits must be unique"
 
