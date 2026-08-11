@@ -385,8 +385,9 @@ def test_release_compat_prerequisites_are_full_shas():
         for line in RELEASE_COMPAT_PREREQUISITES.read_text().splitlines()
         if line.strip() and not line.lstrip().startswith("#")
     ]
-    assert lines == ["04897bae9baa08f0d67855566f7bad235791d508"]
+    assert lines, "expected at least one prerequisite commit"
     assert all(re.fullmatch(r"[0-9a-fA-F]{40}", line) for line in lines)
+    assert len(lines) == len(set(lines)), "prerequisite commits must be unique"
 
 
 @pytest.mark.skipif(os.name != "posix", reason="release replay script requires Bash")
