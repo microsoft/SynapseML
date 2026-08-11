@@ -271,6 +271,9 @@ private[search] object VectorSchema {
     case _ => throw new IllegalArgumentException("fields must be a JSON array")
   }
 
+  private def hasVectorDimensions(fields: Map[String, JsValue]): Boolean =
+    fields.get("dimensions").exists(_ != JsNull)
+
   private def rewriteField(value: JsValue,
                            references: Map[String, String]): JsValue = value match {
     case JsObject(fields) =>
@@ -282,7 +285,7 @@ private[search] object VectorSchema {
         case _ => throw new IllegalArgumentException(
           s"$LegacyFieldReferenceKey and $ModernFieldReferenceKey must be strings")
       }
-      val vectorField = fields.contains("dimensions") && reference.nonEmpty
+      val vectorField = hasVectorDimensions(fields) && reference.nonEmpty
       JsObject(fields - LegacyFieldReferenceKey ++ reference.map(ModernFieldReferenceKey -> _) ++
         nested.map("fields" -> _) ++ (if (vectorField) Some("searchable" -> JsBoolean(true)) else None))
     case _ => throw new IllegalArgumentException("Each field definition must be a JSON object")
@@ -347,7 +350,7 @@ private[search] object VectorSchema {
   private def fieldArrayHasUnreferencedVector(value: JsValue): Boolean = value match {
     case JsArray(elements) => elements.exists {
       case JsObject(fields) =>
-        val hasDimensions = fields.get("dimensions").exists(_ != JsNull)
+        val hasDimensions = hasVectorDimensions(fields)
         val hasReference = Seq(LegacyFieldReferenceKey, ModernFieldReferenceKey)
           .exists(key => fields.get(key).exists {
             case JsString(reference) => reference.nonEmpty

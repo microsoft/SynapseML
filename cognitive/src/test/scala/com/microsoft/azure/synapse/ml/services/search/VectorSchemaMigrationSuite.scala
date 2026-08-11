@@ -396,6 +396,33 @@ class VectorSchemaMigrationSuite extends AnyFunSuite {
     assert(child.fields("searchable").convertTo[Boolean])
   }
 
+  test("a null dimensions placeholder is not treated as a vector field") {
+    val nullDimensions = parse(
+      """
+        |{
+        |  "name": "null-dimensions-index",
+        |  "fields": [
+        |    {
+        |      "name": "notAVector",
+        |      "type": "Edm.String",
+        |      "dimensions": null,
+        |      "vectorSearchConfiguration": "vectorConfig"
+        |    }
+        |  ],
+        |  "vectorSearch": {
+        |    "algorithmConfigurations": [ { "name": "vectorConfig", "kind": "hnsw" } ]
+        |  }
+        |}
+      """.stripMargin)
+
+    val aligned = VectorSchema.align(nullDimensions, "2026-04-01")
+    val field = aligned.asJsObject.fields("fields").asInstanceOf[JsArray].elements.head.asJsObject
+
+    // The reference is still modernized, but a null placeholder must not force searchable=true.
+    assert(field.fields("vectorSearchProfile") == JsString("vectorConfig"))
+    assert(!field.fields.contains("searchable"))
+  }
+
   test("non-vector indexes are unchanged for both schema generations") {
     val plain = parse(
       """{"name":"plain-index","fields":[{"name":"id","type":"Edm.String","key":true}],"future":7}""")
