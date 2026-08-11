@@ -14,7 +14,7 @@ import org.slf4j.Logger
 
 import java.io.{BufferedReader, BufferedWriter, IOException, InputStreamReader, OutputStreamWriter}
 import java.net.{ConnectException, ServerSocket, Socket, SocketException, SocketTimeoutException}
-import java.util.concurrent.Executors
+import java.util.concurrent.{ExecutorService, Executors}
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
@@ -464,6 +464,9 @@ object NetworkManager {
   }
 
   private def parseWorkerProtocolMessage(message: String): WorkerMessage = {
+    if (message == null) {
+      throw new IOException("Worker closed the connection before sending a status message")
+    }
     val components = message.split(":")
     val status = components(0)
 
@@ -546,6 +549,8 @@ case class NetworkManager(numTasks: Int,
       .mkString(":")
   }
 
+  private val networkCommunicationExecutor: ExecutorService = Executors.newSingleThreadExecutor()
+
   // This will be kicked off at object creation time, and can be waited on by waitForNetworkDone()
   private val networkCommunicationThread: Future[Unit] = Future {
     try {
@@ -554,8 +559,10 @@ case class NetworkManager(numTasks: Int,
     } finally {
       // Always release the sockets, including when the topology exchange fails or times out.
       closeConnections()
+      // Release the dedicated thread so repeated fits on a long-lived driver do not leak threads.
+      networkCommunicationExecutor.shutdown()
     }
-  } (ExecutionContext.fromExecutor(Executors.newSingleThreadExecutor()))
+  } (ExecutionContext.fromExecutor(networkCommunicationExecutor))
 
   private def serveTopologyRound(): Unit = {
     waitForAllTasksToReport()

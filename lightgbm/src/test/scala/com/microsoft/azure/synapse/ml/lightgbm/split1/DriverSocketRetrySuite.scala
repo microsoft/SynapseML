@@ -351,6 +351,11 @@ class DriverSocketRetrySuite extends AnyFunSuite {
     assert(!constructorArities.contains(6))
   }
 
+  test("A worker that disconnects before sending a message reports the disconnect, not a NullPointerException") {
+    val failure = intercept[IOException](NetworkManager.parseWorkerMessage(null))
+    assert(failure.getMessage.contains("closed the connection before sending a status message"))
+  }
+
   test("The driver server socket is released when a training job fails before the round completes") {
     // Only one of the two expected tasks reports, so the network thread stays blocked in accept().
     val (manager, _, port) = newManager(numTasks = 2, useBarrierExecutionMode = true)
