@@ -352,7 +352,7 @@ class DriverSocketRetrySuite extends AnyFunSuite {
   }
 
   test("A worker that disconnects before sending a message reports the disconnect, not a NullPointerException") {
-    val failure = intercept[IOException](NetworkManager.parseWorkerMessage(null))
+    val failure = intercept[IOException](NetworkManager.parseWorkerMessage(null))  //scalastyle:ignore null
     assert(failure.getMessage.contains("closed the connection before sending a status message"))
   }
 
