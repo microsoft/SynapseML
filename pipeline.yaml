@@ -830,6 +830,21 @@ jobs:
         PACKAGE: "train"
       vw:
         PACKAGE: "vw"
+      # Suites whose packages no other leg claims. PipelineTestCoverageSuite fails the build when
+      # a new suite lands in a package this matrix never names.
+      misc:
+        PACKAGE: "misc"
+        TEST_CLASSES: >-
+          com.microsoft.azure.synapse.ml.param.**
+          com.microsoft.azure.synapse.ml.logging.**
+          com.microsoft.azure.synapse.ml.fabric.**
+          com.microsoft.azure.synapse.ml.explainers.VerifyFeatureStats
+          com.microsoft.azure.synapse.ml.io.http.VerifySharedVariable
+          com.microsoft.azure.synapse.ml.nbtest.FabricTestArtifactTrackerSuite
+          com.microsoft.azure.synapse.ml.services.search.AddDocumentsHeaderPersistenceSuite
+          com.microsoft.azure.synapse.ml.services.search.AzureSearchAuthSuite
+          com.microsoft.azure.synapse.ml.services.search.AzureSearchGenericParamPersistenceSuite
+          com.microsoft.azure.synapse.ml.services.speech.SpeechToTextSDKSecuritySuite
   steps:
     - template: templates/sbt_cache.yml
     - template: templates/update_cli.yml
