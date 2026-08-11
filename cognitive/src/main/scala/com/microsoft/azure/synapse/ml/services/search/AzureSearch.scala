@@ -276,13 +276,12 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
    * @return DataFrame with string GeographyPoint columns converted to GeoJSON structs
    */
   private[ml] def convertGeographyPointToStruct(df: DataFrame, indexJson: String): DataFrame = {
-    val geoStructType = StructType(Seq(
-      StructField("type", StringType),
-      StructField("coordinates", ArrayType(DoubleType))
-    ))
+    // Derived from edmTypeToSparkType so the parsed shape can never drift from the type
+    // checkSchemaParity expects for Edm.GeographyPoint
+    val geoStructType = edmTypeToSparkType(GeographyPointEdmType, None)
     val parseOptions = Map("mode" -> "FAILFAST")
     val geoFields = parseIndexJson(indexJson).fields
-      .filter(_.`type` == "Edm.GeographyPoint")
+      .filter(_.`type` == GeographyPointEdmType)
       .map(_.name)
     geoFields.foldLeft(df) { (currentDF, fieldName) =>
       if (currentDF.columns.contains(fieldName)) {
@@ -504,6 +503,8 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
     t.substring("Collection(".length).dropRight(1)
   }
 
+  private[ml] val GeographyPointEdmType = "Edm.GeographyPoint"
+
   private[ml] def edmTypeToSparkType(dt: String,  //scalastyle:ignore cyclomatic.complexity
                                      fields: Option[Seq[IndexField]]): DataType = dt match {
     case t if isEdmCollection(t) =>
@@ -515,7 +516,7 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
     case "Edm.Double" => DoubleType
     case "Edm.Single" => FloatType
     case "Edm.DateTimeOffset" => StringType // We convert date/time to ISO8601 strings
-    case "Edm.GeographyPoint"   =>
+    case GeographyPointEdmType =>
       StructType(Seq(
         StructField("type", StringType),
         StructField("coordinates", ArrayType(DoubleType))
