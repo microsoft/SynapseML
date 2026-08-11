@@ -83,13 +83,14 @@ class BarrierNetworkRecoverySuite extends AnyFunSuite {
   }
 
   /** Partition 0 signals the end of a barrier round over its own short-lived connection. */
-  private def sendFinished(port: Int, stageAttempt: Int): Unit = {
+  private def sendFinished(port: Int, stageAttempt: Int, barrierTaskCount: Option[Int] = Some(2)): Unit = {
     val socket = new Socket()
     try {
       socket.connect(new InetSocketAddress(host, port), socketTimeoutMillis)
       socket.setSoTimeout(socketTimeoutMillis)
       val writer = new BufferedWriter(new OutputStreamWriter(socket.getOutputStream))
-      writer.write(s"${LightGBMConstants.FinishedStatus}:$stageAttempt\n")
+      val countSuffix = barrierTaskCount.map(count => s":$count").getOrElse("")
+      writer.write(s"${LightGBMConstants.FinishedStatus}:$stageAttempt$countSuffix\n")
       writer.flush()
       socket.shutdownOutput()
       val reader = new BufferedReader(new InputStreamReader(socket.getInputStream))
@@ -231,6 +232,51 @@ class BarrierNetworkRecoverySuite extends AnyFunSuite {
       current.head.assertNoTopologyYet()
 
       sendFinished(port, stageAttempt = 0)
+
+      val expected = current.map(_.address).toSet
+      current.foreach(task => assert(task.readTopology().split(",").toSet == expected))
+    } finally {
+      closeAll(manager, tasks)
+    }
+  }
+
+  test("A barrier stage smaller than numTasks completes instead of hanging") {
+    // Barrier mode never repartitions upwards, so setNumTasks above the input's partition
+    // count leaves the stage running fewer tasks than numTasks. Waiting for numTasks reports
+    // would block until Spark's barrier timeout (365 days by default).
+    val (manager, port) = newBarrierManager(numTasks = 4)
+    var tasks = Seq.empty[FakeBarrierTask]
+    try {
+      val current = (0 until 2).map { partitionId =>
+        val task = new FakeBarrierTask(port, partitionId, stageAttempt = 0)
+        tasks :+= task
+        task
+      }
+      current.foreach(_.report())
+      current.head.assertNoTopologyYet()
+
+      sendFinished(port, stageAttempt = 0, barrierTaskCount = Some(2))
+
+      val expected = current.map(_.address).toSet
+      current.foreach(task => assert(task.readTopology().split(",").toSet == expected))
+    } finally {
+      closeAll(manager, tasks)
+    }
+  }
+
+  test("A Finished marker without a task count still completes the round") {
+    // Defensive: the marker is the only completion signal available when no count is reported.
+    val (manager, port) = newBarrierManager(numTasks = 2)
+    var tasks = Seq.empty[FakeBarrierTask]
+    try {
+      val current = (0 until 2).map { partitionId =>
+        val task = new FakeBarrierTask(port, partitionId, stageAttempt = 0)
+        tasks :+= task
+        task
+      }
+      current.foreach(_.report())
+
+      sendFinished(port, stageAttempt = 0, barrierTaskCount = None)
 
       val expected = current.map(_.address).toSet
       current.foreach(task => assert(task.readTopology().split(",").toSet == expected))

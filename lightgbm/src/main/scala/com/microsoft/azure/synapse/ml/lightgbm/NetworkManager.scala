@@ -87,20 +87,6 @@ object NetworkManager {
   private[lightgbm] def withCleanupOnFailurePreservingPrimary[T](cleanup: => Unit)(operation: => T): T =
     NetworkManagerSocketSupport.withCleanupOnFailurePreservingPrimary(cleanup)(operation)
 
-  private final case class WorkerMessage(status: String,
-                                         taskHost: String,
-                                         localListenPort: Int,
-                                         partitionId: Int,
-                                         executorId: String,
-                                         stageAttemptNumber: Int) {
-    val isForTraining: Boolean = status == LightGBMConstants.EnabledTask
-    val isForLoadOnly: Boolean = status == LightGBMConstants.IgnoreStatus
-    val isFinished: Boolean = status == LightGBMConstants.FinishedStatus
-
-    def toTaskMessage: TaskMessageInfo =
-      TaskMessageInfo(status, taskHost, localListenPort, partitionId, executorId)
-  }
-
   /**
     * Create a NetworkManager, which will encapsulate all network operations.
     * This method will opens a socket communications channel on the driver, and then initialize
@@ -242,7 +228,7 @@ object NetworkManager {
               localListenPort,
               partitionId,
               LightGBMUtils.getExecutorId) // TODO can we use host for this?
-            val message = workerMessageToString(taskStatus, stageAttemptNumber)
+            val message = WorkerMessage.format(taskStatus, stageAttemptNumber)
             log.info(s"task $taskId sending status message to driver: $message ")
             driverOutput.write(s"$message\n")
             driverOutput.flush()
@@ -252,7 +238,7 @@ object NetworkManager {
               val context = BarrierTaskContext.get()
               context.barrier()
               if (context.partitionId() == 0) {
-                 setFinishedStatus(networkParams, stageAttemptNumber, log)
+                 setFinishedStatus(networkParams, stageAttemptNumber, context.getTaskInfos().length, log)
               }
             }
 
@@ -446,52 +432,26 @@ object NetworkManager {
                                            (getTopology: Int => NetworkTopologyInfo): NetworkTopologyInfo =
     NetworkManagerSocketSupport.withPortReservation(reservation, shouldExecuteTraining)(getTopology)
 
-  private def setFinishedStatus(networkParams: NetworkParams, stageAttemptNumber: Int, log: Logger): Unit = {
+  private def setFinishedStatus(networkParams: NetworkParams,
+                                stageAttemptNumber: Int,
+                                barrierTaskCount: Int,
+                                log: Logger): Unit = {
     using(new Socket(networkParams.ipAddress, networkParams.port)) {
       driverSocket =>
         using(new BufferedWriter(new OutputStreamWriter(driverSocket.getOutputStream))) {
           driverOutput =>
-            log.info("sending finished status to driver")
-            // If barrier execution mode enabled, create a barrier across tasks
-            driverOutput.write(s"${LightGBMConstants.FinishedStatus}:$stageAttemptNumber\n")
+            log.info(s"sending finished status to driver for $barrierTaskCount barrier tasks")
+            // The barrier task count tells the driver how many topology reports to expect. It can be
+            // smaller than numTasks, because barrier mode never repartitions upwards when the input
+            // has fewer partitions than numTasks.
+            driverOutput.write(s"${WorkerMessage.formatFinished(stageAttemptNumber, barrierTaskCount)}\n")
             driverOutput.flush()
         }.get
     }.get
   }
 
   def parseWorkerMessage(message: String): TaskMessageInfo = {
-    parseWorkerProtocolMessage(message).toTaskMessage
-  }
-
-  private def parseWorkerProtocolMessage(message: String): WorkerMessage = {
-    if (message == null) {
-      throw new IOException("Worker closed the connection before sending a status message")
-    }
-    val components = message.split(":")
-    val status = components(0)
-
-    if (status == LightGBMConstants.FinishedStatus) {
-      WorkerMessage(status, "", -1, -1, "", parseStageAttemptNumber(components, 1))
-    } else {
-      if (components.length != 5 && components.length != 6) {  //scalastyle:ignore magic.number
-        throw new Exception(s"Unexpected message: $message")
-      }
-
-      val host = components(1)
-      val port = components(2).toInt
-      val partitionId: Int = components(3).toInt
-      val executorId = components(4)  //scalastyle:ignore magic.number
-      WorkerMessage(status, host, port, partitionId, executorId,
-                    parseStageAttemptNumber(components, 5))  //scalastyle:ignore magic.number
-    }
-  }
-
-  private def workerMessageToString(message: TaskMessageInfo, stageAttemptNumber: Int): String = {
-    s"${message.toString}:$stageAttemptNumber"
-  }
-
-  private def parseStageAttemptNumber(components: Array[String], index: Int): Int = {
-    if (components.length > index) components(index).toInt else 0
+    WorkerMessage.parse(message).toTaskMessage
   }
 }
 
@@ -506,7 +466,7 @@ case class NetworkManager(numTasks: Int,
                           timeout: Double,
                           useBarrierExecutionMode: Boolean) extends Logging {
 
-  private final class TaskConnection(val socket: Socket, val message: NetworkManager.WorkerMessage) {
+  private final class TaskConnection(val socket: Socket, val message: WorkerMessage) {
     def networkInfoString: String = s"${message.taskHost}:${message.localListenPort}"
   }
 
@@ -518,6 +478,7 @@ case class NetworkManager(numTasks: Int,
   // as a whole, so a higher attempt number means everything gathered so far is obsolete.
   private var currentStageAttempt = -1
   private var finishedForCurrentStageAttempt = false
+  private var expectedTaskCountForCurrentStageAttempt: Option[Int] = None
   private var acceptedSocket: Option[Socket] = None
   @volatile private var shutdownRequested = false
 
@@ -646,7 +607,7 @@ case class NetworkManager(numTasks: Int,
         val reader = new BufferedReader(new InputStreamReader(socket.getInputStream))
         val messageStr = reader.readLine()
         log.info(s"received worker message string: $messageStr")
-        processWorkerConnection(socket, NetworkManager.parseWorkerProtocolMessage(messageStr))
+        processWorkerConnection(socket, WorkerMessage.parse(messageStr))
       } catch {
         case failure: Throwable =>
           closeAcceptedSocket(socket)
@@ -655,7 +616,7 @@ case class NetworkManager(numTasks: Int,
     }
   }
 
-  private def processWorkerConnection(socket: Socket, message: NetworkManager.WorkerMessage): Boolean = synchronized {
+  private def processWorkerConnection(socket: Socket, message: WorkerMessage): Boolean = synchronized {
     if (shutdownRequested) {
       closeAcceptedSocket(socket)
       false
@@ -682,22 +643,42 @@ case class NetworkManager(numTasks: Int,
     }
   }
 
-  private def recordWorkerConnection(socket: Socket, message: NetworkManager.WorkerMessage): Boolean = {
+  private def recordWorkerConnection(socket: Socket, message: WorkerMessage): Boolean = {
     if (message.isFinished) {
-      log.info("driver received finished marker from barrier stage")
+      log.info(s"driver received finished marker from barrier stage for ${message.barrierTaskCount} tasks")
       finishedForCurrentStageAttempt = true
+      message.barrierTaskCount.filter(_ > 0).foreach(count => expectedTaskCountForCurrentStageAttempt = Some(count))
       closeAcceptedSocket(socket)  // The finished message uses its own short-lived connection.
     } else {
       recordTaskConnection(socket, message)
     }
 
-    val roundComplete =
-      useBarrierExecutionMode && finishedForCurrentStageAttempt && reportedTaskCount == numTasks
+    val roundComplete = barrierRoundComplete
     if (roundComplete) log.info("driver received all task reports and the finished marker from barrier stage")
     roundComplete
   }
 
-  private def recordTaskConnection(socket: Socket, message: NetworkManager.WorkerMessage): Unit = {
+  /**
+    * The finished marker only tells the driver that the barrier stage synchronized; the task reports
+    * can still be sitting in the accept backlog, so completing on the marker alone risks broadcasting
+    * a partial topology. Wait for as many reports as the barrier stage actually ran, which the marker
+    * carries. That count is not always numTasks: barrier mode never repartitions upwards, so a user
+    * who sets numTasks above the input's partition count runs fewer tasks, and waiting for numTasks
+    * reports would hang until Spark's barrier timeout.
+    */
+  private def barrierRoundComplete: Boolean = {
+    if (!useBarrierExecutionMode || !finishedForCurrentStageAttempt) {
+      false
+    } else {
+      expectedTaskCountForCurrentStageAttempt match {
+        case Some(expected) => reportedTaskCount >= math.min(expected, numTasks)
+        // A sender that did not report a count leaves the marker as the only signal available.
+        case None => true
+      }
+    }
+  }
+
+  private def recordTaskConnection(socket: Socket, message: WorkerMessage): Unit = {
     if (message.partitionId < 0 || message.partitionId >= numTasks) {
       throw new Exception(s"Unexpected partition id ${message.partitionId}; expected a value in [0, $numTasks)")
     }
@@ -762,6 +743,7 @@ case class NetworkManager(numTasks: Int,
     closeRoundSockets()
     taskConnectionsByPartition.clear()
     finishedForCurrentStageAttempt = false
+    expectedTaskCountForCurrentStageAttempt = None
   }
 
   private def closeRoundSockets(): Unit = synchronized {
