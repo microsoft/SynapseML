@@ -55,7 +55,12 @@ case class IndexField(
                      ) {
   def vectorReference: Option[String] = vectorSearchConfiguration
 
-  def isVectorField: Boolean = dimensions.nonEmpty && vectorReference.nonEmpty
+  // A field is a vector field if it declares dimensions. The algorithm/profile reference
+  // describes *how* the vectors are indexed, not *whether* the field holds vectors, and the
+  // service does not always surface it: reading a legacy index under a modern api-version
+  // returns `dimensions` with a null `vectorSearchProfile` and an empty `profiles` list.
+  // Requiring a reference here would silently stop treating those fields as vectors.
+  def isVectorField: Boolean = dimensions.nonEmpty
 }
 
 case class VectorColParams(
@@ -168,13 +173,12 @@ private[search] object VectorSchema {
     val modernMarkers = vectorSearchContainsKey(index, ModernAlgorithmsKey) ||
       vectorSearchContainsKey(index, ProfilesKey) ||
       containsFieldKey(index, ModernFieldReferenceKey)
-    val normalizedLegacyMarkers = containsUnreferencedVectorField(index)
 
-    if (modern && (legacyMarkers || normalizedLegacyMarkers)) {
+    if (modern && legacyMarkers) {
       throw new IllegalArgumentException(
         "The index already exists with the legacy vector schema. createIfNoneExists does not update or migrate " +
-          "existing indexes. Set apiVersion=2023-07-01-Preview to keep using that index, or explicitly migrate it " +
-          "with Azure AI Search Create or Update Index after reviewing the schema changes.")
+          "existing indexes. Migrate it with Azure AI Search Create or Update Index after reviewing the schema " +
+          "changes, or set an apiVersion earlier than 2023-10-01-Preview to keep using it as-is.")
     } else if (!modern && modernMarkers) {
       throw new IllegalArgumentException(
         s"The index already exists with the profile-based vector schema, which is not supported by api-version " +
@@ -337,27 +341,6 @@ private[search] object VectorSchema {
     case JsArray(elements) => elements.exists {
       case JsObject(fields) =>
         fields.contains(key) || fields.get("fields").exists(fieldArrayContainsKey(_, key))
-      case _ => false
-    }
-    case _ => false
-  }
-
-  private def containsUnreferencedVectorField(index: JsValue): Boolean = index match {
-    case JsObject(fields) => fields.get("fields").exists(fieldArrayHasUnreferencedVector)
-    case _ => false
-  }
-
-  private def fieldArrayHasUnreferencedVector(value: JsValue): Boolean = value match {
-    case JsArray(elements) => elements.exists {
-      case JsObject(fields) =>
-        val hasDimensions = hasVectorDimensions(fields)
-        val hasReference = Seq(LegacyFieldReferenceKey, ModernFieldReferenceKey)
-          .exists(key => fields.get(key).exists {
-            case JsString(reference) => reference.nonEmpty
-            case _ => false
-          })
-        (hasDimensions && !hasReference) ||
-          fields.get("fields").exists(fieldArrayHasUnreferencedVector)
       case _ => false
     }
     case _ => false

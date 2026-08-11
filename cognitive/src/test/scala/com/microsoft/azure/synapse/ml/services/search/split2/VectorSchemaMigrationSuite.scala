@@ -281,20 +281,28 @@ class VectorSchemaMigrationSuite extends AnyFunSuite {
       VectorSchema.requireCompatibleExistingIndex(parse(legacyIndexJson), "2026-04-01")
     }
     assert(error.getMessage.contains("createIfNoneExists does not update or migrate"))
-    assert(error.getMessage.contains("apiVersion=2023-07-01-Preview"))
+    assert(error.getMessage.contains("earlier than 2023-10-01-Preview"))
     assert(error.getMessage.contains("Create or Update Index"))
 
     VectorSchema.requireCompatibleExistingIndex(parse(legacyIndexJson), "2023-07-01-Preview")
     VectorSchema.requireCompatibleExistingIndex(parse(modernIndexJson), "2026-04-01")
   }
 
-  test("modern API responses that normalize legacy indexes still fail early") {
+  test("modern API responses that normalize legacy indexes are accepted") {
+    // This is the verbatim shape the live service returns when an index created with the
+    // legacy vector schema (algorithmConfigurations + vectorSearchConfiguration) is read
+    // under api-version 2026-04-01: the algorithm survives, but `profiles` is empty and the
+    // field's `vectorSearchProfile` is null. Rejecting this would break every existing
+    // SynapseML user who created a vector index with an earlier release and never pinned
+    // an apiVersion. SynapseML never rewrites an index that already exists, so writing
+    // documents to it is safe.
     val normalizedLegacyIndex =
       """
         |{
         |  "name": "legacy-index",
         |  "fields": [
-        |    { "name": "id", "type": "Edm.String", "key": true, "dimensions": null },
+        |    { "name": "id", "type": "Edm.String", "key": true, "dimensions": null,
+        |      "vectorSearchProfile": null },
         |    {
         |      "name": "vectorCol",
         |      "type": "Collection(Edm.Single)",
@@ -303,18 +311,21 @@ class VectorSchemaMigrationSuite extends AnyFunSuite {
         |    }
         |  ],
         |  "vectorSearch": {
-        |    "algorithms": [ { "name": "hnswConfig", "kind": "hnsw" } ],
-        |    "profiles": []
+        |    "algorithms": [ { "name": "vectorConfig", "kind": "hnsw" } ],
+        |    "profiles": [],
+        |    "vectorizers": [],
+        |    "compressions": []
         |  }
         |}
       """.stripMargin
 
-    val error = intercept[IllegalArgumentException] {
-      VectorSchema.requireCompatibleExistingIndex(parse(normalizedLegacyIndex), "2026-04-01")
-    }
+    VectorSchema.requireCompatibleExistingIndex(parse(normalizedLegacyIndex), "2026-04-01")
 
-    assert(error.getMessage.contains("legacy vector schema"))
-    assert(error.getMessage.contains("apiVersion=2023-07-01-Preview"))
+    // The vector column must still be recognised as a vector, otherwise makeColsCompatible
+    // would stop converting Spark ML Vector columns and schema parity would fail.
+    val fields = normalizedLegacyIndex.parseJson.convertTo[IndexInfo].fields
+    assert(fields.find(_.name == "vectorCol").exists(_.isVectorField))
+    assert(fields.find(_.name == "id").exists(!_.isVectorField))
   }
 
   test("existing modern indexes reject a legacy api version") {

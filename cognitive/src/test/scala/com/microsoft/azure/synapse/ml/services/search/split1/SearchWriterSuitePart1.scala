@@ -631,6 +631,45 @@ class SearchWriterSuitePart1 extends SearchWriterSuiteUtilities
     }
   }
 
+  test("Write to a vector index created by an earlier release using the legacy schema") {
+    // Regression guard: an index created by a previous SynapseML release uses the legacy
+    // vector schema. Reading it back under the current default api-version returns
+    // `dimensions` with a null `vectorSearchProfile` and an empty `profiles` list, because
+    // the service normalizes the response. Appending documents must keep working for those
+    // users without them having to pin an apiVersion.
+    val in = generateIndexName()
+    val legacyApiVersion = "2023-07-01-Preview"
+    val vectorDF = createTestDataWithVector(4)
+
+    // Create the index exactly as an older release would have.
+    AzureSearchWriter.write(vectorDF.limit(2),
+      Map("subscriptionKey" -> azureSearchKey,
+        "actionCol" -> "searchAction",
+        "serviceName" -> testServiceName,
+        "apiVersion" -> legacyApiVersion,
+        "indexJson" -> createSimpleIndexJsonWithVector(in)))
+
+    val normalized = retryWithBackoff(getIndexJsonFromExistingIndex(azureSearchKey, testServiceName, in))
+    val normalizedVectorField = parseIndexJson(normalized).fields.find(_.name == "vectorCol").get
+    assert(normalizedVectorField.isVectorField,
+      "a field with dimensions must still be recognised as a vector field after normalization")
+
+    // Now append with the current default api-version, as an upgraded user would.
+    retryWithBackoff({
+      if (getExisting(azureSearchKey, testServiceName).contains(in)) {
+        AzureSearchWriter.write(vectorDF.except(vectorDF.limit(2)),
+          Map("subscriptionKey" -> azureSearchKey,
+            "actionCol" -> "searchAction",
+            "serviceName" -> testServiceName,
+            "indexName" -> in))
+      } else {
+        throw new RuntimeException("No existing service found")
+      }
+    })
+
+    retryWithBackoff(assertSize(in, 4))
+  }
+
   test("Handle non-existent vector column specified in vectorCols option") {
     val in = generateIndexName()
     val phraseDF = Seq(
