@@ -12,6 +12,22 @@ import com.microsoft.azure.synapse.ml.stages.DropColumns
 class ModelEqualitySuite extends TestBase {
   spark
 
+  test("jaccardSimilarity grades partial overlap") {
+    // Sets of whole strings would collapse this to a 1.0/0.0 equality check.
+    assert(ModelEquality.jaccardSimilarity("abcd", "abcd") === 1.0)
+    assert(ModelEquality.jaccardSimilarity("abcd", "wxyz") === 0.0)
+    val partial = ModelEquality.jaccardSimilarity("the quick brown fox", "the quick brown cat")
+    assert(partial > 0.0 && partial < 1.0)
+    assert(partial > ModelEquality.jaccardSimilarity("the quick brown fox", "entirely unlike"))
+  }
+
+  test("jaccardSimilarity is case insensitive and symmetric") {
+    assert(ModelEquality.jaccardSimilarity("Hello World", "hello world") === 1.0)
+    assert(ModelEquality.jaccardSimilarity("kitten", "sitting")
+      === ModelEquality.jaccardSimilarity("sitting", "kitten"))
+    assert(ModelEquality.jaccardSimilarity("", "") === 1.0)
+  }
+
   test("Complex param equality") {
     val m1 = new TextSentiment().setLocation("eastus")
     val m2 = new TextSentiment().setLocation("eastus")

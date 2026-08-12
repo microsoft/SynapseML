@@ -30,7 +30,9 @@ class LongRangeHyperParam(min: Long, max: Long, seed: Long = 0)
 
   def getNext(): Long = {
     val range = max - min
-    (random.nextLong() * range) + min
+    // nextLong() spans the full 64-bit range, so multiplying it by the range overflows and
+    // escapes [min, max) entirely. Reduce into the range first, mirroring nextInt(range).
+    if (range <= 0) min else Math.floorMod(random.nextLong(), range) + min
   }
 
 }
@@ -38,7 +40,7 @@ class LongRangeHyperParam(min: Long, max: Long, seed: Long = 0)
 class FloatRangeHyperParam(min: Float, max: Float, seed: Long = 0)
     extends RangeHyperParam[Float](min, max, seed) {
 
-  val doubleRange = new DoubleRangeHyperParam(min.toDouble, max.toDouble)
+  val doubleRange = new DoubleRangeHyperParam(min.toDouble, max.toDouble, seed)
   def getNext(): Float = {
     doubleRange.getNext().toFloat
   }

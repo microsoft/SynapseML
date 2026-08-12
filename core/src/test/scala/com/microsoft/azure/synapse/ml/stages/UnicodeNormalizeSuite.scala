@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.stages
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import org.apache.spark.ml.param.Param
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 
@@ -49,8 +50,24 @@ class UnicodeNormalizeSuite extends TestBase with TransformerFuzzing[UnicodeNorm
 
   test("Check for NFKD forms") { testForm("NFKD", expectedResultDecomposed) }
 
+  test("setForm rejects an invalid form at set time") {
+    // An unvalidated form used to be accepted here and only fail later inside the UDF,
+    // on the executors, where the cause is far harder to attribute.
+    assertThrows[IllegalArgumentException](new UnicodeNormalize().setForm("NOT_A_FORM"))
+  }
+
+  test("setForm accepts every supported form") {
+    java.text.Normalizer.Form.values().foreach { f =>
+      assert(new UnicodeNormalize().setForm(f.name).getForm === f.name)
+    }
+  }
+
   def testObjects(): Seq[TestObject[UnicodeNormalize]] = List(new TestObject(
     new UnicodeNormalize().setInputCol("words").setOutputCol("out"), makeBasicDF()))
+
+  // The generic fuzzer probes String setters with "foo"; form only accepts Normalizer.Form names.
+  override def getterSetterParamExamples(pipelineStage: UnicodeNormalize): Map[Param[_], Any] =
+    Map[Param[_], Any]((pipelineStage.form, "NFC"))
 
   override def reader: MLReadable[_] = UnicodeNormalize
 
