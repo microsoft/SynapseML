@@ -609,6 +609,7 @@ jobs:
       condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
     - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
       - template: templates/codecov.yml
+    - template: templates/publish_coverage_ado.yml
 - job: RTests
   dependsOn: BuildAndCacheSbt
   timeoutInMinutes: 60
@@ -674,6 +675,7 @@ jobs:
       condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
     - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
       - template: templates/codecov.yml
+    - template: templates/publish_coverage_ado.yml
 
 - job: WebsiteSamplesTests
   dependsOn: BuildAndCacheSbt
@@ -710,6 +712,7 @@ jobs:
       condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
     - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
       - template: templates/codecov.yml
+    - template: templates/publish_coverage_ado.yml
 
 - job: UnitTests
   dependsOn: BuildAndCacheSbt
@@ -895,6 +898,7 @@ jobs:
           keyVaultName: mmlspark-keys
           SecretsFilter: codecov-token
       - template: templates/codecov.yml
+    - template: templates/publish_coverage_ado.yml
 
 - job: ReleaseBranchCompat
   dependsOn: BuildAndCacheSbt

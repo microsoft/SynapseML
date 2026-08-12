@@ -1,6 +1,25 @@
 codecov:
   notify:
     require_ci_to_pass: no
+    # Wait for expected number of coverage uploads before sending notifications
+    # This prevents premature comments with incomplete data
+    after_n_builds: 40
+
+comment:
+  layout: "reach,diff,flags,files"
+  behavior: new
+  require_changes: false
+  require_base: false
+  require_head: true
+  # Wait for all expected uploads before commenting
+  after_n_builds: 40
+
+comment:
+  layout: "reach,diff,flags,files"
+  behavior: new
+  require_changes: false
+  require_base: false
+  require_head: true
 
 coverage:
   precision: 2
@@ -25,6 +44,9 @@ flags:
   scala:
     paths:
       - src/main/scala
+    # Carry forward coverage from previous builds for unchanged files
+    carryforward: true
   python:
     paths:
       - src/main/python
+    carryforward: true
