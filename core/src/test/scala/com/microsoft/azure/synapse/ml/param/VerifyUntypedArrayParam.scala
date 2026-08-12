@@ -9,6 +9,8 @@ import org.apache.spark.ml.param.{ParamMap, Params}
 import org.apache.spark.ml.util.Identifiable
 import spray.json._
 
+import scala.collection.immutable.ListMap
+
 class VerifyUntypedArrayParam extends TestBase {
 
   private object TestParams extends Params {
@@ -82,5 +84,38 @@ class VerifyUntypedArrayParam extends TestBase {
     assertThrows[IllegalArgumentException] {
       unsupported.toJson
     }
+  }
+
+  test("AnyJsonFormat preserves existing compact renderings") {
+    assert((42: Any).toJson.compactPrint === "42")
+    assert((3.14: Any).toJson.compactPrint === "3.14")
+    assert(("hello": Any).toJson.compactPrint === "\"hello\"")
+    assert((true: Any).toJson.compactPrint === "true")
+    assert((Seq(1, 2, 3): Any).toJson.compactPrint === "[1,2,3]")
+    assert((ListMap("b" -> 1, "a" -> 2): Any).toJson.compactPrint === """{"b":1,"a":2}""")
+  }
+
+  test("AnyJsonFormat writes JsValue, null, Long and Float") {
+    val jsValue: Any = JsArray(JsObject("type" -> JsString("function")))
+    assert(jsValue.toJson.compactPrint === """[{"type":"function"}]""")
+    assert((null: Any).toJson === JsNull) //scalastyle:ignore null
+    assert(Map[String, Any]("strict" -> null).toJson.compactPrint === //scalastyle:ignore null
+      """{"strict":null}""")
+    assert((9007199254740993L: Any).toJson.compactPrint === "9007199254740993")
+    assert((1.5f: Any).toJson.compactPrint === "1.5")
+    assert((0.1f: Any).toJson.compactPrint === "0.1")
+  }
+
+  test("AnyJsonFormat reads JsNull") {
+    assert(JsNull.convertTo[Any] == null) //scalastyle:ignore null
+  }
+
+  test("UntypedArrayParam roundtrips widened AnyJsonFormat values") {
+    val param = new UntypedArrayParam(TestParams, "widened", "widened values")
+    val original = Array[Any](9007199254740993L, 0.1f, null) //scalastyle:ignore null
+    val decoded = param.jsonDecode(param.jsonEncode(original))
+    assert(decoded(0) === 9007199254740993L)
+    assert(decoded(1) === 0.1)
+    assert(decoded(2) == null) //scalastyle:ignore null
   }
 }

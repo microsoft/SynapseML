@@ -57,13 +57,23 @@ object OpenAIJsonProtocol extends DefaultJsonProtocol {
 }
 
 case class ResponsesOutputContentComponent(`type`: String, text: String)
-case class OpenAIResponsesChoice(content: Seq[ResponsesOutputContentComponent], status: String)
+
+case class ResponsesSummaryPart(`type`: Option[String] = None,
+                                text: Option[String] = None)
+
+case class OpenAIResponsesChoice(content: Seq[ResponsesOutputContentComponent],
+                                 status: String)
 
 case class ResponsesUsage(output_tokens: Long,
                           input_tokens: Long,
                           total_tokens: Long,
                           output_tokens_details: Option[TokenDetails] = None,
                           input_tokens_details: Option[TokenDetails] = None)
+
+case class ResponsesIncompleteDetails(reason: Option[String] = None)
+
+case class ResponsesError(code: Option[String] = None,
+                          message: Option[String] = None)
 
 case class ResponsesModelResponse(id: String,
                                   `object`: String,
@@ -74,6 +84,54 @@ case class ResponsesModelResponse(id: String,
                                   usage: Option[ResponsesUsage])
 
 object ResponsesModelResponse extends SparkBindings[ResponsesModelResponse]
+
+private[openai] case class TokenDetailsV2(
+  audio_tokens: Option[Long] = None,
+  cached_tokens: Option[Long] = None,
+  reasoning_tokens: Option[Long] = None,
+  accepted_prediction_tokens: Option[Long] = None,
+  rejected_prediction_tokens: Option[Long] = None,
+  cache_write_tokens: Option[Long] = None)
+
+private[openai] case class ResponsesOutputContentComponentV2(
+  `type`: String,
+  text: String,
+  refusal: Option[String] = None)
+
+private[openai] case class OpenAIResponsesChoiceV2(
+  content: Seq[ResponsesOutputContentComponentV2],
+  status: String,
+  `type`: Option[String] = None,
+  id: Option[String] = None,
+  role: Option[String] = None,
+  phase: Option[String] = None,
+  call_id: Option[String] = None,
+  name: Option[String] = None,
+  arguments: Option[String] = None,
+  summary: Option[Seq[ResponsesSummaryPart]] = None,
+  encrypted_content: Option[String] = None)
+
+private[openai] case class ResponsesUsageV2(
+  output_tokens: Long,
+  input_tokens: Long,
+  total_tokens: Long,
+  output_tokens_details: Option[TokenDetailsV2] = None,
+  input_tokens_details: Option[TokenDetailsV2] = None)
+
+private[openai] case class ResponsesModelResponseV2(
+  id: String,
+  `object`: String,
+  created_at: String,
+  model: String,
+  output: Seq[OpenAIResponsesChoiceV2],
+  system_fingerprint: Option[String],
+  usage: Option[ResponsesUsageV2],
+  status: Option[String] = None,
+  incomplete_details: Option[ResponsesIncompleteDetails] = None,
+  error: Option[ResponsesError] = None,
+  output_text: Option[String] = None)
+
+private[openai] object ResponsesModelResponseV2 extends SparkBindings[ResponsesModelResponseV2]
 
 case class OpenAICompositeMessage(
   role: String,
