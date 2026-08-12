@@ -49,7 +49,7 @@ class SearchWriterSuite extends SearchWriterSuiteUtilities {
 
     retryWithBackoff(assertSize(in, 2))
     val indexJson = retryWithBackoff(getIndexJsonFromExistingIndex(azureSearchKey, testServiceName, in))
-    assert(parseIndexJson(indexJson).fields.find(_.name == "vectorContent").get.vectorSearchConfiguration.nonEmpty)
+    assert(parseIndexJson(indexJson).fields.find(_.name == "vectorContent").get.vectorReference.nonEmpty)
   }
 
   test("Handle Azure Search index with scoring profiles") {
