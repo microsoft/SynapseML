@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.automl
 
 import org.apache.spark.ml.param._
 
+import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.collection.mutable
 import scala.util.Random
@@ -31,8 +32,25 @@ class LongRangeHyperParam(min: Long, max: Long, seed: Long = 0)
   def getNext(): Long = {
     val range = max - min
     // nextLong() spans the full 64-bit range, so multiplying it by the range overflows and
-    // escapes [min, max) entirely. Reduce into the range first, mirroring nextInt(range).
-    if (range <= 0) min else Math.floorMod(random.nextLong(), range) + min
+    // escapes [min, max) entirely. Reduce into the range first, as nextInt(range) does.
+    if (range <= 0) min else boundedNextLong(range) + min
+  }
+
+  /** Uniform draw from [0, bound), rejecting the partial final block so the result carries no
+    * modulo bias. Mirrors what java.util.Random.nextInt(bound) already does for Int.
+    */
+  private def boundedNextLong(bound: Long): Long = {
+    val m = bound - 1
+    if ((bound & m) == 0L) {
+      random.nextLong() & m // bound is a power of two, so the low bits are already uniform
+    } else {
+      @tailrec def draw(): Long = {
+        val u = random.nextLong() >>> 1
+        val r = u % bound
+        if (u + m - r < 0L) draw() else r
+      }
+      draw()
+    }
   }
 
 }

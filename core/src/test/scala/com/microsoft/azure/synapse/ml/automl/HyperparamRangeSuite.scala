@@ -32,6 +32,22 @@ class HyperparamRangeSuite extends TestBase {
     assert((1 to 10).forall(_ => hp.getNext() === 5L))
   }
 
+  test("LongRangeHyperParam covers a power-of-two range without bias") {
+    // Power-of-two bounds take the mask branch; every bucket must still be reachable.
+    val hp = new LongRangeHyperParam(0L, 8L, seed = 3)
+    val counts = (1 to 4000).map(_ => hp.getNext()).groupBy(identity).map { case (k, v) => k -> v.size }
+    assert(counts.keySet === (0L until 8L).toSet)
+    assert(counts.values.forall(c => c > 300 && c < 700), s"uneven distribution: $counts")
+  }
+
+  test("LongRangeHyperParam covers a non-power-of-two range without bias") {
+    // Non-power-of-two bounds take the rejection branch, which must terminate and stay uniform.
+    val hp = new LongRangeHyperParam(0L, 7L, seed = 3)
+    val counts = (1 to 4000).map(_ => hp.getNext()).groupBy(identity).map { case (k, v) => k -> v.size }
+    assert(counts.keySet === (0L until 7L).toSet)
+    assert(counts.values.forall(c => c > 350 && c < 800), s"uneven distribution: $counts")
+  }
+
   test("IntRangeHyperParam stays within its range") {
     val hp = new IntRangeHyperParam(5, 15, seed = 42)
     val values = (1 to draws).map(_ => hp.getNext())
