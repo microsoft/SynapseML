@@ -14,13 +14,6 @@ comment:
   # Wait for all expected uploads before commenting
   after_n_builds: 40
 
-comment:
-  layout: "reach,diff,flags,files"
-  behavior: new
-  require_changes: false
-  require_base: false
-  require_head: true
-
 coverage:
   precision: 2
   round: down
