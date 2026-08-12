@@ -13,9 +13,14 @@ class VerifyCacher extends TestBase {
     val df = Seq(1, 2, 3).toDF("x")
     val cacher = new Cacher().setDisable(false)
     val result = cacher.transform(df)
-    result.count()
-    assert(result.storageLevel !== StorageLevel.NONE)
-    result.unpersist()
+    try {
+      result.count()
+      assert(result.storageLevel !== StorageLevel.NONE)
+    } finally {
+      // TestBase shares one SparkSession across every suite in the leg, so a failed assertion
+      // must not leave this DataFrame cached for whatever runs next.
+      result.unpersist()
+    }
   }
 
   test("transform with disable=true does not cache") {

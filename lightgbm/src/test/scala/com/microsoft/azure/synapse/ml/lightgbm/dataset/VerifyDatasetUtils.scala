@@ -25,6 +25,8 @@ class VerifyDatasetUtils extends TestBase {
   }
 
   test("countCardinality with empty sequence") {
+    // Known quirk, asserted so a future change is deliberate: an empty partition folds to the
+    // initial triplet and reports one ranking group of zero rows rather than no groups at all.
     val result = DatasetUtils.countCardinality(Seq.empty[Int])
     assert(result === Array(0))
   }
