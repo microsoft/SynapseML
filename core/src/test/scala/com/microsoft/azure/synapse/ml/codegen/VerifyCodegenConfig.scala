@@ -13,9 +13,10 @@ class VerifyCodegenConfig extends TestBase {
     jarName = Some("testmod.jar"),
     topDir = "/top",
     targetDir = "/target",
+    // Deliberately distinct so a test asserting one cannot pass by reading the other.
     version = "1.0.0",
-    pythonizedVersion = "1.0.0",
-    rVersion = "1.0.0",
+    pythonizedVersion = "1.0.0.dev1",
+    rVersion = "1.0.0.1",
     packageName = "com.test"
   )
 

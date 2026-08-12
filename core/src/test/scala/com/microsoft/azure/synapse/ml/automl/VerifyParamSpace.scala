@@ -16,13 +16,14 @@ class VerifyParamSpace extends TestBase {
     val intParam = new IntParam(this, "intParam", "test int param") // scalastyle:ignore field.name
   }
 
-  test("GridSpace iterates over all ParamMaps") {
+  test("GridSpace iterates over all ParamMaps in order") {
     val pm1 = ParamMap(TestParams.intParam -> 1)
     val pm2 = ParamMap(TestParams.intParam -> 2)
     val pm3 = ParamMap(TestParams.intParam -> 3)
     val grid = new GridSpace(Array(pm1, pm2, pm3))
-    val result = grid.paramMaps.toList
-    assert(result.length === 3)
+    // Asserting only the length would pass even if GridSpace dropped or reordered entries,
+    // which matters because these values are positional in a tuning sweep.
+    assert(grid.paramMaps.map(_.get(TestParams.intParam).get).toList === List(1, 2, 3))
   }
 
   test("GridSpace with empty array produces empty iterator") {
