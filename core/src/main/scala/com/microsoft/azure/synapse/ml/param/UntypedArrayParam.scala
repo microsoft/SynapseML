@@ -18,8 +18,12 @@ object AnyJsonFormat extends DefaultJsonProtocol {
 
     new JsonFormat[Any] {
       def write(any: Any): JsValue = any match {
+        case v: JsValue => v
+        case null => JsNull //scalastyle:ignore null
         case v: Int => v.toJson
+        case v: Long => v.toJson
         case v: Double => v.toJson
+        case v: Float => JsNumber(BigDecimal(v.toString))
         case v: String => v.toJson
         case v: Boolean => v.toJson
         case v: Integer => v.toLong.toJson
@@ -43,6 +47,7 @@ object AnyJsonFormat extends DefaultJsonProtocol {
       }
 
       def read(value: JsValue): Any = value match {
+        case JsNull => null //scalastyle:ignore null
         case v: JsNumber =>
           val num = v.value
           num match {
