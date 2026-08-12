@@ -28,6 +28,17 @@ class ModelEqualitySuite extends TestBase {
     assert(ModelEquality.jaccardSimilarity("", "") === 1.0)
   }
 
+  test("jaccardSimilarity handles strings shorter than one bigram") {
+    // sliding(2) keeps the short final window, so a 1-char string yields Set(char)
+    // rather than the empty set. Distinct 1-char strings must therefore score 0.0,
+    // not fall into the both-empty shortcut.
+    assert(ModelEquality.jaccardSimilarity("a", "b") === 0.0)
+    assert(ModelEquality.jaccardSimilarity("a", "a") === 1.0)
+    assert(ModelEquality.jaccardSimilarity("", "a") === 0.0)
+    assert(ModelEquality.jaccardSimilarity("a", "") === 0.0)
+    assert(ModelEquality.jaccardSimilarity("", "") === 1.0)
+  }
+
   test("Complex param equality") {
     val m1 = new TextSentiment().setLocation("eastus")
     val m2 = new TextSentiment().setLocation("eastus")

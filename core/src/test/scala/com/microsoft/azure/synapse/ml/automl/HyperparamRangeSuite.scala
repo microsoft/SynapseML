@@ -27,6 +27,19 @@ class HyperparamRangeSuite extends TestBase {
     assert(values.exists(_ < 0L) && values.exists(_ > 0L))
   }
 
+  test("LongRangeHyperParam rejects an inverted range instead of silently returning min") {
+    val hp = new LongRangeHyperParam(10L, 5L, seed = 1)
+    assertThrows[IllegalArgumentException](hp.getNext())
+  }
+
+  test("LongRangeHyperParam stays in bounds when the span overflows Long") {
+    // max - min wraps negative here, so the ordinary reduction path cannot be used.
+    val hp = new LongRangeHyperParam(Long.MinValue + 1, Long.MaxValue, seed = 7)
+    val draws = (1 to 200).map(_ => hp.getNext())
+    assert(draws.forall(v => v >= Long.MinValue + 1 && v < Long.MaxValue))
+    assert(draws.distinct.length > 1)
+  }
+
   test("LongRangeHyperParam with an empty range returns min") {
     val hp = new LongRangeHyperParam(5L, 5L, seed = 42)
     assert((1 to 10).forall(_ => hp.getNext() === 5L))

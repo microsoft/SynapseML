@@ -30,10 +30,23 @@ class LongRangeHyperParam(min: Long, max: Long, seed: Long = 0)
     extends RangeHyperParam[Long](min, max, seed) {
 
   def getNext(): Long = {
+    require(max >= min, s"LongRangeHyperParam requires max >= min, got min=$min, max=$max")
     val range = max - min
     // nextLong() spans the full 64-bit range, so multiplying it by the range overflows and
     // escapes [min, max) entirely. Reduce into the range first, as nextInt(range) does.
-    if (range <= 0) min else boundedNextLong(range) + min
+    if (range == 0) {
+      min
+    } else if (range < 0) {
+      // The span is wider than Long.MaxValue so it cannot be represented as a Long. Draw from
+      // the whole 64-bit range instead; more than half of it lands in bounds, so this is cheap.
+      @tailrec def drawInBounds(): Long = {
+        val v = random.nextLong()
+        if (v >= min && v < max) v else drawInBounds()
+      }
+      drawInBounds()
+    } else {
+      boundedNextLong(range) + min
+    }
   }
 
   /** Uniform draw from [0, bound), rejecting the partial final block so the result carries no
