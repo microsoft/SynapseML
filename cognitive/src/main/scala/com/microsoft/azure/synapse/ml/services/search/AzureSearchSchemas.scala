@@ -13,17 +13,22 @@ case class ASResponses(value: Seq[ASResponse])
 
 case class ASResponse(key: String, status: Boolean, errorMessage: Option[String], statusCode: Int)
 
+// These six fields are pure pass-through: the writer round-trips them to the service and never
+// inspects their contents. The Search REST API returns objects for all of them (a custom analyzer
+// is {"@odata.type":"#Microsoft.Azure.Search.CustomAnalyzer",...}, corsOptions is a single object),
+// so typing them as strings made any index using these features fail to deserialize. Keeping them
+// as opaque JsValue also stops the library from breaking when the service adds a new analyzer kind.
 case class IndexInfo(
                     name: Option[String],
                     fields: Seq[IndexField],
-                    suggesters: Option[Seq[String]],
+                    suggesters: Option[Seq[JsValue]],
                     scoringProfiles: Option[Seq[ScoringProfile]],
-                    analyzers: Option[Seq[String]],
-                    charFilters: Option[Seq[String]],
-                    tokenizers: Option[Seq[String]],
-                    tokenFilters: Option[Seq[String]],
+                    analyzers: Option[Seq[JsValue]],
+                    charFilters: Option[Seq[JsValue]],
+                    tokenizers: Option[Seq[JsValue]],
+                    tokenFilters: Option[Seq[JsValue]],
                     defaultScoringProfile: Option[String],
-                    corsOptions: Option[Seq[String]],
+                    corsOptions: Option[JsValue],
                     vectorSearch: Option[VectorSearch]
                     )
 
