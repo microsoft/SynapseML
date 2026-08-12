@@ -46,7 +46,7 @@ class VerifyCodegenConfig extends TestBase {
 
   test("scopeDepth is 4 spaces") {
     assert(config.scopeDepth === "    ")
-    assert(config.scopeDepth.length === 4) // scalastyle:off magic.number
+    assert(config.scopeDepth.length === 4) // scalastyle:ignore magic.number
   }
 
   test("internalPrefix is underscore") {
