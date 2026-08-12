@@ -844,6 +844,7 @@ jobs:
           com.microsoft.azure.synapse.ml.services.search.AddDocumentsHeaderPersistenceSuite
           com.microsoft.azure.synapse.ml.services.search.AzureSearchAuthSuite
           com.microsoft.azure.synapse.ml.services.search.AzureSearchGenericParamPersistenceSuite
+          com.microsoft.azure.synapse.ml.services.search.IndexSchemaLiveRoundTripSuite
           com.microsoft.azure.synapse.ml.services.search.IndexSchemaParsingSuite
           com.microsoft.azure.synapse.ml.services.speech.SpeechToTextSDKSecuritySuite
   steps:
