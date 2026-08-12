@@ -7,6 +7,7 @@ import com.microsoft.azure.synapse.ml.lightgbm.LightGBMUtils
 import com.microsoft.azure.synapse.ml.lightgbm.dataset.DatasetUtils.countCardinality
 import com.microsoft.lightgbm.SwigPtrWrapper
 import com.microsoft.ml.lightgbm._
+import org.slf4j.{Logger, LoggerFactory}
 
 import scala.reflect.ClassTag
 
@@ -179,8 +180,17 @@ class LightGBMDataset(val datasetPtr: SWIGTYPE_p_void) extends AutoCloseable {
     // Add in slot names if they exist
     featureNamesOpt.foreach { featureNamesArray =>
       if (featureNamesArray.nonEmpty) {
-        LightGBMUtils.validate(lightgbmlib.LGBM_DatasetSetFeatureNames(datasetPtr, featureNamesArray, numCols),
-          "Dataset set feature names")
+        // LGBM_DatasetSetFeatureNames reads numCols entries from the array, so a shorter array
+        // is an out-of-bounds native read. slotNames is user-supplied and unvalidated, so guard
+        // every dataset-naming path here rather than at individual call sites. LightGBM falls
+        // back to its own generated names when naming is skipped.
+        if (featureNamesArray.length != numCols) {
+          LightGBMDataset.Log.warn(s"Skipping feature names: got ${featureNamesArray.length} names " +
+            s"for $numCols feature columns.")
+        } else {
+          LightGBMUtils.validate(lightgbmlib.LGBM_DatasetSetFeatureNames(datasetPtr, featureNamesArray, numCols),
+            "Dataset set feature names")
+        }
       }
     }
     this
@@ -190,4 +200,8 @@ class LightGBMDataset(val datasetPtr: SWIGTYPE_p_void) extends AutoCloseable {
     // Free dataset
     LightGBMUtils.validate(lightgbmlib.LGBM_DatasetFree(datasetPtr), "Free Dataset")
   }
+}
+
+object LightGBMDataset {
+  private val Log: Logger = LoggerFactory.getLogger(classOf[LightGBMDataset])
 }

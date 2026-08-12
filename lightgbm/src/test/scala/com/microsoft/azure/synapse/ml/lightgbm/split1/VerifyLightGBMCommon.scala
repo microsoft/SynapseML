@@ -364,4 +364,22 @@ class VerifyLightGBMCommon extends TestBase with LightGBMTestUtils {
     val model = duplicateNameModel.setSlotNames(Array("a b", "a_b", "c"))
     assert(model.fit(df).transform(df).count() == 4)
   }
+
+  test("Verify slotNames of the wrong length are skipped rather than read out of bounds") {
+    // LGBM_DatasetSetFeatureNames reads numCols entries from the array, so a short slotNames
+    // array is an out-of-bounds native read. slotNames is user-supplied and never length-checked
+    // upstream, so LightGBMDataset.setFeatureNames guards every dataset-naming path. Training
+    // proceeds with LightGBM's own generated names instead of crashing the executor.
+    val df = makeDuplicateNameDF(4)
+    val model = duplicateNameModel.setSlotNames(Array("only_one_name"))
+    assert(model.fit(df).transform(df).count() == 4)
+  }
+
+  test("Verify slotNames of the wrong length are skipped in bulk mode too") {
+    val df = makeDuplicateNameDF(4)
+    val model = duplicateNameModel
+      .setDataTransferMode(LightGBMConstants.BulkDataTransferMode)
+      .setSlotNames(Array("a", "b"))
+    assert(model.fit(df).transform(df).count() == 4)
+  }
 }
