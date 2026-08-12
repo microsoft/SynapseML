@@ -171,4 +171,197 @@ class SearchWriterSuite extends SearchWriterSuiteUtilities {
 
   }
 
+  test("Handle GeoJSON GeographyPoint fields supplied as strings") {
+
+    val in = generateIndexName()
+    val df = spark.createDataFrame(Seq(
+      ("upload", "0", """{"type":"Point","coordinates":[-122.3493, 47.6205]}"""),
+      ("upload", "1", """{"type":"Point","coordinates":[-122.3351, 47.6080]}""")
+    )).toDF("searchAction", "id", "location")
+
+    val indexJson =
+      s"""
+         |{
+         |  "name": "$in",
+         |  "fields": [
+         |    { "name": "id", "type": "Edm.String", "key": true, "searchable": true, "retrievable": true },
+         |    { "name": "location", "type": "Edm.GeographyPoint", "searchable": false,
+         |     "filterable": true, "retrievable": true, "sortable": true }
+         |  ]
+         |}
+         |""".stripMargin
+
+    AzureSearchWriter.write(df,
+      Map(
+        "subscriptionKey" -> azureSearchKey,
+        "actionCol" -> "searchAction",
+        "serviceName" -> testServiceName,
+        "indexJson" -> indexJson
+      )
+    )
+
+    // With fatalErrors=true (default) any 400 from Azure Search becomes a thrown
+    // RuntimeException, so reaching this `assertSize` proves the documents were
+    // accepted as valid spatial objects -- a count of 2 is only achievable if the
+    // GeoJSON strings were correctly parsed and serialized as GeoJSON objects.
+    retryWithBackoff(assertSize(in, 2))
+
+  }
+
+  test("convertGeographyPointToStruct parses GeoJSON strings into structs") {
+    val df = spark.createDataFrame(Seq(
+      ("0", """{"type":"Point","coordinates":[-122.3493, 47.6205]}"""),
+      ("1", null)
+    )).toDF("id", "location")
+
+    val indexJson =
+      """
+        |{
+        |  "name": "unit-test-geo",
+        |  "fields": [
+        |    { "name": "id", "type": "Edm.String", "key": true },
+        |    { "name": "location", "type": "Edm.GeographyPoint" }
+        |  ]
+        |}
+        |""".stripMargin
+
+    val converted = AzureSearchWriter.convertGeographyPointToStruct(df, indexJson)
+    val expected = StructType(Seq(
+      StructField("type", StringType),
+      StructField("coordinates", ArrayType(DoubleType))
+    ))
+    assert(converted.schema("location").dataType == expected)
+
+    val rows = converted.orderBy("id").collect()
+    val parsed = rows.head.getStruct(rows.head.fieldIndex("location"))
+    assert(parsed.getString(0) == "Point")
+    assert(parsed.getSeq[Double](1) == Seq(-122.3493, 47.6205))
+    assert(rows(1).isNullAt(rows(1).fieldIndex("location")))
+  }
+
+  test("convertGeographyPointToStruct leaves struct columns untouched") {
+    val schema = StructType(Seq(
+      StructField("id", StringType),
+      StructField("location", StructType(Seq(
+        StructField("type", StringType, nullable = false),
+        StructField("coordinates", ArrayType(DoubleType, containsNull = false), nullable = false)
+      )))
+    ))
+    val df = spark.createDataFrame(
+      spark.sparkContext.parallelize(Seq(Row("0", Row("Point", Seq(-122.3493, 47.6205))))),
+      schema
+    )
+
+    val indexJson =
+      """
+        |{
+        |  "name": "unit-test-geo",
+        |  "fields": [
+        |    { "name": "id", "type": "Edm.String", "key": true },
+        |    { "name": "location", "type": "Edm.GeographyPoint" }
+        |  ]
+        |}
+        |""".stripMargin
+
+    val converted = AzureSearchWriter.convertGeographyPointToStruct(df, indexJson)
+    assert(converted.schema("location").dataType == schema("location").dataType)
+  }
+
+  test("convertGeographyPointToStruct fails fast on malformed GeoJSON instead of silently nulling") {
+    val df = spark.createDataFrame(Seq(
+      ("0", "{not valid json")
+    )).toDF("id", "location")
+
+    val indexJson =
+      """
+        |{
+        |  "name": "unit-test-geo",
+        |  "fields": [
+        |    { "name": "id", "type": "Edm.String", "key": true },
+        |    { "name": "location", "type": "Edm.GeographyPoint" }
+        |  ]
+        |}
+        |""".stripMargin
+
+    val converted = AzureSearchWriter.convertGeographyPointToStruct(df, indexJson)
+    // FAILFAST surfaces parse errors when the row is materialized, not at plan time.
+    // The concrete wrapper type varies (SparkException, ExecutionException, or a bare
+    // RuntimeException when Spark folds the LocalRelation on the driver), so assert on
+    // the flattened cause chain instead.
+    val caught = intercept[Exception] {
+      converted.collect()
+    }
+    assert(causeChain(caught).contains("Malformed records are detected"),
+      s"expected a FAILFAST parse failure but got: ${causeChain(caught)}")
+  }
+
+  test("convertGeographyPointToStruct rejects valid JSON that is not a GeoJSON Point") {
+    val indexJson =
+      """
+        |{
+        |  "name": "unit-test-geo",
+        |  "fields": [
+        |    { "name": "id", "type": "Edm.String", "key": true },
+        |    { "name": "location", "type": "Edm.GeographyPoint" }
+        |  ]
+        |}
+        |""".stripMargin
+
+    // Every one of these is syntactically valid JSON (or blank), so Spark's FAILFAST parser
+    // accepts it and yields a partially-null struct. Without explicit shape validation these
+    // would be silently indexed as a null location instead of failing the write.
+    val wrongShapes = Seq(
+      """{"foo":"bar"}""",
+      """{"type":"Point"}""",
+      """{"coordinates":[-122.3493, 47.6205]}""",
+      """{"type":"Polygon","coordinates":[-122.3493, 47.6205]}""",
+      """{"type":"Point","coordinates":[-122.3493]}""",
+      """{"type":"Point","coordinates":[-122.3493, 47.6205, 12.0]}""",
+      """{"type":"Point","coordinates":[-122.3493, null]}""",
+      "",
+      "   "
+    )
+
+    wrongShapes.foreach { badValue =>
+      val df = spark.createDataFrame(Seq(("0", badValue))).toDF("id", "location")
+      val converted = AzureSearchWriter.convertGeographyPointToStruct(df, indexJson)
+      val caught = intercept[Exception] {
+        converted.collect()
+      }
+      val message = causeChain(caught)
+      assert(message.contains("not a valid GeoJSON Point"),
+        s"expected a GeoJSON validation failure for '$badValue' but got: $message")
+      assert(message.contains("location"),
+        s"expected the error to name the offending column for '$badValue'")
+    }
+  }
+
+  test("convertGeographyPointToStruct preserves nulls without raising") {
+    val df = spark.createDataFrame(Seq(
+      ("0", """{"type":"Point","coordinates":[-122.3493, 47.6205]}"""),
+      ("1", null),
+      ("2", null)
+    )).toDF("id", "location")
+
+    val indexJson =
+      """
+        |{
+        |  "name": "unit-test-geo",
+        |  "fields": [
+        |    { "name": "id", "type": "Edm.String", "key": true },
+        |    { "name": "location", "type": "Edm.GeographyPoint" }
+        |  ]
+        |}
+        |""".stripMargin
+
+    val rows = AzureSearchWriter.convertGeographyPointToStruct(df, indexJson).orderBy("id").collect()
+    assert(rows.length == 3)
+    assert(!rows.head.isNullAt(rows.head.fieldIndex("location")))
+    assert(rows(1).isNullAt(rows(1).fieldIndex("location")))
+    assert(rows(2).isNullAt(rows(2).fieldIndex("location")))
+  }
+
+  private def causeChain(t: Throwable): String =
+    Iterator.iterate(t)(_.getCause).takeWhile(_ != null).map(_.toString).mkString(" | ")
+
 }

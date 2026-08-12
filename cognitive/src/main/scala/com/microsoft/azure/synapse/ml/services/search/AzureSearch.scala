@@ -20,7 +20,8 @@ import org.apache.spark.ml.util._
 import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel}
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.functions.vector_to_array
-import org.apache.spark.sql.functions.{col, expr, struct, to_json, to_utc_timestamp, date_format, when}
+import org.apache.spark.sql.functions.{col, concat, expr, forall, from_json, lit, raise_error, size,
+  struct, to_json, to_utc_timestamp, date_format, when}
 import org.apache.spark.sql.streaming.DataStreamWriter
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
@@ -249,6 +250,74 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
     }
   }
 
+  /**
+   * Converts string columns containing GeoJSON to the proper struct shape required for
+   * Azure Search `Edm.GeographyPoint` fields.
+   *
+   * Azure AI Search expects spatial values to be sent as a GeoJSON object
+   * (e.g. `{"type":"Point","coordinates":[lon, lat]}`), not as a JSON-encoded string.
+   * Users frequently have their GeoJSON readily available as a string column, and
+   * passing it as a `StringType` previously caused a `400 Bad Request`
+   * (see [[https://github.com/microsoft/SynapseML/issues/2420]]) because the writer
+   * JSON-escaped the entire string.
+   *
+   * For each '''top-level''' field declared as `Edm.GeographyPoint` in the index, if the
+   * corresponding DataFrame column is a `StringType`, parse it into the canonical
+   * `StructType(type: StringType, coordinates: ArrayType(DoubleType))` so that downstream
+   * `to_json` emits a proper GeoJSON object. Columns that are already structured are
+   * left as-is. GeographyPoint fields nested inside complex types are not auto-converted
+   * (mirrors the existing top-level-only handling in `convertDateTimeToISO8601`).
+   *
+   * Parsing uses Spark's `FAILFAST` mode so malformed GeoJSON surfaces an explicit
+   * exception instead of being silently coerced to `null` and shipped to Azure Search.
+   * `FAILFAST` alone only rejects syntactically invalid JSON, so the parsed value is
+   * additionally validated to be a genuine GeoJSON Point (`type == "Point"` with exactly
+   * two non-null coordinates). Anything else raises an error naming the column and the
+   * offending value rather than indexing a silently-null location. NULL inputs are
+   * preserved as NULL.
+   *
+   * @param df DataFrame with potential GeographyPoint columns
+   * @param indexJson JSON string containing the index schema
+   * @return DataFrame with string GeographyPoint columns converted to GeoJSON structs
+   */
+  private[ml] def convertGeographyPointToStruct(df: DataFrame, indexJson: String): DataFrame = {
+   // Derived from edmTypeToSparkType so the parsed shape can never drift from the type
+   // checkSchemaParity expects for Edm.GeographyPoint
+   val geoStructType = edmTypeToSparkType(GeographyPointEdmType, None)
+   val parseOptions = Map("mode" -> "FAILFAST")
+   val geoFields = parseIndexJson(indexJson).fields
+     .filter(_.`type` == GeographyPointEdmType)
+     .map(_.name)
+   geoFields.foldLeft(df) { (currentDF, fieldName) =>
+     if (currentDF.columns.contains(fieldName)) {
+       currentDF.schema(fieldName).dataType match {
+         case StringType =>
+           val parsed = from_json(col(fieldName), geoStructType, parseOptions)
+           val coordinates = parsed.getField("coordinates")
+           val isValidPoint = parsed.getField("type") === lit("Point") &&
+             coordinates.isNotNull &&
+             size(coordinates) === lit(GeographyPointCoordinateCount) &&
+             forall(coordinates, c => c.isNotNull)
+           val invalidValueError = raise_error(concat(
+             lit(s"AzureSearchWriter: column '$fieldName' is mapped to an " +
+               s"$GeographyPointEdmType field but the value is not a valid GeoJSON Point " +
+               """(expected {"type":"Point","coordinates":[longitude,latitude]}). """ +
+               "Offending value: "),
+             col(fieldName)))
+           currentDF.withColumn(fieldName,
+             when(col(fieldName).isNull || isValidPoint, parsed)
+               .otherwise(invalidValueError.cast(geoStructType))
+           )
+         case _ =>
+           // Already a struct (or otherwise compatible); checkSchemaParity will validate.
+           currentDF
+       }
+     } else {
+       currentDF
+     }
+   }
+  }
+
   private def dfToIndexJson(schema: StructType,
                             indexName: String,
                             keyCol: String,
@@ -367,17 +436,18 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
       SearchIndex.createIfNoneExists(auth, serviceName, indexJson, apiVersion)
     }
     val dateConvertedDF = convertDateTimeToISO8601(preppedDF, indexJson)
+    val geoConvertedDF = convertGeographyPointToStruct(dateConvertedDF, indexJson)
 
     logInfo("checking schema parity")
-    checkSchemaParity(dateConvertedDF.schema, indexJson, actionCol)
+    checkSchemaParity(geoConvertedDF.schema, indexJson, actionCol)
 
     val df1 = if (filterNulls) {
       val collectionColumns = parseIndexJson(indexJson).fields
         .filter(_.`type`.startsWith("Collection"))
         .map(_.name)
-      collectionColumns.foldLeft(dateConvertedDF) { (ndf, c) => filterOutNulls(ndf, c) }
+      collectionColumns.foldLeft(geoConvertedDF) { (ndf, c) => filterOutNulls(ndf, c) }
     } else {
-      dateConvertedDF
+      geoConvertedDF
     }
 
     // Convert date/timestamp columns to ISO8601 strings for Azure AI Search
@@ -451,6 +521,11 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
     t.substring("Collection(".length).dropRight(1)
   }
 
+  private[ml] val GeographyPointEdmType = "Edm.GeographyPoint"
+
+  // GeoJSON Points are always [longitude, latitude]
+  private[ml] val GeographyPointCoordinateCount = 2
+
   private[ml] def edmTypeToSparkType(dt: String,  //scalastyle:ignore cyclomatic.complexity
                                      fields: Option[Seq[IndexField]]): DataType = dt match {
     case t if isEdmCollection(t) =>
@@ -462,7 +537,7 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
     case "Edm.Double" => DoubleType
     case "Edm.Single" => FloatType
     case "Edm.DateTimeOffset" => StringType // We convert date/time to ISO8601 strings
-    case "Edm.GeographyPoint"   =>
+    case GeographyPointEdmType =>
       StructType(Seq(
         StructField("type", StringType),
         StructField("coordinates", ArrayType(DoubleType))
