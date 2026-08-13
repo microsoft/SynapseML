@@ -39,6 +39,11 @@ class OpenAIResponsesToolsSuite extends TransformerFuzzing[OpenAIResponses] {
   private def entityJson(entity: org.apache.http.HttpEntity): JsObject =
     EntityUtils.toString(entity).parseJson.asJsObject
 
+  test("Responses keeps its public schema while parsing tool fields internally") {
+    assert(configured.responseDataType === ResponsesModelResponse.schema)
+    assert(configured.transformSchema(messagesDf.schema)("out").dataType === ResponsesModelResponseV2.schema)
+  }
+
   test("tools and modern params serialize as JSON values with wire names") {
     val transformer = configured
       .setParallelToolCalls(true)

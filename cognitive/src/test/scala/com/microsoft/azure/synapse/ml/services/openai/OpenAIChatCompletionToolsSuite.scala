@@ -97,6 +97,18 @@ class OpenAIChatCompletionToolsSuite extends TestBase {
     assert(!new OpenAIChatCompletion().isContentFiltered(parsed.getAs[Row]("value")))
   }
 
+  test("Chat keeps its public schema while parsing tool fields internally") {
+    val transformer = new OpenAIChatCompletion()
+      .setMessagesCol("messages")
+      .setOutputCol("out")
+    val inputSchema = Seq(
+      Seq(OpenAIMessage("user", "Weather in Seattle?"))
+    ).toDF("messages").schema
+
+    assert(transformer.responseDataType === ChatModelResponse.schema)
+    assert(transformer.transformSchema(inputSchema)("out").dataType === ChatModelResponseV2.schema)
+  }
+
   test("Chat tool validation and generated Python expose the supported surface") {
     val transformer = new OpenAIChatCompletion()
     assert(!transformer.hasParam("maxToolCalls"))
