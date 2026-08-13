@@ -3,9 +3,6 @@ resources:
     - container: ci
       image: mmlsparkmcr.azurecr.io/synapseml/ci:ci-cc980b65de98
       endpoint: 'SynapseML MCR'
-  repositories:
-    - repository: self
-      type: self
 
 trigger:
   branches:
