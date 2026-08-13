@@ -1155,9 +1155,19 @@ jobs:
       condition: and(succeededOrFailed(), eq(variables.releaseCompatRequired, 'true'))
 - job: InternalCompat
   displayName: 'SynapseML-Internal Compatibility Check'
+  # Scoped to PR builds, matching ReleaseBranchCompat above: this validates that a
+  # proposed change still compiles Internal, which is only actionable while the
+  # change can still be revised. System.PullRequest.* is empty on non-PR builds, so
+  # the IsFork check alone would let this 120-minute, secret-consuming job run on
+  # every master push and nightly build.
   # SynapseML-Internal is a private repo. Fork PRs cannot authenticate to it, so skip the job
   # there rather than failing every external contribution.
-  condition: and(succeeded(), ne(variables['System.PullRequest.IsFork'], 'True'))
+  condition: >-
+    and(
+      succeeded(),
+      eq(variables.isPR, true),
+      ne(variables['System.PullRequest.IsFork'], 'True')
+    )
   cancelTimeoutInMinutes: 0
   # Measured on build 230962458: conda env 6.4m + compile 1.5m + package 1.2m +
   # Scala tests ~34m + ExcludeAIFunc. 90 min was not enough and the job was
@@ -1200,10 +1210,11 @@ jobs:
           echo "$SBT_OUT"
           # tools/ci/get_sbt_version.sh is not reused here: it runs its own sbt
           # invocation, which is precisely the second invocation this step exists to
-          # avoid. Mirror its parsing and validation inline instead of loosely
-          # grepping, so a stray "[info] <digit>..." line cannot be mistaken for the
-          # version and silently retarget Internal at an artifact that was never
-          # published.
+          # avoid. Its parsing and validation are mirrored inline instead. The regex
+          # is anchored to the start of the line and requires a version-shaped token,
+          # so a stray "[info] <digit>..." line elsewhere in the output cannot be
+          # mistaken for the version and silently retarget Internal at an artifact
+          # that was never published.
           OSS_VERSION=$(echo "$SBT_OUT" | sed 's/\x1b\[[0-9;]*m//g' \
             | grep -m1 -E '^\[info\] ([0-9]+\.[0-9]+|HEAD-)' | cut -d' ' -f2)
           echo "OSS version: $OSS_VERSION"
