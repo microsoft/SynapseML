@@ -2,7 +2,7 @@ name: Dependency Review
 
 on:
   pull_request:
-    branches: [ "master" ]
+    branches: [ "master", "spark4.1" ]
 
 permissions:
   contents: read
