@@ -9,7 +9,11 @@ name: Release Tag Orchestrator
 on:
   push:
     tags:
-      - "v[0-9]+.[0-9]+.[0-9]+"
+      # Deliberately permissive: GitHub filter patterns are globs, and support for
+      # `+` as a quantifier is inconsistently documented. `[0-9]*` matches under
+      # every reading. Strict X.Y.Z enforcement is done by the "Extract version"
+      # step below, and derivative tags are excluded by the job-level `if:`.
+      - "v[0-9]*.[0-9]*.[0-9]*"
 
 permissions:
   contents: write
@@ -48,12 +52,14 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-      # ── Python tag on master ───────────────────────────────
-      - name: Create Python 3.11 tag on master
+      # ── Python tag at the released commit ──────────────────
+      - name: Create Python 3.11 tag
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           set -euo pipefail
+          # The workflow is triggered by the tag push, so HEAD is already the
+          # tagged commit. The python tag must point at that same commit.
           TAG="v${VERSION}-python3.11"
           if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
             echo "⚠️ $TAG already exists — skipping"
@@ -92,6 +98,15 @@ jobs:
             fi
 
             git push -f -u origin "$BRANCH"
+
+            # Idempotency: on a re-run the branch already has an open PR, and
+            # `gh pr create` errors out for a duplicate head/base. Reuse it.
+            EXISTING=$(gh pr list --head "$BRANCH" --base "$TARGET" \
+              --state open --json number --jq '.[0].number // empty')
+            if [ -n "$EXISTING" ]; then
+              echo "♻️ PR #$EXISTING already open for $BRANCH — updated by the push above"
+              continue
+            fi
 
             gh pr create \
               --base "$TARGET" \
