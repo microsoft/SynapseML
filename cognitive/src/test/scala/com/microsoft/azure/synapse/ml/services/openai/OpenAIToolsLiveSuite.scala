@@ -57,6 +57,9 @@ class OpenAIToolsLiveSuite extends Flaky with OpenAIAPIKey {
   }
 
   test("Chat Completions performs a real function call and tool result continuation") {
+    val systemMessage = OpenAIChatMessage(
+      "system",
+      content = Some("Treat tool results as authoritative and report their exact values."))
     val userMessage = OpenAIChatMessage(
       "user",
       content = Some("What is the weather in Seattle?"))
@@ -71,7 +74,7 @@ class OpenAIToolsLiveSuite extends Flaky with OpenAIAPIKey {
       .setMaxCompletionTokens(500)
       .setOutputCol("response")
 
-    val first = turn1.transform(Seq(Seq(userMessage)).toDF("messages")).collect().head
+    val first = turn1.transform(Seq(Seq(systemMessage, userMessage)).toDF("messages")).collect().head
     assert(first.getAs[Row](turn1.getErrorCol) == null) //scalastyle:ignore null
     val call = first.getAs[Seq[Row]]("tool_calls").head
     val callId = call.getAs[String]("call_id")
@@ -81,6 +84,7 @@ class OpenAIToolsLiveSuite extends Flaky with OpenAIAPIKey {
     assert(SprayJsonParser(arguments).asJsObject.fields.contains("city"))
 
     val continuation = Seq(
+      systemMessage,
       userMessage,
       OpenAIChatMessage(
         "assistant",
@@ -90,8 +94,11 @@ class OpenAIToolsLiveSuite extends Flaky with OpenAIAPIKey {
             OpenAIChatFunctionCall(name, arguments))))),
       OpenAIChatMessage(
         "tool",
-        content = Some("""{"tempC":20}"""),
-        tool_call_id = Some(callId))
+        content = Some("""{"city":"Seattle","temperatureC":20,"conditions":"sunny"}"""),
+        tool_call_id = Some(callId)),
+      OpenAIChatMessage(
+        "user",
+        content = Some("State the exact Celsius temperature returned by the tool result above."))
     )
     val turn2 = new OpenAIChatCompletion()
       .setSubscriptionKey(openAIAPIKey)
