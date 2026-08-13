@@ -180,7 +180,7 @@ class OpenAICoreOfflineSuite extends AnyFunSuite {
   }
 
   test("OpenAI chat and responses stages expose expected response schemas") {
-    assert(new OpenAIChatCompletion().responseDataType == ChatModelResponse.schema)
-    assert(new OpenAIResponses().responseDataType == ResponsesModelResponse.schema)
+    assert(new OpenAIChatCompletion().responseDataType == ChatModelResponseV2.schema)
+    assert(new OpenAIResponses().responseDataType == ResponsesModelResponseV2.schema)
   }
 }
