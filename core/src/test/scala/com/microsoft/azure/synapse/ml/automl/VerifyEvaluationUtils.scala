@@ -6,6 +6,9 @@ package com.microsoft.azure.synapse.ml.automl
 import com.microsoft.azure.synapse.ml.core.metrics.MetricConstants
 import com.microsoft.azure.synapse.ml.core.schema.SchemaConstants
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
+import org.apache.spark.ml.classification.LogisticRegression
+import org.apache.spark.ml.feature.Tokenizer
+import org.apache.spark.ml.regression.{DecisionTreeRegressor, GBTRegressor, LinearRegression, RandomForestRegressor}
 
 class VerifyEvaluationUtils extends TestBase {
 
@@ -118,5 +121,32 @@ class VerifyEvaluationUtils extends TestBase {
         MetricConstants.MseSparkMetric
       )
     }
+  }
+
+  test("getModelType returns ClassificationKind for a Classifier") {
+    assert(EvaluationUtils.getModelType(new LogisticRegression()) === SchemaConstants.ClassificationKind)
+  }
+
+  test("getModelType returns RegressionKind for LinearRegression") {
+    assert(EvaluationUtils.getModelType(new LinearRegression()) === SchemaConstants.RegressionKind)
+  }
+
+  test("getModelType returns RegressionKind for DecisionTreeRegressor") {
+    assert(EvaluationUtils.getModelType(new DecisionTreeRegressor()) === SchemaConstants.RegressionKind)
+  }
+
+  test("getModelType returns RegressionKind for GBTRegressor") {
+    assert(EvaluationUtils.getModelType(new GBTRegressor()) === SchemaConstants.RegressionKind)
+  }
+
+  test("getModelType returns RegressionKind for RandomForestRegressor") {
+    assert(EvaluationUtils.getModelType(new RandomForestRegressor()) === SchemaConstants.RegressionKind)
+  }
+
+  test("getModelType throws ModelTypeUnsupportedErr for an unsupported stage") {
+    val caught = intercept[Exception] {
+      EvaluationUtils.getModelType(new Tokenizer())
+    }
+    assert(caught.getMessage === EvaluationUtils.ModelTypeUnsupportedErr)
   }
 }
