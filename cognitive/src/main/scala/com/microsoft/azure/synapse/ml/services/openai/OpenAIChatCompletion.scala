@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.services.openai
 
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
+import com.microsoft.azure.synapse.ml.io.http.{HTTPOutputParser, JSONOutputParser}
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.AnyJsonFormat.anyFormat
 import com.microsoft.azure.synapse.ml.param.ServiceParam
@@ -148,7 +149,10 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   override protected def getVectorParamMap: Map[String, String] = super.getVectorParamMap
     .updated("messages", getMessagesCol)
 
-  override def responseDataType: DataType = ChatModelResponseV2.schema
+  override def responseDataType: DataType = ChatModelResponse.schema
+
+  override protected def getInternalOutputParser(schema: StructType): HTTPOutputParser =
+    new JSONOutputParser().setDataType(ChatModelResponseV2.schema)
 
   override def toolCallsColumn(structColName: String): org.apache.spark.sql.Column =
     OpenAIToolColumns.chatToolCallsColumn(structColName)

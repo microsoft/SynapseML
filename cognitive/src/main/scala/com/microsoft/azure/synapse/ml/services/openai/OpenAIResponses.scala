@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.services.openai
 
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
+import com.microsoft.azure.synapse.ml.io.http.{HTTPOutputParser, JSONOutputParser}
 import com.microsoft.azure.synapse.ml.param.AnyJsonFormat.anyFormat
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.services.{HasCognitiveServiceInput, HasInternalJsonOutputParser}
@@ -286,7 +287,10 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
     paramMap
   }
 
-  override def responseDataType: DataType = ResponsesModelResponseV2.schema
+  override def responseDataType: DataType = ResponsesModelResponse.schema
+
+  override protected def getInternalOutputParser(schema: StructType): HTTPOutputParser =
+    new JSONOutputParser().setDataType(ResponsesModelResponseV2.schema)
 
   private[openai] def getStringEntity(
       messages: Seq[Row],
