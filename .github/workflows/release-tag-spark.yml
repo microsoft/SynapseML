@@ -59,6 +59,25 @@ jobs:
 
           echo "📦 Version: $VERSION, Target: $TARGET"
 
+      # Guard before checkout: `ref:` below is an expression, so if
+      # merge_commit_sha is empty actions/checkout silently falls back to the
+      # default branch and this job would tag master's tip as a spark release.
+      # GitHub does not populate merge_commit_sha for every merge method, so
+      # fail loudly rather than tag the wrong commit.
+      - name: Verify the merge commit is known
+        env:
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          set -euo pipefail
+          if [ -z "$MERGE_SHA" ]; then
+            echo "::error::pull_request.merge_commit_sha is empty, so the commit that landed on \
+          $BASE_REF cannot be identified. Refusing to guess. Tag the merged commit manually: \
+          git tag v<version>-<target> <sha> && git push origin v<version>-<target>"
+            exit 1
+          fi
+          echo "✅ Merge commit: $MERGE_SHA"
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -90,7 +109,16 @@ jobs:
           TO_PUSH=()
           for TAG in "$SPARK_TAG" "$PYTHON_TAG"; do
             if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
-              echo "⚠️ $TAG already exists — skipping"
+              # An existing tag is only benign if it already points where this run
+              # would put it. If it points elsewhere, the release is mis-tagged and
+              # silently skipping would report success for a bad release.
+              EXISTING=$(git rev-parse "refs/tags/$TAG^{commit}")
+              if [ "$EXISTING" != "$(git rev-parse HEAD)" ]; then
+                echo "::error::$TAG already exists at $EXISTING but this release is \
+          $(git rev-parse HEAD). Refusing to move a published release tag — resolve manually."
+                exit 1
+              fi
+              echo "⚠️ $TAG already exists at the same commit — skipping"
             else
               git tag "$TAG"
               TO_PUSH+=("$TAG")

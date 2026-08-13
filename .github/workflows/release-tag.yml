@@ -95,7 +95,16 @@ jobs:
           # Use the immutable tagged commit captured above, not a moving branch ref.
           TAG="v${VERSION}-python3.11"
           if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
-            echo "⚠️ $TAG already exists — skipping"
+            # Same reasoning as release-tag-spark.yml: an existing tag is only
+            # benign if it already points at this release. Otherwise the release
+            # is mis-tagged and skipping would report success for a bad release.
+            EXISTING=$(git rev-parse "refs/tags/$TAG^{commit}")
+            if [ "$EXISTING" != "$RELEASE_COMMIT" ]; then
+              echo "::error::$TAG already exists at $EXISTING but v${VERSION} is \
+          $RELEASE_COMMIT. Refusing to move a published release tag — resolve manually."
+              exit 1
+            fi
+            echo "⚠️ $TAG already exists at the same commit — skipping"
           else
             git tag "$TAG" "$RELEASE_COMMIT"
             git push origin "$TAG"
