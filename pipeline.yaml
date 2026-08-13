@@ -1,7 +1,5 @@
 resources:
   repositories:
-  - repository: self
-    type: self
   - repository: SynapseML-Internal
     type: git
     name: A365/SynapseML-Internal
@@ -1165,11 +1163,20 @@ jobs:
   # Scala tests ~34m + ExcludeAIFunc. 90 min was not enough and the job was
   # killed mid-step; 120 leaves headroom now that the live-service suites are gone.
   timeoutInMinutes: 120
+  dependsOn: BuildAndCacheSbt
   pool:
     vmImage: $(UBUNTU_VERSION)
   steps:
+    # Explicit paths: a multi-repo job otherwise nests every repo under a folder
+    # named after it, which moves the OSS root off $(Build.SourcesDirectory). That
+    # would leave templates/sbt_cache.yml resolving its cache keys and
+    # tools/ci/sbt_retry.sh against a directory with no build definition, so this
+    # job would silently cold-bootstrap sbt instead of sharing the prewarmed cache.
     - checkout: self
+      path: s
     - checkout: SynapseML-Internal
+      path: s-internal
+    - template: templates/sbt_cache.yml
     - task: AzureCLI@2
       displayName: 'Publish OSS to local Maven'
       timeoutInMinutes: 20
@@ -1179,7 +1186,7 @@ jobs:
         scriptType: bash
         inlineScript: |
           set -e
-          cd $(Build.SourcesDirectory)/SynapseML
+          cd $(Build.SourcesDirectory)
           export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
           # The version string embeds an HHmm timestamp and is recomputed on every
           # sbt invocation, so querying the version and publishing in two separate
@@ -1191,10 +1198,18 @@ jobs:
             exit 1
           fi
           echo "$SBT_OUT"
-          OSS_VERSION=$(echo "$SBT_OUT" | grep -m1 '^\[info\] [0-9]' | sed 's/\[info\] //')
+          # tools/ci/get_sbt_version.sh is not reused here: it runs its own sbt
+          # invocation, which is precisely the second invocation this step exists to
+          # avoid. Mirror its parsing and validation inline instead of loosely
+          # grepping, so a stray "[info] <digit>..." line cannot be mistaken for the
+          # version and silently retarget Internal at an artifact that was never
+          # published.
+          OSS_VERSION=$(echo "$SBT_OUT" | sed 's/\x1b\[[0-9;]*m//g' \
+            | grep -m1 -E '^\[info\] ([0-9]+\.[0-9]+|HEAD-)' | cut -d' ' -f2)
           echo "OSS version: $OSS_VERSION"
-          if [ -z "$OSS_VERSION" ]; then
-            echo "##vso[task.logissue type=error]Failed to determine OSS version"
+          if [ -z "$OSS_VERSION" ] || [[ "$OSS_VERSION" =~ [[:space:]] ]] \
+             || [[ ! "$OSS_VERSION" =~ ^([0-9]+\.[0-9]+|HEAD-) ]]; then
+            echo "##vso[task.logissue type=error]Failed to determine a valid OSS version (got: '$OSS_VERSION')"
             exit 1
           fi
           echo "##vso[task.setvariable variable=OSS_VERSION]$OSS_VERSION"
@@ -1202,7 +1217,7 @@ jobs:
           ls "$HOME/.m2/repository/com/microsoft/azure/" 2>/dev/null || true
     - bash: |
         set -e
-        cd $(Build.SourcesDirectory)/SynapseML-Internal
+        cd $(Agent.BuildDirectory)/s-internal
 
         echo "=== Retargeting Internal to OSS version $(OSS_VERSION) ==="
         [ -n "$(OSS_VERSION)" ] || { echo "##vso[task.logissue type=error]OSS_VERSION is not set"; exit 1; }
@@ -1234,7 +1249,7 @@ jobs:
         scriptType: bash
         inlineScript: |
           set -e
-          cd $(Build.SourcesDirectory)/SynapseML-Internal
+          cd $(Agent.BuildDirectory)/s-internal
           export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
           echo "Compiling SynapseML-Internal against OSS $(OSS_VERSION)..."
           sbt compile Test/compile
@@ -1266,8 +1281,8 @@ jobs:
       displayName: 'Free disk space (remove unused SDKs)'
     - bash: |
         set -e
-        conda env create --yes -f $(Build.SourcesDirectory)/SynapseML-Internal/environment.yaml -v || \
-          conda env create --yes -f $(Build.SourcesDirectory)/SynapseML-Internal/environment.yaml -v
+        conda env create --yes -f $(Agent.BuildDirectory)/s-internal/environment.yaml -v || \
+          conda env create --yes -f $(Agent.BuildDirectory)/s-internal/environment.yaml -v
         conda clean --all -y
         pip cache purge
       displayName: 'Create Internal conda env'
@@ -1287,7 +1302,7 @@ jobs:
         scriptType: bash
         inlineScript: |
           set -e
-          cd $(Build.SourcesDirectory)/SynapseML-Internal
+          cd $(Agent.BuildDirectory)/s-internal
           eval "$(conda shell.bash hook)"
           conda activate synapseml-internal
           export CREATE_SEMPY_WRITER=false
@@ -1330,7 +1345,7 @@ jobs:
         scriptType: bash
         inlineScript: |
           set -e
-          cd $(Build.SourcesDirectory)/SynapseML-Internal
+          cd $(Agent.BuildDirectory)/s-internal
           eval "$(conda shell.bash hook)"
           conda activate synapseml-internal
           export CREATE_SEMPY_WRITER=false
@@ -1361,7 +1376,7 @@ jobs:
         scriptType: bash
         inlineScript: |
           set -e
-          cd $(Build.SourcesDirectory)/SynapseML-Internal
+          cd $(Agent.BuildDirectory)/s-internal
           eval "$(conda shell.bash hook)"
           conda activate synapseml-internal
           export CREATE_SEMPY_WRITER=false
@@ -1399,6 +1414,6 @@ jobs:
       displayName: 'Publish Internal Python Test Results'
       inputs:
         testResultsFiles: '**/python-test-*.xml'
-        searchFolder: '$(Build.SourcesDirectory)/SynapseML-Internal'
+        searchFolder: '$(Agent.BuildDirectory)/s-internal'
         failTaskOnFailedTests: false
       condition: succeededOrFailed()
