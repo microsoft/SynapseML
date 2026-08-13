@@ -56,6 +56,18 @@ class VerifyEvaluationUtils extends TestBase {
     assert(ordering.compare(1.0, 2.0) > 0)
   }
 
+  test("regression metrics use chooseLowest ordering (except R2)") {
+    val (_, mseOrd) = EvaluationUtils.getMetricWithOperator(
+      SchemaConstants.RegressionKind, MetricConstants.MseSparkMetric)
+    // MSE should prefer lower values
+    assert(mseOrd.compare(1.0, 2.0) > 0)
+
+    val (_, r2Ord) = EvaluationUtils.getMetricWithOperator(
+      SchemaConstants.RegressionKind, MetricConstants.R2SparkMetric)
+    // R2 should prefer higher values
+    assert(r2Ord.compare(1.0, 2.0) < 0)
+  }
+
   test("getMetricWithOperator returns correct metric for classification AUC") {
     val (metricName, ordering) = EvaluationUtils.getMetricWithOperator(
       SchemaConstants.ClassificationKind,
@@ -96,12 +108,31 @@ class VerifyEvaluationUtils extends TestBase {
     assert(ordering.compare(2.0, 1.0) > 0)
   }
 
+  test("getMetricWithOperator returns correct metric for classification accuracy") {
+    val (name, _) = EvaluationUtils.getMetricWithOperator(
+      SchemaConstants.ClassificationKind, MetricConstants.AccuracySparkMetric)
+    assert(name === MetricConstants.AccuracyColumnName)
+  }
+
+  test("classification metrics use chooseHighest ordering") {
+    val (_, aucOrd) = EvaluationUtils.getMetricWithOperator(
+      SchemaConstants.ClassificationKind, MetricConstants.AucSparkMetric)
+    // AUC should prefer higher values
+    assert(aucOrd.compare(1.0, 2.0) < 0)
+  }
+
   test("getMetricWithOperator throws for unsupported regression metric") {
     assertThrows[Exception] {
       EvaluationUtils.getMetricWithOperator(
         SchemaConstants.RegressionKind,
         "unsupported_metric"
       )
+    }
+  }
+
+  test("unsupported regression metric throws") {
+    assertThrows[Exception] {
+      EvaluationUtils.getMetricWithOperator(SchemaConstants.RegressionKind, "bogus_metric")
     }
   }
 
@@ -114,12 +145,24 @@ class VerifyEvaluationUtils extends TestBase {
     }
   }
 
+  test("unsupported classification metric throws") {
+    assertThrows[Exception] {
+      EvaluationUtils.getMetricWithOperator(SchemaConstants.ClassificationKind, "bogus_metric")
+    }
+  }
+
   test("getMetricWithOperator throws for unsupported model type") {
     assertThrows[Exception] {
       EvaluationUtils.getMetricWithOperator(
         "unsupported_model_type",
         MetricConstants.MseSparkMetric
       )
+    }
+  }
+
+  test("unsupported model type throws") {
+    assertThrows[Exception] {
+      EvaluationUtils.getMetricWithOperator("unsupported_type", MetricConstants.MseSparkMetric)
     }
   }
 

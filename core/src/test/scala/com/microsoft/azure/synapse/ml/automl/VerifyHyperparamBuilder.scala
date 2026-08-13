@@ -4,7 +4,9 @@
 package com.microsoft.azure.synapse.ml.automl
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import org.apache.spark.ml.param.{IntParam, Params, ParamMap, DoubleParam, LongParam, FloatParam}
+import org.apache.spark.ml.param.{DoubleParam, FloatParam, IntParam, LongParam, ParamMap, Params}
+
+import scala.collection.JavaConverters._
 
 class VerifyHyperparamBuilder extends TestBase {
 
@@ -21,11 +23,10 @@ class VerifyHyperparamBuilder extends TestBase {
   private val testParamsInstance = new TestParams
 
   test("IntRangeHyperParam generates values within range") {
-    val param = new IntRangeHyperParam(10, 20, seed = 42)
-    for (_ <- 1 to 100) {
-      val value = param.getNext()
-      assert(value >= 10 && value < 20)
-    }
+    val hp = new IntRangeHyperParam(5, 15, seed = 42)
+    val values = (1 to 100).map(_ => hp.getNext())
+    assert(values.forall(v => v >= 5 && v < 15))
+    assert(values.toSet.size > 1) // not all the same
   }
 
   test("IntRangeHyperParam respects seed for reproducibility") {
@@ -85,12 +86,10 @@ class VerifyHyperparamBuilder extends TestBase {
   }
 
   test("DiscreteHyperParam selects from provided values") {
-    val values = List("a", "b", "c")
-    val param = new DiscreteHyperParam(values, seed = 42)
-    for (_ <- 1 to 100) {
-      val value = param.getNext()
-      assert(values.contains(value))
-    }
+    val hp = new DiscreteHyperParam(List("a", "b", "c"), seed = 42)
+    val values = (1 to 100).map(_ => hp.getNext())
+    assert(values.forall(Set("a", "b", "c").contains))
+    assert(values.toSet.size > 1)
   }
 
   test("DiscreteHyperParam.getValues returns Java list") {
@@ -103,10 +102,21 @@ class VerifyHyperparamBuilder extends TestBase {
     assert(javaList.get(2) === 3)
   }
 
+  test("DiscreteHyperParam getValues returns Java list") {
+    val hp = new DiscreteHyperParam(List(1, 2, 3))
+    val javaList = hp.getValues
+    assert(javaList.asScala.toList === List(1, 2, 3))
+  }
+
   test("HyperparamBuilder builds empty array when no params added") {
     val builder = new HyperparamBuilder()
     val result = builder.build()
     assert(result.isEmpty)
+  }
+
+  test("HyperparamBuilder empty build returns empty array") {
+    val hp = new HyperparamBuilder().build()
+    assert(hp.isEmpty)
   }
 
   test("HyperparamBuilder adds single hyperparam") {
@@ -134,12 +144,26 @@ class VerifyHyperparamBuilder extends TestBase {
     assert(result.length === 2)
   }
 
+  test("HyperparamBuilder builds array of param-dist pairs") {
+    val hp = new HyperparamBuilder()
+      .addHyperparam(testParamsInstance.intParam, new IntRangeHyperParam(1, 10))
+      .addHyperparam(testParamsInstance.doubleParam, new DoubleRangeHyperParam(0.0, 1.0))
+      .build()
+    assert(hp.length === 2)
+    assert(hp.map(_._1.name).toSet === Set("intParam", "doubleParam"))
+  }
+
   test("HyperParamUtils.getRangeHyperParam returns IntRangeHyperParam for Int") {
     val result = HyperParamUtils.getRangeHyperParam(1, 10)
     assert(result.isInstanceOf[IntRangeHyperParam])
     val intResult = result.asInstanceOf[IntRangeHyperParam]
     assert(intResult.min === 1)
     assert(intResult.max === 10)
+  }
+
+  test("HyperParamUtils.getRangeHyperParam matches Int type") {
+    val hp = HyperParamUtils.getRangeHyperParam(1, 10)
+    assert(hp.isInstanceOf[IntRangeHyperParam])
   }
 
   test("HyperParamUtils.getRangeHyperParam returns DoubleRangeHyperParam for Double") {
@@ -150,12 +174,22 @@ class VerifyHyperparamBuilder extends TestBase {
     assert(doubleResult.max === 1.0)
   }
 
+  test("HyperParamUtils.getRangeHyperParam matches Double type") {
+    val hp = HyperParamUtils.getRangeHyperParam(0.0, 1.0)
+    assert(hp.isInstanceOf[DoubleRangeHyperParam])
+  }
+
   test("HyperParamUtils.getRangeHyperParam returns LongRangeHyperParam for Long") {
     val result = HyperParamUtils.getRangeHyperParam(0L, 100L)
     assert(result.isInstanceOf[LongRangeHyperParam])
     val longResult = result.asInstanceOf[LongRangeHyperParam]
     assert(longResult.min === 0L)
     assert(longResult.max === 100L)
+  }
+
+  test("HyperParamUtils.getRangeHyperParam matches Long type") {
+    val hp = HyperParamUtils.getRangeHyperParam(0L, 100L)
+    assert(hp.isInstanceOf[LongRangeHyperParam])
   }
 
   test("HyperParamUtils.getRangeHyperParam returns FloatRangeHyperParam for Float") {
@@ -166,9 +200,20 @@ class VerifyHyperparamBuilder extends TestBase {
     assert(floatResult.max === 1.0f)
   }
 
+  test("HyperParamUtils.getRangeHyperParam matches Float type") {
+    val hp = HyperParamUtils.getRangeHyperParam(0.0f, 1.0f)
+    assert(hp.isInstanceOf[FloatRangeHyperParam])
+  }
+
   test("HyperParamUtils.getRangeHyperParam throws for unsupported types") {
     assertThrows[Exception] {
       HyperParamUtils.getRangeHyperParam("a", "b")
+    }
+  }
+
+  test("HyperParamUtils.getRangeHyperParam throws on unsupported type") {
+    assertThrows[Exception] {
+      HyperParamUtils.getRangeHyperParam("a", "z")
     }
   }
 
@@ -183,10 +228,27 @@ class VerifyHyperparamBuilder extends TestBase {
     assert(Seq(1, 2, 3).contains(value))
   }
 
+  test("HyperParamUtils.getDiscreteHyperParam creates from Java ArrayList") {
+    val javaList = new java.util.ArrayList[String]()
+    javaList.add("x")
+    javaList.add("y")
+    val hp = HyperParamUtils.getDiscreteHyperParam(javaList)
+    val values = (1 to 50).map(_ => hp.getNext().toString)
+    assert(values.forall(v => v == "x" || v == "y"))
+  }
+
   test("RangeHyperParam stores min, max, and seed") {
     val param = new IntRangeHyperParam(5, 15, seed = 123)
     assert(param.min === 5)
     assert(param.max === 15)
     assert(param.seed === 123)
+  }
+
+  test("seeded RangeHyperParam produces deterministic sequences") {
+    val hp1 = new IntRangeHyperParam(0, 100, seed = 123)
+    val hp2 = new IntRangeHyperParam(0, 100, seed = 123)
+    val seq1 = (1 to 10).map(_ => hp1.getNext())
+    val seq2 = (1 to 10).map(_ => hp2.getNext())
+    assert(seq1 === seq2)
   }
 }
