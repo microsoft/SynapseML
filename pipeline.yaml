@@ -1309,6 +1309,7 @@ jobs:
         INTEGRATION_ENV: $(sempy-integration-region)
         INTEGRATION_ACCOUNT: $(sempy-integration-account)
         INTEGRATION_CERTIFICATE: $(sempy-integration-certificate)
+        INTEGRATION_WORKSPACE_PREFIX: $(sempy-integration-workspace-prefix)
     - task: AzureCLI@2
       displayName: 'Package Internal Python against OSS'
       timeoutInMinutes: 15
