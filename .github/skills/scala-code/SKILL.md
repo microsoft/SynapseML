@@ -1,3 +1,8 @@
+---
+name: scala-code
+description: Write and modify Scala code in SynapseML. Use when adding or changing Scala transformers, estimators, or params to follow repo patterns, keep scalastyle and compilation green, and cover behavior changes with tests.
+---
+
 # Scala Code Skill
 
 Use this skill for any Scala code change in this repository.
