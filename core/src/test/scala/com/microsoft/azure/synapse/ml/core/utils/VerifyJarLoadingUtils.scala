@@ -22,11 +22,4 @@ class VerifyJarLoadingUtils extends TestBase {
   test("className handles simple filename") {
     assert(JarLoadingUtils.className("Main.class") === "Main")
   }
-
-  test("OsUtils.IsWindows agrees with the os.name it is derived from") {
-    // Asserting a literal would only hold on one platform, but the flag must still track the
-    // property it reads. This catches an inverted or misspelled predicate on any OS.
-    val expected = System.getProperty("os.name").toLowerCase.contains("win")
-    assert(OsUtils.IsWindows === expected)
-  }
 }

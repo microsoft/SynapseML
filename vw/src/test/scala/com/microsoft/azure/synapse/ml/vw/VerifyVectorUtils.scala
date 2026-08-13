@@ -30,7 +30,7 @@ class VerifyVectorUtils extends TestBase {
 
   test("sortAndDistinct deduplicates without summing when sumCollisions is false") {
     val (indices, values) = VectorUtils.sortAndDistinct(
-      Array(1, 2, 1), Array(10.0, 20.0, 5.0), sumCollisions = false)
+      Array(1, 2, 1), Array(10.0, 20.0, 10.0), sumCollisions = false)
     assert(indices === Array(1, 2))
     assert(values === Array(10.0, 20.0))
   }

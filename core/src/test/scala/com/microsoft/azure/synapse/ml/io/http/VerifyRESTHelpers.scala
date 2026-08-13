@@ -20,19 +20,23 @@ class VerifyRESTHelpers extends TestBase {
 
   test("retry retries on failure and eventually succeeds") {
     var attempts = 0
-    // Zero backoffs exercise the same retry path without a real Thread.sleep.
-    val result = RESTHelpers.retry(List(0, 0, 0), () => {
-      attempts += 1
-      if (attempts < 3) throw new RuntimeException("fail")
-      "success"
-    })
+    val result = Console.withOut(new java.io.ByteArrayOutputStream()) {
+      // Zero backoffs exercise the same retry path without a real Thread.sleep.
+      RESTHelpers.retry(List(0, 0, 0), () => {
+        attempts += 1
+        if (attempts < 3) throw new RuntimeException("fail")
+        "success"
+      })
+    }
     assert(result === "success")
     assert(attempts === 3)
   }
 
   test("retry throws when all retries exhausted") {
-    intercept[RuntimeException] {
-      RESTHelpers.retry(List(0), () => throw new RuntimeException("always fails"))
+    Console.withOut(new java.io.ByteArrayOutputStream()) {
+      intercept[RuntimeException] {
+        RESTHelpers.retry(List(0), () => throw new RuntimeException("always fails"))
+      }
     }
   }
 
