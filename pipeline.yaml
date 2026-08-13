@@ -1181,14 +1181,25 @@ jobs:
           set -e
           cd $(Build.SourcesDirectory)/SynapseML
           export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
-          OSS_VERSION=$(sbt -no-colors "core/version" 2>&1 | grep '^\[info\] [0-9]' | tail -1 | sed 's/\[info\] //')
+          # The version string embeds an HHmm timestamp and is recomputed on every
+          # sbt invocation, so querying the version and publishing in two separate
+          # invocations can yield two different versions when they straddle a minute
+          # boundary. Run both in ONE sbt session so the version is computed once.
+          if ! SBT_OUT="$(sbt -no-colors "core/version" publishM2 2>&1)"; then
+            echo "$SBT_OUT"
+            echo "##vso[task.logissue type=error]sbt core/version publishM2 failed"
+            exit 1
+          fi
+          echo "$SBT_OUT"
+          OSS_VERSION=$(echo "$SBT_OUT" | grep -m1 '^\[info\] [0-9]' | sed 's/\[info\] //')
           echo "OSS version: $OSS_VERSION"
           if [ -z "$OSS_VERSION" ]; then
             echo "##vso[task.logissue type=error]Failed to determine OSS version"
             exit 1
           fi
           echo "##vso[task.setvariable variable=OSS_VERSION]$OSS_VERSION"
-          sbt publishM2
+          echo "=== published OSS versions in ~/.m2 ==="
+          ls "$HOME/.m2/repository/com/microsoft/azure/" 2>/dev/null || true
     - bash: |
         set -e
         cd $(Build.SourcesDirectory)/SynapseML-Internal
@@ -1325,8 +1336,15 @@ jobs:
           export CREATE_SEMPY_WRITER=false
           export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
           echo "Packaging Internal Python against OSS $(OSS_VERSION)..."
-          sbt packagePython
-          sbt publishM2
+          # packagePython and publishM2 MUST share one sbt session. Internal's version
+          # embeds an HHmm timestamp, so separate invocations can differ by a minute:
+          # packagePython bakes the jar coordinate into the generated Python package,
+          # publishM2 then publishes a *different* version, and the Spark launch inside
+          # make_mlflow_models.py fails to resolve it - surfacing only as an opaque
+          # JAVA_GATEWAY_EXITED. Observed: packaged 1022, published 1023.
+          sbt packagePython publishM2
+          echo "=== published Internal versions in ~/.m2 ==="
+          ls -d "$HOME"/.m2/repository/com/microsoft/azure/*-internal_2.12/*/ 2>/dev/null || true
       condition: succeededOrFailed()
     # NOTE: 'Run Internal Python tests (AIFunc)' was intentionally removed. All four
     # AIFunc suites call live Azure OpenAI endpoints, so they measure service and
