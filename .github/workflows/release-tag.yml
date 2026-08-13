@@ -1,7 +1,8 @@
 name: Release Tag Orchestrator
 
 # Triggers when a primary version tag (v1.1.2) is pushed to master.
-# Creates the python3.11 tag and opens a PR to rebase spark4.0.
+# Creates the python3.11 tag at the tagged commit, then opens a rebase PR for
+# each existing spark branch (spark4.1 first, then spark4.0).
 #
 # Part of the SynapseML Fabric Release Guide (Steps 1.4–1.5).
 # See also: release-tag-spark.yml (creates spark/python tags after PR merge).
@@ -152,7 +153,7 @@ jobs:
           echo ""
           echo "  Version: v${VERSION}"
           echo ""
-          echo "  ✅ v${VERSION}-python3.11 tag created on master"
+          echo "  ✅ v${VERSION}-python3.11 tag created at the tagged commit"
           echo "  📋 Rebase PRs opened for the existing spark branches"
           echo ""
           echo "  Next: review and merge the spark rebase PR(s)"
