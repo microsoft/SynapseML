@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.services.openai
 
 import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import org.apache.spark.sql.{Row, functions => F}
+import spray.json.{JsonParser => SprayJsonParser}
 
 /** Credential-gated smoke tests. Offline suites must never mix in OpenAIAPIKey. */
 class OpenAIToolsLiveSuite extends Flaky with OpenAIAPIKey {
@@ -53,6 +54,61 @@ class OpenAIToolsLiveSuite extends Flaky with OpenAIAPIKey {
       .select(turn2.getOutputMessageText("response2").as("text"))
       .collect().head.getString(0)
     assert(answer.nonEmpty)
+  }
+
+  test("Chat Completions performs a real function call and tool result continuation") {
+    val userMessage = OpenAIChatMessage(
+      "user",
+      content = Some("What is the weather in Seattle?"))
+    val turn1 = new OpenAIChatCompletion()
+      .setSubscriptionKey(openAIAPIKey)
+      .setCustomServiceName(openAIServiceName)
+      .setDeploymentName(toolsDeployment)
+      .setMessagesCol("messages")
+      .setTools(ToolTestFixtures.WeatherToolJson)
+      .setToolChoiceFunction("get_weather")
+      .setToolCallsCol("tool_calls")
+      .setMaxCompletionTokens(500)
+      .setOutputCol("response")
+
+    val first = turn1.transform(Seq(Seq(userMessage)).toDF("messages")).collect().head
+    assert(first.getAs[Row](turn1.getErrorCol) == null) //scalastyle:ignore null
+    val call = first.getAs[Seq[Row]]("tool_calls").head
+    val callId = call.getAs[String]("call_id")
+    val name = call.getAs[String]("name")
+    val arguments = call.getAs[String]("arguments")
+    assert(name === "get_weather")
+    assert(SprayJsonParser(arguments).asJsObject.fields.contains("city"))
+
+    val continuation = Seq(
+      userMessage,
+      OpenAIChatMessage(
+        "assistant",
+        tool_calls = Some(Seq(
+          OpenAIChatToolCall(
+            callId,
+            OpenAIChatFunctionCall(name, arguments))))),
+      OpenAIChatMessage(
+        "tool",
+        content = Some("""{"tempC":20}"""),
+        tool_call_id = Some(callId))
+    )
+    val turn2 = new OpenAIChatCompletion()
+      .setSubscriptionKey(openAIAPIKey)
+      .setCustomServiceName(openAIServiceName)
+      .setDeploymentName(toolsDeployment)
+      .setMessagesCol("messages")
+      .setTools(ToolTestFixtures.WeatherToolJson)
+      .setToolChoice("none")
+      .setMaxCompletionTokens(500)
+      .setOutputCol("response2")
+    val completed = turn2.transform(Seq(continuation).toDF("messages"))
+      .select(
+        turn2.getOutputMessageText("response2").as("text"),
+        F.col(turn2.getErrorCol).as("error"))
+      .collect().head
+    assert(completed.getAs[Row]("error") == null) //scalastyle:ignore null
+    assert(completed.getAs[String]("text").contains("20"))
   }
 
   test("OpenAIPrompt exposes structured calls from a real Responses request") {
