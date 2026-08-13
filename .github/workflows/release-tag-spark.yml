@@ -34,11 +34,16 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Extract version from branch name: release/v1.1.2-spark4.0 → 1.1.2
-          VERSION=$(echo "$BRANCH" | sed -E 's|release/v([0-9]+\.[0-9]+\.[0-9]+)-.*|\1|')
+          # Require the exact release branch convention for the target branch.
+          if [[ ! "$BRANCH" =~ ^release/v([0-9]+\.[0-9]+\.[0-9]+)-(spark4\.[01])$ ]]; then
+            echo "❌ Release branch '$BRANCH' must match release/vX.Y.Z-spark4.0 or release/vX.Y.Z-spark4.1"
+            exit 1
+          fi
 
-          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
-            echo "❌ Could not extract version from branch '$BRANCH'"
+          VERSION="${BASH_REMATCH[1]}"
+          BRANCH_TARGET="${BASH_REMATCH[2]}"
+          if [ "$BRANCH_TARGET" != "$TARGET" ]; then
+            echo "❌ Release branch target '$BRANCH_TARGET' does not match PR base '$TARGET'"
             exit 1
           fi
 
