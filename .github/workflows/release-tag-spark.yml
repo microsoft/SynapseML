@@ -57,7 +57,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: ${{ github.event.pull_request.base.ref }}
+          # Pin to the merge commit, not the base branch ref. The branch is a
+          # moving target: any commit landing on spark4.x between the merge and
+          # this job starting would silently get the release tag instead.
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
           # Full history and tags: the "tag already exists" guard below is
           # meaningless against a shallow clone with no tags fetched.
           fetch-depth: 0
