@@ -107,4 +107,4 @@ jobs:
           done <<< "$violations"
 
       - name: Compile
-        run: sbt compile test:compile
+        run: sbt compile "Test / compile"

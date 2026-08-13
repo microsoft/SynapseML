@@ -609,6 +609,7 @@ jobs:
       condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
     - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
       - template: templates/codecov.yml
+    - template: templates/publish_coverage_ado.yml
 - job: RTests
   dependsOn: BuildAndCacheSbt
   timeoutInMinutes: 60
@@ -674,6 +675,7 @@ jobs:
       condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
     - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
       - template: templates/codecov.yml
+    - template: templates/publish_coverage_ado.yml
 
 - job: WebsiteSamplesTests
   dependsOn: BuildAndCacheSbt
@@ -710,6 +712,11 @@ jobs:
       condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
     - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
       - template: templates/codecov.yml
+    # testWebsiteDocs drives Spark out-of-process, so scoverage records no measurement
+    # data for this job; an empty report here is expected rather than a broken glob.
+    - template: templates/publish_coverage_ado.yml
+      parameters:
+        failIfCoverageEmpty: false
 
 - job: UnitTests
   dependsOn: BuildAndCacheSbt
@@ -838,9 +845,16 @@ jobs:
           com.microsoft.azure.synapse.ml.param.**
           com.microsoft.azure.synapse.ml.logging.**
           com.microsoft.azure.synapse.ml.fabric.**
+          com.microsoft.azure.synapse.ml.explainers.VerifyExplainerSharedParams
           com.microsoft.azure.synapse.ml.explainers.VerifyFeatureStats
+          com.microsoft.azure.synapse.ml.explainers.VerifyRowUtils
+          com.microsoft.azure.synapse.ml.io.binary.VerifyBinaryFileFormat
+          com.microsoft.azure.synapse.ml.io.http.VerifyClients
+          com.microsoft.azure.synapse.ml.io.http.VerifyHTTPSchema
           com.microsoft.azure.synapse.ml.io.http.VerifySharedVariable
+          com.microsoft.azure.synapse.ml.io.image.VerifyImageUtils
           com.microsoft.azure.synapse.ml.nbtest.FabricTestArtifactTrackerSuite
+          com.microsoft.azure.synapse.ml.services.CognitiveServiceBaseSuite
           com.microsoft.azure.synapse.ml.services.search.AddDocumentsHeaderPersistenceSuite
           com.microsoft.azure.synapse.ml.services.search.AzureSearchAuthSuite
           com.microsoft.azure.synapse.ml.services.search.AzureSearchGenericParamPersistenceSuite
@@ -895,6 +909,7 @@ jobs:
           keyVaultName: mmlspark-keys
           SecretsFilter: codecov-token
       - template: templates/codecov.yml
+    - template: templates/publish_coverage_ado.yml
 
 - job: ReleaseBranchCompat
   dependsOn: BuildAndCacheSbt

@@ -41,7 +41,10 @@ case class RequiredErrorFields(errorType: String,
   def toMap: Map[String, String] = {
     Map(
       "errorType" -> errorType,
-      "errorMessage" -> errorType
+      // Exception.getMessage is null for exceptions constructed without one
+      // (e.g. new NullPointerException). spray-json's JsString rejects null,
+      // so serializing the payload would throw and mask the original error.
+      "errorMessage" -> Option(errorMessage).getOrElse("")
     )
   }
 }
