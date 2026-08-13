@@ -87,7 +87,8 @@ RUN PIP_NO_CACHE_DIR=1 conda env create -f /tmp/environment.yml \
          nvidia-curand-cu12 nvidia-cusolver-cu12 nvidia-cusparse-cu12 \
          nvidia-nccl-cu12 nvidia-nvjitlink-cu12 nvidia-nvtx-cu12 2>/dev/null || true \
     && chmod -R 755 /opt/conda/envs \
-    && chmod -R 777 /opt/conda/envs/synapseml/lib/R/library
+    && chown -R 1001:0 /opt/conda/envs/synapseml/lib/R/library \
+    && chmod -R u+rwX,go+rX,go-w /opt/conda/envs/synapseml/lib/R/library
 
 # Pre-fetch SBT plugins, all project dependency JARs, and compiler-bridge.
 # Copy the full project/ dir and build files so SBT can resolve the complete
