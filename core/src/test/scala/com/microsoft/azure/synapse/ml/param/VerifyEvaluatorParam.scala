@@ -62,7 +62,7 @@ class VerifyEvaluatorParam extends TestBase {
     }
   }
 
-  test("EvaluatorParam with custom validator") {
+  test("EvaluatorParam custom validator accepts and rejects per its predicate") {
     val holder = new Params {
       override val uid: String = "test"
       val binaryOnly = new EvaluatorParam(
@@ -73,6 +73,10 @@ class VerifyEvaluatorParam extends TestBase {
     }
     val evaluator = new BinaryClassificationEvaluator()
     holder.set(holder.binaryOnly, evaluator)
+    assert(holder.get(holder.binaryOnly).contains(evaluator))
+    assertThrows[IllegalArgumentException] {
+      holder.set(holder.binaryOnly, new RegressionEvaluator())
+    }
   }
 
   test("EvaluatorParam can be cleared") {

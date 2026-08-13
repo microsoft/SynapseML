@@ -33,11 +33,11 @@ class VerifyPipelineStageParams extends TestBase {
   test("TransformerParam accepts valid Transformer") {
     val holder = new TestParamsHolder
     val tokenizer = new Tokenizer().setInputCol("text").setOutputCol("words")
-    // Should not throw
     holder.set(holder.transformerParam, tokenizer)
+    assert(holder.get(holder.transformerParam).contains(tokenizer))
   }
 
-  test("TransformerParam with custom validator") {
+  test("TransformerParam custom validator accepts and rejects per its predicate") {
     val holder = new Params {
       override val uid: String = "test"
       val validatedParam = new TransformerParam(
@@ -48,6 +48,10 @@ class VerifyPipelineStageParams extends TestBase {
     }
     val tokenizer = new Tokenizer()
     holder.set(holder.validatedParam, tokenizer)
+    assert(holder.get(holder.validatedParam).contains(tokenizer))
+    assertThrows[IllegalArgumentException] {
+      holder.set(holder.validatedParam, new HashingTF())
+    }
   }
 
   test("TransformerParam rLoadLine generates correct R code") {

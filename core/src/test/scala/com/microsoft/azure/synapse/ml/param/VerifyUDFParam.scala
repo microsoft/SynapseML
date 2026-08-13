@@ -43,10 +43,25 @@ class VerifyUDFParam extends TestBase {
     assert(holder.isSet(holder.udfParam))
   }
 
-  test("UDFParam with custom validator") {
+  test("UDFParam with custom validator rejects values the validator refuses") {
     val holder = new Params {
       override val uid: String = "test"
-      // Accept any UDF
+      // Only accept UDFs, and only when the validator agrees; here nothing is acceptable
+      val validatedUdf = new UDFParam(
+        this, "validated", "Validated UDF",
+        (_: UserDefinedFunction) => false
+      )
+      override def copy(extra: ParamMap): Params = this
+    }
+    val myUdf = udf((x: Double) => x * x)
+    assertThrows[IllegalArgumentException] {
+      holder.set(holder.validatedUdf, myUdf)
+    }
+  }
+
+  test("UDFParam with custom validator accepts values the validator allows") {
+    val holder = new Params {
+      override val uid: String = "test"
       val validatedUdf = new UDFParam(
         this, "validated", "Validated UDF",
         (_: UserDefinedFunction) => true
@@ -55,6 +70,7 @@ class VerifyUDFParam extends TestBase {
     }
     val myUdf = udf((x: Double) => x * x)
     holder.set(holder.validatedUdf, myUdf)
+    assert(holder.isSet(holder.validatedUdf))
   }
 
   test("UDFParam can be cleared") {
@@ -71,13 +87,15 @@ class VerifyUDFParam extends TestBase {
     assert(holder.get(holder.udfParam).isEmpty)
   }
 
-  test("UDFParam assertEquality passes for same UDFs") {
+  test("UDFParam assertEquality accepts the same UDF and rejects mismatched ones") {
     val holder = new TestParamsHolder
-    val udf1 = udf((x: Int) => x * 2)
-    val udf2 = udf((x: Int) => x * 2)
-    // Note: This test verifies the assertEquality method exists and runs
-    // Exact equality depends on internal UDF representation
-    holder.udfParam.assertEquality(udf1, udf1)
+    val intUdf = udf((x: Int) => x * 2)
+    val stringUdf = udf((x: Int) => x.toString)
+    holder.udfParam.assertEquality(intUdf, intUdf)
+    // UDFs with different return types must not compare equal
+    assertThrows[AssertionError] {
+      holder.udfParam.assertEquality(intUdf, stringUdf)
+    }
   }
 
   test("UDFParam assertEquality throws for non-UDF types") {

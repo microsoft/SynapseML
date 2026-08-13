@@ -50,9 +50,9 @@ class VerifyPackageUtils extends TestBase {
     assert(packages.contains("spark-avro"))
   }
 
-  test("SparkMavenRepositoryList is set") {
+  test("SparkMavenRepositoryList points at the SynapseML maven feed") {
     val repos = PackageUtils.SparkMavenRepositoryList
-    assert(repos.nonEmpty)
+    assert(repos === "https://mmlspark.blob.core.windows.net/maven")
     assert(repos === PackageUtils.PackageRepository)
   }
 }

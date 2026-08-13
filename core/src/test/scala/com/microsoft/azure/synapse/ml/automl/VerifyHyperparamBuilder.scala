@@ -52,11 +52,28 @@ class VerifyHyperparamBuilder extends TestBase {
     assert(values1 === values2)
   }
 
-  test("LongRangeHyperParam generates values") {
+  test("LongRangeHyperParam generates values within range") {
     val param = new LongRangeHyperParam(0L, 100L, seed = 42)
-    val value = param.getNext()
-    // Just verify it returns a Long
-    assert(value.isInstanceOf[Long])
+    for (_ <- 1 to 100) {
+      val value = param.getNext()
+      assert(value >= 0L && value < 100L, s"$value escaped [0, 100)")
+    }
+  }
+
+  test("LongRangeHyperParam stays in range for a span wider than Long.MaxValue") {
+    val param = new LongRangeHyperParam(Long.MinValue, Long.MaxValue, seed = 42)
+    for (_ <- 1 to 100) {
+      val value = param.getNext()
+      assert(value >= Long.MinValue && value < Long.MaxValue)
+    }
+  }
+
+  test("LongRangeHyperParam respects seed for reproducibility") {
+    val param1 = new LongRangeHyperParam(0L, 100L, seed = 42)
+    val param2 = new LongRangeHyperParam(0L, 100L, seed = 42)
+    val values1 = (1 to 10).map(_ => param1.getNext())
+    val values2 = (1 to 10).map(_ => param2.getNext())
+    assert(values1 === values2)
   }
 
   test("FloatRangeHyperParam generates values within range") {
@@ -136,11 +153,17 @@ class VerifyHyperparamBuilder extends TestBase {
   test("HyperParamUtils.getRangeHyperParam returns LongRangeHyperParam for Long") {
     val result = HyperParamUtils.getRangeHyperParam(0L, 100L)
     assert(result.isInstanceOf[LongRangeHyperParam])
+    val longResult = result.asInstanceOf[LongRangeHyperParam]
+    assert(longResult.min === 0L)
+    assert(longResult.max === 100L)
   }
 
   test("HyperParamUtils.getRangeHyperParam returns FloatRangeHyperParam for Float") {
     val result = HyperParamUtils.getRangeHyperParam(0.0f, 1.0f)
     assert(result.isInstanceOf[FloatRangeHyperParam])
+    val floatResult = result.asInstanceOf[FloatRangeHyperParam]
+    assert(floatResult.min === 0.0f)
+    assert(floatResult.max === 1.0f)
   }
 
   test("HyperParamUtils.getRangeHyperParam throws for unsupported types") {

@@ -33,14 +33,18 @@ class VerifyPlatformDetails extends TestBase {
     assert(validPlatforms.contains(platform))
   }
 
-  test("runningOnSynapseInternal returns boolean") {
-    val result = PlatformDetails.runningOnSynapseInternal()
-    assert(result.isInstanceOf[Boolean])
+  test("runningOnSynapseInternal agrees with CurrentPlatform") {
+    assert(PlatformDetails.runningOnSynapseInternal() ===
+      (PlatformDetails.CurrentPlatform == PlatformDetails.PlatformSynapseInternal))
   }
 
-  test("runningOnSynapse returns boolean") {
-    val result = PlatformDetails.runningOnSynapse()
-    assert(result.isInstanceOf[Boolean])
+  test("runningOnSynapse agrees with CurrentPlatform") {
+    assert(PlatformDetails.runningOnSynapse() ===
+      (PlatformDetails.CurrentPlatform == PlatformDetails.PlatformSynapse))
+  }
+
+  test("runningOnSynapse and runningOnSynapseInternal are mutually exclusive") {
+    assert(!(PlatformDetails.runningOnSynapse() && PlatformDetails.runningOnSynapseInternal()))
   }
 
   test("runningOnFabric returns same as runningOnSynapseInternal") {

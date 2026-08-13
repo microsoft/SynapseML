@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.param
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import org.apache.spark.ml.param.{Param, ParamMap, Params}
 import org.apache.spark.ml.util.Identifiable
+import org.scalatest.TestData
 
 class VerifyGlobalParams extends TestBase {
 
@@ -14,15 +15,25 @@ class VerifyGlobalParams extends TestBase {
   case object TestIntKey extends GlobalKey[Int]
   case object AnotherStringKey extends GlobalKey[String]
 
-  // Helper to reset state before each test
+  // GlobalParams is process-wide mutable state, so every test must start from a clean slate
+  // and must not leak keys into suites that share the forked JVM.
   private def resetGlobalState(): Unit = {
     GlobalParams.resetGlobalParam(TestStringKey)
     GlobalParams.resetGlobalParam(TestIntKey)
     GlobalParams.resetGlobalParam(AnotherStringKey)
   }
 
-  test("setGlobalParam and getGlobalParam work for String") {
+  protected override def beforeEach(td: TestData): Unit = {
+    super.beforeEach(td)
     resetGlobalState()
+  }
+
+  protected override def afterEach(td: TestData): Unit = {
+    resetGlobalState()
+    super.afterEach(td)
+  }
+
+  test("setGlobalParam and getGlobalParam work for String") {
     GlobalParams.setGlobalParam(TestStringKey, "test-value")
     val result = GlobalParams.getGlobalParam(TestStringKey)
     assert(result === Some("test-value"))

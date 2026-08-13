@@ -12,10 +12,4 @@ class VerifyOsUtils extends TestBase {
     val expected = osName.indexOf("win") >= 0
     assert(OsUtils.IsWindows === expected)
   }
-
-  test("IsWindows is consistent across multiple accesses") {
-    val first = OsUtils.IsWindows
-    val second = OsUtils.IsWindows
-    assert(first === second)
-  }
 }

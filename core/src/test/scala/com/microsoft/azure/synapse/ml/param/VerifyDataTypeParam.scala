@@ -98,7 +98,7 @@ class VerifyDataTypeParam extends TestBase {
     assert(holder.get(holder.dataTypeParam).contains(BinaryType))
   }
 
-  test("DataTypeParam with custom validator") {
+  test("DataTypeParam custom validator accepts and rejects per its predicate") {
     val holder = new Params {
       override val uid: String = "test"
       val numericOnlyParam = new DataTypeParam(
@@ -110,6 +110,10 @@ class VerifyDataTypeParam extends TestBase {
     holder.set(holder.numericOnlyParam, IntegerType)
     holder.set(holder.numericOnlyParam, DoubleType)
     holder.set(holder.numericOnlyParam, FloatType)
+    assert(holder.get(holder.numericOnlyParam).contains(FloatType))
+    assertThrows[IllegalArgumentException] {
+      holder.set(holder.numericOnlyParam, StringType)
+    }
   }
 
   test("DataTypeParam can be cleared") {

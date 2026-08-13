@@ -60,7 +60,7 @@ class VerifyEstimatorArrayParam extends TestBase {
     assert(paramPair.value.length === 2)
   }
 
-  test("EstimatorArrayParam with custom validator") {
+  test("EstimatorArrayParam custom validator accepts and rejects per its predicate") {
     val holder = new Params {
       override val uid: String = "test"
       val nonEmptyEstimators = new EstimatorArrayParam(
@@ -71,6 +71,10 @@ class VerifyEstimatorArrayParam extends TestBase {
     }
     val estimators = Array[Estimator[_]](new LogisticRegression())
     holder.set(holder.nonEmptyEstimators, estimators)
+    assert(holder.get(holder.nonEmptyEstimators).exists(_.length === 1))
+    assertThrows[IllegalArgumentException] {
+      holder.set(holder.nonEmptyEstimators, Array.empty[Estimator[_]])
+    }
   }
 
   test("EstimatorArrayParam can be cleared") {

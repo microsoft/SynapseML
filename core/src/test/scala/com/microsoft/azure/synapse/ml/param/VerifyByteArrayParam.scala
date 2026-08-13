@@ -47,7 +47,7 @@ class VerifyByteArrayParam extends TestBase {
     assert(holder.get(holder.bytesParam).exists(_.length === 256))
   }
 
-  test("ByteArrayParam with custom validator") {
+  test("ByteArrayParam custom validator accepts and rejects per its predicate") {
     val holder = new Params {
       override val uid: String = "test"
       val nonEmptyBytes = new ByteArrayParam(
@@ -57,6 +57,10 @@ class VerifyByteArrayParam extends TestBase {
       override def copy(extra: ParamMap): Params = this
     }
     holder.set(holder.nonEmptyBytes, Array[Byte](1, 2, 3))
+    assert(holder.get(holder.nonEmptyBytes).exists(_.length === 3))
+    assertThrows[IllegalArgumentException] {
+      holder.set(holder.nonEmptyBytes, Array.empty[Byte])
+    }
   }
 
   test("ByteArrayParam can be cleared") {

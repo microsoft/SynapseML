@@ -68,7 +68,7 @@ class VerifyBinaryFileFormat extends TestBase {
     Files.write(testFile.toPath, Array[Byte](1, 2, 3, 4, 5))
     testFile.deleteOnExit()
 
-    val df = spark.read.format("binary").load(tempDir.getAbsolutePath)
+    val df = spark.read.format(classOf[BinaryFileFormat].getName).load(tempDir.getAbsolutePath)
     assert(df.count() >= 1)
     assert(df.schema === BinaryFileSchema.Schema)
   }
@@ -82,7 +82,7 @@ class VerifyBinaryFileFormat extends TestBase {
     Files.write(testFile.toPath, testContent)
     testFile.deleteOnExit()
 
-    val df = spark.read.format("binary").load(tempDir.getAbsolutePath)
+    val df = spark.read.format(classOf[BinaryFileFormat].getName).load(tempDir.getAbsolutePath)
     val row = df.collect().head
     val struct = row.getStruct(0)
     val bytes = struct.getAs[Array[Byte]]("bytes")
@@ -101,7 +101,7 @@ class VerifyBinaryFileFormat extends TestBase {
     }
 
     // Read with subsample=0.0 should return fewer or no rows
-    val df = spark.read.format("binary")
+    val df = spark.read.format(classOf[BinaryFileFormat].getName)
       .option("subsample", "0.0")
       .load(tempDir.getAbsolutePath)
     assert(df.count() === 0)
@@ -117,7 +117,7 @@ class VerifyBinaryFileFormat extends TestBase {
       testFile.deleteOnExit()
     }
 
-    val df = spark.read.format("binary").load(tempDir.getAbsolutePath)
+    val df = spark.read.format(classOf[BinaryFileFormat].getName).load(tempDir.getAbsolutePath)
     assert(df.count() === 3)
   }
 }

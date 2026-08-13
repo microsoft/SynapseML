@@ -111,14 +111,26 @@ class VerifyDefaultHyperparams extends TestBase {
     assert(paramNames.contains("smoothing"))
   }
 
-  test("all defaultRange methods return valid Dist instances") {
+  test("all defaultRange entries are concrete distributions that sample in range") {
     val lr = new LogisticRegression()
     val ranges = DefaultHyperparams.defaultRange(lr)
+    assert(ranges.nonEmpty)
     ranges.foreach { case (param, dist) =>
       assert(param != null)
-      assert(dist != null)
-      // Verify the distribution is a known type
-      assert(dist.isInstanceOf[Dist[_]])
+      dist match {
+        case d: IntRangeHyperParam =>
+          val v = d.getNext(); assert(v >= d.min && v < d.max, s"${param.name} sampled $v")
+        case d: LongRangeHyperParam =>
+          val v = d.getNext(); assert(v >= d.min && v < d.max, s"${param.name} sampled $v")
+        case d: DoubleRangeHyperParam =>
+          val v = d.getNext(); assert(v >= d.min && v < d.max, s"${param.name} sampled $v")
+        case d: FloatRangeHyperParam =>
+          val v = d.getNext(); assert(v >= d.min && v < d.max, s"${param.name} sampled $v")
+        case d: DiscreteHyperParam[_] =>
+          assert(d.getValues.size > 0, s"${param.name} has no discrete values")
+        case other =>
+          fail(s"${param.name} mapped to an unsupported Dist: ${other.getClass.getName}")
+      }
     }
   }
 }
