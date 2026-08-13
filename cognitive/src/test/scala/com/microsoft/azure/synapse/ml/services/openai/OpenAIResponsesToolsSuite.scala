@@ -226,7 +226,7 @@ class OpenAIResponsesToolsSuite extends TransformerFuzzing[OpenAIResponses] {
     assert(prepared.fields("previous_response_id") === JsString("resp_1"))
   }
 
-  test("continuation-only prepareEntity never requires messagesCol") {
+  test("continuation-only payload assembly never requires messagesCol") {
     val transformer = new OpenAIResponses()
       .setDeploymentName("gpt-5.1")
       .setFunctionCallOutputsCol("outputs")
@@ -237,11 +237,19 @@ class OpenAIResponsesToolsSuite extends TransformerFuzzing[OpenAIResponses] {
       ("outputs", OpenAIToolColumns.FunctionCallOutputStructType, outputs),
       ("response_id", StringType, "resp_1")
     )
-    val input = entityJson(transformer.prepareEntity(row).get)
+    val input = entityJson(transformer.getStringEntity(
+      Seq.empty,
+      transformer.getOptionalParams(row)))
       .fields("input").asInstanceOf[JsArray].elements
     assert(input.size === 1)
     assert(input.head.asJsObject.fields("type") === JsString("function_call_output"))
     assert(!transformer.shouldSkip(row))
+  }
+
+  test("empty messages without continuation inputs are skipped") {
+    val row = ToolTestFixtures.dynamicRow(
+      ("messages", ToolTestFixtures.MessagesArrayType, Seq.empty[Row]))
+    assert(configured.shouldSkip(row))
   }
 
   test("assistant messages use output_text and existing content parts remain untouched") {

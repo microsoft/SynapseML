@@ -11,6 +11,11 @@ import org.apache.spark.sql.{Column, DataFrame, Row, functions => F}
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
+private[openai] object OpenAIPromptMixins {
+  trait ToolEnabledServiceDomain
+    extends com.microsoft.azure.synapse.ml.services.HasCustomCogServiceDomain with HasOpenAIPromptToolOutput
+}
+
 /** Tool and function-calling configuration shared by Responses and OpenAIPrompt.
   *
   * Tool definitions are trusted configuration. In particular, a tools column must not be

@@ -11,6 +11,9 @@ class OpenAIPromptToolsSuite extends TestBase {
 
   private val inputSchema = StructType(Seq(StructField("city", StringType)))
 
+  private def ensureSparkSession(): Unit =
+    assert(!spark.sparkContext.isStopped)
+
   private def configuredPrompt: OpenAIPrompt = new OpenAIPrompt()
     .setApiType("responses")
     .setPromptTemplate("Weather in {city}?")
@@ -107,7 +110,7 @@ class OpenAIPromptToolsSuite extends TestBase {
   }
 
   test("Prompt opt-in schema retains structured calls and parsed response") {
-    spark
+    ensureSparkSession()
     val prompt = new OpenAIPrompt()
       .setApiType("responses")
       .setPromptTemplate("Weather in {city}?")
@@ -135,7 +138,7 @@ class OpenAIPromptToolsSuite extends TestBase {
   }
 
   test("Prompt output column collisions fail before execution") {
-    spark
+    ensureSparkSession()
     val prompt = new OpenAIPrompt()
       .setApiType("responses")
       .setPromptTemplate("{city}")
@@ -157,7 +160,7 @@ class OpenAIPromptToolsSuite extends TestBase {
   }
 
   test("Prompt tools and output params survive save and load") {
-    spark
+    ensureSparkSession()
     val prompt = configuredPrompt
       .setToolCallsCol("tool_calls")
       .setResponseStructCol("response_struct")
