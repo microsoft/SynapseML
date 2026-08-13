@@ -128,6 +128,20 @@ jobs:
             BRANCH="release/v${VERSION}-${TARGET}"
             echo "═══ $TARGET ═══"
 
+            # Nothing to do if the branch already has the released commit, and
+            # rebasing anyway is not harmless. `git rebase` only no-ops when the
+            # branch is linear on top of the release; if the branch picked up a
+            # merge commit (e.g. the previous release PR was merged with a merge
+            # commit rather than "Rebase and merge"), the rebase flattens that
+            # merge and rewrites SHAs. If the tip *is* the release commit there
+            # is nothing ahead at all and `gh pr create` fails with "No commits
+            # between". Both only show up on a re-run, which is exactly when the
+            # workflow is supposed to be safe to repeat.
+            if git merge-base --is-ancestor "$RELEASE_COMMIT" "origin/$TARGET"; then
+              echo "✅ $TARGET already contains v${VERSION} ($RELEASE_COMMIT) — nothing to rebase"
+              continue
+            fi
+
             git checkout -B "$BRANCH" "origin/$TARGET"
 
             if ! git rebase "$RELEASE_COMMIT"; then
