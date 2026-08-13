@@ -282,14 +282,21 @@ val settings = Seq(
   autoAPIMappings := true,
   pomPostProcess := pomPostFunc,
   sbtPlugin := false,
-  // Scoverage: exclude code that is legitimately untestable by unit tests -- build-time
-  // utilities and code that requires an external Microsoft Fabric environment.
+  // Scoverage: exclude only code that genuinely cannot be exercised by unit tests --
+  // the build-time generator entry points and the classes that require a live
+  // Microsoft Fabric environment (token brokering / workload endpoints).
+  // Deliberately NOT excluded: CodegenConfig, DefaultParamInfo, GenerationUtils and
+  // Wrappable are pure logic with existing unit tests, and fabric's FabricTokenParser,
+  // OpenAIFabricSetting and RESTUtils have no live-environment dependency.
   // Kept inline (rather than a top-level val) so this diff stays a single hunk anchored
   // on a stable line, which lets it cherry-pick cleanly onto the release branches.
   coverageExcludedPackages := Seq(
-    "com\\.microsoft\\.azure\\.synapse\\.ml\\.codegen\\..*",
-    "com\\.microsoft\\.azure\\.synapse\\.ml\\.build\\..*",
-    "com\\.microsoft\\.azure\\.synapse\\.ml\\.fabric\\..*",
+    "com\\.microsoft\\.azure\\.synapse\\.ml\\.codegen\\.CodeGen.*",
+    "com\\.microsoft\\.azure\\.synapse\\.ml\\.codegen\\.PyCodegen.*",
+    "com\\.microsoft\\.azure\\.synapse\\.ml\\.codegen\\.RCodegen.*",
+    "com\\.microsoft\\.azure\\.synapse\\.ml\\.codegen\\.PythonInitMerger.*",
+    "com\\.microsoft\\.azure\\.synapse\\.ml\\.fabric\\.FabricClient.*",
+    "com\\.microsoft\\.azure\\.synapse\\.ml\\.fabric\\.TokenLibrary.*",
     "com\\.microsoft\\.azure\\.synapse\\.ml\\.logging\\.fabric\\..*"
   ).mkString(";"),
   coverageFailOnMinimum := false,

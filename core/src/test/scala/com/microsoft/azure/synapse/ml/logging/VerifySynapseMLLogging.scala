@@ -64,6 +64,25 @@ class VerifySynapseMLLogging extends TestBase {
     // scalastyle:on null
   }
 
+  test("RequiredErrorFields.toMap is JSON-serializable when the exception has no message") {
+    // Regression: Exception.getMessage is null when an exception is constructed
+    // without a message. spray-json's JsString rejects null, so an unguarded
+    // value made getPayload(...).toJson throw IllegalArgumentException and mask
+    // whatever error was actually being logged.
+    // scalastyle:off null
+    val exception = new RuntimeException(None.orNull: String)
+    // scalastyle:on null
+    val map = new RequiredErrorFields(exception).toMap
+
+    assert(map("errorMessage") === "")
+    assert(map("errorType") === "java.lang.RuntimeException")
+
+    import spray.json.DefaultJsonProtocol._
+    import spray.json._
+    val json = map.toJson.compactPrint
+    assert(json.contains("\"errorMessage\":\"\""))
+  }
+
   test("SynapseMLLogging.HadoopKeysToLog contains expected mappings") {
     val keys = SynapseMLLogging.HadoopKeysToLog
 
