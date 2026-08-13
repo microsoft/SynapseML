@@ -10,6 +10,7 @@ import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.{GlobalParams, HasGlobalParams, ServiceParam, StringStringMapParam}
 import com.microsoft.azure.synapse.ml.services._
 import com.microsoft.azure.synapse.ml.services.aifoundry.{AIFoundryChatCompletion, HasAIFoundryTextParamsExtended}
+import OpenAIPromptMixins.{ToolEnabledServiceDomain => HasCustomCogServiceDomain}
 import org.apache.hadoop.conf.Configuration
 import org.apache.http.entity.AbstractHttpEntity
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
@@ -33,7 +34,6 @@ object OpenAIPrompt extends ComplexParamsReadable[OpenAIPrompt]
 class OpenAIPrompt(override val uid: String) extends Transformer
   with HasAIFoundryTextParamsExtended
   with HasOpenAITextParamsExtended with HasMessagesInput
-  with HasOpenAIPromptToolOutput
   with HasErrorCol with HasOutputCol
   with HasURL with HasCustomCogServiceDomain with ConcurrencyParams
   with HasSubscriptionKey with HasAADToken with HasCustomAuthHeader
@@ -297,7 +297,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       val isFiltered = originalOutput.exists(completion.isContentFiltered)
 
       if (isFiltered) {
-        val updatedRowSeq = row.toSeq.updated(
+        val updatedRowSeq = row.toSeq.toVector.updated(
           row.fieldIndex(errorCol),
           Row(completion.getFilterReason(originalOutput.get), null) //scalastyle:ignore null
         )
