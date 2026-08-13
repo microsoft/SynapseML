@@ -142,7 +142,8 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   override val subscriptionKeyHeaderName: String = "api-key"
 
   override def shouldSkip(row: Row): Boolean =
-    super.shouldSkip(row) || Option(row.getAs[Row](getMessagesCol)).isEmpty
+    super.shouldSkip(row) ||
+      Option(row.getAs[scala.collection.Seq[Row]](getMessagesCol)).forall(_.isEmpty)
 
   override protected def getVectorParamMap: Map[String, String] = super.getVectorParamMap
     .updated("messages", getMessagesCol)

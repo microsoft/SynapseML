@@ -65,6 +65,19 @@ class OpenAIChatCompletionToolsSuite extends TestBase {
     assert(tool.fields("content") === JsString("""{"tempC":20}"""))
   }
 
+  test("Chat Completions skips null and empty message arrays") {
+    val transformer = new OpenAIChatCompletion().setMessagesCol("messages")
+    val rows = Seq[Option[Seq[OpenAIMessage]]](
+      None,
+      Some(Seq.empty),
+      Some(Seq(OpenAIMessage("user", "Weather in Seattle?")))
+    ).toDF("messages").collect()
+
+    assert(transformer.shouldSkip(rows(0)))
+    assert(transformer.shouldSkip(rows(1)))
+    assert(!transformer.shouldSkip(rows(2)))
+  }
+
   test("Chat tool calls project to the shared DataFrame contract") {
     val parsed = Seq(1).toDF("id")
       .select(F.from_json(
