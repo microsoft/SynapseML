@@ -54,12 +54,6 @@ RUN wget -q "https://mmlspark.blob.core.windows.net/installers/spark-${SPARK_VER
 ENV SPARK_HOME=/opt/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}
 ENV PATH=${SPARK_HOME}/bin:$PATH
 
-# Node.js 16 (for website deployment)
-RUN curl -fsSL https://deb.nodesource.com/setup_16.x | bash - \
-    && apt-get install -y nodejs \
-    && npm install -g yarn \
-    && rm -rf /var/lib/apt/lists/*
-
 # SBT — set COURSIER_CACHE to shared location accessible by any UID (ADO uses UID 1001)
 ENV SBT_VERSION=1.10.11
 ENV COURSIER_CACHE=/opt/.cache/coursier
