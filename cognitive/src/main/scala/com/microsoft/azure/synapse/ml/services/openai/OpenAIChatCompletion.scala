@@ -3,6 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.services.openai
 
+import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.io.http.ErrorUtils
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.AnyJsonFormat.anyFormat
@@ -11,14 +12,17 @@ import com.microsoft.azure.synapse.ml.services.{HasCognitiveServiceInput, HasInt
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.{DataFrame, Dataset, Row, functions => F}
 import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
+import scala.collection.immutable.ListMap
 import scala.collection.{Seq => CollectionSeq}
 import scala.language.existentials
+import scala.util.control.NonFatal
 
 
 trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
@@ -99,12 +103,14 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
 object OpenAIChatCompletion extends ComplexParamsReadable[OpenAIChatCompletion]
 
 class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(uid)
-  with HasOpenAITextParamsExtended with HasMessagesInput with HasCognitiveServiceInput
-  with HasOpenAIFabricHeaders with HasInternalJsonOutputParser
-  with SynapseMLLogging with HasRAIContentFilter with HasTextOutput {
+  with HasOpenAITextParamsExtended with HasOpenAICommonToolParams with HasMessagesInput
+  with HasCognitiveServiceInput with HasOpenAIFabricHeaders with HasInternalJsonOutputParser
+  with SynapseMLLogging with HasRAIContentFilter with HasTextOutput with HasOpenAIToolCallOutput {
   logClass(FeatureNames.AiServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAIChatCompletion"))
+
+  private[openai] def generatedPythonClass: String = pythonClass()
 
   def urlPath: String = ""
 
@@ -126,25 +132,46 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
 
   override private[ml] def getOptionalParams(r: Row): Map[String, Any] = {
     val base = super.getOptionalParams(r)
-    resolveMaxTokens(base, "max_completion_tokens")
+    mergeChatToolPayload(resolveMaxTokens(base, "max_completion_tokens"), r)
   }
 
   override protected[openai] def prepareEntity: Row => Option[AbstractHttpEntity] = {
     r =>
       lazy val optionalParams: Map[String, Any] = getOptionalParams(r)
-      val messages = r.getAs[Seq[Row]](getMessagesCol)
+      val messages = r.getAs[scala.collection.Seq[Row]](getMessagesCol).toSeq
       Some(getStringEntity(messages, withV1DeploymentModel(optionalParams, r)))
   }
 
   override val subscriptionKeyHeaderName: String = "api-key"
 
   override def shouldSkip(row: Row): Boolean =
-    super.shouldSkip(row) || row.get(row.fieldIndex(getMessagesCol)) == null
+    super.shouldSkip(row) ||
+      Option(row.getAs[scala.collection.Seq[Row]](getMessagesCol)).forall(_.isEmpty)
 
   override protected def getVectorParamMap: Map[String, String] = super.getVectorParamMap
     .updated("messages", getMessagesCol)
 
-  override def responseDataType: DataType = ChatModelResponse.schema
+  override def responseDataType: DataType = ChatModelResponseV2.schema
+
+  override def toolCallsColumn(structColName: String): org.apache.spark.sql.Column =
+    OpenAIToolColumns.chatToolCallsColumn(structColName)
+
+  private def encodeMessageValue(value: Any): Any = value match {
+    case row: Row => encodeMessageRow(row)
+    case values: scala.collection.Seq[_] => values.map(encodeMessageValue).toSeq
+    case values: Array[_] => values.map(encodeMessageValue).toSeq
+    case values: scala.collection.Map[_, _] =>
+      values.map { case (key, item) => key.toString -> encodeMessageValue(item) }.toMap
+    case other => other
+  }
+
+  private def encodeMessageRow(row: Row): Map[String, Any] =
+    ListMap(row.schema.fieldNames.zipWithIndex.flatMap { case (name, index) =>
+      Option(row.get(index)).map(value => name -> encodeMessageValue(value))
+    }: _*)
+
+  private def encodeChatMessagesToMap(messages: Seq[Row]): Seq[Map[String, Any]] =
+    messages.map(encodeMessageRow)
 
   private def validatePublicColumnNames(): Unit =
     OpenAIColumnUtils.validateDistinctColumns(
@@ -153,7 +180,7 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
       "errorCol" -> getErrorCol
     )
 
-  override def transform(dataset: Dataset[_]): DataFrame = {
+  private def transformPrepared(dataset: Dataset[_]): DataFrame = {
     transferGlobalParamsToParamMap()
     validatePublicColumnNames()
     logTransform[DataFrame]({
@@ -198,11 +225,6 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
         .withColumn(getMessagesCol, F.col(originalMessagesCol))
         .drop(originalMessagesCol)
     }, dataset.columns.length)
-  }
-
-  override def transformSchema(schema: StructType): StructType = {
-    validatePublicColumnNames()
-    super.transformSchema(schema)
   }
 
   private def runtimeType(value: Any): String = {
@@ -519,10 +541,10 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
       }
 
       val role = validatedRole(message, messageIndex)
-      Map(
-        "role" -> role,
-        "content" -> encodedMessageContent(message, messageIndex)
-      ).filter { case (_, value) => value != null }
+      encodeMessageRow(message)
+        .updated("role", role)
+        .updated("content", encodedMessageContent(message, messageIndex))
+        .filter { case (_, value) => value != null }
     }.toSeq
   }
 
@@ -556,14 +578,113 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   }
 
   override private[openai] def isContentFiltered(outputRow: Row): Boolean = {
-    val result = ChatModelResponse.makeFromRowConverter(outputRow)
-    val firstChoice = result.choices.head
-    Option(firstChoice.message.content).isEmpty
+    getFilterReason(outputRow) == OpenAIToolUtils.ContentFilterReason
   }
 
   override private[openai] def getFilterReason(outputRow: Row): String = {
-    val result = ChatModelResponse.makeFromRowConverter(outputRow)
-    result.choices.head.finish_reason
+    outputRow.getAs[scala.collection.Seq[Row]]("choices").head
+      .getAs[String]("finish_reason")
   }
 
+  private def vectorStringColumn(param: ServiceParam[String]): Option[String] =
+    get(param).orElse(getDefault(param)).flatMap(_.right.toOption)
+
+  private def hasToolRowValidation: Boolean =
+    vectorStringColumn(tools).isDefined || vectorStringColumn(toolChoice).isDefined
+
+  private def toolRowValidationErrorColumn: org.apache.spark.sql.Column = {
+    val scalarTools = get(tools).flatMap(_.left.toOption).map(OpenAIToolUtils.parseTools)
+    val scalarChoice = get(toolChoice).flatMap(_.left.toOption)
+      .flatMap(OpenAIToolUtils.parseToolChoice)
+    val toolsJson = vectorStringColumn(tools).map(F.col)
+      .getOrElse(F.lit(null).cast(StringType)) //scalastyle:ignore null
+    val choiceJson = vectorStringColumn(toolChoice).map(F.col)
+      .getOrElse(F.lit(null).cast(StringType)) //scalastyle:ignore null
+    val validate = F.udf((toolsValue: String, choiceValue: String) => {
+      try {
+        val effectiveTools = Option(toolsValue).map(_.trim).filter(_.nonEmpty)
+          .map(OpenAIToolUtils.parseTools)
+          .orElse(scalarTools)
+        val effectiveChoice = OpenAIToolUtils.parseToolChoice(choiceValue)
+          .orElse(scalarChoice)
+        validateResolvedToolSetup(
+          effectiveTools,
+          effectiveChoice,
+          effectiveTools.isDefined)
+        null //scalastyle:ignore null
+      } catch {
+        case NonFatal(error) =>
+          Option(error.getMessage).getOrElse(error.getClass.getSimpleName)
+      }
+    })
+    validate(toolsJson, choiceJson)
+  }
+
+  private def transformWithToolRowValidation(dataset: Dataset[_]): DataFrame = {
+    if (!hasToolRowValidation) {
+      transformPrepared(dataset)
+    } else {
+      val errorInputCol = DatasetExtensions.findUnusedColumnName(
+        "openaiChatToolValidationError",
+        dataset.schema)
+      val messagesShadow = DatasetExtensions.findUnusedColumnName(
+        s"${getMessagesCol}_validated",
+        dataset.schema)
+      val prepared = dataset.toDF.withColumn(errorInputCol, toolRowValidationErrorColumn)
+      val messagesType = prepared.schema(getMessagesCol).dataType
+      val shadowed = prepared.withColumn(
+        messagesShadow,
+        F.when(F.col(errorInputCol).isNull, F.col(getMessagesCol))
+          .otherwise(F.lit(null).cast(messagesType))) //scalastyle:ignore null
+      val worker = copy(ParamMap.empty).asInstanceOf[OpenAIChatCompletion]
+        .setMessagesCol(messagesShadow)
+      val transformed = worker.transformPrepared(shadowed)
+      val errorType = transformed.schema(getErrorCol).dataType.asInstanceOf[StructType]
+      val validationError = F.when(
+        F.col(errorInputCol).isNotNull,
+        F.struct(
+          F.col(errorInputCol).as("response"),
+          F.lit(null).cast(errorType("status").dataType).as("status") //scalastyle:ignore null
+        ))
+      transformed
+        .withColumn(getErrorCol, F.coalesce(F.col(getErrorCol), validationError))
+        .drop(errorInputCol, messagesShadow)
+    }
+  }
+
+  private def validateChatToolSetup(schema: StructType): Unit = {
+    get(toolCallsCol).foreach { columnName =>
+      require(
+        !schema.fieldNames.contains(columnName),
+        s"Column '$columnName' already exists in the input DataFrame")
+    }
+  }
+
+  override def transform(dataset: Dataset[_]): DataFrame = {
+    transferGlobalParamsToParamMap()
+    validatePublicColumnNames()
+    validateToolSetup()
+    validateChatToolSetup(dataset.schema)
+    val result = transformWithToolRowValidation(dataset)
+    if (isSet(toolCallsCol)) {
+      result.withColumn(getToolCallsCol, toolCallsColumn(getOutputCol))
+    } else {
+      result
+    }
+  }
+
+  override def transformSchema(schema: StructType): StructType = {
+    validatePublicColumnNames()
+    validateToolSetup()
+    validateChatToolSetup(schema)
+    val baseSchema = super.transformSchema(schema)
+    if (isSet(toolCallsCol)) {
+      baseSchema.add(getToolCallsCol, OpenAIToolColumns.ToolCallStructType)
+    } else {
+      baseSchema
+    }
+  }
+
+  override def pyAdditionalMethods: String =
+    super.pyAdditionalMethods + OpenAIToolPythonOverrides.ChatMethods
 }

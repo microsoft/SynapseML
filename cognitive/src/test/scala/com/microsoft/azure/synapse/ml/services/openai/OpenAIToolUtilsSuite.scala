@@ -23,6 +23,38 @@ class OpenAIToolUtilsSuite extends TestBase {
     assert(!tool.fields.contains("function"))
   }
 
+  test("function tools and choices adapt to each API wire shape") {
+    val tools = OpenAIToolUtils.parseTools(ToolTestFixtures.WeatherToolJson)
+    val chatTool = OpenAIToolUtils.toChatCompletionsTools(tools)
+      .elements.head.asJsObject
+    assert(chatTool.fields.keySet === Set("type", "function"))
+    assert(chatTool.fields("function").asJsObject.fields("name") ===
+      JsString("get_weather"))
+
+    val nestedChoice = OpenAIToolUtils.parseToolChoice(
+      """{"type":"function","function":{"name":"get_weather"}}""").get
+    OpenAIToolUtils.validateToolChoiceAgainst(tools, nestedChoice)
+    assert(OpenAIToolUtils.toResponsesToolChoice(nestedChoice).asJsObject
+      .fields("name") === JsString("get_weather"))
+
+    val flatChoice = OpenAIToolUtils.parseToolChoice(
+      """{"type":"function","name":"get_weather"}""").get
+    assert(OpenAIToolUtils.toChatCompletionsToolChoice(flatChoice).asJsObject
+      .fields("function").asJsObject.fields("name") === JsString("get_weather"))
+
+    val allowedChoice = OpenAIToolUtils.parseToolChoice(
+      """{"type":"allowed_tools","mode":"required","tools":[
+        |{"type":"function","name":"get_weather"}]}""".stripMargin).get
+    val chatChoice = OpenAIToolUtils.toChatCompletionsToolChoice(allowedChoice).asJsObject
+    val chatAllowed = chatChoice.fields("allowed_tools").asJsObject
+    assert(chatAllowed.fields("mode") === JsString("required"))
+    assert(chatAllowed.fields("tools").asInstanceOf[JsArray].elements.head
+      .asJsObject.fields("function").asJsObject.fields("name") ===
+      JsString("get_weather"))
+    assert(OpenAIToolUtils.toResponsesToolChoice(chatChoice).asJsObject
+      .fields("tools").asInstanceOf[JsArray].elements.nonEmpty)
+  }
+
   test("unknown tool types and JSON scalar widths pass through") {
     val json =
       """[{"type":"web_search"},{"type":"future_tool","payload":{"n":9007199254740993,

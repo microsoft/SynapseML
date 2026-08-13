@@ -16,7 +16,7 @@ private[openai] object OpenAIPromptMixins {
     extends com.microsoft.azure.synapse.ml.services.HasCustomCogServiceDomain with HasOpenAIPromptToolOutput
 }
 
-/** Tool and function-calling configuration shared by Responses and OpenAIPrompt.
+/** Tool and function-calling configuration shared by OpenAI service wrappers.
   *
   * Tool definitions are trusted configuration. In particular, a tools column must not be
   * populated from untrusted row data because hosted and MCP tools can cause provider-side
@@ -26,11 +26,11 @@ private[openai] object OpenAIPromptMixins {
   * Spark HTTP execution is at-least-once. Materialize paid turns before branching, disable
   * speculation, deduplicate by response id, and make external side effects idempotent by call id.
   */
-trait HasOpenAIToolParams extends HasServiceParams {
+trait HasOpenAICommonToolParams extends HasServiceParams {
   val tools: ServiceParam[String] = new ServiceParam[String](
     this,
     "tools",
-    "Trusted Responses tool definitions as a JSON array. Function tools may use the flat " +
+    "Trusted OpenAI tool definitions as a JSON array. Function tools may use the flat " +
       "Responses shape or the nested Chat Completions shape; hosted and future types pass through.",
     isRequired = false) {
     override val payloadName: String = "tools"
@@ -50,14 +50,6 @@ trait HasOpenAIToolParams extends HasServiceParams {
     "Whether the model may emit multiple tool calls in one turn. The API default is true.",
     isRequired = false) {
     override val payloadName: String = "parallel_tool_calls"
-  }
-
-  val maxToolCalls: ServiceParam[Int] = new ServiceParam[Int](
-    this,
-    "maxToolCalls",
-    "Maximum number of built-in or hosted tool calls. This does not cap function calls.",
-    isRequired = false) {
-    override val payloadName: String = "max_tool_calls"
   }
 
   def getTools: String = getScalarParam(tools)
@@ -143,23 +135,11 @@ trait HasOpenAIToolParams extends HasServiceParams {
   def setParallelToolCallsCol(value: String): this.type =
     setVectorParam(parallelToolCalls, value)
 
-  def getMaxToolCalls: Int = getScalarParam(maxToolCalls)
-
-  def setMaxToolCalls(value: Int): this.type = {
-    require(value > 0, "maxToolCalls must be a positive integer")
-    setScalarParam(maxToolCalls, value)
-  }
-
-  def getMaxToolCallsCol: String = getVectorParam(maxToolCalls)
-
-  def setMaxToolCallsCol(value: String): this.type =
-    setVectorParam(maxToolCalls, value)
-
   private[openai] def toolPayloadParams: Seq[ServiceParam[_]] =
-    Seq(parallelToolCalls, maxToolCalls)
+    Seq(parallelToolCalls)
 
   private[openai] def toolParamNames: Seq[String] =
-    Seq(tools.name, toolChoice.name, parallelToolCalls.name, maxToolCalls.name)
+    Seq(tools.name, toolChoice.name, parallelToolCalls.name)
 
   @transient @volatile private var toolsMemo: (String, JsArray) = _
 
@@ -171,8 +151,28 @@ trait HasOpenAIToolParams extends HasServiceParams {
       case None => params - "tools"
     }
     getValueOpt(row, toolChoice).flatMap(OpenAIToolUtils.parseToolChoice) match {
-      case Some(choice) => withTools.updated("tool_choice", choice)
+      case Some(choice) =>
+        withTools.updated("tool_choice", OpenAIToolUtils.toResponsesToolChoice(choice))
       case None => withTools - "tool_choice"
+    }
+  }
+
+  private[openai] def mergeChatToolPayload(
+      params: Map[String, Any],
+      row: Row): Map[String, Any] = {
+    val withTools = getValueOpt(row, tools).map(_.trim).filter(_.nonEmpty) match {
+      case Some(text) =>
+        params.updated("tools", OpenAIToolUtils.toChatCompletionsTools(memoTools(text)))
+      case None => params - "tools"
+    }
+    val withChoice = getValueOpt(row, toolChoice).flatMap(OpenAIToolUtils.parseToolChoice) match {
+      case Some(choice) =>
+        withTools.updated("tool_choice", OpenAIToolUtils.toChatCompletionsToolChoice(choice))
+      case None => withTools - "tool_choice"
+    }
+    getValueOpt(row, parallelToolCalls) match {
+      case Some(value) => withChoice.updated("parallel_tool_calls", value)
+      case None => withChoice - "parallel_tool_calls"
     }
   }
 
@@ -211,6 +211,34 @@ trait HasOpenAIToolParams extends HasServiceParams {
   }
 }
 
+trait HasOpenAIToolParams extends HasOpenAICommonToolParams {
+  val maxToolCalls: ServiceParam[Int] = new ServiceParam[Int](
+    this,
+    "maxToolCalls",
+    "Maximum number of built-in or hosted tool calls. This does not cap function calls.",
+    isRequired = false) {
+    override val payloadName: String = "max_tool_calls"
+  }
+
+  def getMaxToolCalls: Int = getScalarParam(maxToolCalls)
+
+  def setMaxToolCalls(value: Int): this.type = {
+    require(value > 0, "maxToolCalls must be a positive integer")
+    setScalarParam(maxToolCalls, value)
+  }
+
+  def getMaxToolCallsCol: String = getVectorParam(maxToolCalls)
+
+  def setMaxToolCallsCol(value: String): this.type =
+    setVectorParam(maxToolCalls, value)
+
+  override private[openai] def toolPayloadParams: Seq[ServiceParam[_]] =
+    super.toolPayloadParams :+ maxToolCalls
+
+  override private[openai] def toolParamNames: Seq[String] =
+    super.toolParamNames :+ maxToolCalls.name
+}
+
 trait HasOpenAIToolCallOutput extends Params {
   val toolCallsCol: Param[String] = new Param[String](
     this,
@@ -230,6 +258,10 @@ trait HasOpenAIToolCallOutput extends Params {
 
 trait HasOpenAIPromptToolOutput extends HasOpenAIToolParams
   with HasOpenAIResponsesModernParams with HasOpenAIToolCallOutput {
+  def getApiType: String
+
+  private[openai] def hasAIFoundryModel: Boolean
+
   val responseStructCol: Param[String] = new Param[String](
     this,
     "responseStructCol",
@@ -240,14 +272,28 @@ trait HasOpenAIPromptToolOutput extends HasOpenAIToolParams
   def setResponseStructCol(value: String): this.type = set(responseStructCol, value)
 
   private[openai] def promptResponsesOnlyParamNames: Seq[String] =
-    toolParamNames ++ modernParamNames ++ Seq("toolCallsCol", "responseStructCol")
+    Seq(maxToolCalls.name) ++ modernParamNames
+
+  override def toolCallsColumn(structColName: String): Column =
+    if (getApiType == "responses") {
+      super.toolCallsColumn(structColName)
+    } else {
+      OpenAIToolColumns.chatToolCallsColumn(structColName)
+    }
+
+  override def replayItemsColumn(structColName: String): Column = {
+    require(
+      getApiType == "responses",
+      "replayItemsColumn is only available with apiType='responses'")
+    super.replayItemsColumn(structColName)
+  }
 
   private[openai] def addPromptToolColumns(
       result: DataFrame,
       serviceOutputCol: String): DataFrame = {
     val withCalls =
       if (isSet(toolCallsCol)) {
-        result.withColumn(getToolCallsCol, OpenAIToolColumns.toolCallsColumn(serviceOutputCol))
+        result.withColumn(getToolCallsCol, toolCallsColumn(serviceOutputCol))
       } else {
         result
       }
@@ -278,6 +324,13 @@ trait HasOpenAIPromptToolOutput extends HasOpenAIToolParams
   }
 
   private[openai] def validatePromptToolOutputColumns(schema: StructType): Unit = {
+    val toolCallingConfigured =
+      toolParamNames.exists(name => isSet(getParam(name))) || isSet(toolCallsCol)
+    if (hasAIFoundryModel && toolCallingConfigured) {
+      throw new IllegalArgumentException(
+        "OpenAIPrompt tool calling is not supported for AI Foundry chat endpoints. " +
+          "Use an OpenAI chat_completions or responses endpoint.")
+    }
     val requested = Seq(get(toolCallsCol), get(responseStructCol)).flatten
     requested.foreach { columnName =>
       require(

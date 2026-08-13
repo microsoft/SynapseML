@@ -55,7 +55,8 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
 
   test("Robustness to bad inputs") {
     val results = responses.transform(badDf).collect()
-    assert(Option(results.head.getAs[Row](responses.getErrorCol)).isDefined)
+    assert(Option(results.head.getAs[Row](responses.getOutputCol)).isEmpty)
+    assert(Option(results.head.getAs[Row](responses.getErrorCol)).isEmpty)
     assert(Option(results(1).getAs[Row](responses.getErrorCol)).isDefined)
   }
 

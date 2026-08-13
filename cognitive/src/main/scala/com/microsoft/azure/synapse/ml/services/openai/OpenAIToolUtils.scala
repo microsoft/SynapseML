@@ -9,11 +9,11 @@ import scala.collection.JavaConverters._
 import scala.collection.immutable.ListMap
 import scala.util.Try
 
-/** Pure normalization and validation for Responses API tool payloads.
+/** Pure normalization and validation for OpenAI tool payloads.
   *
   * Function tools may use either the flat Responses shape or the nested Chat Completions
-  * shape. Output is always the flat Responses shape. Other tool types pass through without
-  * membership validation so provider-specific and future tools remain usable.
+  * shape. They are stored in the flat Responses shape and converted to the target API on
+  * request assembly. Other tool types pass through so provider-specific types remain usable.
   */
 object OpenAIToolUtils {
   private val FunctionNamePattern = "^[A-Za-z0-9_-]{1,64}$".r
@@ -97,6 +97,16 @@ object OpenAIToolUtils {
     }
   }
 
+  def toChatCompletionsTools(tools: JsArray): JsArray = JsArray(tools.elements.map {
+    case tool: JsObject if tool.fields.get("type").contains(JsString("function")) =>
+      val function = JsObject(ListMap(tool.fields.toSeq.filterNot(_._1 == "type"): _*))
+      JsObject(ListMap(
+        "type" -> JsString("function"),
+        "function" -> function
+      ))
+    case other => other
+  })
+
   def normalizeTool(tool: JsObject, index: Int): JsObject = {
     val toolType = tool.fields.get("type").collect {
       case JsString(value) if value.trim.nonEmpty => value.trim
@@ -174,22 +184,107 @@ object OpenAIToolUtils {
           case _ => false
         },
         "toolChoice must be a string or an object with a 'type' field")
+      if (obj.fields.get("type").contains(JsString("function"))) {
+        require(
+          functionChoiceName(obj).exists(_.nonEmpty),
+          "toolChoice type 'function' requires a function name")
+      }
       Some(obj)
     } else {
       Some(JsString(trimmed))
     }
   }
 
-  def validateToolChoiceAgainst(tools: JsArray, choice: JsValue): Unit = choice match {
+  private def functionChoiceName(choice: JsObject): Option[String] =
+    choice.fields.get("name").collect { case JsString(value) => value }
+      .orElse(choice.fields.get("function").collect {
+        case function: JsObject =>
+          function.fields.get("name").collect { case JsString(value) => value }
+      }.flatten)
+
+  private def convertFunctionChoice(choice: JsObject, nested: Boolean): JsObject = {
+    val name = functionChoiceName(choice).getOrElse {
+      throw new IllegalArgumentException("toolChoice type 'function' requires a function name")
+    }
+    if (nested) {
+      JsObject(ListMap(
+        "type" -> JsString("function"),
+        "function" -> JsObject("name" -> JsString(name))
+      ))
+    } else {
+      JsObject(ListMap(
+        "type" -> JsString("function"),
+        "name" -> JsString(name)
+      ))
+    }
+  }
+
+  private def allowedToolsConfig(choice: JsObject): JsObject =
+    choice.fields.get("allowed_tools").collect {
+      case allowed: JsObject => allowed
+    }.getOrElse {
+      JsObject(choice.fields.filter { case (name, _) => name == "mode" || name == "tools" })
+    }
+
+  private def convertAllowedToolsChoice(choice: JsObject, nested: Boolean): JsObject = {
+    val allowed = allowedToolsConfig(choice)
+    val tools = allowed.fields.get("tools") match {
+      case Some(JsArray(values)) =>
+        JsArray(values.map {
+          case selector: JsObject
+              if selector.fields.get("type").contains(JsString("function")) =>
+            convertFunctionChoice(selector, nested)
+          case other => other
+        })
+      case other => other.getOrElse(JsArray())
+    }
+    val converted = JsObject(allowed.fields.updated("tools", tools))
+    if (nested) {
+      JsObject(ListMap(
+        "type" -> JsString("allowed_tools"),
+        "allowed_tools" -> converted
+      ))
+    } else {
+      JsObject(ListMap(
+        (Seq("type" -> JsString("allowed_tools")) ++ converted.fields.toSeq): _*
+      ))
+    }
+  }
+
+  def toResponsesToolChoice(choice: JsValue): JsValue = choice match {
     case obj: JsObject if obj.fields.get("type").contains(JsString("function")) =>
-      val wanted = obj.fields.get("name").collect { case JsString(value) => value }
-      val declared = tools.elements.flatMap(functionName)
-      wanted.foreach { name =>
-        require(
-          declared.contains(name),
-          s"toolChoice references unknown function '$name'; declared: ${declared.mkString(", ")}")
-      }
-    case _ =>
+      convertFunctionChoice(obj, nested = false)
+    case obj: JsObject if obj.fields.get("type").contains(JsString("allowed_tools")) =>
+      convertAllowedToolsChoice(obj, nested = false)
+    case other => other
+  }
+
+  def toChatCompletionsToolChoice(choice: JsValue): JsValue = choice match {
+    case obj: JsObject if obj.fields.get("type").contains(JsString("function")) =>
+      convertFunctionChoice(obj, nested = true)
+    case obj: JsObject if obj.fields.get("type").contains(JsString("allowed_tools")) =>
+      convertAllowedToolsChoice(obj, nested = true)
+    case other => other
+  }
+
+  private def selectedFunctionNames(choice: JsValue): Seq[String] = choice match {
+    case obj: JsObject if obj.fields.get("type").contains(JsString("function")) =>
+      functionChoiceName(obj).toSeq
+    case obj: JsObject if obj.fields.get("type").contains(JsString("allowed_tools")) =>
+      allowedToolsConfig(obj).fields.get("tools").collect {
+        case JsArray(values) =>
+          values.collect { case selector: JsObject => functionChoiceName(selector) }.flatten
+      }.getOrElse(Vector.empty)
+    case _ => Seq.empty
+  }
+
+  def validateToolChoiceAgainst(tools: JsArray, choice: JsValue): Unit = {
+    val declared = tools.elements.flatMap(functionName)
+    selectedFunctionNames(choice).foreach { name =>
+      require(
+        declared.contains(name),
+        s"toolChoice references unknown function '$name'; declared: ${declared.mkString(", ")}")
+    }
   }
 
   def parseInputItems(json: String): Vector[JsValue] =

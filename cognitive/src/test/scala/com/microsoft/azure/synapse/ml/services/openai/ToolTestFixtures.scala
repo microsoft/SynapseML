@@ -88,6 +88,34 @@ object ToolTestFixtures {
       |"status":"completed"
       |}""".stripMargin
 
+  val ChatToolCallResponseJson: String =
+    """{
+      |"id":"chatcmpl_1",
+      |"object":"chat.completion",
+      |"created":"1",
+      |"model":"gpt-5.1",
+      |"choices":[{
+      |  "index":0,
+      |  "message":{
+      |    "role":"assistant",
+      |    "content":null,
+      |    "name":null,
+      |    "refusal":null,
+      |    "tool_calls":[{
+      |      "id":"call_a",
+      |      "type":"function",
+      |      "function":{
+      |        "name":"get_weather",
+      |        "arguments":"{\"city\":\"Seattle\"}"
+      |      }
+      |    }]
+      |  },
+      |  "finish_reason":"tool_calls"
+      |}],
+      |"system_fingerprint":null,
+      |"usage":null
+      |}""".stripMargin
+
   val MixedResponseJson: String =
     """{
       |"id":"resp_mixed",
