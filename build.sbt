@@ -295,6 +295,10 @@ val settings = Seq(
     "com\\.microsoft\\.azure\\.synapse\\.ml\\.codegen\\.PyCodegen.*",
     "com\\.microsoft\\.azure\\.synapse\\.ml\\.codegen\\.RCodegen.*",
     "com\\.microsoft\\.azure\\.synapse\\.ml\\.codegen\\.PythonInitMerger.*",
+    // sbt-buildinfo generates BuildInfo into src_managed. It is emitted code with no
+    // branches, it is instrumented at 28 lines / 0% by scoverage, and there is nothing
+    // meaningful to unit test, so measuring it only depresses the reported number.
+    "com\\.microsoft\\.azure\\.synapse\\.ml\\.build\\..*",
     "com\\.microsoft\\.azure\\.synapse\\.ml\\.fabric\\.FabricClient.*",
     "com\\.microsoft\\.azure\\.synapse\\.ml\\.fabric\\.TokenLibrary.*",
     "com\\.microsoft\\.azure\\.synapse\\.ml\\.logging\\.fabric\\..*"
