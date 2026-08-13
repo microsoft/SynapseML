@@ -173,7 +173,10 @@ class TestOpenAIResponsesTools(unittest.TestCase):
         self.assertEqual(prompt.getResponseStructCol(), "response_struct")
         self.assertEqual(prompt.getReasoningSummary(), "concise")
 
-        invalid = OpenAIPrompt().setPromptTemplate("{city}").setTools([WEATHER_TOOL])
+        chat = OpenAIPrompt().setPromptTemplate("{city}").setTools([WEATHER_TOOL])
+        self.assertEqual(chat.getToolsAsList()[0]["name"], "get_weather")
+
+        invalid = OpenAIPrompt().setPromptTemplate("{city}").setMaxToolCalls(1)
         with self.assertRaisesRegex(Exception, "requires apiType='responses'"):
             invalid.transform(spark.createDataFrame([("Seattle",)], ["city"]))
 
@@ -192,7 +195,12 @@ class TestOpenAIResponsesTools(unittest.TestCase):
 
         configured = prompt.setResponseStructCol("out")
         self.assertIsInstance(configured.toolCallsColumn(), Column)
-        self.assertIsInstance(configured.replayItemsColumn(), Column)
+        with self.assertRaisesRegex(
+            Exception, "replayItemsColumn is only available with apiType='responses'"
+        ):
+            configured.replayItemsColumn()
+        responses = OpenAIPrompt().setApiType("responses").setResponseStructCol("out")
+        self.assertIsInstance(responses.replayItemsColumn(), Column)
 
         response_json = json.dumps(
             {
@@ -210,9 +218,9 @@ class TestOpenAIResponsesTools(unittest.TestCase):
         )
         response = spark.read.json(spark.sparkContext.parallelize([response_json]))
         wrapped = response.select(F.struct(*response.columns).alias("out"))
-        calls = wrapped.select(
-            configured.toolCallsColumn().alias("tool_calls")
-        ).first()["tool_calls"]
+        calls = wrapped.select(responses.toolCallsColumn().alias("tool_calls")).first()[
+            "tool_calls"
+        ]
         self.assertEqual(calls[0]["call_id"], "call_a")
 
         explicit = OpenAIPrompt()

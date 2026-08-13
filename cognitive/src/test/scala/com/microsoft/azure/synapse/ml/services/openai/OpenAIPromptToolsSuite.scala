@@ -232,6 +232,12 @@ class OpenAIPromptToolsSuite extends TestBase {
       """self._resolveToolResponseStructCol(outputCol, "replayItemsColumn")"""))
     assert(generated.contains(
       "{} requires outputCol or a configured responseStructCol"))
+    assert(generated.contains(
+      "self._transfer_params_to_java()\n        " +
+        "return Column(self._java_obj.toolCallsColumn(structCol))"))
+    assert(generated.contains(
+      "self._transfer_params_to_java()\n        " +
+        "return Column(self._java_obj.replayItemsColumn(structCol))"))
     assert(!generated.contains(
       "self._java_obj.toolCallsColumn(outputCol or self.getOutputCol())"))
     assert(!generated.contains(
