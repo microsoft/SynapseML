@@ -4,6 +4,8 @@ name: Release Tag Orchestrator
 # Creates the python3.11 tag at the tagged commit, then opens a rebase PR for
 # each existing spark branch (spark4.1 first, then spark4.0).
 #
+# spark4.0 can be opted out of. See SKIP_SPARK40 below.
+#
 # Part of the SynapseML Fabric Release Guide (Steps 1.4–1.5).
 # See also: release-tag-spark.yml (creates spark/python tags after PR merge).
 
@@ -15,10 +17,27 @@ on:
       # every reading. Strict X.Y.Z enforcement is done by the "Extract version"
       # step below, and derivative tags are excluded by the job-level `if:`.
       - "v[0-9]*.[0-9]*.[0-9]*"
+  workflow_dispatch:
+    inputs:
+      skip_spark40:
+        description: 'Skip the spark4.0 rebase PR for this run'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
   pull-requests: write
+
+env:
+  # Opt out of spark4.0 in two ways, checked in this order:
+  #   1. the workflow_dispatch checkbox above, for a single manual run;
+  #   2. repository variable SKIP_SPARK40='true', for a persistent opt-out —
+  #      a tag push carries no inputs, so this is the only way to skip it on
+  #      the automatic trigger.
+  # Default is false: spark4.0 is processed exactly as before.
+  # Note this only controls whether the rebase PR is opened here. Merging a
+  # spark4.0 release branch by hand still tags normally via release-tag-spark.yml.
+  SKIP_SPARK40: ${{ inputs.skip_spark40 == true || vars.SKIP_SPARK40 == 'true' }}
 
 jobs:
   release-tags:
@@ -91,9 +110,16 @@ jobs:
         run: |
           set -euo pipefail
 
-          FAILED=()
           # spark4.1 first: it is the actively published release branch.
-          for TARGET in spark4.1 spark4.0; do
+          TARGETS=(spark4.1)
+          if [ "${SKIP_SPARK40}" = "true" ]; then
+            echo "⏭️ SKIP_SPARK40 is set — not opening a spark4.0 rebase PR"
+          else
+            TARGETS+=(spark4.0)
+          fi
+
+          FAILED=()
+          for TARGET in "${TARGETS[@]}"; do
             if ! git rev-parse -q --verify "refs/remotes/origin/$TARGET" >/dev/null; then
               echo "⚠️ $TARGET branch doesn't exist — skipping"
               continue
@@ -170,6 +196,9 @@ jobs:
           echo ""
           echo "  ✅ v${VERSION}-python3.11 tag created at the tagged commit"
           echo "  📋 Rebase PRs opened for the existing spark branches"
+          if [ "${SKIP_SPARK40}" = "true" ]; then
+            echo "  ⏭️ spark4.0 skipped (SKIP_SPARK40)"
+          fi
           echo ""
           echo "  Next: review and merge the spark rebase PR(s)"
           echo "═══════════════════════════════════════════════════"
