@@ -1,7 +1,7 @@
 resources:
   containers:
     - container: ci
-      image: mmlsparkmcr.azurecr.io/synapseml/ci:ci-cc980b65de98
+      image: mmlsparkmcr.azurecr.io/synapseml/ci:ci-9d15e6d9bfde
       endpoint: 'SynapseML MCR'
 
 trigger:
@@ -91,7 +91,7 @@ variables:
   CONDA_CACHE_DIR: /usr/share/miniconda/envs
   UBUNTU_VERSION: ubuntu-22.04
   ComponentDetection.Timeout: 900
-  CI_IMAGE_TAG: ci-cc980b65de98
+  CI_IMAGE_TAG: ci-9d15e6d9bfde
   isMaster: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
   isTag: $[startsWith(variables['Build.SourceBranch'], 'refs/tags/')]
   isPR: $[eq(variables['Build.Reason'], 'PullRequest')]
@@ -108,6 +108,54 @@ jobs:
   steps:
     - checkout: self
       fetchDepth: 1
+    - bash: |
+        set -euo pipefail
+        hash_files=(
+          environment.yml
+          build.sbt
+          sonatype.sbt
+          tools/docker/ci/Dockerfile
+        )
+        HASH=$({
+          sha256sum "${hash_files[@]}"
+          find project -type f -print0 | sort -z | xargs -0 sha256sum
+        } | sha256sum | cut -c1-12)
+        EXPECTED_TAG="ci-${HASH}"
+        VARIABLE_TAG="$(CI_IMAGE_TAG)"
+        RESOURCE_TAG="$(
+          python3 - <<'PY'
+        from pathlib import Path
+
+        lines = Path("pipeline.yaml").read_text(encoding="utf-8").splitlines()
+        in_ci = False
+        for line in lines:
+            stripped = line.strip()
+            if stripped == "- container: ci":
+                in_ci = True
+                continue
+            if in_ci and stripped.startswith("image:"):
+                image = stripped.split(":", 1)[1].strip().strip("'\"")
+                print(image.rsplit(":", 1)[1])
+                break
+        else:
+            raise SystemExit("Could not find resources.containers ci image tag")
+        PY
+        )"
+
+        echo "CI image content hash tag: $EXPECTED_TAG"
+        echo "CI_IMAGE_TAG variable: $VARIABLE_TAG"
+        echo "resources.containers[ci] image tag: $RESOURCE_TAG"
+
+        if [ "$VARIABLE_TAG" != "$EXPECTED_TAG" ]; then
+          echo "##vso[task.logissue type=error]CI_IMAGE_TAG ($VARIABLE_TAG) does not match dependency hash ($EXPECTED_TAG). Update the CI image tag with the Dockerfile/dependency change."
+          exit 1
+        fi
+
+        if [ "$RESOURCE_TAG" != "$EXPECTED_TAG" ]; then
+          echo "##vso[task.logissue type=error]resources.containers[ci] image tag ($RESOURCE_TAG) does not match dependency hash ($EXPECTED_TAG). Update resources.containers[ci].image with the same tag."
+          exit 1
+        fi
+      displayName: 'Validate CI image tag'
     - bash: |
         set -uo pipefail
         run_databricks_cpu=true
@@ -172,7 +220,6 @@ jobs:
   displayName: 'Build trusted CI image'
   cancelTimeoutInMinutes: 0
   timeoutInMinutes: 60
-  condition: and(succeeded(), eq(variables.isMaster, true), ne(variables.isPR, true))
   pool:
     vmImage: $(UBUNTU_VERSION)
   steps:
@@ -196,14 +243,25 @@ jobs:
         echo "=== Disk space AFTER cleanup ==="
         df -h / | grep -E 'Filesystem|/$'
       displayName: 'Free disk space'
+      condition: and(succeeded(), eq(variables.isMaster, true), ne(variables.isPR, true))
     - task: Docker@2
       displayName: 'Login to ACR'
+      condition: and(succeeded(), eq(variables.isMaster, true), ne(variables.isPR, true))
       inputs:
         command: login
         containerRegistry: 'SynapseML MCR'
     - bash: |
         set -euo pipefail
-        HASH=$(sha256sum environment.yml project/plugins.sbt project/build.properties build.sbt sonatype.sbt tools/docker/ci/Dockerfile | sha256sum | cut -c1-12)
+        hash_files=(
+          environment.yml
+          build.sbt
+          sonatype.sbt
+          tools/docker/ci/Dockerfile
+        )
+        HASH=$({
+          sha256sum "${hash_files[@]}"
+          find project -type f -print0 | sort -z | xargs -0 sha256sum
+        } | sha256sum | cut -c1-12)
         TAG="ci-${HASH}"
         EXPECTED_TAG="$(CI_IMAGE_TAG)"
         LATEST_TAG="ci-latest"
@@ -242,23 +300,26 @@ jobs:
           docker push "${REGISTRY}/${REPO}:${LATEST_TAG}"
         fi
       displayName: 'Check/Build CI Image'
+      condition: and(succeeded(), eq(variables.isMaster, true), ne(variables.isPR, true))
 
 - job: Style
   dependsOn:
     - BuildAndCacheSbt
     - BuildCIImage
   cancelTimeoutInMinutes: 0
-  condition: and(not(failed()), not(canceled()), eq(variables.runTests, 'True'), eq('${{ parameters.testStyle }}', true))
+  condition: and(succeeded(), eq(variables.runTests, 'True'), eq('${{ parameters.testStyle }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
   container: ci
   steps:
     - template: templates/free_disk.yml
+    - template: templates/sbt_cache.yml
     - bash: sbt scalastyle test:scalastyle
       displayName: 'Scala Style Check'
     - bash: |
         set -e
         source activate synapseml
+        pip install 'black[jupyter]==22.3.0'
         black --diff --color . && black --check -q .
       displayName: 'Python Style Check'
 - ${{ if eq(parameters.publishArtifacts, true) }}:
@@ -266,13 +327,15 @@ jobs:
     dependsOn:
       - BuildAndCacheSbt
       - BuildCIImage
-    condition: and(not(failed()), not(canceled()), eq('${{ parameters.publishArtifacts }}', true))
+    condition: and(succeeded(), eq('${{ parameters.publishArtifacts }}', true))
     cancelTimeoutInMinutes: 0
     pool:
       vmImage: $(UBUNTU_VERSION)
     container: ci
     steps:
       - template: templates/free_disk.yml
+      - template: templates/sbt_cache.yml
+      - template: templates/conda.yml
       - template: templates/kv.yml
       - bash: |
           set -euo pipefail
@@ -329,8 +392,7 @@ jobs:
   displayName: 'Databricks CPU E2E'
   condition: >-
     and(
-      not(failed()),
-      not(canceled()),
+      succeeded(),
       eq(variables.runTests, 'True'),
       eq('${{ parameters.testDatabricksE2E }}', true),
       eq(dependencies.BuildAndCacheSbt.outputs['detectDatabricksImpact.runDatabricksCpuE2E'], 'true')
@@ -366,8 +428,7 @@ jobs:
   displayName: 'Databricks GPU E2E'
   condition: >-
     and(
-      not(failed()),
-      not(canceled()),
+      succeeded(),
       eq(variables.runTests, 'True'),
       eq('${{ parameters.testDatabricksE2E }}', true),
       eq(dependencies.BuildAndCacheSbt.outputs['detectDatabricksImpact.runDatabricksGpuE2E'], 'true')
@@ -391,7 +452,7 @@ jobs:
     - BuildAndCacheSbt
     - BuildCIImage
   displayName: 'Fabric E2E'
-  condition: and(not(failed()), not(canceled()), eq('${{ parameters.testFabricE2E }}', true))
+  condition: and(succeeded(), eq('${{ parameters.testFabricE2E }}', true))
   timeoutInMinutes: 120
   cancelTimeoutInMinutes: 0
   pool:
@@ -399,6 +460,7 @@ jobs:
   container: ci
   steps:
     - template: templates/free_disk.yml
+    - template: templates/sbt_cache.yml
     - template: templates/kv.yml
     - template: templates/fabric_kv.yml
     - template: templates/publish.yml
@@ -623,7 +685,7 @@ jobs:
     - BuildCIImage
   timeoutInMinutes: 120
   cancelTimeoutInMinutes: 0
-  condition: and(not(failed()), not(canceled()), eq(variables.runTests, 'True'), eq('${{ parameters.testPython }}', true))
+  condition: and(succeeded(), eq(variables.runTests, 'True'), eq('${{ parameters.testPython }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
   container: ci
@@ -649,6 +711,7 @@ jobs:
         PACKAGE: "cognitive"
   steps:
     - template: templates/free_disk.yml
+    - template: templates/sbt_cache.yml
     - template: templates/kv.yml
     - bash: |
         source activate synapseml
@@ -683,6 +746,7 @@ jobs:
           echo "IGNORE_TEST_PATH_FLAG=$IGNORE_TEST_PATH_FLAG"
           echo "TEST_SUB_PATH_FLAG=$TEST_SUB_PATH_FLAG"
           (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython) || \
+          (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython) || \
           (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
@@ -703,7 +767,7 @@ jobs:
     - BuildCIImage
   timeoutInMinutes: 60
   cancelTimeoutInMinutes: 0
-  condition: and(not(failed()), not(canceled()), eq(variables.runTests, 'True'), eq('${{ parameters.testR }}', true))
+  condition: and(succeeded(), eq(variables.runTests, 'True'), eq('${{ parameters.testR }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
   container: ci
@@ -723,15 +787,13 @@ jobs:
         PACKAGE: "cognitive"
   steps:
     - template: templates/free_disk.yml
+    - template: templates/sbt_cache.yml
     - template: templates/kv.yml
     - bash: |
         set -e
         export SBT_OPTS="-Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss5M  -Duser.timezone=GMT"
         source activate synapseml
         timeout 30m sbt setup codegen publishM2
-        SPARK_VERSION=3.5.0
-        HADOOP_VERSION=3
-        wget -q https://mmlspark.blob.core.windows.net/installers/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
       displayName: 'Prepare for tests'
       retryCountOnTaskFailure: 1
       timeoutInMinutes: 60
@@ -767,12 +829,13 @@ jobs:
     - BuildAndCacheSbt
     - BuildCIImage
   cancelTimeoutInMinutes: 0
-  condition: and(not(failed()), not(canceled()), eq(variables.runTests, 'True'), eq('${{ parameters.testWebsiteSamples }}', true))
+  condition: and(succeeded(), eq(variables.runTests, 'True'), eq('${{ parameters.testWebsiteSamples }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
   container: ci
   steps:
     - template: templates/free_disk.yml
+    - template: templates/sbt_cache.yml
     - template: templates/kv.yml
     - template: templates/publish.yml
     - task: AzureCLI@2
@@ -811,7 +874,7 @@ jobs:
     - BuildCIImage
   cancelTimeoutInMinutes: 1
   timeoutInMinutes: 100
-  condition: and(not(failed()), not(canceled()), eq(variables.runTests, 'True'), eq('${{ parameters.testUnit }}', true))
+  condition: and(succeeded(), eq(variables.runTests, 'True'), eq('${{ parameters.testUnit }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
   container: ci
@@ -995,6 +1058,7 @@ jobs:
           com.microsoft.azure.synapse.ml.services.speech.SpeechToTextSDKSecuritySuite
   steps:
     - template: templates/free_disk.yml
+    - template: templates/sbt_cache.yml
     - bash: |
         export SBT_OPTS="-Xmx4G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss2M -Duser.timezone=GMT"
         sbt getDatasets "project $(PROJECT)" Test/compile
