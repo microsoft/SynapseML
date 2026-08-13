@@ -530,7 +530,9 @@ def test_publish_jobs_resolve_and_preserve_package_versions():
     # + `conda env create`, which would delete the prebaked env. Only require
     # the template for a non-containerized job.
     if not publish.get("container"):
-        assert any(step.get("template") == "templates/conda.yml" for step in publish_steps)
+        assert any(
+            step.get("template") == "templates/conda.yml" for step in publish_steps
+        )
     assert any(step.get("template") == "templates/kv.yml" for step in publish_steps)
     version_step = next(
         step
