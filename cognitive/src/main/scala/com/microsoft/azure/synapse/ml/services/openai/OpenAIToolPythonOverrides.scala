@@ -63,7 +63,10 @@ private[openai] object OpenAIToolPythonOverrides {
       |
       |def getParallelToolCallsCol(self):
       |    return self._java_obj.getParallelToolCallsCol()
-      |
+      |""".stripMargin
+
+  private val ResponsesOnly: String =
+    """
       |def getMaxToolCallsCol(self):
       |    return self._java_obj.getMaxToolCallsCol()
       |
@@ -88,6 +91,13 @@ private[openai] object OpenAIToolPythonOverrides {
       |    return Column(self._java_obj.replayItemsColumn(outputCol or self.getOutputCol()))
       |""".stripMargin
 
+  private val ChatColumnHelpers: String =
+    """
+      |def toolCallsColumn(self, outputCol=None):
+      |    from pyspark.sql.column import Column
+      |    return Column(self._java_obj.toolCallsColumn(outputCol or self.getOutputCol()))
+      |""".stripMargin
+
   private val PromptColumnHelpers: String =
     """
       |def _resolveToolResponseStructCol(self, outputCol, helperName):
@@ -99,7 +109,7 @@ private[openai] object OpenAIToolPythonOverrides {
       |            return responseStructCol
       |    raise ValueError(
       |        "{} requires outputCol or a configured responseStructCol; "
-      |        "OpenAIPrompt.getOutputCol() is text, not a Responses struct".format(helperName)
+      |        "OpenAIPrompt.getOutputCol() is text, not a service response struct".format(helperName)
       |    )
       |
       |def toolCallsColumn(self, outputCol=None):
@@ -113,6 +123,7 @@ private[openai] object OpenAIToolPythonOverrides {
       |    return Column(self._java_obj.replayItemsColumn(structCol))
       |""".stripMargin
 
-  val ResponsesMethods: String = Common + ResponsesColumnHelpers
-  val PromptMethods: String = Common + PromptColumnHelpers
+  val ResponsesMethods: String = Common + ResponsesOnly + ResponsesColumnHelpers
+  val ChatMethods: String = Common + ChatColumnHelpers
+  val PromptMethods: String = Common + ResponsesOnly + PromptColumnHelpers
 }

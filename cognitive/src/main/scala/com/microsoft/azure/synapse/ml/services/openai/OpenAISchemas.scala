@@ -24,6 +24,18 @@ case class EmbeddingObject(`object`: String,
 
 case class OpenAIMessage(role: String, content: String, name: Option[String] = None)
 
+case class OpenAIChatFunctionCall(name: String, arguments: String)
+
+case class OpenAIChatToolCall(id: String,
+                              function: OpenAIChatFunctionCall,
+                              `type`: String = "function")
+
+case class OpenAIChatMessage(role: String,
+                             content: Option[String] = None,
+                             name: Option[String] = None,
+                             tool_calls: Option[Seq[OpenAIChatToolCall]] = None,
+                             tool_call_id: Option[String] = None)
+
 case class OpenAIChatChoice(message: OpenAIMessage,
                             index: Long,
                             finish_reason: String)
@@ -51,6 +63,37 @@ case class ChatModelResponse(id: String,
                                   usage: Option[ChatUsage])
 
 object ChatModelResponse extends SparkBindings[ChatModelResponse]
+
+private[openai] case class ChatFunctionCallV2(name: String,
+                                              arguments: String)
+
+private[openai] case class ChatCustomToolCallV2(name: String,
+                                                input: String)
+
+private[openai] case class ChatMessageToolCallV2(id: String,
+                                                 `type`: String,
+                                                 function: Option[ChatFunctionCallV2] = None,
+                                                 custom: Option[ChatCustomToolCallV2] = None)
+
+private[openai] case class OpenAIChatMessageV2(role: String,
+                                               content: String,
+                                               name: Option[String] = None,
+                                               refusal: Option[String] = None,
+                                               tool_calls: Option[Seq[ChatMessageToolCallV2]] = None)
+
+private[openai] case class OpenAIChatChoiceV2(message: OpenAIChatMessageV2,
+                                              index: Long,
+                                              finish_reason: String)
+
+private[openai] case class ChatModelResponseV2(id: String,
+                                               `object`: String,
+                                               created: String,
+                                               model: String,
+                                               choices: Seq[OpenAIChatChoiceV2],
+                                               system_fingerprint: Option[String],
+                                               usage: Option[ChatUsage])
+
+private[openai] object ChatModelResponseV2 extends SparkBindings[ChatModelResponseV2]
 
 object OpenAIJsonProtocol extends DefaultJsonProtocol {
   implicit val MessageEnc: RootJsonFormat[OpenAIMessage] = jsonFormat3(OpenAIMessage.apply)

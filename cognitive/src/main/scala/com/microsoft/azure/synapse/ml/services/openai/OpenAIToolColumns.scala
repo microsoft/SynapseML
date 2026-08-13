@@ -8,7 +8,7 @@ import org.apache.spark.sql.types._
 
 import scala.collection.immutable.ListMap
 
-/** Spark-facing adapters for Responses API tool calls and continuations. */
+/** Spark-facing adapters for OpenAI tool calls and Responses continuations. */
 object OpenAIToolColumns {
   val ToolCallStructType: ArrayType = ArrayType(
     StructType(Seq(
@@ -68,6 +68,29 @@ object OpenAIToolColumns {
       item.getField("name").as("name"),
       item.getField("arguments").as("arguments"),
       item.getField("status").as("status"),
+      index.cast(IntegerType).as("index")
+    ))
+  }
+
+  def chatToolCallsColumn(structColName: String): Column = {
+    val calls = F.element_at(
+      F.col(structColName).getField("choices"),
+      1
+    ).getField("message").getField("tool_calls")
+    val nullString = F.lit(null).cast(StringType) //scalastyle:ignore null
+    F.transform(calls, (call, index) => F.struct(
+      call.getField("id").as("call_id"),
+      nullString.as("item_id"),
+      call.getField("type").as("type"),
+      F.coalesce(
+        call.getField("function").getField("name"),
+        call.getField("custom").getField("name")
+      ).as("name"),
+      F.coalesce(
+        call.getField("function").getField("arguments"),
+        call.getField("custom").getField("input")
+      ).as("arguments"),
+      nullString.as("status"),
       index.cast(IntegerType).as("index")
     ))
   }

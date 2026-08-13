@@ -76,11 +76,28 @@ class OpenAIPromptToolsSuite extends TestBase {
     assert(child.getReasoningSummaryCol === "summary")
   }
 
-  test("every advertised Responses-only param fails explicitly for chat completions") {
+  test("Prompt forwards tools and structured outputs to Chat Completions") {
+    ensureSparkSession()
+    val prompt = new OpenAIPrompt()
+      .setPromptTemplate("Weather in {city}?")
+      .setDeploymentName("gpt-5.1")
+      .setTools(ToolTestFixtures.WeatherToolJson)
+      .setToolChoiceFunction("get_weather")
+      .setParallelToolCalls(false)
+      .setToolCallsCol("tool_calls")
+      .setResponseStructCol("response_struct")
+    val child = prompt.getOpenAIChatService.asInstanceOf[OpenAIChatCompletion]
+    assert(OpenAIToolUtils.parseTools(child.getTools) ===
+      OpenAIToolUtils.parseTools(prompt.getTools))
+    assert(!child.getParallelToolCalls)
+
+    val schema = prompt.transformSchema(inputSchema)
+    assert(schema("tool_calls").dataType === OpenAIToolColumns.ToolCallStructType)
+    assert(schema("response_struct").dataType === ChatModelResponseV2.schema)
+  }
+
+  test("Responses-only params still fail explicitly for chat completions") {
     val setters: Seq[(String, OpenAIPrompt => Unit)] = Seq(
-      "tools" -> (_.setTools(ToolTestFixtures.WeatherToolJson)),
-      "toolChoice" -> (_.setToolChoice("none")),
-      "parallelToolCalls" -> (_.setParallelToolCalls(true)),
       "maxToolCalls" -> (_.setMaxToolCalls(2)),
       "instructions" -> (_.setInstructions("i")),
       "truncation" -> (_.setTruncation("auto")),
@@ -93,9 +110,7 @@ class OpenAIPromptToolsSuite extends TestBase {
       "conversation" -> (_.setConversation("c")),
       "reasoningSummary" -> (_.setReasoningSummary("auto")),
       "reasoningContext" -> (_.setReasoningContext("current_turn")),
-      "reasoningMode" -> (_.setReasoningMode("standard")),
-      "toolCallsCol" -> (_.setToolCallsCol("calls")),
-      "responseStructCol" -> (_.setResponseStructCol("response"))
+      "reasoningMode" -> (_.setReasoningMode("standard"))
     )
 
     setters.foreach { case (name, setParam) =>
@@ -107,6 +122,18 @@ class OpenAIPromptToolsSuite extends TestBase {
       assert(error.getMessage.contains(name), error.getMessage)
       assert(error.getMessage.contains("apiType='responses'"), error.getMessage)
     }
+  }
+
+  test("Prompt rejects tool calling on AI Foundry chat endpoints") {
+    val prompt = new OpenAIPrompt()
+      .setAIFoundryCustomServiceName("foundry-project")
+      .setModel("gpt-5.1")
+      .setPromptTemplate("{city}")
+      .setTools(ToolTestFixtures.WeatherToolJson)
+    val error = intercept[IllegalArgumentException] {
+      prompt.transformSchema(inputSchema)
+    }
+    assert(error.getMessage.contains("AI Foundry chat endpoints"))
   }
 
   test("Prompt opt-in schema retains structured calls and parsed response") {
