@@ -1161,7 +1161,10 @@ jobs:
   # there rather than failing every external contribution.
   condition: and(succeeded(), ne(variables['System.PullRequest.IsFork'], 'True'))
   cancelTimeoutInMinutes: 0
-  timeoutInMinutes: 90
+  # Measured on build 230962458: conda env 6.4m + compile 1.5m + package 1.2m +
+  # Scala tests ~34m + ExcludeAIFunc. 90 min was not enough and the job was
+  # killed mid-step; 120 leaves headroom now that the live-service suites are gone.
+  timeoutInMinutes: 120
   pool:
     vmImage: $(UBUNTU_VERSION)
   steps:
@@ -1279,31 +1282,27 @@ jobs:
           export CREATE_SEMPY_WRITER=false
           export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
           echo "Running Internal tests against OSS $(OSS_VERSION)..."
-          # Blocking tier: pure compatibility signal. These exercise Internal code
-          # against the OSS API surface and depend on no external state, so a
-          # failure here means this OSS change genuinely broke Internal.
-          BLOCKING_PKGS="spark.aifunc ebm predict"
-          # Advisory tier: these drive live external services (PowerBI XMLA needs a
-          # populated workspace; nbtest submits Spark Job Definitions to live Fabric
-          # capacity). They fail for environmental reasons unrelated to the OSS diff,
-          # so they are reported but must not gate the PR.
-          ADVISORY_PKGS="powerbi nbtest"
+          # Only the deterministic packages run here. They exercise Internal code
+          # against the OSS API surface with no external state, so a failure means
+          # this OSS change genuinely broke Internal.
+          #
+          # powerbi and nbtest are deliberately NOT run: they drive live services
+          # (PowerBI XMLA needs a populated workspace; nbtest submits Spark Job
+          # Definitions to live Fabric capacity) and fail here for environmental
+          # reasons regardless of the OSS diff. Running them anyway cost ~4 min and
+          # produced only ignorable warnings. That live E2E coverage belongs in
+          # SynapseML-Internal's own nightly pipeline, which has the workspaces,
+          # sample datasets and capacity provisioned.
           FAILURES=0
-          for pkg in $BLOCKING_PKGS; do
-            echo "=== Testing $pkg (blocking) ==="
+          for pkg in spark.aifunc ebm predict; do
+            echo "=== Testing $pkg ==="
             if ! sbt "testOnly com.microsoft.azure.synapse.ml.$pkg.**"; then
               echo "##vso[task.logissue type=error]$pkg tests failed - OSS change breaks Internal"
               FAILURES=$((FAILURES + 1))
             fi
           done
-          for pkg in $ADVISORY_PKGS; do
-            echo "=== Testing $pkg (advisory, live-service dependent) ==="
-            if ! sbt "testOnly com.microsoft.azure.synapse.ml.$pkg.**"; then
-              echo "##vso[task.logissue type=warning]$pkg tests failed (advisory - depends on live services, not gating)"
-            fi
-          done
           if [ $FAILURES -gt 0 ]; then
-            echo "##vso[task.logissue type=error]$FAILURES blocking test package(s) failed"
+            echo "##vso[task.logissue type=error]$FAILURES test package(s) failed"
             exit 1
           fi
       env:
@@ -1328,31 +1327,12 @@ jobs:
           sbt packagePython
           sbt publishM2
       condition: succeededOrFailed()
-    - task: AzureCLI@2
-      displayName: 'Run Internal Python tests (AIFunc)'
-      timeoutInMinutes: 30
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: |
-          set -e
-          cd $(Build.SourcesDirectory)/SynapseML-Internal
-          eval "$(conda shell.bash hook)"
-          conda activate synapseml-internal
-          export CREATE_SEMPY_WRITER=false
-          export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
-          echo "Running Internal Python tests against OSS $(OSS_VERSION)..."
-          # Advisory: every AIFunc suite invokes live Azure OpenAI endpoints, so
-          # failures reflect service/quota/model availability rather than whether
-          # this OSS change is compatible with Internal. Reported, never gating.
-          for suite in AIFuncPandas AIFuncPandasMultimodal AIFuncPySpark AIFuncPySparkMultimodal; do
-            echo "=== Testing Python $suite (advisory, live-service dependent) ==="
-            if ! sbt "testPython${suite}"; then
-              echo "##vso[task.logissue type=warning]Python $suite tests failed (advisory - live AI service, not gating)"
-            fi
-          done
-      condition: succeededOrFailed()
+    # NOTE: 'Run Internal Python tests (AIFunc)' was intentionally removed. All four
+    # AIFunc suites call live Azure OpenAI endpoints, so they measure service and
+    # quota availability rather than OSS/Internal compatibility. They took ~23 min
+    # of the job's budget and were the main reason it hit its timeout before the
+    # gating ExcludeAIFunc step could finish. They remain covered by
+    # SynapseML-Internal's own pipeline.
     - task: AzureCLI@2
       displayName: 'Run Internal Python tests (ExcludeAIFunc)'
       timeoutInMinutes: 30
