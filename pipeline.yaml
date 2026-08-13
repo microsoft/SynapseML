@@ -1347,8 +1347,26 @@ jobs:
           conda activate synapseml-internal
           export CREATE_SEMPY_WRITER=false
           export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
+          # The fixture script builds several models in-process and then launches a
+          # JVM for a Spark session. That launch failed once with JAVA_GATEWAY_EXITED,
+          # which pyspark reports without surfacing any JVM stderr, so record the
+          # agent state first to make a repeat diagnosable rather than a mystery.
+          echo "=== agent state before Spark JVM launch ==="
+          free -m || true
+          df -h /home/vsts /tmp || true
+          echo "JAVA_HOME=${JAVA_HOME:-<unset>}"
+          java -version 2>&1 || true
+          echo "residual JVMs: $(pgrep -c java || echo 0)"
+          echo "==========================================="
           echo "Creating MLflow model fixtures..."
-          python ./src/test/python/make_mlflow_models.py
+          # Launching the gateway is the one step here that is known to fail
+          # intermittently, so give it a second attempt before failing the job.
+          if ! python ./src/test/python/make_mlflow_models.py; then
+            echo "##vso[task.logissue type=warning]MLflow fixture generation failed; retrying once"
+            free -m || true
+            sleep 30
+            python ./src/test/python/make_mlflow_models.py
+          fi
           echo "Running ExcludeAIFunc Python tests against OSS $(OSS_VERSION)..."
           sbt testPythonExcludeAIFunc
       condition: succeededOrFailed()
