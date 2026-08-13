@@ -1,5 +1,15 @@
 resources:
   containers:
+  # Prerequisites, both of which fail the build at resource-validation time —
+  # before any job starts — so neither surfaces as a normal job failure:
+  #   1. A Docker Registry service connection named exactly 'SynapseML MCR',
+  #      pointing at mmlsparkmcr.azurecr.io, must exist in the ADO project and
+  #      be authorized for this pipeline.
+  #   2. The tag below must already be present in the registry. It is content
+  #      addressed from environment.yml + build.sbt + sonatype.sbt + project/ +
+  #      tools/docker/ci/Dockerfile, and is built and pushed only by the
+  #      BuildCIImage job on master. A change to any of those inputs therefore
+  #      needs its image published from master before this pipeline can pull it.
   - container: ci
     image: mmlsparkmcr.azurecr.io/synapseml/ci:ci-9d15e6d9bfde
     endpoint: 'SynapseML MCR'
