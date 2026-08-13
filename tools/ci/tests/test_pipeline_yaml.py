@@ -35,6 +35,11 @@ RELEASE_COMPAT_PREREQUISITES = (
 )
 ASCII_WHITESPACE = " \t\r\n\v\f"
 
+# Matches a real `sbt <args>` invocation while ignoring filenames that merely end
+# in ".sbt" (e.g. `sha256sum build.sbt sonatype.sbt ...`), which would otherwise
+# make any job that hashes the build files look like it runs sbt.
+_INVOKES_SBT = re.compile(r"(?<![\w./-])sbt\s")
+
 
 def _pipeline_text():
     return PIPELINE.read_text()
@@ -1612,7 +1617,14 @@ def test_publish_jobs_resolve_and_preserve_package_versions():
     publish = jobs["Publish"]
     publish_steps = publish["steps"]
     assert any(step.get("task") == "MavenAuthenticate@0" for step in publish_steps)
-    assert any(step.get("template") == "templates/conda.yml" for step in publish_steps)
+    # When Publish runs in the prebuilt CI container the synapseml conda env is
+    # baked into the image, so restoring it via templates/conda.yml would be a
+    # no-op at best. At worst it is destructive: conda.yml resolves
+    # $(CONDA_CACHE_DIR) to the hosted-agent path and runs `conda env remove`
+    # + `conda env create`, which would delete the prebaked env. Only require
+    # the template for a non-containerized job.
+    if not publish.get("container"):
+        assert any(step.get("template") == "templates/conda.yml" for step in publish_steps)
     assert any(step.get("template") == "templates/kv.yml" for step in publish_steps)
     version_step = next(
         step
@@ -1675,7 +1687,15 @@ def test_style_does_not_restore_the_full_conda_environment():
         for step in style["steps"]
         if step.get("displayName") == "Python Style Check"
     )
-    assert "black[jupyter]==22.3.0" in python_style["bash"]
+    # The formatter version must be pinned exactly. A containerized Style job
+    # inherits the pin from environment.yml, which the CI image bakes in, so
+    # re-installing it at step time would only add network flakiness. A
+    # non-containerized job has to pin it inline.
+    if style.get("container"):
+        env_text = (REPO_ROOT / "environment.yml").read_text(encoding="utf-8")
+        assert "black[jupyter]==22.3.0" in env_text
+    else:
+        assert "black[jupyter]==22.3.0" in python_style["bash"]
 
 
 def test_every_sbt_running_job_waits_for_the_prewarm_cache():
@@ -1701,7 +1721,7 @@ def test_every_sbt_running_job_waits_for_the_prewarm_cache():
         steps = job.get("steps", [])
         texts = flatten(steps)
         runs_sbt = any(
-            "sbt " in t or t.strip().startswith("sbt") or "sbt_retry.sh" in t
+            _INVOKES_SBT.search(t) or t.strip().startswith("sbt") or "sbt_retry.sh" in t
             for t in texts
         )
         templates = [

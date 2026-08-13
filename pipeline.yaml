@@ -120,14 +120,8 @@ jobs:
       fetchDepth: 1
     - bash: |
         set -euo pipefail
-        hash_files=(
-          environment.yml
-          build.sbt
-          sonatype.sbt
-          tools/docker/ci/Dockerfile
-        )
         HASH=$({
-          sha256sum "${hash_files[@]}"
+          sha256sum environment.yml build.sbt sonatype.sbt tools/docker/ci/Dockerfile
           find project -type f -print0 | sort -z | xargs -0 sha256sum
         } | sha256sum | cut -c1-12)
         EXPECTED_TAG="ci-${HASH}"
@@ -262,14 +256,8 @@ jobs:
         containerRegistry: 'SynapseML MCR'
     - bash: |
         set -euo pipefail
-        hash_files=(
-          environment.yml
-          build.sbt
-          sonatype.sbt
-          tools/docker/ci/Dockerfile
-        )
         HASH=$({
-          sha256sum "${hash_files[@]}"
+          sha256sum environment.yml build.sbt sonatype.sbt tools/docker/ci/Dockerfile
           find project -type f -print0 | sort -z | xargs -0 sha256sum
         } | sha256sum | cut -c1-12)
         TAG="ci-${HASH}"
@@ -329,7 +317,6 @@ jobs:
     - bash: |
         set -e
         source activate synapseml
-        pip install 'black[jupyter]==22.3.0'
         black --diff --color . && black --check -q .
       displayName: 'Python Style Check'
 - ${{ if eq(parameters.publishArtifacts, true) }}:
@@ -345,7 +332,6 @@ jobs:
     steps:
       - template: templates/free_disk.yml
       - template: templates/sbt_cache.yml
-      - template: templates/conda.yml
       - template: templates/kv.yml
       - bash: |
           set -euo pipefail
