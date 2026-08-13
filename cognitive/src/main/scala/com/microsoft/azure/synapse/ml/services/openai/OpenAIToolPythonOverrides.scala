@@ -115,11 +115,13 @@ private[openai] object OpenAIToolPythonOverrides {
       |def toolCallsColumn(self, outputCol=None):
       |    from pyspark.sql.column import Column
       |    structCol = self._resolveToolResponseStructCol(outputCol, "toolCallsColumn")
+      |    self._transfer_params_to_java()
       |    return Column(self._java_obj.toolCallsColumn(structCol))
       |
       |def replayItemsColumn(self, outputCol=None):
       |    from pyspark.sql.column import Column
       |    structCol = self._resolveToolResponseStructCol(outputCol, "replayItemsColumn")
+      |    self._transfer_params_to_java()
       |    return Column(self._java_obj.replayItemsColumn(structCol))
       |""".stripMargin
 
