@@ -99,7 +99,7 @@ class VerifyImageUtils extends TestBase {
     assert(row != null)
     // The row should contain an inner row with image data
     val innerRow = row.getAs[org.apache.spark.sql.Row](0)
-    assert(innerRow.getAs[String](0) === Some("/path/to/image.jpg"))
+    assert(innerRow.getAs[Option[String]](0) === Some("/path/to/image.jpg"))
     assert(innerRow.getAs[Int](1) === 10) // height
     assert(innerRow.getAs[Int](2) === 10) // width
     assert(innerRow.getAs[Int](3) === 3)  // nChannels
