@@ -28,19 +28,22 @@ jobs:
     steps:
       - name: Extract version and target
         id: info
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          TARGET: ${{ github.event.pull_request.base.ref }}
         run: |
-          BRANCH="${{ github.event.pull_request.head.ref }}"
-          TARGET="${{ github.event.pull_request.base.ref }}"
+          set -euo pipefail
 
           # Extract version from branch name: release/v1.1.2-spark4.0 → 1.1.2
           VERSION=$(echo "$BRANCH" | sed -E 's|release/v([0-9]+\.[0-9]+\.[0-9]+)-.*|\1|')
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
 
           if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
             echo "❌ Could not extract version from branch '$BRANCH'"
             exit 1
           fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
 
           # Map branch to python version
           case "$TARGET" in
@@ -52,9 +55,12 @@ jobs:
           echo "📦 Version: $VERSION, Target: $TARGET"
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ github.event.pull_request.base.ref }}
+          # Full history and tags: the "tag already exists" guard below is
+          # meaningless against a shallow clone with no tags fetched.
+          fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Configure git
@@ -63,36 +69,50 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
       - name: Create and push tags
+        env:
+          VERSION: ${{ steps.info.outputs.version }}
+          TARGET: ${{ steps.info.outputs.target }}
+          PYTHON_VER: ${{ steps.info.outputs.python_ver }}
         run: |
-          VERSION="${{ steps.info.outputs.version }}"
-          TARGET="${{ steps.info.outputs.target }}"
-          PYTHON_VER="${{ steps.info.outputs.python_ver }}"
+          set -euo pipefail
 
           SPARK_TAG="v${VERSION}-${TARGET}"
           PYTHON_TAG="v${VERSION}-python${PYTHON_VER}"
 
+          TO_PUSH=()
           for TAG in "$SPARK_TAG" "$PYTHON_TAG"; do
-            if git rev-parse "$TAG" >/dev/null 2>&1; then
+            if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
               echo "⚠️ $TAG already exists — skipping"
             else
               git tag "$TAG"
+              TO_PUSH+=("$TAG")
               echo "🏷️ Created $TAG"
             fi
           done
 
-          git push origin "$SPARK_TAG" "$PYTHON_TAG" 2>/dev/null || true
-          echo "✅ Tags pushed"
+          if [ ${#TO_PUSH[@]} -eq 0 ]; then
+            echo "✅ Nothing to push — both tags already exist"
+          else
+            git push origin "${TO_PUSH[@]}"
+            echo "✅ Pushed: ${TO_PUSH[*]}"
+          fi
 
       - name: Cleanup release branch
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
         run: |
-          git push origin --delete "${{ github.event.pull_request.head.ref }}" || true
-          echo "🧹 Cleaned up release branch"
+          if git push origin --delete "$HEAD_REF"; then
+            echo "🧹 Deleted $HEAD_REF"
+          else
+            echo "::warning::Could not delete release branch $HEAD_REF — delete it manually"
+          fi
 
       - name: Summary
+        env:
+          VERSION: ${{ steps.info.outputs.version }}
+          TARGET: ${{ steps.info.outputs.target }}
+          PYTHON_VER: ${{ steps.info.outputs.python_ver }}
         run: |
-          VERSION="${{ steps.info.outputs.version }}"
-          TARGET="${{ steps.info.outputs.target }}"
-          PYTHON_VER="${{ steps.info.outputs.python_ver }}"
           echo ""
           echo "═══════════════════════════════════════════════════"
           echo "  Spark Branch Tags — Summary"
