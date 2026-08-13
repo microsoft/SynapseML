@@ -1279,16 +1279,31 @@ jobs:
           export CREATE_SEMPY_WRITER=false
           export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
           echo "Running Internal tests against OSS $(OSS_VERSION)..."
+          # Blocking tier: pure compatibility signal. These exercise Internal code
+          # against the OSS API surface and depend on no external state, so a
+          # failure here means this OSS change genuinely broke Internal.
+          BLOCKING_PKGS="spark.aifunc ebm predict"
+          # Advisory tier: these drive live external services (PowerBI XMLA needs a
+          # populated workspace; nbtest submits Spark Job Definitions to live Fabric
+          # capacity). They fail for environmental reasons unrelated to the OSS diff,
+          # so they are reported but must not gate the PR.
+          ADVISORY_PKGS="powerbi nbtest"
           FAILURES=0
-          for pkg in spark.aifunc powerbi ebm predict nbtest; do
-            echo "=== Testing $pkg ==="
+          for pkg in $BLOCKING_PKGS; do
+            echo "=== Testing $pkg (blocking) ==="
             if ! sbt "testOnly com.microsoft.azure.synapse.ml.$pkg.**"; then
-              echo "##vso[task.logissue type=warning]$pkg tests failed"
+              echo "##vso[task.logissue type=error]$pkg tests failed - OSS change breaks Internal"
               FAILURES=$((FAILURES + 1))
             fi
           done
+          for pkg in $ADVISORY_PKGS; do
+            echo "=== Testing $pkg (advisory, live-service dependent) ==="
+            if ! sbt "testOnly com.microsoft.azure.synapse.ml.$pkg.**"; then
+              echo "##vso[task.logissue type=warning]$pkg tests failed (advisory - depends on live services, not gating)"
+            fi
+          done
           if [ $FAILURES -gt 0 ]; then
-            echo "##vso[task.logissue type=warning]$FAILURES test package(s) failed"
+            echo "##vso[task.logissue type=error]$FAILURES blocking test package(s) failed"
             exit 1
           fi
       env:
@@ -1328,18 +1343,15 @@ jobs:
           export CREATE_SEMPY_WRITER=false
           export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
           echo "Running Internal Python tests against OSS $(OSS_VERSION)..."
-          FAILURES=0
+          # Advisory: every AIFunc suite invokes live Azure OpenAI endpoints, so
+          # failures reflect service/quota/model availability rather than whether
+          # this OSS change is compatible with Internal. Reported, never gating.
           for suite in AIFuncPandas AIFuncPandasMultimodal AIFuncPySpark AIFuncPySparkMultimodal; do
-            echo "=== Testing Python $suite ==="
+            echo "=== Testing Python $suite (advisory, live-service dependent) ==="
             if ! sbt "testPython${suite}"; then
-              echo "##vso[task.logissue type=warning]Python $suite tests failed"
-              FAILURES=$((FAILURES + 1))
+              echo "##vso[task.logissue type=warning]Python $suite tests failed (advisory - live AI service, not gating)"
             fi
           done
-          if [ $FAILURES -gt 0 ]; then
-            echo "##vso[task.logissue type=warning]$FAILURES Python test suite(s) failed"
-            exit 1
-          fi
       condition: succeededOrFailed()
     - task: AzureCLI@2
       displayName: 'Run Internal Python tests (ExcludeAIFunc)'
