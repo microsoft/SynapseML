@@ -1241,10 +1241,12 @@ jobs:
         sed -i '/^resolvers ++= Seq(/a\  Resolver.mavenLocal,' build.sbt
 
         # A silent no-op here would compile Internal against the *published* OSS build and
-        # report a false green, so verify both edits actually landed.
-        grep -q 'val synapseMLVersion = "$(OSS_VERSION)"' build.sbt || {
+        # report a false green, so verify both edits actually landed. Use fixed-string
+        # matching: the version contains dots, which as a regex would match any character
+        # and could accept a line the sed above never wrote.
+        grep -qF 'val synapseMLVersion = "$(OSS_VERSION)"' build.sbt || {
           echo "##vso[task.logissue type=error]Failed to retarget synapseMLVersion"; exit 1; }
-        grep -q 'Resolver.mavenLocal,' build.sbt || {
+        grep -qF 'Resolver.mavenLocal,' build.sbt || {
           echo "##vso[task.logissue type=error]Failed to add Resolver.mavenLocal"; exit 1; }
 
         echo "=== Modified build.sbt ==="
