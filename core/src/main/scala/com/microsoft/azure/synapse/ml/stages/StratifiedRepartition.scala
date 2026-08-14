@@ -88,13 +88,17 @@ class StratifiedRepartition(val uid: String) extends Transformer with Wrappable
       } else emptyDF
       wholePart.union(fracPart)
     }
-    labelDFs.reduce(_ union _)
+    // An input with no rows yields no per-label frames, and reduce would throw on the empty
+    // collection. The RDD implementation returned an empty result here, so preserve that.
+    labelDFs.reduceOption(_ union _).getOrElse(emptyDF)
   }
 
   // Spark exposes no DataFrame API for a plan's partition count. Reading it off the RDD does not
   // launch a job, and counting distinct spark_partition_id values would both cost a full scan and
-  // silently drop empty partitions from the target count.
-  private def getNumPartitions(df: DataFrame): Int = df.rdd.getNumPartitions
+  // silently drop empty partitions from the target count. A plan can report zero partitions (an
+  // empty relation), which repartitionByRange rejects, so keep a floor of one as the
+  // RangePartitioner in the previous RDD implementation effectively did.
+  private def getNumPartitions(df: DataFrame): Int = math.max(df.rdd.getNumPartitions, 1)
 
   private def roundRobinRepartition(df: DataFrame, numPartitions: Int): DataFrame = {
     val rrCol = DatasetExtensions.findUnusedColumnName("roundRobinIndex", df)

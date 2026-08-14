@@ -86,6 +86,14 @@ class StratifiedRepartitionSuite extends TestBase with TransformerFuzzing[Strati
     assert(stratifiedOriginalInputData.count() == trainData.count())
   }
 
+  test("Assert stratified repartition of an empty dataset returns an empty result") {
+    val emptyInput = input.limit(0)
+    val result = new StratifiedRepartition().setLabelCol(values)
+      .setMode(SPConstants.Original).transform(emptyInput)
+    assert(result.count() == 0)
+    assert(result.schema == emptyInput.schema)
+  }
+
   def testObjects(): Seq[TestObject[StratifiedRepartition]] = List(new TestObject(
     new StratifiedRepartition().setLabelCol(values).setMode(SPConstants.Equal), input))
 
