@@ -228,6 +228,25 @@ def test_ci_image_tag_matches_dependency_hash():
     assert ci_container["image"].rsplit(":", 1)[1] == expected_tag
 
 
+def test_containerized_jobs_do_not_apt_install():
+    """The CI image already ships system packages and drops its apt lists.
+
+    A containerized job that still runs `apt-get install` fails at runtime with
+    "Unable to locate package", so install into the image instead.
+    """
+    data = yaml.safe_load(_pipeline_text())
+    offenders = [
+        job.get("job")
+        for job in _jobs(data["jobs"])
+        if job.get("container")
+        and "apt-get install" in yaml.safe_dump(job.get("steps", []))
+    ]
+    assert not offenders, (
+        "tools/docker/ci/Dockerfile removes /var/lib/apt/lists, so apt-get install "
+        f"cannot resolve packages inside the container: {offenders}"
+    )
+
+
 def test_sbt_cache_template_exists_and_parses():
     assert SBT_CACHE_TPL.exists()
     data = yaml.safe_load(SBT_CACHE_TPL.read_text())

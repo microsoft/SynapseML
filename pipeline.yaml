@@ -365,7 +365,6 @@ jobs:
             set -e
             test -n "$(packageVersion)"
             echo "Publishing SynapseML package version $(packageVersion)"
-            sudo apt-get install graphviz doxygen -y
             source activate synapseml
             sbt packagePython uploadNotebooks
             sbt -DskipCodegen=true publishBlob publishDocs publishR publishPython
