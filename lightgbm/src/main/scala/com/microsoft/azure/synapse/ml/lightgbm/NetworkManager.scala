@@ -394,20 +394,15 @@ object NetworkManager {
     * Used to minimize network communication overhead in reduce step.
     * @return The main node's port number.
     */
+  private[lightgbm] def parseHostAndPort(endpoint: String): (String, Int) = {
+    val parsed = WorkerEndpoint.parse(endpoint)
+    (parsed.host, parsed.port)
+  }
+
   def getMainWorkerPort(nodes: String, log: Logger): Int = {
-    val nodesList = nodes.split(",")
-    if (nodesList.isEmpty) {
-      throw new Exception("Error: could not split nodes list correctly")
-    }
-    val mainNode = nodesList(0)
-    val hostAndPort = mainNode.split(":")
-    if (hostAndPort.length != 2) {
-      throw new Exception("Error: could not parse main worker host and port correctly")
-    }
-    val mainHost = hostAndPort(0)
-    val mainPort = hostAndPort(1)
-    log.info(s"LightGBM setting main worker host: $mainHost and port: $mainPort")
-    mainPort.toInt
+    val mainWorker = WorkerEndpoint.parseFirst(nodes)
+    log.info(s"LightGBM setting main worker host: ${mainWorker.host} and port: ${mainWorker.port}")
+    mainWorker.port
   }
 
   private def findOpenPort(ctx: TrainingContext, log: Logger): Socket = {

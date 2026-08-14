@@ -1,3 +1,6 @@
 # PR #2591 adds Azure AI Search AAD auth required by this change.
 # Remove this prerequisite once every validated release branch contains that backport.
 04897bae9baa08f0d67855566f7bad235791d508
+# PR #2612 introduces the WorkerMessage protocol used by the IPv6 endpoint parsing fix.
+# Remove this prerequisite once every validated release branch contains that backport.
+4a52d9ae4184d3ce00394cd9cb4209c35990fc47
