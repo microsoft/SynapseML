@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.lightgbm.params
 
 import com.microsoft.azure.synapse.ml.core.utils.{ParamGroup, ParamsStringBuilder}
-import com.microsoft.azure.synapse.ml.lightgbm.LightGBMDelegate
+import com.microsoft.azure.synapse.ml.lightgbm.{LightGBMConstants, LightGBMDelegate}
 
 /** Defines the common Booster parameters passed to the LightGBM learners.
   */
@@ -179,6 +179,7 @@ case class DartModeParams(dropRate: Double,
   * @param microBatchSize The number of elements in a streaming micro-batch.
   * @param useSingleDatasetMode Whether to create only 1 LightGBM Dataset on each worker.
   * @param maxStreamingOMPThreads Maximum number of streaming mode OpenMP threads per Spark Task thread.
+  * @param deviceType Device used for the tree learning, one of cpu, gpu or cuda.
   */
 case class ExecutionParams(chunkSize: Int,
                            matrixType: String,
@@ -188,9 +189,14 @@ case class ExecutionParams(chunkSize: Int,
                            samplingSetSize: Int,
                            microBatchSize: Int,
                            useSingleDatasetMode: Boolean,
-                           maxStreamingOMPThreads: Int) extends ParamGroup {
+                           maxStreamingOMPThreads: Int,
+                           deviceType: String) extends ParamGroup {
   def appendParams(sb: ParamsStringBuilder): ParamsStringBuilder = {
+    // Only emit a non-default device so that the parameter string, and any "device" alias passed
+    // through passThroughArgs, are left exactly as they were for callers that never ask for a GPU.
     sb.appendParamValueIfNotThere("num_threads", Option(numThreads))
+      .appendParamValueIfNotThere("device_type",
+        if (deviceType == LightGBMConstants.CPUDeviceType) None else Option(deviceType))
   }
 }
 

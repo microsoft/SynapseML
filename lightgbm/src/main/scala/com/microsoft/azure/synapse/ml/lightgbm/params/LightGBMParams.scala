@@ -143,6 +143,17 @@ trait LightGBMExecutionParams extends Wrappable {
   def getMatrixType: String = $(matrixType)
   def setMatrixType(value: String): this.type = set(matrixType, value)
 
+  val deviceType = new Param[String](this, "deviceType",
+    "Device for the tree learning. Values can be cpu, gpu or cuda. Default is cpu. " +
+      "Note that gpu and cuda only work if the native LightGBM library on the workers was built " +
+      "with the matching device support; the library shipped with SynapseML is CPU-only.",
+    ParamValidators.inArray(Array(LightGBMConstants.CPUDeviceType,
+                                  LightGBMConstants.GPUDeviceType,
+                                  LightGBMConstants.CUDADeviceType)))
+  setDefault(deviceType -> LightGBMConstants.CPUDeviceType)
+  def getDeviceType: String = $(deviceType)
+  def setDeviceType(value: String): this.type = set(deviceType, value)
+
   val numThreads = new IntParam(this, "numThreads",
     "Number of threads per executor for LightGBM. For the best speed, set this to the number of real CPU cores.")
   setDefault(numThreads -> 0)
