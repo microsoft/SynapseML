@@ -11,7 +11,7 @@ resources:
     #      BuildCIImage job on master. A change to any of those inputs therefore
     #      needs its image published from master before this pipeline can pull it.
     - container: ci
-      image: mmlsparkmcr.azurecr.io/synapseml/ci:ci-d68ec548140c
+      image: mmlsparkmcr.azurecr.io/synapseml/ci:ci-048168ac6295
       endpoint: 'SynapseML MCR'
 
 trigger:
@@ -101,7 +101,7 @@ variables:
   CONDA_CACHE_DIR: /usr/share/miniconda/envs
   UBUNTU_VERSION: ubuntu-22.04
   ComponentDetection.Timeout: 900
-  CI_IMAGE_TAG: ci-d68ec548140c
+  CI_IMAGE_TAG: ci-048168ac6295
   isMaster: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
   isTag: $[startsWith(variables['Build.SourceBranch'], 'refs/tags/')]
   isPR: $[eq(variables['Build.Reason'], 'PullRequest')]
