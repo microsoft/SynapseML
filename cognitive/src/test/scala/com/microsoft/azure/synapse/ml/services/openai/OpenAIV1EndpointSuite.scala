@@ -4,14 +4,18 @@
 package com.microsoft.azure.synapse.ml.services.openai
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
+import com.microsoft.azure.synapse.ml.io.http.HTTPRequestData
 import com.microsoft.azure.synapse.ml.services.HasCognitiveServiceInput
 import com.microsoft.azure.synapse.ml.services.aifoundry.AIFoundryChatCompletion
 import org.apache.http.entity.AbstractHttpEntity
+import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.http.util.EntityUtils
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
-import org.apache.spark.sql.types.{ArrayType, StringType, StructField, StructType}
+import org.apache.spark.sql.types.{ArrayType, IntegerType, MapType, StringType, StructField, StructType}
 import spray.json._
+
+import java.util.concurrent.atomic.AtomicBoolean
 
 class OpenAIV1EndpointSuite extends TestBase {
 
@@ -31,22 +35,160 @@ class OpenAIV1EndpointSuite extends TestBase {
     EntityUtils.toString(entityBuilder.apply(row).get).parseJson.asJsObject
   }
 
-  private val messageSchema = StructType(Seq(
+  private val stringMessageSchema = StructType(Seq(
     StructField("role", StringType, nullable = false),
     StructField("content", StringType, nullable = true),
     StructField("name", StringType, nullable = true)
   ))
 
-  private val messagesRequestSchema = StructType(Seq(
-    StructField("messages", ArrayType(messageSchema, containsNull = false), nullable = true)
+  private val nullableStringRoleMessageSchema = StructType(Seq(
+    StructField("role", StringType, nullable = true),
+    StructField("content", StringType, nullable = true),
+    StructField("name", StringType, nullable = true)
   ))
 
-  private def messagesRow: Row = {
-    val message = new GenericRowWithSchema(
-      Array[Any]("user", "hello", null), // scalastyle:ignore null
-      messageSchema
+  private val integerRoleMessageSchema = StructType(Seq(
+    StructField("role", IntegerType, nullable = false),
+    StructField("content", StringType, nullable = true),
+    StructField("name", StringType, nullable = true)
+  ))
+
+  private val missingRoleMessageSchema = StructType(Seq(
+    StructField("content", StringType, nullable = true),
+    StructField("name", StringType, nullable = true)
+  ))
+
+  private val compositeMessageSchema = StructType(Seq(
+    StructField("role", StringType, nullable = false),
+    StructField(
+      "content",
+      ArrayType(
+        MapType(StringType, StringType, valueContainsNull = true),
+        containsNull = false
+      ),
+      nullable = true
+    ),
+    StructField("name", StringType, nullable = true)
+  ))
+
+  private val imageUrlSchema = StructType(Seq(
+    StructField("url", StringType, nullable = true),
+    StructField("detail", StringType, nullable = true)
+  ))
+
+  private val structuredContentPartSchema = StructType(Seq(
+    StructField("type", StringType, nullable = false),
+    StructField("text", StringType, nullable = true),
+    StructField("image_url", imageUrlSchema, nullable = true)
+  ))
+
+  private val structuredMessageSchema = StructType(Seq(
+    StructField("role", StringType, nullable = false),
+    StructField(
+      "content",
+      ArrayType(structuredContentPartSchema, containsNull = false),
+      nullable = false
+    ),
+    StructField("name", StringType, nullable = true)
+  ))
+
+  private val nullableStructuredRoleMessageSchema = StructType(Seq(
+    StructField("role", StringType, nullable = true),
+    StructField(
+      "content",
+      ArrayType(structuredContentPartSchema, containsNull = false),
+      nullable = false
+    ),
+    StructField("name", StringType, nullable = true)
+  ))
+
+  private val primitiveArrayMessageSchema = StructType(Seq(
+    StructField("role", StringType, nullable = false),
+    StructField("content", ArrayType(StringType, containsNull = false), nullable = false)
+  ))
+
+  private def messagesRequestSchema(messageSchema: StructType): StructType = StructType(Seq(
+    StructField("messages", ArrayType(messageSchema, containsNull = true), nullable = true)
+  ))
+
+  private def messageRow(role: String, content: String): Row =
+    new GenericRowWithSchema(Array[Any](role, content, null), stringMessageSchema) // scalastyle:ignore null
+
+  private def messageRowWithSchema(role: Any, content: String, schema: StructType): Row =
+    new GenericRowWithSchema(Array[Any](role, content, null), schema) // scalastyle:ignore null
+
+  private def compositeMessageRow(role: String, parts: Seq[Map[String, String]]): Row =
+    new GenericRowWithSchema(Array[Any](role, parts, null), compositeMessageSchema) // scalastyle:ignore null
+
+  private def imageUrlRow(url: Option[String], detail: Option[String] = None): Row =
+    new GenericRowWithSchema(Array[Any](url.orNull, detail.orNull), imageUrlSchema)
+
+  private def structuredContentPartRow(
+    partType: String,
+    text: Option[String] = None,
+    imageUrl: Option[Row] = None
+  ): Row = {
+    new GenericRowWithSchema(
+      Array[Any](partType, text.orNull, imageUrl.orNull),
+      structuredContentPartSchema
     )
-    new GenericRowWithSchema(Array[Any](Seq(message)), messagesRequestSchema)
+  }
+
+  private def structuredMessageRow(role: String, parts: Seq[Row]): Row =
+    new GenericRowWithSchema(Array[Any](role, parts, null), structuredMessageSchema) // scalastyle:ignore null
+
+  private def structuredMessageRowWithSchema(role: Any, parts: Seq[Row], schema: StructType): Row =
+    new GenericRowWithSchema(Array[Any](role, parts, null), schema) // scalastyle:ignore null
+
+  private def primitiveArrayMessageRow(role: String, parts: Seq[String]): Row =
+    new GenericRowWithSchema(Array[Any](role, parts), primitiveArrayMessageSchema)
+
+  private def requestRow(messages: Seq[Row], messageSchema: StructType): Row =
+    new GenericRowWithSchema(Array[Any](messages), messagesRequestSchema(messageSchema))
+
+  private def messagesRow: Row = requestRow(Seq(messageRow("user", "hello")), stringMessageSchema)
+
+  private def chatTransformer(): OpenAIChatCompletion = new OpenAIChatCompletion()
+    .setUrl("https://example.services.ai.azure.com/openai/v1")
+    .setDeploymentName("gpt-5.1")
+    .setMessagesCol("messages")
+    .setApiVersion("2025-04-01-preview")
+
+  private def chatPayload(messages: Seq[Row], messageSchema: StructType): JsObject =
+    requestPayload(chatTransformer(), requestRow(messages, messageSchema))
+
+  private def chatSerializationError(messages: Seq[Row], messageSchema: StructType): IllegalArgumentException = {
+    intercept[IllegalArgumentException] {
+      chatPayload(messages, messageSchema)
+    }
+  }
+
+  private def invalidRoleError(messageIndex: Int): String =
+    s"messages[$messageIndex].role must be a non-empty string"
+
+  private def transformWithThrowingHandler(
+      rows: Seq[Row],
+      messageSchema: StructType,
+      outputCol: String = "output",
+      errorCol: String = "error"
+  ): (Array[Row], AtomicBoolean) = {
+    val handlerInvoked = new AtomicBoolean(false)
+    val input = spark.createDataFrame(
+      spark.sparkContext.parallelize(rows, 1),
+      messagesRequestSchema(messageSchema)
+    )
+
+    val chat = chatTransformer()
+      .setSubscriptionKey("unused")
+      .setOutputCol(outputCol)
+      .setErrorCol(errorCol)
+      .setHandler { (_: CloseableHttpClient, _: HTTPRequestData) =>
+        handlerInvoked.set(true)
+        throw new AssertionError("HTTP handler should not be invoked for invalid message content")
+      }
+
+    val output = chat.transform(input).select("messages", outputCol, errorCol).collect()
+    (output, handlerInvoked)
   }
 
   test("OpenAI URLs preserve configured base URL strings") {
@@ -280,6 +422,294 @@ class OpenAIV1EndpointSuite extends TestBase {
     val payload = requestPayload(transformer, row)
     assert(!payload.fields.contains("model"))
     assert(payload.fields.get("input").contains(JsString("hello")))
+  }
+
+  test("chat completions preserve legacy string content in local v1 request JSON") {
+    val payload = chatPayload(Seq(messageRow("user", "Describe the image")), stringMessageSchema)
+
+    val expected =
+      """{
+        |  "model": "gpt-5.1",
+        |  "messages": [{"role": "user", "content": "Describe the image"}]
+        |}""".stripMargin.parseJson.asJsObject
+    assert(payload == expected)
+  }
+
+  test("chat completions collapse legacy map-backed content parts into text") {
+    val payload = chatPayload(
+      Seq(compositeMessageRow("user", Seq(
+        Map("type" -> "text", "text" -> "Line one"),
+        Map("type" -> "input_file", "filename" -> "example.txt"),
+        Map("type" -> "text", "text" -> "Line two")
+      ))),
+      compositeMessageSchema
+    )
+
+    val expected =
+      """{
+        |  "model": "gpt-5.1",
+        |  "messages": [{"role": "user", "content": "Line one\nLine two"}]
+        |}""".stripMargin.parseJson.asJsObject
+    assert(payload == expected)
+  }
+
+  test("chat completions preserve nested image_url content") {
+    val imagePart: Row = structuredContentPartRow(
+      "image_url",
+      imageUrl = Some(imageUrlRow(Some("https://example.com/triangle.png"), Some("low")))
+    )
+
+    val payload = chatPayload(Seq(structuredMessageRow("user", Seq(imagePart))), structuredMessageSchema)
+    val JsArray(messages) = payload.fields("messages")
+    val JsArray(contentParts) = messages.head.asJsObject.fields("content")
+    val imageUrl = contentParts.head.asJsObject.fields("image_url").asJsObject
+
+    assert(payload.fields.get("model").contains(JsString("gpt-5.1")))
+    assert(imageUrl.fields.get("url").contains(JsString("https://example.com/triangle.png")))
+    assert(imageUrl.fields.get("detail").contains(JsString("low")))
+  }
+
+  test("chat completions serialize exact mixed text and image_url request JSON") {
+    val textPart: Row = structuredContentPartRow("text", text = Some("What is shown?"))
+    val imagePart: Row = structuredContentPartRow(
+      "image_url",
+      imageUrl = Some(imageUrlRow(Some("data:image/png;base64,AAA")))
+    )
+
+    val payload = chatPayload(
+      Seq(structuredMessageRow("user", Seq(textPart, imagePart))),
+      structuredMessageSchema
+    )
+
+    val expected =
+      """{
+        |  "model": "gpt-5.1",
+        |  "messages": [{"role": "user", "content": [
+        |    {"type": "text", "text": "What is shown?"},
+        |    {"type": "image_url", "image_url": {"url": "data:image/png;base64,AAA"}}
+        |  ]}]
+        |}""".stripMargin.parseJson.asJsObject
+    assert(payload == expected)
+  }
+
+  test("chat completions reject invalid roles during request serialization") {
+    val textPart: Row = structuredContentPartRow("text", text = Some("Describe the image"))
+
+    val nullRoleError = chatSerializationError(
+      Seq(messageRowWithSchema(Option.empty[String].orNull, "hello", nullableStringRoleMessageSchema)),
+      nullableStringRoleMessageSchema
+    )
+    assert(nullRoleError.getMessage == invalidRoleError(0))
+
+    val blankRoleError = chatSerializationError(
+      Seq(messageRowWithSchema("   ", "hello", nullableStringRoleMessageSchema)),
+      nullableStringRoleMessageSchema
+    )
+    assert(blankRoleError.getMessage == invalidRoleError(0))
+
+    val wrongSchemaRoleError = chatSerializationError(
+      Seq(messageRowWithSchema(Int.box(7), "hello", integerRoleMessageSchema)),
+      integerRoleMessageSchema
+    )
+    assert(wrongSchemaRoleError.getMessage == invalidRoleError(0))
+
+    val wrongRuntimeRoleError = chatSerializationError(
+      Seq(messageRowWithSchema(Int.box(7), "hello", stringMessageSchema)),
+      stringMessageSchema
+    )
+    assert(wrongRuntimeRoleError.getMessage == invalidRoleError(0))
+
+    val missingRoleError = chatSerializationError(
+      Seq(new GenericRowWithSchema(Array[Any]("hello", Option.empty[String].orNull), missingRoleMessageSchema)),
+      missingRoleMessageSchema
+    )
+    assert(missingRoleError.getMessage == invalidRoleError(0))
+
+    val structuredNullRoleError = chatSerializationError(
+      Seq(
+        structuredMessageRowWithSchema(
+          Option.empty[String].orNull,
+          Seq(textPart),
+          nullableStructuredRoleMessageSchema
+        )
+      ),
+      nullableStructuredRoleMessageSchema
+    )
+    assert(structuredNullRoleError.getMessage == invalidRoleError(0))
+  }
+
+  test("chat completions reject invalid multimodal content shapes during request serialization") {
+    val missingUrl: Row = structuredContentPartRow(
+      "image_url",
+      imageUrl = Some(imageUrlRow(None))
+    )
+    val missingUrlError = chatSerializationError(
+      Seq(structuredMessageRow("user", Seq(missingUrl))),
+      structuredMessageSchema
+    )
+    assert(missingUrlError.getMessage.contains("requires a non-empty string 'url' field"))
+
+    val unsupportedPart: Row = structuredContentPartRow("input_file", text = Some("not supported"))
+    val unsupportedError = chatSerializationError(
+      Seq(structuredMessageRow("user", Seq(unsupportedPart))),
+      structuredMessageSchema
+    )
+    assert(unsupportedError.getMessage.contains("unsupported type"))
+
+    val primitiveError = chatSerializationError(
+      Seq(primitiveArrayMessageRow("user", Seq("not an object"))),
+      primitiveArrayMessageSchema
+    )
+    assert(primitiveError.getMessage.contains("Unsupported content part type"))
+
+    val nullPart = Option.empty[Row].orNull
+    val nullPartError = chatSerializationError(
+      Seq(structuredMessageRow("user", Seq(nullPart))),
+      structuredMessageSchema
+    )
+    assert(nullPartError.getMessage.contains("Expected struct content part but found null"))
+
+    val nullMessageError = chatSerializationError(
+      Seq[Row](Option.empty[Row].orNull),
+      structuredMessageSchema
+    )
+    assert(nullMessageError.getMessage == "messages[0] must be an object")
+  }
+
+  test("chat completions route malformed structured content to errorCol without invoking HTTP") {
+    val malformedPart: Row = structuredContentPartRow(
+      "text",
+      text = Some("Describe the image"),
+      imageUrl = Some(imageUrlRow(Some("https://private.example/secret.png"), Some("low")))
+    )
+    val nullMessage = Option.empty[Row].orNull
+
+    val (rows, handlerInvoked) = transformWithThrowingHandler(Seq(
+      Row(Seq(structuredMessageRow("user", Seq(malformedPart)))),
+      Row(Seq[Row](nullMessage)),
+      Row(null) // scalastyle:ignore null
+    ), structuredMessageSchema)
+
+    assert(rows.length == 3)
+    assert(!handlerInvoked.get())
+
+    val firstRow = rows(0)
+    val firstError = firstRow.getAs[Row]("error")
+    assert(Option(firstError).isDefined)
+    val firstErrorResponse = firstError.getAs[String]("response")
+    assert(firstErrorResponse == "messages[0].content[0] contains unsupported fields")
+    assert(!firstErrorResponse.contains("Describe the image"))
+    assert(!firstErrorResponse.contains("https://private.example/secret.png"))
+    assert(Option(firstError.getAs[Row]("status")).isEmpty)
+    assert(Option(firstRow.getAs[Row]("output")).isEmpty)
+    val restoredFirstMessages = Option(firstRow.getAs[scala.collection.Seq[Row]]("messages"))
+      .getOrElse(scala.collection.Seq.empty[Row])
+    assert(restoredFirstMessages.size == 1)
+    val restoredFirstParts = restoredFirstMessages.head.getAs[scala.collection.Seq[Row]]("content")
+    assert(restoredFirstParts.size == 1)
+    assert(restoredFirstParts.head.getAs[String]("text") == "Describe the image")
+    assert(Option(restoredFirstParts.head.getAs[Row]("image_url"))
+      .exists(_.getAs[String]("url") == "https://private.example/secret.png"))
+
+    val secondRow = rows(1)
+    val secondError = secondRow.getAs[Row]("error")
+    assert(Option(secondError).isDefined)
+    assert(secondError.getAs[String]("response") == "messages[0] must be an object")
+    assert(Option(secondError.getAs[Row]("status")).isEmpty)
+    assert(Option(secondRow.getAs[Row]("output")).isEmpty)
+    val restoredSecondMessages = Option(secondRow.getAs[scala.collection.Seq[Row]]("messages"))
+      .getOrElse(scala.collection.Seq.empty[Row])
+    assert(restoredSecondMessages.size == 1)
+    assert(restoredSecondMessages.headOption.flatMap(message => Option(message)).isEmpty)
+
+    val thirdRow = rows(2)
+    assert(Option(thirdRow.getAs[scala.collection.Seq[Row]]("messages")).isEmpty)
+    assert(Option(thirdRow.getAs[Row]("error")).isEmpty)
+    assert(Option(thirdRow.getAs[Row]("output")).isEmpty)
+  }
+
+  test("chat completions route invalid structured roles to errorCol without invoking HTTP") {
+    val textPart: Row = structuredContentPartRow("text", text = Some("Describe the image"))
+
+    val (rows, handlerInvoked) = transformWithThrowingHandler(Seq(
+      Row(Seq(structuredMessageRowWithSchema("   ", Seq(textPart), nullableStructuredRoleMessageSchema)))
+    ), nullableStructuredRoleMessageSchema)
+
+    assert(rows.length == 1)
+    assert(!handlerInvoked.get())
+
+    val onlyRow = rows.head
+    val error = onlyRow.getAs[Row]("error")
+    assert(Option(error).isDefined)
+    assert(error.getAs[String]("response") == invalidRoleError(0))
+    assert(Option(error.getAs[Row]("status")).isEmpty)
+    assert(Option(onlyRow.getAs[Row]("output")).isEmpty)
+
+    val restoredMessages = Option(onlyRow.getAs[scala.collection.Seq[Row]]("messages"))
+      .getOrElse(scala.collection.Seq.empty[Row])
+    assert(restoredMessages.size == 1)
+    assert(restoredMessages.head.getAs[String]("role") == "   ")
+    val restoredParts = restoredMessages.head.getAs[scala.collection.Seq[Row]]("content")
+    assert(restoredParts.size == 1)
+    assert(restoredParts.head.getAs[String]("text") == "Describe the image")
+  }
+
+  test("chat completions keep public output when it collides with originalMessages scratch column") {
+    val textPart: Row = structuredContentPartRow("text", text = Some("Describe the image"))
+
+    val (rows, handlerInvoked) = transformWithThrowingHandler(
+      Seq(Row(Seq(
+        structuredMessageRowWithSchema(
+          Option.empty[String].orNull,
+          Seq(textPart),
+          nullableStructuredRoleMessageSchema
+        )
+      ))),
+      nullableStructuredRoleMessageSchema,
+      outputCol = "originalMessages"
+    )
+
+    assert(rows.length == 1)
+    assert(!handlerInvoked.get())
+
+    val onlyRow = rows.head
+    assert(onlyRow.schema.fieldNames.contains("originalMessages"))
+    assert(Option(onlyRow.getAs[Row]("originalMessages")).isEmpty)
+    val error = onlyRow.getAs[Row]("error")
+    assert(Option(error).isDefined)
+    assert(error.getAs[String]("response") == invalidRoleError(0))
+    assert(Option(error.getAs[Row]("status")).isEmpty)
+
+    val restoredMessages = Option(onlyRow.getAs[scala.collection.Seq[Row]]("messages"))
+      .getOrElse(scala.collection.Seq.empty[Row])
+    assert(restoredMessages.size == 1)
+    assert(restoredMessages.head.isNullAt(restoredMessages.head.fieldIndex("role")))
+    val restoredParts = restoredMessages.head.getAs[scala.collection.Seq[Row]]("content")
+    assert(restoredParts.size == 1)
+    assert(restoredParts.head.getAs[String]("text") == "Describe the image")
+  }
+
+  test("chat completions route primitive array content to errorCol without invoking HTTP") {
+    val (rows, handlerInvoked) = transformWithThrowingHandler(Seq(
+      Row(Seq(primitiveArrayMessageRow("user", Seq("not an object"))))
+    ), primitiveArrayMessageSchema)
+
+    assert(rows.length == 1)
+    assert(!handlerInvoked.get())
+
+    val onlyRow = rows.head
+    val error = onlyRow.getAs[Row]("error")
+    assert(Option(error).isDefined)
+    assert(error.getAs[String]("response") == "Unsupported content part type: string. Expected struct or map")
+    assert(Option(error.getAs[Row]("status")).isEmpty)
+    assert(Option(onlyRow.getAs[Row]("output")).isEmpty)
+    val restoredMessages = Option(onlyRow.getAs[scala.collection.Seq[Row]]("messages"))
+      .getOrElse(scala.collection.Seq.empty[Row])
+    assert(restoredMessages.size == 1)
+    assert(
+      restoredMessages.head.getAs[scala.collection.Seq[String]]("content") ==
+        scala.collection.Seq("not an object")
+    )
   }
 
   test("responses uses OpenAI v1 base URL without api-version") {
