@@ -36,7 +36,10 @@ ENV JAVA_HOME=/usr/lib/jvm/temurin-8-jdk-amd64
 
 # Miniconda — pinned version for reproducible builds
 # conda 24.x does not require TOS acceptance (that was added in conda 25.x)
+# Digest is the one published by Anaconda on https://repo.anaconda.com/miniconda/ ; this
+# installer is executed as root, so verify before running it rather than after.
 RUN wget -q https://repo.anaconda.com/miniconda/Miniconda3-py311_24.11.1-0-Linux-x86_64.sh -O /tmp/miniconda.sh \
+    && echo "807774bae6cd87132094458217ebf713df436f64779faf9bb4c3d4b6615c1e3a  /tmp/miniconda.sh" | sha256sum -c - \
     && bash /tmp/miniconda.sh -b -p /opt/conda \
     && rm /tmp/miniconda.sh
 ENV PATH=/opt/conda/bin:$PATH
@@ -48,7 +51,12 @@ RUN pip install --no-cache-dir azure-cli==2.60.0
 # Spark (pre-downloaded for R tests)
 ENV SPARK_VERSION=3.5.0
 ENV HADOOP_VERSION=3
+# We fetch Spark from a blob mirror, so pin the digest Apache publishes for this exact
+# artifact (archive.apache.org/dist/spark/spark-3.5.0/...tgz.sha512). Bump both the version
+# ENVs and this digest together; a stale digest fails the build instead of silently
+# installing a different Spark.
 RUN wget -q "https://mmlspark.blob.core.windows.net/installers/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz" -O /tmp/spark.tgz \
+    && echo "8883c67e0a138069e597f3e7d4edbbd5c3a565d50b28644aad02856a1ec1da7cb92b8f80454ca427118f69459ea326eaa073cf7b1a860c3b796f4b07c2101319  /tmp/spark.tgz" | sha512sum -c - \
     && tar -xzf /tmp/spark.tgz -C /opt \
     && rm /tmp/spark.tgz
 ENV SPARK_HOME=/opt/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}
@@ -57,7 +65,9 @@ ENV PATH=${SPARK_HOME}/bin:$PATH
 # SBT — use a shared Coursier cache owned by ADO's remapped UID 1001
 ENV SBT_VERSION=1.10.11
 ENV COURSIER_CACHE=/opt/.cache/coursier
+# Digest is the sbt-${SBT_VERSION}.tgz.sha256 asset published on the same GitHub release.
 RUN wget -q "https://github.com/sbt/sbt/releases/download/v${SBT_VERSION}/sbt-${SBT_VERSION}.tgz" -O /tmp/sbt.tgz \
+    && echo "5034a64841b8a9cfb52a341e45b01df2b8c2ffaa87d8d2b0fe33c4cdcabd8f0c  /tmp/sbt.tgz" | sha256sum -c - \
     && tar -xzf /tmp/sbt.tgz -C /opt \
     && rm /tmp/sbt.tgz \
     && mkdir -p $COURSIER_CACHE
