@@ -300,6 +300,19 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     assert(error.getMessage.contains("Set labelCol and evaluationMetric"))
   }
 
+  test("Explicit evaluation metric omits irrelevant all-metrics hint when labelCol is missing") {
+    val input = spark.createDataFrame(Seq((0.0, 1.0))).toDF("label", "feature")
+    val error = intercept[IllegalArgumentException] {
+      new ComputeModelStatistics()
+        .setEvaluationMetric(MetricConstants.RegressionMetricsName)
+        .transformSchema(input.schema)
+    }
+
+    assert(error.getMessage.contains("Set labelCol, or score the dataset"))
+    assert(!error.getMessage.contains(
+      s"evaluationMetric must not be '${MetricConstants.AllSparkMetrics}'"))
+  }
+
   test("Missing default score column produces an actionable error") {
     val label = "label"
     val input = spark.createDataFrame(Seq((0.0, 1.0), (1.0, 2.0))).toDF(label, "feature")

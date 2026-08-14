@@ -41,10 +41,12 @@ object MetricUtils {
             if (labelCol.isEmpty) Some("labelCol") else None,
             if (requestedKind.isEmpty) Some("evaluationMetric") else None).flatten
           val availableColumns = schema.fieldNames.sorted.mkString("[", ", ", "]")
+          val metricHint =
+            if (requestedKind.isEmpty) s" (evaluationMetric must not be '${MetricConstants.AllSparkMetrics}')"
+            else ""
           throw new IllegalArgumentException(
             "Unable to determine a complete scored model from schema metadata. " +
-              s"Set ${missingSettings.mkString(" and ")} " +
-              s"(evaluationMetric must not be '${MetricConstants.AllSparkMetrics}'), " +
+              s"Set ${missingSettings.mkString(" and ")}$metricHint, " +
               "or score the dataset so one model has both label and prediction metadata. " +
               s"Available columns: $availableColumns")
       }
