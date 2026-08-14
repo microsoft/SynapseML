@@ -75,24 +75,28 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
   //scalastyle:off cyclomatic.complexity
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
-      val (modelName, labelColumnName, scoreValueKind) =
+      val (modelName, resolvedLabelColumnName, scoreValueKind) =
         MetricUtils.getSchemaInfo(
           dataset.schema,
           if (isDefined(labelCol)) Some(getLabelCol) else None,
           getEvaluationMetric)
+      val labelColumnName = validateColumn(
+        dataset, resolvedLabelColumnName, "label", "setLabelCol")
 
       // For creating the result dataframe in classification or regression case
       val spark = dataset.sparkSession
       import spark.implicits._
 
       if (scoreValueKind == SchemaConstants.ClassificationKind) {
-
+        val scoredLabelsColumnName = validateColumn(
+          dataset,
+          if (isDefined(scoredLabelsCol)) getScoredLabelsCol
+          else SparkSchema.getSparkPredictionColumnName(dataset.schema, modelName),
+          "classification prediction",
+          "setScoredLabelsCol")
         var resultDF: DataFrame =
           Seq(MetricConstants.ClassificationEvaluationType)
             .toDF(MetricConstants.EvaluationType)
-        val scoredLabelsColumnName =
-          if (isDefined(scoredLabelsCol)) getScoredLabelsCol
-          else SparkSchema.getSparkPredictionColumnName(dataset.schema, modelName)
 
         // Get levels for label column if categorical
         val levels = CategoricalUtilities.getLevels(dataset.schema, labelColumnName)
@@ -109,11 +113,18 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
 
         lazy val scoresAndLabels = {
           val scoresColumnName =
-            if (isDefined(scoresCol)) getScoresCol
-            else SparkSchema.getSparkRawPredictionColumnName(dataset.schema, modelName)
-          if (scoresColumnName == null) predictionAndLabels
-          else if (levelsExist) getScoresAndLabels(dataset, labelColumnName, scoresColumnName, levelsToIndexMap)
-          else getScalarScoresAndLabels(dataset, labelColumnName, scoresColumnName)
+            if (isDefined(scoresCol)) {
+              Some(validateColumn(dataset, getScoresCol, "classification score", "setScoresCol"))
+            } else {
+              Option(SparkSchema.getSparkRawPredictionColumnName(dataset.schema, modelName))
+                .map(columnName => validateColumn(dataset, columnName, "classification score", "setScoresCol"))
+            }
+          scoresColumnName match {
+            case Some(columnName) if levelsExist =>
+              getScoresAndLabels(dataset, labelColumnName, columnName, levelsToIndexMap)
+            case Some(columnName) => getScalarScoresAndLabels(dataset, labelColumnName, columnName)
+            case None => predictionAndLabels
+          }
         }
 
         lazy val (labels: Array[Double], confusionMatrix: Matrix) = createConfusionMatrix(predictionAndLabels)
@@ -153,9 +164,12 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
         }
         resultDF
       } else if (scoreValueKind == SchemaConstants.RegressionKind) {
-        val scoresColumnName =
+        val scoresColumnName = validateColumn(
+          dataset,
           if (isDefined(scoresCol)) getScoresCol
-          else SparkSchema.getSparkPredictionColumnName(dataset.schema, modelName)
+          else SparkSchema.getSparkPredictionColumnName(dataset.schema, modelName),
+          "regression prediction/score",
+          "setScoresCol")
 
         val scoresAndLabels = selectAndCastToRDD(dataset, scoresColumnName, labelColumnName)
 
@@ -180,6 +194,22 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
   }
   //scalastyle:on method.length
   //scalastyle:on cyclomatic.complexity
+
+  private def validateColumn(dataset: Dataset[_],
+                             columnName: String,
+                             columnRole: String,
+                             setterName: String): String = {
+    val requestedColumn = Option(columnName).filter(_.nonEmpty)
+    val columns = dataset.columns
+    if (!requestedColumn.exists(column => columns.contains(column))) {
+      val requestedDescription = requestedColumn.map(name => s"'$name'").getOrElse("<unresolved>")
+      val availableColumns = columns.sorted.mkString("[", ", ", "]")
+      throw new IllegalArgumentException(
+        s"Unable to resolve $columnRole column $requestedDescription. " +
+          s"Call $setterName(...) with an existing column. Available columns: $availableColumns")
+    }
+    requestedColumn.get
+  }
 
   private def addSimpleMetric(simpleMetric: String,
                               predictionAndLabels: RDD[(Double, Double)],
