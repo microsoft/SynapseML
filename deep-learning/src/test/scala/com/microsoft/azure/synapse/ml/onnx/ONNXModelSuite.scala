@@ -3,9 +3,10 @@
 
 package com.microsoft.azure.synapse.ml.onnx
 
+import ai.onnxruntime.OrtEnvironment
 import breeze.linalg.{argmax, argtopk}
 import com.microsoft.azure.synapse.ml.build.BuildInfo
-import com.microsoft.azure.synapse.ml.core.env.FileUtilities
+import com.microsoft.azure.synapse.ml.core.env.{FileUtilities, StreamUtilities}
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._
@@ -16,7 +17,7 @@ import org.apache.spark.SparkException
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.linalg.{DenseVector, Vector, Vectors}
-import org.apache.spark.ml.param.Param
+import org.apache.spark.ml.param.{Param, ParamMap}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
@@ -126,6 +127,21 @@ class ONNXModelSuite extends TestBase
       onnxIris.transform(testDfIrisEmptyDimension).collect()
     }
     assert(caught.getMessage.contains("IllegalArgumentException"))
+  }
+
+  test("ONNXModel loads upgraded runtime for local CPU inference (GH2417)") {
+    val runtimeVersion = StreamUtilities.using(OrtEnvironment.getEnvironment)(_.getVersion).get
+    assert(runtimeVersion == "1.16.3")
+
+    val predictions = onnxIris.copy(ParamMap.empty)
+      .setDeviceType("CPU")
+      .transform(testDfIrisFloat)
+      .select("prediction", "rawProbability")
+      .as[(Long, Map[Long, Float])]
+      .collect()
+
+    assert(predictions.map(_._1).toSet == Set(0L, 1L, 2L))
+    assert(predictions.forall(_._2.keySet == Set(0L, 1L, 2L)))
   }
 
   test("ONNXModel can infer observations of matching input types") {

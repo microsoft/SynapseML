@@ -336,6 +336,7 @@ lazy val deepLearning = (project in file("deep-learning"))
     ),
     name := "synapseml-deep-learning"
   ): _*)
+  .settings(OnnxRuntimeDependency.settings: _*)
 
 lazy val lightgbm = (project in file("lightgbm"))
   .dependsOn(core % "test->test;compile->compile")

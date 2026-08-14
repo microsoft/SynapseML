@@ -86,7 +86,10 @@ object ONNXRuntime extends Logging {
               case (_, outputName) =>
                 val i = session.getOutputInfo.asScala.keysIterator.indexOf(outputName)
                 val outputValue: OnnxValue = result.get(i)
-                mapOnnxValueToArray(outputValue)
+                outputValue.getInfo match {
+                  case _: SequenceInfo => ONNXValueConverter.mapSequenceToArray(outputValue)
+                  case _ => mapOnnxValueToArray(outputValue)
+                }
             }.toSeq
         }.get
 
