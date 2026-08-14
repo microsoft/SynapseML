@@ -417,6 +417,17 @@ class VerifyLightGBMCommon extends TestBase with LightGBMTestUtils {
     assert(!tokens.contains("device_type=gpu"))
   }
 
+  test("Verify the passThroughArgs device alias still overrides deviceType") {
+    // LightGBM accepts "device" as an alias of "device_type" and resolves the canonical key first,
+    // so emitting device_type here would silently discard the caller's alias.
+    val classifier = new LightGBMClassifier()
+      .setPassThroughArgs("device=cuda")
+      .setDeviceType(LightGBMConstants.GPUDeviceType)
+    val tokens = paramTokens(classifier.getTrainParams(1, deviceFeaturesSchema, 2))
+    assert(tokens.contains("device=cuda"))
+    assert(!tokens.exists(_.startsWith("device_type=")))
+  }
+
   test("Verify deviceType rejects an unsupported device") {
     assertThrows[IllegalArgumentException] {
       new LightGBMClassifier().setDeviceType("tpu")

@@ -192,11 +192,21 @@ case class ExecutionParams(chunkSize: Int,
                            maxStreamingOMPThreads: Int,
                            deviceType: String) extends ParamGroup {
   def appendParams(sb: ParamsStringBuilder): ParamsStringBuilder = {
-    // Only emit a non-default device so that the parameter string, and any "device" alias passed
-    // through passThroughArgs, are left exactly as they were for callers that never ask for a GPU.
     sb.appendParamValueIfNotThere("num_threads", Option(numThreads))
-      .appendParamValueIfNotThere("device_type",
-        if (deviceType == LightGBMConstants.CPUDeviceType) None else Option(deviceType))
+      .appendParamValueIfNotThere("device_type", deviceTypeToEmit(sb))
+  }
+
+  /** The device to write into the parameter string, or None to leave the string untouched.
+    *
+    * Two cases must not emit anything. "cpu" is LightGBM's own default, so emitting it would only
+    * risk overriding a device already chosen through passThroughArgs. And LightGBM accepts "device"
+    * as an alias of "device_type", which appendParamValueIfNotThere does not know about, so an
+    * alias supplied through passThroughArgs has to be detected here or the canonical key we append
+    * would silently win over the caller's explicit choice.
+    */
+  private def deviceTypeToEmit(sb: ParamsStringBuilder): Option[String] = {
+    lazy val aliasAlreadySet = """(^|\s)device[ =]""".r.findFirstIn(sb.result()).isDefined
+    if (deviceType == LightGBMConstants.CPUDeviceType || aliasAlreadySet) None else Option(deviceType)
   }
 }
 
