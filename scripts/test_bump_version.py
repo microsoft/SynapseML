@@ -990,7 +990,7 @@ class TestSnapshotRegression:
         docusaurus = REPO_ROOT / "website" / "docusaurus.config.js"
         if not docusaurus.exists():
             pytest.skip("Not running inside SynapseML repo")
-        content = docusaurus.read_text()
+        content = docusaurus.read_text(encoding="utf-8")
         m = re.search(r'let version\s*=\s*"([^"]+)"', content)
         assert m, "Cannot detect version from docusaurus.config.js"
         old_v = m.group(1)
@@ -1005,9 +1005,9 @@ class TestSnapshotRegression:
                 continue
             r = analyze(fp, rel, c, old_v, bare_re, self_a, line_a, file_a)
             if r.matches:
-                results[str(rel)] = len(r.matches)
+                results[rel.as_posix()] = len(r.matches)
             if r.unanchored:
-                unanchored[str(rel)] = r.unanchored
+                unanchored[rel.as_posix()] = r.unanchored
         return {
             "files": results,
             "total_files": len(results),
