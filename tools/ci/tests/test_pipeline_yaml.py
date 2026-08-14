@@ -42,6 +42,9 @@ def _pipeline_text():
 
 def _ci_image_dependency_tag():
     inputs = [
+        # .dockerignore selects the build context, so it can change the built
+        # image without changing any file listed below.
+        REPO_ROOT / ".dockerignore",
         REPO_ROOT / "environment.yml",
         REPO_ROOT / "build.sbt",
         REPO_ROOT / "sonatype.sbt",
