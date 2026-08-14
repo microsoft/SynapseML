@@ -134,7 +134,7 @@ Note: Many of these metrics were influenced by this paper [Measuring Model Biase
 
 ### Distribution Balance Measures
 
-Distribution Balance Measures allow us to compare our data with a reference distribution (currently only uniform distribution is supported as a reference distribution). They are calculated per sensitive column and don't depend on the label column.
+Distribution Balance Measures allow us to compare our data with a reference distribution. They use a uniform reference distribution by default; an empty map also selects the uniform distribution. A custom distribution can be supplied with `setReferenceDistribution`, and its probabilities must be finite, non-negative, and sum to 1. The measures use the union of the observed and positive-probability reference categories: an observed-only category has reference probability 0, and a reference-only category has observed probability and count 0. Null observed values are treated as categories, but custom reference keys cannot be null. For integral sensitive columns, reference keys are strings parsed as the column's integral type and must resolve to distinct values. They are calculated per sensitive column and don't depend on the label column. Empty input datasets are rejected because they do not define an observed probability distribution.
 
 For example, let's assume we have a dataset with nine rows and a Gender column, and we observe that:
 
