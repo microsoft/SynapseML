@@ -6,12 +6,12 @@ resources:
   #      pointing at mmlsparkmcr.azurecr.io, must exist in the ADO project and
   #      be authorized for this pipeline.
   #   2. The tag below must already be present in the registry. It is content
-  #      addressed from environment.yml + build.sbt + sonatype.sbt + project/ +
-  #      tools/docker/ci/Dockerfile, and is built and pushed only by the
+  #      addressed from .dockerignore + environment.yml + build.sbt + sonatype.sbt +
+  #      project/ + tools/docker/ci/Dockerfile, and is built and pushed only by the
   #      BuildCIImage job on master. A change to any of those inputs therefore
   #      needs its image published from master before this pipeline can pull it.
   - container: ci
-    image: mmlsparkmcr.azurecr.io/synapseml/ci:ci-2b4cdb1f2a8d
+    image: mmlsparkmcr.azurecr.io/synapseml/ci:ci-3e4e3ef8e44d
     endpoint: 'SynapseML MCR'
   repositories:
   - repository: SynapseML-Internal
@@ -111,7 +111,7 @@ variables:
   CONDA_CACHE_DIR: /usr/share/miniconda/envs
   UBUNTU_VERSION: ubuntu-22.04
   ComponentDetection.Timeout: 900
-  CI_IMAGE_TAG: ci-2b4cdb1f2a8d
+  CI_IMAGE_TAG: ci-3e4e3ef8e44d
   isMaster: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
   isTag: $[startsWith(variables['Build.SourceBranch'], 'refs/tags/')]
   isPR: $[eq(variables['Build.Reason'], 'PullRequest')]
@@ -131,7 +131,7 @@ jobs:
     - bash: |
         set -euo pipefail
         HASH=$({
-          sha256sum environment.yml build.sbt sonatype.sbt tools/docker/ci/Dockerfile
+          sha256sum .dockerignore environment.yml build.sbt sonatype.sbt tools/docker/ci/Dockerfile
           git ls-files -z -- project | sort -z | xargs -0 sha256sum
         } | sha256sum | cut -c1-12)
         EXPECTED_TAG="ci-${HASH}"
@@ -267,7 +267,7 @@ jobs:
     - bash: |
         set -euo pipefail
         HASH=$({
-          sha256sum environment.yml build.sbt sonatype.sbt tools/docker/ci/Dockerfile
+          sha256sum .dockerignore environment.yml build.sbt sonatype.sbt tools/docker/ci/Dockerfile
           git ls-files -z -- project | sort -z | xargs -0 sha256sum
         } | sha256sum | cut -c1-12)
         TAG="ci-${HASH}"
