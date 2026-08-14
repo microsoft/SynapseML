@@ -96,11 +96,13 @@ RUN cd /tmp/sbt-warmup \
     && chown -R 1001:0 "$COURSIER_CACHE" \
     && chmod -R u+rwX,go+rX,go-w "$COURSIER_CACHE"
 
-# Pre-download test datasets (static tarball, ~50MB) to avoid downloading in every job
+# Pre-download test datasets (static tarball, ~117MB) to avoid downloading in every job
 ENV DATASET_CACHE=/opt/datasets
 RUN mkdir -p $DATASET_CACHE \
     && wget -q "https://mmlspark.blob.core.windows.net/installers/datasets-2023-04-03.tgz" \
-         -O "$DATASET_CACHE/datasets-2023-04-03.tgz"
+         -O "$DATASET_CACHE/datasets-2023-04-03.tgz" \
+    && echo "f8f8592c30451628ef3c0f63aab3b1f85d18acf6565de0b48086b273e94622fb  $DATASET_CACHE/datasets-2023-04-03.tgz" \
+         | sha256sum -c -
 
 # No ENTRYPOINT — ADO agent needs to control the process
 CMD ["bash"]
