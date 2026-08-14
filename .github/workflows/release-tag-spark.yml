@@ -72,8 +72,11 @@ jobs:
           set -euo pipefail
           if [ -z "$MERGED_SHA" ]; then
             echo "::error::pull_request.merge_commit_sha is empty, so the commit that landed on \
-          $BASE_REF cannot be identified. Refusing to guess. Tag the merged commit manually: \
-          git tag v<version>-<target> <sha> && git push origin v<version>-<target>"
+          $BASE_REF cannot be identified. Refusing to guess. This workflow normally creates both \
+          the spark tag and the matching python tag, so create both manually to avoid a \
+          partially tagged release: \
+          git tag v<version>-<target> <sha> && git tag v<version>-python<python-version> <sha> && \
+          git push origin v<version>-<target> v<version>-python<python-version>"
             exit 1
           fi
           echo "✅ Merged commit: $MERGED_SHA"
