@@ -151,23 +151,48 @@ jobs:
               continue
             fi
 
+            # Check before rebuilding the branch: an existing PR may contain
+            # manual conflict resolution that must not be replaced or made to
+            # conflict again locally. Ignore same-named PRs from forks.
+            EXISTING=$(gh pr list --head "$BRANCH" --base "$TARGET" \
+              --state open --json number,isCrossRepository \
+              --jq 'map(select(.isCrossRepository == false))[0].number // empty')
+            if [ -n "$EXISTING" ]; then
+              echo "♻️ PR #$EXISTING already open for $BRANCH — leaving it untouched."
+              echo "   If that PR needs refreshing, update it manually."
+              continue
+            fi
+
+            # "Rebase and merge" rewrites the primary release commit, so the
+            # ancestor check above cannot recognize a completed release on its
+            # own. Reuse a merged PR only while its recorded result remains on
+            # the target branch; otherwise fail instead of opening a duplicate.
+            MERGED=$(gh pr list --head "$BRANCH" --base "$TARGET" \
+              --state merged --json number,mergeCommit,isCrossRepository \
+              --jq '(map(select(.isCrossRepository == false))[0] // empty) |
+                [.number, .mergeCommit.oid] | @tsv')
+            if [ -n "$MERGED" ]; then
+              IFS=$'\t' read -r MERGED_PR MERGED_SHA <<< "$MERGED"
+              if [ -z "$MERGED_SHA" ]; then
+                echo "::error::PR #$MERGED_PR was merged for $BRANCH but has no recorded merge commit"
+                FAILED+=("$TARGET")
+                continue
+              fi
+              if ! git merge-base --is-ancestor "$MERGED_SHA" "origin/$TARGET"; then
+                echo "::error::PR #$MERGED_PR merged at $MERGED_SHA, which is no longer on $TARGET"
+                FAILED+=("$TARGET")
+                continue
+              fi
+              echo "✅ PR #$MERGED_PR already merged at $MERGED_SHA — $TARGET is complete"
+              continue
+            fi
+
             git checkout -B "$BRANCH" "origin/$TARGET"
 
             if ! git rebase "$RELEASE_COMMIT"; then
               git rebase --abort
               echo "::error::Rebase of $TARGET onto v${VERSION} ($RELEASE_COMMIT) conflicted — resolve manually"
               FAILED+=("$TARGET")
-              continue
-            fi
-
-            # Idempotency: on a re-run the branch already has an open PR, and
-            # `gh pr create` errors out for a duplicate head/base. Reuse it
-            # without force-pushing over any in-progress conflict resolution.
-            EXISTING=$(gh pr list --head "$BRANCH" --base "$TARGET" \
-              --state open --json number --jq '.[0].number // empty')
-            if [ -n "$EXISTING" ]; then
-              echo "♻️ PR #$EXISTING already open for $BRANCH — leaving the remote branch untouched."
-              echo "   The local rebase was discarded. If that PR needs refreshing, update it manually."
               continue
             fi
 
@@ -206,7 +231,6 @@ jobs:
 
       # ── Summary ────────────────────────────────────────────
       - name: Summary
-        if: always()
         env:
           VERSION: ${{ steps.version.outputs.version }}
         run: |
@@ -217,11 +241,11 @@ jobs:
           echo ""
           echo "  Version: v${VERSION}"
           echo ""
-          echo "  ✅ v${VERSION}-python3.11 tag created at the tagged commit"
-          echo "  📋 Rebase PRs opened for the existing spark branches"
+          echo "  ✅ v${VERSION}-python3.11 tag verified at the tagged commit"
+          echo "  📋 Spark release branches processed"
           if [ "${SKIP_SPARK40}" = "true" ]; then
             echo "  ⏭️ spark4.0 skipped (SKIP_SPARK40)"
           fi
           echo ""
-          echo "  Next: review and merge the spark rebase PR(s)"
+          echo "  Next: review and merge any open spark rebase PR(s)"
           echo "═══════════════════════════════════════════════════"

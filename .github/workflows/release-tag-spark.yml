@@ -23,6 +23,7 @@ jobs:
 
     if: >-
       github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
       startsWith(github.event.pull_request.head.ref, 'release/')
 
     steps:
@@ -59,31 +60,29 @@ jobs:
 
           echo "📦 Version: $VERSION, Target: $TARGET"
 
-      # Guard before checkout: `ref:` below is an expression, so if
-      # merge_commit_sha is empty actions/checkout silently falls back to the
-      # default branch and this job would tag master's tip as a spark release.
-      # GitHub does not populate merge_commit_sha for every merge method, so
-      # fail loudly rather than tag the wrong commit.
-      - name: Verify the merge commit is known
+      # For a merged PR, GitHub defines merge_commit_sha as the commit written
+      # to the base branch, including the final rebased commit for "Rebase and
+      # merge". Guard its nullable schema because an empty checkout ref falls
+      # back to the default branch instead of identifying the released commit.
+      - name: Verify the merged commit is known
         env:
-          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          MERGED_SHA: ${{ github.event.pull_request.merge_commit_sha }}
           BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
           set -euo pipefail
-          if [ -z "$MERGE_SHA" ]; then
+          if [ -z "$MERGED_SHA" ]; then
             echo "::error::pull_request.merge_commit_sha is empty, so the commit that landed on \
           $BASE_REF cannot be identified. Refusing to guess. Tag the merged commit manually: \
           git tag v<version>-<target> <sha> && git push origin v<version>-<target>"
             exit 1
           fi
-          echo "✅ Merge commit: $MERGE_SHA"
+          echo "✅ Merged commit: $MERGED_SHA"
 
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # Pin to the merge commit, not the base branch ref. The branch is a
-          # moving target: any commit landing on spark4.x between the merge and
-          # this job starting would silently get the release tag instead.
+          # Pin to the commit recorded by the merge event, not the base branch
+          # ref. Any later commit on spark4.x must not receive this release tag.
           ref: ${{ github.event.pull_request.merge_commit_sha }}
           # Full history and tags: the "tag already exists" guard below is
           # meaningless against a shallow clone with no tags fetched.
@@ -136,11 +135,21 @@ jobs:
       - name: Cleanup release branch
         env:
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          if git push origin --delete "$HEAD_REF"; then
-            echo "🧹 Deleted $HEAD_REF"
+          set -euo pipefail
+          REF="refs/heads/$HEAD_REF"
+          REMOTE_HEAD=$(git ls-remote --heads origin "$REF")
+          if [ -z "$REMOTE_HEAD" ]; then
+            echo "🧹 $HEAD_REF is already absent from origin"
           else
-            echo "::warning::Could not delete release branch $HEAD_REF — delete it manually"
+            REMOTE_SHA=${REMOTE_HEAD%%$'\t'*}
+            if [ "$REMOTE_SHA" != "$HEAD_SHA" ]; then
+              echo "::error::$HEAD_REF moved from $HEAD_SHA to $REMOTE_SHA after merge; refusing to delete it"
+              exit 1
+            fi
+            git push --force-with-lease="$REF:$HEAD_SHA" origin --delete "$REF"
+            echo "🧹 Deleted $HEAD_REF"
           fi
 
       - name: Summary
@@ -154,9 +163,9 @@ jobs:
           echo "  Spark Branch Tags — Summary"
           echo "═══════════════════════════════════════════════════"
           echo ""
-          echo "  ✅ v${VERSION}-${TARGET} tag created"
-          echo "  ✅ v${VERSION}-python${PYTHON_VER} tag created"
-          echo "  🧹 Release branch cleaned up"
+          echo "  ✅ v${VERSION}-${TARGET} tag verified at the merged commit"
+          echo "  ✅ v${VERSION}-python${PYTHON_VER} tag verified at the merged commit"
+          echo "  🧹 Release branch absent from origin"
           echo ""
           echo "  Next steps:"
           echo "    1. Queue ADO pipeline 17563 for refs/tags/v${VERSION}-${TARGET}"
