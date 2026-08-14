@@ -17,12 +17,12 @@ import org.scalactic.Equality
 import org.scalactic.source.Position
 import org.scalatest._
 import org.scalatest.funsuite.AnyFunSuite
-import org.scalatest.concurrent.TimeLimits
+import org.scalatest.concurrent.{Signaler, ThreadSignaler, TimeLimits}
 import org.scalatest.time.{Seconds, Span}
 
 import java.io.File
 import java.nio.file.{Files, Path}
-import scala.concurrent._
+import scala.concurrent.blocking
 import scala.reflect.ClassTag
 
 trait SparkSessionManagement {
@@ -147,7 +147,23 @@ object TestBase extends SparkSessionManagement {
 
 }
 
-abstract class TestBase extends AnyFunSuite with BeforeAndAfterEachTestData with BeforeAndAfterAll {
+abstract class TestBase extends AnyFunSuite with BeforeAndAfterEachTestData with BeforeAndAfterAll with TimeLimits {
+
+  // Global per-test timeout (10 minutes). Override in subclass if needed.
+  val testTimeoutInSeconds: Int = 10 * 60
+
+  // ScalaTest's default signaler is DoNotSignal, which only reports a timeout *after* the body
+  // returns - so a genuinely hung test would still block forever. ThreadSignaler interrupts the
+  // running test thread when the deadline passes, which is what makes the timeout able to break hangs.
+  implicit protected val testSignaler: Signaler = ThreadSignaler
+
+  override def test(testName: String, testTags: Tag*)(testFun: => Any)(implicit pos: Position): Unit = {
+    super.test(testName, testTags: _*) {
+      failAfter(Span(testTimeoutInSeconds, Seconds)) {
+        testFun
+      }
+    }
+  }
 
   lazy val sparkProvider: SparkSessionManagement = TestBase
 

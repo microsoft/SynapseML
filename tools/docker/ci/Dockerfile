@@ -1,0 +1,118 @@
+# SynapseML CI Container Image
+# Pre-bakes all build dependencies so CI jobs start with a warm environment.
+# Rebuilt automatically by BuildCIImage when dependency files change.
+
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV LANG=C.UTF-8
+ENV LC_ALL=C.UTF-8
+
+# Temurin JDK 8 + system packages in a single layer to avoid redundant apt-get update.
+# JDK 8 required — JDK 11 has different CMYK JPEG handling in ImageIO.
+# Audio libs (libasound2, libpulse0) needed by Azure Speech SDK.
+# libssl1.1 needed by Azure Speech SDK (Ubuntu 22.04 ships OpenSSL 3.0 but SDK requires 1.x).
+RUN apt-get update && apt-get install -y --no-install-recommends curl wget git ca-certificates gnupg2 \
+    && wget -qO- https://packages.adoptium.net/artifactory/api/gpg/key/public | gpg --dearmor -o /usr/share/keyrings/adoptium.gpg \
+    && echo "deb [signed-by=/usr/share/keyrings/adoptium.gpg] https://packages.adoptium.net/artifactory/deb $(. /etc/os-release && echo $VERSION_CODENAME) main" \
+         > /etc/apt/sources.list.d/adoptium.list \
+    && apt-get update && apt-get install -y --no-install-recommends \
+         temurin-8-jdk \
+         openmpi-bin libopenmpi-dev \
+         ffmpeg libgstreamer1.0-0 \
+         gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
+         libasound2 libpulse0 \
+         graphviz doxygen \
+         build-essential cmake \
+         libssl-dev libffi-dev \
+         sudo \
+    && rm -rf /var/lib/apt/lists/* \
+    && wget -q https://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2.24_amd64.deb -O /tmp/libssl1.1.deb \
+    && echo "7cf39d70a639017d1dd7c8d36daa2258063608688e449fddf40ffdd46f992a78  /tmp/libssl1.1.deb" | sha256sum -c - \
+    && dpkg -i /tmp/libssl1.1.deb \
+    && rm /tmp/libssl1.1.deb
+
+ENV JAVA_HOME=/usr/lib/jvm/temurin-8-jdk-amd64
+
+# Miniconda — pinned version for reproducible builds
+# conda 24.x does not require TOS acceptance (that was added in conda 25.x)
+# Digest is the one published by Anaconda on https://repo.anaconda.com/miniconda/ ; this
+# installer is executed as root, so verify before running it rather than after.
+RUN wget -q https://repo.anaconda.com/miniconda/Miniconda3-py311_24.11.1-0-Linux-x86_64.sh -O /tmp/miniconda.sh \
+    && echo "807774bae6cd87132094458217ebf713df436f64779faf9bb4c3d4b6615c1e3a  /tmp/miniconda.sh" | sha256sum -c - \
+    && bash /tmp/miniconda.sh -b -p /opt/conda \
+    && rm /tmp/miniconda.sh
+ENV PATH=/opt/conda/bin:$PATH
+ENV CONDA_CACHE_DIR=/opt/conda/envs
+
+# Azure CLI (installed into base conda python, not the synapseml env)
+RUN pip install --no-cache-dir azure-cli==2.60.0
+
+# Spark (pre-downloaded for R tests)
+ENV SPARK_VERSION=3.5.0
+ENV HADOOP_VERSION=3
+# We fetch Spark from a blob mirror, so pin the digest Apache publishes for this exact
+# artifact (archive.apache.org/dist/spark/spark-3.5.0/...tgz.sha512). Bump both the version
+# ENVs and this digest together; a stale digest fails the build instead of silently
+# installing a different Spark.
+RUN wget -q "https://mmlspark.blob.core.windows.net/installers/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz" -O /tmp/spark.tgz \
+    && echo "8883c67e0a138069e597f3e7d4edbbd5c3a565d50b28644aad02856a1ec1da7cb92b8f80454ca427118f69459ea326eaa073cf7b1a860c3b796f4b07c2101319  /tmp/spark.tgz" | sha512sum -c - \
+    && tar -xzf /tmp/spark.tgz -C /opt \
+    && rm /tmp/spark.tgz
+ENV SPARK_HOME=/opt/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}
+ENV PATH=${SPARK_HOME}/bin:$PATH
+
+# SBT — use a shared Coursier cache owned by ADO's remapped UID 1001
+ENV SBT_VERSION=1.10.11
+ENV COURSIER_CACHE=/opt/.cache/coursier
+# Digest is the sbt-${SBT_VERSION}.tgz.sha256 asset published on the same GitHub release.
+RUN wget -q "https://github.com/sbt/sbt/releases/download/v${SBT_VERSION}/sbt-${SBT_VERSION}.tgz" -O /tmp/sbt.tgz \
+    && echo "5034a64841b8a9cfb52a341e45b01df2b8c2ffaa87d8d2b0fe33c4cdcabd8f0c  /tmp/sbt.tgz" | sha256sum -c - \
+    && tar -xzf /tmp/sbt.tgz -C /opt \
+    && rm /tmp/sbt.tgz \
+    && mkdir -p $COURSIER_CACHE
+ENV PATH=/opt/sbt/bin:$PATH
+
+# --- Cache boundary: layers below invalidate when dependency files change ---
+
+# Conda environment from environment.yml
+# Use PIP_NO_CACHE_DIR to save disk; CI is CPU-only so replace CUDA torch with CPU variant
+# Direct wheel URLs avoid --extra-index-url which violates CFS policy
+COPY environment.yml /tmp/environment.yml
+RUN PIP_NO_CACHE_DIR=1 conda env create -f /tmp/environment.yml \
+    && conda clean --all -y \
+    && rm /tmp/environment.yml \
+    && /opt/conda/envs/synapseml/bin/pip install --no-cache-dir --no-deps \
+         "https://download.pytorch.org/whl/cpu/torch-2.1.0%2Bcpu-cp311-cp311-linux_x86_64.whl" \
+         "https://download.pytorch.org/whl/cpu/torchvision-0.16.0%2Bcpu-cp311-cp311-linux_x86_64.whl" \
+    && /opt/conda/envs/synapseml/bin/pip uninstall -y triton \
+         nvidia-cublas-cu12 nvidia-cuda-cupti-cu12 nvidia-cuda-nvrtc-cu12 \
+         nvidia-cuda-runtime-cu12 nvidia-cudnn-cu12 nvidia-cufft-cu12 \
+         nvidia-curand-cu12 nvidia-cusolver-cu12 nvidia-cusparse-cu12 \
+         nvidia-nccl-cu12 nvidia-nvjitlink-cu12 nvidia-nvtx-cu12 \
+    && chown -R 1001:0 /opt/conda/envs \
+    && chmod -R u+rwX,go+rX,go-w /opt/conda/envs
+
+# Pre-fetch SBT plugins, all project dependency JARs, and compiler-bridge.
+# Copy the full project/ dir and build files so SBT can resolve the complete
+# dependency graph. This eliminates ~286 JAR downloads + compiler-bridge
+# compilation (~2-3 min) from every test job.
+COPY project/               /tmp/sbt-warmup/project/
+COPY build.sbt              /tmp/sbt-warmup/build.sbt
+COPY sonatype.sbt           /tmp/sbt-warmup/sonatype.sbt
+RUN cd /tmp/sbt-warmup \
+    && sbt --batch -Dsbt.supershell=false "update; Test/update" || true \
+    && rm -rf /tmp/sbt-warmup /tmp/.sbt \
+    && chown -R 1001:0 "$COURSIER_CACHE" \
+    && chmod -R u+rwX,go+rX,go-w "$COURSIER_CACHE"
+
+# Pre-download test datasets (static tarball, ~117MB) to avoid downloading in every job
+ENV DATASET_CACHE=/opt/datasets
+RUN mkdir -p $DATASET_CACHE \
+    && wget -q "https://mmlspark.blob.core.windows.net/installers/datasets-2023-04-03.tgz" \
+         -O "$DATASET_CACHE/datasets-2023-04-03.tgz" \
+    && echo "f8f8592c30451628ef3c0f63aab3b1f85d18acf6565de0b48086b273e94622fb  $DATASET_CACHE/datasets-2023-04-03.tgz" \
+         | sha256sum -c -
+
+# No ENTRYPOINT — ADO agent needs to control the process
+CMD ["bash"]

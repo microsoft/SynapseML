@@ -6,6 +6,7 @@ bootstrap inputs, and the duplicated inline retry blocks were replaced by the
 shared helper. Run with: ``python -m pytest tools/ci/tests/test_pipeline_yaml.py``.
 """
 
+import hashlib
 import os
 import re
 import shutil
@@ -18,6 +19,7 @@ import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 PIPELINE = REPO_ROOT / "pipeline.yaml"
+CI_DOCKERFILE = REPO_ROOT / "tools" / "docker" / "ci" / "Dockerfile"
 SBT_CACHE_TPL = REPO_ROOT / "templates" / "sbt_cache.yml"
 SBT_RETRY = REPO_ROOT / "tools" / "ci" / "sbt_retry.sh"
 SBT_VERSION = REPO_ROOT / "tools" / "ci" / "get_sbt_version.sh"
@@ -28,9 +30,38 @@ RELEASE_COMPAT_PREREQUISITES = (
     REPO_ROOT / ".pipelines" / "release-compat-prerequisites.txt"
 )
 
+# Matches a real `sbt <args>` invocation while ignoring filenames that merely end
+# in ".sbt" (e.g. `sha256sum build.sbt sonatype.sbt ...`), which would otherwise
+# make any job that hashes the build files look like it runs sbt.
+_INVOKES_SBT = re.compile(r"(?<![\w./-])sbt\s")
+
 
 def _pipeline_text():
     return PIPELINE.read_text()
+
+
+def _ci_image_dependency_tag():
+    inputs = [
+        # .dockerignore selects the build context, so it can change the built
+        # image without changing any file listed below.
+        REPO_ROOT / ".dockerignore",
+        REPO_ROOT / "environment.yml",
+        REPO_ROOT / "build.sbt",
+        REPO_ROOT / "sonatype.sbt",
+        CI_DOCKERFILE,
+    ]
+    project_inputs = subprocess.check_output(
+        ["git", "-C", str(REPO_ROOT), "ls-files", "--", "project"], text=True
+    ).splitlines()
+    inputs.extend(REPO_ROOT / path for path in sorted(project_inputs))
+    manifest = b"".join(
+        (
+            f"{hashlib.sha256(path.read_bytes()).hexdigest()}  "
+            f"{path.relative_to(REPO_ROOT).as_posix()}\n"
+        ).encode()
+        for path in inputs
+    )
+    return "ci-" + hashlib.sha256(manifest).hexdigest()[:12]
 
 
 def _jobs(node):
@@ -75,6 +106,37 @@ def test_pipeline_and_templates_parse():
     assert yaml.safe_load(CLEAN_ACR_PIPELINE.read_text()) is not None
     for tpl in (REPO_ROOT / "templates").glob("*.yml"):
         assert yaml.safe_load(tpl.read_text()) is not None, f"{tpl} failed to parse"
+
+
+def test_ci_image_tag_matches_dependency_hash():
+    data = yaml.safe_load(_pipeline_text())
+    ci_container = next(
+        container
+        for container in data["resources"]["containers"]
+        if container["container"] == "ci"
+    )
+    expected_tag = _ci_image_dependency_tag()
+    assert data["variables"]["CI_IMAGE_TAG"] == expected_tag
+    assert ci_container["image"].rsplit(":", 1)[1] == expected_tag
+
+
+def test_containerized_jobs_do_not_apt_install():
+    """The CI image already ships system packages and drops its apt lists.
+
+    A containerized job that still runs `apt-get install` fails at runtime with
+    "Unable to locate package", so install into the image instead.
+    """
+    data = yaml.safe_load(_pipeline_text())
+    offenders = [
+        job.get("job")
+        for job in _jobs(data["jobs"])
+        if job.get("container")
+        and "apt-get install" in yaml.safe_dump(job.get("steps", []))
+    ]
+    assert not offenders, (
+        "tools/docker/ci/Dockerfile removes /var/lib/apt/lists, so apt-get install "
+        f"cannot resolve packages inside the container: {offenders}"
+    )
 
 
 def test_sbt_cache_template_exists_and_parses():
@@ -518,7 +580,16 @@ def test_publish_jobs_resolve_and_preserve_package_versions():
     publish = jobs["Publish"]
     publish_steps = publish["steps"]
     assert any(step.get("task") == "MavenAuthenticate@0" for step in publish_steps)
-    assert any(step.get("template") == "templates/conda.yml" for step in publish_steps)
+    # When Publish runs in the prebuilt CI container the synapseml conda env is
+    # baked into the image, so restoring it via templates/conda.yml would be a
+    # no-op at best. At worst it is destructive: conda.yml resolves
+    # $(CONDA_CACHE_DIR) to the hosted-agent path and runs `conda env remove`
+    # + `conda env create`, which would delete the prebaked env. Only require
+    # the template for a non-containerized job.
+    if not publish.get("container"):
+        assert any(
+            step.get("template") == "templates/conda.yml" for step in publish_steps
+        )
     assert any(step.get("template") == "templates/kv.yml" for step in publish_steps)
     version_step = next(
         step
@@ -581,7 +652,15 @@ def test_style_does_not_restore_the_full_conda_environment():
         for step in style["steps"]
         if step.get("displayName") == "Python Style Check"
     )
-    assert "black[jupyter]==22.3.0" in python_style["bash"]
+    # The formatter version must be pinned exactly. A containerized Style job
+    # inherits the pin from environment.yml, which the CI image bakes in, so
+    # re-installing it at step time would only add network flakiness. A
+    # non-containerized job has to pin it inline.
+    if style.get("container"):
+        env_text = (REPO_ROOT / "environment.yml").read_text(encoding="utf-8")
+        assert "black[jupyter]==22.3.0" in env_text
+    else:
+        assert "black[jupyter]==22.3.0" in python_style["bash"]
 
 
 def test_every_sbt_running_job_waits_for_the_prewarm_cache():
@@ -607,7 +686,7 @@ def test_every_sbt_running_job_waits_for_the_prewarm_cache():
         steps = job.get("steps", [])
         texts = flatten(steps)
         runs_sbt = any(
-            "sbt " in t or t.strip().startswith("sbt") or "sbt_retry.sh" in t
+            _INVOKES_SBT.search(t) or t.strip().startswith("sbt") or "sbt_retry.sh" in t
             for t in texts
         )
         templates = [
