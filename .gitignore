@@ -96,4 +96,3 @@ condaenv.*.requirements.txt
 # Dev-loop artifacts
 .dev-loop/
 .dev-loop-artifacts/
-pipeline.yaml.bak
