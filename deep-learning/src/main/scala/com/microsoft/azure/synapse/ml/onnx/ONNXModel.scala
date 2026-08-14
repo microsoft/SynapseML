@@ -200,10 +200,19 @@ class ONNXModel(override val uid: String)
     val hadoopConf = spark.sparkContext.hadoopConfiguration
     val hadoopPath = new org.apache.hadoop.fs.Path(path)
     val fs = hadoopPath.getFileSystem(hadoopConf)
-    val fileLength = fs.getFileStatus(hadoopPath).getLen
+    // binaryFiles accepted a file, a directory or a glob, so keep resolving all three. Sorting
+    // makes the selection deterministic, which binaryFiles' partition order was not.
+    val status = Option(fs.globStatus(hadoopPath)).getOrElse(Array.empty)
+      .flatMap(s => if (s.isDirectory) fs.listStatus(s.getPath) else Array(s))
+      .filter(_.isFile)
+      .sortBy(_.getPath.toString)
+      .headOption
+      .getOrElse(throw new IllegalArgumentException(s"No ONNX model file found at $path"))
+    val fileLength = status.getLen
     require(fileLength <= Int.MaxValue,
-      s"ONNX model at $path is $fileLength bytes, which exceeds the maximum supported size of ${Int.MaxValue} bytes.")
-    val stream = fs.open(hadoopPath)
+      s"ONNX model at ${status.getPath} is $fileLength bytes, which exceeds the maximum " +
+        s"supported size of ${Int.MaxValue} bytes.")
+    val stream = fs.open(status.getPath)
     try {
       val modelBytes = new Array[Byte](fileLength.toInt)
       stream.readFully(modelBytes)
