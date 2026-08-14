@@ -6,6 +6,7 @@ bootstrap inputs, and the duplicated inline retry blocks were replaced by the
 shared helper. Run with: ``python -m pytest tools/ci/tests/test_pipeline_yaml.py``.
 """
 
+import hashlib
 import os
 import re
 import shutil
@@ -19,6 +20,7 @@ import yaml
 REPO_ROOT = Path(__file__).resolve().parents[3]
 BUILD_SBT = REPO_ROOT / "build.sbt"
 PIPELINE = REPO_ROOT / "pipeline.yaml"
+CI_DOCKERFILE = REPO_ROOT / "tools" / "docker" / "ci" / "Dockerfile"
 SBT_CACHE_TPL = REPO_ROOT / "templates" / "sbt_cache.yml"
 SBT_RETRY = REPO_ROOT / "tools" / "ci" / "sbt_retry.sh"
 SBT_VERSION = REPO_ROOT / "tools" / "ci" / "get_sbt_version.sh"
@@ -43,6 +45,27 @@ _INVOKES_SBT = re.compile(r"(?<![\w./-])sbt\s")
 
 def _pipeline_text():
     return PIPELINE.read_text()
+
+
+def _ci_image_dependency_tag():
+    inputs = [
+        REPO_ROOT / "environment.yml",
+        REPO_ROOT / "build.sbt",
+        REPO_ROOT / "sonatype.sbt",
+        CI_DOCKERFILE,
+    ]
+    project_inputs = subprocess.check_output(
+        ["git", "-C", str(REPO_ROOT), "ls-files", "--", "project"], text=True
+    ).splitlines()
+    inputs.extend(REPO_ROOT / path for path in sorted(project_inputs))
+    manifest = b"".join(
+        (
+            f"{hashlib.sha256(path.read_bytes()).hexdigest()}  "
+            f"{path.relative_to(REPO_ROOT).as_posix()}\n"
+        ).encode()
+        for path in inputs
+    )
+    return "ci-" + hashlib.sha256(manifest).hexdigest()[:12]
 
 
 def _jobs(node):
@@ -188,6 +211,18 @@ def test_build_has_canonical_maven_central_fallback():
         rf"(?:\+=\s*{resolver}|\+\+=\s*Seq\s*\([^)]*{resolver}[^)]*\))"
     )
     assert len(re.findall(active_setting, build, flags=re.DOTALL)) == 1
+
+
+def test_ci_image_tag_matches_dependency_hash():
+    data = yaml.safe_load(_pipeline_text())
+    ci_container = next(
+        container
+        for container in data["resources"]["containers"]
+        if container["container"] == "ci"
+    )
+    expected_tag = _ci_image_dependency_tag()
+    assert data["variables"]["CI_IMAGE_TAG"] == expected_tag
+    assert ci_container["image"].rsplit(":", 1)[1] == expected_tag
 
 
 def test_sbt_cache_template_exists_and_parses():

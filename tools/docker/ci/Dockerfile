@@ -54,7 +54,7 @@ RUN wget -q "https://mmlspark.blob.core.windows.net/installers/spark-${SPARK_VER
 ENV SPARK_HOME=/opt/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}
 ENV PATH=${SPARK_HOME}/bin:$PATH
 
-# SBT — set COURSIER_CACHE to shared location accessible by any UID (ADO uses UID 1001)
+# SBT — use a shared Coursier cache owned by ADO's remapped UID 1001
 ENV SBT_VERSION=1.10.11
 ENV COURSIER_CACHE=/opt/.cache/coursier
 RUN wget -q "https://github.com/sbt/sbt/releases/download/v${SBT_VERSION}/sbt-${SBT_VERSION}.tgz" -O /tmp/sbt.tgz \
@@ -79,10 +79,9 @@ RUN PIP_NO_CACHE_DIR=1 conda env create -f /tmp/environment.yml \
          nvidia-cublas-cu12 nvidia-cuda-cupti-cu12 nvidia-cuda-nvrtc-cu12 \
          nvidia-cuda-runtime-cu12 nvidia-cudnn-cu12 nvidia-cufft-cu12 \
          nvidia-curand-cu12 nvidia-cusolver-cu12 nvidia-cusparse-cu12 \
-         nvidia-nccl-cu12 nvidia-nvjitlink-cu12 nvidia-nvtx-cu12 2>/dev/null || true \
-    && chmod -R 755 /opt/conda/envs \
-    && chown -R 1001:0 /opt/conda/envs/synapseml/lib/R/library \
-    && chmod -R u+rwX,go+rX,go-w /opt/conda/envs/synapseml/lib/R/library
+         nvidia-nccl-cu12 nvidia-nvjitlink-cu12 nvidia-nvtx-cu12 \
+    && chown -R 1001:0 /opt/conda/envs \
+    && chmod -R u+rwX,go+rX,go-w /opt/conda/envs
 
 # Pre-fetch SBT plugins, all project dependency JARs, and compiler-bridge.
 # Copy the full project/ dir and build files so SBT can resolve the complete
@@ -94,7 +93,8 @@ COPY sonatype.sbt           /tmp/sbt-warmup/sonatype.sbt
 RUN cd /tmp/sbt-warmup \
     && sbt --batch -Dsbt.supershell=false "update; Test/update" || true \
     && rm -rf /tmp/sbt-warmup /tmp/.sbt \
-    && chmod -R 755 $COURSIER_CACHE
+    && chown -R 1001:0 "$COURSIER_CACHE" \
+    && chmod -R u+rwX,go+rX,go-w "$COURSIER_CACHE"
 
 # Pre-download test datasets (static tarball, ~50MB) to avoid downloading in every job
 ENV DATASET_CACHE=/opt/datasets

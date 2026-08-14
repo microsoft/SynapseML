@@ -683,6 +683,9 @@ object DatabricksState {
 
 abstract class DatabricksTestHelper extends TestBase {
 
+  // Notebook monitoring can run for 32 minutes; let its own timeout report the failure first.
+  override val testTimeoutInSeconds: Int = 35 * 60
+
   import DatabricksUtilities._
 
   def databricksTestHelper(clusterId: String,

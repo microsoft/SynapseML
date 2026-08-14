@@ -11,7 +11,7 @@ resources:
   #      BuildCIImage job on master. A change to any of those inputs therefore
   #      needs its image published from master before this pipeline can pull it.
   - container: ci
-    image: mmlsparkmcr.azurecr.io/synapseml/ci:ci-060baf1aac44
+    image: mmlsparkmcr.azurecr.io/synapseml/ci:ci-2b4cdb1f2a8d
     endpoint: 'SynapseML MCR'
   repositories:
   - repository: SynapseML-Internal
@@ -111,7 +111,7 @@ variables:
   CONDA_CACHE_DIR: /usr/share/miniconda/envs
   UBUNTU_VERSION: ubuntu-22.04
   ComponentDetection.Timeout: 900
-  CI_IMAGE_TAG: ci-060baf1aac44
+  CI_IMAGE_TAG: ci-2b4cdb1f2a8d
   isMaster: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
   isTag: $[startsWith(variables['Build.SourceBranch'], 'refs/tags/')]
   isPR: $[eq(variables['Build.Reason'], 'PullRequest')]
@@ -132,7 +132,7 @@ jobs:
         set -euo pipefail
         HASH=$({
           sha256sum environment.yml build.sbt sonatype.sbt tools/docker/ci/Dockerfile
-          find project -type f -print0 | sort -z | xargs -0 sha256sum
+          git ls-files -z -- project | sort -z | xargs -0 sha256sum
         } | sha256sum | cut -c1-12)
         EXPECTED_TAG="ci-${HASH}"
         VARIABLE_TAG="$(CI_IMAGE_TAG)"
@@ -268,7 +268,7 @@ jobs:
         set -euo pipefail
         HASH=$({
           sha256sum environment.yml build.sbt sonatype.sbt tools/docker/ci/Dockerfile
-          find project -type f -print0 | sort -z | xargs -0 sha256sum
+          git ls-files -z -- project | sort -z | xargs -0 sha256sum
         } | sha256sum | cut -c1-12)
         TAG="ci-${HASH}"
         EXPECTED_TAG="$(CI_IMAGE_TAG)"
@@ -792,7 +792,11 @@ jobs:
     - bash: |
         source activate synapseml
         if [ "$(runCoverage)" = "True" ]; then COV_CMD="coverage"; else COV_CMD=""; fi
-        sbt $COV_CMD getDatasets "project core" installPipPackage publishM2 "project $(PACKAGE)" installPipPackage publishM2
+        SBT_TASKS=(getDatasets "project core" installPipPackage publishM2)
+        if [ "$(PACKAGE)" != "core" ]; then
+          SBT_TASKS+=("project $(PACKAGE)" installPipPackage publishM2)
+        fi
+        sbt $COV_CMD "${SBT_TASKS[@]}"
       displayName: 'Install and package deps'
       timeoutInMinutes: 40
     - task: AzureCLI@2

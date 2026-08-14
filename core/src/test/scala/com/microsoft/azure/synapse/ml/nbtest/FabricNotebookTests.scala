@@ -29,6 +29,8 @@ trait HasFabricNotebookTestConnection extends HasFabricOperationsConnection {
 }
 
 class FabricTestCleanup extends TestBase with HasFabricNotebookTestConnection {
+  override val testTimeoutInSeconds: Int = 65 * 60
+
   test("Clean up old artifacts") {
     val cutoff = LocalDateTime.now().minusDays(3)
     fabric.listArtifacts()
@@ -45,6 +47,8 @@ class FabricTestCleanup extends TestBase with HasFabricNotebookTestConnection {
 }
 
 class FabricSmokeTests extends TestBase with HasFabricNotebookTestConnection {
+
+  override val testTimeoutInSeconds: Int = 65 * 60
 
   val trivialScript: String =
     """
@@ -104,6 +108,8 @@ class FabricSmokeTests extends TestBase with HasFabricNotebookTestConnection {
 }
 
 class FabricNotebookTests extends TestBase with HasFabricNotebookTestConnection {
+  override val testTimeoutInSeconds: Int = 65 * 60
+
   SharedNotebookE2ETestUtilities.generateNotebooks()
 
   val selectedPythonFiles: Array[File] = FileUtilities
