@@ -371,7 +371,8 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
                     getSamplingSubsetSize,
                     getMicroBatchSize,
                     getUseSingleDatasetMode,
-                    getMaxStreamingOMPThreads)
+                    getMaxStreamingOMPThreads,
+                    getDeviceType)
   }
 
   /**

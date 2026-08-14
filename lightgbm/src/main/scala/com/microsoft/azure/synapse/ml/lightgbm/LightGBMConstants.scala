@@ -46,6 +46,15 @@ object LightGBMConstants {
   /** Sampling mode take first n rows.
     */
   val SubsetSamplingModeFixed: String = "fixed"
+  /** Tree learning on the CPU. This is LightGBM's own default.
+    */
+  val CPUDeviceType: String = "cpu"
+  /** Tree learning on an OpenCL GPU.
+    */
+  val GPUDeviceType: String = "gpu"
+  /** Tree learning on a CUDA GPU.
+    */
+  val CUDADeviceType: String = "cuda"
   /** Enabled task, used to indicate task that creates lightgbm dataset and runs training.
     */
   val EnabledTask: String = "enabledTask"

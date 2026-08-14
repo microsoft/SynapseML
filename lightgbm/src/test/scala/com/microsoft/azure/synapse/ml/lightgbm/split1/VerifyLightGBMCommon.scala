@@ -6,11 +6,13 @@ package com.microsoft.azure.synapse.ml.lightgbm.split1
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.lightgbm._
 import com.microsoft.azure.synapse.ml.lightgbm.dataset.{ChunkedArrayUtils, SampledData}
+import com.microsoft.azure.synapse.ml.lightgbm.params.BaseTrainParams
 import com.microsoft.azure.synapse.ml.lightgbm.swig.{DoubleChunkedArray, DoubleSwigArray, IntSwigArray, SwigUtils}
 import com.microsoft.ml.lightgbm.{SWIGTYPE_p_p_void, SWIGTYPE_p_void, lightgbmlib}
 import org.apache.spark.ml.attribute.{Attribute, AttributeGroup, NumericAttribute}
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vectors}
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.types.StructField
 
 // scalastyle:off magic.number
 // scalastyle:off method.length
@@ -381,5 +383,43 @@ class VerifyLightGBMCommon extends TestBase with LightGBMTestUtils {
       .setDataTransferMode(LightGBMConstants.BulkDataTransferMode)
       .setSlotNames(Array("a", "b"))
     assert(model.fit(df).transform(df).count() == 4)
+  }
+
+  /** getTrainParams only reads attribute metadata off the features field, so any schema will do. */
+  private lazy val deviceFeaturesSchema: StructField = makeDuplicateNameDF(3).schema(featuresCol)
+
+  private def paramTokens(params: BaseTrainParams): Set[String] = params.toString.split(" ").toSet
+
+  test("Verify deviceType reaches the LightGBM parameter string for every learner") {
+    val classifier = new LightGBMClassifier().setDeviceType(LightGBMConstants.GPUDeviceType)
+    val regressor = new LightGBMRegressor().setDeviceType(LightGBMConstants.GPUDeviceType)
+    val ranker = new LightGBMRanker().setDeviceType(LightGBMConstants.CUDADeviceType)
+    assert(paramTokens(classifier.getTrainParams(1, deviceFeaturesSchema, 2)).contains("device_type=gpu"))
+    assert(paramTokens(regressor.getTrainParams(1, deviceFeaturesSchema, 2)).contains("device_type=gpu"))
+    assert(paramTokens(ranker.getTrainParams(1, deviceFeaturesSchema, 2)).contains("device_type=cuda"))
+  }
+
+  test("Verify the default cpu deviceType leaves the LightGBM parameter string untouched") {
+    // cpu is LightGBM's own default, so emitting it would only risk overriding a "device" alias
+    // that an existing caller passed through passThroughArgs.
+    Seq(new LightGBMClassifier().getTrainParams(1, deviceFeaturesSchema, 2),
+        new LightGBMRegressor().getTrainParams(1, deviceFeaturesSchema, 2),
+        new LightGBMRanker().getTrainParams(1, deviceFeaturesSchema, 2))
+      .foreach(params => assert(!params.toString.contains("device_type")))
+  }
+
+  test("Verify passThroughArgs still overrides deviceType") {
+    val classifier = new LightGBMClassifier()
+      .setPassThroughArgs("device_type=cuda")
+      .setDeviceType(LightGBMConstants.GPUDeviceType)
+    val tokens = paramTokens(classifier.getTrainParams(1, deviceFeaturesSchema, 2))
+    assert(tokens.contains("device_type=cuda"))
+    assert(!tokens.contains("device_type=gpu"))
+  }
+
+  test("Verify deviceType rejects an unsupported device") {
+    assertThrows[IllegalArgumentException] {
+      new LightGBMClassifier().setDeviceType("tpu")
+    }
   }
 }
