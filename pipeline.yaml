@@ -6,8 +6,8 @@ resources:
     #      pointing at mmlsparkmcr.azurecr.io, must exist in the ADO project and
     #      be authorized for this pipeline.
     #   2. The tag below must already be present in the registry. It is content
-    #      addressed from environment.yml + build.sbt + sonatype.sbt + project/ +
-    #      tools/docker/ci/Dockerfile, and is built and pushed only by the
+    #      addressed from .dockerignore + environment.yml + build.sbt + sonatype.sbt +
+    #      project/ + tools/docker/ci/Dockerfile, and is built and pushed only by the
     #      BuildCIImage job on master. A change to any of those inputs therefore
     #      needs its image published from master before this pipeline can pull it.
     - container: ci
@@ -355,7 +355,6 @@ jobs:
             set -e
             test -n "$(packageVersion)"
             echo "Publishing SynapseML package version $(packageVersion)"
-            sudo apt-get install graphviz doxygen -y
             source activate synapseml
             sbt packagePython uploadNotebooks
             sbt -DskipCodegen=true publishBlob publishDocs publishR publishPython
