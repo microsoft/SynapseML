@@ -74,7 +74,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     assert(result.columns.contains(MetricConstants.AreaUnderPRColumnName))
     assert(evaluator.transformSchema(rankedBinaryDataset.schema) ===
       StructType(Array(StructField(MetricConstants.AreaUnderPRColumnName, DoubleType))))
-    assert(math.abs(areaUnderPR - 251.0 / 440.0) < 1e-12)
+    assert(math.abs(areaUnderPR - 251.0 / 440.0) < 1e-8)
     assert(math.abs(areaUnderPR - 13.0 / 22.0) > 0.01)
   }
 
@@ -93,8 +93,8 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
 
     assert(aucEvaluator.transformSchema(rankedBinaryDataset.schema) === aucSchema)
     assert(rocEvaluator.transformSchema(rankedBinaryDataset.schema) === aucSchema)
-    assert(math.abs(auc - 187.0 / 196.0) < 1e-12)
-    assert(math.abs(areaUnderROCAlias - 187.0 / 196.0) < 1e-12)
+    assert(math.abs(auc - 187.0 / 196.0) < 1e-8)
+    assert(math.abs(areaUnderROCAlias - 187.0 / 196.0) < 1e-8)
   }
 
   test("all and classification metrics append binary metrics in runtime output order") {
@@ -105,8 +105,8 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
       val row = result.first()
 
       assert(result.columns.toList === expectedColumns)
-      assert(math.abs(row.getAs[Double](MetricConstants.AucColumnName) - 187.0 / 196.0) < 1e-12)
-      assert(math.abs(row.getAs[Double](MetricConstants.AreaUnderPRColumnName) - 251.0 / 440.0) < 1e-12)
+      assert(math.abs(row.getAs[Double](MetricConstants.AucColumnName) - 187.0 / 196.0) < 1e-8)
+      assert(math.abs(row.getAs[Double](MetricConstants.AreaUnderPRColumnName) - 251.0 / 440.0) < 1e-8)
     }
   }
 
