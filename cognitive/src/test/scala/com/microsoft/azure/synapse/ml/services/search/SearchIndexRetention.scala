@@ -34,6 +34,12 @@ object SearchIndexRetention {
 
   /** Never collect an index younger than this. A full pipeline run finishes well inside an hour,
     * so an index older than this cannot still belong to a build that is running.
+    *
+    * This holds only while every run stamps names on the same clock. [[age]] can do no better
+    * than subtract the name's timestamp from the caller's `now`, so a name written in local time
+    * and read from another zone is wrong by the offset between them, and an offset larger than
+    * this floor would let a sweep collect an index a live build had just created. Producers and
+    * callers therefore both work in UTC.
     */
   val MinimumAge: Duration = Duration.ofHours(3)
 

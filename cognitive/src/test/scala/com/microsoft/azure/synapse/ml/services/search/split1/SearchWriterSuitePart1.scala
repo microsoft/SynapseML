@@ -17,7 +17,7 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.scalatest.{Outcome, TestData}
 
-import java.time.LocalDateTime
+import java.time.{LocalDateTime, ZoneOffset}
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 import scala.collection.mutable
@@ -144,7 +144,12 @@ class SearchWriterSuiteUtilities extends TestBase with AzureSearchKey
       testName.get
     }
 
-    val date = formatter.format(LocalDateTime.now())
+    // UTC, not the default zone: the timestamp in the name is the only record of when an index
+    // was made, and `cleanOldIndexes` will not collect one until it is `MinimumAge` old. Naming
+    // in local time makes that age wrong by the reader's offset whenever the two runs sit in
+    // different zones, which is the normal case here because the service is shared between the
+    // UTC build agents and whoever runs these suites from a workstation.
+    val date = formatter.format(LocalDateTime.now(ZoneOffset.UTC))
     val name = s"test-${UUID.randomUUID().hashCode()}-${date}"
     createdIndexes.getOrElseUpdate(testNameNormalized, mutable.HashSet[String]()).+=(name)
     name
@@ -236,7 +241,7 @@ class SearchWriterSuiteUtilities extends TestBase with AzureSearchKey
   def cleanOldIndexes(): Unit = {
     try {
       val existing = getExisting(azureSearchKey, testServiceName)
-      val collected = SearchIndexRetention.select(existing, LocalDateTime.now())
+      val collected = SearchIndexRetention.select(existing, LocalDateTime.now(ZoneOffset.UTC))
       println(s"Service $testServiceName holds ${existing.size} of ${SearchIndexRetention.MaxIndexes} indexes, " +
         s"reclaiming ${collected.size}")
       val failed = deleteQuietly(collected)

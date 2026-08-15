@@ -115,6 +115,25 @@ class SearchIndexRetentionSuite extends TestBase {
     assert(age(index(5, "-1534278552"), now).map(_.toHours).contains(5L))
   }
 
+  /** Guards the clock convention [[SearchIndexRetention.MinimumAge]] depends on. The shared
+    * service is written to both by the UTC build agents and from workstations, so a name stamped
+    * in the writer's local time reads as wrong by the offset between the two zones. Offsets reach
+    * well past the floor -- the live service showed indexes apparently seven hours in the future
+    * when read from a UTC-7 machine -- which would be enough for a sweep to collect an index a
+    * running build had just created.
+    */
+  test("An index is aged on the same clock it was named on") {
+    val stamped = s"test-utc-${Formatter.format(now)}"
+    assert(age(stamped, now).map(_.toHours).contains(0L))
+    assert(select(Seq(stamped), now).isEmpty)
+
+    // Reading the same name against a clock seven hours ahead ages it past the floor, which is
+    // what naming in local time would do to a build that is still using the index.
+    val skewed = age(stamped, now.plusHours(7))
+    assert(skewed.map(_.toHours).contains(7L))
+    assert(skewed.exists(_.compareTo(MinimumAge) > 0))
+  }
+
   test("The safety floor leaves room for a pipeline run to finish") {
     // A full run is well under an hour; anything near that would make the sweep race live builds.
     assert(MinimumAge.toHours >= 2)
