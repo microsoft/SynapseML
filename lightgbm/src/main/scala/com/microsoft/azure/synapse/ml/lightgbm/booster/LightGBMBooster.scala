@@ -459,7 +459,7 @@ class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None,
     if (filename == null || filename.isEmpty) {
       throw new IllegalArgumentException("filename should not be empty or null.")
     }
-    import session.sqlContext.implicits._
+    import session.implicits._
     val dataset = Seq(modelStr.get).toDS()
     val mode = if (overwrite) SaveMode.Overwrite else SaveMode.ErrorIfExists
     dataset.coalesce(1).write.mode(mode).text(filename)
@@ -479,7 +479,7 @@ class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None,
   def dumpModel(session: SparkSession, filename: String, overwrite: Boolean): Unit = {
     val json = lightgbmlib.LGBM_BoosterDumpModelSWIG(boosterHandler.boosterPtr, 0, -1, 0, 1,
       boosterHandler.dumpModelOutPtr.get().ptr)
-    import session.sqlContext.implicits._
+    import session.implicits._
     val dataset = Seq(json).toDS()
     val mode = if (overwrite) SaveMode.Overwrite else SaveMode.ErrorIfExists
     dataset.coalesce(1).write.mode(mode).text(filename)
