@@ -40,8 +40,16 @@ object SearchIndexRetention {
   /** Collected on every sweep, however much room happens to be left. */
   val RoutineAge: Duration = Duration.ofHours(12)
 
-  /** Test index names end with the 17 digit timestamp that [[Formatter]] produces. */
-  private val TimestampedName: Regex = "^.*-(\\d{17})$".r
+  /** Test index names are the ones `generateIndexName` writes: a `test-` prefix, then a hash, then
+    * the 17 digit timestamp [[Formatter]] produces.
+    *
+    * The prefix is part of the match on purpose. The sweep reads every index in the shared
+    * service, not just this suite's, so matching on the timestamp alone would let it delete a
+    * foreign index that happened to end in 17 digits. That was survivable while collection only
+    * touched indexes older than two days; now that a sweep routinely collects at [[RoutineAge]]
+    * and drops to [[MinimumAge]] under pressure, it is not.
+    */
+  private val TimestampedName: Regex = "^test-.*-(\\d{17})$".r
 
   /** When a date pattern starts with 'yyyy' and has no separator following, the parser can
     * sometimes decide to take the whole string to match the year, which results in an exception.

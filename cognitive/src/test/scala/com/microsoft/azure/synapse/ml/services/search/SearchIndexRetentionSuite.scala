@@ -96,8 +96,23 @@ class SearchIndexRetentionSuite extends TestBase {
     assert(select(Seq("test-1-99999999999999999"), now).isEmpty)
   }
 
+  /** The sweep reads every index in the shared service, not just the ones these suites made, so a
+    * foreign name that happens to end in 17 digits must never be collected however old it looks
+    * or however full the service is.
+    */
+  test("An index that is not one of ours is never collected") {
+    val foreign = Seq(
+      index(RoutineAge.toHours * 10, "x").stripPrefix("test-"),
+      s"prod-catalog-${Formatter.format(now.minusDays(30))}")
+    assert(foreign.flatMap(age(_, now)).isEmpty)
+    assert(select(foreign, now).isEmpty)
+    assert(select(foreign ++ young(MaxIndexes - foreign.size), now).isEmpty)
+  }
+
   test("Age is read back from the name generateIndexName would have written") {
     assert(age(index(5), now).map(_.toHours).contains(5L))
+    // UUID.randomUUID().hashCode() is signed, so the hash segment is sometimes negative.
+    assert(age(index(5, "-1534278552"), now).map(_.toHours).contains(5L))
   }
 
   test("The safety floor leaves room for a pipeline run to finish") {
