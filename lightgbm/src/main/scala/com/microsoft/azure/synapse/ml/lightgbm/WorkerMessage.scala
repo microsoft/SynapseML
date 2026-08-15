@@ -87,13 +87,10 @@ private[lightgbm] object WorkerMessage {
   }
 
   def format(message: TaskMessageInfo, stageAttemptNumber: Int): String = {
-    val host = if (message.taskHost.contains(":") && !message.taskHost.startsWith("[")) {
-      s"[${message.taskHost}]"
-    } else {
-      message.taskHost
-    }
-    s"${message.status}:$host:${message.localListenPort}:${message.partitionId}:${message.executorId}:" +
-      stageAttemptNumber
+    // Validated bracketing keeps an IPv6 host unambiguous and keeps a host that carries a control
+    // character or a delimiter out of the line protocol entirely.
+    val endpoint = WorkerEndpoint.wireString(message.taskHost, message.localListenPort)
+    s"${message.status}:$endpoint:${message.partitionId}:${message.executorId}:" + stageAttemptNumber
   }
 
   def formatFinished(stageAttemptNumber: Int, barrierTaskCount: Int): String =

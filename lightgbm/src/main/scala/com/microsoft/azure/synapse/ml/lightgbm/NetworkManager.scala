@@ -22,58 +22,6 @@ import scala.concurrent.duration.{Duration, SECONDS}
 import scala.language.existentials
 import scala.util.control.NonFatal
 
-case class TaskMessageInfo(status: String,
-                           taskHost: String,
-                           localListenPort: Int,
-                           partitionId: Int,
-                           executorId: String) {
-  def this(status: String) = this(status, "", -1, -1, "") // Constructor for general messages, not Task-connected
-
-  val isForTraining: Boolean = status == LightGBMConstants.EnabledTask
-  val isForLoadOnly: Boolean = status == LightGBMConstants.IgnoreStatus
-  val isFinished: Boolean = status == LightGBMConstants.FinishedStatus
-
-  // Format all the information as a delimited string to send to driver
-  override def toString: String = s"$status:$taskHost:$localListenPort:$partitionId:$executorId"
-}
-
-case class NetworkTopologyInfo(lightgbmNetworkString: String,
-                               executorPartitionIdList: Array[Int],
-                               localListenPort: Int) {
-  @transient private var portReservation: Option[Socket] = None
-
-  private def currentPortReservation: Option[Socket] = Option(portReservation).flatten
-
-  private[lightgbm] def hasPortReservation: Boolean = synchronized {
-    currentPortReservation.nonEmpty
-  }
-
-  private[lightgbm] def retainPortReservation(reservation: Socket): NetworkTopologyInfo = synchronized {
-    require(!reservation.isClosed, "Cannot retain a closed port reservation")
-    require(reservation.isBound, "Cannot retain an unbound port reservation")
-    require(reservation.getLocalPort == localListenPort,
-      s"Port reservation ${reservation.getLocalPort} does not match topology port $localListenPort")
-    require(currentPortReservation.isEmpty, s"Port $localListenPort already has a reservation")
-    portReservation = Option(reservation)
-    this
-  }
-
-  /** Release the temporary JVM reservation immediately before LightGBM binds the same port.
-    *
-    * The operation is idempotent so final cleanup can safely call it after any success or failure path.
-    */
-  private[lightgbm] def releasePortReservation(): Unit = synchronized {
-    currentPortReservation.foreach { reservation =>
-      try {
-        NetworkManager.closeSocketWithRetry(reservation)
-      } finally {
-        // Keep an open socket reachable for a later final-cleanup attempt.
-        if (reservation.isClosed) portReservation = None
-      }
-    }
-  }
-}
-
 object NetworkManager {
   private def addSuppressed(primaryFailure: Throwable, secondaryFailure: Throwable): Unit =
     NetworkManagerSocketSupport.addSuppressed(primaryFailure, secondaryFailure)
@@ -222,9 +170,11 @@ object NetworkManager {
 
             // Get message to send to driver with info about this task
             val stageAttemptNumber = Option(TaskContext.get()).map(_.stageAttemptNumber()).getOrElse(0)
+            // A numeric IPv6 scope is an interface index that only means anything here, so it is
+            // replaced with the interface name before any peer sees it.
             val taskStatus = TaskMessageInfo(
               if (shouldExecuteTraining) LightGBMConstants.EnabledTask else LightGBMConstants.IgnoreStatus,
-              driverSocket.getLocalAddress.getHostAddress,
+              WorkerEndpoint.normalizeHost(driverSocket.getLocalAddress.getHostAddress),
               localListenPort,
               partitionId,
               LightGBMUtils.getExecutorId) // TODO can we use host for this?
@@ -257,6 +207,7 @@ object NetworkManager {
             val executorPartitionIds: Array[Int] =
               parseExecutorPartitionList(partitionsByExecutorStr, taskStatus.executorId, log)
             NetworkTopologyInfo(lightGbmMachineList, executorPartitionIds, localListenPort)
+              .withAdvertisedHost(taskStatus.taskHost)
         }.get
     }.get
   }
@@ -284,13 +235,57 @@ object NetworkManager {
       log,
       retry,
       delay,
-      () => LightGBMUtils.validate(lightgbmlib.LGBM_NetworkInit(
-        ctx.lightGBMNetworkString,
-        ctx.localListenPort,
-        LightGBMConstants.DefaultListenTimeout,
-        ctx.lightGBMNetworkMachineCount), "Network init"),
+      () => initNativeNetwork(ctx.networkTopologyInfo, ctx.lightGBMNetworkMachineCount, log),
       port => reserveExactPort(port, log),
       delayMillis => Thread.sleep(delayMillis))
+  }
+
+  /** Initialize the native LightGBM network, bridging the transport when the topology is IPv6.
+    *
+    * Native LightGBM only speaks IPv4, so an IPv6 topology is relayed by [[LightGBMNetworkBridge]]
+    * and the native library is given an equivalent loopback machine list. An IPv4 topology takes
+    * exactly the same path it always has, with no bridge, no relay threads, and no extra sockets.
+    */
+  private[lightgbm] def initNativeNetwork(networkTopologyInfo: NetworkTopologyInfo,
+                                          machineCount: Int,
+                                          log: Logger,
+                                          nativeInit: (String, Int, Int) => Unit = nativeNetworkInit): Unit = {
+    val machineList = networkTopologyInfo.lightgbmNetworkString
+    if (!LightGBMNetworkBridge.requiresBridge(machineList)) {
+      nativeInit(machineList, networkTopologyInfo.localListenPort, machineCount)
+    } else {
+      log.info(s"LightGBM network $machineList contains IPv6 endpoints, which the native library cannot " +
+        "dial, so this task is bridging the transport")
+      val bridge = LightGBMNetworkBridge.open(machineList,
+                                              networkTopologyInfo.taskHost,
+                                              networkTopologyInfo.localListenPort,
+                                              log)
+      // A failed attempt has to give the advertised port back, because the retry re-reserves it.
+      withCleanupOnFailurePreservingPrimary(bridge.close()) {
+        val bridged = bridge.bridgedNetwork
+        // A relay that has already failed can never carry this network, and the native call would
+        // wait on links that will not arrive, so the attempt fails here instead.
+        failIfBridgeIsBroken(bridge)
+        nativeInit(bridged.machineList, bridged.localListenPort, bridged.machineCount)
+        failIfBridgeIsBroken(bridge)
+        networkTopologyInfo.retainNetworkBridge(bridge)
+      }
+    }
+  }
+
+  /** Surface a relay failure as this task's failure, rather than training on a dead transport. */
+  private[lightgbm] def failIfBridgeIsBroken(bridge: LightGBMNetworkBridge): Unit = {
+    bridge.terminalFailure.foreach { failure =>
+      throw new Exception("The LightGBM IPv6 network bridge for this task failed, so its training " +
+        s"network cannot be established: ${failure.getMessage}", failure)
+    }
+  }
+
+  private def nativeNetworkInit(machineList: String, localListenPort: Int, machineCount: Int): Unit = {
+    LightGBMUtils.validate(lightgbmlib.LGBM_NetworkInit(machineList,
+                                                        localListenPort,
+                                                        LightGBMConstants.DefaultListenTimeout,
+                                                        machineCount), "Network init")
   }
 
   /** Retry native network initialization without leaving the advertised port open during backoff. */
@@ -462,7 +457,9 @@ case class NetworkManager(numTasks: Int,
                           useBarrierExecutionMode: Boolean) extends Logging {
 
   private final class TaskConnection(val socket: Socket, val message: WorkerMessage) {
-    def networkInfoString: String = s"${message.taskHost}:${message.localListenPort}"
+    // The machine list is comma delimited and every entry is host:port, so an IPv6 host has to be
+    // bracketed here or peers would read its trailing group as the port.
+    def networkInfoString: String = WorkerEndpoint.wireString(message.taskHost, message.localListenPort)
   }
 
   // Spark can retry a task report within the same stage attempt. Keeping one connection per

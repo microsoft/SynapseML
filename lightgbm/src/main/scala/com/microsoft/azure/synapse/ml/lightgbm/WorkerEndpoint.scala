@@ -3,14 +3,73 @@
 
 package com.microsoft.azure.synapse.ml.lightgbm
 
-import java.net.{InetAddress, UnknownHostException}
+import java.net.{InetAddress, NetworkInterface, SocketException, UnknownHostException}
 
-private[lightgbm] final case class WorkerEndpoint(host: String, port: Int)
+private[lightgbm] final case class WorkerEndpoint(host: String, port: Int) {
+  /** Whether the host is an IPv6 literal, which has to be bracketed before a ':' port separator. */
+  def isIpv6Literal: Boolean = WorkerEndpoint.isIpv6Host(host)
+
+  /** The zone identifier of a scoped IPv6 literal, if it carries one. */
+  def zoneId: Option[String] = {
+    val separator = host.indexOf('%')
+    if (separator < 0) None else Some(host.substring(separator + 1))
+  }
+
+  /** Whether the zone identifier is a numeric interface index, which is local to one machine. */
+  def hasNumericZone: Boolean = zoneId.exists(zone => zone.nonEmpty && zone.forall(_.isDigit))
+
+  /** The address without its zone identifier. */
+  def address: String = {
+    val separator = host.indexOf('%')
+    if (separator < 0) host else host.substring(0, separator)
+  }
+
+  /** The unambiguous wire form of this endpoint. */
+  def wireString: String = WorkerEndpoint.wireString(host, port)
+}
 
 /** Parses the worker addresses exchanged by the LightGBM network handshake. */
 private[lightgbm] object WorkerEndpoint {
   private val EndpointPreviewLimit = 200
   private val MinNetworkPort = 1
+
+  /** Whether a host is an IPv6 literal. Hostnames and IPv4 literals never contain a ':'. */
+  def isIpv6Host(host: String): Boolean = Option(host).exists(_.contains(":"))
+
+  /** Replace a numeric IPv6 scope with the interface name it stands for on this machine.
+    *
+    * A numeric scope is an interface index, which is only meaningful on the machine that produced
+    * it, so it must never be published to peers. An interface name survives the trip whenever the
+    * cluster names its interfaces consistently, which is the only case where a link-local address
+    * can work at all. Anything else is returned unchanged.
+    */
+  def normalizeHost(host: String): String = {
+    val endpoint = WorkerEndpoint(Option(host).getOrElse(""), 1)
+    endpoint.zoneId.filter(zone => zone.nonEmpty && zone.forall(_.isDigit)).flatMap { zone =>
+      try {
+        Option(NetworkInterface.getByIndex(zone.toInt)).map(named => s"${endpoint.address}%${named.getName}")
+      } catch {
+        case _: SocketException => None
+        case _: IllegalArgumentException => None
+      }
+    }.getOrElse(host)
+  }
+
+  /** Bracket an IPv6 literal so a ':' port separator stays unambiguous. Other hosts are unchanged. */
+  def wireHost(host: String): String =
+    if (isIpv6Host(host) && !host.startsWith("[")) s"[$host]" else host
+
+  /** Render an endpoint in the wire form every LightGBM component parses.
+    *
+    * The result is parsed back before it is returned, so a host carrying a control character, a
+    * delimiter, or an unbalanced bracket fails here instead of corrupting the line protocol or the
+    * comma-delimited machine list it would have been written into.
+    */
+  def wireString(host: String, port: Int): String = {
+    val endpoint = s"${wireHost(host)}:$port"
+    parse(endpoint)
+    endpoint
+  }
 
   /** Parse the first (main) address from a comma-delimited LightGBM machine list. */
   def parseFirst(nodes: String): WorkerEndpoint = {
