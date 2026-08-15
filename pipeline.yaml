@@ -3,6 +3,9 @@ resources:
   - repository: SynapseML-Internal
     type: git
     name: A365/SynapseML-Internal
+    # Queue-time default only. `ref` is resolved before any job runs, so it cannot depend on
+    # the branch under test; the InternalCompat job re-points this checkout at the Internal
+    # branch matching the OSS target branch. See 'Select matching SynapseML-Internal branch'.
     ref: master
 
 trigger:
@@ -1194,6 +1197,48 @@ jobs:
       path: s
     - checkout: SynapseML-Internal
       path: s-internal
+      # Required by 'Select matching SynapseML-Internal branch' below: without persisted
+      # credentials the follow-up fetch cannot authenticate to this private repo.
+      persistCredentials: true
+    # Internal mirrors this repo's branch names 1:1 (master, spark3.5, spark4.0, spark4.1),
+    # so the OSS branch under test decides which Internal branch is the correct comparison
+    # point: master pairs with Internal master (both Spark 3.5), spark4.1 with Internal
+    # spark4.1. Validating a Spark 4.1 PR against Internal master would compile a Spark 3.5
+    # tree against Spark 4.1 artifacts, which cannot resolve -- a permanent red on that
+    # branch rather than a real signal.
+    - bash: |
+        set -euo pipefail
+        cd $(Agent.BuildDirectory)/s-internal
+
+        # Read the target branch from the environment rather than a $() macro: macros are
+        # substituted as raw text into the script, and git permits ';' and quotes in ref
+        # names, so a crafted branch name would otherwise be executable.
+        OSS_TARGET="${SYSTEM_PULLREQUEST_TARGETBRANCH:-}"
+        OSS_TARGET="${OSS_TARGET#refs/heads/}"
+        if [ -z "$OSS_TARGET" ]; then
+          echo "##vso[task.logissue type=error]System.PullRequest.TargetBranch is empty; this job is PR-only"
+          exit 1
+        fi
+
+        # Identity mapping: OSS and Internal use the same branch names, so a branch added to
+        # the pr: trigger list is paired correctly without touching this step.
+        INTERNAL_BRANCH="$OSS_TARGET"
+
+        # Fall back rather than fail: this job is advisory, and Internal may not have cut a
+        # counterpart branch yet. The warning keeps the mismatch visible, because a silent
+        # fallback would report a result that actually validated a different Spark line.
+        if ! git ls-remote --exit-code --heads origin "$INTERNAL_BRANCH" >/dev/null 2>&1; then
+          echo "##vso[task.logissue type=warning]SynapseML-Internal has no '$INTERNAL_BRANCH' branch; falling back to master. This PR targets OSS '$OSS_TARGET', so treat any failure here as unverified."
+          INTERNAL_BRANCH=master
+        fi
+
+        echo "OSS target branch '$OSS_TARGET' -> SynapseML-Internal '$INTERNAL_BRANCH'"
+        git fetch --no-tags origin "$INTERNAL_BRANCH"
+        git checkout --force FETCH_HEAD
+        echo "##vso[task.setvariable variable=INTERNAL_BRANCH]$INTERNAL_BRANCH"
+        echo "=== SynapseML-Internal now at $INTERNAL_BRANCH ==="
+        git log --oneline -1
+      displayName: 'Select matching SynapseML-Internal branch'
     - template: templates/sbt_cache.yml
     - task: AzureCLI@2
       displayName: 'Publish OSS to local Maven'
@@ -1352,6 +1397,19 @@ jobs:
           done
           if [ $FAILURES -gt 0 ]; then
             echo "##vso[task.logissue type=error]$FAILURES test package(s) failed"
+            exit 1
+          fi
+
+          # sbt `testOnly` exits 0 when its filter matches nothing, so an Internal package
+          # rename would turn this job into a permanently green no-op. The version retarget
+          # above is guarded against exactly this class of false green; the tests were not.
+          # Count what actually ran instead of trusting the exit status. grep -o emits one
+          # match per line, so several <testsuite> elements sharing a line all count.
+          TEST_COUNT=$(find . -path '*/test-reports/TEST-*.xml' -exec grep -ho 'tests="[0-9]*"' {} + \
+            | tr -dc '0-9\n' | awk '{n += $1} END {print n + 0}')
+          echo "Scala tests executed: $TEST_COUNT"
+          if [ "${TEST_COUNT:-0}" -lt 150 ]; then
+            echo "##vso[task.logissue type=error]Only $TEST_COUNT Scala tests ran (expected ~211); the testOnly filter matched little or nothing, so this result is not a real signal"
             exit 1
           fi
       env:
