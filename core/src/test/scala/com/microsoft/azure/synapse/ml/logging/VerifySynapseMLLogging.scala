@@ -111,50 +111,59 @@ class VerifySynapseMLLogging extends TestBase {
     }
   }
 
-  /** Makes `spark` the active session for the current thread, and deliberately leaves it that way.
+  /** Runs `f` with `spark` as the active session, restoring a previously-active session if there
+    * was one.
     *
     * `getHadoopConfEntries` resolves its configuration through `SparkSession.getActiveSession`, so
-    * these tests need one. `TestBase` never establishes an active session — `getOrCreate` only sets
-    * one when it actually constructs the session — so it is whatever a previously-run suite happened
-    * to leave behind.
+    * these tests need one. When another suite has left a session active on this thread it is
+    * restored exactly, so nothing is overwritten.
     *
-    * Restoring the "previous" value afterwards is tempting but measurably wrong here: the previous
-    * value is usually empty, so restoring it clears the active session for every suite that later
-    * runs on this thread. `EnsembleByKey.transformSchema` falls back to `getActiveSession` and
-    * silently defaults `spark.sql.caseSensitive` to `false` when there is none, which turns three
-    * `EnsembleByKeySuite` tests red when both suites share a JVM. Leaving the shared session active
-    * is the canonical state, and is what every suite that reads `getActiveSession` expects.
+    * When there was none, the shared session is deliberately left active rather than cleared.
+    * `TestBase` never establishes one — `getOrCreate` only calls `setActiveSession` on the branch
+    * that actually constructs the session, not when it returns an existing one — so "restoring" an
+    * empty previous value would clear the active session for every suite that later runs on this
+    * thread. `EnsembleByKey.transformSchema` falls back to `getActiveSession` and silently defaults
+    * `spark.sql.caseSensitive` to `false` when there is none, which turns three `EnsembleByKeySuite`
+    * tests red when both suites share a JVM. Leaving the shared session active is the canonical
+    * state, and is what every suite reading `getActiveSession` already assumes.
     */
-  private def activateSharedSession(): Unit = SparkSession.setActiveSession(spark)
+  private def withActiveSharedSession[T](f: => T): T = {
+    val previous = SparkSession.getActiveSession
+    SparkSession.setActiveSession(spark)
+    try f finally previous.foreach(SparkSession.setActiveSession)
+  }
 
   test("getHadoopConfEntries reads cluster-level Hadoop configuration") {
     // Fabric sets the trident.* keys on the cluster Hadoop conf. getHadoopConfEntries now derives
     // its conf from the session instead of spark.sparkContext, so this pins that existing
     // telemetry still resolves.
-    activateSharedSession()
-    val hc = spark.sparkContext.hadoopConfiguration
-    try {
-      hc.set("trident.workspace.id", "ws-from-cluster")
-      assert(SynapseMLLogging.getHadoopConfEntries.get("workspaceId").contains("ws-from-cluster"))
-    } finally {
-      hc.unset("trident.workspace.id")
+    withActiveSharedSession {
+      val hc = spark.sparkContext.hadoopConfiguration
+      try {
+        hc.set("trident.workspace.id", "ws-from-cluster")
+        assert(SynapseMLLogging.getHadoopConfEntries.get("workspaceId").contains("ws-from-cluster"))
+      } finally {
+        hc.unset("trident.workspace.id")
+      }
     }
   }
 
   test("getHadoopConfEntries reads session-level overrides") {
-    activateSharedSession()
-    try {
-      spark.conf.set("trident.artifact.id", "artifact-from-session")
-      assert(SynapseMLLogging.getHadoopConfEntries.get("artifactId").contains("artifact-from-session"))
-    } finally {
-      spark.conf.unset("trident.artifact.id")
+    withActiveSharedSession {
+      try {
+        spark.conf.set("trident.artifact.id", "artifact-from-session")
+        assert(SynapseMLLogging.getHadoopConfEntries.get("artifactId").contains("artifact-from-session"))
+      } finally {
+        spark.conf.unset("trident.artifact.id")
+      }
     }
   }
 
   test("getHadoopConfEntries returns only known telemetry field names") {
-    activateSharedSession()
-    val known = SynapseMLLogging.HadoopKeysToLog.values.toSet
-    assert(SynapseMLLogging.getHadoopConfEntries.keySet.subsetOf(known))
+    withActiveSharedSession {
+      val known = SynapseMLLogging.HadoopKeysToLog.values.toSet
+      assert(SynapseMLLogging.getHadoopConfEntries.keySet.subsetOf(known))
+    }
   }
 
   test("getHadoopConfEntries is empty when no session is active") {
