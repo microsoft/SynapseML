@@ -611,6 +611,17 @@ class VerifyLightGBMCommon extends TestBase with LightGBMTestUtils {
     assertThrows[IllegalArgumentException](new LightGBMClassifier().setDeviceType("tpu"))
   }
 
+  test("Verify generic Params set validates deviceType like generated wrappers") {
+    val learner = new LightGBMClassifier()
+    learner.set(learner.deviceType, LightGBMConstants.CPUDeviceType)
+    assert(learner.getDeviceType == LightGBMConstants.CPUDeviceType)
+    learner.set(learner.deviceType, LightGBMConstants.GPUDeviceType)
+    assert(learner.getDeviceType == LightGBMConstants.GPUDeviceType)
+    assertThrows[IllegalArgumentException] {
+      learner.set(learner.deviceType, LightGBMConstants.CUDADeviceType)
+    }
+  }
+
   private lazy val deviceTrainingDF: DataFrame = {
     import spark.implicits._
     Seq((0.0, Vectors.dense(1.0, 2.0, 3.0)),

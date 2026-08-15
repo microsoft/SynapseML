@@ -148,8 +148,7 @@ trait LightGBMExecutionParams extends Wrappable {
       "is CPU-only; gpu requires compatible custom native libraries on java.library.path for every driver and " +
       "executor. The LightGBM 3.3.510 CUDA backend is incompatible with SynapseML streaming Datasets.",
     ParamValidators.inArray(Array(LightGBMConstants.CPUDeviceType,
-                                  LightGBMConstants.GPUDeviceType,
-                                  LightGBMConstants.CUDADeviceType)))
+                                  LightGBMConstants.GPUDeviceType)))
   setDefault(deviceType -> LightGBMConstants.CPUDeviceType)
   def getDeviceType: String = $(deviceType)
   def setDeviceType(value: String): this.type = {
