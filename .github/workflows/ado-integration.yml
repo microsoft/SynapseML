@@ -9,7 +9,7 @@ jobs:
   alert:
     runs-on: ubuntu-latest
     steps:
-      - uses: mhamilton723/github-actions-issue-to-work-item@master
+      - uses: danhellem/github-actions-issue-to-work-item@8d0ead9b49a65aa66dac6949b1ff149d7ef8b4de # v2.5
         env:
           ado_token: "${{ secrets.ADO_PERSONAL_ACCESS_TOKEN }}"
           github_token: "${{ secrets.GH_PERSONAL_ACCESS_TOKEN }}"

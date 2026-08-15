@@ -8,7 +8,8 @@ import com.microsoft.azure.synapse.ml.lightgbm._
 import com.microsoft.azure.synapse.ml.lightgbm.dataset.{ChunkedArrayUtils, SampledData}
 import com.microsoft.azure.synapse.ml.lightgbm.swig.{DoubleChunkedArray, DoubleSwigArray, IntSwigArray, SwigUtils}
 import com.microsoft.ml.lightgbm.{SWIGTYPE_p_p_void, SWIGTYPE_p_void, lightgbmlib}
-import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
+import org.apache.spark.ml.attribute.{Attribute, AttributeGroup, NumericAttribute}
+import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vectors}
 import org.apache.spark.sql.DataFrame
 
 // scalastyle:off magic.number
@@ -17,6 +18,24 @@ import org.apache.spark.sql.DataFrame
 class VerifyLightGBMCommon extends TestBase with LightGBMTestUtils {
   lazy val taskDF: DataFrame = loadBinary("task.train.csv", "TaskFailed10").cache()
   lazy val pimaDF: DataFrame = loadBinary("PimaIndian.csv", "Diabetes mellitus").cache()
+
+  /** Builds a tiny 4-row frame whose features vectors have `numFeatures` columns. */
+  private def makeDuplicateNameDF(numFeatures: Int): DataFrame = {
+    val rows = Seq(0.0, 1.0, 0.0, 1.0).zipWithIndex.map { case (label, row) =>
+      (label, Vectors.dense(Array.tabulate(numFeatures)(col => (row + col + 1).toDouble)))
+    }
+    spark.createDataFrame(rows).toDF(labelCol, featuresCol)
+  }
+
+  /** A fresh minimal classifier per call, so slot names from one test cannot leak into another. */
+  private def duplicateNameModel: LightGBMClassifier = new LightGBMClassifier()
+    .setFeaturesCol(featuresCol)
+    .setLabelCol(labelCol)
+    .setDefaultListenPort(getAndIncrementPort())
+    .setNumLeaves(5)
+    .setNumIterations(5)
+    .setObjective("binary")
+    .setDataTransferMode(LightGBMConstants.StreamingDataTransferMode)
 
   lazy val baseModel: LightGBMClassifier = new LightGBMClassifier()
     .setFeaturesCol(featuresCol)
@@ -293,5 +312,74 @@ class VerifyLightGBMCommon extends TestBase with LightGBMTestUtils {
       import f._
       (conv(up.last) + conv(down.head)) / fromInt(2)
     }
+  }
+
+  test("Verify duplicate feature names are handled correctly") {
+    // Regression test: LightGBM rejects a Dataset whose feature names repeat, failing with
+    // "Feature (Column_) appears more than one time". Spark can surface repeated names through
+    // AttributeGroup metadata on the features column, so SynapseML de-duplicates them first.
+    val attrs: Array[Attribute] = Array(
+      NumericAttribute.defaultAttr.withName("Column_").withIndex(0),
+      NumericAttribute.defaultAttr.withName("Column_").withIndex(1),
+      NumericAttribute.defaultAttr.withName("Column_").withIndex(2),
+      NumericAttribute.defaultAttr.withName("unique_col").withIndex(3))
+    val attrGroup = new AttributeGroup(featuresCol, attrs)
+
+    val df = makeDuplicateNameDF(4)
+    val dfWithDuplicateNames = df.withColumn(
+      featuresCol,
+      df(featuresCol).as(featuresCol, attrGroup.toMetadata()))
+
+    val predictions = duplicateNameModel.fit(dfWithDuplicateNames).transform(dfWithDuplicateNames)
+    assert(predictions.count() == 4)
+  }
+
+  test("Verify explicit slotNames parameter is used") {
+    val df = makeDuplicateNameDF(3)
+    val model = duplicateNameModel.setSlotNames(Array("feature_a", "feature_b", "feature_c"))
+    assert(model.fit(df).transform(df).count() == 4)
+  }
+
+  test("Verify duplicate explicit slotNames are made unique") {
+    val df = makeDuplicateNameDF(3)
+    val model = duplicateNameModel.setSlotNames(Array("Column_", "Column_", "Column_"))
+    assert(model.fit(df).transform(df).count() == 4)
+  }
+
+  test("Verify a generated slot name cannot collide with a later original name") {
+    // "Column_" repeats, so the second occurrence is renamed. A naive implementation renames it
+    // to "Column__1", which is already taken by the third slot, so LightGBM still fails with
+    // "Feature (Column__1) appears more than one time". The renamed slot must skip past every
+    // original name, not just the ones seen so far.
+    val df = makeDuplicateNameDF(3)
+    val model = duplicateNameModel.setSlotNames(Array("Column_", "Column_", "Column__1"))
+    assert(model.fit(df).transform(df).count() == 4)
+  }
+
+  test("Verify names differing only by space vs underscore are made unique") {
+    // LightGBM replaces spaces with underscores before checking for duplicates, so "a b" and
+    // "a_b" are the same feature natively and fail with "Feature (a_b) appears more than one
+    // time" even though the two strings differ in Scala.
+    val df = makeDuplicateNameDF(3)
+    val model = duplicateNameModel.setSlotNames(Array("a b", "a_b", "c"))
+    assert(model.fit(df).transform(df).count() == 4)
+  }
+
+  test("Verify slotNames of the wrong length are skipped rather than read out of bounds") {
+    // LGBM_DatasetSetFeatureNames reads numCols entries from the array, so a short slotNames
+    // array is an out-of-bounds native read. slotNames is user-supplied and never length-checked
+    // upstream, so LightGBMDataset.setFeatureNames guards every dataset-naming path. Training
+    // proceeds with LightGBM's own generated names instead of crashing the executor.
+    val df = makeDuplicateNameDF(4)
+    val model = duplicateNameModel.setSlotNames(Array("only_one_name"))
+    assert(model.fit(df).transform(df).count() == 4)
+  }
+
+  test("Verify slotNames of the wrong length are skipped in bulk mode too") {
+    val df = makeDuplicateNameDF(4)
+    val model = duplicateNameModel
+      .setDataTransferMode(LightGBMConstants.BulkDataTransferMode)
+      .setSlotNames(Array("a", "b"))
+    assert(model.fit(df).transform(df).count() == 4)
   }
 }

@@ -237,12 +237,12 @@ private[openai] object OpenAIPromptPythonOverrides {
       |def clear(self, param):
       |    if param == self.postProcessing:
       |        self._post_processing_explicitly_set = False
-      |    return super().clear(param)
+      |    return super(OpenAIPrompt, self).clear(param)
       |
       |def copy(self, extra=None):
       |    if extra is None:
       |        extra = {}
-      |    result = super().copy(extra)
+      |    result = super(OpenAIPrompt, self).copy(extra)
       |    result._post_processing_explicitly_set = (
       |        self._post_processing_explicitly_set
       |        or self.postProcessing in extra

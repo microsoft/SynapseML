@@ -10,6 +10,7 @@ import com.microsoft.azure.synapse.ml.train.TrainClassifierTestUtilities._
 import com.microsoft.azure.synapse.ml.train.TrainRegressorTestUtilities._
 import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.feature.FastVectorAssembler
+import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.sql._
 
 /** Tests to validate the functionality of Compute Per Instance Statistics module. */
@@ -119,6 +120,41 @@ class VerifyComputePerInstanceStatistics extends TestBase {
     val scoredDataset = TrainClassifierTestUtilities.trainScoreDataset(labelColumn, dataset, logisticRegressor)
     val evaluatedData = new ComputePerInstanceStatistics().transform(scoredDataset)
     validatePerInstanceClassificationStatistics(evaluatedData)
+  }
+
+  test("Verify log loss uses the distinct label count when levels metadata is absent") {
+    // numLevels is derived from a distinct count over the label column. Pin that here: the label
+    // has three distinct values, and the final row is scored with a label equal to that count, so
+    // it must fall into the "no label seen in training" branch instead of indexing the vector.
+    // An off-by-one in the distinct count shows up either as an index error or as a wrong loss.
+    val probs: Vector = Vectors.dense(0.7, 0.2, 0.1)
+    val scoredData = spark.createDataFrame(Seq(
+      (0.0, probs, probs, 0.0),
+      (1.0, probs, probs, 1.0),
+      (2.0, probs, probs, 2.0),
+      (0.0, probs, probs, 0.0),
+      (1.0, probs, probs, 1.0),
+      (2.0, probs, probs, 3.0)))
+      .toDF(labelColumn, "scoresCol", "probabilitiesCol", "scoredLabelsCol")
+
+    val evaluatedData = new ComputePerInstanceStatistics()
+      .setLabelCol(labelColumn)
+      .setScoredLabelsCol("scoredLabelsCol")
+      .setScoresCol("scoresCol")
+      .setScoredProbabilitiesCol("probabilitiesCol")
+      .setEvaluationMetric(MetricConstants.ClassificationMetricsName)
+      .transform(scoredData)
+
+    val penalized = -Math.log(ComputePerInstanceStatistics.Epsilon)
+    val rows = evaluatedData.select("scoredLabelsCol", MetricConstants.LogLossMetric).collect()
+    assert(rows.length === 6)
+    assert(rows.count(r => r.getDouble(1) === penalized) === 1)
+    rows.foreach { row =>
+      val scoredLabel = row.getDouble(0).toInt
+      val logLoss = row.getDouble(1)
+      val expected = if (scoredLabel < 3) -Math.log(probs(scoredLabel)) else penalized
+      assert(logLoss === expected)
+    }
   }
 
   private def validatePerInstanceRegressionStatistics(evaluatedData: DataFrame): Unit = {

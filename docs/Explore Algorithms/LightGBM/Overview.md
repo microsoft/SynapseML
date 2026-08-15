@@ -260,3 +260,20 @@ To use it in scala, you can call setUseBarrierExecutionMode(true), for example:
     ...
     <train classifier>
 Note: barrier execution mode can also cause complicated issues, so use it only if needed.
+
+Barrier execution mode is also the only mode that can recover from a task failure that happens after the
+network topology has been negotiated. A LightGBM network is negotiated once and then fixed, so an individual
+Spark task retry can never rejoin it. Spark restarts a barrier stage in its entirety, and the driver serves a
+fresh topology round for each stage attempt, so training can survive a failure that would otherwise abort the
+job. Failures that happen before a task joins the network are still retried normally in either mode.
+
+### Diagnosing "Connection refused" during training
+
+Distributed training first exchanges `host:port` information with the driver, which serves that exchange
+once per stage attempt. If a task fails after that exchange, the regular (non-barrier) retry of that task
+reconnects to a driver endpoint that is no longer accepting connections. Because Spark only reports the
+most recent attempt, this can hide the failure that actually caused the retry.
+
+When this happens, the reported error explains that it's a retry that could not rejoin the network, and
+names the partition to investigate. Look for the **first** failed attempt of that partition in the executor
+logs — that attempt holds the real cause.
