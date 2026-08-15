@@ -18,11 +18,11 @@ import org.apache.spark.sql.DataFrame
 import org.scalatest.{Outcome, TestData}
 
 import java.time.LocalDateTime
-import java.time.format.{DateTimeFormatter, DateTimeFormatterBuilder, DateTimeParseException, SignStyle}
-import java.time.temporal.ChronoField
+import java.time.format.DateTimeFormatter
 import java.util.UUID
 import scala.collection.mutable
 import scala.concurrent.blocking
+import scala.util.control.NonFatal
 
 trait AzureSearchKey {
   lazy val azureSearchKey: String = sys.env.getOrElse("AZURE_SEARCH_KEY", Secrets.AzureSearchKey)
@@ -35,11 +35,15 @@ class SearchWriterSuiteUtilities extends TestBase with AzureSearchKey
 
   private[ml] val testServiceName = "mmlspark-azure-search"
 
-  // When a date pattern starts with 'yyyy' and has no separator following, the parser can sometimes decide
-  // to take the whole string to match the year, which results in an exception. The following is a hackaround.
-  val formatter: DateTimeFormatter = new DateTimeFormatterBuilder()
-    .appendValue(ChronoField.YEAR_OF_ERA, 4, 4, SignStyle.EXCEEDS_PAD)
-    .appendPattern("MMddHHmmssSSS").toFormatter()
+  /** Status the service returns for an index it has just deleted. */
+  private val deletedStatus: Int = 204
+  /** Status for an index that is already gone. */
+  private val notFoundStatus: Int = 404
+  /** Stand-in status for a delete that threw before it got a response. */
+  private val unknownDeleteStatus: Int = -1
+
+  // Shared with SearchIndexRetention, which has to read back the timestamps written here.
+  val formatter: DateTimeFormatter = SearchIndexRetention.Formatter
 
   private[ml] def createTestData(numDocs: Int): DataFrame = {
     (0 until numDocs)
@@ -171,9 +175,14 @@ class SearchWriterSuiteUtilities extends TestBase with AzureSearchKey
     println("Cleaning up services")
     val indexNames = this.createdIndexes.values.flatten
     println(s"Remaining indices: ${indexNames.mkString(",")}")
-    cleanTestIndices(indexNames)
-    cleanOldIndexes()
-    super.afterAll()
+    try {
+      cleanTestIndices(indexNames)
+    } finally {
+      // Still sweep and tear down Spark even when this run could not delete its own indexes,
+      // since skipping the sweep is what leaves the service full for the run after this one.
+      cleanOldIndexes()
+      super.afterAll()
+    }
     ()
   }
 
@@ -193,34 +202,49 @@ class SearchWriterSuiteUtilities extends TestBase with AzureSearchKey
   }
 
   private[ml] def cleanTestIndices(indices: Iterable[String]): Unit = {
-    val successfulCleanup = getExisting(azureSearchKey, testServiceName)
-      .intersect(indices.toSeq).map { n =>
-        println(s"Deleting index $n")
-        deleteIndex(n)
-      }.forall(_ == 204)
-    assert(successfulCleanup)
+    val existing = getExisting(azureSearchKey, testServiceName).toSet
+    val failed = deleteQuietly(indices.filter(existing.contains))
+    assert(failed.isEmpty, s"Could not delete test indices ${failed.mkString(",")}")
     ()
   }
 
-  def cleanOldIndexes(): Unit = {
-    import scala.util.matching.Regex
-
-    val twoDaysAgo = LocalDateTime.now().minusDays(2)
-    val endingDatePattern: Regex = "^.*-(\\d{17})$".r
-    val e = getExisting(azureSearchKey, testServiceName)
-    e.foreach {
-      case name@endingDatePattern(dateString) =>
-        try {
-          val date = LocalDateTime.parse(dateString, formatter)
-          if (date.isBefore(twoDaysAgo)) {
-            deleteIndex(name)
-          }
-        } catch {
-          case _: DateTimeParseException => {}
-          case t: Throwable => throw t
+  /** Deletes every index named and returns the ones that survived.
+    *
+    * Nothing is thrown, because a sweep that stops at its first failure is how the service fills
+    * up: the indexes behind the failure are left behind and the run that would have collected
+    * them never gets that far.
+    */
+  private[ml] def deleteQuietly(indices: Iterable[String]): Seq[String] =
+    indices.toSeq.filter { name =>
+      println(s"Deleting index $name")
+      val status =
+        try deleteIndex(name)
+        catch {
+          case NonFatal(t) =>
+            println(s"Failed to delete index $name: $t")
+            unknownDeleteStatus
         }
-      case _ => {}
+      // A 404 means something else already collected it, which does just as well.
+      status != deletedStatus && status != notFoundStatus
     }
+
+  /** Frees room on the shared service, deleting the oldest test indexes first.
+    *
+    * Never throws. This runs at the start of `beforeAll`, so letting it fail would take down the
+    * whole suite over indexes that another run is free to collect later.
+    */
+  def cleanOldIndexes(): Unit = {
+    try {
+      val existing = getExisting(azureSearchKey, testServiceName)
+      val collected = SearchIndexRetention.select(existing, LocalDateTime.now())
+      println(s"Service $testServiceName holds ${existing.size} of ${SearchIndexRetention.MaxIndexes} indexes, " +
+        s"reclaiming ${collected.size}")
+      val failed = deleteQuietly(collected)
+      if (failed.nonEmpty) println(s"Could not reclaim ${failed.mkString(",")}")
+    } catch {
+      case NonFatal(t) => println(s"Could not reclaim old indexes: $t")
+    }
+    ()
   }
 
   private[ml] def retryWithBackoff[T](f: => T,
