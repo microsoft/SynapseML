@@ -13,11 +13,11 @@ name: "CodeQL"
 
 on:
   push:
-    branches: [ "master", "spark4.1" ]
+    branches: [ "master", "spark3.5", "spark4.0", "spark4.1" ]
     paths-ignore: [ "**.md" ]
   pull_request:
     # The branches below must be a subset of the branches above
-    branches: [ "master", "spark4.1" ]
+    branches: [ "master", "spark3.5", "spark4.0", "spark4.1" ]
     paths-ignore: [ "**.md" ]
   schedule:
     - cron: '17 7 * * 3'

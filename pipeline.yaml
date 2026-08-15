@@ -13,6 +13,7 @@ trigger:
     include:
     - master
     - spark3.5
+    - spark4.0
     - spark4.1
   paths:
     exclude:
@@ -29,6 +30,7 @@ pr:
     include:
     - master
     - spark3.5
+    - spark4.0
     - spark4.1
   paths:
     exclude:
