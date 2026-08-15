@@ -65,6 +65,23 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
       .setScoresCol(SchemaConstants.SparkRawPredictionColumn)
       .setEvaluationMetric(metric)
 
+  private def assertBinaryOnlyMetricsRejected(schema: StructType): Unit = {
+    Seq(
+      MetricConstants.AucSparkMetric -> "Error: AUC is not available for multiclass case",
+      MetricConstants.AreaUnderROCMetric -> "Error: AUC is not available for multiclass case",
+      MetricConstants.AreaUnderPRMetric -> "Error: areaUnderPR is not available for multiclass case")
+      .foreach { case (metric, expectedMessage) =>
+        val error = intercept[IllegalArgumentException] {
+          new ComputeModelStatistics()
+            .setLabelCol("label")
+            .setEvaluationMetric(metric)
+            .transformSchema(schema)
+        }
+
+        assert(error.getMessage === expectedMessage)
+      }
+  }
+
   test("areaUnderPR uses Spark trapezoidal precision-recall AUC") {
     val evaluator = rankedBinaryStatistics(MetricConstants.AreaUnderPRMetric)
     val result = evaluator.transform(rankedBinaryDataset)
@@ -123,6 +140,30 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     assert(schema.fieldNames.toList === MetricConstants.ClassificationColumns)
     assert(!schema.fieldNames.contains(MetricConstants.AucColumnName))
     assert(!schema.fieldNames.contains(MetricConstants.AreaUnderPRColumnName))
+  }
+
+  test("transformSchema rejects binary-only metrics for multiclass MML categorical labels") {
+    val schema = CategoricalUtilities.setLevels(
+      spark.createDataFrame(Seq(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (2.0, 2.0))).toDF("label", "prediction"),
+      "label",
+      Array(0.0, 1.0, 2.0)).schema
+
+    assertBinaryOnlyMetricsRejected(schema)
+  }
+
+  test("transformSchema preserves binary-only metric schema when configured labelCol is absent") {
+    val schema = spark.createDataFrame(Seq(
+      (0.0, 0.9),
+      (1.0, 0.8))).toDF("prediction", "rawPrediction").schema
+    val evaluator = new ComputeModelStatistics()
+      .setLabelCol("label")
+      .setEvaluationMetric(MetricConstants.AreaUnderPRMetric)
+
+    assert(evaluator.transformSchema(schema) ===
+      StructType(Array(StructField(MetricConstants.AreaUnderPRColumnName, DoubleType))))
   }
 
   test("areaUnderPR rejects multiclass and unsupported metric inputs") {

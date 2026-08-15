@@ -485,7 +485,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
   override def copy(extra: ParamMap): Transformer = new ComputeModelStatistics()
 
   override def transformSchema(schema: StructType): StructType = {
-    val (_, _, scoreValueKind) =
+    val (_, labelColumnName, scoreValueKind) =
       MetricUtils.getSchemaInfo(
         schema,
         if (isDefined(labelCol)) Some(getLabelCol) else None,
@@ -496,12 +496,40 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
       else if (scoreValueKind == SchemaConstants.RegressionKind)
         (MetricConstants.RegressionColumns, MetricConstants.RegressionMetrics)
       else throwOnInvalidScoringKind(scoreValueKind)
+    validateBinaryOnlyMetricSchema(schema, labelColumnName, scoreValueKind)
     getTransformedSchema(columns, scoreValueKind, validMetrics)
 
   }
 
   private def throwOnInvalidScoringKind(scoreValueKind: String) = {
     throw new Exception(s"Error: unknown scoring kind $scoreValueKind")
+  }
+
+  private def validateBinaryOnlyMetricSchema(schema: StructType,
+                                             labelColumnName: String,
+                                             scoreValueKind: String): Unit = {
+    val isBinaryOnlyClassificationMetric =
+      getEvaluationMetric == MetricConstants.AucSparkMetric ||
+        getEvaluationMetric == MetricConstants.AreaUnderROCMetric ||
+        getEvaluationMetric == MetricConstants.AreaUnderPRMetric
+    val labelLevels =
+      if (schema.fieldNames.contains(labelColumnName)) CategoricalUtilities.getLevels(schema, labelColumnName)
+      else None
+    // Match runtime semantics: only SynapseML categorical metadata establishes label cardinality.
+    if (scoreValueKind == SchemaConstants.ClassificationKind &&
+        isBinaryOnlyClassificationMetric &&
+        labelLevels.exists(_.length > 2)) {
+      throw new IllegalArgumentException(getBinaryOnlyMetricMulticlassError(getEvaluationMetric))
+    }
+  }
+
+  private def getBinaryOnlyMetricMulticlassError(metric: String): String = metric match {
+    case MetricConstants.AucSparkMetric | MetricConstants.AreaUnderROCMetric =>
+      "Error: AUC is not available for multiclass case"
+    case MetricConstants.AreaUnderPRMetric =>
+      "Error: areaUnderPR is not available for multiclass case"
+    case _ =>
+      throw new IllegalArgumentException(s"Error: $metric is not a classification metric")
   }
 
   private def getTransformedSchema(columns: List[String],
