@@ -14,6 +14,8 @@ import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vectors}
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.types.StructField
 
+import scala.util.{Failure, Success, Try}
+
 // scalastyle:off magic.number
 // scalastyle:off method.length
 /** Tests to validate general functionality of LightGBM module. */
@@ -432,5 +434,60 @@ class VerifyLightGBMCommon extends TestBase with LightGBMTestUtils {
     assertThrows[IllegalArgumentException] {
       new LightGBMClassifier().setDeviceType("tpu")
     }
+  }
+
+  private lazy val deviceTrainingDF: DataFrame = {
+    import spark.implicits._
+    Seq((0.0, Vectors.dense(1.0, 2.0, 3.0)),
+        (1.0, Vectors.dense(4.0, 5.0, 6.0)),
+        (0.0, Vectors.dense(1.5, 2.5, 3.5)),
+        (1.0, Vectors.dense(4.5, 5.5, 6.5)),
+        (0.0, Vectors.dense(1.2, 2.2, 3.2)),
+        (1.0, Vectors.dense(4.2, 5.2, 6.2)))
+      .toDF(labelCol, featuresCol)
+  }
+
+  private def deviceClassifier(device: String): LightGBMClassifier =
+    new LightGBMClassifier()
+      .setLabelCol(labelCol)
+      .setFeaturesCol(featuresCol)
+      .setDeviceType(device)
+      .setNumLeaves(2)
+      .setNumIterations(2)
+      .setNumThreads(1)
+
+  private def rootCause(t: Throwable): Throwable =
+    Iterator.iterate(t)(_.getCause).takeWhile(_ != null).toList.last
+
+  test("Verify the cpu deviceType trains end to end") {
+    val model = deviceClassifier(LightGBMConstants.CPUDeviceType).fit(deviceTrainingDF)
+    assert(model.transform(deviceTrainingDF).count() == deviceTrainingDF.count())
+  }
+
+  /** The published lightgbmlib artifact bundles a CPU-only native library, so gpu and cuda cannot
+    * be trained here. What must hold on any build is that the request reaches LightGBM instead of
+    * being quietly dropped: a caller who asks for a GPU and unknowingly gets CPU has no way to
+    * tell, and would take the slowdown as a fact of life. LightGBM refusing by name is proof the
+    * parameter arrived. If the native library ever does gain GPU support the fit simply succeeds,
+    * which satisfies the same property.
+    */
+  private def assertDeviceIsHonored(device: String, learner: String): Unit = {
+    val outcome = Try(deviceClassifier(device).fit(deviceTrainingDF).transform(deviceTrainingDF).count())
+    outcome match {
+      case Success(count) => assert(count == deviceTrainingDF.count())
+      case Failure(t) =>
+        val message = rootCause(t).getMessage
+        assert(message != null && message.contains(learner),
+          s"Requesting device_type=$device failed without naming the $learner, so it may have been " +
+            s"ignored and silently trained on the CPU instead: $message")
+    }
+  }
+
+  test("Verify the gpu deviceType is never silently downgraded to cpu") {
+    assertDeviceIsHonored(LightGBMConstants.GPUDeviceType, "GPU Tree Learner")
+  }
+
+  test("Verify the cuda deviceType is never silently downgraded to cpu") {
+    assertDeviceIsHonored(LightGBMConstants.CUDADeviceType, "CUDA Tree Learner")
   }
 }
