@@ -6,9 +6,10 @@ package com.microsoft.azure.synapse.ml.core.serialize
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.param.ByteArrayParam
 import org.apache.commons.io.FileUtils
+import org.apache.hadoop.fs.Path
 import org.apache.spark.ml.param.{Param, ParamMap, Params}
 import org.apache.spark.ml.util._
-import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, ObjectSerializer, Serializer, Transformer}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset}
 
@@ -122,6 +123,24 @@ class ValidateComplexParamSerializer extends TestBase {
     val mpt2 = MixedParamTest.load(saveFile)
     assert(mpt1.getByteArray === mpt2.getByteArray)
     assert(mpt1.getStringParam === mpt2.getStringParam)
+  }
+
+  test("Object serialization is interchangeable between the SparkSession and SparkContext paths") {
+    spark
+    val obj = "round-trip payload".toCharArray.map(_.toByte)
+    val sessionPath = new Path(new File(tmpDir.toFile, "session-object").toString)
+    val legacyPath = new Path(new File(tmpDir.toFile, "legacy-object").toString)
+
+    val sessionSerializer = new ObjectSerializer[Array[Byte]](spark)
+    sessionSerializer.write(obj, sessionPath, true)
+
+    // The deprecated SparkContext entry points stay for downstream callers, so assert they still
+    // work and stay wire compatible with the session path in both directions. A format change
+    // here would silently break models written by older SynapseML versions.
+    Serializer.writeToHDFS(spark.sparkContext, obj, legacyPath, true)
+
+    assert(sessionSerializer.read(legacyPath) === obj)
+    assert(Serializer.readFromHDFS[Array[Byte]](spark.sparkContext, sessionPath) === obj)
   }
 
   override def afterAll(): Unit = {
