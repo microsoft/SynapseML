@@ -97,6 +97,44 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+      # Nothing so far has established that this release exists. The version is
+      # read out of a branch name, so a branch called release/v9.9.9-spark4.0
+      # merged into spark4.0 -- which carries no branch protection at all --
+      # would mint public v9.9.9-spark4.0 and v9.9.9-python3.12 tags for a
+      # release that was never cut. A derivative tag cannot be valid without
+      # its primary, and release-tag.yml always creates the primary first, so
+      # requiring it costs a legitimate release nothing.
+      - name: Verify the release exists
+        env:
+          VERSION: ${{ steps.info.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          if ! git rev-parse -q --verify "refs/tags/v${VERSION}" >/dev/null; then
+            echo "::error::No v${VERSION} tag exists, so there is no such release to derive \
+          tags from. This workflow only runs for releases cut by release-tag.yml, which creates \
+          v${VERSION} on master first. If this PR is not part of a release, its branch should \
+          not be named release/v${VERSION}-*."
+            exit 1
+          fi
+          echo "✅ Release v${VERSION} exists at $(git rev-parse --short "refs/tags/v${VERSION}^{commit}")"
+
+          # Ancestry is reported rather than enforced. "Rebase and merge" -- one of
+          # only two methods this repo allows -- replays the release commit onto the
+          # target branch under a new SHA, so the original v${VERSION} object is
+          # legitimately not an ancestor of what landed. Failing on that would reject
+          # every release that goes through this workflow. It is still worth printing:
+          # when it does hold, the tags satisfy the same ancestry the manual release
+          # guide produces, and when it does not, that is the known limitation to
+          # check before the tags are consumed downstream.
+          if git merge-base --is-ancestor "refs/tags/v${VERSION}" HEAD; then
+            echo "✅ v${VERSION} is an ancestor of the merged commit"
+          else
+            echo "::warning::v${VERSION} is not an ancestor of the merged commit. This is \
+          expected when the PR was landed with \"Rebase and merge\", which rewrites SHAs. Verify \
+          the release branches carry the intended content before these tags are consumed."
+          fi
+
       - name: Create and push tags
         env:
           VERSION: ${{ steps.info.outputs.version }}
