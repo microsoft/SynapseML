@@ -261,7 +261,7 @@ jobs:
           first would leave it without the spark4.0 release commit."
                 ;;
               *)
-                MERGE_ORDER="This PR is based on \`${BASED_ON}\`, which has already
+                MERGE_ORDER="This PR is based on \`${BASED_ON#origin/}\`, which has already
           landed, so there is no other release PR to merge ahead of it."
                 ;;
             esac
