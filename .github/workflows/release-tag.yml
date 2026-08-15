@@ -160,13 +160,29 @@ jobs:
           # patch a second time and breaks spark4.0 -> spark4.1 ancestry for good.
           # Chain onto spark4.0 whenever that branch already carries this release.
           if [ "${SKIP_SPARK40}" = "true" ]; then
-            if git rev-parse -q --verify refs/remotes/origin/spark4.0 >/dev/null &&
-               git merge-base --is-ancestor "$RELEASE_COMMIT" origin/spark4.0; then
+            # The checkout can predate both refs this decision reads.
+            git fetch --no-tags origin '+refs/heads/spark4.0:refs/remotes/origin/spark4.0' 2>/dev/null || true
+            git fetch origin "+refs/tags/v${VERSION}-spark4.0:refs/tags/v${VERSION}-spark4.0" 2>/dev/null || true
+
+            SPARK40_HAS_RELEASE=false
+            if git rev-parse -q --verify refs/remotes/origin/spark4.0 >/dev/null; then
+              # "Rebase and merge" rewrites SHAs, so once the spark4.0 release PR has
+              # landed $RELEASE_COMMIT is no longer an ancestor of origin/spark4.0 even
+              # though the release is sitting there under a different SHA. The derivative
+              # tag release-tag-spark.yml mints on that merge is the dependable signal;
+              # the ancestry probe stays as a fallback for a fast-forwarded spark4.0.
+              if git rev-parse -q --verify "refs/tags/v${VERSION}-spark4.0" >/dev/null ||
+                 git merge-base --is-ancestor "$RELEASE_COMMIT" origin/spark4.0; then
+                SPARK40_HAS_RELEASE=true
+              fi
+            fi
+
+            if [ "$SPARK40_HAS_RELEASE" = true ]; then
               REBASE_ONTO="origin/spark4.0"
-              echo "   spark4.1 will be rebased onto origin/spark4.0, which already contains v${VERSION}."
+              echo "   spark4.1 will be rebased onto origin/spark4.0, which already carries v${VERSION}."
             else
               echo "   spark4.1 will be rebased onto v${VERSION} directly this run."
-              echo "::warning::spark4.0 does not contain v${VERSION}, so rebasing spark4.1 onto master breaks spark4.0 -> spark4.1 ancestry until a release runs without SKIP_SPARK40."
+              echo "::warning::spark4.0 has no v${VERSION} release yet, so rebasing spark4.1 onto master breaks spark4.0 -> spark4.1 ancestry until a release runs without SKIP_SPARK40."
             fi
           fi
 
