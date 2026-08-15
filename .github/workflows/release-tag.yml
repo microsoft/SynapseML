@@ -231,6 +231,37 @@ jobs:
             BASED_ON="$REBASE_ONTO"
             REBASE_ONTO="$BRANCH"
 
+            # Only tell the release engineer to merge something else first when there
+            # really is something else. With SKIP_SPARK40, or on a re-run where
+            # spark4.0 has already landed, this PR is based on a commit that is
+            # already on master or on the target branch and can merge on its own.
+            case "$BASED_ON" in
+              release/v*|origin/release/v*)
+                MERGE_ORDER="The spark branches form a chain: \`spark4.1\` is maintained as
+          \`spark4.0\` plus its own upgrade commit. This PR is stacked on
+          \`${BASED_ON#origin/}\`, so **merge that PR first**, then re-check this one —
+          \"Rebase and merge\" rewrites SHAs on the base branch, so merging this PR
+          first would leave it without the spark4.0 release commit."
+                ;;
+              *)
+                MERGE_ORDER="This PR is based on \`${BASED_ON}\`, which has already
+          landed, so there is no other release PR to merge ahead of it."
+                ;;
+            esac
+
+            # An empty check list means different things on the two branches, and
+            # reading "no checks" as "checks passed" is the failure mode worth
+            # spending a paragraph on.
+            if [ "$TARGET" = "spark4.0" ]; then
+              CHECKS="\`spark4.0\` is outside the branch filters of \`pr-validation.yml\` and the
+          ADO pipeline, so this PR legitimately runs no checks at all. A PR opened by a
+          workflow may also need \"Approve workflows to run\" clicked first. Either way an
+          empty check list is not the same as a green one."
+            else
+              CHECKS="A PR opened by a workflow may need \"Approve workflows to run\" clicked
+          before its checks start, so an empty check list is not the same as a green one."
+            fi
+
             gh pr create \
               --base "$TARGET" \
               --head "$BRANCH" \
@@ -243,17 +274,10 @@ jobs:
           Rebases \`${TARGET}\` onto \`${BASED_ON}\`.
 
           ### Merge order
-          The spark branches form a chain: \`spark4.1\` is maintained as \`spark4.0\`
-          plus its own upgrade commit. **Merge the \`spark4.0\` release PR before the
-          \`spark4.1\` one**, and re-check this PR afterwards — \"Rebase and merge\"
-          rewrites SHAs on the base branch, so a spark4.1 PR merged first will not
-          contain the spark4.0 release commit.
+          ${MERGE_ORDER}
 
           ### Checks
-          \`spark4.0\` is not covered by \`pr-validation.yml\` or the ADO pipeline, so a
-          PR into it legitimately shows no checks. A PR opened by a workflow may also
-          need \"Approve workflows to run\" clicked before its checks start — an empty
-          check list is not the same as a green one.
+          ${CHECKS}
 
           ### After merging
           Tags \`v${VERSION}-${TARGET}\` and the matching python tag will
@@ -291,10 +315,12 @@ jobs:
           echo "  ✅ v${VERSION}-python3.11 tag verified at the tagged commit"
           echo "  ✅ v${VERSION}-spark3.5 tag verified at the tagged commit"
           echo "  📋 Spark release branches processed"
+          echo ""
           if [ "${SKIP_SPARK40}" = "true" ]; then
             echo "  ⏭️ spark4.0 skipped (SKIP_SPARK40)"
+            echo "  Next: merge the spark4.1 rebase PR."
+          else
+            echo "  Next: merge the spark4.0 rebase PR first, then spark4.1 —"
+            echo "        spark4.1 is maintained on top of spark4.0."
           fi
-          echo ""
-          echo "  Next: merge the spark4.0 rebase PR first, then spark4.1 —"
-          echo "        spark4.1 is maintained on top of spark4.0."
           echo "═══════════════════════════════════════════════════"
