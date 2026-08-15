@@ -414,6 +414,7 @@ class DriverSocketRetrySuite extends AnyFunSuite {
 
       // This is what executeTraining now does in its finally block when partition tasks fail.
       manager.closeConnections()
+      manager.waitForNetworkCommunicationsDone()
 
       val retriedSocket = new Socket()
       try {
@@ -423,7 +424,6 @@ class DriverSocketRetrySuite extends AnyFunSuite {
       } finally {
         retriedSocket.close()
       }
-      manager.waitForNetworkCommunicationsDone()
     } finally {
       manager.closeConnections()
       closeTasks(task)

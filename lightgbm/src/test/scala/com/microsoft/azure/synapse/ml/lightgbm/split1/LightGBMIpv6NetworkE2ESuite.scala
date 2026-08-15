@@ -260,6 +260,7 @@ class LightGBMIpv6NetworkE2ESuite extends AnyFunSuite with BeforeAndAfterEach {
   }
 
   test("Without a bridge the native library cannot form a network from any IPv6 machine list") {
+    assume(ipv6LoopbackAvailable, "IPv6 loopback is not available on this machine")
     val selfPort = freePort(ipv6Loopback)
     val peerPort = freePort(ipv6Loopback)
     // The bracketed form is what an IPv6 aware driver publishes.
