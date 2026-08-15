@@ -1277,6 +1277,17 @@ jobs:
             echo "##vso[task.logissue type=error]Failed to determine the OSS version from sbt output"
             exit 1
           fi
+          # Every later step interpolates this value into bash, sed and grep. The grep
+          # above only anchors the start of the token, so constrain the whole thing to
+          # characters that are inert in all three contexts: that removes any way for a
+          # crafted version string in build.sbt to smuggle a command substitution or a
+          # sed delimiter through the Azure Pipelines macro expander.
+          case "$OSS_VERSION" in
+            *[!A-Za-z0-9._+-]*)
+              echo "##vso[task.logissue type=error]OSS version '$OSS_VERSION' contains unexpected characters"
+              exit 1
+              ;;
+          esac
           echo "##vso[task.setvariable variable=OSS_VERSION]$OSS_VERSION"
           echo "=== published OSS versions in ~/.m2 ==="
           ls "$HOME/.m2/repository/com/microsoft/azure/" 2>/dev/null || true
@@ -1284,21 +1295,24 @@ jobs:
         set -e
         cd $(Agent.BuildDirectory)/s-internal
 
-        echo "=== Retargeting Internal to OSS version $(OSS_VERSION) ==="
-        [ -n "$(OSS_VERSION)" ] || { echo "##vso[task.logissue type=error]OSS_VERSION is not set"; exit 1; }
+        # $OSS_VERSION is read as a bash environment variable rather than the
+        # $(OSS_VERSION) macro: macros are pasted in as raw text before bash parses the
+        # script, so a version string containing $() or backticks would execute.
+        echo "=== Retargeting Internal to OSS version $OSS_VERSION ==="
+        [ -n "${OSS_VERSION:-}" ] || { echo "##vso[task.logissue type=error]OSS_VERSION is not set"; exit 1; }
         grep -q '^val synapseMLVersion = ' build.sbt || {
           echo "##vso[task.logissue type=error]synapseMLVersion not found in Internal build.sbt"; exit 1; }
         grep -q '^resolvers ++= Seq(' build.sbt || {
           echo "##vso[task.logissue type=error]resolvers block not found in Internal build.sbt"; exit 1; }
 
-        sed -i 's|val synapseMLVersion = ".*"|val synapseMLVersion = "$(OSS_VERSION)"|' build.sbt
+        sed -i "s|val synapseMLVersion = \".*\"|val synapseMLVersion = \"${OSS_VERSION}\"|" build.sbt
         sed -i '/^resolvers ++= Seq(/a\  Resolver.mavenLocal,' build.sbt
 
         # A silent no-op here would compile Internal against the *published* OSS build and
         # report a false green, so verify both edits actually landed. Use fixed-string
         # matching: the version contains dots, which as a regex would match any character
         # and could accept a line the sed above never wrote.
-        grep -qF 'val synapseMLVersion = "$(OSS_VERSION)"' build.sbt || {
+        grep -qF "val synapseMLVersion = \"${OSS_VERSION}\"" build.sbt || {
           echo "##vso[task.logissue type=error]Failed to retarget synapseMLVersion"; exit 1; }
         grep -qF 'Resolver.mavenLocal,' build.sbt || {
           echo "##vso[task.logissue type=error]Failed to add Resolver.mavenLocal"; exit 1; }
@@ -1318,7 +1332,7 @@ jobs:
           set -e
           cd $(Agent.BuildDirectory)/s-internal
           export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
-          echo "Compiling SynapseML-Internal against OSS $(OSS_VERSION)..."
+          echo "Compiling SynapseML-Internal against OSS $OSS_VERSION..."
           sbt compile Test/compile
     - bash: |
         echo "##vso[task.prependpath]$CONDA/bin"
@@ -1374,7 +1388,7 @@ jobs:
           conda activate synapseml-internal
           export CREATE_SEMPY_WRITER=false
           export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
-          echo "Running Internal tests against OSS $(OSS_VERSION)..."
+          echo "Running Internal tests against OSS $OSS_VERSION..."
           # Only the reproducible packages run here. They exercise Internal code against
           # the OSS API surface, so a failure is most often a genuine break. They are not
           # hermetic -- spark.aifunc calls live AI services and takes ~23 min -- which is
@@ -1431,7 +1445,7 @@ jobs:
           conda activate synapseml-internal
           export CREATE_SEMPY_WRITER=false
           export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
-          echo "Packaging Internal Python against OSS $(OSS_VERSION)..."
+          echo "Packaging Internal Python against OSS $OSS_VERSION..."
           # packagePython and publishM2 MUST share one sbt session. Internal's version
           # embeds an HHmm timestamp, so separate invocations can differ by a minute:
           # packagePython bakes the jar coordinate into the generated Python package,
@@ -1482,7 +1496,7 @@ jobs:
             sleep 30
             python ./src/test/python/make_mlflow_models.py
           fi
-          echo "Running ExcludeAIFunc Python tests against OSS $(OSS_VERSION)..."
+          echo "Running ExcludeAIFunc Python tests against OSS $OSS_VERSION..."
           sbt testPythonExcludeAIFunc
       condition: succeededOrFailed()
     - task: PublishTestResults@2
