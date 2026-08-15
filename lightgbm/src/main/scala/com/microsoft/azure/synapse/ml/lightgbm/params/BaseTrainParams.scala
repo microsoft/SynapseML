@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.lightgbm.params
 
 import com.microsoft.azure.synapse.ml.core.utils.{ParamGroup, ParamsStringBuilder}
-import com.microsoft.azure.synapse.ml.lightgbm.{LightGBMConstants, LightGBMDelegate}
+import com.microsoft.azure.synapse.ml.lightgbm.LightGBMDelegate
 
 /** Defines the common Booster parameters passed to the LightGBM learners.
   */
@@ -179,7 +179,6 @@ case class DartModeParams(dropRate: Double,
   * @param microBatchSize The number of elements in a streaming micro-batch.
   * @param useSingleDatasetMode Whether to create only 1 LightGBM Dataset on each worker.
   * @param maxStreamingOMPThreads Maximum number of streaming mode OpenMP threads per Spark Task thread.
-  * @param deviceType Device used for the tree learning, one of cpu, gpu or cuda.
   */
 case class ExecutionParams(chunkSize: Int,
                            matrixType: String,
@@ -189,24 +188,9 @@ case class ExecutionParams(chunkSize: Int,
                            samplingSetSize: Int,
                            microBatchSize: Int,
                            useSingleDatasetMode: Boolean,
-                           maxStreamingOMPThreads: Int,
-                           deviceType: String) extends ParamGroup {
+                           maxStreamingOMPThreads: Int) extends ParamGroup {
   def appendParams(sb: ParamsStringBuilder): ParamsStringBuilder = {
     sb.appendParamValueIfNotThere("num_threads", Option(numThreads))
-      .appendParamValueIfNotThere("device_type", deviceTypeToEmit(sb))
-  }
-
-  /** The device to write into the parameter string, or None to leave the string untouched.
-    *
-    * Two cases must not emit anything. "cpu" is LightGBM's own default, so emitting it would only
-    * risk overriding a device already chosen through passThroughArgs. And LightGBM accepts "device"
-    * as an alias of "device_type", which appendParamValueIfNotThere does not know about, so an
-    * alias supplied through passThroughArgs has to be detected here or the canonical key we append
-    * would silently win over the caller's explicit choice.
-    */
-  private def deviceTypeToEmit(sb: ParamsStringBuilder): Option[String] = {
-    lazy val aliasAlreadySet = """(^|\s)device[ =]""".r.findFirstIn(sb.result()).isDefined
-    if (deviceType == LightGBMConstants.CPUDeviceType || aliasAlreadySet) None else Option(deviceType)
   }
 }
 
