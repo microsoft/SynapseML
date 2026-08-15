@@ -343,10 +343,7 @@ def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
     assert rebase_script.index('case "/$path/" in') < rebase_script.index(
         'for REPLAY_PATH in "${REPLAY_PATHS[@]}"'
     )
-    assert (
-        'git diff --quiet "$PREREQUISITE_PARENT" "$PREREQUISITE" --'
-        in rebase_script
-    )
+    assert 'git diff --quiet "$PREREQUISITE_PARENT" "$PREREQUISITE" --' in rebase_script
     assert 'git cat-file -e "$PREREQUISITE_PARENT:$path"' in rebase_script
     assert 'git rev-parse "$PREREQUISITE:$path"' in rebase_script
     assert 'git rev-parse "$TARGET_HEAD:$path"' in rebase_script
