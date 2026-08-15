@@ -104,6 +104,26 @@ class ValidateComplexParamSerializer extends TestBase {
     assert(mpt1.getStringParam === mpt2.getStringParam)
   }
 
+  test("Complex Param serialization should read metadata written by the legacy SparkContext path") {
+    spark
+    val bytes = "foo".toCharArray.map(_.toByte)
+
+    val mpt1 = new MixedParamTest("foo").setByteArray(bytes).setStringParam("foo")
+    mpt1.write.overwrite().save(saveFile)
+
+    // Rewrite the metadata the way SynapseML wrote it before the reader moved off
+    // SparkContext.textFile, so this asserts that models saved by earlier versions still
+    // load rather than just round-tripping the current writer against the current reader.
+    val metadataDir = new File(saveFile, "metadata")
+    val metadataJson = spark.read.text(metadataDir.toString).first().getString(0)
+    FileUtils.deleteDirectory(metadataDir)
+    spark.sparkContext.parallelize(Seq(metadataJson), 1).saveAsTextFile(metadataDir.toString)
+
+    val mpt2 = MixedParamTest.load(saveFile)
+    assert(mpt1.getByteArray === mpt2.getByteArray)
+    assert(mpt1.getStringParam === mpt2.getStringParam)
+  }
+
   override def afterAll(): Unit = {
     new File(saveFile).delete()
     new File(saveFile2).delete()
