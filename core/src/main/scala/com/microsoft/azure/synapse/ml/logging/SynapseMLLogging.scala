@@ -67,7 +67,12 @@ object SynapseMLLogging extends Logging {
 
   private[ml] def getHadoopConfEntries: Map[String, String] = {
     SparkSession.getActiveSession.map { spark =>
-      val hc = spark.sparkContext.hadoopConfiguration
+      // Session-derived rather than spark.sparkContext, which Databricks Unity Catalog standard
+      // access mode rejects by name. Matches Spark's own MLlib ReadWrite (SPARK-48909) and picks
+      // up session-level conf overrides that sparkContext.hadoopConfiguration misses.
+      // Intentionally uncached: these are session identity fields that a notebook can rebind
+      // mid-session, and the ~0.2ms cost is per fit/transform/construct call, never per row.
+      val hc = spark.sessionState.newHadoopConf()
       //noinspection ScalaStyle
       HadoopKeysToLog.flatMap { case (field, name) =>
         Option(hc.get(field)).map { v: String => (name, v) }

@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.logging
 
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
+import org.apache.spark.sql.SparkSession
 
 class VerifySynapseMLLogging extends TestBase {
 
@@ -107,6 +108,45 @@ class VerifySynapseMLLogging extends TestBase {
     } finally {
       // Clean up to avoid leaking state into other tests
       SynapseMLLogging.LoggedClasses.remove("TestClass")
+    }
+  }
+
+  test("getHadoopConfEntries reads cluster-level Hadoop configuration") {
+    // Fabric sets the trident.* keys on the cluster Hadoop conf. getHadoopConfEntries now derives
+    // its conf from the session instead of spark.sparkContext, so this pins that existing
+    // telemetry still resolves.
+    SparkSession.setActiveSession(spark)
+    val hc = spark.sparkContext.hadoopConfiguration
+    try {
+      hc.set("trident.workspace.id", "ws-from-cluster")
+      assert(SynapseMLLogging.getHadoopConfEntries.get("workspaceId").contains("ws-from-cluster"))
+    } finally {
+      hc.unset("trident.workspace.id")
+    }
+  }
+
+  test("getHadoopConfEntries reads session-level overrides") {
+    SparkSession.setActiveSession(spark)
+    try {
+      spark.conf.set("trident.artifact.id", "artifact-from-session")
+      assert(SynapseMLLogging.getHadoopConfEntries.get("artifactId").contains("artifact-from-session"))
+    } finally {
+      spark.conf.unset("trident.artifact.id")
+    }
+  }
+
+  test("getHadoopConfEntries returns only known telemetry field names") {
+    SparkSession.setActiveSession(spark)
+    val known = SynapseMLLogging.HadoopKeysToLog.values.toSet
+    assert(SynapseMLLogging.getHadoopConfEntries.keySet.subsetOf(known))
+  }
+
+  test("getHadoopConfEntries is empty when no session is active") {
+    SparkSession.clearActiveSession()
+    try {
+      assert(SynapseMLLogging.getHadoopConfEntries.isEmpty)
+    } finally {
+      SparkSession.setActiveSession(spark)
     }
   }
 }
