@@ -70,13 +70,13 @@ object Serializer {
     * `SparkSession.sparkContext` is unavailable under Spark Connect and is explicitly unsupported
     * on Databricks Unity Catalog standard access mode, so deriving the configuration from the
     * session is what keeps model persistence working there. This mirrors Spark MLlib's own
-    * `session.sessionState.newHadoopConf()`. It also picks up `spark.hadoop.*` settings applied to
-    * the session, which `sparkContext.hadoopConfiguration` alone does not.
+    * `session.sessionState.newHadoopConf()`. It also layers in session-level conf, which
+    * `sparkContext.hadoopConfiguration` alone does not.
     */
   private[ml] def sessionHadoopConf(spark: SparkSession): Configuration =
     spark.sessionState.newHadoopConf()
 
-  private val SparkContextDeprecation =
+  private final val SparkContextDeprecation =
     "Use the SparkSession overload. SparkContext is unavailable under Spark Connect and on " +
       "Databricks Unity Catalog standard access mode."
 
