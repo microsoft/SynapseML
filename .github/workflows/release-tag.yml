@@ -1,0 +1,363 @@
+name: Release Tag Orchestrator
+
+# Triggers when a primary version tag (v1.1.2) is pushed to master.
+# Creates the python3.11 and spark3.5 tags at the tagged commit, then opens a
+# rebase PR for each spark branch as a chain: spark4.0 onto the release commit,
+# then spark4.1 onto spark4.0.
+#
+# spark4.0 can be opted out of. See SKIP_SPARK40 below.
+#
+# Part of the SynapseML Fabric Release Guide (Steps 1.4–1.5).
+# See also: release-tag-spark.yml (creates spark/python tags after PR merge).
+
+on:
+  push:
+    tags:
+      # Deliberately permissive: GitHub filter patterns are globs, and support for
+      # `+` as a quantifier is inconsistently documented. `[0-9]*` matches under
+      # every reading. Strict X.Y.Z enforcement is done by the "Extract version"
+      # step below, and derivative tags are excluded by the job-level `if:`.
+      - "v[0-9]*.[0-9]*.[0-9]*"
+  workflow_dispatch:
+    inputs:
+      skip_spark40:
+        description: 'Skip the spark4.0 rebase PR for this run'
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  # Opt out of spark4.0 in two ways, checked in this order:
+  #   1. the workflow_dispatch checkbox above, for a single manual run;
+  #   2. repository variable SKIP_SPARK40='true', for a persistent opt-out —
+  #      a tag push carries no inputs, so this is the only way to skip it on
+  #      the automatic trigger.
+  # Default is false: spark4.0 is processed exactly as before.
+  # Note this only controls whether the rebase PR is opened here. Merging a
+  # spark4.0 release branch by hand still tags normally via release-tag-spark.yml.
+  SKIP_SPARK40: ${{ inputs.skip_spark40 == true || vars.SKIP_SPARK40 == 'true' }}
+
+jobs:
+  release-tags:
+    name: Create release tags & rebase PR
+    runs-on: ubuntu-latest
+
+    # Skip derivative tags (v1.1.2-spark4.0, v1.1.2-python3.11, etc.)
+    if: >-
+      !contains(github.ref_name, '-spark') &&
+      !contains(github.ref_name, '-python')
+
+    steps:
+      - name: Extract version
+        id: version
+        run: |
+          set -euo pipefail
+          # The version comes from the ref this ran on, so a manual run must be
+          # dispatched with a release tag selected in the ref picker. Dispatching
+          # from master (the default the UI offers) fails here by design rather
+          # than guessing which release was meant.
+          VERSION="${GITHUB_REF_NAME#v}"
+          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "❌ Version '$VERSION' is not X.Y.Z format. Re-run this workflow with a \
+          vX.Y.Z tag selected as the ref."
+            exit 1
+          fi
+          # Published only after validation, so no later step can consume a version
+          # this job already rejected.
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "📦 Version: $VERSION"
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Capture released commit
+        run: |
+          set -euo pipefail
+          RELEASE_COMMIT=$(git rev-parse HEAD)
+          # The release tag must identify a commit from master. Refuse to mint
+          # derivative tags or PRs from an accidental tag on another branch.
+          git fetch --no-tags origin '+refs/heads/master:refs/remotes/origin/master'
+          if ! git merge-base --is-ancestor "$RELEASE_COMMIT" origin/master; then
+            echo "::error::${GITHUB_REF_NAME} points to $RELEASE_COMMIT, which is not contained in origin/master"
+            exit 1
+          fi
+          echo "RELEASE_COMMIT=$RELEASE_COMMIT" >> "$GITHUB_ENV"
+          echo "✅ ${GITHUB_REF_NAME} points at master commit $RELEASE_COMMIT"
+
+      # ── Tags at the released master commit ────────────────
+      - name: Create master release tags
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          # Both derivative tags every release carries at the master commit. master
+          # targets Spark 3.5 and Python 3.11, and v1.1.1 and v1.1.3 each carry both
+          # tags here, so creating only the python one leaves every release short a tag.
+          for TAG in "v${VERSION}-python3.11" "v${VERSION}-spark3.5"; do
+            # Use the immutable tagged commit captured above, not a moving branch ref.
+            if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+              # Same reasoning as release-tag-spark.yml: an existing tag is only
+              # benign if it already points at this release. Otherwise the release
+              # is mis-tagged and skipping would report success for a bad release.
+              EXISTING=$(git rev-parse "refs/tags/$TAG^{commit}")
+              if [ "$EXISTING" != "$RELEASE_COMMIT" ]; then
+                echo "::error::$TAG already exists at $EXISTING but v${VERSION} is \
+          $RELEASE_COMMIT. Refusing to move a published release tag — resolve manually."
+                exit 1
+              fi
+              echo "⚠️ $TAG already exists at the same commit — skipping"
+            else
+              git tag "$TAG" "$RELEASE_COMMIT"
+              git push origin "$TAG"
+              echo "✅ Created $TAG"
+            fi
+          done
+
+      # ── Rebase PRs for the spark release branches ──────────
+      - name: Create spark rebase PRs
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          # spark4.0 first, and spark4.1 rebased onto it rather than onto master.
+          # spark4.1 is maintained as spark4.0 plus its own upgrade commit — every
+          # release so far satisfies `git merge-base --is-ancestor v<ver>-spark4.0
+          # v<ver>-spark4.1`, and origin/spark4.0 is an ancestor of origin/spark4.1
+          # today. Rebasing both onto master independently replays the Spark 4.0
+          # upgrade patch twice, producing two commits with the same tree and
+          # different SHAs, which breaks that ancestry for good: a later spark4.0-only
+          # fix would no longer reach spark4.1. Chaining them lets `git rebase` drop
+          # the patch-equivalent commit and keeps the branches a single line, which is
+          # also what the release guide's `git checkout spark4.1; git rebase
+          # upstream/spark4.0` produces.
+          TARGETS=(spark4.0 spark4.1)
+          if [ "${SKIP_SPARK40}" = "true" ]; then
+            echo "⏭️ SKIP_SPARK40 is set — not opening a spark4.0 rebase PR"
+            TARGETS=(spark4.1)
+          fi
+
+          # Each target is rebased onto the previous one's release branch, starting
+          # from the master release commit.
+          REBASE_ONTO="$RELEASE_COMMIT"
+
+          # Skipping spark4.0 must not silently un-chain spark4.1. Leaving REBASE_ONTO
+          # at the master release commit is exactly the "both onto master
+          # independently" case described above: it replays the Spark 4.0 upgrade
+          # patch a second time and breaks spark4.0 -> spark4.1 ancestry for good.
+          # Chain onto spark4.0 whenever that branch already carries this release.
+          if [ "${SKIP_SPARK40}" = "true" ]; then
+            # The checkout can predate both refs this decision reads.
+            git fetch --no-tags origin '+refs/heads/spark4.0:refs/remotes/origin/spark4.0' 2>/dev/null || true
+            git fetch origin "+refs/tags/v${VERSION}-spark4.0:refs/tags/v${VERSION}-spark4.0" 2>/dev/null || true
+
+            SPARK40_HAS_RELEASE=false
+            if git rev-parse -q --verify refs/remotes/origin/spark4.0 >/dev/null; then
+              # "Rebase and merge" rewrites SHAs, so once the spark4.0 release PR has
+              # landed $RELEASE_COMMIT is no longer an ancestor of origin/spark4.0 even
+              # though the release is sitting there under a different SHA. The derivative
+              # tag release-tag-spark.yml mints on that merge is the dependable signal;
+              # the ancestry probe stays as a fallback for a fast-forwarded spark4.0.
+              if git rev-parse -q --verify "refs/tags/v${VERSION}-spark4.0" >/dev/null ||
+                 git merge-base --is-ancestor "$RELEASE_COMMIT" origin/spark4.0; then
+                SPARK40_HAS_RELEASE=true
+              fi
+            fi
+
+            if [ "$SPARK40_HAS_RELEASE" = true ]; then
+              REBASE_ONTO="origin/spark4.0"
+              echo "   spark4.1 will be rebased onto origin/spark4.0, which already carries v${VERSION}."
+            else
+              echo "   spark4.1 will be rebased onto v${VERSION} directly this run."
+              echo "::warning::spark4.0 has no v${VERSION} release yet, so rebasing spark4.1 onto master breaks spark4.0 -> spark4.1 ancestry until a release runs without SKIP_SPARK40."
+            fi
+          fi
+
+          FAILED=()
+          for TARGET in "${TARGETS[@]}"; do
+            if ! git rev-parse -q --verify "refs/remotes/origin/$TARGET" >/dev/null; then
+              echo "⚠️ $TARGET branch doesn't exist — skipping"
+              continue
+            fi
+
+            BRANCH="release/v${VERSION}-${TARGET}"
+            echo "═══ $TARGET (onto $REBASE_ONTO) ═══"
+
+            # Nothing to do if the branch already has the released commit, and
+            # rebasing anyway is not harmless. `git rebase` only no-ops when the
+            # branch is linear on top of the release; if the branch picked up a
+            # merge commit (e.g. the previous release PR was merged with a merge
+            # commit rather than "Rebase and merge"), the rebase flattens that
+            # merge and rewrites SHAs. If the tip *is* the release commit there
+            # is nothing ahead at all and `gh pr create` fails with "No commits
+            # between". Both only show up on a re-run, which is exactly when the
+            # workflow is supposed to be safe to repeat.
+            if git merge-base --is-ancestor "$REBASE_ONTO" "origin/$TARGET"; then
+              echo "✅ $TARGET already contains $REBASE_ONTO — nothing to rebase"
+              REBASE_ONTO="origin/$TARGET"
+              continue
+            fi
+
+            # Check before rebuilding the branch: an existing PR may contain
+            # manual conflict resolution that must not be replaced or made to
+            # conflict again locally. Ignore same-named PRs from forks.
+            EXISTING=$(gh pr list --head "$BRANCH" --base "$TARGET" \
+              --state open --json number,isCrossRepository \
+              --jq 'map(select(.isCrossRepository == false))[0].number // empty')
+            if [ -n "$EXISTING" ]; then
+              echo "♻️ PR #$EXISTING already open for $BRANCH — leaving it untouched."
+              echo "   If that PR needs refreshing, update it manually."
+              # Chain the next target onto what that PR will land, not onto master.
+              git fetch --no-tags origin "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH"
+              REBASE_ONTO="origin/$BRANCH"
+              continue
+            fi
+
+            # "Rebase and merge" rewrites the primary release commit, so the
+            # ancestor check above cannot recognize a completed release on its
+            # own. Reuse a merged PR only while its recorded result remains on
+            # the target branch; otherwise fail instead of opening a duplicate.
+            MERGED=$(gh pr list --head "$BRANCH" --base "$TARGET" \
+              --state merged --json number,mergeCommit,isCrossRepository \
+              --jq '(map(select(.isCrossRepository == false))[0] // empty) |
+                [.number, .mergeCommit.oid] | @tsv')
+            if [ -n "$MERGED" ]; then
+              IFS=$'\t' read -r MERGED_PR MERGED_SHA <<< "$MERGED"
+              if [ -z "$MERGED_SHA" ]; then
+                echo "::error::PR #$MERGED_PR was merged for $BRANCH but has no recorded merge commit"
+                FAILED+=("$TARGET")
+                break
+              fi
+              if ! git merge-base --is-ancestor "$MERGED_SHA" "origin/$TARGET"; then
+                echo "::error::PR #$MERGED_PR merged at $MERGED_SHA, which is no longer on $TARGET"
+                FAILED+=("$TARGET")
+                break
+              fi
+              echo "✅ PR #$MERGED_PR already merged at $MERGED_SHA — $TARGET is complete"
+              REBASE_ONTO="origin/$TARGET"
+              continue
+            fi
+
+            git checkout -B "$BRANCH" "origin/$TARGET"
+
+            if ! git rebase "$REBASE_ONTO"; then
+              git rebase --abort
+              echo "::error::Rebase of $TARGET onto $REBASE_ONTO conflicted — resolve manually"
+              FAILED+=("$TARGET")
+              break
+            fi
+
+            git push --force-with-lease -u origin "$BRANCH"
+            BASED_ON="$REBASE_ONTO"
+            REBASE_ONTO="$BRANCH"
+
+            # Only tell the release engineer to merge something else first when there
+            # really is something else. With SKIP_SPARK40, or on a re-run where
+            # spark4.0 has already landed, this PR is based on a commit that is
+            # already on master or on the target branch and can merge on its own.
+            case "$BASED_ON" in
+              release/v*|origin/release/v*)
+                MERGE_ORDER="The spark branches form a chain: \`spark4.1\` is maintained as
+          \`spark4.0\` plus its own upgrade commit. This PR is stacked on
+          \`${BASED_ON#origin/}\`, so **merge that PR first**, then re-check this one —
+          \"Rebase and merge\" rewrites SHAs on the base branch, so merging this PR
+          first would leave it without the spark4.0 release commit."
+                ;;
+              *)
+                MERGE_ORDER="This PR is based on \`${BASED_ON#origin/}\`, which has already
+          landed, so there is no other release PR to merge ahead of it."
+                ;;
+            esac
+
+            # An empty check list means different things on the two branches, and
+            # reading "no checks" as "checks passed" is the failure mode worth
+            # spending a paragraph on.
+            if [ "$TARGET" = "spark4.0" ]; then
+              CHECKS="\`spark4.0\` is outside the branch filters of \`pr-validation.yml\` and the
+          ADO pipeline, so this PR legitimately runs no checks at all. A PR opened by a
+          workflow may also need \"Approve workflows to run\" clicked first. Either way an
+          empty check list is not the same as a green one."
+            else
+              CHECKS="A PR opened by a workflow may need \"Approve workflows to run\" clicked
+          before its checks start, so an empty check list is not the same as a green one."
+            fi
+
+            gh pr create \
+              --base "$TARGET" \
+              --head "$BRANCH" \
+              --title "chore: Rebase ${TARGET} for v${VERSION} release" \
+              --body "## Release v${VERSION} — ${TARGET} rebase
+
+          Auto-generated by the Release Tag Orchestrator.
+
+          ### What this does
+          Rebases \`${TARGET}\` onto \`${BASED_ON}\`.
+
+          ### Merge order
+          ${MERGE_ORDER}
+
+          ### Checks
+          ${CHECKS}
+
+          ### After merging
+          Tags \`v${VERSION}-${TARGET}\` and the matching python tag will
+          be created automatically by the \`release-tag-spark\` workflow.
+
+          ### Next steps
+          1. ✅ Merge this PR (use **Rebase and merge**)
+          2. Tags are auto-created on merge
+          3. Queue ADO pipeline 17563 for \`refs/tags/v${VERSION}\`
+          4. Queue ADO pipeline 17563 for \`refs/tags/v${VERSION}-${TARGET}\`
+          5. Approve ESRP signing on SAW machine" || {
+                echo "::error::Failed to open PR for $TARGET"
+                FAILED+=("$TARGET")
+                # Stop the chain, matching the rebase-conflict path above. The next
+                # target would be stacked on a pushed branch that has no PR, so it
+                # could never be merged in order.
+                break
+              }
+          done
+
+          if [ ${#FAILED[@]} -gt 0 ]; then
+            echo "::error::Failed for: ${FAILED[*]}"
+            exit 1
+          fi
+
+      # ── Summary ────────────────────────────────────────────
+      - name: Summary
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          echo ""
+          echo "═══════════════════════════════════════════════════"
+          echo "  Release Tag Orchestrator — Summary"
+          echo "═══════════════════════════════════════════════════"
+          echo ""
+          echo "  Version: v${VERSION}"
+          echo ""
+          echo "  ✅ v${VERSION}-python3.11 tag verified at the tagged commit"
+          echo "  ✅ v${VERSION}-spark3.5 tag verified at the tagged commit"
+          echo "  📋 Spark release branches processed"
+          echo ""
+          if [ "${SKIP_SPARK40}" = "true" ]; then
+            echo "  ⏭️ spark4.0 skipped (SKIP_SPARK40)"
+            echo "  Next: merge the spark4.1 rebase PR."
+          else
+            echo "  Next: merge the spark4.0 rebase PR first, then spark4.1 —"
+            echo "        spark4.1 is maintained on top of spark4.0."
+          fi
+          echo "═══════════════════════════════════════════════════"
