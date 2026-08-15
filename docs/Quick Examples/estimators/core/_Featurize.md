@@ -205,6 +205,56 @@ feat.fit(dataset).transform(dataset).show()
 </TabItem>
 </Tabs>
 
+#### Handling rows with missing numeric values
+
+By default, `Featurize`'s final `VectorAssembler` uses `"skip"`, so rows are dropped when
+null values or numeric scalar `NaN` values reach that assembler (for example when missing-value
+imputation is disabled). To instead preserve those rows as `NaN`, set
+`vectorAssemblerHandleInvalid` to `"keep"`:
+
+<Tabs
+defaultValue="py"
+values={[
+{label: `Python`, value: `py`},
+{label: `Scala`, value: `scala`},
+]}>
+<TabItem value="py">
+
+```python
+from synapse.ml.featurize import Featurize
+
+feat = (Featurize()
+      .setInputCols(["col1", "col2", "col3"])
+      .setOutputCol("testColumn")
+      .setImputeMissing(False)
+      .setVectorAssemblerHandleInvalid("keep"))
+```
+
+</TabItem>
+<TabItem value="scala">
+
+```scala
+val feat = (new Featurize()
+      .setInputCols(featureColumns)
+      .setOutputCol("testColumn")
+      .setImputeMissing(false)
+      .setVectorAssemblerHandleInvalid("keep"))
+```
+
+</TabItem>
+</Tabs>
+
+Supported values are `"skip"` (default, drops rows, unchanged prior behavior), `"error"`
+(fails transform on invalid values), and `"keep"` (preserves rows, encoding nulls and numeric
+scalar `NaN` values as `NaN`). A null vector becomes one `NaN` per vector element; `NaN` values
+already stored inside sparse or dense vectors are preserved. The param only affects the final
+`VectorAssembler` step; it doesn't change text featurization, one-hot encoding, or
+`imputeMissing` mean/median imputation, which runs earlier in the pipeline and can hide missing
+values from the assembler unless disabled. Vector-typed input columns need size metadata (for
+example added via Spark's `VectorSizeHint`) to use `"keep"`; otherwise Spark cannot infer their
+length. If null vectors must also be preserved, configure `VectorSizeHint` with
+`handleInvalid="optimistic"` so it adds metadata without filtering or rejecting them.
+
 <DocTable className="Featurize"
 py="synapse.ml.featurize.html#module-synapse.ml.featurize.Featurize"
 scala="com/microsoft/azure/synapse/ml/featurize/Featurize.html"

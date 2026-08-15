@@ -78,6 +78,45 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel]
   /** @group setParam */
   def setImputeMissing(value: Boolean): this.type = set(imputeMissing, value)
 
+  /** How the final internal VectorAssembler stage handles null input values and Double.NaN
+    * scalar numeric values when assembling the output feature vector.
+    *
+    * This only affects that last assembly step; it does not change text featurization,
+    * categorical one-hot encoding, or the imputeMissing mean/median imputation performed earlier
+    * in the pipeline. Supported values mirror the VectorAssembler handleInvalid parameter in
+    * Spark 3.5:
+    *  - "skip" (default): drop rows containing an invalid value, preserving the
+    *    historical Featurize behavior.
+    *  - "error": fail transform if an invalid value is encountered.
+    *  - "keep": preserve every row and encode invalid values as Double.NaN in the assembled
+    *    feature vector, e.g. so LightGBM native missing-value handling can use them. A null
+    *    vector input becomes one Double.NaN per vector element.
+    *    Set imputeMissing to false as well if raw missing values (rather than imputed ones)
+    *    should reach the assembler.
+    *
+    * Note: input columns that are already vectors need size metadata (for example added via
+    * VectorSizeHint) to use "keep"; otherwise Spark cannot infer their length and will throw.
+    *
+    * @group param
+    */
+  val vectorAssemblerHandleInvalid: Param[String] = new Param[String](this,
+    "vectorAssemblerHandleInvalid",
+    "How the final VectorAssembler stage handles null inputs and scalar numeric NaN values: " +
+      "skip (default, drops rows, matches prior behavior), error (fails on invalid values), " +
+      "or keep (preserves rows and encodes invalid values as Double.NaN, e.g. " +
+      "for LightGBM missing-value handling). Only affects the final VectorAssembler; does not " +
+      "change text, categorical, or imputeMissing behavior. Vector-typed input columns without " +
+      "size metadata (see VectorSizeHint) can fail to infer lengths when set to keep.",
+    ParamValidators.inArray(Array("skip", "error", "keep")))
+
+  setDefault(vectorAssemblerHandleInvalid -> "skip")
+
+  /** @group getParam */
+  final def getVectorAssemblerHandleInvalid: String = $(vectorAssemblerHandleInvalid)
+
+  /** @group setParam */
+  def setVectorAssemblerHandleInvalid(value: String): this.type = set(vectorAssemblerHandleInvalid, value)
+
   private case class ColumnInfo(originalName: String, dataType: DataType, version: Int = 0) {
     def currentName: String = {
       if (version == 0) {
@@ -220,7 +259,7 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel]
         new VectorAssembler()
           .setInputCols(columnState.getCurrentCols.toArray)
           .setOutputCol(getOutputCol)
-          .setHandleInvalid("skip"),
+          .setHandleInvalid(getVectorAssemblerHandleInvalid),
         new DropColumns().setCols(columnState.getColsToDrop.toArray)
       )
 
@@ -230,9 +269,7 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel]
   //scalastyle:on cyclomatic.complexity
   //scalastyle:on method.length
 
-  override def copy(extra: ParamMap): Estimator[PipelineModel] = {
-    new Featurize()
-  }
+  override def copy(extra: ParamMap): Estimator[PipelineModel] = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType =
     schema.add(getOutputCol, VectorType)
