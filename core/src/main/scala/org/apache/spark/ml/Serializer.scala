@@ -7,7 +7,6 @@ import com.microsoft.azure.synapse.ml.core.env.StreamUtilities._
 import com.microsoft.azure.synapse.ml.core.utils.ContextObjectInputStream
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
-import org.apache.spark.SparkContext
 import org.apache.spark.ml.util.MLWritable
 import org.apache.spark.sql._
 
@@ -76,10 +75,6 @@ object Serializer {
   private[ml] def sessionHadoopConf(spark: SparkSession): Configuration =
     spark.sessionState.newHadoopConf()
 
-  private final val SparkContextDeprecation =
-    "Use the SparkSession overload. SparkContext is unavailable under Spark Connect and on " +
-      "Databricks Unity Catalog standard access mode."
-
   /** Writes the object to the given path.
     *
     * @param obj        The object to write.
@@ -88,15 +83,6 @@ object Serializer {
   def writeToHDFS[O](spark: SparkSession, obj: O, outputPath: Path, overwrite: Boolean)
                     (implicit ttag: TypeTag[O]): Unit = {
     using(outputPath.getFileSystem(sessionHadoopConf(spark)).create(outputPath, overwrite)) { os =>
-      write[O](obj, os)(ttag)
-    }.get
-  }
-
-  @deprecated(SparkContextDeprecation, "1.1.0")
-  def writeToHDFS[O](sc: SparkContext, obj: O, outputPath: Path, overwrite: Boolean)
-                    (implicit ttag: TypeTag[O]): Unit = {
-    val hadoopConf = sc.hadoopConfiguration
-    using(outputPath.getFileSystem(hadoopConf).create(outputPath, overwrite)) { os =>
       write[O](obj, os)(ttag)
     }.get
   }
@@ -112,21 +98,8 @@ object Serializer {
     }.get
   }
 
-  @deprecated(SparkContextDeprecation, "1.1.0")
-  def readFromHDFS[O](sc: SparkContext, path: Path)(implicit ttag: TypeTag[O]): O = {
-    val hadoopConf = sc.hadoopConfiguration
-    using(path.getFileSystem(hadoopConf).open(path)) { in =>
-      read[O](in)(ttag)
-    }.get
-  }
-
   def makeQualifiedPath(spark: SparkSession, path: String): Path = {
     makeQualifiedPath(sessionHadoopConf(spark), path)
-  }
-
-  @deprecated(SparkContextDeprecation, "1.1.0")
-  def makeQualifiedPath(sc: SparkContext, path: String): Path = {
-    makeQualifiedPath(sc.hadoopConfiguration, path)
   }
 
   private def makeQualifiedPath(hadoopConf: Configuration, path: String): Path = {
@@ -139,11 +112,6 @@ object Serializer {
 }
 
 class ObjectSerializer[O](spark: SparkSession)(implicit ttag: TypeTag[O]) extends Serializer[O] {
-
-  @deprecated("Use the SparkSession constructor. SparkContext is unavailable under Spark Connect " +
-    "and on Databricks Unity Catalog standard access mode.", "1.1.0")
-  def this(sc: SparkContext)(implicit ttag: TypeTag[O]) =
-    this(SparkSession.builder().sparkContext(sc).getOrCreate())
 
   def write(obj: O, path: Path, overwrite: Boolean): Unit = Serializer.writeToHDFS(spark, obj, path, overwrite)
 

@@ -3,6 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.core.serialize
 
+import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.param.ByteArrayParam
 import org.apache.commons.io.FileUtils
@@ -125,22 +126,21 @@ class ValidateComplexParamSerializer extends TestBase {
     assert(mpt1.getStringParam === mpt2.getStringParam)
   }
 
-  test("Object serialization is interchangeable between the SparkSession and SparkContext paths") {
+  test("Objects written the way earlier versions wrote them still load through the session path") {
     spark
     val obj = "round-trip payload".toCharArray.map(_.toByte)
-    val sessionPath = new Path(new File(tmpDir.toFile, "session-object").toString)
     val legacyPath = new Path(new File(tmpDir.toFile, "legacy-object").toString)
 
-    val sessionSerializer = new ObjectSerializer[Array[Byte]](spark)
-    sessionSerializer.write(obj, sessionPath, true)
+    // Reproduce the previous write path byte for byte: the FileSystem resolved from the
+    // SparkContext Hadoop configuration rather than from the session, writing through the same
+    // Serializer.write. Only the configuration lookup moved, so this pins that the on-disk format
+    // is unchanged and that objects written by earlier SynapseML versions still load.
+    using(legacyPath.getFileSystem(spark.sparkContext.hadoopConfiguration).create(legacyPath, true)) { os =>
+      Serializer.write(obj, os)
+    }.get
 
-    // The deprecated SparkContext entry points stay for downstream callers, so assert they still
-    // work and stay wire compatible with the session path in both directions. A format change
-    // here would silently break models written by older SynapseML versions.
-    Serializer.writeToHDFS(spark.sparkContext, obj, legacyPath, true)
-
-    assert(sessionSerializer.read(legacyPath) === obj)
-    assert(Serializer.readFromHDFS[Array[Byte]](spark.sparkContext, sessionPath) === obj)
+    assert(new ObjectSerializer[Array[Byte]](spark).read(legacyPath) === obj)
+    assert(Serializer.readFromHDFS[Array[Byte]](spark, legacyPath) === obj)
   }
 
   override def afterAll(): Unit = {
