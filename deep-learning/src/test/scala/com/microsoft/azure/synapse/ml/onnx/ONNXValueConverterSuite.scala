@@ -36,6 +36,9 @@ class ONNXValueConverterSuite extends AnyFunSuite {
 
     override def getType: OnnxValue.OnnxValueType = OnnxValue.OnnxValueType.ONNX_TYPE_SEQUENCE
 
+    // ONNX Runtime 1.17 added OnnxValue.isClosed as an abstract method (GH2417 runtime upgrade).
+    override def isClosed: Boolean = closed
+
     override def close(): Unit = {
       closed = true
     }

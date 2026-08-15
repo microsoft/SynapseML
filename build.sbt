@@ -330,7 +330,12 @@ lazy val deepLearning = (project in file("deep-learning"))
   .settings(settings ++ Seq(
     libraryDependencies ++= Seq(
       "com.microsoft.azure" % "onnx-protobuf_2.12" % "0.9.3",
-      "com.microsoft.onnxruntime" % "onnxruntime_gpu" % "1.8.1",
+      // Default to the CPU-only, cross-platform ONNX Runtime artifact (ships native libraries for
+      // Windows x64, Linux x64/aarch64, and macOS x64/aarch64) so ONNXModel works out of the box on
+      // every supported platform. CUDA support is an explicit opt-in: the onnxruntime_gpu artifact
+      // adds NVIDIA CUDA/TensorRT execution providers (Linux/Windows only, ~300+MB) and is never
+      // bundled by default. See docs/Explore Algorithms/Deep Learning/ONNX.md for GPU setup.
+      "com.microsoft.onnxruntime" % "onnxruntime" % "1.8.1",
       "org.apache.hadoop" % "hadoop-common" % "3.3.4" % "test",
       "org.apache.hadoop" % "hadoop-azure" % "3.3.4" % "test",
     ),
