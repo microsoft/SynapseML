@@ -12,7 +12,7 @@ import java.io.{DataInputStream, IOException}
 import java.net.{InetAddress, InetSocketAddress, NetworkInterface, ServerSocket, Socket}
 import java.nio.{ByteBuffer, ByteOrder}
 import java.util.Random
-import java.util.concurrent.{Callable, ConcurrentLinkedQueue, Executors, TimeUnit}
+import java.util.concurrent.{Callable, ConcurrentLinkedQueue, Executors, ThreadFactory, TimeUnit}
 import scala.collection.JavaConverters._
 import scala.util.Try
 
@@ -24,7 +24,13 @@ class LightGBMNetworkBridgeSuite extends AnyFunSuite with BeforeAndAfterEach {
   private val ipv6Loopback = "::1"
   private val payloadSize = 1 << 20
   private val closeables = new ConcurrentLinkedQueue[AutoCloseable]()
-  private val pool = Executors.newCachedThreadPool()
+  private val pool = Executors.newCachedThreadPool(new ThreadFactory {
+    override def newThread(runnable: Runnable): Thread = {
+      val thread = new Thread(runnable, "lightgbm-network-bridge-test")
+      thread.setDaemon(true)
+      thread
+    }
+  })
 
   override def afterEach(): Unit = {
     closeables.asScala.foreach(resource => Try(resource.close()))

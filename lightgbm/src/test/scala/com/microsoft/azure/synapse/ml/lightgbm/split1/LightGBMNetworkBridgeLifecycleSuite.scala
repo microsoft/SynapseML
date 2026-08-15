@@ -15,7 +15,7 @@ import java.nio.channels.ServerSocketChannel
 import java.nio.{ByteBuffer, ByteOrder}
 import java.util.Random
 import java.util.concurrent.atomic.{AtomicInteger, AtomicLong}
-import java.util.concurrent.{Callable, ConcurrentLinkedQueue, Executors, TimeUnit}
+import java.util.concurrent.{Callable, ConcurrentLinkedQueue, Executors, ThreadFactory, TimeUnit}
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
 import scala.util.Try
@@ -38,7 +38,13 @@ class LightGBMNetworkBridgeLifecycleSuite extends AnyFunSuite with BeforeAndAfte
   private val unsolicitedConnections = 6
   private val shortHandshakeMillis = 500L
   private val closeables = new ConcurrentLinkedQueue[AutoCloseable]()
-  private val pool = Executors.newCachedThreadPool()
+  private val pool = Executors.newCachedThreadPool(new ThreadFactory {
+    override def newThread(runnable: Runnable): Thread = {
+      val thread = new Thread(runnable, "lightgbm-network-bridge-lifecycle-test")
+      thread.setDaemon(true)
+      thread
+    }
+  })
 
   override def afterEach(): Unit = {
     closeables.asScala.foreach(resource => Try(resource.close()))
