@@ -4,3 +4,6 @@
 # PR #2612 introduces the WorkerMessage protocol used by the IPv6 endpoint parsing fix.
 # Remove this prerequisite once every validated release branch contains that backport.
 4a52d9ae4184d3ce00394cd9cb4209c35990fc47
+# PR #2507 introduced tests modified by PR #2635 but absent from Spark 4.1.
+# Remove this scoped prerequisite once every validated release branch contains these tests.
+6938c472175ed1592ec24e7d8c65d9174f17c4e5	core/src/test/scala/com/microsoft/azure/synapse/ml/automl/VerifyEvaluationUtils.scala	core/src/test/scala/com/microsoft/azure/synapse/ml/core/metrics/VerifyMetricConstants.scala
