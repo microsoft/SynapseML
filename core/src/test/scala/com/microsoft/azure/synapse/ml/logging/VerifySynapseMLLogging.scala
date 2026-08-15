@@ -111,11 +111,27 @@ class VerifySynapseMLLogging extends TestBase {
     }
   }
 
+  /** Makes `spark` the active session for the current thread, and deliberately leaves it that way.
+    *
+    * `getHadoopConfEntries` resolves its configuration through `SparkSession.getActiveSession`, so
+    * these tests need one. `TestBase` never establishes an active session — `getOrCreate` only sets
+    * one when it actually constructs the session — so it is whatever a previously-run suite happened
+    * to leave behind.
+    *
+    * Restoring the "previous" value afterwards is tempting but measurably wrong here: the previous
+    * value is usually empty, so restoring it clears the active session for every suite that later
+    * runs on this thread. `EnsembleByKey.transformSchema` falls back to `getActiveSession` and
+    * silently defaults `spark.sql.caseSensitive` to `false` when there is none, which turns three
+    * `EnsembleByKeySuite` tests red when both suites share a JVM. Leaving the shared session active
+    * is the canonical state, and is what every suite that reads `getActiveSession` expects.
+    */
+  private def activateSharedSession(): Unit = SparkSession.setActiveSession(spark)
+
   test("getHadoopConfEntries reads cluster-level Hadoop configuration") {
     // Fabric sets the trident.* keys on the cluster Hadoop conf. getHadoopConfEntries now derives
     // its conf from the session instead of spark.sparkContext, so this pins that existing
     // telemetry still resolves.
-    SparkSession.setActiveSession(spark)
+    activateSharedSession()
     val hc = spark.sparkContext.hadoopConfiguration
     try {
       hc.set("trident.workspace.id", "ws-from-cluster")
@@ -126,7 +142,7 @@ class VerifySynapseMLLogging extends TestBase {
   }
 
   test("getHadoopConfEntries reads session-level overrides") {
-    SparkSession.setActiveSession(spark)
+    activateSharedSession()
     try {
       spark.conf.set("trident.artifact.id", "artifact-from-session")
       assert(SynapseMLLogging.getHadoopConfEntries.get("artifactId").contains("artifact-from-session"))
@@ -136,17 +152,26 @@ class VerifySynapseMLLogging extends TestBase {
   }
 
   test("getHadoopConfEntries returns only known telemetry field names") {
-    SparkSession.setActiveSession(spark)
+    activateSharedSession()
     val known = SynapseMLLogging.HadoopKeysToLog.values.toSet
     assert(SynapseMLLogging.getHadoopConfEntries.keySet.subsetOf(known))
   }
 
   test("getHadoopConfEntries is empty when no session is active") {
-    SparkSession.clearActiveSession()
-    try {
-      assert(SynapseMLLogging.getHadoopConfEntries.isEmpty)
-    } finally {
-      SparkSession.setActiveSession(spark)
-    }
+    // Runs on its own thread so that clearing the active session cannot strand suites that share
+    // the main test thread; SparkSession's active-session slot is a thread local.
+    var failure: Option[Throwable] = None
+    val thread = new Thread(new Runnable {
+      override def run(): Unit =
+        try {
+          SparkSession.clearActiveSession()
+          assert(SynapseMLLogging.getHadoopConfEntries.isEmpty)
+        } catch {
+          case e: Throwable => failure = Some(e)
+        }
+    })
+    thread.start()
+    thread.join()
+    failure.foreach(e => throw e)
   }
 }
