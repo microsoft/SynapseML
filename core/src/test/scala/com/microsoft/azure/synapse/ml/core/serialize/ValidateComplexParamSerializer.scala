@@ -3,12 +3,14 @@
 
 package com.microsoft.azure.synapse.ml.core.serialize
 
+import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.param.ByteArrayParam
 import org.apache.commons.io.FileUtils
+import org.apache.hadoop.fs.Path
 import org.apache.spark.ml.param.{Param, ParamMap, Params}
 import org.apache.spark.ml.util._
-import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, ObjectSerializer, Serializer, Transformer}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset}
 
@@ -102,6 +104,43 @@ class ValidateComplexParamSerializer extends TestBase {
     val mpt2 = MixedParamTest.load(saveFile2)
     assert(mpt1.getByteArray === mpt2.getByteArray)
     assert(mpt1.getStringParam === mpt2.getStringParam)
+  }
+
+  test("Complex Param serialization should read metadata written by the legacy SparkContext path") {
+    spark
+    val bytes = "foo".toCharArray.map(_.toByte)
+
+    val mpt1 = new MixedParamTest("foo").setByteArray(bytes).setStringParam("foo")
+    mpt1.write.overwrite().save(saveFile)
+
+    // Rewrite the metadata the way SynapseML wrote it before the reader moved off
+    // SparkContext.textFile, so this asserts that models saved by earlier versions still
+    // load rather than just round-tripping the current writer against the current reader.
+    val metadataDir = new File(saveFile, "metadata")
+    val metadataJson = spark.read.text(metadataDir.toString).first().getString(0)
+    FileUtils.deleteDirectory(metadataDir)
+    spark.sparkContext.parallelize(Seq(metadataJson), 1).saveAsTextFile(metadataDir.toString)
+
+    val mpt2 = MixedParamTest.load(saveFile)
+    assert(mpt1.getByteArray === mpt2.getByteArray)
+    assert(mpt1.getStringParam === mpt2.getStringParam)
+  }
+
+  test("Objects written the way earlier versions wrote them still load through the session path") {
+    spark
+    val obj = "round-trip payload".toCharArray.map(_.toByte)
+    val legacyPath = new Path(new File(tmpDir.toFile, "legacy-object").toString)
+
+    // Reproduce the previous write path byte for byte: the FileSystem resolved from the
+    // SparkContext Hadoop configuration rather than from the session, writing through the same
+    // Serializer.write. Only the configuration lookup moved, so this pins that the on-disk format
+    // is unchanged and that objects written by earlier SynapseML versions still load.
+    using(legacyPath.getFileSystem(spark.sparkContext.hadoopConfiguration).create(legacyPath, true)) { os =>
+      Serializer.write(obj, os)
+    }.get
+
+    assert(new ObjectSerializer[Array[Byte]](spark).read(legacyPath) === obj)
+    assert(Serializer.readFromHDFS[Array[Byte]](spark, legacyPath) === obj)
   }
 
   override def afterAll(): Unit = {

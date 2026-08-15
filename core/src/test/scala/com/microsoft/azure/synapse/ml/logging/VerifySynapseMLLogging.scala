@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.logging
 
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
+import org.apache.spark.sql.SparkSession
 
 class VerifySynapseMLLogging extends TestBase {
 
@@ -108,5 +109,78 @@ class VerifySynapseMLLogging extends TestBase {
       // Clean up to avoid leaking state into other tests
       SynapseMLLogging.LoggedClasses.remove("TestClass")
     }
+  }
+
+  /** Runs `f` with `spark` as the active session, restoring a previously-active session if there
+    * was one.
+    *
+    * `getHadoopConfEntries` resolves its configuration through `SparkSession.getActiveSession`, so
+    * these tests need one. When another suite has left a session active on this thread it is
+    * restored exactly, so nothing is overwritten.
+    *
+    * When there was none, the shared session is deliberately left active rather than cleared.
+    * `TestBase` never establishes one — `getOrCreate` only calls `setActiveSession` on the branch
+    * that actually constructs the session, not when it returns an existing one — so "restoring" an
+    * empty previous value would clear the active session for every suite that later runs on this
+    * thread. `EnsembleByKey.transformSchema` falls back to `getActiveSession` and silently defaults
+    * `spark.sql.caseSensitive` to `false` when there is none, which turns three `EnsembleByKeySuite`
+    * tests red when both suites share a JVM. Leaving the shared session active is the canonical
+    * state, and is what every suite reading `getActiveSession` already assumes.
+    */
+  private def withActiveSharedSession[T](f: => T): T = {
+    val previous = SparkSession.getActiveSession
+    SparkSession.setActiveSession(spark)
+    try f finally previous.foreach(SparkSession.setActiveSession)
+  }
+
+  test("getHadoopConfEntries reads cluster-level Hadoop configuration") {
+    // Fabric sets the trident.* keys on the cluster Hadoop conf. getHadoopConfEntries now derives
+    // its conf from the session instead of spark.sparkContext, so this pins that existing
+    // telemetry still resolves.
+    withActiveSharedSession {
+      val hc = spark.sparkContext.hadoopConfiguration
+      try {
+        hc.set("trident.workspace.id", "ws-from-cluster")
+        assert(SynapseMLLogging.getHadoopConfEntries.get("workspaceId").contains("ws-from-cluster"))
+      } finally {
+        hc.unset("trident.workspace.id")
+      }
+    }
+  }
+
+  test("getHadoopConfEntries reads session-level overrides") {
+    withActiveSharedSession {
+      try {
+        spark.conf.set("trident.artifact.id", "artifact-from-session")
+        assert(SynapseMLLogging.getHadoopConfEntries.get("artifactId").contains("artifact-from-session"))
+      } finally {
+        spark.conf.unset("trident.artifact.id")
+      }
+    }
+  }
+
+  test("getHadoopConfEntries returns only known telemetry field names") {
+    withActiveSharedSession {
+      val known = SynapseMLLogging.HadoopKeysToLog.values.toSet
+      assert(SynapseMLLogging.getHadoopConfEntries.keySet.subsetOf(known))
+    }
+  }
+
+  test("getHadoopConfEntries is empty when no session is active") {
+    // Runs on its own thread so that clearing the active session cannot strand suites that share
+    // the main test thread; SparkSession's active-session slot is a thread local.
+    var failure: Option[Throwable] = None
+    val thread = new Thread(new Runnable {
+      override def run(): Unit =
+        try {
+          SparkSession.clearActiveSession()
+          assert(SynapseMLLogging.getHadoopConfEntries.isEmpty)
+        } catch {
+          case e: Throwable => failure = Some(e)
+        }
+    })
+    thread.start()
+    thread.join()
+    failure.foreach(e => throw e)
   }
 }
