@@ -60,12 +60,14 @@ jobs:
           # from master (the default the UI offers) fails here by design rather
           # than guessing which release was meant.
           VERSION="${GITHUB_REF_NAME#v}"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
             echo "❌ Version '$VERSION' is not X.Y.Z format. Re-run this workflow with a \
           vX.Y.Z tag selected as the ref."
             exit 1
           fi
+          # Published only after validation, so no later step can consume a version
+          # this job already rejected.
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "📦 Version: $VERSION"
 
       - name: Checkout
@@ -145,13 +147,28 @@ jobs:
           TARGETS=(spark4.0 spark4.1)
           if [ "${SKIP_SPARK40}" = "true" ]; then
             echo "⏭️ SKIP_SPARK40 is set — not opening a spark4.0 rebase PR"
-            echo "   spark4.1 will be rebased onto v${VERSION} directly this run."
             TARGETS=(spark4.1)
           fi
 
           # Each target is rebased onto the previous one's release branch, starting
           # from the master release commit.
           REBASE_ONTO="$RELEASE_COMMIT"
+
+          # Skipping spark4.0 must not silently un-chain spark4.1. Leaving REBASE_ONTO
+          # at the master release commit is exactly the "both onto master
+          # independently" case described above: it replays the Spark 4.0 upgrade
+          # patch a second time and breaks spark4.0 -> spark4.1 ancestry for good.
+          # Chain onto spark4.0 whenever that branch already carries this release.
+          if [ "${SKIP_SPARK40}" = "true" ]; then
+            if git rev-parse -q --verify refs/remotes/origin/spark4.0 >/dev/null &&
+               git merge-base --is-ancestor "$RELEASE_COMMIT" origin/spark4.0; then
+              REBASE_ONTO="origin/spark4.0"
+              echo "   spark4.1 will be rebased onto origin/spark4.0, which already contains v${VERSION}."
+            else
+              echo "   spark4.1 will be rebased onto v${VERSION} directly this run."
+              echo "::warning::spark4.0 does not contain v${VERSION}, so rebasing spark4.1 onto master breaks spark4.0 -> spark4.1 ancestry until a release runs without SKIP_SPARK40."
+            fi
+          fi
 
           FAILED=()
           for TARGET in "${TARGETS[@]}"; do
@@ -291,6 +308,10 @@ jobs:
           5. Approve ESRP signing on SAW machine" || {
                 echo "::error::Failed to open PR for $TARGET"
                 FAILED+=("$TARGET")
+                # Stop the chain, matching the rebase-conflict path above. The next
+                # target would be stacked on a pushed branch that has no PR, so it
+                # could never be merged in order.
+                break
               }
           done
 
