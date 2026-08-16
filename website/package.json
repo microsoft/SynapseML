@@ -34,7 +34,7 @@
   "overrides": {
     "ajv@<6.14.0": "6.14.0",
     "ajv@>=7.0.0-alpha.0 <8.18.0": "8.20.0",
-    "brace-expansion@<1.1.16": "1.1.16",
+    "brace-expansion@<1.1.18": "1.1.18",
     "cross-spawn@>=7.0.0 <7.0.5": "7.0.6",
     "fast-uri@<3.1.4": "3.1.4",
     "follow-redirects@<=1.15.11": "1.16.0",
