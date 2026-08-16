@@ -131,7 +131,7 @@ abstract class BasePartitionTask extends Serializable with Logging {
     // Start with initialization
     val taskCtx = initialize(ctx, inputRows)
 
-    NetworkManager.withCleanupPreservingPrimary(taskCtx.networkTopologyInfo.releasePortReservation()) {
+    NetworkManager.withCleanupPreservingPrimary(taskCtx.networkTopologyInfo.releaseNetworkResources()) {
       if (taskCtx.isEmptyPartition) {
         log.warn("LightGBM task encountered empty partition, for best performance ensure no partitions are empty")
         Array { PartitionResult(None, taskCtx.measures) }.toIterator
@@ -199,7 +199,7 @@ abstract class BasePartitionTask extends Serializable with Logging {
                                                           shouldExecuteTraining,
                                                           taskMeasures)
 
-    NetworkManager.withCleanupOnFailurePreservingPrimary(networkInfo.releasePortReservation()) {
+    NetworkManager.withCleanupOnFailurePreservingPrimary(networkInfo.releaseNetworkResources()) {
       // Return booster only from main worker to reduce network communication overhead
       val shouldReturnBooster = if (isEmptyPartition) false
         else if (!shouldExecuteTraining) false
