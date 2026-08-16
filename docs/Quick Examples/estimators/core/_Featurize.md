@@ -220,6 +220,8 @@ values={[
 ]}>
 <TabItem value="py">
 
+<!--pytest-codeblocks:cont-->
+
 ```python
 from synapse.ml.featurize import Featurize
 
