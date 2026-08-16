@@ -24,6 +24,9 @@ SBT_VERSION = REPO_ROOT / "tools" / "ci" / "get_sbt_version.sh"
 DATABRICKS_IMPACT = REPO_ROOT / "tools" / "ci" / "databricks_impact.py"
 DATABRICKS_STEPS_TPL = REPO_ROOT / "templates" / "databricks_e2e_steps.yml"
 CLEAN_ACR_PIPELINE = REPO_ROOT / ".pipelines" / "clean-acr.yml"
+PR_VALIDATION = REPO_ROOT / ".github" / "workflows" / "pr-validation.yml"
+PLUGINS_SBT = REPO_ROOT / "project" / "plugins.sbt"
+BUILD_SBT = REPO_ROOT / "build.sbt"
 RELEASE_COMPAT_PREREQUISITES = (
     REPO_ROOT / ".pipelines" / "release-compat-prerequisites.txt"
 )
@@ -620,7 +623,9 @@ def test_every_sbt_running_job_waits_for_the_prewarm_cache():
         if isinstance(depends_on, str):
             depends_on = [depends_on]
         condition = job.get("condition")
-        gated_by_success = condition is None or "succeeded()" in condition
+        gated_by_success = (
+            condition is None or condition is False or "succeeded()" in condition
+        )
         if runs_sbt and (
             not uses_cache
             or "BuildAndCacheSbt" not in depends_on
@@ -628,3 +633,55 @@ def test_every_sbt_running_job_waits_for_the_prewarm_cache():
         ):
             offenders.append(job.get("job"))
     assert not offenders, f"sbt jobs missing required cache gate: {offenders}"
+
+
+def test_spark40_ci_uses_supported_runtime():
+    """Guard the Spark 4.0 runtime requirements a master sync could silently undo."""
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+
+    assert (
+        data["variables"]["JAVA_TOOL_OPTIONS"]
+        == "--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED"
+    )
+    assert 'addSbtPlugin("org.scoverage" % "sbt-scoverage" % "2.3.0")' in (
+        PLUGINS_SBT.read_text()
+    )
+    assert jobs["FabricE2E"]["condition"] is False
+
+    r_steps = jobs["RTests"]["steps"]
+    prepare = next(
+        step for step in r_steps if step.get("displayName") == "Prepare for tests"
+    )
+    assert "SPARK_VERSION=4.0.1" in prepare["bash"]
+
+    pipeline_text = _pipeline_text()
+    for unsupported_option in (
+        "UseConcMarkSweepGC",
+        "CMSClassUnloadingEnabled",
+        "MaxPermSize",
+    ):
+        assert unsupported_option not in pipeline_text
+
+
+def test_build_targets_spark40_on_scala_213():
+    build = BUILD_SBT.read_text()
+    assert 'val sparkVersion = "4.0.1"' in build
+    assert 'ThisBuild / scalaVersion := "2.13.16"' in build
+
+
+def _pr_validation_branches():
+    """Parse the pull_request branch filter. YAML 1.1 folds the bare key ``on``
+    to boolean True, so accept either spelling."""
+    data = yaml.safe_load(PR_VALIDATION.read_text())
+    triggers = data.get("on", data.get(True))
+    return triggers["pull_request"]["branches"]
+
+
+def test_github_pr_validation_supports_spark40():
+    workflow = PR_VALIDATION.read_text()
+    assert "spark4.0" in _pr_validation_branches()
+    assert 'python-version: "3.12"' in workflow
+    assert "Set up JDK 17" in workflow
+    assert "java-version: 17" in workflow
+    assert "--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED" in workflow
