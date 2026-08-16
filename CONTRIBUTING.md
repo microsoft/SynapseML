@@ -17,6 +17,27 @@ an issue.  Also, you can up-vote or comment on existing issues.
 If you want to add code, examples or documentation to the repository, follow
 this process:
 
+### Which branch should I target?
+
+Most contributions target `master`.
+
+This repository also maintains ports of the library to newer Spark versions on
+long-lived branches (`spark4.0`, `spark4.1`).  Target one of those only when the
+change exists *because of* that Spark version — for example, replacing an API
+that behaves differently there.  Ordinary bug fixes and new features belong on
+`master` and reach the port branches when `master` is merged into them.
+
+If a fix applies everywhere, land it on `master` first so the port branches
+inherit it on the next sync.  Fixing the same thing separately on each branch
+creates a conflict that someone then has to resolve by hand.
+
+Each port branch carries an `AGENTS_<branch>.md` describing what diverges there
+and why.  Read it before changing anything on that branch — several of the
+differences look like mistakes until you know the reason for them, and a
+"cleanup" that reverts one tends to break the build in a way that is not obvious
+from the diff.  Repository-wide guidance for automated coding agents is in
+[AGENTS.md](AGENTS.md).
+
 #### Propose a contribution
 
 -   Preferably, get started by tackling existing issues to get yourself acquainted
