@@ -1,41 +1,32 @@
 # SynapseML Local Setup Troubleshooting
 
-## Java 21 compiler bridge failure
+## Wrong Java runtime
 
-Failure signature:
-
-```text
-Non-compiled module 'compiler-bridge_2.12' for Scala 2.12.17. Compiling...
-bad constant pool index: 0
-while compiling: <no file>
-library version: version 2.12.17
-compiler version: version 2.12.17
-```
-
-Cause: the local default Java 21 runtime is not suitable for this SynapseML Scala 2.12 build path.
-
-Fix:
+The Spark 4.0 branch is built and tested with JDK 17. Check the active runtime:
 
 ```bash
-export JAVA_HOME=/usr/lib/jvm/java-11-openjdk-amd64
+java -version
+```
+
+If it is not JDK 17, select the supported toolchain:
+
+```bash
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
 export PATH="$JAVA_HOME/bin:$PATH"
 ```
 
 Then rerun SBT.
 
-## Known-good validation
+## Java module access
 
-This was validated on 2026-05-05:
+If sbt reports an access error under `java.util.prefs`, open that package for
+the sbt process:
 
 ```bash
-sbt 'cognitive/Test/compile'
-sbt 'core/testOnly com.microsoft.azure.synapse.ml.stages.UDFTransformerSuite -- -z "Apply inputCol after inputCols error"'
+export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED"
 ```
 
-Results:
-
-- `cognitive/Test/compile` passed in 242 seconds.
-- The filtered `UDFTransformerSuite` smoke test passed in under 10 seconds after compilation.
+The local wrapper applies this option automatically.
 
 ## External service test safety
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SYNOPSIS
-#   Run a safe local SynapseML Spark smoke test with JDK 11.
+#   Run a safe local SynapseML Spark smoke test with JDK 17.
 
 set -euo pipefail
 
@@ -13,7 +13,7 @@ EOF
 }
 
 repo=""
-jdk="/usr/lib/jvm/java-11-openjdk-amd64"
+jdk="/usr/lib/jvm/java-17-openjdk-amd64"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in

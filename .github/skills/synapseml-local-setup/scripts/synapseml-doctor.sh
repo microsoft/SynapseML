@@ -8,13 +8,13 @@ usage() {
   cat <<'EOF'
 Usage: synapseml-doctor.sh --repo <path> [--jdk <java-home>]
 
-Checks repo shape, git state, default Java, JDK 11 availability, sbt, and
+Checks repo shape, git state, default Java, JDK 17 availability, sbt, and
 SynapseML Scala/Spark versions. Does not compile or run tests.
 EOF
 }
 
 repo=""
-jdk="/usr/lib/jvm/java-11-openjdk-amd64"
+jdk="/usr/lib/jvm/java-17-openjdk-amd64"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -71,11 +71,11 @@ if command -v java >/dev/null 2>&1; then
 fi
 
 if [[ -x "$jdk/bin/java" ]]; then
-  echo "jdk11=$jdk"
-  "$jdk/bin/java" -version 2>&1 | sed 's/^/jdk11_version: /'
+  echo "jdk17=$jdk"
+  "$jdk/bin/java" -version 2>&1 | sed 's/^/jdk17_version: /'
 else
-  echo "ERROR jdk11_missing=$jdk/bin/java" >&2
-  echo "Install JDK 11 or pass --jdk <java-home>." >&2
+  echo "ERROR jdk17_missing=$jdk/bin/java" >&2
+  echo "Install JDK 17 or pass --jdk <java-home>." >&2
   exit 3
 fi
 

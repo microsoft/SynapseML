@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # SYNOPSIS
-#   Run SynapseML sbt commands with JDK 11 by default.
+#   Run SynapseML sbt commands with JDK 17 by default.
 
 set -euo pipefail
 
@@ -8,12 +8,12 @@ usage() {
   cat <<'EOF'
 Usage: synapseml-sbt.sh --repo <path> [--jdk <java-home>] [--dry-run] -- <sbt-arg> [<sbt-arg> ...]
 
-Runs sbt in a SynapseML checkout with JAVA_HOME set to JDK 11 by default.
+Runs sbt in a SynapseML checkout with JAVA_HOME set to JDK 17 by default.
 EOF
 }
 
 repo=""
-jdk="/usr/lib/jvm/java-11-openjdk-amd64"
+jdk="/usr/lib/jvm/java-17-openjdk-amd64"
 dry_run=0
 
 while [[ $# -gt 0 ]]; do
@@ -70,9 +70,14 @@ fi
 
 export JAVA_HOME="$jdk"
 export PATH="$JAVA_HOME/bin:$PATH"
+java_prefs_open="--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED"
+if [[ " ${JAVA_TOOL_OPTIONS:-} " != *" $java_prefs_open "* ]]; then
+  export JAVA_TOOL_OPTIONS="${JAVA_TOOL_OPTIONS:+$JAVA_TOOL_OPTIONS }$java_prefs_open"
+fi
 
 echo "repo=$repo"
 echo "JAVA_HOME=$JAVA_HOME"
+echo "JAVA_TOOL_OPTIONS=$JAVA_TOOL_OPTIONS"
 java -version 2>&1 | sed 's/^/java: /'
 echo "sbt_args=$*"
 
