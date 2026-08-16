@@ -13,9 +13,8 @@ import org.apache.http.util.EntityUtils
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types.{ArrayType, IntegerType, MapType, StringType, StructField, StructType}
+import org.apache.spark.util.LongAccumulator
 import spray.json._
-
-import java.util.concurrent.atomic.AtomicBoolean
 
 class OpenAIV1EndpointSuite extends TestBase {
 
@@ -171,8 +170,8 @@ class OpenAIV1EndpointSuite extends TestBase {
       messageSchema: StructType,
       outputCol: String = "output",
       errorCol: String = "error"
-  ): (Array[Row], AtomicBoolean) = {
-    val handlerInvoked = new AtomicBoolean(false)
+  ): (Array[Row], LongAccumulator) = {
+    val handlerInvocations = spark.sparkContext.longAccumulator
     val input = spark.createDataFrame(
       spark.sparkContext.parallelize(rows, 1),
       messagesRequestSchema(messageSchema)
@@ -183,12 +182,12 @@ class OpenAIV1EndpointSuite extends TestBase {
       .setOutputCol(outputCol)
       .setErrorCol(errorCol)
       .setHandler { (_: CloseableHttpClient, _: HTTPRequestData) =>
-        handlerInvoked.set(true)
+        handlerInvocations.add(1L)
         throw new AssertionError("HTTP handler should not be invoked for invalid message content")
       }
 
     val output = chat.transform(input).select("messages", outputCol, errorCol).collect()
-    (output, handlerInvoked)
+    (output, handlerInvocations)
   }
 
   test("OpenAI URLs preserve configured base URL strings") {
@@ -567,7 +566,7 @@ class OpenAIV1EndpointSuite extends TestBase {
       Seq(structuredMessageRow("user", Seq(nullPart))),
       structuredMessageSchema
     )
-    assert(nullPartError.getMessage.contains("Expected struct content part but found null"))
+    assert(nullPartError.getMessage == "messages[0].content[0] must be an object")
 
     val nullMessageError = chatSerializationError(
       Seq[Row](Option.empty[Row].orNull),
@@ -584,14 +583,14 @@ class OpenAIV1EndpointSuite extends TestBase {
     )
     val nullMessage = Option.empty[Row].orNull
 
-    val (rows, handlerInvoked) = transformWithThrowingHandler(Seq(
+    val (rows, handlerInvocations) = transformWithThrowingHandler(Seq(
       Row(Seq(structuredMessageRow("user", Seq(malformedPart)))),
       Row(Seq[Row](nullMessage)),
       Row(null) // scalastyle:ignore null
     ), structuredMessageSchema)
 
     assert(rows.length == 3)
-    assert(!handlerInvoked.get())
+    assert(handlerInvocations.value == 0L)
 
     val firstRow = rows(0)
     val firstError = firstRow.getAs[Row]("error")
@@ -631,12 +630,12 @@ class OpenAIV1EndpointSuite extends TestBase {
   test("chat completions route invalid structured roles to errorCol without invoking HTTP") {
     val textPart: Row = structuredContentPartRow("text", text = Some("Describe the image"))
 
-    val (rows, handlerInvoked) = transformWithThrowingHandler(Seq(
+    val (rows, handlerInvocations) = transformWithThrowingHandler(Seq(
       Row(Seq(structuredMessageRowWithSchema("   ", Seq(textPart), nullableStructuredRoleMessageSchema)))
     ), nullableStructuredRoleMessageSchema)
 
     assert(rows.length == 1)
-    assert(!handlerInvoked.get())
+    assert(handlerInvocations.value == 0L)
 
     val onlyRow = rows.head
     val error = onlyRow.getAs[Row]("error")
@@ -657,7 +656,7 @@ class OpenAIV1EndpointSuite extends TestBase {
   test("chat completions keep public output when it collides with originalMessages scratch column") {
     val textPart: Row = structuredContentPartRow("text", text = Some("Describe the image"))
 
-    val (rows, handlerInvoked) = transformWithThrowingHandler(
+    val (rows, handlerInvocations) = transformWithThrowingHandler(
       Seq(Row(Seq(
         structuredMessageRowWithSchema(
           Option.empty[String].orNull,
@@ -670,7 +669,7 @@ class OpenAIV1EndpointSuite extends TestBase {
     )
 
     assert(rows.length == 1)
-    assert(!handlerInvoked.get())
+    assert(handlerInvocations.value == 0L)
 
     val onlyRow = rows.head
     assert(onlyRow.schema.fieldNames.contains("originalMessages"))
@@ -690,12 +689,12 @@ class OpenAIV1EndpointSuite extends TestBase {
   }
 
   test("chat completions route primitive array content to errorCol without invoking HTTP") {
-    val (rows, handlerInvoked) = transformWithThrowingHandler(Seq(
+    val (rows, handlerInvocations) = transformWithThrowingHandler(Seq(
       Row(Seq(primitiveArrayMessageRow("user", Seq("not an object"))))
     ), primitiveArrayMessageSchema)
 
     assert(rows.length == 1)
-    assert(!handlerInvoked.get())
+    assert(handlerInvocations.value == 0L)
 
     val onlyRow = rows.head
     val error = onlyRow.getAs[Row]("error")

@@ -147,8 +147,20 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
 
   override def responseDataType: DataType = ChatModelResponse.schema
 
+  private def validatePublicColumnNames(): Unit = {
+    require(
+      getMessagesCol != getOutputCol,
+      s"messagesCol '${getMessagesCol}' must be different from outputCol '${getOutputCol}'"
+    )
+    require(
+      getMessagesCol != getErrorCol,
+      s"messagesCol '${getMessagesCol}' must be different from errorCol '${getErrorCol}'"
+    )
+  }
+
   override def transform(dataset: Dataset[_]): DataFrame = {
     transferGlobalParamsToParamMap()
+    validatePublicColumnNames()
     logTransform[DataFrame]({
       val df = dataset.toDF()
       val colsToAvoid = df.schema.fieldNames.toSet ++ Set(getErrorCol, getOutputCol)
@@ -187,6 +199,11 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
         .withColumn(getMessagesCol, F.col(originalMessagesCol))
         .drop(originalMessagesCol)
     }, dataset.columns.length)
+  }
+
+  override def transformSchema(schema: StructType): StructType = {
+    validatePublicColumnNames()
+    super.transformSchema(schema)
   }
 
   private def runtimeType(value: Any): String = {
@@ -312,18 +329,42 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
     }
   }
 
-  private def validateMessageContent(message: Map[String, Any], messageIndex: Int): Unit = {
-    message.get("content").foreach {
-      case _: String =>
-      case parts: CollectionSeq[_] if parts.nonEmpty =>
-        parts.zipWithIndex.foreach { case (part, partIndex) =>
-          validateContentPart(part, messageIndex, partIndex)
-        }
-      case _: CollectionSeq[_] =>
-        throw new IllegalArgumentException(s"messages[$messageIndex].content must not be empty")
+  private def contentItems(value: Any, messageIndex: Int): CollectionSeq[Any] = {
+    val items = value match {
+      case values: CollectionSeq[_] => values
+      case values: Array[_] => values.toSeq
       case _ =>
         throw new IllegalArgumentException(
-          s"messages[$messageIndex].content must be a string or an array of content part objects")
+          s"messages[$messageIndex].content must be an array of content part objects")
+    }
+    if (items.isEmpty) {
+      throw new IllegalArgumentException(s"messages[$messageIndex].content must not be empty")
+    }
+    items
+  }
+
+  private def encodedContentPart(
+      value: Any,
+      elementType: StructType,
+      messageIndex: Int,
+      partIndex: Int
+  ): Map[String, Any] = {
+    val location = s"messages[$messageIndex].content[$partIndex]"
+    if (value == null) {
+      throw new IllegalArgumentException(s"$location must be an object")
+    }
+    val encoded = try {
+      encodeStructuredValue(value, elementType)
+    } catch {
+      case e: IllegalArgumentException =>
+        throw new IllegalArgumentException(s"$location is invalid: ${e.getMessage}")
+    }
+    encoded match {
+      case part: Map[_, _] =>
+        val fields = part.asInstanceOf[Map[String, Any]]
+        validateContentPart(fields, messageIndex, partIndex)
+        fields
+      case _ => throw new IllegalArgumentException(s"$location must be an object")
     }
   }
 
@@ -352,38 +393,72 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
     }
   }
 
+  private def contentField(message: Row): (Int, DataType) = {
+    val fieldIndex = message.schema.fieldIndex("content")
+    fieldIndex -> message.schema.fields(fieldIndex).dataType
+  }
+
+  private def validateMessages(messages: CollectionSeq[Row]): Unit = {
+    if (messages.isEmpty) {
+      throw new IllegalArgumentException("messages must not be empty")
+    }
+    messages.zipWithIndex.foreach { case (message, messageIndex) =>
+      if (message == null) {
+        throw new IllegalArgumentException(s"messages[$messageIndex] must be an object")
+      }
+      validatedRole(message, messageIndex)
+      val (fieldIndex, dataType) = contentField(message)
+      dataType match {
+        case StringType =>
+        case ArrayType(elementType: StructType, _) =>
+          contentItems(message.get(fieldIndex), messageIndex).zipWithIndex.foreach {
+            case (part, partIndex) =>
+              encodedContentPart(part, elementType, messageIndex, partIndex)
+          }
+        case ArrayType(_: MapType, _) =>
+          collapseContentPartsToText(message.get(fieldIndex))
+        case ArrayType(other, _) =>
+          throw new IllegalArgumentException(
+            s"Unsupported content part type: ${other.typeName}. Expected struct or map")
+        case other =>
+          throw new IllegalArgumentException(s"Unsupported content type: ${other.typeName}")
+      }
+    }
+  }
+
+  private def encodedMessageContent(message: Row, messageIndex: Int): Any = {
+    val (fieldIndex, dataType) = contentField(message)
+    dataType match {
+      case StringType =>
+        message.getAs[String]("content")
+      case ArrayType(elementType: StructType, _) =>
+        contentItems(message.get(fieldIndex), messageIndex).zipWithIndex.map {
+          case (part, partIndex) =>
+            encodedContentPart(part, elementType, messageIndex, partIndex)
+        }
+      case ArrayType(_: MapType, _) =>
+        collapseContentPartsToText(message.get(fieldIndex))
+      case ArrayType(other, _) =>
+        throw new IllegalArgumentException(
+          s"Unsupported content part type: ${other.typeName}. Expected struct or map")
+      case other =>
+        throw new IllegalArgumentException(s"Unsupported content type: ${other.typeName}")
+    }
+  }
+
   private def encodedMessageMaps(messages: CollectionSeq[Row]): Seq[Map[String, Any]] = {
+    if (messages.isEmpty) {
+      throw new IllegalArgumentException("messages must not be empty")
+    }
     messages.zipWithIndex.map { case (message, messageIndex) =>
       if (message == null) {
         throw new IllegalArgumentException(s"messages[$messageIndex] must be an object")
       }
 
       val role = validatedRole(message, messageIndex)
-      val contentField = message.schema.fieldIndex("content")
-      val contentType = message.schema.fields(contentField).dataType
-
-      val content = contentType match {
-        case StringType =>
-          message.getAs[String]("content")
-        case arrayType @ ArrayType(elementType, _) =>
-          elementType match {
-            case _: StructType =>
-              val structuredContent = encodeStructuredValue(message.get(contentField), arrayType)
-              validateMessageContent(Map("content" -> structuredContent), messageIndex)
-              structuredContent
-            case _: MapType =>
-              collapseContentPartsToText(message.get(contentField))
-            case other =>
-              throw new IllegalArgumentException(
-                s"Unsupported content part type: ${other.typeName}. Expected struct or map")
-          }
-        case other =>
-          throw new IllegalArgumentException(s"Unsupported content type: ${other.typeName}")
-      }
-
       Map(
         "role" -> role,
-        "content" -> content
+        "content" -> encodedMessageContent(message, messageIndex)
       ).filter { case (_, value) => value != null }
     }.toSeq
   }
@@ -391,7 +466,7 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   private def structuredMessageValidationError(messages: CollectionSeq[Row]): Option[String] = {
     Option(messages).flatMap { messageRows =>
       try {
-        encodedMessageMaps(messageRows)
+        validateMessages(messageRows)
         None
       } catch {
         case e: IllegalArgumentException => Some(e.getMessage)
