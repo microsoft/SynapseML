@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.lightgbm.split1
 
-import com.microsoft.azure.synapse.ml.lightgbm.{LightGBMConstants, NetworkManager, TaskMessageInfo}
+import com.microsoft.azure.synapse.ml.lightgbm.{LightGBMConstants, NetworkManager, TaskMessageInfo, WorkerMessage}
 import org.scalatest.funsuite.AnyFunSuite
 
 import java.io.{BufferedReader, BufferedWriter, IOException, InputStreamReader, OutputStreamWriter}
@@ -351,6 +351,54 @@ class DriverSocketRetrySuite extends AnyFunSuite {
     assert(!constructorArities.contains(6))
   }
 
+  test("Worker status parsing preserves IPv6 hosts in current and legacy messages") {
+    val hosts = Seq("2001:db8::1", "2001:db8:0:1:2:3:4:5", "fe80::a%3")
+    hosts.foreach { taskHost =>
+      val message = TaskMessageInfo(
+        LightGBMConstants.EnabledTask,
+        taskHost,
+        LightGBMConstants.DefaultLocalListenPort,
+        3,
+        "executor-1")
+      assert(NetworkManager.parseWorkerMessage(s"${message.toString}:7") == message)
+    }
+
+    val legacyMessage = TaskMessageInfo(
+      LightGBMConstants.EnabledTask,
+      "2001:db8::1",
+      LightGBMConstants.DefaultLocalListenPort,
+      3,
+      "7")
+    assert(NetworkManager.parseWorkerMessage(legacyMessage.toString) == legacyMessage)
+
+    val ambiguousLegacyMessage = legacyMessage.copy(taskHost = "2001:db8::1:10")
+    assert(NetworkManager.parseWorkerMessage(ambiguousLegacyMessage.toString) == ambiguousLegacyMessage)
+
+    val lowPortCurrentMessage = legacyMessage.copy(localListenPort = 80, executorId = "executor-1")
+    assert(NetworkManager.parseWorkerMessage(WorkerMessage.format(lowPortCurrentMessage, 7)) == lowPortCurrentMessage)
+  }
+
+  test("Finished worker messages tolerate omitted trailing fields") {
+    val missingBarrierCount = WorkerMessage.parse(s"${LightGBMConstants.FinishedStatus}:7:")
+    assert(missingBarrierCount.stageAttemptNumber == 7)
+    assert(missingBarrierCount.barrierTaskCount.isEmpty)
+
+    val missingSuffix = WorkerMessage.parse(s"${LightGBMConstants.FinishedStatus}::")
+    assert(missingSuffix.stageAttemptNumber == 0)
+    assert(missingSuffix.barrierTaskCount.isEmpty)
+  }
+
+  test("Malformed worker messages escape control characters in errors") {
+    val nul = 0.toChar
+    val failure = intercept[IllegalArgumentException] {
+      NetworkManager.parseWorkerMessage(s"enabledTask:host:not-a-port:3:executor-1\r${nul}malformed")
+    }
+    assert(failure.getMessage.contains("\\r"))
+    assert(failure.getMessage.contains("\\u0000"))
+    assert(!failure.getMessage.contains("\r"))
+    assert(!failure.getMessage.contains(nul))
+  }
+
   test("A worker that disconnects before sending a message reports the disconnect, not a NullPointerException") {
     val failure = intercept[IOException](NetworkManager.parseWorkerMessage(null))  //scalastyle:ignore null
     assert(failure.getMessage.contains("closed the connection before sending a status message"))
@@ -366,6 +414,7 @@ class DriverSocketRetrySuite extends AnyFunSuite {
 
       // This is what executeTraining now does in its finally block when partition tasks fail.
       manager.closeConnections()
+      manager.waitForNetworkCommunicationsDone()
 
       val retriedSocket = new Socket()
       try {
@@ -375,7 +424,6 @@ class DriverSocketRetrySuite extends AnyFunSuite {
       } finally {
         retriedSocket.close()
       }
-      manager.waitForNetworkCommunicationsDone()
     } finally {
       manager.closeConnections()
       closeTasks(task)

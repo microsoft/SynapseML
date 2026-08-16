@@ -102,6 +102,58 @@ You can mix *passThroughArgs* and explicit args, as shown in the example. Synaps
 merges them to create one argument string to send to LightGBM. If you set a parameter in
 both places, *passThroughArgs* takes precedence.
 
+#### GPU training with a custom OpenCL native library
+
+SynapseML's published `lightgbmlib` artifact contains CPU-only native libraries. Only
+`deviceType="gpu"` selects an accelerator: it selects LightGBM's OpenCL learner and
+requires a compatible custom native library. All `cuda` requests are rejected before
+native training because LightGBM 3.3.510 CUDA is incompatible with SynapseML streaming
+Datasets.
+
+Accelerator training is intended for users who provide their own compatible LightGBM
+native build. Put both `lib_lightgbm` and `lib_lightgbm_swig` on `java.library.path` for
+the Spark driver and every executor before LightGBM is initialized. `NativeLoader` checks
+that path first and falls back to the CPU-only libraries packaged in the SynapseML JAR.
+For example, a Spark deployment can set both `spark.driver.extraLibraryPath` and
+`spark.executor.extraLibraryPath` to the directory containing the custom libraries.
+The custom SWIG library must be ABI-compatible with the Java classes shipped by the
+SynapseML version in use; supplying only one library can accidentally mix incompatible
+custom and bundled binaries.
+
+SynapseML does not support `deviceType="cuda"` with `lightgbmlib` 3.3.510. Its CUDA
+objective expects CUDA metadata that is not created by the serialized streaming Dataset
+path and can segfault the Spark executor during booster creation. SynapseML rejects CUDA
+before native training. Use `deviceType="gpu"` with an OpenCL-enabled native build; this
+path supports classifier, regressor, and ranker training on NVIDIA GPUs such as T4.
+
+`deviceType` exposes only the accelerator backends implemented by LightGBM:
+
+| Value | Backend | Hardware |
+| --- | --- | --- |
+| `cpu` | Native CPU learner | Supported by the bundled SynapseML native library |
+| `gpu` | OpenCL learner (`USE_GPU=1`) | AMD, Intel, or NVIDIA devices with a working OpenCL runtime |
+| `cuda` | Unsupported with SynapseML's LightGBM 3.3.510 streaming Dataset path | Do not use |
+
+Apple Metal Performance Shaders (`mps`) and Habana HPU are not LightGBM tree-learning
+backends and are therefore not accepted values. Apple Silicon can only be evaluated
+through LightGBM's OpenCL learner and a custom macOS ARM64 native build; this is not MPS
+support, Apple has deprecated OpenCL, and LightGBM documents a macOS Boost.Compute cache
+workaround. Do not claim Apple Silicon GPU support without testing that exact native build,
+Spark/JVM architecture, dataset correctness, and performance on supported macOS hardware.
+
+After installing the custom native libraries, select the learner explicitly:
+
+```python
+model = LightGBMClassifier(deviceType="gpu").fit(train)
+```
+
+The default is `cpu` and does not add a `device_type` native parameter. If
+*passThroughArgs* contains `device_type`, that canonical value takes precedence over both
+the `device` alias and `deviceType`, regardless of argument order. If only `device` is
+present, it takes precedence over `deviceType`. A native-effective value of `cuda` is
+always rejected. If a requested OpenCL accelerator is unavailable, SynapseML reports that
+the bundled native is CPU-only and identifies the custom-library configuration required.
+
 ### Architecture
 
 LightGBM on Spark uses the Simple Wrapper and Interface Generator (SWIG)
@@ -277,3 +329,69 @@ most recent attempt, this can hide the failure that actually caused the retry.
 When this happens, the reported error explains that it's a retry that could not rejoin the network, and
 names the partition to investigate. Look for the **first** failed attempt of that partition in the executor
 logs — that attempt holds the real cause.
+
+### IPv6 clusters
+
+Distributed training works on clusters whose executors only have IPv6 addresses.
+
+The native LightGBM library is IPv4-only in every released version: it splits each machine list entry on
+`:` and keeps the entry only when that yields exactly two parts, and it builds every socket with `AF_INET`
+and `inet_pton(AF_INET, ...)`. An IPv6 endpoint is therefore dropped or misread by the native parser, and
+could not be dialed or accepted even if it survived parsing.
+
+SynapseML handles this itself. The topology exchange publishes IPv6 endpoints in the unambiguous
+`[address]:port` form, and each task then bridges the transport for the native library:
+
+- the port a task advertised to its peers is owned by SynapseML, which accepts peer connections over
+  either address family and forwards them to the native listener over IPv4 loopback;
+- each IPv6 peer gets an IPv4 loopback relay that forwards what the native library sends to that peer's
+  real IPv6 address;
+- the machine list handed to the native library has the same entries in the same order, with every bridged
+  endpoint rewritten to `127.0.0.1:port` and an explicit rank, so LightGBM ranks are unchanged.
+
+An IPv4 machine list is passed to the native library exactly as before, with no relay and no rewriting, so
+IPv4 clusters see no behavior or performance change. On an IPv6 cluster, peer traffic takes one extra
+loopback hop on each side, and IPv4 loopback must be available on the executors. Measured on a 16 core
+developer machine over loopback, a bridged link sustains roughly a third of the throughput of a direct one
+(about 0.6 GB/s per direction) for about four times the CPU per transferred byte, and adds roughly 200
+microseconds to a small message round trip per hop. Links faster than a few Gb/s can therefore be limited
+by the bridge rather than by the network. The relays never buffer in the JVM heap: a reader that stops
+reading stops the sender, with only the socket buffers in between.
+
+The advertised port is the one address peers know, so SynapseML binds it on every interface, exactly as the
+native listener did before this change, and performs the LightGBM link handshake there itself. A machine
+opens a LightGBM link by sending its rank, so a connection has to produce a valid, unused, lower rank within
+a timeout before any of its bytes reach the native library; connections that stall, repeat a rank, or claim
+a rank the topology does not have are closed by the bridge. That matters because the native accept loop has
+no timeout and treats the first four bytes of any connection as a rank.
+
+The native listener itself is the one thing this library cannot rebind: `TcpSocket::Bind` hardcodes
+`0.0.0.0`, so while it is open it is reachable on every IPv4 interface. The bridge therefore claims each of
+that listener's link slots itself, over IPv4 loopback, as soon as the port is bound — one slot per lower
+rank, which is exactly how many the native library accepts before closing the listener. In practice the
+listener is open for milliseconds on an unadvertised ephemeral port rather than for the whole handshake
+phase, and every byte the native library reads from it comes from the bridge. Closing that window entirely
+requires an upstream change to LightGBM: `TcpSocket::Bind` would have to take a bind address so that
+`Linkers::TryBind` can pass a loopback one. Until then, a LightGBM training port must only be reachable
+from the cluster's own executors, which was already true before this change.
+
+The per peer relays are bound to IPv4 loopback and are not reachable from outside the machine, the number of
+links a bridge will relay is capped at twice the machine count, and each lower rank may link only once. One
+event loop thread serves every listener and every link, so a bridge runs exactly one thread whatever the
+machine count is, with two fixed size buffers per link.
+
+A connection the topology cannot need — an unsolicited one, one past the cap, or one that fails its
+handshake — is refused without consuming any of that budget, so it cannot starve the links the native
+library itself opens. Transport failures are retried while they can be: a dial that fails, immediately or
+later, backs off and retries until its deadline, and a failure while handling one connection never closes
+the listener that accepted it. A failure that cannot be retried away is recorded and fails the Spark task
+with that cause, both before and after the native initialization call, rather than leaving the task waiting
+on a transport that will not recover.
+
+Link-local addresses (`fe80::/10`) are supported only when a peer advertises a zone identifier
+(`fe80::1%eth0`) that names an interface on every other machine, since a link-local address is scoped to a
+single interface. A task normalizes a numeric scope (an interface index, which only means something on the
+machine that produced it) to the interface name before publishing its endpoint, and a peer that still
+advertises a numeric scope is rejected. A link-local peer without a zone, or with a zone this machine does
+not have, fails immediately with an error naming the address instead of hanging. Use a globally routable or
+unique-local IPv6 address for distributed training.

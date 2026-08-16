@@ -374,6 +374,28 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
                     getMaxStreamingOMPThreads)
   }
 
+  /** Adds an explicitly requested accelerator to the native parameter string.
+    *
+    * The default CPU path returns the caller's pass-through arguments unchanged. This keeps the
+    * existing CPU parameter string and ExecutionParams API intact. LightGBM also accepts "device"
+    * as an alias for "device_type", so either spelling in passThroughArgs takes precedence.
+    */
+  protected def getEffectivePassThroughArgs: Option[String] = {
+    val configuredArgs = get(passThroughArgs)
+    if (getDeviceType == LightGBMConstants.CPUDeviceType ||
+        configuredArgs.exists(LightGBMUtils.hasDeviceParameter)) {
+      configuredArgs
+    } else {
+      val deviceArg = s"device_type=$getDeviceType"
+      configuredArgs.filter(_.trim.nonEmpty).map(args => s"$args $deviceArg").orElse(Some(deviceArg))
+    }
+  }
+
+  protected def getEffectiveDeviceType: String = {
+    getEffectivePassThroughArgs.flatMap(LightGBMUtils.effectiveDeviceType)
+      .getOrElse(getDeviceType)
+  }
+
   /**
     * Constructs the ColumnParams.
     *
@@ -426,8 +448,11 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
   }
 
   protected def getDatasetCreationParams(categoricalIndexes: Array[Int], numThreads: Int): String = {
+    val effectiveDeviceType = getEffectiveDeviceType
     new ParamsStringBuilder(prefix = "", delimiter = "=")
       .appendParamValueIfNotThere("is_pre_partition", Option("True"))
+      .appendParamValueIfNotThere("device_type",
+        if (effectiveDeviceType == LightGBMConstants.CPUDeviceType) None else Option(effectiveDeviceType))
       .appendParamValueIfNotThere("max_bin", Option(getMaxBin))
       .appendParamValueIfNotThere("bin_construct_sample_cnt", Option(getBinSampleCount))
       .appendParamValueIfNotThere("min_data_in_leaf", Option(getMinDataInLeaf))
@@ -453,6 +478,12 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
 
     val numTasksPerExecutor = ClusterUtil.getNumTasksPerExecutor(dataset.sparkSession, log)
     val numTasks = determineNumTasks(dataset, getNumTasks, numTasksPerExecutor)
+    if (getEffectiveDeviceType == LightGBMConstants.CUDADeviceType) {
+      throw new IllegalArgumentException(
+        "deviceType=cuda is not supported by SynapseML's LightGBM 3.3.510 integration. " +
+          "The upstream CUDA objective dereferences missing CUDA metadata for SynapseML streaming Datasets and " +
+          "can crash the Spark executor. Use deviceType=gpu with an OpenCL-enabled custom native library.")
+    }
     val sc = dataset.sparkSession.sparkContext
 
     val df = prepareDataframe(dataset, numTasks)

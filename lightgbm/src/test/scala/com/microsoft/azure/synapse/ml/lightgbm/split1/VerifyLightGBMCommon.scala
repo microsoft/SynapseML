@@ -6,11 +6,15 @@ package com.microsoft.azure.synapse.ml.lightgbm.split1
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.lightgbm._
 import com.microsoft.azure.synapse.ml.lightgbm.dataset.{ChunkedArrayUtils, SampledData}
+import com.microsoft.azure.synapse.ml.lightgbm.params.{BaseTrainParams, ExecutionParams}
 import com.microsoft.azure.synapse.ml.lightgbm.swig.{DoubleChunkedArray, DoubleSwigArray, IntSwigArray, SwigUtils}
 import com.microsoft.ml.lightgbm.{SWIGTYPE_p_p_void, SWIGTYPE_p_void, lightgbmlib}
 import org.apache.spark.ml.attribute.{Attribute, AttributeGroup, NumericAttribute}
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vectors}
 import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.types.StructField
+
+import scala.util.{Failure, Success, Try}
 
 // scalastyle:off magic.number
 // scalastyle:off method.length
@@ -381,5 +385,310 @@ class VerifyLightGBMCommon extends TestBase with LightGBMTestUtils {
       .setDataTransferMode(LightGBMConstants.BulkDataTransferMode)
       .setSlotNames(Array("a", "b"))
     assert(model.fit(df).transform(df).count() == 4)
+  }
+
+  /** getTrainParams only reads attribute metadata off the features field, so any schema will do. */
+  private lazy val deviceFeaturesSchema: StructField = makeDuplicateNameDF(3).schema(featuresCol)
+
+  private def paramTokens(params: BaseTrainParams): Set[String] = params.toString.split(" ").toSet
+
+  private class DeviceParameterProbe extends LightGBMClassifier {
+    def datasetCreationParams: String = getDatasetCreationParams(Array.empty[Int], 1)
+    def effectiveDeviceType: String = getEffectiveDeviceType
+  }
+
+  test("Verify deviceType preserves the nine-field ExecutionParams case class API") {
+    val original = ExecutionParams(10000, "auto", 4, "streaming", "global", 100000, 100, false, 16)
+    val copied: ExecutionParams = original.copy(numThreads = 8)
+    val ExecutionParams(chunkSize, matrixType, copiedNumThreads, dataTransferMode, samplingMode,
+      samplingSetSize, microBatchSize, useSingleDatasetMode, maxStreamingOMPThreads) = copied
+
+    assert(original.productArity == 9)
+    assert((chunkSize, matrixType, copiedNumThreads, dataTransferMode, samplingMode,
+      samplingSetSize, microBatchSize, useSingleDatasetMode, maxStreamingOMPThreads) ==
+      (10000, "auto", 8, "streaming", "global", 100000, 100, false, 16))
+    assert(classOf[ExecutionParams].getConstructors.exists(_.getParameterCount == 9))
+    assert(classOf[ExecutionParams].getMethods.exists(method =>
+      method.getName == "copy" && method.getParameterCount == 9))
+    assert(ExecutionParams.getClass.getMethods.exists(method =>
+      method.getName == "apply" && method.getParameterCount == 9))
+  }
+
+  test("Verify deviceType reaches the LightGBM parameter string for every learner") {
+    val classifier = new LightGBMClassifier().setDeviceType(LightGBMConstants.GPUDeviceType)
+    val regressor = new LightGBMRegressor().setDeviceType(LightGBMConstants.GPUDeviceType)
+    val ranker = new LightGBMRanker().setDeviceType(LightGBMConstants.GPUDeviceType)
+    assert(paramTokens(classifier.getTrainParams(1, deviceFeaturesSchema, 2)).contains("device_type=gpu"))
+    assert(paramTokens(regressor.getTrainParams(1, deviceFeaturesSchema, 2)).contains("device_type=gpu"))
+    assert(paramTokens(ranker.getTrainParams(1, deviceFeaturesSchema, 2)).contains("device_type=gpu"))
+  }
+
+  test("Verify non-default deviceType reaches Dataset creation while cpu remains unchanged") {
+    val cpu = new DeviceParameterProbe
+    val gpu = new DeviceParameterProbe().setDeviceType(LightGBMConstants.GPUDeviceType)
+    assert(!cpu.datasetCreationParams.contains("device_type"))
+    assert(gpu.datasetCreationParams.split(" ").contains("device_type=gpu"))
+  }
+
+  test("Verify the default cpu deviceType leaves the LightGBM parameter string untouched") {
+    // cpu is LightGBM's own default, so emitting it would only risk overriding a "device" alias
+    // that an existing caller passed through passThroughArgs.
+    Seq(new LightGBMClassifier().getTrainParams(1, deviceFeaturesSchema, 2),
+        new LightGBMRegressor().getTrainParams(1, deviceFeaturesSchema, 2),
+        new LightGBMRanker().getTrainParams(1, deviceFeaturesSchema, 2))
+      .foreach(params => assert(!params.toString.contains("device_type")))
+  }
+
+  test("Verify passThroughArgs device aliases take precedence over deviceType") {
+    Seq("device_type=cuda", "device=cuda").foreach { args =>
+      val learner = new DeviceParameterProbe()
+        .setPassThroughArgs(args)
+        .setDeviceType(LightGBMConstants.GPUDeviceType)
+      val parameters = learner.getTrainParams(1, deviceFeaturesSchema, 2).toString
+      assert(parameters.startsWith(args))
+      assert(!parameters.contains("device_type=gpu"))
+      assert(learner.effectiveDeviceType == LightGBMConstants.CUDADeviceType)
+      assert(learner.datasetCreationParams.split(" ").contains("device_type=cuda"))
+    }
+  }
+
+  test("Verify canonical device_type cuda wins over device gpu in either order") {
+    Seq("device=gpu device_type=cuda", "device_type=cuda device=gpu").foreach { args =>
+      val learner = new DeviceParameterProbe()
+        .setPassThroughArgs(args)
+        .setDeviceType(LightGBMConstants.GPUDeviceType)
+      assert(learner.effectiveDeviceType == LightGBMConstants.CUDADeviceType)
+      assert(learner.datasetCreationParams.split(" ").contains("device_type=cuda"))
+      val error = intercept[IllegalArgumentException] {
+        learner
+          .setLabelCol(labelCol)
+          .setFeaturesCol(featuresCol)
+          .setNumTasks(1)
+          .fit(deviceTrainingDF)
+      }
+      assert(error.getMessage.contains("missing CUDA metadata"))
+    }
+  }
+
+  test("Verify canonical device_type gpu wins over device cuda in either order") {
+    Seq("device=cuda device_type=gpu", "device_type=gpu device=cuda").foreach { args =>
+      val learner = new DeviceParameterProbe()
+        .setPassThroughArgs(args)
+        .setDeviceType(LightGBMConstants.CPUDeviceType)
+      assert(learner.effectiveDeviceType == LightGBMConstants.GPUDeviceType)
+      assert(learner.datasetCreationParams.split(" ").contains("device_type=gpu"))
+    }
+  }
+
+  test("Verify mixed-case canonical and alias CUDA values are rejected") {
+    Seq("device_type=CUDA",
+        "device=CuDa",
+        "device=GPU device_type=CuDa",
+        "device_type=cUdA device=GPU").foreach { args =>
+      val learner = new DeviceParameterProbe()
+        .setPassThroughArgs(args)
+        .setDeviceType(LightGBMConstants.CPUDeviceType)
+      assert(learner.effectiveDeviceType == LightGBMConstants.CUDADeviceType)
+      assert(learner.datasetCreationParams.split(" ").contains("device_type=cuda"))
+      val error = intercept[IllegalArgumentException] {
+        learner
+          .setLabelCol(labelCol)
+          .setFeaturesCol(featuresCol)
+          .setNumTasks(1)
+          .fit(deviceTrainingDF)
+      }
+      assert(error.getMessage.contains("missing CUDA metadata"))
+    }
+  }
+
+  test("Verify mixed-case GPU values resolve safely") {
+    Seq("device=GpU",
+        "device=CuDa device_type=GPU",
+        "device_type=gPu device=CUDA").foreach { args =>
+      val learner = new DeviceParameterProbe()
+        .setPassThroughArgs(args)
+        .setDeviceType(LightGBMConstants.CPUDeviceType)
+      assert(learner.effectiveDeviceType == LightGBMConstants.GPUDeviceType)
+      assert(learner.datasetCreationParams.split(" ").contains("device_type=gpu"))
+    }
+  }
+
+  test("Verify quoted CUDA keys and values are normalized and rejected") {
+    val quotedCudaArgs = Seq(
+      """device_type="CUDA"""",
+      "device_type='CuDa'",
+      """"device_type"=cUdA""",
+      "'device_type'=CUDA",
+      """device="CuDa"""",
+      "device='CUDA'",
+      """"device"='cUdA'""",
+      """"device_type'=CUDA"""",
+      """device_type='CuDa"""")
+    quotedCudaArgs.foreach { args =>
+      val learner = new DeviceParameterProbe()
+        .setPassThroughArgs(args)
+        .setDeviceType(LightGBMConstants.GPUDeviceType)
+      assert(learner.getPassThroughArgs == args)
+      assert(learner.effectiveDeviceType == LightGBMConstants.CUDADeviceType)
+      assert(learner.datasetCreationParams.split(" ").contains("device_type=cuda"))
+    }
+    Seq("""device_type="CUDA"""", "device='CuDa'").foreach { args =>
+      val error = intercept[IllegalArgumentException] {
+        new DeviceParameterProbe()
+          .setPassThroughArgs(args)
+          .setLabelCol(labelCol)
+          .setFeaturesCol(featuresCol)
+          .setNumTasks(1)
+          .fit(deviceTrainingDF)
+      }
+      assert(error.getMessage.contains("missing CUDA metadata"))
+    }
+  }
+
+  test("Verify quoted canonical device_type retains precedence over quoted device alias") {
+    Seq(
+      """"device"='gpu' 'device_type'="CuDa"""",
+      """'device_type'="CUDA" "device"='gpu'""").foreach { args =>
+      val learner = new DeviceParameterProbe().setPassThroughArgs(args)
+      assert(learner.getPassThroughArgs == args)
+      assert(learner.effectiveDeviceType == LightGBMConstants.CUDADeviceType)
+      assert(learner.datasetCreationParams.split(" ").contains("device_type=cuda"))
+    }
+    Seq(
+      """"device"='CuDa' 'device_type'="GpU"""",
+      """'device_type'="GPU" "device"='cuda'""").foreach { args =>
+      val learner = new DeviceParameterProbe().setPassThroughArgs(args)
+      assert(learner.getPassThroughArgs == args)
+      assert(learner.effectiveDeviceType == LightGBMConstants.GPUDeviceType)
+      assert(learner.datasetCreationParams.split(" ").contains("device_type=gpu"))
+    }
+  }
+
+  test("Verify device-like text inside unrelated values is ignored") {
+    Seq("note=device_type=cuda", """note="device_type=CUDA"""", "path=device_cuda").foreach { args =>
+      val learner = new DeviceParameterProbe().setPassThroughArgs(args)
+      assert(learner.getPassThroughArgs == args)
+      assert(learner.effectiveDeviceType == LightGBMConstants.CPUDeviceType)
+      assert(!learner.datasetCreationParams.contains("device_type"))
+    }
+  }
+
+  test("Verify shared device parser matches native-effective syntax") {
+    val cases = Seq(
+      """device_type="CUDA"""" -> Some(LightGBMConstants.CUDADeviceType),
+      """'device'='GpU'""" -> Some(LightGBMConstants.GPUDeviceType),
+      """device="cuda" "device_type"='GPU'""" -> Some(LightGBMConstants.GPUDeviceType),
+      """'device_type'='CuDa' device="gpu"""" -> Some(LightGBMConstants.CUDADeviceType),
+      "device cuda" -> None,
+      "device_type gpu" -> None,
+      "note=device_type=cuda" -> None,
+      """note="device=CUDA"""" -> None)
+    cases.foreach { case (parameters, expected) =>
+      assert(LightGBMUtils.effectiveDeviceType(parameters) == expected)
+      assert(LightGBMUtils.hasDeviceParameter(parameters) == expected.isDefined)
+    }
+  }
+
+  test("Verify booster guidance uses the shared effective device parser") {
+    Seq(
+      """device_type="CUDA"""" -> "device_type=cuda",
+      """'device'='GpU'""" -> "device_type=gpu",
+      """device='cuda' "device_type"="GPU"""" -> "device_type=gpu").foreach {
+      case (parameters, expectedDevice) =>
+        val guidance = LightGBMUtils.boosterFailureGuidance(parameters)
+        assert(guidance.contains(s"Requested $expectedDevice"))
+    }
+    Seq("device cuda", "device_type gpu", "note=device_type=cuda", "device=cpu").foreach { parameters =>
+      assert(LightGBMUtils.boosterFailureGuidance(parameters).isEmpty)
+    }
+  }
+
+  test("Verify deviceType rejects an unsupported device") {
+    val cudaError = intercept[IllegalArgumentException] {
+      new LightGBMClassifier().setDeviceType(LightGBMConstants.CUDADeviceType)
+    }
+    assert(cudaError.getMessage.contains("can crash Spark executors"))
+    assertThrows[IllegalArgumentException](new LightGBMClassifier().setDeviceType("tpu"))
+  }
+
+  test("Verify generic Params set validates deviceType like generated wrappers") {
+    val learner = new LightGBMClassifier()
+    learner.set(learner.deviceType, LightGBMConstants.CPUDeviceType)
+    assert(learner.getDeviceType == LightGBMConstants.CPUDeviceType)
+    learner.set(learner.deviceType, LightGBMConstants.GPUDeviceType)
+    assert(learner.getDeviceType == LightGBMConstants.GPUDeviceType)
+    assertThrows[IllegalArgumentException] {
+      learner.set(learner.deviceType, LightGBMConstants.CUDADeviceType)
+    }
+  }
+
+  private lazy val deviceTrainingDF: DataFrame = {
+    import spark.implicits._
+    Seq((0.0, Vectors.dense(1.0, 2.0, 3.0)),
+        (1.0, Vectors.dense(4.0, 5.0, 6.0)),
+        (0.0, Vectors.dense(1.5, 2.5, 3.5)),
+        (1.0, Vectors.dense(4.5, 5.5, 6.5)),
+        (0.0, Vectors.dense(1.2, 2.2, 3.2)),
+        (1.0, Vectors.dense(4.2, 5.2, 6.2)))
+      .toDF(labelCol, featuresCol)
+  }
+
+  private def baseDeviceClassifier: LightGBMClassifier =
+    new LightGBMClassifier()
+      .setLabelCol(labelCol)
+      .setFeaturesCol(featuresCol)
+      .setNumLeaves(2)
+      .setNumIterations(2)
+      .setNumTasks(1)
+      .setNumThreads(1)
+      .setSeed(42)
+
+  private def deviceClassifier(device: String): LightGBMClassifier =
+    baseDeviceClassifier.setDeviceType(device)
+
+  private def rootCause(t: Throwable): Throwable =
+    Iterator.iterate(t)(_.getCause).takeWhile(_ != null).toList.last
+
+  test("Verify the default cpu deviceType leaves training output unchanged") {
+    val defaultClassifier = baseDeviceClassifier
+    val explicitCpuClassifier = deviceClassifier(LightGBMConstants.CPUDeviceType)
+    assert(defaultClassifier.getTrainParams(1, deviceFeaturesSchema, 2).toString ==
+      explicitCpuClassifier.getTrainParams(1, deviceFeaturesSchema, 2).toString)
+
+    val defaultModel = defaultClassifier.fit(deviceTrainingDF)
+    val explicitCpuModel = explicitCpuClassifier.fit(deviceTrainingDF)
+    assert(defaultModel.getModel.modelStr == explicitCpuModel.getModel.modelStr)
+  }
+
+  /** The published lightgbmlib artifact bundles a CPU-only native library, so gpu and cuda cannot
+    * be trained here. What must hold on any build is that the request reaches LightGBM instead of
+    * being quietly dropped: a caller who asks for a GPU and unknowingly gets CPU has no way to
+    * tell, and would take the slowdown as a fact of life. LightGBM refusing by name is proof the
+    * parameter arrived. If the native library ever does gain GPU support the fit simply succeeds,
+    * which satisfies the same property.
+    */
+  private def assertDeviceIsHonored(device: String, learner: String): Unit = {
+    val outcome = Try(deviceClassifier(device).fit(deviceTrainingDF).transform(deviceTrainingDF).count())
+    outcome match {
+      case Success(count) => assert(count == deviceTrainingDF.count())
+      case Failure(t) =>
+        val message = rootCause(t).getMessage
+        assert(message != null && message.contains(learner) &&
+          message.contains(s"Requested device_type=$device") &&
+          message.contains("bundled LightGBM native libraries are CPU-only") &&
+          message.contains("java.library.path"),
+          s"Requesting device_type=$device did not produce actionable accelerator guidance: $message")
+    }
+  }
+
+  test("Verify the gpu deviceType is never silently downgraded to cpu") {
+    assertDeviceIsHonored(LightGBMConstants.GPUDeviceType, "GPU Tree Learner")
+  }
+
+  test("Verify the passThroughArgs cuda alias is rejected before native training") {
+    val error = intercept[IllegalArgumentException] {
+      baseDeviceClassifier.setPassThroughArgs("device=cuda").fit(deviceTrainingDF)
+    }
+    assert(error.getMessage.contains("missing CUDA metadata"))
   }
 }
