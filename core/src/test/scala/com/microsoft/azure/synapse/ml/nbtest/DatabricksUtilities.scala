@@ -35,7 +35,10 @@ object DatabricksUtilities {
   // ADB Info
   val Region = "eastus"
   val PoolName = "synapseml-build-17.3"
-  val GpuPoolName = "synapseml-build-17.3-gpu"
+  // Instance pools are runtime-agnostic, so Spark 4.0 shares the migrated T4 pool instead of
+  // duplicating GPU quota. The 17.3-gpu pool is backed by Standard_NC6s_v3 nodes and therefore
+  // fails the GpuPoolNodeType check that master added.
+  val GpuPoolName = "synapseml-build-14.3-gpu"
   private[nbtest] val GpuPoolNodeType = "Standard_NC16as_T4_v3"
   private[nbtest] val GpuWorkersPerRun = 1
   private[nbtest] val GpuConcurrentRuns = 3
