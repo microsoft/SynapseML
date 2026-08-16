@@ -80,7 +80,9 @@ class VerifyModelParam extends TestBase {
     val rCode = holder.modelParam.rLoadLine(2)
     assert(rCode.contains("ml_load"))
     assert(rCode.contains("model-2.model"))
-    assert(rCode.contains("ml_stages"))
+    // Spark 4.1 extracts the stage via sparklyr internals instead of ml_stages; see RCodegenSuite.
+    assert(rCode.contains("new_ml_pipeline_stage"))
+    assert(rCode.contains("getStages"))
   }
 
   test("ModelParam can be cleared") {

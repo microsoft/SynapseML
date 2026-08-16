@@ -61,7 +61,9 @@ class VerifyPipelineStageParams extends TestBase {
     assert(rCode.contains("model-1.model"))
     assert(rCode.contains("complexParams"))
     assert(rCode.contains("transformer"))
-    assert(rCode.contains("ml_stages"))
+    // Spark 4.1 extracts the stage via sparklyr internals instead of ml_stages; see RCodegenSuite.
+    assert(rCode.contains("new_ml_pipeline_stage"))
+    assert(rCode.contains("getStages"))
   }
 
   // EstimatorParam tests
@@ -111,7 +113,9 @@ class VerifyPipelineStageParams extends TestBase {
     assert(rCode.contains("ml_load"))
     assert(rCode.contains("model-3.model"))
     assert(rCode.contains("pipelineStage"))
-    assert(rCode.contains("ml_stages"))
+    // Spark 4.1 extracts the stage via sparklyr internals instead of ml_stages; see RCodegenSuite.
+    assert(rCode.contains("new_ml_pipeline_stage"))
+    assert(rCode.contains("getStages"))
   }
 
   // PipelineStageWrappable trait tests
