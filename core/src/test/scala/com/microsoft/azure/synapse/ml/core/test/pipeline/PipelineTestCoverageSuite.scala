@@ -25,7 +25,6 @@ class PipelineTestCoverageSuite extends AnyFunSuite {
   /** Suite name prefixes launched by their own pipeline stages rather than the UnitTests matrix. */
   private val dedicatedStageSuites = Seq(
     "nbtest.DatabricksCPUTests",
-    "nbtest.DatabricksCPUStreamingTests",
     "nbtest.DatabricksGPUTests",
     "nbtest.DatabricksRapidsTests",
     "nbtest.SynapseTests",
@@ -33,6 +32,22 @@ class PipelineTestCoverageSuite extends AnyFunSuite {
     "nbtest.FabricSmokeTests",
     "nbtest.FabricTestCleanup",
     "nbtest.SynapseTestCleanup"
+  ).map(suffix => s"$rootPackage.$suffix")
+
+  /**
+    * Suites that deliberately have no pipeline leg yet, listed here so the guard stays green
+    * without pretending they are covered.
+    *
+    * DatabricksCPUStreamingTests drives the "Deploying a Classifier" notebook, which
+    * DatabricksUtilities keeps out of the parallel CPU partitions because its server.stop()
+    * cancels every SparkContext job on Spark 4 and would kill notebooks sharing the cluster.
+    * Giving it a matrix leg of its own was tried and does not work yet: the extra concurrent
+    * cluster exhausts the instance pool so its libraries never finish installing, and the
+    * notebook itself still errors. Scheduling it needs pool capacity plus a notebook fix,
+    * neither of which belongs in a branch sync.
+    */
+  private val unscheduledSuites = Seq(
+    "nbtest.DatabricksCPUStreamingTests"
   ).map(suffix => s"$rootPackage.$suffix")
 
   /**
@@ -164,6 +179,7 @@ class PipelineTestCoverageSuite extends AnyFunSuite {
 
     val orphans = discovered
       .filterNot { case (fqcn, _) => dedicatedStageSuites.exists(fqcn.startsWith) }
+      .filterNot { case (fqcn, _) => unscheduledSuites.exists(fqcn.startsWith) }
       .filterNot { case (fqcn, _) => isCovered(fqcn, specs) }
       .map { case (fqcn, fileName) => s"$fqcn ($fileName)" }
       .sorted
