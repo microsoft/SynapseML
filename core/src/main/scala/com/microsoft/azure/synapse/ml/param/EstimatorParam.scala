@@ -32,7 +32,7 @@ trait PipelineStageWrappable[T <: PipelineStage]
   override def rLoadLine(modelNum: Int): String = {
     s"""
        |${name}Model <- ml_load(sc, path = file.path(test_data_dir, "model-$modelNum.model", "complexParams", "$name"))
-       |${name}Model <- ml_stages(${name}Model)[[1]]
+       |${name}Model <- sparklyr:::new_ml_pipeline_stage(invoke(spark_jobj(${name}Model), "getStages")[[1]])
        """.stripMargin
   }
 
@@ -59,13 +59,6 @@ class EstimatorParam(parent: Params, name: String, doc: String, isValid: Estimat
 
   def rValue(v: Estimator[_]): String = {
     s"""${name}Model"""
-  }
-
-  override def rLoadLine(modelNum: Int): String = {
-    s"""
-       |${name}Model <- ml_load(sc, path = file.path(test_data_dir, "model-$modelNum.model", "complexParams", "$name"))
-       |${name}Model <- ml_stages(${name}Model)[[1]]
-     """.stripMargin
   }
 
 }
