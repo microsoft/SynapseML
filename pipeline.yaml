@@ -1081,6 +1081,10 @@ jobs:
                     echo "##vso[task.logissue type=error]Scoped prerequisite path must not contain traversal: $path"
                     exit 1
                     ;;
+                  *//*|*/./*)
+                    echo "##vso[task.logissue type=error]Scoped prerequisite path must be normalized: $path"
+                    exit 1
+                    ;;
                 esac
                 if [ "$HAS_MORE_PATHS" = false ]; then
                   break
