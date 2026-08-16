@@ -167,6 +167,9 @@ Python files use the same copyright comment:
 
 SynapseML uses **sbt** (not Maven or Gradle). Spark 4.1.1, Scala 2.13.17.
 
+> This is the `spark4.1` branch. See [AGENTS_spark4.1.md](../AGENTS_spark4.1.md)
+> for what diverges here and why before changing anything.
+
 ### Essential Commands
 
 ```bash
