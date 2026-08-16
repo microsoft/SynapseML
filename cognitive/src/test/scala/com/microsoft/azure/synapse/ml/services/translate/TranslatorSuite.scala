@@ -10,6 +10,8 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{col, flatten}
 
+import java.util.Locale
+
 trait TranslatorKey {
   lazy val translatorKey: String = sys.env.getOrElse("TRANSLATOR_KEY", Secrets.TranslatorKey)
 
@@ -118,7 +120,8 @@ class TranslateSuite extends TransformerFuzzing[Translate]
       .withColumn("translation", col("translation.text"))
       .select("translation", "transliteration").collect()
     assert(results.head.getSeq(0).mkString("\n").contains("大象"))
-    assert(results.head.getSeq(1).mkString("\n").replaceAllLiterally(" ", "").contains("dàxiàng"))
+    assert(results.head.getSeq(1).mkString("\n").replaceAllLiterally(" ", "")
+      .toLowerCase(Locale.ROOT).contains("dàxiàng"))
   }
 
   test("Translate to multiple languages") {

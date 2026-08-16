@@ -10,16 +10,14 @@ ThisBuild / scmInfo := Some(
   )
 )
 ThisBuild / developers := List(
-  Developer("mhamilton723", "Mark Hamilton",
-    "synapseml-support@microsoft.com", url("https://github.com/mhamilton723")),
-  Developer("imatiach-msft", "Ilya Matiach",
-    "synapseml-support@microsoft.com", url("https://github.com/imatiach-msft")),
-  Developer("drdarshan", "Sudarshan Raghunathan",
-    "synapseml-support@microsoft.com", url("https://github.com/drdarshan")),
-  Developer("svotaw", "Scott Votaw",
-    "synapseml-support@microsoft.com", url("https://github.com/svotaw")),
+  Developer("ranadeepsingh", "Rana Singh",
+    "synapseml-support@microsoft.com", url("https://github.com/ranadeepsingh")),
   Developer("BrendanWalsh", "Brendan Walsh",
     "synapseml-support@microsoft.com", url("https://github.com/BrendanWalsh")),
+  Developer("svotaw", "Scott Votaw",
+    "synapseml-support@microsoft.com", url("https://github.com/svotaw")),
+  Developer("eisber", "Markus Cozowicz",
+    "synapseml-support@microsoft.com", url("https://github.com/eisber")),
   Developer("JessicaXYWang", "Jessica Wang",
     "synapseml-support@microsoft.com", url("https://github.com/JessicaXYWang"))
 )

@@ -3,7 +3,7 @@ import TabItem from '@theme/TabItem';
 import DocTable from "@theme/DocumentationTable";
 
 
-## Azure Search
+## Azure AI Search
 
 ### AzureSearch
 

@@ -15,6 +15,7 @@ steps:
       cacheHitVar: CONDA_CACHE_RESTORED
     timeoutInMinutes: 20
     retryCountOnTaskFailure: 1
+    continueOnError: true
   - bash: |
       echo "=== Disk space BEFORE cleanup ==="
       df -h / | grep -E 'Filesystem|/$'
@@ -29,12 +30,13 @@ steps:
   - bash: |
       set -e
       df -H
+      conda env remove --name synapseml --yes || true
       (timeout 30m conda env create --yes -f environment.yml -v)  || (timeout 30m conda env create --yes -f environment.yml -v)
       conda clean --all -y
       pip cache purge
     displayName: Create Anaconda environment
     retryCountOnTaskFailure: 1
-    condition: eq(variables.CONDA_CACHE_RESTORED, 'false')
+    condition: ne(variables.CONDA_CACHE_RESTORED, 'true')
   - bash: |
       df -H
     displayName: Check space

@@ -12,7 +12,7 @@ import org.apache.spark.ml._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.{MLReadable, MLWritable}
 
-import java.lang.reflect.ParameterizedType
+import java.lang.reflect.{InvocationTargetException, Modifier, ParameterizedType}
 import scala.language.existentials
 
 /** Tests to validate fuzzing of modules. */
@@ -69,14 +69,11 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMClassificationModel",
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRankerModel",
       "com.microsoft.azure.synapse.ml.services.form.FormOntologyTransformer",
-      "com.microsoft.azure.synapse.ml.services.anomaly.SimpleDetectMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.automl.BestModel", //TODO add proper interfaces to all of these
       "com.microsoft.azure.synapse.ml.codegen.TestRegressorModel",
       "com.microsoft.azure.synapse.ml.codegen.TestRegressor",
       "com.microsoft.azure.synapse.ml.services.form.GetCustomModel",
       "com.microsoft.azure.synapse.ml.services.form.AnalyzeCustomModel",
-      "com.microsoft.azure.synapse.ml.services.anomaly.DetectLastMultivariateAnomaly",
-      "com.microsoft.azure.synapse.ml.services.anomaly.SimpleFitMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.services.geospatial.AzureMapsTraitsSuite$TestableMapsAsyncReply",
       // Azure Maps Spatial service retired on 9/30/2025
       "com.microsoft.azure.synapse.ml.services.geospatial.CheckPointInPolygon"
@@ -131,16 +128,12 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitContextualBanditModel",
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitGenericModel",
       "com.microsoft.azure.synapse.ml.services.FormOntologyTransformer",
-      "com.microsoft.azure.synapse.ml.services.DetectMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.services.form.FormOntologyTransformer",
-      "com.microsoft.azure.synapse.ml.services.anomaly.SimpleDetectMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.vw.VowpalWabbitRegressionModel",
       "com.microsoft.azure.synapse.ml.codegen.TestRegressorModel",
       "com.microsoft.azure.synapse.ml.codegen.TestRegressor",
       "com.microsoft.azure.synapse.ml.services.form.GetCustomModel",
       "com.microsoft.azure.synapse.ml.services.form.AnalyzeCustomModel",
-      "com.microsoft.azure.synapse.ml.services.anomaly.DetectLastMultivariateAnomaly",
-      "com.microsoft.azure.synapse.ml.services.anomaly.SimpleFitMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.services.geospatial.AzureMapsTraitsSuite$TestableMapsAsyncReply",
       // Azure Maps Spatial service retired on 9/30/2025
       "com.microsoft.azure.synapse.ml.services.geospatial.CheckPointInPolygon"
@@ -194,14 +187,11 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRankerModel",
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRegressionModel",
       "com.microsoft.azure.synapse.ml.services.form.FormOntologyTransformer",
-      "com.microsoft.azure.synapse.ml.services.anomaly.SimpleDetectMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.train.ComputePerInstanceStatistics",
       "com.microsoft.azure.synapse.ml.codegen.TestRegressorModel",
       "com.microsoft.azure.synapse.ml.codegen.TestRegressor",
       "com.microsoft.azure.synapse.ml.services.form.GetCustomModel",
       "com.microsoft.azure.synapse.ml.services.form.AnalyzeCustomModel",
-      "com.microsoft.azure.synapse.ml.services.anomaly.DetectLastMultivariateAnomaly",
-      "com.microsoft.azure.synapse.ml.services.anomaly.SimpleFitMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.services.geospatial.AzureMapsTraitsSuite$TestableMapsAsyncReply",
       // Azure Maps Spatial service retired on 9/30/2025
       "com.microsoft.azure.synapse.ml.services.geospatial.CheckPointInPolygon"
@@ -257,14 +247,11 @@ class FuzzingTest extends TestBase {
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRankerModel",
       "com.microsoft.azure.synapse.ml.lightgbm.LightGBMRegressionModel",
       "com.microsoft.azure.synapse.ml.services.form.FormOntologyTransformer",
-      "com.microsoft.azure.synapse.ml.services.anomaly.SimpleDetectMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.train.ComputePerInstanceStatistics",
       "com.microsoft.azure.synapse.ml.codegen.TestRegressorModel",
       "com.microsoft.azure.synapse.ml.codegen.TestRegressor",
       "com.microsoft.azure.synapse.ml.services.form.GetCustomModel",
       "com.microsoft.azure.synapse.ml.services.form.AnalyzeCustomModel",
-      "com.microsoft.azure.synapse.ml.services.anomaly.DetectLastMultivariateAnomaly",
-      "com.microsoft.azure.synapse.ml.services.anomaly.SimpleFitMultivariateAnomaly",
       "com.microsoft.azure.synapse.ml.services.geospatial.AzureMapsTraitsSuite$TestableMapsAsyncReply",
       // Azure Maps Spatial service retired on 9/30/2025
       "com.microsoft.azure.synapse.ml.services.geospatial.CheckPointInPolygon"
@@ -402,9 +389,6 @@ class FuzzingTest extends TestBase {
 
   test("Verify all classes extending HasSubscriptionKey also extend HasAADToken") {
     val exemptions = Set[String](
-      // MVAD doesn't support aad token for now
-      "com.microsoft.azure.synapse.ml.services.anomaly.SimpleDetectMultivariateAnomaly",
-      "com.microsoft.azure.synapse.ml.services.anomaly.SimpleFitMultivariateAnomaly",
       // TO BE VERIFIED
       "com.microsoft.azure.synapse.ml.services.speech.ConversationTranscription",
       "com.microsoft.azure.synapse.ml.services.speech.SpeechToTextSDK",
@@ -433,7 +417,19 @@ class FuzzingTest extends TestBase {
 
   private lazy val readers: List[MLReadable[_]] = JarLoadingUtils.instantiateObjects[MLReadable[_]]()
 
-  private lazy val pipelineStages: List[PipelineStage] = JarLoadingUtils.instantiateServices[PipelineStage]()
+  private lazy val pipelineStages: List[PipelineStage] = {
+    JarLoadingUtils.AllClasses
+      .filter(classOf[PipelineStage].isAssignableFrom(_))
+      .filter(clazz => !Modifier.isAbstract(clazz.getModifiers))
+      .filterNot(clazz => clazz.getName.contains("$") || clazz.getSimpleName.startsWith("Testable"))
+      .map { clazz =>
+        try {
+          clazz.getConstructor().newInstance().asInstanceOf[PipelineStage]
+        } catch {
+          case e: InvocationTargetException => throw e.getCause
+        }
+      }
+  }
 
   private lazy val experimentFuzzers: List[ExperimentFuzzing[_ <: PipelineStage]] =
     JarLoadingUtils.instantiateServices[ExperimentFuzzing[_ <: PipelineStage]]()

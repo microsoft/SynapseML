@@ -2,7 +2,7 @@ name: PR Validation
 
 on:
   pull_request:
-    branches: [ "master" ]
+    branches: [ "master", "spark3.5", "spark4.0", "spark4.1" ]
     paths-ignore: [ "**.md", "docs/**", "website/**" ]
 
 jobs:
@@ -12,10 +12,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
 
@@ -30,10 +30,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up JDK 11
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
         with:
           distribution: temurin
           java-version: 11
@@ -41,13 +41,70 @@ jobs:
 
       - name: Install sbt
         run: |
-          echo "deb https://repo.scala-sbt.org/scalasbt/debian all main" | sudo tee /etc/apt/sources.list.d/sbt.list
-          curl -sL "https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x2EE0EA64E40A89B84B2DF73499E82A75642AC823" | sudo apt-key add
-          sudo apt-get update -q
-          sudo apt-get install -yq sbt
+          SBT_VERSION="$(sed -n 's/^sbt.version *= *//p' project/build.properties | tr -d ' ')"
+          mkdir -p "$HOME/.local/bin"
+          curl -L -o "$HOME/.local/bin/sbt-launch.jar" \
+            "https://repo1.maven.org/maven2/org/scala-sbt/sbt-launch/${SBT_VERSION}/sbt-launch-${SBT_VERSION}.jar"
+          cat > "$HOME/.local/bin/sbt" <<EOF
+          #!/usr/bin/env bash
+          exec java -Dsbt.version="${SBT_VERSION}" -jar "$HOME/.local/bin/sbt-launch.jar" "\$@"
+          EOF
+          chmod +x "$HOME/.local/bin/sbt"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          export PATH="$HOME/.local/bin:$PATH"
+          sbt sbtVersion
 
       - name: Scalastyle check
-        run: sbt scalastyle test:scalastyle
+        run: |
+          set -o pipefail
+          sbt scalastyle test:scalastyle 2>&1 | tee "$RUNNER_TEMP/scalastyle-output.log"
+
+      - name: Annotate scalastyle violations
+        if: failure()
+        run: |
+          set -uo pipefail
+          log="$RUNNER_TEMP/scalastyle-output.log"
+          [ -f "$log" ] || exit 0
+          workspace="${GITHUB_WORKSPACE%/}/"
+          # sbt colorizes its output, so strip ANSI escapes before matching
+          violations="$(sed -e 's/\x1B\[[0-9;]*[a-zA-Z]//g' "$log" \
+            | grep -aE '^\[(error|warn)\] .+\.scala:[0-9]+(:[0-9]+)?: ' \
+            | awk '!seen[$0]++' || true)"
+          if [ -z "$violations" ]; then
+            echo "No scalastyle violations found in the log; the failure is reported in the step above."
+            exit 0
+          fi
+          # Workflow commands treat %, CR and LF specially; property values
+          # additionally need : and , encoded
+          encode() {
+            local value="${1//%/%25}"
+            value="${value//$'\r'/%0D}"
+            value="${value//$'\n'/%0A}"
+            if [ "${2:-}" = "property" ]; then
+              value="${value//:/%3A}"
+              value="${value//,/%2C}"
+            fi
+            printf '%s' "$value"
+          }
+          while IFS= read -r violation; do
+            case "$violation" in
+              '[warn]'*) severity="warning" ;;
+              *) severity="error" ;;
+            esac
+            body="${violation#*] }"
+            location="${body%%: *}"
+            message="${body#*: }"
+            file="${location%%:*}"
+            position="${location#*:}"
+            lineno="${position%%:*}"
+            # File-level checks (line length, tabs, EOF newline) report no column
+            if [ "$position" = "$lineno" ]; then
+              column=""
+            else
+              column=",col=${position#*:}"
+            fi
+            echo "::${severity} file=$(encode "${file#"$workspace"}" property),line=${lineno}${column}::$(encode "$message")"
+          done <<< "$violations"
 
       - name: Compile
-        run: sbt compile test:compile
+        run: sbt compile "Test / compile"

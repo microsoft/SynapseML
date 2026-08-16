@@ -142,7 +142,11 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   }
 
   override protected def prepareUrlRoot: Row => String = { row =>
-    s"${getUrl}openai/responses"
+    if (isOpenAIV1BaseUrl) {
+      endpointUrl("responses")
+    } else {
+      endpointUrl("openai/responses")
+    }
   }
 
   override protected[openai] def prepareEntity: Row => Option[AbstractHttpEntity] = {
@@ -164,6 +168,9 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   private def mergeModel(params: Map[String, Any], r: Row): Map[String, Any] = {
     getValueOpt(r, deploymentName) match {
       case Some(m) if m != null && m.nonEmpty => params.updated("model", m)
+      case _ if isOpenAIV1BaseUrl && !params.contains("model") =>
+        throw new IllegalArgumentException(
+          "No deployment/model name provided for OpenAI v1 endpoint. Set the 'deploymentName' param.")
       case _ => params
     }
   }

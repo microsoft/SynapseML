@@ -185,13 +185,18 @@ trait LightGBMDatasetParams extends Wrappable {
 /** Defines common parameters across all LightGBM learners related to learning score evolution.
   */
 trait LightGBMLearnerParams extends Wrappable {
-  val earlyStoppingRound = new IntParam(this, "earlyStoppingRound", "Early stopping round")
+  val earlyStoppingRound = new IntParam(this, "earlyStoppingRound",
+    "Number of rounds without sufficient improvement before stopping; zero disables early stopping",
+    ParamValidators.gtEq(0))
   setDefault(earlyStoppingRound -> 0)
   def getEarlyStoppingRound: Int = $(earlyStoppingRound)
   def setEarlyStoppingRound(value: Int): this.type = set(earlyStoppingRound, value)
 
-  val improvementTolerance = new DoubleParam(this, "improvementTolerance",
-    "Tolerance to consider improvement in metric")
+  val improvementTolerance = new DoubleParam(
+    this,
+    "improvementTolerance",
+    "Metric improvement must exceed this value to reset the early stopping counter",
+    ParamValidators.gtEq(0.0))
   setDefault(improvementTolerance -> 0.0)
   def getImprovementTolerance: Double = $(improvementTolerance)
   def setImprovementTolerance(value: Double): this.type = set(improvementTolerance, value)

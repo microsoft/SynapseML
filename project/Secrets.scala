@@ -152,7 +152,7 @@ object Secrets {
   def getSecret(env_var: String, name: String): String = {
     if (publishingEnabled) findAndCacheSecret(env_var, name)
     else {
-      println(s"[warn] Secret $name not downloaded. Set $EnablePublishEnvVar=true to enable publishing.")
+      println(s"[info] Secret $name not downloaded. Set $EnablePublishEnvVar=true to enable publishing.")
       ""
     }
   }
@@ -160,7 +160,7 @@ object Secrets {
   def getPgpSecretFile(name: String, env_var: String): File = {
     if (publishingEnabled) getOrCreatePgpSecretFile(name, env_var)
     else {
-      println(s"[warn] Secret $name not downloaded. Set $EnablePublishEnvVar=true to enable publishing.")
+      println(s"[info] Secret $name not downloaded. Set $EnablePublishEnvVar=true to enable publishing.")
       new File("")
     }
   }

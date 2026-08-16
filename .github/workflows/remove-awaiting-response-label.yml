@@ -13,7 +13,7 @@ jobs:
       github.event.comment.author_association != 'COLLABORATOR'
     steps:
       - name: Remove needs-reply label
-        uses: octokit/request-action@v2.x
+        uses: octokit/request-action@02f5e7c637a73a3b12ed81015fa7fb5f11cc5d7d # v2.x
         continue-on-error: true
         with:
           route: DELETE /repos/:repository/issues/:issue/labels/:label

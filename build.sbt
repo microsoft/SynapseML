@@ -173,7 +173,7 @@ packageSynapseML := {
          |    long_description="SynapseML contains Microsoft's open source "
          |                     + "contributions to the Apache Spark ecosystem",
          |    license="MIT",
-         |    packages=find_namespace_packages(include=['synapse.ml.*']),
+         |    packages=find_namespace_packages(include=['synapse.ml', 'synapse.ml.*']),
          |    url="https://github.com/Microsoft/SynapseML",
          |    author="Microsoft",
          |    author_email="synapseml-support@microsoft.com",
@@ -390,7 +390,32 @@ val settings = Seq(
   assembly / assemblyOption := (assembly / assemblyOption).value.copy(includeScala = false),
   autoAPIMappings := true,
   pomPostProcess := pomPostFunc,
-  sbtPlugin := false
+  sbtPlugin := false,
+  // Scoverage: exclude only code that genuinely cannot be exercised by unit tests --
+  // the build-time generator entry points and the classes that require a live
+  // Microsoft Fabric environment (token brokering / workload endpoints).
+  // Deliberately NOT excluded: CodegenConfig, DefaultParamInfo, GenerationUtils and
+  // Wrappable are pure logic with existing unit tests, and fabric's FabricTokenParser,
+  // OpenAIFabricSetting and RESTUtils have no live-environment dependency.
+  // Kept inline (rather than a top-level val) so this diff stays a single hunk anchored
+  // on a stable line, which lets it cherry-pick cleanly onto the release branches.
+  coverageExcludedPackages := Seq(
+    "com\\.microsoft\\.azure\\.synapse\\.ml\\.codegen\\.CodeGen.*",
+    "com\\.microsoft\\.azure\\.synapse\\.ml\\.codegen\\.PyCodegen.*",
+    "com\\.microsoft\\.azure\\.synapse\\.ml\\.codegen\\.RCodegen.*",
+    "com\\.microsoft\\.azure\\.synapse\\.ml\\.codegen\\.PythonInitMerger.*",
+    // sbt-buildinfo generates BuildInfo into src_managed. It is emitted code with no
+    // branches, it is instrumented at 28 lines / 0% by scoverage, and there is nothing
+    // meaningful to unit test, so measuring it only depresses the reported number.
+    "com\\.microsoft\\.azure\\.synapse\\.ml\\.build\\..*",
+    "com\\.microsoft\\.azure\\.synapse\\.ml\\.fabric\\.FabricClient.*",
+    "com\\.microsoft\\.azure\\.synapse\\.ml\\.fabric\\.TokenLibrary.*",
+    "com\\.microsoft\\.azure\\.synapse\\.ml\\.logging\\.fabric\\..*"
+  ).mkString(";"),
+  coverageFailOnMinimum := false,
+  coverageHighlighting := true,
+  // Cobertura XML is the format the Azure DevOps coverage publisher consumes.
+  coverageOutputCobertura := true
 )
 ThisBuild / publishMavenStyle := true
 
@@ -492,6 +517,6 @@ val testWebsiteDocs = TaskKey[Unit]("testWebsiteDocs",
   "test code blocks inside markdowns under folder website/docs/documentation")
 testWebsiteDocs := {
   runCmd(
-    Seq("python", s"${join(baseDirectory.value, "website/doctest.py")}", version.value)
+    activateCondaEnv ++ Seq("python", s"${join(baseDirectory.value, "website/doctest.py")}", version.value)
   )
 }

@@ -18,6 +18,32 @@ object PyCodegen {
 
   import CodeGenUtils._
 
+  private val DeprecatedOpenAICompletionFile = "OpenAICompletion.py"
+
+  private val OpenAICompletionImportHook: String =
+    """
+      |def __getattr__(name):
+      |    if name == "OpenAICompletion":
+      |        import warnings
+      |
+      |        with warnings.catch_warnings():
+      |            warnings.simplefilter("ignore", FutureWarning)
+      |            from synapse.ml.services.openai.OpenAICompletion import (
+      |                OpenAICompletion,
+      |                warn_openai_completion_deprecated,
+      |            )
+      |        warn_openai_completion_deprecated(stacklevel=2)
+      |        globals()["OpenAICompletion"] = OpenAICompletion
+      |        return OpenAICompletion
+      |    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+      |""".stripMargin
+
+  private def isOpenAICompletionStub(packageFolder: String, fileName: String): Boolean =
+    packageFolder == "/services/openai" && fileName == DeprecatedOpenAICompletionFile
+
+  private def initFileExtra(packageFolder: String): String =
+    if (packageFolder == "/services/openai") OpenAICompletionImportHook else ""
+
   def generatePythonClasses(conf: CodegenConfig): Unit = {
     val instantiatedClasses = instantiateServices[PythonWrappable](conf.jarName)
     instantiatedClasses.foreach { w =>
@@ -61,6 +87,7 @@ object PyCodegen {
     val files = safeListFiles(dir).filter(_.isFile).map(_.getName)
     val baseImports = files.sorted
       .filter(name => name.endsWith(".py") && !name.startsWith("_") && !name.startsWith("test"))
+      .filterNot(name => isOpenAICompletionStub(packageFolder, name))
       .map(name => s"from synapse.ml$packageString.${getBaseName(name)} import *\n")
     val iceImport =
       if (needsIceImport(packageFolder, files)) Seq(s"from synapse.ml$packageString.ICETransformer import *\n")
@@ -92,7 +119,7 @@ object PyCodegen {
                               initFile: File,
                               contents: String): Unit = {
     if (packageFolder.nonEmpty) {
-      writeFile(initFile, conf.packageHelp(contents))
+      writeFile(initFile, conf.packageHelp(contents) + initFileExtra(packageFolder))
     } else if (initFile.exists()) {
       initFile.delete()
     }
@@ -148,7 +175,8 @@ object PyCodegen {
          |    long_description="SynapseML contains Microsoft's open source "
          |                     + "contributions to the Apache Spark ecosystem",
          |    license="MIT",
-         |    packages=find_namespace_packages(include=['synapse.ml.*']) ${extraPackage},
+         |    license_expression="MIT",
+         |    packages=find_namespace_packages(include=['synapse.ml', 'synapse.ml.*']) ${extraPackage},
          |    url="https://github.com/Microsoft/SynapseML",
          |    author="Microsoft",
          |    author_email="synapseml-support@microsoft.com",
@@ -157,8 +185,6 @@ object PyCodegen {
          |        "Intended Audience :: Developers",
          |        "Intended Audience :: Science/Research",
          |        "Topic :: Software Development :: Libraries",
-         |        "License :: OSI Approved :: MIT License",
-         |        "Programming Language :: Python :: 2",
          |        "Programming Language :: Python :: 3",
          |    ],
          |    zip_safe=True,
@@ -175,6 +201,11 @@ object PyCodegen {
   }
   //scalastyle:on
 
+  private[codegen] def generateInitFiles(conf: CodegenConfig): Unit = {
+    makeInitFiles(conf)
+    PythonInitMerger.preserve(conf)
+  }
+
   def pyGen(conf: CodegenConfig): Unit = {
     println(s"Generating python for ${conf.jarName}")
     clean(conf.pySrcDir)
@@ -182,7 +213,7 @@ object PyCodegen {
     generatePythonClasses(conf)
     if (conf.pySrcOverrideDir.exists())
       FileUtils.copyDirectoryToDirectory(toDir(conf.pySrcOverrideDir), toDir(conf.pySrcDir))
-    makeInitFiles(conf)
+    generateInitFiles(conf)
   }
 
   def main(args: Array[String]): Unit = {

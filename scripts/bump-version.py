@@ -328,7 +328,7 @@ def _run_docusaurus(root, new_v, dry_run):
         print("  Cannot create versioned docs snapshot.", file=sys.stderr)
         return False
 
-    cmd = ["yarn", "run", "docusaurus", "docs:version", new_v]
+    cmd = ["npm", "exec", "--", "docusaurus", "docs:version", new_v]
     if dry_run:
         print(f"[DRY RUN] Would run: {' '.join(cmd)} (in {website})")
         return True
@@ -580,14 +580,14 @@ Examples:
                 print("Version strings updated but convertNotebooks failed.")
                 print("Fix the build issue, then run manually:")
                 print("  sbt convertNotebooks")
-                print("  yarn --cwd website run docusaurus docs:version " + new_v)
+                print("  npm --prefix website exec -- docusaurus docs:version " + new_v)
                 sys.exit(1)
             if not _run_docusaurus(root, new_v, dry_run=False):
                 print(
                     "Version strings updated and docs generated, but versioning failed."
                 )
                 print(
-                    "Run manually: yarn --cwd website run docusaurus docs:version "
+                    "Run manually: npm --prefix website exec -- docusaurus docs:version "
                     + new_v
                 )
                 sys.exit(1)

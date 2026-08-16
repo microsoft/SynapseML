@@ -57,7 +57,6 @@ class SynapseTests extends TestBase {
     "SetupCognitive", // No code to run
     "CreateaSparkCluster", // No code to run
     "Deploying", // New issue
-    "MultivariateAnomaly", // New issue
     "TuningHyperOpt", // New issue
     "IsolationForests", // New issue
     "CreateAudiobooks", // New issue

@@ -29,7 +29,7 @@ Note: the data does NOT contain information about departments, this information 
 
 1. In Cluster Libraries install from library source Maven:
 Coordinates: com.microsoft.azure:synapseml_2.12:1.0.5
-Repository: https://mmlspark.azureedge.net/maven
+Repository: https://mmlspark.blob.core.windows.net/maven
 
 2. In Cluster Libraries install from PyPI the library called plotly
 

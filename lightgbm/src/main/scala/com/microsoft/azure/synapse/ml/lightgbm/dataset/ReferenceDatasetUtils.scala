@@ -16,25 +16,42 @@ object ReferenceDatasetUtils {
                                        numRows: Long,
                                        numCols: Int,
                                        sampledRowData: Array[Row],
+                                       featureNames: Option[Array[String]],
                                        measures: InstrumentationMeasures,
                                        log: Logger): Array[Byte] = {
     log.info(s"Creating reference training dataset with ${sampledRowData.length} samples and config: $datasetParams")
 
-    // Pre-create allocated native pointers so it's easy to clean them up
-    val datasetVoidPtr = lightgbmlib.voidpp_handle()
     val lenPtr = lightgbmlib.new_intp()
     val bufferHandlePtr = lightgbmlib.voidpp_handle()
-
     val sampledData = SampledData(sampledRowData.length, numCols)
+
     try {
-      // create properly formatted sampled data
       measures.markSamplingStart()
       sampledRowData.zipWithIndex.foreach({case (row, index) => sampledData.pushRow(row, index, featuresCol)})
       measures.markSamplingStop()
 
-      // Create dataset from samples
-      // 1. Generate the dataset for features
-      val datasetVoidPtr = lightgbmlib.voidpp_handle()
+      val datasetHandle = createDatasetFromSamples(sampledData, numCols, numRows, datasetParams)
+      try {
+        setFeatureNamesIfProvided(datasetHandle, featureNames, numCols, log)
+        serializeReference(datasetHandle, bufferHandlePtr, lenPtr, log)
+      } finally {
+        // Free unconditionally so a failure while naming or serializing cannot leak the native
+        // Dataset. Deliberately not validated: throwing here would mask the original failure.
+        lightgbmlib.LGBM_DatasetFree(datasetHandle)
+      }
+    } finally {
+      sampledData.delete()
+      lightgbmlib.delete_voidpp(bufferHandlePtr)
+      lightgbmlib.delete_intp(lenPtr)
+    }
+  }
+
+  private def createDatasetFromSamples(sampledData: SampledData,
+                                       numCols: Int,
+                                       numRows: Long,
+                                       datasetParams: String): SWIGTYPE_p_void = {
+    val datasetVoidPtr = lightgbmlib.voidpp_handle()
+    try {
       LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromSampledColumn(
         sampledData.getSampleData,
         sampledData.getSampleIndices,
@@ -45,29 +62,41 @@ object ReferenceDatasetUtils {
         numRows,
         datasetParams,
         datasetVoidPtr), "Dataset create from samples")
-
-
-      // 2. Serialize the raw dataset to a native buffer
-      val datasetHandle: SWIGTYPE_p_void = lightgbmlib.voidpp_value(datasetVoidPtr)
-      LightGBMUtils.validate(lightgbmlib.LGBM_DatasetSerializeReferenceToBinary(
-        datasetHandle,
-        bufferHandlePtr,
-        lenPtr), "Serialize ref")
-      val bufferLen: Int = lightgbmlib.intp_value(lenPtr)
-      log.info(s"Created serialized reference dataset of length $bufferLen")
-
-      // The dataset is now serialized to a buffer, so we don't need original
-      LightGBMUtils.validate(lightgbmlib.LGBM_DatasetFree(datasetHandle), "Free Dataset")
-
-      // This will also free the buffer
-      toByteArray(bufferHandlePtr, bufferLen)
-    }
-    finally {
-      sampledData.delete()
+      lightgbmlib.voidpp_value(datasetVoidPtr)
+    } finally {
+      // Frees the void** container only. The Dataset it points at is freed by LGBM_DatasetFree.
       lightgbmlib.delete_voidpp(datasetVoidPtr)
-      lightgbmlib.delete_voidpp(bufferHandlePtr)
-      lightgbmlib.delete_intp(lenPtr)
     }
+  }
+
+  private def setFeatureNamesIfProvided(datasetHandle: SWIGTYPE_p_void,
+                                        featureNames: Option[Array[String]],
+                                        numCols: Int,
+                                        log: Logger): Unit = {
+    featureNames.foreach { names =>
+      if (names.length != numCols) {
+        // LGBM_DatasetSetFeatureNames reads numCols entries from the array, so a shorter array
+        // would be an out-of-bounds native read. Skip naming rather than risk it; LightGBM then
+        // falls back to its own generated names, which is the behavior prior to this feature.
+        log.warn(s"Skipping feature names on reference dataset: got ${names.length} names " +
+          s"for $numCols feature columns.")
+      } else if (names.nonEmpty) {
+        log.info(s"Setting ${names.length} feature names on reference dataset")
+        LightGBMUtils.validate(lightgbmlib.LGBM_DatasetSetFeatureNames(datasetHandle, names, numCols),
+          "Dataset set feature names")
+      }
+    }
+  }
+
+  private def serializeReference(datasetHandle: SWIGTYPE_p_void,
+                                 bufferHandlePtr: SWIGTYPE_p_p_void,
+                                 lenPtr: SWIGTYPE_p_int,
+                                 log: Logger): Array[Byte] = {
+    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetSerializeReferenceToBinary(
+      datasetHandle, bufferHandlePtr, lenPtr), "Serialize ref")
+    val bufferLen: Int = lightgbmlib.intp_value(lenPtr)
+    log.info(s"Created serialized reference dataset of length $bufferLen")
+    toByteArray(bufferHandlePtr, bufferLen)
   }
 
   def getInitializedReferenceDataset(ctx: PartitionTaskContext): LightGBMDataset = {
