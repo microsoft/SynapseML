@@ -46,7 +46,7 @@ class VerifyFindBestModel extends EstimatorFuzzing[FindBestModel]{
     bestModel.transform(dataset)
   }
 
-  test("Verify the best model can be saved") {
+  test("Verify the best model can be saved with AUC") {
     val dataset: DataFrame = createMockDataset
     val logisticRegressor = createLR.setLabelCol(mockLabelColumn)
     val model = logisticRegressor.fit(dataset)
@@ -59,6 +59,32 @@ class VerifyFindBestModel extends EstimatorFuzzing[FindBestModel]{
     val myModelFile = new File(tmpDir.toFile, "testEvalModel")
     bestModel.save(myModelFile.toString)
     assert(myModelFile.exists())
+  }
+
+  test("Verify the best model can be saved with areaUnderPR") {
+    val dataset: DataFrame = createMockDataset
+    val model = createLR.setLabelCol(mockLabelColumn).fit(dataset)
+    val bestModel = new FindBestModel()
+      .setModels(Array(model.asInstanceOf[Transformer], model.asInstanceOf[Transformer]))
+      .setEvaluationMetric(MetricConstants.AreaUnderPRMetric)
+      .fit(dataset)
+
+    val myModelFile = new File(tmpDir.toFile, "testEvalModelAreaUnderPR")
+    bestModel.save(myModelFile.toString)
+    assert(myModelFile.exists())
+  }
+
+  test("FindBestModel rejects invalid evaluation metrics") {
+    val dataset: DataFrame = createMockDataset
+    val model = createLR.setLabelCol(mockLabelColumn).fit(dataset)
+    val error = intercept[Exception] {
+      new FindBestModel()
+        .setModels(Array(model.asInstanceOf[Transformer]))
+        .setEvaluationMetric("averagePrecision")
+        .fit(dataset)
+    }
+
+    assert(error.getMessage === "Invalid evaluation metric")
   }
 
   test("Verify the best model metrics can be retrieved and are valid") {

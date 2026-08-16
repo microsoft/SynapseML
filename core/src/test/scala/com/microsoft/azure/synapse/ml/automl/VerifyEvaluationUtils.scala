@@ -78,6 +78,24 @@ class VerifyEvaluationUtils extends TestBase {
     assert(ordering.compare(2.0, 1.0) > 0)
   }
 
+  test("getMetricWithOperator treats areaUnderROC as an AUC alias") {
+    val (metricName, ordering) = EvaluationUtils.getMetricWithOperator(
+      SchemaConstants.ClassificationKind,
+      MetricConstants.AreaUnderROCMetric
+    )
+    assert(metricName === MetricConstants.AucColumnName)
+    assert(ordering.compare(2.0, 1.0) > 0)
+  }
+
+  test("getMetricWithOperator returns correct metric for classification areaUnderPR") {
+    val (metricName, ordering) = EvaluationUtils.getMetricWithOperator(
+      SchemaConstants.ClassificationKind,
+      MetricConstants.AreaUnderPRMetric
+    )
+    assert(metricName === MetricConstants.AreaUnderPRColumnName)
+    assert(ordering.compare(2.0, 1.0) > 0)
+  }
+
   test("getMetricWithOperator returns correct metric for classification Precision") {
     val (metricName, ordering) = EvaluationUtils.getMetricWithOperator(
       SchemaConstants.ClassificationKind,
@@ -133,6 +151,15 @@ class VerifyEvaluationUtils extends TestBase {
   test("unsupported regression metric throws") {
     assertThrows[Exception] {
       EvaluationUtils.getMetricWithOperator(SchemaConstants.RegressionKind, "bogus_metric")
+    }
+  }
+
+  test("getMetricWithOperator rejects areaUnderPR for regressors") {
+    assertThrows[Exception] {
+      EvaluationUtils.getMetricWithOperator(
+        SchemaConstants.RegressionKind,
+        MetricConstants.AreaUnderPRMetric
+      )
     }
   }
 

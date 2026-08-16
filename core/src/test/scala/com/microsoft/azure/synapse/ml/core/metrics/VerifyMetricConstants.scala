@@ -28,6 +28,7 @@ class VerifyMetricConstants extends TestBase {
   // Classification metrics tests
   test("classification metric constants have expected values") {
     assert(MetricConstants.AreaUnderROCMetric === "areaUnderROC")
+    assert(MetricConstants.AreaUnderPRMetric === "areaUnderPR")
     assert(MetricConstants.AucSparkMetric === "AUC")
     assert(MetricConstants.AccuracySparkMetric === "accuracy")
     assert(MetricConstants.PrecisionSparkMetric === "precision")
@@ -37,12 +38,13 @@ class VerifyMetricConstants extends TestBase {
 
   test("ClassificationMetrics set contains all classification metrics") {
     assert(MetricConstants.ClassificationMetrics.contains(MetricConstants.AreaUnderROCMetric))
+    assert(MetricConstants.ClassificationMetrics.contains(MetricConstants.AreaUnderPRMetric))
     assert(MetricConstants.ClassificationMetrics.contains(MetricConstants.AucSparkMetric))
     assert(MetricConstants.ClassificationMetrics.contains(MetricConstants.AccuracySparkMetric))
     assert(MetricConstants.ClassificationMetrics.contains(MetricConstants.PrecisionSparkMetric))
     assert(MetricConstants.ClassificationMetrics.contains(MetricConstants.RecallSparkMetric))
     assert(MetricConstants.ClassificationMetrics.contains(MetricConstants.ClassificationMetricsName))
-    assert(MetricConstants.ClassificationMetrics.size === 6)
+    assert(MetricConstants.ClassificationMetrics.size === 7)
   }
 
   test("AllSparkMetrics constant") {
@@ -59,6 +61,7 @@ class VerifyMetricConstants extends TestBase {
 
   test("classification column names have expected values") {
     assert(MetricConstants.AucColumnName === "AUC")
+    assert(MetricConstants.AreaUnderPRColumnName === "areaUnderPR")
     assert(MetricConstants.PrecisionColumnName === "precision")
     assert(MetricConstants.RecallColumnName === "recall")
     assert(MetricConstants.AccuracyColumnName === "accuracy")
@@ -73,6 +76,12 @@ class VerifyMetricConstants extends TestBase {
 
   // MetricToColumnName mapping tests
   test("MetricToColumnName contains correct mappings") {
+    assert(MetricConstants.MetricToColumnName(MetricConstants.AreaUnderROCMetric) ===
+      MetricConstants.AucColumnName)
+    assert(MetricConstants.MetricToColumnName(MetricConstants.AucSparkMetric) ===
+      MetricConstants.AucColumnName)
+    assert(MetricConstants.MetricToColumnName(MetricConstants.AreaUnderPRMetric) ===
+      MetricConstants.AreaUnderPRColumnName)
     assert(MetricConstants.MetricToColumnName(MetricConstants.AccuracySparkMetric) ===
       MetricConstants.AccuracyColumnName)
     assert(MetricConstants.MetricToColumnName(MetricConstants.PrecisionSparkMetric) ===
@@ -90,11 +99,17 @@ class VerifyMetricConstants extends TestBase {
   }
 
   // Column lists tests
-  test("ClassificationColumns contains expected columns") {
+  test("ClassificationColumns preserves the legacy common schema") {
     assert(MetricConstants.ClassificationColumns === List(
       MetricConstants.AccuracyColumnName,
       MetricConstants.PrecisionColumnName,
       MetricConstants.RecallColumnName))
+  }
+
+  test("BinaryClassificationColumns contains binary-only metrics after common metrics") {
+    assert(MetricConstants.BinaryClassificationColumns === MetricConstants.ClassificationColumns ++ List(
+      MetricConstants.AucColumnName,
+      MetricConstants.AreaUnderPRColumnName))
   }
 
   test("RegressionColumns contains expected columns") {
@@ -149,7 +164,9 @@ class VerifyMetricConstants extends TestBase {
     assert(MetricConstants.FindBestModelMetrics.contains(MetricConstants.AccuracySparkMetric))
     assert(MetricConstants.FindBestModelMetrics.contains(MetricConstants.PrecisionSparkMetric))
     assert(MetricConstants.FindBestModelMetrics.contains(MetricConstants.RecallSparkMetric))
+    assert(MetricConstants.FindBestModelMetrics.contains(MetricConstants.AreaUnderROCMetric))
     assert(MetricConstants.FindBestModelMetrics.contains(MetricConstants.AucSparkMetric))
-    assert(MetricConstants.FindBestModelMetrics.size === 8)
+    assert(MetricConstants.FindBestModelMetrics.contains(MetricConstants.AreaUnderPRMetric))
+    assert(MetricConstants.FindBestModelMetrics.size === 10)
   }
 }

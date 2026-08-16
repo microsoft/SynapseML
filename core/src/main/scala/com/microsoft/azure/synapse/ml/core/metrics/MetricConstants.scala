@@ -17,14 +17,15 @@ object MetricConstants {
 
   // Binary Classification metrics
   val AreaUnderROCMetric   = "areaUnderROC"
+  val AreaUnderPRMetric    = "areaUnderPR"
   val AucSparkMetric       = "AUC"
   val AccuracySparkMetric  = "accuracy"
   val PrecisionSparkMetric = "precision"
   val RecallSparkMetric    = "recall"
   val ClassificationMetricsName = "classification"
 
-  val ClassificationMetrics: Set[String] = Set(AreaUnderROCMetric, AucSparkMetric, AccuracySparkMetric,
-    PrecisionSparkMetric, RecallSparkMetric, ClassificationMetricsName)
+  val ClassificationMetrics: Set[String] = Set(AreaUnderROCMetric, AreaUnderPRMetric, AucSparkMetric,
+    AccuracySparkMetric, PrecisionSparkMetric, RecallSparkMetric, ClassificationMetricsName)
 
   val AllSparkMetrics      = "all"
 
@@ -35,7 +36,8 @@ object MetricConstants {
   val MaeColumnName  = "mean_absolute_error"
 
   // Binary Classification column names
-  val AucColumnName = "AUC"
+  val AucColumnName         = "AUC"
+  val AreaUnderPRColumnName = "areaUnderPR"
 
   // Binary and Multiclass (micro-averaged) column names
   val PrecisionColumnName = "precision"
@@ -50,7 +52,10 @@ object MetricConstants {
   val ConfusionMatrix = "confusion_matrix"
 
   // Metric to column name
-  val MetricToColumnName: Map[String, String] = Map(AccuracySparkMetric -> AccuracyColumnName,
+  val MetricToColumnName: Map[String, String] = Map(AreaUnderROCMetric -> AucColumnName,
+    AucSparkMetric       -> AucColumnName,
+    AreaUnderPRMetric    -> AreaUnderPRColumnName,
+    AccuracySparkMetric  -> AccuracyColumnName,
     PrecisionSparkMetric -> PrecisionColumnName,
     RecallSparkMetric    -> RecallColumnName,
     MseSparkMetric       -> MseColumnName,
@@ -58,7 +63,9 @@ object MetricConstants {
     R2SparkMetric        -> R2ColumnName,
     MaeSparkMetric       -> MaeColumnName)
 
+  // Shared by binary and multiclass metrics; preserved for the legacy all/classification schema contract.
   val ClassificationColumns = List(AccuracyColumnName, PrecisionColumnName, RecallColumnName)
+  val BinaryClassificationColumns = ClassificationColumns ++ List(AucColumnName, AreaUnderPRColumnName)
 
   val RegressionColumns = List(MseColumnName, RmseColumnName, R2ColumnName, MaeColumnName)
 
@@ -92,6 +99,8 @@ object MetricConstants {
         MetricConstants.AccuracySparkMetric,
         MetricConstants.PrecisionSparkMetric,
         MetricConstants.RecallSparkMetric,
-        MetricConstants.AucSparkMetric)
+        MetricConstants.AreaUnderROCMetric,
+        MetricConstants.AucSparkMetric,
+        MetricConstants.AreaUnderPRMetric)
 
 }
