@@ -42,7 +42,7 @@ class LightGBMClassifier(override val uid: String)
 
   def getTrainParams(numTasks: Int, featuresSchema: StructField, numTasksPerExec: Int): BaseTrainParams = {
     ClassifierTrainParams(
-      get(passThroughArgs),
+      getEffectivePassThroughArgs,
       getIsUnbalance,
       getBoostFromAverage,
       get(isProvideTrainingMetric),

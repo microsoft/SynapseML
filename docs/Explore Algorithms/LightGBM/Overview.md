@@ -102,6 +102,58 @@ You can mix *passThroughArgs* and explicit args, as shown in the example. Synaps
 merges them to create one argument string to send to LightGBM. If you set a parameter in
 both places, *passThroughArgs* takes precedence.
 
+#### GPU training with a custom OpenCL native library
+
+SynapseML's published `lightgbmlib` artifact contains CPU-only native libraries. Only
+`deviceType="gpu"` selects an accelerator: it selects LightGBM's OpenCL learner and
+requires a compatible custom native library. All `cuda` requests are rejected before
+native training because LightGBM 3.3.510 CUDA is incompatible with SynapseML streaming
+Datasets.
+
+Accelerator training is intended for users who provide their own compatible LightGBM
+native build. Put both `lib_lightgbm` and `lib_lightgbm_swig` on `java.library.path` for
+the Spark driver and every executor before LightGBM is initialized. `NativeLoader` checks
+that path first and falls back to the CPU-only libraries packaged in the SynapseML JAR.
+For example, a Spark deployment can set both `spark.driver.extraLibraryPath` and
+`spark.executor.extraLibraryPath` to the directory containing the custom libraries.
+The custom SWIG library must be ABI-compatible with the Java classes shipped by the
+SynapseML version in use; supplying only one library can accidentally mix incompatible
+custom and bundled binaries.
+
+SynapseML does not support `deviceType="cuda"` with `lightgbmlib` 3.3.510. Its CUDA
+objective expects CUDA metadata that is not created by the serialized streaming Dataset
+path and can segfault the Spark executor during booster creation. SynapseML rejects CUDA
+before native training. Use `deviceType="gpu"` with an OpenCL-enabled native build; this
+path supports classifier, regressor, and ranker training on NVIDIA GPUs such as T4.
+
+`deviceType` exposes only the accelerator backends implemented by LightGBM:
+
+| Value | Backend | Hardware |
+| --- | --- | --- |
+| `cpu` | Native CPU learner | Supported by the bundled SynapseML native library |
+| `gpu` | OpenCL learner (`USE_GPU=1`) | AMD, Intel, or NVIDIA devices with a working OpenCL runtime |
+| `cuda` | Unsupported with SynapseML's LightGBM 3.3.510 streaming Dataset path | Do not use |
+
+Apple Metal Performance Shaders (`mps`) and Habana HPU are not LightGBM tree-learning
+backends and are therefore not accepted values. Apple Silicon can only be evaluated
+through LightGBM's OpenCL learner and a custom macOS ARM64 native build; this is not MPS
+support, Apple has deprecated OpenCL, and LightGBM documents a macOS Boost.Compute cache
+workaround. Do not claim Apple Silicon GPU support without testing that exact native build,
+Spark/JVM architecture, dataset correctness, and performance on supported macOS hardware.
+
+After installing the custom native libraries, select the learner explicitly:
+
+```python
+model = LightGBMClassifier(deviceType="gpu").fit(train)
+```
+
+The default is `cpu` and does not add a `device_type` native parameter. If
+*passThroughArgs* contains `device_type`, that canonical value takes precedence over both
+the `device` alias and `deviceType`, regardless of argument order. If only `device` is
+present, it takes precedence over `deviceType`. A native-effective value of `cuda` is
+always rejected. If a requested OpenCL accelerator is unavailable, SynapseML reports that
+the bundled native is CPU-only and identifies the custom-library configuration required.
+
 ### Architecture
 
 LightGBM on Spark uses the Simple Wrapper and Interface Generator (SWIG)
