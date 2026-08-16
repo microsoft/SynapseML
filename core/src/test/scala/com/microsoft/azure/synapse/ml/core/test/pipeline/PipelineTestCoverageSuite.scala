@@ -25,6 +25,7 @@ class PipelineTestCoverageSuite extends AnyFunSuite {
   /** Suite name prefixes launched by their own pipeline stages rather than the UnitTests matrix. */
   private val dedicatedStageSuites = Seq(
     "nbtest.DatabricksCPUTests",
+    "nbtest.DatabricksCPUStreamingTests",
     "nbtest.DatabricksGPUTests",
     "nbtest.DatabricksRapidsTests",
     "nbtest.SynapseTests",

@@ -283,6 +283,10 @@ jobs:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksCPUTests4"
       databricks-cpu-5:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksCPUTests5"
+      # Runs on its own cluster: the streaming notebook's server.stop() cancels all
+      # SparkContext jobs on Spark 4, which would kill concurrently running notebooks.
+      databricks-cpu-streaming:
+        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksCPUStreamingTests"
   steps:
     - template: templates/databricks_e2e_steps.yml
 
