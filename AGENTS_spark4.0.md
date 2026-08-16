@@ -23,9 +23,10 @@ land on `master` and arrive here when `master` is merged in.
 **Check `spark4.1` before debugging from scratch.** That branch is a descendant
 of this one's upgrade commit and has been maintained more actively, so it has
 usually already hit and solved the same problem. This is the single highest-value
-habit for this branch — it has directly supplied the fix for R parsing, the
-generated-wrapper `super()` bug, the stale `__init__.py` shims, the local setup
-skill, the notebook runtime, and a failing training test.
+habit for this branch — it has directly supplied the fix for R parsing, the R
+Spark connection, nested-stage loading in R, the generated-wrapper `super()`
+bug, the stale `__init__.py` shims, the local setup skill, the notebook runtime,
+and a failing training test.
 
 ```bash
 git diff spark4.0 spark4.1 -- <path>
@@ -106,10 +107,38 @@ Do not add new `__init__.py` files that re-list generated classes.
 
 ### R tests
 
-`RTestGen.scala` sets `spark.sql.ansi.enabled=true` and
-`spark.sql.ansi.doubleQuotedIdentifiers=true`. sparklyr emits
-`SELECT 0L AS "class", ...`; without the second flag Spark 4 reads `"class"` as
-a string literal and fails with `PARSE_SYNTAX_ERROR`.
+Three things must all hold or the R suites fail in ways that point at the wrong
+culprit. `RCodegenSuite.scala` asserts the first and third cheaply, so a unit
+test catches them instead of a 90-minute pipeline run.
+
+**ANSI double-quoted identifiers.** `RTestGen.scala` sets
+`spark.sql.ansi.enabled=true` and `spark.sql.ansi.doubleQuotedIdentifiers=true`.
+sparklyr emits `SELECT 0L AS "class", ...`; without the second flag Spark 4 reads
+`"class"` as a string literal and fails with `PARSE_SYNTAX_ERROR`.
+
+**Connect via `SPARK_HOME`, not a version string.** `RTestGen.scala` generates
+`spark_connect(master = "local", spark_home = Sys.getenv("SPARK_HOME"), ...)`.
+It must not use `version = "4.0"`: sparklyr 1.9.3 has no registered install under
+that name, so the lookup returns nothing and `sc` is silently NULL. The symptom
+is every test failing on `hive_context` applied to NULL, including the bare smoke
+test — which reads as a broken cluster rather than a bad argument. `master` can
+use `version = "3.5.0"` because sparklyr knows that release; this branch cannot.
+
+The pipeline exports `SPARK_HOME` (`pipeline.yaml`, the `find ... -name
+'spark-*-bin-hadoop*'` line), so `run_r_tests.R` must not unset it
+unconditionally. It only unsets and installs the tarball when `SPARK_HOME` is
+absent, which is the local-developer path. This branch additionally infers
+`JAVA_HOME` from `PATH` when unset; `spark4.1` has no such block. It is inert
+under CI and only helps local runs.
+
+**Load nested stages off the JVM.** `PipelineStageWrappable.rLoadLine` emits
+`sparklyr:::new_ml_pipeline_stage(invoke(spark_jobj(x), "getStages")[[1]])`.
+It must not use `ml_stages(x)[[1]]`, which returns NULL here and surfaces as
+`invoke_static` applied to NULL. `new_ml_pipeline_stage` is sparklyr-internal but
+has an identical signature in every release from v1.8.0 to v1.9.5, so the 1.9.3
+pin is safe. `EstimatorParam`, `ModelParam`, `PipelineStageParam` and
+`TransformerParam` all inherit this one implementation — do not reintroduce
+per-class overrides.
 
 ### Databricks
 
@@ -157,20 +186,6 @@ branch is superseded by `spark4.1`.
 `toDF` was measured to work on both 4.0.1 and 4.1.1, so nothing is broken here —
 adopting 4.1's form only reduces reliance on the monkey-patched RDD API, which
 does not exist under Spark Connect.
-
-### Unresolved
-
-`spark4.1` replaced `ml_stages(x)[[1]]` with
-`sparklyr:::new_ml_pipeline_stage(invoke(spark_jobj(x), "getStages")[[1]])` in
-`EstimatorParam.scala`, `PipelineStageParam.scala` and `TransformerParam.scala`,
-and removed the now-redundant subclass overrides. This branch still uses
-`ml_stages` and pins `r-sparklyr` 1.9.3 against 4.1's 1.9.5.
-
-Whether this branch needs the same change is **not yet established**. Its R tests
-previously failed earlier, at the `PARSE_SYNTAX_ERROR` above, so they may never
-have exercised this path. If `RTests core` fails on `ml_stages` after that fix,
-port the `spark4.1` change — and note that 4.1 also has an `RCodegenSuite.scala`
-asserting the generated R, which does not exist here.
 
 ## Known non-code failures
 
