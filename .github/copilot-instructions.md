@@ -36,7 +36,7 @@ All modules depend on `core`. `deep-learning` also depends on `opencv`.
 │       └── python/synapsemltest/{package}/
 │           └── test_my_transformer.py       ← Python tests
 └── target/
-    └── scala-2.12/generated/src/python/     ← AUTO-GENERATED (never edit)
+    └── scala-2.13/generated/src/python/     ← AUTO-GENERATED (never edit)
 ```
 
 ## Critical: The Code Generation Pipeline
@@ -48,7 +48,7 @@ important thing to understand.
 
 1. A Scala class mixes in the `Wrappable` trait
 2. Running `sbt codegen` calls `makePyFile()` which generates a Python class
-3. Generated files go to `target/scala-2.12/generated/src/python/synapse/ml/`
+3. Generated files go to `target/scala-2.13/generated/src/python/synapse/ml/`
 4. Generated files use underscore prefix: `_ClassName.py`
 5. Hand-written Python in `src/main/python/` can extend the generated class
 
@@ -165,7 +165,10 @@ Python files use the same copyright comment:
 
 ## Build System
 
-SynapseML uses **sbt** (not Maven or Gradle). Spark 3.5.0, Scala 2.12.17.
+SynapseML uses **sbt** (not Maven or Gradle). Spark 4.0.1, Scala 2.13.16.
+
+> This is the `spark4.0` branch. See [AGENTS_spark4.0.md](../AGENTS_spark4.0.md)
+> for what diverges here and why before changing anything.
 
 ### Essential Commands
 
