@@ -49,9 +49,10 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
     val referenceProbabilityCol = "referenceProbability"
     val observedCountCol = "observedCount"
     val referenceCountCol = "referenceCount"
+    val unusedCount = 0d
     val probabilities = observed.zip(reference)
       .map { case (observedProbability, referenceProbability) =>
-        (observedProbability, referenceProbability, observedProbability, referenceProbability)
+        (observedProbability, referenceProbability, unusedCount, unusedCount)
       }
       .toDF(observedProbabilityCol, referenceProbabilityCol, observedCountCol, referenceCountCol)
     val metrics = DistributionMetrics(
