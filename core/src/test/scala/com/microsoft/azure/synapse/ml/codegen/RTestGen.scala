@@ -100,6 +100,8 @@ object RTestGen {
          |  "spark.jars.repositories=$SparkMavenRepositoryList",
          |  "spark.executor.heartbeatInterval=60s",
          |  "spark.sql.shuffle.partitions=10",
+         |  "spark.sql.ansi.enabled=true",
+         |  "spark.sql.ansi.doubleQuotedIdentifiers=true",
          |  "spark.sql.crossJoin.enabled=true")
          |conf$$spark.driver.extraJavaOptions <- paste0("'", paste0(c(
          |     "--add-opens=java.base/java.lang=ALL-UNNAMED ",
