@@ -89,6 +89,19 @@ O(1) indexing) rather than patching each affected service individually.
 is the one import that is genuinely 4.1-only — on Spark 4.0 it is still in
 `...streaming` and this import does not compile.
 
+A `BinaryType` column also returns a different Python type. Measured against real
+4.0.1 and 4.1.1 installs:
+
+| | Spark 4.0.1 | Spark 4.1.1 |
+| --- | --- | --- |
+| Python type from a `BinaryType` column | `bytearray` | `bytes` |
+| `np.asarray(value, dtype=np.uint8)` | works | `ValueError` |
+
+`np.asarray` accepts `bytearray` because it exposes the buffer protocol as a
+sequence of ints, but treats `bytes` as a scalar string. `ImageTransformer.toNDArray`
+therefore uses `np.frombuffer`, which handles both. This is required here and
+inert on `spark4.0`.
+
 ### Code generation
 
 `OpenAIPrompt` sets `pyInternalWrapper = true` on this branch, so codegen emits
@@ -182,6 +195,8 @@ disabled there.
 
 - **`LongOffset` import** — 4.0 still has it in `...streaming`; 4.1's import does
   not compile there.
+- **`ImageTransformer.toNDArray` using `np.frombuffer`** — guards against a
+  `bytes` value that Spark 4.0 does not produce; see the table above.
 - **petastorm / horovod cloudpickle shims** — Python 3.13 workarounds.
   `spark4.0` is on 3.12 and its deep-learning tests pass without them.
 - **`numpy` left unpinned** — on `spark4.0`, `numpy==1.26.4` both has cp312
@@ -191,6 +206,14 @@ disabled there.
   Databricks 18.0, sparklyr 1.9.5.
 
 Everything else on this branch is a candidate for back-porting.
+
+One item is worth naming explicitly because it looks 4.1-specific and is not:
+`cyber/utils/spark_utils.py` uses `spark.createDataFrame(rdd, schema)` where
+`spark4.0` still uses `rdd.toDF(schema)`. `toDF` was measured to work on **both**
+4.0.1 and 4.1.1, so this was never a 4.1 necessity — it reduces reliance on the
+monkey-patched RDD API, which does not exist under Spark Connect. Back-porting it
+is safe but buys little on its own, since the surrounding
+`df.rdd.zipWithIndex()` is still an RDD call.
 
 ## Known non-code failures
 
