@@ -435,8 +435,8 @@ class SARModel(override val uid: String) extends Model[SARModel]
         .join(userFactors, indexed(indexedUserCol) === userFactors(getUserCol), "inner")
         .join(itemFactors, indexed(indexedItemCol) === itemFactors(getItemCol), "inner")
         .select((originalColumns :+ dotProduct(
-          userFactors("flatList"),
-          itemFactors(Constants.ItemAffinities)
+          col("sarUserFactors.flatList"),
+          col(s"sarItemFactors.${Constants.ItemAffinities}")
         ).as(getPredictionCol)): _*)
     }, dataset.columns.length)
   }

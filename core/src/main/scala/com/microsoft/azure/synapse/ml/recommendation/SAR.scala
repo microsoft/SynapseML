@@ -25,7 +25,7 @@ import org.apache.spark.sql.types.{
   StructField,
   StructType
 }
-import org.apache.spark.sql.{Column, DataFrame, Dataset, Row}
+import org.apache.spark.sql.{Column, DataFrame, Dataset}
 
 import java.text.SimpleDateFormat
 import java.util.{Calendar, Date}
@@ -169,9 +169,9 @@ class SAR(override val uid: String) extends Estimator[SARModel]
     })
 
     val itemCount = dataset.select(max(col(indexedItemCol))).first().getDouble(0).toInt + 1
-    val seqToArray = udf((itemUserAffinityPairs: Seq[Row]) => {
+    val seqToArray = udf((itemUserAffinityPairs: Seq[SAR.ItemAffinity]) => {
       val values = Array.fill[Float](itemCount)(0.0f)
-      itemUserAffinityPairs.foreach(pair => values(pair.getDouble(0).toInt) = pair.getDouble(1).toFloat)
+      itemUserAffinityPairs.foreach(pair => values(pair.itemIndex.toInt) = pair.affinity.toFloat)
       values
     })
 
@@ -190,7 +190,8 @@ class SAR(override val uid: String) extends Estimator[SARModel]
       .groupBy(indexedUserCol, indexedItemCol)
       .agg(sum(col(C.AffinityCol)).cast(DoubleType).as(C.AffinityCol))
       .withColumn("itemUserAffinityPair",
-        struct(col(indexedItemCol), col(C.AffinityCol)))
+        struct(col(indexedItemCol).cast(DoubleType).as("itemIndex"),
+          col(C.AffinityCol).cast(DoubleType).as("affinity")))
       .groupBy(indexedUserCol)
       .agg(collect_list(col("itemUserAffinityPair")).as("itemUserAffinityPairs"))
       .withColumn("flatList", seqToArray(col("itemUserAffinityPairs")))
@@ -304,6 +305,15 @@ class SAR(override val uid: String) extends Estimator[SARModel]
 object SAR extends DefaultParamsReadable[SAR] {
   private[recommendation] val OriginalIdCol = "originalID"
   private[recommendation] val IndexCol = "index"
+
+  /** Typed view of the (item index, affinity) pairs collected per user.
+    *
+    * The affinity-vector UDF takes this product type rather than Row: Spark 4.0 cannot build an
+    * encoder for an unbound Row nested inside an array, and fails with
+    * `scala.MatchError: AgnosticEncoders$UnboundRowEncoder$`. A case class encodes as a plain
+    * struct on every supported Spark version.
+    */
+  private[recommendation] case class ItemAffinity(itemIndex: Double, affinity: Double)
 
   private[recommendation] def validateIdentifierColumn(schema: StructType, columnName: String): Unit = {
     val dataType = schema(columnName).dataType
