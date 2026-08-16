@@ -238,8 +238,9 @@ class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None,
       new BoosterHandler(modelStr.get)
     } else {
       val boosterOutPtr = lightgbmlib.voidpp_handle()
-      LightGBMUtils.validate(lightgbmlib.LGBM_BoosterCreate(trainDataset.map(_.datasetPtr).get,
-        parameters.get, boosterOutPtr), "Booster")
+      val trainingParameters = parameters.get
+      LightGBMUtils.validateBooster(lightgbmlib.LGBM_BoosterCreate(trainDataset.map(_.datasetPtr).get,
+        trainingParameters, boosterOutPtr), trainingParameters)
       new BoosterHandler(lightgbmlib.voidpp_value(boosterOutPtr))
     }
   }
