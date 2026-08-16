@@ -29,8 +29,9 @@ trait FindBestModelParams extends Wrappable with ComplexParamsWritable with HasE
     * The metrics that can be chosen are:
     *
     * For Binary Classifiers:
-    *     - AreaUnderROC
+    *     - areaUnderROC (reported in the AUC column)
     *     - AUC
+    *     - areaUnderPR
     *     - accuracy
     *     - precision
     *     - recall
