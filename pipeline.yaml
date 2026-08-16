@@ -1035,16 +1035,17 @@ jobs:
           LINE_NUMBER=0
           while IFS= read -r RAW_LINE || [ -n "$RAW_LINE" ]; do
             LINE_NUMBER=$((LINE_NUMBER + 1))
-            TRIMMED_LINE="${RAW_LINE#"${RAW_LINE%%[![:space:]]*}"}"
-            TRIMMED_LINE="${TRIMMED_LINE%"${TRIMMED_LINE##*[![:space:]]}"}"
+            LINE_WITHOUT_CR="${RAW_LINE%$'\r'}"
+            SCOPED_LINE="${LINE_WITHOUT_CR#"${LINE_WITHOUT_CR%%[![:space:]]*}"}"
+            TRIMMED_LINE="${SCOPED_LINE%"${SCOPED_LINE##*[![:space:]]}"}"
             case "$TRIMMED_LINE" in
               ""|\#*)
                 continue
                 ;;
             esac
-            if [[ "$TRIMMED_LINE" == *$'\t'* ]]; then
-              PREREQUISITE="${TRIMMED_LINE%%$'\t'*}"
-              PREREQUISITE_SCOPE="${TRIMMED_LINE#*$'\t'}"
+            if [[ "$SCOPED_LINE" == *$'\t'* ]]; then
+              PREREQUISITE="${SCOPED_LINE%%$'\t'*}"
+              PREREQUISITE_SCOPE="${SCOPED_LINE#*$'\t'}"
               PREREQUISITE_IS_SCOPED=true
             else
               PREREQUISITE="$TRIMMED_LINE"
@@ -1068,6 +1069,12 @@ jobs:
                 fi
                 if [ -z "$path" ]; then
                   echo "##vso[task.logissue type=error]Scoped prerequisite $PREREQUISITE contains an empty path"
+                  exit 1
+                fi
+                TRIMMED_PATH="${path#"${path%%[![:space:]]*}"}"
+                TRIMMED_PATH="${TRIMMED_PATH%"${TRIMMED_PATH##*[![:space:]]}"}"
+                if [ "$path" != "$TRIMMED_PATH" ]; then
+                  echo "##vso[task.logissue type=error]Scoped prerequisite path must not have leading or trailing whitespace: $path"
                   exit 1
                 fi
                 case "$path" in

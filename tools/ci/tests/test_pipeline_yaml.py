@@ -27,6 +27,7 @@ CLEAN_ACR_PIPELINE = REPO_ROOT / ".pipelines" / "clean-acr.yml"
 RELEASE_COMPAT_PREREQUISITES = (
     REPO_ROOT / ".pipelines" / "release-compat-prerequisites.txt"
 )
+ASCII_WHITESPACE = " \t\r\n\v\f"
 
 
 def _pipeline_text():
@@ -97,6 +98,8 @@ def _assert_git_clean(repo, context):
 def _is_normalized_prerequisite_path(path):
     return (
         bool(path)
+        and path == path.strip(ASCII_WHITESPACE)
+        and not any(character in path for character in "\t\r\n")
         and not path.startswith("/")
         and not path.endswith("/")
         and all(part not in {"", ".", ".."} for part in path.split("/"))
@@ -339,15 +342,20 @@ def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
     )
     assert 'git show "$PR_MERGE_HEAD:$PREREQUISITES_CONFIG"' in rebase_script
     assert '[[ ! "$PREREQUISITE" =~ ^[0-9a-fA-F]{40}$ ]]' in rebase_script
-    assert r"""[[ "$TRIMMED_LINE" == *$'\t'* ]]""" in rebase_script
+    assert "LINE_WITHOUT_CR=\"${RAW_LINE%$'\\r'}\"" in rebase_script
+    assert r"""[[ "$SCOPED_LINE" == *$'\t'* ]]""" in rebase_script
     assert r"""[[ "$RAW_LINE" == *$'\t'* ]]""" not in rebase_script
-    assert "PREREQUISITE=\"${TRIMMED_LINE%%$'\\t'*}\"" in rebase_script
-    assert "PREREQUISITE_SCOPE=\"${TRIMMED_LINE#*$'\\t'}\"" in rebase_script
+    assert "PREREQUISITE=\"${SCOPED_LINE%%$'\\t'*}\"" in rebase_script
+    assert "PREREQUISITE_SCOPE=\"${SCOPED_LINE#*$'\\t'}\"" in rebase_script
     assert "CONFIGURED_PREREQUISITE_SCOPES=()" in rebase_script
     assert (
         'git merge-base --is-ancestor "$PREREQUISITE" "$TARGET_HEAD"' in rebase_script
     )
     assert 'case "/$path/" in' in rebase_script
+    assert (
+        "Scoped prerequisite path must not have leading or trailing whitespace: $path"
+        in rebase_script
+    )
     assert "Scoped prerequisite path must be normalized: $path" in rebase_script
     assert 'for REPLAY_PATH in "${REPLAY_PATHS[@]}"' in rebase_script
     assert '[ "$path" = "$REPLAY_PATH" ]' in rebase_script
@@ -455,6 +463,8 @@ def test_release_compat_prerequisites_have_valid_format():
     "path",
     [
         "src/file.txt",
+        "src/file with spaces.txt",
+        "src/with  repeated internal spaces.txt",
         ".pipelines/release-compat-prerequisites.txt",
         "src/.hidden/file",
         "src/.../file",
@@ -477,6 +487,14 @@ def test_release_compat_prerequisite_path_normalization_accepts_valid_paths(path
         "src/.",
         "src//file",
         "src/file/",
+        " src/file",
+        "src/file ",
+        "\tsrc/file",
+        "src/file\t",
+        "\rsrc/file",
+        "src/file\r",
+        "\nsrc/file",
+        "src/file\n",
     ],
 )
 def test_release_compat_prerequisite_path_normalization_rejects_invalid_paths(path):
@@ -552,18 +570,7 @@ def test_release_compat_replays_prerequisite_before_pr_patch():
         shutil.rmtree(scratch_root, ignore_errors=True)
 
 
-@pytest.mark.skipif(os.name != "posix", reason="release replay script requires Bash")
-@pytest.mark.parametrize(
-    "invalid_path",
-    [
-        "src/./scoped.txt",
-        "src//scoped.txt",
-        "src/scoped.txt/",
-        "src/scoped.txt/.",
-    ],
-    ids=["dot-segment", "repeated-slash", "trailing-slash", "terminal-dot"],
-)
-def test_release_compat_rejects_non_normalized_scoped_paths(invalid_path):
+def _run_release_compat_with_scoped_config(scope):
     scratch_root = (
         REPO_ROOT / "target" / f"release-compat-invalid-path-{uuid.uuid4().hex}"
     )
@@ -590,7 +597,7 @@ def test_release_compat_rejects_non_normalized_scoped_paths(invalid_path):
         _git(repo, "checkout", "-b", "source")
         prerequisite_config = repo / ".pipelines" / "release-compat-prerequisites.txt"
         prerequisite_config.parent.mkdir()
-        prerequisite_config.write_text(f"{prerequisite}\t{invalid_path}\n")
+        prerequisite_config.write_bytes(f"{prerequisite}\t{scope}".encode())
         pr_file.write_text("pull request change\n")
         _git(repo, "add", ".")
         _git(repo, "commit", "-m", "feature with invalid prerequisite path")
@@ -632,27 +639,88 @@ def test_release_compat_rejects_non_normalized_scoped_paths(invalid_path):
             text=True,
         )
 
-        assert result.returncode != 0
-        assert (
-            f"Scoped prerequisite path must be normalized: {invalid_path}"
-            in result.stdout
-        )
+        return result
     finally:
         shutil.rmtree(scratch_root, ignore_errors=True)
 
 
 @pytest.mark.skipif(os.name != "posix", reason="release replay script requires Bash")
 @pytest.mark.parametrize(
-    ("config_prefix", "config_suffix"),
+    "invalid_path",
     [
-        ("", "\n"),
-        ("", "\r\n"),
-        ("  ", "   \n"),
+        "src/./scoped.txt",
+        "src//scoped.txt",
+        "src/scoped.txt/",
+        "src/scoped.txt/.",
     ],
-    ids=["normalized", "crlf", "surrounding-whitespace"],
+    ids=["dot-segment", "repeated-slash", "trailing-slash", "terminal-dot"],
+)
+def test_release_compat_rejects_non_normalized_scoped_paths(invalid_path):
+    result = _run_release_compat_with_scoped_config(f"{invalid_path}\n")
+
+    assert result.returncode != 0
+    assert (
+        f"Scoped prerequisite path must be normalized: {invalid_path}" in result.stdout
+    )
+
+
+@pytest.mark.skipif(os.name != "posix", reason="release replay script requires Bash")
+@pytest.mark.parametrize(
+    ("scope", "expected_error"),
+    [
+        (
+            " src/scoped.txt\n",
+            "Scoped prerequisite path must not have leading or trailing whitespace",
+        ),
+        (
+            "src/scoped.txt \n",
+            "Scoped prerequisite path must not have leading or trailing whitespace",
+        ),
+        (
+            "src/scoped.txt \r\n",
+            "Scoped prerequisite path must not have leading or trailing whitespace",
+        ),
+        (
+            "src/scoped.txt \tsrc/other.txt\r\n",
+            "Scoped prerequisite path must not have leading or trailing whitespace",
+        ),
+        (
+            "src/scoped.txt\t src/other.txt\r\n",
+            "Scoped prerequisite path must not have leading or trailing whitespace",
+        ),
+        ("\tsrc/scoped.txt\r\n", "contains an empty path"),
+        ("src/scoped.txt\t\r\n", "contains an empty path"),
+    ],
+    ids=[
+        "leading-space",
+        "trailing-space",
+        "trailing-space-crlf",
+        "first-path-trailing-space",
+        "second-path-leading-space",
+        "leading-tab",
+        "trailing-tab-crlf",
+    ],
+)
+def test_release_compat_rejects_scoped_path_field_whitespace(scope, expected_error):
+    result = _run_release_compat_with_scoped_config(scope)
+
+    assert result.returncode != 0
+    assert expected_error in result.stdout
+
+
+@pytest.mark.skipif(os.name != "posix", reason="release replay script requires Bash")
+@pytest.mark.parametrize(
+    ("config_prefix", "scoped_path", "config_suffix"),
+    [
+        ("", "src/scoped.txt", "\n"),
+        ("", "src/scoped.txt", "\r\n"),
+        ("  ", "src/scoped.txt", "\r\n"),
+        ("", "src/scoped file.txt", "\n"),
+    ],
+    ids=["normalized", "crlf", "leading-sha-whitespace", "internal-space"],
 )
 def test_release_compat_replays_scoped_missing_file_prerequisite_full_overlap(
-    config_prefix, config_suffix
+    config_prefix, scoped_path, config_suffix
 ):
     scratch_root = REPO_ROOT / "target" / f"release-compat-scoped-{uuid.uuid4().hex}"
     repo = scratch_root / "repo"
@@ -671,7 +739,7 @@ def test_release_compat_replays_scoped_missing_file_prerequisite_full_overlap(
         base = _git(repo, "rev-parse", "HEAD").stdout.strip()
         _git(repo, "branch", "release", base)
 
-        scoped_file = repo / "src" / "scoped.txt"
+        scoped_file = repo / scoped_path
         unrelated_file = repo / "src" / "unrelated.txt"
         scoped_file.parent.mkdir()
         scoped_file.write_text("target baseline\n")
@@ -684,7 +752,7 @@ def test_release_compat_replays_scoped_missing_file_prerequisite_full_overlap(
         prerequisite_config = repo / ".pipelines" / "release-compat-prerequisites.txt"
         prerequisite_config.parent.mkdir()
         prerequisite_config.write_bytes(
-            (f"{config_prefix}{prerequisite}\tsrc/scoped.txt{config_suffix}").encode()
+            (f"{config_prefix}{prerequisite}\t{scoped_path}{config_suffix}").encode()
         )
         scoped_file.write_text("pull request change\n")
         _git(repo, "add", ".")
@@ -721,7 +789,7 @@ def test_release_compat_replays_scoped_missing_file_prerequisite_full_overlap(
         assert scoped_file.read_text() == "pull request change\n"
         assert not unrelated_file.exists()
         assert _git(repo, "diff", "--cached", "--name-only").stdout.splitlines() == [
-            "src/scoped.txt"
+            scoped_path
         ]
         assert f"Prerequisite {prerequisite} applies cleanly" in result.stdout
         assert "PR changes apply cleanly onto release" in result.stdout
