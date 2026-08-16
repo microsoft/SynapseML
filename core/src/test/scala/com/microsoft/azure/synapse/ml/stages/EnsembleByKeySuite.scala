@@ -264,8 +264,14 @@ class EnsembleByKeySuite extends TestBase with TransformerFuzzing[EnsembleByKey]
 
         assert(transformedSchema.fieldNames === Array("key", "id", "score", "features"))
         assert(actualSchema.fieldNames === Array("key", "id", "score", "FEATURES", "features"))
-        val pipelineError = intercept[IllegalArgumentException](pipeline.fit(input))
-        assert(pipelineError.getMessage.contains("FEATURES does not exist"))
+        // Assert the limitation on the transformed schema rather than on a downstream stage.
+        // Spark 3.5 rejected pipeline.fit here because VectorAssembler resolved its input columns
+        // with a case-sensitive StructType lookup, while Spark 4 routes that lookup through
+        // SQLConf.get.resolver and so applies the same session-less case-insensitive fallback
+        // used above -- the two agree and the pipeline builds. The schema itself is the stable
+        // contract across both versions: the fallback really did drop FEATURES.
+        val fieldError = intercept[IllegalArgumentException](transformedSchema("FEATURES"))
+        assert(fieldError.getMessage.contains("FEATURES"))
       }
       pipeline.fit(input)
     }
