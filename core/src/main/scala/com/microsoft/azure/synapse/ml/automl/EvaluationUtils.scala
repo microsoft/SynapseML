@@ -56,7 +56,10 @@ object EvaluationUtils {
         case _ => throw new Exception("Metric is not supported for regressors")
       }
       case SchemaConstants.ClassificationKind => evaluationMetric match {
-        case MetricConstants.AucSparkMetric       => (MetricConstants.AucColumnName, chooseHighest)
+        case MetricConstants.AucSparkMetric | MetricConstants.AreaUnderROCMetric =>
+          (MetricConstants.AucColumnName, chooseHighest)
+        case MetricConstants.AreaUnderPRMetric =>
+          (MetricConstants.AreaUnderPRColumnName, chooseHighest)
         case MetricConstants.PrecisionSparkMetric => (MetricConstants.PrecisionColumnName, chooseHighest)
         case MetricConstants.RecallSparkMetric    => (MetricConstants.RecallColumnName, chooseHighest)
         case MetricConstants.AccuracySparkMetric  => (MetricConstants.AccuracyColumnName, chooseHighest)

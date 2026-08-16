@@ -30,8 +30,9 @@ trait ComputeModelStatisticsParams extends Wrappable with DefaultParamsWritable
     * The metrics that can be chosen are:
     *
     *   For binary classification:
-    *     - areaUnderROC
+    *     - areaUnderROC (reported in the AUC column)
     *     - AUC
+    *     - areaUnderPR
     *     - accuracy
     *     - precision
     *     - recall
@@ -129,15 +130,23 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
             simpleMetric == MetricConstants.PrecisionSparkMetric ||
             simpleMetric == MetricConstants.RecallSparkMetric =>
             resultDF = addSimpleMetric(simpleMetric, predictionAndLabels, resultDF)
-          case MetricConstants.AucSparkMetric =>
+          case MetricConstants.AucSparkMetric | MetricConstants.AreaUnderROCMetric =>
             val numLevels = if (levelsExist) levels.get.length
             else confusionMatrix.numRows
             if (numLevels <= 2) {
-              // Add the AUC
-              val auc: Double = getAUC(modelName, dataset, labelColumnName, scoresAndLabels)
+              val auc = getAUC(modelName, dataset, labelColumnName, scoresAndLabels)
               resultDF = resultDF.withColumn(MetricConstants.AucColumnName, lit(auc))
             } else {
               throw new Exception("Error: AUC is not available for multiclass case")
+            }
+          case MetricConstants.AreaUnderPRMetric =>
+            val numLevels = if (levelsExist) levels.get.length
+            else confusionMatrix.numRows
+            if (numLevels <= 2) {
+              val areaUnderPR = getAreaUnderPR(scoresAndLabels)
+              resultDF = resultDF.withColumn(MetricConstants.AreaUnderPRColumnName, lit(areaUnderPR))
+            } else {
+              throw new Exception("Error: areaUnderPR is not available for multiclass case")
             }
           case default =>
             throw new Exception(s"Error: $default is not a classification metric")
@@ -220,15 +229,15 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
       val (accuracy: Double, precision: Double, recall: Double)
           = getBinaryAccuracyPrecisionRecall(confusionMatrix)
       metricsLogger.logClassificationMetrics(accuracy, precision, recall)
-      // Add the AUC
-      val auc: Double = getAUC(modelName, dataset, labelColumnName, scoresAndLabels)
-      metricsLogger.logAUC(auc)
+      val (auc, areaUnderPR) =
+        getBinaryMetrics(modelName, dataset, labelColumnName, scoresAndLabels)
       // Add the metrics to the DF
       resultDF
         .withColumn(MetricConstants.AccuracyColumnName, lit(accuracy))
         .withColumn(MetricConstants.PrecisionColumnName, lit(precision))
         .withColumn(MetricConstants.RecallColumnName, lit(recall))
         .withColumn(MetricConstants.AucColumnName, lit(auc))
+        .withColumn(MetricConstants.AreaUnderPRColumnName, lit(areaUnderPR))
     } else {
       val (microAvgAccuracy: Double,
            microAvgPrecision: Double,
@@ -381,13 +390,28 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
     (microAvgAccuracy, microAvgPrecision, microAvgRecall, averageAccuracy, macroAveragedPrecision, macroAveragedRecall)
   }
 
-  private def getAUC(modelName: String,
-             dataset: Dataset[_],
-             labelColumnName: String,
-             scoresAndLabels: RDD[(Double, Double)]): Double = {
-    val binaryMetrics = new BinaryClassificationMetrics(scoresAndLabels,
-      MetricConstants.BinningThreshold)
+  private def getBinaryMetrics(modelName: String,
+                               dataset: Dataset[_],
+                               labelColumnName: String,
+                               scoresAndLabels: RDD[(Double, Double)]): (Double, Double) = {
+    withBinaryClassificationMetrics(scoresAndLabels) { binaryMetrics =>
+      (getAUC(modelName, dataset, labelColumnName, binaryMetrics), getAreaUnderPR(binaryMetrics))
+    }
+  }
 
+  private def getAUC(modelName: String,
+                     dataset: Dataset[_],
+                     labelColumnName: String,
+                     scoresAndLabels: RDD[(Double, Double)]): Double = {
+    withBinaryClassificationMetrics(scoresAndLabels) { binaryMetrics =>
+      getAUC(modelName, dataset, labelColumnName, binaryMetrics)
+    }
+  }
+
+  private def getAUC(modelName: String,
+                     dataset: Dataset[_],
+                     labelColumnName: String,
+                     binaryMetrics: BinaryClassificationMetrics): Double = {
     val spark = dataset.sparkSession
     import spark.implicits._
 
@@ -397,6 +421,28 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
     val auc = binaryMetrics.areaUnderROC()
     metricsLogger.logAUC(auc)
     auc
+  }
+
+  private def getAreaUnderPR(scoresAndLabels: RDD[(Double, Double)]): Double = {
+    withBinaryClassificationMetrics(scoresAndLabels) { binaryMetrics =>
+      getAreaUnderPR(binaryMetrics)
+    }
+  }
+
+  private def getAreaUnderPR(binaryMetrics: BinaryClassificationMetrics): Double = {
+    val areaUnderPR = binaryMetrics.areaUnderPR()
+    metricsLogger.logAreaUnderPR(areaUnderPR)
+    areaUnderPR
+  }
+
+  private def withBinaryClassificationMetrics[T](scoresAndLabels: RDD[(Double, Double)])
+                                                  (f: BinaryClassificationMetrics => T): T = {
+    val binaryMetrics = new BinaryClassificationMetrics(scoresAndLabels, MetricConstants.BinningThreshold)
+    try {
+      f(binaryMetrics)
+    } finally {
+      binaryMetrics.unpersist()
+    }
   }
 
   private def getBinaryAccuracyPrecisionRecall(confusionMatrix: Matrix): (Double, Double, Double) = {
@@ -439,16 +485,20 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
   override def copy(extra: ParamMap): Transformer = new ComputeModelStatistics()
 
   override def transformSchema(schema: StructType): StructType = {
-    val (_, _, scoreValueKind) =
+    val (_, labelColumnName, scoreValueKind) =
       MetricUtils.getSchemaInfo(
         schema,
         if (isDefined(labelCol)) Some(getLabelCol) else None,
         getEvaluationMetric)
-    val columns =
-      if (scoreValueKind == SchemaConstants.ClassificationKind) MetricConstants.ClassificationColumns
-      else if (scoreValueKind == SchemaConstants.RegressionKind) MetricConstants.RegressionColumns
+    val labelLevels = getLabelLevels(schema, labelColumnName)
+    val (columns, validMetrics) =
+      if (scoreValueKind == SchemaConstants.ClassificationKind)
+        (getClassificationColumns(labelLevels), MetricConstants.ClassificationMetrics)
+      else if (scoreValueKind == SchemaConstants.RegressionKind)
+        (MetricConstants.RegressionColumns, MetricConstants.RegressionMetrics)
       else throwOnInvalidScoringKind(scoreValueKind)
-    getTransformedSchema(columns, scoreValueKind)
+    validateBinaryOnlyMetricSchema(labelLevels, scoreValueKind)
+    getTransformedSchema(columns, scoreValueKind, validMetrics)
 
   }
 
@@ -456,14 +506,50 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
     throw new Exception(s"Error: unknown scoring kind $scoreValueKind")
   }
 
-  private def getTransformedSchema(columns: List[String], metricType: String) = {
+  private def getLabelLevels(schema: StructType, labelColumnName: String): Option[Array[_]] = {
+    if (schema.fieldNames.contains(labelColumnName)) CategoricalUtilities.getLevels(schema, labelColumnName)
+    else None
+  }
+
+  private def getClassificationColumns(labelLevels: Option[Array[_]]): List[String] = {
+    // Keep the legacy common-metrics schema when cardinality is unknown or multiclass.
+    if (labelLevels.exists(_.length <= 2)) MetricConstants.BinaryClassificationColumns
+    else MetricConstants.ClassificationColumns
+  }
+
+  private def validateBinaryOnlyMetricSchema(labelLevels: Option[Array[_]],
+                                             scoreValueKind: String): Unit = {
+    val isBinaryOnlyClassificationMetric =
+      getEvaluationMetric == MetricConstants.AucSparkMetric ||
+        getEvaluationMetric == MetricConstants.AreaUnderROCMetric ||
+        getEvaluationMetric == MetricConstants.AreaUnderPRMetric
+    // Match runtime semantics: only SynapseML categorical metadata establishes label cardinality.
+    if (scoreValueKind == SchemaConstants.ClassificationKind &&
+        isBinaryOnlyClassificationMetric &&
+        labelLevels.exists(_.length > 2)) {
+      throw new IllegalArgumentException(getBinaryOnlyMetricMulticlassError(getEvaluationMetric))
+    }
+  }
+
+  private def getBinaryOnlyMetricMulticlassError(metric: String): String = metric match {
+    case MetricConstants.AucSparkMetric | MetricConstants.AreaUnderROCMetric =>
+      "Error: AUC is not available for multiclass case"
+    case MetricConstants.AreaUnderPRMetric =>
+      "Error: areaUnderPR is not available for multiclass case"
+    case _ =>
+      throw new IllegalArgumentException(s"Error: $metric is not a classification metric")
+  }
+
+  private def getTransformedSchema(columns: List[String],
+                                   metricType: String,
+                                   validMetrics: Set[String]): StructType = {
     getEvaluationMetric match {
       case allMetrics if allMetrics == MetricConstants.AllSparkMetrics ||
                          allMetrics == MetricConstants.ClassificationMetricsName ||
                          allMetrics == MetricConstants.RegressionMetricsName =>
         StructType(columns.map(StructField(_, DoubleType)))
-      case metric: String if MetricConstants.MetricToColumnName.contains(metric) &&
-                             columns.contains(MetricConstants.MetricToColumnName(metric)) =>
+      case metric: String if validMetrics.contains(metric) &&
+                             MetricConstants.MetricToColumnName.contains(metric) =>
         StructType(Array(StructField(MetricConstants.MetricToColumnName(metric), DoubleType)))
       case default =>
         throw new Exception(s"Error: $default is not a $metricType metric")
@@ -499,6 +585,12 @@ class MetricsLogger(uid: String) {
 
   def logAUC(auc: Double): Unit = {
     val metrics = MetricData.create(Map(MetricConstants.AucColumnName -> auc), "AUC Metric", uid)
+    logger.info(metrics)
+  }
+
+  def logAreaUnderPR(areaUnderPR: Double): Unit = {
+    val metrics = MetricData.create(
+      Map(MetricConstants.AreaUnderPRColumnName -> areaUnderPR), "AreaUnderPR Metric", uid)
     logger.info(metrics)
   }
 

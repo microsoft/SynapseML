@@ -14,7 +14,7 @@ import com.microsoft.azure.synapse.ml.train.TrainRegressorTestUtilities._
 import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 import org.apache.spark.ml.feature.FastVectorAssembler
-import org.apache.spark.ml.linalg.Vector
+import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.regression.GeneralizedLinearRegression
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql._
@@ -40,6 +40,185 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     (0, 3, 0.78, 0.99, 2),
     (1, 4, 0.12, 0.34, 3)
   )).toDF(labelColumn, "col1", "col2", "col3", "col4")
+
+  private lazy val rankedBinaryDataset: DataFrame = {
+    import spark.implicits._
+    val data = (1 to 100).map { rank =>
+      val label = if (rank == 1 || rank == 11) 1.0 else 0.0
+      val prediction = if (rank <= 10) 1.0 else 0.0
+      val rawPrediction = Vectors.dense(0.0, (101 - rank).toDouble)
+      (label, prediction, rawPrediction)
+    }.toDF("label", SchemaConstants.SparkPredictionColumn, SchemaConstants.SparkRawPredictionColumn)
+    val modelName = SchemaConstants.ScoreModelPrefix + "_ranked binary"
+    val withLabel = SparkSchema.setLabelColumnName(
+      data, modelName, "label", SchemaConstants.ClassificationKind)
+    val withPrediction = SparkSchema.updateColumnMetadata(
+      withLabel, modelName, SchemaConstants.SparkPredictionColumn, SchemaConstants.ClassificationKind)
+    SparkSchema.updateColumnMetadata(
+      withPrediction, modelName, SchemaConstants.SparkRawPredictionColumn, SchemaConstants.ClassificationKind)
+  }
+
+  private def rankedBinaryStatistics(metric: String): ComputeModelStatistics =
+    new ComputeModelStatistics()
+      .setLabelCol("label")
+      .setScoredLabelsCol(SchemaConstants.SparkPredictionColumn)
+      .setScoresCol(SchemaConstants.SparkRawPredictionColumn)
+      .setEvaluationMetric(metric)
+
+  private def assertBinaryOnlyMetricsRejected(schema: StructType): Unit = {
+    Seq(
+      MetricConstants.AucSparkMetric -> "Error: AUC is not available for multiclass case",
+      MetricConstants.AreaUnderROCMetric -> "Error: AUC is not available for multiclass case",
+      MetricConstants.AreaUnderPRMetric -> "Error: areaUnderPR is not available for multiclass case")
+      .foreach { case (metric, expectedMessage) =>
+        val error = intercept[IllegalArgumentException] {
+          new ComputeModelStatistics()
+            .setLabelCol("label")
+            .setEvaluationMetric(metric)
+            .transformSchema(schema)
+        }
+
+        assert(error.getMessage === expectedMessage)
+      }
+  }
+
+  test("areaUnderPR uses Spark trapezoidal precision-recall AUC") {
+    val evaluator = rankedBinaryStatistics(MetricConstants.AreaUnderPRMetric)
+    val result = evaluator.transform(rankedBinaryDataset)
+    val areaUnderPR = result.first().getAs[Double](MetricConstants.AreaUnderPRColumnName)
+
+    assert(result.columns.last === MetricConstants.AreaUnderPRColumnName)
+    assert(result.columns.contains(MetricConstants.AreaUnderPRColumnName))
+    assert(evaluator.transformSchema(rankedBinaryDataset.schema) ===
+      StructType(Array(StructField(MetricConstants.AreaUnderPRColumnName, DoubleType))))
+    assert(math.abs(areaUnderPR - 251.0 / 440.0) < 1e-8)
+    assert(math.abs(areaUnderPR - 13.0 / 22.0) > 0.01)
+  }
+
+  test("areaUnderROC remains an AUC output alias") {
+    val aucEvaluator = rankedBinaryStatistics(MetricConstants.AucSparkMetric)
+    val auc = aucEvaluator
+      .transform(rankedBinaryDataset)
+      .first()
+      .getAs[Double](MetricConstants.AucColumnName)
+    val rocEvaluator = rankedBinaryStatistics(MetricConstants.AreaUnderROCMetric)
+    val areaUnderROCAlias = rocEvaluator
+      .transform(rankedBinaryDataset)
+      .first()
+      .getAs[Double](MetricConstants.AucColumnName)
+    val aucSchema = StructType(Array(StructField(MetricConstants.AucColumnName, DoubleType)))
+
+    assert(aucEvaluator.transformSchema(rankedBinaryDataset.schema) === aucSchema)
+    assert(rocEvaluator.transformSchema(rankedBinaryDataset.schema) === aucSchema)
+    assert(math.abs(auc - 187.0 / 196.0) < 1e-8)
+    assert(math.abs(areaUnderROCAlias - 187.0 / 196.0) < 1e-8)
+  }
+
+  test("all and classification metrics append binary metrics in runtime output order") {
+    val binaryDataset = CategoricalUtilities.setLevels(
+      rankedBinaryDataset,
+      "label",
+      Array(0.0, 1.0))
+    val expectedColumns = List(MetricConstants.EvaluationType, MetricConstants.ConfusionMatrix) ++
+      MetricConstants.BinaryClassificationColumns
+    Seq(MetricConstants.AllSparkMetrics, MetricConstants.ClassificationMetricsName).foreach { metric =>
+      val evaluator = rankedBinaryStatistics(metric)
+      val result = evaluator.transform(binaryDataset)
+      val row = result.first()
+      val transformedSchema = evaluator.transformSchema(binaryDataset.schema)
+
+      assert(result.columns.toList === expectedColumns)
+      assert(transformedSchema ===
+        StructType(MetricConstants.BinaryClassificationColumns.map(StructField(_, DoubleType))))
+      assert(math.abs(row.getAs[Double](MetricConstants.AucColumnName) - 187.0 / 196.0) < 1e-8)
+      assert(math.abs(row.getAs[Double](MetricConstants.AreaUnderPRColumnName) - 251.0 / 440.0) < 1e-8)
+    }
+  }
+
+  test("multiclass classification schema retains the legacy common metrics") {
+    val multiclassData = spark.createDataFrame(Seq(
+      (0.0, 0.0),
+      (1.0, 1.0),
+      (2.0, 2.0))).toDF("label", "prediction")
+    val modelName = SchemaConstants.ScoreModelPrefix + "_multiclass"
+    val withLabel = SparkSchema.setLabelColumnName(
+      multiclassData, modelName, "label", SchemaConstants.ClassificationKind)
+    val withPrediction = SparkSchema.updateColumnMetadata(
+      withLabel, modelName, "prediction", SchemaConstants.ClassificationKind)
+    val multiclass = CategoricalUtilities.setLevels(
+      withPrediction,
+      "label",
+      Array(0.0, 1.0, 2.0))
+    val expectedRuntimeColumns =
+      List(MetricConstants.EvaluationType, MetricConstants.ConfusionMatrix) ++
+        MetricConstants.ClassificationColumns ++
+        List(MetricConstants.AverageAccuracy,
+          MetricConstants.MacroAveragedPrecision,
+          MetricConstants.MacroAveragedRecall)
+
+    Seq(MetricConstants.AllSparkMetrics, MetricConstants.ClassificationMetricsName).foreach { metric =>
+      val evaluator = new ComputeModelStatistics().setEvaluationMetric(metric)
+      val schema = evaluator.transformSchema(multiclass.schema)
+      val result = evaluator.transform(multiclass)
+
+      assert(schema.fieldNames.toList === MetricConstants.ClassificationColumns)
+      assert(!schema.fieldNames.contains(MetricConstants.AucColumnName))
+      assert(!schema.fieldNames.contains(MetricConstants.AreaUnderPRColumnName))
+      assert(result.columns.toList === expectedRuntimeColumns)
+    }
+  }
+
+  test("classification schema without cardinality metadata retains the legacy common metrics") {
+    Seq(MetricConstants.AllSparkMetrics, MetricConstants.ClassificationMetricsName).foreach { metric =>
+      val schema = rankedBinaryStatistics(metric).transformSchema(rankedBinaryDataset.schema)
+
+      assert(schema.fieldNames.toList === MetricConstants.ClassificationColumns)
+    }
+  }
+
+  test("transformSchema rejects binary-only metrics for multiclass MML categorical labels") {
+    val schema = CategoricalUtilities.setLevels(
+      spark.createDataFrame(Seq(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (2.0, 2.0))).toDF("label", "prediction"),
+      "label",
+      Array(0.0, 1.0, 2.0)).schema
+
+    assertBinaryOnlyMetricsRejected(schema)
+  }
+
+  test("transformSchema preserves binary-only metric schema when configured labelCol is absent") {
+    val schema = spark.createDataFrame(Seq(
+      (0.0, 0.9),
+      (1.0, 0.8))).toDF("prediction", "rawPrediction").schema
+    val evaluator = new ComputeModelStatistics()
+      .setLabelCol("label")
+      .setEvaluationMetric(MetricConstants.AreaUnderPRMetric)
+
+    assert(evaluator.transformSchema(schema) ===
+      StructType(Array(StructField(MetricConstants.AreaUnderPRColumnName, DoubleType))))
+  }
+
+  test("areaUnderPR rejects multiclass and unsupported metric inputs") {
+    val multiclass = spark.createDataFrame(Seq(
+      (0.0, 0.0, 0.9),
+      (1.0, 1.0, 0.8),
+      (2.0, 2.0, 0.7))).toDF("label", "prediction", "rawPrediction")
+    val multiclassError = intercept[Exception] {
+      new ComputeModelStatistics()
+        .setLabelCol("label")
+        .setScoredLabelsCol("prediction")
+        .setScoresCol("rawPrediction")
+        .setEvaluationMetric(MetricConstants.AreaUnderPRMetric)
+        .transform(multiclass)
+    }
+    assert(multiclassError.getMessage === "Error: areaUnderPR is not available for multiclass case")
+
+    assertThrows[Exception] {
+      rankedBinaryStatistics("averagePrecision").transform(rankedBinaryDataset)
+    }
+  }
 
   test("Verify multiclass evaluation is not slow for large number of labels") {
     val numRows = 4096
@@ -187,7 +366,8 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     val _ = new ComputeModelStatistics().transform(scoredDataset)
 
     val evaluatedSchema = new ComputeModelStatistics().transformSchema(scoredDataset.schema)
-    assert(evaluatedSchema == StructType(MetricConstants.ClassificationColumns.map(StructField(_, DoubleType))))
+    assert(evaluatedSchema ==
+      StructType(MetricConstants.BinaryClassificationColumns.map(StructField(_, DoubleType))))
   }
 
   test("Verify computing statistics on generic spark ML estimators is supported") {
