@@ -447,9 +447,6 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   }
 
   private def encodedMessageMaps(messages: CollectionSeq[Row]): Seq[Map[String, Any]] = {
-    if (messages.isEmpty) {
-      throw new IllegalArgumentException("messages must not be empty")
-    }
     messages.zipWithIndex.map { case (message, messageIndex) =>
       if (message == null) {
         throw new IllegalArgumentException(s"messages[$messageIndex] must be an object")
