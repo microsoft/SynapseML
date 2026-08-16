@@ -138,6 +138,11 @@ branch is superseded by `spark4.1`.
 - **`LongOffset` import** — Spark 4.1 moved it to
   `org.apache.spark.sql.execution.streaming.runtime`. On Spark 4.0 it is still in
   `...streaming`, and adopting 4.1's import does not compile.
+- **`ImageTransformer.toNDArray` using `np.frombuffer`** — Spark 4.1 returns
+  `bytes` for a `BinaryType` column, which `np.asarray` rejects with a
+  `ValueError`. Spark 4.0.1 returns `bytearray`, which `np.asarray` handles.
+  Measured on both. The change is harmless here but guards a type this branch
+  does not produce.
 - **petastorm / horovod cloudpickle shims** (`_horovod.py`,
   `_petastorm_compat.py`) — these work around Python 3.13 breakage. This branch
   is on 3.12 and its deep-learning tests pass without them.
@@ -146,6 +151,12 @@ branch is superseded by `spark4.1`.
   `pandas` 2.0.3 cannot tolerate, so it is pinned deliberately.
 - **Version strings generally** — Spark 4.1.1, Scala 2.13.17, Python 3.13,
   Databricks 18.0.
+
+`cyber/utils/spark_utils.py` is a genuine option rather than a hazard: 4.1 uses
+`spark.createDataFrame(rdd, schema)` where this branch uses `rdd.toDF(schema)`.
+`toDF` was measured to work on both 4.0.1 and 4.1.1, so nothing is broken here —
+adopting 4.1's form only reduces reliance on the monkey-patched RDD API, which
+does not exist under Spark Connect.
 
 ### Unresolved
 
