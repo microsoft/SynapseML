@@ -93,13 +93,21 @@ object MetricUtils {
 
   def getSchemaInfo(schema: StructType, labelCol: Option[String],
                     evaluationMetric: String): (String, String, String) = {
+    getSchemaInfo(schema, labelCol, evaluationMetric, caseSensitive = true)
+  }
+
+  private[ml] def getSchemaInfo(schema: StructType,
+                                labelCol: Option[String],
+                                evaluationMetric: String,
+                                caseSensitive: Boolean): (String, String, String) = {
+    val resolvedLabelCol = resolveLabelColumn(schema, labelCol, caseSensitive)
     val requestedKind = getRequestedScoreValueKind(evaluationMetric)
     tryGetSchemaInfo(
       schema,
-      labelCol,
+      resolvedLabelCol,
       requestedKind,
       requiresAuxiliaryMetadata(evaluationMetric, requestedKind)).map(_.schemaInfo).getOrElse {
-      (labelCol, requestedKind) match {
+      (resolvedLabelCol, requestedKind) match {
         case (Some(labelColumnName), Some(scoreValueKind)) =>
           ("custom model", labelColumnName, scoreValueKind)
         case _ =>
@@ -193,8 +201,24 @@ object MetricUtils {
         throw new IllegalArgumentException(
           "Ambiguous scored-model metadata. Multiple complete candidates match: " +
             candidates.map(_.description).mkString("[", ", ", "]. ") +
-            "Set labelCol and evaluationMetric to select one candidate; remove stale score metadata if needed.")
+            "Set labelCol and evaluationMetric to narrow candidates. If metadata still overlaps, " +
+            "set scoredLabelsCol/scoresCol explicitly or remove stale score metadata.")
       case _ => None
+    }
+  }
+
+  private[ml] def resolveLabelColumn(schema: StructType,
+                                     labelCol: Option[String],
+                                     caseSensitive: Boolean): Option[String] = {
+    labelCol.map { requestedLabel =>
+      if (caseSensitive) {
+        requestedLabel
+      } else {
+        schema.fieldNames.filter(_.equalsIgnoreCase(requestedLabel)) match {
+          case Array(resolvedLabel) => resolvedLabel
+          case _ => requestedLabel
+        }
+      }
     }
   }
 

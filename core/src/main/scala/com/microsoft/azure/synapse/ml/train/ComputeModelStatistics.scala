@@ -76,7 +76,7 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
       val (modelName, resolvedLabelColumnName, scoreValueKind) =
-        resolveSchemaInfo(dataset.schema)
+        resolveSchemaInfo(dataset.schema, isCaseSensitive(dataset.sparkSession))
       val labelColumnName = validateColumn(
         dataset, resolvedLabelColumnName, "label", "setLabelCol")
 
@@ -229,19 +229,26 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
     matchingColumns.head
   }
 
-  private def resolveSchemaInfo(schema: StructType): (String, String, String) = {
+  private def resolveSchemaInfo(schema: StructType,
+                                caseSensitive: Boolean): (String, String, String) = {
     if (canEvaluateWithoutMetadata) {
       val scoreValueKind =
         if (MetricUtils.isClassificationMetric(getEvaluationMetric)) SchemaConstants.ClassificationKind
         else SchemaConstants.RegressionKind
-      ("custom model", getLabelCol, scoreValueKind)
+      val resolvedLabelCol =
+        MetricUtils.resolveLabelColumn(schema, Some(getLabelCol), caseSensitive).get
+      ("custom model", resolvedLabelCol, scoreValueKind)
     } else {
       MetricUtils.getSchemaInfo(
         schema,
         if (isDefined(labelCol)) Some(getLabelCol) else None,
-        getEvaluationMetric)
+        getEvaluationMetric,
+        caseSensitive)
     }
   }
+
+  private def isCaseSensitive(sparkSession: SparkSession): Boolean =
+    sparkSession.conf.get("spark.sql.caseSensitive", "false").toBoolean
 
   private def canEvaluateWithoutMetadata: Boolean = {
     if (!isDefined(labelCol) || getEvaluationMetric == MetricConstants.AllSparkMetrics) {
@@ -566,7 +573,11 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
 
   override def transformSchema(schema: StructType): StructType = {
     val (_, labelColumnName, scoreValueKind) =
-      resolveSchemaInfo(schema)
+      resolveSchemaInfo(
+        schema,
+        SparkSession.getActiveSession
+          .orElse(SparkSession.getDefaultSession)
+          .exists(isCaseSensitive))
     val labelLevels = getLabelLevels(schema, labelColumnName)
     val (columns, validMetrics) =
       if (scoreValueKind == SchemaConstants.ClassificationKind)

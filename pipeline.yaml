@@ -1132,20 +1132,24 @@ jobs:
                 path="$REMAINING_PATHS"
                 HAS_MORE_PATHS=false
               fi
+              PATH_SELECTED=false
               for REPLAY_PATH in "${REPLAY_PATHS[@]}"; do
                 if [ "$path" = "$REPLAY_PATH" ]; then
                   PREREQUISITE_PATHS+=("$path")
+                  PATH_SELECTED=true
                   break
                 fi
               done
-              if [ ${#PREREQUISITE_PATHS[@]} -eq 0 ] ||
-                 [ "${PREREQUISITE_PATHS[-1]}" != "$path" ]; then
+              if [ "$PATH_SELECTED" = false ]; then
                 for ((later_index=index + 1;
                       later_index<${#CONFIGURED_PREREQUISITES[@]};
                       later_index++)); do
                   if [ "${CONFIGURED_PREREQUISITE_IS_SCOPED[$later_index]}" = false ]; then
                     LATER_PREREQUISITE="${CONFIGURED_PREREQUISITES[$later_index]}"
-                    LATER_PARENT=$(git rev-parse "$LATER_PREREQUISITE^1")
+                        if ! LATER_PARENT=$(git rev-parse "$LATER_PREREQUISITE^1" 2>/dev/null); then
+                          echo "##vso[task.logissue type=error]Dependent release compatibility prerequisite $LATER_PREREQUISITE has no first parent"
+                          exit 1
+                        fi
                     if git diff --quiet "$LATER_PARENT" "$LATER_PREREQUISITE" -- \
                       ":(literal)$path"; then
                       :
@@ -1157,6 +1161,7 @@ jobs:
                       fi
                       echo "Scoped prerequisite $PREREQUISITE path $path is required by later prerequisite $LATER_PREREQUISITE"
                       PREREQUISITE_PATHS+=("$path")
+                      PATH_SELECTED=true
                       break
                     fi
                   fi
@@ -1214,7 +1219,10 @@ jobs:
                     later_index++)); do
                 if [ "${CONFIGURED_PREREQUISITE_IS_SCOPED[$later_index]}" = false ]; then
                   LATER_PREREQUISITE="${CONFIGURED_PREREQUISITES[$later_index]}"
-                  LATER_PARENT=$(git rev-parse "$LATER_PREREQUISITE^1")
+                  if ! LATER_PARENT=$(git rev-parse "$LATER_PREREQUISITE^1" 2>/dev/null); then
+                    echo "##vso[task.logissue type=error]Dependent release compatibility prerequisite $LATER_PREREQUISITE has no first parent"
+                    exit 1
+                  fi
                   if git diff --quiet "$LATER_PARENT" "$LATER_PREREQUISITE" -- \
                     ":(literal)$path"; then
                     :

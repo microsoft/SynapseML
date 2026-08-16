@@ -374,6 +374,18 @@ def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
     assert '"${PREREQUISITE_PATHSPECS[@]}"' in rebase_script
     assert "eval " not in rebase_script
     assert 'git rev-parse "$PREREQUISITE^1"' in rebase_script
+    guarded_dependent_parent = (
+        'if ! LATER_PARENT=$(git rev-parse "$LATER_PREREQUISITE^1" '
+        "2>/dev/null); then"
+    )
+    assert rebase_script.count(guarded_dependent_parent) == 2
+    assert (
+        rebase_script.count(
+            "Dependent release compatibility prerequisite "
+            "$LATER_PREREQUISITE has no first parent"
+        )
+        == 2
+    )
     assert (
         'git diff --name-only -z "$PREREQUISITE_PARENT" "$PREREQUISITE"'
         in rebase_script
@@ -954,6 +966,87 @@ def test_release_compat_replays_scoped_baseline_for_later_prerequisite():
             in result.stdout
         )
         assert "PR changes apply cleanly onto release" in result.stdout
+    finally:
+        shutil.rmtree(scratch_root, ignore_errors=True)
+
+
+@pytest.mark.parametrize("modify_scoped_path", [False, True])
+@pytest.mark.skipif(os.name != "posix", reason="release replay script requires Bash")
+def test_release_compat_reports_dependent_prerequisite_without_parent(
+    modify_scoped_path,
+):
+    scratch_root = (
+        REPO_ROOT
+        / "target"
+        / (f"release-compat-parent-{modify_scoped_path}-{uuid.uuid4().hex}")
+    )
+    repo = scratch_root / "repo"
+    origin = scratch_root / "origin.git"
+    agent_temp = scratch_root / "agent"
+
+    try:
+        repo.mkdir(parents=True)
+        agent_temp.mkdir()
+        _init_release_compat_scratch_repo(repo)
+
+        base_file = repo / "src" / "base.txt"
+        base_file.parent.mkdir()
+        base_file.write_text("release base\n")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "root base")
+        root_prerequisite = _git(repo, "rev-parse", "HEAD").stdout.strip()
+        _git(repo, "branch", "release", root_prerequisite)
+
+        scoped_file = repo / "src" / "scoped.txt"
+        scoped_file.write_text("scoped baseline\n")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "add scoped baseline")
+        scoped_prerequisite = _git(repo, "rev-parse", "HEAD").stdout.strip()
+
+        _git(repo, "checkout", "-b", "source")
+        prerequisite_config = repo / ".pipelines" / "release-compat-prerequisites.txt"
+        prerequisite_config.parent.mkdir()
+        prerequisite_config.write_text(
+            f"{scoped_prerequisite}\tsrc/scoped.txt\n{root_prerequisite}\n"
+        )
+        if modify_scoped_path:
+            scoped_file.write_text("pull request change\n")
+        else:
+            pr_file = repo / "src" / "pr.txt"
+            pr_file.write_text("pull request change\n")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "feature change")
+
+        _git(repo, "checkout", "master")
+        _assert_git_clean(repo, "checkout before synthetic PR merge")
+        _git(repo, "merge", "--no-ff", "source", "-m", "merge feature")
+
+        subprocess.run(
+            ["git", "init", "--bare", str(origin)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _git(repo, "remote", "add", "origin", str(origin))
+        _git(repo, "push", "origin", "master", "source", "release")
+
+        script = _release_compat_script()
+        script = script.replace("$(Agent.TempDirectory)", str(agent_temp))
+        script = script.replace("$(RELEASE_BRANCH)", "release")
+        result = subprocess.run(
+            ["bash", "-c", script],
+            cwd=repo,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 1
+        assert (
+            "##vso[task.logissue type=error]Dependent release compatibility "
+            f"prerequisite {root_prerequisite} has no first parent" in result.stdout
+        )
+        assert "fatal:" not in result.stderr
     finally:
         shutil.rmtree(scratch_root, ignore_errors=True)
 

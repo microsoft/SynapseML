@@ -326,7 +326,6 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     assert(error.getMessage.contains(expectedCandidates))
     assert(error.getMessage.contains("Set labelCol and evaluationMetric"))
   }
-
   test("Explicit evaluation metric omits irrelevant all-metrics hint when labelCol is missing") {
     val input = spark.createDataFrame(Seq((0.0, 1.0))).toDF("label", "feature")
     val error = intercept[IllegalArgumentException] {
@@ -334,7 +333,6 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
         .setEvaluationMetric(MetricConstants.RegressionMetricsName)
         .transformSchema(input.schema)
     }
-
     assert(error.getMessage.contains("Set labelCol, or score the dataset"))
     assert(!error.getMessage.contains(
       s"evaluationMetric must not be '${MetricConstants.AllSparkMetrics}'"))
@@ -349,7 +347,6 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
         .setEvaluationMetric(MetricConstants.RegressionMetricsName)
         .transform(input)
     }
-
     assert(error.getMessage.contains("regression prediction/score column <unresolved>"))
     assert(error.getMessage.contains("setScoresCol"))
     assert(error.getMessage.contains("Available columns: [feature, label]"))
@@ -363,34 +360,40 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
       .setLabelCol(label)
       .setScoredLabelsCol(prediction)
       .setScoresCol("missingScore")
-
     val accuracy = statistics
       .setEvaluationMetric(MetricConstants.AccuracySparkMetric)
       .transform(input)
       .first()
       .getAs[Double](MetricConstants.AccuracyColumnName)
     assert(accuracy === 1.0)
-
     val error = intercept[IllegalArgumentException] {
       statistics
         .setEvaluationMetric(MetricConstants.AucSparkMetric)
         .transform(input)
     }
-
     assert(error.getMessage.contains("classification score column 'missingScore'"))
     assert(error.getMessage.contains("setScoresCol"))
     assert(error.getMessage.contains("Available columns: [label, selectedPrediction]"))
   }
-
   test("Single complete scored-model metadata remains supported") {
     val modelName = SchemaConstants.ScoreModelPrefix + "_single"
     val label = "label"
     val input = spark.createDataFrame(Seq((0.0, 0.0), (1.0, 1.0)))
       .toDF(label, SchemaConstants.SparkPredictionColumn)
     val scored = addScoredModelMetadata(input, modelName, label, SchemaConstants.RegressionKind)
-
-    val result = new ComputeModelStatistics().transform(scored)
-
+    val evaluator = new ComputeModelStatistics()
+      .setLabelCol(label.toUpperCase)
+      .setEvaluationMetric(MetricConstants.RegressionMetricsName)
+    val activeSession = SparkSession.getActiveSession
+    val defaultSession = SparkSession.getDefaultSession
+    SparkSession.clearActiveSession()
+    SparkSession.setDefaultSession(spark)
+    try assert(evaluator.transformSchema(scored.schema).fieldNames.contains(MetricConstants.MseColumnName))
+    finally {
+      activeSession.fold(SparkSession.clearActiveSession())(SparkSession.setActiveSession)
+      defaultSession.fold(SparkSession.clearDefaultSession())(SparkSession.setDefaultSession)
+    }
+    val result = evaluator.transform(scored)
     assert(result.first().getAs[Double](MetricConstants.MseColumnName) === 0.0)
   }
 
@@ -402,9 +405,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
       .toDF(label, SchemaConstants.SparkPredictionColumn)
     val withModelB = addScoredModelMetadata(input, modelB, label, SchemaConstants.RegressionKind)
     val withDuplicates = addScoredModelMetadata(withModelB, modelA, label, SchemaConstants.RegressionKind)
-
     val result = new ComputeModelStatistics().transform(withDuplicates)
-
     assert(result.first().getAs[Double](MetricConstants.MseColumnName) === 0.0)
   }
 
@@ -456,12 +457,12 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
       withModelBLabel, modelB, metadataPredictionB,
       SchemaConstants.SparkPredictionColumn, SchemaConstants.ClassificationKind)
 
-    val result = new ComputeModelStatistics()
-      .setLabelCol(label)
+    val evaluator = new ComputeModelStatistics()
+      .setLabelCol(label.toUpperCase)
       .setScoredLabelsCol(selectedPrediction)
       .setEvaluationMetric(MetricConstants.AccuracySparkMetric)
-      .transform(ambiguous)
-
+    val result = evaluator.transform(ambiguous)
+    assert(evaluator.transformSchema(ambiguous.schema).fieldNames.contains(MetricConstants.AccuracyColumnName))
     assert(result.first().getAs[Double](MetricConstants.AccuracyColumnName) === 1.0)
   }
 
