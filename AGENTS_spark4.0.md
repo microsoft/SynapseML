@@ -145,10 +145,28 @@ per-class overrides.
 The GPU pool is `synapseml-build-14.3-gpu`, **shared with `master` and
 `spark4.1`**. Instance pools are runtime-agnostic, so sharing avoids duplicating
 scarce GPU quota — but the pool holds three workers, so two builds running
-concurrently exhaust it and fail with `areLibrariesInstalled == false`. Queue
-Spark 4 branch builds **sequentially**; a Databricks failure during overlapping
-builds is usually capacity, not code. Confirm by re-running alone before
-investigating.
+concurrently can exhaust it. Prefer queueing Spark 4 branch builds sequentially.
+
+**Read `areLibrariesInstalled == false` carefully — it is not a capacity verdict.**
+The check throws `Library Installation Failure` with the offending statuses if any
+library reports `FAILED`. Returning `false` therefore means the opposite: nothing
+failed, the libraries simply had not all reached `INSTALLED` before the retry
+budget ran out (`60 * 10` attempts at 1s ≈ 10 minutes). It is a *timeout*, and a
+slow install reads exactly like a starved pool.
+
+Do not assume capacity. Compare branches instead — the pool is shared, so a
+concurrent run on `spark4.1` is a free control. When this last came up,
+`Databricks GPU E2E` had failed 3/3 on this branch and succeeded 3/3 on
+`spark4.1`, twice at the same moment on the same pool. An outcome that tracks the
+branch rather than the timing is a code difference, not contention.
+
+That instance was a stale pin: `torchvision==0.17.0` in `GPULibraries`, which
+`spark4.1` had already dropped. torchvision 0.17.0 hard-requires `torch==2.2.0`,
+so pip had to *downgrade* the runtime's much newer torch and pull multi-gigabyte
+CUDA wheels — slow enough to exhaust the budget, but never `FAILED`. The GPU ML
+runtime already ships torch and torchvision, so pinning bought nothing. Prefer
+leaving deep-learning packages to the runtime unless a notebook genuinely needs
+a specific version.
 
 `DatabricksCPUStreamingTests` is recorded as unscheduled rather than given a CI
 leg; it needs both pool capacity and a notebook fix.
@@ -192,7 +210,8 @@ does not exist under Spark Connect.
 - `RTests vw` can fail on a conda `HTTP 403` fetching packages. Infrastructure.
 - `UnitTests onnx` has intermittently hit `OutOfMemoryError` in
   `ImageFeaturizerSuite`. Re-run before treating it as a regression.
-- Databricks library-install failures during concurrent builds — see above.
+- Databricks library-install timeouts — read the section above before blaming
+  the pool; `areLibrariesInstalled == false` is a timeout, not a failure.
 
 ## CI
 
