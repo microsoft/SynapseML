@@ -11,11 +11,14 @@ Binary Classifiers:
 - "accuracy"
 - "precision"
 - "recall"
+- "classification"
 - "all"
 
-Regression Classifiers:
+Regression Models:
 
 - "mse"
 - "rmse"
 - "r2"
+- "mae"
+- "regression"
 - "all"

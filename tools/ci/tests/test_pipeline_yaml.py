@@ -330,7 +330,10 @@ def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
     )
     assert 'git show "$PR_MERGE_HEAD:$PREREQUISITES_CONFIG"' in rebase_script
     assert '[[ ! "$PREREQUISITE" =~ ^[0-9a-fA-F]{40}$ ]]' in rebase_script
-    assert r"""[[ "$RAW_LINE" == *$'\t'* ]]""" in rebase_script
+    assert r"""[[ "$TRIMMED_LINE" == *$'\t'* ]]""" in rebase_script
+    assert r"""[[ "$RAW_LINE" == *$'\t'* ]]""" not in rebase_script
+    assert "PREREQUISITE=\"${TRIMMED_LINE%%$'\\t'*}\"" in rebase_script
+    assert "PREREQUISITE_SCOPE=\"${TRIMMED_LINE#*$'\\t'}\"" in rebase_script
     assert "CONFIGURED_PREREQUISITE_SCOPES=()" in rebase_script
     assert (
         'git merge-base --is-ancestor "$PREREQUISITE" "$TARGET_HEAD"' in rebase_script
@@ -509,7 +512,18 @@ def test_release_compat_replays_prerequisite_before_pr_patch():
 
 
 @pytest.mark.skipif(os.name != "posix", reason="release replay script requires Bash")
-def test_release_compat_replays_scoped_missing_file_prerequisite_full_overlap():
+@pytest.mark.parametrize(
+    ("config_prefix", "config_suffix"),
+    [
+        ("", "\n"),
+        ("", "\r\n"),
+        ("  ", "   \n"),
+    ],
+    ids=["normalized", "crlf", "surrounding-whitespace"],
+)
+def test_release_compat_replays_scoped_missing_file_prerequisite_full_overlap(
+    config_prefix, config_suffix
+):
     scratch_root = REPO_ROOT / "target" / f"release-compat-scoped-{uuid.uuid4().hex}"
     repo = scratch_root / "repo"
     origin = scratch_root / "origin.git"
@@ -539,7 +553,9 @@ def test_release_compat_replays_scoped_missing_file_prerequisite_full_overlap():
         _git(repo, "checkout", "-b", "source")
         prerequisite_config = repo / ".pipelines" / "release-compat-prerequisites.txt"
         prerequisite_config.parent.mkdir()
-        prerequisite_config.write_text(f"{prerequisite}\tsrc/scoped.txt\n")
+        prerequisite_config.write_bytes(
+            (f"{config_prefix}{prerequisite}\tsrc/scoped.txt{config_suffix}").encode()
+        )
         scoped_file.write_text("pull request change\n")
         _git(repo, "add", ".")
         _git(repo, "commit", "-m", "feature modifies scoped file")

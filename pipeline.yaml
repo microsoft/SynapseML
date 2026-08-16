@@ -1042,9 +1042,9 @@ jobs:
                 continue
                 ;;
             esac
-            if [[ "$RAW_LINE" == *$'\t'* ]]; then
-              PREREQUISITE="${RAW_LINE%%$'\t'*}"
-              PREREQUISITE_SCOPE="${RAW_LINE#*$'\t'}"
+            if [[ "$TRIMMED_LINE" == *$'\t'* ]]; then
+              PREREQUISITE="${TRIMMED_LINE%%$'\t'*}"
+              PREREQUISITE_SCOPE="${TRIMMED_LINE#*$'\t'}"
               PREREQUISITE_IS_SCOPED=true
             else
               PREREQUISITE="$TRIMMED_LINE"

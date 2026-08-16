@@ -490,13 +490,14 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
         schema,
         if (isDefined(labelCol)) Some(getLabelCol) else None,
         getEvaluationMetric)
+    val labelLevels = getLabelLevels(schema, labelColumnName)
     val (columns, validMetrics) =
       if (scoreValueKind == SchemaConstants.ClassificationKind)
-        (MetricConstants.ClassificationColumns, MetricConstants.ClassificationMetrics)
+        (getClassificationColumns(labelLevels), MetricConstants.ClassificationMetrics)
       else if (scoreValueKind == SchemaConstants.RegressionKind)
         (MetricConstants.RegressionColumns, MetricConstants.RegressionMetrics)
       else throwOnInvalidScoringKind(scoreValueKind)
-    validateBinaryOnlyMetricSchema(schema, labelColumnName, scoreValueKind)
+    validateBinaryOnlyMetricSchema(labelLevels, scoreValueKind)
     getTransformedSchema(columns, scoreValueKind, validMetrics)
 
   }
@@ -505,16 +506,23 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
     throw new Exception(s"Error: unknown scoring kind $scoreValueKind")
   }
 
-  private def validateBinaryOnlyMetricSchema(schema: StructType,
-                                             labelColumnName: String,
+  private def getLabelLevels(schema: StructType, labelColumnName: String): Option[Array[_]] = {
+    if (schema.fieldNames.contains(labelColumnName)) CategoricalUtilities.getLevels(schema, labelColumnName)
+    else None
+  }
+
+  private def getClassificationColumns(labelLevels: Option[Array[_]]): List[String] = {
+    // Keep the legacy common-metrics schema when cardinality is unknown or multiclass.
+    if (labelLevels.exists(_.length <= 2)) MetricConstants.BinaryClassificationColumns
+    else MetricConstants.ClassificationColumns
+  }
+
+  private def validateBinaryOnlyMetricSchema(labelLevels: Option[Array[_]],
                                              scoreValueKind: String): Unit = {
     val isBinaryOnlyClassificationMetric =
       getEvaluationMetric == MetricConstants.AucSparkMetric ||
         getEvaluationMetric == MetricConstants.AreaUnderROCMetric ||
         getEvaluationMetric == MetricConstants.AreaUnderPRMetric
-    val labelLevels =
-      if (schema.fieldNames.contains(labelColumnName)) CategoricalUtilities.getLevels(schema, labelColumnName)
-      else None
     // Match runtime semantics: only SynapseML categorical metadata establishes label cardinality.
     if (scoreValueKind == SchemaConstants.ClassificationKind &&
         isBinaryOnlyClassificationMetric &&

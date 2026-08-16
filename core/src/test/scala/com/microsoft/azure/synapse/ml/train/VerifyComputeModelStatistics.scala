@@ -14,7 +14,7 @@ import com.microsoft.azure.synapse.ml.train.TrainRegressorTestUtilities._
 import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 import org.apache.spark.ml.feature.FastVectorAssembler
-import org.apache.spark.ml.linalg.Vector
+import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.regression.GeneralizedLinearRegression
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql._
@@ -46,7 +46,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     val data = (1 to 100).map { rank =>
       val label = if (rank == 1 || rank == 11) 1.0 else 0.0
       val prediction = if (rank <= 10) 1.0 else 0.0
-      val rawPrediction = (101 - rank).toDouble
+      val rawPrediction = Vectors.dense(0.0, (101 - rank).toDouble)
       (label, prediction, rawPrediction)
     }.toDF("label", SchemaConstants.SparkPredictionColumn, SchemaConstants.SparkRawPredictionColumn)
     val modelName = SchemaConstants.ScoreModelPrefix + "_ranked binary"
@@ -115,31 +115,65 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
   }
 
   test("all and classification metrics append binary metrics in runtime output order") {
+    val binaryDataset = CategoricalUtilities.setLevels(
+      rankedBinaryDataset,
+      "label",
+      Array(0.0, 1.0))
     val expectedColumns = List(MetricConstants.EvaluationType, MetricConstants.ConfusionMatrix) ++
       MetricConstants.BinaryClassificationColumns
     Seq(MetricConstants.AllSparkMetrics, MetricConstants.ClassificationMetricsName).foreach { metric =>
-      val result = rankedBinaryStatistics(metric).transform(rankedBinaryDataset)
+      val evaluator = rankedBinaryStatistics(metric)
+      val result = evaluator.transform(binaryDataset)
       val row = result.first()
+      val transformedSchema = evaluator.transformSchema(binaryDataset.schema)
 
       assert(result.columns.toList === expectedColumns)
+      assert(transformedSchema ===
+        StructType(MetricConstants.BinaryClassificationColumns.map(StructField(_, DoubleType))))
       assert(math.abs(row.getAs[Double](MetricConstants.AucColumnName) - 187.0 / 196.0) < 1e-8)
       assert(math.abs(row.getAs[Double](MetricConstants.AreaUnderPRColumnName) - 251.0 / 440.0) < 1e-8)
     }
   }
 
   test("multiclass classification schema retains the legacy common metrics") {
-    val multiclass = spark.createDataFrame(Seq(
+    val multiclassData = spark.createDataFrame(Seq(
       (0.0, 0.0),
       (1.0, 1.0),
       (2.0, 2.0))).toDF("label", "prediction")
-    val schema = new ComputeModelStatistics()
-      .setLabelCol("label")
-      .setEvaluationMetric(MetricConstants.ClassificationMetricsName)
-      .transformSchema(multiclass.schema)
+    val modelName = SchemaConstants.ScoreModelPrefix + "_multiclass"
+    val withLabel = SparkSchema.setLabelColumnName(
+      multiclassData, modelName, "label", SchemaConstants.ClassificationKind)
+    val withPrediction = SparkSchema.updateColumnMetadata(
+      withLabel, modelName, "prediction", SchemaConstants.ClassificationKind)
+    val multiclass = CategoricalUtilities.setLevels(
+      withPrediction,
+      "label",
+      Array(0.0, 1.0, 2.0))
+    val expectedRuntimeColumns =
+      List(MetricConstants.EvaluationType, MetricConstants.ConfusionMatrix) ++
+        MetricConstants.ClassificationColumns ++
+        List(MetricConstants.AverageAccuracy,
+          MetricConstants.MacroAveragedPrecision,
+          MetricConstants.MacroAveragedRecall)
 
-    assert(schema.fieldNames.toList === MetricConstants.ClassificationColumns)
-    assert(!schema.fieldNames.contains(MetricConstants.AucColumnName))
-    assert(!schema.fieldNames.contains(MetricConstants.AreaUnderPRColumnName))
+    Seq(MetricConstants.AllSparkMetrics, MetricConstants.ClassificationMetricsName).foreach { metric =>
+      val evaluator = new ComputeModelStatistics().setEvaluationMetric(metric)
+      val schema = evaluator.transformSchema(multiclass.schema)
+      val result = evaluator.transform(multiclass)
+
+      assert(schema.fieldNames.toList === MetricConstants.ClassificationColumns)
+      assert(!schema.fieldNames.contains(MetricConstants.AucColumnName))
+      assert(!schema.fieldNames.contains(MetricConstants.AreaUnderPRColumnName))
+      assert(result.columns.toList === expectedRuntimeColumns)
+    }
+  }
+
+  test("classification schema without cardinality metadata retains the legacy common metrics") {
+    Seq(MetricConstants.AllSparkMetrics, MetricConstants.ClassificationMetricsName).foreach { metric =>
+      val schema = rankedBinaryStatistics(metric).transformSchema(rankedBinaryDataset.schema)
+
+      assert(schema.fieldNames.toList === MetricConstants.ClassificationColumns)
+    }
   }
 
   test("transformSchema rejects binary-only metrics for multiclass MML categorical labels") {
@@ -332,7 +366,8 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     val _ = new ComputeModelStatistics().transform(scoredDataset)
 
     val evaluatedSchema = new ComputeModelStatistics().transformSchema(scoredDataset.schema)
-    assert(evaluatedSchema == StructType(MetricConstants.ClassificationColumns.map(StructField(_, DoubleType))))
+    assert(evaluatedSchema ==
+      StructType(MetricConstants.BinaryClassificationColumns.map(StructField(_, DoubleType))))
   }
 
   test("Verify computing statistics on generic spark ML estimators is supported") {
