@@ -239,7 +239,11 @@ private[exploratory] case class DistributionMetrics(numFeatures: Int,
     val averageObsRef = (col(obsFeatureProbCol) + col(refFeatureProbCol)) / 2d
     val entropyObsAvg = entropy(col(obsFeatureProbCol), Some(averageObsRef))
     val entropyRefAvg = entropy(col(refFeatureProbCol), Some(averageObsRef))
-    sqrt((entropyRefAvg + entropyObsAvg) / 2d)
+    // Keep KL divergence in natural-log units while normalizing only JS divergence to base 2.
+    val jsDivergenceBase2 = (entropyRefAvg + entropyObsAvg) / (2d * math.log(2d))
+    // Floating-point aggregation can make a theoretically non-negative divergence slightly negative.
+    val nonNegativeJsDivergence = when(jsDivergenceBase2 < 0d, lit(0d)).otherwise(jsDivergenceBase2)
+    sqrt(nonNegativeJsDivergence)
   }
 
   def infNormDistance: Column = max(absDiffObsRef)

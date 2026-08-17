@@ -7,3 +7,6 @@
 # PR #2507 introduced tests modified by PR #2635 but absent from Spark 4.1.
 # Remove this scoped prerequisite once every validated release branch contains these tests.
 6938c472175ed1592ec24e7d8c65d9174f17c4e5	core/src/test/scala/com/microsoft/azure/synapse/ml/automl/VerifyEvaluationUtils.scala	core/src/test/scala/com/microsoft/azure/synapse/ml/core/metrics/VerifyMetricConstants.scala
+# PR #2635 changed ComputeModelStatistics and its tests before this metadata fix.
+# Remove this prerequisite once every validated release branch contains that backport.
+f7a1dc50d09d400d279d08bf69a1fac322896748
