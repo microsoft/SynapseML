@@ -23,7 +23,12 @@ param(
     [Parameter(Mandatory)]
     [int[]]$PullRequest,
 
-    [string]$Repo = "microsoft/SynapseML"
+    [string]$Repo = "microsoft/SynapseML",
+
+    # Logins whose reviews count as automated coverage of the head commit. Matched
+    # exactly, with an optional "[bot]" suffix, so a human account that merely
+    # contains one of these words is never mistaken for the reviewer.
+    [string[]]$AutomatedReviewer = @("copilot-pull-request-reviewer", "github-copilot", "copilot")
 )
 
 $ErrorActionPreference = "Stop"
@@ -38,6 +43,13 @@ if ($repoParts.Count -ne 2 -or -not $repoParts[0] -or -not $repoParts[1]) {
 }
 $owner = $repoParts[0]
 $name = $repoParts[1]
+
+$automatedLogins = @($AutomatedReviewer |
+    Where-Object { $_ } |
+    ForEach-Object { ($_ -replace '\[bot\]$', '').ToLowerInvariant() })
+if (-not $automatedLogins) {
+    throw "AutomatedReviewer must contain at least one login."
+}
 
 $threadQuery = @'
 query($owner: String!, $name: String!, $number: Int!, $cursor: String) {
@@ -189,7 +201,8 @@ $results = @(foreach ($number in $PullRequest) {
     })
 
     $automatedReviews = @($reviewPage.nodes | Where-Object {
-        $_.author.login -and $_.author.login -imatch 'copilot'
+        $_.author.login -and
+        ($automatedLogins -contains ($_.author.login -replace '\[bot\]$', '').ToLowerInvariant())
     })
     $latestAutomated = $automatedReviews |
         Where-Object { $_.submittedAt } |
@@ -227,6 +240,7 @@ $results = @(foreach ($number in $PullRequest) {
             threadsWithUnreadComments = $truncatedThreadComments
             latestAutomatedReviewCommit = $latestAutomated.commit.oid
             latestAutomatedReviewAt = $latestAutomated.submittedAt
+            latestAutomatedReviewAuthor = $latestAutomated.author.login
             automatedReviewCoversHead = $automatedReviewCoversHead
             complete = ($truncatedThreadComments.Count -eq 0 -and $automatedReviewCoversHead)
         }
