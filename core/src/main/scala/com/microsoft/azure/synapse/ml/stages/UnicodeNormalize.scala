@@ -32,8 +32,9 @@ class UnicodeNormalize(val uid: String) extends Transformer
 
   /** @group setParam */
   def setForm(value: String): this.type = {
-    // check input value
-    Normalizer.Form.valueOf(getForm)
+    // Validate the incoming value, not the value already set. Validating getForm let an invalid
+    // form be stored and only surface later, inside the UDF on the executors.
+    Normalizer.Form.valueOf(value)
 
     set("form", value)
   }

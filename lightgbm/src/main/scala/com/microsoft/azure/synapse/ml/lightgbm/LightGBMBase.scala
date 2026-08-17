@@ -199,7 +199,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
 
   private def getSlotNamesWithMetadata(featuresSchema: StructField): Option[Array[String]] = {
     if (getSlotNames.nonEmpty) {
-      Some(getSlotNames)
+      Some(ensureUniqueFeatureNames(getSlotNames))
     } else {
       AttributeGroup.fromStructField(featuresSchema).attributes.flatMap(attributes =>
         if (attributes.isEmpty) {
@@ -208,28 +208,82 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
           val colNames = attributes.indices.map(_.toString).toArray
           attributes.foreach(attr =>
             attr.index.foreach(index => colNames(index) = attr.name.getOrElse(index.toString)))
-          Some(colNames)
+          // Ensure unique feature names to avoid LightGBM error:
+          // "Feature (Column_) appears more than one time"
+          // This can occur in Spark 3.5+ due to changes in AttributeGroup metadata handling
+          Some(ensureUniqueFeatureNames(colNames))
         }
       )
     }
   }
 
-  private def validateSlotNames(featuresSchema: StructField): Unit = {
-    val metadata = AttributeGroup.fromStructField(featuresSchema)
-    if (metadata.attributes.isDefined) {
-      val slotNamesOpt = getSlotNamesWithMetadata(featuresSchema)
-      val pattern = new Regex("[\",:\\[\\]{}]")
-      slotNamesOpt.foreach(slotNames => {
-        val badSlotNames = slotNames.flatMap(slotName =>
-          if (pattern.findFirstIn(slotName).isEmpty) None else Option(slotName))
-        if (!badSlotNames.isEmpty) {
-          throw new IllegalArgumentException(
-            s"Invalid slot names detected in features column: ${badSlotNames.mkString(",")}" +
-            " \n Special characters \" , : \\ [ ] { } will cause unexpected behavior in LGBM unless changed." +
-            " This error can be fixed by renaming the problematic columns prior to vector assembly.")
-        }
-      })
+  /**
+    * Maps a feature name to the form LightGBM compares internally. LightGBM replaces every space
+    * with an underscore before checking for duplicates, so "a b" and "a_b" are the same feature
+    * as far as the native library is concerned even though they differ in Scala.
+    */
+  private def normalizeFeatureName(name: String): String = name.replace(' ', '_')
+
+  /**
+    * Ensures all feature names are unique by appending a numeric suffix to repeated names.
+    * LightGBM rejects a Dataset whose feature names repeat, failing the native
+    * LGBM_DatasetSetFeatureNames call with "Feature (X) appears more than one time", and Spark
+    * can surface repeated names through AttributeGroup metadata on the features column.
+    *
+    * Uniqueness is decided on the normalized form (see normalizeFeatureName), because that is
+    * what LightGBM compares. The original names are what get emitted, so this only affects which
+    * names are considered to collide.
+    *
+    * Every original name is reserved up front, so a generated name can never collide with an
+    * original that appears later in the array. Generated names are reserved as they are handed
+    * out, so they cannot collide with each other either. Order is preserved, which matters
+    * because feature names are positional in LightGBM.
+    *
+    * @param names The array of feature names that may contain duplicates.
+    * @return An array of unique feature names, in the original order.
+    */
+  private def ensureUniqueFeatureNames(names: Array[String]): Array[String] = {
+    val reserved = scala.collection.mutable.HashSet[String](names.map(normalizeFeatureName): _*)
+    val emitted = scala.collection.mutable.HashSet[String]()
+    val renamed = scala.collection.mutable.ArrayBuffer[String]()
+
+    val uniqueNames = names.map { name =>
+      if (emitted.add(normalizeFeatureName(name))) {
+        name
+      } else {
+        // Terminates because only finitely many names are reserved.
+        val uniqueName = Iterator.from(1)
+          .map(suffix => s"${name}_$suffix")
+          .find(candidate => !reserved.contains(normalizeFeatureName(candidate)))
+          .get
+        reserved.add(normalizeFeatureName(uniqueName))
+        emitted.add(normalizeFeatureName(uniqueName))
+        renamed += name
+        uniqueName
+      }
     }
+
+    if (renamed.nonEmpty) {
+      log.warn(s"Duplicate feature names detected and renamed: ${renamed.distinct.mkString(", ")}. " +
+        "Set the 'slotNames' parameter explicitly to control feature naming.")
+    }
+
+    uniqueNames
+  }
+
+  private def validateSlotNames(featuresSchema: StructField): Unit = {
+    val slotNamesOpt = getSlotNamesWithMetadata(featuresSchema)
+    val pattern = new Regex("[\",:\\[\\]{}]")
+    slotNamesOpt.foreach(slotNames => {
+      val badSlotNames = slotNames.flatMap(slotName =>
+        if (pattern.findFirstIn(slotName).isEmpty) None else Option(slotName))
+      if (!badSlotNames.isEmpty) {
+        throw new IllegalArgumentException(
+          s"Invalid slot names detected in features column: ${badSlotNames.mkString(",")}" +
+          " \n Special characters \" , : [ ] { } will cause unexpected behavior in LGBM unless changed." +
+          " This error can be fixed by renaming the problematic columns prior to vector assembly.")
+      }
+    })
   }
 
   /**
@@ -320,6 +374,28 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
                     getMaxStreamingOMPThreads)
   }
 
+  /** Adds an explicitly requested accelerator to the native parameter string.
+    *
+    * The default CPU path returns the caller's pass-through arguments unchanged. This keeps the
+    * existing CPU parameter string and ExecutionParams API intact. LightGBM also accepts "device"
+    * as an alias for "device_type", so either spelling in passThroughArgs takes precedence.
+    */
+  protected def getEffectivePassThroughArgs: Option[String] = {
+    val configuredArgs = get(passThroughArgs)
+    if (getDeviceType == LightGBMConstants.CPUDeviceType ||
+        configuredArgs.exists(LightGBMUtils.hasDeviceParameter)) {
+      configuredArgs
+    } else {
+      val deviceArg = s"device_type=$getDeviceType"
+      configuredArgs.filter(_.trim.nonEmpty).map(args => s"$args $deviceArg").orElse(Some(deviceArg))
+    }
+  }
+
+  protected def getEffectiveDeviceType: String = {
+    getEffectivePassThroughArgs.flatMap(LightGBMUtils.effectiveDeviceType)
+      .getOrElse(getDeviceType)
+  }
+
   /**
     * Constructs the ColumnParams.
     *
@@ -372,8 +448,11 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
   }
 
   protected def getDatasetCreationParams(categoricalIndexes: Array[Int], numThreads: Int): String = {
+    val effectiveDeviceType = getEffectiveDeviceType
     new ParamsStringBuilder(prefix = "", delimiter = "=")
       .appendParamValueIfNotThere("is_pre_partition", Option("True"))
+      .appendParamValueIfNotThere("device_type",
+        if (effectiveDeviceType == LightGBMConstants.CPUDeviceType) None else Option(effectiveDeviceType))
       .appendParamValueIfNotThere("max_bin", Option(getMaxBin))
       .appendParamValueIfNotThere("bin_construct_sample_cnt", Option(getBinSampleCount))
       .appendParamValueIfNotThere("min_data_in_leaf", Option(getMinDataInLeaf))
@@ -399,6 +478,12 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
 
     val numTasksPerExecutor = ClusterUtil.getNumTasksPerExecutor(dataset.sparkSession, log)
     val numTasks = determineNumTasks(dataset, getNumTasks, numTasksPerExecutor)
+    if (getEffectiveDeviceType == LightGBMConstants.CUDADeviceType) {
+      throw new IllegalArgumentException(
+        "deviceType=cuda is not supported by SynapseML's LightGBM 3.3.510 integration. " +
+          "The upstream CUDA objective dereferences missing CUDA metadata for SynapseML streaming Datasets and " +
+          "can crash the Spark executor. Use deviceType=gpu with an OpenCL-enabled custom native library.")
+    }
     val sc = dataset.sparkSession.sparkContext
 
     val df = prepareDataframe(dataset, numTasks)
@@ -414,6 +499,10 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     val (numCols, numInitScoreClasses) = calculateColumnStatistics(preprocessedDF, measures)
 
     val featuresSchema = dataset.schema(getFeaturesCol)
+    // Validate before any native LightGBM call that consumes feature names (e.g. reference
+    // Dataset creation below), so an invalid name surfaces as an actionable error naming the
+    // offending columns rather than an opaque native failure.
+    validateSlotNames(featuresSchema)
     val generalTrainParams: BaseTrainParams = getTrainParams(numTasks, featuresSchema, numTasksPerExecutor)
     val trainParams = addCustomTrainParams(generalTrainParams, dataset)
     log.info(s"LightGBM batch $batchIndex of $batchCount, parameters: ${trainParams.toString()}")
@@ -422,7 +511,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     val (serializedReferenceDataset: Option[Array[Byte]], partitionCounts: Option[Array[Long]]) =
       if (isStreamingMode) {
         val (referenceDataset, partitionCounts) =
-          calculateRowStatistics(trainingData, trainParams, numCols, measures)
+          calculateRowStatistics(trainingData, trainParams, numCols, featuresSchema, measures)
 
         // Save the reference Dataset so it's available to client and other batches
         if (getReferenceDataset.isEmpty) {
@@ -432,7 +521,6 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
         (Some(referenceDataset), Some(partitionCounts))
       } else (None, None)
 
-    validateSlotNames(featuresSchema)
     executeTraining(preprocessedDF,
                     validationData,
                     serializedReferenceDataset,
@@ -503,12 +591,14 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     * @param dataframe The dataset to train on.
     * @param trainingParams The training parameters.
     * @param numCols The number of feature columns.
+    * @param featuresSchema The schema of the features column.
     * @param measures Instrumentation measures.
     * @return The serialized Dataset reference and an array of partition counts.
     */
   private def calculateRowStatistics(dataframe: DataFrame,
                                      trainingParams: BaseTrainParams,
                                      numCols: Int,
+                                     featuresSchema: StructField,
                                      measures: InstrumentationMeasures): (Array[Byte], Array[Long]) = {
     measures.markRowStatisticsStart()
 
@@ -522,6 +612,9 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     val datasetParams = getDatasetCreationParams(
       trainingParams.generalParams.categoricalFeatures,
       trainingParams.executionParams.numThreads)
+
+    // Get feature names to set on the reference dataset (ensures unique names for Spark 3.5+)
+    val featureNames = getSlotNamesWithMetadata(featuresSchema)
 
     // Either get a reference dataset (as bytes) from params, or calculate it
     val precalculatedDataset = getReferenceDataset
@@ -541,6 +634,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
         totalNumRows,
         numCols,
         collectedSampleData,
+        featureNames,
         measures,
         log)
     }
@@ -595,10 +689,17 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
                                  networkManager)
 
     // Execute the Tasks on workers
-    val lightGBMBooster = executePartitionTasks(ctx, dataframe, measures)
+    val lightGBMBooster = try {
+      val booster = executePartitionTasks(ctx, dataframe, measures)
 
-    // Wait for network to complete (should be done by now)
-    networkManager.waitForNetworkCommunicationsDone()
+      // Wait for network to complete (should be done by now)
+      networkManager.waitForNetworkCommunicationsDone()
+      booster
+    } finally {
+      // If training failed, the network thread may still be blocked accepting connections that will
+      // never arrive. Closing the driver sockets releases it and the port for the next attempt.
+      networkManager.closeConnections()
+    }
     measures.markTrainingStop()
     val model = getModel(trainParams, lightGBMBooster)
     measures.markExecutionEnd()

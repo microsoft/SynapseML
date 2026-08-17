@@ -21,3 +21,4 @@ steps:
     retryCountOnTaskFailure: 1
     displayName: Upload Coverage Report To Codecov.io
     condition: succeededOrFailed()
+    continueOnError: true

@@ -121,7 +121,8 @@ case class DistributionMetricsCalculator(refFeatureProbabilities: Array[Double],
     val averageObsRef = (obsFeatureProbabilities, refFeatureProbabilities).zipped.map((a, b) => (a + b) / 2d).toArray
     val entropyRefAvg = entropy(refFeatureProbabilities, Some(averageObsRef))
     val entropyObsAvg = entropy(obsFeatureProbabilities, Some(averageObsRef))
-    sqrt((entropyRefAvg + entropyObsAvg) / 2d)
+    val jsDivergenceBase2 = (entropyRefAvg + entropyObsAvg) / (2d * log(2d))
+    sqrt(math.max(0d, jsDivergenceBase2))
   }
   val infNormDistance: Double = absDiffObsRef.max
   val totalVariationDistance: Double = 0.5d * absDiffObsRef.sum

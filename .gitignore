@@ -103,7 +103,5 @@ mlflow-save-model-0/
 
 # Agent
 .agent/
-.agents/
-AGENTS.md
 .anvil/
 .hypothesis/

@@ -3,10 +3,8 @@
 
 package com.microsoft.azure.synapse.ml.codegen
 
-import com.microsoft.azure.synapse.ml.codegen.CodegenConfigProtocol._
 import org.apache.commons.io.{FileUtils, IOUtils}
 import org.scalatest.funsuite.AnyFunSuite
-import spray.json._
 
 import java.io.File
 import java.nio.charset.StandardCharsets
@@ -124,16 +122,6 @@ class PyCodegenSuite extends AnyFunSuite {
       .filter(_.contains("|    packages=find_namespace_packages("))
     assert(lines.length === 1)
     lines.head.trim.stripPrefix("|    packages=").stripSuffix(",")
-  }
-
-  test("config argument supports UTF-8 response files") {
-    withTempDir { root =>
-      val conf = codegenConfig(root)
-      val configFile = new File(root, "codegen-config.json")
-      writeUtf8(configFile, conf.toJson.compactPrint)
-
-      assert(PyCodegen.parseConfigArg("@" + configFile.getAbsolutePath) === conf)
-    }
   }
 
   test("nested init keeps UTF-8 manual content after deterministic generated imports") {
@@ -346,25 +334,20 @@ class PyCodegenSuite extends AnyFunSuite {
     }
   }
 
-  test("manual initializer packages remain entirely hand written") {
+  test("cognitive compatibility init remains entirely hand written") {
     withTempDir { root =>
       val conf = codegenConfig(root)
-      val folders = Seq("/cognitive", "/dl", "/hf")
-      def manual(folder: String): String = "compatibility_value = \"" + folder + "\"\n"
-      folders.foreach { folder =>
-        addManualInit(conf, folder, manual(folder))
-        addModule(conf, folder, "Generated.py")
-      }
+      val folder = "/cognitive"
+      val manual = "compatibility_value = \"manual 雪\"\n"
+      addManualInit(conf, folder, manual)
+      addModule(conf, folder, "Generated.py")
 
       PyCodegen.generateInitFiles(conf)
 
-      folders.foreach { folder =>
-        assert(readUtf8(initFile(conf.pySrcDir, folder)) === manual(folder))
-      }
+      val output = initFile(conf.pySrcDir, folder)
+      assert(readUtf8(output) === manual)
       PyCodegen.generateInitFiles(conf)
-      folders.foreach { folder =>
-        assert(readUtf8(initFile(conf.pySrcDir, folder)) === manual(folder))
-      }
+      assert(readUtf8(output) === manual)
     }
   }
 

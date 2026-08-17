@@ -5,15 +5,20 @@ The possible metrics are:
 
 Binary Classifiers:
 
-- "AreaUnderROC"
+- "areaUnderROC" (reported in the "AUC" column)
 - "AUC"
+- "areaUnderPR"
 - "accuracy"
+- "precision"
 - "recall"
+- "classification"
 - "all"
 
-Regression Classifiers:
+Regression Models:
 
 - "mse"
 - "rmse"
 - "r2"
+- "mae"
+- "regression"
 - "all"

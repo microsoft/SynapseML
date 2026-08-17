@@ -5,7 +5,6 @@ package org.apache.spark.ml
 
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import org.apache.hadoop.fs.Path
-import org.apache.spark.SparkContext
 import org.apache.spark.ml.param.{ParamPair, Params}
 import org.apache.spark.ml.util.DefaultParamsReader.Metadata
 import org.apache.spark.ml.util._
@@ -37,7 +36,7 @@ private[ml] class ComplexParamsWriter(instance: Params) extends MLWriter {
   override protected def saveImpl(path: String): Unit = {
     val complexParamLocs = ComplexParamsWriter.getComplexParamLocations(instance, path)
     val complexParamJson = ComplexParamsWriter.getComplexMetadata(complexParamLocs)
-    ComplexParamsWriter.saveMetadata(instance, path, sc, complexParamJson)
+    ComplexParamsWriter.saveMetadata(instance, path, sparkSession, complexParamJson)
     ComplexParamsWriter.saveComplexParams(path, complexParamLocs, shouldOverwrite)
   }
 }
@@ -90,12 +89,12 @@ private[ml] object ComplexParamsWriter {
     */
   def saveMetadata(instance: Params,
                    path: String,
-                   sc: SparkContext,
+                   spark: SparkSession,
                    extraMetadata: Option[JObject] = None,
                    paramMap: Option[JValue] = None): Unit = {
     val metadataPath = new Path(path, "metadata").toString
-    val metadataJson = getMetadataToSave(instance, sc, extraMetadata, paramMap)
-    sc.parallelize(Seq(metadataJson), 1).saveAsTextFile(metadataPath)
+    val metadataJson = getMetadataToSave(instance, spark, extraMetadata, paramMap)
+    spark.createDataFrame(Seq(Tuple1(metadataJson))).toDF("value").write.text(metadataPath)
   }
 
   /** Helper for [[saveMetadata()]] which extracts the JSON to save.
@@ -104,7 +103,7 @@ private[ml] object ComplexParamsWriter {
     * @see [[saveMetadata()]] for details on what this includes.
     */
   def getMetadataToSave(instance: Params,
-                        sc: SparkContext,
+                        spark: SparkSession,
                         extraMetadata: Option[JObject] = None,
                         paramMap: Option[JValue] = None): String = {
     val uid = instance.uid
@@ -121,7 +120,7 @@ private[ml] object ComplexParamsWriter {
     }.toList)
     val basicMetadata = ("class" -> cls) ~
       ("timestamp" -> System.currentTimeMillis()) ~
-      ("sparkVersion" -> sc.version) ~
+      ("sparkVersion" -> spark.version) ~
       ("uid" -> uid) ~
       ("paramMap" -> jsonParams) ~
       ("defaultParamMap" -> jsonDefaultParams)
@@ -147,7 +146,15 @@ private[ml] object ComplexParamsWriter {
 private[ml] class ComplexParamsReader[T] extends MLReader[T] {
 
   override def load(path: String): T = {
-    val metadata = DefaultParamsReader.loadMetadata(path, sc)
+    // Mirrors Spark 4.0's DefaultParamsReader.loadMetadata(path, spark, expectedClassName),
+    // which reads the metadata through the session rather than SparkContext.textFile. Spark 3.5
+    // only offers the SparkContext overload, so inline the same three lines here: otherwise
+    // loading a model still needs a SparkContext and remains unusable on Databricks Unity
+    // Catalog shared access mode and Spark Connect, which is the whole point of the writer
+    // change above.
+    val metadataPath = new Path(path, "metadata").toString
+    val metadataStr = sparkSession.read.text(metadataPath).first().getString(0)
+    val metadata = DefaultParamsReader.parseMetadata(metadataStr)
     val cls = Utils.classForName(metadata.className)
     val instance =
       cls.getConstructor(classOf[String]).newInstance(metadata.uid).asInstanceOf[Params]

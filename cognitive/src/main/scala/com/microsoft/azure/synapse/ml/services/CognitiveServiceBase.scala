@@ -99,9 +99,18 @@ trait HasServiceParams extends Params {
     emptyParamData(row, p)
   }
 
+  // Spark returns mutable collections (e.g. mutable.ArraySeq) for array and map columns. Under
+  // Scala 2.13 the unqualified Seq and Map aliases denote the immutable variants, so letting a
+  // mutable value reach a call site typed as Seq or Map fails the checkcast at runtime.
+  private def asImmutableCollection(value: Any): Any = value match {
+    case s: scala.collection.Seq[_] if !s.isInstanceOf[scala.collection.immutable.Seq[_]] => s.toIndexedSeq
+    case m: scala.collection.Map[_, _] if !m.isInstanceOf[scala.collection.immutable.Map[_, _]] => m.toMap
+    case other => other
+  }
+
   protected def getValueOpt[T](row: Row, p: ServiceParam[T]): Option[T] = {
     get(p).orElse(getDefault(p)).flatMap {
-      case Right(colName) => Option(row.getAs[T](colName))
+      case Right(colName) => Option(row.getAs[Any](colName)).map(asImmutableCollection(_).asInstanceOf[T])
       case Left(value) => Some(value)
     }
   }

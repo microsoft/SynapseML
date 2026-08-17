@@ -37,6 +37,8 @@ dependencies:
     - twine
     - mlflow==2.21.3
     - protobuf>=4.25
+    # Intentionally unpinned: master pins numpy==1.26.4, which has no Python 3.13 wheels.
+    # Do not adopt master's pin when syncing.
     - numpy
     # CPU-only wheels avoid unused CUDA downloads in local/CI; DBR GPU notebooks use runtime-provided CUDA.
     - "https://download.pytorch.org/whl/cpu/torch-2.9.1%2Bcpu-cp313-cp313-manylinux_2_28_x86_64.whl#sha256=39b3dff6d8fba240ae0d1bede4ca11c2531ae3b47329206512d99e17907ff74b"

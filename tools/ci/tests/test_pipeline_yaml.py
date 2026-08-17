@@ -6,13 +6,17 @@ bootstrap inputs, and the duplicated inline retry blocks were replaced by the
 shared helper. Run with: ``python -m pytest tools/ci/tests/test_pipeline_yaml.py``.
 """
 
+import os
+import re
+import shutil
+import subprocess
+import uuid
 from pathlib import Path
 
+import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
-BUILD_SBT = REPO_ROOT / "build.sbt"
-PLUGINS_SBT = REPO_ROOT / "project" / "plugins.sbt"
 PIPELINE = REPO_ROOT / "pipeline.yaml"
 SBT_CACHE_TPL = REPO_ROOT / "templates" / "sbt_cache.yml"
 SBT_RETRY = REPO_ROOT / "tools" / "ci" / "sbt_retry.sh"
@@ -21,6 +25,12 @@ DATABRICKS_IMPACT = REPO_ROOT / "tools" / "ci" / "databricks_impact.py"
 DATABRICKS_STEPS_TPL = REPO_ROOT / "templates" / "databricks_e2e_steps.yml"
 CLEAN_ACR_PIPELINE = REPO_ROOT / ".pipelines" / "clean-acr.yml"
 PR_VALIDATION = REPO_ROOT / ".github" / "workflows" / "pr-validation.yml"
+BUILD_SBT = REPO_ROOT / "build.sbt"
+PLUGINS_SBT = REPO_ROOT / "project" / "plugins.sbt"
+RELEASE_COMPAT_PREREQUISITES = (
+    REPO_ROOT / ".pipelines" / "release-compat-prerequisites.txt"
+)
+ASCII_WHITESPACE = " \t\r\n\v\f"
 
 
 def _pipeline_text():
@@ -36,6 +46,67 @@ def _jobs(node):
     elif isinstance(node, list):
         for value in node:
             yield from _jobs(value)
+
+
+def _release_compat_script():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+    steps = jobs["ReleaseBranchCompat"]["steps"]
+    return next(
+        step["bash"]
+        for step in steps
+        if isinstance(step, dict)
+        and step.get("displayName") == "Apply PR changes onto $(RELEASE_BRANCH)"
+    )
+
+
+def _git(repo, *args):
+    result = subprocess.run(
+        ["git", "-C", str(repo), *args],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, (
+        f"git {' '.join(args)} failed\nstdout:\n{result.stdout}\nstderr:\n"
+        f"{result.stderr}"
+    )
+    return result
+
+
+def _init_release_compat_scratch_repo(repo):
+    subprocess.run(
+        ["git", "init", "--initial-branch=master", str(repo)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    for key, value in (
+        ("user.name", "Release Compat Test"),
+        ("user.email", "release-compat@example.test"),
+        ("core.autocrlf", "false"),
+        ("core.hooksPath", ".git/hooks-disabled"),
+        ("commit.gpgsign", "false"),
+        ("merge.autostash", "false"),
+        ("rebase.autostash", "false"),
+    ):
+        _git(repo, "config", key, value)
+
+
+def _assert_git_clean(repo, context):
+    status = _git(repo, "status", "--short").stdout.strip()
+    assert not status, f"{context} left scratch repo dirty:\n{status}"
+
+
+def _is_normalized_prerequisite_path(path):
+    return (
+        bool(path)
+        and path == path.strip(ASCII_WHITESPACE)
+        and not any(character in path for character in "\t\r\n")
+        and not path.startswith("/")
+        and not path.endswith("/")
+        and all(part not in {"", ".", ".."} for part in path.split("/"))
+    )
 
 
 def test_pipeline_and_templates_parse():
@@ -271,9 +342,17 @@ def test_spark41_isolation_forest_excludes_spark_runtime_dependencies():
         assert exclusion in dependency
 
 
+def _pr_validation_branches():
+    """Parse the pull_request branch filter. YAML 1.1 folds the bare key ``on``
+    to boolean True, so accept either spelling."""
+    data = yaml.safe_load(PR_VALIDATION.read_text())
+    triggers = data.get("on", data.get(True))
+    return triggers["pull_request"]["branches"]
+
+
 def test_github_pr_validation_supports_spark41():
     workflow = PR_VALIDATION.read_text()
-    assert 'branches: [ "master", "spark4.1" ]' in workflow
+    assert "spark4.1" in _pr_validation_branches()
     assert 'python-version: "3.13"' in workflow
     assert "Set up JDK 17" in workflow
     assert "java-version: 17" in workflow
@@ -338,12 +417,83 @@ def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
     assert "Skipping deletion already absent on $(RELEASE_BRANCH)" in rebase_script
     assert "[ ${#REPLAY_PATHS[@]} -eq 0 ]" in rebase_script
     assert '"${REPLAY_PATHS[@]}" > "$PATCH_PATH"' in rebase_script
+    assert 'PREREQUISITES_CONFIG=".pipelines/release-compat-prerequisites.txt"' in (
+        rebase_script
+    )
+    assert 'git show "$PR_MERGE_HEAD:$PREREQUISITES_CONFIG"' in rebase_script
+    assert '[[ ! "$PREREQUISITE" =~ ^[0-9a-fA-F]{40}$ ]]' in rebase_script
+    assert "LINE_WITHOUT_CR=\"${RAW_LINE%$'\\r'}\"" in rebase_script
+    assert r"""[[ "$SCOPED_LINE" == *$'\t'* ]]""" in rebase_script
+    assert r"""[[ "$RAW_LINE" == *$'\t'* ]]""" not in rebase_script
+    assert "PREREQUISITE=\"${SCOPED_LINE%%$'\\t'*}\"" in rebase_script
+    assert "PREREQUISITE_SCOPE=\"${SCOPED_LINE#*$'\\t'}\"" in rebase_script
+    assert "CONFIGURED_PREREQUISITE_SCOPES=()" in rebase_script
+    assert (
+        'git merge-base --is-ancestor "$PREREQUISITE" "$TARGET_HEAD"' in rebase_script
+    )
+    assert 'case "/$path/" in' in rebase_script
+    assert (
+        "Scoped prerequisite path must not have leading or trailing whitespace: $path"
+        in rebase_script
+    )
+    assert "Scoped prerequisite path must be normalized: $path" in rebase_script
+    assert 'for REPLAY_PATH in "${REPLAY_PATHS[@]}"' in rebase_script
+    assert '[ "$path" = "$REPLAY_PATH" ]' in rebase_script
+    assert 'PREREQUISITE_PATHS+=("$path")' in rebase_script
+    assert "has no paths in this PR replay; skipping" in rebase_script
+    assert rebase_script.index('case "/$path/" in') < rebase_script.index(
+        'for REPLAY_PATH in "${REPLAY_PATHS[@]}"'
+    )
+    assert 'git diff --quiet "$PREREQUISITE_PARENT" "$PREREQUISITE" --' in rebase_script
+    assert 'git cat-file -e "$PREREQUISITE_PARENT:$path"' in rebase_script
+    assert 'git rev-parse "$PREREQUISITE:$path"' in rebase_script
+    assert 'BASELINE_COMMIT="$TARGET_HEAD"' in rebase_script
+    assert 'git rev-parse "$BASELINE_COMMIT:$path"' in rebase_script
+    assert '[ "$PREREQUISITE_BLOB" != "$BASELINE_BLOB" ]' in rebase_script
+    assert '":(literal)$path"' in rebase_script
+    assert '"${PREREQUISITE_PATHSPECS[@]}"' in rebase_script
+    assert "eval " not in rebase_script
+    assert 'git rev-parse "$PREREQUISITE^1"' in rebase_script
+    guarded_dependent_parent = (
+        'if ! LATER_PARENT=$(git rev-parse "$LATER_PREREQUISITE^1" '
+        "2>/dev/null); then"
+    )
+    assert rebase_script.count(guarded_dependent_parent) == 2
+    assert (
+        rebase_script.count(
+            "Dependent release compatibility prerequisite "
+            "$LATER_PREREQUISITE has no first parent"
+        )
+        == 2
+    )
+    assert (
+        'git diff --name-only -z "$PREREQUISITE_PARENT" "$PREREQUISITE"'
+        in rebase_script
+    )
+    release_exclusions = (
+        ".github/*|.pipelines/*|docs/*|templates/*|tools/acr/*|tools/ci/*|"
+        "tools/docker/*|tools/helm/*|website/*"
+    )
+    assert rebase_script.count(release_exclusions) == 2
+    assert (
+        'git diff --binary --full-index "$PREREQUISITE_PARENT" "$PREREQUISITE"'
+        in rebase_script
+    )
     assert "git checkout --detach $RELEASE_TIP" in rebase_script
+    assert "git reset --hard $RELEASE_TIP" in rebase_script
+    assert 'git apply --reverse --check --index "$PREREQUISITE_PATCH"' in rebase_script
+    assert 'git apply --3way --index "$PREREQUISITE_PATCH"' in rebase_script
     assert 'git apply --3way --index "$PATCH_PATH"' in rebase_script
+    assert rebase_script.index(
+        'git show "$PR_MERGE_HEAD:$PREREQUISITES_CONFIG"'
+    ) < rebase_script.index("git checkout --detach $RELEASE_TIP")
+    assert rebase_script.index(
+        'git apply --3way --index "$PREREQUISITE_PATCH"'
+    ) < rebase_script.index('git apply --3way --index "$PATCH_PATH"')
     assert "git rebase" not in rebase_script
     assert "CONFLICTING_FILES=$(git diff --name-only --diff-filter=U" in rebase_script
     assert "before conflict detection" in rebase_script
-    assert rebase_script.count("printf '%s\\n' \"$APPLY_OUTPUT\"") == 2
+    assert rebase_script.count("printf '%s\\n' \"$APPLY_OUTPUT\"") == 4
 
     cache_step = next(
         step
@@ -384,6 +534,677 @@ def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
     ]
     assert len(result_steps) == 1
     assert "releaseCompatRequired" in result_steps[0]["condition"]
+
+
+def test_release_compat_prerequisites_have_valid_format():
+    lines = [
+        line
+        for line in RELEASE_COMPAT_PREREQUISITES.read_text().splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    # The list is meant to drain to empty once every validated release branch carries the
+    # backports, and the replay script already treats an absent or empty list as a no-op.
+    entries = [line.split("\t") for line in lines]
+    assert all(re.fullmatch(r"[0-9a-fA-F]{40}", fields[0]) for fields in entries)
+    assert all(all(fields[1:]) for fields in entries)
+    for _, *paths in entries:
+        assert all(_is_normalized_prerequisite_path(path) for path in paths)
+    shas = [fields[0] for fields in entries]
+    assert len(shas) == len(set(shas)), "prerequisite commits must be unique"
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "src/file.txt",
+        "src/file with spaces.txt",
+        "src/with  repeated internal spaces.txt",
+        ".pipelines/release-compat-prerequisites.txt",
+        "src/.hidden/file",
+        "src/.../file",
+    ],
+)
+def test_release_compat_prerequisite_path_normalization_accepts_valid_paths(path):
+    assert _is_normalized_prerequisite_path(path)
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        "",
+        ".",
+        "./src/file",
+        "/src/file",
+        "src/../file",
+        "src/..",
+        "src/./file",
+        "src/.",
+        "src//file",
+        "src/file/",
+        " src/file",
+        "src/file ",
+        "\tsrc/file",
+        "src/file\t",
+        "\rsrc/file",
+        "src/file\r",
+        "\nsrc/file",
+        "src/file\n",
+    ],
+)
+def test_release_compat_prerequisite_path_normalization_rejects_invalid_paths(path):
+    assert not _is_normalized_prerequisite_path(path)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="release replay script requires Bash")
+def test_release_compat_replays_prerequisite_before_pr_patch():
+    scratch_root = REPO_ROOT / "target" / f"release-compat-replay-{uuid.uuid4().hex}"
+    repo = scratch_root / "repo"
+    origin = scratch_root / "origin.git"
+    agent_temp = scratch_root / "agent"
+
+    try:
+        repo.mkdir(parents=True)
+        agent_temp.mkdir()
+        _init_release_compat_scratch_repo(repo)
+
+        source_file = repo / "src" / "value.txt"
+        source_file.parent.mkdir()
+        source_file.write_text("base\n")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "base")
+        base = _git(repo, "rev-parse", "HEAD").stdout.strip()
+        _git(repo, "branch", "release", base)
+
+        source_file.write_text("aad\n")
+        _git(repo, "commit", "-am", "prerequisite")
+        prerequisite = _git(repo, "rev-parse", "HEAD").stdout.strip()
+
+        _git(repo, "checkout", "-b", "source")
+        prerequisite_config = repo / ".pipelines" / "release-compat-prerequisites.txt"
+        prerequisite_config.parent.mkdir()
+        prerequisite_config.write_text(f"# prerequisite\n{prerequisite}\n")
+        source_file.write_text("aad\nsearch\n")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "feature")
+
+        _git(repo, "checkout", "master")
+        _assert_git_clean(repo, "checkout before synthetic PR merge")
+        _git(repo, "merge", "--no-ff", "source", "-m", "merge feature")
+
+        subprocess.run(
+            ["git", "init", "--bare", str(origin)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _git(repo, "remote", "add", "origin", str(origin))
+        _git(repo, "push", "origin", "master", "source", "release")
+
+        script = _release_compat_script()
+        script = script.replace("$(Agent.TempDirectory)", str(agent_temp))
+        script = script.replace("$(RELEASE_BRANCH)", "release")
+        result = subprocess.run(
+            ["bash", "-c", script],
+            cwd=repo,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        assert (
+            result.returncode == 0
+        ), f"release replay failed\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+        assert source_file.read_text() == "aad\nsearch\n"
+        assert _git(repo, "diff", "--cached", "--name-only").stdout.splitlines() == [
+            "src/value.txt"
+        ]
+        assert f"Prerequisite {prerequisite} applies cleanly" in result.stdout
+        assert "PR changes apply cleanly onto release" in result.stdout
+    finally:
+        shutil.rmtree(scratch_root, ignore_errors=True)
+
+
+def _run_release_compat_with_scoped_config(scope):
+    scratch_root = (
+        REPO_ROOT / "target" / f"release-compat-invalid-path-{uuid.uuid4().hex}"
+    )
+    repo = scratch_root / "repo"
+    origin = scratch_root / "origin.git"
+    agent_temp = scratch_root / "agent"
+
+    try:
+        repo.mkdir(parents=True)
+        agent_temp.mkdir()
+        _init_release_compat_scratch_repo(repo)
+
+        pr_file = repo / "src" / "pr.txt"
+        pr_file.parent.mkdir()
+        pr_file.write_text("release base\n")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "base")
+        base = _git(repo, "rev-parse", "HEAD").stdout.strip()
+        _git(repo, "branch", "release", base)
+
+        _git(repo, "commit", "--allow-empty", "-m", "prerequisite marker")
+        prerequisite = _git(repo, "rev-parse", "HEAD").stdout.strip()
+
+        _git(repo, "checkout", "-b", "source")
+        prerequisite_config = repo / ".pipelines" / "release-compat-prerequisites.txt"
+        prerequisite_config.parent.mkdir()
+        prerequisite_config.write_bytes(f"{prerequisite}\t{scope}".encode())
+        pr_file.write_text("pull request change\n")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "feature with invalid prerequisite path")
+
+        target = _git(repo, "rev-parse", "master").stdout.strip()
+        source = _git(repo, "rev-parse", "source").stdout.strip()
+        source_tree = _git(repo, "rev-parse", f"{source}^{{tree}}").stdout.strip()
+        merge_commit = _git(
+            repo,
+            "commit-tree",
+            source_tree,
+            "-p",
+            target,
+            "-p",
+            source,
+            "-m",
+            "merge feature",
+        ).stdout.strip()
+        _git(repo, "checkout", "--detach", merge_commit)
+        _assert_git_clean(repo, "synthetic PR merge checkout")
+
+        subprocess.run(
+            ["git", "init", "--bare", str(origin)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _git(repo, "remote", "add", "origin", str(origin))
+        _git(repo, "push", "origin", "master", "source", "release")
+
+        script = _release_compat_script()
+        script = script.replace("$(Agent.TempDirectory)", str(agent_temp))
+        script = script.replace("$(RELEASE_BRANCH)", "release")
+        result = subprocess.run(
+            ["bash", "-c", script],
+            cwd=repo,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        return result
+    finally:
+        shutil.rmtree(scratch_root, ignore_errors=True)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="release replay script requires Bash")
+@pytest.mark.parametrize(
+    "invalid_path",
+    [
+        "src/./scoped.txt",
+        "src//scoped.txt",
+        "src/scoped.txt/",
+        "src/scoped.txt/.",
+    ],
+    ids=["dot-segment", "repeated-slash", "trailing-slash", "terminal-dot"],
+)
+def test_release_compat_rejects_non_normalized_scoped_paths(invalid_path):
+    result = _run_release_compat_with_scoped_config(f"{invalid_path}\n")
+
+    assert result.returncode != 0
+    assert (
+        f"Scoped prerequisite path must be normalized: {invalid_path}" in result.stdout
+    )
+
+
+@pytest.mark.skipif(os.name != "posix", reason="release replay script requires Bash")
+@pytest.mark.parametrize(
+    ("scope", "expected_error"),
+    [
+        (
+            " src/scoped.txt\n",
+            "Scoped prerequisite path must not have leading or trailing whitespace",
+        ),
+        (
+            "src/scoped.txt \n",
+            "Scoped prerequisite path must not have leading or trailing whitespace",
+        ),
+        (
+            "src/scoped.txt \r\n",
+            "Scoped prerequisite path must not have leading or trailing whitespace",
+        ),
+        (
+            "src/scoped.txt \tsrc/other.txt\r\n",
+            "Scoped prerequisite path must not have leading or trailing whitespace",
+        ),
+        (
+            "src/scoped.txt\t src/other.txt\r\n",
+            "Scoped prerequisite path must not have leading or trailing whitespace",
+        ),
+        ("\tsrc/scoped.txt\r\n", "contains an empty path"),
+        ("src/scoped.txt\t\r\n", "contains an empty path"),
+    ],
+    ids=[
+        "leading-space",
+        "trailing-space",
+        "trailing-space-crlf",
+        "first-path-trailing-space",
+        "second-path-leading-space",
+        "leading-tab",
+        "trailing-tab-crlf",
+    ],
+)
+def test_release_compat_rejects_scoped_path_field_whitespace(scope, expected_error):
+    result = _run_release_compat_with_scoped_config(scope)
+
+    assert result.returncode != 0
+    assert expected_error in result.stdout
+
+
+@pytest.mark.skipif(os.name != "posix", reason="release replay script requires Bash")
+@pytest.mark.parametrize(
+    ("config_prefix", "scoped_path", "config_suffix"),
+    [
+        ("", "src/scoped.txt", "\n"),
+        ("", "src/scoped.txt", "\r\n"),
+        ("  ", "src/scoped.txt", "\r\n"),
+        ("", "src/scoped file.txt", "\n"),
+    ],
+    ids=["normalized", "crlf", "leading-sha-whitespace", "internal-space"],
+)
+def test_release_compat_replays_scoped_missing_file_prerequisite_full_overlap(
+    config_prefix, scoped_path, config_suffix
+):
+    scratch_root = REPO_ROOT / "target" / f"release-compat-scoped-{uuid.uuid4().hex}"
+    repo = scratch_root / "repo"
+    origin = scratch_root / "origin.git"
+    agent_temp = scratch_root / "agent"
+
+    try:
+        repo.mkdir(parents=True)
+        agent_temp.mkdir()
+        _init_release_compat_scratch_repo(repo)
+
+        base_file = repo / "base.txt"
+        base_file.write_text("release base\n")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "base")
+        base = _git(repo, "rev-parse", "HEAD").stdout.strip()
+        _git(repo, "branch", "release", base)
+
+        scoped_file = repo / scoped_path
+        unrelated_file = repo / "src" / "unrelated.txt"
+        scoped_file.parent.mkdir()
+        scoped_file.write_text("target baseline\n")
+        unrelated_file.write_text("must not be replayed\n")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "prerequisite adds target files")
+        prerequisite = _git(repo, "rev-parse", "HEAD").stdout.strip()
+
+        _git(repo, "checkout", "-b", "source")
+        prerequisite_config = repo / ".pipelines" / "release-compat-prerequisites.txt"
+        prerequisite_config.parent.mkdir()
+        prerequisite_config.write_bytes(
+            (f"{config_prefix}{prerequisite}\t{scoped_path}{config_suffix}").encode()
+        )
+        scoped_file.write_text("pull request change\n")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "feature modifies scoped file")
+
+        _git(repo, "checkout", "master")
+        _assert_git_clean(repo, "checkout before synthetic PR merge")
+        _git(repo, "merge", "--no-ff", "source", "-m", "merge feature")
+
+        subprocess.run(
+            ["git", "init", "--bare", str(origin)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _git(repo, "remote", "add", "origin", str(origin))
+        _git(repo, "push", "origin", "master", "source", "release")
+
+        script = _release_compat_script()
+        script = script.replace("$(Agent.TempDirectory)", str(agent_temp))
+        script = script.replace("$(RELEASE_BRANCH)", "release")
+        result = subprocess.run(
+            ["bash", "-c", script],
+            cwd=repo,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0, (
+            f"scoped release replay failed\nstdout:\n{result.stdout}\n"
+            f"stderr:\n{result.stderr}"
+        )
+        assert scoped_file.read_text() == "pull request change\n"
+        assert not unrelated_file.exists()
+        assert _git(repo, "diff", "--cached", "--name-only").stdout.splitlines() == [
+            scoped_path
+        ]
+        assert f"Prerequisite {prerequisite} applies cleanly" in result.stdout
+        assert "PR changes apply cleanly onto release" in result.stdout
+    finally:
+        shutil.rmtree(scratch_root, ignore_errors=True)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="release replay script requires Bash")
+def test_release_compat_skips_scoped_prerequisite_for_unrelated_pr_path():
+    scratch_root = REPO_ROOT / "target" / f"release-compat-unrelated-{uuid.uuid4().hex}"
+    repo = scratch_root / "repo"
+    origin = scratch_root / "origin.git"
+    agent_temp = scratch_root / "agent"
+
+    try:
+        repo.mkdir(parents=True)
+        agent_temp.mkdir()
+        _init_release_compat_scratch_repo(repo)
+
+        pr_file = repo / "src" / "pr.txt"
+        pr_file.parent.mkdir()
+        pr_file.write_text("release base\n")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "base")
+        base = _git(repo, "rev-parse", "HEAD").stdout.strip()
+        _git(repo, "branch", "release", base)
+
+        scoped_file = repo / "src" / "scoped.txt"
+        _git(repo, "commit", "--allow-empty", "-m", "prerequisite marker")
+        prerequisite = _git(repo, "rev-parse", "HEAD").stdout.strip()
+
+        _git(repo, "checkout", "-b", "source")
+        prerequisite_config = repo / ".pipelines" / "release-compat-prerequisites.txt"
+        prerequisite_config.parent.mkdir()
+        prerequisite_config.write_text(f"{prerequisite}\tsrc/scoped.txt\n")
+        pr_file.write_text("pull request change\n")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "feature modifies unrelated file")
+
+        _git(repo, "checkout", "master")
+        _assert_git_clean(repo, "checkout before synthetic PR merge")
+        _git(repo, "merge", "--no-ff", "source", "-m", "merge feature")
+
+        subprocess.run(
+            ["git", "init", "--bare", str(origin)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _git(repo, "remote", "add", "origin", str(origin))
+        _git(repo, "push", "origin", "master", "source", "release")
+
+        script = _release_compat_script()
+        script = script.replace("$(Agent.TempDirectory)", str(agent_temp))
+        script = script.replace("$(RELEASE_BRANCH)", "release")
+        result = subprocess.run(
+            ["bash", "-c", script],
+            cwd=repo,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0, (
+            f"unrelated-path release replay failed\nstdout:\n{result.stdout}\n"
+            f"stderr:\n{result.stderr}"
+        )
+        assert pr_file.read_text() == "pull request change\n"
+        assert not scoped_file.exists()
+        assert _git(repo, "diff", "--cached", "--name-only").stdout.splitlines() == [
+            "src/pr.txt"
+        ]
+        assert (
+            f"Scoped prerequisite {prerequisite} has no paths in this PR replay; skipping"
+            in result.stdout
+        )
+        assert f"Prerequisite {prerequisite} applies cleanly" not in result.stdout
+        assert "PR changes apply cleanly onto release" in result.stdout
+    finally:
+        shutil.rmtree(scratch_root, ignore_errors=True)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="release replay script requires Bash")
+def test_release_compat_replays_scoped_baseline_for_later_prerequisite():
+    scratch_root = REPO_ROOT / "target" / f"release-compat-dependent-{uuid.uuid4().hex}"
+    repo = scratch_root / "repo"
+    origin = scratch_root / "origin.git"
+    agent_temp = scratch_root / "agent"
+
+    try:
+        repo.mkdir(parents=True)
+        agent_temp.mkdir()
+        _init_release_compat_scratch_repo(repo)
+
+        pr_file = repo / "src" / "pr.txt"
+        pr_file.parent.mkdir()
+        pr_file.write_text("release base\n")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "base")
+        base = _git(repo, "rev-parse", "HEAD").stdout.strip()
+        _git(repo, "branch", "release", base)
+
+        scoped_file = repo / "src" / "scoped.txt"
+        scoped_file.write_text("target baseline\n")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "add scoped baseline")
+        scoped_prerequisite = _git(repo, "rev-parse", "HEAD").stdout.strip()
+
+        scoped_file.write_text("dependent prerequisite\n")
+        _git(repo, "commit", "-am", "modify scoped baseline")
+        dependent_prerequisite = _git(repo, "rev-parse", "HEAD").stdout.strip()
+
+        _git(repo, "checkout", "-b", "source")
+        prerequisite_config = repo / ".pipelines" / "release-compat-prerequisites.txt"
+        prerequisite_config.parent.mkdir()
+        prerequisite_config.write_text(
+            f"{scoped_prerequisite}\tsrc/scoped.txt\n{dependent_prerequisite}\n"
+        )
+        pr_file.write_text("pull request change\n")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "feature modifies unrelated file")
+
+        _git(repo, "checkout", "master")
+        _assert_git_clean(repo, "checkout before synthetic PR merge")
+        _git(repo, "merge", "--no-ff", "source", "-m", "merge feature")
+
+        subprocess.run(
+            ["git", "init", "--bare", str(origin)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _git(repo, "remote", "add", "origin", str(origin))
+        _git(repo, "push", "origin", "master", "source", "release")
+
+        script = _release_compat_script()
+        script = script.replace("$(Agent.TempDirectory)", str(agent_temp))
+        script = script.replace("$(RELEASE_BRANCH)", "release")
+        result = subprocess.run(
+            ["bash", "-c", script],
+            cwd=repo,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0, (
+            f"dependent release replay failed\nstdout:\n{result.stdout}\n"
+            f"stderr:\n{result.stderr}"
+        )
+        assert pr_file.read_text() == "pull request change\n"
+        assert scoped_file.read_text() == "dependent prerequisite\n"
+        assert _git(repo, "diff", "--cached", "--name-only").stdout.splitlines() == [
+            "src/pr.txt",
+            "src/scoped.txt",
+        ]
+        assert (
+            f"Scoped prerequisite {scoped_prerequisite} path src/scoped.txt "
+            f"is required by later prerequisite {dependent_prerequisite}"
+            in result.stdout
+        )
+        assert "PR changes apply cleanly onto release" in result.stdout
+    finally:
+        shutil.rmtree(scratch_root, ignore_errors=True)
+
+
+@pytest.mark.parametrize("modify_scoped_path", [False, True])
+@pytest.mark.skipif(os.name != "posix", reason="release replay script requires Bash")
+def test_release_compat_reports_dependent_prerequisite_without_parent(
+    modify_scoped_path,
+):
+    scratch_root = (
+        REPO_ROOT
+        / "target"
+        / (f"release-compat-parent-{modify_scoped_path}-{uuid.uuid4().hex}")
+    )
+    repo = scratch_root / "repo"
+    origin = scratch_root / "origin.git"
+    agent_temp = scratch_root / "agent"
+
+    try:
+        repo.mkdir(parents=True)
+        agent_temp.mkdir()
+        _init_release_compat_scratch_repo(repo)
+
+        base_file = repo / "src" / "base.txt"
+        base_file.parent.mkdir()
+        base_file.write_text("release base\n")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "root base")
+        root_prerequisite = _git(repo, "rev-parse", "HEAD").stdout.strip()
+        _git(repo, "branch", "release", root_prerequisite)
+
+        scoped_file = repo / "src" / "scoped.txt"
+        scoped_file.write_text("scoped baseline\n")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "add scoped baseline")
+        scoped_prerequisite = _git(repo, "rev-parse", "HEAD").stdout.strip()
+
+        _git(repo, "checkout", "-b", "source")
+        prerequisite_config = repo / ".pipelines" / "release-compat-prerequisites.txt"
+        prerequisite_config.parent.mkdir()
+        prerequisite_config.write_text(
+            f"{scoped_prerequisite}\tsrc/scoped.txt\n{root_prerequisite}\n"
+        )
+        if modify_scoped_path:
+            scoped_file.write_text("pull request change\n")
+        else:
+            pr_file = repo / "src" / "pr.txt"
+            pr_file.write_text("pull request change\n")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "feature change")
+
+        _git(repo, "checkout", "master")
+        _assert_git_clean(repo, "checkout before synthetic PR merge")
+        _git(repo, "merge", "--no-ff", "source", "-m", "merge feature")
+
+        subprocess.run(
+            ["git", "init", "--bare", str(origin)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _git(repo, "remote", "add", "origin", str(origin))
+        _git(repo, "push", "origin", "master", "source", "release")
+
+        script = _release_compat_script()
+        script = script.replace("$(Agent.TempDirectory)", str(agent_temp))
+        script = script.replace("$(RELEASE_BRANCH)", "release")
+        result = subprocess.run(
+            ["bash", "-c", script],
+            cwd=repo,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 1
+        assert (
+            "##vso[task.logissue type=error]Dependent release compatibility "
+            f"prerequisite {root_prerequisite} has no first parent" in result.stdout
+        )
+        assert "fatal:" not in result.stderr
+    finally:
+        shutil.rmtree(scratch_root, ignore_errors=True)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="release replay script requires Bash")
+def test_release_compat_replays_only_partial_scoped_path_intersection():
+    scratch_root = REPO_ROOT / "target" / f"release-compat-partial-{uuid.uuid4().hex}"
+    repo = scratch_root / "repo"
+    origin = scratch_root / "origin.git"
+    agent_temp = scratch_root / "agent"
+
+    try:
+        repo.mkdir(parents=True)
+        agent_temp.mkdir()
+        _init_release_compat_scratch_repo(repo)
+
+        base_file = repo / "base.txt"
+        base_file.write_text("release base\n")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "base")
+        base = _git(repo, "rev-parse", "HEAD").stdout.strip()
+        _git(repo, "branch", "release", base)
+
+        intersecting_file = repo / "src" / "intersecting.txt"
+        nonintersecting_file = repo / "src" / "nonintersecting.txt"
+        intersecting_file.parent.mkdir()
+        intersecting_file.write_text("target baseline\n")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "prerequisite adds intersecting file")
+        prerequisite = _git(repo, "rev-parse", "HEAD").stdout.strip()
+
+        _git(repo, "checkout", "-b", "source")
+        prerequisite_config = repo / ".pipelines" / "release-compat-prerequisites.txt"
+        prerequisite_config.parent.mkdir()
+        prerequisite_config.write_text(
+            f"{prerequisite}\tsrc/intersecting.txt\tsrc/nonintersecting.txt\n"
+        )
+        intersecting_file.write_text("pull request change\n")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "feature modifies one scoped file")
+
+        _git(repo, "checkout", "master")
+        _assert_git_clean(repo, "checkout before synthetic PR merge")
+        _git(repo, "merge", "--no-ff", "source", "-m", "merge feature")
+
+        subprocess.run(
+            ["git", "init", "--bare", str(origin)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _git(repo, "remote", "add", "origin", str(origin))
+        _git(repo, "push", "origin", "master", "source", "release")
+
+        script = _release_compat_script()
+        script = script.replace("$(Agent.TempDirectory)", str(agent_temp))
+        script = script.replace("$(RELEASE_BRANCH)", "release")
+        result = subprocess.run(
+            ["bash", "-c", script],
+            cwd=repo,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0, (
+            f"partial scoped release replay failed\nstdout:\n{result.stdout}\n"
+            f"stderr:\n{result.stderr}"
+        )
+        assert intersecting_file.read_text() == "pull request change\n"
+        assert not nonintersecting_file.exists()
+        assert _git(repo, "diff", "--cached", "--name-only").stdout.splitlines() == [
+            "src/intersecting.txt"
+        ]
+        assert f"Prerequisite {prerequisite} applies cleanly" in result.stdout
+        assert "PR changes apply cleanly onto release" in result.stdout
+    finally:
+        shutil.rmtree(scratch_root, ignore_errors=True)
 
 
 def test_acr_cleanup_is_schedule_only_and_uses_dedicated_identity():

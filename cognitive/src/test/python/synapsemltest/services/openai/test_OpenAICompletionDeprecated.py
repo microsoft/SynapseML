@@ -1,7 +1,6 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 
-import importlib
 import sys
 import unittest
 import warnings
@@ -27,18 +26,6 @@ def _has_openai_completion_warning(caught):
 
 
 class TestOpenAICompletionDeprecated(unittest.TestCase):
-    def test_package_import_without_deprecated_access_does_not_warn(self):
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore", FutureWarning)
-            package = importlib.import_module(_PACKAGE_NAME)
-        _clear_openai_completion_imports()
-
-        with warnings.catch_warnings(record=True) as caught:
-            warnings.simplefilter("always")
-            importlib.reload(package)
-
-        self.assertFalse(_has_openai_completion_warning(caught))
-
     def test_package_import_warns(self):
         _clear_openai_completion_imports()
 

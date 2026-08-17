@@ -86,6 +86,15 @@ trait ONNXModelParams extends Params with HasMiniBatcher with HasFeedFetchDicts 
 
   def setDeviceType(value: String): this.type = set(deviceType, value)
 
+  /**
+    * Returns the configured deviceType normalized to upper-case ("CPU"/"CUDA"), if set. The deviceType
+    * Param validator accepts any case (validated via `x.toUpperCase()`), so all internal deviceType
+    * comparisons (GPU auto-detection, explicit-CUDA fail-fast) must read this normalized accessor
+    * instead of the raw Param value -- otherwise a validator-accepted but differently-cased value like
+    * "cuda" or "Cuda" would silently bypass CUDA handling entirely.
+    */
+  def getNormalizedDeviceType: Option[String] = get(deviceType).map(_.toUpperCase)
+
   val optimizationLevel: Param[String] = new Param[String](
     this,
     "optimizationLevel",
@@ -237,7 +246,8 @@ class ONNXModel(override val uid: String)
     val batchedDF = getMiniBatcher.transform(dataset)
     val (coerced, feedDict) = coerceBatchedDf(batchedDF)
     val modelBc = broadcastedModelPayload.getOrElse(rebroadcastModelPayload(dataset.sparkSession))
-    val (fetchDicts, devType, optLevel) = (getFetchDict, get(deviceType), OptLevel.valueOf(getOptimizationLevel))
+    val (fetchDicts, devType, optLevel) =
+      (getFetchDict, getNormalizedDeviceType, OptLevel.valueOf(getOptimizationLevel))
 
     val outputDf = coerced.mapPartitions {
       rows =>
@@ -246,7 +256,8 @@ class ONNXModel(override val uid: String)
         val gpuDeviceId = selectGpuDevice(devType)
         val env = OrtEnvironment.getEnvironment
         logInfo(s"Task:$taskId;DeviceType=$devType;DeviceId=$gpuDeviceId;OptimizationLevel=$optLevel")
-        val session = createOrtSession(payload, env, optLevel, gpuDeviceId)
+        val session = createOrtSession(
+          payload, env, optLevel, gpuDeviceId, explicitCudaRequested = devType.contains("CUDA"))
         applyModel(session, env, feedDict, fetchDicts, inputSchema)(rows)
     }
 

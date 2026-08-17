@@ -3,9 +3,10 @@
 
 package com.microsoft.azure.synapse.ml.onnx
 
+import ai.onnxruntime.OrtEnvironment
 import breeze.linalg.{argmax, argtopk}
 import com.microsoft.azure.synapse.ml.build.BuildInfo
-import com.microsoft.azure.synapse.ml.core.env.FileUtilities
+import com.microsoft.azure.synapse.ml.core.env.{FileUtilities, StreamUtilities}
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._
@@ -16,7 +17,7 @@ import org.apache.spark.SparkException
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.linalg.{DenseVector, Vector, Vectors}
-import org.apache.spark.ml.param.Param
+import org.apache.spark.ml.param.{Param, ParamMap}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
@@ -50,8 +51,9 @@ class ONNXModelSuite extends TestBase
   private implicit val eqFloat: Equality[Float] = TolerantNumerics.tolerantFloatEquality(1E-5f)
   private implicit val eqMap: Equality[Map[Long, Float]] = mapEq[Long, Float]
   private implicit val eqSeqDouble: Equality[Seq[Double]] = (a: Seq[Double], b: Any) => {
-    b match {
-      case sd: Seq[Double] => a.zip(sd).forall(x => x._1 === x._2)
+    // Using @unchecked because Seq[Double] type parameter is erased at runtime
+    (b: @unchecked) match {
+      case sd: Seq[Double @unchecked] => a.zip(sd).forall(x => x._1 === x._2)
       case _ => false
     }
   }
@@ -125,6 +127,160 @@ class ONNXModelSuite extends TestBase
       onnxIris.transform(testDfIrisEmptyDimension).collect()
     }
     assert(caught.getMessage.contains("IllegalArgumentException"))
+  }
+
+  // Minimal dotted-version comparator (e.g. "1.17.3" vs "1.16.3"). Avoids hard-coding an exact ONNX
+  // Runtime version so the GH2417 regression check keeps passing across future confirmed upgrades.
+  private def versionAtLeast(actual: String, minimum: String): Boolean = {
+    def parts(v: String): Seq[Int] = v.split("\\.").map(_.takeWhile(_.isDigit)).map(s => if (s.isEmpty) 0 else s.toInt)
+    val (a, m) = (parts(actual), parts(minimum))
+    Ordering.Iterable[Int].gteq(a.padTo(m.length, 0), m.padTo(a.length, 0))
+  }
+
+  test("ONNXModel loads upgraded runtime for local CPU inference (GH2417)") {
+    val runtimeVersion = StreamUtilities.using(OrtEnvironment.getEnvironment)(_.getVersion).get
+    // GH2417: ONNX Runtime 1.8.1 fails to load its natives for local Spark 3.5 inference (macOS/Linux/
+    // Windows). 1.16.3 was the smallest version confirmed to fix it; guard against ever regressing below it.
+    assert(versionAtLeast(runtimeVersion, "1.16.3"),
+      s"Expected ONNX Runtime >= 1.16.3 to keep GH2417 fixed, but found $runtimeVersion")
+
+    val predictions = onnxIris.copy(ParamMap.empty)
+      .setDeviceType("CPU")
+      .transform(testDfIrisFloat)
+      .select("prediction", "rawProbability")
+      .as[(Long, Map[Long, Float])]
+      .collect()
+
+    assert(predictions.map(_._1).toSet == Set(0L, 1L, 2L))
+    assert(predictions.forall(_._2.keySet == Set(0L, 1L, 2L)))
+  }
+
+  test("ONNXRuntime.createOrtSession falls back to CPU with a clear log when CUDA is unavailable and was " +
+    "not explicitly requested (GH2417)") {
+    // Auto-detection (deviceType left unset): the default packaged dependency is the CPU-only,
+    // cross-platform `onnxruntime` artifact (no CUDA execution provider). A "gpu" resource was found,
+    // but this wasn't an explicit ask for GPU, so ONNXRuntime.createOrtSession should log a clear,
+    // actionable error naming onnxruntime_gpu and gracefully continue on CPU rather than fail the task.
+    val env = OrtEnvironment.getEnvironment
+    val session = ONNXRuntime.createOrtSession(
+      onnxIris.getModelPayload, env, gpuDeviceId = Some(0), explicitCudaRequested = false)
+    try {
+      assert(!session.getInputInfo.isEmpty)
+    } finally {
+      session.close()
+    }
+  }
+
+  test("ONNXRuntime.createOrtSession fails fast before touching the provider when CUDA is explicitly " +
+    "requested but no Spark gpu resource was assigned (GH2417)") {
+    // gpuDeviceId=None here models a Spark task with no "gpu" resource assigned (the common case on a
+    // CPU-only cluster). Without this check, createOrtSession would never call addCUDA at all (there's
+    // no device id to add) and would silently hand back a working CPU session -- the same
+    // "silently broken GPU" failure mode this dependency change must not reintroduce.
+    val env = OrtEnvironment.getEnvironment
+    val caught = intercept[IllegalStateException] {
+      ONNXRuntime.createOrtSession(
+        onnxIris.getModelPayload, env, gpuDeviceId = None, explicitCudaRequested = true)
+    }
+    assert(caught.getMessage.contains("deviceType=CUDA was explicitly requested"))
+    assert(caught.getMessage.contains("no Spark \"gpu\" resource is assigned"))
+  }
+
+  test("ONNXRuntime.createOrtSession fails fast with an actionable error when CUDA is explicitly " +
+    "requested but the provider is unavailable (GH2417)") {
+    // deviceType=CUDA is an explicit request for GPU acceleration. Silently continuing on CPU would be
+    // a success-shaped result that hides a severe, hard-to-notice performance regression -- the same
+    // "silently broken GPU" failure mode this dependency change must not reintroduce. There is no
+    // opt-in parameter to request a graceful CPU fallback for an explicit CUDA request, so this must
+    // throw a clear, actionable error rather than swallow it and return CPU results.
+    val env = OrtEnvironment.getEnvironment
+    val caught = intercept[IllegalStateException] {
+      ONNXRuntime.createOrtSession(
+        onnxIris.getModelPayload, env, gpuDeviceId = Some(0), explicitCudaRequested = true)
+    }
+    assert(caught.getMessage.contains("deviceType=CUDA was explicitly requested"))
+    assert(caught.getMessage.contains("onnxruntime_gpu"))
+    assert(caught.getCause != null)
+  }
+
+  test("ONNXRuntime.createOrtSession closes SessionOptions without invalidating the returned session " +
+    "(GH2417)") {
+    // SessionOptions.close() runs (via the using(...) resource-cleanup pattern) right after
+    // ortEnv.createSession(...) returns. If that close happened too early -- or corrupted the session
+    // it had just been used to build -- the returned OrtSession would fail to actually run inference.
+    // Running real inference through it is the most direct observable proof the cleanup is correct.
+    val env = OrtEnvironment.getEnvironment
+    val session = ONNXRuntime.createOrtSession(onnxIris.getModelPayload, env, gpuDeviceId = None)
+    try {
+      val input = java.nio.FloatBuffer.wrap(Array(6.7f, 3.1f, 4.7f, 1.5f))
+      val tensor = ai.onnxruntime.OnnxTensor.createTensor(env, input, Array(1L, 4L))
+      try {
+        val result = session.run(java.util.Collections.singletonMap("float_input", tensor))
+        try {
+          assert(result.size() > 0)
+        } finally {
+          result.close()
+        }
+      } finally {
+        tensor.close()
+      }
+    } finally {
+      session.close()
+    }
+  }
+
+  test("ONNXRuntime.createOrtSession does not leak across repeated create/close cycles on any path " +
+    "(GH2417)") {
+    // Exercises all three createOrtSession outcomes (plain CPU, auto-fallback log-and-continue, and
+    // the explicit-CUDA fail-fast throw) repeatedly. SessionOptions is a local variable inside
+    // createOrtSession with no public isClosed() accessor to assert against directly (unlike OnnxValue
+    // in ORT 1.17+), so this loop is the practical, observable regression check available: if the
+    // using(...) refactor ever re-leaked SessionOptions, mishandled double-closing, or broke the
+    // fail-fast throw's cleanup ordering, repeated cycles are the most likely way to surface it.
+    val env = OrtEnvironment.getEnvironment
+    val payload = onnxIris.getModelPayload
+    for (_ <- 1 to 25) {
+      val cpuSession = ONNXRuntime.createOrtSession(payload, env, gpuDeviceId = None)
+      cpuSession.close()
+
+      val fallbackSession = ONNXRuntime.createOrtSession(
+        payload, env, gpuDeviceId = Some(0), explicitCudaRequested = false)
+      fallbackSession.close()
+
+      intercept[IllegalStateException] {
+        ONNXRuntime.createOrtSession(payload, env, gpuDeviceId = Some(0), explicitCudaRequested = true)
+      }
+    }
+  }
+
+  // End-to-end: local test Spark sessions never assign a "gpu" TaskContext resource, so any explicit
+  // CUDA request here must hit the new "no GPU resource assigned" fail-fast path in
+  // ONNXRuntime.createOrtSession, exercised through the public setDeviceType API and normalization.
+  private def assertExplicitCudaFailsFastEndToEnd(requestedDeviceType: String): Unit = {
+    val caught = intercept[SparkException] {
+      onnxIris.copy(ParamMap.empty)
+        .setDeviceType(requestedDeviceType)
+        .transform(testDfIrisFloat)
+        .collect()
+    }
+    assert(caught.getMessage.contains("IllegalStateException"))
+    assert(caught.getMessage.contains("deviceType=CUDA was explicitly requested"))
+    assert(caught.getMessage.contains("no Spark \"gpu\" resource is assigned"))
+  }
+
+  test("ONNXModel fails fast end-to-end when deviceType=CUDA is explicitly requested but no Spark gpu " +
+    "resource is assigned (GH2417)") {
+    assertExplicitCudaFailsFastEndToEnd("CUDA")
+  }
+
+  test("ONNXModel fails fast end-to-end for a lower-case deviceType=\"cuda\" request (GH2417)") {
+    // The deviceType Param validator accepts any case (`x.toUpperCase()`), so a differently-cased but
+    // still-valid value must not silently bypass CUDA handling and fall through to CPU.
+    assertExplicitCudaFailsFastEndToEnd("cuda")
+  }
+
+  test("ONNXModel fails fast end-to-end for a mixed-case deviceType=\"CuDa\" request (GH2417)") {
+    assertExplicitCudaFailsFastEndToEnd("CuDa")
   }
 
   test("ONNXModel can infer observations of matching input types") {
