@@ -1727,8 +1727,9 @@ jobs:
           # agrees; keeping these together is cheap defence in depth.
           sbt packagePython publishM2
           echo "=== published Internal versions in ~/.m2 ==="
-          # Glob the Scala suffix: this branch builds _2.13, and hardcoding _2.12
-          # made this diagnostic print nothing here - exactly on the branch where a
+          # Glob the Scala suffix so this diagnostic is correct on every branch:
+          # master builds _2.12 while the Spark 4 branches build _2.13, and the
+          # hardcoded _2.12 printed nothing there - exactly on the branches where a
           # version mismatch most needed to be visible.
           ls -d "$HOME"/.m2/repository/com/microsoft/azure/*-internal_*/*/ 2>/dev/null || true
       condition: succeededOrFailed()
