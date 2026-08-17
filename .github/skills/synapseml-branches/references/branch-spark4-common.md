@@ -9,12 +9,17 @@ snapshot of the live branches.** Both guides were written on the sync branches,
 so they describe the merged result. Until those PRs land, a live branch can lack
 things described here — at the time of writing, live `spark4.0` has no
 `OpenAIPromptPythonOverrides.scala`, no `test_http_package.py` /
-`test_package_exports.py`, no `new_ml_pipeline_stage` in generated R, and a
-different GPU pool. Verify every item against the live target branch with
-`git show <branch>:<path>` or `git grep <pattern> <branch>`; do not read it out
-of a local sync worktree, which is a PR result rather than branch state. That
-specific mistake produced several wrong claims in earlier revisions of this
-file.
+`test_package_exports.py`, no `new_ml_pipeline_stage` in generated R, and its
+own GPU pool (`DatabricksUtilities.scala` sets
+`GpuPoolName = "synapseml-build-17.3-gpu"` there, not master's
+`synapseml-build-14.3-gpu`). Verify every item against the live target branch
+with `git show <branch>:<path>` or `git grep <pattern> <branch>`; do not read it
+out of a local sync worktree, which is a PR result rather than branch state.
+That specific mistake produced several wrong claims in earlier revisions of this
+file, and an automated reviewer then made it against this very paragraph —
+reporting the GPU pool sentence as stale after reading the sync branch. Quote
+the file and value you checked, so the next reader can repeat the check instead
+of re-deriving it from whatever tree they happen to have open.
 
 ## Purpose and sync
 

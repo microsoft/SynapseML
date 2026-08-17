@@ -10,11 +10,19 @@ templatized version of the branch context from
   Scala 2.13.16, Java 17, Python 3.12, and Databricks 17.3; verify live files.
 - Check `spark4.1` before debugging from scratch because it is the more actively
   maintained descendant, then prove any candidate fix is not 4.1-specific.
-- Live state lags the #2646 description. The live branch currently has its own
-  GPU pool (`synapseml-build-17.3-gpu`) rather than the shared `14.3-gpu` one,
-  and does not yet carry `OpenAIPromptPythonOverrides.scala`, the
-  `__init__.py` guard tests, or the `new_ml_pipeline_stage` R loading. #2646
-  brings all of those. Check the live branch before assuming any of them.
+- Live state lags the #2646 description. In `DatabricksUtilities.scala` the live
+  branch pairs its own GPU pool with a matching runtime --
+  `GpuPoolName = "synapseml-build-17.3-gpu"` with
+  `AdbGpuRuntime = "17.3.x-gpu-ml-scala2.13"`, resolved by `getPoolIdByName` --
+  and does not yet carry `OpenAIPromptPythonOverrides.scala`, the `__init__.py`
+  guard tests, or the `new_ml_pipeline_stage` R loading. #2646 brings those, and
+  also moves the GPU pool to master's shared `synapseml-build-14.3-gpu`
+  (resolved by `getPoolIdByNameAndNodeType`, which takes a node type and minimum
+  capacity) while keeping the 17.3 CPU pool and the 17.3.x GPU runtime. That
+  mixed pairing is not an oversight: `spark4.1` already runs master's
+  `14.3-gpu` pool against an `18.0.x-gpu-ml-scala2.13` runtime, so the pool name
+  identifies a warm node pool rather than a DBR version. Check the live branch
+  before assuming any of it.
 
 ## Core differences
 
