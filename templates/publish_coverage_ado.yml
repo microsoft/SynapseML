@@ -11,8 +11,10 @@ steps:
     displayName: 'Publish Code Coverage to Azure DevOps'
     inputs:
       # Cobertura XML, which Azure DevOps understands.
-      # sbt-scoverage writes it to target/scala-2.12/coverage-report/ (scoverage-report/
-      # only ever holds scoverage.xml and the HTML), so glob coverage-report explicitly.
+      # sbt-scoverage writes it to target/scala-<binary-version>/coverage-report/
+      # (scoverage-report/ only ever holds scoverage.xml and the HTML), so glob
+      # coverage-report explicitly. The glob is deliberately version-agnostic so
+      # this template is correct on every branch.
       summaryFileLocation: '**/coverage-report/cobertura.xml'
       pathToSources: '$(Build.SourcesDirectory)'
       # Fail loudly if the glob stops matching, rather than silently publishing nothing.
