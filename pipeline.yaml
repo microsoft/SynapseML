@@ -1540,6 +1540,50 @@ jobs:
         echo "=== Modified build.sbt ==="
         grep -n 'synapseMLVersion' build.sbt
         grep -n -A4 'resolvers ++=' build.sbt
+
+        # Commit the retarget so the working tree is clean again.
+        #
+        # Internal's version comes from sbt-dynver, which appends a live
+        # "-<yyyyMMdd>-<HHmm>" suffix whenever the tree is dirty and recomputes it
+        # from the wall clock on every sbt load. The two sed edits above are what
+        # make it dirty, so without this commit each sbt session in this job picks
+        # a different version. Observed on build 231488245:
+        #
+        #   11:32  'sbt packagePython publishM2' bakes ...-1132-SNAPSHOT into the
+        #          generated Python package and publishes that same jar to ~/.m2
+        #   11:36  'sbt testPythonExcludeAIFunc' re-runs CodeGen in a new session,
+        #          rebakes the package as ...-1136-SNAPSHOT and pip-installs it
+        #   11:37  pytest fixtures read the baked coordinate out of the installed
+        #          package and ask Ivy for ...-1136-SNAPSHOT, which nobody published
+        #
+        # Ivy fails the resolve, spark-submit dies before reporting a port, and
+        # pyspark surfaces only JAVA_GATEWAY_EXITED - so every test in the step
+        # errors at fixture setup with no indication of the real cause. Note that
+        # make_mlflow_models.py runs in between and *succeeds*: it resolves the
+        # 1132 jar correctly, because the rebake has not happened yet.
+        #
+        # Pinning only the packaging step could not fix this, because the version is
+        # recomputed by a later sbt session. Making the tree clean is what makes
+        # every session agree. The OSS side already demonstrates the end state: its
+        # checkout is never edited, so its version carries no timestamp at all
+        # (1.1.3-python3.13-102-bfba9c82-SNAPSHOT in that same build).
+        #
+        # Committing is enough on its own: 'git describe --dirty', which is what
+        # dynver reads, only considers modifications to tracked files, and sbt's
+        # build output lands in target/ which .gitignore already excludes. The
+        # commit is local to the agent's checkout and is never pushed.
+        git -c user.email=synapseml-ci@microsoft.com -c user.name='SynapseML CI' \
+          commit --quiet --no-verify -am "CI: retarget to OSS ${OSS_VERSION}"
+
+        # A dirty tree here would silently reintroduce the drift, so fail loudly
+        # rather than hand the next steps a version that changes under them.
+        if [ -n "$(git diff-index --name-only HEAD --)" ]; then
+          echo "##vso[task.logissue type=error]Internal tree still dirty after commit; dynver will append a wall-clock timestamp and the published and requested versions will diverge"
+          git diff-index --name-only HEAD --
+          exit 1
+        fi
+        echo "=== Internal version is now stable for the rest of the job ==="
+        git log --oneline -1
       displayName: 'Retarget Internal to this build'
     - task: AzureCLI@2
       displayName: 'Compile Internal against OSS'
@@ -1666,15 +1710,16 @@ jobs:
           export CREATE_SEMPY_WRITER=false
           export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
           echo "Packaging Internal Python against OSS $OSS_VERSION..."
-          # packagePython and publishM2 MUST share one sbt session. Internal's version
-          # embeds an HHmm timestamp, so separate invocations can differ by a minute:
-          # packagePython bakes the jar coordinate into the generated Python package,
-          # publishM2 then publishes a *different* version, and the Spark launch inside
-          # make_mlflow_models.py fails to resolve it - surfacing only as an opaque
-          # JAVA_GATEWAY_EXITED. Observed: packaged 1022, published 1023.
+          # packagePython and publishM2 share one sbt session so the version is
+          # computed once. The retarget step now commits its edits, so dynver no
+          # longer appends a wall-clock timestamp and every sbt session in this job
+          # agrees; keeping these together is cheap defence in depth.
           sbt packagePython publishM2
           echo "=== published Internal versions in ~/.m2 ==="
-          ls -d "$HOME"/.m2/repository/com/microsoft/azure/*-internal_2.12/*/ 2>/dev/null || true
+          # Glob the Scala suffix: this branch builds _2.13, and hardcoding _2.12
+          # made this diagnostic print nothing here - exactly on the branch where a
+          # version mismatch most needed to be visible.
+          ls -d "$HOME"/.m2/repository/com/microsoft/azure/*-internal_*/*/ 2>/dev/null || true
       condition: succeededOrFailed()
     # NOTE: 'Run Internal Python tests (AIFunc)' was intentionally removed. All four
     # AIFunc suites call live Azure OpenAI endpoints, so they measure service and
