@@ -15,6 +15,14 @@
     `suppressedReviewBodiesForHead` narrows suppressed feedback to that head.
     Poll until it is true rather than trusting a single clean snapshot.
 
+    A pull request that was never reviewed at all reports the same zero findings,
+    so `-RequestReview` asks for one as a fallback. Review is normally triggered
+    automatically, so the usual need is not to ask but to wait: `-WaitForReview`
+    blocks until the review of the current head arrives, instead of returning a
+    premature all-clear and leaving a human to notice the comments later.
+    Suppressed comments are reported too: they live inside the review body rather
+    than as review threads, so a thread query alone never surfaces them.
+
     It does not make the readiness decision; use the skill's evidence gates for
     that judgment. Output can contain review content; keep it local or redact it
     before sharing.
@@ -28,7 +36,28 @@ param(
     # Logins whose reviews count as automated coverage of the head commit. Matched
     # exactly, with an optional "[bot]" suffix, so a human account that merely
     # contains one of these words is never mistaken for the reviewer.
-    [string[]]$AutomatedReviewer = @("copilot-pull-request-reviewer", "github-copilot", "copilot")
+    [string[]]$AutomatedReviewer = @("copilot-pull-request-reviewer", "github-copilot", "copilot"),
+
+    # Block until the automated review of the current head arrives. Review is
+    # triggered automatically on push but lands afterwards, so a snapshot taken
+    # immediately reports zero findings for code nobody has reviewed yet. Waiting
+    # here keeps that from being mistaken for a clean result.
+    [switch]$WaitForReview,
+
+    [ValidateRange(1, 240)]
+    [int]$TimeoutMinutes = 20,
+
+    [ValidateRange(5, 600)]
+    [int]$PollSeconds = 60,
+
+    # Fallback only. Review is normally triggered automatically; use this when a
+    # pull request has somehow never been reviewed at all, which reports the same
+    # zero findings as a clean review.
+    [switch]$RequestReview,
+
+    # Handle used when requesting that review. This is the requestable handle, not
+    # the login the submitted review is attributed to.
+    [string]$ReviewerHandle = "Copilot"
 )
 
 $ErrorActionPreference = "Stop"
@@ -155,7 +184,9 @@ function Invoke-PagedQuery {
     [pscustomobject]@{ nodes = $nodes; pages = $pages }
 }
 
-$results = @(foreach ($number in $PullRequest) {
+function Get-PrSnapshot {
+    param([int]$number)
+
     $jsonFields = "number,title,state,isDraft,mergeable,mergeStateStatus,reviewDecision," +
         "headRefOid,baseRefName,statusCheckRollup,url"
     $viewText = & gh pr view $number --repo $Repo --json $jsonFields
@@ -220,6 +251,23 @@ $results = @(foreach ($number in $PullRequest) {
     $suppressedForHead = @($suppressed |
         Where-Object { $_.commit -eq $view.headRefOid })
 
+    $reviewRequested = $false
+    if ($RequestReview -and -not $automatedReviewCoversHead) {
+        # Requesting by handle through the REST endpoint is the only path that works.
+        # The GraphQL requestReviews mutation rejects the reviewer's Bot node id
+        # ("Could not resolve to User node"), and `gh pr edit --add-reviewer` cannot
+        # resolve the bot login at all. The reviewer also never shows up in
+        # requested_reviewers afterwards, so a successful request cannot be confirmed
+        # by reading that list back; confirm it by polling until
+        # automatedReviewCoversHead turns true.
+        gh api "repos/$owner/$name/pulls/$number/requested_reviewers" `
+            -X POST -f "reviewers[]=$ReviewerHandle" *> $null
+        $reviewRequested = ($LASTEXITCODE -eq 0)
+        if (-not $reviewRequested) {
+            Write-Warning "PR #${number}: could not request a review from '$ReviewerHandle'."
+        }
+    }
+
     [pscustomobject]@{
         number = $view.number
         title = $view.title
@@ -249,9 +297,36 @@ $results = @(foreach ($number in $PullRequest) {
             latestAutomatedReviewAt = if ($latestAutomated) { $latestAutomated.submittedAt } else { $null }
             latestAutomatedReviewAuthor = if ($latestAutomated) { $latestAutomated.author.login } else { $null }
             automatedReviewCoversHead = $automatedReviewCoversHead
+            automatedReviewRequested = $reviewRequested
             complete = ($truncatedThreadComments.Count -eq 0 -and $automatedReviewCoversHead)
         }
     }
+}
+
+$results = @(foreach ($number in $PullRequest) {
+    $snapshot = Get-PrSnapshot -number $number
+
+    # Automated review lands some time after a push, so a single snapshot taken
+    # straight after one reports zero findings for code that has not been looked
+    # at yet. Wait for the review of this exact head rather than leaving a human
+    # to notice that the comments arrived later.
+    if ($WaitForReview -and -not $snapshot.completeness.automatedReviewCoversHead) {
+        $deadline = (Get-Date).AddMinutes($TimeoutMinutes)
+        while ((Get-Date) -lt $deadline) {
+            Write-Verbose ("PR #{0}: waiting for automated review of {1}" -f
+                $number, $snapshot.headSha)
+            Start-Sleep -Seconds $PollSeconds
+            $snapshot = Get-PrSnapshot -number $number
+            if ($snapshot.completeness.automatedReviewCoversHead) { break }
+        }
+        if (-not $snapshot.completeness.automatedReviewCoversHead) {
+            Write-Warning ("PR #{0}: no automated review covered {1} within {2} minute(s). " +
+                "Findings for this head may still be pending; do not read this as clean." -f
+                $number, $snapshot.headSha, $TimeoutMinutes)
+        }
+    }
+
+    $snapshot
 })
 
 ConvertTo-Json -InputObject $results -Depth 12
