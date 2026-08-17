@@ -36,10 +36,12 @@ templatized version of the branch context from
 ## Runtime and CI
 
 - Fabric Runtime 2.0 supports Spark 4.1, so the old "unsupported runtime"
-  reason for disabling Fabric E2E is stale. The job is switched off with a bare
-  `condition: false` on the `FabricE2E` job in `pipeline.yaml`, so it is skipped
-  rather than reported. Re-enable only in a dedicated PR: restore
-  `condition: and(succeeded(), eq('${{ parameters.testFabricE2E }}', true))`,
+  reason for disabling Fabric E2E is stale. On this branch's `pipeline.yaml` the
+  job is switched off with a bare `condition: false`, so it is skipped rather
+  than reported -- do not check `master` to confirm that, because `master` has
+  the normal `and(succeeded(), eq('${{ parameters.testFabricE2E }}', true))` and
+  `spark4.0` a third form, `eq('${{ parameters.testFabricE2E }}', true)` with no
+  `succeeded()`. Re-enable only in a dedicated PR: restore `master`'s form,
   drop the stale comment, request Spark 4.1 in workspace creation, and validate
   with real Fabric capacity/service connection. The workspace-creation
   payload lives in the Fabric test package's `FabricOperations.scala`, which

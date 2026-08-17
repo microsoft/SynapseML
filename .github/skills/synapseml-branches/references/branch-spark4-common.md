@@ -242,8 +242,16 @@ This is why the Spark 4 branches had to audit them.
 | `vw/`, `services/openai/` | removed | Duplicated what codegen already emits, and redefined `__all__`, narrowing `import *` to a hand-maintained list. |
 | `recommendation/`, `dl/`, `hf/`, `cognitive/`, `mmlspark/` | kept | These add exports codegen does not emit. |
 
-Do not add new `__init__.py` files that re-list generated classes.
-`test_http_package.py` and `test_package_exports.py` guard this.
+Do not add new `__init__.py` files that re-list generated classes. On the Spark 4
+branches this is guarded by two tests,
+`core/src/test/python/synapsemltest/io/http/test_http_package.py` and
+`core/src/test/python/synapsemltest/recommendation/test_package_exports.py`. Note
+where they are and are not: both are on `spark4.1`, both reach `spark4.0` through
+[#2646](https://github.com/microsoft/SynapseML/pull/2646), and **neither is on
+`master`**, which carries `PythonInitMerger` without them. So a change to these
+files on `master` is unguarded, and the guards cannot be assumed from the merger's
+presence. Verify with
+`git ls-tree -r --name-only ms/<branch> | grep -E 'test_http_package|test_package_exports'`.
 
 ## Before merging a sync
 
