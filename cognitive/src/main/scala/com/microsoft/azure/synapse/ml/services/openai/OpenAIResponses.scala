@@ -322,15 +322,19 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
     }
   }
 
+  private def encodeResponseMessage(message: Row, messageIndex: Int): Map[String, Any] = {
+    if (message == null) {
+      throw new IllegalArgumentException(s"messages[$messageIndex] must be an object")
+    }
+    Map(
+      "role" -> validatedRole(message, messageIndex),
+      "content" -> encodedMessageContent(message, messageIndex)
+    )
+  }
+
   private def encodeResponsesMessages(messages: Seq[Row]): Seq[Map[String, Any]] = {
-    messages.zipWithIndex.map { case (row, messageIndex) =>
-      if (row == null) {
-        throw new IllegalArgumentException(s"messages[$messageIndex] must be an object")
-      }
-      Map(
-        "role" -> validatedRole(row, messageIndex),
-        "content" -> encodedMessageContent(row, messageIndex)
-      )
+    messages.zipWithIndex.map { case (message, messageIndex) =>
+      encodeResponseMessage(message, messageIndex)
     }
   }
 
@@ -507,7 +511,7 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
       if (message == null) {
         throw new IllegalArgumentException(s"messages[$messageIndex] must be an object")
       }
-      val encoded = encodeResponsesMessages(Seq(message)).head
+      val encoded = encodeResponseMessage(message, messageIndex)
       validateEncodedMessage(encoded, messageIndex)
     }
   }
