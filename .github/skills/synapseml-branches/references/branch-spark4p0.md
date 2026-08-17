@@ -19,7 +19,7 @@ templatized version of the branch context from
   plain Horovod `SparkBackend` rather than 4.1's Petastorm-compatible subclass.
   That gap is real rather than version-driven: the shim restores pyarrow APIs
   Petastorm still calls, and both branches pin the same pyarrow. See
-  branch-spark4-common.md.
+  [branch-spark4-common.md](branch-spark4-common.md).
 - `LongOffset` remains under `...execution.streaming`, not `.runtime`.
 - Spark 4.0 returns `bytearray` for Python `BinaryType`; it does not require the
   4.1 `np.frombuffer` workaround.
@@ -43,7 +43,8 @@ templatized version of the branch context from
 - A sub-minute GPU notebook failure occurs during dependency setup, before
   training. Use run timing and stderr rather than attributing it to the model.
 - Confirm target-branch automation actually queued rather than assuming the
-  comment was enough; see branch-spark4-common.md for how to tell a
+  comment was enough; see
+  [branch-spark4-common.md](branch-spark4-common.md) for how to tell a
   trigger-driven build from a hand-queued one.
 
 ## Do not port from `spark4.1`
