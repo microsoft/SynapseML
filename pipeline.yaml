@@ -1378,6 +1378,23 @@ jobs:
   dependsOn: BuildAndCacheSbt
   pool:
     vmImage: $(UBUNTU_VERSION)
+  # sbt on Java 17 needs java.util.prefs opened reflectively. Setting it here
+  # rather than on individual sbt commands covers every JVM the job starts,
+  # including templates/sbt_cache.yml's prewarm, the Internal test loop, and any
+  # JVM the tests fork -- per-command flags reach none of those. spark4.0's
+  # pipeline already uses JAVA_TOOL_OPTIONS this way for the same reason.
+  #
+  # Set unconditionally rather than only for Spark 4. `java.prefs` has existed
+  # since Java 9, so on master's Java 11 the option is genuinely applied rather
+  # than ignored -- it just opens a package nothing on that path reflects into,
+  # which is harmless. Setting it for every target keeps a branch conditional
+  # out of this file.
+  #
+  # The one place JVM stderr is parsed is the OSS version read below, and its
+  # grep is anchored to '^\[info\] ', which the "Picked up JAVA_TOOL_OPTIONS"
+  # line cannot match.
+  variables:
+    JAVA_TOOL_OPTIONS: '--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED'
   steps:
     # Explicit paths: a multi-repo job otherwise nests every repo under a folder
     # named after it, which moves the OSS root off $(Build.SourcesDirectory). That
@@ -1391,6 +1408,18 @@ jobs:
       # Required by 'Select matching SynapseML-Internal branch' below: without persisted
       # credentials the follow-up fetch cannot authenticate to this private repo.
       persistCredentials: true
+    # The JDK has to match the branch under test, and the branch already declares it:
+    # templates/java_setup.yml is this repo's per-branch JDK pin, carrying 11 here and
+    # 17 on spark4.0/spark4.1. Without it this job compiled both trees on the agent's
+    # default JDK and failed with "Class java.lang.Record not found" -- on the OSS tree
+    # for spark4.1 (build 231477746) and on the Internal tree for spark4.0 (build
+    # 231456784), a type that arrived in Java 16. That was a permanent red on those
+    # branches rather than a real compatibility signal.
+    #
+    # Including the template rather than mapping the target branch to a version here
+    # keeps this line identical on every branch, so the sync never has to reconcile it,
+    # and leaves exactly one place per branch that decides the JDK.
+    - template: templates/java_setup.yml
     # Internal mirrors this repo's branch names 1:1 (master, spark3.5, spark4.0, spark4.1),
     # so the OSS branch under test decides which Internal branch is the correct comparison
     # point: master pairs with Internal master (both Spark 3.5), spark4.1 with Internal
