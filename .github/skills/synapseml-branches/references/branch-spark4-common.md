@@ -61,14 +61,22 @@ of re-deriving it from whatever tree they happen to have open.
   MLflow pins carry different bounds, so check the pinned version's own metadata
   rather than assuming this one. Do not trust the inline comments: they disagree
   with each other and with the pins they sit next to.
-- Scala 2.13 collection boundaries must produce immutable `Seq` values; keep
-  the central `asImmutableCollection` conversion rather than per-service fixes.
-  The failure mode is why this matters: code that yields a `mutable.ArraySeq`
-  where an `immutable.Seq` is expected throws `ClassCastException` **at runtime,
-  not at compile time**, so a green compile proves nothing and the break surfaces
-  one or two layers away from its cause. `CognitiveServiceBase.getValueOpt`
-  converts once, centrally, using `toIndexedSeq` — chosen over `toList` because
-  it preserves O(1) indexing.
+- Scala 2.13 collection boundaries must produce immutable `Seq` values. The
+  failure mode is why this matters: code that yields a `mutable.ArraySeq` where
+  an `immutable.Seq` is expected throws `ClassCastException` **at runtime, not
+  at compile time**, so a green compile proves nothing and the break surfaces
+  one or two layers away from its cause. Prefer `toIndexedSeq` over `toList`
+  when converting, because it preserves O(1) indexing. Be careful what you
+  believe about *where* this is handled: the branch-local notes claimed
+  `CognitiveServiceBase.getValueOpt` converted centrally through a helper called
+  `asImmutableCollection`, and neither is true — `getValueOpt` returns the row
+  or default value with no conversion, and `asImmutableCollection` appears in no
+  branch, only in two abandoned commits (`745b342b48`, `6cab133efd`) that are
+  contained in no tip. Verify with
+  `git grep asImmutableCollection ms/master ms/spark4.0 ms/spark4.1`. If the
+  `ClassCastException` resurfaces, one conversion in `CognitiveServiceBase` is
+  the right shape of fix, but treat it as a change to make rather than one
+  already in place.
 - Preserve the Spark 4 adaptations. In `SAR.scala`/`SARModel.scala` the affinity
   pairs use a named `case class` with explicit struct fields because Spark 4
   rejects the old `Seq[Row]` UDF shape with `UnboundRowEncoder`, and the join
