@@ -46,7 +46,10 @@ class OpenAIResponsesMultimodalSuite extends TestBase {
     StructField("type", StringType, nullable = false),
     StructField("text", StringType, nullable = true),
     StructField("image_url", StringType, nullable = true),
-    StructField("detail", StringType, nullable = true)
+    StructField("detail", StringType, nullable = true),
+    StructField("file_id", StringType, nullable = true),
+    StructField("file_data", StringType, nullable = true),
+    StructField("filename", StringType, nullable = true)
   ))
 
   private val structuredMessageSchema = StructType(Seq(
@@ -87,10 +90,21 @@ class OpenAIResponsesMultimodalSuite extends TestBase {
       partType: String,
       text: Option[String] = None,
       imageUrl: Option[String] = None,
-      detail: Option[String] = None
+      detail: Option[String] = None,
+      fileId: Option[String] = None,
+      fileData: Option[String] = None,
+      filename: Option[String] = None
   ): Row =
     new GenericRowWithSchema(
-      Array[Any](partType, text.orNull, imageUrl.orNull, detail.orNull),
+      Array[Any](
+        partType,
+        text.orNull,
+        imageUrl.orNull,
+        detail.orNull,
+        fileId.orNull,
+        fileData.orNull,
+        filename.orNull
+      ),
       contentPartSchema
     )
 
@@ -114,7 +128,7 @@ class OpenAIResponsesMultimodalSuite extends TestBase {
     .setOutputCol("output")
     .setErrorCol("error")
 
-  test("getStringEntity preserves struct-backed input text and image parts") {
+  test("getStringEntity preserves struct-backed text, image, and file parts") {
     val entity = new OpenAIResponses().getStringEntity(
       Seq(structuredMessage("user", Seq(
         contentPart("input_text", text = Some("What is shown?")),
@@ -122,7 +136,14 @@ class OpenAIResponsesMultimodalSuite extends TestBase {
           "input_image",
           imageUrl = Some("data:image/png;base64,AAA"),
           detail = Some("low")
-        )
+        ),
+        contentPart("input_image", fileId = Some("file-image")),
+        contentPart(
+          "input_file",
+          fileData = Some("data:application/pdf;base64,AAA"),
+          filename = Some("example.pdf")
+        ),
+        contentPart("input_file", fileId = Some("file-document"))
       ))),
       Map("model" -> "gpt-5.1")
     )
@@ -137,6 +158,19 @@ class OpenAIResponsesMultimodalSuite extends TestBase {
       "type" -> JsString("input_image"),
       "image_url" -> JsString("data:image/png;base64,AAA"),
       "detail" -> JsString("low")
+    ))
+    assert(content(2).asJsObject == JsObject(
+      "type" -> JsString("input_image"),
+      "file_id" -> JsString("file-image")
+    ))
+    assert(content(3).asJsObject == JsObject(
+      "type" -> JsString("input_file"),
+      "file_data" -> JsString("data:application/pdf;base64,AAA"),
+      "filename" -> JsString("example.pdf")
+    ))
+    assert(content(4).asJsObject == JsObject(
+      "type" -> JsString("input_file"),
+      "file_id" -> JsString("file-document")
     ))
   }
 
@@ -247,6 +281,11 @@ class OpenAIResponsesMultimodalSuite extends TestBase {
       Row("null-content", Seq(structuredMessage("user", null)), null), // scalastyle:ignore null
       Row("null-messages", null, null), // scalastyle:ignore null
       Row("null-part", Seq(structuredMessage("user", Seq[Row](null))), null), // scalastyle:ignore null
+      Row(
+        "unknown-type",
+        Seq(structuredMessage("user", Seq(contentPart("input_audio")))),
+        null // scalastyle:ignore null
+      ),
       Row("second-invalid-role", Seq(
         structuredMessage("system", Seq(contentPart("input_text", text = Some("hello")))),
         structuredMessage("", Seq(contentPart("input_text", text = Some("world"))))
@@ -272,6 +311,9 @@ class OpenAIResponsesMultimodalSuite extends TestBase {
       "messages[0].content must be an array of content part objects")
     assert(output("null-part").getAs[Row]("error").getAs[String]("response") ==
       "messages[0].content[0] must be an object")
+    assert(output("unknown-type").getAs[Row]("error").getAs[String]("response") ==
+      "messages[0].content[0] has an unsupported type; supported types are " +
+        "'input_text', 'input_image', and 'input_file'")
     assert(output("second-invalid-role").getAs[Row]("error").getAs[String]("response") ==
       "messages[1].role must be a non-empty string")
     assert(output("existing-error").getAs[Row]("error").getAs[String]("response") == "upstream error")

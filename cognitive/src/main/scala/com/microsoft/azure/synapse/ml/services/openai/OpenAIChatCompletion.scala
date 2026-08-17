@@ -278,6 +278,72 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
     }.flatten.mkString("\n")
   }
 
+  private def mapBackedContentParts(value: Any, messageIndex: Int): CollectionSeq[Map[String, Any]] = {
+    val parts = value match {
+      case values: CollectionSeq[_] => values
+      case values: Array[_] => values.toSeq
+      case _ =>
+        throw new IllegalArgumentException(
+          s"messages[$messageIndex].content must be an array of content part objects")
+    }
+    parts.zipWithIndex.map {
+      case (rawPart: scala.collection.Map[_, _], _) =>
+        rawPart.iterator.map {
+          case (key: String, entryValue) => key -> entryValue
+          case _ =>
+            throw new IllegalArgumentException(
+              s"messages[$messageIndex].content map keys must be strings")
+        }.filter { case (_, entryValue) => entryValue != null }.toMap
+      case (_, partIndex) =>
+        throw new IllegalArgumentException(s"messages[$messageIndex].content[$partIndex] must be an object")
+    }
+  }
+
+  private def validateMapBackedTextParts(
+      parts: CollectionSeq[Map[String, Any]],
+      messageIndex: Int
+  ): Unit = {
+    parts.zipWithIndex.foreach { case (part, partIndex) =>
+      val location = s"messages[$messageIndex].content[$partIndex]"
+      requireOnlyFields(part, Set("type", "text"), location)
+      part.get("type") match {
+        case Some("text") =>
+        case Some(_: String) =>
+          throw new IllegalArgumentException(
+            s"$location has an unsupported type; supported types are 'text' and 'image_url'")
+        case _ => throw new IllegalArgumentException(s"$location requires a string 'type' field")
+      }
+    }
+  }
+
+  private def encodedMapBackedContent(value: Any, messageIndex: Int): Any = {
+    val parts = mapBackedContentParts(value, messageIndex)
+    if (!parts.exists(_.get("type").contains("image_url"))) {
+      validateMapBackedTextParts(parts, messageIndex)
+      collapseContentPartsToText(value)
+    } else {
+      parts.zipWithIndex.map { case (part, partIndex) =>
+        val location = s"messages[$messageIndex].content[$partIndex]"
+        val encoded = part.get("type") match {
+          case Some("image_url") =>
+            requireOnlyFields(part, Set("type", "image_url", "detail"), location)
+            val imageUrl = part.get("image_url") match {
+              case Some(url: String) if url.trim.nonEmpty =>
+                Map("url" -> url) ++ part.get("detail").map("detail" -> _)
+              case _ =>
+                throw new IllegalArgumentException(
+                  s"messages[$messageIndex].content[$partIndex].image_url " +
+                    "requires a non-empty string 'url' field")
+            }
+            Map("type" -> "image_url", "image_url" -> imageUrl)
+          case _ => part
+        }
+        validateContentPart(encoded, messageIndex, partIndex)
+        encoded
+      }
+    }
+  }
+
   private def requireOnlyFields(part: Map[String, Any], allowed: Set[String], location: String): Unit = {
     if ((part.keySet -- allowed).nonEmpty) {
       throw new IllegalArgumentException(s"$location contains unsupported fields")
@@ -377,7 +443,7 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
 
   private def validatedRole(message: Row, messageIndex: Int): String = {
     val roleIndex = message.schema.fieldNames.indexOf("role")
-    if (roleIndex < 0) {
+    if (roleIndex < 0 || roleIndex >= message.length) {
       throw invalidRoleError(messageIndex)
     }
 
@@ -396,8 +462,12 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
     }
   }
 
-  private def contentField(message: Row): (Int, DataType) = {
-    val fieldIndex = message.schema.fieldIndex("content")
+  private def contentField(message: Row, messageIndex: Int): (Int, DataType) = {
+    val fieldIndex = message.schema.fieldNames.indexOf("content")
+    if (fieldIndex < 0 || fieldIndex >= message.length) {
+      throw new IllegalArgumentException(
+        s"messages[$messageIndex].content must be a string or an array of content part objects")
+    }
     fieldIndex -> message.schema.fields(fieldIndex).dataType
   }
 
@@ -410,7 +480,7 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
         throw new IllegalArgumentException(s"messages[$messageIndex] must be an object")
       }
       validatedRole(message, messageIndex)
-      val (fieldIndex, dataType) = contentField(message)
+      val (fieldIndex, dataType) = contentField(message, messageIndex)
       dataType match {
         case StringType =>
         case ArrayType(elementType: StructType, _) =>
@@ -419,7 +489,7 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
               encodedContentPart(part, elementType, messageIndex, partIndex)
           }
         case ArrayType(_: MapType, _) =>
-          collapseContentPartsToText(message.get(fieldIndex))
+          encodedMapBackedContent(message.get(fieldIndex), messageIndex)
         case ArrayType(other, _) =>
           throw new IllegalArgumentException(
             s"Unsupported content part type: ${other.typeName}. Expected struct or map")
@@ -430,7 +500,7 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   }
 
   private def encodedMessageContent(message: Row, messageIndex: Int): Any = {
-    val (fieldIndex, dataType) = contentField(message)
+    val (fieldIndex, dataType) = contentField(message, messageIndex)
     dataType match {
       case StringType =>
         message.getAs[String]("content")
@@ -440,7 +510,7 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
             encodedContentPart(part, elementType, messageIndex, partIndex)
         }
       case ArrayType(_: MapType, _) =>
-        collapseContentPartsToText(message.get(fieldIndex))
+        encodedMapBackedContent(message.get(fieldIndex), messageIndex)
       case ArrayType(other, _) =>
         throw new IllegalArgumentException(
           s"Unsupported content part type: ${other.typeName}. Expected struct or map")

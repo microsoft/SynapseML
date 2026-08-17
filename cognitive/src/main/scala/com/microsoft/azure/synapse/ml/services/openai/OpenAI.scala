@@ -23,9 +23,11 @@ trait HasMessagesInput extends Params {
     this, "messagesCol", "The column of messages to send to the OpenAI service. " +
       "The column should have type Array(Struct(role: String, content: String or Array of content parts)). " +
       "Chat Completions structured parts match either {\"type\":\"text\",\"text\":\"...\"} or " +
-      "{\"type\":\"image_url\",\"image_url\":{\"url\":\"...\",\"detail\":\"...\"}}. Responses structured parts " +
-      "match {\"type\":\"input_text\",\"text\":\"...\"} or " +
-      "{\"type\":\"input_image\",\"image_url\":\"...\",\"detail\":\"...\"}; detail is optional.")
+      "{\"type\":\"image_url\",\"image_url\":{\"url\":\"...\",\"detail\":\"...\"}}; image detail is optional. " +
+      "Responses structured parts match {\"type\":\"input_text\",\"text\":\"...\"}, " +
+      "{\"type\":\"input_image\",\"image_url\":\"...\",\"detail\":\"...\"} (or use file_id), or " +
+      "{\"type\":\"input_file\",\"file_data\":\"...\",\"filename\":\"...\"} (or use file_id instead of file_data); " +
+      "image detail and filename are optional.")
 
   def getMessagesCol: String = $(messagesCol)
 

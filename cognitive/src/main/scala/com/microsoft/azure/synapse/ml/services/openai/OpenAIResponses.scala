@@ -471,6 +471,8 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
       case Some("input_image") => validateInputImagePart(fields, location)
       case Some("input_file") => validateInputFilePart(fields, location)
       case Some(value: String) if value.trim.nonEmpty =>
+        throw new IllegalArgumentException(
+          s"$location has an unsupported type; supported types are 'input_text', 'input_image', and 'input_file'")
       case _ => throw new IllegalArgumentException(s"$location requires a non-empty string 'type' field")
     }
   }
