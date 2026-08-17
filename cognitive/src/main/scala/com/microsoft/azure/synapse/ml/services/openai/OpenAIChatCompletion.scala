@@ -299,27 +299,9 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
     }
   }
 
-  private def validateMapBackedTextParts(
-      parts: CollectionSeq[Map[String, Any]],
-      messageIndex: Int
-  ): Unit = {
-    parts.zipWithIndex.foreach { case (part, partIndex) =>
-      val location = s"messages[$messageIndex].content[$partIndex]"
-      requireOnlyFields(part, Set("type", "text"), location)
-      part.get("type") match {
-        case Some("text") =>
-        case Some(_: String) =>
-          throw new IllegalArgumentException(
-            s"$location has an unsupported type; supported types are 'text' and 'image_url'")
-        case _ => throw new IllegalArgumentException(s"$location requires a string 'type' field")
-      }
-    }
-  }
-
   private def encodedMapBackedContent(value: Any, messageIndex: Int): Any = {
     val parts = mapBackedContentParts(value, messageIndex)
     if (!parts.exists(_.get("type").contains("image_url"))) {
-      validateMapBackedTextParts(parts, messageIndex)
       collapseContentPartsToText(value)
     } else {
       parts.zipWithIndex.map { case (part, partIndex) =>

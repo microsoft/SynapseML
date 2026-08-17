@@ -223,6 +223,7 @@ class OpenAIChatCompletionMultimodalSuite extends TestBase {
         "user",
         Seq(
           Map[String, String]("type" -> "text", "text" -> null), // scalastyle:ignore null
+          Map("type" -> "input_file", "filename" -> "example.txt"),
           Map("type" -> "text", "text" -> "kept")
         ),
         null // scalastyle:ignore null
@@ -287,12 +288,16 @@ class OpenAIChatCompletionMultimodalSuite extends TestBase {
     assert(error.getMessage == "messages[0].content[0] contains unsupported fields")
 
     val unsupportedTypeError = intercept[IllegalArgumentException] {
-      new OpenAIChatCompletion().getStringEntity(Seq(mapMessage(Seq(Map(
-        "type" -> "input_audio"
-      )))), Map.empty)
+      new OpenAIChatCompletion().getStringEntity(Seq(mapMessage(Seq(
+        Map(
+          "type" -> "image_url",
+          "image_url" -> "data:image/png;base64,AAA"
+        ),
+        Map("type" -> "input_audio")
+      ))), Map.empty)
     }
     assert(unsupportedTypeError.getMessage ==
-      "messages[0].content[0] has an unsupported type; supported types are 'text' and 'image_url'")
+      "messages[0].content[1] has an unsupported type; supported types are 'text' and 'image_url'")
   }
 
   test("short content rows fail with a structural validation error") {
