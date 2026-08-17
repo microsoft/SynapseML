@@ -1,7 +1,13 @@
 ---
 name: synapseml-pr-loop
-description: Make one or more SynapseML issues or pull requests evidence-based merge-ready. Use for "5/5 confidence", "200% ready", stale/outdated PR remediation, rebase-and-test requests, resolving all review comments, or proving a feature ships without correctness, compatibility, performance, or Spark regressions.
-compatibility: SynapseML repository with git, GitHub CLI, PowerShell, WSL/Linux, sbt, Python, and network access to GitHub/Azure Pipelines.
+description: >-
+  Make one or more SynapseML issues or pull requests evidence-based merge-ready.
+  Use for "5/5 confidence", "200% ready", stale/outdated PR remediation,
+  rebase-and-test requests, resolving all review comments, or proving a feature
+  ships without correctness, compatibility, performance, or Spark regressions.
+compatibility: >-
+  SynapseML repository with git, GitHub CLI, PowerShell, WSL/Linux, sbt, Python,
+  and network access to GitHub/Azure Pipelines.
 ---
 
 # SynapseML PR loop
@@ -15,9 +21,13 @@ is complete and green.
 
 ### 1. Establish scope and isolation
 
+- Load the [branch context skill](../synapseml-branch/SKILL.md) using the PR
+  base branch. Recheck it before validation and immediately before final push.
 - Read the issue, PR body, linked work items, commit history, changed files,
   and every review thread/body, including resolved, outdated, minimized, and
   suppressed comments. Verify prior resolutions rather than trusting status.
+- Inspect formal review decisions, requested-change votes, ownership gates, and
+  coverage thresholds; resolved threads do not clear those blockers.
 - Check recently merged/closed related PRs and issues. Identify follow-up PRs
   needing rebase/remediation, superseded work to close, and remaining issue
   action items; do not assume closure completed the feature lifecycle.
@@ -33,6 +43,7 @@ is complete and green.
 - Use `--force-with-lease`, never an unguarded force push.
 - Merge, rather than rebase, shared `spark<version>` port branches.
 - Record target SHA, head SHA, merge base, ahead/behind counts, and conflicts.
+- Compare the intended patch before and after rebase/conflict resolution.
 - Fetch again immediately before the final push. If the target advanced,
   integrate it and rerun affected validation.
 
@@ -102,6 +113,8 @@ is complete and green.
   defects, test defects, baseline failures, and infrastructure failures.
 - Fix product/test defects and rerun. Infrastructure classification requires
   logs proving tests did not exercise the change; "looks flaky" is not evidence.
+- If path filters or a CI-only diff bypass the behavior being repaired, validate
+  it with a representative product change or controlled integration PR.
 - Do not declare readiness while any required check is pending.
 
 ### 8. Final readiness loop

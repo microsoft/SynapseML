@@ -5,9 +5,12 @@ by current-head evidence.
 
 ## Integration
 
+- Matching branch context was checked at start, before validation, and before
+  final push against the target branch's live build and CI files.
 - Head is based on the latest target SHA and is not behind.
 - Conflicts are resolved by combining independent changes, not choosing a side
   wholesale.
+- The intended patch remains equivalent after rebase/conflict resolution.
 - For overlapping PRs, merge order is explicit and downstream PRs are
   revalidated after predecessors merge.
 - Local, remote, and GitHub head SHAs match.
@@ -65,6 +68,8 @@ by current-head evidence.
 ## Review and validation
 
 - Active review threads: zero.
+- No blocking review decision, requested-change vote, ownership gate, or
+  required coverage failure remains.
 - Suppressed/minimized Copilot feedback was read and either fixed or rebutted
   with evidence.
 - Latest review covers the final head.

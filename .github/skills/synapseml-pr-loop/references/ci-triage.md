@@ -63,9 +63,13 @@ failing in the same way, which a green/red job summary will not reveal.
 ## False-green patterns to reject
 
 - A job succeeded because the affected tests were skipped.
+- The relevant suite was never selected by the matrix and therefore was not
+  reported as skipped.
 - A helper test passed while the transformer/request path remained broken.
 - Provider/device discovery succeeded without executing real kernels.
 - A custom native or local jar worked although the published artifact lacks it.
 - Aggregate CI is green while a required branch replay never ran.
+- A CI/path-filter fix passed because its own diff bypassed the path it changed;
+  no representative product patch exercised the workflow.
 - A test count increased but the requested edge case has no assertion.
 - Commit ancestry is correct but a merge conflict discarded target content.

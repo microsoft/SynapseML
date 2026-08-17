@@ -5,8 +5,9 @@ Use this file for repository-wide rules. Human contributors should start with
 
 ## Start here
 
-1. Check the current branch. On a Spark port branch, also read
-   `AGENTS_<branch>.md`; it explains intentional branch differences.
+1. Resolve the target branch (the PR base, not merely the checked-out feature
+   branch), then use the
+   [branch context skill](.github/skills/synapseml-branch/SKILL.md).
 2. Read versions from [build.sbt](build.sbt) and
    [environment.yml](environment.yml). Do not copy version numbers into this
    shared guide.
@@ -58,7 +59,8 @@ Reachability is not proof that a sync preserved content. Compare the merge base,
 
 `AGENTS.md` and [CONTRIBUTING.md](CONTRIBUTING.md) must stay identical across
 branches, so neither may name a Spark, Scala, Java, or Python version, or a path
-containing one. Put branch-only facts in `AGENTS_<branch>.md`. Every other
+containing one. Put branch-only facts in the
+[branch context skill](.github/skills/synapseml-branch/SKILL.md). Every other
 document — [README.md](README.md), the website, and module docs — is free to be
 branch- and version-specific, because nothing requires those to match across
 branches.
@@ -138,7 +140,8 @@ before running them because some create or delete cloud resources.
 - Resolve active and suppressed review findings; document why any finding is
   invalid.
 - Trigger Azure validation with `/azp run` where supported. Branch-specific
-  exceptions are documented in `AGENTS_<branch>.md`.
+  exceptions are documented in the
+  [branch context skill](.github/skills/synapseml-branch/SKILL.md).
 - Treat [GitHub Actions](.github/workflows/) as fast checks and
   [pipeline.yaml](pipeline.yaml) as the full build.
 - Do not equate green checks with correctness: compare before/after failures,
@@ -152,4 +155,4 @@ Add only durable, repository-wide guidance that changes an agent's decision.
 Prefer a link to the source of truth over copied commands, versions, or long
 examples. Put implementation detail beside the code, contributor process in
 [CONTRIBUTING.md](CONTRIBUTING.md), and branch-specific facts in
-`AGENTS_<branch>.md`.
+the [branch context skill](.github/skills/synapseml-branch/SKILL.md).
