@@ -238,9 +238,15 @@ This is why the Spark 4 branches had to audit them.
 
 | Path | State | Why |
 | --- | --- | --- |
-| `core/.../io/http/__init__.py` | must stay empty | It listed `HTTPFunctions` and `ServingFunctions`, which are modules of free functions with no same-named class, so the import failed and broke `PythonTests core` plus seven website-sample docs. |
-| `vw/`, `services/openai/` | removed | Duplicated what codegen already emits, and redefined `__all__`, narrowing `import *` to a hand-maintained list. |
-| `recommendation/`, `dl/`, `hf/`, `cognitive/`, `mmlspark/` | kept | These add exports codegen does not emit. |
+| `core/.../io/http/__init__.py` | must stay empty | Listed free-function modules; see below |
+| `vw/`, `services/openai/` | removed | Duplicated codegen output |
+| `recommendation/`, `dl/`, `hf/`, `cognitive/`, `mmlspark/` | kept | Add exports codegen omits |
+
+`core/.../io/http/__init__.py` listed `HTTPFunctions` and `ServingFunctions`,
+which are modules of free functions with no same-named class, so the import
+failed and broke `PythonTests core` plus seven website-sample docs. The `vw/`
+and `services/openai/` files also redefined `__all__`, which narrowed
+`import *` to a hand-maintained list.
 
 Do not add new `__init__.py` files that re-list generated classes. On the Spark 4
 branches this is guarded by two tests,
