@@ -54,7 +54,8 @@ class ComputePerInstanceStatistics(override val uid: String) extends Transformer
         MetricUtils.getSchemaInfo(
           dataset.schema,
           if (isDefined(labelCol)) Some(getLabelCol) else None,
-          getEvaluationMetric)
+          getEvaluationMetric,
+          dataset.sparkSession.conf.get("spark.sql.caseSensitive", "false").toBoolean)
 
       val dataframe = dataset.toDF()
 

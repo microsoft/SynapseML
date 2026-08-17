@@ -71,13 +71,28 @@ by current-head evidence.
 - No blocking review decision, requested-change vote, ownership gate, or
   required coverage failure remains.
 - Suppressed/minimized Copilot feedback was read and either fixed or rebutted
-  with evidence.
-- Latest review covers the final head.
+  with evidence. Read it from the review body for the current head; it never
+  appears as a review thread, so a zero-thread query does not clear this gate.
+- Latest automated review covers the final head, compared by commit rather than
+  by recency. A review produced before the last push does not clear the two
+  gates above, because it never saw that code.
 - Targeted tests, compile, test compile, style, Black, codegen, Python, and
   port-branch compatibility pass as applicable.
 - Full Azure Pipelines and required GitHub checks are complete with zero
   unexplained failures or pending jobs.
+- The Azure Pipelines build is present on the current head at all. It does not
+  queue itself on a push here, so every push needs its own `/azp run`; a head
+  that never got one carries only the GitHub Actions checks, and those going
+  green is not CI passing. An absent check is neither failed nor pending, so it
+  is invisible to both of those gates -- confirm the build by name against the
+  head SHA, not by the absence of red.
 - Skips are expected and documented; a skipped required scenario is a blocker.
+- `Get-PrReadiness.ps1` reports these as `completeness.complete`, which is true
+  only when comment pagination was not truncated, an automated review covers the
+  head, and unresolved threads, suppressed-for-head items, missing required
+  checks, failed checks and pending checks are all zero. Treat a pending check as
+  unknown rather than passing. Trust the individual fields over the summary when
+  they disagree: that flag has been wrong before, in both directions.
 
 ## Honest confidence language
 

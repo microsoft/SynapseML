@@ -75,7 +75,16 @@ is complete and green.
 - Follow the Spark and performance gates in
   [references/spark-performance.md](references/spark-performance.md).
 - Reply in the existing thread with the fix and evidence, then resolve it.
-  Re-audit after every push because new Copilot comments may appear.
+- Re-audit after every push. Automated review is asynchronous and re-runs per
+  commit, so auditing immediately after pushing reads the *previous* review and
+  reports a false all-clear. Wait until the newest automated review's commit
+  equals the pushed head, then audit; poll rather than checking once.
+- Suppressed comments are not review threads. They appear only inside a
+  collapsed section of the review body, so a `reviewThreads` query returns zero
+  while they exist, and they have no thread to reply to or resolve. Read every
+  automated review body for the current head, and address them in the follow-up
+  commit message or a PR comment. Treat them as ordinary findings: they are
+  suppressed for confidence, not for correctness.
 
 ### 5. Add proof-oriented tests
 
@@ -107,6 +116,14 @@ is complete and green.
   ID. A trigger-driven build records `reason=pullRequest`; one you queued
   yourself records `reason=manual`, which is the quickest way to tell whether
   the trigger really fired or you merely re-ran it by hand.
+- Do this after **every** push, not once per pull request. The build does not
+  re-queue itself when the head moves, so the previous run's result belongs to
+  code that no longer exists. The GitHub Actions checks do re-run on each push
+  and go green within a couple of minutes, which makes a head with no Azure
+  Pipelines build on it look fully checked; an absent check is neither failed
+  nor pending, so nothing reports it. Verify the build against the head SHA by
+  name, or run `Get-PrReadiness.ps1 -RunPipeline` to post the comment
+  automatically when it is missing.
 - If no build appears, check the pipeline definition's own pull-request trigger
   rather than assuming a transient failure. That trigger can be defined in the
   pipeline UI, in which case it overrides the `pr:` block in `pipeline.yaml`
@@ -125,8 +142,13 @@ is complete and green.
 
 ### 8. Final readiness loop
 
-Run `Get-PrReadiness.ps1` again and confirm every gate in
-[references/readiness-gates.md](references/readiness-gates.md).
+Run `Get-PrReadiness.ps1 -PullRequest <numbers> -WaitForReview -RunPipeline`
+after the final push and confirm every gate in
+[references/readiness-gates.md](references/readiness-gates.md). Those two
+switches cover the asynchronous gaps that a bare snapshot reports as clean: the
+automated review has not arrived yet, and the Azure Pipelines build has not been
+asked to start. Both leave the same signature -- nothing failed, nothing
+pending, nothing there.
 
 For multiple PRs, after each merge:
 

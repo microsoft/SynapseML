@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.train
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts._
 import com.microsoft.azure.synapse.ml.core.metrics.{MetricConstants, MetricUtils}
-import com.microsoft.azure.synapse.ml.core.schema.{CategoricalUtilities, SchemaConstants, SparkSchema}
+import com.microsoft.azure.synapse.ml.core.schema.{CategoricalUtilities, SchemaConstants}
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import org.apache.log4j.Logger
 import org.apache.spark.ml.Transformer
@@ -75,24 +75,29 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
   //scalastyle:off cyclomatic.complexity
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
-      val (modelName, labelColumnName, scoreValueKind) =
-        MetricUtils.getSchemaInfo(
-          dataset.schema,
-          if (isDefined(labelCol)) Some(getLabelCol) else None,
-          getEvaluationMetric)
+      val (modelName, resolvedLabelColumnName, scoreValueKind) =
+        resolveSchemaInfo(dataset.schema, isCaseSensitive(dataset.sparkSession))
+      val labelColumnName = validateColumn(
+        dataset, resolvedLabelColumnName, "label", "setLabelCol")
 
       // For creating the result dataframe in classification or regression case
       val spark = dataset.sparkSession
       import spark.implicits._
 
       if (scoreValueKind == SchemaConstants.ClassificationKind) {
-
+        val scoredLabelsColumnName = validateColumn(
+          dataset,
+          if (isDefined(scoredLabelsCol)) getScoredLabelsCol
+          else MetricUtils.getScoreColumnName(
+            dataset.schema,
+            modelName,
+            SchemaConstants.SparkPredictionColumn,
+            scoreValueKind).orNull,
+          "classification prediction",
+          "setScoredLabelsCol")
         var resultDF: DataFrame =
           Seq(MetricConstants.ClassificationEvaluationType)
             .toDF(MetricConstants.EvaluationType)
-        val scoredLabelsColumnName =
-          if (isDefined(scoredLabelsCol)) getScoredLabelsCol
-          else SparkSchema.getSparkPredictionColumnName(dataset.schema, modelName)
 
         // Get levels for label column if categorical
         val levels = CategoricalUtilities.getLevels(dataset.schema, labelColumnName)
@@ -109,11 +114,22 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
 
         lazy val scoresAndLabels = {
           val scoresColumnName =
-            if (isDefined(scoresCol)) getScoresCol
-            else SparkSchema.getSparkRawPredictionColumnName(dataset.schema, modelName)
-          if (scoresColumnName == null) predictionAndLabels
-          else if (levelsExist) getScoresAndLabels(dataset, labelColumnName, scoresColumnName, levelsToIndexMap)
-          else getScalarScoresAndLabels(dataset, labelColumnName, scoresColumnName)
+            if (isDefined(scoresCol)) {
+              Some(validateColumn(dataset, getScoresCol, "classification score", "setScoresCol"))
+            } else {
+              MetricUtils.getScoreColumnName(
+                dataset.schema,
+                modelName,
+                SchemaConstants.SparkRawPredictionColumn,
+                scoreValueKind)
+                .map(columnName => validateColumn(dataset, columnName, "classification score", "setScoresCol"))
+            }
+          scoresColumnName match {
+            case Some(columnName) if levelsExist =>
+              getScoresAndLabels(dataset, labelColumnName, columnName, levelsToIndexMap)
+            case Some(columnName) => getScalarScoresAndLabels(dataset, labelColumnName, columnName)
+            case None => predictionAndLabels
+          }
         }
 
         lazy val (labels: Array[Double], confusionMatrix: Matrix) = createConfusionMatrix(predictionAndLabels)
@@ -153,9 +169,16 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
         }
         resultDF
       } else if (scoreValueKind == SchemaConstants.RegressionKind) {
-        val scoresColumnName =
+        val scoresColumnName = validateColumn(
+          dataset,
           if (isDefined(scoresCol)) getScoresCol
-          else SparkSchema.getSparkPredictionColumnName(dataset.schema, modelName)
+          else MetricUtils.getScoreColumnName(
+            dataset.schema,
+            modelName,
+            SchemaConstants.SparkPredictionColumn,
+            scoreValueKind).orNull,
+          "regression prediction/score",
+          "setScoresCol")
 
         val scoresAndLabels = selectAndCastToRDD(dataset, scoresColumnName, labelColumnName)
 
@@ -180,6 +203,70 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
   }
   //scalastyle:on method.length
   //scalastyle:on cyclomatic.complexity
+
+  private def validateColumn(dataset: Dataset[_],
+                             columnName: String,
+                             columnRole: String,
+                             setterName: String): String = {
+    val requestedColumn = Option(columnName).filter(_.nonEmpty)
+    val columns = dataset.columns
+    val caseSensitive = dataset.sparkSession.conf.get("spark.sql.caseSensitive", "false").toBoolean
+    val matchingColumns = requestedColumn.toSeq.flatMap { column =>
+      if (caseSensitive) columns.filter(_ == column)
+      else columns.filter(_.equalsIgnoreCase(column))
+    }
+    if (matchingColumns.size > 1) {
+      throw new IllegalArgumentException(
+        s"Unable to resolve $columnRole column '${requestedColumn.get}' unambiguously. " +
+          s"Matching columns: ${matchingColumns.sorted.mkString("[", ", ", "]")}")
+    } else if (matchingColumns.isEmpty) {
+      val requestedDescription = requestedColumn.map(name => s"'$name'").getOrElse("<unresolved>")
+      val availableColumns = columns.sorted.mkString("[", ", ", "]")
+      throw new IllegalArgumentException(
+        s"Unable to resolve $columnRole column $requestedDescription. " +
+          s"Call $setterName(...) with an existing column. Available columns: $availableColumns")
+    }
+    matchingColumns.head
+  }
+
+  private def resolveSchemaInfo(schema: StructType,
+                                caseSensitive: Boolean): (String, String, String) = {
+    if (canEvaluateWithoutMetadata) {
+      val scoreValueKind =
+        if (MetricUtils.isClassificationMetric(getEvaluationMetric)) SchemaConstants.ClassificationKind
+        else SchemaConstants.RegressionKind
+      val resolvedLabelCol =
+        MetricUtils.resolveLabelColumn(schema, Some(getLabelCol), caseSensitive).get
+      ("custom model", resolvedLabelCol, scoreValueKind)
+    } else {
+      MetricUtils.getSchemaInfo(
+        schema,
+        if (isDefined(labelCol)) Some(getLabelCol) else None,
+        getEvaluationMetric,
+        caseSensitive)
+    }
+  }
+
+  private def isCaseSensitive(sparkSession: SparkSession): Boolean =
+    sparkSession.conf.get("spark.sql.caseSensitive", "false").toBoolean
+
+  private def canEvaluateWithoutMetadata: Boolean = {
+    if (!isDefined(labelCol) || getEvaluationMetric == MetricConstants.AllSparkMetrics) {
+      false
+    } else if (MetricUtils.isClassificationMetric(getEvaluationMetric)) {
+      isDefined(scoredLabelsCol) &&
+        (!classificationMetricRequiresScores || isDefined(scoresCol))
+    } else {
+      isDefined(scoresCol)
+    }
+  }
+
+  private def classificationMetricRequiresScores: Boolean = {
+    getEvaluationMetric == MetricConstants.ClassificationMetricsName ||
+      getEvaluationMetric == MetricConstants.AucSparkMetric ||
+      getEvaluationMetric == MetricConstants.AreaUnderROCMetric ||
+      getEvaluationMetric == MetricConstants.AreaUnderPRMetric
+  }
 
   private def addSimpleMetric(simpleMetric: String,
                               predictionAndLabels: RDD[(Double, Double)],
@@ -482,14 +569,15 @@ class ComputeModelStatistics(override val uid: String) extends Transformer
     (labels, confusionMatrix)
   }
 
-  override def copy(extra: ParamMap): Transformer = new ComputeModelStatistics()
+  override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType = {
     val (_, labelColumnName, scoreValueKind) =
-      MetricUtils.getSchemaInfo(
+      resolveSchemaInfo(
         schema,
-        if (isDefined(labelCol)) Some(getLabelCol) else None,
-        getEvaluationMetric)
+        SparkSession.getActiveSession
+          .orElse(SparkSession.getDefaultSession)
+          .exists(isCaseSensitive))
     val labelLevels = getLabelLevels(schema, labelColumnName)
     val (columns, validMetrics) =
       if (scoreValueKind == SchemaConstants.ClassificationKind)
