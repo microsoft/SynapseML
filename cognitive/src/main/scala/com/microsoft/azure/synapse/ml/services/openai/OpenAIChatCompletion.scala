@@ -97,7 +97,8 @@ object OpenAIChatCompletion extends ComplexParamsReadable[OpenAIChatCompletion]
 
 class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(uid)
   with HasOpenAITextParamsExtended with HasMessagesInput with HasCognitiveServiceInput
-  with HasInternalJsonOutputParser with SynapseMLLogging with HasRAIContentFilter with HasTextOutput {
+  with HasOpenAIFabricHeaders with HasInternalJsonOutputParser
+  with SynapseMLLogging with HasRAIContentFilter with HasTextOutput {
   logClass(FeatureNames.AiServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAIChatCompletion"))

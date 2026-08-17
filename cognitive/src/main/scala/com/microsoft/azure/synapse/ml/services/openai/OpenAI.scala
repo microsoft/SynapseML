@@ -13,6 +13,7 @@ import org.apache.spark.ml.param.{Param, Params}
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
+import spray.json._
 
 import java.util.Locale
 import scala.language.existentials
@@ -488,14 +489,45 @@ abstract class OpenAIServicesBase(override val uid: String) extends CognitiveSer
     }
   }
 
-  private def usingDefaultOpenAIEndpoint(): Boolean = {
+  protected[openai] def usingDefaultOpenAIEndpoint: Boolean = {
     getUrl == FabricClient.MLWorkloadEndpointML + "/cognitive/openai/"
   }
 
+  protected[openai] def runningOnFabric: Boolean = PlatformDetails.runningOnFabric()
+
+  protected[openai] def fabricRuntime: String = PlatformDetails.CurrentPlatform
+
   override protected def getInternalTransformer(schema: StructType): PipelineModel = {
-    if (PlatformDetails.runningOnFabric() && usingDefaultOpenAIEndpoint) {
+    if (runningOnFabric && usingDefaultOpenAIEndpoint) {
       assertModelStatus(getDeploymentName)
     }
     super.getInternalTransformer(schema)
+  }
+}
+
+trait HasOpenAIFabricHeaders extends HasCognitiveServiceInput {
+  self: OpenAIServicesBase =>
+
+  private def usingImplicitFabricEndpoint: Boolean = {
+    val hasCustomUrlRoot = get(customUrlRoot).orElse(getDefault(customUrlRoot))
+      .exists(value => Option(value).exists(_.trim.nonEmpty))
+    runningOnFabric && usingDefaultOpenAIEndpoint && !hasCustomUrlRoot
+  }
+
+  abstract override protected def getCustomHeaders(row: Row): Option[Map[String, String]] = {
+    val headers = super.getCustomHeaders(row)
+    if (usingImplicitFabricEndpoint) {
+      Some(
+        headers.getOrElse(Map.empty).updated(
+          "X-Taxonomy-ExtendedProperties",
+          Map(
+            "feature" -> "synapseml",
+            "runtime" -> fabricRuntime
+          ).toJson.compactPrint
+        )
+      )
+    } else {
+      headers
+    }
   }
 }
