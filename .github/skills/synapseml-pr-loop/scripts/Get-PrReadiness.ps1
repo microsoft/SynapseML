@@ -243,12 +243,24 @@ function Get-PrSnapshot {
         $_.author.login -and
         ($automatedLogins -contains ($_.author.login -replace '\[bot\]$', '').ToLowerInvariant())
     })
-    $latestAutomated = $automatedReviews |
-        Where-Object { $_.submittedAt } |
-        Sort-Object { [datetime]$_.submittedAt } |
-        Select-Object -Last 1
-    $automatedReviewCoversHead =
-        [bool]($latestAutomated -and $latestAutomated.commit.oid -eq $view.headRefOid)
+    # Coverage must be decided by commit, not recency. A force-push back to an
+    # already-reviewed commit leaves the newest review pointing at a commit that
+    # is no longer head, which would report a reviewed head as uncovered and
+    # send -WaitForReview into a pointless wait.
+    $reviewsForHead = @($automatedReviews |
+        Where-Object { $_.commit.oid -eq $view.headRefOid })
+    $latestAutomated = if ($reviewsForHead) {
+        $reviewsForHead |
+            Where-Object { $_.submittedAt } |
+            Sort-Object { [datetime]$_.submittedAt } |
+            Select-Object -Last 1
+    } else {
+        $automatedReviews |
+            Where-Object { $_.submittedAt } |
+            Sort-Object { [datetime]$_.submittedAt } |
+            Select-Object -Last 1
+    }
+    $automatedReviewCoversHead = [bool]$reviewsForHead
     $suppressedForHead = @($suppressed |
         Where-Object { $_.commit -eq $view.headRefOid })
 

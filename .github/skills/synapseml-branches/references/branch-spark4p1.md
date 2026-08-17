@@ -17,8 +17,9 @@ templatized version of the branch context from
   Preserve explanatory pin comments through syncs.
 - The Petastorm/Horovod compatibility layer is separate from that: it restores
   pyarrow APIs Petastorm still calls, which the pinned pyarrow no longer
-  provides. Do not describe it as a Python 3.13 workaround, or `spark4.0` looks
-  exempt when it pins the same pyarrow version.
+  provides. Do not describe it as a Python 3.13 workaround — that framing makes
+  `spark4.0` look exempt when it is not. `spark4.0` pins a different, newer
+  pyarrow, so those APIs are missing there too.
 - `LongOffset` moved to `...execution.streaming.runtime`; the 4.0 import does
   not compile here.
 - Spark 4.1 returns Python `bytes` for `BinaryType`; `ImageTransformer` uses
@@ -38,8 +39,9 @@ templatized version of the branch context from
   here does not alter master's behaviour. It also needs a Fabric capacity in the
   `sempy-integration-region` that can provision Runtime 2.0 workspaces, which is
   the one prerequisite not discoverable from the code.
-- Databricks CPU/GPU validation uses 18.x-era runtimes. Run Spark 4 builds
-  sequentially because the GPU pool is shared.
+- Databricks CPU/GPU validation uses 18.x-era runtimes: CPU pool
+  `synapseml-build-18.0`, GPU pool `synapseml-build-14.3-gpu`. Run Spark 4 builds
+  sequentially because the GPU pool is shared with `master` and `spark4.0`.
 - `DatabricksCPUStreamingTests` was unscheduled pending capacity and notebook
   work; verify rather than silently accepting the omission.
 - Master compatibility replay commonly applies release-relevant patches here

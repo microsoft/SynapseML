@@ -32,7 +32,11 @@ templatized version of the branch context from
 
 ## Runtime and CI
 
-- Fabric E2E remains disabled because Fabric has no managed Spark 4.0 runtime.
+- Fabric E2E remains disabled because Fabric has no managed Spark 4.0 runtime —
+  Fabric Runtime 2.0 went GA on Spark 4.1. This is real lost coverage rather
+  than a cosmetic skip, and it should stay disabled here until a Spark
+  4.0-capable Fabric runtime exists, which may never happen; the more likely
+  resolution is that this branch is superseded by `spark4.1`.
 - At #2646, two GPU fine-tune notebooks failed because no Horovod wheel matched
   DBR 17.3's PyTorch. Do not switch to DBR 18 merely to turn them green; that
   would test Spark 4.1 instead of this branch. Revalidate this known gap.
@@ -43,7 +47,17 @@ templatized version of the branch context from
   to turn these notebooks green. Confirm each step from the notebook's stderr
   output rather than inferring it.
 - Avoid pinning runtime-provided torch/torchvision without a demonstrated need;
-  incompatible pins can trigger multi-gigabyte CUDA downgrades and timeouts.
+  incompatible pins can trigger multi-gigabyte CUDA downgrades and timeouts. The
+  recorded instance was `torchvision==0.17.0` in `GPULibraries`, which
+  hard-requires `torch==2.2.0`: pip had to *downgrade* the runtime's much newer
+  torch and pull large CUDA wheels, slow enough to exhaust the install budget but
+  never reporting `FAILED`. The GPU ML runtime already ships both, so the pin
+  bought nothing.
+- When the fine-tune notebooks were investigated, the notebooks and
+  `GPULibraries` were byte-identical to `spark4.1` and still failed here while
+  passing there, and swapping in `spark4.1`'s sha256-pinned wheel changed nothing
+  measurable (71.6s to 60.6s, 56.2s to 47.0s — the same failure in the same
+  window). Treat that swap as alignment with the working branch, not a fix.
 - A sub-minute GPU notebook failure occurs during dependency setup, before
   training. Use run timing and stderr rather than attributing it to the model.
 - Confirm target-branch automation actually queued rather than assuming the
