@@ -69,6 +69,12 @@ class OpenAIResponsesMultimodalSuite extends TestBase {
     StructField("name", StringType, nullable = true)
   ))
 
+  private val stringMessageSchema = StructType(Seq(
+    StructField("role", StringType, nullable = false),
+    StructField("content", StringType, nullable = true),
+    StructField("name", StringType, nullable = true)
+  ))
+
   private def requestSchema(messageSchema: StructType, includeError: Boolean = false): StructType = {
     val fields = Seq(
       StructField("id", StringType, nullable = false),
@@ -297,6 +303,29 @@ class OpenAIResponsesMultimodalSuite extends TestBase {
     assert(requestCount.value == 0L)
     assert(result.getAs[Row]("error").getAs[String]("response") ==
       "messages[0].role must be a non-empty string")
+    assert(Option(result.getAs[Row]("output")).isEmpty)
+  }
+
+  test("null string Responses content produces a generic row error without HTTP") {
+    val requestCount = spark.sparkContext.longAccumulator
+    val nullContentMessage = new GenericRowWithSchema(
+      Array[Any]("user", null, null), // scalastyle:ignore null
+      stringMessageSchema
+    )
+    val input = spark.createDataFrame(
+      spark.sparkContext.parallelize(Seq(Row("null-content", Seq(nullContentMessage))), 1),
+      requestSchema(stringMessageSchema)
+    )
+    val transformer = responses().setHandler { (_: CloseableHttpClient, _: HTTPRequestData) =>
+      requestCount.add(1L)
+      throw new AssertionError("HTTP must not run for invalid Responses messages")
+    }
+
+    val result = transformer.transform(input).head()
+
+    assert(requestCount.value == 0L)
+    assert(result.getAs[Row]("error").getAs[String]("response") ==
+      "messages[0].content must be a string or an array of content part objects")
     assert(Option(result.getAs[Row]("output")).isEmpty)
   }
 
