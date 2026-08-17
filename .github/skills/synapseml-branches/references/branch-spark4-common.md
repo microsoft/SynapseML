@@ -19,6 +19,9 @@ against the live target branch.
 
 - Spark 4 uses Scala 2.13 and Java 17-era tooling. Preserve branch-specific
   dependency comments, Java configuration, and removal of obsolete CMS flags.
+- The `pyarrow` and `mlflow` pins move in lockstep: the pinned MLflow requires
+  `pyarrow<20`, so raising `pyarrow` alone breaks the environment solve. Read
+  both comments in `environment.yml` before changing either.
 - Scala 2.13 collection boundaries must produce immutable `Seq` values; keep
   the central `asImmutableCollection` conversion rather than per-service fixes.
 - Preserve Spark 4 adaptations for SAR encoders/self-joins,
@@ -33,6 +36,9 @@ against the live target branch.
   loading of nested stages. Interleaved failures with successful tests between
   them point to selection/proxy behavior, not a dead Spark session; read the
   backtrace.
+- `RCodegenSuite` asserts the cheap R generation invariants on both Spark 4
+  branches. Run it before spending a full pipeline run on an R failure, and keep
+  its assertions in step when changing generated R.
 
 ## Runtime and CI
 
@@ -40,6 +46,9 @@ against the live target branch.
   and use sibling-branch timing/results as a control before blaming capacity.
 - `areLibrariesInstalled == false` can mean install timeout rather than a
   failed library. Read statuses and notebook duration before classifying it.
+- `DatabricksCPUStreamingTests` is unscheduled on both Spark 4 branches, pending
+  pool capacity and notebook work. Treat it as a known coverage gap to verify,
+  not as an omission to accept silently.
 - `/azp run` queues these targets. The ADO pull-request trigger filter allowed
   only `master` until 2026-08-17; it now covers `master`, `spark3.5`,
   `spark4.0` and `spark4.1`, verified by builds recording `reason=pullRequest`

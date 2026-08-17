@@ -28,12 +28,18 @@ templatized version of the branch context from
 - At #2646, two GPU fine-tune notebooks failed because no Horovod wheel matched
   DBR 17.3's PyTorch. Do not switch to DBR 18 merely to turn them green; that
   would test Spark 4.1 instead of this branch. Revalidate this known gap.
+- Two of four GPU notebooks failing is that gap's expected shape. Check the
+  failing count and which notebooks, not the job's red/green, before calling it
+  a regression. `spark4.1`'s petastorm/cloudpickle shims are a plausible second
+  contributor, but that is unproven; do not quote it as the cause without
+  notebook stderr.
 - Avoid pinning runtime-provided torch/torchvision without a demonstrated need;
   incompatible pins can trigger multi-gigabyte CUDA downgrades and timeouts.
 - A sub-minute GPU notebook failure occurs during dependency setup, before
   training. Use run timing and stderr rather than attributing it to the model.
-- Confirm target-branch automation actually queued; this branch historically
-  had no PR checks even when `master` contained corrected filters.
+- Confirm target-branch automation actually queued rather than assuming the
+  comment was enough; see branch-spark4-common.md for how to tell a
+  trigger-driven build from a hand-queued one.
 
 ## Do not port from `spark4.1`
 
