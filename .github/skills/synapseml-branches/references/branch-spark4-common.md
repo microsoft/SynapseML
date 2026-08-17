@@ -2,8 +2,19 @@
 
 Condensed from the branch guides developed in
 [#2645](https://github.com/microsoft/SynapseML/pull/2645) and
-[#2646](https://github.com/microsoft/SynapseML/pull/2646). Verify every item
-against the live target branch.
+[#2646](https://github.com/microsoft/SynapseML/pull/2646).
+
+**Read this as describing the branches as of those two sync PRs, not as a
+snapshot of the live branches.** Both guides were written on the sync branches,
+so they describe the merged result. Until those PRs land, a live branch can lack
+things described here — at the time of writing, live `spark4.0` has no
+`OpenAIPromptPythonOverrides.scala`, no `test_http_package.py` /
+`test_package_exports.py`, no `new_ml_pipeline_stage` in generated R, and a
+different GPU pool. Verify every item against the live target branch with
+`git show <branch>:<path>` or `git grep <pattern> <branch>`; do not read it out
+of a local sync worktree, which is a PR result rather than branch state. That
+specific mistake produced several wrong claims in earlier revisions of this
+file.
 
 ## Purpose and sync
 
@@ -60,7 +71,8 @@ against the live target branch.
   `class _OpenAIPrompt` and a hand-written `OpenAIPrompt.py` supplies the public
   name. Python emitted into that class must use zero-argument `super()`; a
   hardcoded `super(OpenAIPrompt, self)` raises `NameError` because that name does
-  not exist inside the generated module. See `OpenAIPromptPythonOverrides.scala`.
+  not exist inside the generated module. See `OpenAIPromptPythonOverrides.scala`,
+  which is on `spark4.1` and reaches `spark4.0` with #2646.
 - `PythonInitMerger` makes hand-written `__init__.py` files live package code by
   splicing them *after* the generated imports; before it, codegen overwrote them
   and their contents were inert, so a stale one is now a real bug. Keep the HTTP
@@ -69,7 +81,9 @@ against the live target branch.
   `PythonTests core` plus seven website samples. Remove initializers that only
   duplicate generated exports, and do not narrow `import *` by redefining
   `__all__` as a hand-maintained list. Keep the ones that add exports codegen
-  does not emit. `test_http_package.py` and `test_package_exports.py` guard this.
+  does not emit. `test_http_package.py` and `test_package_exports.py` guard this
+  where they exist; they are not on live `spark4.0` yet and arrive there with
+  #2646, so on that branch the policy is currently unenforced.
 - `cyber/utils/spark_utils.py` differs between the branches without either form
   being version-specific: `spark4.0` builds its indexed frame with
   `rdd.toDF(schema)` and `spark4.1` uses `spark.createDataFrame(rdd, schema)`.
@@ -96,7 +110,8 @@ against the live target branch.
   does not yet. Check for it before relying on it, run it before spending a
   pipeline run on an R failure, and keep its assertions in step when changing
   generated R.
-- Nested stages load off the JVM: `PipelineStageWrappable.rLoadLine` emits
+- Nested stages load off the JVM on branches that have adopted it — `spark4.1`
+  has, live `spark4.0` has not yet. `PipelineStageWrappable.rLoadLine` emits
   `sparklyr:::new_ml_pipeline_stage(invoke(spark_jobj(x), "getStages")[[1]])`
   rather than `ml_stages(x)[[1]]`. `new_ml_pipeline_stage` is sparklyr-internal
   but has an identical signature in every release from v1.8.0 to v1.9.5.
@@ -110,13 +125,15 @@ against the live target branch.
 
 ## Runtime and CI
 
-- Spark 4 Databricks builds share scarce GPU capacity: the GPU pool
-  `synapseml-build-14.3-gpu` is shared with `master` and both Spark 4 branches
-  (instance pools are runtime-agnostic, so sharing avoids duplicating scarce GPU
-  quota). It holds three workers (`GpuWorkersPerRun` 1 x `GpuConcurrentRuns` 3),
-  so two concurrent builds can exhaust it. Queue them sequentially, and use the
-  sibling branch as a free control: because the pool is shared, an outcome that
-  tracks the branch rather than the timing is a code difference, not contention.
+- Spark 4 Databricks builds contend for scarce GPU capacity, and the pool names
+  differ by branch — read them from `pipeline.yaml`/the Databricks test config on
+  your branch rather than assuming. Instance pools are runtime-agnostic, so a
+  GPU pool is often deliberately shared across branches to avoid duplicating
+  scarce quota; where it is shared it holds three workers
+  (`GpuWorkersPerRun` 1 x `GpuConcurrentRuns` 3), so two concurrent builds can
+  exhaust it. Queue Spark 4 builds sequentially. Where the pool *is* shared, the
+  sibling branch is a free control: an outcome that tracks the branch rather
+  than the timing is a code difference, not contention.
 - `areLibrariesInstalled == false` is a timeout, not a capacity verdict, and the
   logic inverts the way people expect. The check *throws* `Library Installation
   Failure` with the offending statuses if any library reports `FAILED`, so

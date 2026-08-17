@@ -10,6 +10,11 @@ templatized version of the branch context from
   Scala 2.13.16, Java 17, Python 3.12, and Databricks 17.3; verify live files.
 - Check `spark4.1` before debugging from scratch because it is the more actively
   maintained descendant, then prove any candidate fix is not 4.1-specific.
+- Live state lags the #2646 description. The live branch currently has its own
+  GPU pool (`synapseml-build-17.3-gpu`) rather than the shared `14.3-gpu` one,
+  and does not yet carry `OpenAIPromptPythonOverrides.scala`, the
+  `__init__.py` guard tests, or the `new_ml_pipeline_stage` R loading. #2646
+  brings all of those. Check the live branch before assuming any of them.
 
 ## Core differences
 
