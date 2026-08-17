@@ -45,4 +45,6 @@ the runtime, sync policy, or CI that must pass.
 - Treat `.github/skills/` as authoritative. `.agents/` is compatibility-only
   and may contain stale copies.
 - If no exact reference exists, follow the fallback, state uncertainty, and
-  add a concise reference when the branch is an active supported target.
+  add a concise reference from the
+  [branch template](references/branch-template.md) when the branch is an active
+  supported target.

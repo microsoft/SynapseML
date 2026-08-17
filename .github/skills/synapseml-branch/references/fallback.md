@@ -10,4 +10,5 @@
   proves a different maintained policy.
 - Confirm actual queued checks and per-test execution.
 - State unresolved branch-specific uncertainty as a blocker. If the target is
-  actively supported, add a focused reference before claiming readiness.
+  actively supported, add a focused reference using
+  [branch-template.md](branch-template.md) before claiming readiness.
