@@ -43,8 +43,10 @@ templatized version of the branch context from
   4.0-capable Fabric runtime exists, which may never happen; the more likely
   resolution is that this branch is superseded by `spark4.1`.
 - At #2646, two GPU fine-tune notebooks failed because no Horovod wheel matched
-  DBR 17.3's PyTorch. Do not switch to DBR 18 merely to turn them green; that
-  would test Spark 4.1 instead of this branch. Revalidate this known gap.
+  DBR 17.3's PyTorch. Do not switch `AdbGpuRuntime` to DBR 18 merely to turn
+  them green; DBR 17.3 LTS ML ships Spark 4.0 and 18.0 ML ships Spark 4.1, so
+  bumping it would test Spark 4.1 instead of this branch and make the suite
+  green by no longer testing what it exists to test. Revalidate this known gap.
 - Two of four GPU notebooks failing is that gap's expected shape. Check the
   failing count and which notebooks, not the job's red/green, before calling it
   a regression. The Horovod wheel is the first blocker and it masks the missing

@@ -92,7 +92,11 @@ file.
   monkey-patched RDD API, which does not exist under Spark Connect, and buys
   little on its own while the surrounding `df.rdd.zipWithIndex()` remains an RDD
   call.
-- R generation requires ANSI double-quoted identifiers, the validated sparklyr
+- R generation requires ANSI double-quoted identifiers — `RTestGen.scala` sets
+  `spark.sql.ansi.enabled=true` and `spark.sql.ansi.doubleQuotedIdentifiers=true`,
+  because sparklyr emits `SELECT 0L AS "class", ...` and without the second flag
+  Spark 4 reads `"class"` as a string literal and fails with
+  `PARSE_SYNTAX_ERROR`. It also requires the validated sparklyr
   1.9.5 pin from the PR snapshots, `SPARK_HOME` connection behavior, and JVM
   loading of nested stages. That pin is not yet everywhere — check
   `environment.yml` on your branch, since a branch still on sparklyr 1.9.3 has
@@ -161,11 +165,13 @@ file.
   `spark4.0` and `spark4.1`, verified by builds recording `reason=pullRequest`
   rather than `reason=manual`. If a comment produces no build, re-read the
   definition's trigger filter before assuming flakiness, and fall back to
-  queueing the PR merge ref, never `refs/heads/<branch>`.
+  queueing the PR merge ref (`refs/pull/<N>/merge`), never
+  `refs/heads/<branch>`, which fails service-connection authorization.
 - GitHub checks compile/lint but do not replace full Azure, Databricks, native,
   R, or service validation.
-- Intermittent ONNX OOM and R package HTTP failures require log evidence and a
-  controlled rerun; they are not automatic product regressions or exemptions.
+- Intermittent ONNX OOM (`ImageFeaturizerSuite`) and R package HTTP failures
+  (a conda `HTTP 403` in `RTests vw`) require log evidence and a controlled
+  rerun; they are not automatic product regressions or exemptions.
 
 ## Before merging a sync
 
