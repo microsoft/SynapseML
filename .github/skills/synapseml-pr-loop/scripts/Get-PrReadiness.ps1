@@ -35,8 +35,11 @@ param(
 
     # Logins whose reviews count as automated coverage of the head commit. Matched
     # exactly, with an optional "[bot]" suffix, so a human account that merely
-    # contains one of these words is never mistaken for the reviewer.
-    [string[]]$AutomatedReviewer = @("copilot-pull-request-reviewer", "github-copilot", "copilot"),
+    # contains one of these words is never mistaken for the reviewer. Defaults to
+    # this repo's reviewer bot only: shorter generic logins such as "copilot" are
+    # registerable by humans, and an exact match on one of those would count a
+    # human review as automated coverage. Pass -AutomatedReviewer to extend.
+    [string[]]$AutomatedReviewer = @("copilot-pull-request-reviewer"),
 
     # Block until the automated review of the current head arrives. Review is
     # triggered automatically on push but lands afterwards, so a snapshot taken
@@ -61,13 +64,6 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-
-# GraphQL responses are sparse: absent fields are simply missing rather than null,
-# and this script reads them positionally. Under StrictMode that is a terminating
-# error, so a caller with StrictMode enabled would get no snapshot at all instead
-# of a snapshot reporting what is missing. Pin the mode off for this scope so the
-# script's behaviour does not depend on the caller's session state.
-Set-StrictMode -Off
 
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
     throw "GitHub CLI 'gh' is required."
@@ -143,6 +139,13 @@ function Invoke-PagedQuery {
         [Parameter(Mandatory)][string]$Description
     )
 
+    # GraphQL responses are sparse: absent fields are simply missing rather than
+    # null, and this function reads them positionally. Under StrictMode that is a
+    # terminating error, so a caller with StrictMode enabled would get no snapshot
+    # at all instead of a snapshot reporting what is missing. Scoped to this
+    # function so dot-sourcing the script cannot disable StrictMode session-wide.
+    Set-StrictMode -Off
+
     $nodes = @()
     $cursor = $null
     $pages = 0
@@ -187,6 +190,11 @@ function Invoke-PagedQuery {
 
 function Get-PrSnapshot {
     param([int]$number)
+
+    # Same reason as Invoke-PagedQuery: sparse GraphQL fields are read
+    # positionally here, and StrictMode is scoped to this function so
+    # dot-sourcing cannot change the caller's session.
+    Set-StrictMode -Off
 
     $jsonFields = "number,title,state,isDraft,mergeable,mergeStateStatus,reviewDecision," +
         "headRefOid,baseRefName,statusCheckRollup,url"
