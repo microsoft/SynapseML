@@ -213,7 +213,7 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   override val subscriptionKeyHeaderName: String = "api-key"
 
   override def shouldSkip(row: Row): Boolean =
-    super.shouldSkip(row) || Option(row.getAs[Row](getMessagesCol)).isEmpty
+    super.shouldSkip(row) || row.get(row.fieldIndex(getMessagesCol)) == null
 
   override protected def getVectorParamMap: Map[String, String] = super.getVectorParamMap
     .updated("input", getMessagesCol)

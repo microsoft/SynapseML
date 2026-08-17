@@ -471,6 +471,18 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
     fieldIndex -> message.schema.fields(fieldIndex).dataType
   }
 
+  private def validatedStringContent(message: Row, messageIndex: Int, fieldIndex: Int): String = {
+    if (message.isNullAt(fieldIndex)) {
+      null // scalastyle:ignore null
+    } else {
+      message.get(fieldIndex) match {
+        case text: String => text
+        case _ =>
+          throw new IllegalArgumentException(s"messages[$messageIndex].content must be a string")
+      }
+    }
+  }
+
   private def validateMessages(messages: CollectionSeq[Row]): Unit = {
     if (messages.isEmpty) {
       throw new IllegalArgumentException("messages must not be empty")
@@ -482,7 +494,7 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
       validatedRole(message, messageIndex)
       val (fieldIndex, dataType) = contentField(message, messageIndex)
       dataType match {
-        case StringType =>
+        case StringType => validatedStringContent(message, messageIndex, fieldIndex)
         case ArrayType(elementType: StructType, _) =>
           contentItems(message.get(fieldIndex), messageIndex).zipWithIndex.foreach {
             case (part, partIndex) =>
@@ -503,7 +515,7 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
     val (fieldIndex, dataType) = contentField(message, messageIndex)
     dataType match {
       case StringType =>
-        message.getAs[String]("content")
+        validatedStringContent(message, messageIndex, fieldIndex)
       case ArrayType(elementType: StructType, _) =>
         contentItems(message.get(fieldIndex), messageIndex).zipWithIndex.map {
           case (part, partIndex) =>
