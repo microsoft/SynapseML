@@ -315,7 +315,12 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
               throw new IllegalArgumentException(s"messages[$messageIndex].content must be a string")
           }
         }
-      case arrayType: ArrayType => encodeStructuredValue(message.get(contentIndex), arrayType)
+      case arrayType: ArrayType =>
+        if (message.isNullAt(contentIndex)) {
+          throw new IllegalArgumentException(
+            s"messages[$messageIndex].content must be an array of content part objects")
+        }
+        encodeStructuredValue(message.get(contentIndex), arrayType)
       case other =>
         throw new IllegalArgumentException(
           s"messages[$messageIndex].content has unsupported type ${other.typeName}")
@@ -493,6 +498,9 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
 
     message.get("content") match {
       case Some(_: String) =>
+      case Some(null) => // scalastyle:ignore null
+        throw new IllegalArgumentException(
+          s"messages[$messageIndex].content must be a string or an array of content part objects")
       case Some(content) =>
         contentItems(content, messageIndex).zipWithIndex.foreach {
           case (part, partIndex) => validateContentPart(part, messageIndex, partIndex)
