@@ -1378,6 +1378,15 @@ jobs:
   dependsOn: BuildAndCacheSbt
   pool:
     vmImage: $(UBUNTU_VERSION)
+  # Declared with empty defaults so the `$(...)` macros below always resolve. An
+  # undefined macro is passed through to the script verbatim, and `$(COMPAT_SBT_OPTS)`
+  # reaching bash unexpanded would be read as a command substitution rather than an
+  # empty argument. 'Select matching SynapseML-Internal branch' overwrites both at
+  # runtime; these defaults only cover the case where that step did not run, since two
+  # later steps use `condition: succeededOrFailed()`.
+  variables:
+    COMPAT_JDK: ''
+    COMPAT_SBT_OPTS: ''
   steps:
     # Explicit paths: a multi-repo job otherwise nests every repo under a folder
     # named after it, which moves the OSS root off $(Build.SourcesDirectory). That
@@ -1429,7 +1438,41 @@ jobs:
         echo "##vso[task.setvariable variable=INTERNAL_BRANCH]$INTERNAL_BRANCH"
         echo "=== SynapseML-Internal now at $INTERNAL_BRANCH ==="
         git log --oneline -1
+
+        # The JDK follows the branch under test, for the same reason the Internal branch
+        # does. Both sides of this comparison are built from $OSS_TARGET's Spark line, and
+        # the Spark 4 branches target Java 17: without this, both trees compile on the
+        # agent's default JDK and fail with "Class java.lang.Record not found" -- on the
+        # OSS tree for spark4.1 (build 231477746) and on the Internal tree for spark4.0
+        # (build 231456784). That is a permanent red on those branches rather than a real
+        # compatibility signal, which is worse than no signal for an advisory check.
+        #
+        # Only Spark 4 branches get a pin. master and spark3.5 already pass on the agent
+        # default, so pinning them would change working behaviour to fix a problem they do
+        # not have. An empty value leaves the JDK step skipped.
+        case "$OSS_TARGET" in
+          spark4.*)
+            COMPAT_JDK=17
+            # sbt on Java 17 cannot reach java.util.prefs without this; mirrors the
+            # ReleaseBranchCompat job above, which builds the same branches.
+            COMPAT_SBT_OPTS="-J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED"
+            ;;
+          *)
+            COMPAT_JDK=""
+            COMPAT_SBT_OPTS=""
+            ;;
+        esac
+        echo "OSS target branch '$OSS_TARGET' -> JDK '${COMPAT_JDK:-<agent default>}'"
+        echo "##vso[task.setvariable variable=COMPAT_JDK]$COMPAT_JDK"
+        echo "##vso[task.setvariable variable=COMPAT_SBT_OPTS]$COMPAT_SBT_OPTS"
       displayName: 'Select matching SynapseML-Internal branch'
+    - task: JavaToolInstaller@0
+      displayName: 'Set up JDK $(COMPAT_JDK)'
+      condition: and(succeeded(), ne(variables['COMPAT_JDK'], ''))
+      inputs:
+        versionSpec: $(COMPAT_JDK)
+        jdkArchitectureOption: x64
+        jdkSourceOption: PreInstalled
     - template: templates/sbt_cache.yml
     - task: AzureCLI@2
       displayName: 'Publish OSS to local Maven'
@@ -1446,7 +1489,7 @@ jobs:
           # timestamp whenever the tree is dirty, so querying the version and publishing in
           # two separate invocations can yield two different versions when they straddle a
           # minute boundary. Run both in ONE sbt session so the version is computed once.
-          if ! SBT_OUT="$(sbt -no-colors "core/version" publishM2 2>&1)"; then
+          if ! SBT_OUT="$(sbt -no-colors $(COMPAT_SBT_OPTS) "core/version" publishM2 2>&1)"; then
             echo "$SBT_OUT"
             echo "##vso[task.logissue type=error]sbt core/version publishM2 failed"
             exit 1
@@ -1524,7 +1567,7 @@ jobs:
           cd $(Agent.BuildDirectory)/s-internal
           export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
           echo "Compiling SynapseML-Internal against OSS $OSS_VERSION..."
-          sbt compile Test/compile
+          sbt $(COMPAT_SBT_OPTS) compile Test/compile
     - bash: |
         echo "##vso[task.prependpath]$CONDA/bin"
       displayName: 'Add conda to PATH'
@@ -1643,7 +1686,7 @@ jobs:
           # publishM2 then publishes a *different* version, and the Spark launch inside
           # make_mlflow_models.py fails to resolve it - surfacing only as an opaque
           # JAVA_GATEWAY_EXITED. Observed: packaged 1022, published 1023.
-          sbt packagePython publishM2
+          sbt $(COMPAT_SBT_OPTS) packagePython publishM2
           echo "=== published Internal versions in ~/.m2 ==="
           ls -d "$HOME"/.m2/repository/com/microsoft/azure/*-internal_2.12/*/ 2>/dev/null || true
       condition: succeededOrFailed()
@@ -1688,7 +1731,7 @@ jobs:
             python ./src/test/python/make_mlflow_models.py
           fi
           echo "Running ExcludeAIFunc Python tests against OSS $OSS_VERSION..."
-          sbt testPythonExcludeAIFunc
+          sbt $(COMPAT_SBT_OPTS) testPythonExcludeAIFunc
       condition: succeededOrFailed()
     - task: PublishTestResults@2
       displayName: 'Publish Internal Scala Test Results'
