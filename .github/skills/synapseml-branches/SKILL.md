@@ -1,5 +1,5 @@
 ---
-name: synapseml-branch
+name: synapseml-branches
 description: >-
   Resolve SynapseML branch-specific rules, runtime baselines, sync policy, and
   CI expectations. Use before editing, rebasing, merging, testing, or declaring
@@ -19,12 +19,19 @@ the runtime, sync policy, or CI that must pass.
 2. Resolve the target:
    - For a PR, read `baseRefName` from GitHub.
    - For direct branch work, use the checked-out shared branch.
-3. Load the matching reference:
-   - [master](references/master.md)
-   - [spark3.5](references/spark3.5.md)
-   - [spark4.0](references/spark4.0.md)
-   - [spark4.1](references/spark4.1.md)
-   - [fallback](references/fallback.md) for any other branch
+3. Load the mapped reference. Filenames use `p` for the version decimal:
+   - `master` ->
+     [branch-spark3p5.md](references/branch-spark3p5.md). `master` is currently
+     the canonical Spark 3.5 development baseline.
+   - `spark3.5` ->
+     [branch-spark3p5.md](references/branch-spark3p5.md). This is the shared
+     Spark 3.5 release branch.
+   - `spark4.0` ->
+     [branch-spark4p0.md](references/branch-spark4p0.md).
+   - `spark4.1` ->
+     [branch-spark4p1.md](references/branch-spark4p1.md).
+   - Any other target ->
+     [branch-fallback.md](references/branch-fallback.md).
 4. Verify every version, dependency, trigger, skip, and test command against
    that branch's live `build.sbt`, `environment.yml`, workflows, and
    `pipeline.yaml`. References are decision guides, not stale-value authority.

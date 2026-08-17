@@ -1,6 +1,6 @@
 # `spark4.0`
 
-Read [spark4-common.md](spark4-common.md) first. This is a condensed,
+Read [branch-spark4-common.md](branch-spark4-common.md) first. This is a condensed,
 templatized version of the branch context from
 [#2646](https://github.com/microsoft/SynapseML/pull/2646).
 

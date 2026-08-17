@@ -21,7 +21,7 @@ is complete and green.
 
 ### 1. Establish scope and isolation
 
-- Load the [branch context skill](../synapseml-branch/SKILL.md) using the PR
+- Load the [branch context skill](../synapseml-branches/SKILL.md) using the PR
   base branch. Recheck it before validation and immediately before final push.
 - Read the issue, PR body, linked work items, commit history, changed files,
   and every review thread/body, including resolved, outdated, minimized, and
