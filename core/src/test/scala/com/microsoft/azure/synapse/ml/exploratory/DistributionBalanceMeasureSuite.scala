@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.exploratory
 
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.spark.ml.util.MLReadable
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.{array, col}
 
 class DistributionBalanceMeasureSuite extends DataBalanceTestBase with TransformerFuzzing[DistributionBalanceMeasure] {
@@ -18,6 +18,8 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
 
   import DistributionMetrics._
   import spark.implicits._
+
+  private val jsDistanceTolerance = 1e-12
 
   private def distributionBalanceMeasure: DistributionBalanceMeasure =
     new DistributionBalanceMeasure()
@@ -36,6 +38,94 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
       .setVerbose(true)
       .transform(sensitiveFeaturesDf)
 
+  private def jsDistance(observed: Seq[Double], reference: Seq[Double]): Double = {
+    require(observed.nonEmpty)
+    require(observed.length == reference.length)
+    Seq(observed, reference).foreach { distribution =>
+      require(distribution.forall(probability => java.lang.Double.isFinite(probability) && probability >= 0d))
+      require(math.abs(distribution.sum - 1d) <= jsDistanceTolerance)
+    }
+    val observedProbabilityCol = "observedProbability"
+    val referenceProbabilityCol = "referenceProbability"
+    val observedCountCol = "observedCount"
+    val referenceCountCol = "referenceCount"
+    val unusedCount = 0d
+    val probabilities = observed.zip(reference)
+      .map { case (observedProbability, referenceProbability) =>
+        (observedProbability, referenceProbability, unusedCount, unusedCount)
+      }
+      .toDF(observedProbabilityCol, referenceProbabilityCol, observedCountCol, referenceCountCol)
+    val metrics = DistributionMetrics(
+      observed.length,
+      observedProbabilityCol,
+      observedCountCol,
+      referenceProbabilityCol,
+      referenceCountCol)
+
+    probabilities.agg(metrics.jsDistance.alias(JSDISTANCE)).head().getAs[Double](JSDISTANCE)
+  }
+
+  private def assertJsDistance(actual: Double, expected: Double): Unit = {
+    assert(!actual.isNaN)
+    assert(math.abs(actual - expected) <= jsDistanceTolerance)
+  }
+
+  test("Jensen-Shannon distance has normalized endpoints and handles zero-probability support") {
+    assertJsDistance(jsDistance(Seq(0.5d, 0.5d), Seq(0.5d, 0.5d)), 0d)
+    assertJsDistance(jsDistance(Seq(1d, 0d), Seq(0d, 1d)), 1d)
+    assertJsDistance(
+      jsDistance(Seq(0.5d, 0.5d, 0d), Seq(0.5d, 0d, 0.5d)),
+      math.sqrt(0.5d))
+    assertJsDistance(
+      jsDistance(Seq(0.9999999d, 0.0000001d), Seq(0.0000001d, 0.9999999d)),
+      0.999998765189656d)
+    assertJsDistance(
+      jsDistance(
+        Seq(0.36096096457437404d, 0.0463302746586729d, 0.592708760766953d),
+        Seq(0.36096096457437415d, 0.04633027465867293d, 0.5927087607669529d)),
+      0d)
+  }
+
+  test("Jensen-Shannon distance is symmetric for an intermediate distribution") {
+    val observed = Seq(0.7d, 0.2d, 0.1d)
+    val reference = Seq(0.1d, 0.3d, 0.6d)
+    val expected = 0.5768458213445598
+    val forward = jsDistance(observed, reference)
+
+    assertJsDistance(forward, expected)
+    assertJsDistance(jsDistance(reference, observed), expected)
+    assertJsDistance(jsDistance(observed.reverse, reference.reverse), expected)
+  }
+
+  test("Jensen-Shannon distance stays within its documented bounds") {
+    val distributions = Seq(
+      (Seq(1d, 0d), Seq(0d, 1d)),
+      (Seq(0.75d, 0.25d), Seq(0.25d, 0.75d)),
+      (Seq(0.5d, 0.5d), Seq(1d, 0d)))
+
+    distributions.foreach { case (observed, reference) =>
+      val distance = jsDistance(observed, reference)
+      assert(!distance.isNaN)
+      assert(distance >= -jsDistanceTolerance && distance <= 1d + jsDistanceTolerance)
+    }
+  }
+
+  test("DistributionBalanceMeasure exposes normalized JS distance end-to-end without changing its schema") {
+    val source = Seq("red", "red", "red", "blue").toDF("color")
+    val measure = new DistributionBalanceMeasure()
+      .setSensitiveCols(Array("color"))
+      .setReferenceDistribution(Array(Map("red" -> 0.25d, "blue" -> 0.75d)))
+    val result = measure.transform(source)
+    val rows = result.collect()
+
+    assert(result.schema === measure.transformSchema(source.schema))
+    assert(rows.length === 1)
+    assert(rows.head.getAs[String]("FeatureName") === "color")
+    assertJsDistance(
+      rows.head.getAs[Row]("DistributionBalanceMeasure").getAs[Double](JSDISTANCE),
+      0.4344213111034807)
+  }
+
   private def actualFeature1: Map[String, Double] =
     METRICS zip actual.filter(col("FeatureName") === feature1)
       .select(array(col("DistributionBalanceMeasure.*")))
@@ -53,7 +143,7 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
     // val (refProbs, refCounts) = Array.fill(numFeatures.toInt)(numFeatures).map(n => (1d / n, numRows / n)).unzip
     // val CALC = DistributionMetricsCalculator(refProbs, refCounts, obsProbs, obsCounts, numFeatures)
     val KLDIVERGENCE = 0.03775534151008829
-    val JSDISTANCE = 0.09785224086736323
+    val JSDISTANCE = 0.11753251925575922
     val INFNORMDISTANCE = 0.1111111111111111
     val TOTALVARIATIONDISTANCE = 0.1111111111111111
     val WASSERSTEINDISTANCE = 0.07407407407407407
@@ -61,11 +151,11 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
     val CHISQUAREDPVALUE = 0.7165313105737893
   }
 
-  test(s"DistributionBalanceMeasure can calculate Distribution Balance Measures for $feature1") {
+  test(s"DistributionBalanceMeasure normalizes JS distance without changing other measures for $feature1") {
     val actual = actualFeature1
     val expected = ExpectedFeature1
     assert(actual(KLDIVERGENCE) === expected.KLDIVERGENCE)
-    assert(actual(JSDISTANCE) === expected.JSDISTANCE)
+    assertJsDistance(actual(JSDISTANCE), expected.JSDISTANCE)
     assert(actual(INFNORMDISTANCE) === expected.INFNORMDISTANCE)
     assert(actual(TOTALVARIATIONDISTANCE) === expected.TOTALVARIATIONDISTANCE)
     assert(actual(WASSERSTEINDISTANCE) === expected.WASSERSTEINDISTANCE)
@@ -90,7 +180,7 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
     // val (refProbs, refCounts) = Array.fill(numFeatures.toInt)(numFeatures).map(n => (1d / n, numRows / n)).unzip
     // val CALC = DistributionMetricsCalculator(refProbs, refCounts, obsProbs, obsCounts, numFeatures)
     val KLDIVERGENCE = 0.07551068302017659
-    val JSDISTANCE = 0.14172745151398888
+    val JSDISTANCE = 0.1702320179536471
     val INFNORMDISTANCE = 0.1388888888888889
     val TOTALVARIATIONDISTANCE = 0.16666666666666666
     val WASSERSTEINDISTANCE = 0.08333333333333333
@@ -102,7 +192,7 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
     val actual = actualFeature2
     val expected = ExpectedFeature2
     assert(actual(KLDIVERGENCE) === expected.KLDIVERGENCE)
-    assert(actual(JSDISTANCE) === expected.JSDISTANCE)
+    assertJsDistance(actual(JSDISTANCE), expected.JSDISTANCE)
     assert(actual(INFNORMDISTANCE) === expected.INFNORMDISTANCE)
     assert(actual(TOTALVARIATIONDISTANCE) === expected.TOTALVARIATIONDISTANCE)
     assert(actual(WASSERSTEINDISTANCE) === expected.WASSERSTEINDISTANCE)
@@ -182,7 +272,7 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
     // val refCounts = refProbs.map(_ * numRows)
     // val CALC = DistributionMetricsCalculator(refProbs, refCounts, obsProbs, obsCounts, numFeatures)
     val KLDIVERGENCE = 0.09399792940857671
-    val JSDISTANCE = 0.15001917759832653
+    val JSDISTANCE = 0.18019139596106415
     val INFNORMDISTANCE = 0.19444444444444442
     val TOTALVARIATIONDISTANCE = 0.19444444444444445
     val WASSERSTEINDISTANCE = 0.12962962962962962
@@ -196,7 +286,7 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
     val actual = actualCustomDistFeature1
     val expected = ExpectedCustomDistFeature1
     assert(actual(KLDIVERGENCE) === expected.KLDIVERGENCE)
-    assert(actual(JSDISTANCE) === expected.JSDISTANCE)
+    assertJsDistance(actual(JSDISTANCE), expected.JSDISTANCE)
     assert(actual(INFNORMDISTANCE) === expected.INFNORMDISTANCE)
     assert(actual(TOTALVARIATIONDISTANCE) === expected.TOTALVARIATIONDISTANCE)
     assert(actual(WASSERSTEINDISTANCE) === expected.WASSERSTEINDISTANCE)
@@ -222,7 +312,7 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
     // val refCounts = refProbs.map(_ * numRows)
     // val CALC = DistributionMetricsCalculator(refProbs, refCounts, obsProbs, obsCounts, numFeatures)
     val KLDIVERGENCE = Double.PositiveInfinity
-    val JSDISTANCE = 0.2100032735609124
+    val JSDISTANCE = 0.25223963779252284
     val INFNORMDISTANCE = 0.1111111111111111
     val TOTALVARIATIONDISTANCE = 0.1111111111111111
     val WASSERSTEINDISTANCE = 0.05555555555555555
@@ -237,7 +327,7 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
     val actual = actualCustomDistFeature2
     val expected = ExpectedCustomDistFeature2
     assert(actual(KLDIVERGENCE) === expected.KLDIVERGENCE)
-    assert(actual(JSDISTANCE) === expected.JSDISTANCE)
+    assertJsDistance(actual(JSDISTANCE), expected.JSDISTANCE)
     assert(actual(INFNORMDISTANCE) === expected.INFNORMDISTANCE)
     assert(actual(TOTALVARIATIONDISTANCE) === expected.TOTALVARIATIONDISTANCE)
     assert(actual(WASSERSTEINDISTANCE) === expected.WASSERSTEINDISTANCE)
