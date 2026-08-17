@@ -81,6 +81,12 @@ by current-head evidence.
 - Full Azure Pipelines and required GitHub checks are complete with zero
   unexplained failures or pending jobs.
 - Skips are expected and documented; a skipped required scenario is a blocker.
+- `Get-PrReadiness.ps1` reports these as `completeness.complete`, which is true
+  only when comment pagination was not truncated, an automated review covers the
+  head, and unresolved threads, suppressed-for-head items, failed checks and
+  pending checks are all zero. Treat a pending check as unknown rather than
+  passing. Trust the individual fields over the summary when they disagree: that
+  flag has been wrong before, in both directions.
 
 ## Honest confidence language
 

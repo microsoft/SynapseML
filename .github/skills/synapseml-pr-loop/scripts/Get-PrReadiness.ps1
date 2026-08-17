@@ -84,6 +84,10 @@ if (-not $automatedLogins) {
     throw "AutomatedReviewer must contain at least one non-blank login."
 }
 
+# Review requests are attempted at most once per PR per invocation; see the
+# -RequestReview block in Get-PrSnapshot.
+$script:reviewRequestOutcome = @{}
+
 $threadQuery = @'
 query($owner: String!, $name: String!, $number: Int!, $cursor: String) {
   repository(owner: $owner, name: $name) {
@@ -276,7 +280,15 @@ function Get-PrSnapshot {
         Where-Object { $_.commit -eq $view.headRefOid })
 
     $reviewRequested = $false
-    if ($RequestReview -and -not $automatedReviewCoversHead) {
+    if ($script:reviewRequestOutcome.ContainsKey($number)) {
+        $reviewRequested = $script:reviewRequestOutcome[$number]
+    }
+    # Under -WaitForReview this function runs once per poll, so requesting
+    # unconditionally would re-POST the request every cycle until coverage
+    # arrived - notification spam and a rate-limit risk. Attempt it at most once
+    # per PR per invocation and reuse the recorded outcome afterwards.
+    if ($RequestReview -and -not $automatedReviewCoversHead -and
+        -not $script:reviewRequestOutcome.ContainsKey($number)) {
         # Requesting by handle through the REST endpoint is the only path that works.
         # The GraphQL requestReviews mutation rejects the reviewer's Bot node id
         # ("Could not resolve to User node"), and `gh pr edit --add-reviewer` cannot
@@ -287,6 +299,7 @@ function Get-PrSnapshot {
         gh api "repos/$owner/$name/pulls/$number/requested_reviewers" `
             -X POST -f "reviewers[]=$ReviewerHandle" *> $null
         $reviewRequested = ($LASTEXITCODE -eq 0)
+        $script:reviewRequestOutcome[$number] = $reviewRequested
         if (-not $reviewRequested) {
             Write-Warning "PR #${number}: could not request a review from '$ReviewerHandle'."
         }
@@ -322,7 +335,18 @@ function Get-PrSnapshot {
             latestAutomatedReviewAuthor = if ($latestAutomated) { $latestAutomated.author.login } else { $null }
             automatedReviewCoversHead = $automatedReviewCoversHead
             automatedReviewRequested = $reviewRequested
-            complete = ($truncatedThreadComments.Count -eq 0 -and $automatedReviewCoversHead)
+            # Everything verifiable must be clear. This previously tested only
+            # $truncatedThreadComments, which counts comment-pagination truncation
+            # rather than unresolved review threads, so it reported complete=true
+            # with review feedback still outstanding.
+            complete = (
+                @($truncatedThreadComments).Count -eq 0 -and
+                $automatedReviewCoversHead -and
+                @($unresolved).Count -eq 0 -and
+                @($suppressedForHead).Count -eq 0 -and
+                @($failedChecks).Count -eq 0 -and
+                @($pendingChecks).Count -eq 0
+            )
         }
     }
 }
