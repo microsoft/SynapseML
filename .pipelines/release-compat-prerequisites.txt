@@ -10,3 +10,6 @@
 # PR #2635 changed ComputeModelStatistics and its tests before this metadata fix.
 # Remove this prerequisite once every validated release branch contains that backport.
 f7a1dc50d09d400d279d08bf69a1fac322896748
+# PR #2632 then added deterministic scored-model metadata resolution used by this change.
+# Remove this prerequisite once every validated release branch contains that backport.
+704fb34a51072af56157bf4dade33f4b82dcf129
