@@ -18,7 +18,7 @@ templatized version of the branch context from
 - The Petastorm/Horovod compatibility layer is separate from that: it restores
   pyarrow APIs Petastorm still calls, which the pinned pyarrow no longer
   provides. Do not describe it as a Python 3.13 workaround, or `spark4.0` looks
-  exempt when it runs the same pyarrow.
+  exempt when it pins the same pyarrow version.
 - `LongOffset` moved to `...execution.streaming.runtime`; the 4.0 import does
   not compile here.
 - Spark 4.1 returns Python `bytes` for `BinaryType`; `ImageTransformer` uses
