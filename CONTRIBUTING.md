@@ -22,10 +22,11 @@ this process:
 Most contributions target `master`.
 
 This repository also maintains ports of the library to newer Spark versions on
-long-lived branches (`spark4.0`, `spark4.1`).  Target one of those only when the
-change exists *because of* that Spark version — for example, replacing an API
-that behaves differently there.  Ordinary bug fixes and new features belong on
-`master` and reach the port branches when `master` is merged into them.
+long-lived branches named `spark<version>`.  Run `git branch -r` to see which
+ones currently exist.  Target one of those only when the change exists *because
+of* that Spark version — for example, replacing an API that behaves differently
+there.  Ordinary bug fixes and new features belong on `master` and reach the port
+branches when `master` is merged into them.
 
 If a fix applies everywhere, land it on `master` first so the port branches
 inherit it on the next sync.  Fixing the same thing separately on each branch
