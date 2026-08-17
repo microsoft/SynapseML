@@ -104,6 +104,10 @@ class OpenAIChatCompletionMultimodalSuite extends TestBase {
       contentPart(
         "image_url",
         image = Some(imageUrl(Some("data:image/png;base64,AAA"), Some("low")))
+      ),
+      contentPart(
+        "image_url",
+        image = Some(imageUrl(Some("https://example.com/image.png")))
       )
     ))
     val malformedMessage = message("user", Seq(
@@ -147,6 +151,12 @@ class OpenAIChatCompletionMultimodalSuite extends TestBase {
       "image_url" -> JsObject(
         "url" -> JsString("data:image/png;base64,AAA"),
         "detail" -> JsString("low")
+      )
+    ))
+    assert(userParts(2).asJsObject == JsObject(
+      "type" -> JsString("image_url"),
+      "image_url" -> JsObject(
+        "url" -> JsString("https://example.com/image.png")
       )
     ))
 
@@ -228,6 +238,63 @@ class OpenAIChatCompletionMultimodalSuite extends TestBase {
     assert(messages.head.asJsObject.fields("content") == JsString("kept"))
   }
 
+  test("map-backed image parts preserve nested wire shape and reject extra fields") {
+    val mapMessageSchema = StructType(Seq(
+      StructField("role", StringType, nullable = false),
+      StructField(
+        "content",
+        ArrayType(MapType(StringType, StringType, valueContainsNull = true), containsNull = false),
+        nullable = true
+      ),
+      StructField("name", StringType, nullable = true)
+    ))
+    def mapMessage(parts: Seq[Map[String, String]]): Row =
+      new GenericRowWithSchema(
+        Array[Any]("user", parts, null), // scalastyle:ignore null
+        mapMessageSchema
+      )
+
+    val payload = EntityUtils.toString(
+      new OpenAIChatCompletion().getStringEntity(Seq(mapMessage(Seq(
+        Map("type" -> "text", "text" -> "Describe."),
+        Map(
+          "type" -> "image_url",
+          "image_url" -> "data:image/png;base64,AAA",
+          "detail" -> "low"
+        )
+      ))), Map.empty)
+    ).parseJson.asJsObject
+    val JsArray(messages) = payload.fields("messages")
+    val JsArray(parts) = messages.head.asJsObject.fields("content")
+
+    assert(parts.head.asJsObject ==
+      JsObject("type" -> JsString("text"), "text" -> JsString("Describe.")))
+    assert(parts(1).asJsObject == JsObject(
+      "type" -> JsString("image_url"),
+      "image_url" -> JsObject(
+        "url" -> JsString("data:image/png;base64,AAA"),
+        "detail" -> JsString("low")
+      )
+    ))
+
+    val error = intercept[IllegalArgumentException] {
+      new OpenAIChatCompletion().getStringEntity(Seq(mapMessage(Seq(Map(
+        "type" -> "image_url",
+        "image_url" -> "data:image/png;base64,AAA",
+        "unsupported" -> "value"
+      )))), Map.empty)
+    }
+    assert(error.getMessage == "messages[0].content[0] contains unsupported fields")
+
+    val unsupportedTypeError = intercept[IllegalArgumentException] {
+      new OpenAIChatCompletion().getStringEntity(Seq(mapMessage(Seq(Map(
+        "type" -> "input_audio"
+      )))), Map.empty)
+    }
+    assert(unsupportedTypeError.getMessage ==
+      "messages[0].content[0] has an unsupported type; supported types are 'text' and 'image_url'")
+  }
+
   test("short content rows fail with a structural validation error") {
     val shortPart = new GenericRowWithSchema(Array[Any]("text"), contentPartSchema)
 
@@ -237,6 +304,52 @@ class OpenAIChatCompletionMultimodalSuite extends TestBase {
 
     assert(error.getMessage ==
       "messages[0].content[0] is invalid: Struct content part does not match its declared schema")
+  }
+
+  test("short message rows fail with stable structural errors") {
+    val missingRole = new GenericRowWithSchema(Array.empty[Any], messageSchema)
+    val missingContent = new GenericRowWithSchema(Array[Any]("user"), messageSchema)
+
+    val roleError = intercept[IllegalArgumentException] {
+      new OpenAIChatCompletion().getStringEntity(Seq(missingRole), Map.empty)
+    }
+    assert(roleError.getMessage == "messages[0].role must be a non-empty string")
+
+    val contentError = intercept[IllegalArgumentException] {
+      new OpenAIChatCompletion().getStringEntity(Seq(missingContent), Map.empty)
+    }
+    assert(contentError.getMessage ==
+      "messages[0].content must be a string or an array of content part objects")
+  }
+
+  test("missing content fields produce row errors without HTTP") {
+    val requestCount = spark.sparkContext.longAccumulator
+    val missingContentSchema = StructType(Seq(
+      StructField("role", StringType, nullable = false),
+      StructField("name", StringType, nullable = true)
+    ))
+    val missingContentMessage = new GenericRowWithSchema(
+      Array[Any]("user", null), // scalastyle:ignore null
+      missingContentSchema
+    )
+    val input = spark.createDataFrame(
+      spark.sparkContext.parallelize(Seq(Row("missing-content", Seq(missingContentMessage))), 1),
+      StructType(Seq(
+        StructField("id", StringType, nullable = false),
+        StructField("messages", ArrayType(missingContentSchema, containsNull = false), nullable = true)
+      ))
+    )
+    val transformer = chat().setHandler { (_: CloseableHttpClient, _: HTTPRequestData) =>
+      requestCount.add(1L)
+      throw new AssertionError("HTTP must not run for malformed messages")
+    }
+
+    val result = transformer.transform(input).head()
+
+    assert(requestCount.value == 0L)
+    assert(result.getAs[Row]("error").getAs[String]("response") ==
+      "messages[0].content must be a string or an array of content part objects")
+    assert(Option(result.getAs[Row]("output")).isEmpty)
   }
 
   test("messages column cannot also be the output or error column") {
