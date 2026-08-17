@@ -31,7 +31,13 @@ templatized version of the branch context from
 - Fabric Runtime 2.0 supports Spark 4.1, so the old "unsupported runtime"
   reason for disabling Fabric E2E is stale. Re-enable only in a dedicated PR:
   request Spark 4.1 in workspace creation, restore the pipeline condition, and
-  validate with real Fabric capacity/service connection.
+  validate with real Fabric capacity/service connection. The workspace-creation
+  payload lives in the Fabric test package's `FabricOperations.scala`, which
+  hardcodes `'SparkVersion': '3.5'` and must request `'4.1'`. That value is
+  hardcoded identically on `master`, `spark4.0` and `spark4.1`, so changing it
+  here does not alter master's behaviour. It also needs a Fabric capacity in the
+  `sempy-integration-region` that can provision Runtime 2.0 workspaces, which is
+  the one prerequisite not discoverable from the code.
 - Databricks CPU/GPU validation uses 18.x-era runtimes. Run Spark 4 builds
   sequentially because the GPU pool is shared.
 - `DatabricksCPUStreamingTests` was unscheduled pending capacity and notebook

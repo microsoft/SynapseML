@@ -20,10 +20,11 @@ against the live target branch.
 - Spark 4 uses Scala 2.13 and Java 17-era tooling. Preserve branch-specific
   dependency comments, Java configuration, and removal of obsolete CMS flags.
 - The `pyarrow` and `mlflow` pins move in lockstep: `mlflow==2.21.3` declares
-  `pyarrow<20,>=4.0.0`, so raising `pyarrow` alone breaks the environment solve.
-  Trust that bound over the inline comments, which disagree with each other —
-  `spark4.1`'s `environment.yml` says `pyarrow<19`, which is wrong, and has no
-  comment on the `mlflow` pin at all.
+  `pyarrow<20,>=4.0.0`, so a `pyarrow` bump that crosses that bound breaks the
+  environment solve unless `mlflow` moves with it. Bumps inside the bound, such
+  as 18 to 19, are fine. Trust the declared bound over the inline comments, which
+  disagree with each other — `spark4.1`'s `environment.yml` says `pyarrow<19`,
+  which is wrong, and has no comment on the `mlflow` pin at all.
 - Scala 2.13 collection boundaries must produce immutable `Seq` values; keep
   the central `asImmutableCollection` conversion rather than per-service fixes.
 - Preserve Spark 4 adaptations for SAR encoders/self-joins,
@@ -33,11 +34,24 @@ against the live target branch.
 - `PythonInitMerger` makes hand-written `__init__.py` files live package code.
   Keep the HTTP initializer empty, remove duplicate generated exports, and do
   not narrow `__all__` with hand-maintained class lists.
+- `cyber/utils/spark_utils.py` differs between the branches without either form
+  being version-specific: `spark4.0` builds its indexed frame with
+  `rdd.toDF(schema)` and `spark4.1` uses `spark.createDataFrame(rdd, schema)`.
+  `toDF` was measured working on both 4.0.1 and 4.1.1, so this is a portable
+  choice rather than a hazard. Adopting 4.1's form only reduces reliance on the
+  monkey-patched RDD API, which does not exist under Spark Connect, and buys
+  little on its own while the surrounding `df.rdd.zipWithIndex()` remains an RDD
+  call.
 - R generation requires ANSI double-quoted identifiers, the validated sparklyr
   1.9.5 pin from the PR snapshots, `SPARK_HOME` connection behavior, and JVM
-  loading of nested stages. Interleaved failures with successful tests between
+  loading of nested stages. Both branches pair that pin with `r-base=4.4`; keep
+  the pair together, since 69/69 `RTests` was measured for the combination, not
+  for the sparklyr pin alone. Interleaved failures with successful tests between
   them point to selection/proxy behavior, not a dead Spark session; read the
-  backtrace.
+  backtrace. Under sparklyr 1.9.3 with dbplyr 2.6 the tell is a frame chain
+  through `dbplyr:::select.tbl_lazy`, `sparklyr:::tidyselect_data_proxy.tbl_spark`
+  and `simulate_vars_spark`, which surfaces as `invoke_static`/`hive_context`
+  being called on `NULL` and reads misleadingly like a dead session.
 - `RCodegenSuite` asserts the cheap R generation invariants on both Spark 4
   branches. Run it before spending a full pipeline run on an R failure, and keep
   its assertions in step when changing generated R.
