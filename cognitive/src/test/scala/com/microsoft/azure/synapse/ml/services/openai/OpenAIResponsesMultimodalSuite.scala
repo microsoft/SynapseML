@@ -240,7 +240,11 @@ class OpenAIResponsesMultimodalSuite extends TestBase {
       Row("existing-error", Seq(structuredMessage("user", Seq(contentPart("input_image")))), existingError),
       Row("null-content", Seq(structuredMessage("user", null)), null), // scalastyle:ignore null
       Row("null-messages", null, null), // scalastyle:ignore null
-      Row("null-part", Seq(structuredMessage("user", Seq[Row](null))), null) // scalastyle:ignore null
+      Row("null-part", Seq(structuredMessage("user", Seq[Row](null))), null), // scalastyle:ignore null
+      Row("second-invalid-role", Seq(
+        structuredMessage("system", Seq(contentPart("input_text", text = Some("hello")))),
+        structuredMessage("", Seq(contentPart("input_text", text = Some("world"))))
+      ), null) // scalastyle:ignore null
     )
     val input = spark.createDataFrame(
       spark.sparkContext.parallelize(rows, 1),
@@ -262,6 +266,8 @@ class OpenAIResponsesMultimodalSuite extends TestBase {
       "messages[0].content must be an array of content part objects")
     assert(output("null-part").getAs[Row]("error").getAs[String]("response") ==
       "messages[0].content[0] must be an object")
+    assert(output("second-invalid-role").getAs[Row]("error").getAs[String]("response") ==
+      "messages[1].role must be a non-empty string")
     assert(output("existing-error").getAs[Row]("error").getAs[String]("response") == "upstream error")
     assert(Option(output("null-messages").getAs[Row]("error")).isEmpty)
     output.values.foreach(row => assert(Option(row.getAs[Row]("output")).isEmpty))
