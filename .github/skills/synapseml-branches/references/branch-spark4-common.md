@@ -42,9 +42,8 @@ of re-deriving it from whatever tree they happen to have open.
 
 - Spark 4 uses Scala 2.13 and Java 17-era tooling, so generated Python lands in
   `target/scala-2.13/generated/src/python/` rather than master's `scala-2.12`
-  path. `tools/docker/*/Dockerfile` set `JAVA_HOME` to Java 17 and
-  `.github/workflows/pr-validation.yml` uses JDK 17. `pipeline.yaml` drops
-  master's `-XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled` from
+  path. `tools/docker/*/Dockerfile` set `JAVA_HOME` to Java 17. `pipeline.yaml`
+  drops master's `-XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled` from
   `SBT_OPTS`: CMS was removed in Java 17 and the JVM refuses to start with those
   flags, so a sync that restores them fails before any test runs.
 - `environment.yml` moves pins forward for the branch's Python, and each pin
@@ -227,6 +226,45 @@ of re-deriving it from whatever tree they happen to have open.
   `UnitTests onnx` leg) and R package HTTP failures
   (a conda `HTTP 403` in `RTests vw`) require log evidence and a controlled
   rerun; they are not automatic product regressions or exemptions.
+
+## Where the Java version is declared
+
+There is no single source of truth for the JDK. Each branch declares it in
+several files, and a sync can silently disagree with itself if only some are
+updated. Measured values:
+
+| File | master | spark4.0 | spark4.1 |
+| --- | --- | --- | --- |
+| `.github/workflows/pr-validation.yml` | 11 | **11** | 17 |
+| `environment.yml` (`openjdk`) | absent | 17 | 17 |
+| `environment.dev.yml` (`openjdk`) | no file | 17 | 17 |
+| `templates/java_setup.yml` (`versionSpec`) | no file | 17 | 17 |
+| `pipeline.yaml` (`JAVA_VERSION`, ReleaseBranchCompat) | 17 | absent | 17 |
+
+Two things in that table are not typos. `spark4.0`'s GitHub workflow pins JDK
+11 while the rest of the branch is on 17, so do not assume the workflow proves
+the branch's Java version; check `environment.yml` or `java_setup.yml` instead.
+And `spark4.0` has no `JAVA_VERSION` because it is not yet in the
+ReleaseBranchCompat matrix, which is a separate follow-up.
+
+`templates/java_setup.yml` is the pin that CI jobs consume. On `spark4.0` it is
+included by the `Style` job; on `spark4.1` the file exists but nothing includes
+it yet. Master gained the file only via
+[#2652](https://github.com/microsoft/SynapseML/pull/2652), which set it to 11 —
+master's already-effective JDK, measured from a build that echoes
+`java -version` — and included it from the InternalCompat job so that job stops
+compiling Spark 4 code on master's JDK.
+
+**Conflict rule: on the first sync after #2652, `templates/java_setup.yml`
+conflicts add/add and git leaves markers. Always keep the branch's own 17.**
+Taking master's side is the intuitive resolution and the wrong one: it silently
+drops the branch to Java 11 and reintroduces `Class java.lang.Record not found`.
+The conflict is one-time — once resolved, the file histories are connected and
+later syncs merge it cleanly. Verify with:
+
+```
+git show <branch>:templates/java_setup.yml | grep versionSpec
+```
 
 ## Hand-written `__init__.py` files
 
