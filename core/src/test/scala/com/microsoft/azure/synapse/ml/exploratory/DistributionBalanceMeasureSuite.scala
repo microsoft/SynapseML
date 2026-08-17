@@ -78,6 +78,24 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
     df.printSchema()
   }
 
+  test("DistributionBalanceMeasure builds a lazy plan without caching the input") {
+    val source = Seq("red", "red", "blue").toDF("color")
+    val jobGroup = s"distribution-balance-lazy-${System.nanoTime()}"
+    spark.sparkContext.setJobGroup(jobGroup, "Verify DistributionBalanceMeasure transform laziness")
+
+    try {
+      val result = new DistributionBalanceMeasure()
+        .setSensitiveCols(Array("color"))
+        .transform(source)
+
+      assert(spark.sparkContext.statusTracker.getJobIdsForGroup(jobGroup).isEmpty)
+      assert(!result.queryExecution.optimizedPlan.toString().contains("InMemoryRelation"))
+      assert(result.count() === 1L)
+    } finally {
+      spark.sparkContext.clearJobGroup()
+    }
+  }
+
   private def actual: DataFrame =
     new DistributionBalanceMeasure()
       .setSensitiveCols(features)
@@ -555,12 +573,17 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
 
   test("DistributionBalanceMeasure rejects empty inputs and empty sensitive column lists") {
     val emptyInput = Seq.empty[String].toDF("color")
-    val emptyInputError = intercept[IllegalArgumentException] {
+    val emptyInputError = intercept[Exception] {
       new DistributionBalanceMeasure()
         .setSensitiveCols(Array("color"))
         .transform(emptyInput)
+        .collect()
     }
-    assert(emptyInputError.getMessage.contains("requires at least one input row"))
+    val emptyInputMessages = Iterator.iterate(emptyInputError: Throwable)(_.getCause)
+      .takeWhile(_ != null)
+      .flatMap(error => Option(error.getMessage))
+      .mkString("\n")
+    assert(emptyInputMessages.contains("requires at least one input row"))
 
     val emptySensitiveColsError = intercept[IllegalArgumentException] {
       new DistributionBalanceMeasure()
