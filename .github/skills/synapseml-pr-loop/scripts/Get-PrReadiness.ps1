@@ -23,6 +23,13 @@
     Suppressed comments are reported too: they live inside the review body rather
     than as review threads, so a thread query alone never surfaces them.
 
+    Checks are reported by absence as well as outcome. `failedChecks` and
+    `pendingChecks` can only describe checks that exist, so a head whose build
+    never started scores zero in both and reads as finished;
+    `missingRequiredChecks` catches that and gates `complete`. The Azure DevOps
+    build is the usual casualty because it does not queue itself on a push -- it
+    waits for an `/azp run` comment -- so `-RunPipeline` posts one.
+
     It does not make the readiness decision; use the skill's evidence gates for
     that judgment. Output can contain review content; keep it local or redact it
     before sharing.
@@ -60,7 +67,19 @@ param(
 
     # Handle used when requesting that review. This is the requestable handle, not
     # the login the submitted review is attributed to.
-    [string]$ReviewerHandle = "Copilot"
+    [string]$ReviewerHandle = "Copilot",
+
+    # Checks that must be PRESENT on the head commit, matched as a name prefix so
+    # one entry covers a pipeline's several legs. Absence is the point: the
+    # failed/pending sets can only describe checks that exist, so a head whose CI
+    # never started scores zero failures and zero pending and looks finished. The
+    # Azure DevOps build does not queue itself on every push here -- it needs an
+    # `/azp run` comment -- which is exactly the check most likely to be missing.
+    [string[]]$RequiredCheck = @("microsoft.SynapseML"),
+
+    # Post `/azp run` when a required check is missing from the head, instead of
+    # leaving a human to notice that full CI never started.
+    [switch]$RunPipeline
 )
 
 $ErrorActionPreference = "Stop"
@@ -87,6 +106,9 @@ if (-not $automatedLogins) {
 # Review requests are attempted at most once per PR per invocation; see the
 # -RequestReview block in Get-PrSnapshot.
 $script:reviewRequestOutcome = @{}
+
+# Likewise for `/azp run` comments; see the -RunPipeline block in Get-PrSnapshot.
+$script:pipelineRunOutcome = @{}
 
 $threadQuery = @'
 query($owner: String!, $name: String!, $number: Int!, $cursor: String) {
@@ -235,6 +257,19 @@ function Get-PrSnapshot {
         $_.state -in @("EXPECTED", "PENDING")
     } | ForEach-Object { if ($_.name) { $_.name } else { $_.context } })
 
+    # A check that never started cannot fail and cannot be pending, so it leaves
+    # no trace in either set above. Test presence separately, by prefix, so one
+    # required name covers every leg the pipeline reports.
+    $checkNames = @($view.statusCheckRollup |
+        ForEach-Object { if ($_.name) { $_.name } else { $_.context } } |
+        Where-Object { $_ })
+    $missingRequiredChecks = @($RequiredCheck | Where-Object {
+        $required = $_
+        -not ($checkNames | Where-Object {
+            $_.StartsWith($required, [StringComparison]::OrdinalIgnoreCase)
+        })
+    })
+
     $threads = @($threadPage.nodes)
     $unresolved = @($threads | Where-Object { -not $_.isResolved })
     $truncatedThreadComments = @($threads |
@@ -305,6 +340,25 @@ function Get-PrSnapshot {
         }
     }
 
+    $pipelineRunRequested = $false
+    if ($script:pipelineRunOutcome.ContainsKey($number)) {
+        $pipelineRunRequested = $script:pipelineRunOutcome[$number]
+    }
+    # Same once-per-invocation guard as the review request above: under
+    # -WaitForReview this runs every poll, and each `/azp run` comment queues
+    # another build and notifies every subscriber.
+    if ($RunPipeline -and @($missingRequiredChecks).Count -gt 0 -and
+        -not $script:pipelineRunOutcome.ContainsKey($number)) {
+        # A comment is the only trigger the pipeline honours from here; queueing
+        # through the ADO API needs credentials this script does not assume.
+        gh pr comment $number --repo $Repo --body "/azp run" *> $null
+        $pipelineRunRequested = ($LASTEXITCODE -eq 0)
+        $script:pipelineRunOutcome[$number] = $pipelineRunRequested
+        if (-not $pipelineRunRequested) {
+            Write-Warning "PR #${number}: could not comment '/azp run'."
+        }
+    }
+
     [pscustomobject]@{
         number = $view.number
         title = $view.title
@@ -321,6 +375,7 @@ function Get-PrSnapshot {
         behindBy = $compare.behind_by
         failedChecks = $failedChecks
         pendingChecks = $pendingChecks
+        missingRequiredChecks = $missingRequiredChecks
         unresolvedThreads = $unresolved
         suppressedReviewBodies = $suppressed
         suppressedReviewBodiesForHead = $suppressedForHead
@@ -335,15 +390,19 @@ function Get-PrSnapshot {
             latestAutomatedReviewAuthor = if ($latestAutomated) { $latestAutomated.author.login } else { $null }
             automatedReviewCoversHead = $automatedReviewCoversHead
             automatedReviewRequested = $reviewRequested
+            pipelineRunRequested = $pipelineRunRequested
             # Everything verifiable must be clear. This previously tested only
             # $truncatedThreadComments, which counts comment-pagination truncation
             # rather than unresolved review threads, so it reported complete=true
-            # with review feedback still outstanding.
+            # with review feedback still outstanding. It also read a head whose
+            # required build had never queued as clean, because an absent check
+            # is neither failed nor pending.
             complete = (
                 @($truncatedThreadComments).Count -eq 0 -and
                 $automatedReviewCoversHead -and
                 @($unresolved).Count -eq 0 -and
                 @($suppressedForHead).Count -eq 0 -and
+                @($missingRequiredChecks).Count -eq 0 -and
                 @($failedChecks).Count -eq 0 -and
                 @($pendingChecks).Count -eq 0
             )
@@ -356,21 +415,30 @@ $results = @(foreach ($number in $PullRequest) {
 
     # Automated review lands some time after a push, so a single snapshot taken
     # straight after one reports zero findings for code that has not been looked
-    # at yet. Wait for the review of this exact head rather than leaving a human
-    # to notice that the comments arrived later.
-    if ($WaitForReview -and -not $snapshot.completeness.automatedReviewCoversHead) {
+    # at yet. The required build is worse: it does not start at all until someone
+    # comments, so waiting only on the review would still return a head with no
+    # CI on it. Wait for both, for this exact head.
+    if ($WaitForReview) {
         $deadline = (Get-Date).AddMinutes($TimeoutMinutes)
-        while ((Get-Date) -lt $deadline) {
-            Write-Verbose ("PR #{0}: waiting for automated review of {1}" -f
+        while (-not ($snapshot.completeness.automatedReviewCoversHead -and
+                @($snapshot.missingRequiredChecks).Count -eq 0) -and
+            (Get-Date) -lt $deadline) {
+            Write-Verbose ("PR #{0}: waiting for automated review and required checks of {1}" -f
                 $number, $snapshot.headSha)
             Start-Sleep -Seconds $PollSeconds
             $snapshot = Get-PrSnapshot -number $number
-            if ($snapshot.completeness.automatedReviewCoversHead) { break }
         }
         if (-not $snapshot.completeness.automatedReviewCoversHead) {
             Write-Warning ("PR #{0}: no automated review covered {1} within {2} minute(s). " +
                 "Findings for this head may still be pending; do not read this as clean." -f
                 $number, $snapshot.headSha, $TimeoutMinutes)
+        }
+        if (@($snapshot.missingRequiredChecks).Count -gt 0) {
+            Write-Warning ("PR #{0}: required check(s) '{1}' never appeared on {2} within " +
+                "{3} minute(s). Full CI has not run on this head; comment '/azp run' " +
+                "(or pass -RunPipeline)." -f
+                $number, ($snapshot.missingRequiredChecks -join ", "),
+                $snapshot.headSha, $TimeoutMinutes)
         }
     }
 

@@ -80,13 +80,19 @@ by current-head evidence.
   port-branch compatibility pass as applicable.
 - Full Azure Pipelines and required GitHub checks are complete with zero
   unexplained failures or pending jobs.
+- The Azure Pipelines build is present on the current head at all. It does not
+  queue itself on a push here, so every push needs its own `/azp run`; a head
+  that never got one carries only the GitHub Actions checks, and those going
+  green is not CI passing. An absent check is neither failed nor pending, so it
+  is invisible to both of those gates -- confirm the build by name against the
+  head SHA, not by the absence of red.
 - Skips are expected and documented; a skipped required scenario is a blocker.
 - `Get-PrReadiness.ps1` reports these as `completeness.complete`, which is true
   only when comment pagination was not truncated, an automated review covers the
-  head, and unresolved threads, suppressed-for-head items, failed checks and
-  pending checks are all zero. Treat a pending check as unknown rather than
-  passing. Trust the individual fields over the summary when they disagree: that
-  flag has been wrong before, in both directions.
+  head, and unresolved threads, suppressed-for-head items, missing required
+  checks, failed checks and pending checks are all zero. Treat a pending check as
+  unknown rather than passing. Trust the individual fields over the summary when
+  they disagree: that flag has been wrong before, in both directions.
 
 ## Honest confidence language
 
