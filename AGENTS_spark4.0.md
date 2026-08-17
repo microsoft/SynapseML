@@ -196,13 +196,34 @@ before touching Spark. A sub-minute `FAILED` is that install or that assertion,
 not the model. Compare the per-notebook timings the suite prints — a genuine
 training failure runs for minutes.
 
-Both fine-tune notebooks must install the sha256-pinned wheel under
-`synapse-extension/`, which is built against the GPU runtime's PyTorch. The older
-wheel under `installers/` predates this branch's runtime and is linked against a
-different torch, so `horovod.torch` will not load. Both wheels are cp312, so they
-are interchangeable as far as Python version goes — the difference is the torch
-they were compiled against, which no filename records. If the runtime version in
-`AdbGpuRuntime` ever moves, re-check that the wheel still matches.
+**The two fine-tune notebooks are a known, unfixed failure on this branch.**
+They are byte-identical to `spark4.1`, and `GPULibraries` is byte-identical to
+`spark4.1`, and they still fail here while passing there. Swapping them onto
+`spark4.1`'s sha256-pinned wheel changed nothing measurable — 71.6s → 60.6s and
+56.2s → 47.0s, the same failure in the same window. The swap was kept because it
+moves this branch closer to the one that works, but it is alignment, not a fix.
+
+The reason is that a horovod wheel is compiled against a specific PyTorch, and
+the runtimes differ for a good reason:
+
+| Branch | `AdbGpuRuntime` | Spark |
+| --- | --- | --- |
+| this branch | `17.3.x-gpu-ml-scala2.13` | 4.0 |
+| `spark4.1` | `18.0.x-gpu-ml-scala2.13` | 4.1 |
+
+Both are correct — Databricks Runtime 17.3 LTS ML ships Spark 4.0 and 18.0 ML
+ships Spark 4.1. So **do not "fix" this by bumping `AdbGpuRuntime` to 18.0**;
+that would silently test this branch against Spark 4.1 and make the suite green
+by no longer testing what it exists to test.
+
+The wheel this branch needs is one built against DBR 17.3 ML's PyTorch. No such
+wheel is published — the `synapse-extension` one is built for 18.0 ML. Producing
+it is a build-artifact task, not a code change, which is why this is recorded
+here rather than patched around. `spark4.1` also carries `_petastorm_compat.py`
+and a `_horovod.py` that calls `ensure_petastorm_compatibility()` *before*
+`import horovod`; that is a plausible second contributor, but it is unproven and
+should not be quoted as the cause without the notebook's stderr from the
+Databricks run API.
 
 ### Fabric E2E is disabled
 
@@ -226,11 +247,12 @@ branch is superseded by `spark4.1`.
 - **petastorm / horovod cloudpickle shims** (`_horovod.py`,
   `_petastorm_compat.py`) — these work around Python 3.13 breakage. This branch
   is on 3.12 and its deep-learning tests pass without them. Note the narrowness
-  of that claim: it covers the shims only. The *notebooks* in the same area did
-  need 4.1's change, because the horovod wheel they install is chosen by the GPU
-  runtime's PyTorch rather than by Python version. Treat "do not port the shims"
-  and "this branch needs nothing from 4.1's deep-learning work" as different
-  statements — the second one is false.
+  of that claim: it covers the shims only. The notebooks in the same area were
+  taken from 4.1 anyway, and that did *not* fix them, so the shims remain the
+  open question for the two failing fine-tune notebooks rather than a settled
+  "not needed here". Treat "the shims are for Python 3.13" and "this branch
+  needs nothing from 4.1's deep-learning work" as different statements — the
+  first is what was measured, the second is not established.
 - **`numpy` left unpinned** — 4.1 must, because 1.26.4 has no 3.13 wheels. Here
   1.26.4 both has cp312 wheels and stays below the NumPy 2.0 ABI break that
   `pandas` 2.0.3 cannot tolerate, so it is pinned deliberately.
@@ -245,6 +267,11 @@ does not exist under Spark Connect.
 
 ## Known non-code failures
 
+- **`Databricks GPU E2E` fails 2 of 4 notebooks** — the two fine-tune ones. This
+  predates the Spark 4.0 work and is not caused by any sync; see the Databricks
+  section for why the fix needs a horovod wheel that does not exist yet. Treat
+  2 of 4 as the current expected state and check that number rather than the
+  job's red/green.
 - `RTests vw` can fail on a conda `HTTP 403` fetching packages. Infrastructure.
 - `UnitTests onnx` has intermittently hit `OutOfMemoryError` in
   `ImageFeaturizerSuite`. Re-run before treating it as a regression.
