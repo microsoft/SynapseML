@@ -18,6 +18,9 @@ is complete and green.
 - Read the issue, PR body, linked work items, commit history, changed files,
   and every review thread/body, including resolved, outdated, minimized, and
   suppressed comments. Verify prior resolutions rather than trusting status.
+- Check recently merged/closed related PRs and issues. Identify follow-up PRs
+  needing rebase/remediation, superseded work to close, and remaining issue
+  action items; do not assume closure completed the feature lifecycle.
 - Give each PR a dedicated worktree and branch. Parallelize independent PRs,
   but identify overlapping files and required merge order first.
 - Run
@@ -35,6 +38,9 @@ is complete and green.
 
 ### 3. Define the value and regression contract
 
+- Keep the PR title and description aligned with the current scope. Lead with a
+  short human-readable change/value summary; put detailed design and validation
+  evidence afterward. Refresh both after material changes.
 - State the user-visible bug or feature, supported/unsupported cases, default
   behavior, compatibility contract, and measurable acceptance criteria.
 - Trace the real public path: Scala stage, generated/hand-written Python,
@@ -109,6 +115,11 @@ For multiple PRs, after each merge:
 2. rebase overlapping downstream PRs;
 3. rerun targeted, compatibility, and full CI;
 4. re-audit review threads and suppressed comments.
+
+After any merge or closure, reconcile linked work: update or close fulfilled
+issues, close superseded PRs with an explanation, and rebase/remediate still
+valuable follow-ups. Preserve separate unresolved scope rather than closing it
+for convenience.
 
 Report the exact remaining blocker. "Only human approval remains" is valid only
 when all engineering gates are complete.

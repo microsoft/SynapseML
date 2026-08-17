@@ -11,9 +11,13 @@ by current-head evidence.
 - For overlapping PRs, merge order is explicit and downstream PRs are
   revalidated after predecessors merge.
 - Local, remote, and GitHub head SHAs match.
+- Recently closed/merged related work was checked; valuable follow-ups are
+  rebased and revalidated, while superseded PRs are closed with an explanation.
 
 ## User value and scope
 
+- The title and opening description accurately explain the current change and
+  user value to a human reader; deeper technical evidence follows afterward.
 - The original issue and every material discussion point are addressed.
 - The behavior is reachable through the published artifact and public API.
 - Defaults remain backward compatible, or the intentional change is documented.
@@ -21,6 +25,8 @@ by current-head evidence.
   fallback hides missing capability.
 - Documentation describes what is shipped, not a custom validation artifact or
   an unbundled native/provider.
+- Fulfilled linked issues are updated/closed, while distinct unresolved scope
+  remains open and explicit.
 
 ## Correctness and compatibility
 
