@@ -46,17 +46,22 @@ against the live target branch.
   call.
 - R generation requires ANSI double-quoted identifiers, the validated sparklyr
   1.9.5 pin from the PR snapshots, `SPARK_HOME` connection behavior, and JVM
-  loading of nested stages. Both branches pair that pin with `r-base=4.4`; keep
-  the pair together, since 69/69 `RTests` was measured for the combination, not
-  for the sparklyr pin alone. Interleaved failures with successful tests between
-  them point to selection/proxy behavior, not a dead Spark session; read the
-  backtrace. Under sparklyr 1.9.3 with dbplyr 2.6 the tell is a frame chain
-  through `dbplyr:::select.tbl_lazy`, `sparklyr:::tidyselect_data_proxy.tbl_spark`
+  loading of nested stages. That pin is not yet everywhere — check
+  `environment.yml` on your branch, since a branch still on sparklyr 1.9.3 has
+  the failure below as a live concern rather than as history. Where 1.9.5 is
+  applied, keep it paired with `r-base=4.4`: 69/69 `RTests` was measured for the
+  combination, not for the sparklyr pin alone. Interleaved failures with
+  successful tests between them point to selection/proxy behavior, not a dead
+  Spark session; read the backtrace. Under sparklyr 1.9.3 with dbplyr 2.6 the
+  tell is a frame chain through `dbplyr:::select.tbl_lazy`,
+  `sparklyr:::tidyselect_data_proxy.tbl_spark`
   and `simulate_vars_spark`, which surfaces as `invoke_static`/`hive_context`
   being called on `NULL` and reads misleadingly like a dead session.
-- `RCodegenSuite` asserts the cheap R generation invariants on both Spark 4
-  branches. Run it before spending a full pipeline run on an R failure, and keep
-  its assertions in step when changing generated R.
+- `RCodegenSuite` asserts cheap R generation invariants without a full pipeline
+  run, but it is not present on every branch — `spark4.1` has it and `spark4.0`
+  does not yet. Check for it before relying on it, run it before spending a
+  pipeline run on an R failure, and keep its assertions in step when changing
+  generated R.
 
 ## Runtime and CI
 
@@ -64,15 +69,15 @@ against the live target branch.
   and use sibling-branch timing/results as a control before blaming capacity.
 - `areLibrariesInstalled == false` can mean install timeout rather than a
   failed library. Read statuses and notebook duration before classifying it.
-- `DatabricksCPUStreamingTests` is unscheduled on both Spark 4 branches: the
-  class exists in `DatabricksCPUTests.scala`, but `pipeline.yaml` names its test
-  legs explicitly and never lists it. It exists as a separate class because the
-  streaming notebook's `server.stop()` cancels concurrent SparkContext jobs, so
-  it has to run on its own cluster instead of joining an existing leg — which is
-  why scheduling it needs pool capacity as well as a notebook fix. The in-repo
-  comment is identical on both branches and attributes the behaviour to Spark
-  4.0; it has not been re-confirmed on 4.1. Treat it as a known coverage gap to
-  verify, not as an omission to accept silently.
+- `DatabricksCPUStreamingTests` exists only on the Spark 4 branches, and whether
+  it is scheduled varies by branch — read `pipeline.yaml` on the branch you are
+  working on rather than assuming. It is a separate class because the streaming
+  notebook's `server.stop()` cancels concurrent SparkContext jobs, so it needs its
+  own cluster instead of a slot on an existing leg, which is why scheduling it
+  costs pool capacity. The in-repo comment attributes that behaviour to Spark 4.0
+  and it has not been re-confirmed on 4.1. If a sync drops its leg while leaving
+  the class defined, that is lost coverage rather than a cleanup: the class is
+  still there, so nothing fails to compile and nothing reports the gap.
 - Petastorm calls pyarrow APIs the pinned pyarrow no longer ships, so Horovod's
   Spark backend needs a compatibility layer. Only `spark4.1` has one. This is a
   library-version problem, not a Python-version one, so a branch on the same

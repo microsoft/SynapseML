@@ -13,12 +13,16 @@ templatized version of the branch context from
 
 ## Core differences
 
-- Keep NumPy 1.26.4 pinned: Python 3.12 has wheels and pandas 2.0.3 is not
-  compatible with the NumPy 2 ABI.
+- NumPy is currently unpinned here, as it is on 4.1. If you reintroduce a pin,
+  pin for a reason you can state: Python 3.12 has NumPy 1.26.4 wheels, and
+  pandas 2.0.3 is not compatible with the NumPy 2 ABI, so a pin is warranted
+  only while something in the resolved set actually requires it.
 - This branch has `_horovod.py` but not `_petastorm_compat.py`, so it uses the
   plain Horovod `SparkBackend` rather than 4.1's Petastorm-compatible subclass.
   That gap is real rather than version-driven: the shim restores pyarrow APIs
-  Petastorm still calls, and both branches pin the same pyarrow. See
+  Petastorm still calls, and this branch currently resolves to a *newer* pyarrow
+  than 4.1 does, so those APIs are at least as absent here. Confirm both pins
+  from `environment.yml` on each branch before reasoning about it. See
   [branch-spark4-common.md](branch-spark4-common.md).
 - `LongOffset` remains under `...execution.streaming`, not `.runtime`.
 - Spark 4.0 returns `bytearray` for Python `BinaryType`; it does not require the
@@ -50,7 +54,7 @@ templatized version of the branch context from
 ## Do not port from `spark4.1`
 
 - 4.1 `LongOffset` import, BinaryType `np.frombuffer` workaround, Python 3.13
-  wheels, unpinned NumPy, or version strings.
+  wheels, or version strings.
 - Fabric Runtime 2.0 enablement.
 - Any runtime/dependency change whose only evidence is a green 4.1 build.
 - The Petastorm compatibility layer is not on this list. It is a back-port
