@@ -255,11 +255,14 @@ function Get-PrSnapshot {
     # already-reviewed commit leaves the newest review pointing at a commit that
     # is no longer head, which would report a reviewed head as uncovered and
     # send -WaitForReview into a pointless wait.
+    # Only submitted reviews count. A pending review already carries a commit oid
+    # but has a null submittedAt, so matching on the oid alone would report the
+    # head as covered while the review is still being written - the exact
+    # premature all-clear this gate exists to prevent.
     $reviewsForHead = @($automatedReviews |
-        Where-Object { $_.commit.oid -eq $view.headRefOid })
+        Where-Object { $_.submittedAt -and $_.commit.oid -eq $view.headRefOid })
     $latestAutomated = if ($reviewsForHead) {
         $reviewsForHead |
-            Where-Object { $_.submittedAt } |
             Sort-Object { [datetime]$_.submittedAt } |
             Select-Object -Last 1
     } else {
