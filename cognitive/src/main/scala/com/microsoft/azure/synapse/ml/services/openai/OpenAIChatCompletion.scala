@@ -373,10 +373,10 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
     fields.get("type") match {
       case Some("text") => validateTextPart(fields, location)
       case Some("image_url") => validateImageUrlPart(fields, location)
-      case Some(_: String) =>
+      case Some(value: String) if value.trim.nonEmpty =>
         throw new IllegalArgumentException(
           s"$location has an unsupported type; supported types are 'text' and 'image_url'")
-      case _ => throw new IllegalArgumentException(s"$location requires a string 'type' field")
+      case _ => throw new IllegalArgumentException(s"$location requires a non-empty string 'type' field")
     }
   }
 

@@ -179,6 +179,7 @@ class OpenAIChatCompletionMultimodalSuite extends TestBase {
       Row("empty-messages", Seq.empty[Row], null), // scalastyle:ignore null
       Row("existing-error", Seq(message("user", Seq(contentPart("image_url", image = Some(imageUrl(None)))))),
         existingError), // scalastyle:ignore null
+      Row("blank-type", Seq(message("user", Seq(contentPart("   ")))), null), // scalastyle:ignore null
       Row("null-content", Seq(message("user", null)), null), // scalastyle:ignore null
       Row("null-messages", null, null), // scalastyle:ignore null
       Row("null-part", Seq(message("user", Seq[Row](null))), null) // scalastyle:ignore null
@@ -203,6 +204,8 @@ class OpenAIChatCompletionMultimodalSuite extends TestBase {
       "messages[0].content must be an array of content part objects")
     assert(output("null-part").getAs[Row]("error").getAs[String]("response") ==
       "messages[0].content[0] must be an object")
+    assert(output("blank-type").getAs[Row]("error").getAs[String]("response") ==
+      "messages[0].content[0] requires a non-empty string 'type' field")
     assert(output("existing-error").getAs[Row]("error").getAs[String]("response") == "upstream error")
     assert(Option(output("null-messages").getAs[Row]("error")).isEmpty)
     output.values.foreach(row => assert(Option(row.getAs[Row]("output")).isEmpty))
