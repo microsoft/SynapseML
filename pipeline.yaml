@@ -1132,12 +1132,41 @@ jobs:
                 path="$REMAINING_PATHS"
                 HAS_MORE_PATHS=false
               fi
+              PATH_SELECTED=false
               for REPLAY_PATH in "${REPLAY_PATHS[@]}"; do
                 if [ "$path" = "$REPLAY_PATH" ]; then
                   PREREQUISITE_PATHS+=("$path")
+                  PATH_SELECTED=true
                   break
                 fi
               done
+              if [ "$PATH_SELECTED" = false ]; then
+                for ((later_index=index + 1;
+                      later_index<${#CONFIGURED_PREREQUISITES[@]};
+                      later_index++)); do
+                  if [ "${CONFIGURED_PREREQUISITE_IS_SCOPED[$later_index]}" = false ]; then
+                    LATER_PREREQUISITE="${CONFIGURED_PREREQUISITES[$later_index]}"
+                        if ! LATER_PARENT=$(git rev-parse "$LATER_PREREQUISITE^1" 2>/dev/null); then
+                          echo "##vso[task.logissue type=error]Dependent release compatibility prerequisite $LATER_PREREQUISITE has no first parent"
+                          exit 1
+                        fi
+                    if git diff --quiet "$LATER_PARENT" "$LATER_PREREQUISITE" -- \
+                      ":(literal)$path"; then
+                      :
+                    else
+                      DIFF_STATUS=$?
+                      if [ "$DIFF_STATUS" -ne 1 ]; then
+                        echo "##vso[task.logissue type=error]Unable to inspect dependent prerequisite $LATER_PREREQUISITE for path: $path"
+                        exit 1
+                      fi
+                      echo "Scoped prerequisite $PREREQUISITE path $path is required by later prerequisite $LATER_PREREQUISITE"
+                      PREREQUISITE_PATHS+=("$path")
+                      PATH_SELECTED=true
+                      break
+                    fi
+                  fi
+                done
+              fi
               if [ "$HAS_MORE_PATHS" = false ]; then
                 break
               fi
@@ -1184,12 +1213,36 @@ jobs:
                 echo "##vso[task.logissue type=error]Scoped prerequisite path is not a blob: $path"
                 exit 1
               fi
-              if ! TARGET_BLOB=$(git rev-parse "$TARGET_HEAD:$path" 2>/dev/null); then
-                echo "##vso[task.logissue type=error]Scoped path is absent from PR target $TARGET_HEAD: $path"
+              BASELINE_COMMIT="$TARGET_HEAD"
+              for ((later_index=index + 1;
+                    later_index<${#CONFIGURED_PREREQUISITES[@]};
+                    later_index++)); do
+                if [ "${CONFIGURED_PREREQUISITE_IS_SCOPED[$later_index]}" = false ]; then
+                  LATER_PREREQUISITE="${CONFIGURED_PREREQUISITES[$later_index]}"
+                  if ! LATER_PARENT=$(git rev-parse "$LATER_PREREQUISITE^1" 2>/dev/null); then
+                    echo "##vso[task.logissue type=error]Dependent release compatibility prerequisite $LATER_PREREQUISITE has no first parent"
+                    exit 1
+                  fi
+                  if git diff --quiet "$LATER_PARENT" "$LATER_PREREQUISITE" -- \
+                    ":(literal)$path"; then
+                    :
+                  else
+                    DIFF_STATUS=$?
+                    if [ "$DIFF_STATUS" -ne 1 ]; then
+                      echo "##vso[task.logissue type=error]Unable to inspect dependent prerequisite $LATER_PREREQUISITE for path: $path"
+                      exit 1
+                    fi
+                    BASELINE_COMMIT="$LATER_PARENT"
+                    break
+                  fi
+                fi
+              done
+              if ! BASELINE_BLOB=$(git rev-parse "$BASELINE_COMMIT:$path" 2>/dev/null); then
+                echo "##vso[task.logissue type=error]Scoped path is absent from expected baseline $BASELINE_COMMIT: $path"
                 exit 1
               fi
-              if [ "$PREREQUISITE_BLOB" != "$TARGET_BLOB" ]; then
-                echo "##vso[task.logissue type=error]Scoped prerequisite blob does not match the PR target baseline: $path"
+              if [ "$PREREQUISITE_BLOB" != "$BASELINE_BLOB" ]; then
+                echo "##vso[task.logissue type=error]Scoped prerequisite blob does not match expected baseline $BASELINE_COMMIT: $path"
                 exit 1
               fi
               PREREQUISITE_PATHSPECS+=(":(literal)$path")
@@ -1227,6 +1280,7 @@ jobs:
 
         echo "=== Attempting to apply release-relevant PR changes onto $(RELEASE_BRANCH) ==="
         git checkout --detach $RELEASE_TIP
+        git reset --hard $RELEASE_TIP
         git update-index --refresh
         for index in "${!PREREQUISITE_COMMITS[@]}"; do
           PREREQUISITE="${PREREQUISITE_COMMITS[$index]}"
