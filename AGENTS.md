@@ -346,8 +346,9 @@ without credentials. Pure Spark tests run anywhere.
 - **Main build**: Azure DevOps pipeline (`pipeline.yaml`) — full test suite, 45+ min
 - **GitHub Actions**: Lightweight checks only (style, compile, dead links, dependency review)
 - **PR feedback**: GitHub Actions runs in ~5 min; the Azure DevOps run is triggered
-  by an `/azp run` comment. That comment does **not** work on every branch — see
-  `AGENTS_<branch>.md` before concluding the pipeline is broken.
+  by an `/azp run` comment. Confirm a build actually queued rather than treating
+  the comment as proof — see `AGENTS_<branch>.md` for how to verify and what to
+  do if none appears.
 - **PR titles**: Must follow conventional commits (`feat:`, `fix:`, `ci:`,
   `chore:`, `test:`, `docs:`). The title is linted; the body is not.
 - **Target branch**: see *Branch model* above. Retargeting a PR after review has

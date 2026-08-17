@@ -225,12 +225,22 @@ is safe but buys little on its own, since the surrounding
 
 ## CI
 
-`/azp run` does **not** trigger for this branch. The Azure DevOps definition's
-pull-request trigger is defined in the UI with a `+master` branch filter, so the
-`pr:` block in `pipeline.yaml` is never consulted. Until that filter is widened,
-queue a build directly against the PR merge ref (`refs/pull/<N>/merge`); a manual
-queue bypasses trigger filters. `refs/heads/<branch>` does not work — it fails
-service-connection authorization.
+`/azp run` **does** trigger a full build for this branch. The Azure DevOps
+definition's pull-request trigger is defined in the pipeline UI rather than by
+the `pr:` block in `pipeline.yaml`, and until 2026-08-17 its filter was
+`+master` only, so comments on this branch were silently ignored. The filter now
+covers `master`, `spark3.5`, `spark4.0` and `spark4.1`.
+
+Verified on PR #2645: build `231455958` queued with `reason=pullRequest` and
+`requestedFor=GitHub`, versus `reason=manual` on every hand-queued build before
+it. That field is the reliable way to tell a trigger-driven run from one you
+queued yourself.
+
+If a comment produces no build, re-read the trigger's branch filters through the
+definitions API before assuming flakiness — a UI-defined trigger overrides the
+YAML silently. The fallback is to queue directly against the PR merge ref
+(`refs/pull/<N>/merge`), which bypasses trigger filters. `refs/heads/<branch>`
+does not work — it fails service-connection authorization.
 
 GitHub Actions checks do run here, but they only compile and lint. They cannot
 catch the failures this branch is actually prone to, all of which need the full
