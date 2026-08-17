@@ -81,10 +81,11 @@ $owner = $repoParts[0]
 $name = $repoParts[1]
 
 $automatedLogins = @($AutomatedReviewer |
-    Where-Object { $_ } |
-    ForEach-Object { ($_ -replace '\[bot\]$', '').ToLowerInvariant() })
+    Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+    ForEach-Object { ($_.Trim() -replace '\[bot\]$', '').ToLowerInvariant() } |
+    Where-Object { $_ })
 if (-not $automatedLogins) {
-    throw "AutomatedReviewer must contain at least one login."
+    throw "AutomatedReviewer must contain at least one non-blank login."
 }
 
 $threadQuery = @'

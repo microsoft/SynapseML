@@ -19,12 +19,14 @@ against the live target branch.
 
 - Spark 4 uses Scala 2.13 and Java 17-era tooling. Preserve branch-specific
   dependency comments, Java configuration, and removal of obsolete CMS flags.
-- The `pyarrow` and `mlflow` pins move in lockstep: `mlflow==2.21.3` declares
-  `pyarrow<20,>=4.0.0`, so a `pyarrow` bump that crosses that bound breaks the
-  environment solve unless `mlflow` moves with it. Bumps inside the bound, such
-  as 18 to 19, are fine. Trust the declared bound over the inline comments, which
-  disagree with each other — `spark4.1`'s `environment.yml` says `pyarrow<19`,
-  which is wrong, and has no comment on the `mlflow` pin at all.
+- The `pyarrow` and `mlflow` pins are coupled, and the pinned versions are not
+  the same on every branch — read both live values on the branch you are editing
+  before changing either. The bound comes from MLflow: `mlflow==2.21.3` declares
+  `pyarrow<20,>=4.0.0`, so on a branch pinning that MLflow, `pyarrow` must stay
+  under 20 or move together with `mlflow`; bumps inside the bound are fine. Older
+  MLflow pins carry different bounds, so check the pinned version's own metadata
+  rather than assuming this one. Do not trust the inline comments: they disagree
+  with each other and with the pins they sit next to.
 - Scala 2.13 collection boundaries must produce immutable `Seq` values; keep
   the central `asImmutableCollection` conversion rather than per-service fixes.
 - Preserve Spark 4 adaptations for SAR encoders/self-joins,
