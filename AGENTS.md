@@ -5,7 +5,7 @@ Use this file for repository-wide rules. Human contributors should start with
 
 ## Start here
 
-1. Check the current branch. On `spark4.0` or `spark4.1`, also read
+1. Check the current branch. On a Spark port branch, also read
    `AGENTS_<branch>.md`; it explains intentional branch differences.
 2. Read versions from [build.sbt](build.sbt) and
    [environment.yml](environment.yml). Do not copy version numbers into this
@@ -14,6 +14,9 @@ Use this file for repository-wide rules. Human contributors should start with
    [Scala changes](.github/skills/scala-code/SKILL.md),
    [local setup](.github/skills/synapseml-local-setup/SKILL.md), and
    [code review](.github/skills/code-review/SKILL.md).
+4. For requests to make one or more issues or PRs "5/5", "200% ready", or
+   merge-ready, use the
+   [merge-readiness workflow](.github/skills/synapseml-merge-ready/SKILL.md).
 
 ## Non-negotiable rules
 
@@ -21,7 +24,7 @@ Use this file for repository-wide rules. Human contributors should start with
 - Never commit or print credentials, keys, connection strings, or `.env` files.
 - Do not add RDD-based implementations. Use DataFrame/Dataset APIs so code works
   with Spark Connect and managed Spark modes.
-- Do not rebase or force-push shared `spark4.x` branches.
+- Do not rebase or force-push shared port branches.
 - Do not add a hand-written `__init__.py` merely to re-export generated classes;
   a stale `__all__` can hide public APIs.
 - Keep existing public JVM signatures and serialized parameter shapes unless a
@@ -36,8 +39,11 @@ pins. These changes affect every branch and require CI evidence.
 | Branch | Use it for |
 | --- | --- |
 | `master` | Ordinary features, fixes, and repository-wide changes |
-| `spark4.0` | Differences required specifically by the Spark 4.0 port |
-| `spark4.1` | Differences required specifically by the Spark 4.1 port |
+| `spark<version>` port branches | Differences required specifically by that Spark port |
+
+Run `git branch -r` to see which port branches currently exist; this guide does
+not name them, so that adding one does not require editing a file that must stay
+identical on every branch.
 
 Land cross-version changes on `master`; port branches receive them by merging
 `master`. When resolving a port-branch merge:
@@ -51,7 +57,11 @@ Reachability is not proof that a sync preserved content. Compare the merge base,
 `master` additions remain present.
 
 `AGENTS.md` and [CONTRIBUTING.md](CONTRIBUTING.md) must stay identical across
-branches. Put branch-only facts in `AGENTS_<branch>.md`.
+branches, so neither may name a Spark, Scala, Java, or Python version, or a path
+containing one. Put branch-only facts in `AGENTS_<branch>.md`. Every other
+document — [README.md](README.md), the website, and module docs — is free to be
+branch- and version-specific, because nothing requires those to match across
+branches.
 
 ## Repository map
 
