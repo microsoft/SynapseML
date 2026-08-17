@@ -100,6 +100,8 @@ object RTestGen {
          |  "spark.jars.repositories=$SparkMavenRepositoryList",
          |  "spark.executor.heartbeatInterval=60s",
          |  "spark.sql.shuffle.partitions=10",
+         |  "spark.sql.ansi.enabled=true",
+         |  "spark.sql.ansi.doubleQuotedIdentifiers=true",
          |  "spark.sql.crossJoin.enabled=true")
          |conf$$spark.driver.extraJavaOptions <- paste0("'", paste0(c(
          |     "--add-opens=java.base/java.lang=ALL-UNNAMED ",
@@ -117,7 +119,7 @@ object RTestGen {
          |     "--add-opens=java.base/sun.util.calendar=ALL-UNNAMED ",
          |     "--add-opens=java.security.jgss/sun.security.krb5=ALL-UNNAMED"), collapse = ""), "'")
          |
-         |sc <- spark_connect(master = "local", version = "4.0", config = conf)
+         |sc <- spark_connect(master = "local", spark_home = Sys.getenv("SPARK_HOME"), config = conf)
          |
          |""".stripMargin, StandardOpenOption.CREATE)
 

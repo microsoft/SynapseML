@@ -4,10 +4,15 @@ channels:
   - default
 dependencies:
   - python=3.12.11
-  - requests=2.26.0
+  # SynapseML-Internal uses 2.32.3; LangChain Community requires 2.32.5+.
+  - requests=2.32.5
+  # Master pins pip=21.3, which predates Python 3.12 support - keep the newer pip.
   - pip=25.2
   - r-base=4.4
-  - r-sparklyr=1.9.3
+  # 1.9.3 loses the Spark connection under dbplyr 2.6 (tidyselect_data_proxy.tbl_spark
+  # returns a proxy with no connection), which fails ml_load and copy_to. 1.9.5 fixes
+  # it; spark4.1 pairs the same r-base=4.4 with 1.9.5 and passes RTests 69/69.
+  - r-sparklyr=1.9.5
   - r-devtools=2.4.5
   - cmake<=3.27
   - openjdk=17
@@ -15,9 +20,10 @@ dependencies:
     # Pre-built wheel for Python 3.12 (no cp312 wheel on PyPI for 2.0.3)
     - https://mmlspark.blob.core.windows.net/installers/pandas-2.0.3-cp312-cp312-linux_x86_64.whl
     # For Python 3.12, older PyArrow releases (e.g. 11.0.0) lack pre-built
-    # wheels and force a from-source build with system Arrow. Use a newer
-    # version that provides cp312 wheels.
-    - pyarrow==22.0.0
+    # wheels and force a from-source build with system Arrow. 18.0.0 ships
+    # cp312 manylinux wheels and stays under mlflow 2.21.3's pyarrow<20 bound
+    # (22.0.0 does not) - the same pair spark4.1 validated.
+    - pyarrow==18.0.0
     - pyspark==4.0.1
     - wheel
     - sphinx==5.0.2
@@ -33,29 +39,41 @@ dependencies:
     - tqdm
     - ipython
     - pytest-codeblocks
-    - azure-storage-blob
-    - jupyter
+    - azure-storage-blob==12.19.1
+    - jupyter==1.1.0
     - twine
-    - mlflow==1.26.1
+    # spark4.1 (a descendant of this branch) already moved off the 1.26.1 pin the
+    # Spark 4.0 upgrade commit introduced, converging on master's 2.21.3. Adopt it
+    # here too so all three branches share one MLflow. 2.21.3 requires pyarrow<20,
+    # which is why the pyarrow pin above moves in lockstep.
+    - mlflow==2.21.3
     - protobuf>=4.25,<5
-    - numpy
-    # For Python 3.12, PyTorch 2.1.0 wheels are not available; use the
-    # first PyTorch release that supports 3.12 and its matching torchvision.
-    - torch==2.2.0
-    - torchvision==0.17.0
-    # horovod package was deprecated in 2023, this commit has horovod compile with c++17
+    # Internal uses 1.23.5; LangChain Community requires NumPy 1.26.2+. 1.26.4 also
+    # predates the NumPy 2.0 ABI break that pandas 2.0.3 cannot tolerate, and still
+    # ships cp312 wheels - so unlike spark4.1/Python 3.13, this branch can adopt it.
+    - numpy==1.26.4
+    # CPU-only wheels avoid unused CUDA downloads in local/CI; DBR GPU notebooks use runtime-provided CUDA.
+    # cp312 builds of the same versions spark4.1 validated on cp313.
+    - "https://download.pytorch.org/whl/cpu/torch-2.9.1%2Bcpu-cp312-cp312-manylinux_2_28_x86_64.whl#sha256=7417d8c565f219d3455654cb431c6d892a3eb40246055e14d645422de13b9ea1"
+    - "https://download.pytorch.org/whl/cpu/torchvision-0.24.1%2Bcpu-cp312-cp312-manylinux_2_28_x86_64.whl#sha256=48ff40694812292f1f75cddb517f9eef224a2e8388798a0aa191e27bf159fc5d"
+    # Horovod v0.28.1 with upstream GCC, C++17, and Python 3.12 fixes; includes PyTorch and Gloo.
     # Ref: https://github.com/horovod/horovod/issues/3996#issuecomment-2098507345
-    # Pre-built wheel for faster CI (built from same commit on Ubuntu 22.04 + Python 3.12)
-    - https://mmlspark.blob.core.windows.net/installers/horovod-0.28.1-cp312-cp312-linux_x86_64.whl
+    - "https://mmlsparkbuildsynapse.blob.core.windows.net/synapse-extension/horovod/0.28.1/horovod-0.28.1-1-cp312-cp312-linux_x86_64.whl#sha256=9ffa343b09014647134992d467b4efdbfda28c8ecd9baa8dfab96f9ae032807d"
+    # Databricks Runtime ML 16.0+ removed Horovod and Petastorm, so DBR 17.3 supplies
+    # neither. petastorm ships here and synapse.ml.dl._petastorm_compat patches it for
+    # the PyArrow the branch pins - see deep-learning/src/main/python/synapse/ml/dl.
     - petastorm>=0.11.0
-    - pytorch_lightning==1.5.0
+    - pytorch_lightning==2.4.0
     - onnxmltools==1.7.0
     - matplotlib
     - Pillow
     - transformers==4.49.0
     - huggingface-hub==0.26.0
-    - langchain==0.0.152
-    - openai==0.27.5
+    - langchain==1.3.14
+    - langchain-classic==1.0.8
+    - langchain-community==0.4.2
+    - langchain-openai==1.4.0
+    - openai==2.47.0
     - black==22.3.0
     - black[jupyter]==22.3.0
     - mistletoe

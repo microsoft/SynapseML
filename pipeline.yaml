@@ -1,12 +1,20 @@
 resources:
-- repo: self
+  repositories:
+  - repository: SynapseML-Internal
+    type: git
+    name: A365/SynapseML-Internal
+    # Queue-time default only. `ref` is resolved before any job runs, so it cannot depend on
+    # the branch under test; the InternalCompat job re-points this checkout at the Internal
+    # branch matching the OSS target branch. See 'Select matching SynapseML-Internal branch'.
+    ref: master
 
 trigger:
   branches:
     include:
     - master
-    - spark3.3
     - spark3.5
+    - spark4.0
+    - spark4.1
   paths:
     exclude:
     - README.md
@@ -21,8 +29,9 @@ pr:
   branches:
     include:
     - master
-    - spark3.3
     - spark3.5
+    - spark4.0
+    - spark4.1
   paths:
     exclude:
     - README.md
@@ -88,44 +97,120 @@ variables:
   CONDA_CACHE_DIR: /usr/share/miniconda/envs
   UBUNTU_VERSION: ubuntu-22.04
   ComponentDetection.Timeout: 900
+  JAVA_TOOL_OPTIONS: "--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED"
   isMaster: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
   isTag: $[startsWith(variables['Build.SourceBranch'], 'refs/tags/')]
   isPR: $[eq(variables['Build.Reason'], 'PullRequest')]
+  SYNAPSEML_GPU_SMOKE_TESTS: $[eq(variables['Build.Reason'], 'PullRequest')]
   # Run coverage only on PRs, master, or tag builds to speed up feature branch builds
   runCoverage: $[or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))]
 
 jobs:
-- job: Style
+- job: BuildAndCacheSbt
+  displayName: 'Prewarm sbt bootstrap cache'
   cancelTimeoutInMinutes: 0
-  condition: and(eq(variables.runTests, 'True'), eq('${{ parameters.testStyle }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
   steps:
-    - template: templates/java_setup.yml
-    - task: AzureCLI@2
+    - checkout: self
+      fetchDepth: 1
+    - bash: |
+        set -uo pipefail
+        run_databricks_cpu=true
+        run_databricks_gpu=true
+
+        if [ "$(Build.Reason)" = "PullRequest" ]; then
+          target_ref="${SYSTEM_PULLREQUEST_TARGETBRANCH:-}"
+          if [ -z "$target_ref" ]; then
+            echo "##vso[task.logissue type=warning]PR target branch was unavailable; running Databricks E2E"
+          elif git fetch --no-tags --depth=1 origin "$target_ref"; then
+            target_commit="$(git rev-parse FETCH_HEAD)"
+
+            # Azure checks out the PR merge ref, so target tip -> HEAD is the
+            # effective PR diff. A source-only checkout can only over-report
+            # target changes, which safely keeps Databricks enabled.
+            echo "Changed paths used for Databricks E2E impact detection:"
+            changed_paths_file="$(mktemp)"
+            trap 'rm -f "$changed_paths_file"' EXIT
+            git diff --name-only -z --diff-filter=ACMRD "$target_commit" HEAD > "$changed_paths_file"
+            tr '\0' '\n' < "$changed_paths_file" | sed 's/^/  /'
+
+            cpu_decision="$(
+              python3 tools/ci/databricks_impact.py --null --suite cpu < "$changed_paths_file"
+            )"
+            gpu_decision="$(
+              python3 tools/ci/databricks_impact.py --null --suite gpu < "$changed_paths_file"
+            )"
+            case "$cpu_decision" in
+              true|false) run_databricks_cpu="$cpu_decision" ;;
+              *)
+                echo "##vso[task.logissue type=warning]Invalid Databricks CPU impact result; running CPU E2E"
+                ;;
+            esac
+            case "$gpu_decision" in
+              true|false) run_databricks_gpu="$gpu_decision" ;;
+              *)
+                echo "##vso[task.logissue type=warning]Invalid Databricks GPU impact result; running GPU E2E"
+                ;;
+            esac
+          else
+            echo "##vso[task.logissue type=warning]Could not fetch PR target branch; running Databricks E2E"
+          fi
+        else
+          echo "Non-PR build; Databricks E2E remains enabled"
+        fi
+
+        echo "Databricks CPU E2E enabled: $run_databricks_cpu"
+        echo "Databricks GPU E2E enabled: $run_databricks_gpu"
+        echo "##vso[task.setvariable variable=runDatabricksCpuE2E;isOutput=true]$run_databricks_cpu"
+        echo "##vso[task.setvariable variable=runDatabricksGpuE2E;isOutput=true]$run_databricks_gpu"
+      name: detectDatabricksImpact
+      displayName: 'Detect Databricks E2E impact'
+    - template: templates/update_cli.yml
+    - template: templates/sbt_cache.yml
+      parameters:
+        prewarm: true
+        maxAttempts: 7
+        maxBackoffSeconds: 180
+
+- job: Style
+  dependsOn: BuildAndCacheSbt
+  cancelTimeoutInMinutes: 0
+  condition: and(succeeded(), eq(variables.runTests, 'True'), eq('${{ parameters.testStyle }}', true))
+  pool:
+    vmImage: $(UBUNTU_VERSION)
+  steps:
+    - template: templates/sbt_cache.yml
+    - bash: sbt scalastyle test:scalastyle
       displayName: 'Scala Style Check'
+    - task: UsePythonVersion@0
       inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: 'sbt scalastyle test:scalastyle'
-    - template: templates/conda.yml
+        versionSpec: '3.11'
+        architecture: 'x64'
+        disableDownloadFromRegistry: true
     - bash: |
         set -e
-        source activate synapseml
+        python -m pip install -q 'black[jupyter]==22.3.0'
         black --diff --color . && black --check -q .
       displayName: 'Python Style Check'
 - ${{ if eq(parameters.publishArtifacts, true) }}:
   - job: Publish
-    condition: eq('${{ parameters.publishArtifacts }}', true)
+    dependsOn: BuildAndCacheSbt
+    condition: and(succeeded(), eq('${{ parameters.publishArtifacts }}', true))
     cancelTimeoutInMinutes: 0
     pool:
       vmImage: $(UBUNTU_VERSION)
     steps:
-      #- template: templates/ivy_cache.yml
+      - template: templates/sbt_cache.yml
       - template: templates/update_cli.yml
       - template: templates/conda.yml
       - template: templates/kv.yml
+      - bash: |
+          set -euo pipefail
+          PACKAGE_VERSION=$(bash tools/ci/get_sbt_version.sh)
+          echo "Publishing SynapseML package version $PACKAGE_VERSION"
+          echo "##vso[task.setvariable variable=packageVersion]$PACKAGE_VERSION"
+        displayName: 'Resolve package version'
       - task: MavenAuthenticate@0
         name: mavenAuthPublicPackages
         displayName: Authenticate SynapseML_PublicPackages
@@ -140,6 +225,8 @@ jobs:
           scriptType: bash
           inlineScript: |
             set -e
+            test -n "$(packageVersion)"
+            echo "Publishing SynapseML package version $(packageVersion)"
             sudo apt-get install graphviz doxygen -y
             source activate synapseml
             sbt packagePython uploadNotebooks
@@ -166,13 +253,24 @@ jobs:
         condition: and(succeeded(), eq(variables.isMaster, true))
         displayName: Publish Badges
 
-- job: DatabricksE2E
-  displayName: 'Databricks E2E'
-  condition: eq('${{ parameters.testDatabricksE2E }}', true)
-  timeoutInMinutes: 120
+- job: DatabricksCPUE2E
+  dependsOn: BuildAndCacheSbt
+  displayName: 'Databricks CPU E2E'
+  condition: >-
+    and(
+      succeeded(),
+      eq(variables.runTests, 'True'),
+      eq('${{ parameters.testDatabricksE2E }}', true),
+      eq(dependencies.BuildAndCacheSbt.outputs['detectDatabricksImpact.runDatabricksCpuE2E'], 'true')
+    )
+  timeoutInMinutes: 300
   cancelTimeoutInMinutes: 0
   pool:
     vmImage: $(UBUNTU_VERSION)
+  variables:
+    MML_ADB_AUTH_TYPE: "aad"
+    MML_ADB_WORKSPACE_HOST: "adb-1885762835647850.10.azuredatabricks.net"
+    MML_ADB_WORKSPACE_RESOURCE_ID: "/subscriptions/e342c2c0-f844-4b18-9208-52c8c234c30e/resourceGroups/marhamil-mmlspark/providers/Microsoft.Databricks/workspaces/synapseml-build-adb"
   strategy:
     matrix:
       databricks-cpu-1:
@@ -185,51 +283,44 @@ jobs:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksCPUTests4"
       databricks-cpu-5:
         TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksCPUTests5"
-      databricks-cpu-streaming:
-        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksCPUStreamingTests"
-      databricks-gpu-1:
-        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksGPUTests1"
-      databricks-gpu-2:
-        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksGPUTests2"
-      databricks-gpu-3:
-        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksGPUTests3"
-#      databricks-rapids tests have been disabled because these tests are failing.
-#      This test will be re-enabled once the issue is fixed.
-#      databricks-rapids:
-#        TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksRapidsTests"
   steps:
-    #- template: templates/ivy_cache.yml
-    - template: templates/update_cli.yml
-    - template: templates/conda.yml
-    - template: templates/kv.yml
-    - template: templates/publish.yml
-    - task: AzureCLI@2
-      displayName: 'E2E'
-      inputs:
-        azureSubscription:  'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: |
-          set -e
-          source activate synapseml
-          sbt "testOnly $(TEST-CLASS)"
-      condition: and(succeeded(), eq(variables.runTests, 'True'))
-    - task: PublishTestResults@2
-      displayName: 'Publish Test Results'
-      inputs:
-        testResultsFiles: '**/test-reports/TEST-*.xml'
-        failTaskOnFailedTests: true
-      condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
+    - template: templates/databricks_e2e_steps.yml
+
+- job: DatabricksGPUE2E
+  dependsOn: BuildAndCacheSbt
+  displayName: 'Databricks GPU E2E'
+  condition: >-
+    and(
+      succeeded(),
+      eq(variables.runTests, 'True'),
+      eq('${{ parameters.testDatabricksE2E }}', true),
+      eq(dependencies.BuildAndCacheSbt.outputs['detectDatabricksImpact.runDatabricksGpuE2E'], 'true')
+    )
+  timeoutInMinutes: 300
+  cancelTimeoutInMinutes: 0
+  pool:
+    vmImage: $(UBUNTU_VERSION)
+  variables:
+    TEST-CLASS: "com.microsoft.azure.synapse.ml.nbtest.DatabricksGPUTests"
+    MML_ADB_AUTH_TYPE: "aad"
+    MML_ADB_WORKSPACE_HOST: "adb-1885762835647850.10.azuredatabricks.net"
+    MML_ADB_WORKSPACE_RESOURCE_ID: "/subscriptions/e342c2c0-f844-4b18-9208-52c8c234c30e/resourceGroups/marhamil-mmlspark/providers/Microsoft.Databricks/workspaces/synapseml-build-adb"
+# The DatabricksRapidsTests suite remains disabled until its existing failures are fixed.
+  steps:
+    - template: templates/databricks_e2e_steps.yml
 
 - job: FabricE2E
+  dependsOn: BuildAndCacheSbt
   displayName: 'Fabric E2E'
-  condition: eq('${{ parameters.testFabricE2E }}', true)
+  # Fabric's managed runtime does not yet support Spark 4.0 binaries. Re-enable
+  # the testFabricE2E condition when a compatible managed runtime is available.
+  condition: false
   timeoutInMinutes: 120
   cancelTimeoutInMinutes: 0
   pool:
-    vmImage: ubuntu-22.04
+    vmImage: $(UBUNTU_VERSION)
   steps:
-    #- template: templates/ivy_cache.yml
+    - template: templates/sbt_cache.yml
     - template: templates/update_cli.yml
     - template: templates/conda.yml
     - template: templates/kv.yml
@@ -244,7 +335,9 @@ jobs:
         inlineScript: |
           set -e
           source activate synapseml
-          sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.FabricSmokeTests com.microsoft.azure.synapse.ml.nbtest.FabricNotebookTests"
+          sbt \
+            "testOnly com.microsoft.azure.synapse.ml.nbtest.FabricTestCleanup" \
+            "testOnly com.microsoft.azure.synapse.ml.nbtest.FabricSmokeTests com.microsoft.azure.synapse.ml.nbtest.FabricNotebookTests"
       env:
         INTEGRATION_ENV: $(sempy-integration-region)
         INTEGRATION_ACCOUNT: $(sempy-integration-account)
@@ -259,88 +352,103 @@ jobs:
       condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
 #
 - job: BuildDocker
+  dependsOn: BuildAndCacheSbt
   displayName: BuildDocker
+  timeoutInMinutes: 120
   pool:
     vmImage: ubuntu-22.04
   steps:
-    - task: AzureCLI@2
+    - template: templates/sbt_cache.yml
+    - bash: |
+        set -euo pipefail
+        VERSION=$(bash tools/ci/get_sbt_version.sh)
+        echo '##vso[task.setvariable variable=version]'$VERSION
+        echo '##vso[task.setvariable variable=gittag]'$(git tag -l --points-at HEAD)
       displayName: 'Get Docker Tag + Version'
+    # Build all images (runs on every build to validate Dockerfiles)
+    - task: Docker@2
+      displayName: Demo Image Build
+      inputs:
+        command: build
+        repository: mmlspark-demo
+        Dockerfile: tools/docker/demo/Dockerfile
+        buildContext: $(Build.SourcesDirectory)
+        arguments: --quiet --build-arg SYNAPSEML_VERSION=$(version)
+        tags: |
+          $(version)
+        addPipelineData: true
+        addBaseImageData: true
+    - task: Docker@2
+      displayName: Minimal Image Build
+      inputs:
+        command: build
+        repository: mmlspark-minimal
+        Dockerfile: tools/docker/minimal/Dockerfile
+        buildContext: $(Build.SourcesDirectory)
+        arguments: --quiet --build-arg SYNAPSEML_VERSION=$(version)
+        tags: |
+          $(version)
+        addPipelineData: true
+        addBaseImageData: true
+    # Push demo and minimal when Docker publishing is enabled on master
+    - task: AzureCLI@2
+      condition: and(eq(variables.isMaster, true), eq('${{ parameters.publishDockerImages }}', true))
+      displayName: Push Dev Images to ACR
       inputs:
         azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
-          VERSION=$(sbt "core/version" | tail -1 |  cut -d' ' -f2 | sed 's/\x1b\[[0-9;]*m//g')
-          echo '##vso[task.setvariable variable=version]'$VERSION
-          echo '##vso[task.setvariable variable=gittag]'$(git tag -l --points-at HEAD)
-    # Build all images (runs on every build to validate Dockerfiles)
-    - task: Docker@2
-      displayName: Demo Image Build
-      inputs:
-        command: 'build'
-        buildContext: "."
-        Dockerfile: 'tools/docker/demo/Dockerfile'
-        arguments: --build-arg SYNAPSEML_VERSION=$(version) -t mmlspark-demo:$(version)
-    - task: Docker@2
-      displayName: Minimal Image Build
-      inputs:
-        command: 'build'
-        buildContext: "."
-        Dockerfile: 'tools/docker/minimal/Dockerfile'
-        arguments: --build-arg SYNAPSEML_VERSION=$(version) -t mmlspark-minimal:$(version)
-    # Push demo and minimal on every master build
-    - bash: |
-        set -e
-        docker tag mmlspark-demo:$(version) mmlsparkmcr.azurecr.io/public/mmlspark/build-demo:$(version)
-        docker tag mmlspark-minimal:$(version) mmlsparkmcr.azurecr.io/public/mmlspark/build-minimal:$(version)
-      condition: and(eq(variables.isMaster, true), eq('${{ parameters.publishDockerImages }}', true))
-      displayName: Tag Dev Images for ACR
-    - task: Docker@2
-      condition: and(eq(variables.isMaster, true), eq('${{ parameters.publishDockerImages }}', true))
-      displayName: Demo Image Push
-      inputs:
-        containerRegistry: 'SynapseML MCR'
-        repository: 'public/mmlspark/build-demo'
-        command: 'push'
-        tags: $(version)
-    - task: Docker@2
-      condition: and(eq(variables.isMaster, true), eq('${{ parameters.publishDockerImages }}', true))
-      displayName: Minimal Image Push
-      inputs:
-        containerRegistry: 'SynapseML MCR'
-        repository: 'public/mmlspark/build-minimal'
-        command: 'push'
-        tags: $(version)
+          set -e
+          az acr login --name mmlsparkmcr
+          docker tag mmlspark-demo:$(version) mmlsparkmcr.azurecr.io/public/mmlspark/build-demo:$(version)
+          docker tag mmlspark-minimal:$(version) mmlsparkmcr.azurecr.io/public/mmlspark/build-minimal:$(version)
+          docker push mmlsparkmcr.azurecr.io/public/mmlspark/build-demo:$(version)
+          docker push mmlsparkmcr.azurecr.io/public/mmlspark/build-minimal:$(version)
     # Push release only on tagged releases
-    - bash: |
-        set -e
-        docker tag mmlspark-demo:$(version) mmlsparkmcr.azurecr.io/public/mmlspark/release:$(version)
-        docker tag mmlspark-demo:$(version) mmlsparkmcr.azurecr.io/public/mmlspark/release:latest
+    - task: AzureCLI@2
       condition: and(eq('${{ parameters.publishDockerImages }}', true), eq(variables.isMaster, true), startsWith(variables['gittag'], 'v'))
-      displayName: Tag Release Image for ACR
-    - task: Docker@2
-      condition: and(eq('${{ parameters.publishDockerImages }}', true), eq(variables.isMaster, true), startsWith(variables['gittag'], 'v'))
-      displayName: Release Image Push
+      displayName: Push Release Image to ACR
       inputs:
-        containerRegistry: 'SynapseML MCR'
-        repository: 'public/mmlspark/release'
-        command: 'push'
-        tags: |
-          $(version)
-          latest
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          set -e
+          az acr login --name mmlsparkmcr
+          docker tag mmlspark-demo:$(version) mmlsparkmcr.azurecr.io/public/mmlspark/release:$(version)
+          docker tag mmlspark-demo:$(version) mmlsparkmcr.azurecr.io/public/mmlspark/release:latest
+          docker push mmlsparkmcr.azurecr.io/public/mmlspark/release:$(version)
+          docker push mmlsparkmcr.azurecr.io/public/mmlspark/release:latest
     - task: ComponentGovernanceComponentDetection@0
 
 - ${{ if eq(parameters.publishRelease, true) }}:
   - job: Release
-    condition: eq('${{ parameters.publishRelease }}', true)
+    dependsOn: BuildAndCacheSbt
+    condition: and(succeeded(), eq('${{ parameters.publishRelease }}', true))
     cancelTimeoutInMinutes: 0
     pool:
       vmImage: $(UBUNTU_VERSION)
     steps:
+      - template: templates/sbt_cache.yml
       - template: templates/update_cli.yml
       - bash: |
           echo '##vso[task.setvariable variable=tag]'$(git tag -l --points-at HEAD)
         displayName: 'Get Git Tag'
+      - bash: |
+          set -euo pipefail
+          PACKAGE_VERSION=$(bash tools/ci/get_sbt_version.sh)
+          EXPECTED_VERSION="${RELEASE_TAG#v}"
+          if [ "$PACKAGE_VERSION" != "$EXPECTED_VERSION" ]; then
+            echo "Package version $PACKAGE_VERSION does not match release tag $RELEASE_TAG" >&2
+            exit 1
+          fi
+          echo "Publishing release package version $PACKAGE_VERSION"
+          echo "##vso[task.setvariable variable=packageVersion]$PACKAGE_VERSION"
+        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
+        displayName: 'Validate release package version'
+        env:
+          RELEASE_TAG: $(tag)
       - bash: |
           set -e
           wget https://github.com/git-chglog/git-chglog/releases/download/0.8.0/git-chglog_linux_amd64
@@ -366,6 +474,7 @@ jobs:
       - task: Cache@2
         displayName: Use cached Anaconda environment
         condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
+        continueOnError: true
         inputs:
           key: 'conda | "$(Agent.OS)" | environment.yml'
           restoreKeys: |
@@ -374,8 +483,10 @@ jobs:
           path: $(CONDA_CACHE_DIR)
           cacheHitVar: CONDA_CACHE_RESTORED
       - bash: |
-          conda env create --force -f environment.yml -v
-        condition: and(eq(variables.isMaster, true), and(startsWith(variables['tag'], 'v'), eq(variables.CONDA_CACHE_RESTORED, 'false')))
+          set -e
+          conda env remove --name synapseml --yes || true
+          conda env create --yes -f environment.yml -v
+        condition: and(eq(variables.isMaster, true), and(startsWith(variables['tag'], 'v'), ne(variables.CONDA_CACHE_RESTORED, 'true')))
         displayName: Create Anaconda environment
       - task: AzureKeyVault@2
         condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
@@ -385,6 +496,7 @@ jobs:
       - bash: |
           set -e
           source activate synapseml
+          echo "Publishing Python package version $(packageVersion)"
           sbt publishPypi
         condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
         env:
@@ -400,6 +512,7 @@ jobs:
       - bash: |
           set -e
           source activate synapseml
+          echo "Preparing Maven package version $(packageVersion)"
           sbt publishLocalSigned
           python tools/esrp/prepare_jar.py
         condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
@@ -429,9 +542,10 @@ jobs:
         condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
 
 - job: PythonTests
+  dependsOn: BuildAndCacheSbt
   timeoutInMinutes: 120
   cancelTimeoutInMinutes: 0
-  condition: and(eq(variables.runTests, 'True'), eq('${{ parameters.testPython }}', true))
+  condition: and(succeeded(), eq(variables.runTests, 'True'), eq('${{ parameters.testPython }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
   strategy:
@@ -455,22 +569,17 @@ jobs:
       cognitive:
         PACKAGE: "cognitive"
   steps:
-    #- template: templates/ivy_cache.yml
+    - template: templates/sbt_cache.yml
     - template: templates/update_cli.yml
     - template: templates/conda.yml
     - template: templates/kv.yml
-    - task: AzureCLI@2
+    - bash: |
+        source activate synapseml
+        if [ "$(runCoverage)" = "True" ]; then COV_CMD="coverage"; else COV_CMD=""; fi
+        sbt $COV_CMD getDatasets installPipPackage
+        sbt publishM2
       displayName: 'Install and package deps'
       timeoutInMinutes: 40
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: |
-          source activate synapseml
-          if [ "$(runCoverage)" = "True" ]; then COV_CMD="coverage"; else COV_CMD=""; fi
-          sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED $COV_CMD getDatasets installPipPackage
-          sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED publishM2
     - task: AzureCLI@2
       displayName: 'Test Python Code'
       retryCountOnTaskFailure: 1
@@ -482,45 +591,42 @@ jobs:
         inlineScript: |
           set -e
           source activate synapseml
-          export SBT_OPTS="-Xms2G -Xss5M  -Duser.timezone=GMT"
+          export SBT_OPTS="-Xms2G -Xss5M -Duser.timezone=GMT"
           echo "##vso[task.setvariable variable=SBT_OPTS]$SBT_OPTS"
           echo "SBT_OPTS=$SBT_OPTS"
           IGNORE_TEST_PATH_FLAG=""
           TEST_SUB_PATH_FLAG=""
-          if [ -n "$(IGNORE_TEST_PATH)" ]; then
-            IGNORE_TEST_PATH_FLAG="-DpythonIgnoreTestPath=$(IGNORE_TEST_PATH)"
+          if [ -n "${IGNORE_TEST_PATH:-}" ]; then
+            IGNORE_TEST_PATH_FLAG="-DpythonIgnoreTestPath=$IGNORE_TEST_PATH"
           fi
-          if [ -n "$(TEST_SUB_PATH)" ]; then
-            TEST_SUB_PATH_FLAG="-DpythonSubTestPath=$(TEST_SUB_PATH)"
+          if [ -n "${TEST_SUB_PATH:-}" ]; then
+            TEST_SUB_PATH_FLAG="-DpythonSubTestPath=$TEST_SUB_PATH"
           fi
-          echo "IGNORE_TEST_PATH=$IGNORE_TEST_PATH"
-          echo "TEST_SUB_PATH=$TEST_SUB_PATH"
+          echo "IGNORE_TEST_PATH=${IGNORE_TEST_PATH:-}"
+          echo "TEST_SUB_PATH=${TEST_SUB_PATH:-}"
           echo "IGNORE_TEST_PATH_FLAG=$IGNORE_TEST_PATH_FLAG"
           echo "TEST_SUB_PATH_FLAG=$TEST_SUB_PATH_FLAG"
-          (sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" testPython) || \
-          (sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" testPython) || \
-          (sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" testPython)
+          (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython) || \
+          (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython) || \
+          (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
         testResultsFiles: '**/python-test-*.xml'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
-    - task: AzureCLI@2
+    - bash: sbt coverageReport
       displayName: 'Generate Codecov report'
       retryCountOnTaskFailure: 1
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: 'sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED coverageReport'
       condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
     - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
       - template: templates/codecov.yml
+    - template: templates/publish_coverage_ado.yml
 - job: RTests
+  dependsOn: BuildAndCacheSbt
   timeoutInMinutes: 60
   cancelTimeoutInMinutes: 0
-  condition: and(eq(variables.runTests, 'True'), eq('${{ parameters.testR }}', true))
+  condition: and(succeeded(), eq(variables.runTests, 'True'), eq('${{ parameters.testR }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
   strategy:
@@ -538,30 +644,25 @@ jobs:
       cognitive:
         PACKAGE: "cognitive"
   steps:
-    #- template: templates/ivy_cache_2.yml
+    - template: templates/sbt_cache.yml
     - template: templates/update_cli.yml
     - template: templates/conda.yml
     - template: templates/kv.yml
-    - task: AzureCLI@2
+    - bash: |
+        set -e
+        export SBT_OPTS="-Xms2G -Xss5M -Duser.timezone=GMT"
+        source activate synapseml
+        bash tools/ci/sbt_retry.sh setup
+        sbt codegen
+        sbt publishM2
+        SPARK_VERSION=4.0.1
+        HADOOP_VERSION=3
+        wget https://mmlspark.blob.core.windows.net/installers/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz \
+          || wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
+        tar xzf spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
       displayName: 'Prepare for tests'
       retryCountOnTaskFailure: 1
       timeoutInMinutes: 60
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: |
-          set -e
-          export SBT_OPTS="-Xms2G -Xss5M  -Duser.timezone=GMT"
-          export JAVA_TOOL_OPTIONS="--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED"
-          source activate synapseml
-          (timeout 10m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED setup) || (echo "retrying" && timeout 10m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED setup) || (echo "retrying" && timeout 10m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED setup)
-          sbt codegen
-          sbt publishM2
-          SPARK_VERSION=4.0.1
-          HADOOP_VERSION=3
-          # wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
-          wget https://mmlspark.blob.core.windows.net/installers/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
     - task: AzureCLI@2
       displayName: 'Test R Code'
       retryCountOnTaskFailure: 3
@@ -572,43 +673,32 @@ jobs:
         scriptType: bash
         inlineScript: |
           set -e
-          export SBT_OPTS="-Xms2G -Xmx4G -Xss5M  -Duser.timezone=GMT"
-          export JAVA_TOOL_OPTIONS="--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED"
+          export SBT_OPTS="-Xms2G -Xmx4G -Xss5M -Duser.timezone=GMT"
+          export SPARK_HOME="$(find $(Build.SourcesDirectory)/.. -maxdepth 2 -name 'spark-*-bin-hadoop*' -type d 2>/dev/null | head -1)"
           source activate synapseml
-          timeout 20m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED -DskipCodegen=true "project $(PACKAGE)" testR
+          timeout 20m sbt -DskipCodegen=true "project $(PACKAGE)" coverage testR
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
         testResultsFiles: '**/r-test-*.xml'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
-    - task: AzureCLI@2
+    - bash: sbt coverageReport
       retryCountOnTaskFailure: 1
       displayName: 'Generate Codecov report'
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: 'sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED coverageReport'
       condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
     - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
       - template: templates/codecov.yml
-
-- job: BuildAndCacheCondaEnv
-  cancelTimeoutInMinutes: 0
-  condition: eq(variables.runTests, 'True')
-  pool:
-    vmImage: $(UBUNTU_VERSION)
-  steps:
-    - template: templates/conda.yml
+    - template: templates/publish_coverage_ado.yml
 
 - job: WebsiteSamplesTests
+  dependsOn: BuildAndCacheSbt
   cancelTimeoutInMinutes: 0
-  condition: and(eq(variables.runTests, 'True'), eq('${{ parameters.testWebsiteSamples }}', true))
+  condition: and(succeeded(), eq(variables.runTests, 'True'), eq('${{ parameters.testWebsiteSamples }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
   steps:
-    #- template: templates/ivy_cache.yml
+    - template: templates/sbt_cache.yml
     - template: templates/update_cli.yml
     - template: templates/conda.yml
     - template: templates/kv.yml
@@ -621,31 +711,32 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
-          (timeout 10m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED setup) || (echo "retrying" && timeout 10m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED setup) || (echo "retrying" && timeout 10m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED setup)
+          bash tools/ci/sbt_retry.sh setup
           if [ "$(runCoverage)" = "True" ]; then COV_CMD="coverage"; else COV_CMD=""; fi
-          (sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED $COV_CMD testWebsiteDocs)
+          (sbt $COV_CMD testWebsiteDocs)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
         testResultsFiles: '**/website-test-result.xml'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
-    - task: AzureCLI@2
+    - bash: sbt coverageReport
       displayName: 'Generate Codecov report'
       retryCountOnTaskFailure: 1
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: 'sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED coverageReport'
       condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
     - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
       - template: templates/codecov.yml
+    # testWebsiteDocs drives Spark out-of-process, so scoverage records no measurement
+    # data for this job; an empty report here is expected rather than a broken glob.
+    - template: templates/publish_coverage_ado.yml
+      parameters:
+        failIfCoverageEmpty: false
 
 - job: UnitTests
+  dependsOn: BuildAndCacheSbt
   cancelTimeoutInMinutes: 1
   timeoutInMinutes: 80
-  condition: and(eq(variables.runTests, 'True'), eq('${{ parameters.testUnit }}', true))
+  condition: and(succeeded(), eq(variables.runTests, 'True'), eq('${{ parameters.testUnit }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
   strategy:
@@ -658,9 +749,6 @@ jobs:
         PACKAGE: "onnx"
       geospatial:
         PACKAGE: "services.geospatial"
-      anomaly:
-        PACKAGE: "services.anomaly"
-        FLAKY: "true"
       face:
         PACKAGE: "services.face"
         FLAKY: "true"
@@ -705,6 +793,11 @@ jobs:
         FLAKY: "true"
       core:
         PACKAGE: "core"
+        TEST_CLASSES: >-
+          com.microsoft.azure.synapse.ml.core.**
+          com.microsoft.azure.synapse.ml.codegen.**
+          com.microsoft.azure.synapse.ml.SecretsSuite
+          com.microsoft.azure.synapse.ml.nbtest.DatabricksUtilitiesSuite
       explainers1:
         PACKAGE: "explainers.split1"
       explainers2:
@@ -758,22 +851,44 @@ jobs:
         PACKAGE: "train"
       vw:
         PACKAGE: "vw"
+      # Suites whose packages no other leg claims. PipelineTestCoverageSuite fails the build when
+      # a new suite lands in a package this matrix never names.
+      misc:
+        PACKAGE: "misc"
+        TEST_CLASSES: >-
+          com.microsoft.azure.synapse.ml.param.**
+          com.microsoft.azure.synapse.ml.logging.**
+          com.microsoft.azure.synapse.ml.fabric.**
+          com.microsoft.azure.synapse.ml.explainers.VerifyExplainerSharedParams
+          com.microsoft.azure.synapse.ml.explainers.VerifyFeatureStats
+          com.microsoft.azure.synapse.ml.explainers.VerifyRowUtils
+          com.microsoft.azure.synapse.ml.io.binary.VerifyBinaryFileFormat
+          com.microsoft.azure.synapse.ml.io.http.VerifyClients
+          com.microsoft.azure.synapse.ml.io.http.VerifyHTTPSchema
+          com.microsoft.azure.synapse.ml.io.http.VerifyRESTHelpers
+          com.microsoft.azure.synapse.ml.io.http.VerifySharedVariable
+          com.microsoft.azure.synapse.ml.io.image.VerifyImageUtils
+          com.microsoft.azure.synapse.ml.lightgbm.dataset.VerifyDatasetUtils
+          com.microsoft.azure.synapse.ml.nbtest.FabricTestArtifactTrackerSuite
+          com.microsoft.azure.synapse.ml.services.CognitiveServiceBaseSuite
+          com.microsoft.azure.synapse.ml.services.search.AddDocumentsHeaderPersistenceSuite
+          com.microsoft.azure.synapse.ml.services.search.AzureSearchAuthSuite
+          com.microsoft.azure.synapse.ml.services.search.AzureSearchGenericParamPersistenceSuite
+          com.microsoft.azure.synapse.ml.services.search.IndexSchemaLiveRoundTripSuite
+          com.microsoft.azure.synapse.ml.services.search.IndexSchemaParsingSuite
+          com.microsoft.azure.synapse.ml.services.search.SearchIndexRetentionSuite
+          com.microsoft.azure.synapse.ml.services.speech.SpeechToTextSDKSecuritySuite
   steps:
-    #- template: templates/ivy_cache.yml
+    - template: templates/sbt_cache.yml
     - template: templates/update_cli.yml
-    - task: AzureCLI@2
+    - bash: |
+        (timeout 30s pip install requests) || (echo "retrying" && timeout 30s pip install requests)
+        (${FFMPEG:-false} && sudo apt-get update && \
+        sudo apt-get install ffmpeg libgstreamer1.0-0 \
+        gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly -y)
+        bash tools/ci/sbt_retry.sh setup
       displayName: 'Setup repo'
       retryCountOnTaskFailure: 1
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        scriptLocation: inlineScript
-        scriptType: bash
-        inlineScript: |
-          (timeout 30s pip install requests) || (echo "retrying" && timeout 30s pip install requests)
-          (${FFMPEG:-false} && sudo apt-get update && \
-          sudo apt-get install ffmpeg libgstreamer1.0-0 \
-          gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly -y)
-          (timeout 10m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED setup) || (echo "retrying" && timeout 10m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED setup) || (echo "retrying" && timeout 10m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED setup)
     - task: AzureCLI@2
       displayName: 'Unit Test'
       retryCountOnTaskFailure: 1
@@ -784,27 +899,844 @@ jobs:
         scriptType: bash
         inlineScript: |
           ulimit -c unlimited
-          export SBT_OPTS="-Xss2M  -Duser.timezone=GMT"
+          export SBT_OPTS="-Xss2M -Duser.timezone=GMT"
           # Only run coverage on PRs, master, or tag builds
           if [ "$(runCoverage)" = "True" ]; then COV_CMD="coverage"; else COV_CMD=""; fi
           TEST_SPEC="${TEST_CLASSES:-com.microsoft.azure.synapse.ml.$(PACKAGE).**}"
-          (timeout 30m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED $COV_CMD "testOnly $TEST_SPEC") ||
-          (${FLAKY:-false} && timeout 30m sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED $COV_CMD "testOnly $TEST_SPEC")
+          (timeout 30m sbt $COV_CMD "testOnly $TEST_SPEC") ||
+          (${FLAKY:-false} && timeout 30m sbt $COV_CMD "testOnly $TEST_SPEC")
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
         testResultsFiles: '**/test-reports/TEST-*.xml'
         failTaskOnFailedTests: true
       condition: succeededOrFailed()
-    - task: AzureCLI@2
+    - bash: sbt coverageReport
       displayName: 'Generate Codecov report'
       retryCountOnTaskFailure: 1
+      condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
+    - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
+      - task: AzureKeyVault@2
+        displayName: Load Codecov token
+        condition: succeededOrFailed()
+        retryCountOnTaskFailure: 3
+        continueOnError: true
+        inputs:
+          azureSubscription: 'SynapseML Build'
+          keyVaultName: mmlspark-keys
+          SecretsFilter: codecov-token
+      - template: templates/codecov.yml
+    - template: templates/publish_coverage_ado.yml
+
+- job: ReleaseBranchCompat
+  dependsOn: BuildAndCacheSbt
+  displayName: 'Release Branch Compatibility Check'
+  cancelTimeoutInMinutes: 0
+  timeoutInMinutes: 60
+  continueOnError: true
+  condition: >-
+    and(
+      succeeded(),
+      eq(variables.isPR, true),
+      or(
+        eq(variables['System.PullRequest.TargetBranch'], 'master'),
+        eq(variables['System.PullRequest.TargetBranch'], 'refs/heads/master')
+      )
+    )
+  pool:
+    vmImage: $(UBUNTU_VERSION)
+  strategy:
+    # master already targets Spark 3.5; normal PR validation covers that runtime.
+    matrix:
+      spark4.1:
+        RELEASE_BRANCH: spark4.1
+        JAVA_VERSION: 17
+        SBT_JAVA_OPTS: "-J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED"
+  steps:
+    - checkout: self
+      fetchDepth: 0
+
+    - task: JavaToolInstaller@0
+      displayName: 'Set up JDK $(JAVA_VERSION)'
+      inputs:
+        versionSpec: $(JAVA_VERSION)
+        jdkArchitectureOption: x64
+        jdkSourceOption: PreInstalled
+
+    - bash: |
+        set -euo pipefail
+        install -m 755 tools/ci/sbt_retry.sh "$(Agent.TempDirectory)/sbt_retry.sh"
+        test -x "$(Agent.TempDirectory)/sbt_retry.sh"
+      displayName: 'Stage sbt retry helper for release checkout'
+
+    - bash: |
+        set -e
+        echo "=== Current HEAD (PR merge commit) ==="
+        git log --oneline -1
+        PR_MERGE_HEAD=$(git rev-parse HEAD)
+        TARGET_HEAD=$(git rev-parse HEAD^1)
+        SOURCE_HEAD=$(git rev-parse HEAD^2)
+        echo "PR merge: $PR_MERGE_HEAD"
+        echo "PR target: $TARGET_HEAD"
+        echo "PR source: $SOURCE_HEAD"
+
+        RELEASE_RELEVANT_PATHS=()
+        while IFS= read -r -d '' path; do
+          case "$path" in
+            .github/*|.pipelines/*|docs/*|templates/*|tools/acr/*|tools/ci/*|tools/docker/*|tools/helm/*|website/*)
+              ;;
+            pipeline.yaml|CODEOWNERS|CONTRIBUTING.md|LICENSE|README.md|SECURITY.md)
+              ;;
+            *)
+              RELEASE_RELEVANT_PATHS+=("$path")
+              ;;
+          esac
+        done < <(git diff --name-only -z "$TARGET_HEAD" HEAD)
+
+        if [ ${#RELEASE_RELEVANT_PATHS[@]} -eq 0 ]; then
+          echo "No release-relevant paths changed; compatibility validation is not required"
+          echo "##vso[task.setvariable variable=releaseCompatRequired]false"
+          exit 0
+        fi
+
+        echo "Release-relevant paths:"
+        printf '  %s\n' "${RELEASE_RELEVANT_PATHS[@]}"
+
+        echo "=== Fetching release branch $(RELEASE_BRANCH) ==="
+        git fetch origin $(RELEASE_BRANCH)
+        RELEASE_TIP=$(git rev-parse FETCH_HEAD)
+        echo "Release branch tip: $RELEASE_TIP"
+
+        REPLAY_PATHS=()
+        for path in "${RELEASE_RELEVANT_PATHS[@]}"; do
+          if ! git cat-file -e "$PR_MERGE_HEAD:$path" 2>/dev/null &&
+             ! git cat-file -e "$RELEASE_TIP:$path" 2>/dev/null; then
+            echo "Skipping deletion already absent on $(RELEASE_BRANCH): $path"
+          else
+            REPLAY_PATHS+=("$path")
+          fi
+        done
+
+        if [ ${#REPLAY_PATHS[@]} -eq 0 ]; then
+          echo "No release-relevant changes remain after excluding already-absent deletions"
+          echo "##vso[task.setvariable variable=releaseCompatRequired]false"
+          exit 0
+        fi
+
+        echo "Paths to replay:"
+        printf '  %s\n' "${REPLAY_PATHS[@]}"
+        echo "##vso[task.setvariable variable=releaseCompatRequired]true"
+
+        PATCH_PATH="$(Agent.TempDirectory)/release-compat.patch"
+        git diff --binary --full-index "$TARGET_HEAD" "$PR_MERGE_HEAD" -- \
+          "${REPLAY_PATHS[@]}" > "$PATCH_PATH"
+        test -s "$PATCH_PATH"
+
+        PREREQUISITES_CONFIG=".pipelines/release-compat-prerequisites.txt"
+        CONFIGURED_PREREQUISITES=()
+        CONFIGURED_PREREQUISITE_SCOPES=()
+        CONFIGURED_PREREQUISITE_IS_SCOPED=()
+        if git cat-file -e "$PR_MERGE_HEAD:$PREREQUISITES_CONFIG" 2>/dev/null; then
+          LINE_NUMBER=0
+          while IFS= read -r RAW_LINE || [ -n "$RAW_LINE" ]; do
+            LINE_NUMBER=$((LINE_NUMBER + 1))
+            LINE_WITHOUT_CR="${RAW_LINE%$'\r'}"
+            SCOPED_LINE="${LINE_WITHOUT_CR#"${LINE_WITHOUT_CR%%[![:space:]]*}"}"
+            TRIMMED_LINE="${SCOPED_LINE%"${SCOPED_LINE##*[![:space:]]}"}"
+            case "$TRIMMED_LINE" in
+              ""|\#*)
+                continue
+                ;;
+            esac
+            if [[ "$SCOPED_LINE" == *$'\t'* ]]; then
+              PREREQUISITE="${SCOPED_LINE%%$'\t'*}"
+              PREREQUISITE_SCOPE="${SCOPED_LINE#*$'\t'}"
+              PREREQUISITE_IS_SCOPED=true
+            else
+              PREREQUISITE="$TRIMMED_LINE"
+              PREREQUISITE_SCOPE=""
+              PREREQUISITE_IS_SCOPED=false
+            fi
+            if [[ ! "$PREREQUISITE" =~ ^[0-9a-fA-F]{40}$ ]]; then
+              echo "##vso[task.logissue type=error]Invalid prerequisite at $PREREQUISITES_CONFIG:$LINE_NUMBER; expected a full 40-character commit SHA optionally followed by tab-separated paths"
+              exit 1
+            fi
+            if [ "$PREREQUISITE_IS_SCOPED" = true ]; then
+              REMAINING_PATHS="$PREREQUISITE_SCOPE"
+              while true; do
+                if [[ "$REMAINING_PATHS" == *$'\t'* ]]; then
+                  path="${REMAINING_PATHS%%$'\t'*}"
+                  REMAINING_PATHS="${REMAINING_PATHS#*$'\t'}"
+                  HAS_MORE_PATHS=true
+                else
+                  path="$REMAINING_PATHS"
+                  HAS_MORE_PATHS=false
+                fi
+                if [ -z "$path" ]; then
+                  echo "##vso[task.logissue type=error]Scoped prerequisite $PREREQUISITE contains an empty path"
+                  exit 1
+                fi
+                TRIMMED_PATH="${path#"${path%%[![:space:]]*}"}"
+                TRIMMED_PATH="${TRIMMED_PATH%"${TRIMMED_PATH##*[![:space:]]}"}"
+                if [ "$path" != "$TRIMMED_PATH" ]; then
+                  echo "##vso[task.logissue type=error]Scoped prerequisite path must not have leading or trailing whitespace: $path"
+                  exit 1
+                fi
+                case "$path" in
+                  /*|.|./*)
+                    echo "##vso[task.logissue type=error]Scoped prerequisite path must be repo-relative: $path"
+                    exit 1
+                    ;;
+                esac
+                case "/$path/" in
+                  */../*)
+                    echo "##vso[task.logissue type=error]Scoped prerequisite path must not contain traversal: $path"
+                    exit 1
+                    ;;
+                  *//*|*/./*)
+                    echo "##vso[task.logissue type=error]Scoped prerequisite path must be normalized: $path"
+                    exit 1
+                    ;;
+                esac
+                if [ "$HAS_MORE_PATHS" = false ]; then
+                  break
+                fi
+              done
+            else
+              if ! git cat-file -e "$PREREQUISITE^{commit}" 2>/dev/null; then
+                echo "##vso[task.logissue type=error]Release compatibility prerequisite $PREREQUISITE is unavailable"
+                exit 1
+              fi
+              if ! git merge-base --is-ancestor "$PREREQUISITE" "$TARGET_HEAD"; then
+                echo "##vso[task.logissue type=error]Release compatibility prerequisite $PREREQUISITE is not an ancestor of PR target $TARGET_HEAD"
+                exit 1
+              fi
+            fi
+            CONFIGURED_PREREQUISITES+=("$PREREQUISITE")
+            CONFIGURED_PREREQUISITE_SCOPES+=("$PREREQUISITE_SCOPE")
+            CONFIGURED_PREREQUISITE_IS_SCOPED+=("$PREREQUISITE_IS_SCOPED")
+          done < <(git show "$PR_MERGE_HEAD:$PREREQUISITES_CONFIG")
+        fi
+
+        PREREQUISITE_COMMITS=()
+        PREREQUISITE_PATCHES=()
+        for index in "${!CONFIGURED_PREREQUISITES[@]}"; do
+          PREREQUISITE="${CONFIGURED_PREREQUISITES[$index]}"
+          PREREQUISITE_SCOPE="${CONFIGURED_PREREQUISITE_SCOPES[$index]}"
+          PREREQUISITE_IS_SCOPED="${CONFIGURED_PREREQUISITE_IS_SCOPED[$index]}"
+          PREREQUISITE_PATHS=()
+          PREREQUISITE_PATHSPECS=()
+          if [ "$PREREQUISITE_IS_SCOPED" = true ]; then
+            REMAINING_PATHS="$PREREQUISITE_SCOPE"
+            while true; do
+              if [[ "$REMAINING_PATHS" == *$'\t'* ]]; then
+                path="${REMAINING_PATHS%%$'\t'*}"
+                REMAINING_PATHS="${REMAINING_PATHS#*$'\t'}"
+                HAS_MORE_PATHS=true
+              else
+                path="$REMAINING_PATHS"
+                HAS_MORE_PATHS=false
+              fi
+              PATH_SELECTED=false
+              for REPLAY_PATH in "${REPLAY_PATHS[@]}"; do
+                if [ "$path" = "$REPLAY_PATH" ]; then
+                  PREREQUISITE_PATHS+=("$path")
+                  PATH_SELECTED=true
+                  break
+                fi
+              done
+              if [ "$PATH_SELECTED" = false ]; then
+                for ((later_index=index + 1;
+                      later_index<${#CONFIGURED_PREREQUISITES[@]};
+                      later_index++)); do
+                  if [ "${CONFIGURED_PREREQUISITE_IS_SCOPED[$later_index]}" = false ]; then
+                    LATER_PREREQUISITE="${CONFIGURED_PREREQUISITES[$later_index]}"
+                        if ! LATER_PARENT=$(git rev-parse "$LATER_PREREQUISITE^1" 2>/dev/null); then
+                          echo "##vso[task.logissue type=error]Dependent release compatibility prerequisite $LATER_PREREQUISITE has no first parent"
+                          exit 1
+                        fi
+                    if git diff --quiet "$LATER_PARENT" "$LATER_PREREQUISITE" -- \
+                      ":(literal)$path"; then
+                      :
+                    else
+                      DIFF_STATUS=$?
+                      if [ "$DIFF_STATUS" -ne 1 ]; then
+                        echo "##vso[task.logissue type=error]Unable to inspect dependent prerequisite $LATER_PREREQUISITE for path: $path"
+                        exit 1
+                      fi
+                      echo "Scoped prerequisite $PREREQUISITE path $path is required by later prerequisite $LATER_PREREQUISITE"
+                      PREREQUISITE_PATHS+=("$path")
+                      PATH_SELECTED=true
+                      break
+                    fi
+                  fi
+                done
+              fi
+              if [ "$HAS_MORE_PATHS" = false ]; then
+                break
+              fi
+            done
+            if [ ${#PREREQUISITE_PATHS[@]} -eq 0 ]; then
+              echo "Scoped prerequisite $PREREQUISITE has no paths in this PR replay; skipping"
+              continue
+            fi
+            if ! git cat-file -e "$PREREQUISITE^{commit}" 2>/dev/null; then
+              echo "##vso[task.logissue type=error]Release compatibility prerequisite $PREREQUISITE is unavailable"
+              exit 1
+            fi
+            if ! git merge-base --is-ancestor "$PREREQUISITE" "$TARGET_HEAD"; then
+              echo "##vso[task.logissue type=error]Release compatibility prerequisite $PREREQUISITE is not an ancestor of PR target $TARGET_HEAD"
+              exit 1
+            fi
+          fi
+          if ! PREREQUISITE_PARENT=$(git rev-parse "$PREREQUISITE^1" 2>/dev/null); then
+            echo "##vso[task.logissue type=error]Release compatibility prerequisite $PREREQUISITE has no first parent"
+            exit 1
+          fi
+          if [ "$PREREQUISITE_IS_SCOPED" = true ]; then
+            for path in "${PREREQUISITE_PATHS[@]}"; do
+              if git diff --quiet "$PREREQUISITE_PARENT" "$PREREQUISITE" -- \
+                ":(literal)$path"; then
+                echo "##vso[task.logissue type=error]Scoped path is not changed by prerequisite $PREREQUISITE: $path"
+                exit 1
+              else
+                DIFF_STATUS=$?
+                if [ "$DIFF_STATUS" -ne 1 ]; then
+                  echo "##vso[task.logissue type=error]Unable to validate scoped path for prerequisite $PREREQUISITE: $path"
+                  exit 1
+                fi
+              fi
+              if git cat-file -e "$PREREQUISITE_PARENT:$path" 2>/dev/null; then
+                echo "##vso[task.logissue type=error]Scoped path is not an add-only baseline in prerequisite $PREREQUISITE: $path"
+                exit 1
+              fi
+              if ! PREREQUISITE_BLOB=$(git rev-parse "$PREREQUISITE:$path" 2>/dev/null); then
+                echo "##vso[task.logissue type=error]Scoped path is absent from prerequisite $PREREQUISITE: $path"
+                exit 1
+              fi
+              if [ "$(git cat-file -t "$PREREQUISITE_BLOB")" != blob ]; then
+                echo "##vso[task.logissue type=error]Scoped prerequisite path is not a blob: $path"
+                exit 1
+              fi
+              BASELINE_COMMIT="$TARGET_HEAD"
+              for ((later_index=index + 1;
+                    later_index<${#CONFIGURED_PREREQUISITES[@]};
+                    later_index++)); do
+                if [ "${CONFIGURED_PREREQUISITE_IS_SCOPED[$later_index]}" = false ]; then
+                  LATER_PREREQUISITE="${CONFIGURED_PREREQUISITES[$later_index]}"
+                  if ! LATER_PARENT=$(git rev-parse "$LATER_PREREQUISITE^1" 2>/dev/null); then
+                    echo "##vso[task.logissue type=error]Dependent release compatibility prerequisite $LATER_PREREQUISITE has no first parent"
+                    exit 1
+                  fi
+                  if git diff --quiet "$LATER_PARENT" "$LATER_PREREQUISITE" -- \
+                    ":(literal)$path"; then
+                    :
+                  else
+                    DIFF_STATUS=$?
+                    if [ "$DIFF_STATUS" -ne 1 ]; then
+                      echo "##vso[task.logissue type=error]Unable to inspect dependent prerequisite $LATER_PREREQUISITE for path: $path"
+                      exit 1
+                    fi
+                    BASELINE_COMMIT="$LATER_PARENT"
+                    break
+                  fi
+                fi
+              done
+              if ! BASELINE_BLOB=$(git rev-parse "$BASELINE_COMMIT:$path" 2>/dev/null); then
+                echo "##vso[task.logissue type=error]Scoped path is absent from expected baseline $BASELINE_COMMIT: $path"
+                exit 1
+              fi
+              if [ "$PREREQUISITE_BLOB" != "$BASELINE_BLOB" ]; then
+                echo "##vso[task.logissue type=error]Scoped prerequisite blob does not match expected baseline $BASELINE_COMMIT: $path"
+                exit 1
+              fi
+              PREREQUISITE_PATHSPECS+=(":(literal)$path")
+            done
+          else
+            while IFS= read -r -d '' path; do
+              case "$path" in
+                .github/*|.pipelines/*|docs/*|templates/*|tools/acr/*|tools/ci/*|tools/docker/*|tools/helm/*|website/*)
+                  ;;
+                pipeline.yaml|CODEOWNERS|CONTRIBUTING.md|LICENSE|README.md|SECURITY.md)
+                  ;;
+                *)
+                  PREREQUISITE_PATHS+=("$path")
+                  PREREQUISITE_PATHSPECS+=(":(literal)$path")
+                  ;;
+              esac
+            done < <(git diff --name-only -z "$PREREQUISITE_PARENT" "$PREREQUISITE")
+          fi
+
+          if [ ${#PREREQUISITE_PATHS[@]} -eq 0 ]; then
+            echo "Prerequisite $PREREQUISITE has no release-relevant paths; skipping"
+            continue
+          fi
+
+          PREREQUISITE_PATCH="$(Agent.TempDirectory)/release-compat-prerequisite-$PREREQUISITE.patch"
+          git diff --binary --full-index "$PREREQUISITE_PARENT" "$PREREQUISITE" -- \
+            "${PREREQUISITE_PATHSPECS[@]}" > "$PREREQUISITE_PATCH"
+          if [ ! -s "$PREREQUISITE_PATCH" ]; then
+            echo "##vso[task.logissue type=error]Prerequisite $PREREQUISITE produced an empty release patch"
+            exit 1
+          fi
+          PREREQUISITE_COMMITS+=("$PREREQUISITE")
+          PREREQUISITE_PATCHES+=("$PREREQUISITE_PATCH")
+        done
+
+        echo "=== Attempting to apply release-relevant PR changes onto $(RELEASE_BRANCH) ==="
+        git checkout --detach $RELEASE_TIP
+        git reset --hard $RELEASE_TIP
+        git update-index --refresh
+        for index in "${!PREREQUISITE_COMMITS[@]}"; do
+          PREREQUISITE="${PREREQUISITE_COMMITS[$index]}"
+          PREREQUISITE_PATCH="${PREREQUISITE_PATCHES[$index]}"
+          echo "=== Applying release compatibility prerequisite $PREREQUISITE ==="
+          if git apply --reverse --check --index "$PREREQUISITE_PATCH" >/dev/null 2>&1; then
+            echo "Prerequisite $PREREQUISITE is already present on $(RELEASE_BRANCH); skipping"
+            continue
+          fi
+          if ! APPLY_OUTPUT=$(git apply --3way --index "$PREREQUISITE_PATCH" 2>&1); then
+            printf '%s\n' "$APPLY_OUTPUT"
+            CONFLICTING_FILES=$(git diff --name-only --diff-filter=U 2>/dev/null || true)
+            if [ -n "$CONFLICTING_FILES" ]; then
+              echo "##vso[task.logissue type=error]Prerequisite $PREREQUISITE conflicts with $(RELEASE_BRANCH)"
+              echo ""
+              echo "=== Conflicting files ==="
+              printf '%s\n' "$CONFLICTING_FILES"
+            else
+              echo "##vso[task.logissue type=error]Unable to apply prerequisite $PREREQUISITE before conflict detection"
+            fi
+            echo "=== Checkout status after prerequisite failure ==="
+            git status --short
+            exit 1
+          fi
+          printf '%s\n' "$APPLY_OUTPUT"
+          echo "Prerequisite $PREREQUISITE applies cleanly"
+        done
+
+        if ! APPLY_OUTPUT=$(git apply --3way --index "$PATCH_PATH" 2>&1); then
+          printf '%s\n' "$APPLY_OUTPUT"
+          CONFLICTING_FILES=$(git diff --name-only --diff-filter=U 2>/dev/null || true)
+          if [ -n "$CONFLICTING_FILES" ]; then
+            echo "##vso[task.logissue type=warning]PR changes conflict with $(RELEASE_BRANCH)"
+            echo ""
+            echo "=== Conflicting files ==="
+            printf '%s\n' "$CONFLICTING_FILES"
+          else
+            echo "##vso[task.logissue type=error]Unable to apply PR changes onto $(RELEASE_BRANCH) before conflict detection"
+          fi
+          exit 1
+        fi
+        printf '%s\n' "$APPLY_OUTPUT"
+        echo "PR changes apply cleanly onto $(RELEASE_BRANCH)"
+      displayName: 'Apply PR changes onto $(RELEASE_BRANCH)'
+
+    - template: templates/sbt_cache.yml
+      parameters:
+        retryScriptPath: '$(Agent.TempDirectory)/sbt_retry.sh'
+    - bash: |
+        set -e
+        export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
+
+        echo "=== Compiling PR changes on $(RELEASE_BRANCH) ==="
+        timeout 50m sbt $(SBT_JAVA_OPTS) \
+          test:compile
+        echo "$(RELEASE_BRANCH) compiles successfully"
+      displayName: 'Validate $(RELEASE_BRANCH) after applying PR changes'
+      timeoutInMinutes: 55
+      condition: and(succeeded(), eq(variables.releaseCompatRequired, 'true'))
+
+    - task: PublishTestResults@2
+      displayName: 'Publish $(RELEASE_BRANCH) Test Results'
+      inputs:
+        testResultsFiles: '**/test-reports/TEST-*.xml'
+        failTaskOnFailedTests: false
+      condition: and(succeededOrFailed(), eq(variables.releaseCompatRequired, 'true'))
+- job: InternalCompat
+  displayName: 'SynapseML-Internal Compatibility Check'
+  # Scoped to PR builds, matching ReleaseBranchCompat above: this validates that a
+  # proposed change still compiles Internal, which is only actionable while the
+  # change can still be revised. System.PullRequest.* is empty on non-PR builds, so
+  # the IsFork check alone would let this 120-minute, secret-consuming job run on
+  # every master push and nightly build.
+  # SynapseML-Internal is a private repo. Fork PRs cannot authenticate to it, so skip the job
+  # there rather than failing every external contribution.
+  condition: >-
+    and(
+      succeeded(),
+      eq(variables.isPR, true),
+      ne(variables['System.PullRequest.IsFork'], 'True')
+    )
+  cancelTimeoutInMinutes: 0
+  # Advisory, not a merge gate. The Internal repo moves independently of this one, so a red
+  # here is as often "Internal's own snapshot did not resolve today" as it is a real break --
+  # build 230974877 went red with `unresolved dependency: ...-internal_2.12 ... not found` on a
+  # PR that changes only pipeline.yaml. Without this, InternalCompat rolls up into the required
+  # `microsoft.SynapseML` check and a transient Internal problem blocks unrelated OSS merges.
+  # This still surfaces as its own red check run, so the signal is not lost, matching how
+  # ReleaseBranchCompat above is configured.
+  continueOnError: true
+  # Measured on build 230962458: conda env 6.4m + compile 1.5m + package 1.2m +
+  # Scala tests ~34m + ExcludeAIFunc. 90 min was not enough and the job was
+  # killed mid-step; 120 leaves headroom now that the live-service suites are gone.
+  timeoutInMinutes: 120
+  dependsOn: BuildAndCacheSbt
+  pool:
+    vmImage: $(UBUNTU_VERSION)
+  # sbt on Java 17 needs java.util.prefs opened reflectively. Setting it here
+  # rather than on individual sbt commands covers every JVM the job starts,
+  # including templates/sbt_cache.yml's prewarm, the Internal test loop, and any
+  # JVM the tests fork -- per-command flags reach none of those. spark4.0's
+  # pipeline already uses JAVA_TOOL_OPTIONS this way for the same reason.
+  #
+  # Set unconditionally rather than only for Spark 4. `java.prefs` has existed
+  # since Java 9, so on master's Java 11 the option is genuinely applied rather
+  # than ignored -- it just opens a package nothing on that path reflects into,
+  # which is harmless. Setting it for every target keeps a branch conditional
+  # out of this file.
+  #
+  # The one place JVM stderr is parsed is the OSS version read below, and its
+  # grep is anchored to '^\[info\] ', which the "Picked up JAVA_TOOL_OPTIONS"
+  # line cannot match.
+  variables:
+    JAVA_TOOL_OPTIONS: '--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED'
+  steps:
+    # Explicit paths: a multi-repo job otherwise nests every repo under a folder
+    # named after it, which moves the OSS root off $(Build.SourcesDirectory). That
+    # would leave templates/sbt_cache.yml resolving its cache keys and
+    # tools/ci/sbt_retry.sh against a directory with no build definition, so this
+    # job would silently cold-bootstrap sbt instead of sharing the prewarmed cache.
+    - checkout: self
+      path: s
+    - checkout: SynapseML-Internal
+      path: s-internal
+      # Required by 'Select matching SynapseML-Internal branch' below: without persisted
+      # credentials the follow-up fetch cannot authenticate to this private repo.
+      persistCredentials: true
+    # The JDK has to match the branch under test, and the branch already declares it:
+    # templates/java_setup.yml is this repo's per-branch JDK pin, carrying 11 here and
+    # 17 on spark4.0/spark4.1. Without it this job compiled both trees on the agent's
+    # default JDK and failed with "Class java.lang.Record not found" -- on the OSS tree
+    # for spark4.1 (build 231477746) and on the Internal tree for spark4.0 (build
+    # 231456784), a type that arrived in Java 16. That was a permanent red on those
+    # branches rather than a real compatibility signal.
+    #
+    # Including the template rather than mapping the target branch to a version here
+    # keeps this line identical on every branch, so the sync never has to reconcile it,
+    # and leaves exactly one place per branch that decides the JDK.
+    - template: templates/java_setup.yml
+    # Internal mirrors this repo's branch names 1:1 (master, spark3.5, spark4.0, spark4.1),
+    # so the OSS branch under test decides which Internal branch is the correct comparison
+    # point: master pairs with Internal master (both Spark 3.5), spark4.1 with Internal
+    # spark4.1. Validating a Spark 4.1 PR against Internal master would compile a Spark 3.5
+    # tree against Spark 4.1 artifacts, which cannot resolve -- a permanent red on that
+    # branch rather than a real signal.
+    - bash: |
+        set -euo pipefail
+        cd $(Agent.BuildDirectory)/s-internal
+
+        # Read the target branch from the environment rather than a $() macro: macros are
+        # substituted as raw text into the script, and git permits ';' and quotes in ref
+        # names, so a crafted branch name would otherwise be executable.
+        OSS_TARGET="${SYSTEM_PULLREQUEST_TARGETBRANCH:-}"
+        OSS_TARGET="${OSS_TARGET#refs/heads/}"
+        if [ -z "$OSS_TARGET" ]; then
+          echo "##vso[task.logissue type=error]System.PullRequest.TargetBranch is empty; this job is PR-only"
+          exit 1
+        fi
+
+        # Identity mapping: OSS and Internal use the same branch names, so a branch added to
+        # the pr: trigger list is paired correctly without touching this step.
+        INTERNAL_BRANCH="$OSS_TARGET"
+
+        # Fall back rather than fail: this job is advisory, and Internal may not have cut a
+        # counterpart branch yet. The warning keeps the mismatch visible, because a silent
+        # fallback would report a result that actually validated a different Spark line.
+        if ! git ls-remote --exit-code --heads origin "$INTERNAL_BRANCH" >/dev/null 2>&1; then
+          echo "##vso[task.logissue type=warning]SynapseML-Internal has no '$INTERNAL_BRANCH' branch; falling back to master. This PR targets OSS '$OSS_TARGET', so treat any failure here as unverified."
+          INTERNAL_BRANCH=master
+        fi
+
+        echo "OSS target branch '$OSS_TARGET' -> SynapseML-Internal '$INTERNAL_BRANCH'"
+        git fetch --no-tags origin "$INTERNAL_BRANCH"
+        git checkout --force FETCH_HEAD
+        echo "##vso[task.setvariable variable=INTERNAL_BRANCH]$INTERNAL_BRANCH"
+        echo "=== SynapseML-Internal now at $INTERNAL_BRANCH ==="
+        git log --oneline -1
+      displayName: 'Select matching SynapseML-Internal branch'
+    - template: templates/sbt_cache.yml
+    - task: AzureCLI@2
+      displayName: 'Publish OSS to local Maven'
+      timeoutInMinutes: 20
       inputs:
         azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
         scriptType: bash
-        inlineScript: 'sbt -J--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED coverageReport'
-      condition: and(succeededOrFailed(), eq(variables.runCoverage, true))
-    - template: templates/kv.yml
-    - ${{ if or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/')) }}:
-      - template: templates/codecov.yml
+        inlineScript: |
+          set -e
+          cd $(Build.SourcesDirectory)
+          export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
+          # The version string is recomputed on every sbt invocation and embeds an HHmm
+          # timestamp whenever the tree is dirty, so querying the version and publishing in
+          # two separate invocations can yield two different versions when they straddle a
+          # minute boundary. Run both in ONE sbt session so the version is computed once.
+          if ! SBT_OUT="$(sbt -no-colors "core/version" publishM2 2>&1)"; then
+            echo "$SBT_OUT"
+            echo "##vso[task.logissue type=error]sbt core/version publishM2 failed"
+            exit 1
+          fi
+          echo "$SBT_OUT"
+          # tools/ci/get_sbt_version.sh is not reused here: it runs its own sbt
+          # invocation, which is precisely the second invocation this step exists to
+          # avoid. Its parsing and validation are mirrored inline instead. The regex
+          # is anchored to the start of the line and requires a version-shaped token,
+          # so a stray "[info] <digit>..." line elsewhere in the output cannot be
+          # mistaken for the version and silently retarget Internal at an artifact
+          # that was never published.
+          OSS_VERSION=$(echo "$SBT_OUT" | sed 's/\x1b\[[0-9;]*m//g' \
+            | grep -m1 -E '^\[info\] ([0-9]+\.[0-9]+|HEAD-)' | cut -d' ' -f2)
+          echo "OSS version: $OSS_VERSION"
+          # The grep above already constrains the shape, so an empty result is the only
+          # way this can go wrong: it means no line matched.
+          if [ -z "$OSS_VERSION" ]; then
+            echo "##vso[task.logissue type=error]Failed to determine the OSS version from sbt output"
+            exit 1
+          fi
+          # Every later step interpolates this value into bash, sed and grep. The grep
+          # above only anchors the start of the token, so constrain the whole thing to
+          # characters that are inert in all three contexts: that removes any way for a
+          # crafted version string in build.sbt to smuggle a command substitution or a
+          # sed delimiter through the Azure Pipelines macro expander.
+          case "$OSS_VERSION" in
+            *[!A-Za-z0-9._+-]*)
+              echo "##vso[task.logissue type=error]OSS version '$OSS_VERSION' contains unexpected characters"
+              exit 1
+              ;;
+          esac
+          echo "##vso[task.setvariable variable=OSS_VERSION]$OSS_VERSION"
+          echo "=== published OSS versions in ~/.m2 ==="
+          ls "$HOME/.m2/repository/com/microsoft/azure/" 2>/dev/null || true
+    - bash: |
+        set -e
+        cd $(Agent.BuildDirectory)/s-internal
+
+        # $OSS_VERSION is read as a bash environment variable rather than the
+        # $(OSS_VERSION) macro: macros are pasted in as raw text before bash parses the
+        # script, so a version string containing $() or backticks would execute.
+        echo "=== Retargeting Internal to OSS version $OSS_VERSION ==="
+        [ -n "${OSS_VERSION:-}" ] || { echo "##vso[task.logissue type=error]OSS_VERSION is not set"; exit 1; }
+        grep -q '^val synapseMLVersion = ' build.sbt || {
+          echo "##vso[task.logissue type=error]synapseMLVersion not found in Internal build.sbt"; exit 1; }
+        grep -q '^resolvers ++= Seq(' build.sbt || {
+          echo "##vso[task.logissue type=error]resolvers block not found in Internal build.sbt"; exit 1; }
+
+        sed -i "s|val synapseMLVersion = \".*\"|val synapseMLVersion = \"${OSS_VERSION}\"|" build.sbt
+        sed -i '/^resolvers ++= Seq(/a\  Resolver.mavenLocal,' build.sbt
+
+        # A silent no-op here would compile Internal against the *published* OSS build and
+        # report a false green, so verify both edits actually landed. Use fixed-string
+        # matching: the version contains dots, which as a regex would match any character
+        # and could accept a line the sed above never wrote.
+        grep -qF "val synapseMLVersion = \"${OSS_VERSION}\"" build.sbt || {
+          echo "##vso[task.logissue type=error]Failed to retarget synapseMLVersion"; exit 1; }
+        grep -qF 'Resolver.mavenLocal,' build.sbt || {
+          echo "##vso[task.logissue type=error]Failed to add Resolver.mavenLocal"; exit 1; }
+
+        echo "=== Modified build.sbt ==="
+        grep -n 'synapseMLVersion' build.sbt
+        grep -n -A4 'resolvers ++=' build.sbt
+      displayName: 'Retarget Internal to this build'
+    - task: AzureCLI@2
+      displayName: 'Compile Internal against OSS'
+      timeoutInMinutes: 15
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          set -e
+          cd $(Agent.BuildDirectory)/s-internal
+          export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
+          echo "Compiling SynapseML-Internal against OSS $OSS_VERSION..."
+          sbt compile Test/compile
+    - bash: |
+        echo "##vso[task.prependpath]$CONDA/bin"
+      displayName: 'Add conda to PATH'
+    - bash: |
+        sudo chown -R $(whoami):$(id -ng) $(CONDA_CACHE_DIR)
+      displayName: 'Fix conda directory permissions'
+    - task: PipAuthenticate@1
+      displayName: 'Private Conda Feed Authentication'
+      inputs:
+        artifactFeeds: 'A365/Synapse-Conda'
+    - bash: |
+        conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
+        conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
+      displayName: 'Accept Anaconda TOS'
+    - bash: |
+        echo "=== Disk space BEFORE cleanup ==="
+        df -h / | grep -E 'Filesystem|/$'
+        echo "Removing unused pre-installed SDKs and runtimes..."
+        sudo rm -rf /usr/local/lib/android || true
+        sudo rm -rf /usr/share/dotnet || true
+        sudo rm -rf /opt/ghc || true
+        sudo rm -rf /usr/local/share/boost || true
+        docker system prune -af --volumes 2>/dev/null || true
+        echo "=== Disk space AFTER cleanup ==="
+        df -h / | grep -E 'Filesystem|/$'
+      displayName: 'Free disk space (remove unused SDKs)'
+    - bash: |
+        set -e
+        conda env create --yes -f $(Agent.BuildDirectory)/s-internal/environment.yaml -v || \
+          conda env create --yes -f $(Agent.BuildDirectory)/s-internal/environment.yaml -v
+        conda clean --all -y
+        pip cache purge
+      displayName: 'Create Internal conda env'
+    - task: AzureKeyVault@2
+      displayName: 'Fetch AI service secrets'
+      retryCountOnTaskFailure: 3
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        keyVaultName: mmlspark-keys
+    - template: templates/fabric_kv.yml
+    - task: AzureCLI@2
+      displayName: 'Run Internal Scala tests'
+      timeoutInMinutes: 60
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          set -e
+          cd $(Agent.BuildDirectory)/s-internal
+          eval "$(conda shell.bash hook)"
+          conda activate synapseml-internal
+          export CREATE_SEMPY_WRITER=false
+          export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
+          echo "Running Internal tests against OSS $OSS_VERSION..."
+          # Only the reproducible packages run here. They exercise Internal code against
+          # the OSS API surface, so a failure is most often a genuine break. They are not
+          # hermetic -- spark.aifunc calls live AI services and takes ~23 min -- which is
+          # part of why this job is advisory rather than a merge gate.
+          #
+          # powerbi and nbtest are deliberately NOT run: they drive live services
+          # (PowerBI XMLA needs a populated workspace; nbtest submits Spark Job
+          # Definitions to live Fabric capacity) and fail here for environmental
+          # reasons regardless of the OSS diff. Running them anyway cost ~4 min and
+          # produced only ignorable warnings. That live E2E coverage belongs in
+          # SynapseML-Internal's own nightly pipeline, which has the workspaces,
+          # sample datasets and capacity provisioned.
+          FAILURES=0
+          for pkg in spark.aifunc ebm predict; do
+            echo "=== Testing $pkg ==="
+            if ! sbt "testOnly com.microsoft.azure.synapse.ml.$pkg.**"; then
+              echo "##vso[task.logissue type=error]$pkg tests failed - OSS change breaks Internal"
+              FAILURES=$((FAILURES + 1))
+            fi
+          done
+          if [ $FAILURES -gt 0 ]; then
+            echo "##vso[task.logissue type=error]$FAILURES test package(s) failed"
+            exit 1
+          fi
+
+          # sbt `testOnly` exits 0 when its filter matches nothing, so an Internal package
+          # rename would turn this job into a permanently green no-op. The version retarget
+          # above is guarded against exactly this class of false green; the tests were not.
+          # Count what actually ran instead of trusting the exit status. grep -o emits one
+          # match per line, so several <testsuite> elements sharing a line all count.
+          TEST_COUNT=$(find . -path '*/test-reports/TEST-*.xml' -exec grep -ho 'tests="[0-9]*"' {} + \
+            | tr -dc '0-9\n' | awk '{n += $1} END {print n + 0}')
+          echo "Scala tests executed: $TEST_COUNT"
+          if [ "${TEST_COUNT:-0}" -lt 150 ]; then
+            echo "##vso[task.logissue type=error]Only $TEST_COUNT Scala tests ran (expected ~211); the testOnly filter matched little or nothing, so this result is not a real signal"
+            exit 1
+          fi
+      env:
+        INTEGRATION_ENV: $(sempy-integration-region)
+        INTEGRATION_ACCOUNT: $(sempy-integration-account)
+        INTEGRATION_CERTIFICATE: $(sempy-integration-certificate)
+        INTEGRATION_WORKSPACE_PREFIX: $(sempy-integration-workspace-prefix)
+    - task: AzureCLI@2
+      displayName: 'Package Internal Python against OSS'
+      timeoutInMinutes: 15
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          set -e
+          cd $(Agent.BuildDirectory)/s-internal
+          eval "$(conda shell.bash hook)"
+          conda activate synapseml-internal
+          export CREATE_SEMPY_WRITER=false
+          export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
+          echo "Packaging Internal Python against OSS $OSS_VERSION..."
+          # packagePython and publishM2 MUST share one sbt session. Internal's version
+          # embeds an HHmm timestamp, so separate invocations can differ by a minute:
+          # packagePython bakes the jar coordinate into the generated Python package,
+          # publishM2 then publishes a *different* version, and the Spark launch inside
+          # make_mlflow_models.py fails to resolve it - surfacing only as an opaque
+          # JAVA_GATEWAY_EXITED. Observed: packaged 1022, published 1023.
+          sbt packagePython publishM2
+          echo "=== published Internal versions in ~/.m2 ==="
+          ls -d "$HOME"/.m2/repository/com/microsoft/azure/*-internal_2.12/*/ 2>/dev/null || true
+      condition: succeededOrFailed()
+    # NOTE: 'Run Internal Python tests (AIFunc)' was intentionally removed. All four
+    # AIFunc suites call live Azure OpenAI endpoints, so they measure service and
+    # quota availability rather than OSS/Internal compatibility. They took ~23 min
+    # of the job's budget and were the main reason it hit its timeout before the
+    # gating ExcludeAIFunc step could finish. They remain covered by
+    # SynapseML-Internal's own pipeline.
+    - task: AzureCLI@2
+      displayName: 'Run Internal Python tests (ExcludeAIFunc)'
+      timeoutInMinutes: 30
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          set -e
+          cd $(Agent.BuildDirectory)/s-internal
+          eval "$(conda shell.bash hook)"
+          conda activate synapseml-internal
+          export CREATE_SEMPY_WRITER=false
+          export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
+          # The fixture script builds several models in-process and then launches a
+          # JVM for a Spark session. That launch failed once with JAVA_GATEWAY_EXITED,
+          # which pyspark reports without surfacing any JVM stderr, so record the
+          # agent state first to make a repeat diagnosable rather than a mystery.
+          echo "=== agent state before Spark JVM launch ==="
+          free -m || true
+          df -h /home/vsts /tmp || true
+          echo "JAVA_HOME=${JAVA_HOME:-<unset>}"
+          java -version 2>&1 || true
+          echo "residual JVMs: $(pgrep -c java || echo 0)"
+          echo "==========================================="
+          echo "Creating MLflow model fixtures..."
+          # Launching the gateway is the one step here that is known to fail
+          # intermittently, so give it a second attempt before failing the job.
+          if ! python ./src/test/python/make_mlflow_models.py; then
+            echo "##vso[task.logissue type=warning]MLflow fixture generation failed; retrying once"
+            free -m || true
+            sleep 30
+            python ./src/test/python/make_mlflow_models.py
+          fi
+          echo "Running ExcludeAIFunc Python tests against OSS $OSS_VERSION..."
+          sbt testPythonExcludeAIFunc
+      condition: succeededOrFailed()
+    - task: PublishTestResults@2
+      displayName: 'Publish Internal Scala Test Results'
+      inputs:
+        testResultsFiles: '**/test-reports/TEST-*.xml'
+        # Without this the task searches the OSS checkout, which has no Internal
+        # results, and silently publishes nothing.
+        searchFolder: '$(Agent.BuildDirectory)/s-internal'
+        failTaskOnFailedTests: false
+      condition: succeededOrFailed()
+    - task: PublishTestResults@2
+      displayName: 'Publish Internal Python Test Results'
+      inputs:
+        testResultsFiles: '**/python-test-*.xml'
+        searchFolder: '$(Agent.BuildDirectory)/s-internal'
+        failTaskOnFailedTests: false
+      condition: succeededOrFailed()

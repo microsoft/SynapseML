@@ -17,7 +17,7 @@ import org.apache.hadoop.fs.{Path => HPath}
 import org.apache.http.entity.AbstractHttpEntity
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param.{BooleanParam, Param, ParamMap, ParamValidators}
-import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.ml.util.{Identifiable, MLWriter}
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.{Column, DataFrame, Dataset, Row, functions => F, types => T}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
@@ -25,7 +25,6 @@ import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{col, typedLit, udf}
 import org.apache.spark.sql.types.{DataType, StructField, StructType}
 import spray.json.DefaultJsonProtocol._
-
 
 import java.io.ByteArrayInputStream
 import java.net.{URI, URL, URLConnection}
@@ -39,21 +38,52 @@ object OpenAIPrompt extends ComplexParamsReadable[OpenAIPrompt]
 
 // scalastyle:off number.of.methods
 class OpenAIPrompt(override val uid: String) extends Transformer
-  with HasAIFoundryTextParamsExtended
-  with HasOpenAITextParamsExtended with HasMessagesInput
+  with HasAIFoundryTextParamsExtended with HasOpenAITextParamsExtended with HasMessagesInput
   with HasErrorCol with HasOutputCol
   with HasURL with HasCustomCogServiceDomain with ConcurrencyParams
   with HasSubscriptionKey with HasAADToken with HasCustomAuthHeader
   with HasCognitiveServiceInput
   with ComplexParamsWritable with SynapseMLLogging with HasGlobalParams with Wrappable {
-
   override protected lazy val pyInternalWrapper: Boolean = true
-
   logClass(FeatureNames.AiServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAIPrompt"))
 
-  override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
+  private[openai] def generatedPythonClass: String = pythonClass()
+
+  override def copy(extra: ParamMap): Transformer = {
+    val copied = defaultCopy(extra).asInstanceOf[OpenAIPrompt]
+    copied.postProcessingExplicitlySet =
+      postProcessingExplicitlySet || extra.contains(postProcessing)
+    if (extra.contains(postProcessingOptions)) {
+      copied.setPostProcessingOptions(copied.getPostProcessingOptions)
+    } else if (extra.contains(postProcessing)) {
+      OpenAIPromptPostProcessing.inferMode(copied.getPostProcessingOptions)
+        .foreach { expectedMode =>
+          OpenAIPromptPostProcessing.validateModeValue(copied.getPostProcessing, expectedMode)
+        }
+    }
+    copied
+  }
+
+  override def write: MLWriter = {
+    val delegate = super.write
+    new MLWriter {
+      override def save(path: String): Unit = {
+        OpenAIPrompt.this.getEffectivePostProcessing
+        super.save(path)
+      }
+
+      override protected def saveImpl(path: String): Unit = {
+        delegate.session(sparkSession)
+        optionMap.foreach { case (key, value) => delegate.option(key, value) }
+        if (shouldOverwrite) {
+          delegate.overwrite()
+        }
+        delegate.save(path)
+      }
+    }
+  }
 
   def urlPath: String = ""
 
@@ -64,19 +94,13 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   val usageCol: Param[String] = new Param[String](
     this, "usageCol",
     "Column to hold usage statistics. Set this parameter to enable usage tracking.")
-
   def getUsageCol: String = $(usageCol)
-
   def setUsageCol(value: String): this.type = set(usageCol, value)
-
   val responseIdCol: Param[String] = new Param[String](
     this, "responseIdCol",
     "Column to hold response ID when store=true. Auto-generated if not explicitly set.")
-
   setDefault(responseIdCol -> s"${uid}_responseId")
-
   def getResponseIdCol: String = $(responseIdCol)
-
   def setResponseIdCol(value: String): this.type = set(responseIdCol, value)
 
   val promptTemplate = new Param[String](
@@ -92,7 +116,15 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   def getPostProcessing: String = $(postProcessing)
 
-  def setPostProcessing(value: String): this.type = set(postProcessing, value)
+  private var postProcessingExplicitlySet: Boolean = false
+
+  def setPostProcessing(value: String): this.type = {
+    OpenAIPromptPostProcessing.inferMode(getPostProcessingOptions)
+      .foreach(expectedMode => OpenAIPromptPostProcessing.validateModeValue(value, expectedMode))
+    val result = set(postProcessing, value)
+    postProcessingExplicitlySet = true
+    result
+  }
 
   val postProcessingOptions = new StringStringMapParam(
     this, "postProcessingOptions", "Options (default): delimiter=',', jsonSchema, regex, regexGroup=0")
@@ -102,29 +134,47 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   def setPostProcessingOptions(value: Map[String, String]): this.type = {
     def setOrValidatePostProcessing(expected: String): Unit = {
       if (isSet(postProcessing)) {
-        require(getPostProcessing == expected, s"postProcessing must be '$expected'")
+        if (getPostProcessing.isEmpty && !postProcessingExplicitlySet) {
+          set(postProcessing, expected)
+        } else {
+          OpenAIPromptPostProcessing.validateModeValue(getPostProcessing, expected)
+        }
       } else {
         set(postProcessing, expected)
+        postProcessingExplicitlySet = false
       }
     }
 
-    value match {
-      case v if v.contains("delimiter") =>
-        setOrValidatePostProcessing("csv")
-      case v if v.contains("jsonSchema") =>
-        setOrValidatePostProcessing("json")
-      case v if v.contains("regex") =>
-        require(v.contains("regexGroup"), "regexGroup must be specified with regex")
-        setOrValidatePostProcessing("regex")
-      case _ =>
-        throw new IllegalArgumentException("Invalid post processing options")
-    }
-
+    val inferredMode = OpenAIPromptPostProcessing.inferMode(value)
+    inferredMode.foreach(setOrValidatePostProcessing)
+    OpenAIPromptPostProcessing.validateModeOptions(
+      inferredMode.getOrElse(getPostProcessing),
+      value
+    )
     set(postProcessingOptions, value)
   }
 
   def setPostProcessingOptions(v: java.util.HashMap[String, String]): this.type =
-    set(postProcessingOptions, v.asScala.toMap)
+    setPostProcessingOptions(v.asScala.toMap)
+
+  override protected def pyParamSetter(p: Param[_]): String = {
+    if (p.name == postProcessingOptions.name) {
+      OpenAIPromptPythonOverrides.postProcessingOptionsSetter(super.pyParamSetter(p))
+    } else if (p.name == postProcessing.name) {
+      OpenAIPromptPythonOverrides.postProcessingSetter(super.pyParamSetter(p))
+    } else {
+      super.pyParamSetter(p)
+    }
+  }
+
+  override protected def pySetParamsFunc: String =
+    OpenAIPromptPythonOverrides.setParamsFunc(super.pySetParamsFunc)
+
+  override def pyAdditionalMethods: String =
+    super.pyAdditionalMethods + OpenAIPromptPythonOverrides.AdditionalMethods
+
+  override def pyInitFunc(): String =
+    OpenAIPromptPythonOverrides.initFunc(super.pyInitFunc())
 
   val dropPrompt = new BooleanParam(
     this, "dropPrompt", "whether to drop the column of prompts after templating (when using legacy models)")
@@ -244,6 +294,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     store -> Left(false)
   )
 
+  override def setUrl(value: String): this.type = set(url, value)
+
   override def setCustomServiceName(v: String): this.type = {
     setUrl(s"https://$v.openai.azure.com/" + urlPath.stripPrefix("/"))
   }
@@ -287,8 +339,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     df: DataFrame,
     messagesCol: Column
   ): (DataFrame, String, OpenAIServicesBase with HasTextOutput) = {
-    // All services are now HasMessagesInput (OpenAIChatCompletion, OpenAIResponses, AIFoundryChatCompletion)
-    // Legacy OpenAICompletion did not support MessagesInput which is no longer used in this class.
     val messagesService = service.asInstanceOf[HasMessagesInput]
 
     if (isSet(responseFormat)) {
@@ -642,7 +692,12 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     host.exists(_.toLowerCase.endsWith("services.ai.azure.com"))
   }
 
-  private[openai] def hasAIFoundryModel: Boolean = this.isDefined(model) && isAIFoundryEndpoint
+  private def isOpenAIV1Endpoint: Boolean = {
+    get(url).orElse(getDefault(url)).exists(OpenAIEndpointUtils.isV1BaseUrl)
+  }
+
+  private[openai] def hasAIFoundryModel: Boolean =
+    this.isDefined(model) && isAIFoundryEndpoint && !isOpenAIV1Endpoint
 
   //deployment name can be set by user, it doesn't have to match with model name
   private def getOpenAIChatService: OpenAIServicesBase with HasTextOutput = {
@@ -661,11 +716,10 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       .filter(p => !localParamNames.contains(p.param.name) && completion.hasParam(p.param.name))
       .foreach(p => completion.set(completion.getParam(p.param.name), p.value))
 
-    completion match {
-      case resp: OpenAIResponses
-          if this.isDefined(model) && get(deploymentName).orElse(getDefault(deploymentName)).isEmpty =>
-        resp.setDeploymentName(getModel)
-      case _ =>
+    if (this.isDefined(model) &&
+        get(deploymentName).orElse(getDefault(deploymentName)).isEmpty &&
+        (isOpenAIV1Endpoint || completion.isInstanceOf[OpenAIResponses])) {
+      completion.setDeploymentName(getModel)
     }
 
     completion
@@ -683,19 +737,39 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       }
   }
 
+  private def getEffectivePostProcessing: String = {
+    val opts = getPostProcessingOptions
+    val effectivePostProcessing = OpenAIPromptPostProcessing.inferMode(opts) match {
+      case Some(inferredMode) =>
+        val configuredMode = get(postProcessing)
+          .getOrElse(throw new IllegalArgumentException(s"postProcessing must be '$inferredMode'"))
+        if (configuredMode.isEmpty && postProcessingExplicitlySet) {
+          throw new IllegalArgumentException(s"postProcessing must be '$inferredMode'")
+        }
+        if (configuredMode.nonEmpty) {
+          OpenAIPromptPostProcessing.validateModeValue(configuredMode, inferredMode)
+        }
+        inferredMode
+      case None => getPostProcessing
+    }
+    OpenAIPromptPostProcessing.validateModeOptions(effectivePostProcessing, opts)
+    effectivePostProcessing
+  }
+
   private def getParser: OutputParser = {
     val opts = getPostProcessingOptions
-
-    getPostProcessing.toLowerCase match {
+    val effectivePostProcessing = getEffectivePostProcessing
+    effectivePostProcessing.toLowerCase match {
       case "csv" => new DelimiterParser(opts.getOrElse("delimiter", ","))
       case "json" => new JsonParser(opts("jsonSchema"), Map.empty)
       case "regex" => new RegexParser(opts("regex"), opts("regexGroup").toInt)
       case "" => new PassThroughParser()
-      case _ => throw new IllegalArgumentException(s"Unsupported postProcessing type: '$getPostProcessing'")
+      case _ => throw new IllegalArgumentException(s"Unsupported postProcessing type: '$effectivePostProcessing'")
     }
   }
 
   override def transformSchema(schema: StructType): StructType = {
+    val outputDataType: DataType = getParser.outputSchema
     val service = getOpenAIChatService
     val serviceSchema = service match {
       case chatCompletion: OpenAIResponses =>
@@ -705,8 +779,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       case chatCompletion: OpenAIChatCompletion =>
         chatCompletion.transformSchema(schema.add(getMessagesCol, StructType(Seq())))
     }
-
-    val outputDataType: DataType = getParser.outputSchema
 
     var withoutServiceOutput = StructType(serviceSchema.filterNot(_.name == service.getOutputCol))
     var resultSchema = withoutServiceOutput.add(getOutputCol, outputDataType)
@@ -726,42 +798,3 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   }
 }
 // scalastyle:on number.of.methods
-
-trait OutputParser {
-  def parse(responseCol: Column): Column
-
-  def outputSchema: T.DataType
-}
-
-class PassThroughParser extends OutputParser {
-  def parse(responseCol: Column): Column = responseCol
-
-  def outputSchema: T.DataType = T.StringType
-}
-
-class DelimiterParser(val delimiter: String) extends OutputParser {
-  def parse(responseCol: Column): Column = F.split(F.trim(responseCol), delimiter)
-
-  def outputSchema: T.DataType = T.ArrayType(T.StringType)
-}
-
-class JsonParser(val schema: String, options: Map[String, String]) extends OutputParser {
-  private val cleanJsonString: Column => Column = col =>
-    F.regexp_replace(
-      // Remove optional leading/trailing code fences and optional 'json' prefix
-      F.trim(col),
-      """^(```|''')?\s*json\s*|(```|''')$""",
-      ""
-    )
-
-  def parse(responseCol: Column): Column =
-    F.from_json(cleanJsonString(responseCol), schema, options)
-
-  def outputSchema: T.DataType = DataType.fromDDL(schema)
-}
-
-class RegexParser(val regex: String, val groupIdx: Int) extends OutputParser {
-  def parse(responseCol: Column): Column = F.regexp_extract(responseCol, regex, groupIdx)
-
-  def outputSchema: T.DataType = T.StringType
-}

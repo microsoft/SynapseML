@@ -73,6 +73,80 @@ csharp="classSynapse_1_1ML_1_1Stages_1_1ClassBalancer.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/ClassBalancer.scala" />
 
 
+### LumpFeatures
+
+<Tabs
+defaultValue="py"
+values={[
+{label: `Python`, value: `py`},
+{label: `Scala`, value: `scala`},
+]}>
+<TabItem value="py">
+
+<!--pytest-codeblocks:cont-->
+
+```python
+from synapse.ml.stages import *
+
+df = (spark.createDataFrame([
+      ("apple", "red"),
+      ("apple", "red"),
+      ("apple", "blue"),
+      ("banana", "red"),
+      ("banana", "green"),
+      ("cherry", "green")
+      ], ["fruit", "color"]))
+
+lumper = (LumpFeatures()
+        .setLumpRules({"fruit": 3, "color": 3})
+        .setMinCount(2)
+        .setOutputCols({"fruit": "fruit_lumped", "color": "color_lumped"}))
+
+model = lumper.fit(df)
+
+# cherry and blue occur once, so minCount drops them before the top-K cap is reached
+print(model.getKeptValues())
+
+model.transform(df).show()
+```
+
+</TabItem>
+<TabItem value="scala">
+
+```scala
+import com.microsoft.azure.synapse.ml.stages._
+
+val df = Seq(
+      ("apple", "red"),
+      ("apple", "red"),
+      ("apple", "blue"),
+      ("banana", "red"),
+      ("banana", "green"),
+      ("cherry", "green")).toDF("fruit", "color")
+
+val lumper = (new LumpFeatures()
+        .setLumpRules(Map("fruit" -> 3, "color" -> 3))
+        .setMinCount(2)
+        .setOutputCols(Map("fruit" -> "fruit_lumped", "color" -> "color_lumped")))
+
+val model = lumper.fit(df)
+
+// cherry and blue occur once, so minCount drops them before the top-K cap is reached
+println(model.getKeptValues)
+
+model.transform(df).show()
+```
+
+</TabItem>
+</Tabs>
+
+<DocTable className="LumpFeatures"
+py="synapse.ml.stages.html#module-synapse.ml.stages.LumpFeatures"
+scala="com/microsoft/azure/synapse/ml/stages/LumpFeatures.html"
+csharp="classSynapse_1_1ML_1_1Stages_1_1LumpFeatures.html"
+sourceLink="https://github.com/microsoft/SynapseML/blob/master/core/src/main/scala/com/microsoft/azure/synapse/ml/stages/LumpFeatures.scala" />
+
+
 ### MultiColumnAdapter
 
 <Tabs

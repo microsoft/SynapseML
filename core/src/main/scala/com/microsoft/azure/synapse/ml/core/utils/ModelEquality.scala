@@ -14,10 +14,13 @@ trait ParamEquality[T] extends Param[T] {
 
 object ModelEquality {
 
+  /** Similarity of two strings as the Jaccard index over their character bigrams. */
   def jaccardSimilarity(s1: String, s2: String): Double = {
-    val a = Set(s1)
-    val b = Set(s2)
-    a.intersect(b).size.toDouble / (a | b).size.toDouble
+    // Sets of the whole strings would only ever yield 1.0 or 0.0, making this a strict
+    // equality check rather than a similarity measure.
+    val a = s1.toLowerCase.sliding(2).toSet
+    val b = s2.toLowerCase.sliding(2).toSet
+    if (a.isEmpty && b.isEmpty) 1.0 else a.intersect(b).size.toDouble / (a | b).size.toDouble
   }
 
   def assertEqual(m1: Params, m2: Params): Unit = {

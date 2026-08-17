@@ -2,7 +2,7 @@ name: Dependency Review
 
 on:
   pull_request:
-    branches: [ "master" ]
+    branches: [ "master", "spark3.5", "spark4.0", "spark4.1" ]
 
 permissions:
   contents: read
@@ -14,10 +14,27 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Dependency Review
-        uses: actions/dependency-review-action@v4
+        uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
           fail-on-severity: high
           comment-summary-in-pr: always
+          # GHSA-mh99-v99m-4gvg (minimatch): Docusaurus invokes serve-handler
+          # without any glob-based rewrites, redirects, headers, or
+          # directory-listing patterns, so untrusted input cannot reach
+          # brace-expansion. The first patched major is incompatible with
+          # serve-handler's minimatch 3 API. Track removal of this exception in
+          # AB#5469322 when upstream releases a safe path.
+          #
+          # GHSA-5p2g-fcmc-qvqq and GHSA-w3rx-r6r6-pgpr (image-size): infinite
+          # loops in the JXL/HEIF and ICNS parsers. image-size is a transitive
+          # dependency of @docusaurus/mdx-loader, which only runs at docs build
+          # time to measure images committed to this repository -- it is not
+          # part of the published static site and never parses user-supplied
+          # uploads. A malformed image could therefore only hang our own build.
+          # Both advisories cover "<= 2.0.2" and 2.0.2 is the latest release, so
+          # no patched version exists to upgrade to. Drop these entries once
+          # upstream ships a fix and Docusaurus picks it up.
+          allow-ghsas: GHSA-mh99-v99m-4gvg, GHSA-5p2g-fcmc-qvqq, GHSA-w3rx-r6r6-pgpr

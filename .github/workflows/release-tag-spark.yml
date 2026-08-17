@@ -1,0 +1,217 @@
+name: Release Tag — Spark Branch Tags
+
+# Triggers when a release rebase PR is merged into spark4.0 or spark4.1.
+# Creates the spark and python derivative tags automatically.
+#
+# Part of the SynapseML Fabric Release Guide (Steps 1.4–1.5).
+# See also: release-tag.yml (triggers the rebase PR).
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - spark4.0
+      - spark4.1
+
+permissions:
+  contents: write
+
+jobs:
+  create-spark-tags:
+    name: Create spark & python tags
+    runs-on: ubuntu-latest
+
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'release/')
+
+    steps:
+      - name: Extract version and target
+        id: info
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          TARGET: ${{ github.event.pull_request.base.ref }}
+        run: |
+          set -euo pipefail
+
+          # Require the exact release branch convention for the target branch.
+          if [[ ! "$BRANCH" =~ ^release/v([0-9]+\.[0-9]+\.[0-9]+)-(spark4\.[01])$ ]]; then
+            echo "❌ Release branch '$BRANCH' must match release/vX.Y.Z-spark4.0 or release/vX.Y.Z-spark4.1"
+            exit 1
+          fi
+
+          VERSION="${BASH_REMATCH[1]}"
+          BRANCH_TARGET="${BASH_REMATCH[2]}"
+          if [ "$BRANCH_TARGET" != "$TARGET" ]; then
+            echo "❌ Release branch target '$BRANCH_TARGET' does not match PR base '$TARGET'"
+            exit 1
+          fi
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "target=$TARGET" >> "$GITHUB_OUTPUT"
+
+          # Map branch to python version
+          case "$TARGET" in
+            spark4.0) echo "python_ver=3.12" >> "$GITHUB_OUTPUT" ;;
+            spark4.1) echo "python_ver=3.13" >> "$GITHUB_OUTPUT" ;;
+            *) echo "❌ Unknown target: $TARGET"; exit 1 ;;
+          esac
+
+          echo "📦 Version: $VERSION, Target: $TARGET"
+
+      # For a merged PR, GitHub defines merge_commit_sha as the commit written
+      # to the base branch, including the final rebased commit for "Rebase and
+      # merge". Guard its nullable schema because an empty checkout ref falls
+      # back to the default branch instead of identifying the released commit.
+      - name: Verify the merged commit is known
+        env:
+          MERGED_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+        run: |
+          set -euo pipefail
+          if [ -z "$MERGED_SHA" ]; then
+            echo "::error::pull_request.merge_commit_sha is empty, so the commit that landed on \
+          $BASE_REF cannot be identified. Refusing to guess. This workflow normally creates both \
+          the spark tag and the matching python tag, so create both manually to avoid a \
+          partially tagged release: \
+          git tag v<version>-<target> <sha> && git tag v<version>-python<python-version> <sha> && \
+          git push origin v<version>-<target> v<version>-python<python-version>"
+            exit 1
+          fi
+          echo "✅ Merged commit: $MERGED_SHA"
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # Pin to the commit recorded by the merge event, not the base branch
+          # ref. Any later commit on spark4.x must not receive this release tag.
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+          # Full history and tags: the "tag already exists" guard below is
+          # meaningless against a shallow clone with no tags fetched.
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      # Nothing so far has established that this release exists. The version is
+      # read out of a branch name, so a branch called release/v9.9.9-spark4.0
+      # merged into spark4.0 -- which carries no branch protection at all --
+      # would mint public v9.9.9-spark4.0 and v9.9.9-python3.12 tags for a
+      # release that was never cut. A derivative tag cannot be valid without
+      # its primary, and release-tag.yml always creates the primary first, so
+      # requiring it costs a legitimate release nothing.
+      - name: Verify the release exists
+        env:
+          VERSION: ${{ steps.info.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          if ! git rev-parse -q --verify "refs/tags/v${VERSION}" >/dev/null; then
+            echo "::error::No v${VERSION} tag exists, so there is no such release to derive \
+          tags from. This workflow only runs for releases cut by release-tag.yml, which creates \
+          v${VERSION} on master first. If this PR is not part of a release, its branch should \
+          not be named release/v${VERSION}-*."
+            exit 1
+          fi
+          echo "✅ Release v${VERSION} exists at $(git rev-parse --short "refs/tags/v${VERSION}^{commit}")"
+
+          # Ancestry is reported rather than enforced. "Rebase and merge" -- one of
+          # only two methods this repo allows -- replays the release commit onto the
+          # target branch under a new SHA, so the original v${VERSION} object is
+          # legitimately not an ancestor of what landed. Failing on that would reject
+          # every release that goes through this workflow. It is still worth printing:
+          # when it does hold, the tags satisfy the same ancestry the manual release
+          # guide produces, and when it does not, that is the known limitation to
+          # check before the tags are consumed downstream.
+          if git merge-base --is-ancestor "refs/tags/v${VERSION}" HEAD; then
+            echo "✅ v${VERSION} is an ancestor of the merged commit"
+          else
+            echo "::warning::v${VERSION} is not an ancestor of the merged commit. This is \
+          expected when the PR was landed with \"Rebase and merge\", which rewrites SHAs. Verify \
+          the release branches carry the intended content before these tags are consumed."
+          fi
+
+      - name: Create and push tags
+        env:
+          VERSION: ${{ steps.info.outputs.version }}
+          TARGET: ${{ steps.info.outputs.target }}
+          PYTHON_VER: ${{ steps.info.outputs.python_ver }}
+        run: |
+          set -euo pipefail
+
+          SPARK_TAG="v${VERSION}-${TARGET}"
+          PYTHON_TAG="v${VERSION}-python${PYTHON_VER}"
+
+          TO_PUSH=()
+          for TAG in "$SPARK_TAG" "$PYTHON_TAG"; do
+            if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+              # An existing tag is only benign if it already points where this run
+              # would put it. If it points elsewhere, the release is mis-tagged and
+              # silently skipping would report success for a bad release.
+              EXISTING=$(git rev-parse "refs/tags/$TAG^{commit}")
+              if [ "$EXISTING" != "$(git rev-parse HEAD)" ]; then
+                echo "::error::$TAG already exists at $EXISTING but this release is \
+          $(git rev-parse HEAD). Refusing to move a published release tag — resolve manually."
+                exit 1
+              fi
+              echo "⚠️ $TAG already exists at the same commit — skipping"
+            else
+              git tag "$TAG"
+              TO_PUSH+=("$TAG")
+              echo "🏷️ Created $TAG"
+            fi
+          done
+
+          if [ ${#TO_PUSH[@]} -eq 0 ]; then
+            echo "✅ Nothing to push — both tags already exist"
+          else
+            git push origin "${TO_PUSH[@]}"
+            echo "✅ Pushed: ${TO_PUSH[*]}"
+          fi
+
+      - name: Cleanup release branch
+        env:
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          REF="refs/heads/$HEAD_REF"
+          REMOTE_HEAD=$(git ls-remote --heads origin "$REF")
+          if [ -z "$REMOTE_HEAD" ]; then
+            echo "🧹 $HEAD_REF is already absent from origin"
+          else
+            REMOTE_SHA=${REMOTE_HEAD%%$'\t'*}
+            if [ "$REMOTE_SHA" != "$HEAD_SHA" ]; then
+              echo "::error::$HEAD_REF moved from $HEAD_SHA to $REMOTE_SHA after merge; refusing to delete it"
+              exit 1
+            fi
+            git push --force-with-lease="$REF:$HEAD_SHA" origin --delete "$REF"
+            echo "🧹 Deleted $HEAD_REF"
+          fi
+
+      - name: Summary
+        env:
+          VERSION: ${{ steps.info.outputs.version }}
+          TARGET: ${{ steps.info.outputs.target }}
+          PYTHON_VER: ${{ steps.info.outputs.python_ver }}
+        run: |
+          echo ""
+          echo "═══════════════════════════════════════════════════"
+          echo "  Spark Branch Tags — Summary"
+          echo "═══════════════════════════════════════════════════"
+          echo ""
+          echo "  ✅ v${VERSION}-${TARGET} tag verified at the merged commit"
+          echo "  ✅ v${VERSION}-python${PYTHON_VER} tag verified at the merged commit"
+          echo "  🧹 Release branch absent from origin"
+          echo ""
+          echo "  Next steps:"
+          echo "    1. Queue ADO pipeline 17563 for refs/tags/v${VERSION}-${TARGET}"
+          echo "    2. Approve ESRP signing on SAW machine"
+          echo "    3. Proceed to Step 2 (SynapseML-Internal)"
+          echo ""
+          echo "  Pipeline: https://msdata.visualstudio.com/A365/_build?definitionId=17563"
+          echo "═══════════════════════════════════════════════════"

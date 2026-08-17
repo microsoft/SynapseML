@@ -8,16 +8,6 @@ channels:
     output_structure: flat # flat / hierarchy
     auto_pre_req: true
     notebooks:
-      - path:  Explore Algorithms/AI Services/Multivariate Anomaly Detection.ipynb
-        filename: multivariate-anomaly-detection
-        metadata:
-          title: Analyze time series
-          description: Use SynapseML and Azure AI services for multivariate anomaly detection.
-          ms.topic: overview
-          ms.custom:  "\n  - build-2023\n  - ignite-2023"
-          ms.reviewer: fsolomon
-          author: JessicaXYWang
-          ms.author: jessiwang
       - path: Explore Algorithms/AI Services/Overview.ipynb
         filename: how-to-use-ai-services-with-synapseml
         metadata:
@@ -99,7 +89,7 @@ channels:
         filename: open-ai
         metadata:
           title: Azure OpenAI for big data
-          description: Use Azure OpenAI service to solve a large number of natural language tasks through prompting the completion API. 
+          description: Use Azure OpenAI service to solve a large number of natural language tasks through chat, responses, and embedding APIs.
           ms.topic: how-to
           ms.custom: build-2023
           ms.reviewer: jessiwang

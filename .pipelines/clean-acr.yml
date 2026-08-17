@@ -1,3 +1,5 @@
+trigger: none
+pr: none
 
 schedules:
   - cron: "0 1 * * 0"
@@ -8,22 +10,22 @@ schedules:
         - master
 
 pool:
-  vmImage: 'ubuntu-latest'
+  vmImage: 'ubuntu-22.04'
 
 variables:
-  azureServiceConnection: 'synapseml-clean-acr' # Name of the Azure service connection in Azure DevOps
+  azureServiceConnection: 'synapseml-clean-acr'
 
 steps:
+  - checkout: self
+    fetchDepth: 1
+    fetchTags: false
+
   - task: AzureCLI@2
     displayName: 'Clean ACR'
     inputs:
-      azureSubscription: 'SynapseML Build'
+      azureSubscription: $(azureServiceConnection)
       scriptLocation: inlineScript
       scriptType: bash
       inlineScript: |
-        set -e
-        pip install --upgrade pip
-        pip install azure-storage-blob azure-identity azure-keyvault-secrets
-        python tools/acr/clean-acr.py mmlspark-keys clean-acr-connection-string
-
-
+        set -euo pipefail
+        python tools/acr/clean_acr.py

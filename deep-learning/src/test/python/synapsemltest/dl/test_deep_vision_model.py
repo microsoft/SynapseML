@@ -18,40 +18,25 @@ from synapse.ml.dl import *
 class MyDummyCallback(Callback):
     def __init__(self, epochs=10):
         self.epochs = epochs
-        self.epcoh_end_counter = 0
         self.train_epcoh_end_counter = 0
         self.validation_epoch_end_counter = 0
 
-    def on_init_start(self, trainer):
-        print("Starting to init trainer!")
-
-    def on_init_end(self, trainer):
-        print("Trainer is initialized.")
-
-    def on_epoch_end(self, trainer, model):
-        print("A epoch ended.")
-        self.epcoh_end_counter += 1
-
-    def on_train_epoch_end(self, trainer, model, unused=None):
+    def on_train_epoch_end(self, trainer, pl_module):
         print("A train epoch ended.")
         self.train_epcoh_end_counter += 1
 
-    def on_validation_epoch_end(self, trainer, model, unused=None):
+    def on_validation_epoch_end(self, trainer, pl_module):
         print("A val epoch ended.")
         self.validation_epoch_end_counter += 1
 
-    def on_train_end(self, trainer, model):
+    def on_train_end(self, trainer, pl_module):
         print(
             "Training ends:"
-            f"epcoh_end_counter={self.epcoh_end_counter}, "
             f"train_epcoh_end_counter={self.train_epcoh_end_counter}, "
             f"validation_epoch_end_counter={self.validation_epoch_end_counter} \n"
         )
         assert self.train_epcoh_end_counter <= self.epochs
-        assert (
-            self.train_epcoh_end_counter + self.validation_epoch_end_counter
-            == self.epcoh_end_counter
-        )
+        assert self.train_epcoh_end_counter > 0
 
 
 def test_lit_deep_vision_model(transform, get_data_path):

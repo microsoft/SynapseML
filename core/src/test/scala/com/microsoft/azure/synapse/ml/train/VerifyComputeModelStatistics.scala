@@ -11,15 +11,17 @@ import com.microsoft.azure.synapse.ml.core.test.benchmarks.DatasetUtils
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.azure.synapse.ml.train.TrainClassifierTestUtilities._
 import com.microsoft.azure.synapse.ml.train.TrainRegressorTestUtilities._
+import org.apache.spark.ml.Pipeline
 import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 import org.apache.spark.ml.feature.FastVectorAssembler
-import org.apache.spark.ml.linalg.Vector
+import org.apache.spark.ml.linalg.{Vector, Vectors}
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.regression.GeneralizedLinearRegression
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql._
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{DoubleType, StructField, StructType}
+import org.apache.spark.sql.types.{DoubleType, MetadataBuilder, StructField, StructType}
 
 import scala.util.Random
 
@@ -40,6 +42,479 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     (0, 3, 0.78, 0.99, 2),
     (1, 4, 0.12, 0.34, 3)
   )).toDF(labelColumn, "col1", "col2", "col3", "col4")
+
+  private lazy val rankedBinaryDataset: DataFrame = {
+    import spark.implicits._
+    val data = (1 to 100).map { rank =>
+      val label = if (rank == 1 || rank == 11) 1.0 else 0.0
+      val prediction = if (rank <= 10) 1.0 else 0.0
+      val rawPrediction = Vectors.dense(0.0, (101 - rank).toDouble)
+      (label, prediction, rawPrediction)
+    }.toDF("label", SchemaConstants.SparkPredictionColumn, SchemaConstants.SparkRawPredictionColumn)
+    val modelName = SchemaConstants.ScoreModelPrefix + "_ranked binary"
+    val withLabel = SparkSchema.setLabelColumnName(
+      data, modelName, "label", SchemaConstants.ClassificationKind)
+    val withPrediction = SparkSchema.updateColumnMetadata(
+      withLabel, modelName, SchemaConstants.SparkPredictionColumn, SchemaConstants.ClassificationKind)
+    SparkSchema.updateColumnMetadata(
+      withPrediction, modelName, SchemaConstants.SparkRawPredictionColumn, SchemaConstants.ClassificationKind)
+  }
+
+  private def rankedBinaryStatistics(metric: String): ComputeModelStatistics =
+    new ComputeModelStatistics()
+      .setLabelCol("label")
+      .setScoredLabelsCol(SchemaConstants.SparkPredictionColumn)
+      .setScoresCol(SchemaConstants.SparkRawPredictionColumn)
+      .setEvaluationMetric(metric)
+
+  private def assertBinaryOnlyMetricsRejected(schema: StructType): Unit = {
+    Seq(
+      MetricConstants.AucSparkMetric -> "Error: AUC is not available for multiclass case",
+      MetricConstants.AreaUnderROCMetric -> "Error: AUC is not available for multiclass case",
+      MetricConstants.AreaUnderPRMetric -> "Error: areaUnderPR is not available for multiclass case")
+      .foreach { case (metric, expectedMessage) =>
+        val error = intercept[IllegalArgumentException] {
+          new ComputeModelStatistics()
+            .setLabelCol("label")
+            .setEvaluationMetric(metric)
+            .transformSchema(schema)
+        }
+
+        assert(error.getMessage === expectedMessage)
+      }
+  }
+
+  test("areaUnderPR uses Spark trapezoidal precision-recall AUC") {
+    val evaluator = rankedBinaryStatistics(MetricConstants.AreaUnderPRMetric)
+    val result = evaluator.transform(rankedBinaryDataset)
+    val areaUnderPR = result.first().getAs[Double](MetricConstants.AreaUnderPRColumnName)
+
+    assert(result.columns.last === MetricConstants.AreaUnderPRColumnName)
+    assert(result.columns.contains(MetricConstants.AreaUnderPRColumnName))
+    assert(evaluator.transformSchema(rankedBinaryDataset.schema) ===
+      StructType(Array(StructField(MetricConstants.AreaUnderPRColumnName, DoubleType))))
+    assert(math.abs(areaUnderPR - 251.0 / 440.0) < 1e-8)
+    assert(math.abs(areaUnderPR - 13.0 / 22.0) > 0.01)
+  }
+
+  test("areaUnderROC remains an AUC output alias") {
+    val aucEvaluator = rankedBinaryStatistics(MetricConstants.AucSparkMetric)
+    val auc = aucEvaluator
+      .transform(rankedBinaryDataset)
+      .first()
+      .getAs[Double](MetricConstants.AucColumnName)
+    val rocEvaluator = rankedBinaryStatistics(MetricConstants.AreaUnderROCMetric)
+    val areaUnderROCAlias = rocEvaluator
+      .transform(rankedBinaryDataset)
+      .first()
+      .getAs[Double](MetricConstants.AucColumnName)
+    val aucSchema = StructType(Array(StructField(MetricConstants.AucColumnName, DoubleType)))
+
+    assert(aucEvaluator.transformSchema(rankedBinaryDataset.schema) === aucSchema)
+    assert(rocEvaluator.transformSchema(rankedBinaryDataset.schema) === aucSchema)
+    assert(math.abs(auc - 187.0 / 196.0) < 1e-8)
+    assert(math.abs(areaUnderROCAlias - 187.0 / 196.0) < 1e-8)
+  }
+
+  test("all and classification metrics append binary metrics in runtime output order") {
+    val binaryDataset = CategoricalUtilities.setLevels(
+      rankedBinaryDataset,
+      "label",
+      Array(0.0, 1.0))
+    val expectedColumns = List(MetricConstants.EvaluationType, MetricConstants.ConfusionMatrix) ++
+      MetricConstants.BinaryClassificationColumns
+    Seq(MetricConstants.AllSparkMetrics, MetricConstants.ClassificationMetricsName).foreach { metric =>
+      val evaluator = rankedBinaryStatistics(metric)
+      val result = evaluator.transform(binaryDataset)
+      val row = result.first()
+      val transformedSchema = evaluator.transformSchema(binaryDataset.schema)
+
+      assert(result.columns.toList === expectedColumns)
+      assert(transformedSchema ===
+        StructType(MetricConstants.BinaryClassificationColumns.map(StructField(_, DoubleType))))
+      assert(math.abs(row.getAs[Double](MetricConstants.AucColumnName) - 187.0 / 196.0) < 1e-8)
+      assert(math.abs(row.getAs[Double](MetricConstants.AreaUnderPRColumnName) - 251.0 / 440.0) < 1e-8)
+    }
+  }
+
+  test("multiclass classification schema retains the legacy common metrics") {
+    val multiclassData = spark.createDataFrame(Seq(
+      (0.0, 0.0),
+      (1.0, 1.0),
+      (2.0, 2.0))).toDF("label", "prediction")
+    val modelName = SchemaConstants.ScoreModelPrefix + "_multiclass"
+    val withLabel = SparkSchema.setLabelColumnName(
+      multiclassData, modelName, "label", SchemaConstants.ClassificationKind)
+    val withPrediction = SparkSchema.updateColumnMetadata(
+      withLabel, modelName, "prediction", SchemaConstants.ClassificationKind)
+    val multiclass = CategoricalUtilities.setLevels(
+      withPrediction,
+      "label",
+      Array(0.0, 1.0, 2.0))
+    val expectedRuntimeColumns =
+      List(MetricConstants.EvaluationType, MetricConstants.ConfusionMatrix) ++
+        MetricConstants.ClassificationColumns ++
+        List(MetricConstants.AverageAccuracy,
+          MetricConstants.MacroAveragedPrecision,
+          MetricConstants.MacroAveragedRecall)
+
+    Seq(MetricConstants.AllSparkMetrics, MetricConstants.ClassificationMetricsName).foreach { metric =>
+      val evaluator = new ComputeModelStatistics().setEvaluationMetric(metric)
+      val schema = evaluator.transformSchema(multiclass.schema)
+      val result = evaluator.transform(multiclass)
+
+      assert(schema.fieldNames.toList === MetricConstants.ClassificationColumns)
+      assert(!schema.fieldNames.contains(MetricConstants.AucColumnName))
+      assert(!schema.fieldNames.contains(MetricConstants.AreaUnderPRColumnName))
+      assert(result.columns.toList === expectedRuntimeColumns)
+    }
+  }
+
+  test("classification schema without cardinality metadata retains the legacy common metrics") {
+    Seq(MetricConstants.AllSparkMetrics, MetricConstants.ClassificationMetricsName).foreach { metric =>
+      val schema = rankedBinaryStatistics(metric).transformSchema(rankedBinaryDataset.schema)
+
+      assert(schema.fieldNames.toList === MetricConstants.ClassificationColumns)
+    }
+  }
+
+  test("transformSchema rejects binary-only metrics for multiclass MML categorical labels") {
+    val schema = CategoricalUtilities.setLevels(
+      spark.createDataFrame(Seq(
+        (0.0, 0.0),
+        (1.0, 1.0),
+        (2.0, 2.0))).toDF("label", "prediction"),
+      "label",
+      Array(0.0, 1.0, 2.0)).schema
+
+    assertBinaryOnlyMetricsRejected(schema)
+  }
+
+  test("transformSchema preserves binary-only metric schema when configured labelCol is absent") {
+    val schema = spark.createDataFrame(Seq(
+      (0.0, 0.9),
+      (1.0, 0.8))).toDF("prediction", "rawPrediction").schema
+    val evaluator = new ComputeModelStatistics()
+      .setLabelCol("label")
+      .setEvaluationMetric(MetricConstants.AreaUnderPRMetric)
+
+    assert(evaluator.transformSchema(schema) ===
+      StructType(Array(StructField(MetricConstants.AreaUnderPRColumnName, DoubleType))))
+  }
+
+  test("areaUnderPR rejects multiclass and unsupported metric inputs") {
+    val multiclass = spark.createDataFrame(Seq(
+      (0.0, 0.0, 0.9),
+      (1.0, 1.0, 0.8),
+      (2.0, 2.0, 0.7))).toDF("label", "prediction", "rawPrediction")
+    val multiclassError = intercept[Exception] {
+      new ComputeModelStatistics()
+        .setLabelCol("label")
+        .setScoredLabelsCol("prediction")
+        .setScoresCol("rawPrediction")
+        .setEvaluationMetric(MetricConstants.AreaUnderPRMetric)
+        .transform(multiclass)
+    }
+    assert(multiclassError.getMessage === "Error: areaUnderPR is not available for multiclass case")
+
+    assertThrows[Exception] {
+      rankedBinaryStatistics("averagePrecision").transform(rankedBinaryDataset)
+    }
+  }
+
+  private def addScoreColumnMetadata(dataset: DataFrame,
+                                     modelName: String,
+                                     columnName: String,
+                                     columnKind: String,
+                                     scoreValueKind: String): DataFrame = {
+    val existingMetadata = dataset.schema(columnName).metadata
+    val mmlBuilder = new MetadataBuilder()
+    if (existingMetadata.contains(SchemaConstants.MMLTag)) {
+      mmlBuilder.withMetadata(existingMetadata.getMetadata(SchemaConstants.MMLTag))
+    }
+    val modelMetadata = new MetadataBuilder()
+      .putString(SchemaConstants.ScoreColumnKind, columnKind)
+      .putString(SchemaConstants.ScoreValueKind, scoreValueKind)
+      .build()
+    val updatedMetadata = new MetadataBuilder()
+      .withMetadata(existingMetadata)
+      .putMetadata(
+        SchemaConstants.MMLTag,
+        mmlBuilder.putMetadata(modelName, modelMetadata).build())
+      .build()
+    dataset.withColumn(columnName, col(columnName).as(columnName, updatedMetadata))
+  }
+
+  private def addScoredModelMetadata(dataset: DataFrame,
+                                     modelName: String,
+                                     labelCol: String,
+                                     scoreValueKind: String): DataFrame = {
+    val withLabel = SparkSchema.setLabelColumnName(dataset, modelName, labelCol, scoreValueKind)
+    SparkSchema.updateColumnMetadata(
+      withLabel, modelName, SchemaConstants.SparkPredictionColumn, scoreValueKind)
+  }
+
+  test("Explicit settings select classification after a stale regression score is dropped") {
+    val regressionLabel = "regressionLabel"
+    val input = dataset
+      .withColumn(regressionLabel, col("col2") + col("col3"))
+      .select(col(regressionLabel), col(labelColumn), col("col1"), col("col2"), col("col3"), col("col4"))
+    val regressionScored = createLinearRegressor(regressionLabel).fit(input).transform(input)
+
+    val regressionEvaluation = new ComputeModelStatistics().transform(regressionScored)
+    assert(regressionEvaluation.columns.contains(MetricConstants.MseColumnName))
+
+    val classifierInput = regressionScored.drop(SchemaConstants.SparkPredictionColumn)
+    assert(classifierInput.schema(regressionLabel).metadata.contains(SchemaConstants.MMLTag))
+    val classificationScored = createLR.setLabelCol(labelColumn).fit(classifierInput).transform(classifierInput)
+    val classificationEvaluation = new ComputeModelStatistics()
+      .setLabelCol(labelColumn)
+      .setScoredLabelsCol(SchemaConstants.SparkPredictionColumn)
+      .setEvaluationMetric(MetricConstants.ClassificationMetricsName)
+      .transform(classificationScored)
+
+    assert(classificationEvaluation.columns.contains(MetricConstants.AccuracyColumnName))
+    assert(!classificationEvaluation.columns.contains(MetricConstants.MseColumnName))
+  }
+
+  test("Explicit columns and metric beat unrelated scored-model metadata") {
+    val unrelatedLabel = "unrelatedLabel"
+    val selectedLabel = "selectedLabel"
+    val selectedPrediction = "selectedPrediction"
+    val unrelatedModel = SchemaConstants.ScoreModelPrefix + "_unrelated"
+    val wrongKindModel = SchemaConstants.ScoreModelPrefix + "_wrong_kind"
+    val input = spark.createDataFrame(Seq(
+      (1.0, 0.0, 1.0, 0.0),
+      (0.0, 1.0, 0.0, 1.0),
+      (1.0, 0.0, 1.0, 0.0),
+      (0.0, 1.0, 0.0, 1.0)))
+      .toDF(unrelatedLabel, selectedLabel, SchemaConstants.SparkPredictionColumn, selectedPrediction)
+    val withUnrelatedModel = addScoredModelMetadata(
+      input, unrelatedModel, unrelatedLabel, SchemaConstants.ClassificationKind)
+    val scored = addScoredModelMetadata(
+      withUnrelatedModel, wrongKindModel, selectedLabel, SchemaConstants.RegressionKind)
+
+    val result = new ComputeModelStatistics()
+      .setLabelCol(selectedLabel)
+      .setScoredLabelsCol(selectedPrediction)
+      .setEvaluationMetric(MetricConstants.AccuracySparkMetric)
+      .transform(scored)
+
+    assert(result.first().getAs[Double](MetricConstants.AccuracyColumnName) === 1.0)
+  }
+
+  test("Multiple complete scored-model metadata candidates fail deterministically") {
+    val modelA = SchemaConstants.ScoreModelPrefix + "_a"
+    val modelB = SchemaConstants.ScoreModelPrefix + "_b"
+    val labelA = "labelA"
+    val labelB = "labelB"
+    val input = spark.createDataFrame(Seq((0.0, 1.0, 0.0)))
+      .toDF(labelA, labelB, SchemaConstants.SparkPredictionColumn)
+    val withModelB = addScoredModelMetadata(
+      input, modelB, labelB, SchemaConstants.ClassificationKind)
+    val withBothModels = addScoredModelMetadata(
+      withModelB, modelA, labelA, SchemaConstants.RegressionKind)
+
+    val error = intercept[IllegalArgumentException] {
+      new ComputeModelStatistics().transformSchema(withBothModels.schema)
+    }
+    val expectedCandidates =
+      s"[$modelA (label=$labelA, kind=${SchemaConstants.RegressionKind}, " +
+        s"prediction=${SchemaConstants.SparkPredictionColumn}), " +
+        s"$modelB (label=$labelB, kind=${SchemaConstants.ClassificationKind}, " +
+        s"prediction=${SchemaConstants.SparkPredictionColumn})]"
+    assert(error.getMessage.contains(expectedCandidates))
+    assert(error.getMessage.contains("Set labelCol and evaluationMetric"))
+  }
+  test("Explicit evaluation metric omits irrelevant all-metrics hint when labelCol is missing") {
+    val input = spark.createDataFrame(Seq((0.0, 1.0))).toDF("label", "feature")
+    val error = intercept[IllegalArgumentException] {
+      new ComputeModelStatistics()
+        .setEvaluationMetric(MetricConstants.RegressionMetricsName)
+        .transformSchema(input.schema)
+    }
+    assert(error.getMessage.contains("Set labelCol, or score the dataset"))
+    assert(!error.getMessage.contains(
+      s"evaluationMetric must not be '${MetricConstants.AllSparkMetrics}'"))
+  }
+
+  test("Missing default score column produces an actionable error") {
+    val label = "label"
+    val input = spark.createDataFrame(Seq((0.0, 1.0), (1.0, 2.0))).toDF(label, "feature")
+    val error = intercept[IllegalArgumentException] {
+      new ComputeModelStatistics()
+        .setLabelCol(label)
+        .setEvaluationMetric(MetricConstants.RegressionMetricsName)
+        .transform(input)
+    }
+    assert(error.getMessage.contains("regression prediction/score column <unresolved>"))
+    assert(error.getMessage.contains("setScoresCol"))
+    assert(error.getMessage.contains("Available columns: [feature, label]"))
+  }
+
+  test("Invalid explicit scores column fails only for score-consuming metrics") {
+    val label = "label"
+    val prediction = "selectedPrediction"
+    val input = spark.createDataFrame(Seq((0.0, 0.0), (1.0, 1.0))).toDF(label, prediction)
+    val statistics = new ComputeModelStatistics()
+      .setLabelCol(label)
+      .setScoredLabelsCol(prediction)
+      .setScoresCol("missingScore")
+    val accuracy = statistics
+      .setEvaluationMetric(MetricConstants.AccuracySparkMetric)
+      .transform(input)
+      .first()
+      .getAs[Double](MetricConstants.AccuracyColumnName)
+    assert(accuracy === 1.0)
+    val error = intercept[IllegalArgumentException] {
+      statistics
+        .setEvaluationMetric(MetricConstants.AucSparkMetric)
+        .transform(input)
+    }
+    assert(error.getMessage.contains("classification score column 'missingScore'"))
+    assert(error.getMessage.contains("setScoresCol"))
+    assert(error.getMessage.contains("Available columns: [label, selectedPrediction]"))
+  }
+  test("Single complete scored-model metadata remains supported") {
+    val modelName = SchemaConstants.ScoreModelPrefix + "_single"
+    val label = "label"
+    val input = spark.createDataFrame(Seq((0.0, 0.0), (1.0, 1.0)))
+      .toDF(label, SchemaConstants.SparkPredictionColumn)
+    val scored = addScoredModelMetadata(input, modelName, label, SchemaConstants.RegressionKind)
+    val evaluator = new ComputeModelStatistics()
+      .setLabelCol(label.toUpperCase)
+      .setEvaluationMetric(MetricConstants.RegressionMetricsName)
+    val activeSession = SparkSession.getActiveSession
+    val defaultSession = SparkSession.getDefaultSession
+    SparkSession.clearActiveSession()
+    SparkSession.setDefaultSession(spark)
+    try assert(evaluator.transformSchema(scored.schema).fieldNames.contains(MetricConstants.MseColumnName))
+    finally {
+      activeSession.fold(SparkSession.clearActiveSession())(SparkSession.setActiveSession)
+      defaultSession.fold(SparkSession.clearDefaultSession())(SparkSession.setDefaultSession)
+    }
+    val result = evaluator.transform(scored)
+    assert(result.first().getAs[Double](MetricConstants.MseColumnName) === 0.0)
+  }
+
+  test("Equivalent complete model metadata is de-duplicated deterministically") {
+    val modelA = SchemaConstants.ScoreModelPrefix + "_duplicate_a"
+    val modelB = SchemaConstants.ScoreModelPrefix + "_duplicate_b"
+    val label = "label"
+    val input = spark.createDataFrame(Seq((0.0, 0.0), (1.0, 1.0)))
+      .toDF(label, SchemaConstants.SparkPredictionColumn)
+    val withModelB = addScoredModelMetadata(input, modelB, label, SchemaConstants.RegressionKind)
+    val withDuplicates = addScoredModelMetadata(withModelB, modelA, label, SchemaConstants.RegressionKind)
+    val result = new ComputeModelStatistics().transform(withDuplicates)
+    assert(result.first().getAs[Double](MetricConstants.MseColumnName) === 0.0)
+  }
+
+  test("Conflicting prediction metadata fails independently of schema column order") {
+    val model = SchemaConstants.ScoreModelPrefix + "_conflicting"
+    val label = "label"
+    val predictionA = "predictionA"
+    val predictionB = "predictionB"
+    val input = spark.createDataFrame(Seq((0.0, 0.0, 0.0), (1.0, 1.0, 1.0)))
+      .toDF(label, predictionA, predictionB)
+    val withLabel = SparkSchema.setLabelColumnName(input, model, label, SchemaConstants.RegressionKind)
+    val withPredictionA = addScoreColumnMetadata(
+      withLabel, model, predictionA, SchemaConstants.SparkPredictionColumn, SchemaConstants.RegressionKind)
+    val conflicting = addScoreColumnMetadata(
+      withPredictionA, model, predictionB, SchemaConstants.SparkPredictionColumn, SchemaConstants.RegressionKind)
+    val schemas = Seq(
+      conflicting.schema,
+      conflicting.select(col(predictionB), col(label), col(predictionA)).schema)
+
+    val messages = schemas.map { schema =>
+      intercept[IllegalArgumentException] {
+        new ComputeModelStatistics().transformSchema(schema)
+      }.getMessage
+    }
+
+    assert(messages.distinct.size === 1)
+    assert(messages.head.indexOf(s"prediction=$predictionA") < messages.head.indexOf(s"prediction=$predictionB"))
+  }
+
+  test("Complete explicit settings override ambiguous scored-model metadata") {
+    val label = "label"
+    val selectedPrediction = "selectedPrediction"
+    val metadataPredictionA = "metadataPredictionA"
+    val metadataPredictionB = "metadataPredictionB"
+    val input = spark.createDataFrame(Seq(
+      (0.0, 0.0, 1.0, 1.0),
+      (1.0, 1.0, 0.0, 0.0)))
+      .toDF(label, selectedPrediction, metadataPredictionA, metadataPredictionB)
+    val modelA = SchemaConstants.ScoreModelPrefix + "_explicit_a"
+    val modelB = SchemaConstants.ScoreModelPrefix + "_explicit_b"
+    val withModelALabel = SparkSchema.setLabelColumnName(
+      input, modelA, label, SchemaConstants.ClassificationKind)
+    val withModelA = addScoreColumnMetadata(
+      withModelALabel, modelA, metadataPredictionA,
+      SchemaConstants.SparkPredictionColumn, SchemaConstants.ClassificationKind)
+    val withModelBLabel = SparkSchema.setLabelColumnName(
+      withModelA, modelB, label, SchemaConstants.ClassificationKind)
+    val ambiguous = addScoreColumnMetadata(
+      withModelBLabel, modelB, metadataPredictionB,
+      SchemaConstants.SparkPredictionColumn, SchemaConstants.ClassificationKind)
+
+    val evaluator = new ComputeModelStatistics()
+      .setLabelCol(label.toUpperCase)
+      .setScoredLabelsCol(selectedPrediction)
+      .setEvaluationMetric(MetricConstants.AccuracySparkMetric)
+    val result = evaluator.transform(ambiguous)
+    assert(evaluator.transformSchema(ambiguous.schema).fieldNames.contains(MetricConstants.AccuracyColumnName))
+    assert(result.first().getAs[Double](MetricConstants.AccuracyColumnName) === 1.0)
+  }
+
+  test("Duplicate raw-score metadata is rejected only when the metric consumes it") {
+    val model = SchemaConstants.ScoreModelPrefix + "_duplicate_raw"
+    val input = spark.createDataFrame(Seq(
+      (0.0, 0.0, 0.2, 0.3),
+      (1.0, 1.0, 0.8, 0.7))).toDF("label", "prediction", "rawA", "rawB")
+    val withLabel = SparkSchema.setLabelColumnName(
+      input, model, "label", SchemaConstants.ClassificationKind)
+    val withPrediction = addScoreColumnMetadata(
+      withLabel, model, "prediction",
+      SchemaConstants.SparkPredictionColumn, SchemaConstants.ClassificationKind)
+    val withRawA = addScoreColumnMetadata(
+      withPrediction, model, "rawA",
+      SchemaConstants.SparkRawPredictionColumn, SchemaConstants.ClassificationKind)
+    val scored = addScoreColumnMetadata(
+      withRawA, model, "rawB",
+      SchemaConstants.SparkRawPredictionColumn, SchemaConstants.ClassificationKind)
+
+    val accuracy = new ComputeModelStatistics()
+      .setEvaluationMetric(MetricConstants.AccuracySparkMetric)
+      .transform(scored)
+    assert(accuracy.first().getAs[Double](MetricConstants.AccuracyColumnName) === 1.0)
+
+    val error = intercept[IllegalArgumentException] {
+      new ComputeModelStatistics().setEvaluationMetric(MetricConstants.AucSparkMetric).transform(scored)
+    }
+    assert(error.getMessage.contains("rawPrediction columns [rawA:Classification, rawB:Classification]"))
+  }
+
+  test("Copy and pipeline preserve explicit statistics parameters") {
+    val label = "label"
+    val prediction = "selectedPrediction"
+    val input = spark.createDataFrame(Seq((0.0, 0.0), (1.0, 1.0))).toDF(label, prediction)
+    val configured = new ComputeModelStatistics()
+      .setLabelCol(label.toUpperCase)
+      .setScoresCol(prediction.toUpperCase)
+      .setEvaluationMetric(MetricConstants.MseSparkMetric)
+    val copied = configured.copy(ParamMap.empty).asInstanceOf[ComputeModelStatistics]
+
+    assert(copied.uid === configured.uid)
+    assert(copied.getLabelCol === label.toUpperCase)
+    assert(copied.getScoresCol === prediction.toUpperCase)
+    assert(copied.getEvaluationMetric === MetricConstants.MseSparkMetric)
+
+    val pipelineResult = new Pipeline()
+      .setStages(Array(configured))
+      .fit(input)
+      .transform(input)
+    assert(pipelineResult.first().getAs[Double](MetricConstants.MseColumnName) === 0.0)
+  }
 
   test("Verify multiclass evaluation is not slow for large number of labels") {
     val numRows = 4096
@@ -187,7 +662,8 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     val _ = new ComputeModelStatistics().transform(scoredDataset)
 
     val evaluatedSchema = new ComputeModelStatistics().transformSchema(scoredDataset.schema)
-    assert(evaluatedSchema == StructType(MetricConstants.ClassificationColumns.map(StructField(_, DoubleType))))
+    assert(evaluatedSchema ==
+      StructType(MetricConstants.BinaryClassificationColumns.map(StructField(_, DoubleType))))
   }
 
   test("Verify computing statistics on generic spark ML estimators is supported") {

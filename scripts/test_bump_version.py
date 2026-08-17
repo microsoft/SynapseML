@@ -395,6 +395,46 @@ class TestSkipFile:
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# Docusaurus versioning command
+# ══════════════════════════════════════════════════════════════════════════════
+
+
+class TestRunDocusaurus:
+    def test_uses_local_npm_binary(self, tmp_path, monkeypatch):
+        website = tmp_path / "website"
+        (website / "docs").mkdir(parents=True)
+        calls = []
+
+        def fake_run(cmd, **kwargs):
+            calls.append((cmd, kwargs))
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+
+        assert bump._run_docusaurus(tmp_path, "2.0.0", dry_run=False)
+        assert calls == [
+            (
+                ["npm", "exec", "--", "docusaurus", "docs:version", "2.0.0"],
+                {
+                    "cwd": str(website),
+                    "capture_output": True,
+                    "text": True,
+                },
+            )
+        ]
+
+    def test_requires_generated_docs(self, tmp_path, monkeypatch):
+        (tmp_path / "website").mkdir()
+
+        def fail_if_called(*args, **kwargs):
+            raise AssertionError("subprocess should not run without generated docs")
+
+        monkeypatch.setattr(subprocess, "run", fail_if_called)
+
+        assert not bump._run_docusaurus(tmp_path, "2.0.0", dry_run=False)
+
+
+# ══════════════════════════════════════════════════════════════════════════════
 # 6. Integration Tests — End-to-end with temp directory
 # ══════════════════════════════════════════════════════════════════════════════
 

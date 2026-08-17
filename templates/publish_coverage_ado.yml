@@ -1,0 +1,22 @@
+parameters:
+  # WebsiteSamplesTests drives Spark out-of-process, so scoverage never records
+  # measurement data there and having nothing to publish is the expected state.
+  # Every other job that includes this template does produce a report.
+  - name: failIfCoverageEmpty
+    type: boolean
+    default: true
+
+steps:
+  - task: PublishCodeCoverageResults@2
+    displayName: 'Publish Code Coverage to Azure DevOps'
+    inputs:
+      # Cobertura XML, which Azure DevOps understands.
+      # sbt-scoverage writes it to target/scala-<binary-version>/coverage-report/
+      # (scoverage-report/ only ever holds scoverage.xml and the HTML), so glob
+      # coverage-report explicitly. The glob is deliberately version-agnostic so
+      # this template is correct on every branch.
+      summaryFileLocation: '**/coverage-report/cobertura.xml'
+      pathToSources: '$(Build.SourcesDirectory)'
+      # Fail loudly if the glob stops matching, rather than silently publishing nothing.
+      failIfCoverageEmpty: ${{ parameters.failIfCoverageEmpty }}
+    condition: and(succeededOrFailed(), eq(variables.runCoverage, true))

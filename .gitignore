@@ -58,6 +58,7 @@ htmlcov
 
 # Files created by remark-link
 package-lock.json
+!website/package-lock.json
 node_modules/
 .Rproj.user
 
@@ -102,7 +103,5 @@ mlflow-save-model-0/
 
 # Agent
 .agent/
-.agents/
-AGENTS.md
 .anvil/
 .hypothesis/
