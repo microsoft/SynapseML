@@ -43,7 +43,10 @@ templatized version of the branch context from
   `spark4.0` a third form, `eq('${{ parameters.testFabricE2E }}', true)` with no
   `succeeded()`. Re-enable only in a dedicated PR: restore `master`'s form,
   drop the stale comment, request Spark 4.1 in workspace creation, and validate
-  with real Fabric capacity/service connection. The workspace-creation
+  with real Fabric capacity/service connection. Do it as its own PR, where the
+  pipeline run *is* the test, rather than folding it into a sync: a Fabric
+  provisioning failure would otherwise block an unrelated merge. The
+  workspace-creation
   payload lives in the Fabric test package's `FabricOperations.scala`, which
   hardcodes `'SparkVersion': '3.5'` and must request `'4.1'`. That value is
   hardcoded identically on `master`, `spark4.0` and `spark4.1`, so changing it

@@ -52,6 +52,23 @@ of re-deriving it from whatever tree they happen to have open.
   resolution. The recurring reasons: master's `pip` is too old to install for
   these interpreters, `torch`/`torchvision` need their first releases supporting
   the version, and `pandas`/`horovod` come from interpreter-specific wheel URLs.
+
+  Measured, since these are easy to get backwards:
+
+  | | master | spark4.0 | spark4.1 |
+  | --- | --- | --- | --- |
+  | `python` | 3.11.8 | 3.12.11 | 3.13 |
+  | `pyarrow` | 10.0.1 | 22.0.0 | 18.0.0 |
+  | `mlflow` | 2.21.3 | 1.26.1 | 2.21.3 |
+
+  Each branch reached its `pyarrow` by a different route, so do not carry the
+  reasoning across: `spark4.0` needs a release with cp312 wheels (older ones
+  such as 11.0.0 have none and would build from source), `spark4.1` needs cp313
+  wheels under an `mlflow` 2.x `pyarrow<19` bound, and master is held *down* at
+  10.0.1 because Petastorm uses legacy Parquet and fsspec APIs removed after
+  PyArrow 10. Note also that `spark4.0` carries `mlflow==1.26.1`, a downgrade
+  from master's 2.21.3, which is not explained by the Python version and has not
+  been validated.
 - The `pyarrow` and `mlflow` pins are coupled, and the pinned versions are not
   the same on every branch — read both live values on the branch you are editing
   before changing either. The bound comes from MLflow: `mlflow==2.21.3` declares
@@ -83,8 +100,12 @@ of re-deriving it from whatever tree they happen to have open.
   trips `DetectAmbiguousSelfJoin`. `Wrappable.safeGetDefault` guards
   `getDefault`, which throws on Spark 4 where Spark 3 returned a default.
   `VerifyTrainClassifier`'s vector fixture no longer feeds `Double.NaN` to the
-  trainer: that test is about training on a vector column, not about NaN, so the
-  value was replaced rather than the assertion weakened.
+  trainer, because Spark 4 does not tolerate a NaN feature reaching logistic
+  regression the way 3.5 did. That test is about training on a vector column,
+  not about NaN, so the value was replaced rather than the assertion weakened.
+  Master still has the `Double.NaN` at `VerifyTrainClassifier.scala:121`, so a
+  sync will try to restore it; do not let it, and do not weaken the assertion
+  instead.
 - `OpenAIPrompt` sets `pyInternalWrapper = true`, so codegen emits
   `class _OpenAIPrompt` and a hand-written `OpenAIPrompt.py` supplies the public
   name. Python emitted into that class must use zero-argument `super()`; a
@@ -220,6 +241,22 @@ of re-deriving it from whatever tree they happen to have open.
   definition's trigger filter before assuming flakiness, and fall back to
   queueing the PR merge ref (`refs/pull/<N>/merge`), never
   `refs/heads/<branch>`, which fails service-connection authorization.
+- **The trigger filter lives on the ADO definition, not in `pipeline.yaml`.**
+  The `pr:` block in `pipeline.yaml` is a red herring: a UI-defined trigger
+  overrides it silently, so editing the YAML changes nothing. The proof is on
+  the branch itself — `spark4.0`'s own `pipeline.yaml` `pr:` block lists
+  `master`, `spark3.3` and `spark3.5` and does **not** list `spark4.0`, yet PRs
+  targeting `spark4.0` build. Read the real value from the definition instead:
+
+  ```
+  GET .../_apis/build/definitions/17563?api-version=7.0
+  ```
+
+  `triggers[].branchFilters` is currently `+master, +spark3.5, +spark4.0,
+  +spark4.1`, and the `continuousIntegration` trigger reports
+  `settingsSourceType: 2`, which means UI-defined rather than YAML-defined.
+  Consequence for a future release branch: adding it to `pipeline.yaml` does not
+  give it PR builds. Someone has to add it to the definition's filter.
 - GitHub checks compile/lint but do not replace full Azure, Databricks, native,
   R, or service validation.
 - Intermittent ONNX OOM (`OutOfMemoryError` in `ImageFeaturizerSuite`, under the
