@@ -19,9 +19,11 @@ against the live target branch.
 
 - Spark 4 uses Scala 2.13 and Java 17-era tooling. Preserve branch-specific
   dependency comments, Java configuration, and removal of obsolete CMS flags.
-- The `pyarrow` and `mlflow` pins move in lockstep: the pinned MLflow requires
-  `pyarrow<20`, so raising `pyarrow` alone breaks the environment solve. Read
-  both comments in `environment.yml` before changing either.
+- The `pyarrow` and `mlflow` pins move in lockstep: `mlflow==2.21.3` declares
+  `pyarrow<20,>=4.0.0`, so raising `pyarrow` alone breaks the environment solve.
+  Trust that bound over the inline comments, which disagree with each other —
+  `spark4.1`'s `environment.yml` says `pyarrow<19`, which is wrong, and has no
+  comment on the `mlflow` pin at all.
 - Scala 2.13 collection boundaries must produce immutable `Seq` values; keep
   the central `asImmutableCollection` conversion rather than per-service fixes.
 - Preserve Spark 4 adaptations for SAR encoders/self-joins,
@@ -46,9 +48,15 @@ against the live target branch.
   and use sibling-branch timing/results as a control before blaming capacity.
 - `areLibrariesInstalled == false` can mean install timeout rather than a
   failed library. Read statuses and notebook duration before classifying it.
-- `DatabricksCPUStreamingTests` is unscheduled on both Spark 4 branches, pending
-  pool capacity and notebook work. Treat it as a known coverage gap to verify,
-  not as an omission to accept silently.
+- `DatabricksCPUStreamingTests` is unscheduled on both Spark 4 branches: the
+  class exists in `DatabricksCPUTests.scala`, but `pipeline.yaml` names its test
+  legs explicitly and never lists it. It exists as a separate class because the
+  streaming notebook's `server.stop()` cancels concurrent SparkContext jobs, so
+  it has to run on its own cluster instead of joining an existing leg — which is
+  why scheduling it needs pool capacity as well as a notebook fix. The in-repo
+  comment is identical on both branches and attributes the behaviour to Spark
+  4.0; it has not been re-confirmed on 4.1. Treat it as a known coverage gap to
+  verify, not as an omission to accept silently.
 - Petastorm calls pyarrow APIs the pinned pyarrow no longer ships, so Horovod's
   Spark backend needs a compatibility layer. Only `spark4.1` has one. This is a
   library-version problem, not a Python-version one, so a branch on the same
