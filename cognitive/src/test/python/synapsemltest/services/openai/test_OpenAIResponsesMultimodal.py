@@ -3,13 +3,13 @@
 
 import unittest
 
-from pyspark.sql import SparkSession
 from pyspark.sql import Row
 from pyspark.sql.types import ArrayType, StringType, StructField, StructType
 
+from synapse.ml.core.init_spark import init_spark
 from synapse.ml.services.openai.OpenAIResponses import OpenAIResponses
 
-spark = SparkSession.builder.master("local[*]").appName("PysparkTests").getOrCreate()
+spark = init_spark()
 
 
 class TestOpenAIResponsesMultimodal(unittest.TestCase):

@@ -211,6 +211,9 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   }
 
   private def encodeStruct(nestedRow: Row, structType: StructType): Map[String, Any] = {
+    if (nestedRow.length != structType.length) {
+      throw new IllegalArgumentException("Struct content part does not match its declared schema")
+    }
     structType.fields.zipWithIndex.flatMap { case (field, index) =>
       if (nestedRow.isNullAt(index)) {
         None
@@ -271,7 +274,7 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
 
     parts.collect {
       case rawPart: scala.collection.Map[_, _] =>
-        rawPart.asInstanceOf[scala.collection.Map[String, Any]].get("text").map(_.toString)
+        rawPart.asInstanceOf[scala.collection.Map[String, Any]].get("text").flatMap(Option(_)).map(_.toString)
     }.flatten.mkString("\n")
   }
 

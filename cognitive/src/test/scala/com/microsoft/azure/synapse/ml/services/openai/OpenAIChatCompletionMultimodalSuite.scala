@@ -6,9 +6,10 @@ package com.microsoft.azure.synapse.ml.services.openai
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.io.http.{ErrorUtils, HTTPRequestData, HTTPResponseData, HTTPSchema}
 import org.apache.http.impl.client.CloseableHttpClient
+import org.apache.http.util.EntityUtils
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
-import org.apache.spark.sql.types.{ArrayType, StringType, StructField, StructType}
+import org.apache.spark.sql.types.{ArrayType, MapType, StringType, StructField, StructType}
 import spray.json._
 
 import java.nio.charset.StandardCharsets
@@ -195,6 +196,47 @@ class OpenAIChatCompletionMultimodalSuite extends TestBase {
     assert(output("existing-error").getAs[Row]("error").getAs[String]("response") == "upstream error")
     assert(Option(output("null-messages").getAs[Row]("error")).isEmpty)
     output.values.foreach(row => assert(Option(row.getAs[Row]("output")).isEmpty))
+  }
+
+  test("legacy map-backed text ignores null values") {
+    val mapMessageSchema = StructType(Seq(
+      StructField("role", StringType, nullable = false),
+      StructField(
+        "content",
+        ArrayType(MapType(StringType, StringType, valueContainsNull = true), containsNull = false),
+        nullable = true
+      ),
+      StructField("name", StringType, nullable = true)
+    ))
+    val legacyMessage = new GenericRowWithSchema(
+      Array[Any](
+        "user",
+        Seq(
+          Map[String, String]("type" -> "text", "text" -> null), // scalastyle:ignore null
+          Map("type" -> "text", "text" -> "kept")
+        ),
+        null // scalastyle:ignore null
+      ),
+      mapMessageSchema
+    )
+
+    val payload = EntityUtils.toString(
+      new OpenAIChatCompletion().getStringEntity(Seq(legacyMessage), Map.empty)
+    ).parseJson.asJsObject
+    val JsArray(messages) = payload.fields("messages")
+
+    assert(messages.head.asJsObject.fields("content") == JsString("kept"))
+  }
+
+  test("short content rows fail with a structural validation error") {
+    val shortPart = new GenericRowWithSchema(Array[Any]("text"), contentPartSchema)
+
+    val error = intercept[IllegalArgumentException] {
+      new OpenAIChatCompletion().getStringEntity(Seq(message("user", Seq(shortPart))), Map.empty)
+    }
+
+    assert(error.getMessage ==
+      "messages[0].content[0] is invalid: Struct content part does not match its declared schema")
   }
 
   test("messages column cannot also be the output or error column") {
