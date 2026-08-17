@@ -50,6 +50,23 @@ class DistributionBalanceMeasureSpec(unittest.TestCase):
         self.assertEqual(result[0].DistributionBalanceMeasure.js_dist, 0.0)
         self.assertEqual(result[0].DistributionBalanceMeasure.chi_sq_p_value, 1.0)
 
+    def test_impossible_observed_category_has_zero_chi_squared_p_value(self):
+        source = spark.createDataFrame([("red",), ("blue",)], ["color"])
+        result = (
+            DistributionBalanceMeasure(
+                sensitiveCols=["color"],
+                referenceDistribution=[{"red": 1.0}],
+            )
+            .transform(source)
+            .collect()
+        )
+
+        self.assertEqual(
+            result[0].DistributionBalanceMeasure.chi_sq_stat,
+            float("inf"),
+        )
+        self.assertEqual(result[0].DistributionBalanceMeasure.chi_sq_p_value, 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()

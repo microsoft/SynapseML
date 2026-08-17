@@ -444,7 +444,7 @@ private[exploratory] case class DistributionMetrics(obsFeatureProbCol: String,
     when(col(refFeatureCountCol) === 0 && col(obsFeatureCountCol) =!= 0, lit(Double.PositiveInfinity))
       .otherwise(pow(col(obsFeatureCountCol) - col(refFeatureCountCol), 2) / col(refFeatureCountCol)))
 
-  // Calculates left-tailed p-value from degrees of freedom and chi-squared test statistic
+  // Calculates right-tailed p-value from degrees of freedom and chi-squared test statistic
   def chiSquaredPValue: Column = {
     val scoreCol = chiSquaredTestStatistic
     val chiSqPValueUdf = udf(
@@ -455,8 +455,8 @@ private[exploratory] case class DistributionMetrics(obsFeatureProbCol: String,
         } else {
           implicit val rand: RandBasis = RandBasis.mt0
           score match {
-            // limit of CDF as x approaches +inf is 1 (https://en.wikipedia.org/wiki/Cumulative_distribution_function)
-            case Double.PositiveInfinity => 1d
+            // The survival probability approaches 0 as the score approaches positive infinity.
+            case Double.PositiveInfinity => 0d
             case _ => 1 - ChiSquared(degOfFreedom.toDouble).cdf(score)
           }
         }

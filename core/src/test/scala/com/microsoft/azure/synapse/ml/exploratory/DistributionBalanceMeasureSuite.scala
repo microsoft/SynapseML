@@ -437,6 +437,7 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
     METRICS.foreach(metric => assertMetric(withZeroCategory(metric), withoutZeroCategory(metric)))
     assert(withZeroCategory(KLDIVERGENCE) === Double.PositiveInfinity)
     assert(withZeroCategory(CHISQUAREDTESTSTATISTIC) === Double.PositiveInfinity)
+    assert(withZeroCategory(CHISQUAREDPVALUE) === 0d)
   }
 
   test("DistributionBalanceMeasure validates custom reference probabilities") {
@@ -663,7 +664,7 @@ class DistributionBalanceMeasureSuite extends DataBalanceTestBase with Transform
     val TOTALVARIATIONDISTANCE = 0.1111111111111111
     val WASSERSTEINDISTANCE = 0.05555555555555555
     val CHISQUAREDTESTSTATISTIC = Double.PositiveInfinity
-    val CHISQUAREDPVALUE = 1d
+    val CHISQUAREDPVALUE = 0d
   }
 
   test(s"DistributionBalanceMeasure can a custom reference distribution with missing values ($feature2)") {
