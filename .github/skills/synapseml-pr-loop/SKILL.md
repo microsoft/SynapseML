@@ -1,5 +1,5 @@
 ---
-name: synapseml-merge-ready
+name: synapseml-pr-loop
 description: Make one or more SynapseML issues or pull requests evidence-based merge-ready. Use for "5/5 confidence", "200% ready", stale/outdated PR remediation, rebase-and-test requests, resolving all review comments, or proving a feature ships without correctness, compatibility, performance, or Spark regressions.
 compatibility: SynapseML repository with git, GitHub CLI, PowerShell, WSL/Linux, sbt, Python, and network access to GitHub/Azure Pipelines.
 ---
