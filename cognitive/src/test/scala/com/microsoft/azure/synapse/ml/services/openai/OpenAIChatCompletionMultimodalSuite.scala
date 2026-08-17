@@ -322,6 +322,24 @@ class OpenAIChatCompletionMultimodalSuite extends TestBase {
       "messages[0].content must be a string or an array of content part objects")
   }
 
+  test("string content runtime type mismatches fail with a stable error") {
+    val stringMessageSchema = StructType(Seq(
+      StructField("role", StringType, nullable = false),
+      StructField("content", StringType, nullable = true),
+      StructField("name", StringType, nullable = true)
+    ))
+    val invalidContent = new GenericRowWithSchema(
+      Array[Any]("user", 1, null), // scalastyle:ignore null
+      stringMessageSchema
+    )
+
+    val error = intercept[IllegalArgumentException] {
+      new OpenAIChatCompletion().getStringEntity(Seq(invalidContent), Map.empty)
+    }
+
+    assert(error.getMessage == "messages[0].content must be a string")
+  }
+
   test("missing content fields produce row errors without HTTP") {
     val requestCount = spark.sparkContext.longAccumulator
     val missingContentSchema = StructType(Seq(
