@@ -63,7 +63,7 @@ by current-head evidence.
   with evidence.
 - Latest review covers the final head.
 - Targeted tests, compile, test compile, style, Black, codegen, Python, and
-  Spark 4.1 compatibility pass as applicable.
+  port-branch compatibility pass as applicable.
 - Full Azure Pipelines and required GitHub checks are complete with zero
   unexplained failures or pending jobs.
 - Skips are expected and documented; a skipped required scenario is a blocker.

@@ -27,7 +27,7 @@ is complete and green.
 
 - Fetch the PR's target branch and rebase an ordinary PR before validation.
 - Use `--force-with-lease`, never an unguarded force push.
-- Merge, rather than rebase, shared `spark4.x` branches.
+- Merge, rather than rebase, shared `spark<version>` port branches.
 - Record target SHA, head SHA, merge base, ahead/behind counts, and conflicts.
 - Fetch again immediately before the final push. If the target advanced,
   integrate it and rerun affected validation.
@@ -71,14 +71,19 @@ is complete and green.
   wrapper.
 - Run the smallest targeted suites, compile, test compile, Scala style, pinned
   Black, codegen, generated-wrapper checks, and relevant Python tests.
-- Run release compatibility for Spark 4.1 and any other branch affected by the
-  change.
+- Run release compatibility for every port branch affected by the change.
 - Benchmark representative scale before/after when a hot path, network path,
   accelerator, allocation pattern, or algorithmic complexity changes.
 
 ### 7. Run and triage full CI
 
-- Push the exact validated head and comment `/azp run`.
+- Push the exact validated head, then trigger Azure Pipelines and confirm a
+  build actually queued. `/azp run` only works when the pipeline definition's
+  own pull-request trigger covers the target branch; that trigger is defined in
+  the pipeline UI and can ignore the `pr:` block in `pipeline.yaml`. When the
+  target is not covered, `/azp run` reports nothing and no build starts, so
+  queue one explicitly against `refs/pull/<number>/merge` instead. Never treat
+  a comment as evidence that CI ran -- cite the build ID.
 - Inspect every failed, canceled, skipped, and pending job. Use
   [references/ci-triage.md](references/ci-triage.md) to separate product
   defects, test defects, baseline failures, and infrastructure failures.
