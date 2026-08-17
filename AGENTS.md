@@ -1,4 +1,4 @@
-# AGENTS.md
+# SynapseML — instructions for coding agents
 
 Entry point for coding agents working in this repository. Humans should start
 with [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -15,6 +15,38 @@ bindings.
 2. **`AGENTS_<branch>.md`** — if you are on any branch other than `master`, read
    it before changing anything. It records what diverges on that branch and why.
 
+## Boundaries
+
+**Never**
+
+- Edit anything under `target/` — it is generated and overwritten on every build.
+- Commit credentials, keys, connection strings, or `.env` files.
+- Introduce RDD-based code (see *Common mistakes*).
+- Rebase a `spark4.x` branch onto `master`, or force-push a shared branch.
+
+**Ask first**
+
+- Changing `pipeline.yaml`, anything under `.github/workflows/`, or release
+  tooling — these affect every branch and can only be validated by running CI.
+- Changing a dependency pin. Pins here are usually load-bearing, and the reason
+  is often recorded next to them or in `AGENTS_<branch>.md`.
+- Porting a change between `master` and a `spark4.x` branch, in either
+  direction.
+
+**Safe to do without asking**
+
+- Add or modify Scala sources, tests, and hand-written Python under
+  `src/main/python/`.
+- Run any `sbt` target, the formatters, and the linters.
+
+## Secrets and credentials
+
+Tests reach real Azure services and read their credentials from environment
+variables and Azure Key Vault at run time. Never hard-code one, never paste one
+into a test fixture or notebook, and never echo one into build output. Tests
+that cannot find credentials are expected to skip — a skip is the correct
+outcome locally, not something to work around by inlining a key.
+
 ## Branch model
 
 | Branch | Purpose |
@@ -29,10 +61,13 @@ that exist *because of* that Spark version.
 ### Where instructions live
 
 This file and `CONTRIBUTING.md` are meant to be **byte-identical on every
-branch**, so they must stay free of version-specific facts — no Spark, Scala,
-Java, or Python version numbers, and no paths containing a Scala version such as
-`target/scala-<version>/`. Anything version-specific belongs in
-`AGENTS_<branch>.md`.
+branch**. So they must stay free of anything a branch would have to edit: Spark,
+Scala, Java and Python version numbers, and paths containing a Scala version such
+as `target/scala-<version>/`.
+
+Naming the branches, and the Spark line each one targets, is fine — that is what
+the table above is for, and it is the same on every branch. The rule is about
+*specific versions*, not about mentioning Spark at all.
 
 If you find yourself wanting to add a version number here, that is the signal
 that it belongs in the branch file instead. The authoritative versions are in
@@ -306,7 +341,7 @@ without credentials. Pure Spark tests run anywhere.
 - Require PySpark and the `synapseml` conda environment
 - Run via: `sbt "testOnly *PythonTests*"` (runs through sbt, not pytest directly)
 
-## CI/CD
+## CI and pull requests
 
 - **Main build**: Azure DevOps pipeline (`pipeline.yaml`) — full test suite, 45+ min
 - **GitHub Actions**: Lightweight checks only (style, compile, dead links, dependency review)
@@ -314,7 +349,13 @@ without credentials. Pure Spark tests run anywhere.
   by an `/azp run` comment. That comment does **not** work on every branch — see
   `AGENTS_<branch>.md` before concluding the pipeline is broken.
 - **PR titles**: Must follow conventional commits (`feat:`, `fix:`, `ci:`,
-  `chore:`, `test:`, `docs:`)
+  `chore:`, `test:`, `docs:`). The title is linted; the body is not.
+- **Target branch**: see *Branch model* above. Retargeting a PR after review has
+  started loses the review, so get this right before opening it.
+- **Green is not the same as correct.** Before believing a fix worked, compare
+  the failing tests before and after. A suite can fail identically for a
+  different reason, and a newly added test passing says nothing about the tests
+  a change breaks.
 
 ## Common mistakes
 
