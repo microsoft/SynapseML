@@ -33,6 +33,13 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# GraphQL responses are sparse: absent fields are simply missing rather than null,
+# and this script reads them positionally. Under StrictMode that is a terminating
+# error, so a caller with StrictMode enabled would get no snapshot at all instead
+# of a snapshot reporting what is missing. Pin the mode off for this scope so the
+# script's behaviour does not depend on the caller's session state.
+Set-StrictMode -Off
+
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
     throw "GitHub CLI 'gh' is required."
 }
@@ -122,7 +129,7 @@ function Invoke-PagedQuery {
         }
 
         $response = $text | ConvertFrom-Json
-        if ($response.errors) {
+        if ($response.PSObject.Properties['errors'] -and $response.errors) {
             $messages = @($response.errors | ForEach-Object { $_.message }) -join "; "
             throw "$Description returned GraphQL errors for PR #${Number}: $messages"
         }
@@ -238,9 +245,9 @@ $results = @(foreach ($number in $PullRequest) {
             reviewPages = $reviewPage.pages
             reviewCount = @($reviewPage.nodes).Count
             threadsWithUnreadComments = $truncatedThreadComments
-            latestAutomatedReviewCommit = $latestAutomated.commit.oid
-            latestAutomatedReviewAt = $latestAutomated.submittedAt
-            latestAutomatedReviewAuthor = $latestAutomated.author.login
+            latestAutomatedReviewCommit = if ($latestAutomated) { $latestAutomated.commit.oid } else { $null }
+            latestAutomatedReviewAt = if ($latestAutomated) { $latestAutomated.submittedAt } else { $null }
+            latestAutomatedReviewAuthor = if ($latestAutomated) { $latestAutomated.author.login } else { $null }
             automatedReviewCoversHead = $automatedReviewCoversHead
             complete = ($truncatedThreadComments.Count -eq 0 -and $automatedReviewCoversHead)
         }
