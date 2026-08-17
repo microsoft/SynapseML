@@ -1572,8 +1572,19 @@ jobs:
         # dynver reads, only considers modifications to tracked files, and sbt's
         # build output lands in target/ which .gitignore already excludes. The
         # commit is local to the agent's checkout and is never pushed.
-        git -c user.email=synapseml-ci@microsoft.com -c user.name='SynapseML CI' \
-          commit --quiet --no-verify -am "CI: retarget to OSS ${OSS_VERSION}"
+        # Commit only when the edits actually changed something. 'git commit' exits
+        # non-zero when nothing is staged, which under 'set -e' would fail this step -
+        # so an unconditional commit would turn "already retargeted" into a hard error
+        # and make the step non-idempotent on retry. The greps above already proved
+        # build.sbt holds the right values, so an unchanged tree is a valid state: it
+        # just means the edits were already in place, and dynver emits a stable
+        # version either way, which is all the rest of the job needs.
+        if git diff-index --quiet HEAD --; then
+          echo "Retarget produced no changes; tree is already clean"
+        else
+          git -c user.email=synapseml-ci@microsoft.com -c user.name='SynapseML CI' \
+            commit --quiet --no-verify -am "CI: retarget to OSS ${OSS_VERSION}"
+        fi
 
         # A dirty tree here would silently reintroduce the drift, so fail loudly
         # rather than hand the next steps a version that changes under them.
