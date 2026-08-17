@@ -166,11 +166,6 @@ The GPU pool is `synapseml-build-14.3-gpu`, **shared with `master` and
 scarce GPU quota — but the pool holds three workers, so two builds running
 concurrently can exhaust it. Prefer queueing Spark 4 branch builds sequentially.
 
-The GPU pool is `synapseml-build-14.3-gpu`, **shared with `master` and
-`spark4.1`**. Instance pools are runtime-agnostic, so sharing avoids duplicating
-scarce GPU quota — but the pool holds three workers, so two builds running
-concurrently can exhaust it. Prefer queueing Spark 4 branch builds sequentially.
-
 **Read `areLibrariesInstalled == false` carefully — it is not a capacity verdict.**
 The check throws `Library Installation Failure` with the offending statuses if any
 library reports `FAILED`. Returning `false` therefore means the opposite: nothing
@@ -195,6 +190,20 @@ a specific version.
 `DatabricksCPUStreamingTests` is recorded as unscheduled rather than given a CI
 leg; it needs both pool capacity and a notebook fix.
 
+**A GPU notebook that fails in about a minute never trained anything.** The two
+fine-tune notebooks install horovod themselves, then assert the build is usable,
+before touching Spark. A sub-minute `FAILED` is that install or that assertion,
+not the model. Compare the per-notebook timings the suite prints — a genuine
+training failure runs for minutes.
+
+Both fine-tune notebooks must install the sha256-pinned wheel under
+`synapse-extension/`, which is built against the GPU runtime's PyTorch. The older
+wheel under `installers/` predates this branch's runtime and is linked against a
+different torch, so `horovod.torch` will not load. Both wheels are cp312, so they
+are interchangeable as far as Python version goes — the difference is the torch
+they were compiled against, which no filename records. If the runtime version in
+`AdbGpuRuntime` ever moves, re-check that the wheel still matches.
+
 ### Fabric E2E is disabled
 
 `FabricE2E` is `condition: false`. Fabric's managed runtime has no Spark 4.0
@@ -216,7 +225,12 @@ branch is superseded by `spark4.1`.
   does not produce.
 - **petastorm / horovod cloudpickle shims** (`_horovod.py`,
   `_petastorm_compat.py`) — these work around Python 3.13 breakage. This branch
-  is on 3.12 and its deep-learning tests pass without them.
+  is on 3.12 and its deep-learning tests pass without them. Note the narrowness
+  of that claim: it covers the shims only. The *notebooks* in the same area did
+  need 4.1's change, because the horovod wheel they install is chosen by the GPU
+  runtime's PyTorch rather than by Python version. Treat "do not port the shims"
+  and "this branch needs nothing from 4.1's deep-learning work" as different
+  statements — the second one is false.
 - **`numpy` left unpinned** — 4.1 must, because 1.26.4 has no 3.13 wheels. Here
   1.26.4 both has cp312 wheels and stays below the NumPy 2.0 ABI break that
   `pandas` 2.0.3 cannot tolerate, so it is pinned deliberately.
