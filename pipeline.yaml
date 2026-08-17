@@ -1588,9 +1588,18 @@ jobs:
 
         # A dirty tree here would silently reintroduce the drift, so fail loudly
         # rather than hand the next steps a version that changes under them.
-        if [ -n "$(git diff-index --name-only HEAD --)" ]; then
-          echo "##vso[task.logissue type=error]Internal tree still dirty after commit; dynver will append a wall-clock timestamp and the published and requested versions will diverge"
-          git diff-index --name-only HEAD --
+        #
+        # Test git's exit status, not whether its output is empty. 'diff-index
+        # --name-only' prints nothing and exits 128 when git itself fails (unborn
+        # HEAD, unreadable index), which is indistinguishable from a clean tree if
+        # you only look at stdout - so an emptiness test would wave through exactly
+        # the broken state this guard exists to catch. '--quiet' exits non-zero for
+        # both "dirty" and "git failed", and neither is safe to continue from.
+        # An 'if' condition is exempt from 'set -e', and the diagnostic below is
+        # guarded so a failing git cannot abort the step before the explicit exit.
+        if ! git diff-index --quiet HEAD --; then
+          echo "##vso[task.logissue type=error]Internal tree still dirty after commit (or git could not read it); dynver will append a wall-clock timestamp and the published and requested versions will diverge"
+          git diff-index --name-only HEAD -- || true
           exit 1
         fi
         echo "=== Internal version is now stable for the rest of the job ==="
