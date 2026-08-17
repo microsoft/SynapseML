@@ -42,7 +42,9 @@ of re-deriving it from whatever tree they happen to have open.
 
 - Spark 4 uses Scala 2.13 and Java 17-era tooling, so generated Python lands in
   `target/scala-2.13/generated/src/python/` rather than master's `scala-2.12`
-  path. `tools/docker/*/Dockerfile` set `JAVA_HOME` to Java 17. `pipeline.yaml`
+  path. The `tools/docker/*/Dockerfile` files set `JAVA_HOME` to Java 17 on
+  both Spark 4 branches, where master sets Java 11 — check the branch, not
+  master, if you are verifying this. `pipeline.yaml`
   drops master's `-XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled` from
   `SBT_OPTS`: CMS was removed in Java 17 and the JVM refuses to start with those
   flags, so a sync that restores them fails before any test runs.
@@ -277,6 +279,7 @@ updated. Measured values:
 | `environment.dev.yml` (`openjdk`) | no file | 17 | 17 |
 | `templates/java_setup.yml` (`versionSpec`) | no file | 17 | 17 |
 | `pipeline.yaml` (`JAVA_VERSION`, ReleaseBranchCompat) | 17 | absent | 17 |
+| `tools/docker/*/Dockerfile` (`JAVA_HOME`) | 11 | 17 | 17 |
 
 Two things in that table are not typos. `spark4.0`'s GitHub workflow pins JDK
 11 while the rest of the branch is on 17, so do not assume the workflow proves
@@ -286,13 +289,15 @@ ReleaseBranchCompat matrix, which is a separate follow-up.
 
 `templates/java_setup.yml` is the pin that CI jobs consume. On `spark4.0` it is
 included by the `Style` job; on `spark4.1` the file exists but nothing includes
-it yet. Master gained the file only via
-[#2652](https://github.com/microsoft/SynapseML/pull/2652), which set it to 11 —
-master's already-effective JDK, measured from a build that echoes
-`java -version` — and included it from the InternalCompat job so that job stops
-compiling Spark 4 code on master's JDK.
+it yet. Master does **not** have the file at the time of writing: it arrives
+with [#2652](https://github.com/microsoft/SynapseML/pull/2652), which sets it to
+11 — master's already-effective JDK, measured from a build that echoes
+`java -version` — and includes it from the InternalCompat job so that job stops
+compiling Spark 4 code on master's JDK. If that PR has not merged yet, expect
+the file to be absent on master and the table row above to read "no file";
+confirm with `git show ms/master:templates/java_setup.yml`.
 
-**Conflict rule: on the first sync after #2652, `templates/java_setup.yml`
+**Conflict rule: on the first sync after #2652 merges, `templates/java_setup.yml`
 conflicts add/add and git leaves markers. Always keep the branch's own 17.**
 Taking master's side is the intuitive resolution and the wrong one: it silently
 drops the branch to Java 11 and reintroduces `Class java.lang.Record not found`.

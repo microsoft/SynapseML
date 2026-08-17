@@ -41,14 +41,14 @@ templatized version of the branch context from
   than reported. Do not check `master` to confirm that, because `master` has
   the normal `and(succeeded(), eq('${{ parameters.testFabricE2E }}', true))` and
   `spark4.0` a third form, `eq('${{ parameters.testFabricE2E }}', true)` with no
-  `succeeded()`. Re-enable only in a dedicated PR: restore `master`'s form,
-  drop the stale comment, request Spark 4.1 in workspace creation, and validate
-  with real Fabric capacity/service connection. Do it as its own PR, where the
-  pipeline run *is* the test, rather than folding it into a sync: a Fabric
-  provisioning failure would otherwise block an unrelated merge. The
-  workspace-creation
-  payload lives in the Fabric test package's `FabricOperations.scala`, which
-  hardcodes `'SparkVersion': '3.5'` and must request `'4.1'`. That value is
+  `succeeded()`. Re-enable only in a dedicated PR, where the pipeline run *is*
+  the test, rather than folding it into a sync: a Fabric provisioning failure
+  would otherwise block an unrelated merge. That PR should restore `master`'s
+  form, drop the stale comment, request Spark 4.1 in workspace creation, and
+  validate against real Fabric capacity and service connection. The
+  workspace-creation payload lives in the Fabric test package's
+  `FabricOperations.scala`, which hardcodes `'SparkVersion': '3.5'` and must
+  request `'4.1'`. That value is
   hardcoded identically on `master`, `spark4.0` and `spark4.1`, so changing it
   here does not alter master's behaviour. It also needs a Fabric capacity in the
   `sempy-integration-region` that can provision Runtime 2.0 workspaces, and the
