@@ -75,7 +75,16 @@ is complete and green.
 - Follow the Spark and performance gates in
   [references/spark-performance.md](references/spark-performance.md).
 - Reply in the existing thread with the fix and evidence, then resolve it.
-  Re-audit after every push because new Copilot comments may appear.
+- Re-audit after every push. Automated review is asynchronous and re-runs per
+  commit, so auditing immediately after pushing reads the *previous* review and
+  reports a false all-clear. Wait until the newest automated review's commit
+  equals the pushed head, then audit; poll rather than checking once.
+- Suppressed comments are not review threads. They appear only inside a
+  collapsed section of the review body, so a `reviewThreads` query returns zero
+  while they exist, and they have no thread to reply to or resolve. Read every
+  automated review body for the current head, and address them in the follow-up
+  commit message or a PR comment. Treat them as ordinary findings: they are
+  suppressed for confidence, not for correctness.
 
 ### 5. Add proof-oriented tests
 

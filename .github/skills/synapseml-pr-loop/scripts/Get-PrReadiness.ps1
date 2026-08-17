@@ -6,9 +6,18 @@
     and review bodies containing suppressed comments. Review threads and reviews
     are fully paginated, and the emitted `completeness` object reports page
     counts plus any thread whose comments were truncated, so an incomplete
-    snapshot is visible rather than silent. It does not make the readiness
-    decision; use the skill's evidence gates for that judgment. Output can
-    contain review content; keep it local or redact it before sharing.
+    snapshot is visible rather than silent.
+
+    Automated review is asynchronous, so a snapshot taken right after a push
+    describes the previous head and can report zero findings for code nobody has
+    reviewed yet. `automatedReviewCoversHead` compares the newest automated
+    review's commit with the current head and gates `complete`, and
+    `suppressedReviewBodiesForHead` narrows suppressed feedback to that head.
+    Poll until it is true rather than trusting a single clean snapshot.
+
+    It does not make the readiness decision; use the skill's evidence gates for
+    that judgment. Output can contain review content; keep it local or redact it
+    before sharing.
 #>
 param(
     [Parameter(Mandatory)]
@@ -179,6 +188,18 @@ $results = @(foreach ($number in $PullRequest) {
         }
     })
 
+    $automatedReviews = @($reviewPage.nodes | Where-Object {
+        $_.author.login -and $_.author.login -imatch 'copilot'
+    })
+    $latestAutomated = $automatedReviews |
+        Where-Object { $_.submittedAt } |
+        Sort-Object { [datetime]$_.submittedAt } |
+        Select-Object -Last 1
+    $automatedReviewCoversHead =
+        [bool]($latestAutomated -and $latestAutomated.commit.oid -eq $view.headRefOid)
+    $suppressedForHead = @($suppressed |
+        Where-Object { $_.commit -eq $view.headRefOid })
+
     [pscustomobject]@{
         number = $view.number
         title = $view.title
@@ -197,13 +218,17 @@ $results = @(foreach ($number in $PullRequest) {
         pendingChecks = $pendingChecks
         unresolvedThreads = $unresolved
         suppressedReviewBodies = $suppressed
+        suppressedReviewBodiesForHead = $suppressedForHead
         completeness = [pscustomobject]@{
             reviewThreadPages = $threadPage.pages
             reviewThreadCount = $threads.Count
             reviewPages = $reviewPage.pages
             reviewCount = @($reviewPage.nodes).Count
             threadsWithUnreadComments = $truncatedThreadComments
-            complete = ($truncatedThreadComments.Count -eq 0)
+            latestAutomatedReviewCommit = $latestAutomated.commit.oid
+            latestAutomatedReviewAt = $latestAutomated.submittedAt
+            automatedReviewCoversHead = $automatedReviewCoversHead
+            complete = ($truncatedThreadComments.Count -eq 0 -and $automatedReviewCoversHead)
         }
     }
 })
