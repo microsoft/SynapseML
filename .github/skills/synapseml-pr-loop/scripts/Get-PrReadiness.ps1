@@ -7,7 +7,8 @@
     are fully paginated, and the emitted `completeness` object reports page
     counts plus any thread whose comments were truncated, so an incomplete
     snapshot is visible rather than silent. It does not make the readiness
-    decision; use the skill's evidence gates for that judgment.
+    decision; use the skill's evidence gates for that judgment. Output can
+    contain review content; keep it local or redact it before sharing.
 #>
 param(
     [Parameter(Mandatory)]
@@ -36,6 +37,7 @@ query($owner: String!, $name: String!, $number: Int!, $cursor: String) {
       reviewThreads(first: 100, after: $cursor) {
         pageInfo { hasNextPage endCursor }
         nodes {
+          id
           isResolved
           isOutdated
           path
@@ -88,6 +90,7 @@ function Invoke-PagedQuery {
     $pages = 0
 
     do {
+        $requestCursor = $cursor
         $ghArgs = @("api", "graphql", "-f", "query=$Query",
                     "-F", "owner=$Owner", "-F", "name=$Name", "-F", "number=$Number")
         if ($cursor) { $ghArgs += @("-F", "cursor=$cursor") }
@@ -97,22 +100,34 @@ function Invoke-PagedQuery {
             throw "$Description failed for PR #$Number"
         }
 
-        $connection = & $Select (($text | ConvertFrom-Json).data.repository.pullRequest)
+        $response = $text | ConvertFrom-Json
+        if ($response.errors) {
+            $messages = @($response.errors | ForEach-Object { $_.message }) -join "; "
+            throw "$Description returned GraphQL errors for PR #${Number}: $messages"
+        }
+        $pullRequest = $response.data.repository.pullRequest
+        if (-not $pullRequest) {
+            throw "$Description returned no pull request data for PR #$Number"
+        }
+        $connection = & $Select $pullRequest
+        if (-not $connection -or -not $connection.pageInfo) {
+            throw "$Description returned an incomplete connection for PR #$Number"
+        }
         $nodes += @($connection.nodes)
         $cursor = $connection.pageInfo.endCursor
         $hasNext = $connection.pageInfo.hasNextPage
         $pages++
 
         # Guard against a cursor that never advances rather than looping forever.
-        if ($hasNext -and -not $cursor) {
-            throw "$Description reported more pages but returned no cursor for PR #$Number"
+        if ($hasNext -and (-not $cursor -or $cursor -eq $requestCursor)) {
+            throw "$Description reported more pages without advancing the cursor for PR #$Number"
         }
     } while ($hasNext)
 
     [pscustomobject]@{ nodes = $nodes; pages = $pages }
 }
 
-$results = foreach ($number in $PullRequest) {
+$results = @(foreach ($number in $PullRequest) {
     $jsonFields = "number,title,state,isDraft,mergeable,mergeStateStatus,reviewDecision," +
         "headRefOid,baseRefName,statusCheckRollup,url"
     $viewText = & gh pr view $number --repo $Repo --json $jsonFields
@@ -139,7 +154,7 @@ $results = foreach ($number in $PullRequest) {
     $compare = $compareText | ConvertFrom-Json
 
     $failedChecks = @($view.statusCheckRollup | Where-Object {
-        $_.conclusion -in @("FAILURE", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED") -or
+        $_.conclusion -in @("FAILURE", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED", "STALE") -or
         $_.state -in @("ERROR", "FAILURE")
     } | ForEach-Object { if ($_.name) { $_.name } else { $_.context } })
 
@@ -191,6 +206,6 @@ $results = foreach ($number in $PullRequest) {
             complete = ($truncatedThreadComments.Count -eq 0)
         }
     }
-}
+})
 
-$results | ConvertTo-Json -Depth 12
+ConvertTo-Json -InputObject $results -Depth 12

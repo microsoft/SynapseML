@@ -25,7 +25,7 @@ behavior separately.
 The same failure occurs on the target SHA or is unrelated to every changed path.
 
 Action: collect comparable target/head evidence. Do not silently ignore it; link
-the owner issue or repair it when tightly coupled.
+the tracking issue or repair it when tightly coupled.
 
 ## Infrastructure failure
 

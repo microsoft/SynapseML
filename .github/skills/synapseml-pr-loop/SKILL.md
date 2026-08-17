@@ -35,7 +35,8 @@ is complete and green.
   but identify overlapping files and required merge order first.
 - Run
   [scripts/Get-PrReadiness.ps1](scripts/Get-PrReadiness.ps1)
-  with `-PullRequest <numbers>` and retain its JSON as the initial snapshot.
+  with `-PullRequest <numbers>` and retain its JSON locally as the initial
+  snapshot. It can contain review text; redact it before public sharing.
 
 ### 2. Integrate the current target
 
