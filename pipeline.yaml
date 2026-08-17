@@ -1384,9 +1384,11 @@ jobs:
   # JVM the tests fork -- per-command flags reach none of those. spark4.0's
   # pipeline already uses JAVA_TOOL_OPTIONS this way for the same reason.
   #
-  # Set unconditionally rather than only for Spark 4: --add-opens has existed
-  # since Java 9 and an unknown module is a warning, not an error, so this is
-  # inert on master's Java 11. That keeps the value out of a branch conditional.
+  # Set unconditionally rather than only for Spark 4. `java.prefs` has existed
+  # since Java 9, so on master's Java 11 the option is genuinely applied rather
+  # than ignored -- it just opens a package nothing on that path reflects into,
+  # which is harmless. Setting it for every target keeps a branch conditional
+  # out of this file.
   #
   # The one place JVM stderr is parsed is the OSS version read below, and its
   # grep is anchored to '^\[info\] ', which the "Picked up JAVA_TOOL_OPTIONS"
