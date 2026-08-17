@@ -9,7 +9,10 @@ dependencies:
   # Master pins pip=21.3, which predates Python 3.12 support - keep the newer pip.
   - pip=25.2
   - r-base=4.4
-  - r-sparklyr=1.9.3
+  # 1.9.3 loses the Spark connection under dbplyr 2.6 (tidyselect_data_proxy.tbl_spark
+  # returns a proxy with no connection), which fails ml_load and copy_to. 1.9.5 fixes
+  # it; spark4.1 pairs the same r-base=4.4 with 1.9.5 and passes RTests 69/69.
+  - r-sparklyr=1.9.5
   - r-devtools=2.4.5
   - cmake<=3.27
   - openjdk=17

@@ -107,40 +107,64 @@ Do not add new `__init__.py` files that re-list generated classes.
 
 ### R tests
 
-Three things must all hold or the R suites fail in ways that point at the wrong
-culprit. `RCodegenSuite.scala` asserts the first and third cheaply, so a unit
-test catches them instead of a 90-minute pipeline run.
+Several things must all hold or the R suites fail in ways that point at the wrong
+culprit. `RCodegenSuite.scala` asserts the cheap ones, so a unit test catches
+them instead of a 90-minute pipeline run.
+
+**sparklyr must be 1.9.5, not 1.9.3.** This is the one that actually broke
+`RTests core` (21 of 69) and `RTests deep-learning` (3 of 3). Under dbplyr 2.6,
+sparklyr 1.9.3's `tidyselect_data_proxy.tbl_spark` yields a proxy carrying no
+Spark connection, so operations that go through `dplyr::select` on a `tbl_spark`
+lose `sc`. The failure surfaces one or two layers away as `invoke_static` or
+`hive_context` applied to `NULL` — which reads as "the session died" even though
+the session is alive and other tests keep passing around it. Read the *backtrace*,
+not the message: the tell is `dbplyr:::select.tbl_lazy` →
+`sparklyr:::tidyselect_data_proxy.tbl_spark` → `simulate_vars_spark`.
+
+Interleaving is the giveaway. A dead session fails everything after a point;
+this failed 21 tests scattered among 48 passes, with `sar` passing while
+`sar_model` failed. `spark4.1` pins the same `r-base=4.4` with `r-sparklyr=1.9.5`
+and passes 69/69.
 
 **ANSI double-quoted identifiers.** `RTestGen.scala` sets
 `spark.sql.ansi.enabled=true` and `spark.sql.ansi.doubleQuotedIdentifiers=true`.
 sparklyr emits `SELECT 0L AS "class", ...`; without the second flag Spark 4 reads
 `"class"` as a string literal and fails with `PARSE_SYNTAX_ERROR`.
 
-**Connect via `SPARK_HOME`, not a version string.** `RTestGen.scala` generates
-`spark_connect(master = "local", spark_home = Sys.getenv("SPARK_HOME"), ...)`.
-It must not use `version = "4.0"`: sparklyr 1.9.3 has no registered install under
-that name, so the lookup returns nothing and `sc` is silently NULL. The symptom
-is every test failing on `hive_context` applied to NULL, including the bare smoke
-test — which reads as a broken cluster rather than a bad argument. `master` can
-use `version = "3.5.0"` because sparklyr knows that release; this branch cannot.
+**Connect via `SPARK_HOME`.** `RTestGen.scala` generates
+`spark_connect(master = "local", spark_home = Sys.getenv("SPARK_HOME"), ...)`,
+matching `spark4.1` byte for byte. The pipeline exports `SPARK_HOME` (the
+`find ... -name 'spark-*-bin-hadoop*'` line), so `run_r_tests.R` only unsets it
+and installs the tarball when it is absent, which is the local-developer path.
 
-The pipeline exports `SPARK_HOME` (`pipeline.yaml`, the `find ... -name
-'spark-*-bin-hadoop*'` line), so `run_r_tests.R` must not unset it
-unconditionally. It only unsets and installs the tarball when `SPARK_HOME` is
-absent, which is the local-developer path. This branch additionally infers
-`JAVA_HOME` from `PATH` when unset; `spark4.1` has no such block. It is inert
-under CI and only helps local runs.
+To be accurate about what this bought: the previous `version = "4.0"` form also
+worked, because `run_r_tests.R` had already installed the tarball and sparklyr
+resolves an install it made itself. Measured — the R results were identical
+before and after this change. Keep it for the byte-identical alignment with 4.1
+and for skipping a redundant install, but do not expect it to fix a failure.
+This branch additionally infers `JAVA_HOME` from `PATH` when unset; `spark4.1`
+has no such block, and it is inert under CI.
 
 **Load nested stages off the JVM.** `PipelineStageWrappable.rLoadLine` emits
-`sparklyr:::new_ml_pipeline_stage(invoke(spark_jobj(x), "getStages")[[1]])`.
-It must not use `ml_stages(x)[[1]]`, which returns NULL here and surfaces as
-`invoke_static` applied to NULL. `new_ml_pipeline_stage` is sparklyr-internal but
-has an identical signature in every release from v1.8.0 to v1.9.5, so the 1.9.3
-pin is safe. `EstimatorParam`, `ModelParam`, `PipelineStageParam` and
+`sparklyr:::new_ml_pipeline_stage(invoke(spark_jobj(x), "getStages")[[1]])`
+rather than `ml_stages(x)[[1]]`, matching `spark4.1`. `new_ml_pipeline_stage` is
+sparklyr-internal but has an identical signature in every release from v1.8.0 to
+v1.9.5. `EstimatorParam`, `ModelParam`, `PipelineStageParam` and
 `TransformerParam` all inherit this one implementation — do not reintroduce
-per-class overrides.
+per-class overrides, and keep the three `rLoadLine` assertions in
+`VerifyModelParam`/`VerifyPipelineStageParams` in step with it.
+
+Equally, be accurate here: this line is *unproven* on this branch. While sparklyr
+was 1.9.3 the tests died on the preceding `ml_load` call and never reached it, so
+both `ml_stages` and this form produce the same result. It is kept because 4.1
+adopted it deliberately and passes with it.
 
 ### Databricks
+
+The GPU pool is `synapseml-build-14.3-gpu`, **shared with `master` and
+`spark4.1`**. Instance pools are runtime-agnostic, so sharing avoids duplicating
+scarce GPU quota — but the pool holds three workers, so two builds running
+concurrently can exhaust it. Prefer queueing Spark 4 branch builds sequentially.
 
 The GPU pool is `synapseml-build-14.3-gpu`, **shared with `master` and
 `spark4.1`**. Instance pools are runtime-agnostic, so sharing avoids duplicating
