@@ -15,7 +15,11 @@ templatized version of the branch context from
 
 - Keep NumPy 1.26.4 pinned: Python 3.12 has wheels and pandas 2.0.3 is not
   compatible with the NumPy 2 ABI.
-- Do not copy Python 3.13 petastorm/cloudpickle shims without branch evidence.
+- This branch has `_horovod.py` but not `_petastorm_compat.py`, so it uses the
+  plain Horovod `SparkBackend` rather than 4.1's Petastorm-compatible subclass.
+  That gap is real rather than version-driven: the shim restores pyarrow APIs
+  Petastorm still calls, and both branches pin the same pyarrow. See
+  branch-spark4-common.md.
 - `LongOffset` remains under `...execution.streaming`, not `.runtime`.
 - Spark 4.0 returns `bytearray` for Python `BinaryType`; it does not require the
   4.1 `np.frombuffer` workaround.
@@ -30,9 +34,10 @@ templatized version of the branch context from
   would test Spark 4.1 instead of this branch. Revalidate this known gap.
 - Two of four GPU notebooks failing is that gap's expected shape. Check the
   failing count and which notebooks, not the job's red/green, before calling it
-  a regression. `spark4.1`'s petastorm/cloudpickle shims are a plausible second
-  contributor, but that is unproven; do not quote it as the cause without
-  notebook stderr.
+  a regression. The Horovod wheel is the first blocker and it masks the missing
+  Petastorm layer noted above, so fixing the wheel alone should not be expected
+  to turn these notebooks green. Confirm each step from the notebook's stderr
+  output rather than inferring it.
 - Avoid pinning runtime-provided torch/torchvision without a demonstrated need;
   incompatible pins can trigger multi-gigabyte CUDA downgrades and timeouts.
 - A sub-minute GPU notebook failure occurs during dependency setup, before
@@ -44,6 +49,9 @@ templatized version of the branch context from
 ## Do not port from `spark4.1`
 
 - 4.1 `LongOffset` import, BinaryType `np.frombuffer` workaround, Python 3.13
-  shims, unpinned NumPy, or version strings.
+  wheels, unpinned NumPy, or version strings.
 - Fabric Runtime 2.0 enablement.
 - Any runtime/dependency change whose only evidence is a green 4.1 build.
+- The Petastorm compatibility layer is not on this list. It is a back-port
+  candidate, not a 4.1-only change, but it needs validation on real 4.0 rather
+  than adoption on suspicion.

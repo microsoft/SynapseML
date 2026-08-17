@@ -13,9 +13,12 @@ templatized version of the branch context from
 
 ## Core differences
 
-- Python 3.13 requires newer wheels, an intentionally unpinned NumPy, and the
-  petastorm/cloudpickle/Horovod compatibility shims. Preserve explanatory pin
-  comments through syncs.
+- Python 3.13 requires newer wheels and an intentionally unpinned NumPy.
+  Preserve explanatory pin comments through syncs.
+- The Petastorm/Horovod compatibility layer is separate from that: it restores
+  pyarrow APIs Petastorm still calls, which the pinned pyarrow no longer
+  provides. Do not describe it as a Python 3.13 workaround, or `spark4.0` looks
+  exempt when it runs the same pyarrow.
 - `LongOffset` moved to `...execution.streaming.runtime`; the 4.0 import does
   not compile here.
 - Spark 4.1 returns Python `bytes` for `BinaryType`; `ImageTransformer` uses

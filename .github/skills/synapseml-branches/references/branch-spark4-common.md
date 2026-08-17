@@ -49,6 +49,12 @@ against the live target branch.
 - `DatabricksCPUStreamingTests` is unscheduled on both Spark 4 branches, pending
   pool capacity and notebook work. Treat it as a known coverage gap to verify,
   not as an omission to accept silently.
+- Petastorm calls pyarrow APIs the pinned pyarrow no longer ships, so Horovod's
+  Spark backend needs a compatibility layer. Only `spark4.1` has one. This is a
+  library-version problem, not a Python-version one, so a branch on the same
+  pyarrow is not exempt. Deep-learning unit tests will not reveal the gap:
+  without a usable Horovod the estimators are stubbed and the Petastorm path
+  never runs.
 - `/azp run` queues these targets. The ADO pull-request trigger filter allowed
   only `master` until 2026-08-17; it now covers `master`, `spark3.5`,
   `spark4.0` and `spark4.1`, verified by builds recording `reason=pullRequest`
