@@ -20,10 +20,12 @@ import scala.language.existentials
 
 trait HasMessagesInput extends Params {
   val messagesCol: Param[String] = new Param[String](
-    this, "messagesCol", "The column messages to generate chat completions for in chat format. " +
+    this, "messagesCol", "The column of messages to send to the OpenAI service. " +
       "The column should have type Array(Struct(role: String, content: String or Array of content parts)). " +
-      "Structured content parts are structs matching either {\"type\":\"text\",\"text\":\"...\"} or " +
-      "{\"type\":\"image_url\",\"image_url\":{\"url\":\"...\",\"detail\":\"...\"}}; detail is optional.")
+      "Chat Completions structured parts match either {\"type\":\"text\",\"text\":\"...\"} or " +
+      "{\"type\":\"image_url\",\"image_url\":{\"url\":\"...\",\"detail\":\"...\"}}. Responses structured parts " +
+      "match {\"type\":\"input_text\",\"text\":\"...\"} or " +
+      "{\"type\":\"input_image\",\"image_url\":\"...\",\"detail\":\"...\"}; detail is optional.")
 
   def getMessagesCol: String = $(messagesCol)
 
