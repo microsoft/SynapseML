@@ -102,13 +102,18 @@ is complete and green.
 
 ### 7. Run and triage full CI
 
-- Push the exact validated head, then trigger Azure Pipelines and confirm a
-  build actually queued. `/azp run` only works when the pipeline definition's
-  own pull-request trigger covers the target branch; that trigger is defined in
-  the pipeline UI and can ignore the `pr:` block in `pipeline.yaml`. When the
-  target is not covered, `/azp run` reports nothing and no build starts, so
-  queue one explicitly against `refs/pull/<number>/merge` instead. Never treat
-  a comment as evidence that CI ran -- cite the build ID.
+- Push the exact validated head, comment `/azp run`, then confirm a build
+  actually queued -- a comment is not evidence that CI ran, so cite the build
+  ID. A trigger-driven build records `reason=pullRequest`; one you queued
+  yourself records `reason=manual`, which is the quickest way to tell whether
+  the trigger really fired or you merely re-ran it by hand.
+- If no build appears, check the pipeline definition's own pull-request trigger
+  rather than assuming a transient failure. That trigger can be defined in the
+  pipeline UI, in which case it overrides the `pr:` block in `pipeline.yaml`
+  entirely and silently ignores targets the YAML lists. Read its branch filters
+  through the definitions API. Until the filter is corrected, queue explicitly
+  against `refs/pull/<number>/merge` -- never `refs/heads/<branch>`, which
+  validates the branch instead of the merge result.
 - Inspect every failed, canceled, skipped, and pending job. Use
   [references/ci-triage.md](references/ci-triage.md) to separate product
   defects, test defects, baseline failures, and infrastructure failures.

@@ -40,9 +40,12 @@ against the live target branch.
   and use sibling-branch timing/results as a control before blaming capacity.
 - `areLibrariesInstalled == false` can mean install timeout rather than a
   failed library. Read statuses and notebook duration before classifying it.
-- `/azp run` historically did not queue these targets because the ADO UI filter
-  allowed only `master`. Verify live behavior; otherwise queue the PR merge ref,
-  never `refs/heads/<branch>`.
+- `/azp run` queues these targets. The ADO pull-request trigger filter allowed
+  only `master` until 2026-08-17; it now covers `master`, `spark3.5`,
+  `spark4.0` and `spark4.1`, verified by builds recording `reason=pullRequest`
+  rather than `reason=manual`. If a comment produces no build, re-read the
+  definition's trigger filter before assuming flakiness, and fall back to
+  queueing the PR merge ref, never `refs/heads/<branch>`.
 - GitHub checks compile/lint but do not replace full Azure, Databricks, native,
   R, or service validation.
 - Intermittent ONNX OOM and R package HTTP failures require log evidence and a
