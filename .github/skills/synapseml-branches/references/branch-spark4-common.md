@@ -63,6 +63,12 @@ of re-deriving it from whatever tree they happen to have open.
   with each other and with the pins they sit next to.
 - Scala 2.13 collection boundaries must produce immutable `Seq` values; keep
   the central `asImmutableCollection` conversion rather than per-service fixes.
+  The failure mode is why this matters: code that yields a `mutable.ArraySeq`
+  where an `immutable.Seq` is expected throws `ClassCastException` **at runtime,
+  not at compile time**, so a green compile proves nothing and the break surfaces
+  one or two layers away from its cause. `CognitiveServiceBase.getValueOpt`
+  converts once, centrally, using `toIndexedSeq` — chosen over `toList` because
+  it preserves O(1) indexing.
 - Preserve the Spark 4 adaptations. In `SAR.scala`/`SARModel.scala` the affinity
   pairs use a named `case class` with explicit struct fields because Spark 4
   rejects the old `Seq[Row]` UDF shape with `UnboundRowEncoder`, and the join
@@ -152,13 +158,46 @@ of re-deriving it from whatever tree they happen to have open.
   Read statuses and notebook duration before classifying it.
 - `DatabricksCPUStreamingTests` exists only on the Spark 4 branches, and whether
   it is scheduled varies by branch — read `pipeline.yaml` on the branch you are
-  working on rather than assuming. It is a separate class because the streaming
-  notebook's `server.stop()` cancels concurrent SparkContext jobs, so it needs its
-  own cluster instead of a slot on an existing leg, which is why scheduling it
-  costs pool capacity. The in-repo comment attributes that behaviour to Spark 4.0
-  and it has not been re-confirmed on 4.1. If a sync drops its leg while leaving
-  the class defined, that is lost coverage rather than a cleanup: the class is
-  still there, so nothing fails to compile and nothing reports the gap.
+  working on rather than assuming. As measured on 2026-08-17, only live
+  `spark4.0` gives it a leg, and it got one in the original port commit
+  `b76c391be4`; `master` and `spark4.1` leave the class defined but unscheduled
+  pending pool capacity and a notebook fix. A sync from master therefore drops
+  that leg on `spark4.0`, which converges the three branches rather than
+  regressing one — but record it as a decision, because nothing reports it. It
+  is a separate class because the streaming notebook's `server.stop()` cancels
+  concurrent SparkContext jobs, so it needs its own cluster instead of a slot on
+  an existing leg, which is why scheduling it costs pool capacity. The in-repo
+  comment attributes that behaviour to Spark 4.0 and it has not been
+  re-confirmed on 4.1. If a sync drops the leg while leaving the class defined,
+  nothing fails to compile and nothing reports the gap, so check deliberately.
+- The Databricks GPU suite was split and then deliberately re-merged, and the
+  history matters because `spark4.0` still carries the abandoned shape. #2538
+  split it into `DatabricksGPUTests1/2/3`, each building its own cluster with two
+  workers and running exactly one notebook via `gpuNotebook(0)`, `(1)`, `(2)`.
+  #2573 (`fix: restore SynapseML Azure pipeline`) reverted that to a single
+  `DatabricksGPUTests` because the split could not fit: three clusters times two
+  workers needs six GPU nodes, against a pool holding
+  `GpuWorkersPerRun` 1 x `GpuConcurrentRuns` 3 = three. Master's current form
+  runs the whole `GPUNotebooks` set on one cluster sized at `GpuWorkersPerRun`
+  (one worker, so concurrent builds can share the pool), pins the driver to the
+  **CPU** pool (`driverInstancePoolId = Some(PoolId)`) so it does not consume a
+  GPU node, and rather than failing on a starved pool waits for one through
+  `createActiveCluster` with `maxAttempts = Int.MaxValue` and
+  `maxRetryDurationMs` of three hours. `SYNAPSEML_GPU_SMOKE_TESTS` passes
+  `synapseml_ci_smoke` through to the notebooks, and the job takes a 300-minute
+  timeout to absorb the sequential run. Read the file rather than this paragraph
+  for the mechanism: it changed between #2573 and now, and an earlier draft of
+  this bullet described the #2573 snapshot as if it were current.
+- Prefer the consolidated form on every branch, and never restore the split
+  during a sync. Its indices are hardcoded, so it tests exactly three notebooks
+  no matter how many exist: at the time of writing `master` and `spark4.1` have
+  four GPU notebooks (`Fine-tune`/`Phi Model` matches) while live `spark4.0` has
+  three, so the split covers `spark4.0` today and would silently skip index 3 —
+  `Quickstart - End-to-end Local RAG with Phi Model` — the moment a sync brings
+  master's fourth notebook in. `DatabricksGPUTests` reads `GPUNotebooks` whole
+  and cannot drift that way. #2646 already lands exactly this: the merged
+  `DatabricksGPUTests.scala` is byte-identical to master's and the branch picks
+  up the fourth notebook, so `spark4.0` needs no separate change.
 - Petastorm calls pyarrow APIs the pinned pyarrow no longer ships, so Horovod's
   Spark backend needs a compatibility layer. Only `spark4.1` has one. This is a
   library-version problem, not a Python-version one, so a branch on the same
@@ -168,15 +207,35 @@ of re-deriving it from whatever tree they happen to have open.
 - `/azp run` queues these targets. The ADO pull-request trigger filter allowed
   only `master` until 2026-08-17; it now covers `master`, `spark3.5`,
   `spark4.0` and `spark4.1`, verified by builds recording `reason=pullRequest`
-  rather than `reason=manual`. If a comment produces no build, re-read the
+  and `requestedFor=GitHub` rather than `reason=manual`. Those two fields are
+  the reliable way to tell a trigger-driven run from one you queued by hand. If
+  a comment produces no build, re-read the
   definition's trigger filter before assuming flakiness, and fall back to
   queueing the PR merge ref (`refs/pull/<N>/merge`), never
   `refs/heads/<branch>`, which fails service-connection authorization.
 - GitHub checks compile/lint but do not replace full Azure, Databricks, native,
   R, or service validation.
-- Intermittent ONNX OOM (`ImageFeaturizerSuite`) and R package HTTP failures
+- Intermittent ONNX OOM (`OutOfMemoryError` in `ImageFeaturizerSuite`, under the
+  `UnitTests onnx` leg) and R package HTTP failures
   (a conda `HTTP 403` in `RTests vw`) require log evidence and a controlled
   rerun; they are not automatic product regressions or exemptions.
+
+## Hand-written `__init__.py` files
+
+`PythonInitMerger` came from master and **preserves** hand-written `__init__.py`
+content by splicing it after the generated imports. Codegen previously
+overwrote these files, so their contents were inert; they are now live code in
+the shipped package, which makes a stale one a real bug rather than dead text.
+This is why the Spark 4 branches had to audit them.
+
+| Path | State | Why |
+| --- | --- | --- |
+| `core/.../io/http/__init__.py` | must stay empty | It listed `HTTPFunctions` and `ServingFunctions`, which are modules of free functions with no same-named class, so the import failed and broke `PythonTests core` plus seven website-sample docs. |
+| `vw/`, `services/openai/` | removed | Duplicated what codegen already emits, and redefined `__all__`, narrowing `import *` to a hand-maintained list. |
+| `recommendation/`, `dl/`, `hf/`, `cognitive/`, `mmlspark/` | kept | These add exports codegen does not emit. |
+
+Do not add new `__init__.py` files that re-list generated classes.
+`test_http_package.py` and `test_package_exports.py` guard this.
 
 ## Before merging a sync
 
