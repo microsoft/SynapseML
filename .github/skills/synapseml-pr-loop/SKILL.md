@@ -4,7 +4,7 @@ description: Make one or more SynapseML issues or pull requests evidence-based m
 compatibility: SynapseML repository with git, GitHub CLI, PowerShell, WSL/Linux, sbt, Python, and network access to GitHub/Azure Pipelines.
 ---
 
-# SynapseML merge-ready workflow
+# SynapseML PR loop
 
 Treat "5/5" or "200%" as an evidence standard, never a literal guarantee.
 The exit condition is: the requested value is proven through the public API,
@@ -16,7 +16,8 @@ is complete and green.
 ### 1. Establish scope and isolation
 
 - Read the issue, PR body, linked work items, commit history, changed files,
-  active threads, and review bodies containing suppressed comments.
+  and every review thread/body, including resolved, outdated, minimized, and
+  suppressed comments. Verify prior resolutions rather than trusting status.
 - Give each PR a dedicated worktree and branch. Parallelize independent PRs,
   but identify overlapping files and required merge order first.
 - Run
@@ -38,6 +39,8 @@ is complete and green.
   behavior, compatibility contract, and measurable acceptance criteria.
 - Trace the real public path: Scala stage, generated/hand-written Python,
   schema, serialization, persistence, service/native boundary, and packaging.
+- Confirm the published package actually contains the capability; local jars,
+  custom natives, or provider discovery do not prove that users receive it.
 - Establish a baseline when failures, performance, or external systems are
   involved. A passing new test is insufficient if the old behavior was never
   shown to fail.
@@ -49,6 +52,8 @@ is complete and green.
   language surfaces that share the same serializer, schema, parameter, or
   native/service path.
 - Preserve public JVM and serialized compatibility unless explicitly approved.
+- Update user-facing documentation/examples for changed public behavior. Edit
+  Scala sources rather than generated files under `target/`.
 - Follow the Spark and performance gates in
   [references/spark-performance.md](references/spark-performance.md).
 - Reply in the existing thread with the fix and evidence, then resolve it.
@@ -64,6 +69,8 @@ is complete and green.
 - Use real hardware, native libraries, clusters, network families, or services
   when the claim depends on them. Do not infer capability from configuration or
   provider discovery alone.
+- Before external service tests, audit resource creation/deletion and use only
+  authorized test resources.
 
 ### 6. Validate locally and across branches
 
