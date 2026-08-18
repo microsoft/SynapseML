@@ -530,9 +530,9 @@ trait HasOpenAIFabricHeaders extends HasCognitiveServiceInput {
             "runtime" -> fabricRuntime
           ).toJson.compactPrint
       )
-      val serviceOwnedHeaders = headers.map(ServiceAuthHeaders.sanitizeHeaderMap).getOrElse(Map.empty)
+      val remainingHeaders = headers.map(ServiceAuthHeaders.sanitizeHeaderMap).getOrElse(Map.empty)
         .filterNot { case (name, _) => fabricHeaders.keys.exists(_.equalsIgnoreCase(name)) }
-      Some(serviceOwnedHeaders ++ fabricHeaders)
+      Some(remainingHeaders ++ fabricHeaders)
     } else {
       headers
     }
