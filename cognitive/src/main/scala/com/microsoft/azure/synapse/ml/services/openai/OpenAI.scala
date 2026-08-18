@@ -509,6 +509,8 @@ trait HasOpenAIFabricHeaders extends HasCognitiveServiceInput {
   self: OpenAIServicesBase =>
 
   private val extendedPropertiesHeader = "X-Taxonomy-ExtendedProperties"
+  private val trafficTypeHeader = "X-Taxonomy-TrafficType"
+  private val serviceTierHeader = "x-llm-service-tier"
 
   private def usingImplicitFabricEndpoint: Boolean = {
     val hasCustomUrlRoot = get(customUrlRoot).nonEmpty
@@ -518,17 +520,19 @@ trait HasOpenAIFabricHeaders extends HasCognitiveServiceInput {
   abstract override protected def getCustomHeaders(row: Row): Option[Map[String, String]] = {
     val headers = super.getCustomHeaders(row)
     if (usingImplicitFabricEndpoint) {
-      val serviceOwnedHeaders = headers.map(ServiceAuthHeaders.sanitizeHeaderMap).getOrElse(Map.empty)
-        .filterNot { case (name, _) => name.equalsIgnoreCase(extendedPropertiesHeader) }
-      Some(
-        serviceOwnedHeaders.updated(
-          extendedPropertiesHeader,
+      // SynapseML owns the complete workload classification on its implicit Fabric endpoint.
+      val fabricHeaders = Map(
+        trafficTypeHeader -> "Background",
+        serviceTierHeader -> "flex",
+        extendedPropertiesHeader ->
           Map(
             "feature" -> "synapseml",
             "runtime" -> fabricRuntime
           ).toJson.compactPrint
-        )
       )
+      val serviceOwnedHeaders = headers.map(ServiceAuthHeaders.sanitizeHeaderMap).getOrElse(Map.empty)
+        .filterNot { case (name, _) => fabricHeaders.keys.exists(_.equalsIgnoreCase(name)) }
+      Some(serviceOwnedHeaders ++ fabricHeaders)
     } else {
       headers
     }
