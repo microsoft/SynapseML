@@ -70,6 +70,18 @@ class ValidationDataServerLifecycleSuite extends TestBase {
     }
   }
 
+  test("ingest waits for DataFrame partitions rather than the requested training task count") {
+    val spool = scratchDirectory("ingest-partition-count")
+    val server = ValidationDataServer.create(
+      spark.range(0L, 2L, 1L, 2).toDF(), host, 4, timeoutSeconds, spool, ValidationDataServerResourceFactory.Default)
+    try {
+      assert(server.params.rowCount == 2L)
+    } finally {
+      try server.close()
+      finally deleteIfPresent(spool)
+    }
+  }
+
   test("ingest executor construction failure closes its socket and deletes the spool") {
     val spool = scratchDirectory("ingest-executor-failure")
     val resources = new DelegatingResources {

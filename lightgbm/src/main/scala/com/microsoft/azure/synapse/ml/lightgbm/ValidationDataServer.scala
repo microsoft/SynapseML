@@ -320,7 +320,8 @@ private[lightgbm] object ValidationDataServer {
     var spoolTransferred = false
     NetworkManagerSocketSupport.withCleanupPreservingPrimary(
       if (!spoolTransferred) deleteSpoolDirectory(spoolDirectory)) {
-      val result = ingest(validationData, host, partitionCount, timeoutSeconds, spoolDirectory, resources)
+      val ingestPartitionCount = validationData.rdd.getNumPartitions
+      val result = ingest(validationData, host, ingestPartitionCount, timeoutSeconds, spoolDirectory, resources)
       val partitionFiles = Option(spoolDirectory.listFiles()).getOrElse(Array.empty)
         .filter(_.getName.startsWith("part-"))
         .sortBy(file => file.getName.stripPrefix("part-").toInt)
