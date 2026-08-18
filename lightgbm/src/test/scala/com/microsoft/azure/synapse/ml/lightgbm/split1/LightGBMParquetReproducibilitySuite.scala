@@ -40,7 +40,14 @@ class LightGBMParquetReproducibilitySuite extends LightGBMTestUtils {
       .setOutputCol(featuresCol)
       .transform(indexed)
       .select("id", labelCol, weightCol, initScoreCol, featuresCol)
-      .orderBy(rand())
+  }
+
+  private def makeNondeterministicData(): DataFrame = spark.range(0, 10).select(col("id")).orderBy(rand())
+
+  private def canonicalTrainingLayout(data: DataFrame): DataFrame = {
+    data.repartition(numPartitions, col("id"))
+      .sortWithinPartitions("id")
+      .persist(StorageLevel.MEMORY_AND_DISK)
   }
 
   private def estimator: LightGBMClassifier = {
@@ -83,7 +90,7 @@ class LightGBMParquetReproducibilitySuite extends LightGBMTestUtils {
   }
 
   test("Deterministic training warns about Spark lineage and LightGBM histogram selection") {
-    val assembled = makeTrainingData()
+    val assembled = makeNondeterministicData()
     assert(!assembled.queryExecution.optimizedPlan.deterministic)
 
     val probe = new ReproducibilityProbe()
@@ -140,53 +147,43 @@ class LightGBMParquetReproducibilitySuite extends LightGBMTestUtils {
   }
 
   test("Parquet round trips preserve deterministic LightGBM training inputs and outputs") {
-    val assembled = makeTrainingData().persist(StorageLevel.MEMORY_AND_DISK)
+    val assembled = makeTrainingData()
+    val parquetPath = tmpDir.resolve("lightgbm-parquet-reproducibility").toString
+    assembled.write.mode("overwrite").parquet(parquetPath)
+    val reloaded = spark.read.parquet(parquetPath)
+
+    // Match physical row and partition order so this comparison isolates Parquet encoding.
+    val memoryTraining = canonicalTrainingLayout(assembled)
+    val parquetTraining = canonicalTrainingLayout(reloaded)
     try {
-      assert(assembled.count() === 500)
-
-      val parquetPath = tmpDir.resolve("lightgbm-parquet-reproducibility").toString
-      assembled.write.mode("overwrite").parquet(parquetPath)
-      val reloaded = spark.read.parquet(parquetPath)
-
-      val memoryRows = assembled.orderBy("id").collect()
-      val parquetRows = reloaded.orderBy("id").collect()
+      val memoryRows = memoryTraining.orderBy("id").collect()
+      val parquetRows = parquetTraining.orderBy("id").collect()
+      assert(memoryRows.length === 500)
       assert(memoryRows.sameElements(parquetRows))
       assert(assembled.schema.map(field => field.name -> field.metadata.json) ===
         reloaded.schema.map(field => field.name -> field.metadata.json))
       assert(AttributeGroup.fromStructField(assembled.schema(featuresCol)) ===
         AttributeGroup.fromStructField(reloaded.schema(featuresCol)))
-      assert(assembled.select(featuresCol).collect().map(_.getAs[Vector](0).getClass.getName).toSet ===
-        reloaded.select(featuresCol).collect().map(_.getAs[Vector](0).getClass.getName).toSet)
+      assert(memoryTraining.select(featuresCol).collect().map(_.getAs[Vector](0).getClass.getName).toSet ===
+        parquetTraining.select(featuresCol).collect().map(_.getAs[Vector](0).getClass.getName).toSet)
 
-      // Match physical row and partition order so this comparison isolates Parquet encoding.
-      val memoryTraining = assembled.repartition(numPartitions, col("id")).sortWithinPartitions("id")
-        .persist(StorageLevel.MEMORY_AND_DISK)
-      val parquetTraining = reloaded.repartition(numPartitions, col("id")).sortWithinPartitions("id")
-        .persist(StorageLevel.MEMORY_AND_DISK)
-      try {
-        assert(memoryTraining.count() === 500)
-        assert(parquetTraining.count() === 500)
+      val forcedEstimator = estimator.setPassThroughArgs("force_col_wise=true")
+      val memoryModels = Array.fill(2)(forcedEstimator.fit(memoryTraining))
+      val parquetModels = Array.fill(2)(forcedEstimator.fit(parquetTraining))
+      val nativeModels = (memoryModels ++ parquetModels).map(_.getNativeModel())
+      assert(nativeModels.distinct.length === 1)
 
-        val forcedEstimator = estimator.setPassThroughArgs("force_col_wise=true")
-        val memoryModels = Array.fill(2)(forcedEstimator.fit(memoryTraining))
-        val parquetModels = Array.fill(2)(forcedEstimator.fit(parquetTraining))
-        val nativeModels = (memoryModels ++ parquetModels).map(_.getNativeModel())
-        assert(nativeModels.distinct.length === 1)
-
-        val predictionColumns = Seq("id", rawPredCol, "probability", "prediction")
-        val predictions = (memoryModels ++ parquetModels).map { model =>
-          model.transform(reloaded).select(predictionColumns.map(col): _*).orderBy("id").collect()
-        }
-        assert(predictions.tail.forall(_.sameElements(predictions.head)))
-
-        val aucValues = memoryModels.map(auc(_, memoryTraining)) ++ parquetModels.map(auc(_, parquetTraining))
-        assert(aucValues.max - aucValues.min < 1e-12)
-      } finally {
-        memoryTraining.unpersist()
-        parquetTraining.unpersist()
+      val predictionColumns = Seq("id", rawPredCol, "probability", "prediction")
+      val predictions = (memoryModels ++ parquetModels).map { model =>
+        model.transform(reloaded).select(predictionColumns.map(col): _*).orderBy("id").collect()
       }
+      assert(predictions.tail.forall(_.sameElements(predictions.head)))
+
+      val aucValues = memoryModels.map(auc(_, memoryTraining)) ++ parquetModels.map(auc(_, parquetTraining))
+      assert(aucValues.max - aucValues.min < 1e-12)
     } finally {
-      assembled.unpersist()
+      memoryTraining.unpersist()
+      parquetTraining.unpersist()
     }
   }
 }
