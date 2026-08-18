@@ -669,13 +669,7 @@ private[lightgbm] object ValidationDataServer {
   private def read(params: ValidationDataParams): ValidationRowIterator = {
     new ValidationRowIterator {
       private val socket = connect(params.host, params.port, params.timeoutMillis)
-      socket.setKeepAlive(true)
-      socket.setTcpNoDelay(true)
-      socket.setSoTimeout(params.timeoutMillis)
-      private val auth = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream))
-      auth.writeUTF(params.token)
-      auth.flush()
-      private val input = new DataInputStream(new BufferedInputStream(socket.getInputStream))
+      private val input = openValidationInput(socket, params.token, params.timeoutMillis)
       private val serializer = SparkEnv.get.serializer.newInstance()
       private var closed = false
       private var nextRow: Option[Row] = readNext()
@@ -731,6 +725,20 @@ private[lightgbm] object ValidationDataServer {
       case NonFatal(failure) =>
         socket.close()
         throw failure
+    }
+  }
+
+  private[lightgbm] def openValidationInput(socket: Socket,
+                                             token: String,
+                                             timeoutMillis: Int): DataInputStream = {
+    NetworkManagerSocketSupport.withCleanupOnFailurePreservingPrimary(closeSocket(socket)) {
+      socket.setKeepAlive(true)
+      socket.setTcpNoDelay(true)
+      socket.setSoTimeout(timeoutMillis)
+      val auth = new DataOutputStream(new BufferedOutputStream(socket.getOutputStream))
+      auth.writeUTF(token)
+      auth.flush()
+      new DataInputStream(new BufferedInputStream(socket.getInputStream))
     }
   }
 
