@@ -115,20 +115,25 @@ For Spark3.3 pools:
 ## Python
 
 To try out SynapseML on a Python (or Conda) installation, you can get Spark
-installed via pip. Install the Python wrapper and PySpark version for one
-complete runtime variant, then start Spark with that variant's JVM artifact:
+installed via pip. Choose exactly one complete runtime variant below, then
+start Spark with that variant's JVM artifact.
+
+**Spark 4.1 / Python 3.13**
 
 ```bash
-SYNAPSEML_VERSION=1.1.3
+python -m pip install "synapseml==1.1.3" "pyspark>=4.1,<4.2"
+```
 
-# Spark 4.1 / Python 3.13
-python -m pip install "synapseml==${SYNAPSEML_VERSION}" "pyspark>=4.1,<4.2"
+**Spark 4.0 / Python 3.12**
 
-# Spark 4.0 / Python 3.12
-python -m pip install "synapseml==${SYNAPSEML_VERSION}" "pyspark>=4.0,<4.1"
+```bash
+python -m pip install "synapseml==1.1.3" "pyspark>=4.0,<4.1"
+```
 
-# Spark 3.5 / Python 3.11
-python -m pip install "synapseml==${SYNAPSEML_VERSION}" "pyspark>=3.5,<3.6"
+**Spark 3.5 / Python 3.11**
+
+```bash
+python -m pip install "synapseml==1.1.3" "pyspark>=3.5,<3.6"
 ```
 
 ```python

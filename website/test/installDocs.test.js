@@ -123,6 +123,22 @@ for (const guide of installGuides) {
     assert.match(markdown, /pyspark>=4\.0,<4\.1/);
     assert.match(markdown, /Spark 3\.5 \/ Python 3\.11/);
     assert.match(markdown, /pyspark>=3\.5,<3\.6/);
+    assert.match(markdown, /Choose exactly one complete runtime variant/);
+    for (const [runtime, pysparkSpec] of [
+      ['Spark 4.1 / Python 3.13', 'pyspark>=4.1,<4.2'],
+      ['Spark 4.0 / Python 3.12', 'pyspark>=4.0,<4.1'],
+      ['Spark 3.5 / Python 3.11', 'pyspark>=3.5,<3.6'],
+    ]) {
+      const escapedRuntime = runtime.replaceAll('.', '\\.');
+      const escapedSpec = pysparkSpec.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      assert.match(
+        markdown,
+        new RegExp(
+          `\\*\\*${escapedRuntime}\\*\\*\\s+\\x60\\x60\\x60bash\\s+` +
+            `python -m pip install [^\\n]+${escapedSpec}[^\\n]+\\s+\\x60\\x60\\x60`,
+        ),
+      );
+    }
     assert.match(
       markdown,
       /synapseml_2\.12:\$\{SYNAPSEML_VERSION\}/,
@@ -147,6 +163,9 @@ test('website landing page uses every supported runtime variant', () => {
   }
   assert.doesNotMatch(index, /THE_SYNAPSEML_VERSION_YOU_WANT/);
   assert.doesNotMatch(index, /only Spark 3|any Spark 3 infrastructure/);
+  assert.match(index, /Choose exactly one Python\/PySpark runtime variant/);
+  assert.match(index, /lang="scala"/);
+  assert.doesNotMatch(index, /lang="jsx"/);
   assert.doesNotMatch(
     index,
     /com\.microsoft\.azure:synapseml_2\.12:1\.1\.3/,

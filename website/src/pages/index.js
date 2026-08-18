@@ -446,17 +446,23 @@ pyspark --repositories "${repository}" --packages "${spark35.coordinate}"`}
                   ></CodeSnippet>
                 </TabItem>
                 <TabItem value="Python">
-                  Install both the Python wrapper and the PySpark version
-                  matching the selected JVM artifact.
+                  <p>
+                    Choose exactly one Python/PySpark runtime variant matching
+                    the selected JVM artifact.
+                  </p>
+                  <p>Spark 4.1 / Python {spark41.pythonBaseline}:</p>
                   <CodeSnippet
-                    snippet={`# Spark 4.1 / Python ${spark41.pythonBaseline}
-python -m pip install "${spark41.pythonPackage}" "pyspark${spark41.pysparkSpec}"
-
-# Spark 4.0 / Python ${spark40.pythonBaseline}
-python -m pip install "${spark40.pythonPackage}" "pyspark${spark40.pysparkSpec}"
-
-# Spark 3.5 / Python ${spark35.pythonBaseline}
-python -m pip install "${spark35.pythonPackage}" "pyspark${spark35.pysparkSpec}"`}
+                    snippet={`python -m pip install "${spark41.pythonPackage}" "pyspark${spark41.pysparkSpec}"`}
+                    lang="bash"
+                  ></CodeSnippet>
+                  <p>Spark 4.0 / Python {spark40.pythonBaseline}:</p>
+                  <CodeSnippet
+                    snippet={`python -m pip install "${spark40.pythonPackage}" "pyspark${spark40.pysparkSpec}"`}
+                    lang="bash"
+                  ></CodeSnippet>
+                  <p>Spark 3.5 / Python {spark35.pythonBaseline}:</p>
+                  <CodeSnippet
+                    snippet={`python -m pip install "${spark35.pythonPackage}" "pyspark${spark35.pysparkSpec}"`}
                     lang="bash"
                   ></CodeSnippet>
                   <CodeSnippet
@@ -488,7 +494,7 @@ libraryDependencies +=
 // Spark 3.5:
 // libraryDependencies +=
 //   "com.microsoft.azure" % "synapseml_2.12" % "${spark35.coordinate.split(":")[2]}"`}
-                    lang="jsx"
+                    lang="scala"
                   ></CodeSnippet>
                 </TabItem>
               </Tabs>
