@@ -10,6 +10,7 @@ import org.apache.spark.ml.feature.{StringIndexer, VectorAssembler}
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions._
+import org.apache.spark.storage.StorageLevel
 
 // scalastyle:off magic.number
 class LightGBMParquetReproducibilitySuite extends LightGBMTestUtils {
@@ -61,7 +62,7 @@ class LightGBMParquetReproducibilitySuite extends LightGBMTestUtils {
       .setDeterministic(true)
       .setNumTasks(2)
       .setNumThreads(1)
-      .setDefaultListenPort(13940)
+      .setDefaultListenPort(getAndIncrementPort())
       .setUseBarrierExecutionMode(true)
       .setSamplingMode(LightGBMConstants.SubsetSamplingModeGlobal)
       .setDataTransferMode(LightGBMConstants.StreamingDataTransferMode)
@@ -74,6 +75,11 @@ class LightGBMParquetReproducibilitySuite extends LightGBMTestUtils {
       .setMetricName("areaUnderROC")
       .setNumBins(0)
       .evaluate(model.transform(data))
+  }
+
+  private def assertOnlySparkLineageWarning(warnings: Seq[String]): Unit = {
+    assert(warnings.exists(_.contains("nondeterministic Spark expressions")))
+    assert(!warnings.exists(_.contains("histogram strategy")))
   }
 
   test("Deterministic training warns about Spark lineage and LightGBM histogram selection") {
@@ -108,38 +114,66 @@ class LightGBMParquetReproducibilitySuite extends LightGBMTestUtils {
       .setDeterministic(true)
       .setPassThroughArgs("deterministic=false")
     assert(overriddenProbe.warningMessages(assembled).isEmpty)
+
+    val gpuProbe = new ReproducibilityProbe()
+      .setDeterministic(true)
+      .setDeviceType(LightGBMConstants.GPUDeviceType)
+    assertOnlySparkLineageWarning(gpuProbe.warningMessages(assembled))
+
+    val cudaProbe = new ReproducibilityProbe()
+      .setDeterministic(true)
+      .setPassThroughArgs("device=cuda")
+    assertOnlySparkLineageWarning(cudaProbe.warningMessages(assembled))
+
+    val passThroughCpuProbe = new ReproducibilityProbe()
+      .setDeterministic(true)
+      .setDeviceType(LightGBMConstants.GPUDeviceType)
+      .setPassThroughArgs("device_type=cpu")
+    val passThroughCpuWarnings = passThroughCpuProbe.warningMessages(assembled)
+    assert(passThroughCpuWarnings.exists(_.contains("nondeterministic Spark expressions")))
+    assert(passThroughCpuWarnings.exists(_.contains("histogram strategy")))
+
+    val passThroughGpuProbe = new ReproducibilityProbe()
+      .setDeterministic(true)
+      .setPassThroughArgs("device_type=gpu")
+    assertOnlySparkLineageWarning(passThroughGpuProbe.warningMessages(assembled))
   }
 
   test("Parquet round trips preserve deterministic LightGBM training inputs and outputs") {
-    val assembled = makeTrainingData()
+    val assembled = makeTrainingData().persist(StorageLevel.MEMORY_AND_DISK)
+    try {
+      assert(assembled.count() === 500)
 
-    val parquetPath = tmpDir.resolve("lightgbm-parquet-reproducibility").toString
-    assembled.write.mode("overwrite").parquet(parquetPath)
-    val reloaded = spark.read.parquet(parquetPath)
+      val parquetPath = tmpDir.resolve("lightgbm-parquet-reproducibility").toString
+      assembled.write.mode("overwrite").parquet(parquetPath)
+      val reloaded = spark.read.parquet(parquetPath)
 
-    val memoryRows = assembled.orderBy("id").collect()
-    val parquetRows = reloaded.orderBy("id").collect()
-    assert(memoryRows.sameElements(parquetRows))
-    assert(assembled.schema.map(field => field.name -> field.metadata.json) ===
-      reloaded.schema.map(field => field.name -> field.metadata.json))
-    assert(AttributeGroup.fromStructField(assembled.schema(featuresCol)) ===
-      AttributeGroup.fromStructField(reloaded.schema(featuresCol)))
-    assert(assembled.select(featuresCol).collect().map(_.getAs[Vector](0).getClass.getName).toSet ===
-      reloaded.select(featuresCol).collect().map(_.getAs[Vector](0).getClass.getName).toSet)
+      val memoryRows = assembled.orderBy("id").collect()
+      val parquetRows = reloaded.orderBy("id").collect()
+      assert(memoryRows.sameElements(parquetRows))
+      assert(assembled.schema.map(field => field.name -> field.metadata.json) ===
+        reloaded.schema.map(field => field.name -> field.metadata.json))
+      assert(AttributeGroup.fromStructField(assembled.schema(featuresCol)) ===
+        AttributeGroup.fromStructField(reloaded.schema(featuresCol)))
+      assert(assembled.select(featuresCol).collect().map(_.getAs[Vector](0).getClass.getName).toSet ===
+        reloaded.select(featuresCol).collect().map(_.getAs[Vector](0).getClass.getName).toSet)
 
-    val forcedEstimator = estimator.setPassThroughArgs("force_col_wise=true")
-    val memoryModels = Array.fill(2)(forcedEstimator.fit(assembled))
-    val parquetModels = Array.fill(2)(forcedEstimator.fit(reloaded))
-    val nativeModels = (memoryModels ++ parquetModels).map(_.getNativeModel())
-    assert(nativeModels.distinct.length === 1)
+      val forcedEstimator = estimator.setPassThroughArgs("force_col_wise=true")
+      val memoryModels = Array.fill(2)(forcedEstimator.fit(assembled))
+      val parquetModels = Array.fill(2)(forcedEstimator.fit(reloaded))
+      val nativeModels = (memoryModels ++ parquetModels).map(_.getNativeModel())
+      assert(nativeModels.distinct.length === 1)
 
-    val predictionColumns = Seq("id", rawPredCol, "probability", "prediction")
-    val predictions = (memoryModels ++ parquetModels).map { model =>
-      model.transform(reloaded).select(predictionColumns.map(col): _*).orderBy("id").collect()
+      val predictionColumns = Seq("id", rawPredCol, "probability", "prediction")
+      val predictions = (memoryModels ++ parquetModels).map { model =>
+        model.transform(reloaded).select(predictionColumns.map(col): _*).orderBy("id").collect()
+      }
+      assert(predictions.tail.forall(_.sameElements(predictions.head)))
+
+      val aucValues = memoryModels.map(auc(_, assembled)) ++ parquetModels.map(auc(_, reloaded))
+      assert(aucValues.max - aucValues.min < 1e-12)
+    } finally {
+      assembled.unpersist()
     }
-    assert(predictions.tail.forall(_.sameElements(predictions.head)))
-
-    val aucValues = memoryModels.map(auc(_, assembled)) ++ parquetModels.map(auc(_, reloaded))
-    assert(aucValues.max - aucValues.min < 1e-12)
   }
 }

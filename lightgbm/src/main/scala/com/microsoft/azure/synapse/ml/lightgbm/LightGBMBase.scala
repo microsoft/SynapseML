@@ -77,17 +77,19 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
       .orElse(get(deterministic))
       .contains(true)
     if (deterministicTraining) {
-      val histogramModes = configuredParameters.filter { case (name, _) => forcedHistogramModes.contains(name) }
-      if (!histogramModes.values.exists(LightGBMUtils.isEnabledParameterValue)) {
-        warnings +=
-          "deterministic=true does not by itself select a stable LightGBM histogram strategy. " +
-            "For reproducibility on CPU, set passThroughArgs to force_col_wise=true or force_row_wise=true, " +
-            "as required by LightGBM's deterministic parameter documentation."
-      }
-      if (histogramModes.values.count(LightGBMUtils.isEnabledParameterValue) > 1) {
-        warnings +=
-          "Both force_col_wise and force_row_wise are enabled in passThroughArgs. LightGBM requires choosing " +
-            "exactly one histogram strategy for deterministic CPU training."
+      if (getEffectiveDeviceType == LightGBMConstants.CPUDeviceType) {
+        val histogramModes = configuredParameters.filter { case (name, _) => forcedHistogramModes.contains(name) }
+        if (!histogramModes.values.exists(LightGBMUtils.isEnabledParameterValue)) {
+          warnings +=
+            "deterministic=true does not by itself select a stable LightGBM histogram strategy. " +
+              "For reproducibility on CPU, set passThroughArgs to force_col_wise=true or force_row_wise=true, " +
+              "as required by LightGBM's deterministic parameter documentation."
+        }
+        if (histogramModes.values.count(LightGBMUtils.isEnabledParameterValue) > 1) {
+          warnings +=
+            "Both force_col_wise and force_row_wise are enabled in passThroughArgs. LightGBM requires choosing " +
+              "exactly one histogram strategy for deterministic CPU training."
+        }
       }
 
       if (!dataset.queryExecution.optimizedPlan.deterministic) {
