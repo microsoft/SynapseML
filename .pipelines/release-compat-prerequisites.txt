@@ -1,3 +1,0 @@
-# PR #2638 added the missing-numeric Featurize API and test imports used by this change.
-# Remove this prerequisite once every validated release branch contains that backport.
-816804baa722f4154886a528303e81b8f0a7e86a

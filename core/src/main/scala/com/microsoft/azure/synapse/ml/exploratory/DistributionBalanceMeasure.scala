@@ -12,6 +12,7 @@ import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.sql._
+import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types._
 
@@ -20,7 +21,7 @@ import scala.collection.JavaConverters._
 import scala.language.postfixOps
 
 /** This transformer computes data balance measures based on a reference distribution.
-  * For now, we only support a uniform reference distribution.
+  * A uniform reference distribution is used by default, and custom reference distributions are supported.
   *
   * The output is a dataframe that contains two columns:
   *   - The sensitive feature name.
@@ -59,10 +60,42 @@ class DistributionBalanceMeasure(override val uid: String)
 
   def setFeatureNameCol(value: String): this.type = set(featureNameCol, value)
 
+  private def decodeReferenceProbability(category: String, probability: Any, distributionIndex: Int): Double = {
+    Option(probability) match {
+      case Some(value: java.lang.Number) => value.doubleValue()
+      case None => throw new IllegalArgumentException(
+        s"Reference probability for category '$category' in distribution $distributionIndex cannot be null.")
+      case Some(value) => throw new IllegalArgumentException(
+        s"Reference probability for category '$category' in distribution $distributionIndex must be numeric, " +
+          s"but found ${value.getClass.getName}.")
+    }
+  }
+
+  private def normalizeReferenceDistributionValue(value: Array[Map[String, Any]]): Boolean = {
+    val distributions = Option(value).getOrElse {
+      throw new IllegalArgumentException("Reference distributions cannot be null.")
+    }
+    distributions.indices.foreach { distributionIndex =>
+      val distribution = Option(distributions(distributionIndex)).getOrElse {
+        throw new IllegalArgumentException(
+          s"Reference distribution $distributionIndex cannot be null; use an empty map for a uniform distribution.")
+      }
+      distributions(distributionIndex) = distribution.map { case (category, probability) =>
+        category -> (decodeReferenceProbability(category, probability, distributionIndex): Any)
+      }
+    }
+    true
+  }
+
   val referenceDistribution = new ArrayMapParam(
     this,
     "referenceDistribution",
-    "An ordered list of reference distributions that correspond to each of the sensitive columns."
+    "An ordered list of reference distributions that correspond to each of the sensitive columns. " +
+      "An empty map selects the uniform distribution. Each non-empty distribution must sum to 1. " +
+      "Positive-probability reference-only categories are included, and omitted observed categories have " +
+      "reference probability 0. Keys must be non-null strings that resolve to distinct values matching the sensitive " +
+      "column's string or integral type.",
+    normalizeReferenceDistributionValue _
   )
 
   val emptyReferenceDistribution: Array[Map[String, Double]] = Array.empty
@@ -85,86 +118,213 @@ class DistributionBalanceMeasure(override val uid: String)
     outputCol -> "DistributionBalanceMeasure"
   )
 
-  private val uniformDistribution: Int => String => Double = {
-    n: Int => {
-      _: String =>
-        1d / n
+  private val referenceDistributionTolerance = 1e-8
+
+  private def parseReferenceKey(category: String, dataType: DataType, sensitiveCol: String): Any = {
+    if (Option(category).isEmpty) {
+      throw new IllegalArgumentException(
+        s"Reference distribution keys for sensitive column '$sensitiveCol' cannot be null.")
+    }
+
+    try {
+      dataType match {
+        case ByteType => java.lang.Byte.valueOf(category)
+        case ShortType => java.lang.Short.valueOf(category)
+        case IntegerType => java.lang.Integer.valueOf(category)
+        case LongType => java.lang.Long.valueOf(category)
+        case StringType => category
+        case _ => throw new IllegalArgumentException(
+          s"Unsupported sensitive column type ${dataType.simpleString} for '$sensitiveCol'.")
+      }
+    } catch {
+      case _: NumberFormatException => throw new IllegalArgumentException(
+        s"Reference distribution key '$category' cannot be converted to ${dataType.simpleString} " +
+          s"for sensitive column '$sensitiveCol'.")
     }
   }
 
-  private val customDistribution: Map[String, Double] => String => Double = {
-    dist: Map[String, Double] => {
-      // NOTE: If the custom distribution doesn't have the col value, return a default probability of 0
-      // This assumes that the reference distribution does not contain the col value at all
-      s: String =>
-        dist.getOrElse(s, 0d)
+  private def validateCustomReferenceDistribution(sensitiveCol: String,
+                                                  dataType: DataType,
+                                                  distribution: Map[String, Double]): Unit = {
+    distribution.foreach { case (category, probability) =>
+      if (!java.lang.Double.isFinite(probability) || probability < 0d || probability > 1d) {
+        throw new IllegalArgumentException(
+          s"Reference probability for category '$category' in sensitive column '$sensitiveCol' " +
+            s"must be finite and between 0 and 1, but found $probability.")
+      }
     }
+
+    val probabilitySum = distribution.values.sum
+    if (math.abs(probabilitySum - 1d) > referenceDistributionTolerance) {
+      throw new IllegalArgumentException(
+        s"Reference distribution for sensitive column '$sensitiveCol' must sum to 1, but found $probabilitySum.")
+    }
+
+    val typedCategories = distribution.keys.toSeq.map(parseReferenceKey(_, dataType, sensitiveCol))
+    if (typedCategories.distinct.length != typedCategories.length) {
+      throw new IllegalArgumentException(
+        s"Reference distribution keys for sensitive column '$sensitiveCol' must identify distinct " +
+          s"${dataType.simpleString} categories.")
+    }
+  }
+
+  private case class SupportColumns(featureName: String,
+                                    category: String,
+                                    observedCount: String,
+                                    observedProbability: String,
+                                    referenceProbability: String,
+                                    referenceCount: String,
+                                    customReference: String,
+                                    sentinel: String,
+                                    rowCount: String,
+                                    supportCount: String)
+
+  private def createSupportColumns(schema: StructType): SupportColumns = {
+    SupportColumns(
+      DatasetExtensions.findUnusedColumnName("featureName", schema),
+      DatasetExtensions.findUnusedColumnName("category", schema),
+      DatasetExtensions.findUnusedColumnName("featureCount", schema),
+      DatasetExtensions.findUnusedColumnName("featureProb", schema),
+      DatasetExtensions.findUnusedColumnName("refFeatureProb", schema),
+      DatasetExtensions.findUnusedColumnName("refFeatureCount", schema),
+      DatasetExtensions.findUnusedColumnName("customReference", schema),
+      DatasetExtensions.findUnusedColumnName("sentinel", schema),
+      DatasetExtensions.findUnusedColumnName("rowCount", schema),
+      DatasetExtensions.findUnusedColumnName("supportCount", schema)
+    )
+  }
+
+  private def createObservedSupport(df: DataFrame,
+                                    references: Array[Map[String, Double]],
+                                    columns: SupportColumns): DataFrame = {
+    val featureEntryCol = DatasetExtensions.findUnusedColumnName("featureEntry", df.schema)
+    val featureEntries = getSensitiveCols.zip(references).map { case (sensitiveCol, reference) =>
+      struct(
+        lit(sensitiveCol).alias(columns.featureName),
+        col(sensitiveCol).cast(StringType).alias(columns.category),
+        lit(reference.nonEmpty).alias(columns.customReference)
+      )
+    }
+
+    df
+      .select(explode(array(featureEntries: _*)).alias(featureEntryCol))
+      .select(
+        col(s"$featureEntryCol.${columns.featureName}").alias(columns.featureName),
+        col(s"$featureEntryCol.${columns.category}").alias(columns.category),
+        col(s"$featureEntryCol.${columns.customReference}").alias(columns.customReference)
+      )
+      .groupBy(col(columns.featureName), col(columns.category), col(columns.customReference))
+      .agg(count(lit(1)).cast(DoubleType).alias(columns.observedCount))
+      .withColumn(columns.referenceProbability, lit(0d))
+      .withColumn(columns.sentinel, lit(false))
+  }
+
+  private def createConfiguredSupport(df: DataFrame,
+                                      references: Array[Map[String, Double]],
+                                      columns: SupportColumns): DataFrame = {
+    val rows = getSensitiveCols.zip(references).flatMap { case (sensitiveCol, reference) =>
+      val dataType = df.schema(sensitiveCol).dataType
+      val referenceRows = reference.toSeq.collect {
+        case (category, probability) if probability > 0d =>
+          Row(
+            sensitiveCol,
+            parseReferenceKey(category, dataType, sensitiveCol).toString,
+            0d,
+            probability,
+            reference.nonEmpty,
+            false
+          )
+      }
+      referenceRows :+ Row(sensitiveCol, Option.empty[String].orNull, 0d, 0d, reference.nonEmpty, true)
+    }
+    val schema = StructType(Seq(
+      StructField(columns.featureName, StringType, nullable = false),
+      StructField(columns.category, StringType, nullable = true),
+      StructField(columns.observedCount, DoubleType, nullable = false),
+      StructField(columns.referenceProbability, DoubleType, nullable = false),
+      StructField(columns.customReference, BooleanType, nullable = false),
+      StructField(columns.sentinel, BooleanType, nullable = false)
+    ))
+
+    df.sparkSession.createDataFrame(rows.toSeq.asJava, schema)
+  }
+
+  private def createAlignedSupport(df: DataFrame,
+                                   references: Array[Map[String, Double]],
+                                   columns: SupportColumns): DataFrame = {
+    val observed = createObservedSupport(df, references, columns)
+    val configured = createConfiguredSupport(df, references, columns)
+    val featureWindow = Window.partitionBy(col(columns.featureName))
+    val nonEmptyInput = when(
+      col(columns.rowCount) === 0d,
+      expr("raise_error('DistributionBalanceMeasure requires at least one input row.')").cast(BooleanType)
+    ).otherwise(not(col(columns.sentinel)))
+
+    observed
+      .unionByName(configured)
+      .groupBy(
+        col(columns.featureName),
+        col(columns.category),
+        col(columns.customReference),
+        col(columns.sentinel)
+      )
+      .agg(
+        sum(columns.observedCount).alias(columns.observedCount),
+        sum(columns.referenceProbability).alias(columns.referenceProbability)
+      )
+      .withColumn(columns.rowCount, sum(columns.observedCount).over(featureWindow))
+      .filter(nonEmptyInput)
+      .withColumn(columns.supportCount, count(lit(1)).over(featureWindow).cast(DoubleType))
+      .withColumn(columns.observedProbability, col(columns.observedCount) / col(columns.rowCount))
+      .withColumn(
+        columns.referenceProbability,
+        when(col(columns.customReference), col(columns.referenceProbability))
+          .otherwise(lit(1d) / col(columns.supportCount))
+      )
+      .withColumn(columns.referenceCount, col(columns.referenceProbability) * col(columns.rowCount))
+  }
+
+  private def calculateDistributionMeasures(alignedSupport: DataFrame,
+                                            columns: SupportColumns): DataFrame = {
+    val metrics = DistributionMetrics(
+      columns.observedProbability,
+      columns.observedCount,
+      columns.referenceProbability,
+      columns.referenceCount
+    )
+    val metricsCols = metrics.toColumnMap.values.toSeq
+
+    alignedSupport
+      .groupBy(col(columns.featureName))
+      .agg(metricsCols.head, metricsCols.tail: _*)
+      .withColumnRenamed(columns.featureName, getFeatureNameCol)
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
       validateSchema(dataset.schema)
 
-      val df = dataset.cache
-      val numRows = df.count.toDouble
-
-      val featureCountCol = DatasetExtensions.findUnusedColumnName("featureCount", df.schema)
-      val rowCountCol = DatasetExtensions.findUnusedColumnName("rowCount", df.schema)
-      val featureProbCol = DatasetExtensions.findUnusedColumnName("featureProb", df.schema)
-
-      val featureStats = df
-        .groupBy(getSensitiveCols map col: _*)
-        .agg(count("*").cast(DoubleType).alias(featureCountCol))
-        .withColumn(rowCountCol, lit(numRows))
-        .withColumn(featureProbCol, col(featureCountCol) / col(rowCountCol)) // P(sensitive)
+      val df = dataset.toDF()
+      val references =
+        if (isDefined(referenceDistribution)) getReferenceDistribution
+        else Array.fill(getSensitiveCols.length)(Map.empty[String, Double])
+      val columns = createSupportColumns(df.schema)
+      val alignedSupport = createAlignedSupport(df, references, columns)
 
       //noinspection ScalaStyle
       if (getVerbose)
-        featureStats.cache.show(numRows = 20, truncate = false)  //scalastyle:ignore magic.number
+        alignedSupport.show(numRows = 20, truncate = false)  //scalastyle:ignore magic.number
 
-      df.unpersist
-      calculateDistributionMeasures(featureStats, featureProbCol, featureCountCol, numRows)
+      val distributionMeasures = calculateDistributionMeasures(alignedSupport, columns)
+
+      if (getVerbose)
+        distributionMeasures.show(truncate = false)
+
+      val measureTuples = DistributionMetrics.METRICS.map(col)
+      distributionMeasures
+        .withColumn(getOutputCol, struct(measureTuples: _*))
+        .select(col(getFeatureNameCol), col(getOutputCol))
     }, dataset.columns.length)
-  }
-
-  private def calculateDistributionMeasures(featureStats: DataFrame,
-                                            obsFeatureProbCol: String,
-                                            obsFeatureCountCol: String,
-                                            numRows: Double): DataFrame = {
-    val distributionMeasures = getSensitiveCols.zipWithIndex.map {
-      case (sensitiveCol, i) =>
-        val observed = featureStats
-          .groupBy(sensitiveCol)
-          .agg(sum(obsFeatureProbCol).alias(obsFeatureProbCol), sum(obsFeatureCountCol).alias(obsFeatureCountCol))
-
-        val numFeatures = observed.count.toInt
-        val refFeatureProbCol = DatasetExtensions.findUnusedColumnName("refFeatureProb", featureStats.schema)
-        val refFeatureCountCol = DatasetExtensions.findUnusedColumnName("refFeatureCount", featureStats.schema)
-
-        val refDist: String => Double =
-          if (!isDefined(referenceDistribution) || getReferenceDistribution(i).isEmpty) uniformDistribution(numFeatures)
-          else customDistribution(getReferenceDistribution(i))
-        val refDistFunc = udf(refDist)
-
-        val observedWithRef = observed
-          .withColumn(refFeatureProbCol, refDistFunc(col(sensitiveCol)))
-          .withColumn(refFeatureCountCol, refDistFunc(col(sensitiveCol)) * lit(numRows))
-          .cache
-
-        val metrics =
-          DistributionMetrics(numFeatures, obsFeatureProbCol, obsFeatureCountCol, refFeatureProbCol, refFeatureCountCol)
-        val metricsCols = metrics.toColumnMap.values.toSeq
-
-        observedWithRef.agg(metricsCols.head, metricsCols.tail: _*).withColumn(getFeatureNameCol, lit(sensitiveCol))
-    }.reduce(_ union _)
-
-    if (getVerbose)
-      distributionMeasures.cache.show(truncate = false)
-
-    val measureTuples = DistributionMetrics.METRICS.map(col)
-    distributionMeasures
-      .withColumn(getOutputCol, struct(measureTuples: _*))
-      .select(col(getFeatureNameCol), col(getOutputCol))
   }
 
   override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
@@ -181,11 +341,24 @@ class DistributionBalanceMeasure(override val uid: String)
   }
 
   override def validateSchema(schema: StructType): Unit = {
+    if (!isDefined(sensitiveCols) || getSensitiveCols.isEmpty) {
+      throw new IllegalArgumentException("DistributionBalanceMeasure requires at least one sensitive column.")
+    }
+
     super.validateSchema(schema)
 
-    if (isDefined(referenceDistribution) && getReferenceDistribution.length != getSensitiveCols.length) {
-      throw new Exception("The reference distribution must have the same length and order as the sensitive columns: "
-        + getSensitiveCols.mkString(", "))
+    if (isDefined(referenceDistribution)) {
+      val distributions = getReferenceDistribution
+      if (distributions.length != getSensitiveCols.length) {
+        throw new Exception("The reference distribution must have the same length and order as the sensitive columns: "
+          + getSensitiveCols.mkString(", "))
+      }
+
+      getSensitiveCols.zip(distributions).foreach { case (sensitiveCol, distribution) =>
+        if (distribution.nonEmpty) {
+          validateCustomReferenceDistribution(sensitiveCol, schema(sensitiveCol).dataType, distribution)
+        }
+      }
     }
   }
 }
@@ -210,11 +383,19 @@ private[exploratory] object DistributionMetrics {
     WASSERSTEINDISTANCE,
     CHISQUAREDTESTSTATISTIC,
     CHISQUAREDPVALUE)
+
+  def apply(numFeatures: Int,
+            obsFeatureProbCol: String,
+            obsFeatureCountCol: String,
+            refFeatureProbCol: String,
+            refFeatureCountCol: String): DistributionMetrics = {
+    require(numFeatures > 0, "Distribution metrics require at least one feature.")
+    DistributionMetrics(obsFeatureProbCol, obsFeatureCountCol, refFeatureProbCol, refFeatureCountCol)
+  }
 }
 
 //noinspection SpellCheckingInspection
-private[exploratory] case class DistributionMetrics(numFeatures: Int,
-                                                    obsFeatureProbCol: String,
+private[exploratory] case class DistributionMetrics(obsFeatureProbCol: String,
                                                     obsFeatureCountCol: String,
                                                     refFeatureProbCol: String,
                                                     refFeatureCountCol: String) {
@@ -263,19 +444,25 @@ private[exploratory] case class DistributionMetrics(numFeatures: Int,
     when(col(refFeatureCountCol) === 0 && col(obsFeatureCountCol) =!= 0, lit(Double.PositiveInfinity))
       .otherwise(pow(col(obsFeatureCountCol) - col(refFeatureCountCol), 2) / col(refFeatureCountCol)))
 
-  // Calculates left-tailed p-value from degrees of freedom and chi-squared test statistic
+  // Calculates right-tailed p-value from degrees of freedom and chi-squared test statistic
   def chiSquaredPValue: Column = {
-    implicit val rand: RandBasis = RandBasis.mt0
-    val degOfFreedom = numFeatures - 1
     val scoreCol = chiSquaredTestStatistic
     val chiSqPValueUdf = udf(
-      (score: Double) => score match {
-        // limit of CDF as x approaches +inf is 1 (https://en.wikipedia.org/wiki/Cumulative_distribution_function)
-        case Double.PositiveInfinity => 1d
-        case _ => 1 - ChiSquared(degOfFreedom).cdf(score)
+      (score: Double, numFeatures: Long) => {
+        val degOfFreedom = numFeatures - 1
+        if (degOfFreedom == 0) {
+          1d
+        } else {
+          implicit val rand: RandBasis = RandBasis.mt0
+          score match {
+            // The survival probability approaches 0 as the score approaches positive infinity.
+            case Double.PositiveInfinity => 0d
+            case _ => 1 - ChiSquared(degOfFreedom.toDouble).cdf(score)
+          }
+        }
       }
     )
-    chiSqPValueUdf(scoreCol)
+    chiSqPValueUdf(scoreCol, count(lit(1)))
   }
 
   private def entropy(distA: Column, distB: Option[Column] = None): Column = {
