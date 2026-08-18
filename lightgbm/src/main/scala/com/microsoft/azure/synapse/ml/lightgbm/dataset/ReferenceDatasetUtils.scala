@@ -111,18 +111,28 @@ object ReferenceDatasetUtils {
       count,
       datasetParams)
 
-    // Initialize the dataset for streaming (allocates arrays mostly)
-    val maxOmpThreads = ctx.trainingParams.executionParams.maxStreamingOMPThreads
-    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetInitStreaming(lightGBMDataset.datasetPtr,
-      ctx.trainingCtx.hasWeightsAsInt,
-      ctx.trainingCtx.hasInitialScoresAsInt,
-      ctx.trainingCtx.hasGroupsAsInt,
-      ctx.trainingParams.getNumClass,
-      ctx.executorPartitionCount,
-      maxOmpThreads),
-      "LGBM_DatasetInitStreaming")
+    initializeOwnedDataset(lightGBMDataset) {
+      // Initialize the dataset for streaming (allocates arrays mostly)
+      val maxOmpThreads = ctx.trainingParams.executionParams.maxStreamingOMPThreads
+      LightGBMUtils.validate(lightgbmlib.LGBM_DatasetInitStreaming(lightGBMDataset.datasetPtr,
+        ctx.trainingCtx.hasWeightsAsInt,
+        ctx.trainingCtx.hasInitialScoresAsInt,
+        ctx.trainingCtx.hasGroupsAsInt,
+        ctx.trainingParams.getNumClass,
+        ctx.executorPartitionCount,
+        maxOmpThreads),
+        "LGBM_DatasetInitStreaming")
 
-    lightGBMDataset.setFeatureNames(ctx.trainingCtx.featureNames, ctx.trainingCtx.numCols)
+      lightGBMDataset.setFeatureNames(ctx.trainingCtx.featureNames, ctx.trainingCtx.numCols)
+    }
+  }
+
+  private[lightgbm] def initializeOwnedDataset(dataset: LightGBMDataset)
+                                                (initialization: => Unit): LightGBMDataset = {
+    NetworkManager.withCleanupOnFailurePreservingPrimary(dataset.close()) {
+      initialization
+      dataset
+    }
   }
 
   private def toByteArray(buffer: SWIGTYPE_p_p_void, bufferLen: Int): Array[Byte] = {
@@ -152,17 +162,24 @@ object ReferenceDatasetUtils {
                                           datasetParams: String): LightGBMDataset = {
     // Convert byte array to native memory
     val datasetVoidPtr = lightgbmlib.voidpp_handle()
-    val nativeByteArray = SwigUtils.byteArrayToNative(serializedDataset)
-    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromSerializedReference( //scalastyle:ignore token
-      lightgbmlib.byte_to_voidp_ptr(nativeByteArray),
-      serializedDataset.length,
-      rowCount,
-      0, // Always zero since we will be using InitStreaming to do allocation
-      datasetParams,
-      datasetVoidPtr), "Dataset create from reference")
+    try {
+      val nativeByteArray = SwigUtils.byteArrayToNative(serializedDataset)
+      try {
+        LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromSerializedReference( //scalastyle:ignore token
+          lightgbmlib.byte_to_voidp_ptr(nativeByteArray),
+          serializedDataset.length,
+          rowCount,
+          0, // Always zero since we will be using InitStreaming to do allocation
+          datasetParams,
+          datasetVoidPtr), "Dataset create from reference")
 
-    val datasetPtr: SWIGTYPE_p_void = lightgbmlib.voidpp_value(datasetVoidPtr)
-    lightgbmlib.delete_voidpp(datasetVoidPtr)
-    new LightGBMDataset(datasetPtr)
+        val datasetPtr: SWIGTYPE_p_void = lightgbmlib.voidpp_value(datasetVoidPtr)
+        new LightGBMDataset(datasetPtr)
+      } finally {
+        lightgbmlib.delete_byteArray(nativeByteArray)
+      }
+    } finally {
+      lightgbmlib.delete_voidpp(datasetVoidPtr)
+    }
   }
 }
