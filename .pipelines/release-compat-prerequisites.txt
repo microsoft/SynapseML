@@ -1,18 +1,3 @@
-# PR #2591 adds Azure AI Search AAD auth required by this change.
-# Remove this prerequisite once every validated release branch contains that backport.
-04897bae9baa08f0d67855566f7bad235791d508
-# PR #2612 introduces the WorkerMessage protocol used by the IPv6 endpoint parsing fix.
-# Remove this prerequisite once every validated release branch contains that backport.
-4a52d9ae4184d3ce00394cd9cb4209c35990fc47
-# PR #2507 introduced tests modified by PR #2635 but absent from Spark 4.1.
-# Remove this scoped prerequisite once every validated release branch contains these tests.
-6938c472175ed1592ec24e7d8c65d9174f17c4e5	core/src/test/scala/com/microsoft/azure/synapse/ml/automl/VerifyEvaluationUtils.scala	core/src/test/scala/com/microsoft/azure/synapse/ml/core/metrics/VerifyMetricConstants.scala
-# PR #2635 changed ComputeModelStatistics and its tests before this metadata fix.
-# Remove this prerequisite once every validated release branch contains that backport.
-f7a1dc50d09d400d279d08bf69a1fac322896748
-# PR #2632 then added deterministic scored-model metadata resolution used by this change.
-# Remove this prerequisite once every validated release branch contains that backport.
-704fb34a51072af56157bf4dade33f4b82dcf129
 # PR #2638 added the missing-numeric Featurize API and test imports used by this change.
 # Remove this prerequisite once every validated release branch contains that backport.
 816804baa722f4154886a528303e81b8f0a7e86a
