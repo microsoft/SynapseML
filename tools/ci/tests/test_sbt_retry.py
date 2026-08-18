@@ -83,9 +83,29 @@ exit 0
     return fake
 
 
+def _fake_curl(tmp_path: Path, http_code: str = "200") -> Path:
+    """A fake ``curl`` that records requested URLs and returns a fixed status."""
+    log = tmp_path / "curl_log"
+    fake = tmp_path / f"fake_curl_{http_code}.sh"
+    _write_exec(
+        fake,
+        f"""#!/usr/bin/env bash
+for a in "$@"; do
+  case "$a" in
+    https://*) echo "$a" >> "{log}" ;;
+  esac
+done
+printf '%s' "{http_code}"
+exit 0
+""",
+    )
+    return fake
+
+
 def _run(tmp_path, *args, env_overrides=None, sbt_cmd=None, sleep_cmd=None):
     env = dict(os.environ)
-    # Deterministic + fast defaults: no real stagger/backoff, no timeout binary.
+    # Deterministic + fast defaults: no real stagger/backoff, no timeout binary,
+    # and no real network probe.
     env.update(
         {
             "SBT_SETUP_MAX_STAGGER_SECONDS": "0",
@@ -93,6 +113,7 @@ def _run(tmp_path, *args, env_overrides=None, sbt_cmd=None, sleep_cmd=None):
             "SBT_SETUP_TIMEOUT": "",
             "SBT_SETUP_RANDOM": "0",
             "SBT_SETUP_MAX_ATTEMPTS": "5",
+            "SBT_SETUP_CURL_CMD": str(_fake_curl(tmp_path)),
         }
     )
     if sbt_cmd:
@@ -356,3 +377,47 @@ def test_without_eviction_the_same_state_exhausts_every_attempt(tmp_path):
     assert r.returncode != 0
     assert (tmp_path / "sbt_calls").read_text().strip() == "3"
     assert incomplete.exists()
+
+
+def test_probe_reports_maven_central_status_on_resolution_failure(tmp_path):
+    """Ivy collapses 404/429/DNS into 'not found'; the probe must record which."""
+    env, _, _, _ = _ivy_layout(tmp_path)
+    env = dict(env)
+    env["SBT_SETUP_CURL_CMD"] = str(_fake_curl(tmp_path, http_code="429"))
+    sbt = _fake_sbt_unresolved(tmp_path, fail_count=1)
+    r = _run(tmp_path, "setup", sbt_cmd=sbt, env_overrides=env)
+    assert r.returncode == 0, r.stdout + r.stderr
+    out = r.stdout + r.stderr
+    assert "Maven Central probe: HTTP 429" in out
+    probed = (tmp_path / "curl_log").read_text().strip().splitlines()
+    assert probed == [
+        "https://repo1.maven.org/maven2/com/globalmentor/"
+        "hadoop-bare-naked-local-fs/0.1.0/hadoop-bare-naked-local-fs-0.1.0.pom"
+    ], probed
+
+
+def test_probe_does_not_run_without_a_resolution_failure(tmp_path):
+    sbt = _fake_sbt(tmp_path, fail_count=1)  # generic failure
+    r = _run(tmp_path, "setup", sbt_cmd=sbt)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "Maven Central probe" not in (r.stdout + r.stderr)
+    assert not (tmp_path / "curl_log").exists()
+
+
+def test_probe_failure_never_changes_the_outcome(tmp_path):
+    """A broken/absent curl must not turn a recoverable retry into a failure."""
+    env, _, _, _ = _ivy_layout(tmp_path)
+    env = dict(env)
+    env["SBT_SETUP_CURL_CMD"] = str(tmp_path / "no-such-curl")
+    sbt = _fake_sbt_unresolved(tmp_path, fail_count=1)
+    r = _run(tmp_path, "setup", sbt_cmd=sbt, env_overrides=env)
+    assert r.returncode == 0, r.stdout + r.stderr
+
+
+def test_evicted_entry_contents_are_logged(tmp_path):
+    """The listing is what distinguishes a poisoned marker from a missing jar."""
+    env, incomplete, _, _ = _ivy_layout(tmp_path)
+    sbt = _fake_sbt_unresolved(tmp_path, fail_count=1)
+    r = _run(tmp_path, "setup", sbt_cmd=sbt, env_overrides=env)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "ivydata-0.1.0.properties" in (r.stdout + r.stderr)

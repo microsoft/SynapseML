@@ -55,6 +55,8 @@
 #   SBT_SETUP_MAX_BACKOFF_SECONDS   backoff cap               (default 120)
 #   SBT_SETUP_SBT_CMD               sbt executable            (default sbt)
 #   SBT_SETUP_SLEEP_CMD             sleep command             (default sleep)
+#   SBT_SETUP_CURL_CMD              curl used by the Maven    (default curl)
+#                                   Central diagnostic probe
 #   SBT_SETUP_IVY_HOME              ivy home scanned for      (default ~/.ivy2)
 #                                   incomplete modules
 #   SBT_SETUP_COURSIER_CACHE        coursier cache scanned    (default
@@ -70,6 +72,7 @@ BASE_BACKOFF="${SBT_SETUP_BASE_BACKOFF_SECONDS:-20}"
 MAX_BACKOFF="${SBT_SETUP_MAX_BACKOFF_SECONDS:-120}"
 SBT_CMD="${SBT_SETUP_SBT_CMD:-sbt}"
 SLEEP_CMD="${SBT_SETUP_SLEEP_CMD:-sleep}"
+CURL_CMD="${SBT_SETUP_CURL_CMD:-curl}"
 IVY_HOME="${SBT_SETUP_IVY_HOME:-${HOME:-}/.ivy2}"
 COURSIER_CACHE="${SBT_SETUP_COURSIER_CACHE:-${HOME:-}/.cache/coursier}"
 
@@ -100,6 +103,24 @@ run_sbt() {
   else
     "$SBT_CMD" "$@"
   fi
+}
+
+# Report what Maven Central actually returns for a module sbt could not resolve.
+#
+# Ivy collapses every remote outcome - 404, 429, TLS failure, DNS failure - into
+# the same "not found" message, so a failed resolution alone cannot distinguish
+# an absent artifact from a throttled or unreachable agent. A resolution failure
+# is also typically the job's only network request, leaving nothing to compare
+# against. This probe records the HTTP status so the next occurrence is
+# diagnosable from the log instead of inferred. It never affects the exit status.
+probe_central() {
+  local org_path="$1" name="$2" rev="$3"
+  local url="https://repo1.maven.org/maven2/${org_path}/${name}/${rev}/${name}-${rev}.pom"
+  command -v "$CURL_CMD" >/dev/null 2>&1 || return 0
+  local code
+  code="$("$CURL_CMD" -sS -o /dev/null -w '%{http_code}' --max-time 30 "$url" 2>&1)" ||
+    code="request-failed(${code})"
+  echo "sbt_retry: Maven Central probe: HTTP ${code} for ${url}"
 }
 
 # Evict every module named in an "unresolved dependency" error from the local
@@ -134,11 +155,16 @@ evict_unresolved_modules() {
       "$IVY_HOME/local/$org/$name" \
       "$COURSIER_CACHE/v1/https/repo1.maven.org/maven2/$org_path/$name/$rev"; do
       if [ -e "$target" ]; then
+        # What the damaged entry actually contained decides whether the next
+        # occurrence is a poisoned marker or a genuinely absent artifact.
         echo "sbt_retry: evicting incomplete cache entry: $target"
+        find "$target" -maxdepth 2 -printf '  %10s  %p\n' 2>/dev/null | head -n 20 ||
+          ls -la "$target" 2>/dev/null | head -n 20
         rm -rf "$target"
         evicted=1
       fi
     done
+    probe_central "$org_path" "$name" "$rev"
   done <<< "$coords"
 
   [ "$evicted" -eq 1 ]
