@@ -577,10 +577,10 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
                                           partitionCount: Int,
                                           measures: InstrumentationMeasures)
                                          (train: Option[Broadcast[Array[Row]]] => T): T = {
-    validationData.foreach(_ => measures.markValidDataCollectionStart())
-    val server = validationData.map(data =>
-      ValidationDataServer.create(data, ClusterUtil.getDriverHost(spark), partitionCount, getTimeout))
-    validationData.foreach(_ => measures.markValidDataCollectionStop())
+    val server = LightGBMValidationDataSupport.measureCollection(validationData.isDefined, measures) {
+      validationData.map(data =>
+        ValidationDataServer.create(data, ClusterUtil.getDriverHost(spark), partitionCount, getTimeout))
+    }
     LightGBMValidationDataSupport.withResources(
       server.map(validationServer => spark.sparkContext.broadcast(validationServer.params.toRows)),
       (params: Option[Broadcast[Array[Row]]]) => params.foreach(_.destroy()),
@@ -906,6 +906,12 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
 }
 
 private[lightgbm] object LightGBMValidationDataSupport {
+  def measureCollection[T](enabled: Boolean, measures: InstrumentationMeasures)(operation: => T): T = {
+    if (enabled) measures.markValidDataCollectionStart()
+    try operation
+    finally if (enabled) measures.markValidDataCollectionStop()
+  }
+
   def withResources[P, T](createParams: => P,
                           destroyParams: P => Unit,
                           closeServer: => Unit)
