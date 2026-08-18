@@ -55,7 +55,8 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
 
   test("Robustness to bad inputs") {
     val results = responses.transform(badDf).collect()
-    assert(Option(results.head.getAs[Row](responses.getErrorCol)).isDefined)
+    assert(Option(results.head.getAs[Row](responses.getOutputCol)).isEmpty)
+    assert(Option(results.head.getAs[Row](responses.getErrorCol)).isEmpty)
     assert(Option(results(1).getAs[Row](responses.getErrorCol)).isDefined)
   }
 
@@ -291,7 +292,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
         |  "usage":null
         |}""".stripMargin
 
-    val responseDf = spark.read.schema(ResponsesModelResponse.schema).json(Seq(responseJson).toDS)
+    val responseDf = spark.read.schema(ResponsesModelResponseV2.schema).json(Seq(responseJson).toDS)
     val wrappedDf = responseDf.select(F.struct(responseDf.columns.map(F.col): _*).as("out"))
 
     val text = wrappedDf
@@ -319,7 +320,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
         |  "usage":null
         |}""".stripMargin
 
-    val responseDf = spark.read.schema(ResponsesModelResponse.schema).json(Seq(responseJson).toDS)
+    val responseDf = spark.read.schema(ResponsesModelResponseV2.schema).json(Seq(responseJson).toDS)
     val wrappedDf = responseDf.select(F.struct(responseDf.columns.map(F.col): _*).as("out"))
 
     val text = wrappedDf
@@ -347,7 +348,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
         |  "usage":null
         |}""".stripMargin
 
-    val responseDf = spark.read.schema(ResponsesModelResponse.schema).json(Seq(responseJson).toDS)
+    val responseDf = spark.read.schema(ResponsesModelResponseV2.schema).json(Seq(responseJson).toDS)
     val wrappedDf = responseDf.select(F.struct(responseDf.columns.map(F.col): _*).as("out"))
 
     val textRow = wrappedDf
@@ -375,7 +376,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
         |  "usage":null
         |}""".stripMargin
 
-    val responseDf = spark.read.schema(ResponsesModelResponse.schema).json(Seq(responseJson).toDS)
+    val responseDf = spark.read.schema(ResponsesModelResponseV2.schema).json(Seq(responseJson).toDS)
     val wrappedDf = responseDf.select(F.struct(responseDf.columns.map(F.col): _*).as("out"))
 
     val text = wrappedDf
@@ -402,7 +403,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
         |  "usage":null
         |}""".stripMargin
 
-    val responseDf = spark.read.schema(ResponsesModelResponse.schema).json(Seq(responseJson).toDS)
+    val responseDf = spark.read.schema(ResponsesModelResponseV2.schema).json(Seq(responseJson).toDS)
     val outputRow = responseDf.collect().head
 
     assert(transformer.isContentFiltered(outputRow))
@@ -425,7 +426,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
         |  "usage":null
         |}""".stripMargin
 
-    val responseDf = spark.read.schema(ResponsesModelResponse.schema).json(Seq(responseJson).toDS)
+    val responseDf = spark.read.schema(ResponsesModelResponseV2.schema).json(Seq(responseJson).toDS)
     val outputRow = responseDf.collect().head
 
     assert(transformer.isContentFiltered(outputRow))
