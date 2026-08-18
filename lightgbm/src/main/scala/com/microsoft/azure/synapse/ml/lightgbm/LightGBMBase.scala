@@ -28,6 +28,8 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
   with LightGBMParams with ComplexParamsWritable
   with HasFeaturesColSpark with HasLabelColSpark with LightGBMPerformance with SynapseMLLogging {
 
+  private val forcedHistogramModes = Set("force_col_wise", "force_row_wise")
+
   /** Trains the LightGBM model.  If batches are specified, breaks training dataset into batches for training.
     *
     * @param dataset The input dataset to train.
@@ -35,6 +37,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     */
   protected def train(dataset: Dataset[_]): TrainedModel = {
     LightGBMUtils.initializeNativeLibrary()
+    logReproducibilityWarnings(dataset)
 
     val isMultiBatch = getNumBatches > 0
     val numBatches = if (isMultiBatch) getNumBatches else 1
@@ -62,6 +65,43 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
         trainOneDataBatch(dataset, batchIndex = 0, 1)
       }
     }, dataset.columns.length)
+  }
+
+  private[lightgbm] def reproducibilityWarningMessages(dataset: Dataset[_]): Seq[String] = {
+    val warnings = scala.collection.mutable.ArrayBuffer[String]()
+    val configuredArgs = get(passThroughArgs).getOrElse("")
+    val configuredParameters =
+      LightGBMUtils.parameterValues(configuredArgs, forcedHistogramModes + "deterministic")
+    val deterministicTraining = configuredParameters.get("deterministic")
+      .map(LightGBMUtils.isEnabledParameterValue)
+      .orElse(get(deterministic))
+      .contains(true)
+    if (deterministicTraining) {
+      val histogramModes = configuredParameters.filter { case (name, _) => forcedHistogramModes.contains(name) }
+      if (!histogramModes.values.exists(LightGBMUtils.isEnabledParameterValue)) {
+        warnings +=
+          "deterministic=true does not by itself select a stable LightGBM histogram strategy. " +
+            "For reproducibility on CPU, set passThroughArgs to force_col_wise=true or force_row_wise=true, " +
+            "as required by LightGBM's deterministic parameter documentation."
+      }
+      if (histogramModes.values.count(LightGBMUtils.isEnabledParameterValue) > 1) {
+        warnings +=
+          "Both force_col_wise and force_row_wise are enabled in passThroughArgs. LightGBM requires choosing " +
+            "exactly one histogram strategy for deterministic CPU training."
+      }
+
+      if (!dataset.queryExecution.optimizedPlan.deterministic) {
+        warnings +=
+          "The training DataFrame contains nondeterministic Spark expressions. Repeated fit() calls can consume " +
+            "different rows or row order even when LightGBM seeds and deterministic=true are set. Materialize and " +
+            "reload the exact training snapshot, or persist it and complete one materializing action, before fit()."
+      }
+    }
+    warnings.toSeq
+  }
+
+  private def logReproducibilityWarnings(dataset: Dataset[_]): Unit = {
+    reproducibilityWarningMessages(dataset).foreach(log.warn)
   }
 
   def beforeTrainBatch(batchIndex: Int, dataset: Dataset[_], model: Option[TrainedModel]): Unit = {

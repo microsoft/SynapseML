@@ -589,6 +589,28 @@ class VerifyLightGBMCommon extends TestBase with LightGBMTestUtils {
     }
   }
 
+  test("Verify enabled pass-through parameter parsing matches LightGBM boolean syntax") {
+    val names = Set("force_col_wise", "force_row_wise")
+    Seq("force_col_wise=true",
+        "force_col_wise=TRUE",
+        "force_row_wise=1",
+        "force_row_wise=+1",
+        "force_col_wise=yes",
+        """force_col_wise="true"""").foreach { parameters =>
+      val values = LightGBMUtils.parameterValues(parameters, names).values
+      assert(values.exists(LightGBMUtils.isEnabledParameterValue))
+    }
+    Seq("",
+        "force_col_wise=false",
+        "force_row_wise=0",
+        "force_col_wise=no",
+        "note=force_col_wise=true",
+        "force_col_wise true").foreach { parameters =>
+      val values = LightGBMUtils.parameterValues(parameters, names).values
+      assert(!values.exists(LightGBMUtils.isEnabledParameterValue))
+    }
+  }
+
   test("Verify booster guidance uses the shared effective device parser") {
     Seq(
       """device_type="CUDA"""" -> "device_type=cuda",
