@@ -238,6 +238,155 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
     assert(resultStringIndexer.first().getAs[DenseVector](featuresColumn).size == 7)
   }
 
+  test("issue 1667 - ordinary text featurization is unchanged when constant text columns are present") {
+    val trainingDataset = spark.createDataFrame(Seq(
+      (0, 1.0, "always the same", "red fox"),
+      (1, 2.0, "always the same", "blue fox"),
+      (0, 3.0, "always the same", "red dog"),
+      (1, 4.0, "always the same", "blue dog")))
+      .toDF(mockLabelColumn, "numeric", "constantText", "informativeText")
+    val featurizeUid = "issue1667Featurize"
+
+    val baseModel = new Featurize(featurizeUid)
+      .setNumFeatures(1024)
+      .setOutputCol(featuresColumn)
+      .setInputCols(Array("informativeText", "numeric"))
+      .fit(trainingDataset)
+
+    val modelWithConstantText = new Featurize(featurizeUid)
+      .setNumFeatures(1024)
+      .setOutputCol(featuresColumn)
+      .setInputCols(Array("constantText", "informativeText", "numeric"))
+      .fit(trainingDataset)
+
+    val scoringDataset = spark.createDataFrame(Seq(
+      (4, 5.0, null, "yellow bird"),
+      (5, 6.0, "", "red fox"),
+      (6, 7.0, "novel scoring text", "blue dog")))
+      .toDF(mockLabelColumn, "numeric", "constantText", "informativeText")
+
+    val baseResult = baseModel.transform(scoringDataset).select(featuresColumn)
+    val resultWithConstantText = modelWithConstantText.transform(scoringDataset).select(featuresColumn)
+
+    assert(baseResult.collect().map(_.getAs[Vector](0)).toSeq ===
+      resultWithConstantText.collect().map(_.getAs[Vector](0)).toSeq)
+    assert(baseResult.schema(featuresColumn).metadata === resultWithConstantText.schema(featuresColumn).metadata)
+    assert(AttributeGroup.fromStructField(baseResult.schema(featuresColumn)).numAttributes ===
+      AttributeGroup.fromStructField(resultWithConstantText.schema(featuresColumn)).numAttributes)
+
+    val modelDir = new File(tmpDir.toFile, "issue1667-featurize-model")
+    modelWithConstantText.write.overwrite().save(modelDir.toString)
+    val loadedModel = PipelineModel.load(modelDir.toString)
+    val loadedResult = loadedModel.transform(scoringDataset).select(featuresColumn)
+    assert(verifyResult(resultWithConstantText, loadedResult))
+  }
+
+  test("issue 1667 - collapsed text coexists with vectorAssemblerHandleInvalid keep and defaultCopy") {
+    val trainingDataset = spark.createDataFrame(Seq(
+      (0, "always the same", 1.0),
+      (1, "always the same", 2.0),
+      (2, "always the same", 3.0)))
+      .toDF(mockLabelColumn, "constantText", "numeric")
+    val scoringDataset = spark.createDataFrame(Seq[(Int, String, JDouble)](
+      (0, null, null),
+      (1, "", 4.0),
+      (2, "novel scoring text", Double.NaN)))
+      .toDF(mockLabelColumn, "constantText", "numeric")
+
+    val featurize = new Featurize()
+      .setNumFeatures(1024)
+      .setOutputCol(featuresColumn)
+      .setInputCols(Array("constantText", "numeric"))
+      .setImputeMissing(false)
+      .setVectorAssemblerHandleInvalid("keep")
+    val copied = featurize.copy(new ParamMap()).asInstanceOf[Featurize]
+
+    assert(copied.getVectorAssemblerHandleInvalid == "keep")
+    val result = copied.fit(trainingDataset).transform(scoringDataset)
+    val byLabel = result.select(mockLabelColumn, featuresColumn).collect().map { row =>
+      row.getAs[Int](mockLabelColumn) -> row.getAs[Vector](featuresColumn)
+    }.toMap
+
+    assert(byLabel.values.forall(_.size == 1))
+    assert(byLabel(0)(0).isNaN)
+    assert(byLabel(1)(0) == 4.0)
+    assert(byLabel(2)(0).isNaN)
+    val attributes = AttributeGroup.fromStructField(result.schema(featuresColumn))
+    assert(attributes.size == 1)
+    assert(attributes.attributes.get.flatMap(_.name).toSeq == Seq("numeric"))
+  }
+
+  test("issue 1667 - featurize fails clearly when all text features are constant") {
+    val dataset = spark.createDataFrame(Seq(Tuple1("2"), Tuple1("2"), Tuple1("2"))).toDF("text")
+
+    val ex = intercept[IllegalArgumentException] {
+      new Featurize()
+        .setNumFeatures(1024)
+        .setOutputCol(featuresColumn)
+        .setInputCols(Array("text"))
+        .fit(dataset)
+    }
+
+    assert(ex.getMessage.toLowerCase.contains("no usable"))
+    assert(ex.getMessage.contains("text"))
+  }
+
+  test("issue 1667 - featurize fails clearly when text vocabulary is empty or null") {
+    val dataset = spark.createDataFrame(Seq[(Int, String)](
+      (0, null),
+      (1, ""),
+      (2, null)))
+      .toDF(mockLabelColumn, "emptyText")
+
+    val ex = intercept[IllegalArgumentException] {
+      new Featurize()
+        .setNumFeatures(1024)
+        .setOutputCol(featuresColumn)
+        .setInputCols(Array("emptyText"))
+        .fit(dataset)
+    }
+
+    assert(ex.getMessage.toLowerCase.contains("no usable"))
+    assert(ex.getMessage.contains("'emptyText'"))
+    assert(ex.getMessage.contains("constant, empty"))
+  }
+
+  test("issue 1667 - constant numeric columns keep their original semantics") {
+    val dataset = spark.createDataFrame(Seq(
+      (0, 5.0, 1.0),
+      (1, 5.0, 2.0),
+      (0, 5.0, 3.0)))
+      .toDF(mockLabelColumn, "constantNum", "varyingNum")
+
+    val result = featurize(dataset).select(featuresColumn).collect().map(_.getAs[Vector](0)).toSeq
+    assert(result.forall(_.size == 2))
+    assert(result.map(_.toArray.sorted.toSeq) === Seq(
+      Seq(1.0, 5.0),
+      Seq(2.0, 5.0),
+      Seq(3.0, 5.0)))
+  }
+
+  test("issue 1667 - constant categorical columns keep Spark one-hot validation") {
+    val dataset = spark.createDataFrame(Seq(
+      (0, "cat"),
+      (1, "cat"),
+      (0, "cat")))
+      .toDF(mockLabelColumn, "animal")
+
+    val indexed = new ValueIndexer().setInputCol("animal").setOutputCol("animal").fit(dataset).transform(dataset)
+
+    val ex = intercept[IllegalArgumentException] {
+      new Featurize()
+        .setOutputCol(featuresColumn)
+        .setInputCols(Array("animal"))
+        .setOneHotEncodeCategoricals(true)
+        .fit(indexed)
+    }
+
+    assert(ex.getMessage.contains("animal"))
+    assert(ex.getMessage.contains("at least two distinct values"))
+  }
+
   // This test currently fails on ValueIndexer, where we should handle missing values (unlike spark,
   // which fails with a null reference exception)
   ignore("Featurizing with categorical columns that have missings - using one hot encoding") {
