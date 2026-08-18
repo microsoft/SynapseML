@@ -39,15 +39,34 @@ would be a no-op). After installing, verify that exactly one `ai.onnxruntime` ja
 ever see both `onnxruntime-<version>.jar` and `onnxruntime_gpu-<version>.jar` on the same classpath, the
 exclusion is missing or attached to the wrong dependency.
 
-Choose the SynapseML Scala suffix and version from the
-[installation matrix](../../Get%20Started/Install%20SynapseML.md). In the examples
-below, `<synapseml-coordinate>` means that complete runtime-specific coordinate.
+The examples below install the `synapseml-deep-learning` JVM module directly.
+Use the current base release:
+
+```bash
+SYNAPSEML_VERSION="1.1.3"
+```
+
+Then select the module version and complete coordinate from the Spark runtime:
+
+| Spark runtime | Scala binary version | `<synapseml-deep-learning-version>` | `<synapseml-deep-learning-coordinate>` |
+| --- | --- | --- | --- |
+| Spark 3.5.x | 2.12 | `${SYNAPSEML_VERSION}` | `com.microsoft.azure:synapseml-deep-learning_2.12:${SYNAPSEML_VERSION}` |
+| Spark 4.0.x | 2.13 | `${SYNAPSEML_VERSION}-spark4.0` | `com.microsoft.azure:synapseml-deep-learning_2.13:${SYNAPSEML_VERSION}-spark4.0` |
+| Spark 4.1.x | 2.13 | `${SYNAPSEML_VERSION}-spark4.1` | `com.microsoft.azure:synapseml-deep-learning_2.13:${SYNAPSEML_VERSION}-spark4.1` |
+
+Replace the variable with its assigned value in UIs that do not expand shell
+variables, and resolve these modules from
+`https://mmlspark.blob.core.windows.net/maven`. If you intentionally install the
+aggregate `synapseml` artifact instead, use its coordinate from the
+[installation matrix](../../Get%20Started/Install%20SynapseML.md) and attach the
+exclusion to that aggregate dependency. Do not install both the aggregate and
+module artifacts.
 
 - **sbt** (per-dependency exclusion, attached to the SynapseML dependency):
 
   ```scala
   libraryDependencies ++= Seq(
-    ("com.microsoft.azure" %% "synapseml-deep-learning" % "<version>")
+    ("com.microsoft.azure" %% "synapseml-deep-learning" % "<synapseml-deep-learning-version>")
       .exclude("com.microsoft.onnxruntime", "onnxruntime"),
     "com.microsoft.onnxruntime" % "onnxruntime_gpu" % "<onnxruntime-version>"
   )
@@ -64,7 +83,7 @@ below, `<synapseml-coordinate>` means that complete runtime-specific coordinate.
   <dependency>
     <groupId>com.microsoft.azure</groupId>
     <artifactId>synapseml-deep-learning_<scala-binary-version></artifactId>
-    <version><synapseml-artifact-version></version>
+    <version><synapseml-deep-learning-version></version>
     <exclusions>
       <exclusion>
         <groupId>com.microsoft.onnxruntime</groupId>
@@ -85,7 +104,7 @@ below, `<synapseml-coordinate>` means that complete runtime-specific coordinate.
 
   ```bash
   spark-submit \
-    --packages <synapseml-coordinate>,com.microsoft.onnxruntime:onnxruntime_gpu:1.17.3 \
+    --packages <synapseml-deep-learning-coordinate>,com.microsoft.onnxruntime:onnxruntime_gpu:1.17.3 \
     --exclude-packages com.microsoft.onnxruntime:onnxruntime \
     your_script.py
   ```
@@ -94,7 +113,7 @@ below, `<synapseml-coordinate>` means that complete runtime-specific coordinate.
   flags) are `spark.jars.packages` and `spark.jars.excludes`:
 
   ```
-  spark.jars.packages=<synapseml-coordinate>,com.microsoft.onnxruntime:onnxruntime_gpu:1.17.3
+  spark.jars.packages=<synapseml-deep-learning-coordinate>,com.microsoft.onnxruntime:onnxruntime_gpu:1.17.3
   spark.jars.excludes=com.microsoft.onnxruntime:onnxruntime
   ```
 
@@ -106,7 +125,7 @@ below, `<synapseml-coordinate>` means that complete runtime-specific coordinate.
   [
     {
       "maven": {
-        "coordinates": "<synapseml-coordinate>",
+        "coordinates": "<synapseml-deep-learning-coordinate>",
         "exclusions": ["com.microsoft.onnxruntime:onnxruntime"]
       }
     },

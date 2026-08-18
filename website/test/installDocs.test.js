@@ -148,6 +148,8 @@ test('website landing page uses every supported runtime variant', () => {
   }
   assert.doesNotMatch(index, /THE_SYNAPSEML_VERSION_YOU_WANT/);
   assert.doesNotMatch(index, /only Spark 3|any Spark 3 infrastructure/);
+  assert.doesNotMatch(index, /<p>\s*<p>/);
+  assert.doesNotMatch(index, /<p>\{description\}<\/p>/);
 });
 
 test('specialized install guides state their runtime scope', () => {
@@ -194,8 +196,26 @@ test('specialized install guides state their runtime scope', () => {
   assert.match(overview, /Spark 4\.0 and 4\.1 use Scala 2\.13/);
   assert.match(deepLearning, /Python wheel supplies wrappers/);
   assert.match(deepLearning, /installation matrix/);
-  assert.match(onnx, /<synapseml-coordinate>/);
-  assert.doesNotMatch(onnx, /synapseml_2\.12:<version>/);
+  const expandedOnnx = expandDocumentedVersion(onnx);
+  assert.ok(
+    onnx.includes(`SYNAPSEML_VERSION="${currentVersion}"`),
+    'the release bump mechanism must own the ONNX module version',
+  );
+  assert.match(onnx, /<synapseml-deep-learning-coordinate>/);
+  assert.match(onnx, /<synapseml-deep-learning-version>/);
+  assert.doesNotMatch(onnx, /<synapseml-coordinate>/);
+  assert.doesNotMatch(onnx, /<synapseml-artifact-version>/);
+  for (const key of ['spark35', 'spark40', 'spark41']) {
+    assert.ok(
+      expandedOnnx.includes(
+        installArtifacts[key].coordinate.replace(
+          ':synapseml_',
+          ':synapseml-deep-learning_',
+        ),
+      ),
+    );
+  }
+  assert.match(onnx, new RegExp(installArtifacts.repository));
   assert.match(rSetup, /examples below use Spark 3\.5 \/ Scala 2\.12/);
   assert.match(rSetup, /installation matrix/);
   assert.match(isolationForest, /scoped to Spark 3\.5 \/ Scala 2\.12/);

@@ -153,7 +153,7 @@ function Feature({ imageUrl, title, description }) {
         </div>
       )}
       <h3>{title}</h3>
-      <p>{description}</p>
+      <div>{description}</div>
     </div>
   );
 }
@@ -383,32 +383,34 @@ pyspark --repositories "${repository}" --packages "${spark35.coordinate}"`}
                     <a href="https://docs.databricks.com/user-guide/libraries.html#libraries-from-maven-pypi-or-spark-packages">
                       library from Maven coordinates
                     </a>{" "}
-                    in your workspace. in your workspace.
+                    in your workspace.
                   </p>
-                  <p>
+                  <div>
                     <p>Choose the coordinate matching the cluster runtime:</p>
-                    Spark 4.1 / Scala 2.13:
+                    <p>Spark 4.1 / Scala 2.13:</p>
                     <CodeSnippet
                       snippet={spark41.coordinate}
                       lang="bash"
                     ></CodeSnippet>
-                    Spark 4.0 / Scala 2.13:
+                    <p>Spark 4.0 / Scala 2.13:</p>
                     <CodeSnippet
                       snippet={spark40.coordinate}
                       lang="bash"
                     ></CodeSnippet>
-                    Spark 3.5 / Scala 2.12:
+                    <p>Spark 3.5 / Scala 2.12:</p>
                     <CodeSnippet
                       snippet={spark35.coordinate}
                       lang="bash"
                     ></CodeSnippet>
-                    with the resolver:
+                    <p>Use the following resolver:</p>
                     <CodeSnippet
                       snippet={repository}
                       lang="bash"
                     ></CodeSnippet>
-                    Ensure this library is attached to your target cluster(s).
-                  </p>
+                    <p>
+                      Ensure this library is attached to your target cluster(s).
+                    </p>
+                  </div>
                   <p>
                     Restart the cluster after attaching the library so the JVM
                     artifact is available before importing <code>synapse.ml</code>.
