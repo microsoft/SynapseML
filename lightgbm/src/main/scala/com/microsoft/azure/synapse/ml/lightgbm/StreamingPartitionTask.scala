@@ -348,18 +348,21 @@ class StreamingPartitionTask extends BasePartitionTask {
 
   private def createSharedValidationDataset(ctx: PartitionTaskContext, rowCount: Int): LightGBMDataset = {
     val pointer = lightgbmlib.voidpp_handle()
-    val reference = ctx.sharedState.datasetState.streamingDataset.get.datasetPtr
-    LightGBMUtils.validate(
-      lightgbmlib.LGBM_DatasetCreateByReference(reference, rowCount, pointer),
-      "Dataset create from reference")
+    val dataset = try {
+      val reference = ctx.sharedState.datasetState.streamingDataset.get.datasetPtr
+      LightGBMUtils.validate(
+        lightgbmlib.LGBM_DatasetCreateByReference(reference, rowCount, pointer),
+        "Dataset create from reference")
+      new LightGBMDataset(lightgbmlib.voidpp_value(pointer))
+    } finally {
+      lightgbmlib.delete_voidpp(pointer)
+    }
 
-    val datasetPtr = lightgbmlib.voidpp_value(pointer)
-    LightGBMUtils.validate(
-      lightgbmlib.LGBM_DatasetSetWaitForManualFinish(datasetPtr, 1),
-      "Dataset LGBM_DatasetSetWaitForManualFinish")
-
-    lightgbmlib.delete_voidpp(pointer)
-    val dataset = new LightGBMDataset(datasetPtr)
-    dataset.setFeatureNames(ctx.trainingCtx.featureNames, ctx.trainingCtx.numCols)
+    ReferenceDatasetUtils.initializeOwnedDataset(dataset) {
+      LightGBMUtils.validate(
+        lightgbmlib.LGBM_DatasetSetWaitForManualFinish(dataset.datasetPtr, 1),
+        "Dataset LGBM_DatasetSetWaitForManualFinish")
+      dataset.setFeatureNames(ctx.trainingCtx.featureNames, ctx.trainingCtx.numCols)
+    }
   }
 }
