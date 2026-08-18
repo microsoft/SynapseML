@@ -30,6 +30,25 @@ The durable fix has three layers:
    fallback. Exact hits on all three caches disable the start stagger
    automatically.
 
+### Partially restored caches
+
+A restored cache occasionally lands **incomplete on a single agent**: the module
+directory under `~/.ivy2/cache` exists but its metadata/artifacts do not. Ivy
+treats that as an authoritative `not found` and fails *without* attempting a
+download, so retrying the identical command is guaranteed to fail identically.
+
+Observed in ADO build 231667649: `UnitTests language` failed ten consecutive
+times in 12–17s each on `com.globalmentor#hadoop-bare-naked-local-fs`, while the
+other **39 of 40** shards in that same build resolved that module offline from
+the byte-identical cache key and never contacted Maven Central. This is a
+per-agent restore fault, not rate limiting — no shard downloaded the artifact.
+
+`sbt_retry.sh` therefore parses `unresolved dependency: <org>#<name>;<rev>` out
+of each failed attempt and deletes exactly those modules from `~/.ivy2/cache`,
+`~/.ivy2/local`, and the Coursier cache before backing off, so the next attempt
+re-fetches them cleanly. Unrelated failures evict nothing. Override
+`SBT_SETUP_IVY_HOME` / `SBT_SETUP_COURSIER_CACHE` to relocate the scan.
+
 ### Tests
 
 ```bash
@@ -37,7 +56,10 @@ python -m pytest tools/ci/tests/ -v
 ```
 
 `test_sbt_retry.py` drives the wrapper with a fake `sbt` (deterministic, no real
-sleeps) to verify retry/backoff/stagger and visible-failure behaviour.
+sleeps) to verify retry/backoff/stagger, visible-failure behaviour, and that a
+resolution failure evicts exactly the named modules before retrying — including
+a control asserting that the same state exhausts every attempt when eviction
+cannot reach it.
 `test_pipeline_yaml.py` verifies `pipeline.yaml` parses and that every
 sbt-running job is wired to the shared cache template + prewarm job.
 
