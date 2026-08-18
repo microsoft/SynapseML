@@ -122,7 +122,7 @@ object OpenAIResponses extends ComplexParamsReadable[OpenAIResponses]
 
 class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   with HasOpenAITextParamsResponses with HasMessagesInput with HasCognitiveServiceInput
-  with HasInternalJsonOutputParser with SynapseMLLogging with HasCustomHeaders
+  with HasOpenAIFabricHeaders with HasInternalJsonOutputParser with SynapseMLLogging with HasCustomHeaders
   with HasRAIContentFilter with HasTextOutput {
   logClass(FeatureNames.AiServices.OpenAI)
 

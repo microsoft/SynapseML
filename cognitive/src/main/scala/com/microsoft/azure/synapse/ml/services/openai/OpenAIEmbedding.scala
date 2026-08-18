@@ -25,7 +25,8 @@ import org.apache.spark.ml.param.Param
 object OpenAIEmbedding extends ComplexParamsReadable[OpenAIEmbedding]
 
 class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
-  with HasOpenAIEmbeddingParams with HasCognitiveServiceInput with SynapseMLLogging {
+  with HasOpenAIEmbeddingParams with HasCognitiveServiceInput
+  with HasOpenAIFabricHeaders with SynapseMLLogging {
   logClass(FeatureNames.AiServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAIEmbedding"))

@@ -6,13 +6,17 @@ package com.microsoft.azure.synapse.ml.featurize
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
 import org.apache.commons.io.FileUtils
-import org.apache.spark.ml.PipelineModel
-import org.apache.spark.ml.feature.StringIndexer
+import org.apache.spark.SparkException
+import org.apache.spark.ml.attribute.AttributeGroup
+import org.apache.spark.ml.feature.{StringIndexer, VectorSizeHint, VectorSlicer}
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector, Vectors}
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.MLReadable
+import org.apache.spark.ml.{Pipeline, PipelineModel}
 import org.apache.spark.sql._
 
 import java.io.File
+import java.lang.{Double => JDouble}
 import java.nio.file.Files
 import java.sql.{Date, Timestamp}
 import java.util.GregorianCalendar
@@ -234,6 +238,155 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
     assert(resultStringIndexer.first().getAs[DenseVector](featuresColumn).size == 7)
   }
 
+  test("issue 1667 - ordinary text featurization is unchanged when constant text columns are present") {
+    val trainingDataset = spark.createDataFrame(Seq(
+      (0, 1.0, "always the same", "red fox"),
+      (1, 2.0, "always the same", "blue fox"),
+      (0, 3.0, "always the same", "red dog"),
+      (1, 4.0, "always the same", "blue dog")))
+      .toDF(mockLabelColumn, "numeric", "constantText", "informativeText")
+    val featurizeUid = "issue1667Featurize"
+
+    val baseModel = new Featurize(featurizeUid)
+      .setNumFeatures(1024)
+      .setOutputCol(featuresColumn)
+      .setInputCols(Array("informativeText", "numeric"))
+      .fit(trainingDataset)
+
+    val modelWithConstantText = new Featurize(featurizeUid)
+      .setNumFeatures(1024)
+      .setOutputCol(featuresColumn)
+      .setInputCols(Array("constantText", "informativeText", "numeric"))
+      .fit(trainingDataset)
+
+    val scoringDataset = spark.createDataFrame(Seq(
+      (4, 5.0, null, "yellow bird"),
+      (5, 6.0, "", "red fox"),
+      (6, 7.0, "novel scoring text", "blue dog")))
+      .toDF(mockLabelColumn, "numeric", "constantText", "informativeText")
+
+    val baseResult = baseModel.transform(scoringDataset).select(featuresColumn)
+    val resultWithConstantText = modelWithConstantText.transform(scoringDataset).select(featuresColumn)
+
+    assert(baseResult.collect().map(_.getAs[Vector](0)).toSeq ===
+      resultWithConstantText.collect().map(_.getAs[Vector](0)).toSeq)
+    assert(baseResult.schema(featuresColumn).metadata === resultWithConstantText.schema(featuresColumn).metadata)
+    assert(AttributeGroup.fromStructField(baseResult.schema(featuresColumn)).numAttributes ===
+      AttributeGroup.fromStructField(resultWithConstantText.schema(featuresColumn)).numAttributes)
+
+    val modelDir = new File(tmpDir.toFile, "issue1667-featurize-model")
+    modelWithConstantText.write.overwrite().save(modelDir.toString)
+    val loadedModel = PipelineModel.load(modelDir.toString)
+    val loadedResult = loadedModel.transform(scoringDataset).select(featuresColumn)
+    assert(verifyResult(resultWithConstantText, loadedResult))
+  }
+
+  test("issue 1667 - collapsed text coexists with vectorAssemblerHandleInvalid keep and defaultCopy") {
+    val trainingDataset = spark.createDataFrame(Seq(
+      (0, "always the same", 1.0),
+      (1, "always the same", 2.0),
+      (2, "always the same", 3.0)))
+      .toDF(mockLabelColumn, "constantText", "numeric")
+    val scoringDataset = spark.createDataFrame(Seq[(Int, String, JDouble)](
+      (0, null, null),
+      (1, "", 4.0),
+      (2, "novel scoring text", Double.NaN)))
+      .toDF(mockLabelColumn, "constantText", "numeric")
+
+    val featurize = new Featurize()
+      .setNumFeatures(1024)
+      .setOutputCol(featuresColumn)
+      .setInputCols(Array("constantText", "numeric"))
+      .setImputeMissing(false)
+      .setVectorAssemblerHandleInvalid("keep")
+    val copied = featurize.copy(new ParamMap()).asInstanceOf[Featurize]
+
+    assert(copied.getVectorAssemblerHandleInvalid == "keep")
+    val result = copied.fit(trainingDataset).transform(scoringDataset)
+    val byLabel = result.select(mockLabelColumn, featuresColumn).collect().map { row =>
+      row.getAs[Int](mockLabelColumn) -> row.getAs[Vector](featuresColumn)
+    }.toMap
+
+    assert(byLabel.values.forall(_.size == 1))
+    assert(byLabel(0)(0).isNaN)
+    assert(byLabel(1)(0) == 4.0)
+    assert(byLabel(2)(0).isNaN)
+    val attributes = AttributeGroup.fromStructField(result.schema(featuresColumn))
+    assert(attributes.size == 1)
+    assert(attributes.attributes.get.flatMap(_.name).toSeq == Seq("numeric"))
+  }
+
+  test("issue 1667 - featurize fails clearly when all text features are constant") {
+    val dataset = spark.createDataFrame(Seq(Tuple1("2"), Tuple1("2"), Tuple1("2"))).toDF("text")
+
+    val ex = intercept[IllegalArgumentException] {
+      new Featurize()
+        .setNumFeatures(1024)
+        .setOutputCol(featuresColumn)
+        .setInputCols(Array("text"))
+        .fit(dataset)
+    }
+
+    assert(ex.getMessage.toLowerCase.contains("no usable"))
+    assert(ex.getMessage.contains("text"))
+  }
+
+  test("issue 1667 - featurize fails clearly when text vocabulary is empty or null") {
+    val dataset = spark.createDataFrame(Seq[(Int, String)](
+      (0, null),
+      (1, ""),
+      (2, null)))
+      .toDF(mockLabelColumn, "emptyText")
+
+    val ex = intercept[IllegalArgumentException] {
+      new Featurize()
+        .setNumFeatures(1024)
+        .setOutputCol(featuresColumn)
+        .setInputCols(Array("emptyText"))
+        .fit(dataset)
+    }
+
+    assert(ex.getMessage.toLowerCase.contains("no usable"))
+    assert(ex.getMessage.contains("'emptyText'"))
+    assert(ex.getMessage.contains("constant, empty"))
+  }
+
+  test("issue 1667 - constant numeric columns keep their original semantics") {
+    val dataset = spark.createDataFrame(Seq(
+      (0, 5.0, 1.0),
+      (1, 5.0, 2.0),
+      (0, 5.0, 3.0)))
+      .toDF(mockLabelColumn, "constantNum", "varyingNum")
+
+    val result = featurize(dataset).select(featuresColumn).collect().map(_.getAs[Vector](0)).toSeq
+    assert(result.forall(_.size == 2))
+    assert(result.map(_.toArray.sorted.toSeq) === Seq(
+      Seq(1.0, 5.0),
+      Seq(2.0, 5.0),
+      Seq(3.0, 5.0)))
+  }
+
+  test("issue 1667 - constant categorical columns keep Spark one-hot validation") {
+    val dataset = spark.createDataFrame(Seq(
+      (0, "cat"),
+      (1, "cat"),
+      (0, "cat")))
+      .toDF(mockLabelColumn, "animal")
+
+    val indexed = new ValueIndexer().setInputCol("animal").setOutputCol("animal").fit(dataset).transform(dataset)
+
+    val ex = intercept[IllegalArgumentException] {
+      new Featurize()
+        .setOutputCol(featuresColumn)
+        .setInputCols(Array("animal"))
+        .setOneHotEncodeCategoricals(true)
+        .fit(indexed)
+    }
+
+    assert(ex.getMessage.contains("animal"))
+    assert(ex.getMessage.contains("at least two distinct values"))
+  }
+
   // This test currently fails on ValueIndexer, where we should handle missing values (unlike spark,
   // which fails with a null reference exception)
   ignore("Featurizing with categorical columns that have missings - using one hot encoding") {
@@ -261,6 +414,172 @@ class VerifyFeaturize extends TestBase with EstimatorFuzzing[Featurize] {
     val resultNoOneHot: DataFrame = featurizeAndVerifyResult(catDataset, historicNoOneHotMissingsFile)
     // Verify that features column has the correct number of slots
     assert(resultNoOneHot.first().getAs[DenseVector](featuresColumn).size == 4)
+  }
+
+  val missingValueLabelColumn = "missingLabel"
+  val missingValueInputCol = "missingCol"
+
+  lazy val missingValueDataset: DataFrame = spark.createDataFrame(Seq[(Int, JDouble)](
+    (0, 1.0),
+    (1, null),
+    (2, Double.NaN),
+    (3, 4.0)))
+    .toDF(missingValueLabelColumn, missingValueInputCol)
+
+  private def missingValueFeaturize: Featurize =
+    new Featurize()
+      .setInputCols(Array(missingValueInputCol))
+      .setOutputCol(featuresColumn)
+      .setImputeMissing(false)
+
+  private def firstSlotByLabel(result: DataFrame): Map[Int, Double] = {
+    result.select(missingValueLabelColumn, featuresColumn).collect().map { row =>
+      row.getAs[Int](missingValueLabelColumn) -> row.getAs[Vector](featuresColumn)(0)
+    }.toMap
+  }
+
+  test("Featurize vectorAssemblerHandleInvalid defaults to skip and preserves prior row-dropping behavior") {
+    val feat = missingValueFeaturize
+    assert(feat.getVectorAssemblerHandleInvalid == "skip")
+    val result = feat.fit(missingValueDataset).transform(missingValueDataset)
+    assert(result.count() == 2)
+    val byLabel = firstSlotByLabel(result)
+    assert(byLabel.keySet == Set(0, 3))
+    assert(byLabel(0) == 1.0)
+    assert(byLabel(3) == 4.0)
+  }
+
+  test("Featurize vectorAssemblerHandleInvalid=keep preserves all rows and encodes missing values as NaN") {
+    val feat = missingValueFeaturize.setVectorAssemblerHandleInvalid("keep")
+    val result = feat.fit(missingValueDataset).transform(missingValueDataset)
+    assert(result.count() == 4)
+    val byLabel = firstSlotByLabel(result)
+    assert(byLabel(0) == 1.0)
+    assert(byLabel(1).isNaN)
+    assert(byLabel(2).isNaN)
+    assert(byLabel(3) == 4.0)
+  }
+
+  test("Featurize vectorAssemblerHandleInvalid=error throws on missing scalar values") {
+    val feat = missingValueFeaturize.setVectorAssemblerHandleInvalid("error")
+    assertSparkException[SparkException](feat, missingValueDataset)
+  }
+
+  test("Featurize setVectorAssemblerHandleInvalid rejects unsupported values") {
+    val ex = intercept[IllegalArgumentException] {
+      missingValueFeaturize.setVectorAssemblerHandleInvalid("bogus")
+    }
+    assert(ex.getMessage.contains("vectorAssemblerHandleInvalid"))
+  }
+
+  test("Featurize copy retains vectorAssemblerHandleInvalid and other configured params") {
+    val feat = missingValueFeaturize.setVectorAssemblerHandleInvalid("keep")
+    val copied = feat.copy(new ParamMap()).asInstanceOf[Featurize]
+    assert(copied.uid == feat.uid)
+    assert(copied.getVectorAssemblerHandleInvalid == "keep")
+    assert(!copied.getImputeMissing)
+    assert(copied.getInputCols.toSeq == feat.getInputCols.toSeq)
+    assert(copied.getOutputCol == feat.getOutputCol)
+    val result = copied.fit(missingValueDataset).transform(missingValueDataset)
+    assert(result.count() == 4)
+
+    val overridden = feat.copy(new ParamMap()
+      .put(feat.vectorAssemblerHandleInvalid, "error")
+      .put(feat.imputeMissing, true))
+      .asInstanceOf[Featurize]
+    assert(overridden.getVectorAssemblerHandleInvalid == "error")
+    assert(overridden.getImputeMissing)
+  }
+
+  test("Featurize keep supports sparse, dense, and null vectors and preserves feature metadata") {
+    val vectorInputCol = "vectorInput"
+    val scalarInputCol = "scalarInput"
+    val rawDataset = spark.createDataFrame(Seq[(Int, Vector, JDouble)](
+      (0, Vectors.sparse(3, Seq(0 -> 1.0)), 0.0),
+      (1, Vectors.dense(0.0, Double.NaN, 2.0), 3.0),
+      (2, null, 4.0)))
+      .toDF(missingValueLabelColumn, vectorInputCol, scalarInputCol)
+    val dataset = new VectorSizeHint()
+      .setInputCol(vectorInputCol)
+      .setSize(3)
+      .setHandleInvalid("optimistic")
+      .transform(rawDataset)
+
+    val feat = new Featurize()
+      .setInputCols(Array(vectorInputCol, scalarInputCol))
+      .setOutputCol(featuresColumn)
+      .setImputeMissing(false)
+      .setVectorAssemblerHandleInvalid("keep")
+    val result = feat.fit(dataset).transform(dataset)
+    assert(result.count() == 3)
+
+    val attributeGroup = AttributeGroup.fromStructField(result.schema(featuresColumn))
+    val attributes = attributeGroup.attributes.get
+    assert(attributeGroup.size == 4)
+    assert(attributes.flatMap(_.name).toSet ==
+      Set(s"${vectorInputCol}_0", s"${vectorInputCol}_1", s"${vectorInputCol}_2", scalarInputCol))
+
+    val byLabel = result.select(missingValueLabelColumn, featuresColumn).collect().map { row =>
+      val namedValues = attributes.zip(row.getAs[Vector](featuresColumn).toArray).map {
+        case (attribute, value) => attribute.name.get -> value
+      }.toMap
+      row.getAs[Int](missingValueLabelColumn) -> (row.getAs[Vector](featuresColumn), namedValues)
+    }.toMap
+
+    assert(byLabel(0)._1.isInstanceOf[SparseVector])
+    assert(byLabel(0)._2(s"${vectorInputCol}_0") == 1.0)
+    assert(byLabel(0)._2(s"${vectorInputCol}_1") == 0.0)
+    assert(byLabel(0)._2(s"${vectorInputCol}_2") == 0.0)
+    assert(byLabel(0)._2(scalarInputCol) == 0.0)
+
+    assert(byLabel(1)._1.isInstanceOf[DenseVector])
+    assert(byLabel(1)._2(s"${vectorInputCol}_0") == 0.0)
+    assert(byLabel(1)._2(s"${vectorInputCol}_1").isNaN)
+    assert(byLabel(1)._2(s"${vectorInputCol}_2") == 2.0)
+    assert(byLabel(1)._2(scalarInputCol) == 3.0)
+
+    assert(byLabel(2)._2(s"${vectorInputCol}_0").isNaN)
+    assert(byLabel(2)._2(s"${vectorInputCol}_1").isNaN)
+    assert(byLabel(2)._2(s"${vectorInputCol}_2").isNaN)
+    assert(byLabel(2)._2(scalarInputCol) == 4.0)
+  }
+
+  test("Featurize estimator save/load retains vectorAssemblerHandleInvalid") {
+    val feat = missingValueFeaturize.setVectorAssemblerHandleInvalid("keep")
+    val path = new File(tmpDir.toFile, "featurize-estimator-keep").toString
+    feat.write.overwrite().save(path)
+    val loaded = Featurize.load(path)
+    assert(loaded.getVectorAssemblerHandleInvalid == "keep")
+    val result = loaded.fit(missingValueDataset).transform(missingValueDataset)
+    assert(result.count() == 4)
+    val byLabel = firstSlotByLabel(result)
+    assert(byLabel(1).isNaN)
+    assert(byLabel(2).isNaN)
+  }
+
+  test("Featurize keep works in a persisted Pipeline with a downstream transformer") {
+    val feat = missingValueFeaturize.setVectorAssemblerHandleInvalid("keep")
+    val selectedFeaturesColumn = "selectedFeatures"
+    val pipeline = new Pipeline().setStages(Array(
+      feat,
+      new VectorSlicer()
+        .setInputCol(featuresColumn)
+        .setOutputCol(selectedFeaturesColumn)
+        .setIndices(Array(0))))
+    val model = pipeline.fit(missingValueDataset)
+    val path = new File(tmpDir.toFile, "featurize-pipeline-model-keep").toString
+    model.write.overwrite().save(path)
+    val loadedModel = PipelineModel.load(path)
+    val result = loadedModel.transform(missingValueDataset)
+    assert(result.count() == 4)
+    val byLabel = firstSlotByLabel(result)
+    assert(byLabel(0) == 1.0)
+    assert(byLabel(1).isNaN)
+    assert(byLabel(2).isNaN)
+    assert(byLabel(3) == 4.0)
+    assert(result.select(selectedFeaturesColumn).collect().forall {
+      _.getAs[Vector](selectedFeaturesColumn).size == 1
+    })
   }
 
   private def featurize(dataset: DataFrame,
