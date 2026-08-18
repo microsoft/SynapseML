@@ -92,8 +92,8 @@ class OpenAIFabricHeadersSuite extends TestBase {
   }
 
   test("Fabric classification headers are initialized once per runtime") {
-    val first = OpenAIFabricHeaders.values
-    val second = OpenAIFabricHeaders.values
+    val first = OpenAIFabricHeaders.Values
+    val second = OpenAIFabricHeaders.Values
 
     assert(first eq second)
     assertFabricHeaders(

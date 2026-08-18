@@ -15,9 +15,17 @@ object PlatformDetails {
   lazy val CurrentPlatform: String = currentPlatform()
   lazy val FabricRuntime: String = resolveFabricRuntime(
     runningOnFabric(),
-    Option(org.apache.spark.SPARK_VERSION),
+    sparkVersion,
     sys.env.get("PYTHON_VERSION")
   )
+
+  private[common] def sparkVersion: Option[String] = {
+    try {
+      Option(org.apache.spark.SPARK_VERSION).filter(_.nonEmpty)
+    } catch {
+      case _: LinkageError => None
+    }
+  }
 
   def currentPlatform(): String = {
     val azureService = sys.env.get("AZURE_SERVICE")

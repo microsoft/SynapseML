@@ -27,6 +27,10 @@ class VerifyPlatformDetails extends TestBase {
     assert(runtime === PlatformDetails.FabricRuntime)
   }
 
+  test("sparkVersion safely reports the packaged Spark runtime") {
+    assert(PlatformDetails.sparkVersion.contains(org.apache.spark.SPARK_VERSION))
+  }
+
   test("resolveFabricRuntime prefers Spark and falls back to Python or Fabric") {
     assert(
       PlatformDetails.resolveFabricRuntime(

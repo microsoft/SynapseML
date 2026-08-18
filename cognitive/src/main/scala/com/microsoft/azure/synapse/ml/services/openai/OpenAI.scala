@@ -504,16 +504,16 @@ abstract class OpenAIServicesBase(override val uid: String) extends CognitiveSer
 }
 
 private[openai] object OpenAIFabricHeaders {
-  private val extendedPropertiesHeader = "X-Taxonomy-ExtendedProperties"
-  private val trafficTypeHeader = "X-Taxonomy-TrafficType"
-  private val serviceTierHeader = "x-llm-service-tier"
+  private val ExtendedPropertiesHeader = "X-Taxonomy-ExtendedProperties"
+  private val TrafficTypeHeader = "X-Taxonomy-TrafficType"
+  private val ServiceTierHeader = "x-llm-service-tier"
 
-  lazy val values: Map[String, String] = build(PlatformDetails.FabricRuntime)
+  lazy val Values: Map[String, String] = build(PlatformDetails.FabricRuntime)
 
   private[openai] def build(runtime: String): Map[String, String] = Map(
-    trafficTypeHeader -> "Background",
-    serviceTierHeader -> "flex",
-    extendedPropertiesHeader ->
+    TrafficTypeHeader -> "Background",
+    ServiceTierHeader -> "flex",
+    ExtendedPropertiesHeader ->
       Map(
         "feature" -> "synapseml",
         "runtime" -> runtime
@@ -533,7 +533,7 @@ trait HasOpenAIFabricHeaders extends HasCognitiveServiceInput {
     val headers = super.getCustomHeaders(row)
     if (usingImplicitFabricEndpoint) {
       // SynapseML owns the complete workload classification on its implicit Fabric endpoint.
-      val fabricHeaders = OpenAIFabricHeaders.values
+      val fabricHeaders = OpenAIFabricHeaders.Values
       val remainingHeaders = headers.map(ServiceAuthHeaders.sanitizeHeaderMap).getOrElse(Map.empty)
         .filterNot { case (name, _) => fabricHeaders.keys.exists(_.equalsIgnoreCase(name)) }
       Some(if (remainingHeaders.isEmpty) fabricHeaders else remainingHeaders ++ fabricHeaders)
