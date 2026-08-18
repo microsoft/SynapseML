@@ -13,6 +13,7 @@ import org.apache.spark.ml.param.{Param, Params}
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
+import spray.json._
 
 import java.util.Locale
 import scala.language.existentials
@@ -488,14 +489,52 @@ abstract class OpenAIServicesBase(override val uid: String) extends CognitiveSer
     }
   }
 
-  private def usingDefaultOpenAIEndpoint(): Boolean = {
+  protected[openai] def usingDefaultOpenAIEndpoint: Boolean = {
     getUrl == FabricClient.MLWorkloadEndpointML + "/cognitive/openai/"
   }
 
+  protected[openai] def runningOnFabric: Boolean = PlatformDetails.runningOnFabric()
+
+  protected[openai] def fabricRuntime: String = PlatformDetails.CurrentPlatform
+
   override protected def getInternalTransformer(schema: StructType): PipelineModel = {
-    if (PlatformDetails.runningOnFabric() && usingDefaultOpenAIEndpoint) {
+    if (runningOnFabric && usingDefaultOpenAIEndpoint) {
       assertModelStatus(getDeploymentName)
     }
     super.getInternalTransformer(schema)
+  }
+}
+
+trait HasOpenAIFabricHeaders extends HasCognitiveServiceInput {
+  self: OpenAIServicesBase =>
+
+  private val extendedPropertiesHeader = "X-Taxonomy-ExtendedProperties"
+  private val trafficTypeHeader = "X-Taxonomy-TrafficType"
+  private val serviceTierHeader = "x-llm-service-tier"
+
+  private def usingImplicitFabricEndpoint: Boolean = {
+    val hasCustomUrlRoot = get(customUrlRoot).nonEmpty
+    runningOnFabric && usingDefaultOpenAIEndpoint && !hasCustomUrlRoot
+  }
+
+  abstract override protected def getCustomHeaders(row: Row): Option[Map[String, String]] = {
+    val headers = super.getCustomHeaders(row)
+    if (usingImplicitFabricEndpoint) {
+      // SynapseML owns the complete workload classification on its implicit Fabric endpoint.
+      val fabricHeaders = Map(
+        trafficTypeHeader -> "Background",
+        serviceTierHeader -> "flex",
+        extendedPropertiesHeader ->
+          Map(
+            "feature" -> "synapseml",
+            "runtime" -> fabricRuntime
+          ).toJson.compactPrint
+      )
+      val remainingHeaders = headers.map(ServiceAuthHeaders.sanitizeHeaderMap).getOrElse(Map.empty)
+        .filterNot { case (name, _) => fabricHeaders.keys.exists(_.equalsIgnoreCase(name)) }
+      Some(remainingHeaders ++ fabricHeaders)
+    } else {
+      headers
+    }
   }
 }

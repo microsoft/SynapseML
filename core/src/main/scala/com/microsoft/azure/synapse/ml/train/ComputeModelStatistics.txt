@@ -1,6 +1,20 @@
 ``ComputeModelStatistics`` returns the specified statistics on all the
 models specified
 
+Input columns are inferred from SynapseML scoring metadata when that metadata is present.
+For an unannotated Spark DataFrame:
+
+- ``labelCol`` is the observed or true label.
+- ``scoredLabelsCol`` is the predicted label and is required for classification metrics.
+- ``scoresCol`` is the prediction for regression or the raw prediction for classification.
+  Classification uses ``scoredLabelsCol`` as the score when ``scoresCol`` is not available.
+
+Set these parameters to existing DataFrame columns when metadata inference is unavailable.
+Also set ``evaluationMetric`` to ``classification`` or ``regression`` so the model kind can be determined.
+Explicit column parameters override inferred metadata. Labels, predictions, and regression scores must
+be numeric unless the label has categorical metadata. Classification scores may be numeric scalars or
+Spark ML vectors; vector scores use the positive-class value at index 1. Null label or score rows are ignored.
+
 The possible metrics are:
 
 Binary Classifiers:

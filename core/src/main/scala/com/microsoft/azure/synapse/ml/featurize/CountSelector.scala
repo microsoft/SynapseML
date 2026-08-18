@@ -6,20 +6,26 @@ package com.microsoft.azure.synapse.ml.featurize
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.contracts.{HasInputCol, HasOutputCol}
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
+import org.apache.spark.ml.attribute.AttributeGroup
 import org.apache.spark.ml.feature._
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
-import org.apache.spark.ml.linalg.Vector
+import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{Estimator, Model}
 import org.apache.spark.sql._
+import org.apache.spark.sql.functions.udf
 import org.apache.spark.sql.types._
 
 import scala.collection.immutable.BitSet
 
 object CountSelector extends DefaultParamsReadable[CountSelector]
 
-/** Drops vector indicies with no nonzero data. */
+/** Drops vector indices with no nonzero data.
+  *
+  * If no indices remain, the fitted model emits a zero-width sparse vector with size-0 metadata
+  * for non-null inputs and preserves nulls.
+  */
 class CountSelector(override val uid: String) extends Estimator[CountSelectorModel]
   with Wrappable with DefaultParamsWritable with HasInputCol with HasOutputCol with SynapseMLLogging {
   logClass(FeatureNames.Featurize)
@@ -75,15 +81,39 @@ class CountSelectorModel(val uid: String) extends Model[CountSelectorModel]
     new VectorSlicer().setInputCol(getInputCol).setOutputCol(getOutputCol).setIndices(getIndices)
   }
 
+  private def hasEmptySelection: Boolean = getIndices.isEmpty
+
+  private def emptyOutputMetadata: Metadata = new AttributeGroup(getOutputCol, 0).toMetadata()
+
+  private def emptyOutputField: StructField =
+    StructField(getOutputCol, VectorType, nullable = true, emptyOutputMetadata)
+
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame](
-      getModel.transform(dataset),
+      if (hasEmptySelection) {
+        transformSchema(dataset.schema)
+        val emptySelectionVector = Vectors.sparse(0, Array.empty[Int], Array.empty[Double])
+        val emptyVector = udf { vector: Vector =>
+          if (vector eq null) null else emptySelectionVector  // scalastyle:ignore null
+        }
+        dataset.withColumn(getOutputCol, emptyVector(dataset(getInputCol)).as(getOutputCol, emptyOutputMetadata))
+      } else {
+        getModel.transform(dataset)
+      },
       dataset.columns.length
     )
   }
 
   override def transformSchema(schema: StructType): StructType = {
-    getModel.transformSchema(schema)
+    if (hasEmptySelection) {
+      require(schema(getInputCol).dataType == VectorType,
+        s"Input column ${getInputCol} must be of type vector.")
+      require(!schema.fieldNames.contains(getOutputCol),
+        s"Output column ${getOutputCol} already exists.")
+      schema.add(emptyOutputField)
+    } else {
+      getModel.transformSchema(schema)
+    }
   }
 
 }

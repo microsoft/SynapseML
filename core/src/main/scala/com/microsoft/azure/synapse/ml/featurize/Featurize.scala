@@ -31,7 +31,11 @@ private[ml] object FeaturizeUtilities {
 
 object Featurize extends DefaultParamsReadable[Featurize]
 
-/** Featurizes a dataset. Converts the specified columns to feature columns. */
+/** Featurizes a dataset. Converts the specified columns to feature columns.
+  *
+  * Text inputs whose fitted text features are all zero contribute no output slots. Fitting fails
+  * with a column-specific error when every requested input collapses this way.
+  */
 class Featurize(override val uid: String) extends Estimator[PipelineModel]
   with Wrappable with DefaultParamsWritable with HasOutputCol with HasInputCols with SynapseMLLogging {
   logClass(FeatureNames.Featurize)
@@ -78,6 +82,45 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel]
   /** @group setParam */
   def setImputeMissing(value: Boolean): this.type = set(imputeMissing, value)
 
+  /** How the final internal VectorAssembler stage handles null input values and Double.NaN
+    * scalar numeric values when assembling the output feature vector.
+    *
+    * This only affects that last assembly step; it does not change text featurization,
+    * categorical one-hot encoding, or the imputeMissing mean/median imputation performed earlier
+    * in the pipeline. Supported values mirror the VectorAssembler handleInvalid parameter in
+    * Spark 3.5:
+    *  - "skip" (default): drop rows containing an invalid value, preserving the
+    *    historical Featurize behavior.
+    *  - "error": fail transform if an invalid value is encountered.
+    *  - "keep": preserve every row and encode invalid values as Double.NaN in the assembled
+    *    feature vector, e.g. so LightGBM native missing-value handling can use them. A null
+    *    vector input becomes one Double.NaN per vector element.
+    *    Set imputeMissing to false as well if raw missing values (rather than imputed ones)
+    *    should reach the assembler.
+    *
+    * Note: input columns that are already vectors need size metadata (for example added via
+    * VectorSizeHint) to use "keep"; otherwise Spark cannot infer their length and will throw.
+    *
+    * @group param
+    */
+  val vectorAssemblerHandleInvalid: Param[String] = new Param[String](this,
+    "vectorAssemblerHandleInvalid",
+    "How the final VectorAssembler stage handles null inputs and scalar numeric NaN values: " +
+      "skip (default, drops rows, matches prior behavior), error (fails on invalid values), " +
+      "or keep (preserves rows and encodes invalid values as Double.NaN, e.g. " +
+      "for LightGBM missing-value handling). Only affects the final VectorAssembler; does not " +
+      "change text, categorical, or imputeMissing behavior. Vector-typed input columns without " +
+      "size metadata (see VectorSizeHint) can fail to infer lengths when set to keep.",
+    ParamValidators.inArray(Array("skip", "error", "keep")))
+
+  setDefault(vectorAssemblerHandleInvalid -> "skip")
+
+  /** @group getParam */
+  final def getVectorAssemblerHandleInvalid: String = $(vectorAssemblerHandleInvalid)
+
+  /** @group setParam */
+  def setVectorAssemblerHandleInvalid(value: String): this.type = set(vectorAssemblerHandleInvalid, value)
+
   private case class ColumnInfo(originalName: String, dataType: DataType, version: Int = 0) {
     def currentName: String = {
       if (version == 0) {
@@ -111,6 +154,31 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel]
 
   }
 
+  private def emptyCountSelectorModels(stage: PipelineStage): Seq[CountSelectorModel] = {
+    stage match {
+      case model: CountSelectorModel if model.getIndices.isEmpty =>
+        Seq(model)
+      case model: PipelineModel =>
+        model.stages.flatMap(emptyCountSelectorModels)
+      case _ =>
+        Seq.empty
+    }
+  }
+
+  private def validateUsableFeatures(featureColumns: Seq[String],
+                                     emptyTextColumns: Seq[String]): Unit = {
+    val distinctEmptyTextColumns = emptyTextColumns.distinct
+    val emptyTextColumnSet = distinctEmptyTextColumns.toSet
+    if (featureColumns.nonEmpty && featureColumns.forall(emptyTextColumnSet.contains)) {
+      val columnLabel = if (distinctEmptyTextColumns.length == 1) "column" else "columns"
+      val formattedColumns = distinctEmptyTextColumns.sorted.map(col => s"'$col'").mkString(", ")
+      throw new IllegalArgumentException(
+        s"No usable featurized features were produced. Text $columnLabel $formattedColumns " +
+          "produced zero-width feature vectors after text featurization. This usually means " +
+          "the input values were constant, empty, or otherwise contained no information.")
+    }
+  }
+
   /** Featurizes the dataset.
     *
     * @param dataset The input dataset to train.
@@ -121,6 +189,7 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel]
   override def fit(dataset: Dataset[_]): PipelineModel = {
     logFit({
       val columnState = new ColumnState(dataset)
+      val textSelectorOutputs = mutable.Map[String, String]()
 
       val (oldEncoderCols, newEncoderCols) = getInputCols.flatMap {
         baseCol =>
@@ -183,6 +252,7 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel]
               })
               val m1 = new TextFeaturizer().setNumFeatures(getNumFeatures).setInputCol(oldCol).setOutputCol(newCol)
               val newCol2 = columnState.makeNewCol(baseCol, VectorType)
+              textSelectorOutputs.update(newCol2, baseCol)
               val m2 = new CountSelector().setInputCol(newCol).setOutputCol(newCol2)
               Some(new Pipeline().setStages(Array(m0, m1, m2)))
             case _: TimestampType =>
@@ -220,19 +290,23 @@ class Featurize(override val uid: String) extends Estimator[PipelineModel]
         new VectorAssembler()
           .setInputCols(columnState.getCurrentCols.toArray)
           .setOutputCol(getOutputCol)
-          .setHandleInvalid("skip"),
+          .setHandleInvalid(getVectorAssemblerHandleInvalid),
         new DropColumns().setCols(columnState.getColsToDrop.toArray)
       )
 
-      new Pipeline().setStages(Seq(encoders, casters, imputers, featurizers, va).flatten.toArray).fit(dataset)
+      val featurizedModel =
+        new Pipeline().setStages(Seq(encoders, casters, imputers, featurizers, va).flatten.toArray).fit(dataset)
+      val emptyTextColumns = featurizedModel.stages
+        .flatMap(emptyCountSelectorModels)
+        .flatMap(model => textSelectorOutputs.get(model.getOutputCol))
+      validateUsableFeatures(getInputCols.toSeq, emptyTextColumns)
+      featurizedModel
     }, dataset.columns.length)
   }
   //scalastyle:on cyclomatic.complexity
   //scalastyle:on method.length
 
-  override def copy(extra: ParamMap): Estimator[PipelineModel] = {
-    new Featurize()
-  }
+  override def copy(extra: ParamMap): Estimator[PipelineModel] = defaultCopy(extra)
 
   override def transformSchema(schema: StructType): StructType =
     schema.add(getOutputCol, VectorType)

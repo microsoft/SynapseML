@@ -75,7 +75,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
       .foreach { case (metric, expectedMessage) =>
         val error = intercept[IllegalArgumentException] {
           new ComputeModelStatistics()
-            .setLabelCol("label")
+            .setLabelCol("label").setScoredLabelsCol("prediction")
             .setEvaluationMetric(metric)
             .transformSchema(schema)
         }
@@ -190,7 +190,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     assertBinaryOnlyMetricsRejected(schema)
   }
 
-  test("transformSchema preserves binary-only metric schema when configured labelCol is absent") {
+  test("transformSchema validates required columns before returning a binary-only metric schema") {
     val schema = spark.createDataFrame(Seq(
       (0.0, 0.9),
       (1.0, 0.8))).toDF("prediction", "rawPrediction").schema
@@ -198,8 +198,9 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
       .setLabelCol("label")
       .setEvaluationMetric(MetricConstants.AreaUnderPRMetric)
 
-    assert(evaluator.transformSchema(schema) ===
-      StructType(Array(StructField(MetricConstants.AreaUnderPRColumnName, DoubleType))))
+    val error = intercept[IllegalArgumentException] { evaluator.transformSchema(schema) }
+    assert(error.getMessage.contains("labelCol 'label' does not exist") &&
+      error.getMessage.contains("setLabelCol"))
   }
 
   test("areaUnderPR rejects multiclass and unsupported metric inputs") {
@@ -333,7 +334,7 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
         .setEvaluationMetric(MetricConstants.RegressionMetricsName)
         .transformSchema(input.schema)
     }
-    assert(error.getMessage.contains("Set labelCol, or score the dataset"))
+    assert(error.getMessage.contains("requires the label column") && error.getMessage.contains("setLabelCol"))
     assert(!error.getMessage.contains(
       s"evaluationMetric must not be '${MetricConstants.AllSparkMetrics}'"))
   }
@@ -792,9 +793,8 @@ class VerifyComputeModelStatistics extends TransformerFuzzing[ComputeModelStatis
     val auc = binaryEvaluator.evaluate(predictionAndLabels)
     assert(auc === cmsAUC)
   }
-
-  override def testObjects(): Seq[TestObject[ComputeModelStatistics]] = Seq(new TestObject(
-    new ComputeModelStatistics(), scoredDataset))
+  override def testObjects(): Seq[TestObject[ComputeModelStatistics]] = Seq(
+    new TestObject(new ComputeModelStatistics(), scoredDataset))
 
   override def reader: MLReadable[_] = ComputeModelStatistics
 }
