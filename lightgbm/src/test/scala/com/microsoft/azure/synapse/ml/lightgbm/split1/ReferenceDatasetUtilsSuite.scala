@@ -1,10 +1,11 @@
 // Copyright (C) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License. See LICENSE in project root for information.
 
-package com.microsoft.azure.synapse.ml.lightgbm.dataset
+package com.microsoft.azure.synapse.ml.lightgbm.split1
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.lightgbm.StreamingPartitionTask
+import com.microsoft.azure.synapse.ml.lightgbm.dataset.{LightGBMDataset, ReferenceDatasetUtils}
 
 class ReferenceDatasetUtilsSuite extends TestBase {
   private class TrackingDataset(closeFailure: Option[RuntimeException] = None)
@@ -66,8 +67,8 @@ class ReferenceDatasetUtilsSuite extends TestBase {
     val thrown = intercept[IllegalStateException] {
       StreamingPartitionTask.initializeValidationDataset(dataset)(
         throw insertionFailure)(
-        markFinishedCalled = true)(
-        ownershipTransferred = true)
+        { markFinishedCalled = true })(
+        { ownershipTransferred = true })
     }
 
     assert(thrown eq insertionFailure)
@@ -85,9 +86,9 @@ class ReferenceDatasetUtilsSuite extends TestBase {
 
     val thrown = intercept[IllegalStateException] {
       StreamingPartitionTask.initializeValidationDataset(dataset)(
-        insertionCalled = true)(
+        { insertionCalled = true })(
         throw markFinishedFailure)(
-        ownershipTransferred = true)
+        { ownershipTransferred = true })
     }
 
     assert(thrown eq markFinishedFailure)
