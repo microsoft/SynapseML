@@ -128,7 +128,7 @@ for (const guide of installGuides) {
       /synapseml_2\.12:\$\{SYNAPSEML_VERSION\}/,
     );
     assert.match(markdown, /--repositories "\$SYNAPSEML_REPOSITORY"/);
-    assert.match(markdown, new RegExp(installArtifacts.repository));
+    assert.ok(markdown.includes(installArtifacts.repository));
     assert.doesNotMatch(markdown, /mmlspark\.azureedge\.net/);
   });
 }
@@ -147,6 +147,10 @@ test('website landing page uses every supported runtime variant', () => {
   }
   assert.doesNotMatch(index, /THE_SYNAPSEML_VERSION_YOU_WANT/);
   assert.doesNotMatch(index, /only Spark 3|any Spark 3 infrastructure/);
+  assert.doesNotMatch(
+    index,
+    /com\.microsoft\.azure:synapseml_2\.12:1\.1\.3/,
+  );
   assert.doesNotMatch(index, /<p>\s*<p>/);
   assert.doesNotMatch(index, /<p>\{description\}<\/p>/);
 });
@@ -221,7 +225,7 @@ test('specialized install guides state their runtime scope', () => {
       ),
     );
   }
-  assert.match(onnx, new RegExp(installArtifacts.repository));
+  assert.ok(onnx.includes(installArtifacts.repository));
   assert.match(rSetup, /examples below use Spark 3\.5 \/ Scala 2\.12/);
   assert.match(rSetup, /installation matrix/);
   assert.match(isolationForest, /scoped to Spark 3\.5 \/ Scala 2\.12/);
