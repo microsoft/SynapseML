@@ -127,7 +127,7 @@ class StreamingPartitionTask extends BasePartitionTask {
 
     insertRowsIntoTrainingDataset(ctx, rowIterator)
 
-    // Now handle validation data, which comes from a broadcast-ed hardcoded array
+    // Now handle validation data, streamed without materializing it on the driver
     if (ctx.shouldCalcValidationDataset) {
       generateAndStoreValidationDataset(ctx)
     }
@@ -152,18 +152,20 @@ class StreamingPartitionTask extends BasePartitionTask {
   }
 
   private def generateAndStoreValidationDataset(ctx: PartitionTaskContext): Unit = {
-    val validationData = ctx.trainingCtx.validationData.get.value
+    val validationData = ctx.trainingCtx.validationData.get
 
-    val validationDataset = createSharedValidationDataset(ctx, validationData.length)
+    val rowCount = ValidationDataServer.rowCount(validationData)
+    val validationDataset = createSharedValidationDataset(ctx, rowCount)
 
     StreamingPartitionTask.initializeValidationDataset(validationDataset)(
-      insertRowsIntoDataset(
-        ctx,
-        validationDataset,
-        validationData.toIterator,
-        0,
-        validationData.length,
-        0))(
+      {
+        val rows = ValidationDataServer.read(validationData)
+        try {
+          insertRowsIntoDataset(ctx, validationDataset, rows, 0, rowCount, 0)
+        } finally {
+          rows.close()
+        }
+      })(
       LightGBMUtils.validate(lightgbmlib.LGBM_DatasetMarkFinished(validationDataset.datasetPtr),
         "Dataset mark finished"))(
       ctx.sharedState.validationDatasetState.streamingDataset = Option(validationDataset))
