@@ -508,6 +508,8 @@ abstract class OpenAIServicesBase(override val uid: String) extends CognitiveSer
 trait HasOpenAIFabricHeaders extends HasCognitiveServiceInput {
   self: OpenAIServicesBase =>
 
+  private val extendedPropertiesHeader = "X-Taxonomy-ExtendedProperties"
+
   private def usingImplicitFabricEndpoint: Boolean = {
     val hasCustomUrlRoot = get(customUrlRoot).orElse(getDefault(customUrlRoot))
       .exists(value => Option(value).exists(_.trim.nonEmpty))
@@ -517,9 +519,11 @@ trait HasOpenAIFabricHeaders extends HasCognitiveServiceInput {
   abstract override protected def getCustomHeaders(row: Row): Option[Map[String, String]] = {
     val headers = super.getCustomHeaders(row)
     if (usingImplicitFabricEndpoint) {
+      val serviceOwnedHeaders = headers.getOrElse(Map.empty)
+        .filterNot { case (name, _) => name.equalsIgnoreCase(extendedPropertiesHeader) }
       Some(
-        headers.getOrElse(Map.empty).updated(
-          "X-Taxonomy-ExtendedProperties",
+        serviceOwnedHeaders.updated(
+          extendedPropertiesHeader,
           Map(
             "feature" -> "synapseml",
             "runtime" -> fabricRuntime
