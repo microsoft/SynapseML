@@ -1526,7 +1526,22 @@ jobs:
           echo "##vso[task.logissue type=error]resolvers block not found in Internal build.sbt"; exit 1; }
 
         sed -i "s|val synapseMLVersion = \".*\"|val synapseMLVersion = \"${OSS_VERSION}\"|" build.sbt
-        sed -i '/^resolvers ++= Seq(/a\  Resolver.mavenLocal,' build.sbt
+        # Insert only when the resolvers block does not already carry it. 'sed a\'
+        # appends unconditionally, so running this step twice against the same tree
+        # adds a second Resolver.mavenLocal line each time. A hosted agent starts from
+        # a fresh VM and the step above re-checks out Internal, so that cannot happen
+        # today - but it also made the "tree is already clean" branch below unreachable,
+        # because the append dirtied the tree even when both edits were already applied.
+        #
+        # Scope the test to the resolvers block rather than the whole file: Internal
+        # carries an unrelated 'Resolver.mavenLocal' in usage/build.sbt and in
+        # project/BlobMavenPlugin.scala, and a file-wide test that ever matched one of
+        # those would skip the insert and leave Internal resolving against the
+        # *published* OSS build - a false green, which is the one outcome this job
+        # must never produce.
+        if ! sed -n '/^resolvers ++= Seq(/,/^)/p' build.sbt | grep -qF 'Resolver.mavenLocal'; then
+          sed -i '/^resolvers ++= Seq(/a\  Resolver.mavenLocal,' build.sbt
+        fi
 
         # A silent no-op here would compile Internal against the *published* OSS build and
         # report a false green, so verify both edits actually landed. Use fixed-string
@@ -1534,8 +1549,12 @@ jobs:
         # and could accept a line the sed above never wrote.
         grep -qF "val synapseMLVersion = \"${OSS_VERSION}\"" build.sbt || {
           echo "##vso[task.logissue type=error]Failed to retarget synapseMLVersion"; exit 1; }
-        grep -qF 'Resolver.mavenLocal,' build.sbt || {
-          echo "##vso[task.logissue type=error]Failed to add Resolver.mavenLocal"; exit 1; }
+        # Verify with the same block-scoped predicate the insert decides on, so the two
+        # can never disagree: a file-wide check here would be satisfied by the
+        # Resolver.mavenLocal in usage/build.sbt's sibling text and report success for a
+        # resolvers block that never got one.
+        sed -n '/^resolvers ++= Seq(/,/^)/p' build.sbt | grep -qF 'Resolver.mavenLocal' || {
+          echo "##vso[task.logissue type=error]Failed to add Resolver.mavenLocal to the resolvers block"; exit 1; }
 
         echo "=== Modified build.sbt ==="
         grep -n 'synapseMLVersion' build.sbt
@@ -1573,6 +1592,20 @@ jobs:
         # build output lands in target/ which .gitignore already excludes. The
         # commit is local to the agent's checkout and is never pushed.
         #
+        # Refresh git's stat cache before asking whether the tree changed. 'sed -i'
+        # rewrites build.sbt in place, so its mtime and inode change even when the
+        # bytes it writes are identical, and 'git diff-index' trusts stat info before
+        # comparing content - it reports a phantom modification until the index is
+        # refreshed. Without this, an already-retargeted tree takes the commit branch
+        # below, 'git commit' finds nothing staged and exits 1, and 'set -e' fails the
+        # step: exactly the non-idempotent retry the branch exists to prevent. Measured
+        # by running this step three times against a simulated Internal checkout - runs
+        # 2 and 3 exited 1 before this line was added and exit 0 after.
+        #
+        # '|| true' because --refresh deliberately exits non-zero when a file really
+        # has changed, which is the normal case on the first run.
+        git update-index -q --refresh || true
+
         # Commit only when the edits actually changed something. 'git commit' exits
         # non-zero when nothing is staged, which under 'set -e' would fail this step -
         # so an unconditional commit would turn "already retargeted" into a hard error
