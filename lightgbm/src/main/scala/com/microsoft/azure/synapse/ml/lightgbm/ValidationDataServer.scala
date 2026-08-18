@@ -124,9 +124,10 @@ private[lightgbm] class ValidationDataServer private(serverSocket: ServerSocket,
   }
 
   private def acceptClient(): Unit = {
-    transferSlots.acquire()
-    var releaseSlot = true
+    var releaseSlot = false
     try {
+      transferSlots.acquire()
+      releaseSlot = true
       if (!stopping.get()) {
         releaseSlot = !submitClient(serverSocket.accept())
       }
@@ -683,7 +684,7 @@ private[lightgbm] object ValidationDataServer {
       private var nextRow: Option[Row] = readNext()
 
       private def readNext(): Option[Row] = {
-        try {
+        NetworkManagerSocketSupport.withCleanupOnFailurePreservingPrimary(close()) {
           val length = readRowLength(input, "validation data")
           if (length == EndOfStream) {
             close()
@@ -693,10 +694,6 @@ private[lightgbm] object ValidationDataServer {
             input.readFully(bytes)
             Some(serializer.deserialize[Row](ByteBuffer.wrap(bytes)))
           }
-        } catch {
-          case NonFatal(failure) =>
-            close()
-            throw failure
         }
       }
 
@@ -726,13 +723,9 @@ private[lightgbm] object ValidationDataServer {
 
   private def connect(host: String, port: Int, timeoutMillis: Int): Socket = {
     val socket = new Socket()
-    try {
+    NetworkManagerSocketSupport.withCleanupOnFailurePreservingPrimary(closeSocket(socket)) {
       socket.connect(new InetSocketAddress(host, port), timeoutMillis)
       socket
-    } catch {
-      case NonFatal(failure) =>
-        socket.close()
-        throw failure
     }
   }
 
