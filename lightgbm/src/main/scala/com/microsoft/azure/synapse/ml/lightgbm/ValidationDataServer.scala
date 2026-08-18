@@ -614,10 +614,10 @@ private[lightgbm] object ValidationDataServer {
     }.get
   }
 
-  private def receivePartition(socket: Socket,
-                               spoolDirectory: File,
-                               token: String,
-                               timeoutMillis: Int): (Int, Long, Boolean) = {
+  private[lightgbm] def receivePartition(socket: Socket,
+                                         spoolDirectory: File,
+                                         token: String,
+                                         timeoutMillis: Int): (Int, Long, Boolean) = {
     using(socket) { client =>
       client.setKeepAlive(true)
       client.setTcpNoDelay(true)
@@ -629,12 +629,12 @@ private[lightgbm] object ValidationDataServer {
         var count = 0L
         try {
           using(new DataOutputStream(new BufferedOutputStream(new FileOutputStream(attemptFile)))) { output =>
-            var length = input.readInt()
+            var length = readRowLength(input, "validation partition")
             while (length != EndOfStream) { // scalastyle:ignore while
               output.writeInt(length)
               copyExactly(input, output, length)
               count += 1
-              length = input.readInt()
+              length = readRowLength(input, "validation partition")
             }
           }.get
           val accepted = try {
@@ -682,7 +682,7 @@ private[lightgbm] object ValidationDataServer {
 
       private def readNext(): Option[Row] = {
         try {
-          val length = input.readInt()
+          val length = readRowLength(input, "validation data")
           if (length == EndOfStream) {
             close()
             None
@@ -743,5 +743,14 @@ private[lightgbm] object ValidationDataServer {
       output.write(buffer, 0, count)
       remaining -= count
     }
+  }
+
+  private[lightgbm] def readRowLength(input: DataInputStream, streamDescription: String): Int = {
+    val length = input.readInt()
+    if (length < 0 && length != EndOfStream) {
+      throw new IOException(
+        s"Invalid $streamDescription row length $length; expected a non-negative length or $EndOfStream")
+    }
+    length
   }
 }

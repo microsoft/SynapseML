@@ -581,17 +581,13 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     val server = validationData.map(data =>
       ValidationDataServer.create(data, ClusterUtil.getDriverHost(spark), partitionCount, getTimeout))
     validationData.foreach(_ => measures.markValidDataCollectionStop())
-    try {
-      val params = server.map(validationServer => spark.sparkContext.broadcast(validationServer.params.toRows))
-      try {
+    LightGBMValidationDataSupport.withResources(
+      server.map(validationServer => spark.sparkContext.broadcast(validationServer.params.toRows)),
+      (params: Option[Broadcast[Array[Row]]]) => params.foreach(_.destroy()),
+      server.foreach(_.close())) { params =>
         val result = train(params)
         server.foreach(_.await())
         result
-      } finally {
-        params.foreach(_.destroy())
-      }
-    } finally {
-      server.foreach(_.close())
     }
   }
 
@@ -905,6 +901,20 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
         // just take first 'N' rows.  Quick but assumes data already randomized and representative.
         dataframe.select(dataframe.col(featureColName)).limit(numSamples).collect()
       case _ => throw new NotImplementedError(s"Unknown sampling mode: $samplingMode")
+    }
+  }
+}
+
+private[lightgbm] object LightGBMValidationDataSupport {
+  def withResources[P, T](createParams: => P,
+                          destroyParams: P => Unit,
+                          closeServer: => Unit)
+                         (operation: P => T): T = {
+    NetworkManagerSocketSupport.withCleanupPreservingPrimary(closeServer) {
+      val params = createParams
+      NetworkManagerSocketSupport.withCleanupPreservingPrimary(destroyParams(params)) {
+        operation(params)
+      }
     }
   }
 }
