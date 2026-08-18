@@ -265,6 +265,11 @@ class ValidationDataServerLifecycleSuite extends TestBase {
     }
   }
 
+  test("ingest deadline preserves fractional timeout milliseconds") {
+    val start = 100L
+    assert(ValidationDataServer.ingestDeadlineNanos(start, 2500) - start == TimeUnit.MILLISECONDS.toNanos(2500))
+  }
+
   test("ingest rejects a negative row length other than the end marker") {
     val spool = scratchDirectory("malformed-ingest-length")
     assert(spool.mkdir())
@@ -385,6 +390,25 @@ class ValidationDataServerLifecycleSuite extends TestBase {
 
     assert(failure eq awaitFailure)
     assert(failure.getSuppressed.sameElements(Array(broadcastFailure, serverFailure)))
+  }
+
+  test("validation row processing failure remains primary when iterator close fails") {
+    val processingFailure = new IOException("synthetic row processing failure")
+    val closeFailure = new IOException("synthetic iterator close failure")
+    val rows = new com.microsoft.azure.synapse.ml.lightgbm.ValidationRowIterator {
+      override def hasNext: Boolean = false
+      override def next(): org.apache.spark.sql.Row = throw new NoSuchElementException
+      override def close(): Unit = throw closeFailure
+    }
+
+    val failure = intercept[IOException] {
+      ValidationDataServer.withRows(rows) {
+        throw processingFailure
+      }
+    }
+
+    assert(failure eq processingFailure)
+    assert(failure.getSuppressed.sameElements(Array(closeFailure)))
   }
 
   test("an internal serving failure is retained by await") {
