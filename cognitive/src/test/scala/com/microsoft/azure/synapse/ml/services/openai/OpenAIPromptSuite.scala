@@ -10,7 +10,7 @@ import org.apache.http.entity.AbstractHttpEntity
 import org.apache.http.util.EntityUtils
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
-import org.apache.spark.sql.functions.{col, lit}
+import org.apache.spark.sql.functions.{col, lit, struct, to_json}
 import org.apache.spark.sql.types.{ArrayType, StringType, StructType}
 import com.microsoft.azure.synapse.ml.services.aifoundry.AIFoundryAPIKey
 import spray.json._
@@ -355,6 +355,44 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     .foreach { case (row, keyword) =>
       assert(row.getString(0).toLowerCase.contains(keyword))
     }
+  }
+
+  test("Responses OpenAIPrompt supports AI Functions Pokemon URL rows") {
+    val pikachuUrl =
+      "https://www.pokemon.com/static-assets/content-assets/cms2/img/pokedex/full/025.png"
+    val charizardUrl =
+      "https://www.pokemon.com/static-assets/content-assets/cms2/img/pokedex/full/006.png"
+    val expectedNames = Map(pikachuUrl -> "pikachu", charizardUrl -> "charizard")
+    val input = Seq(
+      (pikachuUrl, "Ace"),
+      (charizardUrl, "Leon")
+    ).toDF("image_path", "master")
+    val rowJsonCol = "ai_functions_row_json"
+    val prepared = input.withColumn(rowJsonCol, to_json(struct(input.columns.map(col): _*)))
+
+    val promptResponses = new OpenAIPrompt()
+      .setSubscriptionKey(openAIAPIKey)
+      .setDeploymentName(deploymentName)
+      .setCustomServiceName(openAIServiceName)
+      .setApiVersion("2025-04-01-preview")
+      .setApiType("responses")
+      .setColumnType("image_path", "path")
+      .setSystemPrompt("User input text is encoded in JSON\nWhat's the name of this Pokemon in English?")
+      .setPromptTemplate(s"{$rowJsonCol}")
+      .setOutputCol("outParsed")
+      .setErrorCol("error")
+
+    promptResponses
+      .transform(prepared)
+      .select("image_path", "outParsed", "error")
+      .collect()
+      .foreach { row =>
+        val imageUrl = row.getAs[String]("image_path")
+        val error = Option(row.getAs[Row]("error")).map(_.getAs[String]("response"))
+        assert(error.isEmpty, error.getOrElse(""))
+        val output = Option(row.getAs[String]("outParsed")).getOrElse("")
+        assert(output.toLowerCase.contains(expectedNames(imageUrl)), output)
+      }
   }
 
   test("null path columns return null output") {

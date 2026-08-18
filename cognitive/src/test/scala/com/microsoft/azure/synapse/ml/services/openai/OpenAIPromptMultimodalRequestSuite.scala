@@ -10,6 +10,7 @@ import org.apache.commons.io.FileUtils
 import org.apache.commons.io.IOUtils
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.sql.Row
+import org.apache.spark.sql.functions.{col, struct, to_json}
 import org.apache.spark.sql.types.{ArrayType, StringType, StructField, StructType}
 import spray.json._
 
@@ -139,6 +140,42 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
     assert(parts.map(_.asJsObject.fields("type")) == Seq(JsString("input_text"), JsString("input_image")))
     val JsString(imageUrl) = parts(1).asJsObject.fields("image_url")
     assert(imageUrl.startsWith("data:image/png;base64,"))
+  }
+
+  test("Responses OpenAIPrompt preserves AI Functions row JSON and URL attachments") {
+    withEchoServer { (baseUrl, bodies) =>
+      val imageUrl = baseUrl.replace("/openai/v1", "/image.png")
+      val input = Seq((imageUrl, "Ace")).toDF("image_path", "master")
+      val rowJsonCol = "ai_functions_row_json"
+      val prepared = input.withColumn(rowJsonCol, to_json(struct(input.columns.map(col): _*)))
+
+      val result = new OpenAIPrompt()
+        .setUrl(baseUrl)
+        .setApiType("responses")
+        .setDeploymentName("gpt-5.1")
+        .setSubscriptionKey("unused")
+        .setSystemPrompt("User input text is encoded in JSON\nIdentify the Pokemon and its master.")
+        .setPromptTemplate(s"{$rowJsonCol}")
+        .setColumnTypes(Map("image_path" -> "path"))
+        .setOutputCol("output")
+        .setErrorCol("error")
+        .setConcurrency(1)
+        .transform(prepared)
+        .head()
+
+      val rowError = Option(result.getAs[Row]("error")).map(_.getAs[String]("response"))
+      assert(rowError.isEmpty, rowError.getOrElse(""))
+      assert(bodies.size() == 1)
+
+      val payload = bodies.asScala.head.parseJson.asJsObject
+      val JsArray(messages) = payload.fields("input")
+      val JsArray(parts) = messages(1).asJsObject.fields("content")
+      val JsString(text) = parts.head.asJsObject.fields("text")
+      assert(text.contains("\"master\":\"Ace\""))
+      assert(parts(1).asJsObject.fields("type") == JsString("input_image"))
+      val JsString(encodedImage) = parts(1).asJsObject.fields("image_url")
+      assert(encodedImage.startsWith("data:image/png;base64,"))
+    }
   }
 
   test("Responses OpenAIPrompt accepts data image URLs") {
