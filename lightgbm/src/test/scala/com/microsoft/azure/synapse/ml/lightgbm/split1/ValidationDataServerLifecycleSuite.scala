@@ -313,6 +313,18 @@ class ValidationDataServerLifecycleSuite extends TestBase {
     }
   }
 
+  test("executor read setup closes its socket when authentication output fails") {
+    val expected = new IOException("synthetic authentication output failure")
+    val socket = new FailingOutputSocket(expected)
+
+    val failure = intercept[IOException] {
+      ValidationDataServer.openValidationInput(socket, "token", 5000)
+    }
+
+    assert(failure eq expected)
+    assert(socket.isClosed)
+  }
+
   test("training failure remains primary when broadcast and server cleanup fail") {
     val trainingFailure = new IllegalStateException("synthetic training failure")
     val broadcastFailure = new IOException("synthetic broadcast cleanup failure")
@@ -439,6 +451,17 @@ class ValidationDataServerLifecycleSuite extends TestBase {
     override def execute(command: Runnable): Unit = {
       throw new RejectedExecutionException("synthetic serving start failure")
     }
+  }
+
+  private class FailingOutputSocket(expected: IOException) extends Socket {
+    @volatile private var closed = false
+
+    override def setKeepAlive(on: Boolean): Unit = ()
+    override def setTcpNoDelay(on: Boolean): Unit = ()
+    override def setSoTimeout(timeout: Int): Unit = ()
+    override def getOutputStream: OutputStream = throw expected
+    override def close(): Unit = closed = true
+    override def isClosed: Boolean = closed
   }
 
   private def authenticatedClient(params: ValidationDataParams): Socket = {
