@@ -4,7 +4,8 @@
 package com.microsoft.azure.synapse.ml.lightgbm.split1
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import com.microsoft.azure.synapse.ml.lightgbm.{LightGBMValidationDataSupport, ValidationDataParams}
+import com.microsoft.azure.synapse.ml.lightgbm.{InstrumentationMeasures, LightGBMValidationDataSupport}
+import com.microsoft.azure.synapse.ml.lightgbm.ValidationDataParams
 import com.microsoft.azure.synapse.ml.lightgbm.ValidationDataServer
 import com.microsoft.azure.synapse.ml.lightgbm.ValidationDataServerResourceFactory
 import org.apache.commons.io.FileUtils
@@ -384,6 +385,21 @@ class ValidationDataServerLifecycleSuite extends TestBase {
 
     assert(failure eq trainingFailure)
     assert(failure.getSuppressed.sameElements(Array(broadcastFailure, serverFailure)))
+  }
+
+  test("validation collection timing stops when server creation fails") {
+    val measures = new InstrumentationMeasures()
+    val expected = new IOException("synthetic server creation failure")
+
+    val failure = intercept[IOException] {
+      LightGBMValidationDataSupport.measureCollection(enabled = true, measures) {
+        Thread.sleep(20)
+        throw expected
+      }
+    }
+
+    assert(failure eq expected)
+    assert(measures.validationDataCollectionTime() > 0L)
   }
 
   test("await failure remains primary when broadcast and server cleanup fail") {
