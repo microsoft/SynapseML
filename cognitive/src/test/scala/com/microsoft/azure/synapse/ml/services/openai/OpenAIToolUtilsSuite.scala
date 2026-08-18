@@ -165,6 +165,10 @@ class OpenAIToolUtilsSuite extends TestBase {
 
     assert(OpenAIToolColumns.toFunctionCallOutputs(null).isEmpty) //scalastyle:ignore null
     assertThrows[IllegalArgumentException] {
+      OpenAIToolColumns.toFunctionCallOutputs(
+        Seq(ToolTestFixtures.functionOutput("call_a", "a"), null)) //scalastyle:ignore null
+    }
+    assertThrows[IllegalArgumentException] {
       OpenAIToolColumns.toFunctionCallOutputs(Seq(
         ToolTestFixtures.functionOutput("call_a", "a"),
         ToolTestFixtures.functionOutput("call_a", "b")

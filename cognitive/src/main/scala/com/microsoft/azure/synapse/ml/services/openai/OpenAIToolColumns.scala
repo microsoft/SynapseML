@@ -34,15 +34,19 @@ object OpenAIToolColumns {
 
   def toFunctionCallOutputs(outputs: Seq[Row]): Vector[Map[String, Any]] = {
     val items = Option(outputs).getOrElse(Seq.empty).zipWithIndex.map { case (row, index) =>
-      val callId = Option(row.getAs[String]("call_id")).map(_.trim).getOrElse("")
+      val item = Option(row).getOrElse {
+        throw new IllegalArgumentException(
+          s"function_call_output $index: must not be null")
+      }
+      val callId = Option(item.getAs[String]("call_id")).map(_.trim).getOrElse("")
       require(
         callId.nonEmpty,
         s"function_call_output $index: call_id must be non-blank and unique")
-      val output = Option(row.getAs[String]("output")).getOrElse {
+      val output = Option(item.getAs[String]("output")).getOrElse {
         throw new IllegalArgumentException(
           s"function_call_output $index: output must not be null")
       }
-      val status = Option(row.getAs[String]("status")).filter(_.nonEmpty)
+      val status = Option(item.getAs[String]("status")).filter(_.nonEmpty)
       ListMap[String, Any](
         "type" -> OpenAIToolUtils.FunctionCallOutputItemType,
         "call_id" -> callId,
