@@ -1716,11 +1716,23 @@ jobs:
       condition: and(succeeded(), eq(variables['COMPAT_LANE'], 'python'))
     - task: AzureKeyVault@2
       displayName: 'Fetch AI service secrets'
+      # Scala lane only. 'Run Internal Scala tests' is the sole consumer -- it maps the
+      # four sempy-integration-* values into its env block. Nothing in the Python lane
+      # reads them: ADO exposes Key Vault values as secret variables, which are never
+      # auto-exported into a script's environment, and the Python steps declare no env
+      # block. sbt's own project/Secrets.scala is inert here too (every accessor is
+      # behind SYNAPSEML_ENABLE_PUBLISH, unset in this job) and shells out to az
+      # directly rather than reading these variables. Fetching them in the Python lane
+      # would therefore materialise a certificate and this vault's secrets on an agent
+      # that never uses them.
+      condition: and(succeeded(), eq(variables['COMPAT_LANE'], 'scala'))
       retryCountOnTaskFailure: 3
       inputs:
         azureSubscription: 'SynapseML Build'
         keyVaultName: mmlspark-keys
     - template: templates/fabric_kv.yml
+      parameters:
+        condition: and(succeeded(), eq(variables['COMPAT_LANE'], 'scala'))
     - task: AzureCLI@2
       displayName: 'Run Internal Scala tests'
       timeoutInMinutes: 60
