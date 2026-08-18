@@ -39,6 +39,10 @@ would be a no-op). After installing, verify that exactly one `ai.onnxruntime` ja
 ever see both `onnxruntime-<version>.jar` and `onnxruntime_gpu-<version>.jar` on the same classpath, the
 exclusion is missing or attached to the wrong dependency.
 
+Choose the SynapseML Scala suffix and version from the
+[installation matrix](../../Get%20Started/Install%20SynapseML.md). In the examples
+below, `<synapseml-coordinate>` means that complete runtime-specific coordinate.
+
 - **sbt** (per-dependency exclusion, attached to the SynapseML dependency):
 
   ```scala
@@ -59,8 +63,8 @@ exclusion is missing or attached to the wrong dependency.
   ```xml
   <dependency>
     <groupId>com.microsoft.azure</groupId>
-    <artifactId>synapseml-deep-learning_2.12</artifactId>
-    <version>...</version>
+    <artifactId>synapseml-deep-learning_<scala-binary-version></artifactId>
+    <version><synapseml-artifact-version></version>
     <exclusions>
       <exclusion>
         <groupId>com.microsoft.onnxruntime</groupId>
@@ -81,7 +85,7 @@ exclusion is missing or attached to the wrong dependency.
 
   ```bash
   spark-submit \
-    --packages com.microsoft.azure:synapseml_2.12:<version>,com.microsoft.onnxruntime:onnxruntime_gpu:1.17.3 \
+    --packages <synapseml-coordinate>,com.microsoft.onnxruntime:onnxruntime_gpu:1.17.3 \
     --exclude-packages com.microsoft.onnxruntime:onnxruntime \
     your_script.py
   ```
@@ -90,7 +94,7 @@ exclusion is missing or attached to the wrong dependency.
   flags) are `spark.jars.packages` and `spark.jars.excludes`:
 
   ```
-  spark.jars.packages=com.microsoft.azure:synapseml_2.12:<version>,com.microsoft.onnxruntime:onnxruntime_gpu:1.17.3
+  spark.jars.packages=<synapseml-coordinate>,com.microsoft.onnxruntime:onnxruntime_gpu:1.17.3
   spark.jars.excludes=com.microsoft.onnxruntime:onnxruntime
   ```
 
@@ -102,7 +106,7 @@ exclusion is missing or attached to the wrong dependency.
   [
     {
       "maven": {
-        "coordinates": "com.microsoft.azure:synapseml-deep-learning_2.12:<version>",
+        "coordinates": "<synapseml-coordinate>",
         "exclusions": ["com.microsoft.onnxruntime:onnxruntime"]
       }
     },

@@ -49,6 +49,11 @@ sparklyr connections, `sparklyr.shell.repositories` supplies the repository to
 `spark-submit`, while `extensions = character()` prevents the wrappers' embedded
 registration from overriding it:
 
+> The examples below use Spark 3.5 / Scala 2.12. Spark 4 uses Scala 2.13 and a
+> Spark-specific artifact version; substitute the coordinate from the
+> [installation matrix](../Get%20Started/Install%20SynapseML.md). The R component
+> archive version remains the base SynapseML version.
+
 ```R
 library(sparklyr)
 library(dplyr)

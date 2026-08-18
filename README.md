@@ -6,7 +6,10 @@ SynapseML (previously known as MMLSpark), is an open-source library that simplif
 
 With SynapseML, you can build scalable and intelligent systems to solve challenges in domains such as anomaly detection, computer vision, deep learning, text analytics, and others. SynapseML can train and evaluate models on single-node, multi-node, and elastically resizable clusters of computers. This lets you scale your work without wasting resources. SynapseML is usable across Python, R, Scala, Java, and .NET. Furthermore, its API abstracts over a wide variety of databases, file systems, and cloud data stores to simplify experiments no matter where data is located.
 
-SynapseML requires Scala 2.12, Spark 3.4+, and Python 3.8+.  
+SynapseML publishes runtime-specific JVM artifacts: Spark 3.5 uses Scala 2.12,
+while Spark 4.0 and 4.1 use Scala 2.13. See the
+[installation matrix](#setup-and-installation) before selecting a Maven
+coordinate.
 
 | Topics  | Links                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | :------ | :------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -69,6 +72,34 @@ For quickstarts, documentation, demos, and examples please see our [website](htt
 
 ## Setup and installation
 
+SynapseML installation has two parts: the language wrapper and the JVM
+artifacts loaded by Spark. Installing `synapseml` from PyPI does **not** add the
+JVM artifacts. A Python wrapper can import successfully while its JVM class is
+missing; using a `_2.12` artifact with Spark 4 can produce errors such as
+`LightGBMClassifier does not exist in the JVM`.
+
+The examples below use the current base release:
+
+```bash
+SYNAPSEML_VERSION="1.1.3"
+```
+
+Choose the Maven coordinate from the Spark runtime, not from the Python
+version:
+
+| Spark runtime | Scala binary version | Port Python baseline | Release tag | Maven coordinate |
+| --- | --- | --- | --- | --- |
+| Spark 3.5.x | 2.12 | Python 3.11 | `v${SYNAPSEML_VERSION}` | `com.microsoft.azure:synapseml_2.12:${SYNAPSEML_VERSION}` |
+| Spark 4.0.x | 2.13 | Python 3.12 | `v${SYNAPSEML_VERSION}-spark4.0` | `com.microsoft.azure:synapseml_2.13:${SYNAPSEML_VERSION}-spark4.0` |
+| Spark 4.1.x | 2.13 | Python 3.13 | `v${SYNAPSEML_VERSION}-spark4.1` | `com.microsoft.azure:synapseml_2.13:${SYNAPSEML_VERSION}-spark4.1` |
+
+In a UI that does not expand shell variables, replace
+`${SYNAPSEML_VERSION}` with the value assigned above.
+The same `synapseml==${SYNAPSEML_VERSION}` Python wheel is used with both Spark
+4 ports. Always configure
+`https://mmlspark.blob.core.windows.net/maven`, where the Spark 4 artifacts are
+published. See the [full installation guide] for platform-specific details.
+
 First select the correct platform that you are installing SynapseML into:
 <!--ts-->
 - [Synapse Machine Learning](#synapse-machine-learning)
@@ -95,7 +126,9 @@ First select the correct platform that you are installing SynapseML into:
 
 ### Microsoft Fabric
 
-In Microsoft Fabric notebooks SynapseML is already installed. To change the version please place the following in the first cell of your notebook.
+In Microsoft Fabric notebooks SynapseML is already installed. To override it,
+check the runtime's Spark and Scala versions, then substitute the matching full
+coordinate and Scala binary version from the matrix above:
 
 
 ```bash
@@ -103,9 +136,9 @@ In Microsoft Fabric notebooks SynapseML is already installed. To change the vers
 {
   "name": "synapseml",
   "conf": {
-      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:<THE_SYNAPSEML_VERSION_YOU_WANT>",
+      "spark.jars.packages": "<COORDINATE_FROM_THE_MATRIX_ABOVE>",
       "spark.jars.repositories": "https://mmlspark.blob.core.windows.net/maven",
-      "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
+      "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_<SCALA_BINARY_VERSION>,org.scalactic:scalactic_<SCALA_BINARY_VERSION>,org.scalatest:scalatest_<SCALA_BINARY_VERSION>,com.fasterxml.jackson.core:jackson-databind",
       "spark.yarn.user.classpath.first": "true",
       "spark.sql.parquet.enableVectorizedReader": "false"
   }
@@ -178,11 +211,13 @@ cloud](http://community.cloud.databricks.com), create a new [library from Maven
 coordinates](https://docs.databricks.com/user-guide/libraries.html#libraries-from-maven-pypi-or-spark-packages)
 in your workspace.
 
-For the coordinates use: `com.microsoft.azure:synapseml_2.12:1.1.3`
-with the resolver: `https://mmlspark.blob.core.windows.net/maven`. Ensure this library is
-attached to your target cluster(s).
-
-Finally, ensure that your Spark cluster has at least Spark 3.2 and Scala 2.12. If you encounter Netty dependency issues please use DBR 10.1.
+Use the coordinate matching the cluster's Spark and Scala versions from the
+matrix above. For example, Spark 4.1 / Scala 2.13 uses
+`com.microsoft.azure:synapseml_2.13:${SYNAPSEML_VERSION}-spark4.1`, while Spark
+3.5 / Scala 2.12 uses
+`com.microsoft.azure:synapseml_2.12:${SYNAPSEML_VERSION}`. Add the resolver
+`https://mmlspark.blob.core.windows.net/maven`, attach the library to the target
+cluster, and restart it before importing `synapse.ml`.
 
 You can use SynapseML in both your Scala and PySpark notebooks. To get started with our example notebooks import the following databricks archive:
 
@@ -190,41 +225,80 @@ You can use SynapseML in both your Scala and PySpark notebooks. To get started w
 
 ### Python Standalone
 
-To try out SynapseML on a Python (or Conda) installation you can get Spark
-installed via pip with `pip install pyspark`.  You can then use `pyspark` as in
-the above example, or from python:
+Install the Python wrapper, then start Spark with the matching JVM artifact.
+This copy-paste example is for Spark 4.1 and Python 3.13. For Spark 4.0, install
+`pyspark>=4.0,<4.1` instead and set `SPARK_LINE="4.0"`:
+
+```bash
+SYNAPSEML_VERSION=1.1.3
+python -m pip install "synapseml==${SYNAPSEML_VERSION}" "pyspark>=4.1,<4.2"
+```
 
 ```python
-import pyspark
-spark = pyspark.sql.SparkSession.builder.appName("MyApp") \
-            .config("spark.jars.packages", "com.microsoft.azure:synapseml_2.12:1.1.3") \
-            .getOrCreate()
+from pyspark.sql import SparkSession
+
+SYNAPSEML_VERSION="1.1.3"
+SPARK_LINE="4.1"
+SYNAPSEML_COORDINATE=(
+    f"com.microsoft.azure:synapseml_2.13:"
+    f"{SYNAPSEML_VERSION}-spark{SPARK_LINE}"
+)
+
+spark = (
+    SparkSession.builder.appName("MyApp")
+    .config("spark.jars.packages", SYNAPSEML_COORDINATE)
+    .config(
+        "spark.jars.repositories",
+        "https://mmlspark.blob.core.windows.net/maven",
+    )
+    .getOrCreate()
+)
 import synapse.ml
 ```
 
 ### Spark Submit
 
 SynapseML can be conveniently installed on existing Spark clusters via the
-`--packages` option, examples:
+`--packages` option. Include `--repositories` for the Spark 4 ports:
 
 ```bash
-spark-shell --packages com.microsoft.azure:synapseml_2.12:1.1.3
-pyspark --packages com.microsoft.azure:synapseml_2.12:1.1.3
-spark-submit --packages com.microsoft.azure:synapseml_2.12:1.1.3 MyApp.jar
+SYNAPSEML_VERSION=1.1.3
+SYNAPSEML_REPOSITORY=https://mmlspark.blob.core.windows.net/maven
+
+# Spark 4.0
+pyspark --repositories "$SYNAPSEML_REPOSITORY" \
+  --packages "com.microsoft.azure:synapseml_2.13:${SYNAPSEML_VERSION}-spark4.0"
+
+# Spark 4.1
+pyspark --repositories "$SYNAPSEML_REPOSITORY" \
+  --packages "com.microsoft.azure:synapseml_2.13:${SYNAPSEML_VERSION}-spark4.1"
+
+# Spark 3.5
+pyspark --repositories "$SYNAPSEML_REPOSITORY" \
+  --packages "com.microsoft.azure:synapseml_2.12:${SYNAPSEML_VERSION}"
 ```
 
 ### SBT
 
-If you are building a Spark application in Scala, add the following lines to
-your `build.sbt`:
+For Spark 4.1 (use `SPARK_LINE="4.0"` for Spark 4.0), add:
 
 ```scala
-libraryDependencies += "com.microsoft.azure" % "synapseml_2.12" % "1.1.3"
+val SYNAPSEML_VERSION="1.1.3"
+val SPARK_LINE="4.1"
+resolvers += "SynapseML" at "https://mmlspark.blob.core.windows.net/maven"
+libraryDependencies +=
+  "com.microsoft.azure" % "synapseml_2.13" %
+    s"$SYNAPSEML_VERSION-spark$SPARK_LINE"
 ```
+
+For Spark 3.5, use
+`"com.microsoft.azure" % "synapseml_2.12" % SYNAPSEML_VERSION`.
 
 ### Apache Livy and HDInsight
 
-To install SynapseML from within a Jupyter notebook served by Apache Livy the following configure magic can be used. You will need to start a new session after this configure cell is executed.
+To install SynapseML from within a Jupyter notebook served by Apache Livy, the
+following Spark 3.5 / Scala 2.12 configure magic can be used. You will need to
+start a new session after this configure cell is executed.
 
 Excluding certain packages from the library may be necessary due to current issues with Livy 0.5.
 
@@ -234,6 +308,7 @@ Excluding certain packages from the library may be necessary due to current issu
     "name": "synapseml",
     "conf": {
         "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:1.1.3",
+        "spark.jars.repositories": "https://mmlspark.blob.core.windows.net/maven",
         "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind"
     }
 }
@@ -294,6 +369,8 @@ better integrate with intellij and SBT.
 - Explore [our collaboration with Apache Spark] on image analysis.
 
 [website]: https://microsoft.github.io/SynapseML/ "aka.ms/spark"
+
+[full installation guide]: https://microsoft.github.io/SynapseML/docs/Get%20Started/Install%20SynapseML/
 
 [the Spark+AI Summit 2018]: https://databricks.com/sparkaisummit/north-america/spark-summit-2018-keynotes#Intelligent-cloud "Developing for the Intelligent Cloud and Intelligent Edge"
 
