@@ -10,6 +10,12 @@ import spray.json._
 
 class OpenAIFabricHeadersSuite extends TestBase {
 
+  private val fabricHeaderNames = Seq(
+    "X-Taxonomy-TrafficType",
+    "x-llm-service-tier",
+    "X-Taxonomy-ExtendedProperties"
+  )
+
   private trait InspectableFabricHeaders {
     self: OpenAIServicesBase with HasCognitiveServiceInput =>
 
@@ -63,15 +69,9 @@ class OpenAIFabricHeadersSuite extends TestBase {
     )
   }
 
-  test("default Fabric OpenAI requests include SynapseML extended properties") {
-    val transformer = new InspectableOpenAIChatCompletion(
-      isFabric = true,
-      usesDefaultEndpoint = true
-    ).setCustomHeaders(Map(
-      "x-taxonomy-extendedproperties" -> """{"feature":"caller"}"""
-    ))
-    val headers = transformer.requestHeaders
-
+  private def assertFabricHeaders(headers: Map[String, String]): Unit = {
+    assert(headers("X-Taxonomy-TrafficType") == "Background")
+    assert(headers("x-llm-service-tier") == "flex")
     assert(
       headers("X-Taxonomy-ExtendedProperties").parseJson ==
         JsObject(
@@ -79,38 +79,53 @@ class OpenAIFabricHeadersSuite extends TestBase {
           "runtime" -> JsString("synapse_internal")
         )
     )
-    assert(headers.keys.count(_.equalsIgnoreCase("X-Taxonomy-ExtendedProperties")) == 1)
+    fabricHeaderNames.foreach { headerName =>
+      assert(headers.keys.count(_.equalsIgnoreCase(headerName)) == 1)
+    }
   }
 
-  test("all OpenAI stages include SynapseML extended properties") {
+  private def assertNoFabricHeaders(headers: Map[String, String]): Unit = {
+    fabricHeaderNames.foreach { headerName =>
+      assert(!headers.keys.exists(_.equalsIgnoreCase(headerName)))
+    }
+  }
+
+  test("default Fabric OpenAI requests include SynapseML classification headers") {
+    val transformer = new InspectableOpenAIChatCompletion(
+      isFabric = true,
+      usesDefaultEndpoint = true
+    ).setCustomHeaders(Map(
+      "x-taxonomy-traffictype" -> "caller",
+      "X-LLM-SERVICE-TIER" -> "caller",
+      "x-taxonomy-extendedproperties" -> """{"feature":"caller"}"""
+    ))
+
+    assertFabricHeaders(transformer.requestHeaders)
+  }
+
+  test("all OpenAI stages include SynapseML classification headers") {
     transformers(isFabric = true, usesDefaultEndpoint = true).foreach { transformer =>
-      assert(
-        transformer.requestHeaders("X-Taxonomy-ExtendedProperties").parseJson ==
-          JsObject(
-            "feature" -> JsString("synapseml"),
-            "runtime" -> JsString("synapse_internal")
-          )
-      )
+      assertFabricHeaders(transformer.requestHeaders)
     }
   }
 
-  test("non-Fabric OpenAI requests omit SynapseML extended properties") {
+  test("non-Fabric OpenAI requests omit SynapseML classification headers") {
     transformers(isFabric = false, usesDefaultEndpoint = true).foreach { transformer =>
-      assert(!transformer.requestHeaders.contains("X-Taxonomy-ExtendedProperties"))
+      assertNoFabricHeaders(transformer.requestHeaders)
     }
   }
 
-  test("explicit OpenAI endpoints omit SynapseML extended properties") {
+  test("explicit OpenAI endpoints omit SynapseML classification headers") {
     transformers(isFabric = true, usesDefaultEndpoint = false).foreach { transformer =>
-      assert(!transformer.requestHeaders.contains("X-Taxonomy-ExtendedProperties"))
+      assertNoFabricHeaders(transformer.requestHeaders)
     }
   }
 
-  test("custom OpenAI URL roots omit SynapseML extended properties") {
+  test("custom OpenAI URL roots omit SynapseML classification headers") {
     Seq("https://example.openai.azure.com/", " ").foreach { customUrlRoot =>
       transformers(isFabric = true, usesDefaultEndpoint = true).foreach { transformer =>
         transformer.withCustomUrlRoot(customUrlRoot)
-        assert(!transformer.requestHeaders.contains("X-Taxonomy-ExtendedProperties"))
+        assertNoFabricHeaders(transformer.requestHeaders)
       }
     }
   }
@@ -123,11 +138,13 @@ class OpenAIFabricHeadersSuite extends TestBase {
     ).withRawCustomHeaders(Map(
       nullString -> "value",
       "Other" -> nullString,
+      "x-taxonomy-traffictype" -> "caller",
+      "X-LLM-SERVICE-TIER" -> "caller",
       "x-taxonomy-extendedproperties" -> """{"feature":"caller"}"""
     ))
     val headers = transformer.requestHeaders
 
-    assert(headers.keys.count(_.equalsIgnoreCase("X-Taxonomy-ExtendedProperties")) == 1)
+    assertFabricHeaders(headers)
     assert(headers.keys.forall(_ != null))
     assert(headers.values.forall(_ != null))
     assert(!headers.contains("Other"))
