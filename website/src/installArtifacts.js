@@ -1,5 +1,12 @@
 const pythonPackage = "synapseml==1.1.3";
-const version = pythonPackage.split("==")[1];
+const pythonPackagePrefix = "synapseml==";
+if (
+  !pythonPackage.startsWith(pythonPackagePrefix) ||
+  pythonPackage.length === pythonPackagePrefix.length
+) {
+  throw new Error(`Invalid SynapseML Python package pin: ${pythonPackage}`);
+}
+const version = pythonPackage.slice(pythonPackagePrefix.length);
 const repository = "https://mmlspark.blob.core.windows.net/maven";
 
 const installArtifacts = Object.freeze({

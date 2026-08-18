@@ -103,8 +103,12 @@ module artifacts.
   flag (format `groupId:artifactId`, no version):
 
   ```bash
+  # Spark 4.1 example; use the matching table value for another runtime.
+  SYNAPSEML_VERSION="1.1.3"
+  SYNAPSEML_DEEP_LEARNING_COORDINATE="com.microsoft.azure:synapseml-deep-learning_2.13:${SYNAPSEML_VERSION}-spark4.1"
+
   spark-submit \
-    --packages <synapseml-deep-learning-coordinate>,com.microsoft.onnxruntime:onnxruntime_gpu:1.17.3 \
+    --packages "${SYNAPSEML_DEEP_LEARNING_COORDINATE},com.microsoft.onnxruntime:onnxruntime_gpu:1.17.3" \
     --exclude-packages com.microsoft.onnxruntime:onnxruntime \
     your_script.py
   ```

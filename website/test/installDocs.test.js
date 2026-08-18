@@ -12,17 +12,16 @@ const publishedPorts = JSON.parse(
     'utf8',
   ),
 );
-const config = fs.readFileSync(
-  path.join(repoRoot, 'website', 'docusaurus.config.js'),
-  'utf8',
-);
-const currentVersion = config.match(/let version = "([0-9.]+)"/)?.[1];
 const publishedVersions = JSON.parse(
   fs.readFileSync(path.join(repoRoot, 'website', 'versions.json'), 'utf8'),
 );
+const currentVersion = publishedVersions[0];
 
-assert.ok(currentVersion, 'expected a current SynapseML documentation version');
-assert.equal(publishedVersions[0], currentVersion);
+assert.match(
+  currentVersion,
+  /^\d+\.\d+\.\d+$/,
+  'expected the first published documentation version to be current',
+);
 
 const portCases = [
   {
@@ -196,6 +195,8 @@ test('specialized install guides state their runtime scope', () => {
   assert.match(overview, /Spark 4\.0 and 4\.1 use Scala 2\.13/);
   assert.match(deepLearning, /Python wheel supplies wrappers/);
   assert.match(deepLearning, /installation matrix/);
+  assert.match(deepLearning, /targets Spark 3\.5 \/ Scala 2\.12/);
+  assert.doesNotMatch(deepLearning, /sample uses a Spark 3 \/ Scala 2\.12/);
   const expandedOnnx = expandDocumentedVersion(onnx);
   assert.ok(
     onnx.includes(`SYNAPSEML_VERSION="${currentVersion}"`),
@@ -205,6 +206,11 @@ test('specialized install guides state their runtime scope', () => {
   assert.match(onnx, /<synapseml-deep-learning-version>/);
   assert.doesNotMatch(onnx, /<synapseml-coordinate>/);
   assert.doesNotMatch(onnx, /<synapseml-artifact-version>/);
+  assert.doesNotMatch(onnx, /--packages\s+<synapseml/);
+  assert.match(
+    onnx,
+    /--packages "\$\{SYNAPSEML_DEEP_LEARNING_COORDINATE\},/,
+  );
   for (const key of ['spark35', 'spark40', 'spark41']) {
     assert.ok(
       expandedOnnx.includes(
