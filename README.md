@@ -96,8 +96,9 @@ version:
 In a UI that does not expand shell variables, replace
 `${SYNAPSEML_VERSION}` with the value assigned above.
 The Spark 4 rows correspond to the explicit published tags shown; documentation
-tests lock those tags so a base-version bump cannot silently advertise an
-unpublished port. The same `synapseml==${SYNAPSEML_VERSION}` Python wheel is
+tests lock their artifact versions so a base-version bump cannot silently
+advertise an unpublished port. The same `synapseml==${SYNAPSEML_VERSION}`
+Python wheel is
 used with both Spark 4 ports. Always configure
 `https://mmlspark.blob.core.windows.net/maven`, where the Spark 4 artifacts are
 published. See the [full installation guide] for platform-specific details.
@@ -227,25 +228,25 @@ You can use SynapseML in both your Scala and PySpark notebooks. To get started w
 
 ### Python Standalone
 
-Choose exactly one complete runtime variant below, then start Spark with that
-variant's JVM artifact.
+Using the `SYNAPSEML_VERSION` assigned above, choose exactly one complete
+runtime variant below, then start Spark with that variant's JVM artifact.
 
 **Spark 4.1 / Python 3.13**
 
 ```bash
-python -m pip install "synapseml==1.1.3" "pyspark>=4.1,<4.2"
+python -m pip install "synapseml==${SYNAPSEML_VERSION}" "pyspark>=4.1,<4.2"
 ```
 
 **Spark 4.0 / Python 3.12**
 
 ```bash
-python -m pip install "synapseml==1.1.3" "pyspark>=4.0,<4.1"
+python -m pip install "synapseml==${SYNAPSEML_VERSION}" "pyspark>=4.0,<4.1"
 ```
 
 **Spark 3.5 / Python 3.11**
 
 ```bash
-python -m pip install "synapseml==1.1.3" "pyspark>=3.5,<3.6"
+python -m pip install "synapseml==${SYNAPSEML_VERSION}" "pyspark>=3.5,<3.6"
 ```
 
 ```python

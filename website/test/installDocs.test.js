@@ -1,5 +1,4 @@
 const assert = require('node:assert/strict');
-const childProcess = require('node:child_process');
 const fs = require('node:fs');
 const path = require('node:path');
 const test = require('node:test');
@@ -15,75 +14,51 @@ const publishedPorts = JSON.parse(
 const publishedVersions = JSON.parse(
   fs.readFileSync(path.join(repoRoot, 'website', 'versions.json'), 'utf8'),
 );
-const currentVersion = publishedVersions[0];
+const currentVersion = installArtifacts.version;
 
 assert.match(
   currentVersion,
   /^\d+\.\d+\.\d+$/,
-  'expected the first published documentation version to be current',
+  'expected an explicit current SynapseML version',
+);
+assert.equal(
+  publishedVersions[0],
+  currentVersion,
+  'website versions.json must start with the current SynapseML version',
 );
 
 const portCases = [
   {
     key: 'spark4.0',
     websiteKey: 'spark40',
-    sparkVersionPattern: /val sparkVersion = "4\.0\.[0-9]+"/,
   },
   {
     key: 'spark4.1',
     websiteKey: 'spark41',
-    sparkVersionPattern: /val sparkVersion = "4\.1\.[0-9]+"/,
   },
 ];
-
-function git(...args) {
-  return childProcess.execFileSync('git', args, {
-    cwd: repoRoot,
-    encoding: 'utf8',
-  }).trim();
-}
 
 function expandDocumentedVersion(markdown) {
   return markdown.replaceAll('${SYNAPSEML_VERSION}', currentVersion);
 }
 
-test('published Spark port metadata matches tagged source', () => {
+test('published Spark port versions are explicitly locked', () => {
   for (const portCase of portCases) {
-    const locked = publishedPorts[portCase.key];
+    const lockedVersion = publishedPorts[portCase.key];
     const websiteArtifact = installArtifacts[portCase.websiteKey];
+    const expectedVersion = `${currentVersion}-${portCase.key}`;
+    const expectedCoordinate =
+      `com.microsoft.azure:synapseml_2.13:${lockedVersion}`;
 
-    assert.ok(locked, `missing locked metadata for ${portCase.key}`);
-    assert.equal(git('tag', '--list', locked.releaseTag), locked.releaseTag);
     assert.equal(
-      locked.artifactVersion,
-      locked.releaseTag.replace(/^v/, ''),
+      lockedVersion,
+      expectedVersion,
+      `update website/test/published-spark-ports.lock only after ` +
+        `${expectedVersion} is published`,
     );
-    assert.ok(locked.coordinate.endsWith(`:${locked.artifactVersion}`));
-    assert.equal(websiteArtifact.coordinate, locked.coordinate);
-    assert.equal(websiteArtifact.pythonBaseline, locked.pythonBaseline);
-    assert.equal(websiteArtifact.pythonPackage, locked.pythonPackage);
-    assert.equal(websiteArtifact.pysparkSpec, locked.pysparkSpec);
-    assert.equal(
-      websiteArtifact.scalaBinaryVersion,
-      locked.scalaBinaryVersion,
-    );
-
-    const build = git('show', `${locked.releaseTag}:build.sbt`);
-    const environment = git('show', `${locked.releaseTag}:environment.yml`);
-    assert.match(build, portCase.sparkVersionPattern);
-    assert.match(
-      build,
-      new RegExp(
-        `ThisBuild / scalaVersion := "${locked.scalaBinaryVersion.replace(
-          '.',
-          '\\.',
-        )}\\.[0-9]+"`,
-      ),
-    );
-    assert.match(
-      environment,
-      new RegExp(`^  - python=${locked.pythonBaseline}(?:\\.[0-9]+)?$`, 'm'),
-    );
+    assert.equal(websiteArtifact.coordinate, expectedCoordinate);
+    assert.equal(websiteArtifact.pythonPackage, `synapseml==${currentVersion}`);
+    assert.equal(websiteArtifact.scalaBinaryVersion, '2.13');
   }
 });
 
@@ -111,24 +86,27 @@ for (const guide of installGuides) {
     );
     assert.ok(expanded.includes(installArtifacts.spark35.coordinate));
     for (const portCase of portCases) {
-      const locked = publishedPorts[portCase.key];
-      assert.ok(expanded.includes(locked.coordinate));
-      assert.ok(expanded.includes(locked.releaseTag));
+      const lockedVersion = publishedPorts[portCase.key];
+      assert.ok(
+        expanded.includes(
+          `com.microsoft.azure:synapseml_2.13:${lockedVersion}`,
+        ),
+      );
+      assert.ok(expanded.includes(`v${lockedVersion}`));
     }
     assert.match(markdown, /does \*\*not\*\* add the\s+JVM artifacts/);
     assert.match(markdown, /LightGBMClassifier does not exist in the JVM/);
-    assert.match(markdown, /Spark 4\.1 \/ Python 3\.13/);
-    assert.match(markdown, /pyspark>=4\.1,<4\.2/);
-    assert.match(markdown, /Spark 4\.0 \/ Python 3\.12/);
-    assert.match(markdown, /pyspark>=4\.0,<4\.1/);
-    assert.match(markdown, /Spark 3\.5 \/ Python 3\.11/);
-    assert.match(markdown, /pyspark>=3\.5,<3\.6/);
-    assert.match(markdown, /Choose exactly one complete runtime variant/);
-    for (const [runtime, pysparkSpec] of [
-      ['Spark 4.1 / Python 3.13', 'pyspark>=4.1,<4.2'],
-      ['Spark 4.0 / Python 3.12', 'pyspark>=4.0,<4.1'],
-      ['Spark 3.5 / Python 3.11', 'pyspark>=3.5,<3.6'],
+    assert.match(
+      markdown,
+      /choose exactly\s+one complete\s+runtime variant/i,
+    );
+    for (const [sparkVersion, artifact] of [
+      ['4.1', installArtifacts.spark41],
+      ['4.0', installArtifacts.spark40],
+      ['3.5', installArtifacts.spark35],
     ]) {
+      const runtime = `Spark ${sparkVersion} / Python ${artifact.pythonBaseline}`;
+      const pysparkSpec = `pyspark${artifact.pysparkSpec}`;
       const escapedRuntime = runtime.replaceAll('.', '\\.');
       const escapedSpec = pysparkSpec.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       assert.match(

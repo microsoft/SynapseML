@@ -1,20 +1,4 @@
 {
-  "spark4.0": {
-    "artifactVersion": "1.1.3-spark4.0",
-    "coordinate": "com.microsoft.azure:synapseml_2.13:1.1.3-spark4.0",
-    "pythonBaseline": "3.12",
-    "pythonPackage": "synapseml==1.1.3",
-    "pysparkSpec": ">=4.0,<4.1",
-    "releaseTag": "v1.1.3-spark4.0",
-    "scalaBinaryVersion": "2.13"
-  },
-  "spark4.1": {
-    "artifactVersion": "1.1.3-spark4.1",
-    "coordinate": "com.microsoft.azure:synapseml_2.13:1.1.3-spark4.1",
-    "pythonBaseline": "3.13",
-    "pythonPackage": "synapseml==1.1.3",
-    "pysparkSpec": ">=4.1,<4.2",
-    "releaseTag": "v1.1.3-spark4.1",
-    "scalaBinaryVersion": "2.13"
-  }
+  "spark4.0": "1.1.3-spark4.0",
+  "spark4.1": "1.1.3-spark4.1"
 }

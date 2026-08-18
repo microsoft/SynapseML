@@ -103,8 +103,7 @@ module artifacts.
   flag (format `groupId:artifactId`, no version):
 
   ```bash
-  # Spark 4.1 example; use the matching table value for another runtime.
-  SYNAPSEML_VERSION="1.1.3"
+  # Spark 4.1 example. First set SYNAPSEML_VERSION as shown above.
   SYNAPSEML_DEEP_LEARNING_COORDINATE="com.microsoft.azure:synapseml-deep-learning_2.13:${SYNAPSEML_VERSION}-spark4.1"
 
   spark-submit \

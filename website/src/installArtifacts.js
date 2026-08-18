@@ -10,6 +10,7 @@ const version = pythonPackage.slice(pythonPackagePrefix.length);
 const repository = "https://mmlspark.blob.core.windows.net/maven";
 
 const installArtifacts = Object.freeze({
+  version,
   repository,
   spark35: Object.freeze({
     coordinate: `com.microsoft.azure:synapseml_2.12:${version}`,
