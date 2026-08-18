@@ -51,6 +51,90 @@ class VerifyTrainRegressor extends EstimatorFuzzing[TrainRegressor] {
     TrainRegressorTestUtilities.trainScoreDataset(mockLabelColumn, dataset, linearRegressor)
   }
 
+  test("issue 1667 - TrainRegressor ignores constant text columns when useful features remain") {
+    val dataset = spark.createDataFrame(Seq(
+      (0.0, "always the same", "red fox", 1.0),
+      (1.0, "always the same", "blue fox", 2.0),
+      (2.0, "always the same", "red dog", 3.0),
+      (3.0, "always the same", "blue dog", 4.0),
+      (4.0, "always the same", "green fox", 5.0),
+      (5.0, "always the same", "green dog", 6.0)))
+      .toDF(mockLabelColumn, "constantText", "informativeText", "numeric")
+
+    val baselineModel = TrainRegressorTestUtilities.createLinearRegressor(mockLabelColumn)
+      .setInputCols(Array("informativeText", "numeric"))
+      .setNumFeatures(1024)
+      .fit(dataset)
+
+    val modelWithConstantText = TrainRegressorTestUtilities.createLinearRegressor(mockLabelColumn)
+      .setInputCols(Array("constantText", "informativeText", "numeric"))
+      .setNumFeatures(1024)
+      .fit(dataset)
+
+    val baselineScores = baselineModel.transform(dataset)
+      .select("prediction")
+      .collect()
+      .map(_.getDouble(0))
+      .toSeq
+    val scoresWithConstantText = modelWithConstantText.transform(dataset)
+      .select("prediction")
+      .collect()
+      .map(_.getDouble(0))
+      .toSeq
+
+    assert(baselineScores.length == scoresWithConstantText.length)
+    baselineScores.zip(scoresWithConstantText).foreach { case (expected, actual) =>
+      assert(math.abs(expected - actual) < 1e-8)
+    }
+  }
+
+  test("issue 1667 - TrainRegressor fails clearly when all text features are constant") {
+    val dataset = spark.createDataFrame(Seq(
+      (0.0, "2"),
+      (1.0, "2"),
+      (2.0, "2"),
+      (3.0, "2")))
+      .toDF(mockLabelColumn, "text")
+
+    val ex = intercept[IllegalArgumentException] {
+      TrainRegressorTestUtilities.createLinearRegressor(mockLabelColumn)
+        .setInputCols(Array("text"))
+        .setNumFeatures(1024)
+        .fit(dataset)
+    }
+
+    assert(ex.getMessage.toLowerCase.contains("no usable"))
+    assert(ex.getMessage.contains("text"))
+  }
+
+  test("issue 1667 - TrainRegressor fits the original RandomForest constant-text repro") {
+    val dataset = spark.createDataFrame(Seq(
+      (0.0, "2", 0.50, 0.60, 0),
+      (1.0, "2", 0.40, 0.50, 1),
+      (2.0, "2", 0.78, 0.99, 2),
+      (3.0, "2", 0.12, 0.34, 3),
+      (0.0, "2", 0.50, 0.60, 0),
+      (1.0, "2", 0.40, 0.50, 1),
+      (2.0, "2", 0.78, 0.99, 2),
+      (3.0, "2", 0.12, 0.34, 3)))
+      .toDF(mockLabelColumn, "col1", "col2", "col3", "col4")
+
+    val model = TrainRegressorTestUtilities.createRandomForestRegressor(mockLabelColumn)
+      .setInputCols(Array("col1", "col2", "col3", "col4"))
+      .setNumFeatures(1024)
+      .fit(dataset)
+    val predictions = model.transform(dataset).select("prediction").collect().map(_.getDouble(0))
+
+    assert(predictions.length == dataset.count())
+    assert(predictions.forall(value => !value.isNaN && !value.isInfinity))
+
+    val modelFile = new File(tmpDir.toFile, "rf")
+    model.write.overwrite().save(modelFile.toString)
+    val loadedModel = TrainedRegressorModel.load(modelFile.toString)
+    val loadedPredictions = loadedModel.transform(dataset).select("prediction").collect().map(_.getDouble(0))
+    assert(predictions.toSeq === loadedPredictions.toSeq)
+  }
+
   test("Verify you can score on a dataset without a label column") {
     val dataset: DataFrame = createMockDataset
 

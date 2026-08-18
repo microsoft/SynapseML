@@ -158,11 +158,11 @@ the R files for deep-learning, run:
 
 ```bash
 sbt packageR
-ls ./deep-learning/target/scala-2.12/generated/src/R/synapseml/R
+ls ./deep-learning/target/scala-2.13/generated/src/R/synapseml/R
 ```
 
 You can then run R in a terminal and install the files directly:
 
 ```R
-devtools::install_local("./deep-learning/target/scala-2.12/generated/src/R/synapseml/R")
+devtools::install_local("./deep-learning/target/scala-2.13/generated/src/R/synapseml/R")
 ```

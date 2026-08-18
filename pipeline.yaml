@@ -1376,13 +1376,32 @@ jobs:
   # This still surfaces as its own red check run, so the signal is not lost, matching how
   # ReleaseBranchCompat above is configured.
   continueOnError: true
-  # Measured on build 230962458: conda env 6.4m + compile 1.5m + package 1.2m +
-  # Scala tests ~34m + ExcludeAIFunc. 90 min was not enough and the job was
-  # killed mid-step; 120 leaves headroom now that the live-service suites are gone.
+  # Per lane, not for the whole job. The longest lane is Scala at ~39 min measured
+  # (build 231549771), so 120 is generous; it is kept rather than tightened because
+  # spark.aifunc calls live AI services and its 22.8 min is service-latency bound.
   timeoutInMinutes: 120
   dependsOn: BuildAndCacheSbt
   pool:
     vmImage: $(UBUNTU_VERSION)
+  # Scala and Python validation are independent -- neither reads the other's output --
+  # but the job ran them back to back purely because they shared one checkout. Measured
+  # on build 231549771 (67.6 min total): the shared prefix (checkout, publish OSS to
+  # local Maven, retarget, compile) is ~12.5 min, Scala tests are 25.9 min, and the
+  # Python package+test pair is 20.2 min. Running the halves as matrix legs makes the
+  # wall clock max(~39, ~41) instead of the sum, so PR feedback arrives ~27 min sooner.
+  #
+  # Two legs, not more. Every leg re-pays the ~12.5 min prefix, so a third leg -- moving
+  # spark.aifunc, which is 22.8 of the Scala 25.9 min, away from ebm+predict -- would
+  # only take the wall clock from ~41 to ~38 min while adding a whole agent.
+  # SynapseML-Internal's own pipeline shards far further (6 Scala jobs, 8 Python jobs),
+  # but its legs have no comparable prefix to amortise: they resolve a published OSS
+  # artifact rather than building one from the PR under test.
+  strategy:
+    matrix:
+      scala:
+        COMPAT_LANE: scala
+      python:
+        COMPAT_LANE: python
   # sbt on Java 17 needs java.util.prefs opened reflectively. Setting it here
   # rather than on individual sbt commands covers every JVM the job starts,
   # including templates/sbt_cache.yml's prewarm, the Internal test loop, and any
@@ -1531,7 +1550,22 @@ jobs:
           echo "##vso[task.logissue type=error]resolvers block not found in Internal build.sbt"; exit 1; }
 
         sed -i "s|val synapseMLVersion = \".*\"|val synapseMLVersion = \"${OSS_VERSION}\"|" build.sbt
-        sed -i '/^resolvers ++= Seq(/a\  Resolver.mavenLocal,' build.sbt
+        # Insert only when the resolvers block does not already carry it. 'sed a\'
+        # appends unconditionally, so running this step twice against the same tree
+        # adds a second Resolver.mavenLocal line each time. A hosted agent starts from
+        # a fresh VM and the step above re-checks out Internal, so that cannot happen
+        # today - but it also made the "tree is already clean" branch below unreachable,
+        # because the append dirtied the tree even when both edits were already applied.
+        #
+        # Scope the test to the resolvers block rather than the whole file: Internal
+        # carries an unrelated 'Resolver.mavenLocal' in usage/build.sbt and in
+        # project/BlobMavenPlugin.scala, and a file-wide test that ever matched one of
+        # those would skip the insert and leave Internal resolving against the
+        # *published* OSS build - a false green, which is the one outcome this job
+        # must never produce.
+        if ! sed -n '/^resolvers ++= Seq(/,/^)/p' build.sbt | grep -qF 'Resolver.mavenLocal'; then
+          sed -i '/^resolvers ++= Seq(/a\  Resolver.mavenLocal,' build.sbt
+        fi
 
         # A silent no-op here would compile Internal against the *published* OSS build and
         # report a false green, so verify both edits actually landed. Use fixed-string
@@ -1539,12 +1573,95 @@ jobs:
         # and could accept a line the sed above never wrote.
         grep -qF "val synapseMLVersion = \"${OSS_VERSION}\"" build.sbt || {
           echo "##vso[task.logissue type=error]Failed to retarget synapseMLVersion"; exit 1; }
-        grep -qF 'Resolver.mavenLocal,' build.sbt || {
-          echo "##vso[task.logissue type=error]Failed to add Resolver.mavenLocal"; exit 1; }
+        # Verify with the same block-scoped predicate the insert decides on, so the two
+        # can never disagree: a file-wide check here would be satisfied by the
+        # Resolver.mavenLocal in usage/build.sbt's sibling text and report success for a
+        # resolvers block that never got one.
+        sed -n '/^resolvers ++= Seq(/,/^)/p' build.sbt | grep -qF 'Resolver.mavenLocal' || {
+          echo "##vso[task.logissue type=error]Failed to add Resolver.mavenLocal to the resolvers block"; exit 1; }
 
         echo "=== Modified build.sbt ==="
         grep -n 'synapseMLVersion' build.sbt
         grep -n -A4 'resolvers ++=' build.sbt
+
+        # Commit the retarget so the working tree is clean again.
+        #
+        # Internal's version comes from sbt-dynver, which appends a live
+        # "-<yyyyMMdd>-<HHmm>" suffix whenever the tree is dirty and recomputes it
+        # from the wall clock on every sbt load. The two sed edits above are what
+        # make it dirty, so without this commit each sbt session in this job picks
+        # a different version. Observed on build 231488245:
+        #
+        #   11:32  'sbt packagePython publishM2' bakes ...-1132-SNAPSHOT into the
+        #          generated Python package and publishes that same jar to ~/.m2
+        #   11:36  'sbt testPythonExcludeAIFunc' re-runs CodeGen in a new session,
+        #          rebakes the package as ...-1136-SNAPSHOT and pip-installs it
+        #   11:37  pytest fixtures read the baked coordinate out of the installed
+        #          package and ask Ivy for ...-1136-SNAPSHOT, which nobody published
+        #
+        # Ivy fails the resolve, spark-submit dies before reporting a port, and
+        # pyspark surfaces only JAVA_GATEWAY_EXITED - so every test in the step
+        # errors at fixture setup with no indication of the real cause. Note that
+        # make_mlflow_models.py runs in between and *succeeds*: it resolves the
+        # 1132 jar correctly, because the rebake has not happened yet.
+        #
+        # Pinning only the packaging step could not fix this, because the version is
+        # recomputed by a later sbt session. Making the tree clean is what makes
+        # every session agree. The OSS side already demonstrates the end state: its
+        # checkout is never edited, so its version carries no timestamp at all
+        # (1.1.3-python3.13-102-bfba9c82-SNAPSHOT in that same build).
+        #
+        # Committing is enough on its own: 'git describe --dirty', which is what
+        # dynver reads, only considers modifications to tracked files, and sbt's
+        # build output lands in target/ which .gitignore already excludes. The
+        # commit is local to the agent's checkout and is never pushed.
+        #
+        # Refresh git's stat cache before asking whether the tree changed. 'sed -i'
+        # rewrites build.sbt in place, so its mtime and inode change even when the
+        # bytes it writes are identical, and 'git diff-index' trusts stat info before
+        # comparing content - it reports a phantom modification until the index is
+        # refreshed. Without this, an already-retargeted tree takes the commit branch
+        # below, 'git commit' finds nothing staged and exits 1, and 'set -e' fails the
+        # step: exactly the non-idempotent retry the branch exists to prevent. Measured
+        # by running this step three times against a simulated Internal checkout - runs
+        # 2 and 3 exited 1 before this line was added and exit 0 after.
+        #
+        # '|| true' because --refresh deliberately exits non-zero when a file really
+        # has changed, which is the normal case on the first run.
+        git update-index -q --refresh || true
+
+        # Commit only when the edits actually changed something. 'git commit' exits
+        # non-zero when nothing is staged, which under 'set -e' would fail this step -
+        # so an unconditional commit would turn "already retargeted" into a hard error
+        # and make the step non-idempotent on retry. The greps above already proved
+        # build.sbt holds the right values, so an unchanged tree is a valid state: it
+        # just means the edits were already in place, and dynver emits a stable
+        # version either way, which is all the rest of the job needs.
+        if git diff-index --quiet HEAD --; then
+          echo "Retarget produced no changes; tree is already clean"
+        else
+          git -c user.email=synapseml-ci@microsoft.com -c user.name='SynapseML CI' \
+            commit --quiet --no-verify -am "CI: retarget to OSS ${OSS_VERSION}"
+        fi
+
+        # A dirty tree here would silently reintroduce the drift, so fail loudly
+        # rather than hand the next steps a version that changes under them.
+        #
+        # Test git's exit status, not whether its output is empty. 'diff-index
+        # --name-only' prints nothing and exits 128 when git itself fails (unborn
+        # HEAD, unreadable index), which is indistinguishable from a clean tree if
+        # you only look at stdout - so an emptiness test would wave through exactly
+        # the broken state this guard exists to catch. '--quiet' exits non-zero for
+        # both "dirty" and "git failed", and neither is safe to continue from.
+        # An 'if' condition is exempt from 'set -e', and the diagnostic below is
+        # guarded so a failing git cannot abort the step before the explicit exit.
+        if ! git diff-index --quiet HEAD --; then
+          echo "##vso[task.logissue type=error]Internal tree still dirty after commit (or git could not read it); dynver will append a wall-clock timestamp and the published and requested versions will diverge"
+          git diff-index --name-only HEAD -- || true
+          exit 1
+        fi
+        echo "=== Internal version is now stable for the rest of the job ==="
+        git log --oneline -1
       displayName: 'Retarget Internal to this build'
     - task: AzureCLI@2
       displayName: 'Compile Internal against OSS'
@@ -1565,14 +1682,17 @@ jobs:
     - bash: |
         sudo chown -R $(whoami):$(id -ng) $(CONDA_CACHE_DIR)
       displayName: 'Fix conda directory permissions'
+      condition: and(succeeded(), eq(variables['COMPAT_LANE'], 'python'))
     - task: PipAuthenticate@1
       displayName: 'Private Conda Feed Authentication'
       inputs:
         artifactFeeds: 'A365/Synapse-Conda'
+      condition: and(succeeded(), eq(variables['COMPAT_LANE'], 'python'))
     - bash: |
         conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
         conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
       displayName: 'Accept Anaconda TOS'
+      condition: and(succeeded(), eq(variables['COMPAT_LANE'], 'python'))
     - bash: |
         echo "=== Disk space BEFORE cleanup ==="
         df -h / | grep -E 'Filesystem|/$'
@@ -1592,16 +1712,36 @@ jobs:
         conda clean --all -y
         pip cache purge
       displayName: 'Create Internal conda env'
+      # Python lane only. Building this env costs 7.1 min (build 231549771) and only the
+      # Python steps need it: SynapseML-Internal's own templates/scala_test_job.yml runs
+      # ScalaAIFuncTests*, ScalaEBMTests and ScalaPredictTests with useConda unset,
+      # reserving the env for its PowerBI and nbtest jobs. Those are precisely the three
+      # packages this job's Scala lane runs, and that lane already exports
+      # CREATE_SEMPY_WRITER=false, which is the non-conda path in Internal's template.
+      condition: and(succeeded(), eq(variables['COMPAT_LANE'], 'python'))
     - task: AzureKeyVault@2
       displayName: 'Fetch AI service secrets'
+      # Scala lane only. 'Run Internal Scala tests' is the sole consumer -- it maps the
+      # four sempy-integration-* values into its env block. Nothing in the Python lane
+      # reads them: ADO exposes Key Vault values as secret variables, which are never
+      # auto-exported into a script's environment, and the Python steps declare no env
+      # block. sbt's own project/Secrets.scala is inert here too (every accessor is
+      # behind SYNAPSEML_ENABLE_PUBLISH, unset in this job) and shells out to az
+      # directly rather than reading these variables. Fetching them in the Python lane
+      # would therefore materialise a certificate and this vault's secrets on an agent
+      # that never uses them.
+      condition: and(succeeded(), eq(variables['COMPAT_LANE'], 'scala'))
       retryCountOnTaskFailure: 3
       inputs:
         azureSubscription: 'SynapseML Build'
         keyVaultName: mmlspark-keys
     - template: templates/fabric_kv.yml
+      parameters:
+        condition: and(succeeded(), eq(variables['COMPAT_LANE'], 'scala'))
     - task: AzureCLI@2
       displayName: 'Run Internal Scala tests'
       timeoutInMinutes: 60
+      condition: and(succeeded(), eq(variables['COMPAT_LANE'], 'scala'))
       inputs:
         azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
@@ -1609,8 +1749,14 @@ jobs:
         inlineScript: |
           set -e
           cd $(Agent.BuildDirectory)/s-internal
-          eval "$(conda shell.bash hook)"
-          conda activate synapseml-internal
+          # The conda env is built only in the Python lane (see 'Create Internal conda
+          # env'), so activate it only when it is actually present rather than assuming
+          # it exists. sbt and the three packages tested below run on the agent's default
+          # Python, which is how SynapseML-Internal runs these same suites.
+          if conda env list 2>/dev/null | grep -q '^synapseml-internal[[:space:]]'; then
+            eval "$(conda shell.bash hook)"
+            conda activate synapseml-internal
+          fi
           export CREATE_SEMPY_WRITER=false
           export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
           echo "Running Internal tests against OSS $OSS_VERSION..."
@@ -1671,16 +1817,23 @@ jobs:
           export CREATE_SEMPY_WRITER=false
           export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
           echo "Packaging Internal Python against OSS $OSS_VERSION..."
-          # packagePython and publishM2 MUST share one sbt session. Internal's version
-          # embeds an HHmm timestamp, so separate invocations can differ by a minute:
-          # packagePython bakes the jar coordinate into the generated Python package,
-          # publishM2 then publishes a *different* version, and the Spark launch inside
-          # make_mlflow_models.py fails to resolve it - surfacing only as an opaque
-          # JAVA_GATEWAY_EXITED. Observed: packaged 1022, published 1023.
+          # packagePython and publishM2 share one sbt session so the version is
+          # computed once. The retarget step now commits its edits, so dynver no
+          # longer appends a wall-clock timestamp and every sbt session in this job
+          # agrees; keeping these together is cheap defence in depth.
           sbt packagePython publishM2
           echo "=== published Internal versions in ~/.m2 ==="
-          ls -d "$HOME"/.m2/repository/com/microsoft/azure/*-internal_2.12/*/ 2>/dev/null || true
-      condition: succeededOrFailed()
+          # Glob the Scala suffix so this diagnostic is correct on every branch:
+          # master builds _2.12 while the Spark 4 branches build _2.13, and the
+          # hardcoded _2.12 printed nothing there - exactly on the branches where a
+          # version mismatch most needed to be visible.
+          ls -d "$HOME"/.m2/repository/com/microsoft/azure/*-internal_*/*/ 2>/dev/null || true
+      # This was succeededOrFailed() so Python still ran when the Scala tests failed
+      # earlier in the same job. The lanes are separate jobs now, so that decoupling is
+      # structural and the condition returns to plain succeeded(): nothing preceding it
+      # in this lane is a test, so a failure here means setup broke and packaging against
+      # a broken setup can only produce a second, more confusing error.
+      condition: and(succeeded(), eq(variables['COMPAT_LANE'], 'python'))
     # NOTE: 'Run Internal Python tests (AIFunc)' was intentionally removed. All four
     # AIFunc suites call live Azure OpenAI endpoints, so they measure service and
     # quota availability rather than OSS/Internal compatibility. They took ~23 min
@@ -1723,7 +1876,7 @@ jobs:
           fi
           echo "Running ExcludeAIFunc Python tests against OSS $OSS_VERSION..."
           sbt testPythonExcludeAIFunc
-      condition: succeededOrFailed()
+      condition: and(succeeded(), eq(variables['COMPAT_LANE'], 'python'))
     - task: PublishTestResults@2
       displayName: 'Publish Internal Scala Test Results'
       inputs:
@@ -1732,11 +1885,11 @@ jobs:
         # results, and silently publishes nothing.
         searchFolder: '$(Agent.BuildDirectory)/s-internal'
         failTaskOnFailedTests: false
-      condition: succeededOrFailed()
+      condition: and(succeededOrFailed(), eq(variables['COMPAT_LANE'], 'scala'))
     - task: PublishTestResults@2
       displayName: 'Publish Internal Python Test Results'
       inputs:
         testResultsFiles: '**/python-test-*.xml'
         searchFolder: '$(Agent.BuildDirectory)/s-internal'
         failTaskOnFailedTests: false
-      condition: succeededOrFailed()
+      condition: and(succeededOrFailed(), eq(variables['COMPAT_LANE'], 'python'))
