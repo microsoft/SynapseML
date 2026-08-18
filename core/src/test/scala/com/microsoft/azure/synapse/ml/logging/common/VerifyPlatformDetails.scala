@@ -29,12 +29,33 @@ class VerifyPlatformDetails extends TestBase {
 
   test("resolveFabricRuntime prefers Spark and falls back to Python or Fabric") {
     assert(
-      PlatformDetails.resolveFabricRuntime(Some("3.5.4"), Some("3.11.9")) ===
+      PlatformDetails.resolveFabricRuntime(
+        isFabric = true,
+        sparkVersion = Some("3.5.4"),
+        pythonVersion = Some("3.11.9"),
+        currentPlatform = "synapse_internal") ===
         "fabric_spark_3.5.4")
     assert(
-      PlatformDetails.resolveFabricRuntime(None, Some("3.11.9")) ===
+      PlatformDetails.resolveFabricRuntime(
+        isFabric = true,
+        sparkVersion = None,
+        pythonVersion = Some("3.11.9"),
+        currentPlatform = "synapse_internal") ===
         "fabric_python_3.11.9")
-    assert(PlatformDetails.resolveFabricRuntime(None, None) === "fabric")
+    assert(
+      PlatformDetails.resolveFabricRuntime(
+        isFabric = true,
+        sparkVersion = None,
+        pythonVersion = None,
+        currentPlatform = "synapse_internal") ===
+        "fabric")
+    assert(
+      PlatformDetails.resolveFabricRuntime(
+        isFabric = false,
+        sparkVersion = Some("3.5.4"),
+        pythonVersion = Some("3.11.9"),
+        currentPlatform = "databricks") ===
+        "databricks")
   }
 
   test("currentPlatform returns a valid platform string") {
