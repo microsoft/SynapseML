@@ -13,3 +13,6 @@ f7a1dc50d09d400d279d08bf69a1fac322896748
 # PR #2632 then added deterministic scored-model metadata resolution used by this change.
 # Remove this prerequisite once every validated release branch contains that backport.
 704fb34a51072af56157bf4dade33f4b82dcf129
+# PR #2638 added the missing-numeric Featurize API and test imports used by this change.
+# Remove this prerequisite once every validated release branch contains that backport.
+816804baa722f4154886a528303e81b8f0a7e86a
