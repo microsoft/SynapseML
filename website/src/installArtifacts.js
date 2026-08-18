@@ -23,7 +23,7 @@ const installArtifacts = Object.freeze({
     coordinate: `com.microsoft.azure:synapseml_2.13:${version}-spark4.0`,
     pythonBaseline: "3.12",
     pythonPackage,
-    pysparkSpec: ">=4.0,<4.1",
+    pysparkSpec: ">=4.0.1,<4.1",
     scalaBinaryVersion: "2.13",
   }),
   spark41: Object.freeze({

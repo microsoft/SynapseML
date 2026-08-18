@@ -62,6 +62,10 @@ test('published Spark port versions are explicitly locked', () => {
   }
 });
 
+test('Spark 4.0 installation excludes the binary-incompatible 4.0.0 runtime', () => {
+  assert.equal(installArtifacts.spark40.pysparkSpec, '>=4.0.1,<4.1');
+});
+
 const installGuides = [
   path.join(repoRoot, 'README.md'),
   path.join(repoRoot, 'docs', 'Get Started', 'Install SynapseML.md'),

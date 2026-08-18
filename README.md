@@ -240,7 +240,7 @@ python -m pip install "synapseml==${SYNAPSEML_VERSION}" "pyspark>=4.1,<4.2"
 **Spark 4.0 / Python 3.12**
 
 ```bash
-python -m pip install "synapseml==${SYNAPSEML_VERSION}" "pyspark>=4.0,<4.1"
+python -m pip install "synapseml==${SYNAPSEML_VERSION}" "pyspark>=4.0.1,<4.1"
 ```
 
 **Spark 3.5 / Python 3.11**
