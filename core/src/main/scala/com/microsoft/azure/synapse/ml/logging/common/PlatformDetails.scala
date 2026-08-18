@@ -16,8 +16,7 @@ object PlatformDetails {
   lazy val FabricRuntime: String = resolveFabricRuntime(
     runningOnFabric(),
     Option(org.apache.spark.SPARK_VERSION),
-    sys.env.get("PYTHON_VERSION"),
-    CurrentPlatform
+    sys.env.get("PYTHON_VERSION")
   )
 
   def currentPlatform(): String = {
@@ -54,10 +53,9 @@ object PlatformDetails {
   private[common] def resolveFabricRuntime(
       isFabric: Boolean,
       sparkVersion: Option[String],
-      pythonVersion: Option[String],
-      currentPlatform: String): String = {
+      pythonVersion: Option[String]): String = {
     if (!isFabric) {
-      currentPlatform
+      PlatformUnknown
     } else {
       sparkVersion
         .filter(_.nonEmpty)
