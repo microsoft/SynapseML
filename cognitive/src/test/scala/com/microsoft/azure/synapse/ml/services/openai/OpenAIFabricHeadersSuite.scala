@@ -27,7 +27,7 @@ class OpenAIFabricHeadersSuite extends TestBase {
 
     override protected[openai] def usingDefaultOpenAIEndpoint: Boolean = usesDefaultEndpoint
 
-    override protected[openai] def fabricRuntime: String = "synapse_internal"
+    override protected[openai] def fabricRuntime: String = "fabric_spark_3.5.4"
 
     def requestHeaders: Map[String, String] = {
       buildServiceAuthHeaders(
@@ -76,7 +76,7 @@ class OpenAIFabricHeadersSuite extends TestBase {
       headers("X-Taxonomy-ExtendedProperties").parseJson ==
         JsObject(
           "feature" -> JsString("synapseml"),
-          "runtime" -> JsString("synapse_internal")
+          "runtime" -> JsString("fabric_spark_3.5.4")
         )
     )
     fabricHeaderNames.foreach { headerName =>

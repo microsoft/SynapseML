@@ -495,7 +495,7 @@ abstract class OpenAIServicesBase(override val uid: String) extends CognitiveSer
 
   protected[openai] def runningOnFabric: Boolean = PlatformDetails.runningOnFabric()
 
-  protected[openai] def fabricRuntime: String = PlatformDetails.CurrentPlatform
+  protected[openai] def fabricRuntime: String = PlatformDetails.FabricRuntime
 
   override protected def getInternalTransformer(schema: StructType): PipelineModel = {
     if (runningOnFabric && usingDefaultOpenAIEndpoint) {

@@ -13,6 +13,16 @@ object PlatformDetails {
   val PlatformUnknown = "unknown"
   val SynapseProjectName = "Microsoft.ProjectArcadia"
   lazy val CurrentPlatform: String = currentPlatform()
+  lazy val FabricRuntime: String = {
+    if (runningOnFabric()) {
+      resolveFabricRuntime(
+        Option(org.apache.spark.SPARK_VERSION),
+        sys.env.get("PYTHON_VERSION").orElse(sys.props.get("python.version"))
+      )
+    } else {
+      CurrentPlatform
+    }
+  }
 
   def currentPlatform(): String = {
     val azureService = sys.env.get("AZURE_SERVICE")
@@ -44,4 +54,18 @@ object PlatformDetails {
   def runningOnSynapse(): Boolean = CurrentPlatform == PlatformSynapse
 
   def runningOnFabric(): Boolean = runningOnSynapseInternal()
+
+  private[common] def resolveFabricRuntime(
+      sparkVersion: Option[String],
+      pythonVersion: Option[String]): String = {
+    sparkVersion
+      .filter(_.nonEmpty)
+      .map(version => s"fabric_spark_$version")
+      .orElse(
+        pythonVersion
+          .filter(_.nonEmpty)
+          .map(version => s"fabric_python_$version")
+      )
+      .getOrElse("fabric")
+  }
 }
