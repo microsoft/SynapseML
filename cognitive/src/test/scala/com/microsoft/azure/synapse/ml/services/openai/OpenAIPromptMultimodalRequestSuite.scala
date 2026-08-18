@@ -224,6 +224,23 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
     }
   }
 
+  test("extensionless images use their inferred MIME type") {
+    val tempFile = Files.createTempFile("synapseml-openai-extensionless", "")
+    try {
+      Files.write(tempFile, imageBytes)
+      val (_, _, fileType, mimeType) = OpenAIAttachmentUtils.prepareFile(
+        tempFile.toString,
+        None,
+        imageExtensions = Set("png"),
+        audioExtensions = Set.empty,
+        textExtensions = Set.empty)
+      assert(fileType == "image")
+      assert(mimeType == "image/png")
+    } finally {
+      Files.deleteIfExists(tempFile)
+    }
+  }
+
   test("Chat Completions OpenAIPrompt sends image_url content parts") {
     val (result, payload) = requestPayload(
       _.replace("/openai/v1", "/image.png"),

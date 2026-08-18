@@ -20,6 +20,10 @@ private[openai] object OpenAIAttachmentUtils {
     "image/png" -> "png",
     "image/gif" -> "gif",
     "image/webp" -> "webp",
+    "audio/mpeg" -> "mp3",
+    "audio/mp3" -> "mp3",
+    "audio/wav" -> "wav",
+    "audio/x-wav" -> "wav",
     "application/pdf" -> "pdf",
     "text/plain" -> "txt",
     "text/markdown" -> "md",
@@ -105,9 +109,15 @@ private[openai] object OpenAIAttachmentUtils {
       audioExtensions: Set[String],
       textExtensions: Set[String]
   ): String = {
+    def hasAllowedExtension(allowedExtensions: Set[String]): Boolean = {
+      val effectiveExtension = Option(extension).filter(_.nonEmpty)
+        .orElse(MimeTypeExtensions.get(mimeType))
+      effectiveExtension.exists(allowedExtensions.contains)
+    }
+
     if (mimeType == "application/pdf") "file"
-    else if (mimeType.startsWith("image/") && imageExtensions.contains(extension)) "image"
-    else if (mimeType.startsWith("audio/") && audioExtensions.contains(extension)) "audio"
+    else if (mimeType.startsWith("image/") && hasAllowedExtension(imageExtensions)) "image"
+    else if (mimeType.startsWith("audio/") && hasAllowedExtension(audioExtensions)) "audio"
     else if (mimeType.startsWith("text/") || textExtensions.contains(extension)) "text"
     else "unsupported"
   }
