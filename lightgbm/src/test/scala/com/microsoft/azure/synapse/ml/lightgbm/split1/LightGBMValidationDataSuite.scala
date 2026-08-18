@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.lightgbm.split1
 
-import com.microsoft.azure.synapse.ml.core.test.base.{SparkSessionManagement, TestBase}
+import com.microsoft.azure.synapse.ml.core.test.base.SparkSessionManagement
 import com.microsoft.azure.synapse.ml.lightgbm.{LightGBMClassifier, LightGBMClassificationModel, LightGBMConstants}
 import org.apache.commons.io.FileUtils
 import org.apache.spark.SparkConf
@@ -15,7 +15,7 @@ import java.io.File
 import java.util.UUID
 
 // scalastyle:off magic.number
-class LightGBMValidationDataSuite extends TestBase {
+class LightGBMValidationDataSuite extends LightGBMTestUtils {
   private object SmallResultSparkProvider extends SparkSessionManagement {
     override def sparkConfiguration: SparkConf = {
       super.sparkConfiguration
@@ -62,7 +62,7 @@ class LightGBMValidationDataSuite extends TestBase {
       .setNumLeaves(4)
       .setMinDataInLeaf(1)
       .setBinSampleCount(128)
-      .setDefaultListenPort(12400)
+      .setDefaultListenPort(getAndIncrementPort())
 
     val copied = estimator.copy(ParamMap.empty)
     assert(copied.getValidationIndicatorCol == validationCol)
@@ -112,7 +112,7 @@ class LightGBMValidationDataSuite extends TestBase {
       .setNumLeaves(4)
       .setMinDataInLeaf(1)
       .setBinSampleCount(64)
-      .setDefaultListenPort(12500)
+      .setDefaultListenPort(getAndIncrementPort())
       .fit(data)
 
     assert(model.transform(data).select("prediction").count() == 512L)
