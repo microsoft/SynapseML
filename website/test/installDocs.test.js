@@ -209,6 +209,19 @@ test('specialized install guides state their runtime scope', () => {
   );
   assert.match(onnx, /<synapseml-deep-learning-coordinate>/);
   assert.match(onnx, /<synapseml-deep-learning-version>/);
+  assert.match(
+    onnx,
+    /<artifactId>synapseml-deep-learning_SCALA_BINARY_VERSION<\/artifactId>/,
+  );
+  assert.match(
+    onnx,
+    /<version>SYNAPSEML_DEEP_LEARNING_VERSION<\/version>/,
+  );
+  assert.doesNotMatch(
+    onnx,
+    /<artifactId>synapseml-deep-learning_<[^>]+><\/artifactId>/,
+  );
+  assert.doesNotMatch(onnx, /<version><[^>]+><\/version>/);
   assert.doesNotMatch(onnx, /<synapseml-coordinate>/);
   assert.doesNotMatch(onnx, /<synapseml-artifact-version>/);
   assert.doesNotMatch(onnx, /--packages\s+<synapseml/);

@@ -82,8 +82,8 @@ module artifacts.
   ```xml
   <dependency>
     <groupId>com.microsoft.azure</groupId>
-    <artifactId>synapseml-deep-learning_<scala-binary-version></artifactId>
-    <version><synapseml-deep-learning-version></version>
+    <artifactId>synapseml-deep-learning_SCALA_BINARY_VERSION</artifactId>
+    <version>SYNAPSEML_DEEP_LEARNING_VERSION</version>
     <exclusions>
       <exclusion>
         <groupId>com.microsoft.onnxruntime</groupId>
