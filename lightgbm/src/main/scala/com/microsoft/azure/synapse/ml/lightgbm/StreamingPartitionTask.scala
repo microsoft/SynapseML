@@ -129,7 +129,7 @@ class StreamingPartitionTask extends BasePartitionTask {
 
     // Now handle validation data, which comes from a broadcast-ed hardcoded array
     if (ctx.shouldCalcValidationDataset) {
-      ctx.sharedState.validationDatasetState.streamingDataset = Option(generateOptValidationDataset(ctx))
+      generateAndStoreValidationDataset(ctx)
     }
 
     // streaming does not use data state (it stores intermediate results in the context shared state),
@@ -151,23 +151,22 @@ class StreamingPartitionTask extends BasePartitionTask {
     ctx.sharedState.validationDatasetState.streamingDataset.get
   }
 
-  private def generateOptValidationDataset(ctx: PartitionTaskContext): LightGBMDataset = {
+  private def generateAndStoreValidationDataset(ctx: PartitionTaskContext): Unit = {
     val validationData = ctx.trainingCtx.validationData.get.value
 
     val validationDataset = createSharedValidationDataset(ctx, validationData.length)
 
-    insertRowsIntoDataset(
-      ctx,
-      validationDataset,
-      validationData.toIterator,
-      0,
-      validationData.length,
-      0)
-
-    // Complete the dataset here since we only add data to it once
-    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetMarkFinished(validationDataset.datasetPtr),
-      "Dataset mark finished")
-    validationDataset
+    StreamingPartitionTask.initializeValidationDataset(validationDataset)(
+      insertRowsIntoDataset(
+        ctx,
+        validationDataset,
+        validationData.toIterator,
+        0,
+        validationData.length,
+        0))(
+      LightGBMUtils.validate(lightgbmlib.LGBM_DatasetMarkFinished(validationDataset.datasetPtr),
+        "Dataset mark finished"))(
+      ctx.sharedState.validationDatasetState.streamingDataset = Option(validationDataset))
   }
 
   private def insertRowsIntoTrainingDataset(ctx: PartitionTaskContext, inputRows: Iterator[Row]): Unit = {
@@ -363,6 +362,19 @@ class StreamingPartitionTask extends BasePartitionTask {
         lightgbmlib.LGBM_DatasetSetWaitForManualFinish(dataset.datasetPtr, 1),
         "Dataset LGBM_DatasetSetWaitForManualFinish")
       dataset.setFeatureNames(ctx.trainingCtx.featureNames, ctx.trainingCtx.numCols)
+    }
+  }
+}
+
+object StreamingPartitionTask {
+  private[lightgbm] def initializeValidationDataset(dataset: LightGBMDataset)
+                                                   (insertRows: => Unit)
+                                                   (markFinished: => Unit)
+                                                   (transferOwnership: => Unit): Unit = {
+    ReferenceDatasetUtils.initializeOwnedDataset(dataset) {
+      insertRows
+      markFinished
+      transferOwnership
     }
   }
 }
