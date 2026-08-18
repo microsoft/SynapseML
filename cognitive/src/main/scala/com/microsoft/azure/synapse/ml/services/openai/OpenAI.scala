@@ -511,15 +511,14 @@ trait HasOpenAIFabricHeaders extends HasCognitiveServiceInput {
   private val extendedPropertiesHeader = "X-Taxonomy-ExtendedProperties"
 
   private def usingImplicitFabricEndpoint: Boolean = {
-    val hasCustomUrlRoot = get(customUrlRoot).orElse(getDefault(customUrlRoot))
-      .exists(value => Option(value).exists(_.trim.nonEmpty))
+    val hasCustomUrlRoot = get(customUrlRoot).nonEmpty
     runningOnFabric && usingDefaultOpenAIEndpoint && !hasCustomUrlRoot
   }
 
   abstract override protected def getCustomHeaders(row: Row): Option[Map[String, String]] = {
     val headers = super.getCustomHeaders(row)
     if (usingImplicitFabricEndpoint) {
-      val serviceOwnedHeaders = headers.getOrElse(Map.empty)
+      val serviceOwnedHeaders = headers.map(ServiceAuthHeaders.sanitizeHeaderMap).getOrElse(Map.empty)
         .filterNot { case (name, _) => name.equalsIgnoreCase(extendedPropertiesHeader) }
       Some(
         serviceOwnedHeaders.updated(

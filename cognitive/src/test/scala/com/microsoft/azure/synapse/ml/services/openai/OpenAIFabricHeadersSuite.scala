@@ -30,6 +30,12 @@ class OpenAIFabricHeadersSuite extends TestBase {
         fabricFallbackAuthHeader = None
       )
     }
+
+    def withCustomUrlRoot(value: String): this.type = setCustomUrlRoot(value)
+
+    def withRawCustomHeaders(value: Map[String, String]): this.type = {
+      set(customHeaders, Left(value))
+    }
   }
 
   private class InspectableOpenAIChatCompletion(
@@ -46,6 +52,16 @@ class OpenAIFabricHeadersSuite extends TestBase {
       override protected val isFabric: Boolean,
       override protected val usesDefaultEndpoint: Boolean)
     extends OpenAIResponses with InspectableFabricHeaders
+
+  private def transformers(
+      isFabric: Boolean,
+      usesDefaultEndpoint: Boolean): Seq[InspectableFabricHeaders] = {
+    Seq(
+      new InspectableOpenAIChatCompletion(isFabric, usesDefaultEndpoint),
+      new InspectableOpenAIEmbedding(isFabric, usesDefaultEndpoint),
+      new InspectableOpenAIResponses(isFabric, usesDefaultEndpoint)
+    )
+  }
 
   test("default Fabric OpenAI requests include SynapseML extended properties") {
     val transformer = new InspectableOpenAIChatCompletion(
@@ -67,13 +83,7 @@ class OpenAIFabricHeadersSuite extends TestBase {
   }
 
   test("all OpenAI stages include SynapseML extended properties") {
-    val transformers = Seq(
-      new InspectableOpenAIChatCompletion(isFabric = true, usesDefaultEndpoint = true),
-      new InspectableOpenAIEmbedding(isFabric = true, usesDefaultEndpoint = true),
-      new InspectableOpenAIResponses(isFabric = true, usesDefaultEndpoint = true)
-    )
-
-    transformers.foreach { transformer =>
+    transformers(isFabric = true, usesDefaultEndpoint = true).foreach { transformer =>
       assert(
         transformer.requestHeaders("X-Taxonomy-ExtendedProperties").parseJson ==
           JsObject(
@@ -85,29 +95,41 @@ class OpenAIFabricHeadersSuite extends TestBase {
   }
 
   test("non-Fabric OpenAI requests omit SynapseML extended properties") {
-    val headers = new InspectableOpenAIChatCompletion(
-      isFabric = false,
-      usesDefaultEndpoint = true
-    ).requestHeaders
-
-    assert(!headers.contains("X-Taxonomy-ExtendedProperties"))
+    transformers(isFabric = false, usesDefaultEndpoint = true).foreach { transformer =>
+      assert(!transformer.requestHeaders.contains("X-Taxonomy-ExtendedProperties"))
+    }
   }
 
   test("explicit OpenAI endpoints omit SynapseML extended properties") {
-    val headers = new InspectableOpenAIChatCompletion(
-      isFabric = true,
-      usesDefaultEndpoint = false
-    ).requestHeaders
-
-    assert(!headers.contains("X-Taxonomy-ExtendedProperties"))
+    transformers(isFabric = true, usesDefaultEndpoint = false).foreach { transformer =>
+      assert(!transformer.requestHeaders.contains("X-Taxonomy-ExtendedProperties"))
+    }
   }
 
   test("custom OpenAI URL roots omit SynapseML extended properties") {
+    Seq("https://example.openai.azure.com/", " ").foreach { customUrlRoot =>
+      transformers(isFabric = true, usesDefaultEndpoint = true).foreach { transformer =>
+        transformer.withCustomUrlRoot(customUrlRoot)
+        assert(!transformer.requestHeaders.contains("X-Taxonomy-ExtendedProperties"))
+      }
+    }
+  }
+
+  test("raw null custom headers are sanitized before Fabric attribution") {
+    val nullString = Option.empty[String].orNull
     val transformer = new InspectableOpenAIChatCompletion(
       isFabric = true,
       usesDefaultEndpoint = true
-    ).setCustomUrlRoot("https://example.openai.azure.com/")
+    ).withRawCustomHeaders(Map(
+      nullString -> "value",
+      "Other" -> nullString,
+      "x-taxonomy-extendedproperties" -> """{"feature":"caller"}"""
+    ))
+    val headers = transformer.requestHeaders
 
-    assert(!transformer.requestHeaders.contains("X-Taxonomy-ExtendedProperties"))
+    assert(headers.keys.count(_.equalsIgnoreCase("X-Taxonomy-ExtendedProperties")) == 1)
+    assert(headers.keys.forall(_ != null))
+    assert(headers.values.forall(_ != null))
+    assert(!headers.contains("Other"))
   }
 }
