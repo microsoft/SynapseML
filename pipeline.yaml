@@ -1371,13 +1371,32 @@ jobs:
   # This still surfaces as its own red check run, so the signal is not lost, matching how
   # ReleaseBranchCompat above is configured.
   continueOnError: true
-  # Measured on build 230962458: conda env 6.4m + compile 1.5m + package 1.2m +
-  # Scala tests ~34m + ExcludeAIFunc. 90 min was not enough and the job was
-  # killed mid-step; 120 leaves headroom now that the live-service suites are gone.
+  # Per lane, not for the whole job. The longest lane is Scala at ~39 min measured
+  # (build 231549771), so 120 is generous; it is kept rather than tightened because
+  # spark.aifunc calls live AI services and its 22.8 min is service-latency bound.
   timeoutInMinutes: 120
   dependsOn: BuildAndCacheSbt
   pool:
     vmImage: $(UBUNTU_VERSION)
+  # Scala and Python validation are independent -- neither reads the other's output --
+  # but the job ran them back to back purely because they shared one checkout. Measured
+  # on build 231549771 (67.6 min total): the shared prefix (checkout, publish OSS to
+  # local Maven, retarget, compile) is ~12.5 min, Scala tests are 25.9 min, and the
+  # Python package+test pair is 20.2 min. Running the halves as matrix legs makes the
+  # wall clock max(~39, ~41) instead of the sum, so PR feedback arrives ~27 min sooner.
+  #
+  # Two legs, not more. Every leg re-pays the ~12.5 min prefix, so a third leg -- moving
+  # spark.aifunc, which is 22.8 of the Scala 25.9 min, away from ebm+predict -- would
+  # only take the wall clock from ~41 to ~38 min while adding a whole agent.
+  # SynapseML-Internal's own pipeline shards far further (6 Scala jobs, 8 Python jobs),
+  # but its legs have no comparable prefix to amortise: they resolve a published OSS
+  # artifact rather than building one from the PR under test.
+  strategy:
+    matrix:
+      scala:
+        COMPAT_LANE: scala
+      python:
+        COMPAT_LANE: python
   # sbt on Java 17 needs java.util.prefs opened reflectively. Setting it here
   # rather than on individual sbt commands covers every JVM the job starts,
   # including templates/sbt_cache.yml's prewarm, the Internal test loop, and any
@@ -1658,14 +1677,17 @@ jobs:
     - bash: |
         sudo chown -R $(whoami):$(id -ng) $(CONDA_CACHE_DIR)
       displayName: 'Fix conda directory permissions'
+      condition: and(succeeded(), eq(variables['COMPAT_LANE'], 'python'))
     - task: PipAuthenticate@1
       displayName: 'Private Conda Feed Authentication'
       inputs:
         artifactFeeds: 'A365/Synapse-Conda'
+      condition: and(succeeded(), eq(variables['COMPAT_LANE'], 'python'))
     - bash: |
         conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main
         conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r
       displayName: 'Accept Anaconda TOS'
+      condition: and(succeeded(), eq(variables['COMPAT_LANE'], 'python'))
     - bash: |
         echo "=== Disk space BEFORE cleanup ==="
         df -h / | grep -E 'Filesystem|/$'
@@ -1685,6 +1707,13 @@ jobs:
         conda clean --all -y
         pip cache purge
       displayName: 'Create Internal conda env'
+      # Python lane only. Building this env costs 7.1 min (build 231549771) and only the
+      # Python steps need it: SynapseML-Internal's own templates/scala_test_job.yml runs
+      # ScalaAIFuncTests*, ScalaEBMTests and ScalaPredictTests with useConda unset,
+      # reserving the env for its PowerBI and nbtest jobs. Those are precisely the three
+      # packages this job's Scala lane runs, and that lane already exports
+      # CREATE_SEMPY_WRITER=false, which is the non-conda path in Internal's template.
+      condition: and(succeeded(), eq(variables['COMPAT_LANE'], 'python'))
     - task: AzureKeyVault@2
       displayName: 'Fetch AI service secrets'
       retryCountOnTaskFailure: 3
@@ -1695,6 +1724,7 @@ jobs:
     - task: AzureCLI@2
       displayName: 'Run Internal Scala tests'
       timeoutInMinutes: 60
+      condition: and(succeeded(), eq(variables['COMPAT_LANE'], 'scala'))
       inputs:
         azureSubscription: 'SynapseML Build'
         scriptLocation: inlineScript
@@ -1702,8 +1732,14 @@ jobs:
         inlineScript: |
           set -e
           cd $(Agent.BuildDirectory)/s-internal
-          eval "$(conda shell.bash hook)"
-          conda activate synapseml-internal
+          # The conda env is built only in the Python lane (see 'Create Internal conda
+          # env'), so activate it only when it is actually present rather than assuming
+          # it exists. sbt and the three packages tested below run on the agent's default
+          # Python, which is how SynapseML-Internal runs these same suites.
+          if conda env list 2>/dev/null | grep -q '^synapseml-internal[[:space:]]'; then
+            eval "$(conda shell.bash hook)"
+            conda activate synapseml-internal
+          fi
           export CREATE_SEMPY_WRITER=false
           export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
           echo "Running Internal tests against OSS $OSS_VERSION..."
@@ -1775,7 +1811,12 @@ jobs:
           # hardcoded _2.12 printed nothing there - exactly on the branches where a
           # version mismatch most needed to be visible.
           ls -d "$HOME"/.m2/repository/com/microsoft/azure/*-internal_*/*/ 2>/dev/null || true
-      condition: succeededOrFailed()
+      # This was succeededOrFailed() so Python still ran when the Scala tests failed
+      # earlier in the same job. The lanes are separate jobs now, so that decoupling is
+      # structural and the condition returns to plain succeeded(): nothing preceding it
+      # in this lane is a test, so a failure here means setup broke and packaging against
+      # a broken setup can only produce a second, more confusing error.
+      condition: and(succeeded(), eq(variables['COMPAT_LANE'], 'python'))
     # NOTE: 'Run Internal Python tests (AIFunc)' was intentionally removed. All four
     # AIFunc suites call live Azure OpenAI endpoints, so they measure service and
     # quota availability rather than OSS/Internal compatibility. They took ~23 min
@@ -1818,7 +1859,7 @@ jobs:
           fi
           echo "Running ExcludeAIFunc Python tests against OSS $OSS_VERSION..."
           sbt testPythonExcludeAIFunc
-      condition: succeededOrFailed()
+      condition: and(succeeded(), eq(variables['COMPAT_LANE'], 'python'))
     - task: PublishTestResults@2
       displayName: 'Publish Internal Scala Test Results'
       inputs:
@@ -1827,11 +1868,11 @@ jobs:
         # results, and silently publishes nothing.
         searchFolder: '$(Agent.BuildDirectory)/s-internal'
         failTaskOnFailedTests: false
-      condition: succeededOrFailed()
+      condition: and(succeededOrFailed(), eq(variables['COMPAT_LANE'], 'scala'))
     - task: PublishTestResults@2
       displayName: 'Publish Internal Python Test Results'
       inputs:
         testResultsFiles: '**/python-test-*.xml'
         searchFolder: '$(Agent.BuildDirectory)/s-internal'
         failTaskOnFailedTests: false
-      condition: succeededOrFailed()
+      condition: and(succeededOrFailed(), eq(variables['COMPAT_LANE'], 'python'))
