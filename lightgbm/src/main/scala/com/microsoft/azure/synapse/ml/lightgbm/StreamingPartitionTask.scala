@@ -160,10 +160,8 @@ class StreamingPartitionTask extends BasePartitionTask {
     StreamingPartitionTask.initializeValidationDataset(validationDataset)(
       {
         val rows = ValidationDataServer.read(validationData)
-        try {
+        ValidationDataServer.withRows(rows) {
           insertRowsIntoDataset(ctx, validationDataset, rows, 0, rowCount, 0)
-        } finally {
-          rows.close()
         }
       })(
       LightGBMUtils.validate(lightgbmlib.LGBM_DatasetMarkFinished(validationDataset.datasetPtr),

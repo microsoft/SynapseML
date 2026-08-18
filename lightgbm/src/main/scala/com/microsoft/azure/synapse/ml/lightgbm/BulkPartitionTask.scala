@@ -45,11 +45,9 @@ class BulkPartitionTask extends BasePartitionTask {
     }
     val aggregatedValidationColumns = ctx.trainingCtx.validationData.map { data =>
       val rows = ValidationDataServer.read(data)
-      try {
+      ValidationDataServer.withRows(rows) {
         val prepAggregatedColumns: BaseChunkedColumns = getChunkedColumns(ctx, rows)
         mergeChunksIntoAggregatedArrays(ctx, prepAggregatedColumns, isForValidation = true)
-      } finally {
-        rows.close()
       }
     }
     PartitionDataState(Option(aggregatedColumns), aggregatedValidationColumns)

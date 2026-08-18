@@ -371,7 +371,7 @@ private[lightgbm] object ValidationDataServer {
       val accepting = ingestExecutor.submit(new Runnable {
         override def run(): Unit = {
           val writes = new ArrayBuffer[Future[_]]()
-          val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(Math.max(1L, timeoutSeconds.toLong))
+          val deadline = ingestDeadlineNanos(System.nanoTime(), timeoutMillis)
           while (completedPartitions.size() < partitionCount) { // scalastyle:ignore while
             var slotAcquired = false
             var releaseSlot = true
@@ -767,5 +767,13 @@ private[lightgbm] object ValidationDataServer {
         s"Invalid $streamDescription row length $length; expected a non-negative length or $EndOfStream")
     }
     length
+  }
+
+  private[lightgbm] def ingestDeadlineNanos(startNanos: Long, timeoutMillis: Int): Long = {
+    startNanos + TimeUnit.MILLISECONDS.toNanos(timeoutMillis.toLong)
+  }
+
+  private[lightgbm] def withRows[T](rows: ValidationRowIterator)(operation: => T): T = {
+    NetworkManagerSocketSupport.withCleanupPreservingPrimary(rows.close())(operation)
   }
 }
