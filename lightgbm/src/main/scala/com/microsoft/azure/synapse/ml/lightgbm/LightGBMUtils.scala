@@ -15,7 +15,7 @@ import java.util.Locale
 /** Helper utilities for LightGBM learners */
 object LightGBMUtils {
   private val DeviceParamNames = Set("device", "device_type")
-  private val TrueValues = Set("1", "+1", "true", "yes")
+  private val TrueValues = Set("1", "+1", "true", "yes", "on")
 
   private def removeLightGBMQuotationSymbols(value: String): String = {
     def isQuote(char: Char): Boolean = char == '\'' || char == '"'

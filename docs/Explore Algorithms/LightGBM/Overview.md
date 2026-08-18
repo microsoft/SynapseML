@@ -125,7 +125,8 @@ scores. Compare the exact rows and metadata before interpreting a higher trainin
 serialization defect; stable validation AUC can instead indicate training-set overfit.
 
 When `deterministic=True`, SynapseML logs a warning if Spark marks the training query as
-nondeterministic or if neither `force_col_wise=true` nor `force_row_wise=true` is enabled.
+nondeterministic. For effective CPU training, it also warns if neither `force_col_wise=true`
+nor `force_row_wise=true` is enabled.
 
 #### GPU training with a custom OpenCL native library
 

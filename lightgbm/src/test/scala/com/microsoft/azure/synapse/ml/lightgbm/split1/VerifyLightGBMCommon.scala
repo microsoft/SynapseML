@@ -596,6 +596,7 @@ class VerifyLightGBMCommon extends TestBase with LightGBMTestUtils {
         "force_row_wise=1",
         "force_row_wise=+1",
         "force_col_wise=yes",
+        "force_row_wise=on",
         """force_col_wise="true"""").foreach { parameters =>
       val values = LightGBMUtils.parameterValues(parameters, names).values
       assert(values.exists(LightGBMUtils.isEnabledParameterValue))
