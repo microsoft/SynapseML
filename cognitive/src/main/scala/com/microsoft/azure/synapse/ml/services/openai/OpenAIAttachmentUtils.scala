@@ -31,7 +31,7 @@ private[openai] object OpenAIAttachmentUtils {
   )
 
   private def extensionForMimeType(mimeType: String): String =
-    MimeTypeExtensions.getOrElse(mimeType.toLowerCase, "bin")
+    MimeTypeExtensions.getOrElse(mimeType.toLowerCase(Locale.ROOT), "bin")
 
   private def dataUrlMetadata(dataUrl: String): (String, String) = {
     val separator = dataUrl.indexOf(',')
@@ -138,7 +138,7 @@ private[openai] object OpenAIAttachmentUtils {
     validateFileSize(fileDescription, fileBytes.length, sizeLimitMB)
 
     val extension = fileName.lastIndexOf('.') match {
-      case idx if idx >= 0 => fileName.substring(idx + 1).toLowerCase
+      case idx if idx >= 0 => fileName.substring(idx + 1).toLowerCase(Locale.ROOT)
       case _ => ""
     }
     val mimeType = declaredMimeType.getOrElse(inferMimeType(fileName, fileBytes)).toLowerCase(Locale.ROOT)
