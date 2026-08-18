@@ -17,7 +17,9 @@ import spray.json._
 import java.io.File
 import java.net.InetSocketAddress
 import java.nio.charset.StandardCharsets
+import java.nio.file.Files
 import java.util.concurrent.ConcurrentLinkedQueue
+import java.util.Locale
 import scala.collection.JavaConverters._
 
 class OpenAIPromptMultimodalRequestSuite extends TestBase {
@@ -198,6 +200,28 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
       "filename" -> JsString("attachment.pdf"),
       "file_data" -> JsString(dataPdf)
     ))
+  }
+
+  test("attachment filenames and extensions are locale independent") {
+    val originalLocale = Locale.getDefault
+    val tempFile = Files.createTempFile("synapseml-openai", ".GIF")
+    try {
+      Files.write(tempFile, imageBytes)
+      Locale.setDefault(Locale.forLanguageTag("tr-TR"))
+
+      assert(OpenAIAttachmentUtils.attachmentFilename("data:IMAGE/GIF;base64,") == "attachment.gif")
+      val (_, _, fileType, mimeType) = OpenAIAttachmentUtils.prepareFile(
+        tempFile.toString,
+        None,
+        imageExtensions = Set("gif"),
+        audioExtensions = Set.empty,
+        textExtensions = Set.empty)
+      assert(fileType == "image")
+      assert(mimeType == "image/png")
+    } finally {
+      Locale.setDefault(originalLocale)
+      Files.deleteIfExists(tempFile)
+    }
   }
 
   test("Chat Completions OpenAIPrompt sends image_url content parts") {
