@@ -256,6 +256,15 @@ class ValidationDataServerLifecycleSuite extends TestBase {
     assert(!spool.exists())
   }
 
+  test("socket timeout converts seconds independently of the accept poll interval") {
+    val socket = ValidationDataServer.openServerSocket(host, 2.5, 1)
+    try {
+      assert(socket.getSoTimeout == 2500)
+    } finally {
+      socket.close()
+    }
+  }
+
   test("ingest rejects a negative row length other than the end marker") {
     val spool = scratchDirectory("malformed-ingest-length")
     assert(spool.mkdir())
@@ -323,6 +332,23 @@ class ValidationDataServerLifecycleSuite extends TestBase {
 
     assert(failure eq expected)
     assert(socket.isClosed)
+  }
+
+  test("validation row counts above the native Int limit fail clearly") {
+    val params = ValidationDataParams(
+      host,
+      port = 1,
+      rowCount = Int.MaxValue.toLong + 1L,
+      timeoutMillis = 1000,
+      token = "test")
+    val broadcast = spark.sparkContext.broadcast(params.toRows)
+    try {
+      val failure = intercept[IllegalArgumentException](ValidationDataServer.rowCount(broadcast))
+      assert(failure.getMessage.contains("outside the supported range"))
+      assert(failure.getMessage.contains(Int.MaxValue.toString))
+    } finally {
+      broadcast.destroy()
+    }
   }
 
   test("training failure remains primary when broadcast and server cleanup fail") {

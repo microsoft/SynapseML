@@ -287,6 +287,7 @@ private[lightgbm] object ValidationDataServer {
   private val EndOfStream = -1
   private val MaxConcurrentTransfers = 8
   private val IngestPollTimeoutMillis = 1000
+  private val MillisPerSecond = 1000.0
   private val ShutdownTimeoutSeconds = 10
   private val DefaultSocketBacklog = 50
   private val ThreadCounter = new AtomicInteger()
@@ -474,7 +475,7 @@ private[lightgbm] object ValidationDataServer {
       socket.bind(
         new InetSocketAddress(InetAddress.getByName(host), 0),
         Math.max(DefaultSocketBacklog, backlog))
-      val timeoutMillis = (timeoutSeconds * IngestPollTimeoutMillis).toLong
+      val timeoutMillis = (timeoutSeconds * MillisPerSecond).toLong
       socket.setSoTimeout(Math.max(IngestPollTimeoutMillis, timeoutMillis).min(Int.MaxValue).toInt)
       socket
     }
@@ -653,7 +654,13 @@ private[lightgbm] object ValidationDataServer {
 
   def rowCount(data: Broadcast[Array[Row]]): Int = {
     ValidationDataParams.fromBroadcast(data)
-      .map(params => Math.toIntExact(params.rowCount))
+      .map { params =>
+        if (params.rowCount < 0 || params.rowCount > Int.MaxValue) {
+          throw new IllegalArgumentException(
+            s"Validation row count ${params.rowCount} is outside the supported range 0 to ${Int.MaxValue}")
+        }
+        params.rowCount.toInt
+      }
       .getOrElse(data.value.length)
   }
 
