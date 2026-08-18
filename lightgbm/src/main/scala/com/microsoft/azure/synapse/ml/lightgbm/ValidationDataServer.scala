@@ -7,16 +7,18 @@ import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import org.apache.commons.io.FileUtils
 import org.apache.spark.SparkEnv
 import org.apache.spark.broadcast.Broadcast
+import org.apache.spark.internal.Logging
 import org.apache.spark.sql.{DataFrame, Row}
 
-import java.io._
+import java.io.{BufferedInputStream, BufferedOutputStream, DataInputStream, DataOutputStream, EOFException}
+import java.io.{File, FileInputStream, FileOutputStream, IOException, InputStream, OutputStream}
 import java.net.{InetAddress, InetSocketAddress, ServerSocket, Socket}
 import java.nio.ByteBuffer
 import java.nio.file.Files
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicReference
-import java.util.concurrent.{ConcurrentHashMap, ConcurrentLinkedQueue, ExecutorService}
-import java.util.concurrent.{Executors, Future, Semaphore, TimeUnit}
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicReference}
+import java.util.concurrent.{ConcurrentHashMap, ConcurrentLinkedQueue, ExecutorService, Future}
+import java.util.concurrent.{Semaphore, ThreadFactory, TimeUnit}
 import scala.collection.mutable.ArrayBuffer
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
@@ -54,6 +56,28 @@ private[lightgbm] object ValidationDataParams {
 
 private[lightgbm] trait ValidationRowIterator extends Iterator[Row] with AutoCloseable
 
+private[lightgbm] trait ValidationDataServerResourceFactory {
+  def openServerSocket(host: String, timeoutSeconds: Double, backlog: Int): ServerSocket
+  def createExecutor(threadCount: Int, threadNamePrefix: String): ExecutorService
+  def clientOutput(socket: Socket): OutputStream
+}
+
+private[lightgbm] object ValidationDataServerResourceFactory {
+  object Default extends ValidationDataServerResourceFactory {
+    override def openServerSocket(host: String, timeoutSeconds: Double, backlog: Int): ServerSocket = {
+      ValidationDataServer.openServerSocket(host, timeoutSeconds, backlog)
+    }
+
+    override def createExecutor(threadCount: Int, threadNamePrefix: String): ExecutorService = {
+      java.util.concurrent.Executors.newFixedThreadPool(
+        threadCount,
+        ValidationDataServer.daemonThreadFactory(threadNamePrefix))
+    }
+
+    override def clientOutput(socket: Socket): OutputStream = socket.getOutputStream
+  }
+}
+
 /**
   * Spools exact validation rows through bounded socket buffers, then streams the spool to each
   * executor that builds a native validation Dataset. No validation rows are returned to the driver
@@ -63,73 +87,186 @@ private[lightgbm] class ValidationDataServer private(serverSocket: ServerSocket,
                                                       partitionFiles: Array[File],
                                                       val params: ValidationDataParams,
                                                       executor: ExecutorService,
-                                                      spoolDirectory: File)
-  extends AutoCloseable {
+                                                      spoolDirectory: File,
+                                                      resources: ValidationDataServerResourceFactory)
+  extends AutoCloseable with Logging {
 
   private val terminalFailure = new AtomicReference[Throwable]()
   private val transfers = new ConcurrentLinkedQueue[Future[_]]()
+  private val activeClients = ConcurrentHashMap.newKeySet[Socket]()
   private val transferSlots = new Semaphore(ValidationDataServer.MaxConcurrentTransfers)
-  private val serving: Future[_] = executor.submit(new Runnable {
-    override def run(): Unit = {
+  private val stopping = new AtomicBoolean(false)
+  @volatile private var serving: Option[Future[_]] = None
+  @volatile private var cleanupComplete = false
+
+  private[lightgbm] def start(): ValidationDataServer = synchronized {
+    require(serving.isEmpty, "Validation data server was already started")
+    serving = Option(executor.submit(new Runnable {
+      override def run(): Unit = acceptClients()
+    }))
+    this
+  }
+
+  private def acceptClients(): Unit = {
+    while (!stopping.get()) { // scalastyle:ignore while
       try {
-        while (!serverSocket.isClosed) { // scalastyle:ignore while
-          transferSlots.acquire()
-          val socket = serverSocket.accept()
-          transfers.add(executor.submit(new Runnable {
-            override def run(): Unit = {
-              try serve(socket)
-              catch {
-                case NonFatal(failure) =>
-                  terminalFailure.compareAndSet(null, failure) // scalastyle:ignore null
-              } finally {
-                transferSlots.release()
-              }
-            }
-          }))
-        }
+        acceptClient()
       } catch {
-        case _: java.net.SocketException if serverSocket.isClosed => ()
+        case _: java.net.SocketTimeoutException => ()
+        case _: InterruptedException if stopping.get() =>
+          Thread.currentThread().interrupt()
+        case _: java.net.SocketException if stopping.get() => ()
         case NonFatal(failure) =>
           terminalFailure.compareAndSet(null, failure) // scalastyle:ignore null
+          stopping.set(true)
       }
     }
-  })
+  }
+
+  private def acceptClient(): Unit = {
+    transferSlots.acquire()
+    var releaseSlot = true
+    try {
+      if (!stopping.get()) {
+        releaseSlot = !submitClient(serverSocket.accept())
+      }
+    } finally {
+      if (releaseSlot) transferSlots.release()
+    }
+  }
+
+  private def submitClient(socket: Socket): Boolean = {
+    if (!registerClient(socket)) {
+      false
+    } else {
+      try {
+        transfers.add(executor.submit(new Runnable {
+          override def run(): Unit = {
+            try {
+              serve(socket)
+            } catch {
+              case NonFatal(failure) => handleServingFailure(socket, failure)
+            } finally {
+              closeClient(socket)
+              transferSlots.release()
+            }
+          }
+        }))
+        true
+      } catch {
+        case NonFatal(failure) =>
+          closeClient(socket)
+          throw failure
+      }
+    }
+  }
+
+  private def registerClient(socket: Socket): Boolean = {
+    activeClients.add(socket)
+    if (stopping.get() && activeClients.remove(socket)) {
+      ValidationDataServer.closeSocket(socket)
+      false
+    } else {
+      true
+    }
+  }
 
   private def serve(socket: Socket): Unit = {
-    using(socket) { client =>
-      client.setKeepAlive(true)
-      client.setTcpNoDelay(true)
-      client.setSoTimeout(params.timeoutMillis)
-      using(new DataInputStream(new BufferedInputStream(client.getInputStream))) { auth =>
-        if (auth.readUTF() != params.token) throw new SecurityException("Invalid validation data token")
-        using(new BufferedOutputStream(client.getOutputStream)) { output =>
-          partitionFiles.foreach { file =>
-            using(new BufferedInputStream(new FileInputStream(file))) { input =>
-              copy(input, output)
-            }.get
-          }
-          val end = new DataOutputStream(output)
-          end.writeInt(ValidationDataServer.EndOfStream)
-          end.flush()
-        }.get
+    socket.setKeepAlive(true)
+    socket.setTcpNoDelay(true)
+    socket.setSoTimeout(params.timeoutMillis)
+    using(new DataInputStream(new BufferedInputStream(socket.getInputStream))) { auth =>
+      if (auth.readUTF() != params.token) throw new SecurityException("Invalid validation data token")
+      using(new BufferedOutputStream(resources.clientOutput(socket))) { output =>
+        partitionFiles.foreach { file =>
+          using(new BufferedInputStream(new FileInputStream(file))) { input =>
+            copy(input, output)
+          }.get
+        }
+        val end = new DataOutputStream(output)
+        end.writeInt(ValidationDataServer.EndOfStream)
+        end.flush()
       }.get
     }.get
   }
 
-  def await(): Unit = {
-    serverSocket.close()
-    serving.get()
-    val iterator = transfers.iterator()
-    while (iterator.hasNext) iterator.next().get() // scalastyle:ignore while
-    Option(terminalFailure.get()).foreach(throw _)
+  private def handleServingFailure(socket: Socket, failure: Throwable): Unit = {
+    if (ValidationDataServer.isExpectedClientTermination(stopping.get(), failure)) {
+      log.debug("Validation data client disconnected before completing its transfer", failure)
+    } else {
+      terminalFailure.compareAndSet(null, failure) // scalastyle:ignore null
+    }
   }
 
-  override def close(): Unit = {
-    serverSocket.close()
-    serving.cancel(true)
-    executor.shutdownNow()
-    executor.awaitTermination(ValidationDataServer.ShutdownTimeoutSeconds, TimeUnit.SECONDS)
-    FileUtils.deleteQuietly(spoolDirectory)
+  private def closeClient(socket: Socket): Unit = {
+    activeClients.remove(socket)
+    try {
+      ValidationDataServer.closeSocket(socket)
+    } catch {
+      case NonFatal(failure) =>
+        if (!stopping.get()) terminalFailure.compareAndSet(null, failure) // scalastyle:ignore null
+    }
+  }
+
+  def await(): Unit = {
+    var failure = stopAcceptingAndClients()
+    failure = ValidationDataServer.waitForFuture(serving, failure)
+    val iterator = transfers.iterator()
+    while (iterator.hasNext) { // scalastyle:ignore while
+      failure = ValidationDataServer.waitForFuture(Option(iterator.next()), failure)
+    }
+    failure = ValidationDataServer.addFailure(failure, Option(terminalFailure.get()))
+    failure.foreach(throw _)
+  }
+
+  override def close(): Unit = synchronized {
+    if (!cleanupComplete) {
+      var failure = stopAcceptingAndClients()
+      executor.shutdownNow()
+      val terminated = try {
+        executor.awaitTermination(ValidationDataServer.ShutdownTimeoutSeconds, TimeUnit.SECONDS)
+      } catch {
+        case interrupted: InterruptedException =>
+          Thread.currentThread().interrupt()
+          failure = ValidationDataServer.addFailure(failure, Option(interrupted))
+          false
+      }
+      if (!terminated) {
+        failure = ValidationDataServer.addFailure(
+          failure,
+          Option(new IOException(
+            "Validation data server executor did not terminate after all client sockets closed")))
+      } else {
+        try {
+          ValidationDataServer.deleteSpoolDirectory(spoolDirectory)
+          cleanupComplete = true
+        } catch {
+          case NonFatal(cleanupFailure) =>
+            failure = ValidationDataServer.addFailure(failure, Option(cleanupFailure))
+        }
+      }
+      failure.foreach(throw _)
+    }
+  }
+
+  private def stopAcceptingAndClients(): Option[Throwable] = {
+    stopping.set(true)
+    var failure: Option[Throwable] = None
+    try {
+      serverSocket.close()
+    } catch {
+      case NonFatal(closeFailure) =>
+        failure = ValidationDataServer.addFailure(failure, Option(closeFailure))
+    }
+    activeClients.asScala.foreach { socket =>
+      try {
+        ValidationDataServer.closeSocket(socket)
+      } catch {
+        case NonFatal(closeFailure) =>
+          failure = ValidationDataServer.addFailure(failure, Option(closeFailure))
+      }
+    }
+    failure
   }
 
   private def copy(input: InputStream, output: OutputStream): Unit = {
@@ -140,6 +277,9 @@ private[lightgbm] class ValidationDataServer private(serverSocket: ServerSocket,
       count = input.read(buffer)
     }
   }
+
+  private[lightgbm] def activeClientCount: Int = activeClients.size()
+  private[lightgbm] def executorIsTerminated: Boolean = executor.isTerminated
 }
 
 private[lightgbm] object ValidationDataServer {
@@ -149,9 +289,8 @@ private[lightgbm] object ValidationDataServer {
   private val IngestPollTimeoutMillis = 1000
   private val ShutdownTimeoutSeconds = 10
   private val DefaultSocketBacklog = 50
+  private val ThreadCounter = new AtomicInteger()
 
-  // The lifecycle is intentionally kept together so every socket, thread, and spool file shares one cleanup path.
-  // scalastyle:off method.length
   def create(validationData: DataFrame,
              host: String,
              partitionCount: Int,
@@ -159,58 +298,125 @@ private[lightgbm] object ValidationDataServer {
     val spoolDirectory = new File(
       System.getProperty("user.dir"),
       s".synapseml-lightgbm-validation-spool-${UUID.randomUUID()}")
+    create(validationData,
+      host,
+      partitionCount,
+      timeoutSeconds,
+      spoolDirectory,
+      ValidationDataServerResourceFactory.Default)
+  }
+
+  private[lightgbm] def create(validationData: DataFrame,
+                               host: String,
+                               partitionCount: Int,
+                               timeoutSeconds: Double,
+                               spoolDirectory: File,
+                               resources: ValidationDataServerResourceFactory): ValidationDataServer = {
     if (!spoolDirectory.mkdir()) {
       throw new IOException(s"Could not create validation spool directory ${spoolDirectory.getAbsolutePath}")
     }
 
+    var spoolTransferred = false
+    NetworkManagerSocketSupport.withCleanupPreservingPrimary(
+      if (!spoolTransferred) deleteSpoolDirectory(spoolDirectory)) {
+      val result = ingest(validationData, host, partitionCount, timeoutSeconds, spoolDirectory, resources)
+      val partitionFiles = Option(spoolDirectory.listFiles()).getOrElse(Array.empty)
+        .filter(_.getName.startsWith("part-"))
+        .sortBy(file => file.getName.stripPrefix("part-").toInt)
+      spoolTransferred = true
+      createFromSpool(
+        spoolDirectory,
+        partitionFiles,
+        result.rowCount,
+        host,
+        timeoutSeconds,
+        partitionCount,
+        resources)
+    }
+  }
+
+  private case class IngestResult(rowCount: Long)
+
+  // scalastyle:off method.length
+  private def ingest(validationData: DataFrame,
+                     host: String,
+                     partitionCount: Int,
+                     timeoutSeconds: Double,
+                     spoolDirectory: File,
+                     resources: ValidationDataServerResourceFactory): IngestResult = {
     val completedPartitions = ConcurrentHashMap.newKeySet[Int]()
     val partitionRowCounts = new ConcurrentHashMap[Int, Long]()
     val lastIngestFailure = new AtomicReference[Throwable]()
-    val ingestSocket = openServerSocket(host, timeoutSeconds)
+    val activeSockets = ConcurrentHashMap.newKeySet[Socket]()
+    val ingestStopping = new AtomicBoolean(false)
+    val ingestSocket = resources.openServerSocket(host, timeoutSeconds, DefaultSocketBacklog)
     val timeoutMillis = ingestSocket.getSoTimeout
     val ingestToken = UUID.randomUUID().toString
     ingestSocket.setSoTimeout(IngestPollTimeoutMillis)
     val ingestPort = ingestSocket.getLocalPort
-    val ingestExecutor = Executors.newFixedThreadPool(MaxConcurrentTransfers + 1)
-    val ingestSlots = new Semaphore(MaxConcurrentTransfers)
-    try {
+    val ingestExecutor = NetworkManagerSocketSupport.withCleanupOnFailurePreservingPrimary(
+      closeServerSocket(ingestSocket)) {
+      resources.createExecutor(MaxConcurrentTransfers + 1, "validation-ingest")
+    }
+    NetworkManagerSocketSupport.withCleanupPreservingPrimary(
+      cleanupAll(
+        () => {
+          ingestStopping.set(true)
+          closeServerSocket(ingestSocket)
+        },
+        () => closeSockets(activeSockets),
+        () => shutdownExecutor(ingestExecutor, "validation ingest"))) {
+      val ingestSlots = new Semaphore(MaxConcurrentTransfers)
       val accepting = ingestExecutor.submit(new Runnable {
         override def run(): Unit = {
           val writes = new ArrayBuffer[Future[_]]()
           val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(Math.max(1L, timeoutSeconds.toLong))
           while (completedPartitions.size() < partitionCount) { // scalastyle:ignore while
-            ingestSlots.acquire()
-            if (completedPartitions.size() >= partitionCount) {
-              ingestSlots.release()
-            } else {
-              try {
+            var slotAcquired = false
+            var releaseSlot = true
+            try {
+              ingestSlots.acquire()
+              slotAcquired = true
+              if (completedPartitions.size() < partitionCount) {
                 val socket = ingestSocket.accept()
-                writes += ingestExecutor.submit(new Runnable {
-                  override def run(): Unit = {
-                    try {
-                      val (partitionId, count, accepted) =
-                        receivePartition(socket, spoolDirectory, ingestToken, timeoutMillis)
-                      if (accepted) {
-                        partitionRowCounts.put(partitionId, count)
-                        completedPartitions.add(partitionId)
+                activeSockets.add(socket)
+                if (ingestStopping.get() && activeSockets.remove(socket)) {
+                  closeSocket(socket)
+                } else {
+                  writes += ingestExecutor.submit(new Runnable {
+                    override def run(): Unit = {
+                      try {
+                        val (partitionId, count, accepted) =
+                          receivePartition(socket, spoolDirectory, ingestToken, timeoutMillis)
+                        if (accepted) {
+                          partitionRowCounts.put(partitionId, count)
+                          completedPartitions.add(partitionId)
+                        }
+                      } catch {
+                        case NonFatal(failure)
+                          if isExpectedClientTermination(ingestSocket.isClosed, failure) => ()
+                        case NonFatal(failure) =>
+                          lastIngestFailure.compareAndSet(null, failure) // scalastyle:ignore null
+                      } finally {
+                        activeSockets.remove(socket)
+                        closeSocketQuietly(socket)
+                        ingestSlots.release()
                       }
-                    } catch {
-                      case NonFatal(failure) => lastIngestFailure.set(failure)
-                    } finally {
-                      ingestSlots.release()
                     }
-                  }
-                })
-              } catch {
-                case _: java.net.SocketTimeoutException =>
-                  ingestSlots.release()
-                  if (System.nanoTime() >= deadline) {
-                    throw Option(lastIngestFailure.get()).getOrElse(
-                      new IOException("Timed out receiving validation partitions"))
-                  }
+                  })
+                  releaseSlot = false
+                }
               }
+            } catch {
+              case _: java.net.SocketTimeoutException if System.nanoTime() < deadline => ()
+              case _: java.net.SocketTimeoutException =>
+                throw Option(lastIngestFailure.get()).getOrElse(
+                  new IOException("Timed out receiving validation partitions"))
+            } finally {
+              if (slotAcquired && releaseSlot) ingestSlots.release()
             }
           }
+          closeSockets(activeSockets)
           writes.foreach(_.get())
         }
       })
@@ -218,47 +424,171 @@ private[lightgbm] object ValidationDataServer {
       validationData.foreachPartition((rows: Iterator[Row]) =>
         writePartition(host, ingestPort, ingestToken, timeoutMillis, rows))
       accepting.get()
-    } catch {
-      case NonFatal(failure) =>
-        ingestSocket.close()
-        FileUtils.deleteQuietly(spoolDirectory)
-        throw failure
-    } finally {
-      ingestSocket.close()
-      ingestExecutor.shutdownNow()
-      ingestExecutor.awaitTermination(ShutdownTimeoutSeconds, TimeUnit.SECONDS)
+      IngestResult(partitionRowCounts.values().asScala.sum)
     }
-
-    val partitionFiles = Option(spoolDirectory.listFiles()).getOrElse(Array.empty)
-      .filter(_.getName.startsWith("part-"))
-      .sortBy(file => file.getName.stripPrefix("part-").toInt)
-    val serverSocket = openServerSocket(host, timeoutSeconds, partitionCount)
-    val executor = Executors.newFixedThreadPool(MaxConcurrentTransfers + 1)
-    val serverToken = UUID.randomUUID().toString
-    new ValidationDataServer(
-      serverSocket,
-      partitionFiles,
-      ValidationDataParams(
-        host,
-        serverSocket.getLocalPort,
-        partitionRowCounts.values().asScala.sum,
-        serverSocket.getSoTimeout,
-        serverToken),
-      executor,
-      spoolDirectory)
   }
   // scalastyle:on method.length
 
-  private def openServerSocket(host: String,
-                               timeoutSeconds: Double,
-                               backlog: Int = DefaultSocketBacklog): ServerSocket = {
+  private[lightgbm] def createFromSpool(spoolDirectory: File,
+                                        partitionFiles: Array[File],
+                                        rowCount: Long,
+                                        host: String,
+                                        timeoutSeconds: Double,
+                                        backlog: Int,
+                                        resources: ValidationDataServerResourceFactory): ValidationDataServer = {
+    var spoolRetained = false
+    NetworkManagerSocketSupport.withCleanupPreservingPrimary(
+      if (!spoolRetained) deleteSpoolDirectory(spoolDirectory)) {
+      val serverSocket = resources.openServerSocket(host, timeoutSeconds, backlog)
+      val executor = NetworkManagerSocketSupport.withCleanupOnFailurePreservingPrimary(
+        closeServerSocket(serverSocket)) {
+        resources.createExecutor(MaxConcurrentTransfers + 1, "validation-serve")
+      }
+      val server = NetworkManagerSocketSupport.withCleanupOnFailurePreservingPrimary(
+        cleanupAll(
+          () => closeServerSocket(serverSocket),
+          () => shutdownExecutor(executor, "validation serving"))) {
+        new ValidationDataServer(
+          serverSocket,
+          partitionFiles,
+          ValidationDataParams(
+            host,
+            serverSocket.getLocalPort,
+            rowCount,
+            serverSocket.getSoTimeout,
+            UUID.randomUUID().toString),
+          executor,
+          spoolDirectory,
+          resources).start()
+      }
+      spoolRetained = true
+      server
+    }
+  }
+
+  private[lightgbm] def openServerSocket(host: String,
+                                         timeoutSeconds: Double,
+                                         backlog: Int = DefaultSocketBacklog): ServerSocket = {
     val socket = new ServerSocket()
-    socket.bind(
-      new InetSocketAddress(InetAddress.getByName(host), 0),
-      Math.max(DefaultSocketBacklog, backlog))
-    val timeoutMillis = (timeoutSeconds * IngestPollTimeoutMillis).toLong
-    socket.setSoTimeout(Math.max(IngestPollTimeoutMillis, timeoutMillis).min(Int.MaxValue).toInt)
-    socket
+    NetworkManagerSocketSupport.withCleanupOnFailurePreservingPrimary(closeServerSocket(socket)) {
+      socket.bind(
+        new InetSocketAddress(InetAddress.getByName(host), 0),
+        Math.max(DefaultSocketBacklog, backlog))
+      val timeoutMillis = (timeoutSeconds * IngestPollTimeoutMillis).toLong
+      socket.setSoTimeout(Math.max(IngestPollTimeoutMillis, timeoutMillis).min(Int.MaxValue).toInt)
+      socket
+    }
+  }
+
+  private[lightgbm] def daemonThreadFactory(prefix: String): ThreadFactory = {
+    new ThreadFactory {
+      override def newThread(runnable: Runnable): Thread = {
+        val thread = new Thread(runnable, s"synapseml-$prefix-${ThreadCounter.incrementAndGet()}")
+        thread.setDaemon(true)
+        thread
+      }
+    }
+  }
+
+  private[lightgbm] def isExpectedClientTermination(stopping: Boolean,
+                                                     failure: Throwable): Boolean = {
+    failure match {
+      case _: EOFException => true
+      case _: java.net.SocketException => true
+      case _: java.net.SocketTimeoutException => true
+      case _: SecurityException => true
+      case _: InterruptedException if stopping => true
+      case _ => false
+    }
+  }
+
+  private[lightgbm] def waitForFuture(future: Option[Future[_]],
+                                      existingFailure: Option[Throwable]): Option[Throwable] = {
+    future.fold(existingFailure) { pending =>
+      try {
+        pending.get()
+        existingFailure
+      } catch {
+        case execution: java.util.concurrent.ExecutionException =>
+          addFailure(existingFailure, Option(execution.getCause).orElse(Option(execution)))
+        case interrupted: InterruptedException =>
+          Thread.currentThread().interrupt()
+          addFailure(existingFailure, Option(interrupted))
+        case NonFatal(failure) =>
+          addFailure(existingFailure, Option(failure))
+      }
+    }
+  }
+
+  private[lightgbm] def addFailure(existing: Option[Throwable],
+                                    additional: Option[Throwable]): Option[Throwable] = {
+    (existing, additional) match {
+      case (None, failure) => failure
+      case (failure, None) => failure
+      case (Some(primary), Some(secondary)) =>
+        NetworkManagerSocketSupport.addSuppressed(primary, secondary)
+        existing
+    }
+  }
+
+  private def cleanupAll(actions: (() => Unit)*): Unit = {
+    var failure: Option[Throwable] = None
+    actions.foreach { action =>
+      try {
+        action()
+      } catch {
+        case NonFatal(cleanupFailure) =>
+          failure = addFailure(failure, Option(cleanupFailure))
+      }
+    }
+    failure.foreach(throw _)
+  }
+
+  private def shutdownExecutor(executor: ExecutorService, description: String): Unit = {
+    executor.shutdownNow()
+    val terminated = try {
+      executor.awaitTermination(ShutdownTimeoutSeconds, TimeUnit.SECONDS)
+    } catch {
+      case interrupted: InterruptedException =>
+        Thread.currentThread().interrupt()
+        throw interrupted
+    }
+    if (!terminated) {
+      throw new IOException(s"$description executor did not terminate after socket cleanup")
+    }
+  }
+
+  private[lightgbm] def closeSocket(socket: Socket): Unit = {
+    NetworkManagerSocketSupport.closeSocketWithRetry(socket)
+  }
+
+  private def closeSocketQuietly(socket: Socket): Unit = {
+    try {
+      closeSocket(socket)
+    } catch {
+      case NonFatal(_) => ()
+    }
+  }
+
+  private def closeSockets(sockets: java.util.Set[Socket]): Unit = {
+    var failure: Option[Throwable] = None
+    sockets.asScala.foreach { socket =>
+      try {
+        closeSocket(socket)
+      } catch {
+        case NonFatal(closeFailure) =>
+          failure = addFailure(failure, Option(closeFailure))
+      }
+    }
+    failure.foreach(throw _)
+  }
+
+  private def closeServerSocket(socket: ServerSocket): Unit = {
+    if (!socket.isClosed) socket.close()
+  }
+
+  private[lightgbm] def deleteSpoolDirectory(spoolDirectory: File): Unit = {
+    if (spoolDirectory.exists()) FileUtils.deleteDirectory(spoolDirectory)
   }
 
   private def writePartition(host: String,
