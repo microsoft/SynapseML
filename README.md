@@ -95,8 +95,10 @@ version:
 
 In a UI that does not expand shell variables, replace
 `${SYNAPSEML_VERSION}` with the value assigned above.
-The same `synapseml==${SYNAPSEML_VERSION}` Python wheel is used with both Spark
-4 ports. Always configure
+The Spark 4 rows correspond to the explicit published tags shown; documentation
+tests lock those tags so a base-version bump cannot silently advertise an
+unpublished port. The same `synapseml==${SYNAPSEML_VERSION}` Python wheel is
+used with both Spark 4 ports. Always configure
 `https://mmlspark.blob.core.windows.net/maven`, where the Spark 4 artifacts are
 published. See the [full installation guide] for platform-specific details.
 
@@ -225,24 +227,39 @@ You can use SynapseML in both your Scala and PySpark notebooks. To get started w
 
 ### Python Standalone
 
-Install the Python wrapper, then start Spark with the matching JVM artifact.
-This copy-paste example is for Spark 4.1 and Python 3.13. For Spark 4.0, install
-`pyspark>=4.0,<4.1` instead and set `SPARK_LINE="4.0"`:
+Install the Python wrapper and PySpark version for one complete runtime variant,
+then start Spark with that variant's JVM artifact:
 
 ```bash
 SYNAPSEML_VERSION=1.1.3
+
+# Spark 4.1 / Python 3.13
 python -m pip install "synapseml==${SYNAPSEML_VERSION}" "pyspark>=4.1,<4.2"
+
+# Spark 4.0 / Python 3.12
+python -m pip install "synapseml==${SYNAPSEML_VERSION}" "pyspark>=4.0,<4.1"
+
+# Spark 3.5 / Python 3.11
+python -m pip install "synapseml==${SYNAPSEML_VERSION}" "pyspark>=3.5,<3.6"
 ```
 
 ```python
 from pyspark.sql import SparkSession
 
 SYNAPSEML_VERSION="1.1.3"
-SPARK_LINE="4.1"
+
+# Select the coordinate matching the PySpark command used above.
 SYNAPSEML_COORDINATE=(
-    f"com.microsoft.azure:synapseml_2.13:"
-    f"{SYNAPSEML_VERSION}-spark{SPARK_LINE}"
+    f"com.microsoft.azure:synapseml_2.13:{SYNAPSEML_VERSION}-spark4.1"
 )
+# Spark 4.0:
+# SYNAPSEML_COORDINATE=(
+#     f"com.microsoft.azure:synapseml_2.13:{SYNAPSEML_VERSION}-spark4.0"
+# )
+# Spark 3.5:
+# SYNAPSEML_COORDINATE=(
+#     f"com.microsoft.azure:synapseml_2.12:{SYNAPSEML_VERSION}"
+# )
 
 spark = (
     SparkSession.builder.appName("MyApp")

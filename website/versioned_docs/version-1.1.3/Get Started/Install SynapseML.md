@@ -30,10 +30,12 @@ Choose the coordinate from the Spark runtime, not from the Python version:
 
 In a UI that does not expand shell variables, replace
 `${SYNAPSEML_VERSION}` with the value assigned above.
-The Spark 4 rows are separately published ports. The same
-`synapseml==${SYNAPSEML_VERSION}` Python wheel is used with either port; the
-Spark runtime determines which JVM coordinate to load. Always add the
-SynapseML repository because the Spark 4 artifacts are published there:
+The Spark 4 rows correspond to the explicit published tags shown; documentation
+tests lock those tags so a base-version bump cannot silently advertise an
+unpublished port. The same `synapseml==${SYNAPSEML_VERSION}` Python wheel is
+used with either port; the Spark runtime determines which JVM coordinate to
+load. Always add the SynapseML repository because the Spark 4 artifacts are
+published there:
 
 ```text
 https://mmlspark.blob.core.windows.net/maven
@@ -113,24 +115,39 @@ For Spark3.3 pools:
 ## Python
 
 To try out SynapseML on a Python (or Conda) installation, you can get Spark
-installed via pip. Install the Python wrapper and start Spark with the matching
-JVM artifact. This copy-paste example is for Spark 4.1 and Python 3.13. For
-Spark 4.0, install `pyspark>=4.0,<4.1` instead and set `SPARK_LINE="4.0"`:
+installed via pip. Install the Python wrapper and PySpark version for one
+complete runtime variant, then start Spark with that variant's JVM artifact:
 
 ```bash
 SYNAPSEML_VERSION=1.1.3
+
+# Spark 4.1 / Python 3.13
 python -m pip install "synapseml==${SYNAPSEML_VERSION}" "pyspark>=4.1,<4.2"
+
+# Spark 4.0 / Python 3.12
+python -m pip install "synapseml==${SYNAPSEML_VERSION}" "pyspark>=4.0,<4.1"
+
+# Spark 3.5 / Python 3.11
+python -m pip install "synapseml==${SYNAPSEML_VERSION}" "pyspark>=3.5,<3.6"
 ```
 
 ```python
 from pyspark.sql import SparkSession
 
 SYNAPSEML_VERSION="1.1.3"
-SPARK_LINE="4.1"
+
+# Select the coordinate matching the PySpark command used above.
 SYNAPSEML_COORDINATE=(
-    f"com.microsoft.azure:synapseml_2.13:"
-    f"{SYNAPSEML_VERSION}-spark{SPARK_LINE}"
+    f"com.microsoft.azure:synapseml_2.13:{SYNAPSEML_VERSION}-spark4.1"
 )
+# Spark 4.0:
+# SYNAPSEML_COORDINATE=(
+#     f"com.microsoft.azure:synapseml_2.13:{SYNAPSEML_VERSION}-spark4.0"
+# )
+# Spark 3.5:
+# SYNAPSEML_COORDINATE=(
+#     f"com.microsoft.azure:synapseml_2.12:{SYNAPSEML_VERSION}"
+# )
 
 spark = (
     SparkSession.builder.appName("MyApp")
@@ -143,9 +160,6 @@ spark = (
 )
 import synapse.ml
 ```
-
-For Spark 3.5, use
-`SYNAPSEML_COORDINATE=f"com.microsoft.azure:synapseml_2.12:{SYNAPSEML_VERSION}"`.
 
 ## SBT
 
