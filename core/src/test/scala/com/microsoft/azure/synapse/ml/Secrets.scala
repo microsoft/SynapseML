@@ -76,12 +76,6 @@ object Secrets {
     json.parseJson.asJsObject().fields
   }
 
-  private def getAccessTokenFields(reqResource: String): Map[String, JsValue] = {
-    println(s"[info] token for perms: $reqResource from $AccountString")
-    val json = exec(s"az account get-access-token --resource $reqResource --output json")
-    json.parseJson.asJsObject().fields
-  }
-
   def getAccessToken(reqResource: String): String = {
     getAccessTokenFields(reqResource)("accessToken").convertTo[String]
   }
