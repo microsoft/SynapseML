@@ -105,6 +105,7 @@ variables:
   runCoverage: $[or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))]
   # The platform-notebook OpenAIPrompt gate currently targets the Spark 3.5 Fabric workspace.
   runFabricOpenAIPrompt: $[or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), eq(variables['Build.SourceBranch'], 'refs/heads/spark3.5'), eq(variables['System.PullRequest.TargetBranch'], 'refs/heads/master'), eq(variables['System.PullRequest.TargetBranch'], 'refs/heads/spark3.5'), eq(variables['System.PullRequest.TargetBranch'], 'master'), eq(variables['System.PullRequest.TargetBranch'], 'spark3.5'))]
+  FABRIC_OPENAI_WORKSPACE: DONT_DELETE_SynapseML_Build
 
 jobs:
 - job: BuildAndCacheSbt
@@ -394,8 +395,7 @@ jobs:
           unset PIP_INDEX_URL PIP_EXTRA_INDEX_URL
           fabric-spark-cli --version
 
-          integration_username="${INTEGRATION_ACCOUNT%%@*}"
-          workspace="${INTEGRATION_WORKSPACE_PREFIX} ${integration_username}"
+          workspace="$FABRIC_OPENAI_WORKSPACE"
           fabric_env="$(
             printf '%s' "$INTEGRATION_ENV" | tr '[:upper:]' '[:lower:]'
           )"
@@ -415,8 +415,7 @@ jobs:
             --extra-jar "$cognitive_jar"
       env:
         INTEGRATION_ENV: $(sempy-integration-region)
-        INTEGRATION_ACCOUNT: $(sempy-integration-account)
-        INTEGRATION_WORKSPACE_PREFIX: $(sempy-integration-workspace-prefix)
+        FABRIC_OPENAI_WORKSPACE: $(FABRIC_OPENAI_WORKSPACE)
       condition: and(succeededOrFailed(), eq(variables.runTests, 'True'), eq(variables.runFabricOpenAIPrompt, true))
     - task: PublishTestResults@2
       displayName: 'Publish Fabric OpenAIPrompt Results'

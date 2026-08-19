@@ -344,9 +344,15 @@ def test_fabric_e2e_runs_openai_prompt_with_exact_artifacts():
     assert "fabric-spark-cli==0.1.20260807.5" in script
     assert "az account get-access-token" not in script
     assert "feed_token" not in script
-    assert (
-        'workspace="${INTEGRATION_WORKSPACE_PREFIX} ${integration_username}"' in script
+    assert data["variables"]["FABRIC_OPENAI_WORKSPACE"] == (
+        "DONT_DELETE_SynapseML_Build"
     )
+    assert 'workspace="$FABRIC_OPENAI_WORKSPACE"' in script
+    assert openai_step["env"]["FABRIC_OPENAI_WORKSPACE"] == (
+        "$(FABRIC_OPENAI_WORKSPACE)"
+    )
+    assert "INTEGRATION_ACCOUNT" not in openai_step["env"]
+    assert "INTEGRATION_WORKSPACE_PREFIX" not in openai_step["env"]
     assert "--scenario openai-prompt-ai-functions" in script
     assert '--extra-jar "$core_jar"' in script
     assert '--extra-jar "$cognitive_jar"' in script

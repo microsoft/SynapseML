@@ -89,6 +89,10 @@ python tools/fabric_e2e/run.py \
   --extra-jar <cognitive-jar>
 ```
 
+The Azure Pipeline pins `FABRIC_OPENAI_WORKSPACE` to the dedicated build
+service workspace. Do not derive this value from the legacy integration user;
+the build service principal cannot see per-user workspaces.
+
 When the jars came from another Git worktree, pass that checkout through
 `--source-repo` so evidence records the producing commit rather than the
 runner's checkout.
