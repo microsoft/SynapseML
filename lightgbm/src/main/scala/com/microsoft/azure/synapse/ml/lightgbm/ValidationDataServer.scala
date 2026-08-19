@@ -3,7 +3,6 @@
 
 package com.microsoft.azure.synapse.ml.lightgbm
 
-import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import org.apache.commons.io.FileUtils
 import org.apache.spark.SparkEnv
 import org.apache.spark.broadcast.Broadcast
@@ -16,10 +15,9 @@ import java.net.{InetAddress, InetSocketAddress, ServerSocket, Socket}
 import java.nio.ByteBuffer
 import java.nio.file.Files
 import java.util.UUID
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicReference}
-import java.util.concurrent.{ConcurrentHashMap, ConcurrentLinkedQueue, ExecutorService, Future}
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicLong, AtomicReference}
+import java.util.concurrent.{ConcurrentHashMap, ExecutorService}
 import java.util.concurrent.{Semaphore, ThreadFactory, TimeUnit}
-import scala.collection.mutable.ArrayBuffer
 import scala.collection.JavaConverters._
 import scala.util.control.NonFatal
 
@@ -35,6 +33,7 @@ private[lightgbm] case class ValidationDataParams(host: String,
 
 private[lightgbm] object ValidationDataParams {
   val Marker: String = "SynapseML.ValidationDataServer.v1"
+  private val MarkerPrefix = "SynapseML.ValidationDataServer."
   private val MetadataFieldCount = 6
   private val HostIndex = 1
   private val PortIndex = 2
@@ -43,13 +42,24 @@ private[lightgbm] object ValidationDataParams {
   private val TokenIndex = 5
 
   def fromBroadcast(data: Broadcast[Array[Row]]): Option[ValidationDataParams] = {
-    data.value.headOption.filter(row => row.length == MetadataFieldCount && row.get(0) == Marker).map { row =>
-      ValidationDataParams(
-        row.getString(HostIndex),
-        row.getInt(PortIndex),
-        row.getLong(RowCountIndex),
-        row.getInt(TimeoutIndex),
-        row.getString(TokenIndex))
+    data.value.headOption.flatMap { row =>
+      val marker = if (row.length == 0) None else Option(row.get(0)).collect { case value: String => value }
+      marker match {
+        case Some(Marker) =>
+          if (row.length != MetadataFieldCount) {
+            throw new IllegalArgumentException(
+              s"Invalid validation data descriptor: expected $MetadataFieldCount fields but found ${row.length}")
+          }
+          Some(ValidationDataParams(
+            row.getString(HostIndex),
+            row.getInt(PortIndex),
+            row.getLong(RowCountIndex),
+            row.getInt(TimeoutIndex),
+            row.getString(TokenIndex)))
+        case Some(unsupported) if unsupported.startsWith(MarkerPrefix) =>
+          throw new IllegalArgumentException(s"Unsupported validation data descriptor '$unsupported'")
+        case _ => None
+      }
     }
   }
 }
@@ -81,7 +91,9 @@ private[lightgbm] object ValidationDataServerResourceFactory {
 /**
   * Spools exact validation rows through bounded socket buffers, then streams the spool to each
   * executor that builds a native validation Dataset. No validation rows are returned to the driver
-  * as Spark task results or retained on the driver heap.
+  * as Spark task results or retained on the driver heap. The native validation contract still
+  * requires linear driver-disk usage and one full transfer per native worker; memory buffers and
+  * concurrent transfer threads remain fixed-size.
   */
 private[lightgbm] class ValidationDataServer private(serverSocket: ServerSocket,
                                                       partitionFiles: Array[File],
@@ -92,18 +104,18 @@ private[lightgbm] class ValidationDataServer private(serverSocket: ServerSocket,
   extends AutoCloseable with Logging {
 
   private val terminalFailure = new AtomicReference[Throwable]()
-  private val transfers = new ConcurrentLinkedQueue[Future[_]]()
   private val activeClients = ConcurrentHashMap.newKeySet[Socket]()
   private val transferSlots = new Semaphore(ValidationDataServer.MaxConcurrentTransfers)
   private val stopping = new AtomicBoolean(false)
-  @volatile private var serving: Option[Future[_]] = None
+  private var started = false
   @volatile private var cleanupComplete = false
 
   private[lightgbm] def start(): ValidationDataServer = synchronized {
-    require(serving.isEmpty, "Validation data server was already started")
-    serving = Option(executor.submit(new Runnable {
+    require(!started, "Validation data server was already started")
+    executor.execute(new Runnable {
       override def run(): Unit = acceptClients()
-    }))
+    })
+    started = true
     this
   }
 
@@ -141,7 +153,7 @@ private[lightgbm] class ValidationDataServer private(serverSocket: ServerSocket,
       false
     } else {
       try {
-        transfers.add(executor.submit(new Runnable {
+        executor.execute(new Runnable {
           override def run(): Unit = {
             try {
               serve(socket)
@@ -152,7 +164,7 @@ private[lightgbm] class ValidationDataServer private(serverSocket: ServerSocket,
               transferSlots.release()
             }
           }
-        }))
+        })
         true
       } catch {
         case NonFatal(failure) =>
@@ -176,19 +188,19 @@ private[lightgbm] class ValidationDataServer private(serverSocket: ServerSocket,
     socket.setKeepAlive(true)
     socket.setTcpNoDelay(true)
     socket.setSoTimeout(params.timeoutMillis)
-    using(new DataInputStream(new BufferedInputStream(socket.getInputStream))) { auth =>
+    ValidationDataServer.withResource(new DataInputStream(new BufferedInputStream(socket.getInputStream))) { auth =>
       if (auth.readUTF() != params.token) throw new SecurityException("Invalid validation data token")
-      using(new BufferedOutputStream(resources.clientOutput(socket))) { output =>
+      ValidationDataServer.withResource(new BufferedOutputStream(resources.clientOutput(socket))) { output =>
         partitionFiles.foreach { file =>
-          using(new BufferedInputStream(new FileInputStream(file))) { input =>
+          ValidationDataServer.withResource(new BufferedInputStream(new FileInputStream(file))) { input =>
             copy(input, output)
-          }.get
+          }
         }
         val end = new DataOutputStream(output)
         end.writeInt(ValidationDataServer.EndOfStream)
         end.flush()
-      }.get
-    }.get
+      }
+    }
   }
 
   private def handleServingFailure(socket: Socket, failure: Throwable): Unit = {
@@ -205,19 +217,8 @@ private[lightgbm] class ValidationDataServer private(serverSocket: ServerSocket,
       ValidationDataServer.closeSocket(socket)
     } catch {
       case NonFatal(failure) =>
-        if (!stopping.get()) terminalFailure.compareAndSet(null, failure) // scalastyle:ignore null
+        terminalFailure.compareAndSet(null, failure) // scalastyle:ignore null
     }
-  }
-
-  def await(): Unit = {
-    var failure = stopAcceptingAndClients()
-    failure = ValidationDataServer.waitForFuture(serving, failure)
-    val iterator = transfers.iterator()
-    while (iterator.hasNext) { // scalastyle:ignore while
-      failure = ValidationDataServer.waitForFuture(Option(iterator.next()), failure)
-    }
-    failure = ValidationDataServer.addFailure(failure, Option(terminalFailure.get()))
-    failure.foreach(throw _)
   }
 
   override def close(): Unit = synchronized {
@@ -238,6 +239,7 @@ private[lightgbm] class ValidationDataServer private(serverSocket: ServerSocket,
           Option(new IOException(
             "Validation data server executor did not terminate after all client sockets closed")))
       } else {
+        failure = ValidationDataServer.addFailure(failure, Option(terminalFailure.get()))
         try {
           ValidationDataServer.deleteSpoolDirectory(spoolDirectory)
           cleanupComplete = true
@@ -278,9 +280,6 @@ private[lightgbm] class ValidationDataServer private(serverSocket: ServerSocket,
       count = input.read(buffer)
     }
   }
-
-  private[lightgbm] def activeClientCount: Int = activeClients.size()
-  private[lightgbm] def executorIsTerminated: Boolean = executor.isTerminated
 }
 
 private[lightgbm] object ValidationDataServer {
@@ -323,6 +322,7 @@ private[lightgbm] object ValidationDataServer {
       if (!spoolTransferred) deleteSpoolDirectory(spoolDirectory)) {
       val ingestPartitionCount = validationData.rdd.getNumPartitions
       val result = ingest(validationData, host, ingestPartitionCount, timeoutSeconds, spoolDirectory, resources)
+      checkedRowCount(result.rowCount)
       val partitionFiles = Option(spoolDirectory.listFiles()).getOrElse(Array.empty)
         .filter(_.getName.startsWith("part-"))
         .sortBy(file => file.getName.stripPrefix("part-").toInt)
@@ -347,8 +347,8 @@ private[lightgbm] object ValidationDataServer {
                      timeoutSeconds: Double,
                      spoolDirectory: File,
                      resources: ValidationDataServerResourceFactory): IngestResult = {
-    val completedPartitions = ConcurrentHashMap.newKeySet[Int]()
-    val partitionRowCounts = new ConcurrentHashMap[Int, Long]()
+    val completedPartitions = new AtomicInteger()
+    val rowCount = new AtomicLong()
     val lastIngestFailure = new AtomicReference[Throwable]()
     val activeSockets = ConcurrentHashMap.newKeySet[Socket]()
     val ingestStopping = new AtomicBoolean(false)
@@ -372,28 +372,27 @@ private[lightgbm] object ValidationDataServer {
       val ingestSlots = new Semaphore(MaxConcurrentTransfers)
       val accepting = ingestExecutor.submit(new Runnable {
         override def run(): Unit = {
-          val writes = new ArrayBuffer[Future[_]]()
           val deadline = ingestDeadlineNanos(System.nanoTime(), timeoutMillis)
-          while (completedPartitions.size() < partitionCount) { // scalastyle:ignore while
+          while (completedPartitions.get() < partitionCount) { // scalastyle:ignore while
             var slotAcquired = false
             var releaseSlot = true
             try {
               ingestSlots.acquire()
               slotAcquired = true
-              if (completedPartitions.size() < partitionCount) {
+              if (completedPartitions.get() < partitionCount) {
                 val socket = ingestSocket.accept()
                 activeSockets.add(socket)
                 if (ingestStopping.get() && activeSockets.remove(socket)) {
                   closeSocket(socket)
                 } else {
-                  writes += ingestExecutor.submit(new Runnable {
+                  ingestExecutor.submit(new Runnable {
                     override def run(): Unit = {
                       try {
-                        val (partitionId, count, accepted) =
-                          receivePartition(socket, spoolDirectory, ingestToken, timeoutMillis)
+                        val (count, accepted) =
+                          receivePartition(socket, spoolDirectory, ingestToken, timeoutMillis, partitionCount)
                         if (accepted) {
-                          partitionRowCounts.put(partitionId, count)
-                          completedPartitions.add(partitionId)
+                          rowCount.addAndGet(count)
+                          completedPartitions.incrementAndGet()
                         }
                       } catch {
                         case NonFatal(failure)
@@ -420,14 +419,15 @@ private[lightgbm] object ValidationDataServer {
             }
           }
           closeSockets(activeSockets)
-          writes.foreach(_.get())
+          // Every submitted transfer owns one permit until its finally block completes.
+          ingestSlots.acquire(MaxConcurrentTransfers)
         }
       })
 
       validationData.foreachPartition((rows: Iterator[Row]) =>
         writePartition(host, ingestPort, ingestToken, timeoutMillis, rows))
       accepting.get()
-      IngestResult(partitionRowCounts.values().asScala.sum)
+      IngestResult(rowCount.get())
     }
   }
   // scalastyle:on method.length
@@ -505,24 +505,6 @@ private[lightgbm] object ValidationDataServer {
     }
   }
 
-  private[lightgbm] def waitForFuture(future: Option[Future[_]],
-                                      existingFailure: Option[Throwable]): Option[Throwable] = {
-    future.fold(existingFailure) { pending =>
-      try {
-        pending.get()
-        existingFailure
-      } catch {
-        case execution: java.util.concurrent.ExecutionException =>
-          addFailure(existingFailure, Option(execution.getCause).orElse(Option(execution)))
-        case interrupted: InterruptedException =>
-          Thread.currentThread().interrupt()
-          addFailure(existingFailure, Option(interrupted))
-        case NonFatal(failure) =>
-          addFailure(existingFailure, Option(failure))
-      }
-    }
-  }
-
   private[lightgbm] def addFailure(existing: Option[Throwable],
                                     additional: Option[Throwable]): Option[Throwable] = {
     (existing, additional) match {
@@ -545,6 +527,18 @@ private[lightgbm] object ValidationDataServer {
       }
     }
     failure.foreach(throw _)
+  }
+
+  private def withResource[R <: AutoCloseable, T](resource: R)(operation: R => T): T = {
+    NetworkManagerSocketSupport.withCleanupPreservingPrimary(resource.close()) {
+      operation(resource)
+    }
+  }
+
+  private def withSocket[T](socket: Socket)(operation: Socket => T): T = {
+    NetworkManagerSocketSupport.withCleanupPreservingPrimary(closeSocket(socket)) {
+      operation(socket)
+    }
   }
 
   private def shutdownExecutor(executor: ExecutorService, description: String): Unit = {
@@ -599,10 +593,10 @@ private[lightgbm] object ValidationDataServer {
                              token: String,
                              timeoutMillis: Int,
                              rows: Iterator[Row]): Unit = {
-    using(connect(host, port, timeoutMillis)) { socket =>
+    withSocket(connect(host, port, timeoutMillis)) { socket =>
       socket.setKeepAlive(true)
       socket.setTcpNoDelay(true)
-      using(new DataOutputStream(new BufferedOutputStream(socket.getOutputStream))) { output =>
+      withResource(new DataOutputStream(new BufferedOutputStream(socket.getOutputStream))) { output =>
         output.writeUTF(token)
         output.writeInt(org.apache.spark.TaskContext.getPartitionId())
         val serializer = SparkEnv.get.serializer.newInstance()
@@ -613,25 +607,30 @@ private[lightgbm] object ValidationDataServer {
         }
         output.writeInt(EndOfStream)
         output.flush()
-      }.get
-    }.get
+      }
+    }
   }
 
   private[lightgbm] def receivePartition(socket: Socket,
                                          spoolDirectory: File,
                                          token: String,
-                                         timeoutMillis: Int): (Int, Long, Boolean) = {
-    using(socket) { client =>
+                                         timeoutMillis: Int,
+                                         partitionCount: Int): (Long, Boolean) = {
+    withSocket(socket) { client =>
       client.setKeepAlive(true)
       client.setTcpNoDelay(true)
       client.setSoTimeout(timeoutMillis)
-      using(new DataInputStream(new BufferedInputStream(client.getInputStream))) { input =>
+      withResource(new DataInputStream(new BufferedInputStream(client.getInputStream))) { input =>
         if (input.readUTF() != token) throw new SecurityException("Invalid validation partition token")
         val partitionId = input.readInt()
+        if (partitionId < 0 || partitionId >= partitionCount) {
+          throw new IOException(
+            s"Invalid validation partition id $partitionId; expected a value from 0 to ${partitionCount - 1}")
+        }
         val attemptFile = new File(spoolDirectory, s".attempt-$partitionId-${UUID.randomUUID()}")
         var count = 0L
         try {
-          using(new DataOutputStream(new BufferedOutputStream(new FileOutputStream(attemptFile)))) { output =>
+          withResource(new DataOutputStream(new BufferedOutputStream(new FileOutputStream(attemptFile)))) { output =>
             var length = readRowLength(input, "validation partition")
             while (length != EndOfStream) { // scalastyle:ignore while
               output.writeInt(length)
@@ -639,31 +638,33 @@ private[lightgbm] object ValidationDataServer {
               count += 1
               length = readRowLength(input, "validation partition")
             }
-          }.get
+          }
           val accepted = try {
             Files.move(attemptFile.toPath, new File(spoolDirectory, s"part-$partitionId").toPath)
             true
           } catch {
             case _: java.nio.file.FileAlreadyExistsException => false
           }
-          (partitionId, count, accepted)
+          (count, accepted)
         } finally {
           FileUtils.deleteQuietly(attemptFile)
         }
-      }.get
-    }.get
+      }
+    }
   }
 
   def rowCount(data: Broadcast[Array[Row]]): Int = {
     ValidationDataParams.fromBroadcast(data)
-      .map { params =>
-        if (params.rowCount < 0 || params.rowCount > Int.MaxValue) {
-          throw new IllegalArgumentException(
-            s"Validation row count ${params.rowCount} is outside the supported range 0 to ${Int.MaxValue}")
-        }
-        params.rowCount.toInt
-      }
+      .map(params => checkedRowCount(params.rowCount))
       .getOrElse(data.value.length)
+  }
+
+  private def checkedRowCount(rowCount: Long): Int = {
+    if (rowCount < 0 || rowCount > Int.MaxValue) {
+      throw new IllegalArgumentException(
+        s"Validation row count $rowCount is outside the supported range 0 to ${Int.MaxValue}")
+    }
+    rowCount.toInt
   }
 
   def read(data: Broadcast[Array[Row]]): ValidationRowIterator = {
@@ -708,8 +709,9 @@ private[lightgbm] object ValidationDataServer {
       override def close(): Unit = {
         if (!closed) {
           closed = true
-          try input.close()
-          finally socket.close()
+          cleanupAll(
+            () => input.close(),
+            () => closeSocket(socket))
         }
       }
     }
