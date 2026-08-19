@@ -101,8 +101,12 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
     }
     addAttachmentContext("/image.png", "image/png", imageBytes)
     addAttachmentContext("/image", "image/png", imageBytes)
-    addAttachmentContext("/document-json", "application/json", "{}".getBytes(StandardCharsets.UTF_8))
-    addAttachmentContext("/document-xml", "application/xml", "<root/>".getBytes(StandardCharsets.UTF_8))
+    addAttachmentContext("/document-json", "application/octet-stream", "{}".getBytes(StandardCharsets.UTF_8))
+    addAttachmentContext(
+      "/document-xml",
+      "application/octet-stream",
+      "<?xml version=\"1.0\"?><root/>".getBytes(StandardCharsets.UTF_8)
+    )
     server.start()
     try {
       testCode(
@@ -205,7 +209,7 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
     withEchoServer { (baseUrl, bodies, attachmentRequests) =>
       val cases = Seq(
         "/document-json" -> "{}",
-        "/document-xml" -> "<root/>"
+        "/document-xml" -> "<?xml version=\"1.0\"?><root/>"
       )
 
       cases.foreach { case (path, expectedText) =>
@@ -228,6 +232,11 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
 
       assert(attachmentRequests.asScala.toSeq == cases.map(_._1))
     }
+  }
+
+  test("structured MIME fallback recognizes XML declarations") {
+    val xml = "<?xml version=\"1.0\"?><root/>".getBytes(StandardCharsets.UTF_8)
+    assert(OpenAIAttachmentUtils.inferStructuredTextMimeType(xml).contains("application/xml"))
   }
 
   test("Responses OpenAIPrompt accepts data image URLs") {
