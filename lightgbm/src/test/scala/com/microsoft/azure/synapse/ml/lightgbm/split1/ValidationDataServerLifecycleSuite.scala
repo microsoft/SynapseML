@@ -278,6 +278,15 @@ class ValidationDataServerLifecycleSuite extends TestBase {
     }
   }
 
+  test("socket timeout preserves sub-second configurations") {
+    val socket = ValidationDataServer.openServerSocket(host, 0.25, 1)
+    try {
+      assert(socket.getSoTimeout == 250)
+    } finally {
+      socket.close()
+    }
+  }
+
   test("ingest deadline preserves fractional timeout milliseconds") {
     val start = 100L
     assert(ValidationDataServer.ingestDeadlineNanos(start, 2500) - start == TimeUnit.MILLISECONDS.toNanos(2500))

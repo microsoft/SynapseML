@@ -477,8 +477,8 @@ private[lightgbm] object ValidationDataServer {
       socket.bind(
         new InetSocketAddress(InetAddress.getByName(host), 0),
         Math.max(DefaultSocketBacklog, backlog))
-      val timeoutMillis = (timeoutSeconds * MillisPerSecond).toLong
-      socket.setSoTimeout(Math.max(IngestPollTimeoutMillis, timeoutMillis).min(Int.MaxValue).toInt)
+      val timeoutMillis = Math.ceil(timeoutSeconds * MillisPerSecond).toLong
+      socket.setSoTimeout(Math.max(1L, timeoutMillis).min(Int.MaxValue).toInt)
       socket
     }
   }
