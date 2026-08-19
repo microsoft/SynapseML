@@ -44,6 +44,34 @@ class ValidationDataServerLifecycleSuite extends TestBase {
     }
   }
 
+  test("ingest listener backlog covers every validation partition") {
+    val spool = scratchDirectory("ingest-backlog")
+    val partitionCount = 73
+    val observedBacklog = new AtomicInteger()
+    val resources = new DelegatingResources {
+      override def openServerSocket(host: String, timeoutSeconds: Double, backlog: Int): ServerSocket = {
+        observedBacklog.set(backlog)
+        throw new BindException("stop after recording backlog")
+      }
+    }
+
+    try {
+      intercept[BindException] {
+        ValidationDataServer.create(
+          spark.range(0L, partitionCount.toLong, 1L, partitionCount).toDF(),
+          host,
+          1,
+          timeoutSeconds,
+          spool,
+          resources)
+      }
+      assert(observedBacklog.get() == partitionCount)
+      assert(!spool.exists())
+    } finally {
+      deleteIfPresent(spool)
+    }
+  }
+
   test("serving socket construction failure after ingest deletes the spool and closes ingest resources") {
     val spool = scratchDirectory("serve-bind-failure")
     val resources = new DelegatingResources {
