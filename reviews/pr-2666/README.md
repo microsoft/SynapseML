@@ -3,6 +3,7 @@
 Evidence captured while reviewing and hardening
 [PR #2666](https://github.com/microsoft/SynapseML/pull/2666).
 
+- `task-2666-attempt-1-review-*.md`: six review rounds across the three review models.
 - `pr2666-initial-*`: initial PR metadata, comments, threads, and diff.
 - `pr2666-prepush-review-refresh.json`: review state immediately before the first push.
 - `pr2666-threads-postpush.json`: active review threads after the first push.
