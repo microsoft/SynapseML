@@ -234,13 +234,22 @@ class ValidationDataServerLifecycleSuite extends TestBase {
     val outputStarted = new CountDownLatch(1)
     val resources = new DelegatingResources {
       override def clientOutput(socket: Socket): OutputStream = new OutputStream {
+        private var cancelled = false
+
         override def write(value: Int): Unit = blockUntilClosed()
         override def write(bytes: Array[Byte], offset: Int, length: Int): Unit = blockUntilClosed()
 
         private def blockUntilClosed(): Unit = {
-          outputStarted.countDown()
-          waitUntil(socket.isClosed)
-          throw new SocketException("synthetic cancelled client")
+          if (!cancelled) {
+            outputStarted.countDown()
+            try {
+              waitUntil(socket.isClosed)
+            } catch {
+              case interrupted: InterruptedException =>
+                if (!socket.isClosed) throw interrupted
+            }
+            cancelled = true
+          }
         }
       }
     }
