@@ -32,8 +32,11 @@ Coordinate: com.microsoft.azure:synapseml_2.12:1.1.3
 Repository: https://mmlspark.blob.core.windows.net/maven
 ```
 
-For Spark 4, use the Scala 2.13 coordinate and Spark-specific version suffix in
-the [installation matrix](../../Get%20Started/Install%20SynapseML.md).
+For Spark 4.0 use
+`com.microsoft.azure:synapseml_2.13:1.1.3-spark4.0`; for Spark 4.1 use
+`com.microsoft.azure:synapseml_2.13:1.1.3-spark4.1`. See the
+[installation guide](../../Get%20Started/Install%20SynapseML.md) for complete
+copy-ready commands.
 The historical Databricks 10.4.x runtime named above is an older Spark line; do
 not combine it with the current Spark 3.5 artifact. If you retain that runtime,
 select a compatible older SynapseML release instead.

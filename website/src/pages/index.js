@@ -12,7 +12,7 @@ import TabItem from "@theme/TabItem";
 import clsx from "clsx";
 import installArtifacts from "@site/src/installArtifacts";
 
-const { repository, spark35, spark40, spark41 } = installArtifacts;
+const { version, repository, spark35, spark40, spark41 } = installArtifacts;
 
 const snippets = [
   {
@@ -256,33 +256,51 @@ function Home() {
               <table>
                 <thead>
                   <tr>
+                    <th>Code line</th>
                     <th>Spark</th>
                     <th>Scala</th>
                     <th>Python baseline</th>
+                    <th>Release tag</th>
                     <th>Maven coordinate</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td>3.5</td>
+                    <td><code>{spark35.branch}</code></td>
+                    <td>{spark35.sparkRuntime}</td>
                     <td>{spark35.scalaBinaryVersion}</td>
                     <td>{spark35.pythonBaseline}</td>
+                    <td><code>{spark35.releaseTag}</code></td>
                     <td><code>{spark35.coordinate}</code></td>
                   </tr>
                   <tr>
-                    <td>4.0</td>
+                    <td><code>{spark40.branch}</code></td>
+                    <td>{spark40.sparkRuntime}</td>
                     <td>{spark40.scalaBinaryVersion}</td>
                     <td>{spark40.pythonBaseline}</td>
+                    <td><code>{spark40.releaseTag}</code></td>
                     <td><code>{spark40.coordinate}</code></td>
                   </tr>
                   <tr>
-                    <td>4.1</td>
+                    <td><code>{spark41.branch}</code></td>
+                    <td>{spark41.sparkRuntime}</td>
                     <td>{spark41.scalaBinaryVersion}</td>
                     <td>{spark41.pythonBaseline}</td>
+                    <td><code>{spark41.releaseTag}</code></td>
                     <td><code>{spark41.coordinate}</code></td>
                   </tr>
                 </tbody>
               </table>
+              <p>
+                All released Python variants use{" "}
+                <code>synapseml=={version}</code>. To try the latest successful{" "}
+                <code>master</code> build instead of the release, use the
+                copy-ready snapshot command in the{" "}
+                <Link to={useBaseUrl("docs/next/Get%20Started/Install%20SynapseML#latest-master-snapshot")}>
+                  installation guide
+                </Link>
+                .
+              </p>
               <Tabs
                 defaultValue="Fabric"
                 values={[
@@ -296,29 +314,16 @@ function Home() {
                 ]}
               >
                 <TabItem value="Synapse">
-                  <p>SynapseML can be installed on Synapse adding the following to the first cell of a notebook:</p>
-                  For Spark3.5 pools:
+                  <p>
+                    Current Synapse pools use Spark 3.5. Add the following to
+                    the first cell of a notebook:
+                  </p>
                   <CodeSnippet
                     snippet={`%%configure -f
 {
   "name": "synapseml",
   "conf": {
       "spark.jars.packages": "${spark35.coordinate}",
-      "spark.jars.repositories": "${repository}",
-      "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
-      "spark.yarn.user.classpath.first": "true",
-      "spark.sql.parquet.enableVectorizedReader": "false"
-  }
-}`}
-                    lang="bash"
-                  ></CodeSnippet>
-                  For Spark3.4 pools:
-                  <CodeSnippet
-                    snippet={`%%configure -f
-{
-  "name": "synapseml",
-  "conf": {
-      "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:1.0.15",
       "spark.jars.repositories": "${repository}",
       "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
       "spark.yarn.user.classpath.first": "true",

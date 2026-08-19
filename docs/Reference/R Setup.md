@@ -19,7 +19,7 @@ release. If you are using sparklyr, you can use
 On Windows, download
 [WinUtils.exe](https://github.com/steveloughran/winutils/blob/master/hadoop-3.0.0/bin/winutils.exe)
 and copy it into the `bin` directory of your Spark installation, for example,
-`C:\Users\user\AppData\Local\Spark\spark-3.3.2-bin-hadoop3\bin`.
+`C:\Users\user\AppData\Local\Spark\spark-3.5.0-bin-hadoop3\bin`.
 
 The R bindings are published as one archive per SynapseML module. A combined
 `synapseml-1.1.3.zip` archive is not published. Install `synapseml-core` and
@@ -49,10 +49,11 @@ sparklyr connections, `sparklyr.shell.repositories` supplies the repository to
 `spark-submit`, while `extensions = character()` prevents the wrappers' embedded
 registration from overriding it:
 
-> The examples below use Spark 3.5 / Scala 2.12. Spark 4 uses Scala 2.13 and a
-> Spark-specific artifact version; substitute the coordinate from the
-> [installation matrix](../Get%20Started/Install%20SynapseML.md). The R component
-> archive version remains the base SynapseML version.
+> The examples below use Spark 3.5 / Scala 2.12 with
+> `com.microsoft.azure:synapseml_2.12:1.1.3`. For Spark 4.0 use
+> `com.microsoft.azure:synapseml_2.13:1.1.3-spark4.0`; for Spark 4.1 use
+> `com.microsoft.azure:synapseml_2.13:1.1.3-spark4.1`. The R component archive
+> version remains `1.1.3`.
 
 ```R
 library(sparklyr)
