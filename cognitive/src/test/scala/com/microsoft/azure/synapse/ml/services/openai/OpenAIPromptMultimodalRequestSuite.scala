@@ -466,6 +466,33 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
     }
   }
 
+  test("OpenAIPrompt transformSchema handles a resolver-matched messages column") {
+    assert(!spark.conf.get("spark.sql.caseSensitive").toBoolean)
+    val input = Seq(("Describe this image.", dataImage, "stale"))
+      .toDF("prompt", "image", "MESSAGES")
+
+    withEchoServer { (baseUrl, _) =>
+      Seq("chat_completions", "responses").foreach { apiType =>
+        Seq(true, false).foreach { dropPrompt =>
+          val transformer = prompt(baseUrl, apiType)
+            .setMessagesCol("messages")
+            .setDropPrompt(dropPrompt)
+          val output = transformer.transform(input)
+          val outputSchema = transformer.transformSchema(input.schema)
+          val messageFields = outputSchema.fields.filter(
+            _.name.equalsIgnoreCase(transformer.getMessagesCol))
+          val runtimeMessageFields = output.schema.fields.filter(
+            _.name.equalsIgnoreCase(transformer.getMessagesCol))
+          val expectedMessageFields = if (dropPrompt) 0 else 1
+
+          assert(outputSchema == output.schema)
+          assert(messageFields.length == expectedMessageFields)
+          assert(runtimeMessageFields.length == expectedMessageFields)
+        }
+      }
+    }
+  }
+
   test("OpenAIPrompt public column collisions are rejected") {
     assert(!spark.conf.get("spark.sql.caseSensitive").toBoolean)
     val input = Seq(("Describe this image.", dataImage)).toDF("prompt", "image")

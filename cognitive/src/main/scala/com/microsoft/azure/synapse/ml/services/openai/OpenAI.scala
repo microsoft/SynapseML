@@ -86,6 +86,16 @@ private[openai] object OpenAIColumnUtils {
   ): Option[String] =
     existingColumn(df, configuredName)
       .filter(columnName => df.schema(columnName).dataType == expectedType)
+
+  def replaceOrAppendField(schema: StructType, replacement: StructField): StructType = {
+    if (schema.fields.exists(field => namesMatch(field.name, replacement.name))) {
+      StructType(schema.fields.map { field =>
+        if (namesMatch(field.name, replacement.name)) replacement else field
+      })
+    } else {
+      StructType(schema.fields :+ replacement)
+    }
+  }
 }
 
 trait HasOpenAISharedParams extends HasServiceParams with HasAPIVersion {
