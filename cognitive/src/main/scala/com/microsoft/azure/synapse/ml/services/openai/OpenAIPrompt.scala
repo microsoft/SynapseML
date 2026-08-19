@@ -650,18 +650,17 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   }
 
   private def makeChatCompletionsFileMessage(
-    fileName: String,
-    fileBytes: Array[Byte],
-    fileType: String,
-    mimeType: String
-  ): Map[String, String] = {
+      fileName: String, fileBytes: Array[Byte], fileType: String, mimeType: String): Map[String, String] = {
     fileType match {
       case "text" =>
         stringMessageWrapper(s"Content: ${new String(fileBytes, StandardCharsets.UTF_8)}")
+      case "image" =>
+        Map("type" -> "image_url",
+          "image_url" -> s"data:${mimeType};base64,${Base64.getEncoder.encodeToString(fileBytes)}")
       case _ =>
         throw new IllegalArgumentException(
           s"File type $mimeType is not supported in Chat Completions API. " +
-            "Only text files are supported. Use apiType='responses' for file input.")
+            "Only text and image files are supported. Use apiType='responses' for file input.")
     }
   }
 

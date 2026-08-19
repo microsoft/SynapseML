@@ -17,20 +17,18 @@ import spray.json._
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
-
+import java.util.Base64
+import scala.util.Try
 class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIKey
   with AIFoundryAPIKey
   with Flaky {
   override val compareDataInSerializationTest: Boolean = false
-
   import spark.implicits._
-
   override def beforeAll(): Unit = {
     val aadToken = getAccessToken("https://cognitiveservices.azure.com/")
     println(s"Triggering token creation early ${aadToken.length}")
     super.beforeAll()
   }
-
   lazy val prompt: OpenAIPrompt = new OpenAIPrompt()
     .setSubscriptionKey(openAIAPIKey)
     .setDeploymentName(deploymentName)
@@ -60,33 +58,26 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .setPostProcessing("csv")
       .setOutputCol(outputCol)
   }
-
   test("createMessagesForRow generates contentParts for path columns when using Chat Completions API") {
     val prompt = new OpenAIPrompt()
     val tempFile = Files.createTempFile("synapseml-openai", ".txt")
     try {
       Files.write(tempFile, "example content".getBytes(StandardCharsets.UTF_8))
-      val attachments = Map("filePath" -> tempFile.toString)
-      val messages = prompt.createMessagesForRow("Summarize the file", attachments, Seq("filePath"))
-
-      val systemMessage = messages.find(_.role == "system").get
-      assert(systemMessage.content.nonEmpty)
-
-      val userMessage = messages.find(_.role == "user").get
-      val parts = userMessage.content
+      val messages = prompt.createMessagesForRow(
+        "Summarize the file", Map("filePath" -> tempFile.toString), Seq("filePath"))
+      assert(messages.find(_.role == "system").exists(_.content.nonEmpty))
+      val parts = messages.find(_.role == "user").get.content
       assert(parts.head.getOrElse("type", "") == "text")
       assert(parts.head.getOrElse("text", "").contains("Summarize the file"))
-      val textSection = parts.collectFirst {
+      assert(parts.exists {
         case part if part.getOrElse("type", "") == "text"
-        && part.getOrElse("text", "").contains("example content") => part
-      }
-      assert(textSection.isDefined)
-      assert(userMessage.content.nonEmpty)
+          && part.getOrElse("text", "").contains("example content") => true
+        case _ => false
+      })
     } finally {
       Files.deleteIfExists(tempFile)
     }
   }
-
   // scalastyle:off null
   test("createMessagesForRow returns null when all path columns are null") {
     val prompt = new OpenAIPrompt()
@@ -109,6 +100,70 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     }
   }
   // scalastyle:on null
+  test("OpenAIPrompt sends a generated data image_url through Chat Completions") {
+    val token = ChatOfflineHandler.newToken()
+    val chatPrompt = new OpenAIPrompt()
+    val tempFile = Files.createTempFile("synapseml-openai-image", ".png")
+    try {
+      Files.write(tempFile, Base64.getDecoder.decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAAC0lEQVR4nGNgYAAAAAMAASsJTYQAAAAASUVORK5CYII="))
+      val messages = chatPrompt.createMessagesForRow(
+        "Describe the image", Map("img" -> tempFile.toString), Seq("img"))
+      val chat = new OpenAIChatCompletion().setSubscriptionKey("k").setDeploymentName("d")
+        .setCustomServiceName("s").setMessagesCol("messages").setOutputCol("out")
+        .setHandler(ChatOfflineHandler.handlerFor(token))
+      val rows = chat.transform(Seq(messages).toDF("messages")).select("out", chat.getErrorCol).collect()
+      val JsArray(wireMessages) = ChatOfflineHandler.requestBodies(token).head.parseJson.asJsObject.fields("messages")
+      val JsArray(parts) = wireMessages.find(_.asJsObject.fields("role") == JsString("user"))
+        .get.asJsObject.fields("content")
+      val imageUrl = parts.find(_.asJsObject.fields("type") == JsString("image_url")).get
+        .asJsObject.fields("image_url").asJsObject.fields("url").asInstanceOf[JsString].value
+      assert(imageUrl.startsWith("data:image/png;base64,"))
+      assert(Option(rows.head.get(0)).isDefined && Option(rows.head.getAs[Row](1)).isEmpty)
+    } finally Files.deleteIfExists(tempFile)
+  }
+
+  test("createMessagesForRow rejects an unsupported chat_completions attachment") {
+    val chatPrompt = new OpenAIPrompt()
+    val tempFile = Files.createTempFile("synapseml-openai-unsupported", ".bin")
+    try {
+      Files.write(tempFile, Array[Byte](0, 1, 2, 3, 4, 5, 6, 7))
+      val ex = intercept[IllegalArgumentException](
+        chatPrompt.createMessagesForRow("Q", Map("f" -> tempFile.toString), Seq("f")))
+      assert(ex.getMessage.contains("not supported in Chat Completions"))
+    } finally Files.deleteIfExists(tempFile)
+  }
+
+  test("chat_completions unsupported attachment yields a row-local error without crashing") {
+    val tempFile = Files.createTempFile("synapseml-openai-chat-unsupported", ".bin")
+    try {
+      Files.write(tempFile, Array[Byte](0, 1, 2, 3, 4, 5, 6, 7))
+      val chatPrompt = new OpenAIPrompt().setSubscriptionKey("k").setDeploymentName("d").setCustomServiceName("s")
+        .setApiType("chat_completions").setColumnType("f", "path").setOutputCol("out").setPromptTemplate("{q}: {f}")
+      val inputDF = Seq(("Summarize", tempFile.toString)).toDF("q", "f")
+      val rows = chatPrompt.transform(inputDF).select("out", chatPrompt.getErrorCol).collect()
+      assert(rows(0).get(0) == null)
+      assert(Option(rows(0).getAs[Row](1)).exists(
+        _.getAs[String]("response").contains("not supported in Chat Completions")))
+    } finally Files.deleteIfExists(tempFile)
+  }
+
+  test("live chat_completions identifies Pikachu and Charizard URLs") {
+    assume(Try(openAIAPIKey).toOption.exists(k => k != null && k.nonEmpty),
+      "OpenAI credentials unavailable; skipping live chat multimodal smoke")
+    val chatPrompt = new OpenAIPrompt().setSubscriptionKey(openAIAPIKey).setDeploymentName(deploymentName)
+      .setCustomServiceName(openAIServiceName).setApiType("chat_completions")
+      .setColumnType("image", "path").setOutputCol("answer")
+      .setPromptTemplate("Identify the Pokemon in {image}. Reply with its name only.")
+    val pokemon = Seq(
+      ("Pikachu", "https://www.pokemon.com/static-assets/content-assets/cms2/img/pokedex/full/025.png"),
+      ("Charizard", "https://www.pokemon.com/static-assets/content-assets/cms2/img/pokedex/full/006.png")
+    ).toDF("expected", "image")
+    chatPrompt.transform(pokemon).select("expected", "answer", chatPrompt.getErrorCol).collect().foreach { row =>
+      assert(Option(row.getAs[Row](2)).isEmpty, s"Unexpected error for ${row.getString(0)}: ${row.get(2)}")
+      assert(row.getString(1).toLowerCase.contains(row.getString(0).toLowerCase))
+    }
+  }
 
   private def hasNonEmptyError(row: Row, errorColName: String): Boolean = {
     Option(row.getAs[Row](errorColName))

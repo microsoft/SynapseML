@@ -5,13 +5,48 @@ package com.microsoft.azure.synapse.ml.services.openai
 
 import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.azure.synapse.ml.io.http.{ErrorUtils, HTTPRequestData, HTTPResponseData, HTTPSchema,
+  StatusLineData}
+import com.microsoft.azure.synapse.ml.services.aifoundry.AIFoundryChatCompletion
 import org.apache.commons.io.IOUtils
+import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.ml.util.MLReadable
+import org.apache.spark.sql.functions.{lit, struct}
+import org.apache.spark.sql.types.{ArrayType, IntegerType, LongType, StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Row}
+import spray.json._
+import spray.json.DefaultJsonProtocol._
+
+import scala.collection.JavaConverters._
+import scala.util.Try
+
+// Deterministic offline HTTP handler: canned 200 Chat reply, per-token request capture for wire/skip asserts.
+object ChatOfflineHandler extends Serializable {
+  val CannedResponse: String = """{"id":"c","object":"chat.completion","created":"1","model":"m",""" +
+    """"choices":[{"message":{"role":"assistant","content":"ok","name":null},"index":0,""" +
+    """"finish_reason":"stop"}],"system_fingerprint":null,"usage":null}"""
+
+  private val Captures =
+    new java.util.concurrent.ConcurrentHashMap[String, java.util.concurrent.ConcurrentLinkedQueue[String]]()
+
+  def newToken(): String = {
+    val token = java.util.UUID.randomUUID().toString
+    Captures.put(token, new java.util.concurrent.ConcurrentLinkedQueue[String]())
+    token
+  }
+
+  def requestBodies(token: String): Seq[String] = Captures.get(token).asScala.toList
+  def wasInvoked(token: String): Boolean = !Captures.get(token).isEmpty
+
+  def handlerFor(token: String): (CloseableHttpClient, HTTPRequestData) => HTTPResponseData =
+    (_, request) => {
+      request.entity.foreach(e => Captures.get(token).add(IOUtils.toString(e.content, "UTF-8")))
+      HTTPSchema.stringToResponse(CannedResponse, 200, "OK")
+    }
+}
 
 class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion] with OpenAIAPIKey with Flaky {
   override val compareDataInSerializationTest: Boolean = false
-
 
   import spark.implicits._
 
@@ -161,9 +196,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
   }
 
   test("Deprecated maxTokens remapped for reasoning model") {
-    // This is the exact scenario that broke CI: setMaxTokens against a reasoning model.
-    // The library must remap max_tokens → max_completion_tokens on the wire,
-    // otherwise reasoning models reject the request.
+    // Library must remap max_tokens -> max_completion_tokens for reasoning models (the CI break scenario).
     val reasoningCompletion = new OpenAIChatCompletion()
       .setDeploymentName(deploymentNameMini)
       .setCustomServiceName(openAIServiceName)
@@ -187,6 +220,171 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     assert(Option(results.apply(1).getAs[Row](completion.getErrorCol)).isDefined)
     assert(Option(results.apply(2).getAs[Row](completion.getErrorCol)).isEmpty)
     assert(Option(results.apply(2).getAs[Row]("out")).isEmpty)
+  }
+
+  private val testImageUrl = "https://mmlspark.blob.core.windows.net/datasets/OCR/test2.png"
+  private def offlineChat(token: String, outputCol: String = "out",
+                          errorCol: String = "error"): OpenAIChatCompletion =
+    new OpenAIChatCompletion().setDeploymentName("d").setCustomServiceName("s").setSubscriptionKey("k")
+      .setMessagesCol("messages").setOutputCol(outputCol).setErrorCol(errorCol)
+      .setHandler(ChatOfflineHandler.handlerFor(token))
+  private def imageUrlOnWire(token: String): String = {
+    val JsArray(msgs) = ChatOfflineHandler.requestBodies(token).head.parseJson.asJsObject.fields("messages")
+    val JsArray(content) = msgs.head.asJsObject.fields("content")
+    content.find(_.asJsObject.fields("type").convertTo[String] == "image_url")
+      .get.asJsObject.fields("image_url").asJsObject.fields("url").convertTo[String]
+  }
+  private def assertRowLocalErrorAndSkip(df: DataFrame): Unit = {  // ErrorSchema error, null out, zero HTTP
+    val token = ChatOfflineHandler.newToken()
+    val chat = offlineChat(token)
+    val transformed = chat.transform(df)
+    assert(transformed.schema(chat.getErrorCol).dataType == ErrorUtils.ErrorSchema)  // ErrorSchema shape
+    transformed.collect().foreach { r =>
+      assert(Option(r.getAs[Row]("error")).exists(_.getString(0).nonEmpty))  // row-local error text
+      assert(Option(r.getAs[Row]("out")).isEmpty)                            // null output
+    }
+    assert(!ChatOfflineHandler.wasInvoked(token))                            // zero HTTP
+  }
+  private def comp(parts: Seq[Map[String, String]]): DataFrame =
+    Seq(Seq(OpenAICompositeMessage("user", parts))).toDF("messages")
+  // A driver-local (LocalRelation) DataFrame with an explicit Array(Struct(...)) message schema.
+  private def typed(msgSchema: StructType, msg: Row): DataFrame =
+    spark.createDataFrame(Seq(Row(Seq(msg))).asJava,
+      StructType(Seq(StructField("messages", ArrayType(msgSchema, containsNull = true)))))
+  test("offline typed nested image_url Struct(url,detail) locks exact wire payload and restores messagesCol") {
+    val token = ChatOfflineHandler.newToken()
+    val urlSchema = StructType(Seq(StructField("url", StringType), StructField("detail", StringType)))
+    val partSchema = StructType(Seq(StructField("type", StringType), StructField("text", StringType),
+      StructField("image_url", urlSchema)))
+    val msgSchema = StructType(Seq(StructField("role", StringType), StructField("content", ArrayType(partSchema))))
+    val dfSchema = StructType(Seq(StructField("messages", ArrayType(msgSchema))))
+    val row = Row(Seq(Row("user", Seq(Row("text", "Describe the image", null), //scalastyle:ignore null
+      Row("image_url", null, Row(testImageUrl, "high")))))) //scalastyle:ignore null
+    val df = spark.createDataFrame(Seq(row).asJava, dfSchema)  // driver-local so HTTP capture is deterministic
+    val transformed = offlineChat(token).transform(df)
+    val out = transformed.collect()  // force the HTTP call before reading the captured request bodies
+    assert(transformed.schema("messages").dataType == dfSchema("messages").dataType) // schema unchanged
+    val JsArray(msgs) = ChatOfflineHandler.requestBodies(token).head.parseJson.asJsObject.fields("messages")
+    val JsArray(content) = msgs.head.asJsObject.fields("content")
+    assert(content.head.asJsObject.fields ==
+      Map("type" -> JsString("text"), "text" -> JsString("Describe the image")))
+    assert(content(1).asJsObject.fields == Map("type" -> JsString("image_url"),
+      "image_url" -> JsObject("url" -> JsString(testImageUrl), "detail" -> JsString("high"))))
+    assert(out.head.getAs[Seq[Row]]("messages") ==
+      df.collect().head.getAs[Seq[Row]]("messages"))  // messagesCol restored deep-equal (out came from HTTP)
+  }
+  test("offline malformed content matrix routes each invalid shape to errorCol and skips HTTP") {
+    val role = StructField("role", StringType)
+    val textPart = StructType(Seq(StructField("type", StringType), StructField("text", StringType)))
+    val imgPart = StructType(Seq(StructField("type", StringType), StructField("text", StringType),
+      StructField("image_url", StringType)))
+    val intImagePart = StructType(Seq(StructField("type", StringType), StructField("image_url", IntegerType)))
+    val nestedIntImagePart = StructType(Seq(StructField("type", StringType),
+      StructField("image_url", StructType(Seq(StructField("url", IntegerType))))))
+    val cases = Seq(
+      comp(Seq(Map("type" -> " image_url ", "image_url" -> testImageUrl))), // padded type rejected, not trimmed
+      typed(StructType(Seq(role)), Row("user")),                            // no content field
+      typed(StructType(Seq(role, StructField("content",                     // one-field (arity) struct part
+        ArrayType(StructType(Seq(StructField("type", StringType))))))), Row("user", Seq(Row("image_url")))),
+      typed(StructType(Seq(role, StructField("content", ArrayType(StringType)))), Row("user", Seq("loose"))),
+      typed(StructType(Seq(role, StructField("content", ArrayType(StructType(Seq(  // extra leaf aborts the job
+        StructField("type", StringType), StructField("image_url", StringType),
+        StructField("count", LongType))))))), Row("user", Seq(Row("image_url", testImageUrl, 3L)))),
+      Seq(Seq(null, OpenAICompositeMessage("user",  //scalastyle:ignore null
+        Seq(Map("type" -> "text", "text" -> "hi"))))).toDF("messages"),     // null message element
+      typed(StructType(Seq(role, StructField("content", StringType))), Row(null, "hi")), //scalastyle:ignore null
+      typed(StructType(Seq(role, StructField("content", StringType))), Row("user", null)), //scalastyle:ignore null
+      typed(StructType(Seq(role, StructField("content", ArrayType(textPart)))),
+        Row("user", null)), //scalastyle:ignore null
+      typed(StructType(Seq(role, StructField("content", ArrayType(intImagePart)))),
+        Row("user", Seq(Row("image_url", 25)))),
+      typed(StructType(Seq(role, StructField("content", ArrayType(nestedIntImagePart)))),
+        Row("user", Seq(Row("image_url", Row(25))))),
+      typed(StructType(Seq(role, StructField("content", ArrayType(textPart)))),  // struct null text (Finding 2)
+        Row("user", Seq(Row("text", null)))), //scalastyle:ignore null
+      typed(StructType(Seq(role, StructField("content", ArrayType(imgPart)))),    // null text beside an image
+        Row("user", Seq(Row("text", null, null), Row("image_url", null, testImageUrl))))) //scalastyle:ignore null
+    cases.foreach(assertRowLocalErrorAndSkip)
+    val nullToken = ChatOfflineHandler.newToken()
+    val rawNull = Seq[Seq[OpenAIMessage]](null).toDF("messages")  //scalastyle:ignore null
+    val nullRes = offlineChat(nullToken).transform(rawNull).collect()
+    assert(Option(nullRes.head.getAs[Row]("error")).isEmpty && Option(nullRes.head.getAs[Row]("out")).isEmpty)
+    assert(!ChatOfflineHandler.wasInvoked(nullToken))  // AC-005 raw-null messages: tolerated skip, zero HTTP
+  }
+  test("offline OpenAIPrompt blank systemPrompt reaches HTTP, not a validation skip") {
+    val token = ChatOfflineHandler.newToken()  // exact empty-string payload is locked in OpenAICoreOfflineSuite
+    val messages = new OpenAIPrompt().setSystemPrompt("").getPromptsForMessage(Right("Hello"))
+    val results = offlineChat(token).transform(Seq(messages).toDF("messages")).collect()
+    assert(ChatOfflineHandler.wasInvoked(token) && Option(results.head.getAs[Row]("error")).isEmpty)
+  }
+  test("offline transform preserves a pre-existing errorCol via coalesce") {
+    val token = ChatOfflineHandler.newToken()
+    val base = Seq(Seq(OpenAICompositeMessage("user", Seq(
+      Map("type" -> "image_url", "image_url" -> ""))))).toDF("messages")   // malformed row
+    val df = base.withColumn("preErr", struct(lit("preset upstream error").as("response"),
+      lit(null).cast(StatusLineData.schema).as("status")).cast(ErrorUtils.ErrorSchema)) //scalastyle:ignore null
+    val results = offlineChat(token, errorCol = "PREERR").transform(df).collect()
+    assert(results.head.getAs[Row]("PREERR").getString(0) == "preset upstream error")
+    assert(Option(results.head.getAs[Row]("out")).isEmpty)
+    assert(!ChatOfflineHandler.wasInvoked(token))  // malformed row still skips HTTP
+  }
+  test("offline transformSchema rejects colliding column names and a non-string role") {
+    val token = ChatOfflineHandler.newToken()
+    val schema = Seq(Seq(OpenAIMessage("user", "hi"))).toDF("messages").schema
+    def df: DataFrame = Seq(Seq(OpenAIMessage("user", "hi"))).toDF("messages")
+    offlineChat(token).transformSchema(schema)  // a valid role:String schema passes deterministically
+    assertThrows[IllegalArgumentException](offlineChat(token, outputCol = "MESSAGES").transformSchema(schema))
+    assertThrows[IllegalArgumentException](offlineChat(token, outputCol = "MESSAGES").transform(df))
+    assertThrows[IllegalArgumentException](offlineChat(token, errorCol = "MeSsAgEs").transformSchema(schema))
+    assertThrows[IllegalArgumentException](offlineChat(token, errorCol = "MeSsAgEs").transform(df))
+    // Finding 1: a deterministically incompatible non-string role also fails fast (no per-row abort).
+    val intRole = StructType(Seq(StructField("MESSAGES", ArrayType(StructType(Seq(
+      StructField("ROLE", IntegerType), StructField("content", StringType)))))))
+    assertThrows[IllegalArgumentException](offlineChat(token).transformSchema(intRole))
+  }
+
+  test("offline AIFoundryChatCompletion inherits the multimodal Chat fix") {
+    val token = ChatOfflineHandler.newToken()
+    val df = Seq(
+      Seq(OpenAICompositeMessage("user", Seq(Map("type" -> "text", "text" -> "What is in this image?"),
+        Map("type" -> "image_url", "image_url" -> testImageUrl)))),
+      Seq(OpenAICompositeMessage("user", Seq(Map("type" -> "image_url", "image_url" -> ""))))  // malformed
+    ).toDF("messages")
+    val chat = new AIFoundryChatCompletion().setCustomServiceName("dummy-foundry").setModel("dummy-model")
+      .setSubscriptionKey("k").setMessagesCol("messages").setOutputCol("out")
+      .setHandler(ChatOfflineHandler.handlerFor(token))
+    val results = chat.transform(df).collect()  // valid row: image survives + output present (inherited)
+    assert(imageUrlOnWire(token) == testImageUrl && Option(results.head.getAs[Row]("out")).isDefined)
+    assert(Option(results(1).getAs[Row](chat.getErrorCol)).isDefined && Option(results(1).getAs[Row]("out")).isEmpty)
+  }
+
+  test("offline copy and save/load round-trip preserve params (MLReadable)") {
+    val stage = new OpenAIChatCompletion().setDeploymentName("d").setCustomServiceName("s")
+      .setSubscriptionKey("k").setMessagesCol("messages").setOutputCol("out").setErrorCol("error")
+    assert(stage.copy(new org.apache.spark.ml.param.ParamMap()).asInstanceOf[OpenAIChatCompletion]
+      .getMessagesCol == "messages")
+    val path = java.nio.file.Files.createTempDirectory("chat-mlio").resolve("stage").toString
+    stage.write.overwrite().save(path)
+    val loaded = OpenAIChatCompletion.load(path)
+    assert(loaded.getMessagesCol == "messages" && loaded.getOutputCol == "out")
+    assert(loaded.getErrorCol == "error" && loaded.getDeploymentName == "d")
+  }
+
+  private def openAICredentialsAvailable: Boolean =  // credential-gated: no key => cancelled, not failed
+    Try(openAIAPIKey).toOption.exists(k => k != null && k.nonEmpty) //scalastyle:ignore null
+
+  test("live multimodal Chat smoke") {
+    assume(openAICredentialsAvailable, "OpenAI credentials unavailable; skipping live multimodal smoke")
+    val df = Seq(Seq(OpenAICompositeMessage("user", Seq(
+      Map("type" -> "text", "text" -> "Describe the image in one word."),
+      Map("type" -> "image_url", "image_url" -> testImageUrl))))).toDF("messages")
+    val chat = new OpenAIChatCompletion().setDeploymentName(deploymentName)
+      .setCustomServiceName(openAIServiceName).setMaxCompletionTokens(500)
+      .setMessagesCol("messages").setOutputCol("out").setSubscriptionKey(openAIAPIKey)
+    val results = chat.transform(df).collect()
+    val fromRow = ChatModelResponse.makeFromRowConverter
+    assert(Option(results.head.getAs[Row]("out")).isDefined)
+    assert(fromRow(results.head.getAs[Row]("out")).choices.head.message.content.nonEmpty)
   }
 
   test("getOptionalParam should include responseFormat"){

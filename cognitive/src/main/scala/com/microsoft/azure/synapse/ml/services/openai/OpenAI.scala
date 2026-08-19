@@ -21,7 +21,9 @@ import scala.language.existentials
 trait HasMessagesInput extends Params {
   val messagesCol: Param[String] = new Param[String](
     this, "messagesCol", "The column messages to generate chat completions for," +
-      " in the chat format. This column should have type Array(Struct(role: String, content: String)).")
+      " in the chat format. This column should have type Array(Struct(role: String, content: String))." +
+      " For multimodal Chat, content may instead be an array of parts, e.g." +
+      " {type: text, text: ...} and {type: image_url, image_url: ...}.")
 
   def getMessagesCol: String = $(messagesCol)
 
@@ -436,9 +438,12 @@ trait HasTextOutput {
           // OpenAIMessage: content is a String
           row.getAs[String]("content")
         case "array" =>
-          // OpenAICompositeMessage: content is Seq[Map[String, Any]]
-          val rawContent = row.getAs[Seq[Map[String, Any]]]("content")
-          rawContent.map(_.map { case (k, v) => k.toString -> v })
+          // OpenAICompositeMessage: content is an array of parts. Parts may be map-backed (Map)
+          // or struct-backed (Row); convert both to Map[String, Any] without throwing on short
+          // rows, null fields, or non-String values (issue #2246, F2).
+          val rawContent = row.getAs[scala.collection.Seq[Any]]("content")
+          if (rawContent == null) rawContent //scalastyle:ignore null
+          else rawContent.iterator.map(encodeContentPart).toList
         case other =>
           throw new IllegalArgumentException(s"Unsupported content type: $other")
       }
@@ -448,6 +453,39 @@ trait HasTextOutput {
         "content" -> content
       )
     }
+  }
+
+  // Encode a single content part. Map-backed parts keep the legacy (key.toString -> value)
+  // behavior exactly; struct-backed (Row) parts are converted recursively; nulls/scalars pass
+  // through unchanged.
+  private def encodeContentPart(part: Any): Any = part match {
+    case null => part //scalastyle:ignore null
+    case m: scala.collection.Map[_, _] =>
+      m.map { case (k, v) => k.toString -> v }.toMap
+    case r: Row =>
+      encodeRow(r)
+    case other => other
+  }
+
+  // Convert a Spark Row/struct into a Map, guarding against short rows (arity) and omitting null
+  // fields (AnyJsonFormat cannot serialize null values), recursing into nested rows/arrays/maps.
+  private def encodeRow(row: Row): Map[String, Any] = {
+    val fields = row.schema.fields
+    fields.indices.iterator.flatMap { i =>
+      if (i < row.length) {
+        Option(row.get(i)).map(v => fields(i).name -> encodeValue(v))
+      } else {
+        None
+      }
+    }.toMap
+  }
+
+  private def encodeValue(value: Any): Any = value match {
+    case null => value //scalastyle:ignore null
+    case r: Row => encodeRow(r)
+    case s: scala.collection.Seq[_] => s.iterator.map(encodeValue).toList
+    case m: scala.collection.Map[_, _] => m.map { case (k, v) => k.toString -> encodeValue(v) }.toMap
+    case other => other
   }
 }
 
