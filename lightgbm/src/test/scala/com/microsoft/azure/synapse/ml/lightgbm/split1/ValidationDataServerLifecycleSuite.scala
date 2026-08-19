@@ -139,6 +139,36 @@ class ValidationDataServerLifecycleSuite extends TestBase {
     }
   }
 
+  test("ingest accept polling honors sub-second timeouts") {
+    val spool = scratchDirectory("ingest-subsecond-timeout")
+    val expected = new RejectedExecutionException("stop after checking timeout")
+    val resources = new DelegatingResources {
+      @volatile var ingestSocket: Option[ServerSocket] = None
+
+      override def openServerSocket(host: String, timeoutSeconds: Double, backlog: Int): ServerSocket = {
+        val socket = super.openServerSocket(host, timeoutSeconds, backlog)
+        ingestSocket = Option(socket)
+        socket
+      }
+
+      override def createExecutor(threadCount: Int, threadNamePrefix: String): ExecutorService = {
+        assert(ingestSocket.exists(_.getSoTimeout == 250))
+        throw expected
+      }
+    }
+
+    try {
+      val failure = intercept[RejectedExecutionException] {
+        ValidationDataServer.create(spark.emptyDataFrame, host, 1, 0.25, spool, resources)
+      }
+      assert(failure eq expected)
+      assert(resources.ingestSocket.exists(_.isClosed))
+      assert(!spool.exists())
+    } finally {
+      deleteIfPresent(spool)
+    }
+  }
+
   test("serving executor construction failure closes its socket and deletes the spool") {
     val spool = scratchDirectory("serve-executor-failure")
     val resources = new DelegatingResources {
