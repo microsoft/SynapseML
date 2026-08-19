@@ -29,15 +29,14 @@
 #
 # Second failure mode: partially restored caches
 # ----------------------------------------------
-# A restored Azure cache occasionally lands incomplete on a single agent: a
-# module directory under ~/.ivy2/cache exists but its metadata/artifacts do not.
-# Ivy treats that as an authoritative "not found" and fails *without* attempting
-# any download, so plain retries of the same command all fail identically within
+# A restored Azure cache can be unusable on a single agent: a module directory
+# under ~/.ivy2/cache exists, but Ivy still reports the dependency as unresolved.
+# Plain retries preserve that on-disk state and can fail identically within
 # seconds. Observed on one shard as ten consecutive 12-17s failures on
 # com.globalmentor#hadoop-bare-naked-local-fs while the other 39 shards of the
 # same build resolved that module from the byte-identical cache key offline.
 # Retrying cannot change on-disk state, so before each retry this script evicts
-# the modules named in "unresolved dependency" errors, forcing a clean re-fetch.
+# the modules named in "unresolved dependency" errors, allowing a clean re-fetch.
 #
 # Usage
 # -----
@@ -57,10 +56,11 @@
 #   SBT_SETUP_SLEEP_CMD             sleep command             (default sleep)
 #   SBT_SETUP_CURL_CMD              curl used by the Maven    (default curl)
 #                                   Central diagnostic probe
-#   SBT_SETUP_IVY_HOME              ivy home scanned for      (default ~/.ivy2)
-#                                   incomplete modules
-#   SBT_SETUP_COURSIER_CACHE        coursier cache scanned    (default
-#                                   for incomplete modules    ~/.cache/coursier)
+#   SBT_SETUP_IVY_HOME              absolute ivy home scanned (default ~/.ivy2;
+#                                   disabled when HOME is unavailable)
+#   SBT_SETUP_COURSIER_CACHE        absolute coursier cache   (default
+#                                   scanned                   ~/.cache/coursier;
+#                                   disabled when HOME is unavailable)
 #   SBT_SETUP_RANDOM                fixed RNG value for tests (default $RANDOM)
 #
 set -uo pipefail
@@ -73,8 +73,15 @@ MAX_BACKOFF="${SBT_SETUP_MAX_BACKOFF_SECONDS:-120}"
 SBT_CMD="${SBT_SETUP_SBT_CMD:-sbt}"
 SLEEP_CMD="${SBT_SETUP_SLEEP_CMD:-sleep}"
 CURL_CMD="${SBT_SETUP_CURL_CMD:-curl}"
-IVY_HOME="${SBT_SETUP_IVY_HOME:-${HOME:-}/.ivy2}"
-COURSIER_CACHE="${SBT_SETUP_COURSIER_CACHE:-${HOME:-}/.cache/coursier}"
+IVY_HOME="${SBT_SETUP_IVY_HOME:-}"
+COURSIER_CACHE="${SBT_SETUP_COURSIER_CACHE:-}"
+if [ -z "$IVY_HOME" ] && [ -n "${HOME:-}" ]; then
+  IVY_HOME="$HOME/.ivy2"
+fi
+if [ -z "$COURSIER_CACHE" ] && [ -n "${HOME:-}" ]; then
+  COURSIER_CACHE="$HOME/.cache/coursier"
+fi
+PROBED_COORDS=""
 
 if [ "$#" -eq 0 ]; then
   echo "sbt_retry.sh: no sbt arguments provided" >&2
@@ -123,18 +130,70 @@ probe_central() {
   echo "sbt_retry: Maven Central probe: HTTP ${code} for ${url}"
 }
 
+probe_central_once() {
+  local org="$1" org_path="$2" name="$3" rev="$4"
+  local coord="${org}#${name};${rev}"
+  case $'\n'"$PROBED_COORDS"$'\n' in
+    *$'\n'"$coord"$'\n'*) return 0 ;;
+  esac
+  if [ -n "$PROBED_COORDS" ]; then
+    PROBED_COORDS="${PROBED_COORDS}"$'\n'"${coord}"
+  else
+    PROBED_COORDS="$coord"
+  fi
+  probe_central "$org_path" "$name" "$rev"
+}
+
+cache_root_is_safe() {
+  local root="$1"
+  [ -n "$root" ] || return 1
+  case "$root" in
+    /*) ;;
+    *) return 1 ;;
+  esac
+  # Reject filesystem roots and lexical traversal segments.
+  [ -n "${root//\//}" ] || return 1
+  case "/${root#/}/" in
+    */../*|*/./*) return 1 ;;
+  esac
+}
+
+coordinate_component_is_safe() {
+  local component="$1"
+  [ -n "$component" ] || return 1
+  case "$component" in
+    "."|".."|*..*|*[!A-Za-z0-9._+~-]*) return 1 ;;
+  esac
+}
+
+evict_cache_entry() {
+  local target="$1"
+  if [ -e "$target" ] || [ -L "$target" ]; then
+    # The entry listing distinguishes a poisoned marker from a missing artifact.
+    echo "sbt_retry: evicting cache entry for unresolved module: $target"
+    find "$target" -maxdepth 2 -printf '  %10s  %p\n' 2>/dev/null | head -n 20 ||
+      ls -la "$target" 2>/dev/null | head -n 20
+    if rm -rf -- "$target"; then
+      return 0
+    fi
+    echo "sbt_retry: failed to evict cache entry: $target" >&2
+  fi
+  return 1
+}
+
 # Evict every module named in an "unresolved dependency" error from the local
 # Ivy and Coursier caches so the next attempt re-fetches it from scratch.
 #
-# This targets the partially-restored-cache failure mode described above: when a
-# module directory exists but is incomplete, Ivy short-circuits to "not found"
-# with no network request, making every identical retry fail identically. Only
-# the named coordinates are removed, so an unrelated failure evicts nothing and
-# the retry behaviour is unchanged. Returns 0 when something was evicted.
+# This targets the unusable-cache-state failure mode described above: removing
+# the local entry lets the next attempt rebuild it instead of preserving the
+# same state. Only the named coordinates are removed, so an unrelated failure
+# evicts nothing and the retry behaviour is unchanged. Returns 0 when something
+# was evicted.
 evict_unresolved_modules() {
   local log_file="$1"
   local evicted=0
   local coords org name rev org_path target
+  local ivy_safe=0 coursier_safe=0
 
   [ -s "$log_file" ] || return 1
   coords="$(
@@ -143,28 +202,45 @@ evict_unresolved_modules() {
   )"
   [ -n "$coords" ] || return 1
 
+  if cache_root_is_safe "$IVY_HOME"; then
+    ivy_safe=1
+  elif [ -z "$IVY_HOME" ]; then
+    echo "sbt_retry: Ivy eviction disabled: HOME is unset and no absolute override was provided"
+  else
+    echo "sbt_retry: skipping unsafe Ivy cache root: $IVY_HOME" >&2
+  fi
+  if cache_root_is_safe "$COURSIER_CACHE"; then
+    coursier_safe=1
+  elif [ -z "$COURSIER_CACHE" ]; then
+    echo "sbt_retry: Coursier eviction disabled: HOME is unset and no absolute override was provided"
+  else
+    echo "sbt_retry: skipping unsafe Coursier cache root: $COURSIER_CACHE" >&2
+  fi
+
   while read -r org name rev; do
-    [ -n "$org" ] && [ -n "$name" ] || continue
-    # Defensive: coordinates are path components, never traversals.
-    case "$org$name$rev" in
-      */*|*\\*|*..*) continue ;;
-    esac
+    if ! coordinate_component_is_safe "$org" ||
+      ! coordinate_component_is_safe "$name" ||
+      ! coordinate_component_is_safe "$rev"; then
+      echo "sbt_retry: skipping unsafe unresolved coordinate: ${org}#${name};${rev}" >&2
+      continue
+    fi
     org_path="$(printf '%s' "$org" | tr '.' '/')"
-    for target in \
-      "$IVY_HOME/cache/$org/$name" \
-      "$IVY_HOME/local/$org/$name" \
-      "$COURSIER_CACHE/v1/https/repo1.maven.org/maven2/$org_path/$name/$rev"; do
-      if [ -e "$target" ]; then
-        # What the damaged entry actually contained decides whether the next
-        # occurrence is a poisoned marker or a genuinely absent artifact.
-        echo "sbt_retry: evicting incomplete cache entry: $target"
-        find "$target" -maxdepth 2 -printf '  %10s  %p\n' 2>/dev/null | head -n 20 ||
-          ls -la "$target" 2>/dev/null | head -n 20
-        rm -rf "$target"
+    if [ "$ivy_safe" -eq 1 ]; then
+      for target in \
+        "$IVY_HOME/cache/$org/$name" \
+        "$IVY_HOME/local/$org/$name"; do
+        if evict_cache_entry "$target"; then
+          evicted=1
+        fi
+      done
+    fi
+    if [ "$coursier_safe" -eq 1 ]; then
+      target="$COURSIER_CACHE/v1/https/repo1.maven.org/maven2/$org_path/$name/$rev"
+      if evict_cache_entry "$target"; then
         evicted=1
       fi
-    done
-    probe_central "$org_path" "$name" "$rev"
+    fi
+    probe_central_once "$org" "$org_path" "$name" "$rev"
   done <<< "$coords"
 
   [ "$evicted" -eq 1 ]
@@ -179,8 +255,11 @@ if [ "$MAX_STAGGER" -gt 0 ]; then
   fi
 fi
 
-attempt_log="$(mktemp)"
-trap 'rm -f "$attempt_log"' EXIT
+attempt_log="$(mktemp "${TMPDIR:-/tmp}/sbt_retry.XXXXXX")" || {
+  echo "sbt_retry.sh: unable to create attempt log" >&2
+  exit 2
+}
+trap 'rm -f -- "$attempt_log"' EXIT
 
 attempt=1
 while : ; do

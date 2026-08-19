@@ -30,24 +30,28 @@ The durable fix has three layers:
    fallback. Exact hits on all three caches disable the start stagger
    automatically.
 
-### Partially restored caches
+### Unusable restored caches
 
-A restored cache occasionally lands **incomplete on a single agent**: the module
-directory under `~/.ivy2/cache` exists but its metadata/artifacts do not. Ivy
-treats that as an authoritative `not found` and fails *without* attempting a
-download, so retrying the identical command is guaranteed to fail identically.
+A restored cache can be **unusable on a single agent**: the module directory
+under `~/.ivy2/cache` exists, but Ivy still reports the dependency as unresolved.
+Retrying the identical command preserves that local state and can fail
+identically.
 
 Observed in ADO build 231667649: `UnitTests language` failed ten consecutive
 times in 12–17s each on `com.globalmentor#hadoop-bare-naked-local-fs`, while the
 other **39 of 40** shards in that same build resolved that module offline from
-the byte-identical cache key and never contacted Maven Central. This is a
-per-agent restore fault, not rate limiting — no shard downloaded the artifact.
+the byte-identical cache key. This isolates the exposure to one agent's restored
+state, but does not by itself distinguish a later HTTP 404/429, TLS, or DNS
+failure; the diagnostic probe exists to make that distinction.
 
 `sbt_retry.sh` therefore parses `unresolved dependency: <org>#<name>;<rev>` out
 of each failed attempt and deletes exactly those modules from `~/.ivy2/cache`,
 `~/.ivy2/local`, and the Coursier cache before backing off, so the next attempt
 re-fetches them cleanly. Unrelated failures evict nothing. Override
-`SBT_SETUP_IVY_HOME` / `SBT_SETUP_COURSIER_CACHE` to relocate the scan.
+`SBT_SETUP_IVY_HOME` / `SBT_SETUP_COURSIER_CACHE` with absolute, non-root paths
+to relocate the scan. Eviction is disabled if `HOME` is unavailable and no safe
+override is provided. Maven Central is probed at most once per unresolved
+coordinate per wrapper invocation, so diagnostics do not amplify an outage.
 
 ### Tests
 

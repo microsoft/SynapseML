@@ -45,7 +45,12 @@ exit 0
     return fake
 
 
-def _fake_sbt_unresolved(tmp_path: Path, fail_count: int) -> Path:
+def _fake_sbt_unresolved(
+    tmp_path: Path,
+    fail_count: int,
+    coordinate: str = "com.globalmentor#hadoop-bare-naked-local-fs;0.1.0",
+    error_prefix: str = "",
+) -> Path:
     """A fake ``sbt`` whose first ``fail_count`` calls emit an Ivy resolve error."""
     calls = tmp_path / "sbt_calls"
     fake = tmp_path / "fake_sbt_unresolved.sh"
@@ -57,9 +62,9 @@ if [ -f "{calls}" ]; then n=$(cat "{calls}"); fi
 n=$((n + 1))
 echo "$n" > "{calls}"
 if [ "$n" -le "{fail_count}" ]; then
-  echo "[warn] 	module not found: com.globalmentor#hadoop-bare-naked-local-fs;0.1.0"
-  echo "[error] sbt.librarymanagement.ResolveException: unresolved dependency:\
- com.globalmentor#hadoop-bare-naked-local-fs;0.1.0: not found" >&2
+  echo "[warn] 	module not found: {coordinate}"
+  echo "[error] {error_prefix}sbt.librarymanagement.ResolveException: unresolved dependency:\
+ {coordinate}: not found" >&2
   exit 1
 fi
 echo "fake sbt: success on call #$n"
@@ -293,7 +298,7 @@ def test_evicts_incomplete_module_then_succeeds(tmp_path):
     assert not incomplete.exists(), "incomplete Ivy module must be evicted"
     assert not coursier_entry.exists(), "matching Coursier entry must be evicted"
     assert neighbour.exists(), "unrelated modules must be left alone"
-    assert "evicting incomplete cache entry" in (r.stdout + r.stderr)
+    assert "evicting cache entry for unresolved module" in (r.stdout + r.stderr)
 
 
 def test_no_eviction_when_failure_is_not_a_resolution_error(tmp_path):
@@ -304,7 +309,7 @@ def test_no_eviction_when_failure_is_not_a_resolution_error(tmp_path):
     assert incomplete.exists(), "unrelated failures must not evict caches"
     assert coursier_entry.exists()
     assert neighbour.exists()
-    assert "evicting incomplete cache entry" not in (r.stdout + r.stderr)
+    assert "evicting cache entry for unresolved module" not in (r.stdout + r.stderr)
 
 
 def test_eviction_is_tolerant_of_absent_cache_dirs(tmp_path):
@@ -323,12 +328,67 @@ def test_eviction_is_tolerant_of_absent_cache_dirs(tmp_path):
     assert (tmp_path / "sbt_calls").read_text().strip() == "2"
 
 
+def test_home_unset_disables_default_cache_eviction(tmp_path):
+    """Missing HOME must never turn the defaults into root-level cache paths."""
+    sbt = _fake_sbt_unresolved(tmp_path, fail_count=1)
+    r = _run(
+        tmp_path,
+        "setup",
+        sbt_cmd=sbt,
+        env_overrides={
+            "HOME": "",
+            "SBT_SETUP_IVY_HOME": "",
+            "SBT_SETUP_COURSIER_CACHE": "",
+        },
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    out = r.stdout + r.stderr
+    assert "Ivy eviction disabled: HOME is unset" in out
+    assert "Coursier eviction disabled: HOME is unset" in out
+    assert "evicting cache entry for unresolved module: /.ivy2" not in out
+    assert "evicting cache entry for unresolved module: /.cache" not in out
+
+
+def test_unsafe_cache_roots_are_skipped(tmp_path):
+    """Cache roots must be absolute, non-root paths without traversal segments."""
+    sbt = _fake_sbt_unresolved(tmp_path, fail_count=1)
+    r = _run(
+        tmp_path,
+        "setup",
+        sbt_cmd=sbt,
+        env_overrides={
+            "SBT_SETUP_IVY_HOME": "/",
+            "SBT_SETUP_COURSIER_CACHE": str(tmp_path / "cache" / ".." / "coursier"),
+        },
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    out = r.stdout + r.stderr
+    assert "skipping unsafe Ivy cache root: /" in out
+    assert "skipping unsafe Coursier cache root:" in out
+
+
+def test_missing_revision_never_evicts_a_module(tmp_path):
+    """Malformed coordinates cannot broaden Coursier eviction to all versions."""
+    env, incomplete, coursier_entry, neighbour = _ivy_layout(tmp_path)
+    sbt = _fake_sbt_unresolved(
+        tmp_path,
+        fail_count=1,
+        coordinate="com.globalmentor#hadoop-bare-naked-local-fs;",
+    )
+    r = _run(tmp_path, "setup", sbt_cmd=sbt, env_overrides=env)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert incomplete.exists()
+    assert coursier_entry.exists()
+    assert neighbour.exists()
+    assert "skipping unsafe unresolved coordinate" in (r.stdout + r.stderr)
+    assert not (tmp_path / "curl_log").exists()
+
+
 def _state_dependent_sbt(tmp_path: Path, blocking_dir: Path) -> Path:
     """A fake ``sbt`` that fails for as long as ``blocking_dir`` exists.
 
-    This mirrors the production failure: Ivy short-circuits to "not found" from
-    on-disk state, so the command's outcome is a pure function of the cache
-    directory rather than of time or attempt count.
+    This models the local-state failure path: the command's outcome is a pure
+    function of the cache directory rather than of time or attempt count.
     """
     calls = tmp_path / "sbt_calls"
     fake = tmp_path / "state_dependent_sbt.sh"
@@ -396,6 +456,31 @@ def test_probe_reports_maven_central_status_on_resolution_failure(tmp_path):
     ], probed
 
 
+def test_parser_accepts_real_prefixed_scala_bridge_coordinate(tmp_path):
+    """Keep the second coordinate and `(core / update)` log shape CI produced."""
+    coordinate = "org.scala-lang#scala2-sbt-bridge;2.13.17"
+    sbt = _fake_sbt_unresolved(
+        tmp_path,
+        fail_count=1,
+        coordinate=coordinate,
+        error_prefix="(core / update) ",
+    )
+    r = _run(
+        tmp_path,
+        "setup",
+        sbt_cmd=sbt,
+        env_overrides={
+            "SBT_SETUP_IVY_HOME": str(tmp_path / "missing-ivy"),
+            "SBT_SETUP_COURSIER_CACHE": str(tmp_path / "missing-coursier"),
+        },
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    probed = (tmp_path / "curl_log").read_text().strip()
+    assert probed.endswith(
+        "/org/scala-lang/scala2-sbt-bridge/2.13.17/" "scala2-sbt-bridge-2.13.17.pom"
+    )
+
+
 def test_probe_does_not_run_without_a_resolution_failure(tmp_path):
     sbt = _fake_sbt(tmp_path, fail_count=1)  # generic failure
     r = _run(tmp_path, "setup", sbt_cmd=sbt)
@@ -412,6 +497,35 @@ def test_probe_failure_never_changes_the_outcome(tmp_path):
     sbt = _fake_sbt_unresolved(tmp_path, fail_count=1)
     r = _run(tmp_path, "setup", sbt_cmd=sbt, env_overrides=env)
     assert r.returncode == 0, r.stdout + r.stderr
+
+
+def test_probe_runs_once_per_coordinate_across_retries(tmp_path):
+    """Diagnostics must not amplify an outage with one request per attempt."""
+    env, _, _, _ = _ivy_layout(tmp_path)
+    env = dict(env)
+    env["SBT_SETUP_CURL_CMD"] = str(_fake_curl(tmp_path, http_code="429"))
+    sbt = _fake_sbt_unresolved(tmp_path, fail_count=3)
+    r = _run(tmp_path, "setup", sbt_cmd=sbt, env_overrides=env)
+    assert r.returncode == 0, r.stdout + r.stderr
+    probed = (tmp_path / "curl_log").read_text().strip().splitlines()
+    assert len(probed) == 1, probed
+
+
+def test_mktemp_failure_stops_before_sbt_runs(tmp_path):
+    sbt = _fake_sbt(tmp_path, fail_count=0)
+    r = _run(
+        tmp_path,
+        "setup",
+        sbt_cmd=sbt,
+        env_overrides={"TMPDIR": str(tmp_path / "missing-temp-dir")},
+    )
+    assert r.returncode == 2
+    assert "unable to create attempt log" in (r.stdout + r.stderr)
+    assert not (tmp_path / "sbt_calls").exists()
+
+
+def test_recursive_removal_uses_end_of_options_marker():
+    assert 'rm -rf -- "$target"' in SCRIPT.read_text()
 
 
 def test_evicted_entry_contents_are_logged(tmp_path):
