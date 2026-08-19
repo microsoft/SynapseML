@@ -363,10 +363,14 @@ def test_fabric_e2e_runs_openai_prompt_with_exact_artifacts():
     assert data["variables"]["FABRIC_OPENAI_WORKSPACE"] == (
         "DONT_DELETE_SynapseML_Build"
     )
+    assert data["variables"]["FABRIC_OPENAI_ENV"] == "msit"
+    assert 'fabric_env="$FABRIC_OPENAI_ENV"' in script
     assert 'workspace="$FABRIC_OPENAI_WORKSPACE"' in script
+    assert openai_step["env"]["FABRIC_OPENAI_ENV"] == "$(FABRIC_OPENAI_ENV)"
     assert openai_step["env"]["FABRIC_OPENAI_WORKSPACE"] == (
         "$(FABRIC_OPENAI_WORKSPACE)"
     )
+    assert "INTEGRATION_ENV" not in openai_step["env"]
     assert "INTEGRATION_ACCOUNT" not in openai_step["env"]
     assert "INTEGRATION_WORKSPACE_PREFIX" not in openai_step["env"]
     assert "--scenario openai-prompt-ai-functions" in script

@@ -89,9 +89,10 @@ python tools/fabric_e2e/run.py \
   --extra-jar <cognitive-jar>
 ```
 
-The Azure Pipeline pins `FABRIC_OPENAI_WORKSPACE` to the dedicated build
-service workspace. Do not derive this value from the legacy integration user;
-the build service principal cannot see per-user workspaces.
+The Azure Pipeline pins `FABRIC_OPENAI_ENV` and `FABRIC_OPENAI_WORKSPACE` to
+the proven environment and dedicated build service workspace. Do not derive
+these values from the legacy integration user; the build service principal
+cannot see per-user workspaces.
 `FabricOpenAIPromptE2E` is a separate job so legacy certificate-based Fabric
 failures cannot skip or mask this gate.
 

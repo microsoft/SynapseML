@@ -105,6 +105,7 @@ variables:
   runCoverage: $[or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))]
   # The platform-notebook OpenAIPrompt gate currently targets the Spark 3.5 Fabric workspace.
   runFabricOpenAIPrompt: $[or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), eq(variables['Build.SourceBranch'], 'refs/heads/spark3.5'), eq(variables['System.PullRequest.TargetBranch'], 'refs/heads/master'), eq(variables['System.PullRequest.TargetBranch'], 'refs/heads/spark3.5'), eq(variables['System.PullRequest.TargetBranch'], 'master'), eq(variables['System.PullRequest.TargetBranch'], 'spark3.5'))]
+  FABRIC_OPENAI_ENV: msit
   FABRIC_OPENAI_WORKSPACE: DONT_DELETE_SynapseML_Build
 
 jobs:
@@ -414,9 +415,7 @@ jobs:
           fabric-spark-cli --version
 
           workspace="$FABRIC_OPENAI_WORKSPACE"
-          fabric_env="$(
-            printf '%s' "$INTEGRATION_ENV" | tr '[:upper:]' '[:lower:]'
-          )"
+          fabric_env="$FABRIC_OPENAI_ENV"
           output_dir="$artifact_root/run"
           if [ -e "$output_dir" ]; then
             echo "Fabric evidence output already exists: $output_dir" >&2
@@ -432,7 +431,7 @@ jobs:
             --extra-jar "$core_jar" \
             --extra-jar "$cognitive_jar"
       env:
-        INTEGRATION_ENV: $(sempy-integration-region)
+        FABRIC_OPENAI_ENV: $(FABRIC_OPENAI_ENV)
         FABRIC_OPENAI_WORKSPACE: $(FABRIC_OPENAI_WORKSPACE)
     - task: PublishTestResults@2
       displayName: 'Publish Fabric OpenAIPrompt Results'
