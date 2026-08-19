@@ -3,7 +3,6 @@
 
 package com.microsoft.azure.synapse.ml.services.openai
 
-import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions.{findUnusedColumnName => newCol}
 import com.microsoft.azure.synapse.ml.io.http.ErrorUtils
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.AnyJsonFormat.anyFormat
@@ -356,8 +355,9 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
     logTransform[DataFrame]({
       val df = dataset.toDF()
       val colsToAvoid = df.schema.fieldNames.toSet ++ Set(getErrorCol, getOutputCol)
-      val originalMessagesCol = newCol("originalMessages")(colsToAvoid)
-      val validationErrorCol = newCol("responsesMessageValidationError")(colsToAvoid + originalMessagesCol)
+      val originalMessagesCol = OpenAIColumnUtils.findUnusedColumnName("originalMessages")(colsToAvoid)
+      val validationErrorCol = OpenAIColumnUtils.findUnusedColumnName(
+        "responsesMessageValidationError")(colsToAvoid + originalMessagesCol)
       val messagesDataType = df.schema(getMessagesCol).dataType
 
       val validationErrorUDF = UDFUtils.oldUdf(

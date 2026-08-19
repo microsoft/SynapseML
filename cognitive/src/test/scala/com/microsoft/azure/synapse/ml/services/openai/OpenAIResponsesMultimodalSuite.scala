@@ -396,6 +396,37 @@ class OpenAIResponsesMultimodalSuite extends TestBase {
     assert(Option(result.getAs[Row]("output")).isEmpty)
   }
 
+  test("Responses scratch columns preserve resolver-colliding input columns") {
+    assert(!spark.conf.get("spark.sql.caseSensitive").toBoolean)
+    val input = spark.createDataFrame(
+      spark.sparkContext.parallelize(Seq(
+        Row(
+          "valid",
+          Seq(structuredMessage("user", Seq(contentPart("input_text", text = Some("hello"))))),
+          "keep original",
+          "keep original suffix",
+          "keep validation",
+          "keep validation suffix"
+        )
+      ), 1),
+      StructType(requestSchema(structuredMessageSchema).fields ++ Seq(
+        StructField("ORIGINALMESSAGES", StringType, nullable = false),
+        StructField("ORIGINALMESSAGES_1", StringType, nullable = false),
+        StructField("RESPONSESMESSAGEVALIDATIONERROR", StringType, nullable = false),
+        StructField("RESPONSESMESSAGEVALIDATIONERROR_1", StringType, nullable = false)
+      ))
+    )
+    val result = responses()
+      .setHandler(OpenAIResponsesMultimodalTestData.echoRequestBody _)
+      .transform(input)
+      .head()
+
+    assert(result.getAs[String]("ORIGINALMESSAGES") == "keep original")
+    assert(result.getAs[String]("ORIGINALMESSAGES_1") == "keep original suffix")
+    assert(result.getAs[String]("RESPONSESMESSAGEVALIDATIONERROR") == "keep validation")
+    assert(result.getAs[String]("RESPONSESMESSAGEVALIDATIONERROR_1") == "keep validation suffix")
+  }
+
   test("Responses replaces non-error upstream columns with validation errors") {
     assert(!spark.conf.get("spark.sql.caseSensitive").toBoolean)
     val invalidMessage = structuredMessage("user", Seq(
