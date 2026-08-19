@@ -291,6 +291,18 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
     }
   }
 
+  test("unsupported Chat attachments report semantic and MIME types") {
+    val error = intercept[IllegalArgumentException] {
+      new OpenAIPrompt()
+        .setApiType("chat_completions")
+        .createMessagesForRow("Read the attachment.", Map("file" -> dataPdf), Seq("file"))
+    }
+
+    assert(error.getMessage ==
+      "File type 'file' with MIME type 'application/pdf' is not supported for Chat Completions. " +
+        "Only text and image attachments are supported; use apiType='responses' for other file inputs.")
+  }
+
   test("Chat Completions OpenAIPrompt sends image_url content parts") {
     val (result, payload) = requestPayload(
       _.replace("/openai/v1", "/image.png"),
@@ -369,6 +381,7 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
   }
 
   test("OpenAIPrompt preserves existing row errors over attachment failures") {
+    assert(!spark.conf.get("spark.sql.caseSensitive").toBoolean)
     val existingError = Row("upstream error", null) // scalastyle:ignore null
     val input = spark.createDataFrame(
       spark.sparkContext.parallelize(Seq(
@@ -377,16 +390,46 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
       StructType(Seq(
         StructField("prompt", StringType, nullable = false),
         StructField("image", StringType, nullable = true),
-        StructField("error", ErrorUtils.ErrorSchema, nullable = true)
+        StructField("UPSTREAM_ERROR", ErrorUtils.ErrorSchema, nullable = true)
       ))
     )
 
     withEchoServer { (baseUrl, bodies) =>
-      val result = prompt(baseUrl, "responses").transform(input).head()
+      val result = prompt(baseUrl, "responses")
+        .setErrorCol("upstream_error")
+        .transform(input)
+        .head()
 
       assert(bodies.isEmpty)
       assert(Option(result.getAs[Row]("output")).isEmpty)
-      assert(result.getAs[Row]("error").getAs[String]("response") == "upstream error")
+      assert(result.getAs[Row]("upstream_error").getAs[String]("response") == "upstream error")
+    }
+  }
+
+  test("OpenAIPrompt replaces non-error upstream columns with attachment errors") {
+    assert(!spark.conf.get("spark.sql.caseSensitive").toBoolean)
+    val input = spark.createDataFrame(
+      spark.sparkContext.parallelize(Seq(
+        Row("Describe.", "data:image/png,not-base64", "not an error struct")
+      ), 1),
+      StructType(Seq(
+        StructField("prompt", StringType, nullable = false),
+        StructField("image", StringType, nullable = true),
+        StructField("UPSTREAM_ERROR", StringType, nullable = true)
+      ))
+    )
+
+    withEchoServer { (baseUrl, bodies) =>
+      val result = prompt(baseUrl, "responses")
+        .setErrorCol("upstream_error")
+        .transform(input)
+        .head()
+
+      assert(bodies.isEmpty)
+      assert(result.schema("upstream_error").dataType == ErrorUtils.ErrorSchema)
+      assert(result.getAs[Row]("upstream_error").getAs[String]("response") ==
+        "Only base64-encoded data URLs are supported for path inputs")
+      assert(Option(result.getAs[Row]("output")).isEmpty)
     }
   }
 
@@ -423,27 +466,32 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
     }
   }
 
-  test("OpenAIPrompt messages column cannot also be the output or error column") {
+  test("OpenAIPrompt public column collisions are rejected") {
+    assert(!spark.conf.get("spark.sql.caseSensitive").toBoolean)
     val input = Seq(("Describe this image.", dataImage)).toDF("prompt", "image")
     Seq(
-      "outputCol" -> prompt("https://example.services.ai.azure.com/openai/v1", "responses")
-        .setMessagesCol("collision")
-        .setOutputCol("collision"),
-      "errorCol" -> prompt("https://example.services.ai.azure.com/openai/v1", "responses")
-        .setMessagesCol("collision")
-        .setErrorCol("collision")
-    ).foreach { case (paramName, transformer) =>
+      ("messagesCol 'collision' must be different from outputCol 'COLLISION'",
+        prompt("https://example.services.ai.azure.com/openai/v1", "responses")
+          .setMessagesCol("collision")
+          .setOutputCol("COLLISION")),
+      ("messagesCol 'collision' must be different from errorCol 'CoLlIsIoN'",
+        prompt("https://example.services.ai.azure.com/openai/v1", "responses")
+          .setMessagesCol("collision")
+          .setErrorCol("CoLlIsIoN")),
+      ("outputCol 'result' must be different from errorCol 'RESULT'",
+        prompt("https://example.services.ai.azure.com/openai/v1", "responses")
+          .setOutputCol("result")
+          .setErrorCol("RESULT"))
+    ).foreach { case (expectedMessage, transformer) =>
       val schemaError = intercept[IllegalArgumentException] {
         transformer.transformSchema(input.schema)
       }
-      assert(schemaError.getMessage.contains(
-        s"messagesCol 'collision' must be different from $paramName 'collision'"))
+      assert(schemaError.getMessage.contains(expectedMessage))
 
       val transformError = intercept[IllegalArgumentException] {
         transformer.transform(input)
       }
-      assert(transformError.getMessage.contains(
-        s"messagesCol 'collision' must be different from $paramName 'collision'"))
+      assert(transformError.getMessage.contains(expectedMessage))
     }
   }
 

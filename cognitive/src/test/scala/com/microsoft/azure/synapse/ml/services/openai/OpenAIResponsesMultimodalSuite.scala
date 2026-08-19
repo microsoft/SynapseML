@@ -371,7 +371,59 @@ class OpenAIResponsesMultimodalSuite extends TestBase {
     assert(Option(result.getAs[Row]("output")).isEmpty)
   }
 
-  test("Responses messages column cannot also be the output or error column") {
+  test("Responses preserves case-insensitive upstream error columns") {
+    assert(!spark.conf.get("spark.sql.caseSensitive").toBoolean)
+    val existingError = Row("upstream error", null) // scalastyle:ignore null
+    val invalidMessage = structuredMessage("user", Seq(
+      contentPart("input_image", imageUrl = Some(""))
+    ))
+    val input = spark.createDataFrame(
+      spark.sparkContext.parallelize(Seq(
+        Row("invalid", Seq(invalidMessage), existingError)
+      ), 1),
+      StructType(requestSchema(structuredMessageSchema).fields :+
+        StructField("UPSTREAM_ERROR", ErrorUtils.ErrorSchema, nullable = true))
+    )
+    val transformer = responses()
+      .setErrorCol("upstream_error")
+      .setHandler { (_: CloseableHttpClient, _: HTTPRequestData) =>
+        throw new AssertionError("HTTP must not run for malformed messages")
+      }
+
+    val result = transformer.transform(input).head()
+
+    assert(result.getAs[Row]("upstream_error").getAs[String]("response") == "upstream error")
+    assert(Option(result.getAs[Row]("output")).isEmpty)
+  }
+
+  test("Responses replaces non-error upstream columns with validation errors") {
+    assert(!spark.conf.get("spark.sql.caseSensitive").toBoolean)
+    val invalidMessage = structuredMessage("user", Seq(
+      contentPart("input_image", imageUrl = Some(""))
+    ))
+    val input = spark.createDataFrame(
+      spark.sparkContext.parallelize(Seq(
+        Row("invalid", Seq(invalidMessage), "not an error struct")
+      ), 1),
+      StructType(requestSchema(structuredMessageSchema).fields :+
+        StructField("UPSTREAM_ERROR", StringType, nullable = true))
+    )
+    val transformer = responses()
+      .setErrorCol("upstream_error")
+      .setHandler { (_: CloseableHttpClient, _: HTTPRequestData) =>
+        throw new AssertionError("HTTP must not run for malformed messages")
+      }
+
+    val result = transformer.transform(input).head()
+
+    assert(result.schema("upstream_error").dataType == ErrorUtils.ErrorSchema)
+    assert(result.getAs[Row]("upstream_error").getAs[String]("response") ==
+      "messages[0].content[0] requires a non-empty string 'image_url' or 'file_id' field")
+    assert(Option(result.getAs[Row]("output")).isEmpty)
+  }
+
+  test("Responses public column collisions are rejected") {
+    assert(!spark.conf.get("spark.sql.caseSensitive").toBoolean)
     val input = spark.createDataFrame(
       spark.sparkContext.parallelize(Seq(
         Row("valid", Seq(structuredMessage("user", Seq(
@@ -382,18 +434,22 @@ class OpenAIResponsesMultimodalSuite extends TestBase {
     )
 
     Seq(
-      "outputCol" -> responses().setOutputCol("messages"),
-      "errorCol" -> responses().setErrorCol("messages")
-    ).foreach { case (paramName, transformer) =>
+      ("messagesCol 'messages' must be different from outputCol 'MESSAGES'",
+        responses().setOutputCol("MESSAGES")),
+      ("messagesCol 'messages' must be different from errorCol 'MeSsAgEs'",
+        responses().setErrorCol("MeSsAgEs")),
+      ("outputCol 'result' must be different from errorCol 'RESULT'",
+        responses().setOutputCol("result").setErrorCol("RESULT"))
+    ).foreach { case (expectedMessage, transformer) =>
       val schemaError = intercept[IllegalArgumentException] {
         transformer.transformSchema(input.schema)
       }
-      assert(schemaError.getMessage.contains(s"messagesCol 'messages' must be different from $paramName 'messages'"))
+      assert(schemaError.getMessage.contains(expectedMessage))
 
       val transformError = intercept[IllegalArgumentException] {
         transformer.transform(input)
       }
-      assert(transformError.getMessage.contains(s"messagesCol 'messages' must be different from $paramName 'messages'"))
+      assert(transformError.getMessage.contains(expectedMessage))
     }
   }
 }
