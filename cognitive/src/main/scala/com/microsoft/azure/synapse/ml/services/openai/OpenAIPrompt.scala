@@ -729,11 +729,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   private def schemaWithPromptMessages(schema: StructType): StructType = {
     val messagesField = StructField(getMessagesCol, promptMessagesDataType, nullable = true)
-    if (schema.fieldNames.contains(getMessagesCol)) {
-      StructType(schema.fields.map(field => if (field.name == getMessagesCol) messagesField else field))
-    } else {
-      StructType(schema.fields :+ messagesField)
-    }
+    OpenAIColumnUtils.replaceOrAppendField(schema, messagesField)
   }
 
   override def transformSchema(schema: StructType): StructType = {
