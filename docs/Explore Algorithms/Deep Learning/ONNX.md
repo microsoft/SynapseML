@@ -39,13 +39,33 @@ would be a no-op). After installing, verify that exactly one `ai.onnxruntime` ja
 ever see both `onnxruntime-<version>.jar` and `onnxruntime_gpu-<version>.jar` on the same classpath, the
 exclusion is missing or attached to the wrong dependency.
 
+The examples below install the `synapseml-deep-learning` JVM module directly.
+Choose the complete module coordinate matching the Spark runtime:
+
+| Spark runtime | Scala | SynapseML deep-learning coordinate |
+| --- | --- | --- |
+| Spark 3.5.x | 2.12 | `com.microsoft.azure:synapseml-deep-learning_2.12:1.1.3` |
+| Spark 4.0.1+ (`<4.1`) | 2.13 | `com.microsoft.azure:synapseml-deep-learning_2.13:1.1.3-spark4.0` |
+| Spark 4.1.x | 2.13 | `com.microsoft.azure:synapseml-deep-learning_2.13:1.1.3-spark4.1` |
+
+Resolve these modules from
+`https://mmlspark.blob.core.windows.net/maven`. The complete examples below use
+Spark 4.1. For Spark 4.0 or 3.5, replace the SynapseML dependency with the exact
+coordinate from the table. If you intentionally install the aggregate
+`synapseml` artifact instead, use its coordinate from the
+[installation matrix](../../Get%20Started/Install%20SynapseML.md) and attach the
+exclusion to that aggregate dependency. Do not install both the aggregate and
+module artifacts.
+
 - **sbt** (per-dependency exclusion, attached to the SynapseML dependency):
 
   ```scala
+  resolvers += "SynapseML" at "https://mmlspark.blob.core.windows.net/maven"
+
   libraryDependencies ++= Seq(
-    ("com.microsoft.azure" %% "synapseml-deep-learning" % "<version>")
+    ("com.microsoft.azure" % "synapseml-deep-learning_2.13" % "1.1.3-spark4.1")
       .exclude("com.microsoft.onnxruntime", "onnxruntime"),
-    "com.microsoft.onnxruntime" % "onnxruntime_gpu" % "<onnxruntime-version>"
+    "com.microsoft.onnxruntime" % "onnxruntime_gpu" % "1.17.3"
   )
   ```
 
@@ -57,10 +77,17 @@ exclusion is missing or attached to the wrong dependency.
   unexcluded dependency:
 
   ```xml
+  <repositories>
+    <repository>
+      <id>SynapseML</id>
+      <url>https://mmlspark.blob.core.windows.net/maven</url>
+    </repository>
+  </repositories>
+
   <dependency>
     <groupId>com.microsoft.azure</groupId>
-    <artifactId>synapseml-deep-learning_2.12</artifactId>
-    <version>...</version>
+    <artifactId>synapseml-deep-learning_2.13</artifactId>
+    <version>1.1.3-spark4.1</version>
     <exclusions>
       <exclusion>
         <groupId>com.microsoft.onnxruntime</groupId>
@@ -81,7 +108,8 @@ exclusion is missing or attached to the wrong dependency.
 
   ```bash
   spark-submit \
-    --packages com.microsoft.azure:synapseml_2.12:<version>,com.microsoft.onnxruntime:onnxruntime_gpu:1.17.3 \
+    --repositories "https://mmlspark.blob.core.windows.net/maven" \
+    --packages "com.microsoft.azure:synapseml-deep-learning_2.13:1.1.3-spark4.1,com.microsoft.onnxruntime:onnxruntime_gpu:1.17.3" \
     --exclude-packages com.microsoft.onnxruntime:onnxruntime \
     your_script.py
   ```
@@ -90,7 +118,8 @@ exclusion is missing or attached to the wrong dependency.
   flags) are `spark.jars.packages` and `spark.jars.excludes`:
 
   ```
-  spark.jars.packages=com.microsoft.azure:synapseml_2.12:<version>,com.microsoft.onnxruntime:onnxruntime_gpu:1.17.3
+  spark.jars.repositories=https://mmlspark.blob.core.windows.net/maven
+  spark.jars.packages=com.microsoft.azure:synapseml-deep-learning_2.13:1.1.3-spark4.1,com.microsoft.onnxruntime:onnxruntime_gpu:1.17.3
   spark.jars.excludes=com.microsoft.onnxruntime:onnxruntime
   ```
 
@@ -102,7 +131,8 @@ exclusion is missing or attached to the wrong dependency.
   [
     {
       "maven": {
-        "coordinates": "com.microsoft.azure:synapseml-deep-learning_2.12:<version>",
+        "coordinates": "com.microsoft.azure:synapseml-deep-learning_2.13:1.1.3-spark4.1",
+        "repo": "https://mmlspark.blob.core.windows.net/maven",
         "exclusions": ["com.microsoft.onnxruntime:onnxruntime"]
       }
     },
