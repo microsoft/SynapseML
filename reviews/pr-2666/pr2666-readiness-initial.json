@@ -1,0 +1,108 @@
+[
+  {
+    "number": 2666,
+    "title": "ci: recover unusable sbt cache entries and attribute fetch failures",
+    "url": "https://github.com/microsoft/SynapseML/pull/2666",
+    "state": "OPEN",
+    "draft": false,
+    "mergeable": "MERGEABLE",
+    "mergeState": "BLOCKED",
+    "reviewDecision": "",
+    "base": "master",
+    "headSha": "a43299f09f1da18d5fa70a2e204dd9c6d23fbb31",
+    "targetStatus": "diverged",
+    "aheadBy": 4,
+    "behindBy": 2,
+    "failedChecks": [
+      "microsoft.SynapseML (SynapseML-Internal Compatibility Check python)"
+    ],
+    "pendingChecks": [],
+    "missingRequiredChecks": [],
+    "unresolvedThreads": [
+      {
+        "id": "PRRT_kwDOBZDk886aWqDR",
+        "isResolved": false,
+        "isOutdated": false,
+        "path": "tools/ci/sbt_retry.sh",
+        "line": 133,
+        "comments": {
+          "pageInfo": {
+            "hasNextPage": false
+          },
+          "nodes": [
+            {
+              "author": {
+                "login": "copilot-pull-request-reviewer"
+              },
+              "body": "Coursier eviction and the diagnostic probe are hard-coded to the repo1.maven.org cache URL/path, but this PR also introduces a Maven Central fallback resolver at repo.maven.apache.org in build.sbt. If sbt/coursier fetches via the fallback, the cache entry path would be under repo.maven.apache.org, and the current eviction/probe would miss it—potentially preserving a poisoned entry across retries and obscuring the real remote status. Consider probing (and evicting) both hostnames, or deriving the host(s) from the configured resolvers.\n\nThis issue also appears on line 239 of the same file.",
+              "url": "https://github.com/microsoft/SynapseML/pull/2666#discussion_r3810257135"
+            }
+          ]
+        }
+      },
+      {
+        "id": "PRRT_kwDOBZDk886aWqDl",
+        "isResolved": false,
+        "isOutdated": false,
+        "path": "tools/ci/tests/test_pipeline_yaml.py",
+        "line": 122,
+        "comments": {
+          "pageInfo": {
+            "hasNextPage": false
+          },
+          "nodes": [
+            {
+              "author": {
+                "login": "copilot-pull-request-reviewer"
+              },
+              "body": "This test asserts an exact, whitespace-sensitive string in build.sbt. Any harmless reformatting (line wrapping, spacing, or using resolvers ++= Seq(...)) would fail CI even if the resolver is still present. Consider switching to a regex/subsequence check (e.g., match the resolver name and URL independently) so the test enforces intent rather than formatting.",
+              "url": "https://github.com/microsoft/SynapseML/pull/2666#discussion_r3810257166"
+            }
+          ]
+        }
+      }
+    ],
+    "suppressedReviewBodies": [
+      {
+        "author": "copilot-pull-request-reviewer",
+        "submittedAt": "2026-08-18T19:24:52Z",
+        "commit": "9ddcd12f936bf6ef26eef51c4e4a7b18bb87433f",
+        "body": "## Pull request overview\n\nThis PR hardens CI’s `tools/ci/sbt_retry.sh` wrapper against a second failure mode where Azure cache restores leave incomplete Ivy/Coursier entries on a single agent, causing deterministic “unresolved dependency … not found” failures that retries alone cannot fix. It adds targeted cache eviction for the specific unresolved coordinates found in the sbt output, plus expands deterministic test coverage around output visibility, exit-code propagation, and eviction behavior.\n\n**Changes:**\n- Parse “unresolved dependency: <org>#<name>;<rev>” coordinates from failed sbt output and evict matching Ivy + Coursier cache entries before retrying.\n- Stream sbt output via `tee` while preserving sbt’s exit status through the pipeline.\n- Add new pytest coverage for eviction scoping, absent-cache tolerance, output visibility, and state-dependent retry causality.\n\n<details open>\n<summary>Show a summary per file</summary>\n\n| File | Description |\r\n| ---- | ----------- |\r\n| tools/ci/sbt_retry.sh | Adds unresolved-dependency parsing and targeted Ivy/Coursier cache eviction between retry attempts; adjusts logging/exit-code handling to keep sbt output visible. |\r\n| tools/ci/tests/test_sbt_retry.py | Adds deterministic tests covering the new tee/PIPESTATUS behavior and the new eviction/self-heal retry path (including controls). |\r\n| tools/ci/README.md | Documents the partially-restored-cache failure mode and the new eviction-based mitigation in `sbt_retry.sh`. |\n</details>\n\n## Review details\n\n💡 Configure MCP servers for context-aware, tailored reviews. <a href=\"https://docs.github.com/en/copilot/how-tos/use-copilot-agents/request-a-code-review/use-code-review#mcp-servers-and-agent-skills\" class=\"Link--inTextBlock\" target=\"_blank\" rel=\"noopener noreferrer\">Learn more in the docs.</a>\n\n\n\n\n<details>\n<summary>Suppressed comments (2)</summary>\n\n**tools/ci/sbt_retry.sh:135**\n* evict_unresolved_modules() only checks that org and name are non-empty, but it does not require rev to be non-empty. Because the sed pattern allows an empty rev (e.g., if a malformed coordinate yields `name;: ...`), the Coursier eviction target becomes the version directory’s parent and could delete all cached versions for that module. Please also validate rev is non-empty before evicting, or skip the Coursier path when rev is empty.\n```\n  while read -r org name rev; do\n    [ -n \"$org\" ] && [ -n \"$name\" ] || continue\n    # Defensive: coordinates are path components, never traversals.\n    case \"$org$name$rev\" in\n      */*|*\\\\*|*..*) continue ;;\n    esac\n    org_path=\"$(printf '%s' \"$org\" | tr '.' '/')\"\n    for target in \\\n      \"$IVY_HOME/cache/$org/$name\" \\\n      \"$IVY_HOME/local/$org/$name\" \\\n      \"$COURSIER_CACHE/v1/https/repo1.maven.org/maven2/$org_path/$name/$rev\"; do\n```\n**tools/ci/sbt_retry.sh:139**\n* The eviction uses `rm -rf \"$target\"` without `--`. If an environment override ever yields a target path that starts with `-` (e.g., a misconfigured IVY_HOME/COURSIER_CACHE), rm can interpret it as an option. Using `rm -rf -- \"$target\"` avoids option injection and is safer for a script that accepts path overrides.\n```\n        echo \"sbt_retry: evicting incomplete cache entry: $target\"\n        rm -rf \"$target\"\n        evicted=1\n```\n</details>\n\n\n- **Files reviewed:** 3/3 changed files\n- **Comments generated:** 1\n- **Review effort level:** Lite\n\n\n"
+      },
+      {
+        "author": "copilot-pull-request-reviewer",
+        "submittedAt": "2026-08-18T21:38:34Z",
+        "commit": "aaf8d8fd08e58233ddd894e10c4cd8eeeaafb589",
+        "body": "## Review details\n\n\n\n\n<details>\n<summary>Suppressed comments (2)</summary>\n\n**Previously missed (2)** — in code that hasn't changed since the last review.\n\n**tools/ci/sbt_retry.sh:163**\n* `rm -rf \"$target\"` is operating on a path derived from environment variables (IVY_HOME / COURSIER_CACHE). If `$target` ever begins with `-`, `rm` will treat it as an option. Prefer `rm -rf -- \"$target\"` to avoid option-injection edge cases (and consider similarly guarding `find`/`ls` invocations if you want to be consistent).\n```\n        echo \"sbt_retry: evicting incomplete cache entry: $target\"\n        find \"$target\" -maxdepth 2 -printf '  %10s  %p\\n' 2>/dev/null | head -n 20 ||\n          ls -la \"$target\" 2>/dev/null | head -n 20\n        rm -rf \"$target\"\n        evicted=1\n```\n**tools/ci/sbt_retry.sh:182**\n* `attempt_log=\"$(mktemp)\"` is GNU-specific; on macOS/BSD `mktemp` generally requires a template (and will exit non-zero without one). If this script is expected to be runnable outside Linux CI, use a portable form like `mktemp -t sbt_retry.XXXXXX` or `mktemp \"${TMPDIR:-/tmp}/sbt_retry.XXXXXX\"`.\n```\nattempt_log=\"$(mktemp)\"\ntrap 'rm -f \"$attempt_log\"' EXIT\n```\n</details>\n\n\n- **Files reviewed:** 3/3 changed files\n- **Comments generated:** 0 new\n- **Review effort level:** Lite\n\n"
+      },
+      {
+        "author": "copilot-pull-request-reviewer",
+        "submittedAt": "2026-08-19T05:20:42Z",
+        "commit": "a43299f09f1da18d5fa70a2e204dd9c6d23fbb31",
+        "body": "## Review details\n\n\n\n\n<details>\n<summary>Suppressed comments (1)</summary>\n\n**tools/ci/sbt_retry.sh:245**\n* Coursier eviction currently targets only \"$COURSIER_CACHE/.../repo1.maven.org/maven2/...\". Since build.sbt now adds a Maven Central fallback resolver at repo.maven.apache.org, failed fetches (or partial restores) could live under a different host segment in the Coursier cache and would not be removed here. Consider evicting both repo1.maven.org and repo.maven.apache.org entries for the same coordinate/revision to ensure retries actually start cleanly.\n```\n    if [ \"$coursier_safe\" -eq 1 ]; then\n      target=\"$COURSIER_CACHE/v1/https/repo1.maven.org/maven2/$org_path/$name/$rev\"\n      if evict_cache_entry \"$target\"; then\n        evicted=1\n      fi\n    fi\n    probe_central_once \"$org\" \"$org_path\" \"$name\" \"$rev\"\n```\n</details>\n\n\n- **Files reviewed:** 4/5 changed files\n- **Comments generated:** 2\n- **Review effort level:** Lite\n\n"
+      }
+    ],
+    "suppressedReviewBodiesForHead": [
+      {
+        "author": "copilot-pull-request-reviewer",
+        "submittedAt": "2026-08-19T05:20:42Z",
+        "commit": "a43299f09f1da18d5fa70a2e204dd9c6d23fbb31",
+        "body": "## Review details\n\n\n\n\n<details>\n<summary>Suppressed comments (1)</summary>\n\n**tools/ci/sbt_retry.sh:245**\n* Coursier eviction currently targets only \"$COURSIER_CACHE/.../repo1.maven.org/maven2/...\". Since build.sbt now adds a Maven Central fallback resolver at repo.maven.apache.org, failed fetches (or partial restores) could live under a different host segment in the Coursier cache and would not be removed here. Consider evicting both repo1.maven.org and repo.maven.apache.org entries for the same coordinate/revision to ensure retries actually start cleanly.\n```\n    if [ \"$coursier_safe\" -eq 1 ]; then\n      target=\"$COURSIER_CACHE/v1/https/repo1.maven.org/maven2/$org_path/$name/$rev\"\n      if evict_cache_entry \"$target\"; then\n        evicted=1\n      fi\n    fi\n    probe_central_once \"$org\" \"$org_path\" \"$name\" \"$rev\"\n```\n</details>\n\n\n- **Files reviewed:** 4/5 changed files\n- **Comments generated:** 2\n- **Review effort level:** Lite\n\n"
+      }
+    ],
+    "completeness": {
+      "reviewThreadPages": 1,
+      "reviewThreadCount": 3,
+      "reviewPages": 1,
+      "reviewCount": 5,
+      "threadsWithUnreadComments": [],
+      "latestAutomatedReviewCommit": "a43299f09f1da18d5fa70a2e204dd9c6d23fbb31",
+      "latestAutomatedReviewAt": "2026-08-19T05:20:42Z",
+      "latestAutomatedReviewAuthor": "copilot-pull-request-reviewer",
+      "automatedReviewCoversHead": true,
+      "automatedReviewRequested": false,
+      "pipelineRunRequested": false,
+      "complete": false
+    }
+  }
+]

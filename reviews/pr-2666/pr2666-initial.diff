@@ -1,0 +1,727 @@
+diff --git a/build.sbt b/build.sbt
+index 9d2330a629..c9916f5197 100644
+--- a/build.sbt
++++ b/build.sbt
+@@ -309,6 +309,9 @@ val settings = Seq(
+   coverageOutputCobertura := true
+ )
+ ThisBuild / publishMavenStyle := true
++// repo1.maven.org intermittently rate-limits hosted CI agents. Keep Maven
++// Central's canonical endpoint as the next Ivy resolver for the same artifacts.
++ThisBuild / resolvers += "Maven Central fallback" at "https://repo.maven.apache.org/maven2"
+
+ lazy val core = (project in file("core"))
+   .enablePlugins(BuildInfoPlugin)
+diff --git a/tools/ci/README.md b/tools/ci/README.md
+index 64bdd19c0f..2eccb132f0 100644
+--- a/tools/ci/README.md
++++ b/tools/ci/README.md
+@@ -9,7 +9,7 @@ Maven Central. When many fresh agents — and several overlapping PR builds —
+ this simultaneously, Maven Central returns **HTTP 429 (rate limit)** and the
+ `Setup repo` step fails before any test runs (e.g. ADO build 229124511).
+
+-The durable fix has three layers:
++The durable fix has four layers:
+
+ 1. **`templates/sbt_cache.yml`** (primary) — Azure `Cache@2` for the sbt launcher
+    boot directory (`~/.sbt/boot`), Ivy cache (`~/.ivy2/cache`), and Coursier
+@@ -23,13 +23,42 @@ The durable fix has three layers:
+    depends on this gate, so a new cache key is populated before the fan-out
+    starts instead of racing it. A failed prewarm remains visible and prevents a
+    cold-cache stampede.
+-3. **`sbt_retry.sh`** (supplement) — smooths the *cold-cache* path only. It adds a
++3. **Canonical Maven Central fallback** — `build.sbt` keeps
++   `https://repo.maven.apache.org/maven2` after sbt's default
++   `https://repo1.maven.org/maven2` resolver. Ivy therefore continues to the
++   same official repository through its canonical hostname when `repo1` returns
++   HTTP 429. A synthetic Ivy test with a resolver that returned only HTTP 429
++   confirmed that the fallback downloaded every dependency successfully.
++4. **`sbt_retry.sh`** (supplement) — smooths the *cold-cache* path only. It adds a
+    bounded random start stagger so concurrent cold jobs don't hit Maven at the
+    same instant, then bounded jittered exponential-backoff retries. On exhaustion
+    it fails visibly (non-zero exit); it never masks a failure with a success
+    fallback. Exact hits on all three caches disable the start stagger
+    automatically.
+
++### Unusable restored caches
++
++A restored cache can be **unusable on a single agent**: the module directory
++under `~/.ivy2/cache` exists, but Ivy still reports the dependency as unresolved.
++Retrying the identical command preserves that local state and can fail
++identically.
++
++Observed in ADO build 231667649: `UnitTests language` failed ten consecutive
++times in 12–17s each on `com.globalmentor#hadoop-bare-naked-local-fs`, while the
++other **39 of 40** shards in that same build resolved that module offline from
++the byte-identical cache key. This isolates the exposure to one agent's restored
++state, but does not by itself distinguish a later HTTP 404/429, TLS, or DNS
++failure; the diagnostic probe exists to make that distinction.
++
++`sbt_retry.sh` therefore parses `unresolved dependency: <org>#<name>;<rev>` out
++of each failed attempt and deletes exactly those modules from `~/.ivy2/cache`,
++`~/.ivy2/local`, and the Coursier cache before backing off, so the next attempt
++re-fetches them cleanly. Unrelated failures evict nothing. Override
++`SBT_SETUP_IVY_HOME` / `SBT_SETUP_COURSIER_CACHE` with absolute, non-root paths
++to relocate the scan. Eviction is disabled if `HOME` is unavailable and no safe
++override is provided. Maven Central is probed at most once per unresolved
++coordinate per wrapper invocation, so diagnostics do not amplify an outage.
++
+ ### Tests
+
+ ```bash
+@@ -37,7 +66,10 @@ python -m pytest tools/ci/tests/ -v
+ ```
+
+ `test_sbt_retry.py` drives the wrapper with a fake `sbt` (deterministic, no real
+-sleeps) to verify retry/backoff/stagger and visible-failure behaviour.
++sleeps) to verify retry/backoff/stagger, visible-failure behaviour, and that a
++resolution failure evicts exactly the named modules before retrying — including
++a control asserting that the same state exhausts every attempt when eviction
++cannot reach it.
+ `test_pipeline_yaml.py` verifies `pipeline.yaml` parses and that every
+ sbt-running job is wired to the shared cache template + prewarm job.
+
+diff --git a/tools/ci/sbt_retry.sh b/tools/ci/sbt_retry.sh
+index 8771f82063..613cc18fd7 100755
+--- a/tools/ci/sbt_retry.sh
++++ b/tools/ci/sbt_retry.sh
+@@ -17,6 +17,8 @@
+ # the BuildAndCacheSbt prewarm job, mean steady-state builds restore the sbt
+ # launcher and resolved dependencies from Azure's cache service and never touch
+ # Maven Central. That eliminates the herd for the vast majority of builds.
++# build.sbt also adds Maven Central's canonical repo.maven.apache.org endpoint
++# after the default repo1 hostname, so Ivy can fall through a host-specific 429.
+ #
+ # Role of this script (supplement)
+ # --------------------------------
+@@ -27,6 +29,17 @@
+ # backoff retries. On exhaustion it fails visibly with a non-zero exit code; it
+ # never masks a failure with a success fallback.
+ #
++# Second failure mode: partially restored caches
++# ----------------------------------------------
++# A restored Azure cache can be unusable on a single agent: a module directory
++# under ~/.ivy2/cache exists, but Ivy still reports the dependency as unresolved.
++# Plain retries preserve that on-disk state and can fail identically within
++# seconds. Observed on one shard as ten consecutive 12-17s failures on
++# com.globalmentor#hadoop-bare-naked-local-fs while the other 39 shards of the
++# same build resolved that module from the byte-identical cache key offline.
++# Retrying cannot change on-disk state, so before each retry this script evicts
++# the modules named in "unresolved dependency" errors, allowing a clean re-fetch.
++#
+ # Usage
+ # -----
+ #   bash tools/ci/sbt_retry.sh <sbt-args...>
+@@ -43,6 +56,13 @@
+ #   SBT_SETUP_MAX_BACKOFF_SECONDS   backoff cap               (default 120)
+ #   SBT_SETUP_SBT_CMD               sbt executable            (default sbt)
+ #   SBT_SETUP_SLEEP_CMD             sleep command             (default sleep)
++#   SBT_SETUP_CURL_CMD              curl used by the Maven    (default curl)
++#                                   Central diagnostic probe
++#   SBT_SETUP_IVY_HOME              absolute ivy home scanned (default ~/.ivy2;
++#                                   disabled when HOME is unavailable)
++#   SBT_SETUP_COURSIER_CACHE        absolute coursier cache   (default
++#                                   scanned                   ~/.cache/coursier;
++#                                   disabled when HOME is unavailable)
+ #   SBT_SETUP_RANDOM                fixed RNG value for tests (default $RANDOM)
+ #
+ set -uo pipefail
+@@ -54,6 +74,16 @@ BASE_BACKOFF="${SBT_SETUP_BASE_BACKOFF_SECONDS:-20}"
+ MAX_BACKOFF="${SBT_SETUP_MAX_BACKOFF_SECONDS:-120}"
+ SBT_CMD="${SBT_SETUP_SBT_CMD:-sbt}"
+ SLEEP_CMD="${SBT_SETUP_SLEEP_CMD:-sleep}"
++CURL_CMD="${SBT_SETUP_CURL_CMD:-curl}"
++IVY_HOME="${SBT_SETUP_IVY_HOME:-}"
++COURSIER_CACHE="${SBT_SETUP_COURSIER_CACHE:-}"
++if [ -z "$IVY_HOME" ] && [ -n "${HOME:-}" ]; then
++  IVY_HOME="$HOME/.ivy2"
++fi
++if [ -z "$COURSIER_CACHE" ] && [ -n "${HOME:-}" ]; then
++  COURSIER_CACHE="$HOME/.cache/coursier"
++fi
++PROBED_COORDS=""
+
+ if [ "$#" -eq 0 ]; then
+   echo "sbt_retry.sh: no sbt arguments provided" >&2
+@@ -84,6 +114,140 @@ run_sbt() {
+   fi
+ }
+
++# Report what Maven Central actually returns for a module sbt could not resolve.
++#
++# Ivy collapses every remote outcome - 404, 429, TLS failure, DNS failure - into
++# the same "not found" message, so a failed resolution alone cannot distinguish
++# an absent artifact from a throttled or unreachable agent. A resolution failure
++# is also typically the job's only network request, leaving nothing to compare
++# against. This probe records the HTTP status so the next occurrence is
++# diagnosable from the log instead of inferred. It never affects the exit status.
++probe_central() {
++  local org_path="$1" name="$2" rev="$3"
++  local url="https://repo1.maven.org/maven2/${org_path}/${name}/${rev}/${name}-${rev}.pom"
++  command -v "$CURL_CMD" >/dev/null 2>&1 || return 0
++  local code
++  code="$("$CURL_CMD" -sS -o /dev/null -w '%{http_code}' --max-time 30 "$url" 2>&1)" ||
++    code="request-failed(${code})"
++  echo "sbt_retry: Maven Central probe: HTTP ${code} for ${url}"
++}
++
++probe_central_once() {
++  local org="$1" org_path="$2" name="$3" rev="$4"
++  local coord="${org}#${name};${rev}"
++  case $'\n'"$PROBED_COORDS"$'\n' in
++    *$'\n'"$coord"$'\n'*) return 0 ;;
++  esac
++  if [ -n "$PROBED_COORDS" ]; then
++    PROBED_COORDS="${PROBED_COORDS}"$'\n'"${coord}"
++  else
++    PROBED_COORDS="$coord"
++  fi
++  probe_central "$org_path" "$name" "$rev"
++}
++
++cache_root_is_safe() {
++  local root="$1"
++  [ -n "$root" ] || return 1
++  case "$root" in
++    /*) ;;
++    *) return 1 ;;
++  esac
++  # Reject filesystem roots and lexical traversal segments.
++  [ -n "${root//\//}" ] || return 1
++  case "/${root#/}/" in
++    */../*|*/./*) return 1 ;;
++  esac
++}
++
++coordinate_component_is_safe() {
++  local component="$1"
++  [ -n "$component" ] || return 1
++  case "$component" in
++    "."|".."|*..*|*[!A-Za-z0-9._+~-]*) return 1 ;;
++  esac
++}
++
++evict_cache_entry() {
++  local target="$1"
++  if [ -e "$target" ] || [ -L "$target" ]; then
++    # The entry listing distinguishes a poisoned marker from a missing artifact.
++    echo "sbt_retry: evicting cache entry for unresolved module: $target"
++    find "$target" -maxdepth 2 -printf '  %10s  %p\n' 2>/dev/null | head -n 20 ||
++      ls -la "$target" 2>/dev/null | head -n 20
++    if rm -rf -- "$target"; then
++      return 0
++    fi
++    echo "sbt_retry: failed to evict cache entry: $target" >&2
++  fi
++  return 1
++}
++
++# Evict every module named in an "unresolved dependency" error from the local
++# Ivy and Coursier caches so the next attempt re-fetches it from scratch.
++#
++# This targets the unusable-cache-state failure mode described above: removing
++# the local entry lets the next attempt rebuild it instead of preserving the
++# same state. Only the named coordinates are removed, so an unrelated failure
++# evicts nothing and the retry behaviour is unchanged. Returns 0 when something
++# was evicted.
++evict_unresolved_modules() {
++  local log_file="$1"
++  local evicted=0
++  local coords org name rev org_path target
++  local ivy_safe=0 coursier_safe=0
++
++  [ -s "$log_file" ] || return 1
++  coords="$(
++    sed -n 's/.*unresolved dependency: \([^ #]*\)#\([^ ;]*\);\([^ :]*\).*/\1 \2 \3/p' \
++      "$log_file" | sort -u
++  )"
++  [ -n "$coords" ] || return 1
++
++  if cache_root_is_safe "$IVY_HOME"; then
++    ivy_safe=1
++  elif [ -z "$IVY_HOME" ]; then
++    echo "sbt_retry: Ivy eviction disabled: HOME is unset and no absolute override was provided"
++  else
++    echo "sbt_retry: skipping unsafe Ivy cache root: $IVY_HOME" >&2
++  fi
++  if cache_root_is_safe "$COURSIER_CACHE"; then
++    coursier_safe=1
++  elif [ -z "$COURSIER_CACHE" ]; then
++    echo "sbt_retry: Coursier eviction disabled: HOME is unset and no absolute override was provided"
++  else
++    echo "sbt_retry: skipping unsafe Coursier cache root: $COURSIER_CACHE" >&2
++  fi
++
++  while read -r org name rev; do
++    if ! coordinate_component_is_safe "$org" ||
++      ! coordinate_component_is_safe "$name" ||
++      ! coordinate_component_is_safe "$rev"; then
++      echo "sbt_retry: skipping unsafe unresolved coordinate: ${org}#${name};${rev}" >&2
++      continue
++    fi
++    org_path="$(printf '%s' "$org" | tr '.' '/')"
++    if [ "$ivy_safe" -eq 1 ]; then
++      for target in \
++        "$IVY_HOME/cache/$org/$name" \
++        "$IVY_HOME/local/$org/$name"; do
++        if evict_cache_entry "$target"; then
++          evicted=1
++        fi
++      done
++    fi
++    if [ "$coursier_safe" -eq 1 ]; then
++      target="$COURSIER_CACHE/v1/https/repo1.maven.org/maven2/$org_path/$name/$rev"
++      if evict_cache_entry "$target"; then
++        evicted=1
++      fi
++    fi
++    probe_central_once "$org" "$org_path" "$name" "$rev"
++  done <<< "$coords"
++
++  [ "$evicted" -eq 1 ]
++}
++
+ # Bounded random start stagger to desynchronise concurrent cold bootstraps.
+ if [ "$MAX_STAGGER" -gt 0 ]; then
+   stagger="$(rand_below "$((MAX_STAGGER + 1))")"
+@@ -93,14 +257,22 @@ if [ "$MAX_STAGGER" -gt 0 ]; then
+   fi
+ fi
+
++attempt_log="$(mktemp "${TMPDIR:-/tmp}/sbt_retry.XXXXXX")" || {
++  echo "sbt_retry.sh: unable to create attempt log" >&2
++  exit 2
++}
++trap 'rm -f -- "$attempt_log"' EXIT
++
+ attempt=1
+ while : ; do
+   echo "sbt_retry: attempt ${attempt}/${MAX_ATTEMPTS}: ${SBT_CMD} $*"
+   # Capture sbt's exit status directly: an `if run_sbt; then ...; fi` compound
+   # returns 0 when the condition fails and no else branch runs, which would mask
+-  # the real failure code.
+-  run_sbt "$@"
+-  status=$?
++  # the real failure code. tee keeps the output streaming to the CI log while
++  # retaining a copy to scan for unresolved-dependency coordinates, so
++  # PIPESTATUS[0] - not $? - carries sbt's status.
++  run_sbt "$@" 2>&1 | tee "$attempt_log"
++  status="${PIPESTATUS[0]}"
+   if [ "$status" -eq 0 ]; then
+     echo "sbt_retry: succeeded on attempt ${attempt}"
+     exit 0
+@@ -109,6 +281,12 @@ while : ; do
+     echo "sbt_retry: exhausted ${MAX_ATTEMPTS} attempts; failing (last exit ${status})" >&2
+     exit "$status"
+   fi
++  # A resolution failure is usually an incomplete cache entry rather than a
++  # transient network fault; evicting it is what makes the next attempt able to
++  # succeed at all.
++  if evict_unresolved_modules "$attempt_log"; then
++    echo "sbt_retry: evicted unresolved modules; attempt $((attempt + 1)) will re-fetch them"
++  fi
+   # Exponential backoff (base * 2^(attempt-1)) capped, plus bounded jitter.
+   backoff=$(( BASE_BACKOFF * (1 << (attempt - 1)) ))
+   if [ "$backoff" -gt "$MAX_BACKOFF" ]; then
+diff --git a/tools/ci/tests/test_pipeline_yaml.py b/tools/ci/tests/test_pipeline_yaml.py
+index e14659fd63..24cdb8c9c2 100644
+--- a/tools/ci/tests/test_pipeline_yaml.py
++++ b/tools/ci/tests/test_pipeline_yaml.py
+@@ -17,6 +17,7 @@ import pytest
+ import yaml
+
+ REPO_ROOT = Path(__file__).resolve().parents[3]
++BUILD_SBT = REPO_ROOT / "build.sbt"
+ PIPELINE = REPO_ROOT / "pipeline.yaml"
+ SBT_CACHE_TPL = REPO_ROOT / "templates" / "sbt_cache.yml"
+ SBT_RETRY = REPO_ROOT / "tools" / "ci" / "sbt_retry.sh"
+@@ -113,6 +114,14 @@ def test_pipeline_and_templates_parse():
+         assert yaml.safe_load(tpl.read_text()) is not None, f"{tpl} failed to parse"
+
+
++def test_build_has_canonical_maven_central_fallback():
++    setting = (
++        'ThisBuild / resolvers += "Maven Central fallback" at '
++        '"https://repo.maven.apache.org/maven2"'
++    )
++    assert BUILD_SBT.read_text().count(setting) == 1
++
++
+ def test_sbt_cache_template_exists_and_parses():
+     assert SBT_CACHE_TPL.exists()
+     data = yaml.safe_load(SBT_CACHE_TPL.read_text())
+diff --git a/tools/ci/tests/test_sbt_retry.py b/tools/ci/tests/test_sbt_retry.py
+index 80d456353e..70ba8b4be2 100644
+--- a/tools/ci/tests/test_sbt_retry.py
++++ b/tools/ci/tests/test_sbt_retry.py
+@@ -45,6 +45,35 @@ exit 0
+     return fake
+
+
++def _fake_sbt_unresolved(
++    tmp_path: Path,
++    fail_count: int,
++    coordinate: str = "com.globalmentor#hadoop-bare-naked-local-fs;0.1.0",
++    error_prefix: str = "",
++) -> Path:
++    """A fake ``sbt`` whose first ``fail_count`` calls emit an Ivy resolve error."""
++    calls = tmp_path / "sbt_calls"
++    fake = tmp_path / "fake_sbt_unresolved.sh"
++    _write_exec(
++        fake,
++        f"""#!/usr/bin/env bash
++n=0
++if [ -f "{calls}" ]; then n=$(cat "{calls}"); fi
++n=$((n + 1))
++echo "$n" > "{calls}"
++if [ "$n" -le "{fail_count}" ]; then
++  echo "[warn] 	module not found: {coordinate}"
++  echo "[error] {error_prefix}sbt.librarymanagement.ResolveException: unresolved dependency:\
++ {coordinate}: not found" >&2
++  exit 1
++fi
++echo "fake sbt: success on call #$n"
++exit 0
++""",
++    )
++    return fake
++
++
+ def _fake_sleep(tmp_path: Path) -> Path:
+     """A fake ``sleep`` that records each requested duration instead of waiting."""
+     log = tmp_path / "sleep_log"
+@@ -59,9 +88,29 @@ exit 0
+     return fake
+
+
++def _fake_curl(tmp_path: Path, http_code: str = "200") -> Path:
++    """A fake ``curl`` that records requested URLs and returns a fixed status."""
++    log = tmp_path / "curl_log"
++    fake = tmp_path / f"fake_curl_{http_code}.sh"
++    _write_exec(
++        fake,
++        f"""#!/usr/bin/env bash
++for a in "$@"; do
++  case "$a" in
++    https://*) echo "$a" >> "{log}" ;;
++  esac
++done
++printf '%s' "{http_code}"
++exit 0
++""",
++    )
++    return fake
++
++
+ def _run(tmp_path, *args, env_overrides=None, sbt_cmd=None, sleep_cmd=None):
+     env = dict(os.environ)
+-    # Deterministic + fast defaults: no real stagger/backoff, no timeout binary.
++    # Deterministic + fast defaults: no real stagger/backoff, no timeout binary,
++    # and no real network probe.
+     env.update(
+         {
+             "SBT_SETUP_MAX_STAGGER_SECONDS": "0",
+@@ -69,6 +118,7 @@ def _run(tmp_path, *args, env_overrides=None, sbt_cmd=None, sleep_cmd=None):
+             "SBT_SETUP_TIMEOUT": "",
+             "SBT_SETUP_RANDOM": "0",
+             "SBT_SETUP_MAX_ATTEMPTS": "5",
++            "SBT_SETUP_CURL_CMD": str(_fake_curl(tmp_path)),
+         }
+     )
+     if sbt_cmd:
+@@ -193,3 +243,295 @@ def test_stagger_uses_sleep_when_enabled(tmp_path):
+     # rand_below(31) with RANDOM=7 -> 7 % 31 = 7
+     delays = (tmp_path / "sleep_log").read_text().split()
+     assert delays == ["7"], delays
++
++
++def _ivy_layout(tmp_path):
++    """Build an Ivy/Coursier cache holding one incomplete module plus a neighbour."""
++    ivy = tmp_path / "ivy2"
++    coursier = tmp_path / "coursier"
++    incomplete = ivy / "cache" / "com.globalmentor" / "hadoop-bare-naked-local-fs"
++    incomplete.mkdir(parents=True)
++    (incomplete / "ivydata-0.1.0.properties").write_text("partially restored")
++    coursier_entry = (
++        coursier
++        / "v1"
++        / "https"
++        / "repo1.maven.org"
++        / "maven2"
++        / "com"
++        / "globalmentor"
++        / "hadoop-bare-naked-local-fs"
++        / "0.1.0"
++    )
++    coursier_entry.mkdir(parents=True)
++    neighbour = ivy / "cache" / "org.apache.spark" / "spark-core"
++    neighbour.mkdir(parents=True)
++    env = {
++        "SBT_SETUP_IVY_HOME": str(ivy),
++        "SBT_SETUP_COURSIER_CACHE": str(coursier),
++    }
++    return env, incomplete, coursier_entry, neighbour
++
++
++def test_sbt_output_stays_visible(tmp_path):
++    """tee must not swallow sbt output (it is the only CI diagnostic)."""
++    sbt = _fake_sbt(tmp_path, fail_count=0)
++    r = _run(tmp_path, "setup", sbt_cmd=sbt)
++    assert r.returncode == 0, r.stderr
++    assert "fake sbt: success on call #1" in r.stdout
++
++
++def test_exit_code_survives_the_tee_pipeline(tmp_path):
++    """PIPESTATUS[0], not tee's status, must decide success."""
++    sbt = _fake_sbt(tmp_path, fail_count=99)
++    r = _run(
++        tmp_path, "setup", sbt_cmd=sbt, env_overrides={"SBT_SETUP_MAX_ATTEMPTS": "1"}
++    )
++    assert r.returncode == 1, (r.returncode, r.stdout, r.stderr)
++
++
++def test_evicts_incomplete_module_then_succeeds(tmp_path):
++    env, incomplete, coursier_entry, neighbour = _ivy_layout(tmp_path)
++    sbt = _fake_sbt_unresolved(tmp_path, fail_count=1)
++    r = _run(tmp_path, "setup", sbt_cmd=sbt, env_overrides=env)
++    assert r.returncode == 0, r.stdout + r.stderr
++    assert not incomplete.exists(), "incomplete Ivy module must be evicted"
++    assert not coursier_entry.exists(), "matching Coursier entry must be evicted"
++    assert neighbour.exists(), "unrelated modules must be left alone"
++    assert "evicting cache entry for unresolved module" in (r.stdout + r.stderr)
++
++
++def test_no_eviction_when_failure_is_not_a_resolution_error(tmp_path):
++    env, incomplete, coursier_entry, neighbour = _ivy_layout(tmp_path)
++    sbt = _fake_sbt(tmp_path, fail_count=1)  # generic failure, no resolve error
++    r = _run(tmp_path, "setup", sbt_cmd=sbt, env_overrides=env)
++    assert r.returncode == 0, r.stdout + r.stderr
++    assert incomplete.exists(), "unrelated failures must not evict caches"
++    assert coursier_entry.exists()
++    assert neighbour.exists()
++    assert "evicting cache entry for unresolved module" not in (r.stdout + r.stderr)
++
++
++def test_eviction_is_tolerant_of_absent_cache_dirs(tmp_path):
++    """A resolve error with nothing cached locally must still retry cleanly."""
++    sbt = _fake_sbt_unresolved(tmp_path, fail_count=1)
++    r = _run(
++        tmp_path,
++        "setup",
++        sbt_cmd=sbt,
++        env_overrides={
++            "SBT_SETUP_IVY_HOME": str(tmp_path / "missing-ivy"),
++            "SBT_SETUP_COURSIER_CACHE": str(tmp_path / "missing-coursier"),
++        },
++    )
++    assert r.returncode == 0, r.stdout + r.stderr
++    assert (tmp_path / "sbt_calls").read_text().strip() == "2"
++
++
++def test_home_unset_disables_default_cache_eviction(tmp_path):
++    """Missing HOME must never turn the defaults into root-level cache paths."""
++    sbt = _fake_sbt_unresolved(tmp_path, fail_count=1)
++    r = _run(
++        tmp_path,
++        "setup",
++        sbt_cmd=sbt,
++        env_overrides={
++            "HOME": "",
++            "SBT_SETUP_IVY_HOME": "",
++            "SBT_SETUP_COURSIER_CACHE": "",
++        },
++    )
++    assert r.returncode == 0, r.stdout + r.stderr
++    out = r.stdout + r.stderr
++    assert "Ivy eviction disabled: HOME is unset" in out
++    assert "Coursier eviction disabled: HOME is unset" in out
++    assert "evicting cache entry for unresolved module: /.ivy2" not in out
++    assert "evicting cache entry for unresolved module: /.cache" not in out
++
++
++def test_unsafe_cache_roots_are_skipped(tmp_path):
++    """Cache roots must be absolute, non-root paths without traversal segments."""
++    sbt = _fake_sbt_unresolved(tmp_path, fail_count=1)
++    r = _run(
++        tmp_path,
++        "setup",
++        sbt_cmd=sbt,
++        env_overrides={
++            "SBT_SETUP_IVY_HOME": "/",
++            "SBT_SETUP_COURSIER_CACHE": str(tmp_path / "cache" / ".." / "coursier"),
++        },
++    )
++    assert r.returncode == 0, r.stdout + r.stderr
++    out = r.stdout + r.stderr
++    assert "skipping unsafe Ivy cache root: /" in out
++    assert "skipping unsafe Coursier cache root:" in out
++
++
++def test_missing_revision_never_evicts_a_module(tmp_path):
++    """Malformed coordinates cannot broaden Coursier eviction to all versions."""
++    env, incomplete, coursier_entry, neighbour = _ivy_layout(tmp_path)
++    sbt = _fake_sbt_unresolved(
++        tmp_path,
++        fail_count=1,
++        coordinate="com.globalmentor#hadoop-bare-naked-local-fs;",
++    )
++    r = _run(tmp_path, "setup", sbt_cmd=sbt, env_overrides=env)
++    assert r.returncode == 0, r.stdout + r.stderr
++    assert incomplete.exists()
++    assert coursier_entry.exists()
++    assert neighbour.exists()
++    assert "skipping unsafe unresolved coordinate" in (r.stdout + r.stderr)
++    assert not (tmp_path / "curl_log").exists()
++
++
++def _state_dependent_sbt(tmp_path: Path, blocking_dir: Path) -> Path:
++    """A fake ``sbt`` that fails for as long as ``blocking_dir`` exists.
++
++    This models the local-state failure path: the command's outcome is a pure
++    function of the cache directory rather than of time or attempt count.
++    """
++    calls = tmp_path / "sbt_calls"
++    fake = tmp_path / "state_dependent_sbt.sh"
++    _write_exec(
++        fake,
++        f"""#!/usr/bin/env bash
++n=0
++if [ -f "{calls}" ]; then n=$(cat "{calls}"); fi
++n=$((n + 1))
++echo "$n" > "{calls}"
++if [ -d "{blocking_dir}" ]; then
++  echo "[error] sbt.librarymanagement.ResolveException: unresolved dependency:\
++ com.globalmentor#hadoop-bare-naked-local-fs;0.1.0: not found" >&2
++  exit 1
++fi
++echo "fake sbt: resolved after eviction"
++exit 0
++""",
++    )
++    return fake
++
++
++def test_retry_succeeds_because_eviction_clears_the_blocking_state(tmp_path):
++    """The regression this fix exists for: retries only help once state is cleared."""
++    env, incomplete, _, _ = _ivy_layout(tmp_path)
++    sbt = _state_dependent_sbt(tmp_path, incomplete)
++    r = _run(tmp_path, "setup", sbt_cmd=sbt, env_overrides=env)
++    assert r.returncode == 0, r.stdout + r.stderr
++    assert (tmp_path / "sbt_calls").read_text().strip() == "2"
++    assert "fake sbt: resolved after eviction" in r.stdout
++
++
++def test_without_eviction_the_same_state_exhausts_every_attempt(tmp_path):
++    """Control: if eviction cannot reach the directory, retrying is futile.
++
++    This is the pre-fix production behaviour - identical fast failures until the
++    attempt budget is gone - and it guards against the eviction silently
++    becoming a no-op.
++    """
++    env, incomplete, _, _ = _ivy_layout(tmp_path)
++    sbt = _state_dependent_sbt(tmp_path, incomplete)
++    env = dict(env)
++    env["SBT_SETUP_IVY_HOME"] = str(tmp_path / "decoy-ivy")
++    env["SBT_SETUP_MAX_ATTEMPTS"] = "3"
++    r = _run(tmp_path, "setup", sbt_cmd=sbt, env_overrides=env)
++    assert r.returncode != 0
++    assert (tmp_path / "sbt_calls").read_text().strip() == "3"
++    assert incomplete.exists()
++
++
++def test_probe_reports_maven_central_status_on_resolution_failure(tmp_path):
++    """Ivy collapses 404/429/DNS into 'not found'; the probe must record which."""
++    env, _, _, _ = _ivy_layout(tmp_path)
++    env = dict(env)
++    env["SBT_SETUP_CURL_CMD"] = str(_fake_curl(tmp_path, http_code="429"))
++    sbt = _fake_sbt_unresolved(tmp_path, fail_count=1)
++    r = _run(tmp_path, "setup", sbt_cmd=sbt, env_overrides=env)
++    assert r.returncode == 0, r.stdout + r.stderr
++    out = r.stdout + r.stderr
++    assert "Maven Central probe: HTTP 429" in out
++    probed = (tmp_path / "curl_log").read_text().strip().splitlines()
++    assert probed == [
++        "https://repo1.maven.org/maven2/com/globalmentor/"
++        "hadoop-bare-naked-local-fs/0.1.0/hadoop-bare-naked-local-fs-0.1.0.pom"
++    ], probed
++
++
++def test_parser_accepts_real_prefixed_scala_bridge_coordinate(tmp_path):
++    """Keep the second coordinate and `(core / update)` log shape CI produced."""
++    coordinate = "org.scala-lang#scala2-sbt-bridge;2.13.17"
++    sbt = _fake_sbt_unresolved(
++        tmp_path,
++        fail_count=1,
++        coordinate=coordinate,
++        error_prefix="(core / update) ",
++    )
++    r = _run(
++        tmp_path,
++        "setup",
++        sbt_cmd=sbt,
++        env_overrides={
++            "SBT_SETUP_IVY_HOME": str(tmp_path / "missing-ivy"),
++            "SBT_SETUP_COURSIER_CACHE": str(tmp_path / "missing-coursier"),
++        },
++    )
++    assert r.returncode == 0, r.stdout + r.stderr
++    probed = (tmp_path / "curl_log").read_text().strip()
++    assert probed.endswith(
++        "/org/scala-lang/scala2-sbt-bridge/2.13.17/" "scala2-sbt-bridge-2.13.17.pom"
++    )
++
++
++def test_probe_does_not_run_without_a_resolution_failure(tmp_path):
++    sbt = _fake_sbt(tmp_path, fail_count=1)  # generic failure
++    r = _run(tmp_path, "setup", sbt_cmd=sbt)
++    assert r.returncode == 0, r.stdout + r.stderr
++    assert "Maven Central probe" not in (r.stdout + r.stderr)
++    assert not (tmp_path / "curl_log").exists()
++
++
++def test_probe_failure_never_changes_the_outcome(tmp_path):
++    """A broken/absent curl must not turn a recoverable retry into a failure."""
++    env, _, _, _ = _ivy_layout(tmp_path)
++    env = dict(env)
++    env["SBT_SETUP_CURL_CMD"] = str(tmp_path / "no-such-curl")
++    sbt = _fake_sbt_unresolved(tmp_path, fail_count=1)
++    r = _run(tmp_path, "setup", sbt_cmd=sbt, env_overrides=env)
++    assert r.returncode == 0, r.stdout + r.stderr
++
++
++def test_probe_runs_once_per_coordinate_across_retries(tmp_path):
++    """Diagnostics must not amplify an outage with one request per attempt."""
++    env, _, _, _ = _ivy_layout(tmp_path)
++    env = dict(env)
++    env["SBT_SETUP_CURL_CMD"] = str(_fake_curl(tmp_path, http_code="429"))
++    sbt = _fake_sbt_unresolved(tmp_path, fail_count=3)
++    r = _run(tmp_path, "setup", sbt_cmd=sbt, env_overrides=env)
++    assert r.returncode == 0, r.stdout + r.stderr
++    probed = (tmp_path / "curl_log").read_text().strip().splitlines()
++    assert len(probed) == 1, probed
++
++
++def test_mktemp_failure_stops_before_sbt_runs(tmp_path):
++    sbt = _fake_sbt(tmp_path, fail_count=0)
++    r = _run(
++        tmp_path,
++        "setup",
++        sbt_cmd=sbt,
++        env_overrides={"TMPDIR": str(tmp_path / "missing-temp-dir")},
++    )
++    assert r.returncode == 2
++    assert "unable to create attempt log" in (r.stdout + r.stderr)
++    assert not (tmp_path / "sbt_calls").exists()
++
++
++def test_recursive_removal_uses_end_of_options_marker():
++    assert 'rm -rf -- "$target"' in SCRIPT.read_text()
++
++
++def test_evicted_entry_contents_are_logged(tmp_path):
++    """The listing is what distinguishes a poisoned marker from a missing jar."""
++    env, incomplete, _, _ = _ivy_layout(tmp_path)
++    sbt = _fake_sbt_unresolved(tmp_path, fail_count=1)
++    r = _run(tmp_path, "setup", sbt_cmd=sbt, env_overrides=env)
++    assert r.returncode == 0, r.stdout + r.stderr
++    assert "ivydata-0.1.0.properties" in (r.stdout + r.stderr)

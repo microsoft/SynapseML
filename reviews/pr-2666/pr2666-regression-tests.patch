@@ -1,0 +1,153 @@
+diff --git a/tools/ci/tests/test_pipeline_yaml.py b/tools/ci/tests/test_pipeline_yaml.py
+index 24cdb8c9c2..6ca89e2811 100644
+--- a/tools/ci/tests/test_pipeline_yaml.py
++++ b/tools/ci/tests/test_pipeline_yaml.py
+@@ -115,11 +115,13 @@ def test_pipeline_and_templates_parse():
+
+
+ def test_build_has_canonical_maven_central_fallback():
+-    setting = (
+-        'ThisBuild / resolvers += "Maven Central fallback" at '
+-        '"https://repo.maven.apache.org/maven2"'
++    resolvers = re.findall(
++        r'\bresolvers\b.{0,200}"Maven Central fallback".{0,200}'
++        r'"https://repo\.maven\.apache\.org/maven2"',
++        BUILD_SBT.read_text(),
++        re.DOTALL,
+     )
+-    assert BUILD_SBT.read_text().count(setting) == 1
++    assert len(resolvers) == 1
+
+
+ def test_sbt_cache_template_exists_and_parses():
+diff --git a/tools/ci/tests/test_sbt_retry.py b/tools/ci/tests/test_sbt_retry.py
+index 70ba8b4be2..23dc40b2b3 100644
+--- a/tools/ci/tests/test_sbt_retry.py
++++ b/tools/ci/tests/test_sbt_retry.py
+@@ -252,25 +252,28 @@ def _ivy_layout(tmp_path):
+     incomplete = ivy / "cache" / "com.globalmentor" / "hadoop-bare-naked-local-fs"
+     incomplete.mkdir(parents=True)
+     (incomplete / "ivydata-0.1.0.properties").write_text("partially restored")
+-    coursier_entry = (
+-        coursier
+-        / "v1"
+-        / "https"
+-        / "repo1.maven.org"
+-        / "maven2"
+-        / "com"
+-        / "globalmentor"
+-        / "hadoop-bare-naked-local-fs"
+-        / "0.1.0"
+-    )
+-    coursier_entry.mkdir(parents=True)
++    coursier_entries = []
++    for host in ("repo1.maven.org", "repo.maven.apache.org"):
++        entry = (
++            coursier
++            / "v1"
++            / "https"
++            / host
++            / "maven2"
++            / "com"
++            / "globalmentor"
++            / "hadoop-bare-naked-local-fs"
++            / "0.1.0"
++        )
++        entry.mkdir(parents=True)
++        coursier_entries.append(entry)
+     neighbour = ivy / "cache" / "org.apache.spark" / "spark-core"
+     neighbour.mkdir(parents=True)
+     env = {
+         "SBT_SETUP_IVY_HOME": str(ivy),
+         "SBT_SETUP_COURSIER_CACHE": str(coursier),
+     }
+-    return env, incomplete, coursier_entry, neighbour
++    return env, incomplete, coursier_entries, neighbour
+
+
+ def test_sbt_output_stays_visible(tmp_path):
+@@ -291,23 +294,25 @@ def test_exit_code_survives_the_tee_pipeline(tmp_path):
+
+
+ def test_evicts_incomplete_module_then_succeeds(tmp_path):
+-    env, incomplete, coursier_entry, neighbour = _ivy_layout(tmp_path)
++    env, incomplete, coursier_entries, neighbour = _ivy_layout(tmp_path)
+     sbt = _fake_sbt_unresolved(tmp_path, fail_count=1)
+     r = _run(tmp_path, "setup", sbt_cmd=sbt, env_overrides=env)
+     assert r.returncode == 0, r.stdout + r.stderr
+     assert not incomplete.exists(), "incomplete Ivy module must be evicted"
+-    assert not coursier_entry.exists(), "matching Coursier entry must be evicted"
++    assert all(
++        not entry.exists() for entry in coursier_entries
++    ), "matching Coursier entries must be evicted"
+     assert neighbour.exists(), "unrelated modules must be left alone"
+     assert "evicting cache entry for unresolved module" in (r.stdout + r.stderr)
+
+
+ def test_no_eviction_when_failure_is_not_a_resolution_error(tmp_path):
+-    env, incomplete, coursier_entry, neighbour = _ivy_layout(tmp_path)
++    env, incomplete, coursier_entries, neighbour = _ivy_layout(tmp_path)
+     sbt = _fake_sbt(tmp_path, fail_count=1)  # generic failure, no resolve error
+     r = _run(tmp_path, "setup", sbt_cmd=sbt, env_overrides=env)
+     assert r.returncode == 0, r.stdout + r.stderr
+     assert incomplete.exists(), "unrelated failures must not evict caches"
+-    assert coursier_entry.exists()
++    assert all(entry.exists() for entry in coursier_entries)
+     assert neighbour.exists()
+     assert "evicting cache entry for unresolved module" not in (r.stdout + r.stderr)
+
+@@ -369,7 +374,7 @@ def test_unsafe_cache_roots_are_skipped(tmp_path):
+
+ def test_missing_revision_never_evicts_a_module(tmp_path):
+     """Malformed coordinates cannot broaden Coursier eviction to all versions."""
+-    env, incomplete, coursier_entry, neighbour = _ivy_layout(tmp_path)
++    env, incomplete, coursier_entries, neighbour = _ivy_layout(tmp_path)
+     sbt = _fake_sbt_unresolved(
+         tmp_path,
+         fail_count=1,
+@@ -378,7 +383,7 @@ def test_missing_revision_never_evicts_a_module(tmp_path):
+     r = _run(tmp_path, "setup", sbt_cmd=sbt, env_overrides=env)
+     assert r.returncode == 0, r.stdout + r.stderr
+     assert incomplete.exists()
+-    assert coursier_entry.exists()
++    assert all(entry.exists() for entry in coursier_entries)
+     assert neighbour.exists()
+     assert "skipping unsafe unresolved coordinate" in (r.stdout + r.stderr)
+     assert not (tmp_path / "curl_log").exists()
+@@ -452,7 +457,9 @@ def test_probe_reports_maven_central_status_on_resolution_failure(tmp_path):
+     probed = (tmp_path / "curl_log").read_text().strip().splitlines()
+     assert probed == [
+         "https://repo1.maven.org/maven2/com/globalmentor/"
+-        "hadoop-bare-naked-local-fs/0.1.0/hadoop-bare-naked-local-fs-0.1.0.pom"
++        "hadoop-bare-naked-local-fs/0.1.0/hadoop-bare-naked-local-fs-0.1.0.pom",
++        "https://repo.maven.apache.org/maven2/com/globalmentor/"
++        "hadoop-bare-naked-local-fs/0.1.0/hadoop-bare-naked-local-fs-0.1.0.pom",
+     ], probed
+
+
+@@ -475,9 +482,13 @@ def test_parser_accepts_real_prefixed_scala_bridge_coordinate(tmp_path):
+         },
+     )
+     assert r.returncode == 0, r.stdout + r.stderr
+-    probed = (tmp_path / "curl_log").read_text().strip()
+-    assert probed.endswith(
+-        "/org/scala-lang/scala2-sbt-bridge/2.13.17/" "scala2-sbt-bridge-2.13.17.pom"
++    probed = (tmp_path / "curl_log").read_text().strip().splitlines()
++    assert len(probed) == 2
++    assert all(
++        url.endswith(
++            "/org/scala-lang/scala2-sbt-bridge/2.13.17/" "scala2-sbt-bridge-2.13.17.pom"
++        )
++        for url in probed
+     )
+
+
+@@ -508,7 +519,7 @@ def test_probe_runs_once_per_coordinate_across_retries(tmp_path):
+     r = _run(tmp_path, "setup", sbt_cmd=sbt, env_overrides=env)
+     assert r.returncode == 0, r.stdout + r.stderr
+     probed = (tmp_path / "curl_log").read_text().strip().splitlines()
+-    assert len(probed) == 1, probed
++    assert len(probed) == 2, probed
+
+
+ def test_mktemp_failure_stops_before_sbt_runs(tmp_path):
