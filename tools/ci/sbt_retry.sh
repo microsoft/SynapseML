@@ -84,6 +84,8 @@ if [ -z "$COURSIER_CACHE" ] && [ -n "${HOME:-}" ]; then
   COURSIER_CACHE="$HOME/.cache/coursier"
 fi
 PROBED_COORDS=""
+MAVEN_CENTRAL_HOSTS=("repo1.maven.org" "repo.maven.apache.org")
+MAVEN_CENTRAL_PROBE_TIMEOUT_SECONDS=15
 
 if [ "$#" -eq 0 ]; then
   echo "sbt_retry.sh: no sbt arguments provided" >&2
@@ -123,11 +125,11 @@ run_sbt() {
 # against. This probe records the HTTP status so the next occurrence is
 # diagnosable from the log instead of inferred. It never affects the exit status.
 probe_central() {
-  local org_path="$1" name="$2" rev="$3"
-  local url="https://repo1.maven.org/maven2/${org_path}/${name}/${rev}/${name}-${rev}.pom"
-  command -v "$CURL_CMD" >/dev/null 2>&1 || return 0
+  local host="$1" org_path="$2" name="$3" rev="$4"
+  local url="https://${host}/maven2/${org_path}/${name}/${rev}/${name}-${rev}.pom"
   local code
-  code="$("$CURL_CMD" -sS -o /dev/null -w '%{http_code}' --max-time 30 "$url" 2>&1)" ||
+  code="$("$CURL_CMD" -sS -o /dev/null -w '%{http_code}' \
+    --max-time "$MAVEN_CENTRAL_PROBE_TIMEOUT_SECONDS" "$url" 2>&1)" ||
     code="request-failed(${code})"
   echo "sbt_retry: Maven Central probe: HTTP ${code} for ${url}"
 }
@@ -135,6 +137,8 @@ probe_central() {
 probe_central_once() {
   local org="$1" org_path="$2" name="$3" rev="$4"
   local coord="${org}#${name};${rev}"
+  local host
+  command -v "$CURL_CMD" >/dev/null 2>&1 || return 0
   case $'\n'"$PROBED_COORDS"$'\n' in
     *$'\n'"$coord"$'\n'*) return 0 ;;
   esac
@@ -143,7 +147,9 @@ probe_central_once() {
   else
     PROBED_COORDS="$coord"
   fi
-  probe_central "$org_path" "$name" "$rev"
+  for host in "${MAVEN_CENTRAL_HOSTS[@]}"; do
+    probe_central "$host" "$org_path" "$name" "$rev"
+  done
 }
 
 cache_root_is_safe() {
@@ -194,7 +200,7 @@ evict_cache_entry() {
 evict_unresolved_modules() {
   local log_file="$1"
   local evicted=0
-  local coords org name rev org_path target
+  local coords org name rev org_path target host
   local ivy_safe=0 coursier_safe=0
 
   [ -s "$log_file" ] || return 1
@@ -237,10 +243,12 @@ evict_unresolved_modules() {
       done
     fi
     if [ "$coursier_safe" -eq 1 ]; then
-      target="$COURSIER_CACHE/v1/https/repo1.maven.org/maven2/$org_path/$name/$rev"
-      if evict_cache_entry "$target"; then
-        evicted=1
-      fi
+      for host in "${MAVEN_CENTRAL_HOSTS[@]}"; do
+        target="$COURSIER_CACHE/v1/https/$host/maven2/$org_path/$name/$rev"
+        if evict_cache_entry "$target"; then
+          evicted=1
+        fi
+      done
     fi
     probe_central_once "$org" "$org_path" "$name" "$rev"
   done <<< "$coords"

@@ -56,8 +56,10 @@ of each failed attempt and deletes exactly those modules from `~/.ivy2/cache`,
 re-fetches them cleanly. Unrelated failures evict nothing. Override
 `SBT_SETUP_IVY_HOME` / `SBT_SETUP_COURSIER_CACHE` with absolute, non-root paths
 to relocate the scan. Eviction is disabled if `HOME` is unavailable and no safe
-override is provided. Maven Central is probed at most once per unresolved
-coordinate per wrapper invocation, so diagnostics do not amplify an outage.
+override is provided. Both Maven Central host paths are removed from Coursier.
+Each official Maven Central hostname is probed at most once per unresolved
+coordinate per wrapper invocation. Each request has a 15-second timeout, keeping
+the two-host diagnostic bound at 30 seconds per coordinate during an outage.
 
 ### Tests
 
