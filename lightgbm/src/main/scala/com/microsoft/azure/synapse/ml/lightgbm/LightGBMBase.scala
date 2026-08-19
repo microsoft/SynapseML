@@ -585,9 +585,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
       server.map(validationServer => spark.sparkContext.broadcast(validationServer.params.toRows)),
       (params: Option[Broadcast[Array[Row]]]) => params.foreach(_.destroy()),
       server.foreach(_.close())) { params =>
-        val result = train(params)
-        server.foreach(_.await())
-        result
+        train(params)
     }
   }
 

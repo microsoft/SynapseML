@@ -9,6 +9,7 @@ import com.microsoft.azure.synapse.ml.lightgbm.ValidationDataParams
 import com.microsoft.azure.synapse.ml.lightgbm.ValidationDataServer
 import com.microsoft.azure.synapse.ml.lightgbm.ValidationDataServerResourceFactory
 import org.apache.commons.io.FileUtils
+import org.apache.spark.sql.Row
 
 import java.io.{DataInputStream, DataOutputStream, File, FileOutputStream, IOException, OutputStream}
 import java.net.{BindException, InetSocketAddress, ServerSocket, Socket, SocketException}
@@ -190,11 +191,9 @@ class ValidationDataServerLifecycleSuite extends TestBase {
     val client = authenticatedClient(server.params)
     try {
       assert(outputStarted.await(5, TimeUnit.SECONDS))
-      waitUntil(server.activeClientCount == 1)
 
       server.close()
 
-      assert(server.executorIsTerminated)
       assert(!spool.exists())
     } finally {
       try client.close()
@@ -241,7 +240,7 @@ class ValidationDataServerLifecycleSuite extends TestBase {
         completedClient.close()
       }
 
-      server.await()
+      server.close()
     } finally {
       try server.close()
       finally deleteIfPresent(spool)
@@ -261,7 +260,7 @@ class ValidationDataServerLifecycleSuite extends TestBase {
       } finally {
         client.close()
       }
-      server.await()
+      server.close()
     } finally {
       try server.close()
       finally deleteIfPresent(spool)
@@ -293,43 +292,20 @@ class ValidationDataServerLifecycleSuite extends TestBase {
   }
 
   test("ingest rejects a negative row length other than the end marker") {
-    val spool = scratchDirectory("malformed-ingest-length")
-    assert(spool.mkdir())
-    val listener = ValidationDataServer.openServerSocket(host, timeoutSeconds, 1)
-    val executor = ValidationDataServerResourceFactory.Default.createExecutor(1, "malformed-ingest-test")
-    val token = UUID.randomUUID().toString
-    val received = executor.submit(new Callable[Throwable] {
-      override def call(): Throwable = {
-        try {
-          ValidationDataServer.receivePartition(listener.accept(), spool, token, 5000)
-          new AssertionError("Malformed validation partition was accepted")
-        } catch {
-          case failure: Throwable => failure
-        }
-      }
-    })
-    val client = new Socket()
-    try {
-      client.connect(new InetSocketAddress(host, listener.getLocalPort), 5000)
-      val output = new DataOutputStream(client.getOutputStream)
-      output.writeUTF(token)
+    val failure = malformedIngestFailure("length", partitionCount = 1) { output =>
       output.writeInt(0)
       output.writeInt(-2)
-      output.flush()
-
-      val failure = received.get(5, TimeUnit.SECONDS)
-      assert(failure.isInstanceOf[IOException])
-      assert(failure.getMessage.contains("Invalid validation partition row length -2"))
-      assert(Option(spool.listFiles()).getOrElse(Array.empty).isEmpty)
-    } finally {
-      try client.close()
-      finally {
-        listener.close()
-        executor.shutdownNow()
-        executor.awaitTermination(5, TimeUnit.SECONDS)
-        deleteIfPresent(spool)
-      }
     }
+    assert(failure.isInstanceOf[IOException])
+    assert(failure.getMessage.contains("Invalid validation partition row length -2"))
+  }
+
+  test("ingest rejects partition ids outside the expected range") {
+    val failure = malformedIngestFailure("partition", partitionCount = 1) { output =>
+      output.writeInt(1)
+    }
+    assert(failure.isInstanceOf[IOException])
+    assert(failure.getMessage.contains("Invalid validation partition id 1"))
   }
 
   test("executor read rejects a negative row length other than the end marker") {
@@ -378,6 +354,29 @@ class ValidationDataServerLifecycleSuite extends TestBase {
     }
   }
 
+  test("legacy validation row broadcasts remain readable") {
+    val expected = Array(Row(1), Row(2))
+    val broadcast = spark.sparkContext.broadcast(expected)
+    try {
+      assert(ValidationDataServer.rowCount(broadcast) == expected.length)
+      val rows = ValidationDataServer.read(broadcast)
+      val actual = ValidationDataServer.withRows(rows)(rows.toArray)
+      assert(actual.sameElements(expected))
+    } finally {
+      broadcast.destroy()
+    }
+  }
+
+  test("unknown validation descriptor versions fail clearly") {
+    val broadcast = spark.sparkContext.broadcast(Array(Row("SynapseML.ValidationDataServer.v2")))
+    try {
+      val failure = intercept[IllegalArgumentException](ValidationDataServer.rowCount(broadcast))
+      assert(failure.getMessage.contains("Unsupported validation data descriptor"))
+    } finally {
+      broadcast.destroy()
+    }
+  }
+
   test("training failure remains primary when broadcast and server cleanup fail") {
     val trainingFailure = new IllegalStateException("synthetic training failure")
     val broadcastFailure = new IOException("synthetic broadcast cleanup failure")
@@ -411,24 +410,6 @@ class ValidationDataServerLifecycleSuite extends TestBase {
     assert(measures.validationDataCollectionTime() > 0L)
   }
 
-  test("await failure remains primary when broadcast and server cleanup fail") {
-    val awaitFailure = new IOException("synthetic await failure")
-    val broadcastFailure = new IOException("synthetic broadcast cleanup failure")
-    val serverFailure = new IOException("synthetic server cleanup failure")
-
-    val failure = intercept[IOException] {
-      LightGBMValidationDataSupport.withResources[Unit, Unit](
-        (),
-        (_: Unit) => throw broadcastFailure,
-        throw serverFailure) { _ =>
-        throw awaitFailure
-      }
-    }
-
-    assert(failure eq awaitFailure)
-    assert(failure.getSuppressed.sameElements(Array(broadcastFailure, serverFailure)))
-  }
-
   test("validation row processing failure remains primary when iterator close fails") {
     val processingFailure = new IOException("synthetic row processing failure")
     val closeFailure = new IOException("synthetic iterator close failure")
@@ -448,9 +429,11 @@ class ValidationDataServerLifecycleSuite extends TestBase {
     assert(failure.getSuppressed.sameElements(Array(closeFailure)))
   }
 
-  test("an internal serving failure is retained by await") {
+  test("close preserves a serving failure when stream cleanup also fails") {
     val (spool, partitionFiles) = createSpool("serving-failure")
     val outputFailed = new CountDownLatch(1)
+    val writeFailure = new IOException("synthetic serving failure")
+    val closeFailure = new IOException("synthetic serving cleanup failure")
     val resources = new DelegatingResources {
       override def clientOutput(socket: Socket): OutputStream = new OutputStream {
         override def write(value: Int): Unit = fail()
@@ -458,8 +441,10 @@ class ValidationDataServerLifecycleSuite extends TestBase {
 
         private def fail(): Unit = {
           outputFailed.countDown()
-          throw new IOException("synthetic serving failure")
+          throw writeFailure
         }
+
+        override def close(): Unit = throw closeFailure
       }
     }
     val server = ValidationDataServer.createFromSpool(
@@ -467,8 +452,9 @@ class ValidationDataServerLifecycleSuite extends TestBase {
     val client = authenticatedClient(server.params)
     try {
       assert(outputFailed.await(5, TimeUnit.SECONDS))
-      val failure = intercept[IOException](server.await())
-      assert(failure.getMessage == "synthetic serving failure")
+      val failure = intercept[IOException](server.close())
+      assert(failure eq writeFailure)
+      assert(failure.getSuppressed.contains(closeFailure))
     } finally {
       try client.close()
       finally {
@@ -549,6 +535,45 @@ class ValidationDataServerLifecycleSuite extends TestBase {
     override def getOutputStream: OutputStream = throw expected
     override def close(): Unit = closed = true
     override def isClosed: Boolean = closed
+  }
+
+  private def malformedIngestFailure(name: String,
+                                     partitionCount: Int)
+                                    (writeFrame: DataOutputStream => Unit): Throwable = {
+    val spool = scratchDirectory(s"malformed-ingest-$name")
+    assert(spool.mkdir())
+    val listener = ValidationDataServer.openServerSocket(host, timeoutSeconds, 1)
+    val executor = ValidationDataServerResourceFactory.Default.createExecutor(1, s"malformed-$name-test")
+    val token = UUID.randomUUID().toString
+    val received = executor.submit(new Callable[Throwable] {
+      override def call(): Throwable = {
+        try {
+          ValidationDataServer.receivePartition(listener.accept(), spool, token, 5000, partitionCount)
+          new AssertionError("Malformed validation partition was accepted")
+        } catch {
+          case failure: Throwable => failure
+        }
+      }
+    })
+    val client = new Socket()
+    try {
+      client.connect(new InetSocketAddress(host, listener.getLocalPort), 5000)
+      val output = new DataOutputStream(client.getOutputStream)
+      output.writeUTF(token)
+      writeFrame(output)
+      output.flush()
+      val failure = received.get(5, TimeUnit.SECONDS)
+      assert(Option(spool.listFiles()).getOrElse(Array.empty).isEmpty)
+      failure
+    } finally {
+      try client.close()
+      finally {
+        listener.close()
+        executor.shutdownNow()
+        executor.awaitTermination(5, TimeUnit.SECONDS)
+        deleteIfPresent(spool)
+      }
+    }
   }
 
   private def authenticatedClient(params: ValidationDataParams): Socket = {
