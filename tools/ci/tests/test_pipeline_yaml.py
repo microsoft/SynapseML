@@ -311,6 +311,18 @@ def test_fabric_e2e_runs_openai_prompt_with_exact_artifacts():
     assert fabric_e2e["timeoutInMinutes"] >= 180
     assert fabric_e2e["cancelTimeoutInMinutes"] >= 5
 
+    feed_auth_steps = [
+        step
+        for step in fabric_e2e["steps"]
+        if isinstance(step, dict)
+        and step.get("displayName") == "Authenticate fabric-spark-cli feed"
+    ]
+    assert len(feed_auth_steps) == 1
+    feed_auth_step = feed_auth_steps[0]
+    assert feed_auth_step["task"] == "PipAuthenticate@1"
+    assert feed_auth_step["inputs"]["artifactFeeds"] == "A365/SynapseMaven"
+    assert "succeededOrFailed()" in feed_auth_step["condition"]
+
     openai_steps = [
         step
         for step in fabric_e2e["steps"]
@@ -321,12 +333,17 @@ def test_fabric_e2e_runs_openai_prompt_with_exact_artifacts():
     openai_step = openai_steps[0]
     assert openai_step["task"] == "AzureCLI@2"
     assert openai_step["inputs"]["azureSubscription"] == "SynapseML Build"
+    assert fabric_e2e["steps"].index(feed_auth_step) < fabric_e2e["steps"].index(
+        openai_step
+    )
     assert "runFabricOpenAIPrompt" in openai_step["condition"]
     assert "succeededOrFailed()" in openai_step["condition"]
 
     script = openai_step["inputs"]["inlineScript"]
     assert "sbt core/packageBin cognitive/packageBin" in script
     assert "fabric-spark-cli==0.1.20260807.5" in script
+    assert "az account get-access-token" not in script
+    assert "feed_token" not in script
     assert (
         'workspace="${INTEGRATION_WORKSPACE_PREFIX} ${integration_username}"' in script
     )

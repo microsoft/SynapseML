@@ -343,6 +343,11 @@ jobs:
         INTEGRATION_CERTIFICATE: $(sempy-integration-certificate)
         INTEGRATION_WORKSPACE_PREFIX: $(sempy-integration-workspace-prefix)
       condition: and(succeeded(), eq(variables.runTests, 'True'))
+    - task: PipAuthenticate@1
+      displayName: 'Authenticate fabric-spark-cli feed'
+      inputs:
+        artifactFeeds: 'A365/SynapseMaven'
+      condition: and(succeededOrFailed(), eq(variables.runTests, 'True'), eq(variables.runFabricOpenAIPrompt, true))
     - task: AzureCLI@2
       displayName: 'Run OpenAIPrompt on Fabric'
       timeoutInMinutes: 45
@@ -383,18 +388,10 @@ jobs:
           core_jar="$(resolve_module_jar core synapseml-core)"
           cognitive_jar="$(resolve_module_jar cognitive synapseml-cognitive)"
 
-          feed='msdata.pkgs.visualstudio.com/A365/_packaging/SynapseMaven/pypi/simple'
-          feed_token="$(
-            az account get-access-token \
-              --resource 499b84ac-1321-427f-aa17-267ca6975798 \
-              --query accessToken \
-              --output tsv
-          )"
-          export PIP_INDEX_URL="https://azure:${feed_token}@${feed}"
           export PIP_DISABLE_PIP_VERSION_CHECK=1
           python -m pip install --quiet --pre \
             'fabric-spark-cli==0.1.20260807.5'
-          unset PIP_INDEX_URL feed_token
+          unset PIP_INDEX_URL PIP_EXTRA_INDEX_URL
           fabric-spark-cli --version
 
           integration_username="${INTEGRATION_ACCOUNT%%@*}"
