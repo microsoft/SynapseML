@@ -9,7 +9,7 @@ Maven Central. When many fresh agents — and several overlapping PR builds — 
 this simultaneously, Maven Central returns **HTTP 429 (rate limit)** and the
 `Setup repo` step fails before any test runs (e.g. ADO build 229124511).
 
-The durable fix has three layers:
+The durable fix has four layers:
 
 1. **`templates/sbt_cache.yml`** (primary) — Azure `Cache@2` for the sbt launcher
    boot directory (`~/.sbt/boot`), Ivy cache (`~/.ivy2/cache`), and Coursier
@@ -23,7 +23,13 @@ The durable fix has three layers:
    depends on this gate, so a new cache key is populated before the fan-out
    starts instead of racing it. A failed prewarm remains visible and prevents a
    cold-cache stampede.
-3. **`sbt_retry.sh`** (supplement) — smooths the *cold-cache* path only. It adds a
+3. **Canonical Maven Central fallback** — `build.sbt` keeps
+   `https://repo.maven.apache.org/maven2` after sbt's default
+   `https://repo1.maven.org/maven2` resolver. Ivy therefore continues to the
+   same official repository through its canonical hostname when `repo1` returns
+   HTTP 429. A synthetic Ivy test with a resolver that returned only HTTP 429
+   confirmed that the fallback downloaded every dependency successfully.
+4. **`sbt_retry.sh`** (supplement) — smooths the *cold-cache* path only. It adds a
    bounded random start stagger so concurrent cold jobs don't hit Maven at the
    same instant, then bounded jittered exponential-backoff retries. On exhaustion
    it fails visibly (non-zero exit); it never masks a failure with a success

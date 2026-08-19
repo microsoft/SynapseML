@@ -17,6 +17,8 @@
 # the BuildAndCacheSbt prewarm job, mean steady-state builds restore the sbt
 # launcher and resolved dependencies from Azure's cache service and never touch
 # Maven Central. That eliminates the herd for the vast majority of builds.
+# build.sbt also adds Maven Central's canonical repo.maven.apache.org endpoint
+# after the default repo1 hostname, so Ivy can fall through a host-specific 429.
 #
 # Role of this script (supplement)
 # --------------------------------

@@ -17,6 +17,7 @@ import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+BUILD_SBT = REPO_ROOT / "build.sbt"
 PIPELINE = REPO_ROOT / "pipeline.yaml"
 SBT_CACHE_TPL = REPO_ROOT / "templates" / "sbt_cache.yml"
 SBT_RETRY = REPO_ROOT / "tools" / "ci" / "sbt_retry.sh"
@@ -111,6 +112,14 @@ def test_pipeline_and_templates_parse():
     assert yaml.safe_load(CLEAN_ACR_PIPELINE.read_text()) is not None
     for tpl in (REPO_ROOT / "templates").glob("*.yml"):
         assert yaml.safe_load(tpl.read_text()) is not None, f"{tpl} failed to parse"
+
+
+def test_build_has_canonical_maven_central_fallback():
+    setting = (
+        'ThisBuild / resolvers += "Maven Central fallback" at '
+        '"https://repo.maven.apache.org/maven2"'
+    )
+    assert BUILD_SBT.read_text().count(setting) == 1
 
 
 def test_sbt_cache_template_exists_and_parses():
