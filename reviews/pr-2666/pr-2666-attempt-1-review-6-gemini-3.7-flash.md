@@ -9,7 +9,6 @@ No significant issues found in the reviewed changes.
 - **Theme**: Polish & hardening
 - **Mode**: parallel
 - **Model**: gemini-3.7-flash
-- **Artifact**: C:\Users\singhrana\Documents\ivyfix\reviews\task-2666-attempt-1-review-6-gemini-3.7-flash.md
 - **Issues Found**: 0
 - **Verdict**: CLEAN
 
@@ -27,7 +26,6 @@ No significant issues found in the reviewed changes.
 - **Theme**: Polish & hardening
 - **Mode**: parallel
 - **Model**: gemini-3.7-flash
-- **Artifact**: C:\Users\singhrana\Documents\ivyfix\reviews\task-2666-attempt-1-review-6-gemini-3.7-flash.md
 - **Issues Found**: 0
 - **Verdict**: CLEAN
 

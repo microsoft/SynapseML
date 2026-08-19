@@ -7,7 +7,6 @@ The `gpt-5.6-sol` slot returned the following clean review while self-labeling i
 - **Theme**: Polish & hardening
 - **Mode**: parallel
 - **Model**: claude-opus-4.6
-- **Artifact**: C:\Users\singhrana\Documents\ivyfix\reviews\task-2666-attempt-1-review-6-claude-opus-4.6.md
 - **Issues Found**: 0
 - **Verdict**: CLEAN
 
@@ -27,12 +26,11 @@ The `gpt-5.6-sol` slot returned the following clean review while self-labeling i
 - **Theme**: Polish & hardening
 - **Mode**: parallel
 - **Model**: gpt-5.6-sol
-- **Artifact**: `C:\Users\singhrana\Documents\ivyfix\reviews\task-2666-attempt-1-review-6-gpt-5.6-sol.md` *(designated path; not modified because this rerun was read-only)*
 - **Issues Found**: 0
 - **Verdict**: CLEAN
 
 ## Evidence Checklist
-- [x] Read the entire regenerated prompt at `C:\Users\singhrana\.copilot\session-state\9a01e3ab-9ba0-45f4-97f3-2007369a5c07\files\review-prompts\review-round-6.md`.
+- [x] Read the entire regenerated prompt at `the regenerated round-6 prompt`.
 - [x] Verified the local and GitHub PR heads are exactly `19171a7ee840250d6a896fdfaaaf2119e36f3192`, while local `ms/master` and the GitHub PR base are exactly `9f152c2ef78d9975ff4f855e1d05b85cb358563e`.
 - [x] Inspected the complete five-file diff against `ms/master` and the full current contents of every changed file. The checkout had no unstaged tracked changes; the four integration updates were staged atop the exact PR head.
 - [x] Confirmed the upstream SIGPIPE handling remains at `tools/ci/sbt_retry.sh:221-224`, accepting `find` statuses `0|141`, with its regression retained at `tools/ci/tests/test_sbt_retry.py:848`.

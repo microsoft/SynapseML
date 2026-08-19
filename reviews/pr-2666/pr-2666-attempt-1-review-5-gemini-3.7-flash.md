@@ -3,7 +3,6 @@
 - **Theme**: Testing & coverage
 - **Mode**: parallel
 - **Model**: gemini-3.7-flash
-- **Artifact**: C:\Users\singhrana\Documents\ivyfix\reviews\task-2666-attempt-1-review-5-gemini-3.7-flash.md
 - **Issues Found**: 0
 - **Verdict**: CLEAN
 
@@ -22,7 +21,6 @@
 - **Theme**: Testing & coverage
 - **Mode**: parallel
 - **Model**: gemini-3.7-flash
-- **Artifact**: C:\Users\singhrana\Documents\ivyfix\reviews\task-2666-attempt-1-review-5-gemini-3.7-flash.md
 - **Issues Found**: 0
 - **Verdict**: CLEAN
 
@@ -41,7 +39,6 @@
 - **Theme**: Testing & coverage
 - **Mode**: parallel
 - **Model**: gemini-3.7-flash
-- **Artifact**: C:\Users\singhrana\Documents\ivyfix\reviews\task-2666-attempt-1-review-5-gemini-3.7-flash.md
 - **Issues Found**: 0
 - **Verdict**: CLEAN
 
@@ -62,7 +59,6 @@ The `gemini-3.7-flash` slot returned the following clean review while self-label
 - **Theme**: Testing & coverage
 - **Mode**: parallel
 - **Model**: gpt-5.4
-- **Artifact**: C:\Users\singhrana\Documents\ivyfix\reviews\task-2666-attempt-1-review-5-gpt-5.4.md
 - **Issues Found**: 0
 - **Verdict**: CLEAN
 
@@ -80,7 +76,6 @@ The `gemini-3.7-flash` slot returned the following clean review while self-label
 - **Theme**: Testing & coverage
 - **Mode**: parallel
 - **Model**: gemini-3.7-flash
-- **Artifact**: C:\Users\singhrana\Documents\ivyfix\reviews\task-2666-attempt-1-review-5-gemini-3.7-flash.md
 - **Issues Found**: 0
 - **Verdict**: CLEAN
 

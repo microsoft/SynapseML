@@ -3,12 +3,11 @@
 - **Theme**: Testing & coverage
 - **Mode**: parallel
 - **Model**: gpt-5.6-sol
-- **Artifact**: C:\Users\singhrana\Documents\ivyfix\reviews\task-2666-attempt-1-review-5-gpt-5.6-sol.md
 - **Issues Found**: 4
 - **Verdict**: ISSUES_FOUND
 
 ## Evidence Checklist
-- [x] Independently read the complete regenerated 907-line round prompt and mapped every new branch in `C:\Users\singhrana\Documents\ivyfix\tools\ci\sbt_retry.sh` to the current tests.
+- [x] Independently read the complete regenerated 907-line round prompt and mapped every new branch in `tools/ci/sbt_retry.sh` to the current tests.
 - [x] Verified that behavioral tests invoke the public wrapper through `_run`, and that the baseline-failure control, retry recovery, terminal exit-status preservation, retry-only mutation, both Central hostnames, and intermediate-symlink sentinels are exercised end to end.
 - [x] Ran the six key recovery, negative-control, probe-cap, terminal, symlink, and resolver tests under WSL: **6 passed in 2.19s**.
 - [x] Ran `PYTHONDONTWRITEBYTECODE=1 python3 -m pytest -p no:cacheprovider tools/ci/tests/test_sbt_retry.py tools/ci/tests/test_pipeline_yaml.py` under WSL: **92 passed in 343.15s**.
@@ -21,7 +20,7 @@
 
 ### Issue 1: Resolver test passes when the resolver declaration is inactive
 - **Severity**: Medium
-- **File**: C:\Users\singhrana\Documents\ivyfix\tools\ci\tests\test_pipeline_yaml.py
+- **File**: tools/ci/tests/test_pipeline_yaml.py
 - **Line(s)**: 117-120
 - **Description**: The test independently counts the resolver name and URL anywhere in `build.sbt`; it does not verify that they form an active `ThisBuild / resolvers += ... at ...` declaration. Commenting out line 314 of `build.sbt` leaves both counts at one, so the test still passes with the fallback completely disabled.
 - **Risk**: The canonical fallback can be removed or disconnected from `resolvers` while the regression test remains green, silently restoring the repo1-only failure mode this PR is intended to fix.
@@ -29,7 +28,7 @@
 
 ### Issue 2: Positive eviction tests bypass the cache-root path used in production
 - **Severity**: Medium
-- **File**: C:\Users\singhrana\Documents\ivyfix\tools\ci\tests\test_sbt_retry.py
+- **File**: tools/ci/tests/test_sbt_retry.py
 - **Line(s)**: 279-307, 327-386
 - **Description**: `_ivy_layout` always supplies `SBT_SETUP_IVY_HOME` and `SBT_SETUP_COURSIER_CACHE`, and every successful eviction test uses those overrides. The only test without usable overrides clears `HOME` and verifies that eviction is disabled. No test exercises the new `$HOME/.ivy2` and `$HOME/.cache/coursier` defaults at `sbt_retry.sh:81-86`, even though `templates/sbt_cache.yml` supplies no overrides in production. The fixture also creates no `$IVY_HOME/local/<org>/<name>` entry, leaving that advertised deletion target untested.
 - **Risk**: A typo or regression in the production default paths—or in the Ivy-local target—can make recovery a no-op on hosted agents while every focused test continues to pass.
@@ -37,7 +36,7 @@
 
 ### Issue 3: Multiple-coordinate test does not verify multiple-coordinate eviction
 - **Severity**: Medium
-- **File**: C:\Users\singhrana\Documents\ivyfix\tools\ci\tests\test_sbt_retry.py
+- **File**: tools/ci/tests/test_sbt_retry.py
 - **Line(s)**: 81-105, 596-615
 - **Description**: `test_probe_has_invocation_wide_coordinate_cap` emits two unresolved coordinates but `_ivy_layout` creates cache state only for the first coordinate, and `_fake_sbt_multiple_unresolved` succeeds unconditionally on its second invocation. Its assertions inspect only the two curl requests. The test therefore remains green if `evict_unresolved_modules` stops after the first coordinate instead of processing the complete extracted set.
 - **Risk**: A real sbt attempt can report several unusable modules together. Leaving any later coordinate cached can make the next attempt fail identically and eventually exhaust the retry budget despite the apparent multi-coordinate coverage.
@@ -45,7 +44,7 @@
 
 ### Issue 4: Curl fake cannot validate the advertised timeout or request-failure path
 - **Severity**: Medium
-- **File**: C:\Users\singhrana\Documents\ivyfix\tools\ci\tests\test_sbt_retry.py
+- **File**: tools/ci/tests/test_sbt_retry.py
 - **Line(s)**: 122-137, 519-590
 - **Description**: `_fake_curl` discards every argument except the URL and always exits successfully. Consequently, no test asserts the `--max-time 15` option that provides the advertised 30-second invocation bound. `test_probe_failure_never_changes_the_outcome` uses a nonexistent executable, exercising only the `command -v` early return rather than the `curl || code="request-failed(...)"` branch at `sbt_retry.sh:134-135`.
 - **Risk**: Removing the timeout can let diagnostics block a retry or terminal failure indefinitely, and breaking the non-zero curl branch can erase the DNS/TLS/timeout evidence the probe was added to capture, without failing any test.
@@ -85,7 +84,6 @@ _Updated by the driving agent as findings are addressed._
 - **Theme**: Testing & coverage
 - **Mode**: parallel
 - **Model**: gpt-5.6-sol
-- **Artifact**: C:\Users\singhrana\Documents\ivyfix\reviews\task-2666-attempt-1-review-5-gpt-5.6-sol.md
 - **Issues Found**: 1
 - **Verdict**: ISSUES_FOUND
 
@@ -105,7 +103,7 @@ _Updated by the driving agent as findings are addressed._
 
 ### Issue 1: Timeout assertion accepts values longer than 15 seconds
 - **Severity**: Low
-- **File**: C:\Users\singhrana\Documents\ivyfix\tools\ci\tests\test_sbt_retry.py
+- **File**: tools/ci/tests/test_sbt_retry.py
 - **Line(s)**: 597-599
 - **Description**: The regression uses substring matching—`"--max-time 15" in args`—against the flattened curl command. That expression also matches `--max-time 150`, `--max-time 151`, or any other value beginning with `15`, so it does not lock the advertised per-request timeout to exactly 15 seconds.
 - **Risk**: A typo such as changing the timeout from 15 to 150 seconds would keep all 94 tests green while increasing the invocation-wide diagnostic delay from 30 seconds to five minutes, again delaying retries and terminal failure reporting.
@@ -127,7 +125,6 @@ _Updated by the driving agent as findings are addressed._
 - **Theme**: Testing & coverage
 - **Mode**: parallel
 - **Model**: gpt-5.6-sol
-- **Artifact**: C:\Users\singhrana\Documents\ivyfix\reviews\task-2666-attempt-1-review-5-gpt-5.6-sol.md
 - **Issues Found**: 1
 - **Verdict**: ISSUES_FOUND
 
@@ -145,7 +142,7 @@ _Updated by the driving agent as findings are addressed._
 
 ### Issue 1: Curl mock still erases argument boundaries
 - **Severity**: Low
-- **File**: C:\Users\singhrana\Documents\ivyfix\tools\ci\tests\test_sbt_retry.py
+- **File**: tools/ci/tests/test_sbt_retry.py
 - **Line(s)**: 109, 597-615
 - **Description**: `_fake_curl` records each invocation with `"$*"`, which joins all arguments into one space-delimited string. The test then calls `.split()` and treats the reconstructed tokens as the original argv. Consequently, a malformed invocation that passes `"-sS -o"` or `"--max-time 15"` as one argument produces exactly the same recorded text and expected token list as the correct separate arguments. The assertion now rejects changed values, duplicates, and omissions, but it does not reject the malformed request shape explicitly required by this rerun.
 - **Risk**: A quoting regression can leave all 94 tests green even though real curl receives an invalid combined option, causing both diagnostic requests to fail and replacing the intended HTTP attribution with request-failure output.
@@ -167,7 +164,6 @@ _Updated by the driving agent as findings are addressed._
 - **Theme**: Testing & coverage
 - **Mode**: parallel
 - **Model**: gpt-5.6-sol
-- **Artifact**: C:\Users\singhrana\Documents\ivyfix\reviews\task-2666-attempt-1-review-5-gpt-5.6-sol.md
 - **Issues Found**: 1
 - **Verdict**: ISSUES_FOUND
 
@@ -184,7 +180,7 @@ _Updated by the driving agent as findings are addressed._
 
 ### Issue 1: Exact eviction boundaries are not regression-tested
 - **Severity**: Medium
-- **File**: C:\Users\singhrana\Documents\ivyfix\tools\ci\tests\test_sbt_retry.py
+- **File**: tools/ci/tests/test_sbt_retry.py
 - **Line(s)**: 302-329, 349-359, 410-453
 - **Description**: The tests claim to verify that eviction removes exactly the named modules, but every Coursier entry created by the fixtures is expected to be deleted. The only surviving neighbor is an Ivy module under a different organization. Consequently, changing the Coursier target from `.../$name/$rev` to `.../$name` would purge every cached revision while all current assertions still pass. Similarly, accidentally dropping `$name` from an Ivy target could delete every module under `com.globalmentor` while the `org.apache.spark` neighbor still survives.
 - **Risk**: A path-broadening regression in the destructive `rm -rf` logic would not be detected. It could turn one unresolved coordinate into multi-module cache loss, force unnecessary downloads, and reintroduce the Maven Central throttling this change is intended to prevent.
@@ -208,12 +204,11 @@ The `gpt-5.6-sol` slot returned the following clean review while self-labeling i
 - **Theme**: Testing & coverage
 - **Mode**: parallel — independent verification rerun 4
 - **Model**: gpt-5.4
-- **Artifact**: Not written; this was a read-only verification rerun
 - **Issues Found**: 0
 - **Verdict**: CLEAN
 
 ## Evidence Checklist
-- [x] Read the entire current generated prompt and independently inspected the current five-file diff against `ms/master`, plus the full implementations in `C:\Users\singhrana\Documents\ivyfix\tools\ci\sbt_retry.sh` and `C:\Users\singhrana\Documents\ivyfix\tools\ci\tests\test_sbt_retry.py`.
+- [x] Read the entire current generated prompt and independently inspected the current five-file diff against `ms/master`, plus the full implementations in `tools/ci/sbt_retry.sh` and `tools/ci/tests/test_sbt_retry.py`.
 - [x] Verified the count-prefixed NUL fixture at `test_sbt_retry.py:95-142`: each invocation records its argument count followed by individually NUL-terminated arguments, and the decoder rejects incomplete or surplus fields.
 - [x] Verified `test_fake_curl_preserves_argument_boundaries` at `test_sbt_retry.py:174` proves separate arguments remain distinguishable from one space-containing argument.
 - [x] Verified the exact probe assertion at `test_sbt_retry.py:636` checks both complete URLs and the complete ordered argv for each invocation: `-sS`, `-o`, `/dev/null`, `-w`, `%{http_code}`, `--max-time`, `15`, and URL.

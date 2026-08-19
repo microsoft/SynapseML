@@ -3,7 +3,6 @@
 - **Theme**: Edge cases & robustness
 - **Mode**: parallel
 - **Model**: gemini-3.7-flash
-- **Artifact**: C:\Users\singhrana\Documents\ivyfix\reviews\task-2666-attempt-1-review-3-gemini-3.7-flash.md
 - **Issues Found**: 0
 - **Verdict**: CLEAN
 
@@ -22,7 +21,6 @@
 - **Theme**: Edge cases & robustness
 - **Mode**: parallel
 - **Model**: gemini-3.7-flash
-- **Artifact**: C:\Users\singhrana\Documents\ivyfix\reviews\task-2666-attempt-1-review-3-gemini-3.7-flash.md
 - **Issues Found**: 0
 - **Verdict**: CLEAN
 

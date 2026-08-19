@@ -5,3 +5,6 @@ Independent review reports for
 
 The `pr-2666-attempt-1-review-*.md` files contain six review rounds across
 three review models.
+
+Machine-local artifact paths are omitted, and source references are
+repository-relative.
