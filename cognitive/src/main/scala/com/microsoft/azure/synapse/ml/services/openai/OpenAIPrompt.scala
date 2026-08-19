@@ -406,10 +406,10 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       )
     }
 
-    import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions._
     val (dfWithFilenames, filenameColMapping) = pathColumnNames.foldLeft((df, Map.empty[String, String])) {
       case ((currentDf, mapping), colName) =>
-        val filenameCol = currentDf.withDerivativeCol(s"${colName}_filename")
+        val filenameCol = OpenAIColumnUtils.findUnusedColumnName(
+          s"${colName}_filename")(currentDf.columns.toSet)
         (currentDf.withColumn(filenameCol, extractFilename(F.col(colName))), mapping + (colName -> filenameCol))
     }
 
@@ -503,8 +503,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       promptCol: Column,
       pathColumnNames: Seq[String]
   ): DataFrame = {
-    import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions._
-      val fileResultColName = df.withDerivativeCol(s"${uid}_file_result")
+    val fileResultColName = OpenAIColumnUtils.findUnusedColumnName(
+      s"${uid}_file_result")(df.columns.toSet)
     val dfWithFileResult = df.withColumn(
       fileResultColName,
       createMessagesUDF(pathColumnNames)(promptCol, attachmentsColumn(pathColumnNames)))

@@ -96,6 +96,11 @@ private[openai] object OpenAIColumnUtils {
       StructType(schema.fields :+ replacement)
     }
   }
+
+  def findUnusedColumnName(prefix: String)(columnNames: Set[String]): String = {
+    val candidates = Iterator(prefix) ++ Iterator.from(1).map(index => s"${prefix}_$index")
+    candidates.dropWhile(candidate => columnNames.exists(namesMatch(_, candidate))).next()
+  }
 }
 
 trait HasOpenAISharedParams extends HasServiceParams with HasAPIVersion {

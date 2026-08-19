@@ -493,6 +493,39 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
     }
   }
 
+  test("OpenAIPrompt scratch columns preserve resolver-colliding input columns") {
+    assert(!spark.conf.get("spark.sql.caseSensitive").toBoolean)
+
+    withEchoServer { (baseUrl, _) =>
+      val transformer = prompt(baseUrl, "responses")
+      val fileResultPrefix = s"${transformer.uid}_file_result"
+      val fileResultCol = fileResultPrefix.toUpperCase(Locale.ROOT)
+      val fileResultSuffixCol = s"${fileResultPrefix}_1".toUpperCase(Locale.ROOT)
+      val input = Seq((
+        "Describe this image.",
+        dataImage,
+        "keep filename",
+        "keep filename suffix",
+        "keep result",
+        "keep result suffix"
+      )).toDF(
+        "prompt",
+        "image",
+        "IMAGE_FILENAME",
+        "IMAGE_FILENAME_1",
+        fileResultCol,
+        fileResultSuffixCol
+      )
+
+      val result = transformer.transform(input).head()
+
+      assert(result.getAs[String]("IMAGE_FILENAME") == "keep filename")
+      assert(result.getAs[String]("IMAGE_FILENAME_1") == "keep filename suffix")
+      assert(result.getAs[String](fileResultCol) == "keep result")
+      assert(result.getAs[String](fileResultSuffixCol) == "keep result suffix")
+    }
+  }
+
   test("OpenAIPrompt public column collisions are rejected") {
     assert(!spark.conf.get("spark.sql.caseSensitive").toBoolean)
     val input = Seq(("Describe this image.", dataImage)).toDF("prompt", "image")
