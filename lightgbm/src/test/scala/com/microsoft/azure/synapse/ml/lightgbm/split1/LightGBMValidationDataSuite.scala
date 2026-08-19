@@ -19,7 +19,7 @@ class LightGBMValidationDataSuite extends LightGBMTestUtils {
   private object SmallResultSparkProvider extends SparkSessionManagement {
     override def sparkConfiguration: SparkConf = {
       super.sparkConfiguration
-        .set("spark.driver.maxResultSize", "256k")
+        .set("spark.driver.maxResultSize", "128k")
         .set("spark.sql.shuffle.partitions", "8")
     }
   }
@@ -33,9 +33,9 @@ class LightGBMValidationDataSuite extends LightGBMTestUtils {
 
   test("validationIndicatorCol does not collect sparse validation rows on the driver") {
     val featureCount = 4096
-    val nonZeroCount = 256
-    val rowCount = 16000L
-    val partitionCount = 8
+    val nonZeroCount = 1024
+    val rowCount = 256L
+    val partitionCount = 4
     val validationCol = "isValidation"
     val featuresCol = "features"
     val labelCol = "label"
@@ -43,7 +43,9 @@ class LightGBMValidationDataSuite extends LightGBMTestUtils {
     val sparseFeatures = udf { id: Long =>
       val start = (id % (featureCount - nonZeroCount)).toInt
       val indices = Array.tabulate(nonZeroCount)(offset => start + offset)
-      val values = Array.fill(nonZeroCount)(1.0)
+      val values = Array.tabulate(nonZeroCount) { offset =>
+        (((id * 104729L + offset * 13007L) % 1000003L) + 1L).toDouble / 1000004.0
+      }
       Vectors.sparse(featureCount, indices, values)
     }
 
@@ -61,7 +63,7 @@ class LightGBMValidationDataSuite extends LightGBMTestUtils {
       .setNumIterations(2)
       .setNumLeaves(4)
       .setMinDataInLeaf(1)
-      .setBinSampleCount(128)
+      .setBinSampleCount(8)
       .setDefaultListenPort(getAndIncrementPort())
 
     val copied = estimator.copy(ParamMap.empty)
