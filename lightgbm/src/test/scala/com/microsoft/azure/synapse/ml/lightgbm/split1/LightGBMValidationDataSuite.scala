@@ -4,7 +4,8 @@
 package com.microsoft.azure.synapse.ml.lightgbm.split1
 
 import com.microsoft.azure.synapse.ml.core.test.base.SparkSessionManagement
-import com.microsoft.azure.synapse.ml.lightgbm.{LightGBMClassifier, LightGBMClassificationModel, LightGBMConstants}
+import com.microsoft.azure.synapse.ml.lightgbm.{BulkPartitionTask, LightGBMClassifier, LightGBMClassificationModel}
+import com.microsoft.azure.synapse.ml.lightgbm.LightGBMConstants
 import org.apache.commons.io.FileUtils
 import org.apache.spark.SparkConf
 import org.apache.spark.ml.linalg.{Vector, Vectors}
@@ -29,6 +30,14 @@ class LightGBMValidationDataSuite extends LightGBMTestUtils {
   override protected def afterAll(): Unit = {
     try super.afterAll()
     finally SmallResultSparkProvider.stopSparkSession()
+  }
+
+  test("bulk single dataset mode reads validation data only on the active task") {
+    val task = new BulkPartitionTask
+    assert(task.shouldReadValidationData(useSingleDatasetMode = true, shouldExecuteTraining = true))
+    assert(!task.shouldReadValidationData(useSingleDatasetMode = true, shouldExecuteTraining = false))
+    assert(task.shouldReadValidationData(useSingleDatasetMode = false, shouldExecuteTraining = true))
+    validateBulkMode(useSingleDatasetMode = true)
   }
 
   test("validationIndicatorCol does not collect sparse validation rows on the driver") {
@@ -95,30 +104,7 @@ class LightGBMValidationDataSuite extends LightGBMTestUtils {
   }
 
   test("bulk mode streams complete validation data to every training task") {
-    val partitionCount = 4
-    val sparseFeatures = udf { id: Long =>
-      Vectors.sparse(64, Array((id % 64).toInt), Array(1.0))
-    }
-    val data = spark.range(0L, 512L, 1L, partitionCount)
-      .select(
-        (col("id") % 2).cast("double").as("label"),
-        sparseFeatures(col("id")).as("features"),
-        (col("id") % 4 === 0).as("isValidation"))
-
-    val model = new LightGBMClassifier()
-      .setValidationIndicatorCol("isValidation")
-      .setDataTransferMode(LightGBMConstants.BulkDataTransferMode)
-      .setUseSingleDatasetMode(false)
-      .setNumTasks(partitionCount)
-      .setNumIterations(2)
-      .setNumLeaves(4)
-      .setMinDataInLeaf(1)
-      .setBinSampleCount(64)
-      .setDefaultListenPort(getAndIncrementPort())
-      .fit(data)
-
-    assert(model.transform(data).select("prediction").count() == 512L)
-    assert(validationSpoolDirectories.isEmpty)
+    validateBulkMode(useSingleDatasetMode = false)
   }
 
   test("validationIndicatorCol rejects null indicators instead of dropping rows") {
@@ -139,6 +125,33 @@ class LightGBMValidationDataSuite extends LightGBMTestUtils {
         .fit(data)
     }
     assert(error.getMessage.contains("contains null"))
+    assert(validationSpoolDirectories.isEmpty)
+  }
+
+  private def validateBulkMode(useSingleDatasetMode: Boolean): Unit = {
+    val partitionCount = 4
+    val sparseFeatures = udf { id: Long =>
+      Vectors.sparse(64, Array((id % 64).toInt), Array(1.0))
+    }
+    val data = spark.range(0L, 512L, 1L, partitionCount)
+      .select(
+        (col("id") % 2).cast("double").as("label"),
+        sparseFeatures(col("id")).as("features"),
+        (col("id") % 4 === 0).as("isValidation"))
+
+    val model = new LightGBMClassifier()
+      .setValidationIndicatorCol("isValidation")
+      .setDataTransferMode(LightGBMConstants.BulkDataTransferMode)
+      .setUseSingleDatasetMode(useSingleDatasetMode)
+      .setNumTasks(partitionCount)
+      .setNumIterations(2)
+      .setNumLeaves(4)
+      .setMinDataInLeaf(1)
+      .setBinSampleCount(64)
+      .setDefaultListenPort(getAndIncrementPort())
+      .fit(data)
+
+    assert(model.transform(data).select("prediction").count() == 512L)
     assert(validationSpoolDirectories.isEmpty)
   }
 
