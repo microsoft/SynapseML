@@ -691,7 +691,7 @@ def test_parser_accepts_real_prefixed_scala_bridge_coordinate(tmp_path):
     assert len(probed) == 2
     assert all(
         url.endswith(
-            "/org/scala-lang/scala2-sbt-bridge/2.13.17/" "scala2-sbt-bridge-2.13.17.pom"
+            "/org/scala-lang/scala2-sbt-bridge/2.13.17/scala2-sbt-bridge-2.13.17.pom"
         )
         for url in probed
     )
