@@ -5,7 +5,7 @@
 - **Theme**: Polish & hardening
 - **Mode**: sequential
 - **Model**: gemini-3.7-flash
-- **Artifact**: C:\Users\singhrana\Documents\sml-wt\i2246-v2\reviews\issue-2246-v2\task-2246-attempt-1-review-6-gemini-3.7-flash.md
+- **Artifact**: reviews/issue-2246-v2/task-2246-attempt-1-review-6-gemini-3.7-flash.md
 - **Issues Found**: 0
 - **Verdict**: CLEAN
 

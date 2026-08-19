@@ -5,7 +5,7 @@
 - **Theme**: Architecture & patterns
 - **Mode**: sequential
 - **Model**: grok-4.6
-- **Artifact**: C:\Users\singhrana\Documents\sml-wt\i2246-v2\reviews\issue-2246-v2\task-2246-attempt-1-review-2-grok-4.6.md
+- **Artifact**: reviews/issue-2246-v2/task-2246-attempt-1-review-2-grok-4.6.md
 - **Issues Found**: 0
 - **Verdict**: CLEAN
 
@@ -26,7 +26,7 @@ Post-fix re-review of the current worktree after final validation fixes (role/co
 - **Theme**: Architecture & patterns
 - **Mode**: sequential
 - **Model**: grok-4.6
-- **Artifact**: C:\Users\singhrana\Documents\sml-wt\i2246-v2\reviews\issue-2246-v2\task-2246-attempt-1-review-2-grok-4.6.md
+- **Artifact**: reviews/issue-2246-v2/task-2246-attempt-1-review-2-grok-4.6.md
 - **Issues Found**: 0
 - **Verdict**: CLEAN
 

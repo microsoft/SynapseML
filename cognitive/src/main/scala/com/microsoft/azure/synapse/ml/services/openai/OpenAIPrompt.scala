@@ -659,7 +659,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
           "image_url" -> s"data:${mimeType};base64,${Base64.getEncoder.encodeToString(fileBytes)}")
       case _ =>
         throw new IllegalArgumentException(
-          s"File type $mimeType is not supported in Chat Completions API. " +
+          s"File type '$fileType' (MIME type '$mimeType') is not supported in Chat Completions API. " +
             "Only text and image files are supported. Use apiType='responses' for file input.")
     }
   }

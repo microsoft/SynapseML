@@ -130,7 +130,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       Files.write(tempFile, Array[Byte](0, 1, 2, 3, 4, 5, 6, 7))
       val ex = intercept[IllegalArgumentException](
         chatPrompt.createMessagesForRow("Q", Map("f" -> tempFile.toString), Seq("f")))
-      assert(ex.getMessage.contains("not supported in Chat Completions"))
+      assert(ex.getMessage.contains("File type 'unsupported'") && ex.getMessage.contains("MIME type"))
     } finally Files.deleteIfExists(tempFile)
   }
 
@@ -144,7 +144,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       val rows = chatPrompt.transform(inputDF).select("out", chatPrompt.getErrorCol).collect()
       assert(rows(0).get(0) == null)
       assert(Option(rows(0).getAs[Row](1)).exists(
-        _.getAs[String]("response").contains("not supported in Chat Completions")))
+        _.getAs[String]("response").contains("File type 'unsupported'")))
     } finally Files.deleteIfExists(tempFile)
   }
 
