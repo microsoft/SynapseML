@@ -17,6 +17,7 @@ private[openai] object OpenAIAttachmentUtils {
 
   private val MimeSniffPrefixLength = 64
   private val Utf8Bom = Base64.getDecoder.decode("77u/")
+  private val XmlDeclarationPrefix = "<?xml"
 
   private val MimeTypeExtensions = Map(
     "image/jpeg" -> "jpg",
@@ -105,13 +106,18 @@ private[openai] object OpenAIAttachmentUtils {
   private def startsWithXmlElement(prefix: String): Boolean =
     prefix.length > 1 && prefix.head == '<' && isXmlNameStart(prefix.charAt(1))
 
-  private def inferStructuredTextMimeType(fileBytes: Array[Byte]): Option[String] = {
+  private def startsWithXmlDeclaration(prefix: String): Boolean =
+    prefix.length > XmlDeclarationPrefix.length &&
+      prefix.startsWith(XmlDeclarationPrefix) &&
+      prefix.charAt(XmlDeclarationPrefix.length).isWhitespace
+
+  private[openai] def inferStructuredTextMimeType(fileBytes: Array[Byte]): Option[String] = {
     val prefixBytes = fileBytes.take(MimeSniffPrefixLength)
     val contentBytes = if (prefixBytes.startsWith(Utf8Bom)) prefixBytes.drop(Utf8Bom.length) else prefixBytes
     val prefix = new String(contentBytes, StandardCharsets.UTF_8).dropWhile(_.isWhitespace)
     if (prefix.startsWith("{") || prefix.startsWith("[")) {
       Some("application/json")
-    } else if (startsWithXmlElement(prefix)) {
+    } else if (startsWithXmlElement(prefix) || startsWithXmlDeclaration(prefix)) {
       Some("application/xml")
     } else {
       None
