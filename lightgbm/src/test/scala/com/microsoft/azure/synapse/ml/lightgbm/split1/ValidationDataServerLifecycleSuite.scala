@@ -12,7 +12,7 @@ import org.apache.commons.io.FileUtils
 import org.apache.spark.sql.Row
 
 import java.io.{DataInputStream, DataOutputStream, File, FileOutputStream, IOException, OutputStream}
-import java.net.{BindException, InetSocketAddress, ServerSocket, Socket, SocketException}
+import java.net.{BindException, InetSocketAddress, ServerSocket, Socket, SocketException, SocketTimeoutException}
 import java.nio.file.Files
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
@@ -363,6 +363,24 @@ class ValidationDataServerLifecycleSuite extends TestBase {
 
     assert(failure eq expected)
     assert(socket.isClosed)
+  }
+
+  test("serializer construction failure occurs before executor socket connection") {
+    val listener = new ServerSocket()
+    listener.bind(new InetSocketAddress(host, 0), 1)
+    listener.setSoTimeout(250)
+    val params = ValidationDataParams(host, listener.getLocalPort, 0L, 5000, "token")
+    val expected = new IOException("synthetic serializer construction failure")
+
+    try {
+      val failure = intercept[IOException] {
+        ValidationDataServer.read(params, throw expected)
+      }
+      assert(failure eq expected)
+      intercept[SocketTimeoutException](listener.accept())
+    } finally {
+      listener.close()
+    }
   }
 
   test("validation row counts above the native Int limit fail clearly") {

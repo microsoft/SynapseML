@@ -7,6 +7,7 @@ import org.apache.commons.io.FileUtils
 import org.apache.spark.SparkEnv
 import org.apache.spark.broadcast.Broadcast
 import org.apache.spark.internal.Logging
+import org.apache.spark.serializer.SerializerInstance
 import org.apache.spark.sql.{DataFrame, Row}
 
 import java.io.{BufferedInputStream, BufferedOutputStream, DataInputStream, DataOutputStream, EOFException}
@@ -677,10 +678,14 @@ private[lightgbm] object ValidationDataServer {
   }
 
   private def read(params: ValidationDataParams): ValidationRowIterator = {
+    read(params, SparkEnv.get.serializer.newInstance())
+  }
+
+  private[lightgbm] def read(params: ValidationDataParams,
+                             serializer: SerializerInstance): ValidationRowIterator = {
     new ValidationRowIterator {
       private val socket = connect(params.host, params.port, params.timeoutMillis)
       private val input = openValidationInput(socket, params.token, params.timeoutMillis)
-      private val serializer = SparkEnv.get.serializer.newInstance()
       private var closed = false
       private var nextRow: Option[Row] = readNext()
 
