@@ -592,7 +592,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
   private def splitTrainingAndValidationData(df: DataFrame): (DataFrame, Option[DataFrame]) = {
     if (get(validationIndicatorCol).isDefined && df.columns.contains(getValidationIndicatorCol)) {
       val validationColumn = df(getValidationIndicatorCol)
-      if (df.filter(validationColumn.isNull).head(1).nonEmpty) {
+      if (df.filter(validationColumn.isNull).select(validationColumn).head(1).nonEmpty) {
         throw new IllegalArgumentException(s"Validation indicator column '$getValidationIndicatorCol' contains null")
       }
       (df.filter(!validationColumn), Some(preprocessData(df.filter(validationColumn))))
