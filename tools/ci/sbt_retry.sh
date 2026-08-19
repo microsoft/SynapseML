@@ -77,15 +77,15 @@ SLEEP_CMD="${SBT_SETUP_SLEEP_CMD:-sleep}"
 CURL_CMD="${SBT_SETUP_CURL_CMD:-curl}"
 IVY_HOME="${SBT_SETUP_IVY_HOME:-}"
 COURSIER_CACHE="${SBT_SETUP_COURSIER_CACHE:-}"
+MAVEN_CENTRAL_HOSTS=("repo1.maven.org" "repo.maven.apache.org")
+MAVEN_CENTRAL_PROBE_TIMEOUT_SECONDS=15
 if [ -z "$IVY_HOME" ] && [ -n "${HOME:-}" ]; then
   IVY_HOME="$HOME/.ivy2"
 fi
 if [ -z "$COURSIER_CACHE" ] && [ -n "${HOME:-}" ]; then
   COURSIER_CACHE="$HOME/.cache/coursier"
 fi
-PROBED_COORDS=""
-MAVEN_CENTRAL_HOSTS=("repo1.maven.org" "repo.maven.apache.org")
-MAVEN_CENTRAL_PROBE_TIMEOUT_SECONDS=15
+CENTRAL_PROBED=0
 
 if [ "$#" -eq 0 ]; then
   echo "sbt_retry.sh: no sbt arguments provided" >&2
@@ -116,40 +116,34 @@ run_sbt() {
   fi
 }
 
-# Report what Maven Central actually returns for a module sbt could not resolve.
+# Report what each configured Maven Central endpoint returns for a module sbt
+# could not resolve.
 #
 # Ivy collapses every remote outcome - 404, 429, TLS failure, DNS failure - into
 # the same "not found" message, so a failed resolution alone cannot distinguish
 # an absent artifact from a throttled or unreachable agent. A resolution failure
 # is also typically the job's only network request, leaving nothing to compare
-# against. This probe records the HTTP status so the next occurrence is
-# diagnosable from the log instead of inferred. It never affects the exit status.
+# against. These probes record both HTTP statuses within a 30-second total bound
+# so the next occurrence is diagnosable from the log instead of inferred. They
+# never affect the exit status.
 probe_central() {
-  local host="$1" org_path="$2" name="$3" rev="$4"
-  local url="https://${host}/maven2/${org_path}/${name}/${rev}/${name}-${rev}.pom"
-  local code
-  code="$("$CURL_CMD" -sS -o /dev/null -w '%{http_code}' \
-    --max-time "$MAVEN_CENTRAL_PROBE_TIMEOUT_SECONDS" "$url" 2>&1)" ||
-    code="request-failed(${code})"
-  echo "sbt_retry: Maven Central probe: HTTP ${code} for ${url}"
+  local org_path="$1" name="$2" rev="$3"
+  local host url code
+  command -v "$CURL_CMD" >/dev/null 2>&1 || return 0
+  for host in "${MAVEN_CENTRAL_HOSTS[@]}"; do
+    url="https://${host}/maven2/${org_path}/${name}/${rev}/${name}-${rev}.pom"
+    code="$("$CURL_CMD" -sS -o /dev/null -w '%{http_code}' \
+      --max-time "$MAVEN_CENTRAL_PROBE_TIMEOUT_SECONDS" "$url" 2>&1)" ||
+      code="request-failed(${code})"
+    echo "sbt_retry: Maven Central probe: HTTP ${code} for ${url}"
+  done
 }
 
 probe_central_once() {
-  local org="$1" org_path="$2" name="$3" rev="$4"
-  local coord="${org}#${name};${rev}"
-  local host
-  command -v "$CURL_CMD" >/dev/null 2>&1 || return 0
-  case $'\n'"$PROBED_COORDS"$'\n' in
-    *$'\n'"$coord"$'\n'*) return 0 ;;
-  esac
-  if [ -n "$PROBED_COORDS" ]; then
-    PROBED_COORDS="${PROBED_COORDS}"$'\n'"${coord}"
-  else
-    PROBED_COORDS="$coord"
-  fi
-  for host in "${MAVEN_CENTRAL_HOSTS[@]}"; do
-    probe_central "$host" "$org_path" "$name" "$rev"
-  done
+  local org_path="$1" name="$2" rev="$3"
+  [ "$CENTRAL_PROBED" -eq 0 ] || return 0
+  CENTRAL_PROBED=1
+  probe_central "$org_path" "$name" "$rev"
 }
 
 cache_root_is_safe() {
@@ -174,9 +168,52 @@ coordinate_component_is_safe() {
   esac
 }
 
+unresolved_coordinates() {
+  local log_file="$1"
+  [ -s "$log_file" ] || return 0
+  sed -n 's/.*unresolved dependency: \([^ #]*\)#\([^ ;]*\);\([^ :]*\).*/\1 \2 \3/p' \
+    "$log_file" | sort -u
+}
+
+probe_unresolved_module() {
+  local coords org name rev org_path
+  coords="$(unresolved_coordinates "$1")"
+  [ -n "$coords" ] || return 0
+
+  while read -r org name rev; do
+    if coordinate_component_is_safe "$org" &&
+      coordinate_component_is_safe "$name" &&
+      coordinate_component_is_safe "$rev"; then
+      org_path="$(printf '%s' "$org" | tr '.' '/')"
+      probe_central_once "$org_path" "$name" "$rev"
+      return 0
+    fi
+  done <<< "$coords"
+}
+
+path_has_symlink_component() {
+  local remaining="${1#/}" current="" component
+  while [ -n "$remaining" ]; do
+    component="${remaining%%/*}"
+    if [ "$remaining" = "$component" ]; then
+      remaining=""
+    else
+      remaining="${remaining#*/}"
+    fi
+    [ -n "$component" ] || continue
+    current="$current/$component"
+    [ -L "$current" ] && return 0
+  done
+  return 1
+}
+
 evict_cache_entry() {
   local target="$1"
   local find_status
+  if path_has_symlink_component "${target%/*}"; then
+    echo "sbt_retry: skipping cache entry with symlinked ancestor: $target" >&2
+    return 1
+  fi
   if [ -e "$target" ] || [ -L "$target" ]; then
     # The entry listing distinguishes a poisoned marker from a missing artifact.
     echo "sbt_retry: evicting cache entry for unresolved module: $target"
@@ -208,11 +245,7 @@ evict_unresolved_modules() {
   local coords org name rev org_path target host
   local ivy_safe=0 coursier_safe=0
 
-  [ -s "$log_file" ] || return 1
-  coords="$(
-    sed -n 's/.*unresolved dependency: \([^ #]*\)#\([^ ;]*\);\([^ :]*\).*/\1 \2 \3/p' \
-      "$log_file" | sort -u
-  )"
+  coords="$(unresolved_coordinates "$log_file")"
   [ -n "$coords" ] || return 1
 
   if cache_root_is_safe "$IVY_HOME"; then
@@ -255,7 +288,6 @@ evict_unresolved_modules() {
         fi
       done
     fi
-    probe_central_once "$org" "$org_path" "$name" "$rev"
   done <<< "$coords"
 
   [ "$evicted" -eq 1 ]
@@ -290,6 +322,7 @@ while : ; do
     echo "sbt_retry: succeeded on attempt ${attempt}"
     exit 0
   fi
+  probe_unresolved_module "$attempt_log"
   if [ "$attempt" -ge "$MAX_ATTEMPTS" ]; then
     echo "sbt_retry: exhausted ${MAX_ATTEMPTS} attempts; failing (last exit ${status})" >&2
     exit "$status"

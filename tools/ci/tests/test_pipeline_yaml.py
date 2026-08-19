@@ -115,13 +115,19 @@ def test_pipeline_and_templates_parse():
 
 
 def test_build_has_canonical_maven_central_fallback():
-    resolvers = re.findall(
-        r'\bresolvers\b.{0,200}"Maven Central fallback".{0,200}'
-        r'"https://repo\.maven\.apache\.org/maven2"',
-        BUILD_SBT.read_text(),
-        re.DOTALL,
+    build = "\n".join(
+        line
+        for line in BUILD_SBT.read_text().splitlines()
+        if not line.lstrip().startswith("//")
     )
-    assert len(resolvers) == 1
+    resolver = (
+        r'"Maven Central fallback"\s+at\s+' r'"https://repo\.maven\.apache\.org/maven2"'
+    )
+    active_setting = (
+        rf"ThisBuild\s*/\s*resolvers\s*"
+        rf"(?:\+=\s*{resolver}|\+\+=\s*Seq\s*\([^)]*{resolver}[^)]*\))"
+    )
+    assert len(re.findall(active_setting, build, flags=re.DOTALL)) == 1
 
 
 def test_sbt_cache_template_exists_and_parses():

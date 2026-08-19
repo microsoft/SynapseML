@@ -52,14 +52,17 @@ failure; the diagnostic probe exists to make that distinction.
 
 `sbt_retry.sh` therefore parses `unresolved dependency: <org>#<name>;<rev>` out
 of each failed attempt and deletes exactly those modules from `~/.ivy2/cache`,
-`~/.ivy2/local`, and the Coursier cache before backing off, so the next attempt
-re-fetches them cleanly. Unrelated failures evict nothing. Override
+`~/.ivy2/local`, and the Coursier entries for both Maven Central hostnames before
+backing off, so the next attempt re-fetches them cleanly. Unrelated failures
+evict nothing. Override
 `SBT_SETUP_IVY_HOME` / `SBT_SETUP_COURSIER_CACHE` with absolute, non-root paths
 to relocate the scan. Eviction is disabled if `HOME` is unavailable and no safe
-override is provided. Both Maven Central host paths are removed from Coursier.
-Each official Maven Central hostname is probed at most once per unresolved
-coordinate per wrapper invocation. Each request has a 15-second timeout, keeping
-the two-host diagnostic bound at 30 seconds per coordinate during an outage.
+override is provided. Cache entries with a symlinked ancestor are skipped rather
+than recursively followed outside the configured root. Only one representative
+unresolved coordinate is probed per wrapper invocation; both Maven Central
+endpoints share a 30-second total timeout, so diagnostics cannot grow with the
+number of missing modules or retry attempts. Terminal failures are still probed,
+but cache entries are removed only when another wrapper retry will follow.
 
 ### Tests
 
