@@ -18,3 +18,7 @@ After the PR was force-rebased and the upstream SIGPIPE fix was integrated with 
 ## Multiline Parser Verification Rerun
 
 After the two-line parser regression passed all 108 CI-helper tests, the regenerated round-6 prompt was dispatched to a fresh `grok-4.6` reviewer. It again completed with an empty response. This slot remains **INCOMPLETE**.
+
+## Exact-Hit Verification Rerun
+
+After the exact-hit prewarm export and documentation fixes passed all 108 CI-helper tests, the regenerated round-6 prompt was dispatched to a fresh `grok-4.6` reviewer. It again completed with an empty response. This slot remains **INCOMPLETE**.

@@ -67,3 +67,49 @@ The `gpt-5.6-sol` slot returned the following clean review while self-labeling i
 - [x] Verified the state-dependent regression requires eviction before recovery and checks Ivy plus both Coursier host layouts.
 - [x] Targeted parser/safety tests passed **3/3** and the complete CI-helper suite passed **108/108**.
 - [x] Bash syntax, Black 22.3.0, and `git diff --check ms/master` passed.
+
+## Exact-Head Documentation Review
+
+### Issue 1: Wrapper scope summary contradicted restored-cache recovery
+- **Severity**: Low
+- **Source**: Copilot review of `f68c1f23fa`
+- **File**: `tools/ci/README.md`
+- **Status**: Fixed
+- **What changed**: The strategy summary now says the wrapper covers cold-cache starts and resolution failures caused by unusable restored entries, while retaining the existing stagger, retry, exhaustion, and exact-hit behavior.
+- **Why**: “Cold-cache path only” contradicted the detailed recovery behavior immediately below and understated the advertised purpose of this PR.
+- **How verified**: The revised summary matches the detailed unusable-cache section and `git diff --check` passed.
+
+## Documentation Verification Rerun
+
+### Issue 1: Script header retained the cold-cache-only contradiction
+- **Severity**: Low
+- **File**: `tools/ci/sbt_retry.sh`
+- **Status**: Fixed
+- **What changed**: The script-level role summary now covers both cold-cache smoothing and validated unresolved-module repair from unusable restored caches.
+- **Why**: Maintainers reading the implementation header need the same accurate scope as the README.
+- **How verified**: The header now matches the recovery section and implementation.
+
+### Issue 2: Exact-hit prewarm could still stagger in its current task
+- **Severity**: Low
+- **File**: `templates/sbt_cache.yml`
+- **Status**: Fixed
+- **What changed**: The exact-hit branch now exports `SBT_SETUP_MAX_STAGGER_SECONDS=0` for the current Bash task before invoking the retry wrapper, while retaining the Azure `task.setvariable` command for later tasks. The pipeline regression requires that export to precede the wrapper call.
+- **Why**: Azure logging commands update later tasks, not the environment of the shell already running. Exporting locally makes the documented exact-hit behavior true for the forced prewarm invocation without changing cache-miss behavior.
+- **How verified**: The targeted cache-template regression and full CI-helper suite passed; Bash syntax, Black, and `git diff --check` passed.
+
+## Exact-Hit Verification Rerun
+
+## Review Summary
+- **Round**: 6
+- **Theme**: Polish & hardening
+- **Mode**: parallel
+- **Model**: gpt-5.6-sol
+- **Issues Found**: 0
+- **Verdict**: CLEAN
+
+## Evidence Checklist
+- [x] Confirmed the README and script header consistently cover cold-cache smoothing and unusable restored-cache recovery.
+- [x] Executed the parsed cache-template Bash step across exact-hit/prewarm, exact-hit/non-prewarm, cache-miss, and inexact-restore cases; only exact-hit prewarm passed zero stagger to the wrapper.
+- [x] Confirmed the Azure `task.setvariable` command remains for later tasks and the regression locks the local export before the wrapper call.
+- [x] The targeted test passed **1/1** and the complete CI-helper suite passed **108/108**.
+- [x] Bash syntax, Black 22.3.0, `git diff --check ms/master`, and the review-report portability scan passed.

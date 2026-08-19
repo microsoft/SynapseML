@@ -22,12 +22,13 @@
 #
 # Role of this script (supplement)
 # --------------------------------
-# This wrapper only smooths the *cold-cache* path (the first build for a new sbt
-# version or a changed dependency set, when the cache key legitimately misses).
-# It adds a bounded random start stagger so concurrent cold jobs do not hit
-# Maven Central at the same instant, followed by bounded jittered exponential
-# backoff retries. On exhaustion it fails visibly with a non-zero exit code; it
-# never masks a failure with a success fallback.
+# This wrapper smooths the *cold-cache* path (the first build for a new sbt
+# version or a changed dependency set, when the cache key legitimately misses)
+# and repairs validated unresolved modules from unusable restored caches. It adds
+# a bounded random start stagger so concurrent cold jobs do not hit Maven Central
+# at the same instant, followed by bounded jittered exponential backoff retries.
+# On exhaustion it fails visibly with a non-zero exit code; it never masks a
+# failure with a success fallback.
 #
 # Second failure mode: partially restored caches
 # ----------------------------------------------

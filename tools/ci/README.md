@@ -29,11 +29,12 @@ The durable fix has four layers:
    same official repository through its canonical hostname when `repo1` returns
    HTTP 429. A synthetic Ivy test with a resolver that returned only HTTP 429
    confirmed that the fallback downloaded every dependency successfully.
-4. **`sbt_retry.sh`** (supplement) — smooths the *cold-cache* path only. It adds a
-   bounded random start stagger so concurrent cold jobs don't hit Maven at the
-   same instant, then bounded jittered exponential-backoff retries. On exhaustion
-   it fails visibly (non-zero exit); it never masks a failure with a success
-   fallback. Exact hits on all three caches disable the start stagger
+4. **`sbt_retry.sh`** (supplement) — covers cold-cache starts and resolution
+   failures caused by unusable restored entries. It adds a bounded random start
+   stagger so concurrent cold jobs don't hit Maven at the same instant, then
+   bounded jittered exponential-backoff retries and the targeted recovery below.
+   On exhaustion it fails visibly (non-zero exit); it never masks a failure with
+   a success fallback. Exact hits on all three caches disable the start stagger
    automatically.
 
 ### Unusable restored caches

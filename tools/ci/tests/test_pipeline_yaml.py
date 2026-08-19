@@ -159,8 +159,12 @@ def test_sbt_cache_template_exists_and_parses():
     ]
     assert len(fallback_scripts) == 1
     fallback_script = fallback_scripts[0]
-    assert "SBT_SETUP_MAX_STAGGER_SECONDS" in fallback_script
+    stagger_export = "export SBT_SETUP_MAX_STAGGER_SECONDS=0"
+    assert stagger_export in fallback_script
     assert 'bash "$SBT_RETRY_SCRIPT_PATH" update' in fallback_script
+    assert fallback_script.index(stagger_export) < fallback_script.index(
+        'bash "$SBT_RETRY_SCRIPT_PATH" update'
+    )
     assert 'if [ "$exact_hit" != "true" ]' in fallback_script
     parameters = {parameter["name"]: parameter for parameter in data["parameters"]}
     assert parameters["retryScriptPath"]["default"] == "tools/ci/sbt_retry.sh"

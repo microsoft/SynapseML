@@ -54,3 +54,20 @@ No significant issues found in the reviewed changes.
 - [x] Confirmed `set -u`, `pipefail`, EOF handling, state reset, and `sort -u` behavior are safe.
 - [x] Confirmed the state-dependent test proves Ivy and dual-host Coursier eviction enables retry recovery.
 - [x] The complete CI-helper suite passed **108/108** and `git diff --check` passed.
+
+## Exact-Hit Verification Rerun
+
+## Review Summary
+- **Round**: 6
+- **Theme**: Polish & hardening
+- **Mode**: parallel
+- **Model**: gemini-3.7-flash
+- **Issues Found**: 0
+- **Verdict**: CLEAN
+
+## Evidence Checklist
+- [x] Verified README and script-header scope is consistent and accurate.
+- [x] Verified the local zero-stagger export affects the current exact-hit prewarm shell before the wrapper call, while the Azure variable command remains for later tasks.
+- [x] Verified cache-miss and non-prewarm exact-hit behavior remain unchanged.
+- [x] Verified the pipeline regression locks export ordering.
+- [x] The complete CI-helper suite passed **108/108** and `git diff --check` passed.
