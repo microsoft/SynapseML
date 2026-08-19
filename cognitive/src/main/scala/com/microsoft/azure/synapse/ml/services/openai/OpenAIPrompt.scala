@@ -507,16 +507,21 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       promptCol: Column,
       pathColumnNames: Seq[String]
   ): DataFrame = {
-    val fileResultCol = createMessagesUDF(pathColumnNames)(
-      promptCol, attachmentsColumn(pathColumnNames))
+    import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions._
+      val fileResultColName = df.withDerivativeCol(s"${uid}_file_result")
+    val dfWithFileResult = df.withColumn(
+      fileResultColName,
+      createMessagesUDF(pathColumnNames)(promptCol, attachmentsColumn(pathColumnNames)))
+    val fileResultCol = F.col(fileResultColName)
     val fileErrorStruct = toErrorStruct(fileResultCol.getField("_2"))
     val combinedFileError = if (df.columns.contains(getErrorCol)) {
       F.coalesce(F.col(getErrorCol), fileErrorStruct)
     } else {
       fileErrorStruct
     }
-    df.withColumn(getMessagesCol, fileResultCol.getField("_1"))
+    dfWithFileResult.withColumn(getMessagesCol, fileResultCol.getField("_1"))
       .withColumn(getErrorCol, combinedFileError)
+      .drop(fileResultColName)
   }
 
   private def dropFilenameColumns(df: DataFrame, filenameColMapping: Map[String, String]): DataFrame = {

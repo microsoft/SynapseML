@@ -71,8 +71,11 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
     }
   }
 
-  private def withEchoServer(testCode: (String, ConcurrentLinkedQueue[String]) => Unit): Unit = {
+  private def withEchoServer(
+      testCode: (String, ConcurrentLinkedQueue[String], ConcurrentLinkedQueue[String]) => Unit
+  ): Unit = {
     val bodies = new ConcurrentLinkedQueue[String]()
+    val attachmentRequests = new ConcurrentLinkedQueue[String]()
     val server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0)
     server.createContext("/openai/v1", new HttpHandler {
       override def handle(exchange: HttpExchange): Unit = {
@@ -85,19 +88,36 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
         exchange.close()
       }
     })
-    server.createContext("/image.png", new HttpHandler {
-      override def handle(exchange: HttpExchange): Unit = {
-        exchange.getResponseHeaders.add("Content-Type", "image/png")
-        exchange.sendResponseHeaders(200, imageBytes.length)
-        exchange.getResponseBody.write(imageBytes)
-        exchange.close()
-      }
-    })
+    def addAttachmentContext(path: String, contentType: String, content: Array[Byte]): Unit = {
+      server.createContext(path, new HttpHandler {
+        override def handle(exchange: HttpExchange): Unit = {
+          attachmentRequests.add(exchange.getRequestURI.getPath)
+          exchange.getResponseHeaders.add("Content-Type", contentType)
+          exchange.sendResponseHeaders(200, content.length)
+          exchange.getResponseBody.write(content)
+          exchange.close()
+        }
+      })
+    }
+    addAttachmentContext("/image.png", "image/png", imageBytes)
+    addAttachmentContext("/image", "image/png", imageBytes)
+    addAttachmentContext("/document-json", "application/json", "{}".getBytes(StandardCharsets.UTF_8))
+    addAttachmentContext("/document-xml", "application/xml", "<root/>".getBytes(StandardCharsets.UTF_8))
     server.start()
     try {
-      testCode(s"http://127.0.0.1:${server.getAddress.getPort}/openai/v1", bodies)
+      testCode(
+        s"http://127.0.0.1:${server.getAddress.getPort}/openai/v1",
+        bodies,
+        attachmentRequests
+      )
     } finally {
       server.stop(0)
+    }
+  }
+
+  private def withEchoServer(testCode: (String, ConcurrentLinkedQueue[String]) => Unit): Unit = {
+    withEchoServer { (baseUrl, bodies, _) =>
+      testCode(baseUrl, bodies)
     }
   }
 
@@ -141,12 +161,12 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
     val JsArray(parts) = messages(1).asJsObject.fields("content")
     assert(parts.map(_.asJsObject.fields("type")) == Seq(JsString("input_text"), JsString("input_image")))
     val JsString(imageUrl) = parts(1).asJsObject.fields("image_url")
-    assert(imageUrl.startsWith("data:image/png;base64,"))
+    assert(imageUrl == dataImage)
   }
 
   test("Responses OpenAIPrompt preserves AI Functions row JSON and URL attachments") {
-    withEchoServer { (baseUrl, bodies) =>
-      val imageUrl = baseUrl.replace("/openai/v1", "/image.png")
+    withEchoServer { (baseUrl, bodies, attachmentRequests) =>
+      val imageUrl = baseUrl.replace("/openai/v1", "/image")
       val input = Seq((imageUrl, "Ace")).toDF("image_path", "master")
       val rowJsonCol = "ai_functions_row_json"
       val prepared = input.withColumn(rowJsonCol, to_json(struct(input.columns.map(col): _*)))
@@ -168,6 +188,7 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
       val rowError = Option(result.getAs[Row]("error")).map(_.getAs[String]("response"))
       assert(rowError.isEmpty, rowError.getOrElse(""))
       assert(bodies.size() == 1)
+      assert(attachmentRequests.asScala.toSeq == Seq("/image"))
 
       val payload = bodies.asScala.head.parseJson.asJsObject
       val JsArray(messages) = payload.fields("input")
@@ -176,7 +197,36 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
       assert(text.contains("\"master\":\"Ace\""))
       assert(parts(1).asJsObject.fields("type") == JsString("input_image"))
       val JsString(encodedImage) = parts(1).asJsObject.fields("image_url")
-      assert(encodedImage.startsWith("data:image/png;base64,"))
+      assert(encodedImage == dataImage)
+    }
+  }
+
+  test("Responses OpenAIPrompt downloads extensionless JSON and XML URLs as text") {
+    withEchoServer { (baseUrl, bodies, attachmentRequests) =>
+      val cases = Seq(
+        "/document-json" -> "{}",
+        "/document-xml" -> "<root/>"
+      )
+
+      cases.foreach { case (path, expectedText) =>
+        val attachmentUrl = baseUrl.replace("/openai/v1", path)
+        val result = prompt(baseUrl, "responses")
+          .transform(Seq(("Read the attachment.", attachmentUrl)).toDF("prompt", "image"))
+          .head()
+
+        val rowError = Option(result.getAs[Row]("error")).map(_.getAs[String]("response"))
+        assert(rowError.isEmpty, rowError.getOrElse(""))
+
+        val payload = bodies.asScala.last.parseJson.asJsObject
+        val JsArray(messages) = payload.fields("input")
+        val JsArray(parts) = messages(1).asJsObject.fields("content")
+        assert(parts(1).asJsObject == JsObject(
+          "type" -> JsString("input_text"),
+          "text" -> JsString(expectedText)
+        ))
+      }
+
+      assert(attachmentRequests.asScala.toSeq == cases.map(_._1))
     }
   }
 
@@ -252,7 +302,7 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
     val JsArray(parts) = messages(1).asJsObject.fields("content")
     assert(parts.map(_.asJsObject.fields("type")) == Seq(JsString("text"), JsString("image_url")))
     val JsString(imageUrl) = parts(1).asJsObject.fields("image_url").asJsObject.fields("url")
-    assert(imageUrl.startsWith("data:image/png;base64,"))
+    assert(imageUrl == dataImage)
   }
 
   test("base64 JSON data URLs are decoded as text attachments") {
