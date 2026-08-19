@@ -39,3 +39,31 @@ The `gpt-5.6-sol` slot returned the following clean review while self-labeling i
 - [x] Ran the merged focused suite under WSL/Linux: **96 passed in 341.94s**.
 - [x] Validation passed: Bash syntax, `git diff --check ms/master`, Black 22.3.0 across 194 files, and `sbt scalastyle test:scalastyle`.
 - [x] Post-review status confirmed no source or review artifact was edited or overwritten.
+
+## Exact-Head Suppressed Review
+
+### Issue 1: Wrapped unresolved coordinates were not parsed
+- **Severity**: Medium
+- **Source**: Copilot review of `480aedf467`
+- **File**: `tools/ci/sbt_retry.sh`
+- **Status**: Fixed
+- **What changed**: `unresolved_coordinates` now treats the line after an `unresolved dependency:` label as part of the same logical record and extracts a coordinate from either the label line or that following line. Added a state-dependent wrapper regression using an `[error]`-prefixed continuation line.
+- **Why**: Real sbt/Ivy output commonly wraps the coordinate, and missing it made both eviction and diagnostics silently no-op.
+- **How verified**: The new regression proves the blocking Ivy and dual-host Coursier entries are removed, the two bounded probes run, and retry succeeds only after eviction. The missing-revision safety regression remains intact. Targeted tests passed **3/3**, the complete `tools/ci/tests/` suite passed **108/108**, Black 22.3.0 left all 194 files unchanged, `bash -n` passed, and `git diff --check` passed.
+
+## Multiline Parser Verification Rerun
+
+## Review Summary
+- **Round**: 6
+- **Theme**: Polish & hardening
+- **Mode**: parallel
+- **Model**: gpt-5.6-sol
+- **Issues Found**: 0
+- **Verdict**: CLEAN
+
+## Evidence Checklist
+- [x] Verified inline and immediately-following coordinates parse correctly, an `[error]` prefix is skipped, empty revisions reach downstream rejection, and malformed components cannot reach deletion.
+- [x] Checked `set -u`, `pipefail`, EOF handling, saved sbt status, duplicate sorting, and the script's Bash portability contract.
+- [x] Verified the state-dependent regression requires eviction before recovery and checks Ivy plus both Coursier host layouts.
+- [x] Targeted parser/safety tests passed **3/3** and the complete CI-helper suite passed **108/108**.
+- [x] Bash syntax, Black 22.3.0, and `git diff --check ms/master` passed.

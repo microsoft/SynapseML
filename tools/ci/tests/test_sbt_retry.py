@@ -547,7 +547,9 @@ def test_missing_revision_never_evicts_a_module(tmp_path):
     assert not (tmp_path / "curl_log").exists()
 
 
-def _state_dependent_sbt(tmp_path: Path, blocking_dir: Path) -> Path:
+def _state_dependent_sbt(
+    tmp_path: Path, blocking_dir: Path, multiline_error: bool = False
+) -> Path:
     """A fake ``sbt`` that fails for as long as ``blocking_dir`` exists.
 
     This models the local-state failure path: the command's outcome is a pure
@@ -555,6 +557,12 @@ def _state_dependent_sbt(tmp_path: Path, blocking_dir: Path) -> Path:
     """
     calls = tmp_path / "sbt_calls"
     fake = tmp_path / "state_dependent_sbt.sh"
+    if multiline_error:
+        resolve_error = """echo "[error] sbt.librarymanagement.ResolveException: unresolved dependency:" >&2
+  echo "[error]   com.globalmentor#hadoop-bare-naked-local-fs;0.1.0: not found" >&2"""
+    else:
+        resolve_error = """echo "[error] sbt.librarymanagement.ResolveException: unresolved dependency:\
+ com.globalmentor#hadoop-bare-naked-local-fs;0.1.0: not found" >&2"""
     _write_exec(
         fake,
         f"""#!/usr/bin/env bash
@@ -563,8 +571,7 @@ if [ -f "{calls}" ]; then n=$(cat "{calls}"); fi
 n=$((n + 1))
 echo "$n" > "{calls}"
 if [ -d "{blocking_dir}" ]; then
-  echo "[error] sbt.librarymanagement.ResolveException: unresolved dependency:\
- com.globalmentor#hadoop-bare-naked-local-fs;0.1.0: not found" >&2
+  {resolve_error}
   exit 1
 fi
 echo "fake sbt: resolved after eviction"
@@ -613,6 +620,23 @@ def test_retry_succeeds_because_eviction_clears_the_blocking_state(tmp_path):
     assert r.returncode == 0, r.stdout + r.stderr
     assert (tmp_path / "sbt_calls").read_text().strip() == "2"
     assert "fake sbt: resolved after eviction" in r.stdout
+
+
+def test_multiline_unresolved_coordinate_is_evicted_and_probed(tmp_path):
+    """Ivy commonly prints the coordinate on the line after its error label."""
+    env, incomplete, coursier_entries, _ = _ivy_layout(tmp_path)
+    env = dict(env)
+    env["SBT_SETUP_CURL_CMD"] = str(_fake_curl(tmp_path, http_code="429"))
+    sbt = _state_dependent_sbt(tmp_path, incomplete, multiline_error=True)
+
+    r = _run(tmp_path, "setup", sbt_cmd=sbt, env_overrides=env)
+
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert (tmp_path / "sbt_calls").read_text().strip() == "2"
+    assert not incomplete.exists()
+    assert all(not entry.exists() for entry in coursier_entries)
+    probed = (tmp_path / "curl_log").read_text().strip().splitlines()
+    assert len(probed) == 2, probed
 
 
 def test_without_eviction_the_same_state_exhausts_every_attempt(tmp_path):

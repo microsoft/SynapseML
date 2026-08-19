@@ -37,3 +37,20 @@ No significant issues found in the reviewed changes.
 - [x] Verified the active fallback resolver in `build.sbt` and comment-resilient matching in `test_build_has_canonical_maven_central_fallback`.
 - [x] Verified `tools/ci/README.md` accurately covers dual-host eviction, symlink safeguards, invocation-wide probe limits, and terminal failure diagnostics.
 - [x] Executed the full merged focused suite: **96/96 tests passed** (34 wrapper tests and 62 pipeline tests).
+
+## Multiline Parser Verification Rerun
+
+## Review Summary
+- **Round**: 6
+- **Theme**: Polish & hardening
+- **Mode**: parallel
+- **Model**: gemini-3.7-flash
+- **Issues Found**: 0
+- **Verdict**: CLEAN
+
+## Evidence Checklist
+- [x] Verified the multiline state parser handles same-line and consecutive-line coordinates, including an `[error]` prefix.
+- [x] Verified missing revisions remain visible to downstream safety validation and cannot broaden deletion.
+- [x] Confirmed `set -u`, `pipefail`, EOF handling, state reset, and `sort -u` behavior are safe.
+- [x] Confirmed the state-dependent test proves Ivy and dual-host Coursier eviction enables retry recovery.
+- [x] The complete CI-helper suite passed **108/108** and `git diff --check` passed.

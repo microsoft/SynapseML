@@ -51,10 +51,11 @@ state, but does not by itself distinguish a later HTTP 404/429, TLS, or DNS
 failure; the diagnostic probe exists to make that distinction.
 
 `sbt_retry.sh` therefore parses `unresolved dependency: <org>#<name>;<rev>` out
-of each failed attempt and deletes exactly those modules from `~/.ivy2/cache`,
-`~/.ivy2/local`, and the Coursier entries for both Maven Central hostnames before
-backing off, so the next attempt re-fetches them cleanly. Unrelated failures
-evict nothing. Override
+of each failed attempt, including when Ivy wraps the coordinate onto the next
+log line, and deletes exactly those modules from `~/.ivy2/cache`, `~/.ivy2/local`,
+and the Coursier entries for both Maven Central hostnames before backing off, so
+the next attempt re-fetches them cleanly. Unrelated failures evict nothing.
+Override
 `SBT_SETUP_IVY_HOME` / `SBT_SETUP_COURSIER_CACHE` with absolute, non-root paths
 to relocate the scan. Eviction is disabled if `HOME` is unavailable and no safe
 override is provided. Cache entries with a symlinked ancestor are skipped rather

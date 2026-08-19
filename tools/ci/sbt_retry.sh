@@ -169,10 +169,25 @@ coordinate_component_is_safe() {
 }
 
 unresolved_coordinates() {
-  local log_file="$1"
+  local log_file="$1" line candidate
+  local pending=0
   [ -s "$log_file" ] || return 0
-  sed -n 's/.*unresolved dependency: \([^ #]*\)#\([^ ;]*\);\([^ :]*\).*/\1 \2 \3/p' \
-    "$log_file" | sort -u
+  while IFS= read -r line || [ -n "$line" ]; do
+    if [[ "$line" == *"unresolved dependency:"* ]]; then
+      candidate="${line#*unresolved dependency:}"
+      pending=1
+    elif [ "$pending" -eq 1 ]; then
+      candidate="$line"
+      pending=0
+    else
+      continue
+    fi
+    if [[ "$candidate" =~ ([^[:space:]#]+)#([^[:space:];]+)\;([^[:space:]:]*): ]]; then
+      printf '%s %s %s\n' \
+        "${BASH_REMATCH[1]}" "${BASH_REMATCH[2]}" "${BASH_REMATCH[3]}"
+      pending=0
+    fi
+  done < "$log_file" | sort -u
 }
 
 probe_unresolved_module() {
