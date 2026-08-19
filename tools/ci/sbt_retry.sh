@@ -176,11 +176,16 @@ coordinate_component_is_safe() {
 
 evict_cache_entry() {
   local target="$1"
+  local find_status
   if [ -e "$target" ] || [ -L "$target" ]; then
     # The entry listing distinguishes a poisoned marker from a missing artifact.
     echo "sbt_retry: evicting cache entry for unresolved module: $target"
-    find "$target" -maxdepth 2 -printf '  %10s  %p\n' 2>/dev/null | head -n 20 ||
-      ls -la "$target" 2>/dev/null | head -n 20
+    find "$target" -maxdepth 2 -printf '  %10s  %p\n' 2>/dev/null | head -n 20
+    find_status="${PIPESTATUS[0]}"
+    case "$find_status" in
+      0|141) ;;
+      *) ls -la "$target" 2>/dev/null | head -n 20 || true ;;
+    esac
     if rm -rf -- "$target"; then
       return 0
     fi
