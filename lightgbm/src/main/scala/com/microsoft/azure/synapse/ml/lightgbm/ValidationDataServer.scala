@@ -297,15 +297,25 @@ private[lightgbm] object ValidationDataServer {
              host: String,
              partitionCount: Int,
              timeoutSeconds: Double): ValidationDataServer = {
-    val spoolDirectory = new File(
-      System.getProperty("user.dir"),
-      s".synapseml-lightgbm-validation-spool-${UUID.randomUUID()}")
-    create(validationData,
+    createWithPreparedSpool(validationData,
       host,
       partitionCount,
       timeoutSeconds,
-      spoolDirectory,
+      createSpoolDirectory(new File(System.getProperty("user.dir"))),
       ValidationDataServerResourceFactory.Default)
+  }
+
+  private[lightgbm] def createSpoolDirectory(preferredParent: File): File = {
+    try Files.createTempDirectory(preferredParent.toPath, ".synapseml-lightgbm-validation-spool-").toFile
+    catch {
+      case NonFatal(preferredFailure) =>
+        try Files.createTempDirectory(".synapseml-lightgbm-validation-spool-").toFile
+        catch {
+          case NonFatal(fallbackFailure) =>
+            fallbackFailure.addSuppressed(preferredFailure)
+            throw fallbackFailure
+        }
+    }
   }
 
   private[lightgbm] def create(validationData: DataFrame,
@@ -318,6 +328,16 @@ private[lightgbm] object ValidationDataServer {
       throw new IOException(s"Could not create validation spool directory ${spoolDirectory.getAbsolutePath}")
     }
 
+    createWithPreparedSpool(
+      validationData, host, partitionCount, timeoutSeconds, spoolDirectory, resources)
+  }
+
+  private def createWithPreparedSpool(validationData: DataFrame,
+                                      host: String,
+                                      partitionCount: Int,
+                                      timeoutSeconds: Double,
+                                      spoolDirectory: File,
+                                      resources: ValidationDataServerResourceFactory): ValidationDataServer = {
     var spoolTransferred = false
     NetworkManagerSocketSupport.withCleanupPreservingPrimary(
       if (!spoolTransferred) deleteSpoolDirectory(spoolDirectory)) {

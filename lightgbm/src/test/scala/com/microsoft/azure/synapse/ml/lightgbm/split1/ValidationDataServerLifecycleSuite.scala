@@ -26,6 +26,21 @@ class ValidationDataServerLifecycleSuite extends TestBase {
   private val host = "127.0.0.1"
   private val timeoutSeconds = 60.0
 
+  test("spool creation falls back when the preferred parent is unusable") {
+    val preferredParent = scratchDirectory("unusable-spool-parent")
+    var spool = Option.empty[File]
+
+    try {
+      Files.write(preferredParent.toPath, Array[Byte](1))
+      spool = Option(ValidationDataServer.createSpoolDirectory(preferredParent))
+      assert(spool.exists(_.isDirectory))
+      assert(preferredParent.isFile)
+    } finally {
+      spool.foreach(deleteIfPresent)
+      Files.deleteIfExists(preferredParent.toPath)
+    }
+  }
+
   test("ingest socket construction failure deletes the newly created spool") {
     val spool = scratchDirectory("ingest-bind-failure")
     val resources = new DelegatingResources {
@@ -323,6 +338,7 @@ class ValidationDataServerLifecycleSuite extends TestBase {
       Thread.sleep(1200)
       val client = authenticatedClient(server.params)
       try {
+        client.setSoTimeout(TimeUnit.SECONDS.toMillis(5).toInt)
         readToEnd(client)
       } finally {
         client.close()
