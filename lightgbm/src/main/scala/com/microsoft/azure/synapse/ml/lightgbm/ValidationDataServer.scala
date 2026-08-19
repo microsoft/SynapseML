@@ -352,7 +352,7 @@ private[lightgbm] object ValidationDataServer {
     val lastIngestFailure = new AtomicReference[Throwable]()
     val activeSockets = ConcurrentHashMap.newKeySet[Socket]()
     val ingestStopping = new AtomicBoolean(false)
-    val ingestSocket = resources.openServerSocket(host, timeoutSeconds, DefaultSocketBacklog)
+    val ingestSocket = resources.openServerSocket(host, timeoutSeconds, partitionCount)
     val timeoutMillis = ingestSocket.getSoTimeout
     val ingestToken = UUID.randomUUID().toString
     ingestSocket.setSoTimeout(IngestPollTimeoutMillis)
