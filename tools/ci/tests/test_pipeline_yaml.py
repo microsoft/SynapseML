@@ -302,6 +302,63 @@ def test_fabric_e2e_cleans_stale_artifacts_before_running_tests():
     assert script.index(cleanup_command) < script.index(test_command)
 
 
+def test_fabric_e2e_runs_openai_prompt_with_exact_artifacts():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+    fabric_e2e = jobs["FabricE2E"]
+
+    assert "System.PullRequest.IsFork" in fabric_e2e["condition"]
+    assert fabric_e2e["timeoutInMinutes"] >= 180
+    assert fabric_e2e["cancelTimeoutInMinutes"] >= 5
+
+    openai_steps = [
+        step
+        for step in fabric_e2e["steps"]
+        if isinstance(step, dict)
+        and step.get("displayName") == "Run OpenAIPrompt on Fabric"
+    ]
+    assert len(openai_steps) == 1
+    openai_step = openai_steps[0]
+    assert openai_step["task"] == "AzureCLI@2"
+    assert openai_step["inputs"]["azureSubscription"] == "SynapseML Build"
+    assert "runFabricOpenAIPrompt" in openai_step["condition"]
+
+    script = openai_step["inputs"]["inlineScript"]
+    assert "sbt core/packageBin cognitive/packageBin" in script
+    assert "fabric-spark-cli==0.1.20260807.5" in script
+    assert (
+        'workspace="${INTEGRATION_WORKSPACE_PREFIX} ${integration_username}"' in script
+    )
+    assert "--scenario openai-prompt-ai-functions" in script
+    assert '--extra-jar "$core_jar"' in script
+    assert '--extra-jar "$cognitive_jar"' in script
+    assert "fabricOpenAIPromptAttempted]true" in script
+    assert "OPENAI_API_KEY" not in script
+    assert "AZURE_OPENAI_API_KEY" not in script
+
+    result_steps = [
+        step
+        for step in fabric_e2e["steps"]
+        if isinstance(step, dict)
+        and step.get("displayName") == "Publish Fabric OpenAIPrompt Results"
+    ]
+    assert len(result_steps) == 1
+    assert result_steps[0]["task"] == "PublishTestResults@2"
+    assert result_steps[0]["inputs"]["testResultsFormat"] == "JUnit"
+    assert "fabricOpenAIPromptAttempted" in result_steps[0]["condition"]
+
+    artifact_steps = [
+        step
+        for step in fabric_e2e["steps"]
+        if isinstance(step, dict)
+        and step.get("displayName") == "Publish Fabric OpenAIPrompt Evidence"
+    ]
+    assert len(artifact_steps) == 1
+    assert artifact_steps[0]["task"] == "PublishPipelineArtifact@1"
+    assert artifact_steps[0]["inputs"]["artifact"] == "fabric-openai-e2e"
+    assert "fabricOpenAIPromptAttempted" in artifact_steps[0]["condition"]
+
+
 def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
     data = yaml.safe_load(_pipeline_text())
     jobs = {j.get("job"): j for j in _jobs(data["jobs"])}

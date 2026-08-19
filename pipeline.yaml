@@ -103,6 +103,8 @@ variables:
   SYNAPSEML_GPU_SMOKE_TESTS: $[eq(variables['Build.Reason'], 'PullRequest')]
   # Run coverage only on PRs, master, or tag builds to speed up feature branch builds
   runCoverage: $[or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))]
+  # The platform-notebook OpenAIPrompt gate currently targets the Spark 3.5 Fabric workspace.
+  runFabricOpenAIPrompt: $[or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), eq(variables['Build.SourceBranch'], 'refs/heads/spark3.5'), eq(variables['System.PullRequest.TargetBranch'], 'refs/heads/master'), eq(variables['System.PullRequest.TargetBranch'], 'refs/heads/spark3.5'), eq(variables['System.PullRequest.TargetBranch'], 'master'), eq(variables['System.PullRequest.TargetBranch'], 'spark3.5'))]
 
 jobs:
 - job: BuildAndCacheSbt
@@ -311,9 +313,9 @@ jobs:
 - job: FabricE2E
   dependsOn: BuildAndCacheSbt
   displayName: 'Fabric E2E'
-  condition: and(succeeded(), eq('${{ parameters.testFabricE2E }}', true))
-  timeoutInMinutes: 120
-  cancelTimeoutInMinutes: 0
+  condition: and(succeeded(), eq('${{ parameters.testFabricE2E }}', true), ne(variables['System.PullRequest.IsFork'], 'True'))
+  timeoutInMinutes: 180
+  cancelTimeoutInMinutes: 5
   pool:
     vmImage: $(UBUNTU_VERSION)
   steps:
@@ -341,6 +343,98 @@ jobs:
         INTEGRATION_CERTIFICATE: $(sempy-integration-certificate)
         INTEGRATION_WORKSPACE_PREFIX: $(sempy-integration-workspace-prefix)
       condition: and(succeeded(), eq(variables.runTests, 'True'))
+    - task: AzureCLI@2
+      displayName: 'Run OpenAIPrompt on Fabric'
+      timeoutInMinutes: 45
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          set -eo pipefail
+          artifact_root='$(Build.ArtifactStagingDirectory)/fabric-openai-e2e'
+          mkdir -p "$artifact_root"
+          echo "##vso[task.setvariable variable=fabricOpenAIPromptAttempted]true"
+          source activate synapseml
+          set -u
+
+          sbt core/packageBin cognitive/packageBin
+
+          resolve_module_jar() {
+            local module="$1"
+            local artifact="$2"
+            local -a matches
+            mapfile -t matches < <(
+              find "$module/target" -type f -name "${artifact}_*.jar" \
+                ! -name '*-sources.jar' \
+                ! -name '*-javadoc.jar' \
+                ! -name '*-tests.jar' \
+                ! -name '*-assembly*.jar' |
+                sort
+            )
+            if [ "${#matches[@]}" -ne 1 ]; then
+              echo "Expected exactly one $artifact package jar, found ${#matches[@]}:" >&2
+              printf '  %s\n' "${matches[@]}" >&2
+              return 1
+            fi
+            printf '%s\n' "${matches[0]}"
+          }
+
+          core_jar="$(resolve_module_jar core synapseml-core)"
+          cognitive_jar="$(resolve_module_jar cognitive synapseml-cognitive)"
+
+          feed='msdata.pkgs.visualstudio.com/A365/_packaging/SynapseMaven/pypi/simple'
+          feed_token="$(
+            az account get-access-token \
+              --resource 499b84ac-1321-427f-aa17-267ca6975798 \
+              --query accessToken \
+              --output tsv
+          )"
+          export PIP_INDEX_URL="https://azure:${feed_token}@${feed}"
+          export PIP_DISABLE_PIP_VERSION_CHECK=1
+          python -m pip install --quiet --pre \
+            'fabric-spark-cli==0.1.20260807.5'
+          unset PIP_INDEX_URL feed_token
+          fabric-spark-cli --version
+
+          integration_username="${INTEGRATION_ACCOUNT%%@*}"
+          workspace="${INTEGRATION_WORKSPACE_PREFIX} ${integration_username}"
+          fabric_env="$(
+            printf '%s' "$INTEGRATION_ENV" | tr '[:upper:]' '[:lower:]'
+          )"
+          output_dir="$artifact_root/run"
+          if [ -e "$output_dir" ]; then
+            echo "Fabric evidence output already exists: $output_dir" >&2
+            exit 1
+          fi
+
+          python tools/fabric_e2e/run.py \
+            --scenario openai-prompt-ai-functions \
+            --workspace "$workspace" \
+            --env "$fabric_env" \
+            --source-repo '$(Build.SourcesDirectory)' \
+            --output-dir "$output_dir" \
+            --extra-jar "$core_jar" \
+            --extra-jar "$cognitive_jar"
+      env:
+        INTEGRATION_ENV: $(sempy-integration-region)
+        INTEGRATION_ACCOUNT: $(sempy-integration-account)
+        INTEGRATION_WORKSPACE_PREFIX: $(sempy-integration-workspace-prefix)
+      condition: and(succeeded(), eq(variables.runTests, 'True'), eq(variables.runFabricOpenAIPrompt, true))
+    - task: PublishTestResults@2
+      displayName: 'Publish Fabric OpenAIPrompt Results'
+      inputs:
+        testResultsFormat: JUnit
+        testResultsFiles: '$(Build.ArtifactStagingDirectory)/fabric-openai-e2e/**/junit.xml'
+        testRunTitle: 'Fabric OpenAIPrompt E2E'
+        failTaskOnFailedTests: true
+      condition: and(succeededOrFailed(), eq(variables.fabricOpenAIPromptAttempted, 'true'))
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish Fabric OpenAIPrompt Evidence'
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)/fabric-openai-e2e'
+        artifact: 'fabric-openai-e2e'
+      condition: and(succeededOrFailed(), eq(variables.fabricOpenAIPromptAttempted, 'true'))
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
