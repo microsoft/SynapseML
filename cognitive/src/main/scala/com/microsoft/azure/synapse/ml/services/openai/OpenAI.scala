@@ -504,16 +504,12 @@ abstract class OpenAIServicesBase(override val uid: String) extends CognitiveSer
 }
 
 private[openai] object OpenAIFabricHeaders {
-  private val ExtendedPropertiesHeader = "X-Taxonomy-ExtendedProperties"
-  private val TrafficTypeHeader = "X-Taxonomy-TrafficType"
-  private val ServiceTierHeader = "x-llm-service-tier"
-
   lazy val Values: Map[String, String] = build(PlatformDetails.FabricRuntime)
 
   private[openai] def build(runtime: String): Map[String, String] = Map(
-    TrafficTypeHeader -> "Background",
-    ServiceTierHeader -> "flex",
-    ExtendedPropertiesHeader ->
+    "X-Taxonomy-TrafficType" -> "Background",
+    "x-llm-service-tier" -> "flex",
+    "X-Taxonomy-ExtendedProperties" ->
       Map(
         "feature" -> "synapseml",
         "runtime" -> runtime
