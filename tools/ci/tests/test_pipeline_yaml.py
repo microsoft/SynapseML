@@ -306,14 +306,33 @@ def test_fabric_e2e_runs_openai_prompt_with_exact_artifacts():
     data = yaml.safe_load(_pipeline_text())
     jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
     fabric_e2e = jobs["FabricE2E"]
+    openai_e2e = jobs["FabricOpenAIPromptE2E"]
 
     assert "System.PullRequest.IsFork" in fabric_e2e["condition"]
-    assert fabric_e2e["timeoutInMinutes"] >= 180
-    assert fabric_e2e["cancelTimeoutInMinutes"] >= 5
+    assert not any(
+        isinstance(step, dict)
+        and step.get("displayName") == "Run OpenAIPrompt on Fabric"
+        for step in fabric_e2e["steps"]
+    )
+
+    assert openai_e2e["dependsOn"] == "BuildAndCacheSbt"
+    assert "System.PullRequest.IsFork" in openai_e2e["condition"]
+    assert "runFabricOpenAIPrompt" in openai_e2e["condition"]
+    assert openai_e2e["timeoutInMinutes"] >= 120
+    assert openai_e2e["cancelTimeoutInMinutes"] >= 5
+    assert {
+        step["template"]
+        for step in openai_e2e["steps"]
+        if isinstance(step, dict) and "template" in step
+    } >= {
+        "templates/sbt_cache.yml",
+        "templates/update_cli.yml",
+        "templates/conda.yml",
+    }
 
     feed_auth_steps = [
         step
-        for step in fabric_e2e["steps"]
+        for step in openai_e2e["steps"]
         if isinstance(step, dict)
         and step.get("displayName") == "Authenticate fabric-spark-cli feed"
     ]
@@ -321,11 +340,10 @@ def test_fabric_e2e_runs_openai_prompt_with_exact_artifacts():
     feed_auth_step = feed_auth_steps[0]
     assert feed_auth_step["task"] == "PipAuthenticate@1"
     assert feed_auth_step["inputs"]["artifactFeeds"] == "A365/SynapseMaven"
-    assert "succeededOrFailed()" in feed_auth_step["condition"]
 
     openai_steps = [
         step
-        for step in fabric_e2e["steps"]
+        for step in openai_e2e["steps"]
         if isinstance(step, dict)
         and step.get("displayName") == "Run OpenAIPrompt on Fabric"
     ]
@@ -333,11 +351,9 @@ def test_fabric_e2e_runs_openai_prompt_with_exact_artifacts():
     openai_step = openai_steps[0]
     assert openai_step["task"] == "AzureCLI@2"
     assert openai_step["inputs"]["azureSubscription"] == "SynapseML Build"
-    assert fabric_e2e["steps"].index(feed_auth_step) < fabric_e2e["steps"].index(
+    assert openai_e2e["steps"].index(feed_auth_step) < openai_e2e["steps"].index(
         openai_step
     )
-    assert "runFabricOpenAIPrompt" in openai_step["condition"]
-    assert "succeededOrFailed()" in openai_step["condition"]
 
     script = openai_step["inputs"]["inlineScript"]
     assert "sbt core/packageBin cognitive/packageBin" in script
@@ -362,7 +378,7 @@ def test_fabric_e2e_runs_openai_prompt_with_exact_artifacts():
 
     result_steps = [
         step
-        for step in fabric_e2e["steps"]
+        for step in openai_e2e["steps"]
         if isinstance(step, dict)
         and step.get("displayName") == "Publish Fabric OpenAIPrompt Results"
     ]
@@ -373,7 +389,7 @@ def test_fabric_e2e_runs_openai_prompt_with_exact_artifacts():
 
     artifact_steps = [
         step
-        for step in fabric_e2e["steps"]
+        for step in openai_e2e["steps"]
         if isinstance(step, dict)
         and step.get("displayName") == "Publish Fabric OpenAIPrompt Evidence"
     ]
