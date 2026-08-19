@@ -13,7 +13,7 @@ class OpenAIFabricHeadersSuite extends TestBase {
 
   private val fabricHeaderNames = Seq(
     "X-Taxonomy-TrafficType",
-    "x-llm-service-tier",
+    "X-Llm-Service-Tier",
     "X-Taxonomy-ExtendedProperties"
   )
 
@@ -72,7 +72,7 @@ class OpenAIFabricHeadersSuite extends TestBase {
       headers: Map[String, String],
       expectedRuntime: String = PlatformDetails.FabricRuntime): Unit = {
     assert(headers("X-Taxonomy-TrafficType") == "Background")
-    assert(headers("x-llm-service-tier") == "flex")
+    assert(headers("X-Llm-Service-Tier") == "flex")
     assert(
       headers("X-Taxonomy-ExtendedProperties").parseJson ==
         JsObject(

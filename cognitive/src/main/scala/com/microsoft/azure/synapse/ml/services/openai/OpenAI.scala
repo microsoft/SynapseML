@@ -508,7 +508,7 @@ private[openai] object OpenAIFabricHeaders {
 
   private[openai] def build(runtime: String): Map[String, String] = Map(
     "X-Taxonomy-TrafficType" -> "Background",
-    "x-llm-service-tier" -> "flex",
+    "X-Llm-Service-Tier" -> "flex",
     "X-Taxonomy-ExtendedProperties" ->
       Map(
         "feature" -> "synapseml",
