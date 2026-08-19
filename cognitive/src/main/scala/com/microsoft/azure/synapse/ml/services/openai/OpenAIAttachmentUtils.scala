@@ -15,6 +15,9 @@ import scala.util.control.NonFatal
 
 private[openai] object OpenAIAttachmentUtils {
 
+  private val MimeSniffPrefixLength = 64
+  private val Utf8Bom = Base64.getDecoder.decode("77u/")
+
   private val MimeTypeExtensions = Map(
     "image/jpeg" -> "jpg",
     "image/png" -> "png",
@@ -96,10 +99,34 @@ private[openai] object OpenAIAttachmentUtils {
     (attachmentFilename(filePathStr), bytes, Some(mimeType))
   }
 
+  private def isXmlNameStart(char: Char): Boolean =
+    char.isLetter || char == '_' || char == ':'
+
+  private def startsWithXmlElement(prefix: String): Boolean =
+    prefix.length > 1 && prefix.head == '<' && isXmlNameStart(prefix.charAt(1))
+
+  private def inferStructuredTextMimeType(fileBytes: Array[Byte]): Option[String] = {
+    val prefixBytes = fileBytes.take(MimeSniffPrefixLength)
+    val contentBytes = if (prefixBytes.startsWith(Utf8Bom)) prefixBytes.drop(Utf8Bom.length) else prefixBytes
+    val prefix = new String(contentBytes, StandardCharsets.UTF_8).dropWhile(_.isWhitespace)
+    if (prefix.startsWith("{") || prefix.startsWith("[")) {
+      Some("application/json")
+    } else if (startsWithXmlElement(prefix)) {
+      Some("application/xml")
+    } else {
+      None
+    }
+  }
+
+  private def specificMimeType(mimeType: String): Option[String] = {
+    Option(mimeType).filterNot(_.equalsIgnoreCase("application/octet-stream"))
+  }
+
   private def inferMimeType(fileName: String, fileBytes: Array[Byte]): String = {
-    Option(URLConnection.guessContentTypeFromStream(new ByteArrayInputStream(fileBytes))).getOrElse(
-      Option(URLConnection.guessContentTypeFromName(fileName)).getOrElse("application/octet-stream")
-    )
+    specificMimeType(URLConnection.guessContentTypeFromStream(new ByteArrayInputStream(fileBytes)))
+      .orElse(inferStructuredTextMimeType(fileBytes))
+      .orElse(specificMimeType(URLConnection.guessContentTypeFromName(fileName)))
+      .getOrElse("application/octet-stream")
   }
 
   private def categorizeFileType(
@@ -118,7 +145,7 @@ private[openai] object OpenAIAttachmentUtils {
     if (mimeType == "application/pdf") "file"
     else if (mimeType.startsWith("image/") && hasAllowedExtension(imageExtensions)) "image"
     else if (mimeType.startsWith("audio/") && hasAllowedExtension(audioExtensions)) "audio"
-    else if (mimeType.startsWith("text/") || textExtensions.contains(extension)) "text"
+    else if (mimeType.startsWith("text/") || hasAllowedExtension(textExtensions)) "text"
     else "unsupported"
   }
 
