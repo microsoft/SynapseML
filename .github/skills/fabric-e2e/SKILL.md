@@ -108,7 +108,7 @@ Require all of the following before citing the run:
 - every jar has a SHA-256 digest;
 - class-source paths name the supplied jars;
 - `junit.xml` and `runner.log` exist, plus downloaded Fabric logs for batch
-  profiles or `executed-notebook.ipynb` for notebook profiles;
+  profiles or `notebook-markers.jsonl` for notebook profiles;
 - scratch-lakehouse cleanup succeeded.
 
 For a passing claim, also require `status` to be `passed` and runtime evidence

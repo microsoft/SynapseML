@@ -2,6 +2,8 @@
 # Licensed under the MIT License. See LICENSE in project root for information.
 
 import json
+import sys
+import types
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -13,6 +15,7 @@ from tools.fabric_e2e.run import (
     Scenario,
     build_cleanup_command,
     build_notebook_cleanup_command,
+    build_notebook_marker_command,
     build_notebook_submission_command,
     build_submission_command,
     checked_jars,
@@ -126,7 +129,6 @@ def test_notebook_command_is_non_interactive_and_includes_overrides(tmp_path):
         workspace="test-workspace",
         lakehouse="scratch-lakehouse",
         notebook_name="test-notebook",
-        output_path=tmp_path / "executed.ipynb",
         environment="msit",
         subscription="test-subscription",
         spark_conf=("spark.sql.shuffle.partitions=4",),
@@ -139,9 +141,28 @@ def test_notebook_command_is_non_interactive_and_includes_overrides(tmp_path):
     assert command[command.index("--lakehouse") + 1] == "scratch-lakehouse"
     assert command[command.index("--name") + 1] == "test-notebook"
     assert command[command.index("--extra-jars") + 1] == str(jar)
-    assert "--stdout" in command
-    assert "--output-file" in command
+    assert "--stdout" not in command
+    assert "--output-file" not in command
     assert "--overwrite" not in command
+
+
+def test_notebook_marker_command_downloads_from_exact_scratch_lakehouse(tmp_path):
+    output = tmp_path / "notebook-markers.jsonl"
+    command = build_notebook_marker_command(
+        executable="fabric-spark-cli",
+        workspace="test-workspace",
+        lakehouse="scratch-lakehouse",
+        output_path=output,
+        environment="msit",
+        subscription="test-subscription",
+    )
+
+    assert command[:3] == ["fabric-spark-cli", "lakehouse", "cat"]
+    assert command[command.index("--workspace") + 1] == "test-workspace"
+    assert command[command.index("--lakehouse") + 1] == "scratch-lakehouse"
+    assert command[command.index("--output") + 1] == str(output)
+    assert "--no-create-lakehouse" in command
+    assert command[-1] == "Files/synapseml-fabric-e2e/markers.jsonl"
 
 
 def test_generated_notebook_sets_scenario_argv_and_python_metadata(tmp_path):
@@ -165,6 +186,95 @@ def test_generated_notebook_sets_scenario_argv_and_python_metadata(tmp_path):
     assert notebook["metadata"]["kernelspec"]["name"] == "synapse_pyspark"
     assert 'spaces and \\"quotes\\"' in source
     assert "print('scenario')" in source
+    assert "mssparkutils.fs.put(" in source
+    assert "SYNAPSEML_FABRIC_E2E_RESULT=" in source
+    assert "SYNAPSEML_FABRIC_E2E_DIAGNOSTIC=" in source
+    assert "Files/synapseml-fabric-e2e/markers.jsonl" in source
+
+
+def test_generated_notebook_writes_structured_markers_to_lakehouse(
+    tmp_path, monkeypatch
+):
+    script = tmp_path / "scenario.py"
+    script.write_text(
+        "import json\n"
+        f"print('{DIAGNOSTIC_MARKER}' + json.dumps({{'phase': 'start'}}))\n"
+        f"print('{RESULT_MARKER}' + json.dumps({{'status': 'passed'}}))\n",
+        encoding="utf-8",
+    )
+    scenario = Scenario(
+        name="test",
+        description="test",
+        script=script,
+        minimum_jars=0,
+        default_args=(),
+        execution="notebook",
+    )
+    notebook_path = tmp_path / "scenario.ipynb"
+    write_scenario_notebook(notebook_path, scenario, ())
+    source = "".join(
+        json.loads(notebook_path.read_text(encoding="utf-8"))["cells"][0]["source"]
+    )
+    writes = []
+    notebookutils = types.ModuleType("notebookutils")
+    notebookutils.mssparkutils = types.SimpleNamespace(
+        fs=types.SimpleNamespace(
+            put=lambda path, value, overwrite: writes.append((path, value, overwrite))
+        )
+    )
+    monkeypatch.setitem(sys.modules, "notebookutils", notebookutils)
+    original_argv = sys.argv
+    try:
+        exec(compile(source, str(notebook_path), "exec"), {})
+    finally:
+        sys.argv = original_argv
+
+    assert writes == [
+        (
+            "Files/synapseml-fabric-e2e/markers.jsonl",
+            f'{DIAGNOSTIC_MARKER}{{"phase": "start"}}\n'
+            f'{RESULT_MARKER}{{"status": "passed"}}\n',
+            True,
+        )
+    ]
+
+
+def test_generated_notebook_records_exception_type_before_reraising(
+    tmp_path, monkeypatch
+):
+    script = tmp_path / "scenario.py"
+    script.write_text("raise RuntimeError('do not persist this message')\n")
+    scenario = Scenario(
+        name="test",
+        description="test",
+        script=script,
+        minimum_jars=0,
+        default_args=(),
+        execution="notebook",
+    )
+    notebook_path = tmp_path / "scenario.ipynb"
+    write_scenario_notebook(notebook_path, scenario, ())
+    source = "".join(
+        json.loads(notebook_path.read_text(encoding="utf-8"))["cells"][0]["source"]
+    )
+    writes = []
+    notebookutils = types.ModuleType("notebookutils")
+    notebookutils.mssparkutils = types.SimpleNamespace(
+        fs=types.SimpleNamespace(
+            put=lambda path, value, overwrite: writes.append((path, value, overwrite))
+        )
+    )
+    monkeypatch.setitem(sys.modules, "notebookutils", notebookutils)
+    original_argv = sys.argv
+    try:
+        with pytest.raises(RuntimeError, match="do not persist this message"):
+            exec(compile(source, str(notebook_path), "exec"), {})
+    finally:
+        sys.argv = original_argv
+
+    assert len(writes) == 1
+    assert '"errorType": "RuntimeError"' in writes[0][1]
+    assert "do not persist this message" not in writes[0][1]
 
 
 def test_cleanup_targets_only_the_exact_scratch_lakehouse():

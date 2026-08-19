@@ -21,6 +21,7 @@ from xml.etree import ElementTree
 
 RESULT_MARKER = "SYNAPSEML_FABRIC_E2E_RESULT="
 DIAGNOSTIC_MARKER = "SYNAPSEML_FABRIC_E2E_DIAGNOSTIC="
+NOTEBOOK_MARKER_PATH = "Files/synapseml-fabric-e2e/markers.jsonl"
 MANIFEST_PATH = Path(__file__).with_name("scenarios.json")
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -111,12 +112,82 @@ def resolve_spark_conf(scenario: Scenario, additional_conf: Sequence[str]) -> Li
 
 
 def write_scenario_notebook(
-    path: Path, scenario: Scenario, scenario_args: Sequence[str]
+    path: Path,
+    scenario: Scenario,
+    scenario_args: Sequence[str],
+    marker_path: str = NOTEBOOK_MARKER_PATH,
 ) -> None:
     """Wrap a Python scenario in a Fabric platform notebook."""
     source = scenario.script.read_text(encoding="utf-8")
     argv = [scenario.script.name, *scenario_args]
-    cell_source = f"import sys\nsys.argv = {json.dumps(argv)}\n{source}"
+    cell_source = "\n".join(
+        [
+            "import builtins",
+            "import json",
+            "import sys",
+            "",
+            "from notebookutils import mssparkutils",
+            "",
+            f"sys.argv = {json.dumps(argv)}",
+            f"_synapseml_scenario_name = {json.dumps(scenario.script.name)}",
+            f"_synapseml_scenario_source = {json.dumps(source)}",
+            f"_synapseml_result_marker = {json.dumps(RESULT_MARKER)}",
+            f"_synapseml_diagnostic_marker = {json.dumps(DIAGNOSTIC_MARKER)}",
+            f"_synapseml_marker_path = {json.dumps(marker_path)}",
+            "_synapseml_markers = []",
+            "_synapseml_original_print = builtins.print",
+            "",
+            "def _synapseml_capture_print(*values, **kwargs):",
+            '    separator = kwargs.get("sep", " ")',
+            '    separator = " " if separator is None else separator',
+            "    rendered = separator.join(str(value) for value in values)",
+            "    if (",
+            "        _synapseml_result_marker in rendered",
+            "        or _synapseml_diagnostic_marker in rendered",
+            "    ):",
+            "        _synapseml_markers.append(rendered)",
+            "    _synapseml_original_print(*values, **kwargs)",
+            "",
+            "builtins.print = _synapseml_capture_print",
+            "try:",
+            "    scenario_globals = dict(",
+            "        globals(),",
+            '        __name__="__main__",',
+            "        __file__=_synapseml_scenario_name,",
+            "    )",
+            "    exec(",
+            "        compile(",
+            "            _synapseml_scenario_source,",
+            "            _synapseml_scenario_name,",
+            '            "exec",',
+            "        ),",
+            "        scenario_globals,",
+            "    )",
+            "except BaseException as error:",
+            "    _synapseml_markers.append(",
+            "        _synapseml_diagnostic_marker",
+            "        + json.dumps(",
+            "            {",
+            '                "errorType": type(error).__name__,',
+            '                "phase": "scenario-exception",',
+            "            },",
+            "            sort_keys=True,",
+            "        )",
+            "    )",
+            "    raise",
+            "finally:",
+            "    builtins.print = _synapseml_original_print",
+            '    marker_payload = "\\n".join(_synapseml_markers)',
+            "    if marker_payload:",
+            '        marker_payload += "\\n"',
+            "    mssparkutils.fs.put(",
+            "        _synapseml_marker_path,",
+            "        marker_payload,",
+            "        True,",
+            "    )",
+            "",
+        ]
+    )
     notebook = {
         "cells": [
             {
@@ -202,7 +273,6 @@ def build_notebook_submission_command(
     workspace: str,
     lakehouse: str,
     notebook_name: str,
-    output_path: Path,
     environment: str,
     jars: Sequence[Path],
     subscription: Optional[str] = None,
@@ -216,9 +286,6 @@ def build_notebook_submission_command(
         str(notebook_path),
         "--name",
         notebook_name,
-        "--stdout",
-        "--output-file",
-        str(output_path),
         "--env",
         environment,
         "--workspace",
@@ -232,6 +299,36 @@ def build_notebook_submission_command(
         command.extend(("--conf", entry))
     if jars:
         command.extend(("--extra-jars", *(str(path) for path in jars)))
+    return command
+
+
+def build_notebook_marker_command(
+    executable: str,
+    workspace: str,
+    lakehouse: str,
+    output_path: Path,
+    environment: str,
+    subscription: Optional[str] = None,
+    marker_path: str = NOTEBOOK_MARKER_PATH,
+) -> List[str]:
+    """Build a command that downloads structured notebook markers from OneLake."""
+    command = [
+        executable,
+        "lakehouse",
+        "cat",
+        "--output",
+        str(output_path),
+        "--env",
+        environment,
+        "--workspace",
+        workspace,
+        "--lakehouse",
+        lakehouse,
+        "--no-create-lakehouse",
+    ]
+    if subscription:
+        command.extend(("--subscription", subscription))
+    command.append(marker_path)
     return command
 
 
@@ -544,6 +641,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     evidence_path = output_dir / "evidence.json"
     junit_path = output_dir / "junit.xml"
     notebook_path = output_dir / "scenario.ipynb"
+    notebook_marker_path = output_dir / "notebook-markers.jsonl"
     scenario_args = resolve_scenario_args(scenario, jars, args.scenario_args)
     spark_conf = resolve_spark_conf(scenario, args.conf)
     if scenario.execution == "notebook":
@@ -553,7 +651,6 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             workspace=args.workspace,
             lakehouse=lakehouse,
             notebook_name=job_name,
-            output_path=output_dir / "executed-notebook.ipynb",
             environment=args.environment,
             subscription=args.subscription,
             spark_conf=spark_conf,
@@ -594,6 +691,18 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         if scenario.execution == "notebook"
         else None
     )
+    notebook_marker_command = (
+        build_notebook_marker_command(
+            executable=executable,
+            workspace=args.workspace,
+            lakehouse=lakehouse,
+            output_path=notebook_marker_path,
+            environment=args.environment,
+            subscription=args.subscription,
+        )
+        if scenario.execution == "notebook"
+        else None
+    )
 
     if args.dry_run:
         print(
@@ -602,6 +711,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                     "cleanupCommand": cleanup_command,
                     "lakehouse": lakehouse,
                     "notebookCleanupCommand": notebook_cleanup_command,
+                    "notebookMarkerCommand": notebook_marker_command,
                     "submissionCommand": command,
                 },
                 indent=2,
@@ -611,9 +721,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
     output_dir.mkdir(parents=True, exist_ok=False)
     if scenario.execution == "notebook":
-        write_scenario_notebook(notebook_path, scenario, scenario_args)
+        write_scenario_notebook(
+            notebook_path,
+            scenario,
+            scenario_args,
+            marker_path=NOTEBOOK_MARKER_PATH,
+        )
     started = datetime.now(timezone.utc)
     submission_code = 1
+    notebook_marker_code: Optional[int] = None
     cleanup_code: Optional[int] = None
     notebook_cleanup_code: Optional[int] = None
     output = ""
@@ -623,6 +739,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     try:
         submission_code, output = run_and_tee(command, log_path)
         marker_output = output + downloaded_marker_output(output_dir / "fabric-logs")
+        if notebook_marker_command:
+            notebook_marker_code, notebook_marker_output = run_and_tee(
+                notebook_marker_command, log_path
+            )
+            output += notebook_marker_output
+            if notebook_marker_code == 0:
+                marker_output += notebook_marker_path.read_text(
+                    encoding="utf-8", errors="replace"
+                )
         try:
             runtime_diagnostics = parse_runtime_diagnostics(marker_output)
         except (ValueError, json.JSONDecodeError) as error:
@@ -633,6 +758,15 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 failure = f"fabric-spark-cli exited with code {submission_code}"
                 if detail:
                     failure += f": {detail}"
+                if notebook_marker_code not in (None, 0):
+                    failure += (
+                        "; notebook marker retrieval exited with code "
+                        f"{notebook_marker_code}"
+                    )
+        elif notebook_marker_code not in (None, 0) and failure is None:
+            failure = (
+                "Notebook marker retrieval exited with code " f"{notebook_marker_code}"
+            )
         elif failure is None:
             try:
                 runtime_evidence = parse_runtime_evidence(marker_output)
@@ -671,6 +805,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         ],
         "lakehouse": lakehouse,
         "notebookCleanupExitCode": notebook_cleanup_code,
+        "notebookMarkerExitCode": notebook_marker_code,
+        "notebookMarkerFile": (
+            str(notebook_marker_path) if notebook_marker_path.is_file() else None
+        ),
         "runtimeDiagnostics": runtime_diagnostics,
         "runtimeEvidence": runtime_evidence,
         "scenario": scenario.name,

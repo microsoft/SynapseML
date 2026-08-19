@@ -81,8 +81,10 @@ This profile uses `fabric-spark-cli notebook run`, not `batch submit`.
 Platform-notebook execution supplies the notebook artifact context required by
 the implicit LLM endpoint. A direct batch attached only to a Lakehouse reaches
 the endpoint but is rejected because its workload-operation context is invalid.
-The runner generates a unique notebook, retains its executed form, and deletes
-that exact notebook and scratch lakehouse after the run.
+The runner generates a unique notebook and deletes that exact notebook and
+scratch lakehouse after the run. Structured markers are written to the scratch
+lakehouse and downloaded before cleanup, avoiding the delegated-only executed
+notebook snapshot API.
 Platform notebooks use the workspace's configured runtime and pool, so the
 runner rejects `--runtime`, `--node-size`, and `--node-count` for this profile.
 
@@ -116,8 +118,8 @@ provided:
 - `junit.xml`: one test result suitable for CI publication.
 - `runner.log`: complete runner and CLI output.
 - `fabric-logs/`: downloaded driver and executor logs for batch profiles.
-- `scenario.ipynb` and `executed-notebook.ipynb`: generated input and retained
-  output for notebook profiles.
+- `scenario.ipynb` and `notebook-markers.jsonl`: generated input and retained
+  structured output for notebook profiles.
 
 The default cleanup deletes the unique lakehouse and, for notebook profiles,
 the unique notebook created for that run.
