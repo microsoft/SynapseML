@@ -463,16 +463,12 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     validateUsageColSupport(currentApiType)
   }
 
-  private def validatePublicColumnNames(): Unit = {
-    require(
-      getMessagesCol != getOutputCol,
-      s"messagesCol '${getMessagesCol}' must be different from outputCol '${getOutputCol}'"
+  private def validatePublicColumnNames(): Unit =
+    OpenAIColumnUtils.validateDistinctColumns(
+      "messagesCol" -> getMessagesCol,
+      "outputCol" -> getOutputCol,
+      "errorCol" -> getErrorCol
     )
-    require(
-      getMessagesCol != getErrorCol,
-      s"messagesCol '${getMessagesCol}' must be different from errorCol '${getErrorCol}'"
-    )
-  }
 
   private def attachmentsColumn(pathColumnNames: Seq[String]): Column = {
     if (pathColumnNames.nonEmpty) {
@@ -514,11 +510,11 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       createMessagesUDF(pathColumnNames)(promptCol, attachmentsColumn(pathColumnNames)))
     val fileResultCol = F.col(fileResultColName)
     val fileErrorStruct = toErrorStruct(fileResultCol.getField("_2"))
-    val combinedFileError = if (df.columns.contains(getErrorCol)) {
-      F.coalesce(F.col(getErrorCol), fileErrorStruct)
-    } else {
-      fileErrorStruct
-    }
+    val combinedFileError =
+      OpenAIColumnUtils.existingColumnOfType(df, getErrorCol, ErrorUtils.ErrorSchema) match {
+        case Some(existingErrorCol) => F.coalesce(F.col(existingErrorCol), fileErrorStruct)
+        case None => fileErrorStruct
+      }
     dfWithFileResult.withColumn(getMessagesCol, fileResultCol.getField("_1"))
       .withColumn(getErrorCol, combinedFileError)
       .drop(fileResultColName)

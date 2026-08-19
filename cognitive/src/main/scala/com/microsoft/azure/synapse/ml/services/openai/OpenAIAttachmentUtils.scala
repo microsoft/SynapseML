@@ -218,7 +218,7 @@ private[openai] object OpenAIAttachmentUtils {
     )
     case _ =>
       throw new IllegalArgumentException(
-        s"File type $mimeType is not supported in Chat Completions API. " +
-          "Only text and image files are supported. Use apiType='responses' for other file input.")
+        s"File type '$fileType' with MIME type '$mimeType' is not supported for Chat Completions. " +
+          "Only text and image attachments are supported; use apiType='responses' for other file inputs.")
   }
 }

@@ -343,16 +343,12 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
     }
   }
 
-  private def validatePublicColumnNames(): Unit = {
-    require(
-      getMessagesCol != getOutputCol,
-      s"messagesCol '${getMessagesCol}' must be different from outputCol '${getOutputCol}'"
+  private def validatePublicColumnNames(): Unit =
+    OpenAIColumnUtils.validateDistinctColumns(
+      "messagesCol" -> getMessagesCol,
+      "outputCol" -> getOutputCol,
+      "errorCol" -> getErrorCol
     )
-    require(
-      getMessagesCol != getErrorCol,
-      s"messagesCol '${getMessagesCol}' must be different from errorCol '${getErrorCol}'"
-    )
-  }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     transferGlobalParamsToParamMap()
@@ -380,14 +376,16 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
             .otherwise(F.col(originalMessagesCol))
         )
 
-      val validatedWithErrors = if (df.columns.contains(getErrorCol)) {
-        validatedMessages.withColumn(
-          getErrorCol,
-          F.coalesce(F.col(getErrorCol), F.col(validationErrorCol))
-        )
-      } else {
-        validatedMessages.withColumn(getErrorCol, F.col(validationErrorCol))
-      }
+      val validatedWithErrors =
+        OpenAIColumnUtils.existingColumnOfType(df, getErrorCol, ErrorUtils.ErrorSchema) match {
+          case Some(existingErrorCol) =>
+            validatedMessages.withColumn(
+              getErrorCol,
+              F.coalesce(F.col(existingErrorCol), F.col(validationErrorCol))
+            )
+          case None =>
+            validatedMessages.withColumn(getErrorCol, F.col(validationErrorCol))
+        }
 
       getInternalTransformer(validatedWithErrors.schema).transform(validatedWithErrors)
         .drop(validationErrorCol)

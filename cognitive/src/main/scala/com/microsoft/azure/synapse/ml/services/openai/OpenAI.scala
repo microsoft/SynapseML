@@ -10,7 +10,8 @@ import com.microsoft.azure.synapse.ml.param.{GlobalKey, GlobalParams, ServicePar
 import com.microsoft.azure.synapse.ml.services._
 import org.apache.spark.ml.PipelineModel
 import org.apache.spark.ml.param.{Param, Params}
-import org.apache.spark.sql.Row
+import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
@@ -58,6 +59,33 @@ private[openai] object OpenAIEndpointUtils {
       .toLowerCase(Locale.ROOT)
       .endsWith("/v1")
   }
+}
+
+private[openai] object OpenAIColumnUtils {
+  private def namesMatch(left: String, right: String): Boolean =
+    SQLConf.get.resolver(left, right)
+
+  def validateDistinctColumns(columns: (String, String)*): Unit = {
+    columns.combinations(2).foreach { pair =>
+      val (leftParam, leftName) = pair.head
+      val (rightParam, rightName) = pair(1)
+      require(
+        !namesMatch(leftName, rightName),
+        s"$leftParam '$leftName' must be different from $rightParam '$rightName'"
+      )
+    }
+  }
+
+  private def existingColumn(df: DataFrame, configuredName: String): Option[String] =
+    df.columns.find(columnName => namesMatch(columnName, configuredName))
+
+  def existingColumnOfType(
+      df: DataFrame,
+      configuredName: String,
+      expectedType: DataType
+  ): Option[String] =
+    existingColumn(df, configuredName)
+      .filter(columnName => df.schema(columnName).dataType == expectedType)
 }
 
 trait HasOpenAISharedParams extends HasServiceParams with HasAPIVersion {

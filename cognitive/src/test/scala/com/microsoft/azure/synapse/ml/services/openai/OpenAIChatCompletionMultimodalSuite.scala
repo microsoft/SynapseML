@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.services.openai
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.io.http.{ErrorUtils, HTTPRequestData, HTTPResponseData, HTTPSchema}
+import com.microsoft.azure.synapse.ml.services.aifoundry.AIFoundryChatCompletion
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.http.util.EntityUtils
 import org.apache.spark.sql.Row
@@ -171,6 +172,44 @@ class OpenAIChatCompletionMultimodalSuite extends TestBase {
     assert(invalid.getAs[scala.collection.Seq[Row]]("messages").nonEmpty)
   }
 
+  test("AIFoundryChatCompletion inherits multimodal validation and serialization") {
+    val validMessage = message("user", Seq(
+      contentPart("text", text = Some("What is shown?")),
+      contentPart("image_url", image = Some(imageUrl(Some("data:image/png;base64,AAA"))))
+    ))
+    val invalidMessage = message("user", Seq(
+      contentPart("image_url", image = Some(imageUrl(None)))
+    ))
+    val input = spark.createDataFrame(
+      spark.sparkContext.parallelize(Seq(
+        Row("valid", Seq(validMessage)),
+        Row("invalid", Seq(invalidMessage))
+      ), 1),
+      requestSchema()
+    )
+    val transformer = new AIFoundryChatCompletion()
+      .setUrl("https://example.services.ai.azure.com")
+      .setModel("gpt-5.1")
+      .setMessagesCol("messages")
+      .setSubscriptionKey("unused")
+      .setOutputCol("output")
+      .setErrorCol("error")
+      .setHandler(OpenAIChatCompletionMultimodalTestData.echoRequestBody _)
+
+    val rows = transformer.transform(input).collect().map(row => row.getAs[String]("id") -> row).toMap
+    val response = ChatModelResponse.makeFromRowConverter(rows("valid").getAs[Row]("output"))
+    val payload = response.choices.head.message.content.parseJson.asJsObject
+    val JsArray(messages) = payload.fields("messages")
+    val JsArray(parts) = messages.head.asJsObject.fields("content")
+
+    assert(parts(1).asJsObject.fields("image_url").asJsObject.fields("url") ==
+      JsString("data:image/png;base64,AAA"))
+    assert(Option(rows("valid").getAs[Row]("error")).isEmpty)
+    assert(Option(rows("invalid").getAs[Row]("output")).isEmpty)
+    assert(rows("invalid").getAs[Row]("error").getAs[String]("response") ==
+      "messages[0].content[0].image_url requires a non-empty string 'url' field")
+  }
+
   test("null and empty content produce row errors without HTTP") {
     val requestCount = spark.sparkContext.longAccumulator
     val existingError = Row("upstream error", null) // scalastyle:ignore null
@@ -209,6 +248,59 @@ class OpenAIChatCompletionMultimodalSuite extends TestBase {
     assert(output("existing-error").getAs[Row]("error").getAs[String]("response") == "upstream error")
     assert(Option(output("null-messages").getAs[Row]("error")).isEmpty)
     output.values.foreach(row => assert(Option(row.getAs[Row]("output")).isEmpty))
+  }
+
+  test("case-insensitive error column matching preserves upstream errors") {
+    assert(!spark.conf.get("spark.sql.caseSensitive").toBoolean)
+    val existingError = Row("upstream error", null) // scalastyle:ignore null
+    val input = spark.createDataFrame(
+      spark.sparkContext.parallelize(Seq(
+        Row(
+          "invalid",
+          Seq(message("user", Seq(contentPart("image_url", image = Some(imageUrl(None)))))),
+          existingError
+        )
+      ), 1),
+      StructType(requestSchema().fields :+
+        StructField("UPSTREAM_ERROR", ErrorUtils.ErrorSchema, nullable = true))
+    )
+    val transformer = chat()
+      .setErrorCol("upstream_error")
+      .setHandler { (_: CloseableHttpClient, _: HTTPRequestData) =>
+        throw new AssertionError("HTTP must not run for malformed messages")
+      }
+
+    val result = transformer.transform(input).head()
+
+    assert(result.getAs[Row]("upstream_error").getAs[String]("response") == "upstream error")
+    assert(Option(result.getAs[Row]("output")).isEmpty)
+  }
+
+  test("non-error upstream columns are replaced by Chat validation errors") {
+    assert(!spark.conf.get("spark.sql.caseSensitive").toBoolean)
+    val input = spark.createDataFrame(
+      spark.sparkContext.parallelize(Seq(
+        Row(
+          "invalid",
+          Seq(message("user", Seq(contentPart("image_url", image = Some(imageUrl(None)))))),
+          "not an error struct"
+        )
+      ), 1),
+      StructType(requestSchema().fields :+
+        StructField("UPSTREAM_ERROR", StringType, nullable = true))
+    )
+    val transformer = chat()
+      .setErrorCol("upstream_error")
+      .setHandler { (_: CloseableHttpClient, _: HTTPRequestData) =>
+        throw new AssertionError("HTTP must not run for malformed messages")
+      }
+
+    val result = transformer.transform(input).head()
+
+    assert(result.schema("upstream_error").dataType == ErrorUtils.ErrorSchema)
+    assert(result.getAs[Row]("upstream_error").getAs[String]("response") ==
+      "messages[0].content[0].image_url requires a non-empty string 'url' field")
+    assert(Option(result.getAs[Row]("output")).isEmpty)
   }
 
   test("legacy map-backed text ignores null values") {
@@ -378,7 +470,8 @@ class OpenAIChatCompletionMultimodalSuite extends TestBase {
     assert(Option(result.getAs[Row]("output")).isEmpty)
   }
 
-  test("messages column cannot also be the output or error column") {
+  test("public column collisions honor Spark's resolver") {
+    assert(!spark.conf.get("spark.sql.caseSensitive").toBoolean)
     val input = spark.createDataFrame(
       spark.sparkContext.parallelize(Seq(
         Row("valid", Seq(message("user", Seq(contentPart("text", text = Some("hello"))))))
@@ -387,18 +480,22 @@ class OpenAIChatCompletionMultimodalSuite extends TestBase {
     )
 
     Seq(
-      "outputCol" -> chat().setOutputCol("messages"),
-      "errorCol" -> chat().setErrorCol("messages")
-    ).foreach { case (paramName, transformer) =>
+      ("messagesCol 'messages' must be different from outputCol 'MESSAGES'",
+        chat().setOutputCol("MESSAGES")),
+      ("messagesCol 'messages' must be different from errorCol 'MeSsAgEs'",
+        chat().setErrorCol("MeSsAgEs")),
+      ("outputCol 'result' must be different from errorCol 'RESULT'",
+        chat().setOutputCol("result").setErrorCol("RESULT"))
+    ).foreach { case (expectedMessage, transformer) =>
       val schemaError = intercept[IllegalArgumentException] {
         transformer.transformSchema(input.schema)
       }
-      assert(schemaError.getMessage.contains(s"messagesCol 'messages' must be different from $paramName 'messages'"))
+      assert(schemaError.getMessage.contains(expectedMessage))
 
       val transformError = intercept[IllegalArgumentException] {
         transformer.transform(input)
       }
-      assert(transformError.getMessage.contains(s"messagesCol 'messages' must be different from $paramName 'messages'"))
+      assert(transformError.getMessage.contains(expectedMessage))
     }
   }
 }
