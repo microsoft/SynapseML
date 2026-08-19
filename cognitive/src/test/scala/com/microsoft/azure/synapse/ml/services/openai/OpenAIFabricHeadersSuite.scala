@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.services.openai
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
+import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails
 import com.microsoft.azure.synapse.ml.services.HasCognitiveServiceInput
 import org.apache.spark.sql.Row
 import spray.json._
@@ -12,7 +13,7 @@ class OpenAIFabricHeadersSuite extends TestBase {
 
   private val fabricHeaderNames = Seq(
     "X-Taxonomy-TrafficType",
-    "x-llm-service-tier",
+    "X-Llm-Service-Tier",
     "X-Taxonomy-ExtendedProperties"
   )
 
@@ -26,8 +27,6 @@ class OpenAIFabricHeadersSuite extends TestBase {
     override protected[openai] def runningOnFabric: Boolean = isFabric
 
     override protected[openai] def usingDefaultOpenAIEndpoint: Boolean = usesDefaultEndpoint
-
-    override protected[openai] def fabricRuntime: String = "synapse_internal"
 
     def requestHeaders: Map[String, String] = {
       buildServiceAuthHeaders(
@@ -69,14 +68,16 @@ class OpenAIFabricHeadersSuite extends TestBase {
     )
   }
 
-  private def assertFabricHeaders(headers: Map[String, String]): Unit = {
+  private def assertFabricHeaders(
+      headers: Map[String, String],
+      expectedRuntime: String = PlatformDetails.FabricRuntime): Unit = {
     assert(headers("X-Taxonomy-TrafficType") == "Background")
-    assert(headers("x-llm-service-tier") == "flex")
+    assert(headers("X-Llm-Service-Tier") == "flex")
     assert(
       headers("X-Taxonomy-ExtendedProperties").parseJson ==
         JsObject(
           "feature" -> JsString("synapseml"),
-          "runtime" -> JsString("synapse_internal")
+          "runtime" -> JsString(expectedRuntime)
         )
     )
     fabricHeaderNames.foreach { headerName =>
@@ -88,6 +89,16 @@ class OpenAIFabricHeadersSuite extends TestBase {
     fabricHeaderNames.foreach { headerName =>
       assert(!headers.keys.exists(_.equalsIgnoreCase(headerName)))
     }
+  }
+
+  test("Fabric classification headers are initialized once per runtime") {
+    val first = OpenAIFabricHeaders.Values
+    val second = OpenAIFabricHeaders.Values
+
+    assert(first eq second)
+    assertFabricHeaders(
+      OpenAIFabricHeaders.build("fabric_spark_3.5.4"),
+      expectedRuntime = "fabric_spark_3.5.4")
   }
 
   test("default Fabric OpenAI requests include SynapseML classification headers") {

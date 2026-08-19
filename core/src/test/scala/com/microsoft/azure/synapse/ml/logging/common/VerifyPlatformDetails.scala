@@ -21,6 +21,43 @@ class VerifyPlatformDetails extends TestBase {
     assert(platform.nonEmpty)
   }
 
+  test("FabricRuntime returns a stable runtime value") {
+    val runtime = PlatformDetails.FabricRuntime
+    assert(runtime.nonEmpty)
+    assert(runtime === PlatformDetails.FabricRuntime)
+  }
+
+  test("sparkVersion safely reports the packaged Spark runtime") {
+    assert(PlatformDetails.sparkVersion.contains(org.apache.spark.SPARK_VERSION))
+  }
+
+  test("resolveFabricRuntime prefers Spark and falls back to Python or Fabric") {
+    assert(
+      PlatformDetails.resolveFabricRuntime(
+        isFabric = true,
+        sparkVersion = Some("3.5.4"),
+        pythonVersion = Some("3.11.9")) ===
+        "fabric_spark_3.5.4")
+    assert(
+      PlatformDetails.resolveFabricRuntime(
+        isFabric = true,
+        sparkVersion = None,
+        pythonVersion = Some("3.11.9")) ===
+        "fabric_python_3.11.9")
+    assert(
+      PlatformDetails.resolveFabricRuntime(
+        isFabric = true,
+        sparkVersion = None,
+        pythonVersion = None) ===
+        "fabric")
+    assert(
+      PlatformDetails.resolveFabricRuntime(
+        isFabric = false,
+        sparkVersion = Some("3.5.4"),
+        pythonVersion = Some("3.11.9")) ===
+        PlatformDetails.PlatformUnknown)
+  }
+
   test("currentPlatform returns a valid platform string") {
     val platform = PlatformDetails.currentPlatform()
     val validPlatforms = Set(
