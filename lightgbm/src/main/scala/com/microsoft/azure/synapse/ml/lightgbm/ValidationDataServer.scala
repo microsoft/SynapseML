@@ -356,7 +356,7 @@ private[lightgbm] object ValidationDataServer {
     val ingestSocket = resources.openServerSocket(host, timeoutSeconds, partitionCount)
     val timeoutMillis = ingestSocket.getSoTimeout
     val ingestToken = UUID.randomUUID().toString
-    ingestSocket.setSoTimeout(IngestPollTimeoutMillis)
+    ingestSocket.setSoTimeout(Math.min(IngestPollTimeoutMillis, timeoutMillis))
     val ingestPort = ingestSocket.getLocalPort
     val ingestExecutor = NetworkManagerSocketSupport.withCleanupOnFailurePreservingPrimary(
       closeServerSocket(ingestSocket)) {
