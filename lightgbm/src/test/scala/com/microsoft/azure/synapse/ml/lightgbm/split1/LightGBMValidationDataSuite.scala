@@ -120,7 +120,10 @@ class LightGBMValidationDataSuite extends LightGBMTestUtils {
   }
 
   test("validationIndicatorCol rejects null indicators instead of dropping rows") {
-    val denseFeatures = udf { id: Long => Vectors.dense(id.toDouble) }
+    val denseFeatures = udf { id: Long =>
+      val random = new scala.util.Random(id)
+      Vectors.dense(Array.fill(128 * 1024)(random.nextDouble()))
+    }
     val data = spark.range(0L, 2L, 1L, 2)
       .select(
         col("id").cast("double").as("label"),
