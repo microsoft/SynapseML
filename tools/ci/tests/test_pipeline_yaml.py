@@ -322,6 +322,7 @@ def test_fabric_e2e_runs_openai_prompt_with_exact_artifacts():
     assert openai_step["task"] == "AzureCLI@2"
     assert openai_step["inputs"]["azureSubscription"] == "SynapseML Build"
     assert "runFabricOpenAIPrompt" in openai_step["condition"]
+    assert "succeededOrFailed()" in openai_step["condition"]
 
     script = openai_step["inputs"]["inlineScript"]
     assert "sbt core/packageBin cognitive/packageBin" in script

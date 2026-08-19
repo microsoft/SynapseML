@@ -420,7 +420,7 @@ jobs:
         INTEGRATION_ENV: $(sempy-integration-region)
         INTEGRATION_ACCOUNT: $(sempy-integration-account)
         INTEGRATION_WORKSPACE_PREFIX: $(sempy-integration-workspace-prefix)
-      condition: and(succeeded(), eq(variables.runTests, 'True'), eq(variables.runFabricOpenAIPrompt, true))
+      condition: and(succeededOrFailed(), eq(variables.runTests, 'True'), eq(variables.runFabricOpenAIPrompt, true))
     - task: PublishTestResults@2
       displayName: 'Publish Fabric OpenAIPrompt Results'
       inputs:
