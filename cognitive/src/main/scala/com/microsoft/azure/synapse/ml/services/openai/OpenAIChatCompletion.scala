@@ -162,7 +162,8 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
       val originalMessagesCol = OpenAIColumnUtils.findUnusedColumnName("originalMessages")(colsToAvoid)
       val validationErrorCol = OpenAIColumnUtils.findUnusedColumnName(
         "structuredMessageValidationError")(colsToAvoid + originalMessagesCol)
-      val messagesDataType = df.schema(getMessagesCol).dataType
+      val resolvedMessagesCol = OpenAIColumnUtils.resolvedColumnName(df, getMessagesCol)
+      val messagesDataType = df.schema(resolvedMessagesCol).dataType
 
       val validationErrorUDF = UDFUtils.oldUdf(
         (messages: CollectionSeq[Row]) => structuredMessageValidationError(messages).map(message =>
@@ -172,7 +173,7 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
       )
 
       val validatedMessages = df
-        .withColumn(originalMessagesCol, F.col(getMessagesCol))
+        .withColumn(originalMessagesCol, F.col(resolvedMessagesCol))
         .withColumn(validationErrorCol, validationErrorUDF(F.col(originalMessagesCol)))
         // Null only structurally invalid rows so the inherited shouldSkip bypasses request construction/HTTP.
         .withColumn(

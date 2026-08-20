@@ -15,6 +15,13 @@ import scala.util.control.NonFatal
 
 private[openai] object OpenAIAttachmentUtils {
 
+  private case class DataUrlAttachment(
+      fileName: String,
+      encodedContent: String,
+      fileType: String,
+      mimeType: String,
+      originalUrl: String)
+
   private val MimeSniffPrefixLength = 64
   private val Utf8Bom = Base64.getDecoder.decode("77u/")
   private val XmlDeclarationPrefix = "<?xml"
@@ -80,6 +87,55 @@ private[openai] object OpenAIAttachmentUtils {
         throw new IllegalArgumentException(
           f"$fileDescription size $fileSizeMB%.2f MB exceeds limit $limit%.2f MB")
       }
+    }
+  }
+
+  private def isBase64Character(char: Char): Boolean =
+    char >= 'A' && char <= 'Z' ||
+      char >= 'a' && char <= 'z' ||
+      char >= '0' && char <= '9' ||
+      char == '+' || char == '/'
+
+  private def validateBase64Content(encodedContent: String): Unit = {
+    val padding = encodedContent.reverseIterator.takeWhile(_ == '=').length
+    val dataLength = encodedContent.length - padding
+    val remainder = dataLength % 4
+    val expectedPadding = if (remainder == 0) 0 else 4 - remainder
+    val invalid = !encodedContent.iterator.take(dataLength).forall(isBase64Character) ||
+      padding > 2 ||
+      remainder == 1 ||
+      padding > 0 && (encodedContent.length % 4 != 0 || padding != expectedPadding)
+    if (invalid) {
+      throw new IllegalArgumentException("Data URL contains invalid base64 content")
+    }
+  }
+
+  private def prepareDataUrlAttachment(
+      dataUrl: String,
+      sizeLimitMB: Option[Double],
+      imageExtensions: Set[String],
+      audioExtensions: Set[String],
+      textExtensions: Set[String]
+  ): DataUrlAttachment = {
+    val (declaredMimeType, encodedContent) = dataUrlMetadata(dataUrl)
+    val padding = encodedContent.reverseIterator.takeWhile(_ == '=').length.min(2)
+    val estimatedSize = encodedContent.length.toLong * 3L / 4L - padding
+    validateFileSize("Data URL attachment", estimatedSize, sizeLimitMB)
+    validateBase64Content(encodedContent)
+    val mimeType = declaredMimeType.toLowerCase(Locale.ROOT)
+    val fileName = s"attachment.${extensionForMimeType(mimeType)}"
+    val extension = extensionForMimeType(mimeType)
+    val fileType = categorizeFileType(
+      mimeType, extension, imageExtensions, audioExtensions, textExtensions)
+    DataUrlAttachment(fileName, encodedContent, fileType, mimeType, dataUrl)
+  }
+
+  private def decodeDataUrlContent(attachment: DataUrlAttachment): Array[Byte] = {
+    try {
+      Base64.getDecoder.decode(attachment.encodedContent)
+    } catch {
+      case _: IllegalArgumentException =>
+        throw new IllegalArgumentException("Data URL contains invalid base64 content")
     }
   }
 
@@ -188,6 +244,55 @@ private[openai] object OpenAIAttachmentUtils {
     val fileType = categorizeFileType(
       mimeType, extension, imageExtensions, audioExtensions, textExtensions)
     (fileName, fileBytes, fileType, mimeType)
+  }
+
+  def isDataUrl(path: String): Boolean =
+    path.regionMatches(true, 0, "data:", 0, "data:".length)
+
+  def responsesDataUrlMessage(
+      dataUrl: String,
+      sizeLimitMB: Option[Double],
+      imageExtensions: Set[String],
+      audioExtensions: Set[String],
+      textExtensions: Set[String],
+      textWrapper: String => Map[String, String]
+  ): Map[String, String] = {
+    val attachment = prepareDataUrlAttachment(
+      dataUrl, sizeLimitMB, imageExtensions, audioExtensions, textExtensions)
+    attachment.fileType match {
+      case "text" => textWrapper(new String(decodeDataUrlContent(attachment), StandardCharsets.UTF_8))
+      case "image" => Map("type" -> "input_image", "image_url" -> attachment.originalUrl)
+      case "audio" =>
+        throw new IllegalArgumentException("Audio input is not supported in the current API version.")
+      case "unsupported" => throw new IllegalArgumentException(s"Unsupported file type: ${attachment.mimeType}.")
+      case "file" => Map(
+        "type" -> "input_file",
+        "filename" -> attachment.fileName,
+        "file_data" -> attachment.originalUrl
+      )
+    }
+  }
+
+  def chatCompletionsDataUrlMessage(
+      dataUrl: String,
+      sizeLimitMB: Option[Double],
+      imageExtensions: Set[String],
+      audioExtensions: Set[String],
+      textExtensions: Set[String],
+      textWrapper: String => Map[String, String]
+  ): Map[String, String] = {
+    val attachment = prepareDataUrlAttachment(
+      dataUrl, sizeLimitMB, imageExtensions, audioExtensions, textExtensions)
+    attachment.fileType match {
+      case "text" =>
+        textWrapper(s"Content: ${new String(decodeDataUrlContent(attachment), StandardCharsets.UTF_8)}")
+      case "image" => Map("type" -> "image_url", "image_url" -> attachment.originalUrl)
+      case _ =>
+        throw new IllegalArgumentException(
+          s"File type '${attachment.fileType}' with MIME type '${attachment.mimeType}' " +
+            "is not supported for Chat Completions. Only text and image attachments are supported; " +
+            "use apiType='responses' for other file inputs.")
+    }
   }
 
   def responsesMessage(

@@ -172,6 +172,29 @@ class OpenAIChatCompletionMultimodalSuite extends TestBase {
     assert(invalid.getAs[scala.collection.Seq[Row]]("messages").nonEmpty)
   }
 
+  test("transform resolves messagesCol with Spark case-insensitive semantics") {
+    assert(!spark.conf.get("spark.sql.caseSensitive").toBoolean)
+    val input = spark.createDataFrame(
+      spark.sparkContext.parallelize(Seq(
+        Row("valid", Seq(message("user", Seq(contentPart("text", text = Some("Describe."))))))
+      ), 1),
+      requestSchema()
+    ).withColumnRenamed("messages", "MESSAGES")
+    val requestBodies = spark.sparkContext.collectionAccumulator[String]
+
+    val result = chat()
+      .setHandler { (client: CloseableHttpClient, request: HTTPRequestData) =>
+        requestBodies.add(new String(request.entity.get.content, StandardCharsets.UTF_8))
+        OpenAIChatCompletionMultimodalTestData.echoRequestBody(client, request)
+      }
+      .transform(input)
+      .head()
+
+    assert(Option(result.getAs[Row]("error")).isEmpty)
+    assert(Option(result.getAs[Row]("output")).isDefined)
+    assert(requestBodies.value.asScala.size == 1)
+  }
+
   test("AIFoundryChatCompletion inherits multimodal validation and serialization") {
     val validMessage = message("user", Seq(
       contentPart("text", text = Some("What is shown?")),

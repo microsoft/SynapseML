@@ -630,13 +630,24 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   }
 
   private def wrapFileToMessagesList(filePathStr: String): Seq[Map[String, String]] = {
-    val (fileName, fileBytes, fileType, mimeType) = prepareFile(filePathStr)
-
-    val fileMessage = this.getApiType match {
-      case "responses" =>
-        makeResponsesFileMessage(fileName, fileBytes, fileType, mimeType)
-      case "chat_completions" =>
-        makeChatCompletionsFileMessage(fileName, fileBytes, fileType, mimeType)
+    val limit = if (isSet(fileSizeLimitMB)) Some(getFileSizeLimitMB) else None
+    val fileMessage = if (OpenAIAttachmentUtils.isDataUrl(filePathStr)) {
+      this.getApiType match {
+        case "responses" =>
+          OpenAIAttachmentUtils.responsesDataUrlMessage(
+            filePathStr, limit, imageExtensions, audioExtensions, textExtensions, stringMessageWrapper)
+        case "chat_completions" =>
+          OpenAIAttachmentUtils.chatCompletionsDataUrlMessage(
+            filePathStr, limit, imageExtensions, audioExtensions, textExtensions, stringMessageWrapper)
+      }
+    } else {
+      val (fileName, fileBytes, fileType, mimeType) = prepareFile(filePathStr)
+      this.getApiType match {
+        case "responses" =>
+          makeResponsesFileMessage(fileName, fileBytes, fileType, mimeType)
+        case "chat_completions" =>
+          makeChatCompletionsFileMessage(fileName, fileBytes, fileType, mimeType)
+      }
     }
     Seq(fileMessage)
   }
