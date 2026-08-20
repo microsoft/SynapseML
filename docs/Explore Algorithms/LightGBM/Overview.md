@@ -102,6 +102,32 @@ You can mix *passThroughArgs* and explicit args, as shown in the example. Synaps
 merges them to create one argument string to send to LightGBM. If you set a parameter in
 both places, *passThroughArgs* takes precedence.
 
+#### Reproducible training
+
+`deterministic=True` applies to LightGBM after Spark has produced the training rows. For
+CPU training, LightGBM also recommends selecting one histogram strategy explicitly:
+
+```python
+model = LightGBMClassifier(
+    deterministic=True,
+    seed=777,
+    passThroughArgs="force_col_wise=true",
+).fit(train)
+```
+
+This does not make a nondeterministic Spark query deterministic. Operations such as
+`orderBy(rand())` without a seed can be evaluated again for each action, so a write and a
+later `fit()` may consume different row order or even a different sample. Materialize one
+training snapshot before comparing fits: write and reload it, or persist it and complete a
+materializing action before training. A Parquet reload can therefore expose an input-lineage
+difference without changing vector values, feature metadata, labels, weights, or initial
+scores. Compare the exact rows and metadata before interpreting a higher training AUC as a
+serialization defect; stable validation AUC can instead indicate training-set overfit.
+
+When `deterministic=True`, SynapseML logs a warning if Spark marks the training query as
+nondeterministic. For effective CPU training, it also warns if neither `force_col_wise=true`
+nor `force_row_wise=true` is enabled.
+
 #### GPU training with a custom OpenCL native library
 
 SynapseML's published `lightgbmlib` artifact contains CPU-only native libraries. Only
