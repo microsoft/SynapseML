@@ -315,7 +315,7 @@ jobs:
 - job: FabricE2E
   dependsOn: BuildAndCacheSbt
   displayName: 'Fabric E2E'
-  condition: and(succeeded(), eq('${{ parameters.testFabricE2E }}', true), ne(variables['System.PullRequest.IsFork'], 'True'))
+  condition: and(succeeded(), eq('${{ parameters.testFabricE2E }}', true))
   timeoutInMinutes: 120
   cancelTimeoutInMinutes: 0
   pool:
@@ -423,13 +423,12 @@ jobs:
           fi
 
           python tools/fabric_e2e/run.py \
-            --scenario openai-prompt-ai-functions \
             --workspace "$workspace" \
             --env "$fabric_env" \
             --source-repo '$(Build.SourcesDirectory)' \
             --output-dir "$output_dir" \
-            --extra-jar "$core_jar" \
-            --extra-jar "$cognitive_jar"
+            --core-jar "$core_jar" \
+            --cognitive-jar "$cognitive_jar"
       env:
         FABRIC_OPENAI_ENV: $(FABRIC_OPENAI_ENV)
         FABRIC_OPENAI_WORKSPACE: $(FABRIC_OPENAI_WORKSPACE)

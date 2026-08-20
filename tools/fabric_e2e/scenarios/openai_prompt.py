@@ -1,7 +1,7 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 
-"""Exercise AI Functions origin behaviors through OpenAIPrompt on Fabric."""
+"""Exercise OpenAIPrompt behaviors inspired by PySpark AI Functions."""
 
 import argparse
 import inspect
@@ -25,11 +25,6 @@ def class_source(spark_session, class_name):
 
 def emit_diagnostic(payload):
     print("SYNAPSEML_FABRIC_E2E_DIAGNOSTIC=" + json.dumps(payload, sort_keys=True))
-
-
-def concise_error(error):
-    lines = [line.strip() for line in str(error).splitlines() if line.strip()]
-    return (lines[-1] if lines else repr(error))[:1000]
 
 
 parser = argparse.ArgumentParser()
@@ -198,7 +193,6 @@ try:
 except Exception as error:
     emit_diagnostic(
         {
-            "errorMessage": concise_error(error),
             "errorType": type(error).__name__,
             "phase": "transform-and-assert",
         }
