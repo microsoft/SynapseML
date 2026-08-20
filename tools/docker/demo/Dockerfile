@@ -22,7 +22,7 @@ RUN apt-get -qq update \
     && apt-get autoclean \
     && rm -rf /var/lib/apt/lists/* /var/log/dpkg.log
 
-# Install conda and required dependencies
+# Install the shared conda bootstrap before image-specific packages.
 RUN curl -sSL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -o /tmp/miniconda.sh \
     && bash /tmp/miniconda.sh -bfp /usr/local \
     && rm -rf /tmp/miniconda.sh \
@@ -30,8 +30,6 @@ RUN curl -sSL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64
     && conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/main \
     && conda tos accept --override-channels --channel https://repo.anaconda.com/pkgs/r \
     && conda update -y conda \
-    && conda install -y python=3 jupyter \
-    && pip install --upgrade "PyJWT>=2.12.0" \
     && conda clean --all --yes
 
 ENV PATH=/usr/local/bin:${PATH}
@@ -41,6 +39,11 @@ RUN wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SP
     && tar -xzf spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz \
     && mv spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION} /opt/spark \
     && rm spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
+
+# Install image-specific Python dependencies.
+RUN conda install -y python=3 jupyter \
+    && pip install --upgrade "PyJWT>=2.12.0" \
+    && conda clean --all --yes
 
 # Patch netty 4.1.96.Final (CVE-2023-44487, CVE-2024-29025, CVE-2025-24970, ...) to 4.1.118.Final.
 # Spark 3.5.x pins netty 4.1.96 upstream; we override in-place since 4.1.x is binary-compatible.
