@@ -79,6 +79,9 @@ private[openai] object OpenAIColumnUtils {
   private def existingColumn(df: DataFrame, configuredName: String): Option[String] =
     df.columns.find(columnName => namesMatch(columnName, configuredName))
 
+  def resolvedColumnName(df: DataFrame, configuredName: String): String =
+    existingColumn(df, configuredName).getOrElse(configuredName)
+
   def existingColumnOfType(
       df: DataFrame,
       configuredName: String,

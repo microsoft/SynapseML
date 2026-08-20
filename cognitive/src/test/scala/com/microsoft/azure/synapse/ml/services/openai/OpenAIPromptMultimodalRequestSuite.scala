@@ -29,6 +29,7 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
   private val dataImage =
     "data:image/png;base64," +
       "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zl1sAAAAASUVORK5CYII="
+  private val unpaddedDataImage = dataImage.stripSuffix("=")
   private val dataJson = "data:application/json;base64,e30="
   private val dataPdf = "data:application/pdf;base64,JVBERi0xLjQK"
   private val imageBytes = java.util.Base64.getDecoder.decode(dataImage.split(",", 2)(1))
@@ -240,12 +241,12 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
   }
 
   test("Responses OpenAIPrompt accepts data image URLs") {
-    val (result, payload) = requestPayload(_ => dataImage, "responses")
+    val (result, payload) = requestPayload(_ => unpaddedDataImage, "responses")
 
     assert(Option(result.getAs[Row]("error")).isEmpty)
     val JsArray(messages) = payload.fields("input")
     val JsArray(parts) = messages(1).asJsObject.fields("content")
-    assert(parts(1).asJsObject.fields("image_url") == JsString(dataImage))
+    assert(parts(1).asJsObject.fields("image_url") == JsString(unpaddedDataImage))
   }
 
   test("Responses OpenAIPrompt sends data files as input_file parts") {
@@ -314,7 +315,7 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
 
   test("Chat Completions OpenAIPrompt sends image_url content parts") {
     val (result, payload) = requestPayload(
-      _.replace("/openai/v1", "/image.png"),
+      _ => unpaddedDataImage,
       "chat_completions"
     )
 
@@ -323,7 +324,7 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
     val JsArray(parts) = messages(1).asJsObject.fields("content")
     assert(parts.map(_.asJsObject.fields("type")) == Seq(JsString("text"), JsString("image_url")))
     val JsString(imageUrl) = parts(1).asJsObject.fields("image_url").asJsObject.fields("url")
-    assert(imageUrl == dataImage)
+    assert(imageUrl == unpaddedDataImage)
   }
 
   test("base64 JSON data URLs are decoded as text attachments") {

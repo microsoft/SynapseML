@@ -198,6 +198,7 @@ class OpenAIResponsesMultimodalSuite extends TestBase {
       requestBodies.add(new String(request.entity.get.content, StandardCharsets.UTF_8))
       OpenAIResponsesMultimodalTestData.echoRequestBody(client, request)
     }
+
     val transformed = transformer.transform(input)
     val rows = transformed.collect().map(row => row.getAs[String]("id") -> row).toMap
 
@@ -235,6 +236,31 @@ class OpenAIResponsesMultimodalSuite extends TestBase {
     assert(invalid.getAs[Row]("error").getAs[String]("response") ==
       "messages[0].content[0] requires a non-empty string 'image_url' or 'file_id' field")
     assert(invalid.getAs[scala.collection.Seq[Row]]("messages").nonEmpty)
+  }
+
+  test("Responses resolves messagesCol with Spark case-insensitive semantics") {
+    assert(!spark.conf.get("spark.sql.caseSensitive").toBoolean)
+    val input = spark.createDataFrame(
+      spark.sparkContext.parallelize(Seq(
+        Row("valid", Seq(structuredMessage("user", Seq(
+          contentPart("input_text", text = Some("Describe."))
+        ))))
+      ), 1),
+      requestSchema(structuredMessageSchema)
+    ).withColumnRenamed("messages", "MESSAGES")
+    val requestBodies = spark.sparkContext.collectionAccumulator[String]
+
+    val result = responses()
+      .setHandler { (client: CloseableHttpClient, request: HTTPRequestData) =>
+        requestBodies.add(new String(request.entity.get.content, StandardCharsets.UTF_8))
+        OpenAIResponsesMultimodalTestData.echoRequestBody(client, request)
+      }
+      .transform(input)
+      .head()
+
+    assert(Option(result.getAs[Row]("error")).isEmpty)
+    assert(Option(result.getAs[Row]("output")).isDefined)
+    assert(requestBodies.value.asScala.size == 1)
   }
 
   test("map-backed OpenAIPrompt Responses attachments keep their request shape") {

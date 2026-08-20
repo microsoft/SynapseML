@@ -1,3 +1,0 @@
-# No release compatibility prerequisites are currently required.
-# The spark4.1 sync in PR #2645 includes every previously listed prerequisite.
-# Add future prerequisites below as full commit SHAs with optional tab-separated paths.

@@ -358,7 +358,8 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
       val originalMessagesCol = OpenAIColumnUtils.findUnusedColumnName("originalMessages")(colsToAvoid)
       val validationErrorCol = OpenAIColumnUtils.findUnusedColumnName(
         "responsesMessageValidationError")(colsToAvoid + originalMessagesCol)
-      val messagesDataType = df.schema(getMessagesCol).dataType
+      val resolvedMessagesCol = OpenAIColumnUtils.resolvedColumnName(df, getMessagesCol)
+      val messagesDataType = df.schema(resolvedMessagesCol).dataType
 
       val validationErrorUDF = UDFUtils.oldUdf(
         (messages: CollectionSeq[Row]) => structuredMessageValidationError(messages).map(message =>
@@ -368,7 +369,7 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
       )
 
       val validatedMessages = df
-        .withColumn(originalMessagesCol, F.col(getMessagesCol))
+        .withColumn(originalMessagesCol, F.col(resolvedMessagesCol))
         .withColumn(validationErrorCol, validationErrorUDF(F.col(originalMessagesCol)))
         .withColumn(
           getMessagesCol,
