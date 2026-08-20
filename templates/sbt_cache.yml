@@ -72,6 +72,7 @@ steps:
          [ "$SBT_COURSIER_CACHE_RESULT" = "true" ]; then
         exact_hit=true
         echo "All exact sbt caches restored; disabling the cold-cache start stagger"
+        export SBT_SETUP_MAX_STAGGER_SECONDS=0
         echo "##vso[task.setvariable variable=SBT_SETUP_MAX_STAGGER_SECONDS]0"
       else
         echo "Shared sbt caches were unavailable or inexact; warming this agent with staggered retries"

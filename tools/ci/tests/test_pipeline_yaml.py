@@ -17,6 +17,7 @@ import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+BUILD_SBT = REPO_ROOT / "build.sbt"
 PIPELINE = REPO_ROOT / "pipeline.yaml"
 SBT_CACHE_TPL = REPO_ROOT / "templates" / "sbt_cache.yml"
 SBT_RETRY = REPO_ROOT / "tools" / "ci" / "sbt_retry.sh"
@@ -113,6 +114,22 @@ def test_pipeline_and_templates_parse():
         assert yaml.safe_load(tpl.read_text()) is not None, f"{tpl} failed to parse"
 
 
+def test_build_has_canonical_maven_central_fallback():
+    build = "\n".join(
+        line
+        for line in BUILD_SBT.read_text().splitlines()
+        if not line.lstrip().startswith("//")
+    )
+    resolver = (
+        r'"Maven Central fallback"\s+at\s+' r'"https://repo\.maven\.apache\.org/maven2"'
+    )
+    active_setting = (
+        rf"ThisBuild\s*/\s*resolvers\s*"
+        rf"(?:\+=\s*{resolver}|\+\+=\s*Seq\s*\([^)]*{resolver}[^)]*\))"
+    )
+    assert len(re.findall(active_setting, build, flags=re.DOTALL)) == 1
+
+
 def test_sbt_cache_template_exists_and_parses():
     assert SBT_CACHE_TPL.exists()
     data = yaml.safe_load(SBT_CACHE_TPL.read_text())
@@ -142,8 +159,12 @@ def test_sbt_cache_template_exists_and_parses():
     ]
     assert len(fallback_scripts) == 1
     fallback_script = fallback_scripts[0]
-    assert "SBT_SETUP_MAX_STAGGER_SECONDS" in fallback_script
+    stagger_export = "export SBT_SETUP_MAX_STAGGER_SECONDS=0"
+    assert stagger_export in fallback_script
     assert 'bash "$SBT_RETRY_SCRIPT_PATH" update' in fallback_script
+    assert fallback_script.index(stagger_export) < fallback_script.index(
+        'bash "$SBT_RETRY_SCRIPT_PATH" update'
+    )
     assert 'if [ "$exact_hit" != "true" ]' in fallback_script
     parameters = {parameter["name"]: parameter for parameter in data["parameters"]}
     assert parameters["retryScriptPath"]["default"] == "tools/ci/sbt_retry.sh"

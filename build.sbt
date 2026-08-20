@@ -309,6 +309,9 @@ val settings = Seq(
   coverageOutputCobertura := true
 )
 ThisBuild / publishMavenStyle := true
+// repo1.maven.org intermittently rate-limits hosted CI agents. Keep Maven
+// Central's canonical endpoint as the next Ivy resolver for the same artifacts.
+ThisBuild / resolvers += "Maven Central fallback" at "https://repo.maven.apache.org/maven2"
 
 lazy val core = (project in file("core"))
   .enablePlugins(BuildInfoPlugin)
