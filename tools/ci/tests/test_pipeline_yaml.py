@@ -25,6 +25,8 @@ SBT_VERSION = REPO_ROOT / "tools" / "ci" / "get_sbt_version.sh"
 DATABRICKS_IMPACT = REPO_ROOT / "tools" / "ci" / "databricks_impact.py"
 DATABRICKS_STEPS_TPL = REPO_ROOT / "templates" / "databricks_e2e_steps.yml"
 CLEAN_ACR_PIPELINE = REPO_ROOT / ".pipelines" / "clean-acr.yml"
+DEMO_DOCKERFILE = REPO_ROOT / "tools" / "docker" / "demo" / "Dockerfile"
+MINIMAL_DOCKERFILE = REPO_ROOT / "tools" / "docker" / "minimal" / "Dockerfile"
 RELEASE_COMPAT_PREREQUISITES = (
     REPO_ROOT / ".pipelines" / "release-compat-prerequisites.txt"
 )
@@ -1190,6 +1192,33 @@ def test_build_docker_allows_time_for_both_image_builds():
     data = yaml.safe_load(_pipeline_text())
     jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
     assert jobs["BuildDocker"]["timeoutInMinutes"] >= 120
+
+
+def test_build_docker_reuses_bootstrap_layers_and_emits_progress():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+    image_builds = [
+        step
+        for step in jobs["BuildDocker"]["steps"]
+        if step.get("displayName") in {"Demo Image Build", "Minimal Image Build"}
+    ]
+
+    assert len(image_builds) == 2
+    for step in image_builds:
+        assert "--quiet" not in step["inputs"]["arguments"]
+        assert step["env"]["DOCKER_BUILDKIT"] == "1"
+        assert step["env"]["BUILDKIT_PROGRESS"] == "plain"
+
+    dependency_marker = "# Install image-specific Python dependencies."
+    demo_bootstrap, separator, _ = DEMO_DOCKERFILE.read_text().partition(
+        dependency_marker
+    )
+    assert separator
+    minimal_bootstrap, separator, _ = MINIMAL_DOCKERFILE.read_text().partition(
+        dependency_marker
+    )
+    assert separator
+    assert demo_bootstrap == minimal_bootstrap
 
 
 def test_publish_jobs_resolve_and_preserve_package_versions():

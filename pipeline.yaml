@@ -370,11 +370,14 @@ jobs:
         repository: mmlspark-demo
         Dockerfile: tools/docker/demo/Dockerfile
         buildContext: $(Build.SourcesDirectory)
-        arguments: --quiet --build-arg SYNAPSEML_VERSION=$(version)
+        arguments: --build-arg SYNAPSEML_VERSION=$(version)
         tags: |
           $(version)
         addPipelineData: true
         addBaseImageData: true
+      env:
+        DOCKER_BUILDKIT: "1"
+        BUILDKIT_PROGRESS: plain
     - task: Docker@2
       displayName: Minimal Image Build
       inputs:
@@ -382,11 +385,14 @@ jobs:
         repository: mmlspark-minimal
         Dockerfile: tools/docker/minimal/Dockerfile
         buildContext: $(Build.SourcesDirectory)
-        arguments: --quiet --build-arg SYNAPSEML_VERSION=$(version)
+        arguments: --build-arg SYNAPSEML_VERSION=$(version)
         tags: |
           $(version)
         addPipelineData: true
         addBaseImageData: true
+      env:
+        DOCKER_BUILDKIT: "1"
+        BUILDKIT_PROGRESS: plain
     # Push demo and minimal when Docker publishing is enabled on master
     - task: AzureCLI@2
       condition: and(eq(variables.isMaster, true), eq('${{ parameters.publishDockerImages }}', true))
