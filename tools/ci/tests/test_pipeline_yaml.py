@@ -372,9 +372,9 @@ def test_fabric_e2e_runs_openai_prompt_with_exact_artifacts():
     assert "INTEGRATION_ENV" not in openai_step["env"]
     assert "INTEGRATION_ACCOUNT" not in openai_step["env"]
     assert "INTEGRATION_WORKSPACE_PREFIX" not in openai_step["env"]
-    assert "--scenario" not in script
-    assert '--core-jar "$core_jar"' in script
-    assert '--cognitive-jar "$cognitive_jar"' in script
+    assert "--scenario openai-prompt-ai-functions" in script
+    assert '--extra-jar "$core_jar"' in script
+    assert '--extra-jar "$cognitive_jar"' in script
     assert "fabricOpenAIPromptAttempted]true" in script
     assert "OPENAI_API_KEY" not in script
     assert "AZURE_OPENAI_API_KEY" not in script

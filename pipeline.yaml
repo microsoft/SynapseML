@@ -423,12 +423,13 @@ jobs:
           fi
 
           python tools/fabric_e2e/run.py \
+            --scenario openai-prompt-ai-functions \
             --workspace "$workspace" \
             --env "$fabric_env" \
             --source-repo '$(Build.SourcesDirectory)' \
             --output-dir "$output_dir" \
-            --core-jar "$core_jar" \
-            --cognitive-jar "$cognitive_jar"
+            --extra-jar "$core_jar" \
+            --extra-jar "$cognitive_jar"
       env:
         FABRIC_OPENAI_ENV: $(FABRIC_OPENAI_ENV)
         FABRIC_OPENAI_WORKSPACE: $(FABRIC_OPENAI_WORKSPACE)
