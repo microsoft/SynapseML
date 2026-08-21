@@ -15,7 +15,7 @@ mapfile -t versions < <(
 )
 
 if [ "${#versions[@]}" -ne 1 ] ||
-  [[ ! "${versions[0]:-}" =~ ^[0-9]+(\.[0-9]+){1,2}$ ]]; then
+  [[ ! "${versions[0]:-}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
   echo "Expected exactly one pinned python=<version> dependency in $environment_file" >&2
   exit 1
 fi

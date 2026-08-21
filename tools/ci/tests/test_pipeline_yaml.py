@@ -1236,6 +1236,8 @@ def test_build_docker_reuses_bootstrap_layers_and_emits_progress():
     assert (
         'conda install -y "python=${PYTHON_VERSION}"' in MINIMAL_DOCKERFILE.read_text()
     )
+    assert "PYTHON_VERSION build argument is required" in DEMO_DOCKERFILE.read_text()
+    assert "PYTHON_VERSION build argument is required" in MINIMAL_DOCKERFILE.read_text()
 
 
 def test_publish_jobs_resolve_and_preserve_package_versions():

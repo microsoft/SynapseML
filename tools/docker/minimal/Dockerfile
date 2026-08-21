@@ -43,6 +43,7 @@ RUN wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SP
 
 # Install image-specific Python dependencies.
 RUN test -n "${PYTHON_VERSION}" \
+      || (echo "PYTHON_VERSION build argument is required" >&2; exit 1) \
     && conda install -y "python=${PYTHON_VERSION}" pyspark \
     && pip install --no-cache-dir --upgrade "PyJWT>=2.12.0" \
     && conda clean --all --yes

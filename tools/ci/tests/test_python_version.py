@@ -46,6 +46,16 @@ def test_rejects_unpinned_python_version(tmp_path):
     assert "exactly one pinned" in result.stderr
 
 
+def test_rejects_minor_only_python_version(tmp_path):
+    environment_file = tmp_path / "environment.yml"
+    environment_file.write_text("dependencies:\n  - python=3.11\n")
+
+    result = _run(environment_file)
+
+    assert result.returncode != 0
+    assert "exactly one pinned" in result.stderr
+
+
 def test_rejects_multiple_python_versions(tmp_path):
     environment_file = tmp_path / "environment.yml"
     environment_file.write_text("dependencies:\n  - python=3.11.8\n  - python=3.12.4\n")
