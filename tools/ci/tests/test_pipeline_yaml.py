@@ -1206,8 +1206,19 @@ def test_build_docker_reuses_bootstrap_layers_and_emits_progress():
     assert len(image_builds) == 2
     for step in image_builds:
         assert "--quiet" not in step["inputs"]["arguments"]
+        assert (
+            "--build-arg PYTHON_VERSION=$(pythonVersion)" in step["inputs"]["arguments"]
+        )
         assert step["env"]["DOCKER_BUILDKIT"] == "1"
         assert step["env"]["BUILDKIT_PROGRESS"] == "plain"
+
+    version_step = next(
+        step
+        for step in jobs["BuildDocker"]["steps"]
+        if step.get("displayName") == "Get Docker Tag + Version"
+    )
+    assert "tools/ci/get_python_version.sh" in version_step["bash"]
+    assert "variable=pythonVersion" in version_step["bash"]
 
     dependency_marker = "# Install image-specific Python dependencies."
     demo_bootstrap, separator, _ = DEMO_DOCKERFILE.read_text().partition(
@@ -1221,6 +1232,10 @@ def test_build_docker_reuses_bootstrap_layers_and_emits_progress():
     assert demo_bootstrap == minimal_bootstrap
     assert "pip install --no-cache-dir" in DEMO_DOCKERFILE.read_text()
     assert "pip install --no-cache-dir" in MINIMAL_DOCKERFILE.read_text()
+    assert 'conda install -y "python=${PYTHON_VERSION}"' in DEMO_DOCKERFILE.read_text()
+    assert (
+        'conda install -y "python=${PYTHON_VERSION}"' in MINIMAL_DOCKERFILE.read_text()
+    )
 
 
 def test_publish_jobs_resolve_and_preserve_package_versions():

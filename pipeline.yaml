@@ -359,7 +359,9 @@ jobs:
     - bash: |
         set -euo pipefail
         VERSION=$(bash tools/ci/get_sbt_version.sh)
+        PYTHON_VERSION=$(bash tools/ci/get_python_version.sh)
         echo '##vso[task.setvariable variable=version]'$VERSION
+        echo '##vso[task.setvariable variable=pythonVersion]'$PYTHON_VERSION
         echo '##vso[task.setvariable variable=gittag]'$(git tag -l --points-at HEAD)
       displayName: 'Get Docker Tag + Version'
     # Build all images (runs on every build to validate Dockerfiles)
@@ -370,7 +372,9 @@ jobs:
         repository: mmlspark-demo
         Dockerfile: tools/docker/demo/Dockerfile
         buildContext: $(Build.SourcesDirectory)
-        arguments: --build-arg SYNAPSEML_VERSION=$(version)
+        arguments: >-
+          --build-arg SYNAPSEML_VERSION=$(version)
+          --build-arg PYTHON_VERSION=$(pythonVersion)
         tags: |
           $(version)
         addPipelineData: true
@@ -385,7 +389,9 @@ jobs:
         repository: mmlspark-minimal
         Dockerfile: tools/docker/minimal/Dockerfile
         buildContext: $(Build.SourcesDirectory)
-        arguments: --build-arg SYNAPSEML_VERSION=$(version)
+        arguments: >-
+          --build-arg SYNAPSEML_VERSION=$(version)
+          --build-arg PYTHON_VERSION=$(pythonVersion)
         tags: |
           $(version)
         addPipelineData: true
