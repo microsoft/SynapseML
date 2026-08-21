@@ -5,30 +5,19 @@ This dockerfile can be used to run notebooks on a local docker image. The image 
 To build the docker image from the current tip of `master` branch, run:
 
 ```
-docker build . \
-  --build-arg PYTHON_VERSION=$(bash tools/ci/get_python_version.sh) \
-  -f tools/docker/demo/Dockerfile \
-  -t synapseml
+docker build . --build-arg PYTHON_VERSION=$(bash tools/ci/get_python_version.sh) -f tools/docker/demo/Dockerfile -t synapseml
 ```
 
 If you wish to build the image from a specific version SynapseML version, run:
 ```
-docker build . \
-  --build-arg SYNAPSEML_VERSION=<YOUR-VERSION-HERE> \
-  --build-arg PYTHON_VERSION=$(bash tools/ci/get_python_version.sh) \
-  -f tools/docker/demo/Dockerfile \
-  -t synapseml:<VERSION-TAG>
+docker build . --build-arg SYNAPSEML_VERSION=<YOUR-VERSION-HERE> --build-arg PYTHON_VERSION=$(bash tools/ci/get_python_version.sh) -f tools/docker/demo/Dockerfile -t synapseml:<VERSION-TAG>
 ```
 
 eg.
 
 For building image with SynapseML version 1.1.3, run:
 ```
-docker build . \
-  --build-arg SYNAPSEML_VERSION=1.1.3 \
-  --build-arg PYTHON_VERSION=$(bash tools/ci/get_python_version.sh) \
-  -f tools/docker/demo/Dockerfile \
-  -t synapseml:1.1.3
+docker build . --build-arg SYNAPSEML_VERSION=1.1.3 --build-arg PYTHON_VERSION=$(bash tools/ci/get_python_version.sh) -f tools/docker/demo/Dockerfile -t synapseml:1.1.3
 ```
 
 # Run the image
