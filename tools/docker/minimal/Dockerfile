@@ -1,6 +1,7 @@
 FROM mcr.microsoft.com/mirror/docker/library/ubuntu:22.04@sha256:104ae83764a5119017b8e8d6218fa0832b09df65aae7d5a6de29a85d813da2fb
 
 ARG SYNAPSEML_VERSION=1.1.3
+ARG PYTHON_VERSION
 ARG DEBIAN_FRONTEND=noninteractive
 
 ENV SPARK_VERSION=3.5.4
@@ -41,7 +42,8 @@ RUN wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SP
     && rm spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
 
 # Install image-specific Python dependencies.
-RUN conda install -y python=3 pyspark \
+RUN test -n "${PYTHON_VERSION}" \
+    && conda install -y "python=${PYTHON_VERSION}" pyspark \
     && pip install --no-cache-dir --upgrade "PyJWT>=2.12.0" \
     && conda clean --all --yes
 
