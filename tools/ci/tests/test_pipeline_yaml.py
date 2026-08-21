@@ -1219,6 +1219,8 @@ def test_build_docker_reuses_bootstrap_layers_and_emits_progress():
     )
     assert separator
     assert demo_bootstrap == minimal_bootstrap
+    assert "pip install --no-cache-dir" in DEMO_DOCKERFILE.read_text()
+    assert "pip install --no-cache-dir" in MINIMAL_DOCKERFILE.read_text()
 
 
 def test_publish_jobs_resolve_and_preserve_package_versions():

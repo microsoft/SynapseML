@@ -42,7 +42,7 @@ RUN wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SP
 
 # Install image-specific Python dependencies.
 RUN conda install -y python=3 jupyter \
-    && pip install --upgrade "PyJWT>=2.12.0" \
+    && pip install --no-cache-dir --upgrade "PyJWT>=2.12.0" \
     && conda clean --all --yes
 
 # Patch netty 4.1.96.Final (CVE-2023-44487, CVE-2024-29025, CVE-2025-24970, ...) to 4.1.118.Final.
