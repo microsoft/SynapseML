@@ -24,6 +24,10 @@ def _run(environment_file: Path):
     )
 
 
+def test_script_avoids_bash_four_only_mapfile():
+    assert "mapfile" not in SCRIPT.read_text()
+
+
 def test_extracts_pinned_python_version(tmp_path):
     environment_file = tmp_path / "environment.yml"
     environment_file.write_text(
