@@ -41,6 +41,7 @@ RUN wget https://archive.apache.org/dist/spark/spark-${SPARK_VERSION}/spark-${SP
     && mv spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION} /opt/spark \
     && rm spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz
 
+# SYNAPSEML_BOOTSTRAP_END
 # Install image-specific Python dependencies.
 RUN test -n "${PYTHON_VERSION}" \
       || (echo "PYTHON_VERSION build argument is required" >&2; exit 1) \

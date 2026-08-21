@@ -1220,7 +1220,7 @@ def test_build_docker_reuses_bootstrap_layers_and_emits_progress():
     assert "tools/ci/get_python_version.sh" in version_step["bash"]
     assert "variable=pythonVersion" in version_step["bash"]
 
-    dependency_marker = "# Install image-specific Python dependencies."
+    dependency_marker = "# SYNAPSEML_BOOTSTRAP_END"
     demo_bootstrap, separator, _ = DEMO_DOCKERFILE.read_text().partition(
         dependency_marker
     )
