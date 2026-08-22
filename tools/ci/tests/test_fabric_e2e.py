@@ -409,7 +409,7 @@ def test_downloaded_driver_stdout_supplies_markers(tmp_path):
     first = tmp_path / "job" / "driver" / "attempt-1" / "stdout.log"
     first.parent.mkdir(parents=True)
     first.write_text(
-        f"{DIAGNOSTIC_MARKER}{json.dumps({'attempt': 1})}\n", encoding="utf-8"
+        f"{DIAGNOSTIC_MARKER}{json.dumps({'attempt': 1})}", encoding="utf-8"
     )
     duplicate = tmp_path / "job" / "driver" / "attempt-2" / "stdout.log"
     duplicate.parent.mkdir(parents=True)

@@ -482,7 +482,7 @@ def downloaded_marker_output(log_root: Path) -> str:
                 for line in stream
                 if RESULT_MARKER in line or DIAGNOSTIC_MARKER in line
             )
-    return "".join(marker_lines)
+    return "\n".join(line.rstrip("\r\n") for line in marker_lines)
 
 
 def combine_marker_outputs(*outputs: str) -> str:
