@@ -24,6 +24,7 @@ from tools.fabric_e2e.run import (
     diagnostic_failure_message,
     downloaded_marker_output,
     load_scenarios,
+    main,
     new_run_id,
     parse_runtime_diagnostics,
     parse_runtime_evidence,
@@ -95,6 +96,7 @@ def test_lightgbm_scenario_exercises_streaming_validation_path():
     assert "for repetition in range(args.repetitions)" in source
     assert "model = learner.fit(dataset)" in source
     assert "prediction_count == args.rows" in source
+    assert "finally:\n    dataset.unpersist()" in source
 
 
 def test_submission_command_is_non_interactive_and_includes_overrides(tmp_path):
@@ -463,6 +465,58 @@ def test_secret_like_spark_conf_values_are_redacted():
         "spark.service.customAuthHeader=<redacted>",
         "spark.service.connectionString=<redacted>",
     ]
+
+
+def test_secret_like_assignments_inside_spark_conf_values_are_redacted():
+    entry = "spark.executor.extraJavaOptions=-Dservice.token=embedded-token"
+
+    assert redact_spark_conf([entry]) == ["spark.executor.extraJavaOptions=<redacted>"]
+
+
+def test_main_persists_only_redacted_spark_conf(tmp_path, monkeypatch):
+    output_dir = tmp_path / "evidence"
+    command_results = iter(
+        [
+            (0, f'{RESULT_MARKER}{{"status": "passed"}}\n'),
+            (0, ""),
+        ]
+    )
+    monkeypatch.setattr(
+        "tools.fabric_e2e.run.shutil.which", lambda _: "fabric-spark-cli"
+    )
+    monkeypatch.setattr(
+        "tools.fabric_e2e.run.run_and_tee",
+        lambda _command, _log: next(command_results),
+    )
+    monkeypatch.setattr(
+        "tools.fabric_e2e.run.command_version", lambda _: "fabric-spark-cli test"
+    )
+    monkeypatch.setattr("tools.fabric_e2e.run.git_commit", lambda _: "0123456789abcdef")
+
+    assert (
+        main(
+            [
+                "--scenario",
+                "runtime-smoke",
+                "--workspace",
+                "test-workspace",
+                "--output-dir",
+                str(output_dir),
+                "--conf",
+                "spark.sql.shuffle.partitions=4",
+                "--conf",
+                "spark.executor.extraJavaOptions=-Dservice.token=do-not-persist",
+            ]
+        )
+        == 0
+    )
+
+    evidence = json.loads((output_dir / "evidence.json").read_text(encoding="utf-8"))
+    assert evidence["sparkConf"] == [
+        "spark.sql.shuffle.partitions=4",
+        "spark.executor.extraJavaOptions=<redacted>",
+    ]
+    assert "do-not-persist" not in json.dumps(evidence)
 
 
 def test_create_output_directory_rejects_existing_path(tmp_path):

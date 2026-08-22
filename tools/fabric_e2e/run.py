@@ -137,12 +137,24 @@ def _spark_conf_key_is_sensitive(key: str) -> bool:
     )
 
 
+def _spark_conf_value_has_sensitive_assignment(value: str) -> bool:
+    """Return whether a configuration value embeds a secret-like assignment."""
+    assigned_keys = re.findall(
+        r"(?:^|[\s,;])(?:-D)?([A-Za-z0-9_.-]+)=",
+        value,
+    )
+    return any(_spark_conf_key_is_sensitive(key) for key in assigned_keys)
+
+
 def redact_spark_conf(entries: Sequence[str]) -> List[str]:
     """Redact secret-like Spark configuration values retained in evidence."""
     redacted: List[str] = []
     for entry in entries:
-        key, separator, _ = entry.partition("=")
-        if separator and _spark_conf_key_is_sensitive(key):
+        key, separator, value = entry.partition("=")
+        if separator and (
+            _spark_conf_key_is_sensitive(key)
+            or _spark_conf_value_has_sensitive_assignment(value)
+        ):
             redacted.append(f"{key}={REDACTED_VALUE}")
         else:
             redacted.append(entry)

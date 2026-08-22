@@ -120,52 +120,57 @@ dataset = (
     .repartition(args.partitions)
     .cache()
 )
-assert dataset.count() == args.rows
-
-learner = LightGBMClassifier(
-    dataTransferMode="streaming",
-    featuresCol="features",
-    labelCol="label",
-    numIterations=5,
-    numLeaves=8,
-    numTasks=args.partitions,
-    numThreads=args.native_threads,
-    slotNames=["feature_one"],
-    useSingleDatasetMode=True,
-    validationIndicatorCol="is_validation",
-    verbosity=-1,
-)
-
 prediction_counts = []
-for repetition in range(args.repetitions):
-    try:
-        model = learner.fit(dataset)
-    except Exception as error:
-        error_lines = [line.strip() for line in str(error).splitlines() if line.strip()]
-        native_error = next(
-            (
-                line
-                for line in reversed(error_lines)
-                if "call failed in LightGBM" in line
-            ),
-            error_lines[-1] if error_lines else repr(error),
-        )
-        print(
-            "SYNAPSEML_FABRIC_E2E_DIAGNOSTIC="
-            + json.dumps(
-                {
-                    "errorMessage": native_error,
-                    "errorType": type(error).__name__,
-                    "fitAttempt": repetition + 1,
-                    "phase": "fit",
-                },
-                sort_keys=True,
+try:
+    assert dataset.count() == args.rows
+
+    learner = LightGBMClassifier(
+        dataTransferMode="streaming",
+        featuresCol="features",
+        labelCol="label",
+        numIterations=5,
+        numLeaves=8,
+        numTasks=args.partitions,
+        numThreads=args.native_threads,
+        slotNames=["feature_one"],
+        useSingleDatasetMode=True,
+        validationIndicatorCol="is_validation",
+        verbosity=-1,
+    )
+
+    for repetition in range(args.repetitions):
+        try:
+            model = learner.fit(dataset)
+        except Exception as error:
+            error_lines = [
+                line.strip() for line in str(error).splitlines() if line.strip()
+            ]
+            native_error = next(
+                (
+                    line
+                    for line in reversed(error_lines)
+                    if "call failed in LightGBM" in line
+                ),
+                error_lines[-1] if error_lines else repr(error),
             )
-        )
-        raise
-    prediction_count = model.transform(dataset).select("prediction").count()
-    assert prediction_count == args.rows
-    prediction_counts.append(prediction_count)
+            print(
+                "SYNAPSEML_FABRIC_E2E_DIAGNOSTIC="
+                + json.dumps(
+                    {
+                        "errorMessage": native_error,
+                        "errorType": type(error).__name__,
+                        "fitAttempt": repetition + 1,
+                        "phase": "fit",
+                    },
+                    sort_keys=True,
+                )
+            )
+            raise
+        prediction_count = model.transform(dataset).select("prediction").count()
+        assert prediction_count == args.rows
+        prediction_counts.append(prediction_count)
+finally:
+    dataset.unpersist()
 
 evidence = {
     **diagnostics,
