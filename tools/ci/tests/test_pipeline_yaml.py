@@ -693,7 +693,7 @@ def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
         == 2
     )
     assert (
-        'git diff --name-only -z "$PREREQUISITE_PARENT" "$PREREQUISITE"'
+        'git diff --no-renames --name-only -z "$PREREQUISITE_PARENT" "$PREREQUISITE"'
         in rebase_script
     )
     release_exclusions = (
@@ -885,6 +885,88 @@ def test_release_compat_replays_prerequisite_before_pr_patch():
             "src/value.txt"
         ]
         assert f"Prerequisite {prerequisite} applies cleanly" in result.stdout
+        assert "PR changes apply cleanly onto release" in result.stdout
+    finally:
+        shutil.rmtree(scratch_root, ignore_errors=True)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="release replay script requires Bash")
+def test_release_compat_replays_prerequisite_rename_without_leaving_source():
+    scratch_root = REPO_ROOT / "target" / f"release-compat-rename-{uuid.uuid4().hex}"
+    repo = scratch_root / "repo"
+    origin = scratch_root / "origin.git"
+    agent_temp = scratch_root / "agent"
+
+    try:
+        repo.mkdir(parents=True)
+        agent_temp.mkdir()
+        _init_release_compat_scratch_repo(repo)
+
+        value_file = repo / "src" / "value.txt"
+        old_file = repo / "src" / "old.txt"
+        new_file = repo / "src" / "new.txt"
+        value_file.parent.mkdir()
+        value_file.write_text("base\n")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "base")
+        base = _git(repo, "rev-parse", "HEAD").stdout.strip()
+        _git(repo, "branch", "release", base)
+
+        old_file.write_text("prerequisite\n")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "add prerequisite source")
+        add_prerequisite = _git(repo, "rev-parse", "HEAD").stdout.strip()
+
+        _git(
+            repo, "mv", str(old_file.relative_to(repo)), str(new_file.relative_to(repo))
+        )
+        _git(repo, "commit", "-m", "rename prerequisite source")
+        rename_prerequisite = _git(repo, "rev-parse", "HEAD").stdout.strip()
+
+        _git(repo, "checkout", "-b", "source")
+        prerequisite_config = repo / ".pipelines" / "release-compat-prerequisites.txt"
+        prerequisite_config.parent.mkdir()
+        prerequisite_config.write_text(f"{add_prerequisite}\n{rename_prerequisite}\n")
+        value_file.write_text("feature\n")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "feature")
+
+        _git(repo, "checkout", "master")
+        _assert_git_clean(repo, "checkout before synthetic rename PR merge")
+        _git(repo, "merge", "--no-ff", "source", "-m", "merge feature")
+
+        subprocess.run(
+            ["git", "init", "--bare", str(origin)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _git(repo, "remote", "add", "origin", str(origin))
+        _git(repo, "push", "origin", "master", "source", "release")
+
+        script = _release_compat_script()
+        script = script.replace("$(Agent.TempDirectory)", str(agent_temp))
+        script = script.replace("$(RELEASE_BRANCH)", "release")
+        result = subprocess.run(
+            ["bash", "-c", script],
+            cwd=repo,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        assert (
+            result.returncode == 0
+        ), f"release replay failed\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+        assert not old_file.exists()
+        assert new_file.read_text() == "prerequisite\n"
+        assert value_file.read_text() == "feature\n"
+        assert _git(repo, "diff", "--cached", "--name-only").stdout.splitlines() == [
+            "src/new.txt",
+            "src/value.txt",
+        ]
+        assert f"Prerequisite {add_prerequisite} applies cleanly" in result.stdout
+        assert f"Prerequisite {rename_prerequisite} applies cleanly" in result.stdout
         assert "PR changes apply cleanly onto release" in result.stdout
     finally:
         shutil.rmtree(scratch_root, ignore_errors=True)
