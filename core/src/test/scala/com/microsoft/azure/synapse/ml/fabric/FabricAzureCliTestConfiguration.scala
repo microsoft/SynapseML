@@ -29,6 +29,26 @@ private[ml] object FabricAzureCliTestConfiguration {
     integrationWorkspaceId(sys.env, discoveredWorkspaceId)
   }
 
+  private[ml] def configuredIntegrationWorkspaceId: Option[String] = {
+    configuredIntegrationWorkspaceId(sys.env)
+  }
+
+  private[fabric] def configuredIntegrationWorkspaceId(
+      environment: Map[String, String]): Option[String] = {
+    val explicitWorkspaceId = environment.get("INTEGRATION_WORKSPACE_ID")
+    val requireExplicitWorkspaceId =
+      resolveAuthenticationMode(environment.get("INTEGRATION_AUTH_MODE")) == AzureCliAuthMode
+
+    if (explicitWorkspaceId.isDefined || requireExplicitWorkspaceId) {
+      Some(resolveIntegrationWorkspaceId(
+        explicitWorkspaceId,
+        "",
+        requireExplicitWorkspaceId))
+    } else {
+      None
+    }
+  }
+
   private[fabric] def integrationWorkspaceId(
       environment: Map[String, String],
       discoveredWorkspaceId: => String): String = {

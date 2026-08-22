@@ -51,6 +51,11 @@ object FabricTestConstants {
    * Looks for a workspace named "{INTEGRATION_WORKSPACE_PREFIX} {INTEGRATION_USERNAME}".
    */
   def getIntegrationWorkspaceId(): String = {
+    // Preserve branch-specific discovery only when no workspace was supplied by the pipeline.
+    FabricAzureCliTestConfiguration.configuredIntegrationWorkspaceId match {
+      case Some(workspaceId) => return workspaceId //scalastyle:ignore return
+      case None =>
+    }
     val client = FabricAuthenticatedHttpClient(INTEGRATION_APP_ID, INTEGRATION_REDIRECT_URI)
     val expectedWorkspaceName = s"$workspacePrefix $INTEGRATION_USERNAME"
 
@@ -74,6 +79,5 @@ object FabricTestConstants {
     }
   }
 
-  lazy val INTEGRATION_WORKSPACE_ID: String =
-    FabricAzureCliTestConfiguration.integrationWorkspaceId(getIntegrationWorkspaceId())
+  lazy val INTEGRATION_WORKSPACE_ID: String = getIntegrationWorkspaceId()
 }

@@ -60,18 +60,17 @@ class FabricAuthenticationSuite extends AnyFunSuite {
   }
 
   test("Use the pipeline workspace ID without credential discovery") {
-    var discoveryAttempted = false
-    val resolved = FabricAzureCliTestConfiguration.integrationWorkspaceId(
+    val resolved = FabricAzureCliTestConfiguration.configuredIntegrationWorkspaceId(
       Map(
         "INTEGRATION_AUTH_MODE" -> "azure-cli",
-        "INTEGRATION_WORKSPACE_ID" -> workspaceId),
-      {
-        discoveryAttempted = true
-        "fedcba98-7654-3210-fedc-ba9876543210"
-      })
+        "INTEGRATION_WORKSPACE_ID" -> workspaceId))
 
-    assert(resolved == workspaceId)
-    assert(!discoveryAttempted)
+    assert(resolved.contains(workspaceId))
+  }
+
+  test("Do not override credential workspace discovery") {
+    val resolved = FabricAzureCliTestConfiguration.configuredIntegrationWorkspaceId(Map.empty)
+    assert(resolved.isEmpty)
   }
 
   test("Discover a workspace ID when no explicit ID is configured") {
