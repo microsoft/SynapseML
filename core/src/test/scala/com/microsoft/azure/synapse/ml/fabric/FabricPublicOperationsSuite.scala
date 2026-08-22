@@ -7,6 +7,8 @@ import org.scalatest.funsuite.AnyFunSuite
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import scala.concurrent.duration.Duration
+import scala.concurrent.{Await, ExecutionContext, Future}
 
 class FabricPublicOperationsSuite extends AnyFunSuite {
   private val workspaceId = "01234567-89ab-cdef-0123-456789abcdef"
@@ -62,6 +64,30 @@ class FabricPublicOperationsSuite extends AnyFunSuite {
     } finally {
       Files.deleteIfExists(script)
       Files.deleteIfExists(jar)
+      Files.deleteIfExists(directory)
+    }
+  }
+
+  test("Stage unique exact core packages for concurrent batches") {
+    val directory = Files.createTempDirectory("fabric-public-staged-core")
+    val corePackage = directory.resolve("synapseml-core.jar")
+    var stagedPackages = Seq.empty[java.io.File]
+    try {
+      val source = Array[Byte](1, 2, 3)
+      Files.write(corePackage, source)
+      implicit val executionContext: ExecutionContext = ExecutionContext.global
+      stagedPackages = Await.result(
+        Future.sequence(Seq.fill(3) {
+          Future(FabricPublicOperations.stageCorePackage(corePackage.toFile, directory.toFile))
+        }),
+        Duration(30, "seconds"))
+
+      assert(stagedPackages.map(_.getName).distinct.size == stagedPackages.size)
+      assert(stagedPackages.forall(_.getName.startsWith("synapseml-core-batch-")))
+      assert(stagedPackages.forall(file => Files.readAllBytes(file.toPath).sameElements(source)))
+    } finally {
+      stagedPackages.foreach(file => Files.deleteIfExists(file.toPath))
+      Files.deleteIfExists(corePackage)
       Files.deleteIfExists(directory)
     }
   }

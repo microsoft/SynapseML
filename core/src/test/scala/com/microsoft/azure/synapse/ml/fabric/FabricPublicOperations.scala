@@ -18,7 +18,7 @@ import spray.json._
 import java.io.{File, FileInputStream}
 import java.net.URI
 import java.nio.charset.StandardCharsets
-import java.nio.file.{Files, Path}
+import java.nio.file.{Files, Path, StandardCopyOption}
 import java.time.LocalDateTime
 import java.util.UUID
 import java.util.concurrent.TimeUnit
@@ -63,6 +63,31 @@ private[fabric] object FabricPublicOperations {
     coreDigest match {
       case Some(digest) => provenancePreamble(digest) ++ source
       case None => source
+    }
+  }
+
+  private[fabric] def stageCorePackage(corePackage: File, outputDirectory: File): File = {
+    require(
+      corePackage.isFile,
+      s"SynapseML core package does not exist: ${corePackage.getAbsolutePath}")
+    require(
+      outputDirectory.isDirectory,
+      s"Fabric output directory does not exist: ${outputDirectory.getAbsolutePath}")
+    val staged = Files.createTempFile(
+      outputDirectory.toPath,
+      "synapseml-core-batch-",
+      ".jar")
+    try {
+      Files.copy(corePackage.toPath, staged, StandardCopyOption.REPLACE_EXISTING)
+      staged.toFile
+    } catch {
+      case NonFatal(error) =>
+        try {
+          Files.deleteIfExists(staged)
+        } catch {
+          case NonFatal(cleanupError) => error.addSuppressed(cleanupError)
+        }
+        throw error
     }
   }
 
@@ -366,7 +391,7 @@ private[fabric] class FabricPublicOperations(clientId: String,
   }
 
   private def runBatch(artifactId: String, submission: BatchSubmission): Unit = {
-    var temporaryScript: Option[Path] = None
+    var temporaryFiles = List.empty[Path]
     var failure: Option[Throwable] = None
     try {
       val outputDirectory = batchOutputDirectory(artifactId, submission.displayName)
@@ -375,11 +400,16 @@ private[fabric] class FabricPublicOperations(clientId: String,
       val submittedScript = digest match {
         case Some(value) =>
           val file = Files.createTempFile(outputDirectory.toPath, "synapseml-provenance-", ".py")
-          temporaryScript = Some(file)
+          temporaryFiles ::= file
           Files.write(file, scriptSource(submission.script, Some(value)))
           file.toFile
         case None =>
           submission.script
+      }
+      val submittedCorePackage = corePackage.map { jar =>
+        val staged = stageCorePackage(jar, outputDirectory)
+        temporaryFiles ::= staged.toPath
+        staged
       }
       val command = batchSubmitCommand(
         sys.env.getOrElse("FABRIC_SPARK_CLI_PATH", "fabric-spark-cli"),
@@ -389,7 +419,7 @@ private[fabric] class FabricPublicOperations(clientId: String,
         submission.storeName,
         sys.env.getOrElse("FABRIC_E2E_ENV", "msit"),
         outputDirectory,
-        corePackage)
+        submittedCorePackage)
 
       corePackage.zip(digest).foreach { case (jar, value) =>
         println(s"Submitting exact core package ${jar.getName}: sha256=$value")
@@ -406,7 +436,7 @@ private[fabric] class FabricPublicOperations(clientId: String,
         failure = Some(error)
         throw error
     } finally {
-      cleanupTemporaryScript(temporaryScript, failure)
+      cleanupTemporaryFiles(temporaryFiles, failure)
     }
   }
 
@@ -421,18 +451,24 @@ private[fabric] class FabricPublicOperations(clientId: String,
     }
   }
 
-  private def cleanupTemporaryScript(path: Option[Path], failure: Option[Throwable]): Unit = {
-    path.foreach { script =>
+  private def cleanupTemporaryFiles(paths: Seq[Path], failure: Option[Throwable]): Unit = {
+    var firstCleanupFailure = Option.empty[Throwable]
+    paths.foreach { path =>
       try {
-        Files.deleteIfExists(script)
+        Files.deleteIfExists(path)
       } catch {
         case NonFatal(cleanupError) =>
           failure match {
             case Some(error) => error.addSuppressed(cleanupError)
-            case None => throw cleanupError
+            case None =>
+              firstCleanupFailure match {
+                case Some(error) => error.addSuppressed(cleanupError)
+                case None => firstCleanupFailure = Some(cleanupError)
+              }
           }
       }
     }
+    firstCleanupFailure.foreach(error => throw error)
   }
 
   private def cancelAfterFailure(submission: BatchSubmission, error: Throwable): Nothing = {
