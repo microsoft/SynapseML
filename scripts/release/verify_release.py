@@ -20,6 +20,7 @@ Usage:
     python scripts/release/verify_release.py --version 1.1.3
     python scripts/release/verify_release.py --version 1.1.4 --internal-patch 0 --json
     python scripts/release/verify_release.py --version 1.1.4 --skip ado   # GitHub only
+    python scripts/release/verify_release.py --version 1.1.4 --skip internal
 """
 
 from __future__ import annotations
@@ -238,8 +239,12 @@ class Checker:
         self._pkg_cache[key] = versions
         return versions
 
-    def upack(self, package: str, version: str) -> str:
-        if "upack" in self.skip or "ado" in self.skip:
+    def upack(self, package: str, version: str, internal: bool = False) -> str:
+        if (
+            "upack" in self.skip
+            or "ado" in self.skip
+            or (internal and "internal" in self.skip)
+        ):
             return SKIPPED
         return (
             OK
@@ -248,8 +253,12 @@ class Checker:
             else MISSING
         )
 
-    def pip(self, package: str, version: str) -> str:
-        if "pip" in self.skip or "ado" in self.skip:
+    def pip(self, package: str, version: str, internal: bool = False) -> str:
+        if (
+            "pip" in self.skip
+            or "ado" in self.skip
+            or (internal and "internal" in self.skip)
+        ):
             return SKIPPED
         # Azure Artifacts normalises pypi names: synapseml_internal -> synapseml-internal
         return (
@@ -323,7 +332,11 @@ def run(
             tp.key,
             "synapseml_internal",
             tp.internal_upack_version,
-            c.upack("synapseml_internal", tp.internal_upack_version),
+            c.upack(
+                "synapseml_internal",
+                tp.internal_upack_version,
+                internal=True,
+            ),
         )
         add(
             "pip",
@@ -337,7 +350,11 @@ def run(
             tp.key,
             "synapseml-internal",
             tp.internal_pip_version,
-            c.pip("synapseml_internal", tp.internal_pip_version),
+            c.pip(
+                "synapseml_internal",
+                tp.internal_pip_version,
+                internal=True,
+            ),
         )
 
     ok = not any(r["status"] == MISSING for r in rows)
@@ -366,7 +383,12 @@ def main(argv=None) -> int:
     p.add_argument(
         "--skip",
         default="",
-        help="Comma-separated: github,ado,upack,pip,internal,public",
+        help=(
+            "Comma-separated checks to skip: github (OSS tags), "
+            "ado (all ADO-backed checks), upack (all UPacks), "
+            "pip (all Synapse-Conda wheels), internal "
+            "(Internal tags, UPacks, and wheels), public (Maven CDN and PyPI)"
+        ),
     )
     p.add_argument("--json", action="store_true")
     args = p.parse_args(argv)
