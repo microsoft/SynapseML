@@ -134,6 +134,9 @@ DENYLIST_FILES = {
     "test_bump_version.py",
     "release_matrix.py",
     "test_release_matrix.py",
+    "test_verify_release.py",
+    "test_bump_bbcvhd.py",
+    "test_release_workflows.py",
     "verify_release.py",
     "bump_bbcvhd.py",
     "test_prev_tag.sh",
@@ -147,6 +150,10 @@ DENYLIST_FILES = {
 # shipped versions, which must never be rewritten, but "README.md" as a
 # basename would also exclude the root README, which does need bumping.
 DENYLIST_PATHS = {
+    ".github/workflows/release-notes.yml",
+    ".github/workflows/release-prepare.yml",
+    ".github/workflows/release-tag-spark.yml",
+    ".github/workflows/release-tag.yml",
     "scripts/release/README.md",
 }
 ALLOWED_EXTENSIONS = {
@@ -616,16 +623,18 @@ Examples:
         )
 
         # ── Broad sweep: warn about old version in ANY text file ───────────
-        modified_set = {str(r.rel) for r in changed}
+        modified_set = {r.rel.as_posix() for r in changed}
         sweep_hits = []
         for dp, dn, fn in os.walk(root):
             dn[:] = [d for d in dn if not _skip_dir(d)]
             for f in fn:
                 fp = Path(dp) / f
-                rel_str = str(fp.relative_to(root))
-                if rel_str in modified_set or f in (
-                    "bump-version.py",
-                    "test_bump_version.py",
+                rel = fp.relative_to(root)
+                rel_str = rel.as_posix()
+                if (
+                    rel_str in modified_set
+                    or f in DENYLIST_FILES
+                    or rel_str in DENYLIST_PATHS
                 ):
                     continue
                 try:

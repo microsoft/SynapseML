@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
 # Validates the "previous primary release tag" algorithm used by
 # .github/workflows/release-notes.yml against the repository's real tag list.
 set -euo pipefail
@@ -30,7 +32,14 @@ check v1.1.0  v1.0.15
 check v1.0.15 v1.0.14
 check v1.0.14 v1.0.13
 check v1.0.10 v1.0.9     # numeric, not lexical: v1.0.10 must follow v1.0.9
-check v0.9.0  ""         # oldest tag has no predecessor
+
+# The repository predates the current naming examples. Whatever the oldest
+# primary semantic-version tag is, it must have no predecessor.
+OLDEST=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' \
+  | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+  | sort -V \
+  | sed -n '1p')
+check "$OLDEST" ""
 
 # Suffixed tags must never be selected as a predecessor.
 if prev_tag v1.1.3 | grep -q -- '-'; then
