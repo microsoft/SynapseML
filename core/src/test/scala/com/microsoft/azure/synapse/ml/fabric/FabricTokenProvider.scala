@@ -13,6 +13,8 @@ import spray.json._
 
 import java.util.Base64
 import scala.jdk.CollectionConverters.seqAsJavaListConverter
+import scala.sys.process.Process
+import scala.util.control.NonFatal
 
 case class AccessTokenConfiguration(ClientId: String,
                                     RedirectUri: String,
@@ -25,18 +27,83 @@ case class AccessTokenConfiguration(ClientId: String,
                                     CertificatePassword: Option[String] = None)
 
 object FabricTokenProvider {
+  private[fabric] val AzureCliAuthMode: String = "azure-cli"
+  private[fabric] val CredentialAuthMode: String = "credential"
+  private[fabric] val DefaultPowerBiScope: String =
+    "https://analysis.windows.net/powerbi/api/.default"
+
   private var TokenMap: Map[AccessTokenConfiguration, String] = Map()
+  private var AzureCliTokenMap: Map[String, String] = Map()
 
-  def getAccessToken(clientId: String, redirectUri: String): String =
-    getAccessToken(AccessTokenConfiguration(clientId, redirectUri))
+  def getAccessToken(clientId: String, redirectUri: String): String = {
+    resolveAuthenticationMode(sys.env.get("INTEGRATION_AUTH_MODE")) match {
+      case AzureCliAuthMode => getAzureCliAccessToken(DefaultPowerBiScope)
+      case CredentialAuthMode => getAccessToken(AccessTokenConfiguration(clientId, redirectUri))
+    }
+  }
 
-  def getAccessToken(tokenConfig: AccessTokenConfiguration): String = {
+  def getAccessToken(tokenConfig: AccessTokenConfiguration): String = synchronized {
     val resolvedConfig = resolveAccessTokenConfiguration(tokenConfig)
 
     if (!TokenMap.contains(resolvedConfig) || JwtUtils.isTokenExpired(TokenMap(resolvedConfig))) {
       TokenMap += resolvedConfig -> fetchToken(resolvedConfig)
     }
     TokenMap(resolvedConfig)
+  }
+
+  private[fabric] def resolveAuthenticationMode(configuredMode: Option[String]): String = {
+    configuredMode match {
+      case None => CredentialAuthMode
+      case Some(mode) =>
+        mode.trim.toLowerCase match {
+          case AzureCliAuthMode => AzureCliAuthMode
+          case CredentialAuthMode => CredentialAuthMode
+          case _ =>
+            throw new IllegalArgumentException(
+              s"INTEGRATION_AUTH_MODE must be '$CredentialAuthMode' or '$AzureCliAuthMode'")
+        }
+    }
+  }
+
+  private[fabric] def azureCliTokenCommand(scope: String): Seq[String] = {
+    val executable = if (sys.props("os.name").toLowerCase.contains("windows")) "az.cmd" else "az"
+    Seq(
+      executable,
+      "account",
+      "get-access-token",
+      "--scope",
+      scope,
+      "--query",
+      "accessToken",
+      "--output",
+      "tsv",
+      "--only-show-errors"
+    )
+  }
+
+  private def getAzureCliAccessToken(scope: String): String = synchronized {
+    AzureCliTokenMap.get(scope).filterNot(JwtUtils.isTokenExpired) match {
+      case Some(token) => token
+      case None =>
+        val token = fetchTokenByAzureCli(scope)
+        AzureCliTokenMap += scope -> token
+        token
+    }
+  }
+
+  private def fetchTokenByAzureCli(scope: String): String = {
+    println(s"Fetching token from the active Azure CLI session for scope: $scope")
+    try {
+      val token = Process(azureCliTokenCommand(scope)).!!.trim
+      if (token.isEmpty) {
+        throw new IllegalStateException("Azure CLI returned an empty access token")
+      }
+      token
+    } catch {
+      case NonFatal(error) =>
+        throw new RuntimeException(
+          "Could not acquire a Fabric test token from the active Azure CLI session", error)
+    }
   }
 
   def getMWCToken(clientId: String,
@@ -169,7 +236,7 @@ object FabricTokenProvider {
         val tokenData = jsonAst.convertTo[Token]
         val currentTime = System.currentTimeMillis() / 1000
 
-        tokenData.exp < currentTime
+        tokenData.exp < currentTime + 300
       } catch {
         case e: Exception =>
           println(s"Failed to process token: ${e.getMessage}")

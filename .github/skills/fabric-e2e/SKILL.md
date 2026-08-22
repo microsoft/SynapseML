@@ -104,12 +104,15 @@ python tools/fabric_e2e/run.py \
   --extra-jar <cognitive-jar>
 ```
 
-The Azure Pipeline pins `FABRIC_OPENAI_ENV` and `FABRIC_OPENAI_WORKSPACE` to
+The Azure Pipeline pins `FABRIC_E2E_ENV` and `FABRIC_E2E_WORKSPACE` to
 the proven environment and dedicated build service workspace. Do not derive
 these values from the legacy integration user; the build service principal
 cannot see per-user workspaces.
-`FabricOpenAIPromptE2E` is a separate job so legacy certificate-based Fabric
-failures cannot skip or mask this gate.
+Both Fabric jobs authenticate through the active Azure CLI service connection.
+The legacy Spark Job Definition suite resolves the pinned workspace explicitly
+instead of using the retired certificate identity. `FabricOpenAIPromptE2E`
+remains a separate job so failures in either coverage surface cannot skip or
+mask the other gate.
 
 When the jars came from another Git worktree, pass that checkout through
 `--source-repo` so evidence records the producing commit rather than the

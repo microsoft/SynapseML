@@ -103,10 +103,10 @@ variables:
   SYNAPSEML_GPU_SMOKE_TESTS: $[eq(variables['Build.Reason'], 'PullRequest')]
   # Run coverage only on PRs, master, or tag builds to speed up feature branch builds
   runCoverage: $[or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))]
-  # The platform-notebook OpenAIPrompt gate currently targets the Spark 3.5 Fabric workspace.
+  # Fabric E2E gates currently target the Spark 3.5 Fabric workspace.
   runFabricOpenAIPrompt: $[or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), eq(variables['Build.SourceBranch'], 'refs/heads/spark3.5'), eq(variables['System.PullRequest.TargetBranch'], 'refs/heads/master'), eq(variables['System.PullRequest.TargetBranch'], 'refs/heads/spark3.5'), eq(variables['System.PullRequest.TargetBranch'], 'master'), eq(variables['System.PullRequest.TargetBranch'], 'spark3.5'))]
-  FABRIC_OPENAI_ENV: msit
-  FABRIC_OPENAI_WORKSPACE: DONT_DELETE_SynapseML_Build
+  FABRIC_E2E_ENV: msit
+  FABRIC_E2E_WORKSPACE: DONT_DELETE_SynapseML_Build
 
 jobs:
 - job: BuildAndCacheSbt
@@ -325,7 +325,6 @@ jobs:
     - template: templates/update_cli.yml
     - template: templates/conda.yml
     - template: templates/kv.yml
-    - template: templates/fabric_kv.yml
     - template: templates/publish.yml
     - task: AzureCLI@2
       displayName: 'E2E'
@@ -334,16 +333,30 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
-          set -e
+          set -eo pipefail
           source activate synapseml
+          set -u
+
+          mapfile -t workspace_ids < <(
+            az rest \
+              --method get \
+              --url 'https://api.fabric.microsoft.com/v1/workspaces' \
+              --resource 'https://api.fabric.microsoft.com' \
+              --query "value[?displayName == '$FABRIC_E2E_WORKSPACE'].id" \
+              --output tsv
+          )
+          if [ "${#workspace_ids[@]}" -ne 1 ]; then
+            echo "Expected exactly one Fabric workspace named '$FABRIC_E2E_WORKSPACE'; found ${#workspace_ids[@]}." >&2
+            exit 1
+          fi
+          export INTEGRATION_WORKSPACE_ID="${workspace_ids[0]}"
+
           sbt \
             "testOnly com.microsoft.azure.synapse.ml.nbtest.FabricTestCleanup" \
             "testOnly com.microsoft.azure.synapse.ml.nbtest.FabricSmokeTests com.microsoft.azure.synapse.ml.nbtest.FabricNotebookTests"
       env:
-        INTEGRATION_ENV: $(sempy-integration-region)
-        INTEGRATION_ACCOUNT: $(sempy-integration-account)
-        INTEGRATION_CERTIFICATE: $(sempy-integration-certificate)
-        INTEGRATION_WORKSPACE_PREFIX: $(sempy-integration-workspace-prefix)
+        FABRIC_E2E_WORKSPACE: $(FABRIC_E2E_WORKSPACE)
+        INTEGRATION_AUTH_MODE: azure-cli
       condition: and(succeeded(), eq(variables.runTests, 'True'))
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
@@ -414,8 +427,8 @@ jobs:
           unset PIP_INDEX_URL PIP_EXTRA_INDEX_URL
           fabric-spark-cli --version
 
-          workspace="$FABRIC_OPENAI_WORKSPACE"
-          fabric_env="$FABRIC_OPENAI_ENV"
+          workspace="$FABRIC_E2E_WORKSPACE"
+          fabric_env="$FABRIC_E2E_ENV"
           output_dir="$artifact_root/run"
           if [ -e "$output_dir" ]; then
             echo "Fabric evidence output already exists: $output_dir" >&2
@@ -431,8 +444,8 @@ jobs:
             --extra-jar "$core_jar" \
             --extra-jar "$cognitive_jar"
       env:
-        FABRIC_OPENAI_ENV: $(FABRIC_OPENAI_ENV)
-        FABRIC_OPENAI_WORKSPACE: $(FABRIC_OPENAI_WORKSPACE)
+        FABRIC_E2E_ENV: $(FABRIC_E2E_ENV)
+        FABRIC_E2E_WORKSPACE: $(FABRIC_E2E_WORKSPACE)
     - task: PublishTestResults@2
       displayName: 'Publish Fabric OpenAIPrompt Results'
       inputs:
@@ -1826,25 +1839,6 @@ jobs:
       # packages this job's Scala lane runs, and that lane already exports
       # CREATE_SEMPY_WRITER=false, which is the non-conda path in Internal's template.
       condition: and(succeeded(), eq(variables['COMPAT_LANE'], 'python'))
-    - task: AzureKeyVault@2
-      displayName: 'Fetch AI service secrets'
-      # Scala lane only. 'Run Internal Scala tests' is the sole consumer -- it maps the
-      # four sempy-integration-* values into its env block. Nothing in the Python lane
-      # reads them: ADO exposes Key Vault values as secret variables, which are never
-      # auto-exported into a script's environment, and the Python steps declare no env
-      # block. sbt's own project/Secrets.scala is inert here too (every accessor is
-      # behind SYNAPSEML_ENABLE_PUBLISH, unset in this job) and shells out to az
-      # directly rather than reading these variables. Fetching them in the Python lane
-      # would therefore materialise a certificate and this vault's secrets on an agent
-      # that never uses them.
-      condition: and(succeeded(), eq(variables['COMPAT_LANE'], 'scala'))
-      retryCountOnTaskFailure: 3
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        keyVaultName: mmlspark-keys
-    - template: templates/fabric_kv.yml
-      parameters:
-        condition: and(succeeded(), eq(variables['COMPAT_LANE'], 'scala'))
     - task: AzureCLI@2
       displayName: 'Run Internal Scala tests'
       timeoutInMinutes: 60
@@ -1854,8 +1848,22 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
-          set -e
+          set -eo pipefail
           cd $(Agent.BuildDirectory)/s-internal
+          mapfile -t workspace_ids < <(
+            az rest \
+              --method get \
+              --url 'https://api.fabric.microsoft.com/v1/workspaces' \
+              --resource 'https://api.fabric.microsoft.com' \
+              --query "value[?displayName == '$FABRIC_E2E_WORKSPACE'].id" \
+              --output tsv
+          )
+          if [ "${#workspace_ids[@]}" -ne 1 ]; then
+            echo "Expected exactly one Fabric workspace named '$FABRIC_E2E_WORKSPACE'; found ${#workspace_ids[@]}." >&2
+            exit 1
+          fi
+          export INTEGRATION_WORKSPACE_ID="${workspace_ids[0]}"
+
           # The conda env is built only in the Python lane (see 'Create Internal conda
           # env'), so activate it only when it is actually present rather than assuming
           # it exists. sbt and the three packages tested below run on the agent's default
@@ -1905,10 +1913,8 @@ jobs:
             exit 1
           fi
       env:
-        INTEGRATION_ENV: $(sempy-integration-region)
-        INTEGRATION_ACCOUNT: $(sempy-integration-account)
-        INTEGRATION_CERTIFICATE: $(sempy-integration-certificate)
-        INTEGRATION_WORKSPACE_PREFIX: $(sempy-integration-workspace-prefix)
+        FABRIC_E2E_WORKSPACE: $(FABRIC_E2E_WORKSPACE)
+        INTEGRATION_AUTH_MODE: azure-cli
     - task: AzureCLI@2
       displayName: 'Package Internal Python against OSS'
       timeoutInMinutes: 15
