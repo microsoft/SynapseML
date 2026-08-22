@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
 """Tests for release_matrix. Expected values are transcribed from the LIVE
 v1.1.3 / v1.1.1 releases (github tags + BBC-VHD_PublicPackages + Synapse-Conda),
 so a regression here means the matrix has drifted from reality."""
@@ -27,9 +29,43 @@ def test_rejects_non_numeric_internal_patch():
         build_plan("1.1.3", internal_patch="x")
 
 
+@pytest.mark.parametrize("patch", ["00", "01", "-1", "²"])
+def test_rejects_non_canonical_internal_patch(patch):
+    with pytest.raises(ValueError):
+        build_plan("1.1.3", internal_patch=patch)
+
+
 def test_rejects_unknown_target():
     with pytest.raises(ValueError):
         build_plan("1.1.3", target_keys=["spark9.9"])
+
+
+def test_rejects_duplicate_targets():
+    with pytest.raises(ValueError):
+        build_plan("1.1.3", target_keys=["master", "master"])
+
+
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {"upack_iteration": {"spark9.9": 1}},
+        {"upack_iteration": {"spark4.0": 0}},
+        {"upack_iteration": {"spark4.0": -1}},
+        {"internal_upack_iteration": {"spark4.0": True}},
+    ],
+)
+def test_rejects_invalid_rebuild_iterations(kwargs):
+    with pytest.raises(ValueError):
+        build_plan("1.1.3", **kwargs)
+
+
+def test_rejects_iteration_for_unselected_target():
+    with pytest.raises(ValueError):
+        build_plan(
+            "1.1.3",
+            target_keys=["master"],
+            upack_iteration={"spark4.0": 1},
+        )
 
 
 def test_master_carries_three_oss_tags():
@@ -69,6 +105,15 @@ def test_pip_uses_pep440_local_segment():
     assert m["master"].oss_pip_version == "1.1.3+python3.11"
     assert m["spark4.0"].oss_pip_version == "1.1.3+python3.12"
     assert m["spark4.1"].internal_pip_version == "1.1.3.0+python3.13"
+
+
+def test_maven_coordinates_follow_release_tags():
+    m = _by_key(build_plan("1.1.3"))
+    assert m["master"].scala == "2.12"
+    assert m["master"].oss_maven_version == "1.1.3"
+    assert m["spark4.0"].scala == "2.13"
+    assert m["spark4.0"].oss_maven_version == "1.1.3-spark4.0"
+    assert m["spark4.1"].oss_maven_version == "1.1.3-spark4.1"
 
 
 def test_internal_superpatch_flows_everywhere():
@@ -122,6 +167,21 @@ def test_target_subset_is_respected():
     assert [tp.key for tp in plan.targets] == ["master", "spark4.0"]
 
 
+def test_publish_parameters_enable_exact_selected_targets():
+    plan = build_plan("1.1.4", target_keys=["master", "spark4.1"])
+    assert plan.publish_pipeline_id == 35879
+    assert plan.publish_parameters["synapseml_version"] == "1.1.4"
+    assert plan.publish_parameters["internal_patch_version"] == "0"
+    assert plan.publish_parameters["build_synapseml_pip_py311"] is True
+    assert plan.publish_parameters["build_synapseml_upack_default"] is True
+    assert plan.publish_parameters["build_synapseml_pip_py312"] is False
+    assert plan.publish_parameters["build_synapseml_upack_spark4"] is False
+    assert plan.publish_parameters["build_synapseml_pip_py313"] is True
+    assert plan.publish_parameters["build_synapseml_upack_spark41"] is True
+    assert plan.publish_parameters["build_internal_pip_py313"] is True
+    assert plan.publish_parameters["build_internal_upack_spark41"] is True
+
+
 def test_base_branch_chain_matches_rebase_order():
     b = {tp.key: tp.base_branch for tp in build_plan("1.1.4").targets}
     assert b == {"master": None, "spark4.0": "master", "spark4.1": "spark4.0"}
@@ -131,3 +191,22 @@ def test_all_tag_helpers_are_unique_and_complete():
     plan = build_plan("1.1.4")
     assert len(plan.all_oss_tags) == len(set(plan.all_oss_tags)) == 7
     assert len(plan.all_internal_tags) == len(set(plan.all_internal_tags)) == 7
+
+
+@pytest.mark.parametrize(
+    "args",
+    [
+        ["--version", "1.1.4", "--upack-iteration", "spark4.0=0"],
+        ["--version", "1.1.4", "--upack-iteration", "spark4.0=²"],
+        [
+            "--version",
+            "1.1.4",
+            "--upack-iteration",
+            "spark4.0=1,spark4.0=2",
+        ],
+    ],
+)
+def test_cli_rejects_invalid_iterations(args):
+    from release_matrix import main
+
+    assert main(args) == 2

@@ -467,6 +467,10 @@ class TestSkipFile:
     def test_versioned_docs_in_path(self):
         assert _skip_file(Path("versioned_docs/v1/intro.md"))
 
+    @pytest.mark.parametrize("path", sorted(bump.DENYLIST_PATHS))
+    def test_denylist_repo_relative_path(self, path):
+        assert _skip_file(Path(path))
+
     @pytest.mark.parametrize("ext", sorted(ALLOWED_EXTENSIONS))
     def test_all_allowed_extensions(self, ext):
         assert not _skip_file(Path(f"test{ext}"))

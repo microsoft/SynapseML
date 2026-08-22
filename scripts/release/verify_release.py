@@ -1,19 +1,20 @@
 #!/usr/bin/env python3
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
 """
 Verify a SynapseML release end-to-end against live sources of truth.
 
-Replaces the manual "Step 4 - Verify Artifacts" checklist, and doubles as a
+Automates the artifact checks in Release Guide Steps 1-3, and doubles as a
 regression test for `release_matrix.py`: run it against an already-shipped
-version and every row must be PRESENT.
+version and every non-skipped row must be PRESENT.
 
 NOTE: the wiki currently tells you to run `az artifacts universal show`.
 That command does not exist in the Azure CLI. This uses the Azure Artifacts
 REST API instead, which works.
 
-Auth: needs an Azure DevOps bearer token. Either
-    --token <pat-or-bearer>
-or leave it out and the script shells out to
+Auth: internal checks use ADO_TOKEN when set, otherwise the script shells out to
     az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798
+GitHub checks use GH_TOKEN when set and otherwise use the unauthenticated API.
 
 Usage:
     python scripts/release/verify_release.py --version 1.1.3
@@ -24,21 +25,30 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import base64
 import json
+import os
 import subprocess
 import sys
 import urllib.error
+import urllib.parse
 import urllib.request
 from typing import Dict, List, Optional, Tuple
 
 sys.path.insert(0, __file__.rsplit("/", 1)[0].rsplit("\\", 1)[0])
-from release_matrix import ADO_ORG, ADO_PROJECT, build_plan  # noqa: E402
+from release_matrix import (  # noqa: E402
+    ADO_ORG,
+    ADO_PROJECT,
+    build_plan,
+    parse_iterations,
+)
 
 ADO_RESOURCE = "499b84ac-1321-427f-aa17-267ca6975798"
 ORG_SHORT = "msdata"
 GITHUB_REPO = "microsoft/SynapseML"
 INTERNAL_REPO = "SynapseML-Internal"
+MAVEN_BASE = "https://mmlspark.azureedge.net/maven"
+PYPI_BASE = "https://pypi.org/pypi"
+SKIP_CHOICES = {"github", "ado", "upack", "pip", "internal", "public"}
 
 OK, MISSING, SKIPPED = "PRESENT", "MISSING", "SKIPPED"
 
@@ -64,35 +74,81 @@ def _get_ado_token(explicit: Optional[str]) -> str:
     )
     if out.returncode != 0:
         raise RuntimeError(f"could not get ADO token: {out.stderr.strip()}")
-    return out.stdout.strip()
+    token = out.stdout.strip()
+    if not token:
+        raise RuntimeError("Azure CLI returned an empty ADO token")
+    return token
 
 
-def _json_get(url: str, headers: Dict[str, str]) -> Optional[dict]:
+def _json_get_page(url: str, headers: Dict[str, str]) -> Tuple[Optional[dict], object]:
     req = urllib.request.Request(url, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=60) as r:
-            return json.loads(r.read().decode("utf-8"))
+            return json.loads(r.read().decode("utf-8")), r.headers
     except urllib.error.HTTPError as e:
-        if e.code in (401, 403):
-            raise RuntimeError(f"auth failed ({e.code}) for {url}") from e
-        return None
-    except urllib.error.URLError:
-        return None
+        if e.code == 404:
+            return None, {}
+        raise RuntimeError(f"HTTP {e.code} for {url}") from e
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"request failed for {url}: {e.reason}") from e
+
+
+def _json_get(url: str, headers: Dict[str, str]) -> Optional[dict]:
+    data, _ = _json_get_page(url, headers)
+    return data
+
+
+def _url_exists(url: str, headers: Dict[str, str]) -> bool:
+    req = urllib.request.Request(url, headers=headers)
+    try:
+        with urllib.request.urlopen(req, timeout=60):
+            return True
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return False
+        raise RuntimeError(f"HTTP {e.code} for {url}") from e
+    except urllib.error.URLError as e:
+        raise RuntimeError(f"request failed for {url}: {e.reason}") from e
+
+
+def _with_query(url: str, **updates: str) -> str:
+    parts = urllib.parse.urlsplit(url)
+    query = dict(urllib.parse.parse_qsl(parts.query, keep_blank_values=True))
+    query.update(updates)
+    return urllib.parse.urlunsplit(
+        (
+            parts.scheme,
+            parts.netloc,
+            parts.path,
+            urllib.parse.urlencode(query),
+            parts.fragment,
+        )
+    )
 
 
 class Checker:
     def __init__(self, token: Optional[str], gh_token: Optional[str], skip: List[str]):
         self.skip = set(skip)
         self._ado_headers = None
-        if not {"ado", "upack", "pip", "internal"} <= self.skip:
+        needs_ado = (
+            "ado" not in self.skip
+            and not {
+                "upack",
+                "pip",
+                "internal",
+            }
+            <= self.skip
+        )
+        if needs_ado:
             self._ado_headers = {"Authorization": f"Bearer {_get_ado_token(token)}"}
         self._gh_headers = {
             "Accept": "application/vnd.github+json",
             "User-Agent": "synapseml-release-verify",
         }
+        self._public_headers = {"User-Agent": "synapseml-release-verify"}
         if gh_token:
             self._gh_headers["Authorization"] = f"Bearer {gh_token}"
-        self._pkg_cache: Dict[Tuple[str, str], Dict[str, List[str]]] = {}
+        self._pkg_cache: Dict[Tuple[str, str, str], List[str]] = {}
 
     # --- git tags ---------------------------------------------------------
     def github_tag(self, tag: str) -> str:
@@ -100,6 +156,25 @@ class Checker:
             return SKIPPED
         url = f"https://api.github.com/repos/{GITHUB_REPO}/git/ref/tags/{tag}"
         return OK if _json_get(url, self._gh_headers) else MISSING
+
+    def public_maven(self, scala: str, version: str) -> str:
+        if "public" in self.skip:
+            return SKIPPED
+        artifact = f"synapseml-core_{scala}"
+        escaped_version = urllib.parse.quote(version, safe="")
+        url = (
+            f"{MAVEN_BASE}/com/microsoft/azure/{artifact}/{escaped_version}/"
+            f"{artifact}-{escaped_version}.pom"
+        )
+        return OK if _url_exists(url, self._public_headers) else MISSING
+
+    def public_pypi(self, version: str) -> str:
+        if "public" in self.skip:
+            return SKIPPED
+        url = f"{PYPI_BASE}/synapseml/{urllib.parse.quote(version, safe='')}/json"
+        data = _json_get(url, self._public_headers)
+        published = data and data.get("info", {}).get("version") == version
+        return OK if published else MISSING
 
     def ado_tag(self, tag: str) -> str:
         if "ado" in self.skip or "internal" in self.skip:
@@ -109,29 +184,59 @@ class Checker:
             f"{INTERNAL_REPO}/refs?filter=tags/{tag}&api-version=7.1"
         )
         data = _json_get(url, self._ado_headers)
-        if not data:
-            return MISSING
+        if data is None:
+            raise RuntimeError(f"SynapseML-Internal refs endpoint not found: {url}")
+        refs = data.get("value")
+        if not isinstance(refs, list):
+            raise RuntimeError("SynapseML-Internal refs response has no value list")
         wanted = f"refs/tags/{tag}"
-        return (
-            OK
-            if any(v.get("name") == wanted for v in data.get("value", []))
-            else MISSING
-        )
+        return OK if any(v.get("name") == wanted for v in refs) else MISSING
 
     # --- artifact feeds ---------------------------------------------------
     def _feed_versions(self, feed: str, protocol: str, package: str) -> List[str]:
-        key = (feed, protocol)
-        if key not in self._pkg_cache:
+        normalized = package.lower()
+        key = (feed, protocol.lower(), normalized)
+        if key in self._pkg_cache:
+            return self._pkg_cache[key]
+
+        url = (
+            f"https://feeds.dev.azure.com/{ORG_SHORT}/{ADO_PROJECT}/_apis/packaging/"
+            f"Feeds/{urllib.parse.quote(feed, safe='')}/packages"
+        )
+        url = _with_query(
+            url,
+            **{
+                "protocolType": protocol,
+                "packageNameQuery": package,
+                "includeAllVersions": "true",
+                "api-version": "7.1-preview.1",
+            },
+        )
+
+        versions: List[str] = []
+        while url:
+            data, headers = _json_get_page(url, self._ado_headers)
+            if data is None:
+                raise RuntimeError(f"Azure Artifacts feed not found: {feed}")
+            packages = data.get("value")
+            if not isinstance(packages, list):
+                raise RuntimeError(
+                    f"Azure Artifacts response for {feed}/{package} has no value list"
+                )
+            for item in packages:
+                if item.get("name", "").lower() == normalized:
+                    versions.extend(
+                        version["version"]
+                        for version in item.get("versions", [])
+                        if "version" in version
+                    )
+            continuation = headers.get("x-ms-continuationtoken")
             url = (
-                f"https://feeds.dev.azure.com/{ORG_SHORT}/{ADO_PROJECT}/_apis/packaging/Feeds/"
-                f"{feed}/packages?protocolType={protocol}&includeAllVersions=true&api-version=7.1-preview.1"
+                _with_query(url, continuationToken=continuation) if continuation else ""
             )
-            data = _json_get(url, self._ado_headers) or {}
-            self._pkg_cache[key] = {
-                p["name"].lower(): [v["version"] for v in p.get("versions", [])]
-                for p in data.get("value", [])
-            }
-        return self._pkg_cache[key].get(package.lower(), [])
+
+        self._pkg_cache[key] = versions
+        return versions
 
     def upack(self, package: str, version: str) -> str:
         if "upack" in self.skip or "ado" in self.skip:
@@ -156,9 +261,22 @@ class Checker:
 
 
 def run(
-    version: str, internal_patch: str, target_keys, token, gh_token, skip
+    version: str,
+    internal_patch: str,
+    target_keys,
+    token,
+    gh_token,
+    skip,
+    upack_iteration=None,
+    internal_upack_iteration=None,
 ) -> Tuple[List[dict], bool]:
-    plan = build_plan(version, internal_patch, target_keys)
+    plan = build_plan(
+        version,
+        internal_patch,
+        target_keys,
+        upack_iteration,
+        internal_upack_iteration,
+    )
     c = Checker(token, gh_token, skip)
     rows: List[dict] = []
 
@@ -176,6 +294,21 @@ def run(
     for tp in plan.targets:
         for tag in tp.oss_tags:
             add("git-tag", tp.key, "github/" + GITHUB_REPO, tag, c.github_tag(tag))
+        add(
+            "maven",
+            tp.key,
+            f"synapseml-core_{tp.scala}",
+            tp.oss_maven_version,
+            c.public_maven(tp.scala, tp.oss_maven_version),
+        )
+        if tp.key == "master":
+            add(
+                "pypi",
+                tp.key,
+                "pypi/synapseml",
+                plan.oss_version,
+                c.public_pypi(plan.oss_version),
+            )
         for tag in tp.internal_tags:
             add("git-tag", tp.key, "ado/" + INTERNAL_REPO, tag, c.ado_tag(tag))
         add(
@@ -219,23 +352,51 @@ def main(argv=None) -> int:
     p.add_argument("--internal-patch", default="0")
     p.add_argument("--targets", default="")
     p.add_argument(
-        "--skip", default="", help="Comma-separated: github,ado,upack,pip,internal"
+        "--upack-iteration",
+        default="",
+        metavar="KEY=N",
+        help="OSS UPack rebuild counters, e.g. spark4.0=1",
     )
     p.add_argument(
-        "--token",
-        default=None,
-        help="ADO bearer token (default: az account get-access-token)",
+        "--internal-upack-iteration",
+        default="",
+        metavar="KEY=N",
+        help="Internal UPack rebuild counters, e.g. spark4.0=1",
     )
-    p.add_argument("--github-token", default=None)
+    p.add_argument(
+        "--skip",
+        default="",
+        help="Comma-separated: github,ado,upack,pip,internal,public",
+    )
     p.add_argument("--json", action="store_true")
     args = p.parse_args(argv)
 
     keys = [k.strip() for k in args.targets.split(",") if k.strip()] or None
     skip = [s.strip() for s in args.skip.split(",") if s.strip()]
+    unknown_skip = sorted(set(skip) - SKIP_CHOICES)
+    if unknown_skip:
+        print(
+            f"error: unknown --skip value(s): {unknown_skip}; "
+            f"known: {sorted(SKIP_CHOICES)}",
+            file=sys.stderr,
+        )
+        return 2
 
     try:
+        upack_iteration = parse_iterations(args.upack_iteration, "--upack-iteration")
+        internal_upack_iteration = parse_iterations(
+            args.internal_upack_iteration,
+            "--internal-upack-iteration",
+        )
         rows, ok = run(
-            args.version, args.internal_patch, keys, args.token, args.github_token, skip
+            args.version,
+            args.internal_patch,
+            keys,
+            os.environ.get("ADO_TOKEN"),
+            os.environ.get("GH_TOKEN"),
+            skip,
+            upack_iteration,
+            internal_upack_iteration,
         )
     except (ValueError, RuntimeError) as e:
         print(f"error: {e}", file=sys.stderr)

@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""Apply a SynapseML release to a BBC-VHD component directory (Release Guide Step 5).
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+"""Apply a SynapseML release to a BBC-VHD component directory (Release Guide Step 4).
 
-Step 5 is hand-edited today, and it is the single most error-prone edit in the
+Step 4 is hand-edited today, and it is the single most error-prone edit in the
 release. Each component's setup.sh carries two version strings that look almost
 identical but follow *different* mangling rules:
 
@@ -25,7 +27,7 @@ import os
 import re
 import sys
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from release_matrix import TARGETS_BY_KEY, build_plan  # noqa: E402
@@ -37,23 +39,37 @@ OSS_VAR = "SYNAPSEML_VERSION"
 INTERNAL_VAR = "SYNAPSEML_INTERNAL_VERSION"
 
 
+def read_text_exact(path: Path) -> str:
+    """Read UTF-8 without universal-newline conversion."""
+    with path.open("r", encoding="utf-8", newline="") as stream:
+        return stream.read()
+
+
+def write_text_exact(path: Path, text: str) -> None:
+    """Write UTF-8 while preserving the newline bytes already present in text."""
+    with path.open("w", encoding="utf-8", newline="") as stream:
+        stream.write(text)
+
+
 def bump_component_revision(text: str) -> Tuple[str, str, str]:
     """Bump the trailing patch of a version.txt revision (1.4.26 -> 1.4.27)."""
-    old = text.strip()
-    m = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", old)
+    m = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)(\r?\n)?", text)
     if not m:
         raise ValueError(
-            f"version.txt must contain a bare X.Y.Z revision, found {old!r}"
+            f"version.txt must contain only an X.Y.Z revision and optional newline, "
+            f"found {text!r}"
         )
+    old = f"{m.group(1)}.{m.group(2)}.{m.group(3)}"
     new = f"{m.group(1)}.{m.group(2)}.{int(m.group(3)) + 1}"
-    # Preserve the original trailing-newline style rather than normalising it,
-    # so the diff shown to a BBC-VHD reviewer is exactly one line.
-    return text.replace(old, new, 1), old, new
+    return new + (m.group(4) or ""), old, new
 
 
 def set_shell_var(text: str, var: str, value: str) -> Tuple[str, Optional[str]]:
     """Replace `VAR=...` on its own line. Returns (new_text, old_value)."""
-    pat = re.compile(rf"^(?P<lead>{re.escape(var)}=)(?P<val>.*)$", re.MULTILINE)
+    pat = re.compile(
+        rf"^(?P<lead>{re.escape(var)}=)(?P<val>[^\r\n]*)(?P<cr>\r?)$",
+        re.MULTILINE,
+    )
     found = pat.search(text)
     if not found:
         return text, None
@@ -62,7 +78,14 @@ def set_shell_var(text: str, var: str, value: str) -> Tuple[str, Optional[str]]:
     # silently wins at runtime while this script rewrites only the first.
     if len(pat.findall(text)) > 1:
         raise ValueError(f"{var} is assigned more than once; refusing to guess")
-    return pat.sub(lambda _: f"{found.group('lead')}{value}", text, count=1), old
+    return (
+        pat.sub(
+            lambda match: (f"{match.group('lead')}{value}{match.group('cr')}"),
+            text,
+            count=1,
+        ),
+        old,
+    )
 
 
 def main(argv=None) -> int:
@@ -82,6 +105,11 @@ def main(argv=None) -> int:
         type=int,
         default=0,
         help="Internal rebuild counter",
+    )
+    p.add_argument(
+        "--force-revision",
+        action="store_true",
+        help="Bump version.txt even when both package versions already match",
     )
     p.add_argument("--dry-run", action="store_true")
     args = p.parse_args(argv)
@@ -117,7 +145,8 @@ def main(argv=None) -> int:
             )
             return 2
 
-    setup_text = setup_sh.read_text(encoding="utf-8")
+    original_setup_text = read_text_exact(setup_sh)
+    setup_text = original_setup_text
     try:
         setup_text, old_oss = set_shell_var(setup_text, OSS_VAR, tp.oss_upack_version)
         setup_text, old_int = set_shell_var(
@@ -134,10 +163,21 @@ def main(argv=None) -> int:
             print(f"error: {var} not found in {setup_sh}", file=sys.stderr)
             return 2
 
-    try:
-        version_text, old_rev, new_rev = bump_component_revision(
-            version_txt.read_text(encoding="utf-8")
+    packages_changed = (
+        old_oss != tp.oss_upack_version or old_int != tp.internal_upack_version
+    )
+    if not packages_changed and not args.force_revision:
+        print(
+            "error: BBC-VHD already references the requested package versions; "
+            "refusing to bump version.txt again. Use a rebuild counter or "
+            "--force-revision for an intentional image-only rebuild.",
+            file=sys.stderr,
         )
+        return 2
+
+    original_version_text = read_text_exact(version_txt)
+    try:
+        version_text, old_rev, new_rev = bump_component_revision(original_version_text)
     except ValueError as e:
         print(f"error: {version_txt}: {e}", file=sys.stderr)
         return 2
@@ -151,19 +191,71 @@ def main(argv=None) -> int:
     if args.dry_run:
         return 0
 
-    setup_sh.write_text(setup_text, encoding="utf-8", newline="")
-    version_txt.write_text(version_text, encoding="utf-8", newline="")
+    def restore_originals() -> List[str]:
+        failures = []
+        for path, text in (
+            (setup_sh, original_setup_text),
+            (version_txt, original_version_text),
+        ):
+            try:
+                write_text_exact(path, text)
+            except OSError as error:
+                failures.append(f"{path}: {error}")
+        return failures
+
+    try:
+        write_text_exact(setup_sh, setup_text)
+        write_text_exact(version_txt, version_text)
+    except OSError as error:
+        rollback_failures = restore_originals()
+        print(
+            f"error: BBC-VHD update failed and was rolled back: {error}",
+            file=sys.stderr,
+        )
+        for failure in rollback_failures:
+            print(f"error: rollback failed for {failure}", file=sys.stderr)
+        return 1
 
     # Post-condition: re-read and confirm. The whole point of this script is to
     # remove doubt about what landed in the file.
-    check = setup_sh.read_text(encoding="utf-8")
+    try:
+        check = read_text_exact(setup_sh)
+        written_version = read_text_exact(version_txt)
+    except OSError as error:
+        rollback_failures = restore_originals()
+        print(
+            f"error: could not verify BBC-VHD update; changes were rolled back: "
+            f"{error}",
+            file=sys.stderr,
+        )
+        for failure in rollback_failures:
+            print(f"error: rollback failed for {failure}", file=sys.stderr)
+        return 1
+
+    postcondition_error = None
     for var, want in (
         (OSS_VAR, tp.oss_upack_version),
         (INTERNAL_VAR, tp.internal_upack_version),
     ):
-        if not re.search(rf"^{re.escape(var)}={re.escape(want)}$", check, re.MULTILINE):
-            print(f"error: post-condition failed for {var}", file=sys.stderr)
-            return 1
+        if not re.search(
+            rf"^{re.escape(var)}={re.escape(want)}\r?$",
+            check,
+            re.MULTILINE,
+        ):
+            postcondition_error = var
+            break
+    if written_version != version_text:
+        postcondition_error = "version.txt"
+    if postcondition_error:
+        rollback_failures = restore_originals()
+        print(
+            f"error: post-condition failed for {postcondition_error}; "
+            "changes were rolled back",
+            file=sys.stderr,
+        )
+        for failure in rollback_failures:
+            print(f"error: rollback failed for {failure}", file=sys.stderr)
+        return 1
     print("  verified on disk")
     return 0
 

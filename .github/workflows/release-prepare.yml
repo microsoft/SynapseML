@@ -3,11 +3,11 @@ name: Release Prepare — Version Bump PR
 # Automates Release Guide Step 1.1-1.3: bump every version string in the repo,
 # regenerate the versioned docs snapshot, and open the release PR.
 #
-# Two of the last four version bumps (v1.1.0, v1.1.3) landed as unsigned direct
-# pushes to master with no PR and no review. This workflow makes the reviewed
-# PR the only path, so a release can never again be an unreviewed force-push.
+# Two recent version bumps (v1.1.0, v1.1.3) landed as unsigned direct pushes
+# to master with no PR and no review. This workflow provides a repeatable,
+# reviewed path and tags the exact merged commit.
 #
-# See also: release-tag.yml (tags master once this PR merges).
+# See also: release-tag.yml (creates derivative tags and Spark release PRs).
 
 on:
   workflow_dispatch:
@@ -21,15 +21,21 @@ on:
         required: false
         default: false
         type: boolean
+  pull_request:
+    types: [closed]
+    branches: [master]
 
-permissions:
-  contents: write
-  pull-requests: write
+permissions: {}
 
 jobs:
   prepare:
     name: Bump versions & open release PR
     runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
 
     steps:
       # A release must be cut from master. Running this from a feature branch
@@ -179,9 +185,11 @@ jobs:
           - [ ] No unrelated changes
 
           ### After merge
-          1. \`release-tag.yml\` tags master with \`v${VERSION}\`, \`v${VERSION}-spark3.5\`, \`v${VERSION}-python3.11\` and opens the spark rebase PRs.
-          2. Queue ADO build 17563 for \`refs/tags/v${VERSION}\` (needs ESRP/SAW approval).
-          3. Continue with Release Guide Step 2 (SynapseML-Internal).
+          1. This workflow tags the merged commit with \`v${VERSION}\` and dispatches \`release-tag.yml\`.
+          2. Queue ADO build 17563 for each OSS release tag (needs ESRP/SAW approval).
+          3. Complete the SynapseML-Internal bump, tags, and build.
+          4. Run Publish-Official pipeline 35879 with the parameters from \`release_matrix.py\`.
+          5. After public artifacts exist, run \`release-notes.yml\` with \`v${VERSION}\` selected.
           EOF
           )
           gh pr create \
@@ -189,3 +197,124 @@ jobs:
             --body "$BODY" \
             --base master \
             --head "release/prepare-v${VERSION}"
+
+      # PRs opened with GITHUB_TOKEN do not emit new pull_request workflow
+      # events. Dispatch the two branch-safe validations explicitly so the
+      # generated commit still receives current-head checks.
+      - name: Queue release PR validation
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          BRANCH="release/prepare-v${VERSION}"
+          gh workflow run pr-validation.yml --ref "$BRANCH"
+          gh workflow run website-deploy.yml --ref "$BRANCH"
+
+  finalize:
+    name: Tag merged release PR
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'release/prepare-v')
+    permissions:
+      actions: write
+      contents: write
+
+    steps:
+      - name: Resolve merged release
+        id: release
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          TITLE: ${{ github.event.pull_request.title }}
+          MERGED_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$BRANCH" =~ ^release/prepare-v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "::error::Unexpected release branch '$BRANCH'."
+            exit 1
+          fi
+          VERSION="${BASH_REMATCH[1]}"
+          if [ "$TITLE" != "chore: Bump version to v${VERSION}" ]; then
+            echo "::error::Release PR title does not match branch version v${VERSION}."
+            exit 1
+          fi
+          if [ -z "$MERGED_SHA" ]; then
+            echo "::error::pull_request.merge_commit_sha is empty."
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "sha=$MERGED_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout merged commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.release.outputs.sha }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify merged version and ancestry
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          MERGED_SHA: ${{ steps.release.outputs.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin '+refs/heads/master:refs/remotes/origin/master'
+          if ! git merge-base --is-ancestor "$MERGED_SHA" origin/master; then
+            echo "::error::Merged commit $MERGED_SHA is not contained in origin/master."
+            exit 1
+          fi
+          ACTUAL=$(sed -n 's/^let version = "\([^"]*\)";/\1/p' website/docusaurus.config.js)
+          if [ "$ACTUAL" != "$VERSION" ]; then
+            echo "::error::Merged docusaurus version '$ACTUAL' does not match v${VERSION}."
+            exit 1
+          fi
+          if [ ! -d "website/versioned_docs/version-${VERSION}" ] ||
+             [ ! -f "website/versioned_sidebars/version-${VERSION}-sidebars.json" ]; then
+            echo "::error::Versioned docs snapshot for ${VERSION} is missing."
+            exit 1
+          fi
+          if ! grep -Fxq "  \"${VERSION}\"," website/versions.json; then
+            echo "::error::website/versions.json does not list ${VERSION}."
+            exit 1
+          fi
+
+      - name: Tag the exact merged commit
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          MERGED_SHA: ${{ steps.release.outputs.sha }}
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          TAG="v${VERSION}"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            EXISTING=$(git rev-parse "refs/tags/$TAG^{commit}")
+            if [ "$EXISTING" != "$MERGED_SHA" ]; then
+              echo "::error::$TAG exists at $EXISTING, expected $MERGED_SHA. Refusing to move it."
+              exit 1
+            fi
+            echo "$TAG already identifies the merged commit."
+          else
+            git tag "$TAG" "$MERGED_SHA"
+            git push origin "$TAG"
+          fi
+
+      # Pushes made with GITHUB_TOKEN do not emit another workflow run. Use the
+      # supported workflow_dispatch exception to continue the release chain.
+      - name: Dispatch derivative tag orchestration
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: gh workflow run release-tag.yml --ref "v${VERSION}"
+
+      - name: Summary
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          echo "### Release v${VERSION} tagged" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Derivative tag and Spark branch orchestration was dispatched." >> "$GITHUB_STEP_SUMMARY"
+          echo "Next: queue ADO pipeline 17563 and complete ESRP approval." >> "$GITHUB_STEP_SUMMARY"
