@@ -41,10 +41,10 @@ class AlwaysPresentChecker:
     def ado_tag(self, _tag):
         return verify.OK
 
-    def upack(self, _package, _version):
+    def upack(self, _package, _version, internal=False):
         return verify.OK
 
-    def pip(self, _package, _version):
+    def pip(self, _package, _version, internal=False):
         return verify.OK
 
 
@@ -171,9 +171,70 @@ def test_run_applies_upack_rebuild_counters(monkeypatch):
     )
 
 
+def test_internal_skip_omits_only_internal_ado_artifacts(monkeypatch):
+    feed_calls = []
+
+    monkeypatch.setattr(verify, "_get_ado_token", lambda _token: "token")
+    monkeypatch.setattr(
+        verify,
+        "_json_get",
+        lambda url, _headers: (
+            {"info": {"version": "1.1.3"}}
+            if url.startswith(verify.PYPI_BASE)
+            else {"present": True}
+        ),
+    )
+    monkeypatch.setattr(verify, "_url_exists", lambda _url, _headers: True)
+
+    def no_versions(_checker, feed, protocol, package):
+        feed_calls.append((feed, protocol, package))
+        return []
+
+    monkeypatch.setattr(verify.Checker, "_feed_versions", no_versions)
+
+    rows, complete = verify.run(
+        "1.1.3",
+        "0",
+        ["master"],
+        None,
+        None,
+        ["internal"],
+    )
+
+    assert not complete
+    assert feed_calls == [
+        ("BBC-VHD_PublicPackages", "upack", "synapseml"),
+        ("Synapse-Conda", "pypi", "synapseml"),
+    ]
+    internal_rows = [
+        row
+        for row in rows
+        if row["name"].startswith("ado/")
+        or row["name"] in {"synapseml_internal", "synapseml-internal"}
+    ]
+    assert internal_rows
+    assert all(row["status"] == verify.SKIPPED for row in internal_rows)
+    oss_feed_rows = [
+        row
+        for row in rows
+        if row["kind"] in {"upack", "pip"} and row["name"] == "synapseml"
+    ]
+    assert all(row["status"] == verify.MISSING for row in oss_feed_rows)
+
+
 def test_main_rejects_unknown_skip_without_network(capsys):
     assert verify.main(["--version", "1.1.3", "--skip", "typo"]) == 2
     assert "unknown --skip" in capsys.readouterr().err
+
+
+def test_skip_help_defines_internal_and_public_scopes(capsys):
+    with pytest.raises(SystemExit) as exc:
+        verify.main(["--help"])
+
+    assert exc.value.code == 0
+    help_text = " ".join(capsys.readouterr().out.split())
+    assert "internal (Internal tags, UPacks, and wheels)" in help_text
+    assert "public (Maven CDN and PyPI)" in help_text
 
 
 def test_public_pypi_requires_the_requested_version(monkeypatch):
