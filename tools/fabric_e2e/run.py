@@ -22,6 +22,7 @@ from xml.etree import ElementTree
 RESULT_MARKER = "SYNAPSEML_FABRIC_E2E_RESULT="
 DIAGNOSTIC_MARKER = "SYNAPSEML_FABRIC_E2E_DIAGNOSTIC="
 NOTEBOOK_MARKER_PATH = "Files/synapseml-fabric-e2e/markers.jsonl"
+REDACTED_VALUE = "<redacted>"
 MANIFEST_PATH = Path(__file__).with_name("scenarios.json")
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -111,6 +112,43 @@ def resolve_spark_conf(scenario: Scenario, additional_conf: Sequence[str]) -> Li
     return list(scenario.default_spark_conf) + list(additional_conf)
 
 
+def _spark_conf_key_is_sensitive(key: str) -> bool:
+    """Return whether a Spark configuration key commonly identifies a secret."""
+    expanded_key = re.sub(r"([a-z0-9])([A-Z])", r"\1.\2", key)
+    tokens = set(re.findall(r"[a-z0-9]+", expanded_key.lower()))
+    if tokens & {
+        "authorization",
+        "credential",
+        "credentials",
+        "passwd",
+        "password",
+        "sas",
+        "secret",
+        "token",
+    }:
+        return True
+    return bool(
+        (
+            "key" in tokens
+            and tokens & {"access", "account", "api", "private", "subscription"}
+        )
+        or ("header" in tokens and tokens & {"auth", "authorization", "custom"})
+        or ({"connection", "string"} <= tokens)
+    )
+
+
+def redact_spark_conf(entries: Sequence[str]) -> List[str]:
+    """Redact secret-like Spark configuration values retained in evidence."""
+    redacted: List[str] = []
+    for entry in entries:
+        key, separator, _ = entry.partition("=")
+        if separator and _spark_conf_key_is_sensitive(key):
+            redacted.append(f"{key}={REDACTED_VALUE}")
+        else:
+            redacted.append(entry)
+    return redacted
+
+
 def write_scenario_notebook(
     path: Path,
     scenario: Scenario,
@@ -128,6 +166,7 @@ def write_scenario_notebook(
             "",
             "from notebookutils import mssparkutils",
             "",
+            "_synapseml_original_argv = sys.argv",
             f"sys.argv = {json.dumps(argv)}",
             f"_synapseml_scenario_name = {json.dumps(scenario.script.name)}",
             f"_synapseml_scenario_source = {json.dumps(source)}",
@@ -176,6 +215,7 @@ def write_scenario_notebook(
             "    )",
             "    raise",
             "finally:",
+            "    sys.argv = _synapseml_original_argv",
             "    builtins.print = _synapseml_original_print",
             '    marker_payload = "\\n".join(_synapseml_markers)',
             "    if marker_payload:",
@@ -433,6 +473,11 @@ def downloaded_marker_output(log_root: Path) -> str:
     return "".join(marker_lines)
 
 
+def combine_marker_outputs(*outputs: str) -> str:
+    """Join marker sources without merging adjacent payload lines."""
+    return "\n".join(output.rstrip("\r\n") for output in outputs if output)
+
+
 def marker_payloads(output: str, marker: str) -> List[str]:
     """Return unique marker payloads in emission order."""
     matches: List[str] = []
@@ -445,11 +490,12 @@ def marker_payloads(output: str, marker: str) -> List[str]:
 
 
 def parse_runtime_evidence(output: str) -> Mapping[str, object]:
-    """Parse the scenario's single structured result marker."""
+    """Parse the scenario's single unique structured result payload."""
     matches = marker_payloads(output, RESULT_MARKER)
     if len(matches) != 1:
         raise ValueError(
-            f"Expected exactly one {RESULT_MARKER} marker, found {len(matches)}"
+            f"Expected exactly one unique {RESULT_MARKER} payload, "
+            f"found {len(matches)}"
         )
     evidence = json.loads(matches[0])
     if not isinstance(evidence, dict):
@@ -458,7 +504,7 @@ def parse_runtime_evidence(output: str) -> Mapping[str, object]:
 
 
 def parse_runtime_diagnostics(output: str) -> List[Mapping[str, object]]:
-    """Parse zero or more structured diagnostics emitted before a scenario completes."""
+    """Parse unique structured diagnostics in first-seen order."""
     matches = marker_payloads(output, DIAGNOSTIC_MARKER)
     diagnostics: List[Mapping[str, object]] = []
     for match in matches:
@@ -547,6 +593,14 @@ def checked_jars(raw_paths: Iterable[str]) -> List[Path]:
         if not jar.is_file() or jar.suffix.lower() != ".jar":
             raise ValueError(f"Extra jar does not exist or is not a .jar file: {jar}")
     return jars
+
+
+def create_output_directory(path: Path) -> None:
+    """Create a new evidence directory or report an actionable conflict."""
+    try:
+        path.mkdir(parents=True, exist_ok=False)
+    except FileExistsError as error:
+        raise ValueError(f"--output-dir already exists: {path}") from error
 
 
 def create_parser(scenarios: Mapping[str, Scenario]) -> argparse.ArgumentParser:
@@ -719,7 +773,10 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         )
         return 0
 
-    output_dir.mkdir(parents=True, exist_ok=False)
+    try:
+        create_output_directory(output_dir)
+    except ValueError as error:
+        parser.error(str(error))
     if scenario.execution == "notebook":
         write_scenario_notebook(
             notebook_path,
@@ -728,7 +785,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             marker_path=NOTEBOOK_MARKER_PATH,
         )
     started = datetime.now(timezone.utc)
-    submission_code = 1
+    submission_code: int
     notebook_marker_code: Optional[int] = None
     cleanup_code: Optional[int] = None
     notebook_cleanup_code: Optional[int] = None
@@ -738,15 +795,18 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     failure: Optional[str] = None
     try:
         submission_code, output = run_and_tee(command, log_path)
-        marker_output = output + downloaded_marker_output(output_dir / "fabric-logs")
+        marker_output = combine_marker_outputs(
+            output, downloaded_marker_output(output_dir / "fabric-logs")
+        )
         if notebook_marker_command:
             notebook_marker_code, notebook_marker_output = run_and_tee(
                 notebook_marker_command, log_path
             )
             output += notebook_marker_output
             if notebook_marker_code == 0:
-                marker_output += notebook_marker_path.read_text(
-                    encoding="utf-8", errors="replace"
+                marker_output = combine_marker_outputs(
+                    marker_output,
+                    notebook_marker_path.read_text(encoding="utf-8", errors="replace"),
                 )
         try:
             runtime_diagnostics = parse_runtime_diagnostics(marker_output)
@@ -812,7 +872,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         "runtimeDiagnostics": runtime_diagnostics,
         "runtimeEvidence": runtime_evidence,
         "scenario": scenario.name,
-        "sparkConf": spark_conf,
+        "sparkConf": redact_spark_conf(spark_conf),
         "startedAt": started.isoformat(),
         "status": "failed" if failure else "passed",
         "submissionExitCode": submission_code,

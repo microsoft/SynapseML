@@ -5,7 +5,6 @@ import json
 import sys
 import types
 from datetime import datetime, timezone
-from pathlib import Path
 
 import pytest
 
@@ -19,13 +18,16 @@ from tools.fabric_e2e.run import (
     build_notebook_submission_command,
     build_submission_command,
     checked_jars,
+    combine_marker_outputs,
     console_safe_text,
+    create_output_directory,
     diagnostic_failure_message,
     downloaded_marker_output,
     load_scenarios,
     new_run_id,
     parse_runtime_diagnostics,
     parse_runtime_evidence,
+    redact_spark_conf,
     resolve_scenario_args,
     resolve_spark_conf,
     write_scenario_notebook,
@@ -68,6 +70,7 @@ def test_manifest_scripts_exist_and_require_expected_jars():
 
 def test_openai_scenario_uses_implicit_fabric_auth_only():
     scenario = load_scenarios()["openai-prompt-ai-functions"]
+    assert scenario.script.is_file()
     source = scenario.script.read_text(encoding="utf-8")
 
     assert ".setSubscriptionKey(" not in source
@@ -83,6 +86,7 @@ def test_openai_scenario_uses_implicit_fabric_auth_only():
 
 def test_lightgbm_scenario_exercises_streaming_validation_path():
     scenario = load_scenarios()["lightgbm-streaming"]
+    assert scenario.script.is_file()
     source = scenario.script.read_text(encoding="utf-8")
 
     assert 'dataTransferMode="streaming"' in source
@@ -203,6 +207,8 @@ def test_generated_notebook_sets_scenario_argv_and_python_metadata(tmp_path):
     assert "SYNAPSEML_FABRIC_E2E_RESULT=" in source
     assert "SYNAPSEML_FABRIC_E2E_DIAGNOSTIC=" in source
     assert "Files/synapseml-fabric-e2e/markers.jsonl" in source
+    assert "_synapseml_original_argv = sys.argv" in source
+    assert "sys.argv = _synapseml_original_argv" in source
 
 
 def test_generated_notebook_writes_structured_markers_to_lakehouse(
@@ -239,6 +245,7 @@ def test_generated_notebook_writes_structured_markers_to_lakehouse(
     original_argv = sys.argv
     try:
         exec(compile(source, str(notebook_path), "exec"), {})
+        assert sys.argv is original_argv
     finally:
         sys.argv = original_argv
 
@@ -256,7 +263,9 @@ def test_generated_notebook_records_exception_type_before_reraising(
     tmp_path, monkeypatch
 ):
     script = tmp_path / "scenario.py"
-    script.write_text("raise RuntimeError('do not persist this message')\n")
+    script.write_text(
+        "raise RuntimeError('do not persist this message')\n", encoding="utf-8"
+    )
     scenario = Scenario(
         name="test",
         description="test",
@@ -282,6 +291,7 @@ def test_generated_notebook_records_exception_type_before_reraising(
     try:
         with pytest.raises(RuntimeError, match="do not persist this message"):
             exec(compile(source, str(notebook_path), "exec"), {})
+        assert sys.argv is original_argv
     finally:
         sys.argv = original_argv
 
@@ -315,7 +325,7 @@ def test_notebook_cleanup_targets_only_the_exact_item():
     assert "--workspace" in command
 
 
-def test_result_marker_requires_one_json_object():
+def test_result_marker_requires_one_unique_json_object():
     evidence = parse_runtime_evidence(
         f'print("{RESULT_MARKER}" + json.dumps(evidence))\n'
         f"prefix\n{RESULT_MARKER}{json.dumps({'sparkVersion': '3.5'})}\nsuffix\n"
@@ -365,6 +375,16 @@ def test_downloaded_driver_stdout_supplies_markers(tmp_path):
     output = downloaded_marker_output(tmp_path)
 
     assert parse_runtime_diagnostics(output) == [{"attempt": 1}]
+    assert parse_runtime_evidence(output) == {"status": "passed"}
+
+
+def test_marker_sources_are_joined_at_line_boundaries():
+    output = combine_marker_outputs(
+        f'{DIAGNOSTIC_MARKER}{{"phase": "first"}}',
+        f'{RESULT_MARKER}{{"status": "passed"}}',
+    )
+
+    assert parse_runtime_diagnostics(output) == [{"phase": "first"}]
     assert parse_runtime_evidence(output) == {"status": "passed"}
 
 
@@ -423,6 +443,34 @@ def test_scenario_spark_conf_precedes_caller_overrides(tmp_path):
         "spark.executor.cores=4",
         "spark.executor.cores=8",
     ]
+
+
+def test_secret_like_spark_conf_values_are_redacted():
+    spark_conf = [
+        "spark.sql.shuffle.partitions=4",
+        "spark.hadoop.fs.azure.account.key.example.dfs.core.windows.net=account-key",
+        "spark.executorEnv.OPENAI_API_KEY=api-key",
+        "spark.service.accessToken=access-token",
+        "spark.service.customAuthHeader=Bearer token",
+        "spark.service.connectionString=Endpoint=value;Secret=value",
+    ]
+
+    assert redact_spark_conf(spark_conf) == [
+        "spark.sql.shuffle.partitions=4",
+        "spark.hadoop.fs.azure.account.key.example.dfs.core.windows.net=<redacted>",
+        "spark.executorEnv.OPENAI_API_KEY=<redacted>",
+        "spark.service.accessToken=<redacted>",
+        "spark.service.customAuthHeader=<redacted>",
+        "spark.service.connectionString=<redacted>",
+    ]
+
+
+def test_create_output_directory_rejects_existing_path(tmp_path):
+    output_dir = tmp_path / "existing"
+    output_dir.mkdir()
+
+    with pytest.raises(ValueError, match="--output-dir already exists"):
+        create_output_directory(output_dir)
 
 
 def test_checked_jars_rejects_missing_and_non_jar_files(tmp_path):

@@ -357,6 +357,7 @@ def test_fabric_e2e_runs_openai_prompt_with_exact_artifacts():
     script = openai_step["inputs"]["inlineScript"]
     assert "sbt core/packageBin cognitive/packageBin" in script
     assert "fabric-spark-cli==0.1.20260807.5" in script
+    assert "--pre" not in script
     assert "az account get-access-token" not in script
     assert "feed_token" not in script
     assert data["variables"]["FABRIC_OPENAI_WORKSPACE"] == (

@@ -19,6 +19,8 @@ legacy Fabric REST/Spark Job Definition client or manually upload jars.
 - Build jars from the exact checkout under test. A green run against a
   runtime-bundled or previously published jar is not PR evidence.
 - Do not pass credentials through scenario arguments or Spark configuration.
+- Evidence redacts secret-like Spark configuration values as defense in depth;
+  redaction is not permission to pass credentials through the runner.
 - For OpenAI scenarios, use Fabric's implicit workload endpoint and MWC token.
   Never add an Azure OpenAI key to CLI arguments, Spark configuration, or
   retained logs.
@@ -122,6 +124,7 @@ Require all of the following before citing the run:
 
 - commit SHA is the checkout under review;
 - every jar has a SHA-256 digest;
+- secret-like Spark configuration values are recorded as `<redacted>`;
 - class-source paths name the supplied jars;
 - `junit.xml` and `runner.log` exist, plus downloaded Fabric logs for batch
   profiles or `notebook-markers.jsonl` for notebook profiles;

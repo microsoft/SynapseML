@@ -409,7 +409,7 @@ jobs:
           cognitive_jar="$(resolve_module_jar cognitive synapseml-cognitive)"
 
           export PIP_DISABLE_PIP_VERSION_CHECK=1
-          python -m pip install --quiet --pre \
+          python -m pip install --quiet \
             'fabric-spark-cli==0.1.20260807.5'
           unset PIP_INDEX_URL PIP_EXTRA_INDEX_URL
           fabric-spark-cli --version

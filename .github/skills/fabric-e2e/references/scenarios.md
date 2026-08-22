@@ -117,9 +117,9 @@ python tools/fabric_e2e/run.py \
 Each run writes under `target/fabric-e2e/<run-id>/` unless `--output-dir` is
 provided:
 
-- `evidence.json`: source commit, CLI version, jar hashes, Spark configuration,
-  runtime evidence or pre-failure diagnostics, submission result, and cleanup
-  result.
+- `evidence.json`: source commit, CLI version, jar hashes, Spark configuration
+  with secret-like values redacted, runtime evidence or pre-failure
+  diagnostics, submission result, and cleanup result.
 - `junit.xml`: one test result suitable for CI publication.
 - `runner.log`: complete runner and CLI output.
 - `fabric-logs/`: downloaded driver and executor logs for batch profiles.

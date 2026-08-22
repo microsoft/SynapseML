@@ -168,8 +168,6 @@ for repetition in range(args.repetitions):
     prediction_counts.append(prediction_count)
 
 evidence = {
-    "applicationId": spark.sparkContext.applicationId,
-    "defaultParallelism": spark.sparkContext.defaultParallelism,
     **diagnostics,
     "executorAddresses": executor_addresses(spark),
     "executorCores": spark.conf.get("spark.executor.cores", "unknown"),
