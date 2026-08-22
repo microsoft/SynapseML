@@ -53,12 +53,14 @@ python scripts/release/release_matrix.py --version 1.1.1 --targets spark4.0 \
 
 ## Verifying a release
 
-`verify_release.py` checks GitHub and Internal tags, the public Maven CDN and
-PyPI package, and every selected Synapse-Conda and UPack artifact against the
-matrix. It exits non-zero if anything is missing or if a source cannot be read.
-This is worth running even when the publish pipeline reports success: its pip
-and UPack publish tasks use `continueOnError: true`, so a green pipeline does
-not by itself prove the artifacts exist.
+`verify_release.py` checks GitHub and Internal tags, both the user-facing
+`synapseml_<scala>` and release-guide `synapseml-core_<scala>` coordinates on
+the public Maven CDN, the PyPI package, and every selected Synapse-Conda and
+UPack artifact against the matrix. It exits non-zero if anything is missing or
+if a source cannot be read. This is worth running even when the publish
+pipeline reports success: its pip and UPack publish tasks use
+`continueOnError: true`, so a green pipeline does not by itself prove the
+artifacts exist.
 
 ```bash
 python scripts/release/verify_release.py --version 1.1.3 --internal-patch 0
