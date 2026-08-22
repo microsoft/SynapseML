@@ -20,6 +20,13 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional, Tuple
 
+# This script prints non-ASCII status glyphs. On a non-UTF-8 console (the
+# Windows cp1252 default) that raises UnicodeEncodeError *after* files have
+# already been rewritten, leaving a half-applied bump behind a non-zero exit.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+
 # ── Context patterns ───────────────────────────────────────────────────────────
 # SELF-ANCHORED: pattern contains SynapseML-identifying text. Safe anywhere.
 SELF_ANCHORED = [
@@ -53,6 +60,10 @@ SELF_ANCHORED = [
     "version-{V}-blue",
 ]
 
+VERIFY_R_CODEGEN = (
+    "core/src/test/scala/com/microsoft/azure/synapse/ml/codegen/VerifyRCodegen.scala"
+)
+
 # LINE-ANCHORED: pattern + keyword must co-exist on the same line.
 LINE_ANCHORED = [
     ("--version {V}", ["SynapseML"]),
@@ -61,11 +72,14 @@ LINE_ANCHORED = [
     ('% "{V}-spark4.1"', ["synapseml"]),
     ("{V} version for", ["spark", "Spark"]),
     ("`{V}` tag", ["mmlspark"]),
+    # Per-module R artifact zips, e.g. synapseml-core-1.1.3.zip. Kept generic so
+    # a newly added module does not silently break the bump.
+    ("-{V}.zip", ["synapseml"]),
 ]
 
 # FILE-ANCHORED: pattern only safe in specific files.
 FILE_ANCHORED = [
-    ('version = "{V}"', ["website/docusaurus.config.js"]),
+    ('version = "{V}"', ["website/docusaurus.config.js", VERIFY_R_CODEGEN]),
     ('version: "{V}"', ["website/docusaurus.config.js"]),
     ('const version = "{V}";', ["website/src/installArtifacts.js"]),
     (
@@ -118,10 +132,29 @@ DENYLIST_FILES = {
     "CHANGES.md",
     "bump-version.py",
     "test_bump_version.py",
+    "release_matrix.py",
+    "test_release_matrix.py",
+    "test_verify_release.py",
+    "test_bump_bbcvhd.py",
+    "test_release_workflows.py",
+    "verify_release.py",
+    "bump_bbcvhd.py",
+    "test_prev_tag.sh",
     "package.json",
     "package-lock.json",
     "yarn.lock",
     "versions.json",
+}
+# Repo-relative posix paths. For files whose basename is too common to denylist
+# safely -- the release README documents the version conventions using real
+# shipped versions, which must never be rewritten, but "README.md" as a
+# basename would also exclude the root README, which does need bumping.
+DENYLIST_PATHS = {
+    ".github/workflows/release-notes.yml",
+    ".github/workflows/release-prepare.yml",
+    ".github/workflows/release-tag-spark.yml",
+    ".github/workflows/release-tag.yml",
+    "scripts/release/README.md",
 }
 ALLOWED_EXTENSIONS = {
     ".md",
@@ -195,6 +228,8 @@ def _skip_dir(name):
 def _skip_file(rel):
     if rel.name in DENYLIST_FILES:
         return True
+    if rel.as_posix() in DENYLIST_PATHS:
+        return True
     for p in rel.parts:
         if p in DENYLIST_DIRS:
             return True
@@ -243,7 +278,7 @@ class FileResult:
 
 def analyze(fp, rel, content, old_v, bare_re, self_a, line_a, file_a):
     res = FileResult(fp, rel, content)
-    rel_str = str(rel)
+    rel_str = rel.as_posix()
     lines = content.split("\n")
 
     for m in bare_re.finditer(content):
@@ -312,7 +347,10 @@ def _detect_version(root):
         sys.exit(
             "Error: cannot auto-detect version — website/docusaurus.config.js not found."
         )
-    m = re.search(r'let version\s*=\s*"([^"]+)"', cfg.read_text())
+    text = _read(cfg)
+    if text is None:
+        sys.exit("Error: cannot read website/docusaurus.config.js.")
+    m = re.search(r'let version\s*=\s*"([^"]+)"', text)
     if not m:
         sys.exit("Error: cannot parse version from website/docusaurus.config.js.")
     return m.group(1)
@@ -497,7 +535,7 @@ Examples:
         sys.exit(1)
 
     # Manifest check
-    modified = {str(r.rel) for r in results if r.matches}
+    modified = {r.rel.as_posix() for r in results if r.matches}
     missing = sorted(EXPECTED_FILES - modified)
     if missing:
         print("\n" + "!" * 70)
@@ -585,16 +623,18 @@ Examples:
         )
 
         # ── Broad sweep: warn about old version in ANY text file ───────────
-        modified_set = {str(r.rel) for r in changed}
+        modified_set = {r.rel.as_posix() for r in changed}
         sweep_hits = []
         for dp, dn, fn in os.walk(root):
             dn[:] = [d for d in dn if not _skip_dir(d)]
             for f in fn:
                 fp = Path(dp) / f
-                rel_str = str(fp.relative_to(root))
-                if rel_str in modified_set or f in (
-                    "bump-version.py",
-                    "test_bump_version.py",
+                rel = fp.relative_to(root)
+                rel_str = rel.as_posix()
+                if (
+                    rel_str in modified_set
+                    or f in DENYLIST_FILES
+                    or rel_str in DENYLIST_PATHS
                 ):
                     continue
                 try:

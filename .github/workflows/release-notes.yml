@@ -1,0 +1,154 @@
+name: Release Notes — Publish GitHub Release
+
+# Automates the release-notes half of Release Guide Step 1 after public
+# artifacts are available. It has historically been skipped more often than not:
+#
+#   v1.1.3  -> Release exists
+#   v1.1.1  -> tag exists, NO Release object
+#   v1.1.3-spark4.0 / -spark4.1 / -python3.* -> no Release object
+#
+# The gap is not cosmetic. GitHub anchors auto-generated notes to the previous
+# *Release*, not the previous tag, so v1.1.1 having no Release made v1.1.3's
+# notes span all of v1.1.1 + v1.1.3. This workflow computes the previous
+# primary tag itself and pins the diff base, so notes stay correct even when
+# an older Release object is missing.
+#
+# Only the primary vX.Y.Z tag gets a Release. The -spark*/-python* tags are
+# build pointers consumed by ADO pipelines, not separate products. This is
+# intentionally manual: publishing a GitHub Release on tag creation would make
+# the release visible before the ESRP-gated Maven and PyPI artifacts exist.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-notes-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  publish-release:
+    name: Publish GitHub Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Resolve version
+        id: v
+        env:
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$REF_NAME" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Run this workflow with a primary vX.Y.Z tag selected, got '$REF_NAME'."
+            exit 1
+          fi
+          echo "tag=$REF_NAME" >> "$GITHUB_OUTPUT"
+
+      # A release tag must describe a commit that is actually on master.
+      # Tagging a stale or side branch vX.Y.Z would publish notes for code that
+      # was never reviewed into the mainline.
+      - name: Verify the tag is on master
+        env:
+          TAG: ${{ steps.v.outputs.tag }}
+        run: |
+          set -euo pipefail
+          git fetch --quiet origin master
+          if ! git merge-base --is-ancestor "refs/tags/${TAG}" origin/master; then
+            echo "::error::${TAG} does not point at a commit contained in master. \
+          Refusing to publish a release for an off-mainline commit."
+            exit 1
+          fi
+
+      - name: Verify public artifacts are published
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.v.outputs.tag }}
+        run: |
+          set -euo pipefail
+          python3 scripts/release/verify_release.py \
+            --version "${TAG#v}" \
+            --skip ado
+
+      # Pick the highest primary tag strictly below this one. `sort -V` gives
+      # correct numeric ordering (v1.1.10 > v1.1.9), which a lexical sort does not.
+      - name: Determine previous release tag
+        id: prev
+        env:
+          TAG: ${{ steps.v.outputs.tag }}
+        run: |
+          set -euo pipefail
+          PREV=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' \
+                 | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+                 | sort -V \
+                 | awk -v cur="$TAG" '$0 == cur {exit} {last=$0} END {print last}')
+          if [ -z "$PREV" ]; then
+            echo "No earlier release tag found — notes will cover full history."
+          else
+            echo "Previous release: $PREV"
+          fi
+          echo "prev=$PREV" >> "$GITHUB_OUTPUT"
+
+      - name: Skip if the Release already exists
+        id: exists
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.v.outputs.tag }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — leaving it untouched."
+            echo "found=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate and publish release notes
+        if: steps.exists.outputs.found == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ steps.v.outputs.tag }}
+          PREV: ${{ steps.prev.outputs.prev }}
+        run: |
+          set -euo pipefail
+
+          ARGS=(-f tag_name="$TAG" -f target_commitish="$TAG")
+          if [ -n "$PREV" ]; then
+            ARGS+=(-f previous_tag_name="$PREV")
+          fi
+
+          NOTES=$(gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
+                    -X POST "${ARGS[@]}" --jq '.body')
+
+          VERSION="${TAG#v}"
+          {
+            echo "## Installation"
+            echo
+            echo '```bash'
+            echo "pip install synapseml==${VERSION}"
+            echo '```'
+            echo
+            echo "Maven coordinate: \`com.microsoft.azure:synapseml_2.12:${VERSION}\`"
+            echo
+            echo "| Spark | Python | Tag |"
+            echo "| --- | --- | --- |"
+            echo "| 3.5 | 3.11 | \`${TAG}-spark3.5\` |"
+            echo "| 4.0 | 3.12 | \`${TAG}-spark4.0\` |"
+            echo "| 4.1 | 3.13 | \`${TAG}-spark4.1\` |"
+            echo
+            echo "$NOTES"
+          } > notes.md
+
+          gh release create "$TAG" \
+            --repo "$GITHUB_REPOSITORY" \
+            --title "$TAG" \
+            --notes-file notes.md \
+            --verify-tag
+
+          echo "Published release $TAG (diff base: ${PREV:-<none>})"
