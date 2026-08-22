@@ -34,6 +34,10 @@ import scala.util.control.Breaks.{break, breakable}
 private[fabric] object FabricArtifactNames {
   private val SjdTimestampFormat = DateTimeFormatter.ofPattern("yyyyMMdd-HH-mm-ss")
   private val StoreTimestampFormat = DateTimeFormatter.ofPattern("yyyyMMddHHmmss")
+  private val TestSjdTimestampRegex =
+    """^.+-(\d{8})-(\d{2})-(\d{2})-(\d{2})(?:-[0-9a-fA-F]{32})?$""".r
+  private val TestStoreTimestampRegex =
+    """^(?:Environment|Lakehouse|Warehouse)(\d{14})(?:[0-9a-fA-F]{32})?$""".r
 
   def sjd(runName: String): String =
     sjd(runName, LocalDateTime.now(), UUID.randomUUID())
@@ -46,6 +50,17 @@ private[fabric] object FabricArtifactNames {
 
   private[fabric] def store(storeName: String, now: LocalDateTime, uniqueId: UUID): String =
     s"$storeName${StoreTimestampFormat.format(now)}${compact(uniqueId)}"
+
+  private[fabric] def createdAt(displayName: String): Option[LocalDateTime] = {
+    displayName match {
+      case TestSjdTimestampRegex(date, hour, minute, second) =>
+        Try(LocalDateTime.parse(s"$date-$hour-$minute-$second", SjdTimestampFormat)).toOption
+      case TestStoreTimestampRegex(timestamp) =>
+        Try(LocalDateTime.parse(timestamp, StoreTimestampFormat)).toOption
+      case _ =>
+        None
+    }
+  }
 
   private def compact(uniqueId: UUID): String = uniqueId.toString.replace("-", "")
 }
@@ -60,7 +75,7 @@ private[fabric] class FabricOperations(clientId: String, redirectUri: String, wo
   val storageContainer: String = "synapse-extension"
   val storageAccountData: String = "mmlspark"
   val storageContainerPublic: String = "publicwasb"
-  val platform: String = Secrets.Platform.toUpperCase
+  lazy val platform: String = Secrets.Platform.toUpperCase
 
   def createSJDArtifact(path: String): String = {
     createSJDArtifact(path, "SparkJobDefinition")

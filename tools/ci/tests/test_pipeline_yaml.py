@@ -281,6 +281,7 @@ def test_fabric_e2e_cleans_stale_artifacts_before_running_tests():
     data = yaml.safe_load(_pipeline_text())
     jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
     fabric_e2e = jobs["FabricE2E"]
+    assert fabric_e2e["cancelTimeoutInMinutes"] == 5
     e2e_steps = [
         step
         for step in fabric_e2e["steps"]
@@ -288,7 +289,30 @@ def test_fabric_e2e_cleans_stale_artifacts_before_running_tests():
     ]
     assert len(e2e_steps) == 1
 
-    script = e2e_steps[0]["inputs"]["inlineScript"]
+    templates = {
+        step["template"]
+        for step in fabric_e2e["steps"]
+        if isinstance(step, dict) and "template" in step
+    }
+    assert "templates/fabric_kv.yml" not in templates
+    assert "templates/kv.yml" not in templates
+    assert "templates/publish.yml" not in templates
+
+    e2e_step = e2e_steps[0]
+    assert e2e_step["task"] == "AzureCLI@2"
+    assert e2e_step["inputs"]["azureSubscription"] == "SynapseML Build"
+    assert e2e_step["env"]["INTEGRATION_AUTH_MODE"] == "azure-cli"
+    assert e2e_step["env"]["FABRIC_E2E_ENV"] == "$(FABRIC_E2E_ENV)"
+    assert (
+        e2e_step["env"]["FABRIC_E2E_OUTPUT_DIR"]
+        == "$(Build.ArtifactStagingDirectory)/fabric-e2e"
+    )
+    assert e2e_step["env"]["FABRIC_E2E_WORKSPACE"] == "$(FABRIC_E2E_WORKSPACE)"
+    assert "INTEGRATION_ACCOUNT" not in e2e_step["env"]
+    assert "INTEGRATION_CERTIFICATE" not in e2e_step["env"]
+    assert "INTEGRATION_WORKSPACE_PREFIX" not in e2e_step["env"]
+
+    script = e2e_step["inputs"]["inlineScript"]
     cleanup_command = (
         '"testOnly com.microsoft.azure.synapse.ml.nbtest.FabricTestCleanup"'
     )
@@ -296,10 +320,192 @@ def test_fabric_e2e_cleans_stale_artifacts_before_running_tests():
         '"testOnly com.microsoft.azure.synapse.ml.nbtest.FabricSmokeTests '
         'com.microsoft.azure.synapse.ml.nbtest.FabricNotebookTests"'
     )
+    package_command = '"core/packageBin"'
     assert script.count("sbt ") == 1
+    assert package_command in script
     assert cleanup_command in script
     assert test_command in script
+    assert script.index(package_command) < script.index(cleanup_command)
     assert script.index(cleanup_command) < script.index(test_command)
+    assert "fabric-spark-cli==0.1.20260807.5" in script
+    assert "fabric-spark-cli --version" in script
+    assert "unset PIP_INDEX_URL PIP_EXTRA_INDEX_URL" in script
+    assert "https://api.fabric.microsoft.com/v1/workspaces" in script
+    assert "--resource 'https://api.fabric.microsoft.com'" in script
+    assert 'export INTEGRATION_WORKSPACE_ID="${workspace_ids[0]}"' in script
+
+    feed_auth_steps = [
+        step
+        for step in fabric_e2e["steps"]
+        if isinstance(step, dict)
+        and step.get("displayName") == "Authenticate fabric-spark-cli feed"
+    ]
+    assert len(feed_auth_steps) == 1
+    assert feed_auth_steps[0]["task"] == "PipAuthenticate@1"
+    assert feed_auth_steps[0]["inputs"]["artifactFeeds"] == "A365/SynapseMaven"
+    assert fabric_e2e["steps"].index(feed_auth_steps[0]) < fabric_e2e["steps"].index(
+        e2e_step
+    )
+
+    evidence_steps = [
+        step
+        for step in fabric_e2e["steps"]
+        if isinstance(step, dict)
+        and step.get("displayName") == "Publish Fabric E2E evidence"
+    ]
+    assert len(evidence_steps) == 1
+    assert evidence_steps[0]["task"] == "PublishPipelineArtifact@1"
+    assert (
+        evidence_steps[0]["inputs"]["targetPath"]
+        == "$(Build.ArtifactStagingDirectory)/fabric-e2e"
+    )
+
+
+def test_fabric_e2e_runs_openai_prompt_with_exact_artifacts():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+    fabric_e2e = jobs["FabricE2E"]
+    openai_e2e = jobs["FabricOpenAIPromptE2E"]
+
+    assert not any(
+        isinstance(step, dict)
+        and step.get("displayName") == "Run OpenAIPrompt on Fabric"
+        for step in fabric_e2e["steps"]
+    )
+
+    assert openai_e2e["dependsOn"] == "BuildAndCacheSbt"
+    assert "System.PullRequest.IsFork" in openai_e2e["condition"]
+    assert "runFabricOpenAIPrompt" in openai_e2e["condition"]
+    assert openai_e2e["timeoutInMinutes"] >= 120
+    assert openai_e2e["cancelTimeoutInMinutes"] >= 5
+    assert {
+        step["template"]
+        for step in openai_e2e["steps"]
+        if isinstance(step, dict) and "template" in step
+    } >= {
+        "templates/sbt_cache.yml",
+        "templates/update_cli.yml",
+        "templates/conda.yml",
+    }
+
+    feed_auth_steps = [
+        step
+        for step in openai_e2e["steps"]
+        if isinstance(step, dict)
+        and step.get("displayName") == "Authenticate fabric-spark-cli feed"
+    ]
+    assert len(feed_auth_steps) == 1
+    feed_auth_step = feed_auth_steps[0]
+    assert feed_auth_step["task"] == "PipAuthenticate@1"
+    assert feed_auth_step["inputs"]["artifactFeeds"] == "A365/SynapseMaven"
+
+    openai_steps = [
+        step
+        for step in openai_e2e["steps"]
+        if isinstance(step, dict)
+        and step.get("displayName") == "Run OpenAIPrompt on Fabric"
+    ]
+    assert len(openai_steps) == 1
+    openai_step = openai_steps[0]
+    assert openai_step["task"] == "AzureCLI@2"
+    assert openai_step["inputs"]["azureSubscription"] == "SynapseML Build"
+    assert openai_e2e["steps"].index(feed_auth_step) < openai_e2e["steps"].index(
+        openai_step
+    )
+
+    script = openai_step["inputs"]["inlineScript"]
+    assert "sbt core/packageBin cognitive/packageBin" in script
+    assert "fabric-spark-cli==0.1.20260807.5" in script
+    assert "--pre" not in script
+    assert "az account get-access-token" not in script
+    assert "feed_token" not in script
+    assert data["variables"]["FABRIC_E2E_WORKSPACE"] == "DONT_DELETE_SynapseML_Build"
+    assert data["variables"]["FABRIC_E2E_ENV"] == "msit"
+    assert 'fabric_env="$FABRIC_E2E_ENV"' in script
+    assert 'workspace="$FABRIC_E2E_WORKSPACE"' in script
+    assert openai_step["env"]["FABRIC_E2E_ENV"] == "$(FABRIC_E2E_ENV)"
+    assert openai_step["env"]["FABRIC_E2E_WORKSPACE"] == ("$(FABRIC_E2E_WORKSPACE)")
+    assert "INTEGRATION_ENV" not in openai_step["env"]
+    assert "INTEGRATION_ACCOUNT" not in openai_step["env"]
+    assert "INTEGRATION_WORKSPACE_PREFIX" not in openai_step["env"]
+    assert "--scenario openai-prompt-ai-functions" in script
+    assert '--extra-jar "$core_jar"' in script
+    assert '--extra-jar "$cognitive_jar"' in script
+    assert "fabricOpenAIPromptAttempted]true" in script
+    assert "OPENAI_API_KEY" not in script
+    assert "AZURE_OPENAI_API_KEY" not in script
+
+    result_steps = [
+        step
+        for step in openai_e2e["steps"]
+        if isinstance(step, dict)
+        and step.get("displayName") == "Publish Fabric OpenAIPrompt Results"
+    ]
+    assert len(result_steps) == 1
+    assert result_steps[0]["task"] == "PublishTestResults@2"
+    assert result_steps[0]["inputs"]["testResultsFormat"] == "JUnit"
+    assert "fabricOpenAIPromptAttempted" in result_steps[0]["condition"]
+
+    artifact_steps = [
+        step
+        for step in openai_e2e["steps"]
+        if isinstance(step, dict)
+        and step.get("displayName") == "Publish Fabric OpenAIPrompt Evidence"
+    ]
+    assert len(artifact_steps) == 1
+    assert artifact_steps[0]["task"] == "PublishPipelineArtifact@1"
+    assert artifact_steps[0]["inputs"]["artifact"] == "fabric-openai-e2e"
+    assert "fabricOpenAIPromptAttempted" in artifact_steps[0]["condition"]
+
+
+def test_internal_scala_uses_cli_workspace_without_certificate():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+    internal = jobs["InternalCompat"]
+
+    assert not any(
+        isinstance(step, dict)
+        and (
+            step.get("template") == "templates/fabric_kv.yml"
+            or step.get("displayName") == "Fetch AI service secrets"
+        )
+        for step in internal["steps"]
+    )
+
+    scala_steps = [
+        step
+        for step in internal["steps"]
+        if isinstance(step, dict)
+        and step.get("displayName") == "Run Internal Scala tests"
+    ]
+    assert len(scala_steps) == 1
+    scala_step = scala_steps[0]
+    assert scala_step["task"] == "AzureCLI@2"
+    assert scala_step["inputs"]["azureSubscription"] == "SynapseML Build"
+    assert scala_step["env"]["INTEGRATION_AUTH_MODE"] == "azure-cli"
+    assert scala_step["env"]["FABRIC_E2E_WORKSPACE"] == "$(FABRIC_E2E_WORKSPACE)"
+    assert "INTEGRATION_ACCOUNT" not in scala_step["env"]
+    assert "INTEGRATION_CERTIFICATE" not in scala_step["env"]
+    assert "INTEGRATION_WORKSPACE_PREFIX" not in scala_step["env"]
+
+    script = scala_step["inputs"]["inlineScript"]
+    assert "https://api.fabric.microsoft.com/v1/workspaces" in script
+    assert "--resource 'https://api.fabric.microsoft.com'" in script
+    assert 'export INTEGRATION_WORKSPACE_ID="${workspace_ids[0]}"' in script
+    assert (
+        'export JAVA_TOOL_OPTIONS="$JAVA_TOOL_OPTIONS '
+        '-DINTEGRATION_AUTH_MODE=$INTEGRATION_AUTH_MODE"' in script
+    )
+    assert (
+        'export JAVA_TOOL_OPTIONS="$JAVA_TOOL_OPTIONS '
+        '-DINTEGRATION_WORKSPACE_ID=$INTEGRATION_WORKSPACE_ID"' in script
+    )
+    sbt_options = next(
+        line.strip()
+        for line in script.splitlines()
+        if line.strip().startswith("export SBT_OPTS=")
+    )
+    assert "INTEGRATION_WORKSPACE_ID" not in sbt_options
 
 
 def test_release_compat_accepts_github_target_and_uses_one_sbt_process():

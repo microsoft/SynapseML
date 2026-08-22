@@ -33,4 +33,35 @@ class FabricArtifactNamesSuite extends AnyFunSuite {
       FabricArtifactNames.store("Lakehouse", testTime, testId) !=
         FabricArtifactNames.store("Lakehouse", testTime, otherTestId))
   }
+
+  test("Recover creation timestamps from controlled artifact names") {
+    assert(
+      FabricArtifactNames.createdAt(
+        "OnePlusOne-20260809-02-18-35-0123456789abcdef0123456789abcdef"
+      ).contains(testTime))
+    assert(
+      FabricArtifactNames.createdAt(
+        "Lakehouse202608090218350123456789abcdef0123456789abcdef"
+      ).contains(testTime))
+    assert(
+      FabricArtifactNames.createdAt(
+        "Environment202608090218350123456789abcdef0123456789abcdef"
+      ).contains(testTime))
+    assert(
+      FabricArtifactNames.createdAt(
+        "OnePlusOne-20260809-02-18-35"
+      ).contains(testTime))
+    assert(
+      FabricArtifactNames.createdAt(
+        "Lakehouse20260809021835"
+      ).contains(testTime))
+  }
+
+  test("Reject missing and invalid artifact timestamps") {
+    assert(FabricArtifactNames.createdAt("OnePlusOne").isEmpty)
+    assert(
+      FabricArtifactNames.createdAt(
+        "OnePlusOne-20261340-02-18-35-0123456789abcdef0123456789abcdef"
+      ).isEmpty)
+  }
 }

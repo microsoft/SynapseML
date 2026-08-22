@@ -5,18 +5,26 @@ package com.microsoft.azure.synapse.ml.nbtest
 
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import com.microsoft.azure.synapse.ml.fabric.{FabricTestConstants, HasFabricOperationsConnection}
+import com.microsoft.azure.synapse.ml.fabric.{
+  FabricAzureCliTestConfiguration,
+  FabricTestConstants,
+  HasFabricOperationsConnection
+}
 
 import java.io.{File, PrintWriter}
 import java.time.LocalDateTime
 import java.util.concurrent.{ExecutorService, Executors, TimeUnit}
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future, blocking}
+import scala.util.control.NonFatal
 
 trait HasFabricNotebookTestConnection extends HasFabricOperationsConnection {
   fabricClientId = Some(FabricTestConstants.INTEGRATION_APP_ID)
   fabricRedirectUri = Some(FabricTestConstants.INTEGRATION_REDIRECT_URI)
-  fabricWorkspaceId = Some(FabricTestConstants.INTEGRATION_WORKSPACE_ID)
+  fabricWorkspaceId = Some(
+    FabricAzureCliTestConfiguration.integrationWorkspaceId(
+      FabricTestConstants.INTEGRATION_WORKSPACE_ID))
 
   private val artifactTracker =
     new FabricTestArtifactTracker(artifactId => fabric.deleteArtifact(artifactId))
@@ -148,8 +156,9 @@ class FabricNotebookTests extends TestBase with HasFabricNotebookTestConnection 
 
   override def afterAll(): Unit = {
     try {
-      FabricNotebookTests.shutdownExecutor(executorService)
-      cleanupTrackedArtifacts()
+      FabricNotebookTests.shutdownAndCleanup(
+        FabricNotebookTests.shutdownExecutor(executorService),
+        cleanupTrackedArtifacts())
     } finally {
       super.afterAll()
     }
@@ -169,15 +178,16 @@ object FabricNotebookTests {
     "ExploreAlgorithmsRegressionQuickstartTrainRegressor",
     "ExploreAlgorithmsCausalInferenceQuickstartMeasureCausalEffects",
     "ExploreAlgorithmsResponsibleAIQuickstartDataBalanceAnalysis"
-    // TODO: investigate InvalidPyFiles failures on Fabric SJDs:
+    // TODO: investigate these failures on Fabric batch jobs:
     // "ExploreAlgorithmsLightGBMQuickstartClassificationRankingandRegression",
     // "ExploreAlgorithmsVowpalWabbitQuickstartClassificationQuantileRegressionandRegression",
     // "ExploreAlgorithmsVowpalWabbitQuickstartClassificationusingSparkMLVectors",
   )
 
-  private val ExecutorShutdownTimeoutSeconds = 30L
+  private val ExecutorShutdownTimeoutSeconds = 150L
   private val UniqueArtifactId = "[0-9a-fA-F]{32}"
-  private val StoreArtifactName = s"^(Lakehouse|Warehouse)\\d{14}(?:$UniqueArtifactId)?$$".r
+  private val StoreArtifactName =
+    s"^(Environment|Lakehouse|Warehouse)\\d{14}(?:$UniqueArtifactId)?$$".r
   private val SJDArtifactName =
     s"^(.+)-\\d{8}-\\d{2}-\\d{2}-\\d{2}(?:-$UniqueArtifactId)?$$".r
   private val TestSJDNames = (IncludedNotebooks :+ "OnePlusOne").toSet
@@ -202,6 +212,34 @@ object FabricNotebookTests {
         executorService.shutdownNow()
         Thread.currentThread().interrupt()
         throw e
+    }
+  }
+
+  private[nbtest] def shutdownAndCleanup(shutdown: => Unit, cleanup: => Unit): Unit = {
+    val failures = ListBuffer.empty[Throwable]
+    var interrupted = false
+    try {
+      shutdown
+    } catch {
+      case error: InterruptedException =>
+        interrupted = true
+        failures += error
+      case NonFatal(error) => failures += error
+    }
+    try {
+      cleanup
+    } catch {
+      case error: InterruptedException =>
+        interrupted = true
+        failures += error
+      case NonFatal(error) => failures += error
+    }
+    if (interrupted) {
+      Thread.currentThread().interrupt()
+    }
+    failures.headOption.foreach { failure =>
+      failures.tail.foreach(failure.addSuppressed)
+      throw failure
     }
   }
 

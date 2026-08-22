@@ -103,6 +103,10 @@ variables:
   SYNAPSEML_GPU_SMOKE_TESTS: $[eq(variables['Build.Reason'], 'PullRequest')]
   # Run coverage only on PRs, master, or tag builds to speed up feature branch builds
   runCoverage: $[or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))]
+  # Fabric E2E gates currently target the Spark 3.5 Fabric workspace.
+  runFabricOpenAIPrompt: $[or(eq(variables['Build.SourceBranch'], 'refs/heads/master'), eq(variables['Build.SourceBranch'], 'refs/heads/spark3.5'), eq(variables['System.PullRequest.TargetBranch'], 'refs/heads/master'), eq(variables['System.PullRequest.TargetBranch'], 'refs/heads/spark3.5'), eq(variables['System.PullRequest.TargetBranch'], 'master'), eq(variables['System.PullRequest.TargetBranch'], 'spark3.5'))]
+  FABRIC_E2E_ENV: msit
+  FABRIC_E2E_WORKSPACE: DONT_DELETE_SynapseML_Build
 
 jobs:
 - job: BuildAndCacheSbt
@@ -313,16 +317,21 @@ jobs:
   displayName: 'Fabric E2E'
   condition: and(succeeded(), eq('${{ parameters.testFabricE2E }}', true))
   timeoutInMinutes: 120
-  cancelTimeoutInMinutes: 0
+  cancelTimeoutInMinutes: 5
   pool:
     vmImage: $(UBUNTU_VERSION)
   steps:
     - template: templates/sbt_cache.yml
     - template: templates/update_cli.yml
     - template: templates/conda.yml
-    - template: templates/kv.yml
-    - template: templates/fabric_kv.yml
-    - template: templates/publish.yml
+    - bash: mkdir -p '$(Build.ArtifactStagingDirectory)/fabric-e2e'
+      displayName: 'Prepare Fabric E2E evidence'
+      condition: and(succeeded(), eq(variables.runTests, 'True'))
+    - task: PipAuthenticate@1
+      displayName: 'Authenticate fabric-spark-cli feed'
+      inputs:
+        artifactFeeds: 'A365/SynapseMaven'
+      condition: and(succeeded(), eq(variables.runTests, 'True'))
     - task: AzureCLI@2
       displayName: 'E2E'
       inputs:
@@ -330,16 +339,41 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
-          set -e
+          set -eo pipefail
+          artifact_root='$(Build.ArtifactStagingDirectory)/fabric-e2e'
+          mkdir -p "$artifact_root"
           source activate synapseml
+          set -u
+
+          export PIP_DISABLE_PIP_VERSION_CHECK=1
+          python -m pip install --quiet \
+            'fabric-spark-cli==0.1.20260807.5'
+          unset PIP_INDEX_URL PIP_EXTRA_INDEX_URL
+          fabric-spark-cli --version
+
+          mapfile -t workspace_ids < <(
+            az rest \
+              --method get \
+              --url 'https://api.fabric.microsoft.com/v1/workspaces' \
+              --resource 'https://api.fabric.microsoft.com' \
+              --query "value[?displayName == '$FABRIC_E2E_WORKSPACE'].id" \
+              --output tsv
+          )
+          if [ "${#workspace_ids[@]}" -ne 1 ]; then
+            echo "Expected exactly one Fabric workspace named '$FABRIC_E2E_WORKSPACE'; found ${#workspace_ids[@]}." >&2
+            exit 1
+          fi
+          export INTEGRATION_WORKSPACE_ID="${workspace_ids[0]}"
+
           sbt \
+            "core/packageBin" \
             "testOnly com.microsoft.azure.synapse.ml.nbtest.FabricTestCleanup" \
             "testOnly com.microsoft.azure.synapse.ml.nbtest.FabricSmokeTests com.microsoft.azure.synapse.ml.nbtest.FabricNotebookTests"
       env:
-        INTEGRATION_ENV: $(sempy-integration-region)
-        INTEGRATION_ACCOUNT: $(sempy-integration-account)
-        INTEGRATION_CERTIFICATE: $(sempy-integration-certificate)
-        INTEGRATION_WORKSPACE_PREFIX: $(sempy-integration-workspace-prefix)
+        FABRIC_E2E_ENV: $(FABRIC_E2E_ENV)
+        FABRIC_E2E_OUTPUT_DIR: $(Build.ArtifactStagingDirectory)/fabric-e2e
+        FABRIC_E2E_WORKSPACE: $(FABRIC_E2E_WORKSPACE)
+        INTEGRATION_AUTH_MODE: azure-cli
       condition: and(succeeded(), eq(variables.runTests, 'True'))
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
@@ -347,6 +381,108 @@ jobs:
         testResultsFiles: '**/test-reports/TEST-*.xml'
         failTaskOnFailedTests: true
       condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish Fabric E2E evidence'
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)/fabric-e2e'
+        artifact: 'fabric-e2e-$(System.JobAttempt)'
+      condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
+#
+- job: FabricOpenAIPromptE2E
+  dependsOn: BuildAndCacheSbt
+  displayName: 'Fabric OpenAIPrompt E2E'
+  condition: and(succeeded(), eq('${{ parameters.testFabricE2E }}', true), eq(variables.runTests, 'True'), eq(variables.runFabricOpenAIPrompt, true), ne(variables['System.PullRequest.IsFork'], 'True'))
+  timeoutInMinutes: 120
+  cancelTimeoutInMinutes: 5
+  pool:
+    vmImage: $(UBUNTU_VERSION)
+  steps:
+    - template: templates/sbt_cache.yml
+    - template: templates/update_cli.yml
+    - template: templates/conda.yml
+    - task: PipAuthenticate@1
+      displayName: 'Authenticate fabric-spark-cli feed'
+      inputs:
+        artifactFeeds: 'A365/SynapseMaven'
+    - task: AzureCLI@2
+      displayName: 'Run OpenAIPrompt on Fabric'
+      timeoutInMinutes: 45
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          set -eo pipefail
+          artifact_root='$(Build.ArtifactStagingDirectory)/fabric-openai-e2e'
+          mkdir -p "$artifact_root"
+          echo "##vso[task.setvariable variable=fabricOpenAIPromptAttempted]true"
+          source activate synapseml
+          set -u
+
+          sbt core/packageBin cognitive/packageBin
+
+          resolve_module_jar() {
+            local module="$1"
+            local artifact="$2"
+            local -a matches
+            mapfile -t matches < <(
+              find "$module/target" -type f -name "${artifact}_*.jar" \
+                ! -name '*-sources.jar' \
+                ! -name '*-javadoc.jar' \
+                ! -name '*-tests.jar' \
+                ! -name '*-assembly*.jar' |
+                sort
+            )
+            if [ "${#matches[@]}" -ne 1 ]; then
+              echo "Expected exactly one $artifact package jar, found ${#matches[@]}:" >&2
+              printf '  %s\n' "${matches[@]}" >&2
+              return 1
+            fi
+            printf '%s\n' "${matches[0]}"
+          }
+
+          core_jar="$(resolve_module_jar core synapseml-core)"
+          cognitive_jar="$(resolve_module_jar cognitive synapseml-cognitive)"
+
+          export PIP_DISABLE_PIP_VERSION_CHECK=1
+          python -m pip install --quiet \
+            'fabric-spark-cli==0.1.20260807.5'
+          unset PIP_INDEX_URL PIP_EXTRA_INDEX_URL
+          fabric-spark-cli --version
+
+          workspace="$FABRIC_E2E_WORKSPACE"
+          fabric_env="$FABRIC_E2E_ENV"
+          output_dir="$artifact_root/run"
+          if [ -e "$output_dir" ]; then
+            echo "Fabric evidence output already exists: $output_dir" >&2
+            exit 1
+          fi
+
+          python tools/fabric_e2e/run.py \
+            --scenario openai-prompt-ai-functions \
+            --workspace "$workspace" \
+            --env "$fabric_env" \
+            --source-repo '$(Build.SourcesDirectory)' \
+            --output-dir "$output_dir" \
+            --extra-jar "$core_jar" \
+            --extra-jar "$cognitive_jar"
+      env:
+        FABRIC_E2E_ENV: $(FABRIC_E2E_ENV)
+        FABRIC_E2E_WORKSPACE: $(FABRIC_E2E_WORKSPACE)
+    - task: PublishTestResults@2
+      displayName: 'Publish Fabric OpenAIPrompt Results'
+      inputs:
+        testResultsFormat: JUnit
+        testResultsFiles: '$(Build.ArtifactStagingDirectory)/fabric-openai-e2e/**/junit.xml'
+        testRunTitle: 'Fabric OpenAIPrompt E2E'
+        failTaskOnFailedTests: true
+      condition: and(succeededOrFailed(), eq(variables.fabricOpenAIPromptAttempted, 'true'))
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish Fabric OpenAIPrompt Evidence'
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)/fabric-openai-e2e'
+        artifact: 'fabric-openai-e2e'
+      condition: and(succeededOrFailed(), eq(variables.fabricOpenAIPromptAttempted, 'true'))
 #
 - job: BuildDocker
   dependsOn: BuildAndCacheSbt
@@ -1726,25 +1862,6 @@ jobs:
       # packages this job's Scala lane runs, and that lane already exports
       # CREATE_SEMPY_WRITER=false, which is the non-conda path in Internal's template.
       condition: and(succeeded(), eq(variables['COMPAT_LANE'], 'python'))
-    - task: AzureKeyVault@2
-      displayName: 'Fetch AI service secrets'
-      # Scala lane only. 'Run Internal Scala tests' is the sole consumer -- it maps the
-      # four sempy-integration-* values into its env block. Nothing in the Python lane
-      # reads them: ADO exposes Key Vault values as secret variables, which are never
-      # auto-exported into a script's environment, and the Python steps declare no env
-      # block. sbt's own project/Secrets.scala is inert here too (every accessor is
-      # behind SYNAPSEML_ENABLE_PUBLISH, unset in this job) and shells out to az
-      # directly rather than reading these variables. Fetching them in the Python lane
-      # would therefore materialise a certificate and this vault's secrets on an agent
-      # that never uses them.
-      condition: and(succeeded(), eq(variables['COMPAT_LANE'], 'scala'))
-      retryCountOnTaskFailure: 3
-      inputs:
-        azureSubscription: 'SynapseML Build'
-        keyVaultName: mmlspark-keys
-    - template: templates/fabric_kv.yml
-      parameters:
-        condition: and(succeeded(), eq(variables['COMPAT_LANE'], 'scala'))
     - task: AzureCLI@2
       displayName: 'Run Internal Scala tests'
       timeoutInMinutes: 60
@@ -1754,8 +1871,27 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
-          set -e
+          set -eo pipefail
           cd $(Agent.BuildDirectory)/s-internal
+          mapfile -t workspace_ids < <(
+            az rest \
+              --method get \
+              --url 'https://api.fabric.microsoft.com/v1/workspaces' \
+              --resource 'https://api.fabric.microsoft.com' \
+              --query "value[?displayName == '$FABRIC_E2E_WORKSPACE'].id" \
+              --output tsv
+          )
+          if [ "${#workspace_ids[@]}" -ne 1 ]; then
+            echo "Expected exactly one Fabric workspace named '$FABRIC_E2E_WORKSPACE'; found ${#workspace_ids[@]}." >&2
+            exit 1
+          fi
+          export INTEGRATION_WORKSPACE_ID="${workspace_ids[0]}"
+          # Internal's test task does not reliably preserve task environment
+          # variables or SBT_OPTS in child JVMs. JAVA_TOOL_OPTIONS is inherited
+          # by both the sbt launcher and every test JVM it starts.
+          export JAVA_TOOL_OPTIONS="$JAVA_TOOL_OPTIONS -DINTEGRATION_AUTH_MODE=$INTEGRATION_AUTH_MODE"
+          export JAVA_TOOL_OPTIONS="$JAVA_TOOL_OPTIONS -DINTEGRATION_WORKSPACE_ID=$INTEGRATION_WORKSPACE_ID"
+
           # The conda env is built only in the Python lane (see 'Create Internal conda
           # env'), so activate it only when it is actually present rather than assuming
           # it exists. sbt and the three packages tested below run on the agent's default
@@ -1805,10 +1941,8 @@ jobs:
             exit 1
           fi
       env:
-        INTEGRATION_ENV: $(sempy-integration-region)
-        INTEGRATION_ACCOUNT: $(sempy-integration-account)
-        INTEGRATION_CERTIFICATE: $(sempy-integration-certificate)
-        INTEGRATION_WORKSPACE_PREFIX: $(sempy-integration-workspace-prefix)
+        FABRIC_E2E_WORKSPACE: $(FABRIC_E2E_WORKSPACE)
+        INTEGRATION_AUTH_MODE: azure-cli
     - task: AzureCLI@2
       displayName: 'Package Internal Python against OSS'
       timeoutInMinutes: 15
