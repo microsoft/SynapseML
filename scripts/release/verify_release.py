@@ -57,21 +57,23 @@ OK, MISSING, SKIPPED = "PRESENT", "MISSING", "SKIPPED"
 def _get_ado_token(explicit: Optional[str]) -> str:
     if explicit:
         return explicit
+    command = [
+        "az",
+        "account",
+        "get-access-token",
+        "--resource",
+        ADO_RESOURCE,
+        "--query",
+        "accessToken",
+        "-o",
+        "tsv",
+    ]
+    use_shell = sys.platform == "win32"
     out = subprocess.run(
-        [
-            "az",
-            "account",
-            "get-access-token",
-            "--resource",
-            ADO_RESOURCE,
-            "--query",
-            "accessToken",
-            "-o",
-            "tsv",
-        ],
+        subprocess.list2cmdline(command) if use_shell else command,
         capture_output=True,
         text=True,
-        shell=(sys.platform == "win32"),
+        shell=use_shell,
     )
     if out.returncode != 0:
         raise RuntimeError(f"could not get ADO token: {out.stderr.strip()}")
