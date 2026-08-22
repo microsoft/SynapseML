@@ -67,8 +67,10 @@ python tools/fabric_e2e/run.py \
   --scenario-args --repetitions 20
 ```
 
-The scenario reports executor addresses and configured executor cores. Do not
-claim multi-core coverage if that evidence does not show the intended topology.
+The scenario reports Spark block-manager addresses (which can include the
+driver) and configured executor cores. Do not infer executor count from the
+block-manager list or claim multi-core coverage unless the remaining evidence
+shows the intended topology.
 
 ## `openai-prompt-ai-functions`
 

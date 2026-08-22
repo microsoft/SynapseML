@@ -98,6 +98,8 @@ def test_lightgbm_scenario_exercises_streaming_validation_path():
     assert "model = learner.fit(dataset)" in source
     assert "prediction_count == args.rows" in source
     assert "finally:\n    dataset.unpersist()" in source
+    assert '"blockManagerAddresses": block_manager_addresses(spark)' in source
+    assert "executorAddresses" not in source
 
 
 def test_lightgbm_native_mapping_keeps_deleted_path_suffix():

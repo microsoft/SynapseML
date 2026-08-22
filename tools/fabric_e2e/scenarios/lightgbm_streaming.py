@@ -24,7 +24,7 @@ def class_source(spark_session, class_name):
     )
 
 
-def executor_addresses(spark_session):
+def block_manager_addresses(spark_session):
     iterator = (
         spark_session.sparkContext._jsc.sc().getExecutorMemoryStatus().keysIterator()
     )
@@ -180,7 +180,7 @@ finally:
 
 evidence = {
     **diagnostics,
-    "executorAddresses": executor_addresses(spark),
+    "blockManagerAddresses": block_manager_addresses(spark),
     "executorCores": spark.conf.get("spark.executor.cores", "unknown"),
     "partitions": args.partitions,
     "predictionCounts": prediction_counts,
