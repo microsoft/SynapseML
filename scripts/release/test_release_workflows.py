@@ -18,6 +18,7 @@ def test_release_notes_is_manual_and_artifact_gated():
     assert "\n  push:" not in trigger
     assert "--skip ado" in workflow
     assert "--targets master" not in workflow
+    assert "python3 scripts/release/verify_release.py" in workflow
     assert 'target_commitish="$TAG"' in workflow
 
 
@@ -29,6 +30,9 @@ def test_release_prepare_tags_merged_commit_and_dispatches_orchestrator():
     assert 'git tag "$TAG" "$MERGED_SHA"' in workflow
     assert 'gh workflow run release-tag.yml --ref "v${VERSION}"' in workflow
     assert "gh workflow run release-notes.yml" not in workflow
+    assert (
+        "curl --fail --show-error --location --retry 3 --retry-all-errors" in workflow
+    )
 
 
 def test_generated_release_pr_receives_dispatched_validation():

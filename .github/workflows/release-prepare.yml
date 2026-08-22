@@ -102,7 +102,8 @@ jobs:
         run: |
           SBT_VERSION="$(sed -n 's/^sbt.version *= *//p' project/build.properties | tr -d ' ')"
           mkdir -p "$HOME/.local/bin"
-          curl -L -o "$HOME/.local/bin/sbt-launch.jar" \
+          curl --fail --show-error --location --retry 3 --retry-all-errors \
+            --output "$HOME/.local/bin/sbt-launch.jar" \
             "https://repo1.maven.org/maven2/org/scala-sbt/sbt-launch/${SBT_VERSION}/sbt-launch-${SBT_VERSION}.jar"
           cat > "$HOME/.local/bin/sbt" <<EOF
           #!/usr/bin/env bash

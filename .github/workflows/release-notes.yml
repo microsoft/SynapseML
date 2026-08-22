@@ -72,7 +72,7 @@ jobs:
           TAG: ${{ steps.v.outputs.tag }}
         run: |
           set -euo pipefail
-          python scripts/release/verify_release.py \
+          python3 scripts/release/verify_release.py \
             --version "${TAG#v}" \
             --skip ado
 
