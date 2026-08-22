@@ -1,11 +1,13 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
+import sys
 from pathlib import Path
 
 import pytest
 
-import bump_bbcvhd as bump
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import bump_bbcvhd as bump  # noqa: E402
 
 
 def make_component(

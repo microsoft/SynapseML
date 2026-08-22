@@ -2,12 +2,15 @@
 # Licensed under the MIT License.
 
 import json
+import os
+import sys
 import urllib.error
 import urllib.parse
 
 import pytest
 
-import verify_release as verify
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import verify_release as verify  # noqa: E402
 
 
 class FakeResponse:
