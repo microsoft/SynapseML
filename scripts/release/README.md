@@ -78,6 +78,12 @@ export ADO_TOKEN="$(az account get-access-token \
 Set `GH_TOKEN` to raise the GitHub API rate limit. Use `--skip ado` for the
 public-only precondition that gates GitHub Release publication.
 
+`--skip` values can select a source, artifact family, or release scope:
+`github` skips OSS tags; `ado` skips Internal tags and every ADO-backed
+artifact; `upack` and `pip` skip those artifact families; `internal` skips
+Internal tags, UPacks, and wheels while retaining OSS checks; and `public`
+skips the Maven CDN and PyPI publication gates. Multiple values are combined.
+
 ## Updating BBC-VHD
 
 ```bash
