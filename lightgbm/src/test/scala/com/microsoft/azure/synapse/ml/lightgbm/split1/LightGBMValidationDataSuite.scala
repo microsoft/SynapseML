@@ -44,7 +44,7 @@ class LightGBMValidationDataSuite extends LightGBMTestUtils {
     val featureCount = 4096
     val nonZeroCount = 1024
     val rowCount = 256L
-    val partitionCount = 4
+    val partitionCount = 2
     val validationCol = "isValidation"
     val featuresCol = "features"
     val labelCol = "label"
@@ -129,7 +129,7 @@ class LightGBMValidationDataSuite extends LightGBMTestUtils {
   }
 
   private def validateBulkMode(useSingleDatasetMode: Boolean): Unit = {
-    val partitionCount = 4
+    val partitionCount = 2
     val sparseFeatures = udf { id: Long =>
       Vectors.sparse(64, Array((id % 64).toInt), Array(1.0))
     }
