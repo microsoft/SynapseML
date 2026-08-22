@@ -1896,7 +1896,7 @@ jobs:
             conda activate synapseml-internal
           fi
           export CREATE_SEMPY_WRITER=false
-          export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
+          export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT -DINTEGRATION_WORKSPACE_ID=$INTEGRATION_WORKSPACE_ID"
           echo "Running Internal tests against OSS $OSS_VERSION..."
           # Only the reproducible packages run here. They exercise Internal code against
           # the OSS API surface, so a failure is most often a genuine break. They are not

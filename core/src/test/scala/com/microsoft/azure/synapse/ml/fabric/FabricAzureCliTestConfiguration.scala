@@ -17,6 +17,8 @@ private[ml] object FabricAzureCliTestConfiguration {
     "https://analysis.windows.net/powerbi/api/.default"
   private[fabric] val DefaultFabricScope: String =
     "https://api.fabric.microsoft.com/.default"
+  private val AuthModeKey = "INTEGRATION_AUTH_MODE"
+  private val WorkspaceIdKey = "INTEGRATION_WORKSPACE_ID"
   private val WorkspaceIdPattern =
     "(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$".r
   private var AzureCliTokenMap: Map[String, String] = Map.empty
@@ -30,14 +32,21 @@ private[ml] object FabricAzureCliTestConfiguration {
   }
 
   private[ml] def configuredIntegrationWorkspaceId: Option[String] = {
-    configuredIntegrationWorkspaceId(sys.env)
+    configuredIntegrationWorkspaceId(sys.env, sys.props.toMap)
   }
 
   private[fabric] def configuredIntegrationWorkspaceId(
       environment: Map[String, String]): Option[String] = {
-    val explicitWorkspaceId = environment.get("INTEGRATION_WORKSPACE_ID")
+    configuredIntegrationWorkspaceId(environment, Map.empty)
+  }
+
+  private[fabric] def configuredIntegrationWorkspaceId(
+      environment: Map[String, String],
+      properties: Map[String, String]): Option[String] = {
+    val explicitWorkspaceId = properties.get(WorkspaceIdKey).orElse(environment.get(WorkspaceIdKey))
     val requireExplicitWorkspaceId =
-      resolveAuthenticationMode(environment.get("INTEGRATION_AUTH_MODE")) == AzureCliAuthMode
+      resolveAuthenticationMode(properties.get(AuthModeKey).orElse(environment.get(AuthModeKey))) ==
+        AzureCliAuthMode
 
     if (explicitWorkspaceId.isDefined || requireExplicitWorkspaceId) {
       Some(resolveIntegrationWorkspaceId(
@@ -53,9 +62,9 @@ private[ml] object FabricAzureCliTestConfiguration {
       environment: Map[String, String],
       discoveredWorkspaceId: => String): String = {
     resolveIntegrationWorkspaceId(
-      environment.get("INTEGRATION_WORKSPACE_ID"),
+      environment.get(WorkspaceIdKey),
       discoveredWorkspaceId,
-      resolveAuthenticationMode(environment.get("INTEGRATION_AUTH_MODE")) == AzureCliAuthMode)
+      resolveAuthenticationMode(environment.get(AuthModeKey)) == AzureCliAuthMode)
   }
 
   private[fabric] def getAccessToken(clientId: String,

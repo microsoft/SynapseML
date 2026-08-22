@@ -73,6 +73,19 @@ class FabricAuthenticationSuite extends AnyFunSuite {
     assert(resolved.isEmpty)
   }
 
+  test("Fabric test constants use a JVM workspace override without discovery") {
+    val key = "INTEGRATION_WORKSPACE_ID"
+    val previousValue = sys.props.put(key, workspaceId)
+    try {
+      assert(FabricTestConstants.getIntegrationWorkspaceId() == workspaceId)
+    } finally {
+      previousValue match {
+        case Some(value) => sys.props.put(key, value)
+        case None => sys.props.remove(key)
+      }
+    }
+  }
+
   test("Discover a workspace ID when no explicit ID is configured") {
     assert(
       FabricAzureCliTestConfiguration.resolveIntegrationWorkspaceId(None, workspaceId) ==
