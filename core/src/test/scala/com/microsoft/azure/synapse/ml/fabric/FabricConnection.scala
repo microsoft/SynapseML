@@ -34,7 +34,12 @@ trait HasFabricOperationsConnection extends HasFabricConnection {
     (fabricClientId, fabricRedirectUri, fabricWorkspaceId) match {
       case (Some(cid), Some(uri), Some(wid)) =>
         println(s"Connecting to Fabric with ClientId: $cid, RedirectUri: $uri, WorkspaceId: $wid")
-        new FabricOperations(cid, uri, wid)
+        FabricAzureCliTestConfiguration.authenticationMode match {
+          case FabricAzureCliTestConfiguration.AzureCliAuthMode =>
+            new FabricPublicOperations(cid, uri, wid)
+          case FabricAzureCliTestConfiguration.CredentialAuthMode =>
+            new FabricOperations(cid, uri, wid)
+        }
       case _ =>
         throw new IllegalArgumentException(
           "ClientId, RedirectUri and WorkspaceId must be provided when using FabricOperations")
@@ -46,7 +51,7 @@ private[fabric] class FabricConnection(clientId: String, redirectUri: String)
   extends FabricAuthenticatedHttpClient(clientId, redirectUri) {
   val uxHost: String = "http://app.powerbi.com"
   lazy val accessToken: String = getAccessToken(clientId, redirectUri)
-  val sspHost: String = {
+  lazy val sspHost: String = {
     var value = getRequest(
       "https://api.powerbi.com/powerbi/globalservice/v201606/clusterdetails"
     ).convertTo[ClusterDetails].clusterUrl
@@ -54,15 +59,15 @@ private[fabric] class FabricConnection(clientId: String, redirectUri: String)
       value += "/"
     value
   }
-  val authHeader: String = s"Bearer $accessToken"
+  lazy val authHeader: String = s"Bearer $accessToken"
 }
 
 private[fabric] class FabricInternalConnection(
   clientId: String, redirectUri: String, workspaceIdGuid: String)
   extends FabricConnection(clientId, redirectUri) {
   val workspaceId: String = workspaceIdGuid
-  val metadataUri: String = s"$sspHost/metadata"
-  val artifactsUri: String = s"$metadataUri/workspaces/$workspaceIdGuid/artifacts"
+  lazy val metadataUri: String = s"$sspHost/metadata"
+  lazy val artifactsUri: String = s"$metadataUri/workspaces/$workspaceIdGuid/artifacts"
   def getMWCToken(capacityId: String, workspaceId: String,
                   artifactId: String, workloadType: String): String =
     FabricTokenProvider.getMWCToken(

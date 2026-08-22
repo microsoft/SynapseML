@@ -10,37 +10,46 @@ class FabricAuthenticationSuite extends AnyFunSuite {
 
   test("Default to credential authentication") {
     assert(
-      FabricTokenProvider.resolveAuthenticationMode(None) ==
-        FabricTokenProvider.CredentialAuthMode)
+      FabricAzureCliTestConfiguration.resolveAuthenticationMode(None) ==
+        FabricAzureCliTestConfiguration.CredentialAuthMode)
   }
 
   test("Normalize Azure CLI authentication mode") {
     assert(
-      FabricTokenProvider.resolveAuthenticationMode(Some(" Azure-CLI ")) ==
-        FabricTokenProvider.AzureCliAuthMode)
+      FabricAzureCliTestConfiguration.resolveAuthenticationMode(Some(" Azure-CLI ")) ==
+        FabricAzureCliTestConfiguration.AzureCliAuthMode)
   }
 
   test("Reject an unsupported authentication mode") {
     val error = intercept[IllegalArgumentException] {
-      FabricTokenProvider.resolveAuthenticationMode(Some("token"))
+      FabricAzureCliTestConfiguration.resolveAuthenticationMode(Some("token"))
     }
     assert(error.getMessage.contains("INTEGRATION_AUTH_MODE"))
   }
 
   test("Build an Azure CLI command without credentials") {
     val command =
-      FabricTokenProvider.azureCliTokenCommand(FabricTokenProvider.DefaultPowerBiScope)
+      FabricAzureCliTestConfiguration.azureCliTokenCommand(
+        FabricAzureCliTestConfiguration.DefaultPowerBiScope)
 
     assert(command.head == "az" || command.head == "az.cmd")
     assert(command.contains("get-access-token"))
     assert(command.sliding(2).exists(_.toSeq == Seq(
-      "--scope", FabricTokenProvider.DefaultPowerBiScope)))
+      "--scope", FabricAzureCliTestConfiguration.DefaultPowerBiScope)))
     assert(command.sliding(2).exists(_.toSeq == Seq("--query", "accessToken")))
+  }
+
+  test("Build an Azure CLI command for the Fabric scope") {
+    val command =
+      FabricAzureCliTestConfiguration.azureCliTokenCommand(
+        FabricAzureCliTestConfiguration.DefaultFabricScope)
+    assert(command.sliding(2).exists(
+      _.toSeq == Seq("--scope", FabricAzureCliTestConfiguration.DefaultFabricScope)))
   }
 
   test("Use an explicit workspace ID without discovery") {
     var discoveryAttempted = false
-    val resolved = FabricTestConstants.resolveIntegrationWorkspaceId(
+    val resolved = FabricAzureCliTestConfiguration.resolveIntegrationWorkspaceId(
       Some(s" $workspaceId "), {
         discoveryAttempted = true
         "fedcba98-7654-3210-fedc-ba9876543210"
@@ -52,13 +61,13 @@ class FabricAuthenticationSuite extends AnyFunSuite {
 
   test("Discover a workspace ID when no explicit ID is configured") {
     assert(
-      FabricTestConstants.resolveIntegrationWorkspaceId(None, workspaceId) ==
+      FabricAzureCliTestConfiguration.resolveIntegrationWorkspaceId(None, workspaceId) ==
         workspaceId)
   }
 
   test("Reject an empty explicit workspace ID") {
     val error = intercept[IllegalArgumentException] {
-      FabricTestConstants.resolveIntegrationWorkspaceId(Some("  "), workspaceId)
+      FabricAzureCliTestConfiguration.resolveIntegrationWorkspaceId(Some("  "), workspaceId)
     }
     assert(error.getMessage.contains("INTEGRATION_WORKSPACE_ID"))
   }
@@ -66,7 +75,7 @@ class FabricAuthenticationSuite extends AnyFunSuite {
   test("Require an explicit workspace ID for Azure CLI authentication") {
     var discoveryAttempted = false
     val error = intercept[IllegalArgumentException] {
-      FabricTestConstants.resolveIntegrationWorkspaceId(
+      FabricAzureCliTestConfiguration.resolveIntegrationWorkspaceId(
         None, {
           discoveryAttempted = true
           workspaceId
@@ -80,7 +89,8 @@ class FabricAuthenticationSuite extends AnyFunSuite {
 
   test("Reject a malformed workspace ID") {
     val error = intercept[IllegalArgumentException] {
-      FabricTestConstants.resolveIntegrationWorkspaceId(Some("workspace-name"), workspaceId)
+      FabricAzureCliTestConfiguration.resolveIntegrationWorkspaceId(
+        Some("workspace-name"), workspaceId)
     }
     assert(error.getMessage.contains("not a GUID"))
   }

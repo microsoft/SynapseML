@@ -109,10 +109,15 @@ the proven environment and dedicated build service workspace. Do not derive
 these values from the legacy integration user; the build service principal
 cannot see per-user workspaces.
 Both Fabric jobs authenticate through the active Azure CLI service connection.
-The legacy Spark Job Definition suite resolves the pinned workspace explicitly
-instead of using the retired certificate identity. `FabricOpenAIPromptE2E`
-remains a separate job so failures in either coverage surface cannot skip or
-mask the other gate.
+The Scala smoke suite creates a temporary Lakehouse, and the five-notebook suite
+shares a second temporary Lakehouse created through the public Fabric API. Both
+submit direct CLI batches against their Lakehouse.
+They build and side-load the exact `core/packageBin` jar, assert its SHA-256
+from the loaded JVM class source in every notebook, download the driver logs,
+cancel any running batch on failure, and hard-delete the Lakehouse. They do not
+create Spark Job Definitions or publish a temporary Fabric Environment.
+`FabricOpenAIPromptE2E` remains a separate job so failures in either coverage
+surface cannot skip or mask the other gate.
 
 When the jars came from another Git worktree, pass that checkout through
 `--source-repo` so evidence records the producing commit rather than the

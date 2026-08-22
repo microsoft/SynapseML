@@ -317,15 +317,21 @@ jobs:
   displayName: 'Fabric E2E'
   condition: and(succeeded(), eq('${{ parameters.testFabricE2E }}', true))
   timeoutInMinutes: 120
-  cancelTimeoutInMinutes: 0
+  cancelTimeoutInMinutes: 5
   pool:
     vmImage: $(UBUNTU_VERSION)
   steps:
     - template: templates/sbt_cache.yml
     - template: templates/update_cli.yml
     - template: templates/conda.yml
-    - template: templates/kv.yml
-    - template: templates/publish.yml
+    - bash: mkdir -p '$(Build.ArtifactStagingDirectory)/fabric-e2e'
+      displayName: 'Prepare Fabric E2E evidence'
+      condition: and(succeeded(), eq(variables.runTests, 'True'))
+    - task: PipAuthenticate@1
+      displayName: 'Authenticate fabric-spark-cli feed'
+      inputs:
+        artifactFeeds: 'A365/SynapseMaven'
+      condition: and(succeeded(), eq(variables.runTests, 'True'))
     - task: AzureCLI@2
       displayName: 'E2E'
       inputs:
@@ -334,8 +340,16 @@ jobs:
         scriptType: bash
         inlineScript: |
           set -eo pipefail
+          artifact_root='$(Build.ArtifactStagingDirectory)/fabric-e2e'
+          mkdir -p "$artifact_root"
           source activate synapseml
           set -u
+
+          export PIP_DISABLE_PIP_VERSION_CHECK=1
+          python -m pip install --quiet \
+            'fabric-spark-cli==0.1.20260807.5'
+          unset PIP_INDEX_URL PIP_EXTRA_INDEX_URL
+          fabric-spark-cli --version
 
           mapfile -t workspace_ids < <(
             az rest \
@@ -352,9 +366,12 @@ jobs:
           export INTEGRATION_WORKSPACE_ID="${workspace_ids[0]}"
 
           sbt \
+            "core/packageBin" \
             "testOnly com.microsoft.azure.synapse.ml.nbtest.FabricTestCleanup" \
             "testOnly com.microsoft.azure.synapse.ml.nbtest.FabricSmokeTests com.microsoft.azure.synapse.ml.nbtest.FabricNotebookTests"
       env:
+        FABRIC_E2E_ENV: $(FABRIC_E2E_ENV)
+        FABRIC_E2E_OUTPUT_DIR: $(Build.ArtifactStagingDirectory)/fabric-e2e
         FABRIC_E2E_WORKSPACE: $(FABRIC_E2E_WORKSPACE)
         INTEGRATION_AUTH_MODE: azure-cli
       condition: and(succeeded(), eq(variables.runTests, 'True'))
@@ -363,6 +380,12 @@ jobs:
       inputs:
         testResultsFiles: '**/test-reports/TEST-*.xml'
         failTaskOnFailedTests: true
+      condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish Fabric E2E evidence'
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)/fabric-e2e'
+        artifact: 'fabric-e2e-$(System.JobAttempt)'
       condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
 #
 - job: FabricOpenAIPromptE2E

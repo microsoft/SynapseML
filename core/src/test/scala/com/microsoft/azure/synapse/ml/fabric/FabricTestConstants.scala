@@ -12,11 +12,10 @@ import DefaultJsonProtocol._
  * Constants for Fabric testing configuration.
  *
  * Configuration is resolved at runtime from environment variables:
- * - INTEGRATION_AUTH_MODE: "azure-cli" for the active Azure CLI session, otherwise "credential"
- * - INTEGRATION_WORKSPACE_ID: explicit workspace ID, required by Azure CLI authentication
- * - INTEGRATION_ACCOUNT: legacy credential account email in format "username@tenant"
- * - INTEGRATION_WORKSPACE_PREFIX: legacy workspace name prefix
- * - INTEGRATION_CERTIFICATE: legacy base64-encoded .pfx certificate
+ * - INTEGRATION_ENV: The environment to use (default: "prod")
+ * - INTEGRATION_ACCOUNT: The account email in format "username@tenant"
+ * - INTEGRATION_WORKSPACE_PREFIX: Workspace name prefix (workspace = "{prefix} {username}")
+ * - INTEGRATION_CERTIFICATE: base64-encoded .pfx certificate for auth
  */
 object FabricTestConstants {
 
@@ -75,36 +74,5 @@ object FabricTestConstants {
     }
   }
 
-  private val WorkspaceIdPattern =
-    "(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$".r
-
-  private[fabric] def resolveIntegrationWorkspaceId(
-      explicitWorkspaceId: Option[String],
-      discoveredWorkspaceId: => String,
-      requireExplicitWorkspaceId: Boolean = false): String = {
-    val workspaceId = explicitWorkspaceId match {
-      case Some(value) if value.trim.nonEmpty => value.trim
-      case Some(_) =>
-        throw new IllegalArgumentException(
-          "INTEGRATION_WORKSPACE_ID must not be empty when it is set")
-      case None if requireExplicitWorkspaceId =>
-        throw new IllegalArgumentException(
-          "INTEGRATION_WORKSPACE_ID must be set when INTEGRATION_AUTH_MODE is 'azure-cli'")
-      case None => discoveredWorkspaceId
-    }
-
-    workspaceId match {
-      case WorkspaceIdPattern() => workspaceId
-      case _ =>
-        throw new IllegalArgumentException(
-          s"Fabric integration workspace ID is not a GUID: '$workspaceId'")
-    }
-  }
-
-  lazy val INTEGRATION_WORKSPACE_ID: String =
-    resolveIntegrationWorkspaceId(
-      sys.env.get("INTEGRATION_WORKSPACE_ID"),
-      getIntegrationWorkspaceId(),
-      FabricTokenProvider.resolveAuthenticationMode(sys.env.get("INTEGRATION_AUTH_MODE")) ==
-        FabricTokenProvider.AzureCliAuthMode)
+  lazy val INTEGRATION_WORKSPACE_ID: String = getIntegrationWorkspaceId()
 }

@@ -61,3 +61,16 @@ class FabricAuthenticatedHttpClient(clientId: String, redirectUri: String) {
     sendAndParseJson(patchRequest)
   }
 }
+
+private[fabric] class FabricScopedAuthenticatedHttpClient(clientId: String,
+                                                          redirectUri: String,
+                                                          tokenScope: String)
+  extends FabricAuthenticatedHttpClient(clientId, redirectUri) {
+
+  override def setRequestContentTypeAndAuthorization(request: HttpRequestBase): Unit = {
+    request.setHeader("Content-Type", "application/json")
+    request.setHeader(
+      "Authorization",
+      s"Bearer ${FabricAzureCliTestConfiguration.getAccessToken(clientId, redirectUri, tokenScope)}")
+  }
+}

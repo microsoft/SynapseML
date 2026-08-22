@@ -567,6 +567,140 @@ def test_main_persists_only_redacted_spark_conf(tmp_path, monkeypatch):
     assert "do-not-persist" not in json.dumps(evidence)
 
 
+def test_main_writes_evidence_when_submission_raises(tmp_path, monkeypatch):
+    output_dir = tmp_path / "submission-failure"
+    invocation = 0
+
+    def run_command(_command, _log):
+        nonlocal invocation
+        invocation += 1
+        if invocation == 1:
+            raise OSError("process spawn failed")
+        return 0, ""
+
+    monkeypatch.setattr(
+        "tools.fabric_e2e.run.shutil.which", lambda _: "fabric-spark-cli"
+    )
+    monkeypatch.setattr("tools.fabric_e2e.run.run_and_tee", run_command)
+    monkeypatch.setattr(
+        "tools.fabric_e2e.run.command_version", lambda _: "fabric-spark-cli test"
+    )
+    monkeypatch.setattr("tools.fabric_e2e.run.git_commit", lambda _: "0123456789abcdef")
+
+    assert (
+        main(
+            [
+                "--scenario",
+                "runtime-smoke",
+                "--workspace",
+                "test-workspace",
+                "--output-dir",
+                str(output_dir),
+            ]
+        )
+        == 1
+    )
+
+    evidence = json.loads((output_dir / "evidence.json").read_text(encoding="utf-8"))
+    assert evidence["submissionExitCode"] is None
+    assert evidence["cleanupExitCode"] == 0
+    assert evidence["status"] == "failed"
+    assert "OSError: process spawn failed" in evidence["failure"]
+    assert (output_dir / "junit.xml").is_file()
+
+
+def test_main_writes_evidence_when_marker_read_raises(tmp_path, monkeypatch):
+    output_dir = tmp_path / "marker-failure"
+    command_results = iter(
+        [
+            (0, f'{RESULT_MARKER}{{"status": "passed"}}\n'),
+            (0, ""),
+        ]
+    )
+
+    def read_markers(_log_root):
+        raise OSError("marker read failed")
+
+    monkeypatch.setattr(
+        "tools.fabric_e2e.run.shutil.which", lambda _: "fabric-spark-cli"
+    )
+    monkeypatch.setattr(
+        "tools.fabric_e2e.run.run_and_tee",
+        lambda _command, _log: next(command_results),
+    )
+    monkeypatch.setattr(
+        "tools.fabric_e2e.run.downloaded_marker_output",
+        read_markers,
+    )
+    monkeypatch.setattr(
+        "tools.fabric_e2e.run.command_version", lambda _: "fabric-spark-cli test"
+    )
+    monkeypatch.setattr("tools.fabric_e2e.run.git_commit", lambda _: "0123456789abcdef")
+
+    assert (
+        main(
+            [
+                "--scenario",
+                "runtime-smoke",
+                "--workspace",
+                "test-workspace",
+                "--output-dir",
+                str(output_dir),
+            ]
+        )
+        == 1
+    )
+
+    evidence = json.loads((output_dir / "evidence.json").read_text(encoding="utf-8"))
+    assert evidence["submissionExitCode"] == 0
+    assert evidence["cleanupExitCode"] == 0
+    assert evidence["status"] == "failed"
+    assert "OSError: marker read failed" in evidence["failure"]
+    assert (output_dir / "junit.xml").is_file()
+
+
+def test_main_writes_evidence_when_cleanup_raises(tmp_path, monkeypatch):
+    output_dir = tmp_path / "cleanup-failure"
+    invocation = 0
+
+    def run_command(_command, _log):
+        nonlocal invocation
+        invocation += 1
+        if invocation == 1:
+            return 0, f'{RESULT_MARKER}{{"status": "passed"}}\n'
+        raise OSError("cleanup spawn failed")
+
+    monkeypatch.setattr(
+        "tools.fabric_e2e.run.shutil.which", lambda _: "fabric-spark-cli"
+    )
+    monkeypatch.setattr("tools.fabric_e2e.run.run_and_tee", run_command)
+    monkeypatch.setattr(
+        "tools.fabric_e2e.run.command_version", lambda _: "fabric-spark-cli test"
+    )
+    monkeypatch.setattr("tools.fabric_e2e.run.git_commit", lambda _: "0123456789abcdef")
+
+    assert (
+        main(
+            [
+                "--scenario",
+                "runtime-smoke",
+                "--workspace",
+                "test-workspace",
+                "--output-dir",
+                str(output_dir),
+            ]
+        )
+        == 1
+    )
+
+    evidence = json.loads((output_dir / "evidence.json").read_text(encoding="utf-8"))
+    assert evidence["submissionExitCode"] == 0
+    assert evidence["cleanupExitCode"] is None
+    assert evidence["status"] == "failed"
+    assert "OSError: cleanup spawn failed" in evidence["failure"]
+    assert (output_dir / "junit.xml").is_file()
+
+
 def test_create_output_directory_rejects_existing_path(tmp_path):
     output_dir = tmp_path / "existing"
     output_dir.mkdir()

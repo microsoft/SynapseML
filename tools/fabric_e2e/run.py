@@ -538,6 +538,11 @@ def diagnostic_failure_message(
     return None
 
 
+def combine_failures(current: Optional[str], additional: str) -> str:
+    """Retain the primary failure while recording subsequent failures."""
+    return f"{current}; {additional}" if current else additional
+
+
 def command_version(executable: str) -> str:
     """Return the installed fabric-spark-cli version without failing the run."""
     process = subprocess.run(
@@ -797,7 +802,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             marker_path=NOTEBOOK_MARKER_PATH,
         )
     started = datetime.now(timezone.utc)
-    submission_code: int
+    submission_code: Optional[int] = None
     notebook_marker_code: Optional[int] = None
     cleanup_code: Optional[int] = None
     notebook_cleanup_code: Optional[int] = None
@@ -844,24 +849,46 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
                 runtime_evidence = parse_runtime_evidence(marker_output)
             except (ValueError, json.JSONDecodeError) as error:
                 failure = str(error)
+    except Exception as error:
+        failure = combine_failures(
+            failure,
+            f"Fabric E2E execution raised {type(error).__name__}: {error}",
+        )
     finally:
         if notebook_cleanup_command:
-            notebook_cleanup_code, notebook_cleanup_output = run_and_tee(
-                notebook_cleanup_command, log_path
-            )
-            output += notebook_cleanup_output
-            if notebook_cleanup_code != 0 and failure is None:
-                failure = (
-                    "Scratch notebook cleanup exited with code "
-                    f"{notebook_cleanup_code}"
+            try:
+                notebook_cleanup_code, notebook_cleanup_output = run_and_tee(
+                    notebook_cleanup_command, log_path
+                )
+                output += notebook_cleanup_output
+                if notebook_cleanup_code != 0:
+                    failure = combine_failures(
+                        failure,
+                        "Scratch notebook cleanup exited with code "
+                        f"{notebook_cleanup_code}",
+                    )
+            except Exception as error:
+                failure = combine_failures(
+                    failure,
+                    "Scratch notebook cleanup raised "
+                    f"{type(error).__name__}: {error}",
                 )
         if args.keep_lakehouse:
             print(f"Keeping scratch lakehouse for debugging: {lakehouse}")
         else:
-            cleanup_code, cleanup_output = run_and_tee(cleanup_command, log_path)
-            output += cleanup_output
-            if cleanup_code != 0 and failure is None:
-                failure = f"Scratch lakehouse cleanup exited with code {cleanup_code}"
+            try:
+                cleanup_code, cleanup_output = run_and_tee(cleanup_command, log_path)
+                output += cleanup_output
+                if cleanup_code != 0:
+                    failure = combine_failures(
+                        failure,
+                        f"Scratch lakehouse cleanup exited with code {cleanup_code}",
+                    )
+            except Exception as error:
+                failure = combine_failures(
+                    failure,
+                    f"Scratch lakehouse cleanup raised {type(error).__name__}: {error}",
+                )
 
     finished = datetime.now(timezone.utc)
     evidence = {
