@@ -34,6 +34,16 @@ def executor_addresses(spark_session):
     return sorted(addresses)
 
 
+def mapped_lightgbm_libraries(maps_text):
+    """Return mapped LightGBM paths, preserving optional deleted suffixes."""
+    paths = set()
+    for line in maps_text.splitlines():
+        fields = line.split(maxsplit=5)
+        if len(fields) == 6 and "lightgbm" in fields[5].lower():
+            paths.add(fields[5])
+    return sorted(paths)
+
+
 def native_diagnostics(spark_session, class_sources):
     jvm = spark_session.sparkContext._jvm
     lightgbm_utils = getattr(
@@ -41,12 +51,8 @@ def native_diagnostics(spark_session, class_sources):
     )
     getattr(lightgbm_utils, "MODULE$").initializeNativeLibrary()
     driver_pid = int(jvm.java.lang.ProcessHandle.current().pid())
-    native_mappings = sorted(
-        {
-            line.split()[-1]
-            for line in Path(f"/proc/{driver_pid}/maps").read_text().splitlines()
-            if "lightgbm" in line.lower()
-        }
+    native_mappings = mapped_lightgbm_libraries(
+        Path(f"/proc/{driver_pid}/maps").read_text()
     )
     return {
         **class_sources,

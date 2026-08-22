@@ -1,6 +1,7 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 
+import ast
 import json
 import sys
 import types
@@ -97,6 +98,37 @@ def test_lightgbm_scenario_exercises_streaming_validation_path():
     assert "model = learner.fit(dataset)" in source
     assert "prediction_count == args.rows" in source
     assert "finally:\n    dataset.unpersist()" in source
+
+
+def test_lightgbm_native_mapping_keeps_deleted_path_suffix():
+    scenario = load_scenarios()["lightgbm-streaming"]
+    source = scenario.script.read_text(encoding="utf-8")
+    tree = ast.parse(source)
+    function = next(
+        node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef)
+        and node.name == "mapped_lightgbm_libraries"
+    )
+    namespace = {}
+    exec(
+        compile(
+            ast.Module(body=[function], type_ignores=[]),
+            str(scenario.script),
+            "exec",
+        ),
+        namespace,
+    )
+
+    maps_text = (
+        "7f000000-7f001000 r-xp 00000000 00:00 0 /tmp/lib_lightgbm.so (deleted)\n"
+        "7f001000-7f002000 r-xp 00000000 00:00 0 /tmp/lib_lightgbm_swig.so\n"
+        "7f002000-7f003000 r-xp 00000000 00:00 0 /tmp/unrelated.so\n"
+    )
+    assert namespace["mapped_lightgbm_libraries"](maps_text) == [
+        "/tmp/lib_lightgbm.so (deleted)",
+        "/tmp/lib_lightgbm_swig.so",
+    ]
 
 
 def test_submission_command_is_non_interactive_and_includes_overrides(tmp_path):
