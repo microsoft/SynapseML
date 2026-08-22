@@ -1,6 +1,7 @@
 name: PR Validation
 
 on:
+  workflow_dispatch:
   pull_request:
     branches: [ "master", "spark3.5", "spark4.0", "spark4.1" ]
     paths-ignore: [ "**.md", "docs/**", "website/**" ]
