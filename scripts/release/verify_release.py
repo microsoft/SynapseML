@@ -48,6 +48,7 @@ ORG_SHORT = "msdata"
 GITHUB_REPO = "microsoft/SynapseML"
 INTERNAL_REPO = "SynapseML-Internal"
 MAVEN_BASE = "https://mmlspark.azureedge.net/maven"
+PUBLIC_MAVEN_MODULES = ("synapseml", "synapseml-core")
 PYPI_BASE = "https://pypi.org/pypi"
 SKIP_CHOICES = {"github", "ado", "upack", "pip", "internal", "public"}
 
@@ -160,10 +161,10 @@ class Checker:
         url = f"https://api.github.com/repos/{GITHUB_REPO}/git/ref/tags/{tag}"
         return OK if _json_get(url, self._gh_headers) else MISSING
 
-    def public_maven(self, scala: str, version: str) -> str:
+    def public_maven(self, module: str, scala: str, version: str) -> str:
         if "public" in self.skip:
             return SKIPPED
-        artifact = f"synapseml-core_{scala}"
+        artifact = f"{module}_{scala}"
         escaped_version = urllib.parse.quote(version, safe="")
         url = (
             f"{MAVEN_BASE}/com/microsoft/azure/{artifact}/{escaped_version}/"
@@ -305,13 +306,15 @@ def run(
     for tp in plan.targets:
         for tag in tp.oss_tags:
             add("git-tag", tp.key, "github/" + GITHUB_REPO, tag, c.github_tag(tag))
-        add(
-            "maven",
-            tp.key,
-            f"synapseml-core_{tp.scala}",
-            tp.oss_maven_version,
-            c.public_maven(tp.scala, tp.oss_maven_version),
-        )
+        for module in PUBLIC_MAVEN_MODULES:
+            artifact = f"{module}_{tp.scala}"
+            add(
+                "maven",
+                tp.key,
+                artifact,
+                tp.oss_maven_version,
+                c.public_maven(module, tp.scala, tp.oss_maven_version),
+            )
         if tp.key == "master":
             add(
                 "pypi",
