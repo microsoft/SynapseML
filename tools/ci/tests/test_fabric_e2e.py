@@ -3,6 +3,7 @@
 
 import ast
 import json
+import subprocess
 import sys
 import types
 from datetime import datetime, timezone
@@ -68,6 +69,19 @@ def test_manifest_scripts_exist_and_require_expected_jars():
         for name, scenario in scenarios.items()
         if name != "openai-prompt-ai-functions"
     )
+
+
+def test_scenario_scripts_reject_disabled_assertions():
+    for scenario in load_scenarios().values():
+        completed = subprocess.run(
+            [sys.executable, "-O", str(scenario.script)],
+            capture_output=True,
+            check=False,
+            text=True,
+        )
+
+        assert completed.returncode != 0
+        assert "Fabric E2E scenarios require Python assertions" in completed.stderr
 
 
 def test_openai_scenario_uses_implicit_fabric_auth_only():

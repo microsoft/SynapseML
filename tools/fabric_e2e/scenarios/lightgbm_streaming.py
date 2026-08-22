@@ -3,6 +3,9 @@
 
 """Exercise repeated LightGBM streaming fits on managed Fabric Spark."""
 
+if not __debug__:
+    raise RuntimeError("Fabric E2E scenarios require Python assertions")
+
 import argparse
 import json
 from pathlib import Path

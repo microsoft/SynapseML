@@ -3,6 +3,9 @@
 
 """Minimal managed Fabric Spark execution proof."""
 
+if not __debug__:
+    raise RuntimeError("Fabric E2E scenarios require Python assertions")
+
 import json
 
 from pyspark.sql import SparkSession

@@ -3,6 +3,9 @@
 
 """Assert that Fabric loaded an explicitly supplied SynapseML jar."""
 
+if not __debug__:
+    raise RuntimeError("Fabric E2E scenarios require Python assertions")
+
 import argparse
 import json
 

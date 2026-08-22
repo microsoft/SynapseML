@@ -3,6 +3,9 @@
 
 """Exercise OpenAIPrompt behaviors inspired by PySpark AI Functions."""
 
+if not __debug__:
+    raise RuntimeError("Fabric E2E scenarios require Python assertions")
+
 import argparse
 import inspect
 import json
