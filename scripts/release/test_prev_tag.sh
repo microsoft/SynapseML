@@ -5,12 +5,29 @@
 # .github/workflows/release-notes.yml against the repository's real tag list.
 set -euo pipefail
 
-prev_tag() {
-  local cur="$1"
+if python3 -c 'import sys; raise SystemExit(sys.version_info.major != 3)' >/dev/null 2>&1; then
+  PYTHON_BIN=python3
+elif python -c 'import sys; raise SystemExit(sys.version_info.major != 3)' >/dev/null 2>&1; then
+  PYTHON_BIN=python
+else
+  echo "FAIL  Python 3 is required to sort semantic release tags" >&2
+  exit 1
+fi
+
+primary_tags() {
+  # macOS/BSD sort has no GNU -V mode, so use the release tooling's Python 3.
   git tag --list 'v[0-9]*.[0-9]*.[0-9]*' \
     | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
-    | sort -V \
-    | awk -v cur="$cur" '$0 == cur {exit} {last=$0} END {print last}'
+    | "$PYTHON_BIN" -c 'import sys
+tags = [line.strip() for line in sys.stdin if line.strip()]
+tags.sort(key=lambda tag: tuple(map(int, tag[1:].split("."))))
+sys.stdout.writelines(f"{tag}\n" for tag in tags)'
+}
+
+prev_tag() {
+  local cur="$1"
+  primary_tags \
+    | awk -v cur="$cur" '$0 == cur {found=1} !found {last=$0} END {print last}'
 }
 
 fail=0
@@ -35,10 +52,7 @@ check v1.0.10 v1.0.9     # numeric, not lexical: v1.0.10 must follow v1.0.9
 
 # The repository predates the current naming examples. Whatever the oldest
 # primary semantic-version tag is, it must have no predecessor.
-OLDEST=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' \
-  | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
-  | sort -V \
-  | sed -n '1p')
+OLDEST=$(primary_tags | sed -n '1p')
 check "$OLDEST" ""
 
 # Suffixed tags must never be selected as a predecessor.
