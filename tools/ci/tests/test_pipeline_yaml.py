@@ -340,6 +340,17 @@ def test_databricks_e2e_uses_fail_open_pr_impact_detection():
     assert any(step.get("displayName") == "Publish Test Results" for step in steps)
 
 
+def test_fabric_e2e_skips_untrusted_fork_builds():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+    condition = jobs["FabricE2E"]["condition"]
+    fork_guard = (
+        r"ne\(\s*variables\[['\"]System\.PullRequest\.IsFork['\"]\],"
+        r"\s*['\"]True['\"]\s*\)"
+    )
+    assert re.search(fork_guard, condition)
+
+
 def test_fabric_e2e_cleans_stale_artifacts_before_running_tests():
     data = yaml.safe_load(_pipeline_text())
     jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
