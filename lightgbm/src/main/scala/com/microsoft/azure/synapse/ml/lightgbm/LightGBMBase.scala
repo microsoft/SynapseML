@@ -526,15 +526,9 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
           "The upstream CUDA objective dereferences missing CUDA metadata for SynapseML streaming Datasets and " +
           "can crash the Spark executor. Use deviceType=gpu with an OpenCL-enabled custom native library.")
     }
-    val sc = dataset.sparkSession.sparkContext
-
     val df = prepareDataframe(dataset, numTasks)
 
-    val (trainingData, validationData) =
-      if (get(validationIndicatorCol).isDefined && dataset.columns.contains(getValidationIndicatorCol))
-        (df.filter(x => !x.getBoolean(x.fieldIndex(getValidationIndicatorCol))),
-          Some(sc.broadcast(collectValidationData(df, measures))))
-      else (df, None)
+    val (trainingData, validationData) = splitTrainingAndValidationData(df)
 
     val preprocessedDF = preprocessData(trainingData)
 
@@ -563,17 +557,48 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
         (Some(referenceDataset), Some(partitionCounts))
       } else (None, None)
 
-    executeTraining(preprocessedDF,
-                    validationData,
-                    serializedReferenceDataset,
-                    partitionCounts,
-                    trainParams,
-                    numCols,
-                    numInitScoreClasses,
-                    batchIndex,
-                    numTasks,
-                    numTasksPerExecutor,
-                    measures)
+    withValidationDataServer(validationData, dataset.sparkSession, numTasks, measures) { validationParams =>
+      executeTraining(preprocessedDF,
+                      validationParams,
+                      serializedReferenceDataset,
+                      partitionCounts,
+                      trainParams,
+                      numCols,
+                      numInitScoreClasses,
+                      batchIndex,
+                      numTasks,
+                      numTasksPerExecutor,
+                      measures)
+    }
+  }
+
+  private def withValidationDataServer[T](validationData: Option[DataFrame],
+                                          spark: SparkSession,
+                                          partitionCount: Int,
+                                          measures: InstrumentationMeasures)
+                                         (train: Option[Broadcast[Array[Row]]] => T): T = {
+    val server = LightGBMValidationDataSupport.measureCollection(validationData.isDefined, measures) {
+      validationData.map(data =>
+        ValidationDataServer.create(data, ClusterUtil.getDriverHost(spark), partitionCount, getTimeout))
+    }
+    LightGBMValidationDataSupport.withResources(
+      server.map(validationServer => spark.sparkContext.broadcast(validationServer.params.toRows)),
+      (params: Option[Broadcast[Array[Row]]]) => params.foreach(_.destroy()),
+      server.foreach(_.close())) { params =>
+        train(params)
+    }
+  }
+
+  private def splitTrainingAndValidationData(df: DataFrame): (DataFrame, Option[DataFrame]) = {
+    if (get(validationIndicatorCol).isDefined && df.columns.contains(getValidationIndicatorCol)) {
+      val validationColumn = df(getValidationIndicatorCol)
+      if (df.filter(validationColumn.isNull).select(validationColumn).head(1).nonEmpty) {
+        throw new IllegalArgumentException(s"Validation indicator column '$getValidationIndicatorCol' contains null")
+      }
+      (df.filter(!validationColumn), Some(preprocessData(df.filter(validationColumn))))
+    } else {
+      (df, None)
+    }
   }
 
   private def determineNumTasks(dataset: Dataset[_], configNumTasks: Int, numTasksPerExecutor: Int) = {
@@ -583,20 +608,6 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
       val numExecutorTasks = ClusterUtil.getNumExecutorTasks(dataset.sparkSession, numTasksPerExecutor, log)
       min(numExecutorTasks, dataset.rdd.getNumPartitions)
     }
-  }
-
-  /**
-    * Get the validation data from the initial dataset.
-    *
-    * @param df The dataset to train on.
-    * @return The number of feature columns and initial score classes
-    */
-  private def collectValidationData(df: DataFrame, measures: InstrumentationMeasures): Array[Row] = {
-    measures.markValidDataCollectionStart()
-    val data = preprocessData(df.filter(x =>
-      x.getBoolean(x.fieldIndex(getValidationIndicatorCol)))).collect()
-    measures.markValidDataCollectionStop()
-    data
   }
 
   /**
@@ -888,6 +899,26 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
         // just take first 'N' rows.  Quick but assumes data already randomized and representative.
         dataframe.select(dataframe.col(featureColName)).limit(numSamples).collect()
       case _ => throw new NotImplementedError(s"Unknown sampling mode: $samplingMode")
+    }
+  }
+}
+
+private[lightgbm] object LightGBMValidationDataSupport {
+  def measureCollection[T](enabled: Boolean, measures: InstrumentationMeasures)(operation: => T): T = {
+    if (enabled) measures.markValidDataCollectionStart()
+    try operation
+    finally if (enabled) measures.markValidDataCollectionStop()
+  }
+
+  def withResources[P, T](createParams: => P,
+                          destroyParams: P => Unit,
+                          closeServer: => Unit)
+                         (operation: P => T): T = {
+    NetworkManagerSocketSupport.withCleanupPreservingPrimary(closeServer) {
+      val params = createParams
+      NetworkManagerSocketSupport.withCleanupPreservingPrimary(destroyParams(params)) {
+        operation(params)
+      }
     }
   }
 }

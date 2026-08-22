@@ -43,11 +43,24 @@ class BulkPartitionTask extends BasePartitionTask {
       log.info(s"Merging data on task ${ctx.taskId}, partition ${ctx.partitionId}")
       mergeChunksIntoAggregatedArrays(ctx, prepAggregatedColumns, isForValidation = false)
     }
-    val aggregatedValidationColumns = ctx.trainingCtx.validationData.map { data =>
-      val prepAggregatedColumns: BaseChunkedColumns = getChunkedColumns(ctx, data.value.toIterator)
-      mergeChunksIntoAggregatedArrays(ctx, prepAggregatedColumns, isForValidation = true)
+    val aggregatedValidationColumns = ctx.trainingCtx.validationData.flatMap { data =>
+      if (shouldReadValidationData(ctx.trainingCtx.useSingleDatasetMode, ctx.shouldExecuteTraining)) {
+        val rows = ValidationDataServer.read(data)
+        Some(ValidationDataServer.withRows(rows) {
+          val prepAggregatedColumns: BaseChunkedColumns = getChunkedColumns(ctx, rows)
+          mergeChunksIntoAggregatedArrays(ctx, prepAggregatedColumns, isForValidation = true)
+        })
+      } else {
+        ctx.sharedState.validationDatasetState.arrayProcessedSignal.countDown()
+        None
+      }
     }
     PartitionDataState(Option(aggregatedColumns), aggregatedValidationColumns)
+  }
+
+  private[lightgbm] def shouldReadValidationData(useSingleDatasetMode: Boolean,
+                                                 shouldExecuteTraining: Boolean): Boolean = {
+    !useSingleDatasetMode || shouldExecuteTraining
   }
 
   protected def getTrainingDatasetInternal(ctx: PartitionTaskContext,
