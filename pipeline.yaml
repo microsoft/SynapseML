@@ -1271,7 +1271,7 @@ jobs:
                   PREREQUISITE_PATHSPECS+=(":(literal)$path")
                   ;;
               esac
-            done < <(git diff --name-only -z "$PREREQUISITE_PARENT" "$PREREQUISITE")
+            done < <(git diff --no-renames --name-only -z "$PREREQUISITE_PARENT" "$PREREQUISITE")
           fi
 
           if [ ${#PREREQUISITE_PATHS[@]} -eq 0 ]; then
