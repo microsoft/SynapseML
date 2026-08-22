@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.lightgbm.split1
 
-import com.microsoft.azure.synapse.ml.core.test.base.SparkSessionManagement
+import com.microsoft.azure.synapse.ml.core.test.base.{SparkSessionManagement, TestBase}
 import com.microsoft.azure.synapse.ml.lightgbm.{BulkPartitionTask, LightGBMClassifier, LightGBMClassificationModel}
 import com.microsoft.azure.synapse.ml.lightgbm.LightGBMConstants
 import org.apache.commons.io.FileUtils
@@ -27,9 +27,21 @@ class LightGBMValidationDataSuite extends LightGBMTestUtils {
 
   override lazy val sparkProvider: SparkSessionManagement = SmallResultSparkProvider
 
+  override protected def beforeAll(): Unit = {
+    TestBase.stopSparkSession()
+    super.beforeAll()
+  }
+
   override protected def afterAll(): Unit = {
     try super.afterAll()
-    finally SmallResultSparkProvider.stopSparkSession()
+    finally {
+      try SmallResultSparkProvider.stopSparkSession()
+      finally TestBase.resetSparkSession()
+    }
+  }
+
+  test("validation scaling tests use the bounded driver result configuration") {
+    assert(spark.sparkContext.getConf.get("spark.driver.maxResultSize") == "128k")
   }
 
   test("bulk single dataset mode reads validation data only on the active task") {
