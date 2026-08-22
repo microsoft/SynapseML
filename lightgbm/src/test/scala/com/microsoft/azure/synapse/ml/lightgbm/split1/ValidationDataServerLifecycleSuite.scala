@@ -530,6 +530,36 @@ class ValidationDataServerLifecycleSuite extends TestBase {
     assert(failure.getSuppressed.sameElements(Array(closeFailure)))
   }
 
+  test("authentication failures are terminal even during shutdown") {
+    val failure = new SecurityException("synthetic authentication failure")
+
+    assert(!ValidationDataServer.isExpectedClientTermination(stopping = false, failure = failure))
+    assert(!ValidationDataServer.isExpectedClientTermination(stopping = true, failure = failure))
+  }
+
+  test("serving authentication failures remain visible on close") {
+    val (spool, partitionFiles) = createSpool("authentication-failure")
+    val server = ValidationDataServer.createFromSpool(
+      spool, partitionFiles, 0L, host, timeoutSeconds, 1, ValidationDataServerResourceFactory.Default)
+    val client = authenticatedClient(server.params.copy(token = "invalid-token"))
+    try {
+      try {
+        readToEnd(client)
+      } catch {
+        case _: SocketException => ()
+      }
+      val failure = intercept[SecurityException](server.close())
+      assert(failure.getMessage.contains("Invalid validation data token"))
+    } finally {
+      try client.close()
+      finally {
+        try server.close()
+        finally deleteIfPresent(spool)
+      }
+    }
+    assert(!spool.exists())
+  }
+
   test("close preserves a serving failure when stream cleanup also fails") {
     val (spool, partitionFiles) = createSpool("serving-failure")
     val outputFailed = new CountDownLatch(1)
