@@ -32,7 +32,7 @@ class AlwaysPresentChecker:
     def github_tag(self, _tag):
         return verify.OK
 
-    def public_maven(self, _scala, _version):
+    def public_maven(self, _module, _scala, _version):
         return verify.OK
 
     def public_pypi(self, _version):
@@ -175,8 +175,26 @@ def test_run_checks_public_maven_and_pypi(monkeypatch):
     rows, complete = verify.run("1.1.3", "0", ["master"], None, None, [])
 
     assert complete
-    assert any(row["kind"] == "maven" for row in rows)
+    assert [row["name"] for row in rows if row["kind"] == "maven"] == [
+        "synapseml_2.12",
+        "synapseml-core_2.12",
+    ]
     assert any(row["kind"] == "pypi" for row in rows)
+
+
+def test_missing_public_install_coordinate_fails_release(monkeypatch):
+    class MissingInstallCoordinateChecker(AlwaysPresentChecker):
+        def public_maven(self, module, _scala, _version):
+            return verify.MISSING if module == "synapseml" else verify.OK
+
+    monkeypatch.setattr(verify, "Checker", MissingInstallCoordinateChecker)
+
+    rows, complete = verify.run("1.1.3", "0", ["master"], None, None, [])
+
+    assert not complete
+    assert [row["name"] for row in rows if row["status"] == verify.MISSING] == [
+        "synapseml_2.12"
+    ]
 
 
 def test_run_applies_upack_rebuild_counters(monkeypatch):
@@ -285,12 +303,19 @@ def test_public_maven_uses_release_specific_coordinate(monkeypatch):
 
     monkeypatch.setattr(verify, "_url_exists", exists)
     checker = verify.Checker(None, "github-token", ["ado"])
-    assert checker.public_maven("2.13", "1.1.3-spark4.0") == verify.OK
+    for module in verify.PUBLIC_MAVEN_MODULES:
+        assert checker.public_maven(module, "2.13", "1.1.3-spark4.0") == verify.OK
     assert requested == [
+        (
+            "https://mmlspark.azureedge.net/maven/com/microsoft/azure/"
+            "synapseml_2.13/1.1.3-spark4.0/"
+            "synapseml_2.13-1.1.3-spark4.0.pom",
+            {"User-Agent": "synapseml-release-verify"},
+        ),
         (
             "https://mmlspark.azureedge.net/maven/com/microsoft/azure/"
             "synapseml-core_2.13/1.1.3-spark4.0/"
             "synapseml-core_2.13-1.1.3-spark4.0.pom",
             {"User-Agent": "synapseml-release-verify"},
-        )
+        ),
     ]
