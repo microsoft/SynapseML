@@ -48,6 +48,35 @@ class AlwaysPresentChecker:
         return verify.OK
 
 
+@pytest.mark.parametrize(
+    "platform,command_type,use_shell",
+    [
+        ("win32", str, True),
+        ("linux", list, False),
+    ],
+)
+def test_ado_token_uses_platform_appropriate_command(
+    monkeypatch, platform, command_type, use_shell
+):
+    captured = {}
+
+    def run(command, **kwargs):
+        captured["command"] = command
+        captured["kwargs"] = kwargs
+        return verify.subprocess.CompletedProcess(command, 0, "token\n", "")
+
+    monkeypatch.setattr(verify.sys, "platform", platform)
+    monkeypatch.setattr(verify.subprocess, "run", run)
+
+    assert verify._get_ado_token(None) == "token"
+    assert isinstance(captured["command"], command_type)
+    assert captured["kwargs"]["shell"] is use_shell
+    if use_shell:
+        assert "az account get-access-token" in captured["command"]
+    else:
+        assert captured["command"][:3] == ["az", "account", "get-access-token"]
+
+
 def test_json_get_parses_successful_response(monkeypatch):
     monkeypatch.setattr(
         verify.urllib.request,
