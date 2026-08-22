@@ -3,9 +3,6 @@
 
 package com.microsoft.azure.synapse.ml.fabric
 
-import com.microsoft.azure.synapse.ml.io.http.RESTHelpers.sendAndParseJson
-import org.apache.http.client.methods.HttpGet
-
 // scalastyle:off field.name
 
 import spray.json._
@@ -46,26 +43,15 @@ object FabricTestConstants {
   val INTEGRATION_APP_ID: String = "871c010f-5e61-4fb1-83ac-98610a7e9110"
   val INTEGRATION_REDIRECT_URI: String = "https://app.powerbi.com/signin"
 
-  private[fabric] val FabricApiScope: String = "https://api.fabric.microsoft.com/.default"
+  private[fabric] val PowerBiGroupsEndpoint: String = "https://api.powerbi.com/v1.0/myorg/groups"
 
   private lazy val workspacePrefix: String = sys.env.getOrElse("INTEGRATION_WORKSPACE_PREFIX",
     throw new IllegalArgumentException("INTEGRATION_WORKSPACE_PREFIX environment variable must be set"))
 
-  private[fabric] def workspaceAccessTokenConfiguration(
-    tenant: String,
-    username: String): AccessTokenConfiguration = {
-    AccessTokenConfiguration(
-      ClientId = INTEGRATION_APP_ID,
-      RedirectUri = INTEGRATION_REDIRECT_URI,
-      Resource = FabricApiScope,
-      Tenant = tenant,
-      Username = username)
-  }
-
   private[fabric] def workspaceIdFromResponse(response: JsValue, expectedWorkspaceName: String): String = {
     val workspaces = response.asJsObject.fields("value").convertTo[List[JsObject]]
     val matchingWorkspace = workspaces.find { workspace =>
-      workspace.fields.get("displayName").exists(_.convertTo[String] == expectedWorkspaceName)
+      workspace.fields.get("name").exists(_.convertTo[String] == expectedWorkspaceName)
     }
 
     matchingWorkspace match {
@@ -73,25 +59,21 @@ object FabricTestConstants {
         workspace.fields("id").convertTo[String]
       case None =>
         val availableNames = workspaces.flatMap(
-          _.fields.get("displayName").map(_.convertTo[String])).mkString(", ")
+          _.fields.get("name").map(_.convertTo[String])).mkString(", ")
         throw new IllegalArgumentException(
           s"Could not find workspace named '$expectedWorkspaceName'. Available workspaces: $availableNames")
     }
   }
 
   /**
-   * Resolves the integration workspace ID at runtime by querying the Fabric API.
+   * Resolves the integration workspace ID at runtime through the Power BI workspace API.
    * Looks for a workspace named "{INTEGRATION_WORKSPACE_PREFIX} {INTEGRATION_USERNAME}".
    */
   def getIntegrationWorkspaceId(): String = {
     val expectedWorkspaceName = s"$workspacePrefix $INTEGRATION_USERNAME"
-    // The shared client requests a Power BI token; public Fabric REST endpoints require the Fabric scope.
-    val tokenConfiguration = workspaceAccessTokenConfiguration(INTEGRATION_TENANT, INTEGRATION_USERNAME)
-    val accessToken = FabricTokenProvider.getAccessToken(tokenConfiguration)
-    val request = new HttpGet("https://api.fabric.microsoft.com/v1/workspaces")
-    request.setHeader("Content-Type", "application/json")
-    request.setHeader("Authorization", s"Bearer $accessToken")
-    val response = sendAndParseJson(request)
+    // The certificate client already requests a Power BI token, so use the matching workspace-list API.
+    val client = FabricAuthenticatedHttpClient(INTEGRATION_APP_ID, INTEGRATION_REDIRECT_URI)
+    val response = client.getRequest(PowerBiGroupsEndpoint)
     val workspaceId = workspaceIdFromResponse(response, expectedWorkspaceName)
 
     println(s"Resolved integration workspace: '$expectedWorkspaceName' -> $workspaceId")

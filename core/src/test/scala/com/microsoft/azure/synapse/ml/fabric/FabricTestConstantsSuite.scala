@@ -8,25 +8,19 @@ import spray.json._
 
 class FabricTestConstantsSuite extends AnyFunSuite {
 
-  test("Use the Fabric API scope for workspace discovery") {
-    val config = FabricTestConstants.workspaceAccessTokenConfiguration(
-      tenant = "example.onmicrosoft.com",
-      username = "integration-user")
-
-    assert(config.ClientId == FabricTestConstants.INTEGRATION_APP_ID)
-    assert(config.RedirectUri == FabricTestConstants.INTEGRATION_REDIRECT_URI)
-    assert(config.Resource == "https://api.fabric.microsoft.com/.default")
-    assert(config.Tenant == "example.onmicrosoft.com")
-    assert(config.Username == "integration-user")
+  test("Use the Power BI workspace endpoint for workspace discovery") {
+    assert(
+      FabricTestConstants.PowerBiGroupsEndpoint ==
+        "https://api.powerbi.com/v1.0/myorg/groups")
   }
 
-  test("Resolve the integration workspace ID by display name") {
+  test("Resolve the integration workspace ID by name") {
     val response =
       """
         |{
         |  "value": [
-        |    {"id": "other-id", "displayName": "Other Workspace"},
-        |    {"id": "expected-id", "displayName": "Integration Workspace"}
+        |    {"id": "other-id", "name": "Other Workspace"},
+        |    {"id": "expected-id", "name": "Integration Workspace"}
         |  ]
         |}
         |""".stripMargin.parseJson
@@ -41,7 +35,7 @@ class FabricTestConstantsSuite extends AnyFunSuite {
       """
         |{
         |  "value": [
-        |    {"id": "other-id", "displayName": "Other Workspace"}
+        |    {"id": "other-id", "name": "Other Workspace"}
         |  ]
         |}
         |""".stripMargin.parseJson
