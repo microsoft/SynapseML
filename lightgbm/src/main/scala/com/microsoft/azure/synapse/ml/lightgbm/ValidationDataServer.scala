@@ -520,7 +520,6 @@ private[lightgbm] object ValidationDataServer {
       case _: EOFException => true
       case _: java.net.SocketException => true
       case _: java.net.SocketTimeoutException => true
-      case _: SecurityException => true
       case _: InterruptedException if stopping => true
       case _ => false
     }
