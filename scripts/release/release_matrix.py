@@ -81,6 +81,11 @@ def parse_iterations(raw: str, flag: str) -> Dict[str, int]:
             raise ValueError(f"{flag} expects KEY=N, got {item!r}")
         key, _, number = item.partition("=")
         key = key.strip()
+        number = number.strip()
+        if not key:
+            raise ValueError(
+                f"{flag} expects KEY=N with a non-empty target, got {item!r}"
+            )
         if key in out:
             raise ValueError(f"{flag} repeats target {key!r}")
         if not re.fullmatch(r"[1-9]\d*", number):

@@ -11,7 +11,7 @@ import sys
 import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from release_matrix import build_plan  # noqa: E402
+from release_matrix import build_plan, parse_iterations  # noqa: E402
 
 
 def _by_key(plan):
@@ -66,6 +66,19 @@ def test_rejects_iteration_for_unselected_target():
             target_keys=["master"],
             upack_iteration={"spark4.0": 1},
         )
+
+
+def test_parse_iterations_normalizes_key_and_value_whitespace():
+    assert parse_iterations(
+        " spark4.0 = 1, master= 2 ",
+        "--upack-iteration",
+    ) == {"spark4.0": 1, "master": 2}
+
+
+@pytest.mark.parametrize("raw", ["=1", " = 1"])
+def test_parse_iterations_rejects_empty_target(raw):
+    with pytest.raises(ValueError, match="non-empty target"):
+        parse_iterations(raw, "--upack-iteration")
 
 
 def test_master_carries_three_oss_tags():
