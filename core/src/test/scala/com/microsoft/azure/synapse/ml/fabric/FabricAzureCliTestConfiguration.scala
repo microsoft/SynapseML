@@ -26,10 +26,16 @@ private[ml] object FabricAzureCliTestConfiguration {
   }
 
   private[ml] def integrationWorkspaceId(discoveredWorkspaceId: => String): String = {
+    integrationWorkspaceId(sys.env, discoveredWorkspaceId)
+  }
+
+  private[fabric] def integrationWorkspaceId(
+      environment: Map[String, String],
+      discoveredWorkspaceId: => String): String = {
     resolveIntegrationWorkspaceId(
-      sys.env.get("INTEGRATION_WORKSPACE_ID"),
+      environment.get("INTEGRATION_WORKSPACE_ID"),
       discoveredWorkspaceId,
-      authenticationMode == AzureCliAuthMode)
+      resolveAuthenticationMode(environment.get("INTEGRATION_AUTH_MODE")) == AzureCliAuthMode)
   }
 
   private[fabric] def getAccessToken(clientId: String,

@@ -74,5 +74,6 @@ object FabricTestConstants {
     }
   }
 
-  lazy val INTEGRATION_WORKSPACE_ID: String = getIntegrationWorkspaceId()
+  lazy val INTEGRATION_WORKSPACE_ID: String =
+    FabricAzureCliTestConfiguration.integrationWorkspaceId(getIntegrationWorkspaceId())
 }
