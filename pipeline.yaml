@@ -1886,6 +1886,11 @@ jobs:
             exit 1
           fi
           export INTEGRATION_WORKSPACE_ID="${workspace_ids[0]}"
+          # Internal's test task does not reliably preserve task environment
+          # variables or SBT_OPTS in child JVMs. JAVA_TOOL_OPTIONS is inherited
+          # by both the sbt launcher and every test JVM it starts.
+          export JAVA_TOOL_OPTIONS="$JAVA_TOOL_OPTIONS -DINTEGRATION_AUTH_MODE=$INTEGRATION_AUTH_MODE"
+          export JAVA_TOOL_OPTIONS="$JAVA_TOOL_OPTIONS -DINTEGRATION_WORKSPACE_ID=$INTEGRATION_WORKSPACE_ID"
 
           # The conda env is built only in the Python lane (see 'Create Internal conda
           # env'), so activate it only when it is actually present rather than assuming
@@ -1896,7 +1901,7 @@ jobs:
             conda activate synapseml-internal
           fi
           export CREATE_SEMPY_WRITER=false
-          export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT -DINTEGRATION_WORKSPACE_ID=$INTEGRATION_WORKSPACE_ID"
+          export SBT_OPTS="-Xmx4G -Xss2M -Duser.timezone=GMT"
           echo "Running Internal tests against OSS $OSS_VERSION..."
           # Only the reproducible packages run here. They exercise Internal code against
           # the OSS API surface, so a failure is most often a genuine break. They are not

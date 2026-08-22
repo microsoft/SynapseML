@@ -20,6 +20,14 @@ class FabricAuthenticationSuite extends AnyFunSuite {
         FabricAzureCliTestConfiguration.AzureCliAuthMode)
   }
 
+  test("Prefer a JVM authentication mode override") {
+    val resolved = FabricAzureCliTestConfiguration.authenticationMode(
+      Map("INTEGRATION_AUTH_MODE" -> "credential"),
+      Map("INTEGRATION_AUTH_MODE" -> "azure-cli"))
+
+    assert(resolved == FabricAzureCliTestConfiguration.AzureCliAuthMode)
+  }
+
   test("Reject an unsupported authentication mode") {
     val error = intercept[IllegalArgumentException] {
       FabricAzureCliTestConfiguration.resolveAuthenticationMode(Some("token"))

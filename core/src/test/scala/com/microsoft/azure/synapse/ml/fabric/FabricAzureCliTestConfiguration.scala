@@ -24,7 +24,13 @@ private[ml] object FabricAzureCliTestConfiguration {
   private var AzureCliTokenMap: Map[String, String] = Map.empty
 
   private[ml] def authenticationMode: String = {
-    resolveAuthenticationMode(sys.env.get("INTEGRATION_AUTH_MODE"))
+    authenticationMode(sys.env, sys.props.toMap)
+  }
+
+  private[fabric] def authenticationMode(
+      environment: Map[String, String],
+      properties: Map[String, String]): String = {
+    resolveAuthenticationMode(properties.get(AuthModeKey).orElse(environment.get(AuthModeKey)))
   }
 
   private[ml] def integrationWorkspaceId(discoveredWorkspaceId: => String): String = {

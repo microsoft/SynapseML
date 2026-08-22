@@ -492,7 +492,20 @@ def test_internal_scala_uses_cli_workspace_without_certificate():
     assert "https://api.fabric.microsoft.com/v1/workspaces" in script
     assert "--resource 'https://api.fabric.microsoft.com'" in script
     assert 'export INTEGRATION_WORKSPACE_ID="${workspace_ids[0]}"' in script
-    assert "-DINTEGRATION_WORKSPACE_ID=$INTEGRATION_WORKSPACE_ID" in script
+    assert (
+        'export JAVA_TOOL_OPTIONS="$JAVA_TOOL_OPTIONS '
+        '-DINTEGRATION_AUTH_MODE=$INTEGRATION_AUTH_MODE"' in script
+    )
+    assert (
+        'export JAVA_TOOL_OPTIONS="$JAVA_TOOL_OPTIONS '
+        '-DINTEGRATION_WORKSPACE_ID=$INTEGRATION_WORKSPACE_ID"' in script
+    )
+    sbt_options = next(
+        line.strip()
+        for line in script.splitlines()
+        if line.strip().startswith("export SBT_OPTS=")
+    )
+    assert "INTEGRATION_WORKSPACE_ID" not in sbt_options
 
 
 def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
