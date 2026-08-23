@@ -14,6 +14,7 @@ import org.apache.spark.ml.{Estimator, Model, Transformer}
 import scala.reflect.runtime.universe._
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import java.util.WeakHashMap
 
 
 trait BaseWrappable extends Params {
@@ -53,9 +54,31 @@ trait BaseWrappable extends Params {
 
 }
 
+private[codegen] object PythonStubCodegen {
+  val PythonMethodPattern =
+    """^\s*def\s+([A-Za-z_][A-Za-z0-9_]*)\(([^)]*)\)(?:\s*->\s*([^:]+))?:\s*$""".r
+
+  private val TypeInfoByStage = new WeakHashMap[Params, Map[String, PythonTypeInfo]]()
+
+  def pythonTypeInfo(stage: Params, param: Param[_]): PythonTypeInfo = synchronized {
+    val typeInfoByName = Option(TypeInfoByStage.get(stage)).getOrElse {
+      val computed = stage.params
+        .map(p => p.name -> DefaultParamInfo.defaultPythonTypeInfo(stage, p))
+        .toMap
+      TypeInfoByStage.put(stage, computed)
+      computed
+    }
+    typeInfoByName.getOrElse(param.name, DefaultParamInfo.defaultPythonTypeInfo(stage, param))
+  }
+}
+
 trait PythonWrappable extends BaseWrappable {
 
   import GenerationUtils._
+  import PythonStubCodegen.PythonMethodPattern
+
+  private def getPythonTypeInfo(p: Param[_]): PythonTypeInfo =
+    PythonStubCodegen.pythonTypeInfo(thisStage, p)
 
   def pyAdditionalMethods: String = {
     ""
@@ -86,7 +109,7 @@ trait PythonWrappable extends BaseWrappable {
   // TODO add default values
   protected lazy val pyClassDoc: String = {
     val argLines = thisStage.params.map { p =>
-      s"""${p.name} (${getParamInfo(p).pyType}): ${p.doc}"""
+      s"""${p.name} (${getPythonTypeInfo(p).pyType}): ${p.doc}"""
     }.mkString("\n")
     s"""|"\""
         |Args:
@@ -276,6 +299,158 @@ trait PythonWrappable extends BaseWrappable {
   protected def pyParamsGetters: String =
     thisStage.params.map(pyParamGetter).mkString("\n")
 
+  private def pyStubOptionalType(pyiType: String): String = {
+    if (pyiType == "Any") "Any" else s"Optional[$pyiType]"
+  }
+
+  private def pyStubParamArgs(p: Param[_]): Seq[String] = {
+    val pyiType = getPythonTypeInfo(p).pyiType
+    (p, thisStage.getDefault(p)) match {
+      case (_: ServiceParam[_], _) =>
+        Seq(
+          s"${p.name}: ${pyStubOptionalType(pyiType)} = ...",
+          s"${p.name}Col: Optional[str] = ..."
+        )
+      case (_: ComplexParam[_], _) | (_, None) =>
+        Seq(s"${p.name}: ${pyStubOptionalType(pyiType)} = ...")
+      case _ =>
+        Seq(s"${p.name}: $pyiType = ...")
+    }
+  }
+
+  private def pyStubParamsArgs: Seq[String] =
+    thisStage.params.flatMap(pyStubParamArgs)
+
+  private def pyStubKeywordOnlyMethod(
+      methodName: String,
+      args: Seq[String],
+      returnType: String,
+      fluent: Boolean = false): String = {
+    val selfArgument = if (fluent) "self: _T" else "self"
+    if (args.isEmpty) {
+      s"def $methodName($selfArgument) -> $returnType: ..."
+    } else {
+      s"""|def $methodName(
+          |    $selfArgument,
+          |    *,
+          |${indent(args.mkString(",\n"), 1)}
+          |) -> $returnType: ...""".stripMargin
+    }
+  }
+
+  private def pyStubInitFunc: String =
+    pyStubKeywordOnlyMethod(
+      "__init__",
+      Seq("java_obj: Any = ...") ++ pyStubParamsArgs,
+      "None"
+    )
+
+  private def pyStubSetParamsFunc: String =
+    pyStubKeywordOnlyMethod("setParams", pyStubParamsArgs, "_T", fluent = true)
+
+  private def pyStubParamDefinition(p: Param[_]): String =
+    s"${p.name}: Param"
+
+  private def pyStubParamSetter(p: Param[_]): String = {
+    val capName = p.name.capitalize
+    val pyiType = getPythonTypeInfo(p).pyiType
+    p match {
+      case _: ServiceParam[_] =>
+        s"""|def set$capName(self: _T, value: $pyiType) -> _T: ...
+            |def set${capName}Col(self: _T, value: str) -> _T: ...""".stripMargin
+      case _ =>
+        s"def set$capName(self: _T, value: $pyiType) -> _T: ..."
+    }
+  }
+
+  private def pyStubParamGetter(p: Param[_]): String = {
+    val capName = p.name.capitalize
+    s"def get$capName(self) -> ${getPythonTypeInfo(p).pyiType}: ..."
+  }
+
+  private def pyStubAdditionalArgument(
+      argument: String,
+      fluent: Boolean,
+      inferredType: Option[String]): String = {
+    val trimmed = argument.trim
+    if (trimmed == "self" && fluent) {
+      "self: _T"
+    } else if (trimmed == "self" || trimmed == "cls") {
+      trimmed
+    } else {
+      val hasDefault = trimmed.contains("=")
+      val argumentParts = trimmed.split("=", 2).map(_.trim)
+      val withoutDefault = argumentParts.head
+      val typedArgument = if (withoutDefault.contains(":")) {
+        withoutDefault
+      } else {
+        val argumentType = inferredType.getOrElse("Any")
+        val optionalType =
+          if (argumentParts.lift(1).contains("None") && argumentType != "Any") {
+            s"Optional[$argumentType]"
+          } else {
+            argumentType
+          }
+        s"$withoutDefault: $optionalType"
+      }
+      if (hasDefault) s"$typedArgument = ..." else typedArgument
+    }
+  }
+
+  private def pyStubAdditionalArgumentTypes(methodName: String, argumentCount: Int): Seq[String] = {
+    thisStage.getClass.getMethods
+      .filter(method => method.getName == methodName && method.getParameterCount == argumentCount)
+      .sortBy(_.toGenericString)
+      .headOption
+      .map(_.getGenericParameterTypes.toSeq.map(DefaultParamInfo.pythonMethodArgumentType))
+      .getOrElse(Seq.fill(argumentCount)("Any"))
+  }
+
+  private def isFluentStubMethod(methodName: String): Boolean =
+    methodName.startsWith("set") || methodName == "copy"
+
+  private def pyStubAdditionalReturnType(
+      methodName: String,
+      returnType: String,
+      fluent: Boolean): String = {
+    Option(returnType).map(_.trim).filter(_.nonEmpty).getOrElse {
+      if (fluent) "_T"
+      else if (methodName == "clear") "None"
+      else "Any"
+    }
+  }
+
+  private def pyStubAdditionalMethods: String = {
+    pyAdditionalMethods.split("\n").flatMap {
+      case PythonMethodPattern(methodName, args, returnType) if !methodName.startsWith("_") =>
+        val fluent = isFluentStubMethod(methodName)
+        val methodArgs = args.split(",").filter(_.trim.nonEmpty)
+        val valueArgCount = methodArgs.count(arg => !Set("self", "cls").contains(arg.trim))
+        val inferredTypes = pyStubAdditionalArgumentTypes(methodName, valueArgCount).iterator
+        val typedArgs = methodArgs.map { argument =>
+          val inferredType =
+            if (Set("self", "cls").contains(argument.trim)) None
+            else Some(inferredTypes.next())
+          pyStubAdditionalArgument(argument, fluent, inferredType)
+        }.mkString(", ")
+        val typedReturn = pyStubAdditionalReturnType(methodName, returnType, fluent)
+        Some(s"def $methodName($typedArgs) -> $typedReturn: ...")
+      case _ =>
+        None
+    }.distinct.mkString("\n")
+  }
+
+  private def pyStubExtraEstimatorMethods: String = {
+    thisStage match {
+      case _: Estimator[_] =>
+        val modelName = companionModelClassName.split(".".toCharArray).last
+        s"""|def _create_model(self, java_model: Any) -> $modelName: ...
+            |def _fit(self, dataset: DataFrame) -> $modelName: ...""".stripMargin
+      case _ =>
+        ""
+    }
+  }
+
   def pyInitFunc(): String = {
     s"""
        |@keyword_only
@@ -380,6 +555,53 @@ trait PythonWrappable extends BaseWrappable {
   }
   //scalastyle:on method.length
 
+  private def pythonStubClass(): String = {
+    val paramDefinitions = thisStage.params.map(pyStubParamDefinition).mkString("\n")
+    val paramSetters = thisStage.params.map(pyStubParamSetter).mkString("\n")
+    val paramGetters = thisStage.params.map(pyStubParamGetter).mkString("\n")
+    s"""|$copyrightLines
+        |
+        |from typing import Any, Dict, List, Optional, TypeVar
+        |
+        |from pyspark.ml.evaluation import JavaEvaluator
+        |from pyspark.ml.param import Param, ParamMap
+        |from pyspark.ml.util import JavaMLReadable, JavaMLWritable
+        |from pyspark.ml.wrapper import JavaEstimator, JavaModel, JavaTransformer
+        |from pyspark.sql import DataFrame
+        |from pyspark.sql.types import DataType
+        |from synapse.ml.core.serialize.java_params_patch import ComplexParamsMixin
+        |$pyExtraEstimatorImports
+        |
+        |_T = TypeVar("_T", bound="$pyClassName")
+        |
+        |class $pyClassName(${pyInheritedClasses.mkString(", ")}):
+        |${indent(pyClassDoc, 1)}
+        |
+        |${indent(paramDefinitions, 1)}
+        |
+        |${indent(pyStubInitFunc, 1)}
+        |
+        |${indent(pyStubSetParamsFunc, 1)}
+        |
+        |    @classmethod
+        |    def read(cls) -> Any: ...
+        |
+        |    @staticmethod
+        |    def getJavaPackage() -> str: ...
+        |
+        |    @staticmethod
+        |    def _from_java(java_stage: Any) -> $pyClassName: ...
+        |
+        |${indent(paramSetters, 1)}
+        |
+        |${indent(paramGetters, 1)}
+        |
+        |${indent(pyStubExtraEstimatorMethods, 1)}
+        |
+        |${indent(pyStubAdditionalMethods, 1)}
+        |""".stripMargin
+  }
+
   def makePyFile(conf: CodegenConfig): Unit = {
     val importPath = thisStage.getClass.getName.split(".".toCharArray).dropRight(1)
     val srcFolders = importPath.mkString(".")
@@ -389,6 +611,9 @@ trait PythonWrappable extends BaseWrappable {
     Files.write(
       FileUtilities.join(srcDir, pyClassName + ".py").toPath,
       pythonClass().getBytes(StandardCharsets.UTF_8))
+    Files.write(
+      FileUtilities.join(srcDir, pyClassName + ".pyi").toPath,
+      pythonStubClass().getBytes(StandardCharsets.UTF_8))
   }
 
 }

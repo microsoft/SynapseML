@@ -113,6 +113,11 @@ python -m pip install "synapseml==1.1.3" "pyspark>=4.0.1,<4.1"
 python -m pip install "synapseml==1.1.3" "pyspark>=3.5,<3.6"
 ```
 
+SynapseML wheels include PEP 561 type information for generated Python APIs.
+Editors such as VS Code with Pylance can therefore suggest transformer
+constructor parameters, setters, getters, and their types automatically when
+the editor is using the same Python environment where SynapseML is installed.
+
 ```python
 from pyspark.sql import SparkSession
 

@@ -151,6 +151,10 @@ generatePythonDoc := {
 
 
 val packageSynapseML = TaskKey[Unit]("packageSynapseML", "package all projects into SynapseML")
+val cleanMergedPython = TaskKey[Unit]("cleanMergedPython", "clean merged Python package sources")
+cleanMergedPython := {
+  FileUtils.deleteDirectory(join(rootGenDir.value, "src", "python"))
+}
 packageSynapseML := {
   def writeSetupFileToTarget(dir: File): Unit = {
     if (!dir.exists()) {
@@ -187,7 +191,10 @@ packageSynapseML := {
          |        "Programming Language :: Python :: 3",
          |    ],
          |    zip_safe=True,
-         |    package_data={"synapseml": ["../LICENSE.txt", "../README.txt"]},
+         |    package_data={
+         |        "": ["*.pyi", "py.typed"],
+         |        "synapseml": ["../LICENSE.txt", "../README.txt"],
+         |    },
          |)
          |
          |""".stripMargin
@@ -195,6 +202,7 @@ packageSynapseML := {
   }
 
   Def.sequential(
+    cleanMergedPython,
     runTaskForAllInCompile(packagePython),
     runTaskForAllInCompile(mergePyCode)
   ).value
