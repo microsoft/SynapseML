@@ -17,58 +17,73 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.zip.ZipFile
 
-private class TypedPythonStage(override val uid: String = "typedPythonStage")
-  extends Transformer with Wrappable {
+// Keep PipelineStage fixtures nested so production-stage discovery ignores test-only classes.
+private[codegen] object PyCodegenFixtures {
 
-  val count = new DoubleParam(this, "count", "numeric value")
-  val labels = new StringArrayParam(this, "labels", "labels")
-  val model = new com.microsoft.azure.synapse.ml.param.ServiceParam[String](
-    this, "model", "model name")
-  val text = new Param[String](this, "text", "text value")
+  class TypedPythonStage(override val uid: String = "typedPythonStage")
+    extends Transformer with Wrappable {
 
-  def getModel: String = ""
-  def setAlias(value: String): this.type = this
+    override protected lazy val classNameHelper: String = "TypedPythonStage"
 
-  override def pyAdditionalMethods: String =
-    super.pyAdditionalMethods +
-      """|def setAlias(self, value):
-         |    return self
-         |
-         |def clear(self, param):
-         |    return None
-         |
-         |def copy(self, extra=None):
-         |    return self
-         |""".stripMargin
+    val count = new DoubleParam(this, "count", "numeric value")
+    val labels = new StringArrayParam(this, "labels", "labels")
+    val model = new com.microsoft.azure.synapse.ml.param.ServiceParam[String](
+      this, "model", "model name")
+    val text = new Param[String](this, "text", "text value")
 
-  override def transform(dataset: Dataset[_]): DataFrame = dataset.toDF()
+    def getModel: String = ""
+    def setAlias(value: String): this.type = this
 
-  override def transformSchema(schema: StructType): StructType = schema
+    override def pyAdditionalMethods: String =
+      super.pyAdditionalMethods +
+        """|def setAlias(self, value):
+           |    return self
+           |
+           |def clear(self, param):
+           |    return None
+           |
+           |def copy(self, extra=None):
+           |    return self
+           |""".stripMargin
 
-  override def copy(extra: ParamMap): TypedPythonStage = defaultCopy(extra)
-}
+    override def transform(dataset: Dataset[_]): DataFrame = dataset.toDF()
 
-private class TypedPythonModel(override val uid: String = "typedPythonModel")
-  extends Model[TypedPythonModel] with Wrappable {
+    override def transformSchema(schema: StructType): StructType = schema
 
-  override def transform(dataset: Dataset[_]): DataFrame = dataset.toDF()
+    override def copy(extra: ParamMap): TypedPythonStage = defaultCopy(extra)
+  }
 
-  override def transformSchema(schema: StructType): StructType = schema
+  class TypedPythonModel(override val uid: String = "typedPythonModel")
+    extends Model[TypedPythonModel] with Wrappable {
 
-  override def copy(extra: ParamMap): TypedPythonModel = defaultCopy(extra)
-}
+    override protected lazy val classNameHelper: String = "TypedPythonModel"
 
-private class TypedPythonEstimator(override val uid: String = "typedPythonEstimator")
-  extends Estimator[TypedPythonModel] with Wrappable {
+    override def transform(dataset: Dataset[_]): DataFrame = dataset.toDF()
 
-  override def fit(dataset: Dataset[_]): TypedPythonModel = new TypedPythonModel()
+    override def transformSchema(schema: StructType): StructType = schema
 
-  override def transformSchema(schema: StructType): StructType = schema
+    override def copy(extra: ParamMap): TypedPythonModel = defaultCopy(extra)
+  }
 
-  override def copy(extra: ParamMap): TypedPythonEstimator = defaultCopy(extra)
+  class TypedPythonEstimator(override val uid: String = "typedPythonEstimator")
+    extends Estimator[TypedPythonModel] with Wrappable {
+
+    override protected lazy val classNameHelper: String = "TypedPythonEstimator"
+
+    override protected def companionModelClassName: String =
+      "com.microsoft.azure.synapse.ml.codegen.TypedPythonModel"
+
+    override def fit(dataset: Dataset[_]): TypedPythonModel = new TypedPythonModel()
+
+    override def transformSchema(schema: StructType): StructType = schema
+
+    override def copy(extra: ParamMap): TypedPythonEstimator = defaultCopy(extra)
+  }
 }
 
 class PyCodegenSuite extends AnyFunSuite {
+
+  import PyCodegenFixtures._
 
   private def pythonExecutable: String =
     if (System.getProperty("os.name").toLowerCase.contains("windows")) "python" else "python3"
