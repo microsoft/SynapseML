@@ -7,6 +7,7 @@ import org.slf4j.Logger
 
 import java.io.IOException
 import java.net.{BindException, InetSocketAddress, Socket}
+import java.util.concurrent.{ExecutionException, Future}
 import scala.annotation.tailrec
 
 private[lightgbm] object NetworkManagerSocketSupport {
@@ -14,6 +15,18 @@ private[lightgbm] object NetworkManagerSocketSupport {
 
   def addSuppressed(primaryFailure: Throwable, secondaryFailure: Throwable): Unit = {
     if (primaryFailure ne secondaryFailure) primaryFailure.addSuppressed(secondaryFailure)
+  }
+
+  def awaitFuture(future: Future[_]): Unit = {
+    try {
+      future.get()
+    } catch {
+      case interrupted: InterruptedException =>
+        Thread.currentThread().interrupt()
+        throw interrupted
+      case failed: ExecutionException =>
+        throw Option(failed.getCause).getOrElse(failed)
+    }
   }
 
   /** Close a socket with one immediate retry, retaining every observed cleanup failure. */
