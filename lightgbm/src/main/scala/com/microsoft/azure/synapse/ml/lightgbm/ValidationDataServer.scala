@@ -447,7 +447,7 @@ private[lightgbm] object ValidationDataServer {
 
       validationData.foreachPartition((rows: Iterator[Row]) =>
         writePartition(host, ingestPort, ingestToken, timeoutMillis, rows))
-      accepting.get()
+      NetworkManagerSocketSupport.awaitFuture(accepting)
       IngestResult(rowCount.get())
     }
   }
