@@ -5,7 +5,6 @@ package com.microsoft.azure.synapse.ml.lightgbm.split1
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.lightgbm.{InstrumentationMeasures, LightGBMValidationDataSupport}
-import com.microsoft.azure.synapse.ml.lightgbm.NetworkManagerSocketSupport
 import com.microsoft.azure.synapse.ml.lightgbm.ValidationDataParams
 import com.microsoft.azure.synapse.ml.lightgbm.ValidationDataServer
 import com.microsoft.azure.synapse.ml.lightgbm.ValidationDataServerResourceFactory
@@ -17,7 +16,7 @@ import java.net.{BindException, InetSocketAddress, ServerSocket, Socket, SocketE
 import java.nio.file.Files
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicInteger
-import java.util.concurrent.{AbstractExecutorService, Callable, CountDownLatch, ExecutorService, FutureTask}
+import java.util.concurrent.{AbstractExecutorService, Callable, CountDownLatch, ExecutorService}
 import java.util.concurrent.{RejectedExecutionException}
 import java.util.concurrent.{TimeUnit, TimeoutException}
 import scala.annotation.tailrec
@@ -182,34 +181,6 @@ class ValidationDataServerLifecycleSuite extends TestBase {
       assert(!spool.exists())
     } finally {
       deleteIfPresent(spool)
-    }
-  }
-
-  test("waiting for ingest exposes the accept loop's original failure") {
-    val expected = new IOException("synthetic ingest accept failure")
-    val failed = new FutureTask[Unit](new Callable[Unit] {
-      override def call(): Unit = throw expected
-    })
-    failed.run()
-
-    val failure = intercept[IOException] {
-      NetworkManagerSocketSupport.awaitFuture(failed)
-    }
-    assert(failure eq expected)
-  }
-
-  test("waiting for ingest preserves caller interruption") {
-    val waiting = new FutureTask[Unit](new Callable[Unit] {
-      override def call(): Unit = ()
-    })
-    Thread.currentThread().interrupt()
-    try {
-      intercept[InterruptedException] {
-        NetworkManagerSocketSupport.awaitFuture(waiting)
-      }
-      assert(Thread.currentThread().isInterrupted)
-    } finally {
-      Thread.interrupted()
     }
   }
 

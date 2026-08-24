@@ -344,9 +344,7 @@ private[lightgbm] object ValidationDataServer {
       val ingestPartitionCount = validationData.rdd.getNumPartitions
       val result = ingest(validationData, host, ingestPartitionCount, timeoutSeconds, spoolDirectory, resources)
       checkedRowCount(result.rowCount)
-      val partitionFiles = Option(spoolDirectory.listFiles()).getOrElse(Array.empty)
-        .filter(_.getName.startsWith("part-"))
-        .sortBy(file => file.getName.stripPrefix("part-").toInt)
+      val partitionFiles = ValidationDataSpool.listPartitionFiles(spoolDirectory, ingestPartitionCount)
       spoolTransferred = true
       createFromSpool(
         spoolDirectory,
