@@ -23,26 +23,41 @@ steps:
         sempy-integration-workspace-prefix
       RunAsPreJob: false
 
-  # Compute certificate secret name from account
-  # E.g. user@tenant.onmicrosoft.com => user-tenant
-  - bash: |
-      account="$(sempy-integration-account)"
-      username=$(echo "$account" | cut -d'@' -f1)
-      tenant=$(echo "$account" | cut -d'@' -f2 | cut -d'.' -f1)
-      cert_name="${username}-${tenant}"
-      echo "Computed certificate secret name: ${cert_name}"
-      echo "##vso[task.setvariable variable=cert-adminuser-bami]${cert_name}"
-    displayName: 'Compute certificate secret name from account'
-    condition: ${{ parameters.condition }}
-
-  # Download the account certificate
   - task: AzureCLI@2
-    displayName: 'Get certificate from Key Vault'
+    displayName: 'Get Fabric Test Certificate from Key Vault'
     condition: ${{ parameters.condition }}
     inputs:
       azureSubscription: 'SynapseMLFabricTestCreds'
       scriptType: 'bash'
       scriptLocation: 'inlineScript'
       inlineScript: |
-        cert_value=$(az keyvault secret show --vault-name "$(fabric-cert-kv-name)" --name "$(cert-adminuser-bami)" --query "value" -o tsv)
-        echo "##vso[task.setvariable variable=sempy-integration-certificate;issecret=true]$cert_value"
+        set -euo pipefail
+
+        username="${INTEGRATION_ACCOUNT%%@*}"
+        tenant_domain="${INTEGRATION_ACCOUNT#*@}"
+        tenant="${tenant_domain%%.*}"
+        if [[ "$tenant_domain" == "$INTEGRATION_ACCOUNT" ||
+              -z "$username" ||
+              -z "$tenant" ||
+              "$tenant_domain" == *"@"* ]]; then
+          echo "Fabric integration account must use the username@tenant format." >&2
+          exit 1
+        fi
+        certificate_secret_name="${username}-${tenant}"
+        certificate_value="$(
+          az keyvault secret show \
+            --vault-name "$FABRIC_CERT_KEY_VAULT_NAME" \
+            --name "$certificate_secret_name" \
+            --query value \
+            --output tsv \
+            --only-show-errors
+        )"
+        if [ -z "$certificate_value" ]; then
+          echo "Fabric integration certificate was empty." >&2
+          exit 1
+        fi
+        printf '##vso[task.setvariable variable=sempy-integration-certificate;issecret=true]%s\n' \
+          "$certificate_value"
+    env:
+      FABRIC_CERT_KEY_VAULT_NAME: $(fabric-cert-kv-name)
+      INTEGRATION_ACCOUNT: $(sempy-integration-account)

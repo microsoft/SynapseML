@@ -14,6 +14,7 @@ steps:
         sbt packagePython
         sbt publishBlob
     env:
+      ADO-FEED-TOKEN: $(ado-feed-token)
       NEXUS-UN: $(nexus-un)
       NEXUS-PW: $(nexus-pw)
       PGP-PRIVATE: $(pgp-private)

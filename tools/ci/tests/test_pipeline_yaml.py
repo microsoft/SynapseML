@@ -24,6 +24,9 @@ SBT_RETRY = REPO_ROOT / "tools" / "ci" / "sbt_retry.sh"
 SBT_VERSION = REPO_ROOT / "tools" / "ci" / "get_sbt_version.sh"
 DATABRICKS_IMPACT = REPO_ROOT / "tools" / "ci" / "databricks_impact.py"
 DATABRICKS_STEPS_TPL = REPO_ROOT / "templates" / "databricks_e2e_steps.yml"
+KEY_VAULT_TPL = REPO_ROOT / "templates" / "kv.yml"
+FABRIC_KEY_VAULT_TPL = REPO_ROOT / "templates" / "fabric_kv.yml"
+PUBLISH_TPL = REPO_ROOT / "templates" / "publish.yml"
 CLEAN_ACR_PIPELINE = REPO_ROOT / ".pipelines" / "clean-acr.yml"
 DEMO_DOCKERFILE = REPO_ROOT / "tools" / "docker" / "demo" / "Dockerfile"
 MINIMAL_DOCKERFILE = REPO_ROOT / "tools" / "docker" / "minimal" / "Dockerfile"
@@ -46,6 +49,56 @@ def _jobs(node):
     elif isinstance(node, list):
         for value in node:
             yield from _jobs(value)
+
+
+def _secret_filter(value):
+    return set(value.replace(",", " ").split())
+
+
+def _fabric_certificate_script():
+    data = yaml.safe_load(FABRIC_KEY_VAULT_TPL.read_text())
+    certificate_task = next(
+        step
+        for step in data["steps"]
+        if step.get("displayName") == "Get Fabric Test Certificate from Key Vault"
+    )
+    return certificate_task["inputs"]["inlineScript"]
+
+
+def _run_fabric_certificate_script(
+    tmp_path, account, certificate="test-pfx", az_exit=0
+):
+    mock_az = tmp_path / "az"
+    mock_az.write_text(
+        """#!/usr/bin/env bash
+printf '%s\\n' "$@" > "$MOCK_AZ_ARGS"
+if [ "$MOCK_AZ_EXIT" -ne 0 ]; then
+  exit "$MOCK_AZ_EXIT"
+fi
+printf '%s' "$MOCK_CERTIFICATE"
+"""
+    )
+    mock_az.chmod(0o755)
+    az_args = tmp_path / "az-args.txt"
+    env = os.environ.copy()
+    env.update(
+        {
+            "PATH": f"{tmp_path}{os.pathsep}{env['PATH']}",
+            "FABRIC_CERT_KEY_VAULT_NAME": "test-cert-vault",
+            "INTEGRATION_ACCOUNT": account,
+            "MOCK_AZ_ARGS": str(az_args),
+            "MOCK_AZ_EXIT": str(az_exit),
+            "MOCK_CERTIFICATE": certificate,
+        }
+    )
+    result = subprocess.run(
+        ["bash", "-c", _fabric_certificate_script()],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    return result, az_args
 
 
 def _release_compat_script():
@@ -300,6 +353,196 @@ def test_fabric_e2e_cleans_stale_artifacts_before_running_tests():
     assert cleanup_command in script
     assert test_command in script
     assert script.index(cleanup_command) < script.index(test_command)
+
+
+def test_fabric_e2e_keeps_key_vault_authentication_and_blocks_forks():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+    fabric_e2e = jobs["FabricE2E"]
+
+    condition = fabric_e2e["condition"]
+    assert "succeeded()" in condition
+    assert "variables.runTests" in condition
+    assert "parameters.testFabricE2E" in condition
+    assert "System.PullRequest.IsFork" in condition
+
+    template_steps = {
+        step["template"]: step
+        for step in fabric_e2e["steps"]
+        if isinstance(step, dict) and "template" in step
+    }
+    assert "templates/kv.yml" in template_steps
+    assert "templates/fabric_kv.yml" in template_steps
+    assert "templates/publish.yml" in template_steps
+    bootstrap_filter = _secret_filter(
+        template_steps["templates/kv.yml"]["parameters"]["secretsFilter"]
+    )
+    assert bootstrap_filter == {
+        "fabric-test-kv-name",
+        "fabric-cert-kv-name",
+        "ado-feed-token",
+        "nexus-un",
+        "nexus-pw",
+        "pgp-private",
+        "pgp-public",
+        "pgp-pw",
+    }
+
+    e2e = next(step for step in fabric_e2e["steps"] if step.get("displayName") == "E2E")
+    assert e2e["env"] == {
+        "INTEGRATION_ENV": "$(sempy-integration-region)",
+        "INTEGRATION_ACCOUNT": "$(sempy-integration-account)",
+        "INTEGRATION_CERTIFICATE": "$(sempy-integration-certificate)",
+        "INTEGRATION_WORKSPACE_PREFIX": "$(sempy-integration-workspace-prefix)",
+    }
+    assert e2e["inputs"]["azureSubscription"] == "SynapseML Build"
+    script = e2e["inputs"]["inlineScript"]
+    assert "authentication=key-vault" in script
+    assert "fabric-spark-cli" not in script
+    assert "INTEGRATION_AUTH_MODE" not in script
+    assert "fabricE2EAuthMode" not in _pipeline_text()
+
+    key_vault_template = yaml.safe_load(KEY_VAULT_TPL.read_text())
+    parameters = {
+        parameter["name"]: parameter for parameter in key_vault_template["parameters"]
+    }
+    assert parameters["secretsFilter"]["default"] == "*"
+    bootstrap_task = key_vault_template["steps"][0]
+    assert bootstrap_task["inputs"]["keyVaultName"] == "mmlspark-keys"
+    assert bootstrap_task["inputs"]["SecretsFilter"] == (
+        "${{ parameters.secretsFilter }}"
+    )
+
+    fabric_template = yaml.safe_load(FABRIC_KEY_VAULT_TPL.read_text())
+    assert len(fabric_template["steps"]) == 2
+    credential_task, certificate_task = fabric_template["steps"]
+    assert credential_task["inputs"]["KeyVaultName"] == "$(fabric-test-kv-name)"
+    assert _secret_filter(credential_task["inputs"]["SecretsFilter"]) == {
+        "sempy-integration-region",
+        "sempy-integration-account",
+        "sempy-integration-workspace-prefix",
+    }
+    certificate_script = certificate_task["inputs"]["inlineScript"]
+    assert "set -euo pipefail" in certificate_script
+    assert 'certificate_secret_name="${username}-${tenant}"' in certificate_script
+    assert '--vault-name "$FABRIC_CERT_KEY_VAULT_NAME"' in certificate_script
+    assert '--name "$certificate_secret_name"' in certificate_script
+    assert "--only-show-errors" in certificate_script
+    assert "Fabric integration certificate was empty." in certificate_script
+    assert "Computed certificate secret name" not in certificate_script
+    assert certificate_task["env"] == {
+        "FABRIC_CERT_KEY_VAULT_NAME": "$(fabric-cert-kv-name)",
+        "INTEGRATION_ACCOUNT": "$(sempy-integration-account)",
+    }
+    publish_template = yaml.safe_load(PUBLISH_TPL.read_text())
+    assert publish_template["steps"][0]["env"]["ADO-FEED-TOKEN"] == (
+        "$(ado-feed-token)"
+    )
+
+
+@pytest.mark.skipif(os.name != "posix", reason="certificate retrieval requires Bash")
+def test_fabric_certificate_lookup_derives_the_existing_secret_name(tmp_path):
+    result, az_args = _run_fabric_certificate_script(
+        tmp_path, "test-admin@test-tenant.onmicrosoft.com"
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == (
+        "##vso[task.setvariable variable=sempy-integration-certificate;"
+        "issecret=true]test-pfx\n"
+    )
+    assert "test-admin-test-tenant" not in result.stdout
+    assert az_args.read_text().splitlines() == [
+        "keyvault",
+        "secret",
+        "show",
+        "--vault-name",
+        "test-cert-vault",
+        "--name",
+        "test-admin-test-tenant",
+        "--query",
+        "value",
+        "--output",
+        "tsv",
+        "--only-show-errors",
+    ]
+
+
+@pytest.mark.skipif(os.name != "posix", reason="certificate retrieval requires Bash")
+@pytest.mark.parametrize(
+    ("account", "certificate", "az_exit", "expected_error"),
+    [
+        ("not-an-account", "test-pfx", 0, "must use the username@tenant format"),
+        ("test@test@tenant", "test-pfx", 0, "must use the username@tenant format"),
+        (
+            "test-admin@test-tenant.onmicrosoft.com",
+            "",
+            0,
+            "certificate was empty",
+        ),
+        (
+            "test-admin@test-tenant.onmicrosoft.com",
+            "test-pfx",
+            17,
+            None,
+        ),
+    ],
+)
+def test_fabric_certificate_lookup_fails_closed(
+    tmp_path, account, certificate, az_exit, expected_error
+):
+    result, az_args = _run_fabric_certificate_script(
+        tmp_path, account, certificate=certificate, az_exit=az_exit
+    )
+
+    assert result.returncode != 0
+    if expected_error:
+        assert expected_error in result.stderr
+    if "@" not in account:
+        assert not az_args.exists()
+
+
+def test_fabric_e2e_retains_results_and_metadata_on_failure():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+    steps = jobs["FabricE2E"]["steps"]
+
+    e2e = next(step for step in steps if step.get("displayName") == "E2E")
+    script = e2e["inputs"]["inlineScript"]
+    assert "run-metadata.txt" in script
+    assert "source_version=$(Build.SourceVersion)" in script
+    assert "e2e_step=preparing" in script
+    assert "e2e_step=running" in script
+    assert "e2e_step=finished" in script
+    assert "sbt_exit_code=$?" in script
+    assert 'exit "$sbt_exit_code"' in script
+
+    collect = next(
+        step
+        for step in steps
+        if step.get("displayName") == "Collect Fabric E2E evidence"
+    )
+    assert collect["condition"] == "always()"
+    assert "INTEGRATION_ACCOUNT" not in collect["bash"]
+    assert "INTEGRATION_CERTIFICATE" not in collect["bash"]
+    assert "e2e_step=not-started" in collect["bash"]
+    assert "TEST-com.microsoft.azure.synapse.ml.nbtest.Fabric*.xml" in collect["bash"]
+
+    publish_results = next(
+        step for step in steps if step.get("displayName") == "Publish Test Results"
+    )
+    assert publish_results["condition"] == "always()"
+    assert publish_results["inputs"]["failTaskOnFailedTests"] is True
+
+    publish_evidence = next(
+        step
+        for step in steps
+        if step.get("displayName") == "Publish Fabric E2E evidence"
+    )
+    assert publish_evidence["condition"] == "always()"
+    assert publish_evidence["inputs"]["targetPath"] == (
+        "$(Build.ArtifactStagingDirectory)/fabric-e2e"
+    )
 
 
 def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
