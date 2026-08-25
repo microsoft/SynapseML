@@ -1643,6 +1643,18 @@ jobs:
         sed -n '/^resolvers ++= Seq(/,/^)/p' build.sbt | grep -qF 'Resolver.mavenLocal' || {
           echo "##vso[task.logissue type=error]Failed to add Resolver.mavenLocal to the resolvers block"; exit 1; }
 
+        if [ "$COMPAT_LANE" = "python" ]; then
+          # The OSS checkout already emits PEP 561 package data. Internal's compatibility
+          # helper still recognizes only the former one-line setup.py declaration,
+          # so teach the disposable checkout the current exact representation
+          # instead of rewriting OSS package metadata or disabling its typing gate.
+          oss_codegen="$(Agent.BuildDirectory)/s/core/src/main/scala/com/microsoft/azure/synapse/ml/codegen/PyCodegen.scala"
+          grep -qF '"": ["*.pyi", "py.typed"]' "$oss_codegen" || {
+            echo "##vso[task.logissue type=error]OSS PyCodegen no longer declares the expected PEP 561 package data"; exit 1; }
+          python "$(Agent.BuildDirectory)/s/tools/ci/patch_internal_typing_support.py" \
+            utils/typing_build_support.py
+        fi
+
         echo "=== Modified build.sbt ==="
         grep -n 'synapseMLVersion' build.sbt
         grep -n -A4 'resolvers ++=' build.sbt
@@ -1904,7 +1916,7 @@ jobs:
     # gating ExcludeAIFunc step could finish. They remain covered by
     # SynapseML-Internal's own pipeline.
     - task: AzureCLI@2
-      displayName: 'Run Internal Python tests (ExcludeAIFunc)'
+      displayName: 'Run Internal Python compatibility tests'
       timeoutInMinutes: 30
       inputs:
         azureSubscription: 'SynapseML Build'
@@ -1937,8 +1949,15 @@ jobs:
             sleep 30
             python ./src/test/python/make_mlflow_models.py
           fi
-          echo "Running ExcludeAIFunc Python tests against OSS $OSS_VERSION..."
-          sbt testPythonExcludeAIFunc
+          # Internal's non-live suites create Spark in this process, while its typing
+          # suite verifies that importing the pandas-on-Spark facade does not create
+          # a Py4J gateway. Running both in one pytest process makes that assertion
+          # order-dependent. The common target preserves Internal's default live-test
+          # exclusions, runs the non-typing tests first, then validates the installed
+          # typing artifacts in a fresh Python process that clears PYTEST_ADDOPTS.
+          export PYTEST_ADDOPTS="${PYTEST_ADDOPTS:+$PYTEST_ADDOPTS }--ignore=typing"
+          echo "Running non-live and isolated typing tests against OSS $OSS_VERSION..."
+          sbt testPythonAIFuncCommon
       condition: and(succeeded(), eq(variables['COMPAT_LANE'], 'python'))
     - task: PublishTestResults@2
       displayName: 'Publish Internal Scala Test Results'
