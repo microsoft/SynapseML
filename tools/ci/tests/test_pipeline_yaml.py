@@ -545,6 +545,46 @@ def test_fabric_e2e_retains_results_and_metadata_on_failure():
     )
 
 
+def test_internal_python_adapts_typing_package_data_to_current_codegen():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+    internal = jobs["InternalCompat"]
+    retarget_step = next(
+        step
+        for step in internal["steps"]
+        if isinstance(step, dict)
+        and step.get("displayName") == "Retarget Internal to this build"
+    )
+
+    script = retarget_step["bash"]
+    assert 'if [ "$COMPAT_LANE" = "python" ]; then' in script
+    assert '"": ["*.pyi", "py.typed"]' in script
+    assert (
+        'python "$(Agent.BuildDirectory)/s/tools/ci/'
+        'patch_internal_typing_support.py"' in script
+    )
+    assert "utils/typing_build_support.py" in script
+
+
+def test_internal_python_isolates_typing_from_spark_tests():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+    internal = jobs["InternalCompat"]
+    test_step = next(
+        step
+        for step in internal["steps"]
+        if isinstance(step, dict)
+        and step.get("displayName") == "Run Internal Python compatibility tests"
+    )
+
+    script = test_step["inputs"]["inlineScript"]
+    assert '--ignore=typing"' in script
+    assert "sbt testPythonAIFuncCommon" in script
+    assert "sbt testPythonExcludeAIFunc" not in script
+    assert "COMPAT_LANE" in test_step["condition"]
+    assert "python" in test_step["condition"]
+
+
 def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
     data = yaml.safe_load(_pipeline_text())
     jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
