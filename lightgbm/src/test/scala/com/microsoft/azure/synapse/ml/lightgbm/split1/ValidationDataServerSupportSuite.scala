@@ -4,12 +4,14 @@
 package com.microsoft.azure.synapse.ml.lightgbm.split1
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import com.microsoft.azure.synapse.ml.lightgbm.{NetworkManagerSocketSupport, ValidationDataSpool}
+import com.microsoft.azure.synapse.ml.lightgbm.{NetworkManagerSocketSupport, ValidationDataServer, ValidationDataSpool}
 import org.apache.commons.io.FileUtils
 
-import java.io.{File, IOException}
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, File, IOException}
+import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.concurrent.{Callable, FutureTask}
+import scala.collection.mutable.ArrayBuffer
 
 class ValidationDataServerSupportSuite extends TestBase {
 
@@ -39,6 +41,30 @@ class ValidationDataServerSupportSuite extends TestBase {
     } finally {
       Thread.interrupted()
     }
+  }
+
+  test("validation row copies reuse the current thread's transfer buffer") {
+    val rows = Seq("first validation row", "second validation row")
+    val bytes = rows.mkString.getBytes(StandardCharsets.UTF_8)
+    val observedBuffers = ArrayBuffer.empty[Array[Byte]]
+    val input = new ByteArrayInputStream(bytes) {
+      override def read(buffer: Array[Byte], offset: Int, length: Int): Int = {
+        observedBuffers += buffer
+        super.read(buffer, offset, length)
+      }
+    }
+    val output = new ByteArrayOutputStream()
+
+    rows.foreach { row =>
+      ValidationDataServer.copyExactly(
+        input,
+        output,
+        row.getBytes(StandardCharsets.UTF_8).length)
+    }
+
+    assert(output.toByteArray.sameElements(bytes))
+    assert(observedBuffers.nonEmpty)
+    assert(observedBuffers.forall(_ eq observedBuffers.head))
   }
 
   test("validation spool listing fails when the directory cannot be read") {
