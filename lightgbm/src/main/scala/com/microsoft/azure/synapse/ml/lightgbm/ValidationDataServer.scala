@@ -274,7 +274,7 @@ private[lightgbm] class ValidationDataServer private(serverSocket: ServerSocket,
   }
 
   private def copy(input: InputStream, output: OutputStream): Unit = {
-    val buffer = new Array[Byte](ValidationDataServer.CopyBufferSize)
+    val buffer = ValidationDataServer.ThreadCopyBuffer.get()
     var count = input.read(buffer)
     while (count >= 0) { // scalastyle:ignore while
       output.write(buffer, 0, count)
