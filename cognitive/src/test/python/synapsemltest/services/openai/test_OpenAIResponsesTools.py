@@ -28,6 +28,13 @@ WEATHER_TOOL = {
     "strict": True,
 }
 
+EMPTY_OBJECT_SCHEMA = {
+    "type": "object",
+    "properties": {},
+    "required": [],
+    "additionalProperties": False,
+}
+
 
 class TestOpenAIResponsesTools(unittest.TestCase):
     def test_python_tool_setters_round_trip_json(self):
@@ -37,12 +44,12 @@ class TestOpenAIResponsesTools(unittest.TestCase):
             .addFunctionTool(
                 "get_forecast",
                 "Get a forecast.",
-                {"type": "object", "properties": {}},
+                EMPTY_OBJECT_SCHEMA,
             )
             .addFunctionTool(
                 "get_alerts",
                 "Get weather alerts.",
-                {"type": "object", "properties": {}},
+                EMPTY_OBJECT_SCHEMA,
             )
             .setToolChoice({"type": "function", "name": "get_weather"})
             .setParallelToolCalls(False)
@@ -126,12 +133,12 @@ class TestOpenAIResponsesTools(unittest.TestCase):
             .addFunctionTool(
                 "get_forecast",
                 "Get a forecast.",
-                {"type": "object", "properties": {}},
+                EMPTY_OBJECT_SCHEMA,
             )
             .addFunctionTool(
                 "get_alerts",
                 "Get weather alerts.",
-                {"type": "object", "properties": {}},
+                EMPTY_OBJECT_SCHEMA,
             )
             .setToolChoice("auto")
         )

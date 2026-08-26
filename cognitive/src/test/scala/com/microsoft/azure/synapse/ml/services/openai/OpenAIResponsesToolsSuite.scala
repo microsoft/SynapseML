@@ -173,8 +173,8 @@ class OpenAIResponsesToolsSuite extends TransformerFuzzing[OpenAIResponses] {
     transformer.setTools(Seq(ToolTestFixtures.WeatherToolMap))
     assert(transformer.getToolsParamMode === "scalar")
     transformer
-      .addFunctionTool("get_forecast", "forecast", Map("type" -> "object"))
-      .addFunctionTool("get_alerts", "alerts", Map("type" -> "object"))
+      .addFunctionTool("get_forecast", "forecast", ToolTestFixtures.EmptyObjectSchema)
+      .addFunctionTool("get_alerts", "alerts", ToolTestFixtures.EmptyObjectSchema)
     assert(OpenAIToolUtils.parseTools(transformer.getTools).elements.flatMap(
       OpenAIToolUtils.functionName) ===
       Seq("get_weather", "get_forecast", "get_alerts"))
@@ -424,6 +424,12 @@ class OpenAIResponsesToolsSuite extends TransformerFuzzing[OpenAIResponses] {
     assertThrows[IllegalArgumentException] {
       configured.setToolCallsCol("messages").transformSchema(messagesDf.schema)
     }
+    assertThrows[IllegalArgumentException] {
+      configured
+        .setOutputCol("out")
+        .setToolCallsCol("out")
+        .transformSchema(messagesDf.schema)
+    }
   }
 
   test("continuation schema validation ignores nullability but rejects wrong fields") {
@@ -492,8 +498,8 @@ class OpenAIResponsesToolsSuite extends TransformerFuzzing[OpenAIResponses] {
 
   test("new params survive save and load without initialization hazards") {
     val transformer = configured
-      .addFunctionTool("get_forecast", "forecast", Map("type" -> "object"))
-      .addFunctionTool("get_alerts", "alerts", Map("type" -> "object"))
+      .addFunctionTool("get_forecast", "forecast", ToolTestFixtures.EmptyObjectSchema)
+      .addFunctionTool("get_alerts", "alerts", ToolTestFixtures.EmptyObjectSchema)
       .setParallelToolCalls(false)
       .setMaxToolCalls(2)
       .setMetadata(Map("k" -> "v"))

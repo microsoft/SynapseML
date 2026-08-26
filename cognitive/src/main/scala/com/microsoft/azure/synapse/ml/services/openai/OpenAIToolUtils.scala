@@ -144,7 +144,141 @@ object OpenAIToolUtils {
         throw new IllegalArgumentException(
           s"Tool '$name' parameters must be a JSON Schema object or null")
     }
+    fields.get("strict").foreach {
+      case JsBoolean(true) =>
+        fields.get("parameters").collect { case schema: JsObject => schema }
+          .foreach(validateStrictSchema(_, s"Tool '$name' parameters"))
+      case JsBoolean(false) | JsNull =>
+      case _ =>
+        throw new IllegalArgumentException(
+          s"Tool '$name' strict must be a boolean or null")
+    }
   }
+
+  private def schemaIsObject(schema: JsObject): Boolean = {
+    val objectType = schema.fields.get("type").exists {
+      case JsString("object") => true
+      case JsArray(types) => types.contains(JsString("object"))
+      case _ => false
+    }
+    objectType || schema.fields.contains("properties")
+  }
+
+  private def strictProperties(schema: JsObject, path: String): Map[String, JsValue] =
+    schema.fields.get("properties") match {
+      case Some(properties: JsObject) => properties.fields
+      case Some(_) =>
+        throw new IllegalArgumentException(
+          s"$path.properties must be a JSON object in strict mode")
+      case None => Map.empty
+    }
+
+  private def strictRequired(schema: JsObject, path: String): Set[String] =
+    schema.fields.get("required") match {
+      case Some(JsArray(values)) =>
+        values.map {
+          case JsString(value) => value
+          case _ =>
+            throw new IllegalArgumentException(
+              s"$path.required must contain only strings in strict mode")
+        }.toSet
+      case Some(_) =>
+        throw new IllegalArgumentException(
+          s"$path.required must be a JSON array in strict mode")
+      case None => Set.empty
+    }
+
+  private def validateSchemaMap(value: Option[JsValue], path: String): Unit =
+    value.foreach {
+      case values: JsObject =>
+        values.fields.foreach {
+          case (name, schema: JsObject) => validateStrictSchema(schema, s"$path.$name")
+          case (name, _) =>
+            throw new IllegalArgumentException(
+              s"$path.$name must be a JSON Schema object in strict mode")
+        }
+      case _ =>
+        throw new IllegalArgumentException(
+          s"$path must be a JSON object in strict mode")
+    }
+
+  private def validateSchemaArray(value: Option[JsValue], path: String): Unit =
+    value.foreach {
+      case JsArray(values) =>
+        values.zipWithIndex.foreach {
+          case (schema: JsObject, index) => validateStrictSchema(schema, s"$path[$index]")
+          case (_, index) =>
+            throw new IllegalArgumentException(
+              s"$path[$index] must be a JSON Schema object in strict mode")
+        }
+      case _ =>
+        throw new IllegalArgumentException(
+          s"$path must be a JSON array in strict mode")
+    }
+
+  private def validateItemsSchema(value: Option[JsValue], path: String): Unit =
+    value.foreach {
+      case child: JsObject => validateStrictSchema(child, path)
+      case JsArray(children) =>
+        children.zipWithIndex.foreach {
+          case (child: JsObject, index) => validateStrictSchema(child, s"$path[$index]")
+          case (_, index) =>
+            throw new IllegalArgumentException(
+              s"$path[$index] must be a JSON Schema object in strict mode")
+        }
+      case _ =>
+        throw new IllegalArgumentException(
+          s"$path must be a JSON Schema object or array in strict mode")
+    }
+
+  private def validateStrictSchema(schema: JsObject, path: String): Unit = {
+    if (schemaIsObject(schema)) {
+      require(
+        schema.fields.get("additionalProperties").contains(JsBoolean(false)),
+        s"$path must set additionalProperties to false in strict mode")
+      val properties = strictProperties(schema, path)
+      val required = strictRequired(schema, path)
+      val undefined = required -- properties.keySet
+      require(
+        undefined.isEmpty,
+        s"$path.required references undefined properties in strict mode: " +
+          undefined.toSeq.sorted.mkString(", "))
+      val missing = properties.keySet -- required
+      require(
+        missing.isEmpty,
+        s"$path must list every property in required in strict mode; missing: " +
+          missing.toSeq.sorted.mkString(", "))
+      properties.foreach {
+        case (name, child: JsObject) => validateStrictSchema(child, s"$path.properties.$name")
+        case (name, _) =>
+          throw new IllegalArgumentException(
+            s"$path.properties.$name must be a JSON Schema object in strict mode")
+      }
+    }
+
+    validateItemsSchema(schema.fields.get("items"), s"$path.items")
+    validateSchemaMap(schema.fields.get("$defs"), s"$path.$$defs")
+    validateSchemaMap(schema.fields.get("definitions"), s"$path.definitions")
+    Seq("anyOf", "oneOf", "allOf", "prefixItems").foreach { keyword =>
+      validateSchemaArray(schema.fields.get(keyword), s"$path.$keyword")
+    }
+    Seq("not", "if", "then", "else").foreach { keyword =>
+      schema.fields.get(keyword).foreach {
+        case child: JsObject => validateStrictSchema(child, s"$path.$keyword")
+        case _ =>
+          throw new IllegalArgumentException(
+            s"$path.$keyword must be a JSON Schema object in strict mode")
+      }
+    }
+  }
+
+  def hasStrictFunctionTool(tools: JsArray): Boolean =
+    tools.elements.exists {
+      case tool: JsObject =>
+        tool.fields.get("type").contains(JsString("function")) &&
+          tool.fields.get("strict").contains(JsBoolean(true))
+      case _ => false
+    }
 
   def toolsToJson(tools: Seq[Map[String, Any]]): String =
     parseTools(JsArray(tools.map(toJsValue).toVector).compactPrint).compactPrint

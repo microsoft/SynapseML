@@ -47,7 +47,8 @@ trait HasOpenAICommonToolParams extends HasServiceParams {
   val parallelToolCalls: ServiceParam[Boolean] = new ServiceParam[Boolean](
     this,
     "parallelToolCalls",
-    "Whether the model may emit multiple tool calls in one turn. The API default is true.",
+    "Whether the model may emit multiple tool calls in one turn. The API default is true. " +
+      "Azure OpenAI strict function schemas currently require this to be false.",
     isRequired = false) {
     override val payloadName: String = "parallel_tool_calls"
   }
@@ -140,6 +141,14 @@ trait HasOpenAICommonToolParams extends HasServiceParams {
 
   private[openai] def toolParamNames: Seq[String] =
     Seq(tools.name, toolChoice.name, parallelToolCalls.name)
+
+  private[openai] def strictToolsNeedSequentialCalls: Boolean = {
+    val hasStrictScalarTool = get(tools).flatMap(_.left.toOption)
+      .exists(value => OpenAIToolUtils.hasStrictFunctionTool(OpenAIToolUtils.parseTools(value)))
+    val parallelCallsDisabled =
+      get(parallelToolCalls).flatMap(_.left.toOption).contains(false)
+    hasStrictScalarTool && !parallelCallsDisabled
+  }
 
   @transient @volatile private var toolsMemo: (String, JsArray) = _
 

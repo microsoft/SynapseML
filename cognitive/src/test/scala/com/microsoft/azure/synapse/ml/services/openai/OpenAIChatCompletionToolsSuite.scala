@@ -123,4 +123,18 @@ class OpenAIChatCompletionToolsSuite extends TestBase {
     assert(!generated.contains("def getInclude("))
     assert(!generated.contains("def replayItemsColumn("))
   }
+
+  test("Chat toolCallsCol cannot overwrite another public column") {
+    val inputSchema = Seq(
+      Seq(OpenAIMessage("user", "Weather in Seattle?"))
+    ).toDF("messages").schema
+    val error = intercept[IllegalArgumentException] {
+      new OpenAIChatCompletion()
+        .setMessagesCol("messages")
+        .setOutputCol("out")
+        .setToolCallsCol("out")
+        .transformSchema(inputSchema)
+    }
+    assert(error.getMessage.contains("toolCallsCol 'out'"))
+  }
 }

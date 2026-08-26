@@ -14,7 +14,8 @@ class OpenAIToolUtilsSuite extends TestBase {
   test("function tools normalize to the flat Responses shape") {
     val nested =
       """[{"type":"function","allowed_callers":["direct"],"name":"outer","function":{
-        |"name":"inner","description":"d","parameters":{"type":"object"},"strict":true}}]"""
+        |"name":"inner","description":"d","parameters":{"type":"object","properties":{},
+        |"required":[],"additionalProperties":false},"strict":true}}]"""
         .stripMargin
     val tool = OpenAIToolUtils.parseTools(nested).elements.head.asJsObject
     assert(tool.fields("type") === JsString("function"))
@@ -86,6 +87,44 @@ class OpenAIToolUtilsSuite extends TestBase {
           |{"type":"function","name":"f","parameters":null}]""".stripMargin)
     }
     assert(duplicate.getMessage.contains("Duplicate function tool name 'f'"))
+  }
+
+  test("strict function schemas enforce Structured Outputs requirements recursively") {
+    val missingAdditionalProperties = intercept[IllegalArgumentException] {
+      OpenAIToolUtils.parseTools(
+        """[{"type":"function","name":"f","strict":true,
+          |"parameters":{"type":"object","properties":{},"required":[]}}]""".stripMargin)
+    }
+    assert(missingAdditionalProperties.getMessage.contains("additionalProperties"))
+
+    val missingNestedRequired = intercept[IllegalArgumentException] {
+      OpenAIToolUtils.parseTools(
+        """[{"type":"function","name":"f","strict":true,"parameters":{
+          |"type":"object","properties":{"address":{"type":"object",
+          |"properties":{"city":{"type":"string"}},"required":[],
+          |"additionalProperties":false}},"required":["address"],
+          |"additionalProperties":false}}]""".stripMargin)
+    }
+    assert(missingNestedRequired.getMessage.contains("missing: city"))
+
+    val undefinedRequired = intercept[IllegalArgumentException] {
+      OpenAIToolUtils.parseTools(
+        """[{"type":"function","name":"f","strict":true,"parameters":{
+          |"type":"object","properties":{},"required":["missing"],
+          |"additionalProperties":false}}]""".stripMargin)
+    }
+    assert(undefinedRequired.getMessage.contains("undefined properties"))
+
+    val nullableOptional = OpenAIToolUtils.parseTools(
+      """[{"type":"function","name":"f","strict":true,"parameters":{
+        |"type":"object","properties":{"units":{"type":["string","null"]}},
+        |"required":["units"],"additionalProperties":false}}]""".stripMargin)
+    assert(OpenAIToolUtils.hasStrictFunctionTool(nullableOptional))
+
+    val nonStrict = OpenAIToolUtils.parseTools(
+      """[{"type":"function","name":"f","strict":false,
+        |"parameters":{"type":"object","properties":{"city":{"type":"string"}}}}]""".stripMargin)
+    assert(!OpenAIToolUtils.hasStrictFunctionTool(nonStrict))
   }
 
   test("tool choice remains forward compatible and blank rows are omitted") {

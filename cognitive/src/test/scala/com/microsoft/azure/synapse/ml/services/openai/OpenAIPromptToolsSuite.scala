@@ -184,6 +184,16 @@ class OpenAIPromptToolsSuite extends TestBase {
         .transform(Seq(("Seattle", "existing")).toDF("city", "tool_calls"))
     }
     assert(transformError.getMessage.contains("Column 'tool_calls' already exists"))
+
+    val publicCollision = intercept[IllegalArgumentException] {
+      new OpenAIPrompt()
+        .setApiType("responses")
+        .setPromptTemplate("{city}")
+        .setOutputCol("result")
+        .setResponseStructCol("result")
+        .transformSchema(inputSchema)
+    }
+    assert(publicCollision.getMessage.contains("responseStructCol 'result'"))
   }
 
   test("Prompt tools and output params survive save and load") {

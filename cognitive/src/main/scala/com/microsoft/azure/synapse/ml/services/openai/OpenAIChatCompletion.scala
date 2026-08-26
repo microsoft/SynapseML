@@ -102,6 +102,7 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
 
 object OpenAIChatCompletion extends ComplexParamsReadable[OpenAIChatCompletion]
 
+// scalastyle:off number.of.methods
 class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(uid)
   with HasOpenAITextParamsExtended with HasOpenAICommonToolParams with HasMessagesInput
   with HasCognitiveServiceInput with HasOpenAIFabricHeaders with HasInternalJsonOutputParser
@@ -176,12 +177,15 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   private def encodeChatMessagesToMap(messages: Seq[Row]): Seq[Map[String, Any]] =
     messages.map(encodeMessageRow)
 
-  private def validatePublicColumnNames(): Unit =
-    OpenAIColumnUtils.validateDistinctColumns(
-      "messagesCol" -> getMessagesCol,
-      "outputCol" -> getOutputCol,
-      "errorCol" -> getErrorCol
-    )
+  private def validatePublicColumnNames(): Unit = {
+    val configured = Seq(
+      Some("messagesCol" -> getMessagesCol),
+      Some("outputCol" -> getOutputCol),
+      Some("errorCol" -> getErrorCol),
+      get(toolCallsCol).map("toolCallsCol" -> _)
+    ).flatten
+    OpenAIColumnUtils.validateDistinctColumns(configured: _*)
+  }
 
   private def transformPrepared(dataset: Dataset[_]): DataFrame = {
     transferGlobalParamsToParamMap()
@@ -661,6 +665,12 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
         !schema.fieldNames.contains(columnName),
         s"Column '$columnName' already exists in the input DataFrame")
     }
+    val configuredUrl = get(url).orElse(getDefault(url)).map(_.toLowerCase)
+    if (configuredUrl.exists(_.contains("azure.com")) && strictToolsNeedSequentialCalls) {
+      logWarning(
+        "Azure OpenAI strict function schemas require parallel_tool_calls=false; " +
+          "call setParallelToolCalls(false) to avoid HTTP 400")
+    }
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
@@ -691,3 +701,4 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   override def pyAdditionalMethods: String =
     super.pyAdditionalMethods + OpenAIToolPythonOverrides.ChatMethods
 }
+// scalastyle:on number.of.methods

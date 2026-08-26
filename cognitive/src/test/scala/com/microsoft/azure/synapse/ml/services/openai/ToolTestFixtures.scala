@@ -8,6 +8,13 @@ import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types._
 
 object ToolTestFixtures {
+  val EmptyObjectSchema: Map[String, Any] = Map(
+    "type" -> "object",
+    "properties" -> Map.empty[String, Any],
+    "required" -> Seq.empty[String],
+    "additionalProperties" -> false
+  )
+
   val WeatherToolMap: Map[String, Any] = Map(
     "type" -> "function",
     "name" -> "get_weather",

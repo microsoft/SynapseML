@@ -455,12 +455,16 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     validateResponsesOnlyParams(currentApiType)
     validateUsageColSupport(currentApiType)
   }
-  private def validatePublicColumnNames(): Unit =
-    OpenAIColumnUtils.validateDistinctColumns(
-      "messagesCol" -> getMessagesCol,
-      "outputCol" -> getOutputCol,
-      "errorCol" -> getErrorCol
-    )
+  private def validatePublicColumnNames(): Unit = {
+    val configured = Seq(
+      Some("messagesCol" -> getMessagesCol),
+      Some("outputCol" -> getOutputCol),
+      Some("errorCol" -> getErrorCol),
+      get(toolCallsCol).map("toolCallsCol" -> _),
+      get(responseStructCol).map("responseStructCol" -> _)
+    ).flatten
+    OpenAIColumnUtils.validateDistinctColumns(configured: _*)
+  }
 
   private def attachmentsColumn(pathColumnNames: Seq[String]): Column = {
     if (pathColumnNames.nonEmpty) {
