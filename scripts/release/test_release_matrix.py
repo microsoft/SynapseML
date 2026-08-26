@@ -11,7 +11,7 @@ import sys
 import pytest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from release_matrix import build_plan, parse_iterations  # noqa: E402
+from release_matrix import build_plan, parse_iterations, render_text  # noqa: E402
 
 
 def _by_key(plan):
@@ -124,14 +124,32 @@ def test_maven_coordinates_follow_release_tags():
     m = _by_key(build_plan("1.1.3"))
     assert m["master"].scala == "2.12"
     assert m["master"].oss_maven_version == "1.1.3"
+    assert m["master"].internal_maven_version == "1.1.3.0"
+    assert m["master"].oss_maven_tag == "v1.1.3"
+    assert m["master"].internal_maven_tag == "v1.1.3.0"
     assert m["spark4.0"].scala == "2.13"
     assert m["spark4.0"].oss_maven_version == "1.1.3-spark4.0"
+    assert m["spark4.0"].internal_maven_version == "1.1.3.0-spark4.0"
     assert m["spark4.1"].oss_maven_version == "1.1.3-spark4.1"
+
+
+def test_text_plan_emits_every_selected_maven_build():
+    plan = build_plan("1.1.4", target_keys=["master", "spark4.1"])
+    text = render_text(plan)
+
+    assert text.count("az pipelines run --id 17563") == 2
+    assert text.count("az pipelines run --id 18453") == 2
+    assert "--branch refs/tags/v1.1.4" in text
+    assert "--branch refs/tags/v1.1.4.0" in text
+    assert "--branch refs/tags/v1.1.4-spark4.1" in text
+    assert "--branch refs/tags/v1.1.4.0-spark4.1" in text
 
 
 def test_internal_superpatch_flows_everywhere():
     """v1.1.3.1 was a real internal-only hotfix: UPack 1.1.3-1, pip 1.1.3.1+python3.11."""
-    m = _by_key(build_plan("1.1.3", internal_patch="1"))["master"]
+    m = _by_key(build_plan("1.1.3", internal_patch="1", scope="internal-only"))[
+        "master"
+    ]
     assert m.internal_tags[0] == "v1.1.3.1"
     assert m.internal_upack_version == "1.1.3-1"
     assert m.internal_pip_version == "1.1.3.1+python3.11"
@@ -142,7 +160,13 @@ def test_internal_superpatch_flows_everywhere():
 
 def test_upack_rebuild_iteration_suffix():
     """1.1.1-spark4-0-1 exists in the live feed: a republish after a bad build."""
-    m = _by_key(build_plan("1.1.1", upack_iteration={"spark4.0": 1}))["spark4.0"]
+    m = _by_key(
+        build_plan(
+            "1.1.1",
+            target_keys=["spark4.0"],
+            upack_iteration={"spark4.0": 1},
+        )
+    )["spark4.0"]
     assert m.oss_upack_version == "1.1.1-spark4-0-1"
     assert m.internal_upack_version == "1.1.1-0-spark4.0", (
         "OSS and Internal are separate packages with independent rebuild "
@@ -151,9 +175,13 @@ def test_upack_rebuild_iteration_suffix():
 
 
 def test_internal_rebuild_iteration_is_independent():
-    m = _by_key(build_plan("1.1.1", internal_upack_iteration={"spark4.0": 2}))[
-        "spark4.0"
-    ]
+    m = _by_key(
+        build_plan(
+            "1.1.1",
+            target_keys=["spark4.0"],
+            internal_upack_iteration={"spark4.0": 2},
+        )
+    )["spark4.0"]
     assert m.oss_upack_version == "1.1.1-spark4-0"
     assert m.internal_upack_version == "1.1.1-0-spark4.0-2"
 
@@ -169,7 +197,12 @@ def test_reproduces_production_bbcvhd_spark40_setup_sh():
     while the Internal package preserves the dot and carries none.
     """
     m = _by_key(
-        build_plan("1.1.1", internal_patch="0", upack_iteration={"spark4.0": 1})
+        build_plan(
+            "1.1.1",
+            internal_patch="0",
+            target_keys=["spark4.0"],
+            upack_iteration={"spark4.0": 1},
+        )
     )["spark4.0"]
     assert m.oss_upack_version == "1.1.1-spark4-0-1"
     assert m.internal_upack_version == "1.1.1-0-spark4.0"
@@ -193,6 +226,78 @@ def test_publish_parameters_enable_exact_selected_targets():
     assert plan.publish_parameters["build_synapseml_upack_spark41"] is True
     assert plan.publish_parameters["build_internal_pip_py313"] is True
     assert plan.publish_parameters["build_internal_upack_spark41"] is True
+
+
+def test_internal_only_hotfix_never_republishes_oss():
+    plan = build_plan(
+        "1.1.3",
+        internal_patch="1",
+        target_keys=["master"],
+        scope="internal-only",
+    )
+    text = render_text(plan)
+
+    assert plan.scope == "internal-only"
+    assert not any(
+        value
+        for name, value in plan.publish_parameters.items()
+        if name.startswith("build_synapseml_")
+    )
+    assert plan.publish_parameters["build_internal_pip_py311"] is True
+    assert plan.publish_parameters["build_internal_upack_default"] is True
+    assert "az pipelines run --id 17563" not in text
+    assert text.count("az pipelines run --id 18453") == 1
+
+
+def test_internal_only_hotfix_preserves_but_does_not_republish_oss_rebuild():
+    plan = build_plan(
+        "1.1.3",
+        internal_patch="1",
+        target_keys=["master"],
+        upack_iteration={"master": 1},
+        scope="internal-only",
+    )
+
+    assert plan.targets[0].oss_upack_version == "1.1.3-1"
+    assert "SYNAPSEML_PATCH_VERSION" not in plan.publish_variables
+
+
+@pytest.mark.parametrize(
+    "patch,scope",
+    [("1", "full"), ("0", "internal-only"), ("0", "unknown")],
+)
+def test_rejects_unsafe_release_scope(patch, scope):
+    with pytest.raises(ValueError):
+        build_plan("1.1.3", internal_patch=patch, scope=scope)
+
+
+def test_rebuild_counter_reaches_publish_pipeline():
+    plan = build_plan(
+        "1.1.1",
+        target_keys=["spark4.0"],
+        upack_iteration={"spark4.0": 1},
+        internal_upack_iteration={"spark4.0": 2},
+    )
+    text = render_text(plan)
+
+    assert plan.publish_variables == {
+        "SYNAPSEML_PATCH_VERSION": "1",
+        "SYNAPSEML_INTERNAL_PATCH_VERSION": "2",
+    }
+    assert (
+        "--variables SYNAPSEML_PATCH_VERSION=1 "
+        "SYNAPSEML_INTERNAL_PATCH_VERSION=2" in text
+    )
+
+
+def test_rejects_per_target_counters_that_one_pipeline_cannot_express():
+    with pytest.raises(ValueError, match="cover every selected target"):
+        build_plan("1.1.1", upack_iteration={"spark4.0": 1})
+    with pytest.raises(ValueError, match="one value per pipeline run"):
+        build_plan(
+            "1.1.1",
+            upack_iteration={"master": 1, "spark4.0": 2, "spark4.1": 1},
+        )
 
 
 def test_base_branch_chain_matches_rebase_order():

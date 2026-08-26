@@ -19,7 +19,7 @@ GitHub checks use GH_TOKEN when set and otherwise use the unauthenticated API.
 Usage:
     python scripts/release/verify_release.py --version 1.1.3
     python scripts/release/verify_release.py --version 1.1.4 --internal-patch 0 --json
-    python scripts/release/verify_release.py --version 1.1.4 --skip ado   # GitHub only
+    python scripts/release/verify_release.py --version 1.1.4 --skip ado,internal
     python scripts/release/verify_release.py --version 1.1.4 --skip internal
 """
 
@@ -48,7 +48,16 @@ ORG_SHORT = "msdata"
 GITHUB_REPO = "microsoft/SynapseML"
 INTERNAL_REPO = "SynapseML-Internal"
 MAVEN_BASE = "https://mmlspark.azureedge.net/maven"
-PUBLIC_MAVEN_MODULES = ("synapseml", "synapseml-core")
+PUBLIC_MAVEN_MODULES = (
+    "synapseml",
+    "synapseml-core",
+    "synapseml-cognitive",
+    "synapseml-deep-learning",
+    "synapseml-lightgbm",
+    "synapseml-opencv",
+    "synapseml-vw",
+)
+INTERNAL_MAVEN_MODULE = "synapseml-internal"
 PYPI_BASE = "https://pypi.org/pypi"
 SKIP_CHOICES = {"github", "ado", "upack", "pip", "internal", "public"}
 
@@ -70,12 +79,18 @@ def _get_ado_token(explicit: Optional[str]) -> str:
         "tsv",
     ]
     use_shell = sys.platform == "win32"
-    out = subprocess.run(
-        subprocess.list2cmdline(command) if use_shell else command,
-        capture_output=True,
-        text=True,
-        shell=use_shell,
-    )
+    try:
+        out = subprocess.run(
+            subprocess.list2cmdline(command) if use_shell else command,
+            capture_output=True,
+            text=True,
+            shell=use_shell,
+        )
+    except OSError as e:
+        raise RuntimeError(
+            "could not run Azure CLI 'az'; install Azure CLI and sign in, "
+            f"or set ADO_TOKEN: {e}"
+        ) from e
     if out.returncode != 0:
         raise RuntimeError(f"could not get ADO token: {out.stderr.strip()}")
     token = out.stdout.strip()
@@ -155,22 +170,65 @@ class Checker:
         self._pkg_cache: Dict[Tuple[str, str, str], List[str]] = {}
 
     # --- git tags ---------------------------------------------------------
-    def github_tag(self, tag: str) -> str:
+    def github_tag(self, tag: str) -> Tuple[str, Optional[str]]:
         if "github" in self.skip:
-            return SKIPPED
-        url = f"https://api.github.com/repos/{GITHUB_REPO}/git/ref/tags/{tag}"
-        return OK if _json_get(url, self._gh_headers) else MISSING
+            return SKIPPED, None
+        encoded_tag = urllib.parse.quote(tag, safe="")
+        url = f"https://api.github.com/repos/{GITHUB_REPO}/git/ref/tags/{encoded_tag}"
+        data = _json_get(url, self._gh_headers)
+        if data is None:
+            return MISSING, None
+
+        obj = data.get("object")
+        for _ in range(5):
+            if not isinstance(obj, dict):
+                raise RuntimeError(f"GitHub tag {tag} has no object")
+            object_type = obj.get("type")
+            sha = obj.get("sha")
+            if object_type == "commit" and isinstance(sha, str) and sha:
+                return OK, sha
+            if object_type != "tag" or not isinstance(obj.get("url"), str):
+                raise RuntimeError(
+                    f"GitHub tag {tag} has unsupported object type {object_type!r}"
+                )
+            data = _json_get(obj["url"], self._gh_headers)
+            if data is None:
+                raise RuntimeError(f"annotated GitHub tag object not found for {tag}")
+            obj = data.get("object")
+        raise RuntimeError(f"GitHub tag {tag} has more than five annotation layers")
+
+    def _maven(
+        self, module: str, scala: str, version: str, require_tests: bool = False
+    ) -> str:
+        artifact = f"{module}_{scala}"
+        escaped_version = urllib.parse.quote(version, safe="")
+        base = (
+            f"{MAVEN_BASE}/com/microsoft/azure/{artifact}/{escaped_version}/"
+            f"{artifact}-{escaped_version}"
+        )
+        files = [f"{base}.pom", f"{base}.jar"]
+        if require_tests:
+            files.append(f"{base}-tests.jar")
+        return (
+            OK
+            if all(_url_exists(url, self._public_headers) for url in files)
+            else MISSING
+        )
 
     def public_maven(self, module: str, scala: str, version: str) -> str:
         if "public" in self.skip:
             return SKIPPED
-        artifact = f"{module}_{scala}"
-        escaped_version = urllib.parse.quote(version, safe="")
-        url = (
-            f"{MAVEN_BASE}/com/microsoft/azure/{artifact}/{escaped_version}/"
-            f"{artifact}-{escaped_version}.pom"
+        return self._maven(
+            module,
+            scala,
+            version,
+            require_tests=module == "synapseml-core",
         )
-        return OK if _url_exists(url, self._public_headers) else MISSING
+
+    def internal_maven(self, scala: str, version: str) -> str:
+        if "internal" in self.skip:
+            return SKIPPED
+        return self._maven(INTERNAL_MAVEN_MODULE, scala, version)
 
     def public_pypi(self, version: str) -> str:
         if "public" in self.skip:
@@ -180,12 +238,12 @@ class Checker:
         published = data and data.get("info", {}).get("version") == version
         return OK if published else MISSING
 
-    def ado_tag(self, tag: str) -> str:
+    def ado_tag(self, tag: str) -> Tuple[str, Optional[str]]:
         if "ado" in self.skip or "internal" in self.skip:
-            return SKIPPED
+            return SKIPPED, None
         url = (
             f"https://dev.azure.com/{ORG_SHORT}/{ADO_PROJECT}/_apis/git/repositories/"
-            f"{INTERNAL_REPO}/refs?filter=tags/{tag}&api-version=7.1"
+            f"{INTERNAL_REPO}/refs?filter=tags/{tag}&peelTags=true&api-version=7.1"
         )
         data = _json_get(url, self._ado_headers)
         if data is None:
@@ -194,7 +252,18 @@ class Checker:
         if not isinstance(refs, list):
             raise RuntimeError("SynapseML-Internal refs response has no value list")
         wanted = f"refs/tags/{tag}"
-        return OK if any(v.get("name") == wanted for v in refs) else MISSING
+        found = next((value for value in refs if value.get("name") == wanted), None)
+        if found is None:
+            return MISSING, None
+        peeled = found.get("peeledObjectId")
+        commit = (
+            peeled
+            if isinstance(peeled, str) and peeled.strip("0")
+            else found.get("objectId")
+        )
+        if not isinstance(commit, str) or not commit:
+            raise RuntimeError(f"SynapseML-Internal tag {tag} has no object ID")
+        return OK, commit
 
     # --- artifact feeds ---------------------------------------------------
     def _feed_versions(self, feed: str, protocol: str, package: str) -> List[str]:
@@ -288,6 +357,7 @@ def run(
         target_keys,
         upack_iteration,
         internal_upack_iteration,
+        "internal-only" if internal_patch != "0" else "full",
     )
     c = Checker(token, gh_token, skip)
     rows: List[dict] = []
@@ -303,9 +373,34 @@ def run(
             }
         )
 
+    def add_tag_family(target, name, tags, check):
+        results = []
+        for tag in tags:
+            status, commit = check(tag)
+            add("git-tag", target, name, tag, status)
+            results.append((status, commit))
+
+        if all(status == SKIPPED for status, _ in results):
+            consistency = SKIPPED
+        elif all(status == OK and commit for status, commit in results):
+            consistency = OK if len({commit for _, commit in results}) == 1 else MISSING
+        else:
+            consistency = MISSING
+        add(
+            "tag-set",
+            target,
+            name + "/same-commit",
+            ", ".join(tags),
+            consistency,
+        )
+
     for tp in plan.targets:
-        for tag in tp.oss_tags:
-            add("git-tag", tp.key, "github/" + GITHUB_REPO, tag, c.github_tag(tag))
+        add_tag_family(
+            tp.key,
+            "github/" + GITHUB_REPO,
+            tp.oss_tags,
+            c.github_tag,
+        )
         for module in PUBLIC_MAVEN_MODULES:
             artifact = f"{module}_{tp.scala}"
             add(
@@ -315,6 +410,13 @@ def run(
                 tp.oss_maven_version,
                 c.public_maven(module, tp.scala, tp.oss_maven_version),
             )
+        add(
+            "maven",
+            tp.key,
+            f"{INTERNAL_MAVEN_MODULE}_{tp.scala}",
+            tp.internal_maven_version,
+            c.internal_maven(tp.scala, tp.internal_maven_version),
+        )
         if tp.key == "master":
             add(
                 "pypi",
@@ -323,8 +425,12 @@ def run(
                 plan.oss_version,
                 c.public_pypi(plan.oss_version),
             )
-        for tag in tp.internal_tags:
-            add("git-tag", tp.key, "ado/" + INTERNAL_REPO, tag, c.ado_tag(tag))
+        add_tag_family(
+            tp.key,
+            "ado/" + INTERNAL_REPO,
+            tp.internal_tags,
+            c.ado_tag,
+        )
         add(
             "upack",
             tp.key,
@@ -392,7 +498,8 @@ def main(argv=None) -> int:
             "Comma-separated checks to skip: github (OSS tags), "
             "ado (all ADO-backed checks), upack (all UPacks), "
             "pip (all Synapse-Conda wheels), internal "
-            "(Internal tags, UPacks, and wheels), public (Maven CDN and PyPI)"
+            "(Internal tags, Maven, UPacks, and wheels), "
+            "public (OSS Maven CDN and PyPI)"
         ),
     )
     p.add_argument("--json", action="store_true")

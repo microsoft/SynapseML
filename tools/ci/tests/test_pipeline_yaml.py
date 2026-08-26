@@ -69,15 +69,13 @@ def _run_fabric_certificate_script(
     tmp_path, account, certificate="test-pfx", az_exit=0
 ):
     mock_az = tmp_path / "az"
-    mock_az.write_text(
-        """#!/usr/bin/env bash
+    mock_az.write_text("""#!/usr/bin/env bash
 printf '%s\\n' "$@" > "$MOCK_AZ_ARGS"
 if [ "$MOCK_AZ_EXIT" -ne 0 ]; then
   exit "$MOCK_AZ_EXIT"
 fi
 printf '%s' "$MOCK_CERTIFICATE"
-"""
-    )
+""")
     mock_az.chmod(0o755)
     az_args = tmp_path / "az-args.txt"
     env = os.environ.copy()
@@ -291,6 +289,11 @@ def test_prewarm_job_present():
     }
 
 
+def test_release_tags_require_explicit_maven_pipeline_queue():
+    data = yaml.safe_load(_pipeline_text())
+    assert "tags" not in data["trigger"]
+
+
 def test_databricks_e2e_uses_fail_open_pr_impact_detection():
     assert DATABRICKS_IMPACT.exists()
     data = yaml.safe_load(_pipeline_text())
@@ -346,7 +349,7 @@ def test_fabric_e2e_skips_untrusted_fork_builds():
     condition = jobs["FabricE2E"]["condition"]
     fork_guard = (
         r"ne\(\s*variables\[['\"]System\.PullRequest\.IsFork['\"]\],"
-        r"\s*['\"]True['\"]\s*\)"
+        + r"\s*['\"]True['\"]\s*\)"
     )
     assert re.search(fork_guard, condition)
 
