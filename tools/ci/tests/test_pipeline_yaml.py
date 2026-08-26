@@ -69,13 +69,15 @@ def _run_fabric_certificate_script(
     tmp_path, account, certificate="test-pfx", az_exit=0
 ):
     mock_az = tmp_path / "az"
-    mock_az.write_text("""#!/usr/bin/env bash
+    mock_az.write_text(
+        """#!/usr/bin/env bash
 printf '%s\\n' "$@" > "$MOCK_AZ_ARGS"
 if [ "$MOCK_AZ_EXIT" -ne 0 ]; then
   exit "$MOCK_AZ_EXIT"
 fi
 printf '%s' "$MOCK_CERTIFICATE"
-""")
+"""
+    )
     mock_az.chmod(0o755)
     az_args = tmp_path / "az-args.txt"
     env = os.environ.copy()
