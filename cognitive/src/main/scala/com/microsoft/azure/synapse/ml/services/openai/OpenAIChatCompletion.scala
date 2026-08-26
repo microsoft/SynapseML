@@ -498,9 +498,6 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   }
 
   private def validateMessages(messages: CollectionSeq[Row]): Unit = {
-    if (messages.isEmpty) {
-      throw new IllegalArgumentException("messages must not be empty")
-    }
     messages.zipWithIndex.foreach { case (message, messageIndex) =>
       if (message == null) {
         throw new IllegalArgumentException(s"messages[$messageIndex] must be an object")

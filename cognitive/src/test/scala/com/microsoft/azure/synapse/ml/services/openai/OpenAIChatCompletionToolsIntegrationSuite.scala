@@ -100,6 +100,30 @@ class OpenAIChatCompletionToolsIntegrationSuite extends TestBase {
     }
   }
 
+  test("Chat executor silently skips null and empty message arrays") {
+    withServer { (url, requests) =>
+      val transformer = new OpenAIChatCompletion()
+        .setUrl(url)
+        .setDeploymentName("gpt-5.1")
+        .setSubscriptionKey("local-stub-key")
+        .setMessagesCol("messages")
+        .setOutputCol("out")
+        .setErrorCol("error")
+        .setConcurrency(1)
+      val inputs: Seq[(Int, Option[Seq[OpenAIMessage]])] = Seq(
+        1 -> Some(Seq.empty),
+        2 -> None
+      )
+
+      val rows = transformer.transform(inputs.toDF("id", "messages")).orderBy("id").collect()
+      rows.foreach { row =>
+        assert(row.getAs[Row]("out") == null) //scalastyle:ignore null
+        assert(row.getAs[Row]("error") == null) //scalastyle:ignore null
+      }
+      assert(requests.isEmpty)
+    }
+  }
+
   test("OpenAIPrompt defaults to Chat tool calling without flagging tool-only output") {
     withServer { (url, requests) =>
       val prompt = new OpenAIPrompt()
