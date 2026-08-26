@@ -161,9 +161,7 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   override protected[openai] def prepareEntity: Row => Option[AbstractHttpEntity] = {
     r =>
       lazy val optionalParams: Map[String, Any] = getOptionalParams(r)
-      val messages = Option(r.getAs[scala.collection.Seq[Row]](getMessagesCol))
-        .map(_.toSeq)
-        .getOrElse(Seq.empty)
+      val messages = r.getAs[Seq[Row]](getMessagesCol)
       Some(getStringEntity(messages, optionalParams))
   }
 
@@ -305,137 +303,6 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
 
   override protected def getInternalOutputParser(schema: StructType): HTTPOutputParser =
     new JSONOutputParser().setDataType(ResponsesModelResponseV2.schema)
-
-  private[openai] def getStringEntity(
-      messages: Seq[Row],
-      optionalParams: Map[String, Any]): StringEntity = {
-    val continuationInput = optionalParams.get("input").collect {
-      case input: scala.collection.Seq[_] => input.toSeq
-    }.getOrElse(Seq.empty)
-    buildStringEntity(messages, continuationInput, optionalParams - "input")
-  }
-
-  private[openai] def getStringEntity(
-      messages: Seq[Row],
-      inputItemsJson: String,
-      functionOutputs: Seq[Row],
-      optionalParams: Map[String, Any]): StringEntity = {
-    val continuationInput: Seq[Any] =
-      OpenAIToolUtils.parseInputItems(inputItemsJson) ++
-        OpenAIToolColumns.toFunctionCallOutputs(functionOutputs)
-    buildStringEntity(messages, continuationInput, optionalParams - "input")
-  }
-
-  private def buildStringEntity(
-      messages: Seq[Row],
-      continuationInput: Seq[Any],
-      optionalParams: Map[String, Any]): StringEntity = {
-    val mappedMessages = OpenAIResponsesMessageUtils.encodeMessages(messages)
-    val input: Seq[Any] = mappedMessages ++ continuationInput
-    val fullPayload = optionalParams.updated("input", input)
-    new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
-  }
-
-  override private[openai] def getOutputMessageText(outputColName: String): Column = {
-    val items = F.col(outputColName).getField("output")
-    val typedItems = F.filter(items, item => item.getField("type").isNotNull)
-    val typedMessages = F.filter(
-      typedItems,
-      item => item.getField("type") === OpenAIToolUtils.MessageItemType)
-    val legacyMessages = F.filter(items, item => item.getField("type").isNull)
-    val messages = F.when(F.size(typedItems) > 0, typedMessages).otherwise(legacyMessages)
-    val textValues = F.transform(
-      F.element_at(messages, -1).getField("content"),
-      part => part.getField("text"))
-    val definedTextValues = F.filter(textValues, text => text.isNotNull)
-    F.when(
-      F.size(messages) > 0,
-      F.element_at(definedTextValues, 1)
-    )
-  }
-
-  private def outputEntries(outputRow: Row): Seq[Row] = {
-    Option(outputRow)
-      .flatMap(r => Option(r.getAs[scala.collection.Seq[Row]]("output")))
-      .getOrElse(Seq.empty).toSeq
-  }
-
-  private def lastOutputEntry(outputRow: Row): Option[Row] = {
-    outputEntries(outputRow).lastOption
-  }
-
-  private def firstDefinedText(contentParts: Seq[Row]): Option[String] = {
-    contentParts.iterator
-      .flatMap(part => Option(part.getAs[String]("text")))
-      .toSeq
-      .headOption
-  }
-
-  private def lastOutputText(outputRow: Row): Option[String] = {
-    lastOutputEntry(outputRow).flatMap { outputEntry =>
-      firstDefinedText(
-        Option(outputEntry.getAs[scala.collection.Seq[Row]]("content"))
-          .getOrElse(Seq.empty).toSeq)
-    }
-  }
-
-  private def hasFunctionCall(outputRow: Row): Boolean =
-    outputEntries(outputRow).exists(itemType(_).contains(OpenAIToolUtils.FunctionCallItemType))
-
-  private def incompleteReason(outputRow: Row): Option[String] =
-    optionalField[Row](outputRow, "incomplete_details")
-      .flatMap(optionalField[String](_, "reason"))
-
-  override private[openai] def isContentFiltered(outputRow: Row): Boolean = {
-    incompleteReason(outputRow) match {
-      case Some(OpenAIToolUtils.ContentFilterReason) => true
-      case Some(OpenAIToolUtils.MaxOutputTokensReason) => false
-      case _ if hasFunctionCall(outputRow) => false
-      case _ => lastMessageText(outputRow).isEmpty
-    }
-  }
-
-  override private[openai] def getFilterReason(outputRow: Row): String = {
-    if (incompleteReason(outputRow).contains(OpenAIToolUtils.ContentFilterReason)) {
-      OpenAIToolUtils.ContentFilterReason
-    } else {
-      lastMessageEntry(outputRow)
-        .flatMap(optionalField[String](_, "status"))
-        .filter(_.nonEmpty)
-        .getOrElse("content_filtered_or_empty")
-    }
-  }
-
-  private def optionalField[T](row: Row, fieldName: String): Option[T] = {
-    Option(row).filter(_.schema.fieldNames.contains(fieldName))
-      .flatMap(value => Option(value.getAs[T](fieldName)))
-  }
-
-  private def itemType(row: Row): Option[String] =
-    optionalField[String](row, "type")
-
-  private def messageEntries(outputRow: Row): Seq[Row] = {
-    val entries = outputEntries(outputRow)
-    val typedEntries = entries.filter(itemType(_).isDefined)
-    if (typedEntries.nonEmpty) {
-      typedEntries.filter(itemType(_).contains(OpenAIToolUtils.MessageItemType))
-    } else {
-      entries.filter(itemType(_).isEmpty)
-    }
-  }
-
-  private def lastMessageEntry(outputRow: Row): Option[Row] = {
-    messageEntries(outputRow).lastOption
-  }
-
-  private def lastMessageText(outputRow: Row): Option[String] = {
-    lastMessageEntry(outputRow).flatMap { outputEntry =>
-      firstDefinedText(
-        optionalField[scala.collection.Seq[Row]](outputEntry, "content")
-          .getOrElse(Seq.empty)
-          .toSeq)
-    }
-  }
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     transferGlobalParamsToParamMap()
@@ -698,6 +565,134 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
     require(
       DataType.equalsStructurally(actualType, expectedType, ignoreNullability = true),
       s"$columnName must have type ${expectedType.simpleString}; got ${actualType.simpleString}")
+  }
+
+  private[openai] def getStringEntity(
+      messages: Seq[Row],
+      optionalParams: Map[String, Any]): StringEntity = {
+    val continuationInput = optionalParams.get("input").collect {
+      case input: scala.collection.Seq[_] => input.toSeq
+    }.getOrElse(Seq.empty)
+    buildStringEntity(messages, continuationInput, optionalParams - "input")
+  }
+
+  private[openai] def getStringEntity(
+      messages: Seq[Row],
+      inputItemsJson: String,
+      functionOutputs: Seq[Row],
+      optionalParams: Map[String, Any]): StringEntity = {
+    val continuationInput: Seq[Any] =
+      OpenAIToolUtils.parseInputItems(inputItemsJson) ++
+        OpenAIToolColumns.toFunctionCallOutputs(functionOutputs)
+    buildStringEntity(messages, continuationInput, optionalParams - "input")
+  }
+
+  private def buildStringEntity(
+      messages: Seq[Row],
+      continuationInput: Seq[Any],
+      optionalParams: Map[String, Any]): StringEntity = {
+    val mappedMessages = OpenAIResponsesMessageUtils.encodeMessages(
+      Option(messages).getOrElse(Seq.empty))
+    val input: Seq[Any] = mappedMessages ++ continuationInput
+    val fullPayload = optionalParams.updated("input", input)
+    new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
+  }
+
+  override private[openai] def getOutputMessageText(outputColName: String): Column = {
+    val items = F.col(outputColName).getField("output")
+    val typedItems = F.filter(items, item => item.getField("type").isNotNull)
+    val typedMessages = F.filter(
+      typedItems,
+      item => item.getField("type") === OpenAIToolUtils.MessageItemType)
+    val legacyMessages = F.filter(items, item => item.getField("type").isNull)
+    val messages = F.when(F.size(typedItems) > 0, typedMessages).otherwise(legacyMessages)
+    val textValues = F.transform(
+      F.element_at(messages, -1).getField("content"),
+      part => part.getField("text"))
+    val definedTextValues = F.filter(textValues, text => text.isNotNull)
+    F.when(
+      F.size(messages) > 0,
+      F.element_at(definedTextValues, 1)
+    )
+  }
+
+  private def outputEntries(outputRow: Row): Seq[Row] = {
+    Option(outputRow).flatMap(r => Option(r.getAs[Seq[Row]]("output"))).getOrElse(Seq.empty)
+  }
+
+  private def lastOutputEntry(outputRow: Row): Option[Row] = {
+    outputEntries(outputRow).lastOption
+  }
+
+  private def firstDefinedText(contentParts: Seq[Row]): Option[String] = {
+    contentParts.iterator
+      .flatMap(part => Option(part.getAs[String]("text")))
+      .toSeq
+      .headOption
+  }
+
+  private def lastOutputText(outputRow: Row): Option[String] = {
+    lastOutputEntry(outputRow).flatMap { outputEntry =>
+      firstDefinedText(Option(outputEntry.getAs[Seq[Row]]("content")).getOrElse(Seq.empty))
+    }
+  }
+
+  private def hasFunctionCall(outputRow: Row): Boolean =
+    outputEntries(outputRow).exists(itemType(_).contains(OpenAIToolUtils.FunctionCallItemType))
+
+  private def incompleteReason(outputRow: Row): Option[String] =
+    optionalField[Row](outputRow, "incomplete_details")
+      .flatMap(optionalField[String](_, "reason"))
+
+  override private[openai] def isContentFiltered(outputRow: Row): Boolean = {
+    incompleteReason(outputRow) match {
+      case Some(OpenAIToolUtils.ContentFilterReason) => true
+      case Some(OpenAIToolUtils.MaxOutputTokensReason) => false
+      case _ if hasFunctionCall(outputRow) => false
+      case _ => lastMessageText(outputRow).isEmpty
+    }
+  }
+
+  override private[openai] def getFilterReason(outputRow: Row): String = {
+    if (incompleteReason(outputRow).contains(OpenAIToolUtils.ContentFilterReason)) {
+      OpenAIToolUtils.ContentFilterReason
+    } else {
+      lastMessageEntry(outputRow)
+        .flatMap(optionalField[String](_, "status"))
+        .filter(_.nonEmpty)
+        .getOrElse("content_filtered_or_empty")
+    }
+  }
+
+  private def optionalField[T](row: Row, fieldName: String): Option[T] = {
+    Option(row).filter(_.schema.fieldNames.contains(fieldName))
+      .flatMap(value => Option(value.getAs[T](fieldName)))
+  }
+
+  private def itemType(row: Row): Option[String] =
+    optionalField[String](row, "type")
+
+  private def messageEntries(outputRow: Row): Seq[Row] = {
+    val entries = outputEntries(outputRow)
+    val typedEntries = entries.filter(itemType(_).isDefined)
+    if (typedEntries.nonEmpty) {
+      typedEntries.filter(itemType(_).contains(OpenAIToolUtils.MessageItemType))
+    } else {
+      entries.filter(itemType(_).isEmpty)
+    }
+  }
+
+  private def lastMessageEntry(outputRow: Row): Option[Row] = {
+    messageEntries(outputRow).lastOption
+  }
+
+  private def lastMessageText(outputRow: Row): Option[String] = {
+    lastMessageEntry(outputRow).flatMap { outputEntry =>
+      firstDefinedText(
+        optionalField[scala.collection.Seq[Row]](outputEntry, "content")
+          .getOrElse(Seq.empty)
+          .toSeq)
+    }
   }
 
   private def warnOnAzureStrictParallel(isAzure: Boolean): Unit = {
