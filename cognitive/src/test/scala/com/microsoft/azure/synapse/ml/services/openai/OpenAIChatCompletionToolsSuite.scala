@@ -124,6 +124,14 @@ class OpenAIChatCompletionToolsSuite extends TestBase {
     assert(!generated.contains("def replayItemsColumn("))
   }
 
+  test("Chat rejects the Responses-only replay helper") {
+    val error = intercept[UnsupportedOperationException] {
+      new OpenAIChatCompletion().replayItemsColumn("out")
+    }
+    assert(error.getMessage ===
+      "replayItemsColumn is only available on OpenAIResponses")
+  }
+
   test("Chat toolCallsCol cannot overwrite another public column") {
     val inputSchema = Seq(
       Seq(OpenAIMessage("user", "Weather in Seattle?"))

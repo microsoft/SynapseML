@@ -230,5 +230,9 @@ class OpenAIToolUtilsSuite extends TestBase {
     val outputElement = OpenAIToolColumns.FunctionCallOutputStructType.elementType
       .asInstanceOf[StructType]
     assert(outputElement.fieldNames === Array("call_id", "output", "status"))
+    assert(!OpenAIToolColumns.FunctionCallOutputStructType.containsNull)
+    assert(!outputElement("call_id").nullable)
+    assert(!outputElement("output").nullable)
+    assert(outputElement("status").nullable)
   }
 }

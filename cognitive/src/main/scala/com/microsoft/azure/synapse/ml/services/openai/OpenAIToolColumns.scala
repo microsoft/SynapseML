@@ -23,11 +23,14 @@ object OpenAIToolColumns {
     containsNull = false
   )
 
-  val FunctionCallOutputStructType: ArrayType = ArrayType(StructType(Seq(
-    StructField("call_id", StringType),
-    StructField("output", StringType),
-    StructField("status", StringType)
-  )))
+  val FunctionCallOutputStructType: ArrayType = ArrayType(
+    StructType(Seq(
+      StructField("call_id", StringType, nullable = false),
+      StructField("output", StringType, nullable = false),
+      StructField("status", StringType)
+    )),
+    containsNull = false
+  )
 
   private[openai] val ReplayJsonOptions: Map[String, String] =
     Map("ignoreNullFields" -> "true")

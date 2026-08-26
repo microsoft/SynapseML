@@ -160,6 +160,10 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   override def toolCallsColumn(structColName: String): org.apache.spark.sql.Column =
     OpenAIToolColumns.chatToolCallsColumn(structColName)
 
+  override def replayItemsColumn(structColName: String): org.apache.spark.sql.Column =
+    throw new UnsupportedOperationException(
+      "replayItemsColumn is only available on OpenAIResponses")
+
   private def encodeMessageValue(value: Any): Any = value match {
     case row: Row => encodeMessageRow(row)
     case values: scala.collection.Seq[_] => values.map(encodeMessageValue).toSeq
