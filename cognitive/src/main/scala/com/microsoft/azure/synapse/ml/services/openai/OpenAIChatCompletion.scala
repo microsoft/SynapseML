@@ -549,9 +549,10 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
       }
 
       val role = validatedRole(message, messageIndex)
+      val content = encodedMessageContent(message, messageIndex)
       encodeMessageRow(message)
         .updated("role", role)
-        .updated("content", encodedMessageContent(message, messageIndex))
+        .updated("content", content)
         .filter { case (_, value) => value != null }
     }.toSeq
   }
