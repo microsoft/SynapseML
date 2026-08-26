@@ -285,6 +285,9 @@ private[lightgbm] class ValidationDataServer private(serverSocket: ServerSocket,
 
 private[lightgbm] object ValidationDataServer {
   private val CopyBufferSize = 64 * 1024 // scalastyle:ignore magic.number
+  private val ThreadCopyBuffer = new ThreadLocal[Array[Byte]] {
+    override protected def initialValue(): Array[Byte] = new Array[Byte](CopyBufferSize)
+  }
   private val EndOfStream = -1
   private val MaxConcurrentTransfers = 8
   private val IngestPollTimeoutMillis = 1000
@@ -767,8 +770,8 @@ private[lightgbm] object ValidationDataServer {
     }
   }
 
-  private def copyExactly(input: InputStream, output: OutputStream, length: Int): Unit = {
-    val buffer = new Array[Byte](Math.min(CopyBufferSize, length))
+  private[lightgbm] def copyExactly(input: InputStream, output: OutputStream, length: Int): Unit = {
+    val buffer = ThreadCopyBuffer.get()
     var remaining = length
     while (remaining > 0) { // scalastyle:ignore while
       val count = input.read(buffer, 0, Math.min(buffer.length, remaining))
