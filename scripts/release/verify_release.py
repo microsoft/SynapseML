@@ -118,16 +118,20 @@ def _json_get(url: str, headers: Dict[str, str]) -> Optional[dict]:
 
 
 def _url_exists(url: str, headers: Dict[str, str]) -> bool:
-    req = urllib.request.Request(url, headers=headers)
-    try:
-        with urllib.request.urlopen(req, timeout=60):
-            return True
-    except urllib.error.HTTPError as e:
-        if e.code == 404:
-            return False
-        raise RuntimeError(f"HTTP {e.code} for {url}") from e
-    except urllib.error.URLError as e:
-        raise RuntimeError(f"request failed for {url}: {e.reason}") from e
+    for method in ("HEAD", "GET"):
+        req = urllib.request.Request(url, headers=headers, method=method)
+        try:
+            with urllib.request.urlopen(req, timeout=60):
+                return True
+        except urllib.error.HTTPError as e:
+            if e.code == 404:
+                return False
+            if method == "HEAD" and e.code in {405, 501}:
+                continue
+            raise RuntimeError(f"HTTP {e.code} for {url}") from e
+        except urllib.error.URLError as e:
+            raise RuntimeError(f"request failed for {url}: {e.reason}") from e
+    raise AssertionError("GET fallback did not return a result")
 
 
 def _with_query(url: str, **updates: str) -> str:

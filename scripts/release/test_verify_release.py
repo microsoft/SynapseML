@@ -126,6 +126,68 @@ def test_json_get_surfaces_service_and_network_failures(monkeypatch, error):
         verify._json_get("https://example", {})
 
 
+def test_url_exists_uses_head_without_downloading_body(monkeypatch):
+    methods = []
+
+    def open_url(request, **_kwargs):
+        methods.append(request.get_method())
+        return FakeResponse({})
+
+    monkeypatch.setattr(verify.urllib.request, "urlopen", open_url)
+
+    assert verify._url_exists("https://example/artifact.jar", {})
+    assert methods == ["HEAD"]
+
+
+@pytest.mark.parametrize("head_status", [405, 501])
+def test_url_exists_falls_back_to_get_when_head_is_unsupported(
+    monkeypatch, head_status
+):
+    methods = []
+
+    def open_url(request, **_kwargs):
+        method = request.get_method()
+        methods.append(method)
+        if method == "HEAD":
+            raise urllib.error.HTTPError(
+                request.full_url, head_status, "unsupported", {}, None
+            )
+        return FakeResponse({})
+
+    monkeypatch.setattr(verify.urllib.request, "urlopen", open_url)
+
+    assert verify._url_exists("https://example/artifact.jar", {})
+    assert methods == ["HEAD", "GET"]
+
+
+def test_url_exists_returns_false_for_missing_head(monkeypatch):
+    methods = []
+
+    def not_found(request, **_kwargs):
+        methods.append(request.get_method())
+        raise urllib.error.HTTPError(request.full_url, 404, "missing", {}, None)
+
+    monkeypatch.setattr(verify.urllib.request, "urlopen", not_found)
+
+    assert not verify._url_exists("https://example/missing.jar", {})
+    assert methods == ["HEAD"]
+
+
+def test_url_exists_returns_false_when_fallback_get_is_missing(monkeypatch):
+    methods = []
+
+    def open_url(request, **_kwargs):
+        method = request.get_method()
+        methods.append(method)
+        status = 405 if method == "HEAD" else 404
+        raise urllib.error.HTTPError(request.full_url, status, "unavailable", {}, None)
+
+    monkeypatch.setattr(verify.urllib.request, "urlopen", open_url)
+
+    assert not verify._url_exists("https://example/missing.jar", {})
+    assert methods == ["HEAD", "GET"]
+
+
 def test_checker_skips_ado_login_when_all_ado_checks_are_skipped(monkeypatch):
     def fail_if_called(_token):
         raise AssertionError("ADO login should not be requested")
