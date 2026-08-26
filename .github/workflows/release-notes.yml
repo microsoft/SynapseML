@@ -74,7 +74,7 @@ jobs:
           set -euo pipefail
           python3 scripts/release/verify_release.py \
             --version "${TAG#v}" \
-            --skip ado
+            --skip ado,internal
 
       # Pick the highest primary tag strictly below this one. `sort -V` gives
       # correct numeric ordering (v1.1.10 > v1.1.9), which a lexical sort does not.

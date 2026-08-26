@@ -45,7 +45,10 @@ UPACK_FEED = "BBC-VHD_PublicPackages"
 PIP_FEED = "Synapse-Conda"
 ADO_ORG = "https://msdata.visualstudio.com"
 ADO_PROJECT = "A365"
+OSS_MAVEN_PIPELINE_ID = 17563
+INTERNAL_MAVEN_PIPELINE_ID = 18453
 PUBLISH_PIPELINE_ID = 35879
+RELEASE_SCOPES = ("full", "internal-only")
 
 PipelineValue = Union[str, bool]
 
@@ -120,7 +123,10 @@ class TargetPlan:
     scala: str
     oss_tags: List[str]
     internal_tags: List[str]
+    oss_maven_tag: str
+    internal_maven_tag: str
     oss_maven_version: str
+    internal_maven_version: str
     oss_upack_version: str
     internal_upack_version: str
     oss_pip_version: str
@@ -132,10 +138,16 @@ class ReleasePlan:
     oss_version: str
     internal_version: str
     internal_patch: str
+    scope: str
+    ado_org: str = ADO_ORG
+    ado_project: str = ADO_PROJECT
     upack_feed: str = UPACK_FEED
     pip_feed: str = PIP_FEED
+    oss_maven_pipeline_id: int = OSS_MAVEN_PIPELINE_ID
+    internal_maven_pipeline_id: int = INTERNAL_MAVEN_PIPELINE_ID
     publish_pipeline_id: int = PUBLISH_PIPELINE_ID
     publish_parameters: Dict[str, PipelineValue] = field(default_factory=dict)
+    publish_variables: Dict[str, str] = field(default_factory=dict)
     targets: List[TargetPlan] = field(default_factory=list)
 
     @property
@@ -153,6 +165,7 @@ def build_plan(
     target_keys: Optional[List[str]] = None,
     upack_iteration: Optional[Dict[str, int]] = None,
     internal_upack_iteration: Optional[Dict[str, int]] = None,
+    scope: str = "full",
 ) -> ReleasePlan:
     """Derive the full release plan.
 
@@ -172,6 +185,15 @@ def build_plan(
             "internal patch must be a non-negative integer without leading zeroes "
             f"(got {internal_patch!r})"
         )
+    if scope not in RELEASE_SCOPES:
+        raise ValueError(f"scope must be one of {RELEASE_SCOPES} (got {scope!r})")
+    if scope == "full" and internal_patch != "0":
+        raise ValueError(
+            "a nonzero Internal patch is an Internal-only hotfix; "
+            "use --scope internal-only"
+        )
+    if scope == "internal-only" and internal_patch == "0":
+        raise ValueError("--scope internal-only requires a nonzero --internal-patch")
 
     keys = target_keys or [t.key for t in TARGETS]
     unknown = [k for k in keys if k not in TARGETS_BY_KEY]
@@ -179,6 +201,7 @@ def build_plan(
         raise ValueError(f"unknown target(s): {unknown}. Known: {list(TARGETS_BY_KEY)}")
     if len(keys) != len(set(keys)):
         raise ValueError(f"targets must be unique (got {keys!r})")
+    selected = set(keys)
 
     upack_iteration = upack_iteration or {}
     internal_upack_iteration = internal_upack_iteration or {}
@@ -202,22 +225,42 @@ def build_plan(
                 f"{label} iterations must be positive integers "
                 f"(got {invalid_iterations!r})"
             )
+        if iterations and set(iterations) != selected:
+            raise ValueError(
+                f"{label} rebuild counters must cover every selected target. "
+                "Pipeline 35879 accepts one global counter, so run targets with "
+                "different counters as separate plans."
+            )
+        if len(set(iterations.values())) > 1:
+            raise ValueError(
+                f"{label} rebuild counters must have one value per pipeline run. "
+                "Run targets with different counters as separate plans."
+            )
 
     internal_version = f"{oss_version}.{internal_patch}"
-    selected = set(keys)
+    oss_counter = next(iter(upack_iteration.values()), None)
+    internal_counter = next(iter(internal_upack_iteration.values()), None)
+    build_oss = scope == "full"
+    publish_variables = {}
+    if oss_counter and build_oss:
+        publish_variables["SYNAPSEML_PATCH_VERSION"] = str(oss_counter)
+    if internal_counter:
+        publish_variables["SYNAPSEML_INTERNAL_PATCH_VERSION"] = str(internal_counter)
     plan = ReleasePlan(
         oss_version=oss_version,
         internal_version=internal_version,
         internal_patch=internal_patch,
+        scope=scope,
+        publish_variables=publish_variables,
         publish_parameters={
             "synapseml_version": oss_version,
             "internal_patch_version": internal_patch,
-            "build_synapseml_pip_py311": "master" in selected,
-            "build_synapseml_pip_py312": "spark4.0" in selected,
-            "build_synapseml_pip_py313": "spark4.1" in selected,
-            "build_synapseml_upack_default": "master" in selected,
-            "build_synapseml_upack_spark4": "spark4.0" in selected,
-            "build_synapseml_upack_spark41": "spark4.1" in selected,
+            "build_synapseml_pip_py311": build_oss and "master" in selected,
+            "build_synapseml_pip_py312": build_oss and "spark4.0" in selected,
+            "build_synapseml_pip_py313": build_oss and "spark4.1" in selected,
+            "build_synapseml_upack_default": build_oss and "master" in selected,
+            "build_synapseml_upack_spark4": build_oss and "spark4.0" in selected,
+            "build_synapseml_upack_spark41": build_oss and "spark4.1" in selected,
             "build_internal_pip_py311": "master" in selected,
             "build_internal_pip_py312": "spark4.0" in selected,
             "build_internal_pip_py313": "spark4.1" in selected,
@@ -230,6 +273,8 @@ def build_plan(
     for key in keys:
         t = TARGETS_BY_KEY[key]
         v, iv = oss_version, internal_version
+        oss_maven_version = v if t.is_anchor else f"{v}-spark{t.spark}"
+        internal_maven_version = iv if t.is_anchor else f"{iv}-spark{t.spark}"
 
         oss_tags = [f"v{v}-spark{t.spark}", f"v{v}-python{t.python}"]
         internal_tags = [f"v{iv}-spark{t.spark}", f"v{iv}-python{t.python}"]
@@ -252,7 +297,10 @@ def build_plan(
                 scala=t.scala,
                 oss_tags=oss_tags,
                 internal_tags=internal_tags,
-                oss_maven_version=(v if t.is_anchor else f"{v}-spark{t.spark}"),
+                oss_maven_tag=f"v{oss_maven_version}",
+                internal_maven_tag=f"v{internal_maven_version}",
+                oss_maven_version=oss_maven_version,
+                internal_maven_version=internal_maven_version,
                 oss_upack_version=f"{v}{_upack_oss_suffix(t)}{iter_suffix}",
                 internal_upack_version=(
                     f"{v}-{internal_patch}{_upack_internal_suffix(t)}{iter_suffix_internal}"
@@ -267,7 +315,8 @@ def build_plan(
 def render_text(plan: ReleasePlan) -> str:
     out: List[str] = []
     out.append(
-        f"SynapseML release plan  OSS v{plan.oss_version}  Internal v{plan.internal_version}"
+        f"SynapseML release plan  OSS v{plan.oss_version}  "
+        f"Internal v{plan.internal_version}  scope={plan.scope}"
     )
     out.append("")
     out.append("GIT TAGS")
@@ -276,11 +325,45 @@ def render_text(plan: ReleasePlan) -> str:
             f"  [{tp.key}] branch={tp.branch} spark={tp.spark} "
             f"python={tp.python} scala={tp.scala}"
         )
-        out.append(f"      github/microsoft/SynapseML : {', '.join(tp.oss_tags)}")
-        out.append(f"      ado/SynapseML-Internal     : {', '.join(tp.internal_tags)}")
+        oss_label = "create" if plan.scope == "full" else "required existing"
+        out.append(
+            f"      github/microsoft/SynapseML ({oss_label}) : "
+            f"{', '.join(tp.oss_tags)}"
+        )
+        out.append(
+            f"      ado/SynapseML-Internal (create)       : "
+            f"{', '.join(tp.internal_tags)}"
+        )
+    out.append("")
+    out.append("MAVEN TAG BUILDS")
+    out.append(
+        "  Queue every selected row. These builds publish the Maven coordinates; "
+        "Publish-Official does not."
+    )
+    for tp in plan.targets:
+        if plan.scope == "full":
+            out.append(
+                f"  [{tp.key}] OSS      com.microsoft.azure:synapseml_{tp.scala}:"
+                f"{tp.oss_maven_version}"
+            )
+            out.append(
+                f"      az pipelines run --id {plan.oss_maven_pipeline_id} "
+                f"--org {plan.ado_org} --project {plan.ado_project} "
+                f"--branch refs/tags/{tp.oss_maven_tag}"
+            )
+        out.append(
+            f"  [{tp.key}] Internal com.microsoft.azure:synapseml-internal_{tp.scala}:"
+            f"{tp.internal_maven_version}"
+        )
+        out.append(
+            f"      az pipelines run --id {plan.internal_maven_pipeline_id} "
+            f"--org {plan.ado_org} --project {plan.ado_project} "
+            f"--branch refs/tags/{tp.internal_maven_tag}"
+        )
     out.append("")
     out.append(
-        f"ADO PUBLISH PIPELINE {plan.publish_pipeline_id} " f"({ADO_ORG}/{ADO_PROJECT})"
+        f"ADO PUBLISH PIPELINE {plan.publish_pipeline_id} "
+        f"({plan.ado_org}/{plan.ado_project})"
     )
     for name, value in plan.publish_parameters.items():
         rendered = str(value).lower() if isinstance(value, bool) else value
@@ -291,10 +374,16 @@ def render_text(plan: ReleasePlan) -> str:
     for name, value in plan.publish_parameters.items():
         rendered = str(value).lower() if isinstance(value, bool) else value
         parameters.append(f"{name}={rendered}")
-    out.append(
+    publish_command = (
         f"  az pipelines run --id {plan.publish_pipeline_id} "
-        f"--org {ADO_ORG} --project {ADO_PROJECT} --parameters " + " ".join(parameters)
+        f"--org {plan.ado_org} --project {plan.ado_project} --parameters "
+        + " ".join(parameters)
     )
+    if plan.publish_variables:
+        publish_command += " --variables " + " ".join(
+            f"{name}={value}" for name, value in plan.publish_variables.items()
+        )
+    out.append(publish_command)
     out.append("")
     out.append(f"UPACK ({plan.upack_feed})")
     for tp in plan.targets:
@@ -340,6 +429,12 @@ def main(argv: Optional[List[str]] = None) -> int:
         help="Internal UPack rebuild counters. Independent of --upack-iteration, "
         "because the two packages are published and rebuilt separately.",
     )
+    p.add_argument(
+        "--scope",
+        choices=RELEASE_SCOPES,
+        default="full",
+        help="full release or a nonzero Internal-only super-patch",
+    )
     p.add_argument("--json", action="store_true", help="Emit JSON instead of text")
     args = p.parse_args(argv)
 
@@ -351,7 +446,12 @@ def main(argv: Optional[List[str]] = None) -> int:
             args.internal_upack_iteration, "--internal-upack-iteration"
         )
         plan = build_plan(
-            args.version, args.internal_patch, keys, iterations, internal_iterations
+            args.version,
+            args.internal_patch,
+            keys,
+            iterations,
+            internal_iterations,
+            args.scope,
         )
     except ValueError as e:
         print(f"error: {e}", file=sys.stderr)

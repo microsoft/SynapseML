@@ -33,16 +33,19 @@ class AlwaysPresentChecker:
         pass
 
     def github_tag(self, _tag):
-        return verify.OK
+        return verify.OK, "github-commit"
 
     def public_maven(self, _module, _scala, _version):
+        return verify.OK
+
+    def internal_maven(self, _scala, _version):
         return verify.OK
 
     def public_pypi(self, _version):
         return verify.OK
 
     def ado_tag(self, _tag):
-        return verify.OK
+        return verify.OK, "ado-commit"
 
     def upack(self, _package, _version, internal=False):
         return verify.OK
@@ -78,6 +81,16 @@ def test_ado_token_uses_platform_appropriate_command(
         assert "az account get-access-token" in captured["command"]
     else:
         assert captured["command"][:3] == ["az", "account", "get-access-token"]
+
+
+def test_ado_token_reports_missing_azure_cli(monkeypatch):
+    def missing_cli(*_args, **_kwargs):
+        raise FileNotFoundError("az not found")
+
+    monkeypatch.setattr(verify.subprocess, "run", missing_cli)
+
+    with pytest.raises(RuntimeError, match="set ADO_TOKEN"):
+        verify._get_ado_token(None)
 
 
 def test_json_get_parses_successful_response(monkeypatch):
@@ -173,7 +186,7 @@ def test_feed_lookup_filters_exact_package_and_follows_continuation(monkeypatch)
     assert len(calls) == 2
 
 
-def test_run_checks_public_maven_and_pypi(monkeypatch):
+def test_run_checks_public_and_internal_maven_and_pypi(monkeypatch):
     monkeypatch.setattr(verify, "Checker", AlwaysPresentChecker)
     rows, complete = verify.run("1.1.3", "0", ["master"], None, None, [])
 
@@ -181,6 +194,12 @@ def test_run_checks_public_maven_and_pypi(monkeypatch):
     assert [row["name"] for row in rows if row["kind"] == "maven"] == [
         "synapseml_2.12",
         "synapseml-core_2.12",
+        "synapseml-cognitive_2.12",
+        "synapseml-deep-learning_2.12",
+        "synapseml-lightgbm_2.12",
+        "synapseml-opencv_2.12",
+        "synapseml-vw_2.12",
+        "synapseml-internal_2.12",
     ]
     assert any(row["kind"] == "pypi" for row in rows)
 
@@ -231,7 +250,7 @@ def test_internal_skip_omits_only_internal_ado_artifacts(monkeypatch):
         lambda url, _headers: (
             {"info": {"version": "1.1.3"}}
             if url.startswith(verify.PYPI_BASE)
-            else {"present": True}
+            else {"object": {"type": "commit", "sha": "github-commit"}}
         ),
     )
     monkeypatch.setattr(verify, "_url_exists", lambda _url, _headers: True)
@@ -260,6 +279,7 @@ def test_internal_skip_omits_only_internal_ado_artifacts(monkeypatch):
         row
         for row in rows
         if row["name"].startswith("ado/")
+        or row["name"].startswith("synapseml-internal_")
         or row["name"] in {"synapseml_internal", "synapseml-internal"}
     ]
     assert internal_rows
@@ -283,8 +303,8 @@ def test_skip_help_defines_internal_and_public_scopes(capsys):
 
     assert exc.value.code == 0
     help_text = " ".join(capsys.readouterr().out.split())
-    assert "internal (Internal tags, UPacks, and wheels)" in help_text
-    assert "public (Maven CDN and PyPI)" in help_text
+    assert "internal (Internal tags, Maven, UPacks, and wheels)" in help_text
+    assert "public (OSS Maven CDN and PyPI)" in help_text
 
 
 def test_public_pypi_requires_the_requested_version(monkeypatch):
@@ -306,8 +326,8 @@ def test_public_maven_uses_release_specific_coordinate(monkeypatch):
 
     monkeypatch.setattr(verify, "_url_exists", exists)
     checker = verify.Checker(None, "github-token", ["ado"])
-    for module in verify.PUBLIC_MAVEN_MODULES:
-        assert checker.public_maven(module, "2.13", "1.1.3-spark4.0") == verify.OK
+    assert checker.public_maven("synapseml", "2.13", "1.1.3-spark4.0") == verify.OK
+    assert checker.public_maven("synapseml-core", "2.13", "1.1.3-spark4.0") == verify.OK
     assert requested == [
         (
             "https://mmlspark.azureedge.net/maven/com/microsoft/azure/"
@@ -317,8 +337,124 @@ def test_public_maven_uses_release_specific_coordinate(monkeypatch):
         ),
         (
             "https://mmlspark.azureedge.net/maven/com/microsoft/azure/"
+            "synapseml_2.13/1.1.3-spark4.0/"
+            "synapseml_2.13-1.1.3-spark4.0.jar",
+            {"User-Agent": "synapseml-release-verify"},
+        ),
+        (
+            "https://mmlspark.azureedge.net/maven/com/microsoft/azure/"
             "synapseml-core_2.13/1.1.3-spark4.0/"
             "synapseml-core_2.13-1.1.3-spark4.0.pom",
             {"User-Agent": "synapseml-release-verify"},
         ),
+        (
+            "https://mmlspark.azureedge.net/maven/com/microsoft/azure/"
+            "synapseml-core_2.13/1.1.3-spark4.0/"
+            "synapseml-core_2.13-1.1.3-spark4.0.jar",
+            {"User-Agent": "synapseml-release-verify"},
+        ),
+        (
+            "https://mmlspark.azureedge.net/maven/com/microsoft/azure/"
+            "synapseml-core_2.13/1.1.3-spark4.0/"
+            "synapseml-core_2.13-1.1.3-spark4.0-tests.jar",
+            {"User-Agent": "synapseml-release-verify"},
+        ),
     ]
+
+
+def test_internal_maven_uses_release_specific_coordinate(monkeypatch):
+    requested = []
+
+    def exists(url, headers):
+        requested.append((url, headers))
+        return True
+
+    monkeypatch.setattr(verify, "_url_exists", exists)
+    checker = verify.Checker(None, None, ["ado"])
+
+    assert checker.internal_maven("2.13", "1.1.3.0-spark4.1") == verify.OK
+    assert requested == [
+        (
+            "https://mmlspark.azureedge.net/maven/com/microsoft/azure/"
+            "synapseml-internal_2.13/1.1.3.0-spark4.1/"
+            "synapseml-internal_2.13-1.1.3.0-spark4.1.pom",
+            {"User-Agent": "synapseml-release-verify"},
+        ),
+        (
+            "https://mmlspark.azureedge.net/maven/com/microsoft/azure/"
+            "synapseml-internal_2.13/1.1.3.0-spark4.1/"
+            "synapseml-internal_2.13-1.1.3.0-spark4.1.jar",
+            {"User-Agent": "synapseml-release-verify"},
+        ),
+    ]
+
+
+def test_tag_family_must_share_one_commit(monkeypatch):
+    class MismatchedTagChecker(AlwaysPresentChecker):
+        def github_tag(self, tag):
+            return verify.OK, tag
+
+    monkeypatch.setattr(verify, "Checker", MismatchedTagChecker)
+
+    rows, complete = verify.run("1.1.3", "0", ["master"], None, None, [])
+
+    assert not complete
+    assert [
+        row
+        for row in rows
+        if row["kind"] == "tag-set" and row["status"] == verify.MISSING
+    ] == [
+        {
+            "kind": "tag-set",
+            "target": "master",
+            "name": "github/microsoft/SynapseML/same-commit",
+            "identifier": ("v1.1.3, v1.1.3-spark3.5, v1.1.3-python3.11"),
+            "status": verify.MISSING,
+        }
+    ]
+
+
+def test_github_tag_peels_annotated_tag(monkeypatch):
+    responses = {
+        "https://api.github.com/repos/microsoft/SynapseML/git/ref/tags/v1.1.3": {
+            "object": {
+                "type": "tag",
+                "sha": "tag-object",
+                "url": "https://api.github.com/tag-object",
+            }
+        },
+        "https://api.github.com/tag-object": {
+            "object": {"type": "commit", "sha": "release-commit"}
+        },
+    }
+    monkeypatch.setattr(
+        verify,
+        "_json_get",
+        lambda url, _headers: responses[url],
+    )
+
+    checker = verify.Checker(None, None, ["ado"])
+    assert checker.github_tag("v1.1.3") == (verify.OK, "release-commit")
+
+
+def test_ado_tag_requests_and_uses_peeled_commit(monkeypatch):
+    requested = []
+
+    def get(url, _headers):
+        requested.append(url)
+        return {
+            "value": [
+                {
+                    "name": "refs/tags/v1.1.3.0",
+                    "objectId": "annotated-tag-object",
+                    "peeledObjectId": "release-commit",
+                }
+            ]
+        }
+
+    monkeypatch.setattr(verify, "_get_ado_token", lambda _token: "token")
+    monkeypatch.setattr(verify, "_json_get", get)
+
+    checker = verify.Checker("token", None, [])
+    assert checker.ado_tag("v1.1.3.0") == (verify.OK, "release-commit")
+    assert "peelTags=true" in requested[0]

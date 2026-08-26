@@ -16,7 +16,7 @@ def test_release_notes_is_manual_and_artifact_gated():
     trigger = workflow.split("permissions:", 1)[0]
     assert "\n  workflow_dispatch:" in trigger
     assert "\n  push:" not in trigger
-    assert "--skip ado" in workflow
+    assert "--skip ado,internal" in workflow
     assert "--targets master" not in workflow
     assert "python3 scripts/release/verify_release.py" in workflow
     assert 'target_commitish="$TAG"' in workflow

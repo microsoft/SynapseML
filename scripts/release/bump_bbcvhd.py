@@ -129,6 +129,7 @@ def main(argv=None) -> int:
                 if args.internal_upack_iteration
                 else None
             ),
+            "internal-only" if args.internal_patch != "0" else "full",
         )
     except ValueError as e:
         print(f"error: {e}", file=sys.stderr)
