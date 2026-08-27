@@ -6,7 +6,6 @@ bootstrap inputs, and the duplicated inline retry blocks were replaced by the
 shared helper. Run with: ``python -m pytest tools/ci/tests/test_pipeline_yaml.py``.
 """
 
-import hashlib
 import os
 import re
 import shutil
@@ -17,10 +16,27 @@ from pathlib import Path
 import pytest
 import yaml
 
+from tools.ci import ci_image
+
 REPO_ROOT = Path(__file__).resolve().parents[3]
 BUILD_SBT = REPO_ROOT / "build.sbt"
 PIPELINE = REPO_ROOT / "pipeline.yaml"
 CI_DOCKERFILE = REPO_ROOT / "tools" / "docker" / "ci" / "Dockerfile"
+R_TEST_GEN = (
+    REPO_ROOT
+    / "core"
+    / "src"
+    / "test"
+    / "scala"
+    / "com"
+    / "microsoft"
+    / "azure"
+    / "synapse"
+    / "ml"
+    / "codegen"
+    / "RTestGen.scala"
+)
+R_TEST_RUNNER = REPO_ROOT / "tools" / "tests" / "run_r_tests.R"
 SBT_CACHE_TPL = REPO_ROOT / "templates" / "sbt_cache.yml"
 SBT_RETRY = REPO_ROOT / "tools" / "ci" / "sbt_retry.sh"
 SBT_VERSION = REPO_ROOT / "tools" / "ci" / "get_sbt_version.sh"
@@ -45,30 +61,6 @@ _INVOKES_SBT = re.compile(r"(?<![\w./-])sbt\s")
 
 def _pipeline_text():
     return PIPELINE.read_text()
-
-
-def _ci_image_dependency_tag():
-    inputs = [
-        # .dockerignore selects the build context, so it can change the built
-        # image without changing any file listed below.
-        REPO_ROOT / ".dockerignore",
-        REPO_ROOT / "environment.yml",
-        REPO_ROOT / "build.sbt",
-        REPO_ROOT / "sonatype.sbt",
-        CI_DOCKERFILE,
-    ]
-    project_inputs = subprocess.check_output(
-        ["git", "-C", str(REPO_ROOT), "ls-files", "--", "project"], text=True
-    ).splitlines()
-    inputs.extend(REPO_ROOT / path for path in sorted(project_inputs))
-    manifest = b"".join(
-        (
-            f"{hashlib.sha256(path.read_bytes()).hexdigest()}  "
-            f"{path.relative_to(REPO_ROOT).as_posix()}\n"
-        ).encode()
-        for path in inputs
-    )
-    return "ci-" + hashlib.sha256(manifest).hexdigest()[:12]
 
 
 def _jobs(node):
@@ -223,9 +215,123 @@ def test_ci_image_tag_matches_dependency_hash():
         for container in data["resources"]["containers"]
         if container["container"] == "ci"
     )
-    expected_tag = _ci_image_dependency_tag()
+    expected_tag = ci_image.calculate_tag(REPO_ROOT)
     assert data["variables"]["CI_IMAGE_TAG"] == expected_tag
     assert ci_container["image"].rsplit(":", 1)[1] == expected_tag
+    assert ci_container["type"].lower() == "acr"
+    assert ci_container["azureSubscription"] == "SynapseML Build"
+    assert ci_container["resourceGroup"] == "marhamil-mmlspark"
+    assert ci_container["registry"] == "mmlsparkmcr"
+    assert ci_container["repository"] == "synapseml/ci"
+    assert "endpoint" not in ci_container
+
+
+def test_ci_image_bootstraps_with_the_existing_arm_connection():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+    build_image = jobs["BuildCIImage"]
+
+    condition = build_image["condition"]
+    assert "variables.isPR" in condition
+    assert "System.PullRequest.IsFork" in condition
+    assert "not(failed())" not in condition
+
+    build_steps = [
+        step
+        for step in build_image["steps"]
+        if step.get("displayName") == "Build or reuse CI image"
+    ]
+    assert len(build_steps) == 1
+    build_step = build_steps[0]
+    assert build_step["task"] == "AzureCLI@2"
+    assert build_step["inputs"]["azureSubscription"] == "SynapseML Build"
+    script = build_step["inputs"]["inlineScript"]
+    assert "az acr login --name" in script
+    assert "python3 tools/ci/ci_image.py tag" in script
+    assert "python3 tools/ci/ci_image.py java-version" in script
+    assert "python3 tools/ci/ci_image.py spark-version" in script
+    assert "python3 tools/ci/ci_image.py spark-sha512" in script
+    assert "--build-arg JAVA_VERSION=" in script
+    assert "--build-arg SPARK_VERSION=" in script
+    assert "--build-arg SPARK_SHA512=" in script
+    assert not any(step.get("task") == "Docker@2" for step in build_image["steps"])
+
+
+def test_fork_image_guard_rejects_unpublishable_input_changes():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+    guard = jobs["ValidateCIImageForFork"]
+
+    assert "System.PullRequest.IsFork" in guard["condition"]
+    assert "'True'" in guard["condition"]
+    guard_step = next(
+        step
+        for step in guard["steps"]
+        if step.get("displayName") == "Reject unpublished fork image changes"
+    )
+    script = guard_step["bash"]
+    assert "SYSTEM_PULLREQUEST_TARGETBRANCH" in script
+    assert "tools/ci/ci_image.py inputs" in script
+    assert '"$target_ref...HEAD"' in script
+    assert "tools/docker/ci/**" in script
+
+
+def test_containerized_jobs_can_reuse_the_target_image_for_forks():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+    consumers = [
+        job
+        for job in jobs.values()
+        if job.get("container") == "ci" and job["job"] != "BuildCIImage"
+    ]
+    assert consumers
+    for job in consumers:
+        depends_on = job.get("dependsOn", [])
+        if isinstance(depends_on, str):
+            depends_on = [depends_on]
+        assert "BuildCIImage" in depends_on
+        assert "ValidateCIImageForFork" in depends_on
+        condition = job.get("condition", "")
+        assert "not(failed())" in condition
+        assert "not(canceled())" in condition
+
+
+def test_ci_dockerfile_uses_branch_runtime_and_writable_shared_cache():
+    dockerfile = CI_DOCKERFILE.read_text()
+
+    assert (
+        "FROM ubuntu:22.04@sha256:"
+        "2edbbc5dc405e9612ba3584ce95480277e3eb374407b5505fe26f17df77c7dbc" in dockerfile
+    )
+    for build_argument in (
+        "JAVA_VERSION",
+        "SPARK_VERSION",
+        "SPARK_SHA512",
+        "TORCH_VERSION",
+        "TORCHVISION_VERSION",
+    ):
+        assert f"ARG {build_argument}" in dockerfile
+    assert "temurin-8-jdk" not in dockerfile
+    assert "torch-2.1.0" not in dockerfile
+    assert "torchvision-0.16.0" not in dockerfile
+    assert "torch.__version__" in dockerfile
+    assert "torchvision.__version__" in dockerfile
+    assert "sbt --batch" not in dockerfile
+    assert 'chown -R 1001:0 "$COURSIER_CACHE"' in dockerfile
+    assert 'chmod -R u+rwX,go+rX,go-w "$COURSIER_CACHE"' in dockerfile
+
+
+def test_dataset_cache_recovers_from_a_partial_local_download():
+    build = BUILD_SBT.read_text()
+    get_datasets = build.split("getDatasetsTask := {", 1)[1].split(
+        "val genBuildInfo", 1
+    )[0]
+
+    assert "if (!datasetDir.value.exists())" in get_datasets
+    assert "if (f.exists()) f.delete()" in get_datasets
+    assert 'sys.env.getOrElse("DATASET_CACHE", "/opt/datasets")' in get_datasets
+    assert get_datasets.index("f.delete()") < get_datasets.index("Files.copy")
+    assert get_datasets.index("Files.copy") < get_datasets.index("UnzipUtils.unzip")
 
 
 def test_containerized_jobs_do_not_apt_install():
@@ -370,7 +476,8 @@ def test_databricks_e2e_uses_fail_open_pr_impact_detection():
 
     for job, suite in ((databricks_cpu, "Cpu"), (databricks_gpu, "Gpu")):
         condition = job["condition"]
-        assert "succeeded()" in condition
+        assert "not(failed())" in condition
+        assert "not(canceled())" in condition
         assert "variables.runTests" in condition
         assert "parameters.testDatabricksE2E" in condition
         assert (
@@ -423,7 +530,8 @@ def test_fabric_e2e_keeps_key_vault_authentication_and_blocks_forks():
     fabric_e2e = jobs["FabricE2E"]
 
     condition = fabric_e2e["condition"]
-    assert "succeeded()" in condition
+    assert "not(failed())" in condition
+    assert "not(canceled())" in condition
     assert "variables.runTests" in condition
     assert "parameters.testFabricE2E" in condition
     assert "System.PullRequest.IsFork" in condition
@@ -1757,6 +1865,14 @@ def test_style_does_not_restore_the_full_conda_environment():
         assert "black[jupyter]==22.3.0" in python_style["bash"]
 
 
+def test_r_tests_use_the_preinstalled_spark_distribution():
+    runner = R_TEST_RUNNER.read_text()
+    generator = R_TEST_GEN.read_text()
+
+    assert 'if (!nzchar(Sys.getenv("SPARK_HOME", "")))' in runner
+    assert 'spark_home = Sys.getenv("SPARK_HOME")' in generator
+
+
 def test_every_sbt_running_job_waits_for_the_prewarm_cache():
     """Each sbt job must restore the cache after the required prewarm job."""
     data = yaml.safe_load(_pipeline_text())
@@ -1779,6 +1895,24 @@ def test_every_sbt_running_job_waits_for_the_prewarm_cache():
             continue
         steps = job.get("steps", [])
         texts = flatten(steps)
+        expanded_templates = []
+        for step in steps:
+            if not isinstance(step, dict) or not step.get("template"):
+                continue
+            template = Path(step["template"])
+            template_path = REPO_ROOT / template
+            if not template_path.exists() and len(template.parts) == 1:
+                template_path = REPO_ROOT / "templates" / template
+            if template_path.exists():
+                template_steps = yaml.safe_load(template_path.read_text()).get(
+                    "steps", []
+                )
+                texts.extend(flatten(template_steps))
+                expanded_templates.extend(
+                    nested.get("template")
+                    for nested in template_steps
+                    if isinstance(nested, dict) and nested.get("template")
+                )
         runs_sbt = any(
             _INVOKES_SBT.search(t) or t.strip().startswith("sbt") or "sbt_retry.sh" in t
             for t in texts
@@ -1788,12 +1922,19 @@ def test_every_sbt_running_job_waits_for_the_prewarm_cache():
             for s in steps
             if isinstance(s, dict) and s.get("template")
         ]
-        uses_cache = "templates/sbt_cache.yml" in templates
+        uses_cache = (
+            "templates/sbt_cache.yml" in templates
+            or "sbt_cache.yml" in expanded_templates
+        )
         depends_on = job.get("dependsOn", [])
         if isinstance(depends_on, str):
             depends_on = [depends_on]
         condition = job.get("condition")
-        gated_by_success = condition is None or "succeeded()" in condition
+        gated_by_success = (
+            condition is None
+            or "succeeded()" in condition
+            or ("not(failed())" in condition and "not(canceled())" in condition)
+        )
         if runs_sbt and (
             not uses_cache
             or "BuildAndCacheSbt" not in depends_on

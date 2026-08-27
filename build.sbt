@@ -103,7 +103,8 @@ getDatasetsTask := {
   val d = datasetDir.value.getParentFile
   val f = new File(d, datasetName)
   if (!d.exists()) d.mkdirs()
-  if (!f.exists()) {
+  if (!datasetDir.value.exists()) {
+    if (f.exists()) f.delete() // Remove partial downloads
     val cached = new File(sys.env.getOrElse("DATASET_CACHE", "/opt/datasets"), datasetName)
     if (cached.exists()) {
       java.nio.file.Files.copy(cached.toPath, f.toPath)

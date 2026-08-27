@@ -12,7 +12,7 @@ import java.nio.file.Files
 
 class VerifyRCodegen extends TestBase {
 
-  test("generated R extension uses the supported Maven repository") {
+  private def withTempConfig(test: CodegenConfig => Unit): Unit = {
     val tempDir = Files.createTempDirectory("synapseml-r-codegen").toFile
     val targetDir = new java.io.File(tempDir, "target")
     val conf = CodegenConfig(
@@ -27,14 +27,29 @@ class VerifyRCodegen extends TestBase {
     )
 
     try {
+      test(conf)
+    } finally {
+      ApacheFileUtils.deleteDirectory(tempDir)
+    }
+  }
+
+  test("generated R extension uses the supported Maven repository") {
+    withTempConfig { conf =>
       RCodegen.generateRPackageData(conf)
       val registration = readFile(new java.io.File(conf.rSrcDir, "package_register.R"))
 
       assert(PackageUtils.PackageRepository === "https://mmlspark.blob.core.windows.net/maven")
       assert(registration.contains(s"""repositories = c("${PackageUtils.PackageRepository}")"""))
       assert(!registration.contains("azureedge.net"))
-    } finally {
-      ApacheFileUtils.deleteDirectory(tempDir)
+    }
+  }
+
+  test("generated R tests use the configured Spark home") {
+    withTempConfig { conf =>
+      RTestGen.generateRPackageData(conf)
+      val setup = readFile(new java.io.File(conf.rTestThatDir, "setup.R"))
+
+      assert(setup.contains("""spark_home = Sys.getenv("SPARK_HOME")"""))
     }
   }
 }

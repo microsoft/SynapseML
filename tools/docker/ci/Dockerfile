@@ -2,14 +2,15 @@
 # Pre-bakes all build dependencies so CI jobs start with a warm environment.
 # Rebuilt automatically by BuildCIImage when dependency files change.
 
-FROM ubuntu:22.04
+FROM ubuntu:22.04@sha256:2edbbc5dc405e9612ba3584ce95480277e3eb374407b5505fe26f17df77c7dbc
 
 ENV DEBIAN_FRONTEND=noninteractive
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 
-# Temurin JDK 8 + system packages in a single layer to avoid redundant apt-get update.
-# JDK 8 required — JDK 11 has different CMYK JPEG handling in ImageIO.
+ARG JAVA_VERSION
+
+# The JDK version comes from templates/java_setup.yml on each release branch.
 # Audio libs (libasound2, libpulse0) needed by Azure Speech SDK.
 # libssl1.1 needed by Azure Speech SDK (Ubuntu 22.04 ships OpenSSL 3.0 but SDK requires 1.x).
 RUN apt-get update && apt-get install -y --no-install-recommends curl wget git ca-certificates gnupg2 \
@@ -17,7 +18,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl wget git c
     && echo "deb [signed-by=/usr/share/keyrings/adoptium.gpg] https://packages.adoptium.net/artifactory/deb $(. /etc/os-release && echo $VERSION_CODENAME) main" \
          > /etc/apt/sources.list.d/adoptium.list \
     && apt-get update && apt-get install -y --no-install-recommends \
-         temurin-8-jdk \
+         "temurin-${JAVA_VERSION}-jdk" \
          openmpi-bin libopenmpi-dev \
          ffmpeg libgstreamer1.0-0 \
          gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-ugly \
@@ -32,7 +33,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends curl wget git c
     && dpkg -i /tmp/libssl1.1.deb \
     && rm /tmp/libssl1.1.deb
 
-ENV JAVA_HOME=/usr/lib/jvm/temurin-8-jdk-amd64
+ENV JAVA_HOME=/usr/lib/jvm/temurin-${JAVA_VERSION}-jdk-amd64
 
 # Miniconda — pinned version for reproducible builds
 # conda 24.x does not require TOS acceptance (that was added in conda 25.x)
@@ -48,15 +49,13 @@ ENV CONDA_CACHE_DIR=/opt/conda/envs
 # Azure CLI (installed into base conda python, not the synapseml env)
 RUN pip install --no-cache-dir azure-cli==2.60.0
 
-# Spark (pre-downloaded for R tests)
-ENV SPARK_VERSION=3.5.0
+# Spark (pre-downloaded for R tests). The version comes from build.sbt and the
+# checksum is the official Apache digest recorded in tools/ci/ci_image.py.
+ARG SPARK_VERSION
+ARG SPARK_SHA512
 ENV HADOOP_VERSION=3
-# We fetch Spark from a blob mirror, so pin the digest Apache publishes for this exact
-# artifact (archive.apache.org/dist/spark/spark-3.5.0/...tgz.sha512). Bump both the version
-# ENVs and this digest together; a stale digest fails the build instead of silently
-# installing a different Spark.
 RUN wget -q "https://mmlspark.blob.core.windows.net/installers/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}.tgz" -O /tmp/spark.tgz \
-    && echo "8883c67e0a138069e597f3e7d4edbbd5c3a565d50b28644aad02856a1ec1da7cb92b8f80454ca427118f69459ea326eaa073cf7b1a860c3b796f4b07c2101319  /tmp/spark.tgz" | sha512sum -c - \
+    && echo "${SPARK_SHA512}  /tmp/spark.tgz" | sha512sum -c - \
     && tar -xzf /tmp/spark.tgz -C /opt \
     && rm /tmp/spark.tgz
 ENV SPARK_HOME=/opt/spark-${SPARK_VERSION}-bin-hadoop${HADOOP_VERSION}
@@ -70,21 +69,29 @@ RUN wget -q "https://github.com/sbt/sbt/releases/download/v${SBT_VERSION}/sbt-${
     && echo "5034a64841b8a9cfb52a341e45b01df2b8c2ffaa87d8d2b0fe33c4cdcabd8f0c  /tmp/sbt.tgz" | sha256sum -c - \
     && tar -xzf /tmp/sbt.tgz -C /opt \
     && rm /tmp/sbt.tgz \
-    && mkdir -p $COURSIER_CACHE
+    && mkdir -p "$COURSIER_CACHE" \
+    && chown -R 1001:0 "$COURSIER_CACHE" \
+    && chmod -R u+rwX,go+rX,go-w "$COURSIER_CACHE"
 ENV PATH=/opt/sbt/bin:$PATH
 
 # --- Cache boundary: layers below invalidate when dependency files change ---
 
 # Conda environment from environment.yml
-# Use PIP_NO_CACHE_DIR to save disk; CI is CPU-only so replace CUDA torch with CPU variant
-# Direct wheel URLs avoid --extra-index-url which violates CFS policy
+# Use PIP_NO_CACHE_DIR to save disk; CI is CPU-only, so replace the declared
+# CUDA wheels with the matching CPU builds for the branch's Python ABI.
+ARG TORCH_VERSION
+ARG TORCHVISION_VERSION
 COPY environment.yml /tmp/environment.yml
 RUN PIP_NO_CACHE_DIR=1 conda env create -f /tmp/environment.yml \
     && conda clean --all -y \
     && rm /tmp/environment.yml \
-    && /opt/conda/envs/synapseml/bin/pip install --no-cache-dir --no-deps \
-         "https://download.pytorch.org/whl/cpu/torch-2.1.0%2Bcpu-cp311-cp311-linux_x86_64.whl" \
-         "https://download.pytorch.org/whl/cpu/torchvision-0.16.0%2Bcpu-cp311-cp311-linux_x86_64.whl" \
+    && if [ "$(/opt/conda/envs/synapseml/bin/python -c 'import torch; print(torch.__version__)')" != "${TORCH_VERSION}+cpu" ] \
+         || [ "$(/opt/conda/envs/synapseml/bin/python -c 'import torchvision; print(torchvision.__version__)')" != "${TORCHVISION_VERSION}+cpu" ]; then \
+         /opt/conda/envs/synapseml/bin/pip install --no-cache-dir --no-deps --force-reinstall \
+           --index-url https://download.pytorch.org/whl/cpu \
+           "torch==${TORCH_VERSION}+cpu" \
+           "torchvision==${TORCHVISION_VERSION}+cpu"; \
+       fi \
     && /opt/conda/envs/synapseml/bin/pip uninstall -y triton \
          nvidia-cublas-cu12 nvidia-cuda-cupti-cu12 nvidia-cuda-nvrtc-cu12 \
          nvidia-cuda-runtime-cu12 nvidia-cudnn-cu12 nvidia-cufft-cu12 \
@@ -92,19 +99,6 @@ RUN PIP_NO_CACHE_DIR=1 conda env create -f /tmp/environment.yml \
          nvidia-nccl-cu12 nvidia-nvjitlink-cu12 nvidia-nvtx-cu12 \
     && chown -R 1001:0 /opt/conda/envs \
     && chmod -R u+rwX,go+rX,go-w /opt/conda/envs
-
-# Pre-fetch SBT plugins, all project dependency JARs, and compiler-bridge.
-# Copy the full project/ dir and build files so SBT can resolve the complete
-# dependency graph. This eliminates ~286 JAR downloads + compiler-bridge
-# compilation (~2-3 min) from every test job.
-COPY project/               /tmp/sbt-warmup/project/
-COPY build.sbt              /tmp/sbt-warmup/build.sbt
-COPY sonatype.sbt           /tmp/sbt-warmup/sonatype.sbt
-RUN cd /tmp/sbt-warmup \
-    && sbt --batch -Dsbt.supershell=false "update; Test/update" || true \
-    && rm -rf /tmp/sbt-warmup /tmp/.sbt \
-    && chown -R 1001:0 "$COURSIER_CACHE" \
-    && chmod -R u+rwX,go+rX,go-w "$COURSIER_CACHE"
 
 # Pre-download test datasets (static tarball, ~117MB) to avoid downloading in every job
 ENV DATASET_CACHE=/opt/datasets

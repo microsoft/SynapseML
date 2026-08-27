@@ -1,18 +1,14 @@
 resources:
   containers:
-  # Prerequisites, both of which fail the build at resource-validation time —
-  # before any job starts — so neither surfaces as a normal job failure:
-  #   1. A Docker Registry service connection named exactly 'SynapseML MCR',
-  #      pointing at mmlsparkmcr.azurecr.io, must exist in the ADO project and
-  #      be authorized for this pipeline.
-  #   2. The tag below must already be present in the registry. It is content
-  #      addressed from .dockerignore + environment.yml + build.sbt + sonatype.sbt +
-  #      project/ + tools/docker/ci/Dockerfile, and is built and pushed only by the
-  #      BuildCIImage job on master. A change to any of those inputs therefore
-  #      needs its image published from master before this pipeline can pull it.
+  # Use the existing ARM service connection for both ACR resource access and
+  # publishing. BuildCIImage creates a missing immutable tag before consumers run.
   - container: ci
-    image: mmlsparkmcr.azurecr.io/synapseml/ci:ci-048168ac6295
-    endpoint: 'SynapseML MCR'
+    image: mmlsparkmcr.azurecr.io/synapseml/ci:ci-112db6614927
+    type: ACR
+    azureSubscription: 'SynapseML Build'
+    resourceGroup: marhamil-mmlspark
+    registry: mmlsparkmcr
+    repository: synapseml/ci
   repositories:
   - repository: SynapseML-Internal
     type: git
@@ -111,7 +107,7 @@ variables:
   CONDA_CACHE_DIR: /usr/share/miniconda/envs
   UBUNTU_VERSION: ubuntu-22.04
   ComponentDetection.Timeout: 900
-  CI_IMAGE_TAG: ci-048168ac6295
+  CI_IMAGE_TAG: ci-112db6614927
   isMaster: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
   isTag: $[startsWith(variables['Build.SourceBranch'], 'refs/tags/')]
   isPR: $[eq(variables['Build.Reason'], 'PullRequest')]
@@ -130,45 +126,7 @@ jobs:
       fetchDepth: 1
     - bash: |
         set -euo pipefail
-        HASH=$({
-          sha256sum .dockerignore environment.yml build.sbt sonatype.sbt tools/docker/ci/Dockerfile
-          git ls-files -z -- project | sort -z | xargs -0 sha256sum
-        } | sha256sum | cut -c1-12)
-        EXPECTED_TAG="ci-${HASH}"
-        VARIABLE_TAG="$(CI_IMAGE_TAG)"
-        RESOURCE_TAG="$(
-          python3 - <<'PY'
-        from pathlib import Path
-
-        lines = Path("pipeline.yaml").read_text(encoding="utf-8").splitlines()
-        in_ci = False
-        for line in lines:
-            stripped = line.strip()
-            if stripped == "- container: ci":
-                in_ci = True
-                continue
-            if in_ci and stripped.startswith("image:"):
-                image = stripped.split(":", 1)[1].strip().strip("'\"")
-                print(image.rsplit(":", 1)[1])
-                break
-        else:
-            raise SystemExit("Could not find resources.containers ci image tag")
-        PY
-        )"
-
-        echo "CI image content hash tag: $EXPECTED_TAG"
-        echo "CI_IMAGE_TAG variable: $VARIABLE_TAG"
-        echo "resources.containers[ci] image tag: $RESOURCE_TAG"
-
-        if [ "$VARIABLE_TAG" != "$EXPECTED_TAG" ]; then
-          echo "##vso[task.logissue type=error]CI_IMAGE_TAG ($VARIABLE_TAG) does not match dependency hash ($EXPECTED_TAG). Update the CI image tag with the Dockerfile/dependency change."
-          exit 1
-        fi
-
-        if [ "$RESOURCE_TAG" != "$EXPECTED_TAG" ]; then
-          echo "##vso[task.logissue type=error]resources.containers[ci] image tag ($RESOURCE_TAG) does not match dependency hash ($EXPECTED_TAG). Update resources.containers[ci].image with the same tag."
-          exit 1
-        fi
+        python3 tools/ci/ci_image.py check
       displayName: 'Validate CI image tag'
     - bash: |
         set -uo pipefail
@@ -231,91 +189,97 @@ jobs:
 
 
 - job: BuildCIImage
-  displayName: 'Build trusted CI image'
+  displayName: 'Publish missing trusted CI image'
   cancelTimeoutInMinutes: 0
-  timeoutInMinutes: 60
+  timeoutInMinutes: 90
+  condition: or(ne(variables.isPR, true), ne(variables['System.PullRequest.IsFork'], 'True'))
   pool:
     vmImage: $(UBUNTU_VERSION)
   steps:
     - checkout: self
       fetchDepth: 1
-    - bash: |
-        set -euo pipefail
-        echo "=== Disk space BEFORE cleanup ==="
-        df -h / | grep -E 'Filesystem|/$'
-        sudo rm -rf /usr/local/lib/android || true
-        sudo rm -rf /usr/lib/google-cloud-sdk || true
-        sudo rm -rf /usr/share/dotnet || true
-        sudo rm -rf /opt/ghc || true
-        sudo rm -rf /opt/hostedtoolcache || true
-        sudo rm -rf /usr/local/share/boost || true
-        sudo rm -rf /usr/share/swift || true
-        sudo rm -rf /usr/local/.ghcup || true
-        sudo rm -rf /usr/share/miniconda || true
-        sudo rm -rf /usr/local/share/chromium || true
-        sudo docker image prune -af || true
-        echo "=== Disk space AFTER cleanup ==="
-        df -h / | grep -E 'Filesystem|/$'
-      displayName: 'Free disk space'
-      condition: and(succeeded(), eq(variables.isMaster, true), ne(variables.isPR, true))
-    - task: Docker@2
-      displayName: 'Login to ACR'
-      condition: and(succeeded(), eq(variables.isMaster, true), ne(variables.isPR, true))
+    - task: AzureCLI@2
+      displayName: 'Build or reuse CI image'
       inputs:
-        command: login
-        containerRegistry: 'SynapseML MCR'
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          set -euo pipefail
+          python3 tools/ci/ci_image.py check
+
+          tag="$(python3 tools/ci/ci_image.py tag)"
+          if [ "$tag" != "$(CI_IMAGE_TAG)" ]; then
+            echo "##vso[task.logissue type=error]Computed CI image tag $tag does not match $(CI_IMAGE_TAG)."
+            exit 1
+          fi
+          registry="mmlsparkmcr.azurecr.io"
+          repository="synapseml/ci"
+          image="${registry}/${repository}:${tag}"
+          java_version="$(python3 tools/ci/ci_image.py java-version)"
+          spark_version="$(python3 tools/ci/ci_image.py spark-version)"
+          spark_sha512="$(python3 tools/ci/ci_image.py spark-sha512)"
+          torch_version="$(python3 tools/ci/ci_image.py dependency-version torch)"
+          torchvision_version="$(python3 tools/ci/ci_image.py dependency-version torchvision)"
+
+          az acr login --name mmlsparkmcr
+          if docker manifest inspect "$image" >/dev/null 2>&1; then
+            echo "Immutable CI image already exists: $image"
+            exit 0
+          fi
+
+          echo "Building $image with Java $java_version and Spark $spark_version"
+          sudo rm -rf /usr/local/lib/android \
+            /usr/lib/google-cloud-sdk \
+            /usr/share/dotnet \
+            /opt/ghc \
+            /opt/hostedtoolcache \
+            /usr/local/share/boost \
+            /usr/share/swift \
+            /usr/local/.ghcup \
+            /usr/share/miniconda \
+            /usr/local/share/chromium
+          docker image prune -af
+          docker build \
+            --build-arg JAVA_VERSION="$java_version" \
+            --build-arg SPARK_VERSION="$spark_version" \
+            --build-arg SPARK_SHA512="$spark_sha512" \
+            --build-arg TORCH_VERSION="$torch_version" \
+            --build-arg TORCHVISION_VERSION="$torchvision_version" \
+            --tag "$image" \
+            --file tools/docker/ci/Dockerfile .
+          docker push "$image"
+
+- job: ValidateCIImageForFork
+  displayName: 'Validate fork CI image inputs'
+  cancelTimeoutInMinutes: 0
+  condition: and(not(failed()), not(canceled()), eq(variables['System.PullRequest.IsFork'], 'True'))
+  pool:
+    vmImage: $(UBUNTU_VERSION)
+  steps:
+    - checkout: self
+      fetchDepth: 0
     - bash: |
         set -euo pipefail
-        HASH=$({
-          sha256sum .dockerignore environment.yml build.sbt sonatype.sbt tools/docker/ci/Dockerfile
-          git ls-files -z -- project | sort -z | xargs -0 sha256sum
-        } | sha256sum | cut -c1-12)
-        TAG="ci-${HASH}"
-        EXPECTED_TAG="$(CI_IMAGE_TAG)"
-        LATEST_TAG="ci-latest"
-        REGISTRY="mmlsparkmcr.azurecr.io"
-        REPO="synapseml/ci"
-        echo "Content hash: $TAG"
-
-        if [ "$TAG" != "$EXPECTED_TAG" ]; then
-          echo "##vso[task.logissue type=error]CI_IMAGE_TAG ($EXPECTED_TAG) does not match dependency hash ($TAG). Update the pipeline image tag with the Dockerfile/dependency change."
+        target_branch="${SYSTEM_PULLREQUEST_TARGETBRANCH#refs/heads/}"
+        target_ref="refs/remotes/origin/${target_branch}"
+        git fetch --no-tags --depth=1 origin \
+          "+refs/heads/${target_branch}:${target_ref}"
+        mapfile -t image_inputs < <(python3 tools/ci/ci_image.py inputs)
+        if ! git diff --quiet "$target_ref...HEAD" -- "${image_inputs[@]}"; then
+          echo "##vso[task.logissue type=error]Fork pull requests cannot change tools/docker/ci/** or other CI image inputs because registry credentials are not exposed to forks. Ask a maintainer to publish the new immutable image from a trusted branch."
+          git diff --name-only "$target_ref...HEAD" -- "${image_inputs[@]}"
           exit 1
         fi
-
-        IMAGE_EXISTS=false
-        for i in 1 2 3; do
-          if docker manifest inspect "${REGISTRY}/${REPO}:${TAG}" > /dev/null 2>&1; then
-            IMAGE_EXISTS=true
-            break
-          fi
-          [ $i -lt 3 ] && echo "Manifest inspect attempt $i failed, retrying..." && sleep 5
-        done
-
-        if [ "$IMAGE_EXISTS" = "true" ]; then
-          echo "Image $TAG exists. Re-tagging server-side as $LATEST_TAG."
-          docker buildx imagetools create \
-            --tag "${REGISTRY}/${REPO}:${LATEST_TAG}" \
-            "${REGISTRY}/${REPO}:${TAG}"
-        else
-          echo "Image $TAG not found. Building from trusted master."
-          docker pull "${REGISTRY}/${REPO}:${LATEST_TAG}" || true
-          docker build \
-            --cache-from "${REGISTRY}/${REPO}:${LATEST_TAG}" \
-            -t "${REGISTRY}/${REPO}:${TAG}" \
-            -t "${REGISTRY}/${REPO}:${LATEST_TAG}" \
-            -f tools/docker/ci/Dockerfile .
-          docker push "${REGISTRY}/${REPO}:${TAG}"
-          docker push "${REGISTRY}/${REPO}:${LATEST_TAG}"
-        fi
-      displayName: 'Check/Build CI Image'
-      condition: and(succeeded(), eq(variables.isMaster, true), ne(variables.isPR, true))
+      displayName: 'Reject unpublished fork image changes'
 
 - job: Style
   dependsOn:
     - BuildAndCacheSbt
     - BuildCIImage
+    - ValidateCIImageForFork
   cancelTimeoutInMinutes: 0
-  condition: and(succeeded(), eq(variables.runTests, 'True'), eq('${{ parameters.testStyle }}', true))
+  condition: and(not(failed()), not(canceled()), eq(variables.runTests, 'True'), eq('${{ parameters.testStyle }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
   container: ci
@@ -334,7 +298,8 @@ jobs:
     dependsOn:
       - BuildAndCacheSbt
       - BuildCIImage
-    condition: and(succeeded(), eq('${{ parameters.publishArtifacts }}', true))
+      - ValidateCIImageForFork
+    condition: and(not(failed()), not(canceled()), eq('${{ parameters.publishArtifacts }}', true))
     cancelTimeoutInMinutes: 0
     pool:
       vmImage: $(UBUNTU_VERSION)
@@ -394,10 +359,12 @@ jobs:
   dependsOn:
     - BuildAndCacheSbt
     - BuildCIImage
+    - ValidateCIImageForFork
   displayName: 'Databricks CPU E2E'
   condition: >-
     and(
-      succeeded(),
+      not(failed()),
+      not(canceled()),
       eq(variables.runTests, 'True'),
       eq('${{ parameters.testDatabricksE2E }}', true),
       eq(dependencies.BuildAndCacheSbt.outputs['detectDatabricksImpact.runDatabricksCpuE2E'], 'true')
@@ -430,10 +397,12 @@ jobs:
   dependsOn:
     - BuildAndCacheSbt
     - BuildCIImage
+    - ValidateCIImageForFork
   displayName: 'Databricks GPU E2E'
   condition: >-
     and(
-      succeeded(),
+      not(failed()),
+      not(canceled()),
       eq(variables.runTests, 'True'),
       eq('${{ parameters.testDatabricksE2E }}', true),
       eq(dependencies.BuildAndCacheSbt.outputs['detectDatabricksImpact.runDatabricksGpuE2E'], 'true')
@@ -456,6 +425,7 @@ jobs:
   dependsOn:
     - BuildAndCacheSbt
     - BuildCIImage
+    - ValidateCIImageForFork
   displayName: 'Fabric E2E'
   condition: >-
     and(
@@ -758,9 +728,10 @@ jobs:
   dependsOn:
     - BuildAndCacheSbt
     - BuildCIImage
+    - ValidateCIImageForFork
   timeoutInMinutes: 120
   cancelTimeoutInMinutes: 0
-  condition: and(succeeded(), eq(variables.runTests, 'True'), eq('${{ parameters.testPython }}', true))
+  condition: and(not(failed()), not(canceled()), eq(variables.runTests, 'True'), eq('${{ parameters.testPython }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
   container: ci
@@ -844,9 +815,10 @@ jobs:
   dependsOn:
     - BuildAndCacheSbt
     - BuildCIImage
+    - ValidateCIImageForFork
   timeoutInMinutes: 60
   cancelTimeoutInMinutes: 0
-  condition: and(succeeded(), eq(variables.runTests, 'True'), eq('${{ parameters.testR }}', true))
+  condition: and(not(failed()), not(canceled()), eq(variables.runTests, 'True'), eq('${{ parameters.testR }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
   container: ci
@@ -907,8 +879,9 @@ jobs:
   dependsOn:
     - BuildAndCacheSbt
     - BuildCIImage
+    - ValidateCIImageForFork
   cancelTimeoutInMinutes: 0
-  condition: and(succeeded(), eq(variables.runTests, 'True'), eq('${{ parameters.testWebsiteSamples }}', true))
+  condition: and(not(failed()), not(canceled()), eq(variables.runTests, 'True'), eq('${{ parameters.testWebsiteSamples }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
   container: ci
@@ -951,9 +924,10 @@ jobs:
   dependsOn:
     - BuildAndCacheSbt
     - BuildCIImage
+    - ValidateCIImageForFork
   cancelTimeoutInMinutes: 1
   timeoutInMinutes: 100
-  condition: and(succeeded(), eq(variables.runTests, 'True'), eq('${{ parameters.testUnit }}', true))
+  condition: and(not(failed()), not(canceled()), eq(variables.runTests, 'True'), eq('${{ parameters.testUnit }}', true))
   pool:
     vmImage: $(UBUNTU_VERSION)
   container: ci
