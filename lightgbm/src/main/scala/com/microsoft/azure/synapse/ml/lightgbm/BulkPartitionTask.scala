@@ -122,7 +122,7 @@ class BulkPartitionTask extends BasePartitionTask {
     }
 
     // For the validation Dataset in useSingleDataset mode, we only want 1 copy of the data (otherwise
-    // every partition appends the same broadcast-ed data). That one copy will be made by the main execution worker.
+    // every partition appends the same validation data). That one copy will be made by the main execution worker.
     val mergeRowsIntoDataset: Boolean =
       if (!isForValidation) true
       else !useSingleDataset || sharedState.mainExecutorWorker.get == LightGBMUtils.getTaskId

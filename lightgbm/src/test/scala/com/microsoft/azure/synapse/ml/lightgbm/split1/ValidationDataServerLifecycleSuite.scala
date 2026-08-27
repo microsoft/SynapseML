@@ -5,13 +5,15 @@ package com.microsoft.azure.synapse.ml.lightgbm.split1
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.lightgbm.{InstrumentationMeasures, LightGBMValidationDataSupport}
+import com.microsoft.azure.synapse.ml.lightgbm.ValidationDataIngest
 import com.microsoft.azure.synapse.ml.lightgbm.ValidationDataParams
 import com.microsoft.azure.synapse.ml.lightgbm.ValidationDataServer
 import com.microsoft.azure.synapse.ml.lightgbm.ValidationDataServerResourceFactory
 import org.apache.commons.io.FileUtils
 import org.apache.spark.sql.Row
 
-import java.io.{DataInputStream, DataOutputStream, File, FileOutputStream, IOException, OutputStream}
+import java.io.{DataInputStream, DataOutputStream, File, FileOutputStream}
+import java.io.{IOException, OutputStream}
 import java.net.{BindException, InetSocketAddress, ServerSocket, Socket, SocketException, SocketTimeoutException}
 import java.nio.file.Files
 import java.util.UUID
@@ -59,7 +61,7 @@ class ValidationDataServerLifecycleSuite extends TestBase {
     }
   }
 
-  test("ingest listener backlog covers every validation partition") {
+  test("ingest listener uses a conservative backlog without inspecting the DataFrame RDD") {
     val spool = scratchDirectory("ingest-backlog")
     val partitionCount = 73
     val observedBacklog = new AtomicInteger()
@@ -80,7 +82,7 @@ class ValidationDataServerLifecycleSuite extends TestBase {
           spool,
           resources)
       }
-      assert(observedBacklog.get() == partitionCount)
+      assert(observedBacklog.get() >= partitionCount)
       assert(!spool.exists())
     } finally {
       deleteIfPresent(spool)
@@ -375,20 +377,21 @@ class ValidationDataServerLifecycleSuite extends TestBase {
   }
 
   test("ingest rejects a negative row length other than the end marker") {
-    val failure = malformedIngestFailure("length", partitionCount = 1) { output =>
+    val failure = malformedIngestFailure("length") { output =>
       output.writeInt(0)
+      output.writeLong(0L)
       output.writeInt(-2)
     }
     assert(failure.isInstanceOf[IOException])
     assert(failure.getMessage.contains("Invalid validation partition row length -2"))
   }
 
-  test("ingest rejects partition ids outside the expected range") {
-    val failure = malformedIngestFailure("partition", partitionCount = 1) { output =>
-      output.writeInt(1)
+  test("ingest rejects negative partition ids") {
+    val failure = malformedIngestFailure("partition") { output =>
+      output.writeInt(-1)
     }
     assert(failure.isInstanceOf[IOException])
-    assert(failure.getMessage.contains("Invalid validation partition id 1"))
+    assert(failure.getMessage.contains("Invalid validation partition id -1"))
   }
 
   test("executor read rejects a negative row length other than the end marker") {
@@ -668,8 +671,7 @@ class ValidationDataServerLifecycleSuite extends TestBase {
     override def isClosed: Boolean = closed
   }
 
-  private def malformedIngestFailure(name: String,
-                                     partitionCount: Int)
+  private def malformedIngestFailure(name: String)
                                     (writeFrame: DataOutputStream => Unit): Throwable = {
     val spool = scratchDirectory(s"malformed-ingest-$name")
     assert(spool.mkdir())
@@ -679,7 +681,7 @@ class ValidationDataServerLifecycleSuite extends TestBase {
     val received = executor.submit(new Callable[Throwable] {
       override def call(): Throwable = {
         try {
-          ValidationDataServer.receivePartition(listener.accept(), spool, token, 5000, partitionCount)
+          ValidationDataIngest.receivePartition(listener.accept(), spool, token, 5000)
           new AssertionError("Malformed validation partition was accepted")
         } catch {
           case failure: Throwable => failure

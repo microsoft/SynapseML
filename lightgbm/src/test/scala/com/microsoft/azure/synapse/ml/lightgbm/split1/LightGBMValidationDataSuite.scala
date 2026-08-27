@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.lightgbm.split1
 import com.microsoft.azure.synapse.ml.core.test.base.{SparkSessionManagement, TestBase}
 import com.microsoft.azure.synapse.ml.lightgbm.{BulkPartitionTask, LightGBMClassifier, LightGBMClassificationModel}
 import com.microsoft.azure.synapse.ml.lightgbm.LightGBMConstants
+import com.microsoft.azure.synapse.ml.lightgbm.LightGBMRanker
 import org.apache.commons.io.FileUtils
 import org.apache.spark.SparkConf
 import org.apache.spark.ml.linalg.{Vector, Vectors}
@@ -119,6 +120,42 @@ class LightGBMValidationDataSuite extends LightGBMTestUtils {
     validateBulkMode(useSingleDatasetMode = false)
   }
 
+  test("ranker streams grouped validation data after algorithm preprocessing") {
+    import spark.implicits._
+
+    val data = Seq(
+      (0L, 3.0, Vectors.dense(0.9, 0.1), false),
+      (0L, 2.0, Vectors.dense(0.7, 0.3), false),
+      (0L, 1.0, Vectors.dense(0.4, 0.6), false),
+      (1L, 2.0, Vectors.dense(0.8, 0.2), false),
+      (1L, 1.0, Vectors.dense(0.5, 0.5), false),
+      (1L, 0.0, Vectors.dense(0.2, 0.8), false),
+      (2L, 3.0, Vectors.dense(0.95, 0.05), true),
+      (2L, 1.0, Vectors.dense(0.6, 0.4), true),
+      (2L, 0.0, Vectors.dense(0.1, 0.9), true),
+      (3L, 2.0, Vectors.dense(0.85, 0.15), true),
+      (3L, 1.0, Vectors.dense(0.55, 0.45), true),
+      (3L, 0.0, Vectors.dense(0.15, 0.85), true)
+    ).toDF("query", "label", "features", "isValidation")
+
+    val model = new LightGBMRanker()
+      .setGroupCol("query")
+      .setValidationIndicatorCol("isValidation")
+      .setDataTransferMode(LightGBMConstants.BulkDataTransferMode)
+      .setRepartitionByGroupingColumn(false)
+      .setNumTasks(1)
+      .setNumIterations(3)
+      .setEarlyStoppingRound(1)
+      .setNumLeaves(4)
+      .setMinDataInLeaf(1)
+      .setBinSampleCount(8)
+      .setDefaultListenPort(getAndIncrementPort())
+      .fit(data)
+
+    assert(model.transform(data).select("prediction").count() == data.count())
+    assert(validationSpoolDirectories.isEmpty)
+  }
+
   test("validationIndicatorCol rejects null indicators instead of dropping rows") {
     val denseFeatures = udf { id: Long =>
       val random = new scala.util.Random(id)
@@ -130,7 +167,7 @@ class LightGBMValidationDataSuite extends LightGBMTestUtils {
         denseFeatures(col("id")).as("features"),
         lit(null).cast("boolean").as("isValidation")) // scalastyle:ignore null
 
-    val error = intercept[IllegalArgumentException] {
+    val error = intercept[Exception] {
       new LightGBMClassifier()
         .setValidationIndicatorCol("isValidation")
         .setNumTasks(2)

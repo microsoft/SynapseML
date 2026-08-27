@@ -16,6 +16,7 @@ import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.ml.param.shared.{HasFeaturesCol => HasFeaturesColSpark, HasLabelCol => HasLabelColSpark}
 import org.apache.spark.ml.{ComplexParamsWritable, Estimator, Model}
 import org.apache.spark.sql._
+import org.apache.spark.sql.functions.{lit, raise_error, when}
 import org.apache.spark.sql.types._
 
 import scala.collection.immutable.HashSet
@@ -592,10 +593,11 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
   private def splitTrainingAndValidationData(df: DataFrame): (DataFrame, Option[DataFrame]) = {
     if (get(validationIndicatorCol).isDefined && df.columns.contains(getValidationIndicatorCol)) {
       val validationColumn = df(getValidationIndicatorCol)
-      if (df.filter(validationColumn.isNull).select(validationColumn).head(1).nonEmpty) {
-        throw new IllegalArgumentException(s"Validation indicator column '$getValidationIndicatorCol' contains null")
-      }
-      (df.filter(!validationColumn), Some(preprocessData(df.filter(validationColumn))))
+      val checkedValidationColumn = when(
+        validationColumn.isNull,
+        raise_error(lit(s"Validation indicator column '$getValidationIndicatorCol' contains null")))
+        .otherwise(validationColumn)
+      (df.filter(!checkedValidationColumn), Some(preprocessData(df.filter(checkedValidationColumn))))
     } else {
       (df, None)
     }

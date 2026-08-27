@@ -6,15 +6,46 @@ package com.microsoft.azure.synapse.ml.lightgbm
 import org.slf4j.Logger
 
 import java.io.IOException
-import java.net.{BindException, InetSocketAddress, Socket}
-import java.util.concurrent.{ExecutionException, Future}
+import java.net.{BindException, InetSocketAddress, Socket, SocketTimeoutException}
+import java.util.concurrent.atomic.{AtomicInteger, AtomicLong, AtomicReference}
+import java.util.concurrent.{ExecutionException, Future, ScheduledThreadPoolExecutor, ThreadFactory, TimeUnit}
 import scala.annotation.tailrec
 
 private[lightgbm] object NetworkManagerSocketSupport {
   private val MaxSocketCloseAttempts = 2
+  private val WriteTimeoutPollDivisor = 4
+  private val WatchdogThreadCounter = new AtomicInteger()
+  private val WatchdogThreadFactory = new ThreadFactory {
+    override def newThread(runnable: Runnable): Thread = {
+      val thread = new Thread(
+        runnable,
+        s"synapseml-socket-write-watchdog-${WatchdogThreadCounter.incrementAndGet()}")
+      thread.setDaemon(true)
+      thread
+    }
+  }
+  private val WriteWatchdog = {
+    val executor = new ScheduledThreadPoolExecutor(1, WatchdogThreadFactory)
+    executor.setRemoveOnCancelPolicy(true)
+    executor
+  }
+
+  private sealed trait WriteState
+  private case object WriteActive extends WriteState
+  private case object WriteComplete extends WriteState
+  private case class WriteTimedOut(failure: SocketTimeoutException) extends WriteState
 
   def addSuppressed(primaryFailure: Throwable, secondaryFailure: Throwable): Unit = {
     if (primaryFailure ne secondaryFailure) primaryFailure.addSuppressed(secondaryFailure)
+  }
+
+  def recordFailure(reference: AtomicReference[Throwable], failure: Throwable): Unit = {
+    val existing = reference.get()
+    if (existing != null) { // scalastyle:ignore null
+      addSuppressed(existing, failure)
+    } else if (!reference.compareAndSet(null, failure)) { // scalastyle:ignore null
+      addSuppressed(reference.get(), failure)
+    }
   }
 
   def awaitFuture(future: Future[_]): Unit = {
@@ -26,6 +57,57 @@ private[lightgbm] object NetworkManagerSocketSupport {
         throw interrupted
       case failed: ExecutionException =>
         throw Option(failed.getCause).getOrElse(failed)
+    }
+  }
+
+  def withSocketWriteTimeout[T](socket: Socket,
+                                timeoutMillis: Int)
+                               (operation: (() => Unit) => T): T = {
+    require(timeoutMillis > 0, "Socket write timeout must be positive")
+    val timeoutNanos = TimeUnit.MILLISECONDS.toNanos(timeoutMillis.toLong)
+    val pollMillis = Math.max(1L, timeoutMillis.toLong / WriteTimeoutPollDivisor)
+    val lastProgress = new AtomicLong(System.nanoTime())
+    val state = new AtomicReference[WriteState](WriteActive)
+    val watchdog = WriteWatchdog.scheduleAtFixedRate(
+      new Runnable {
+        override def run(): Unit = {
+          if (System.nanoTime() - lastProgress.get() >= timeoutNanos) {
+            val timeout = new SocketTimeoutException(
+              s"Timed out after $timeoutMillis ms without validation socket write progress")
+            if (state.compareAndSet(WriteActive, WriteTimedOut(timeout))) {
+              try closeSocketWithRetry(socket)
+              catch {
+                case closeFailure: IOException => addSuppressed(timeout, closeFailure)
+              }
+            }
+          }
+        }
+      },
+      pollMillis,
+      pollMillis,
+      TimeUnit.MILLISECONDS)
+
+    try {
+      val result = operation(() => lastProgress.set(System.nanoTime()))
+      if (state.compareAndSet(WriteActive, WriteComplete)) result
+      else throw writeTimeoutFailure(state.get(), None)
+    } catch {
+      case failure: Throwable =>
+        if (state.compareAndSet(WriteActive, WriteComplete)) throw failure
+        else throw writeTimeoutFailure(state.get(), Option(failure))
+    } finally {
+      watchdog.cancel(false)
+    }
+  }
+
+  private def writeTimeoutFailure(state: WriteState,
+                                  operationFailure: Option[Throwable]): Throwable = {
+    state match {
+      case WriteTimedOut(timeout) =>
+        operationFailure.foreach(failure => addSuppressed(timeout, failure))
+        timeout
+      case _ => operationFailure.getOrElse(
+        new IllegalStateException("Validation socket write completed without an outcome"))
     }
   }
 

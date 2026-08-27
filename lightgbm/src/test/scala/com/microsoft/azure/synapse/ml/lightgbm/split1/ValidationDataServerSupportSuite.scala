@@ -4,12 +4,16 @@
 package com.microsoft.azure.synapse.ml.lightgbm.split1
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import com.microsoft.azure.synapse.ml.lightgbm.{NetworkManagerSocketSupport, ValidationDataServer, ValidationDataSpool}
+import com.microsoft.azure.synapse.ml.lightgbm.{NetworkManagerSocketSupport, ValidationDataIngest}
+import com.microsoft.azure.synapse.ml.lightgbm.{ValidationDataServer, ValidationDataSpool, ValidationPartitionAttempt}
 import org.apache.commons.io.FileUtils
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, File, IOException}
+import java.net.{Socket, SocketException, SocketTimeoutException}
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.atomic.AtomicReference
 import java.util.concurrent.{Callable, FutureTask}
 import scala.collection.mutable.ArrayBuffer
 
@@ -41,6 +45,41 @@ class ValidationDataServerSupportSuite extends TestBase {
     } finally {
       Thread.interrupted()
     }
+  }
+
+  test("recording asynchronous failures preserves the first failure") {
+    val first = new IOException("first failure")
+    val second = new IOException("second failure")
+    val recorded = new AtomicReference[Throwable]()
+
+    NetworkManagerSocketSupport.recordFailure(recorded, first)
+    NetworkManagerSocketSupport.recordFailure(recorded, second)
+
+    assert(recorded.get() eq first)
+    assert(first.getSuppressed.sameElements(Array(second)))
+  }
+
+  test("socket write watchdog closes a transfer that stops making progress") {
+    val closed = new CountDownLatch(1)
+    val socket = new Socket {
+      @volatile private var closedState = false
+
+      override def close(): Unit = {
+        closedState = true
+        closed.countDown()
+      }
+
+      override def isClosed: Boolean = closedState
+    }
+
+    val failure = intercept[SocketTimeoutException] {
+      NetworkManagerSocketSupport.withSocketWriteTimeout(socket, 50) { _ =>
+        assert(closed.await(5, java.util.concurrent.TimeUnit.SECONDS))
+        throw new SocketException("synthetic blocked write interrupted by close")
+      }
+    }
+    assert(failure.getMessage.contains("without validation socket write progress"))
+    assert(failure.getSuppressed.exists(_.getMessage.contains("synthetic blocked write")))
   }
 
   test("validation row copies reuse the current thread's transfer buffer") {
@@ -97,6 +136,18 @@ class ValidationDataServerSupportSuite extends TestBase {
 
       assert(ValidationDataSpool.listPartitionFiles(spool, 2).map(_.getName)
         .sameElements(Array("part-0", "part-1")))
+    }
+  }
+
+  test("successful attempt promotion rejects non-contiguous partition ids") {
+    withSpoolDirectory { spool =>
+      val failure = intercept[IOException] {
+        ValidationDataIngest.promoteSuccessfulAttempts(
+          spool,
+          Array(ValidationPartitionAttempt(partitionId = 1, attemptId = 0L, rowCount = 0L)))
+      }
+      assert(failure.getMessage.contains("invalid=1"))
+      assert(failure.getMessage.contains("missing=0"))
     }
   }
 
