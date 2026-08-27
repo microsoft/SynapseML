@@ -595,7 +595,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
       val validationColumn = df(getValidationIndicatorCol)
       val checkedValidationColumn = when(
         validationColumn.isNull,
-        raise_error(lit(s"Validation indicator column '$getValidationIndicatorCol' contains null")))
+        raise_error(lit(s"Validation indicator column '$getValidationIndicatorCol' contains null")).cast(BooleanType))
         .otherwise(validationColumn)
       (df.filter(!checkedValidationColumn), Some(preprocessData(df.filter(checkedValidationColumn))))
     } else {
