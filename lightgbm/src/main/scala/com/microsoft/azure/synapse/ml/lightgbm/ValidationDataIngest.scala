@@ -128,10 +128,9 @@ private[lightgbm] object ValidationDataIngest {
     val duplicatePartitions = attemptsByPartition.collect {
       case (partitionId, partitionAttempts) if partitionAttempts.length != 1 => partitionId
     }.toSeq.sorted
-    if (attempts.length != partitionCount ||
-      invalidPartitions.nonEmpty || missingPartitions.nonEmpty || duplicatePartitions.nonEmpty) {
+    if (invalidPartitions.nonEmpty || missingPartitions.nonEmpty || duplicatePartitions.nonEmpty) {
       throw new IOException(
-        s"Invalid successful validation attempts: expected $partitionCount, found ${attempts.length}; " +
+        s"Invalid successful validation attempts for $partitionCount partitions; " +
           s"invalid=${invalidPartitions.mkString(",")}, missing=${missingPartitions.mkString(",")}, " +
           s"duplicate=${duplicatePartitions.mkString(",")}")
     }
