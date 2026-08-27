@@ -11,6 +11,7 @@ import com.microsoft.azure.synapse.ml.io.IOImplicits._
 import com.microsoft.azure.synapse.ml.param.DataFrameEquality
 import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkException
+import org.apache.spark.ml.image.ImageSchema
 import org.apache.spark.ml.linalg.DenseVector
 import org.apache.spark.sql.functions.col
 import org.apache.spark.sql.types._
@@ -22,6 +23,7 @@ import org.scalactic.Equality
 
 import java.awt.GridLayout
 import java.io.File
+import java.util.Collections
 import javax.swing._
 
 trait OpenCVTestUtils {
@@ -171,9 +173,19 @@ class ImageTransformerSuite extends TransformerFuzzing[ImageTransformer] with Op
   lazy val images: DataFrame = spark.read.image.option("dropInvalid", value = true)
     .load(FileUtilities.join(fileLocation, "**").toString)
 
-  lazy val badImages: DataFrame =
-    spark.read.image.load(
-      ".//opencv//src//test//scala//com//microsoft//azure//synapse//ml//opencv//cmyk_image.jpg")
+  lazy val badImages: DataFrame = {
+    // Unlike a valid but unusual image encoding, invalid dimensions fail consistently across decoders.
+    val invalidImage = Row(
+      "invalid",
+      -1,
+      -1,
+      -1,
+      ImageSchema.ocvTypes(ImageSchema.undefinedImageType),
+      Array.empty[Byte])
+    spark.createDataFrame(
+      Collections.singletonList(Row(invalidImage)),
+      ImageSchema.imageSchema)
+  }
 
   test("general workflow") {
     //assert(images.count() == 30) //TODO this does not work on build machine for some reason

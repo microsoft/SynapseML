@@ -3,7 +3,7 @@ resources:
   # BuildCIImage publishes immutable ci-* tags through the existing public MCR
   # mapping. Consumers, including fork PRs, never need private registry credentials.
   - container: ci
-    image: mcr.microsoft.com/mmlspark/build-demo:ci-112db6614927
+    image: mcr.microsoft.com/mmlspark/build-demo:ci-2a90442c0282
   repositories:
   - repository: SynapseML-Internal
     type: git
@@ -102,7 +102,7 @@ variables:
   CONDA_CACHE_DIR: /usr/share/miniconda/envs
   UBUNTU_VERSION: ubuntu-22.04
   ComponentDetection.Timeout: 900
-  CI_IMAGE_TAG: ci-112db6614927
+  CI_IMAGE_TAG: ci-2a90442c0282
   isMaster: $[eq(variables['Build.SourceBranch'], 'refs/heads/master')]
   isTag: $[startsWith(variables['Build.SourceBranch'], 'refs/tags/')]
   isPR: $[eq(variables['Build.Reason'], 'PullRequest')]
