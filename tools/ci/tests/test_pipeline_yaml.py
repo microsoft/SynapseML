@@ -218,7 +218,7 @@ def test_ci_image_tag_matches_dependency_hash():
     expected_tag = ci_image.calculate_tag(REPO_ROOT)
     assert data["variables"]["CI_IMAGE_TAG"] == expected_tag
     assert ci_container["image"].rsplit(":", 1)[1] == expected_tag
-    assert ci_container["type"].lower() == "acr"
+    assert ci_container["type"] == "acr"
     assert ci_container["azureSubscription"] == "SynapseML Build"
     assert ci_container["resourceGroup"] == "marhamil-mmlspark"
     assert ci_container["registry"] == "mmlsparkmcr"

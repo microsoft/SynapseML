@@ -4,7 +4,7 @@ resources:
   # publishing. BuildCIImage creates a missing immutable tag before consumers run.
   - container: ci
     image: mmlsparkmcr.azurecr.io/synapseml/ci:ci-112db6614927
-    type: ACR
+    type: acr
     azureSubscription: 'SynapseML Build'
     resourceGroup: marhamil-mmlspark
     registry: mmlsparkmcr
