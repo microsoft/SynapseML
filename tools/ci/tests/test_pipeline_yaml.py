@@ -218,12 +218,10 @@ def test_ci_image_tag_matches_dependency_hash():
     expected_tag = ci_image.calculate_tag(REPO_ROOT)
     assert data["variables"]["CI_IMAGE_TAG"] == expected_tag
     assert ci_container["image"].rsplit(":", 1)[1] == expected_tag
-    assert ci_container["type"] == "acr"
-    assert ci_container["azureSubscription"] == "SynapseML Build"
-    assert ci_container["resourceGroup"] == "marhamil-mmlspark"
-    assert ci_container["registry"] == "mmlsparkmcr"
-    assert ci_container["repository"] == "synapseml/ci"
-    assert "endpoint" not in ci_container
+    assert ci_container == {
+        "container": "ci",
+        "image": f"mcr.microsoft.com/mmlspark/build-demo:{expected_tag}",
+    }
 
 
 def test_ci_image_bootstraps_with_the_existing_arm_connection():
@@ -254,6 +252,13 @@ def test_ci_image_bootstraps_with_the_existing_arm_connection():
     assert "--build-arg JAVA_VERSION=" in script
     assert "--build-arg SPARK_VERSION=" in script
     assert "--build-arg SPARK_SHA512=" in script
+    assert 'repository="public/mmlspark/build-demo"' in script
+    assert 'public_image="mcr.microsoft.com/mmlspark/build-demo:${tag}"' in script
+    assert "docker-content-digest" in script
+    assert 'public_digest="$(get_public_digest)"' in script
+    assert "Public immutable CI image already exists" in script
+    assert 'if [ "$public_digest" = "$acr_digest" ]' in script
+    assert "Timed out waiting for $public_image to become available from MCR" in script
     assert not any(step.get("task") == "Docker@2" for step in build_image["steps"])
 
 
@@ -274,6 +279,9 @@ def test_fork_image_guard_rejects_unpublishable_input_changes():
     assert "tools/ci/ci_image.py inputs" in script
     assert '"$target_ref...HEAD"' in script
     assert "tools/docker/ci/**" in script
+    assert "mcr.microsoft.com/v2/mmlspark/build-demo/manifests/${tag}" in script
+    assert "docker-content-digest" in script
+    assert "The public CI image for $tag is unavailable" in script
 
 
 def test_containerized_jobs_can_reuse_the_target_image_for_forks():

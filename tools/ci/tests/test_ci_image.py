@@ -33,7 +33,7 @@ def _pipeline(tag: str) -> str:
     return f"""resources:
   containers:
   - container: ci
-    image: mmlsparkmcr.azurecr.io/synapseml/ci:{tag}
+    image: mcr.microsoft.com/mmlspark/build-demo:{tag}
 variables:
   CI_IMAGE_TAG: {tag}
 """

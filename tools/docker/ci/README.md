@@ -1,17 +1,22 @@
 # SynapseML CI image
 
 The Azure Pipelines jobs use a prebuilt image from
-`mmlsparkmcr.azurecr.io/synapseml/ci`. The image tag is an immutable digest of
-the Dockerfile and every file that controls its runtime. This keeps `master`
-and each Spark release branch independent: every branch publishes the Java,
-Spark, Python, and dependency versions declared on that branch.
+`mcr.microsoft.com/mmlspark/build-demo` with a `ci-*` tag. The tag is an
+immutable digest of the Dockerfile and every file that controls its runtime.
+This keeps `master` and each Spark release branch independent: every branch
+publishes the Java, Spark, Python, and dependency versions declared on that
+branch.
 
-The `BuildCIImage` job checks ACR for the content tag and only builds and pushes
-when it is missing. It authenticates through the existing `SynapseML Build`
-Azure Resource Manager service connection; no separate Docker registry service
-connection is needed. Same-repository PRs and shared branches can bootstrap a
-new tag. Fork PRs never receive registry credentials and must leave the image
-inputs unchanged; the pipeline reports an explicit error when they do not.
+The `BuildCIImage` job first reuses an existing public tag. If it is missing,
+the job checks the mapped
+`mmlsparkmcr.azurecr.io/public/mmlspark/build-demo` repository and only builds
+and pushes when needed. It authenticates through the existing `SynapseML Build`
+Azure Resource Manager service connection, then waits until MCR serves the same
+manifest digest. Consumer jobs pull the public MCR image without a separate
+Docker registry service connection. Same-repository PRs and shared branches can
+bootstrap a new tag. Fork PRs never receive registry credentials and must leave
+the image inputs unchanged; their guard also verifies that the corresponding
+public image is available before consumer jobs start.
 
 After changing an image input, synchronize both pipeline tag locations:
 

@@ -1,14 +1,9 @@
 resources:
   containers:
-  # Use the existing ARM service connection for both ACR resource access and
-  # publishing. BuildCIImage creates a missing immutable tag before consumers run.
+  # BuildCIImage publishes immutable ci-* tags through the existing public MCR
+  # mapping. Consumers, including fork PRs, never need private registry credentials.
   - container: ci
-    image: mmlsparkmcr.azurecr.io/synapseml/ci:ci-112db6614927
-    type: acr
-    azureSubscription: 'SynapseML Build'
-    resourceGroup: marhamil-mmlspark
-    registry: mmlsparkmcr
-    repository: synapseml/ci
+    image: mcr.microsoft.com/mmlspark/build-demo:ci-112db6614927
   repositories:
   - repository: SynapseML-Internal
     type: git
@@ -214,41 +209,89 @@ jobs:
             exit 1
           fi
           registry="mmlsparkmcr.azurecr.io"
-          repository="synapseml/ci"
+          repository="public/mmlspark/build-demo"
           image="${registry}/${repository}:${tag}"
+          public_image="mcr.microsoft.com/mmlspark/build-demo:${tag}"
+          manifest_url="https://mcr.microsoft.com/v2/mmlspark/build-demo/manifests/${tag}"
           java_version="$(python3 tools/ci/ci_image.py java-version)"
           spark_version="$(python3 tools/ci/ci_image.py spark-version)"
           spark_sha512="$(python3 tools/ci/ci_image.py spark-sha512)"
           torch_version="$(python3 tools/ci/ci_image.py dependency-version torch)"
           torchvision_version="$(python3 tools/ci/ci_image.py dependency-version torchvision)"
 
-          az acr login --name mmlsparkmcr
-          if docker manifest inspect "$image" >/dev/null 2>&1; then
-            echo "Immutable CI image already exists: $image"
+          get_public_digest() {
+            curl --fail --silent --head \
+              --header 'Accept: application/vnd.docker.distribution.manifest.v2+json' \
+              "$manifest_url" 2>/dev/null \
+              | tr -d '\r' \
+              | awk -F': ' 'tolower($1) == "docker-content-digest" {print $2}' \
+              || true
+          }
+
+          public_digest="$(get_public_digest)"
+          if [ -n "$public_digest" ]; then
+            echo "Public immutable CI image already exists: $public_image ($public_digest)"
             exit 0
           fi
 
-          echo "Building $image with Java $java_version and Spark $spark_version"
-          sudo rm -rf /usr/local/lib/android \
-            /usr/lib/google-cloud-sdk \
-            /usr/share/dotnet \
-            /opt/ghc \
-            /opt/hostedtoolcache \
-            /usr/local/share/boost \
-            /usr/share/swift \
-            /usr/local/.ghcup \
-            /usr/share/miniconda \
-            /usr/local/share/chromium
-          docker image prune -af
-          docker build \
-            --build-arg JAVA_VERSION="$java_version" \
-            --build-arg SPARK_VERSION="$spark_version" \
-            --build-arg SPARK_SHA512="$spark_sha512" \
-            --build-arg TORCH_VERSION="$torch_version" \
-            --build-arg TORCHVISION_VERSION="$torchvision_version" \
-            --tag "$image" \
-            --file tools/docker/ci/Dockerfile .
-          docker push "$image"
+          az acr login --name mmlsparkmcr
+          acr_digest="$(
+            az acr repository show \
+              --name mmlsparkmcr \
+              --image "${repository}:${tag}" \
+              --query digest \
+              --output tsv 2>/dev/null || true
+          )"
+          if [ -n "$acr_digest" ]; then
+            echo "Immutable CI image already exists: $image"
+          else
+            echo "Building $image with Java $java_version and Spark $spark_version"
+            sudo rm -rf /usr/local/lib/android \
+              /usr/lib/google-cloud-sdk \
+              /usr/share/dotnet \
+              /opt/ghc \
+              /opt/hostedtoolcache \
+              /usr/local/share/boost \
+              /usr/share/swift \
+              /usr/local/.ghcup \
+              /usr/share/miniconda \
+              /usr/local/share/chromium
+            docker image prune -af
+            docker build \
+              --build-arg JAVA_VERSION="$java_version" \
+              --build-arg SPARK_VERSION="$spark_version" \
+              --build-arg SPARK_SHA512="$spark_sha512" \
+              --build-arg TORCH_VERSION="$torch_version" \
+              --build-arg TORCHVISION_VERSION="$torchvision_version" \
+              --tag "$image" \
+              --file tools/docker/ci/Dockerfile .
+            docker push "$image"
+            acr_digest="$(
+              az acr repository show \
+                --name mmlsparkmcr \
+                --image "${repository}:${tag}" \
+                --query digest \
+                --output tsv
+            )"
+          fi
+
+          for attempt in $(seq 1 30); do
+            public_digest="$(get_public_digest)"
+            if [ "$public_digest" = "$acr_digest" ]; then
+              echo "Public CI image is ready: $public_image ($public_digest)"
+              exit 0
+            fi
+            if [ -n "$public_digest" ]; then
+              echo "##vso[task.logissue type=error]MCR digest $public_digest does not match ACR digest $acr_digest."
+              exit 1
+            fi
+            if [ "$attempt" -eq 30 ]; then
+              echo "##vso[task.logissue type=error]Timed out waiting for $public_image to become available from MCR."
+              exit 1
+            fi
+            echo "Waiting for MCR to publish $public_image (attempt $attempt/30)"
+            sleep 20
+          done
 
 - job: ValidateCIImageForFork
   displayName: 'Validate fork CI image inputs'
@@ -271,6 +314,22 @@ jobs:
           git diff --name-only "$target_ref...HEAD" -- "${image_inputs[@]}"
           exit 1
         fi
+
+        tag="$(python3 tools/ci/ci_image.py tag)"
+        manifest_url="https://mcr.microsoft.com/v2/mmlspark/build-demo/manifests/${tag}"
+        public_digest="$(
+          curl --fail --silent --head \
+            --header 'Accept: application/vnd.docker.distribution.manifest.v2+json' \
+            "$manifest_url" \
+            | tr -d '\r' \
+            | awk -F': ' 'tolower($1) == "docker-content-digest" {print $2}' \
+            || true
+        )"
+        if [ -z "$public_digest" ]; then
+          echo "##vso[task.logissue type=error]The public CI image for $tag is unavailable. Ask a maintainer to publish it from a trusted branch."
+          exit 1
+        fi
+        echo "Public CI image is ready for this fork: $public_digest"
       displayName: 'Reject unpublished fork image changes'
 
 - job: Style
