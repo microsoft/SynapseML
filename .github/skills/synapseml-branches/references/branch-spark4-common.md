@@ -38,6 +38,18 @@ of re-deriving it from whatever tree they happen to have open.
   the target branch's version strings, and confirm the fix is not specific to
   the source branch's Spark/Python version.
 
+## Fabric LightGBM baseline
+
+- At the 2026-08-26 baseline, Fabric Runtime 2.0 supplies Python `lightgbm`
+  4.6.0 on Spark 4.1, but its JVM/SWIG classes load from
+  `com.microsoft.ml.lightgbm:lightgbmlib:3.3.510`.
+- Fabric has no separate managed Spark 4.0 runtime. Treat Runtime 2.0/Spark 4.1
+  as the Fabric comparison point for the `spark4.0` port.
+- Runtime 2.0 uses the same byte-for-byte Maven JAR as Runtime 1.3 (SHA-256
+  `f2b1b13172699832594303ab4c04f3bc8fc2d24737e3e8c11d98d69a88c09272`).
+- Do not infer the Maven dependency version from the Python package version.
+  Changing the JNI/SWIG artifact is a separate compatibility change.
+
 ## Common deliberate differences from master
 
 - Spark 4 uses Scala 2.13 and Java 17-era tooling, so generated Python lands in

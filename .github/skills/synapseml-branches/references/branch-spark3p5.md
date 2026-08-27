@@ -29,3 +29,13 @@ This reference intentionally serves both `master` and `spark3.5`.
 - Confirm the affected suites were selected and executed. Green matrices can
   omit an unclaimed package or explicit test class.
 - Recheck target movement immediately before readiness.
+
+## Fabric LightGBM baseline
+
+- At the 2026-08-26 baseline, Fabric Runtime 1.3 supplies Python `lightgbm`
+  4.3.0, but its JVM/SWIG classes load from
+  `com.microsoft.ml.lightgbm:lightgbmlib:3.3.510`.
+- The managed JAR is byte-for-byte identical to the Maven Central artifact
+  (SHA-256 `f2b1b13172699832594303ab4c04f3bc8fc2d24737e3e8c11d98d69a88c09272`).
+- Do not infer the Maven dependency version from the Python package version.
+  Changing the JNI/SWIG artifact is a separate compatibility change.
