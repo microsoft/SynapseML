@@ -1,8 +1,9 @@
 # SynapseML CI image
 
 The Azure Pipelines jobs use a prebuilt image from
-`mcr.microsoft.com/mmlspark/build-demo` with a `ci-*` tag. The tag is an
-immutable digest of the Dockerfile and every file that controls its runtime.
+`mcr.microsoft.com/mmlspark/build-demo` with a `ci-*` tag. The tag contains the
+first 12 hexadecimal characters of a SHA-256 digest of the Dockerfile and every
+file that controls its runtime.
 This keeps `master` and each Spark release branch independent: every branch
 publishes the Java, Spark, Python, and dependency versions declared on that
 branch.
