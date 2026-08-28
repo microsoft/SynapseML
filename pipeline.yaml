@@ -306,7 +306,9 @@ jobs:
         set -euo pipefail
         target_branch="${SYSTEM_PULLREQUEST_TARGETBRANCH#refs/heads/}"
         target_ref="refs/remotes/origin/${target_branch}"
-        git fetch --no-tags --depth=1 origin \
+        # Preserve target history so the triple-dot diff can always find a
+        # merge base, including when a fork branch trails the target tip.
+        git fetch --no-tags origin \
           "+refs/heads/${target_branch}:${target_ref}"
         mapfile -t image_inputs < <(python3 tools/ci/ci_image.py inputs)
         if ! git diff --quiet "$target_ref...HEAD" -- "${image_inputs[@]}"; then

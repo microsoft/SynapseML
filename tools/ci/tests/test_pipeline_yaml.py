@@ -321,6 +321,8 @@ def test_fork_image_guard_rejects_unpublishable_input_changes():
     script = guard_step["bash"]
     assert "SYSTEM_PULLREQUEST_TARGETBRANCH" in script
     assert "tools/ci/ci_image.py inputs" in script
+    assert "git fetch --no-tags origin" in script
+    assert "--depth" not in script
     assert '"$target_ref...HEAD"' in script
     assert "tools/docker/ci/**" in script
     assert "mcr.microsoft.com/v2/mmlspark/build-demo/manifests/${tag}" in script
