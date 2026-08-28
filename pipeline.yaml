@@ -317,14 +317,26 @@ jobs:
 
         tag="$(python3 tools/ci/ci_image.py tag)"
         manifest_url="https://mcr.microsoft.com/v2/mmlspark/build-demo/manifests/${tag}"
-        public_digest="$(
+        get_public_digest() {
           curl --fail --silent --head \
-            --header 'Accept: application/vnd.docker.distribution.manifest.v2+json' \
-            "$manifest_url" \
+              --header 'Accept: application/vnd.docker.distribution.manifest.v2+json' \
+              "$manifest_url" 2>/dev/null \
             | tr -d '\r' \
             | awk -F': ' 'tolower($1) == "docker-content-digest" {print $2}' \
             || true
-        )"
+        }
+
+        public_digest=""
+        for attempt in $(seq 1 5); do
+          public_digest="$(get_public_digest)"
+          if [ -n "$public_digest" ]; then
+            break
+          fi
+          if [ "$attempt" -lt 5 ]; then
+            echo "Public CI image lookup failed (attempt $attempt/5); retrying"
+            sleep 5
+          fi
+        done
         if [ -z "$public_digest" ]; then
           echo "##vso[task.logissue type=error]The public CI image for $tag is unavailable. Ask a maintainer to publish it from a trusted branch."
           exit 1

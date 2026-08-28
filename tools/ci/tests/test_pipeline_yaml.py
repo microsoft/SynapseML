@@ -281,7 +281,14 @@ def test_fork_image_guard_rejects_unpublishable_input_changes():
     assert "tools/docker/ci/**" in script
     assert "mcr.microsoft.com/v2/mmlspark/build-demo/manifests/${tag}" in script
     assert "docker-content-digest" in script
+    assert "for attempt in $(seq 1 5); do" in script
+    assert 'public_digest="$(get_public_digest)"' in script
+    assert 'if [ "$attempt" -lt 5 ]; then' in script
+    assert "sleep 5" in script
     assert "The public CI image for $tag is unavailable" in script
+    assert script.index("for attempt in $(seq 1 5); do") < script.index(
+        "The public CI image for $tag is unavailable"
+    )
 
 
 def test_containerized_jobs_can_reuse_the_target_image_for_forks():
