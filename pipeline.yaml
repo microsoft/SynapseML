@@ -1784,6 +1784,10 @@ jobs:
         echo "=== SynapseML-Internal now at $INTERNAL_BRANCH ==="
         git log --oneline -1
       displayName: 'Select matching SynapseML-Internal branch'
+      # Azure Repos occasionally returns a transient 503 while this private
+      # checkout is fetched. The step is idempotent, so retry it instead of
+      # discarding an otherwise healthy compatibility lane.
+      retryCountOnTaskFailure: 3
     - template: templates/sbt_cache.yml
     - task: AzureCLI@2
       displayName: 'Publish OSS to local Maven'

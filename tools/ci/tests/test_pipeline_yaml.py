@@ -802,6 +802,20 @@ def test_internal_python_adapts_typing_package_data_to_current_codegen():
     assert "utils/typing_build_support.py" in script
 
 
+def test_internal_branch_selection_retries_transient_git_service_failures():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+    internal = jobs["InternalCompat"]
+    branch_step = next(
+        step
+        for step in internal["steps"]
+        if isinstance(step, dict)
+        and step.get("displayName") == "Select matching SynapseML-Internal branch"
+    )
+
+    assert branch_step["retryCountOnTaskFailure"] == 3
+
+
 def test_internal_python_isolates_typing_from_spark_tests():
     data = yaml.safe_load(_pipeline_text())
     jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
