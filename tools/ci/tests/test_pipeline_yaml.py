@@ -52,6 +52,14 @@ RELEASE_COMPAT_PREREQUISITES = (
     REPO_ROOT / ".pipelines" / "release-compat-prerequisites.txt"
 )
 ASCII_WHITESPACE = " \t\r\n\v\f"
+GIT_REPOSITORY_ENV = (
+    "GIT_ALTERNATE_OBJECT_DIRECTORIES",
+    "GIT_COMMON_DIR",
+    "GIT_DIR",
+    "GIT_INDEX_FILE",
+    "GIT_OBJECT_DIRECTORY",
+    "GIT_WORK_TREE",
+)
 
 # Matches a real `sbt <args>` invocation while ignoring filenames that merely end
 # in ".sbt" (e.g. `sha256sum build.sbt sonatype.sbt ...`), which would otherwise
@@ -136,12 +144,20 @@ def _release_compat_script():
     )
 
 
+def _scratch_git_env():
+    env = os.environ.copy()
+    for name in GIT_REPOSITORY_ENV:
+        env.pop(name, None)
+    return env
+
+
 def _git(repo, *args):
     result = subprocess.run(
         ["git", "-C", str(repo), *args],
         check=False,
         capture_output=True,
         text=True,
+        env=_scratch_git_env(),
     )
     assert result.returncode == 0, (
         f"git {' '.join(args)} failed\nstdout:\n{result.stdout}\nstderr:\n"
@@ -156,6 +172,7 @@ def _init_release_compat_scratch_repo(repo):
         check=True,
         capture_output=True,
         text=True,
+        env=_scratch_git_env(),
     )
     for key, value in (
         ("user.name", "Release Compat Test"),
@@ -167,6 +184,33 @@ def _init_release_compat_scratch_repo(repo):
         ("rebase.autostash", "false"),
     ):
         _git(repo, "config", key, value)
+
+
+def test_release_compat_scratch_repo_ignores_outer_git_environment(
+    tmp_path, monkeypatch
+):
+    outer = tmp_path / "outer"
+    scratch = tmp_path / "scratch"
+    subprocess.run(
+        ["git", "init", "--initial-branch=master", str(outer)],
+        check=True,
+        capture_output=True,
+        text=True,
+        env=_scratch_git_env(),
+    )
+    _git(outer, "config", "user.name", "Outer Identity")
+    _git(outer, "config", "user.email", "outer@example.test")
+
+    monkeypatch.setenv("GIT_DIR", str(outer / ".git"))
+    monkeypatch.setenv("GIT_WORK_TREE", str(outer))
+    _init_release_compat_scratch_repo(scratch)
+
+    assert _git(scratch, "config", "user.name").stdout.strip() == "Release Compat Test"
+    assert _git(scratch, "config", "user.email").stdout.strip() == (
+        "release-compat@example.test"
+    )
+    assert _git(outer, "config", "user.name").stdout.strip() == "Outer Identity"
+    assert _git(outer, "config", "user.email").stdout.strip() == "outer@example.test"
 
 
 def _assert_git_clean(repo, context):
