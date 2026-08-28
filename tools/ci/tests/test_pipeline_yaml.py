@@ -355,6 +355,13 @@ def test_containerized_jobs_can_reuse_the_target_image_for_forks():
         assert "not(canceled())" in condition
 
 
+def test_sbt_options_are_compatible_with_branch_jdks():
+    pipeline = _pipeline_text()
+
+    assert "-XX:+UseConcMarkSweepGC" not in pipeline
+    assert "-XX:+CMSClassUnloadingEnabled" not in pipeline
+
+
 def test_ci_dockerfile_uses_branch_runtime_and_writable_shared_cache():
     dockerfile = CI_DOCKERFILE.read_text()
 
