@@ -5,7 +5,10 @@ package com.microsoft.azure.synapse.ml.onnx
 
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
+import org.objectweb.asm.{ClassReader, ClassVisitor, MethodVisitor, Opcodes}
 import org.scalatest.funsuite.AnyFunSuite
+
+import scala.collection.mutable.ArrayBuffer
 
 /**
   * GH2417: verifies the published dependency strategy for ONNX Runtime, independent of whatever version
@@ -42,6 +45,41 @@ class ONNXRuntimeDependencySuite extends AnyFunSuite {
       "build.sbt must declare com.microsoft.onnxruntime:onnxruntime (CPU-only, cross-platform, " +
         "including macOS) as the default deep-learning dependency so ONNXModel works out of the box " +
         "on macOS/Linux/Windows.")
+  }
+
+  test("compiled ONNX buffer rewinds use Java 8 method signatures") {
+    val input = Option(getClass.getResourceAsStream("ONNXUtils$.class"))
+      .getOrElse(fail("ONNXUtils$.class was not found"))
+    val rewindCalls = ArrayBuffer.empty[String]
+
+    try {
+      new ClassReader(input).accept(new ClassVisitor(Opcodes.ASM9) {
+        override def visitMethod(access: Int,
+                                 name: String,
+                                 descriptor: String,
+                                 signature: String,
+                                 exceptions: Array[String]): MethodVisitor = {
+          new MethodVisitor(Opcodes.ASM9) {
+            override def visitMethodInsn(opcode: Int,
+                                         owner: String,
+                                         name: String,
+                                         descriptor: String,
+                                         isInterface: Boolean): Unit = {
+              if (owner.startsWith("java/nio/") && name == "rewind") {
+                rewindCalls += s"$owner.$name$descriptor"
+              }
+            }
+          }
+        }
+      }, ClassReader.SKIP_DEBUG | ClassReader.SKIP_FRAMES)
+    } finally {
+      input.close()
+    }
+
+    assert(rewindCalls.nonEmpty, "Expected ONNXUtils to invoke java.nio buffer rewind methods")
+    val incompatibleCalls = rewindCalls.filterNot(_.endsWith("()Ljava/nio/Buffer;"))
+    assert(incompatibleCalls.isEmpty,
+      s"Found buffer calls that require post-Java-8 covariant signatures: ${incompatibleCalls.mkString(", ")}")
   }
 
   test("deep-learning does not force the GPU-only onnxruntime_gpu artifact on every user by default") {

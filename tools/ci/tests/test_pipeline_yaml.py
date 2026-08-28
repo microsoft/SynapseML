@@ -1881,8 +1881,8 @@ def test_r_tests_use_the_preinstalled_spark_distribution():
     assert "spark_install_tar(" in runner
     assert "tools::file_path_sans_ext(basename(" in runner
     assert "if (!dir.exists(installed_spark_home))" in runner
-    assert "spark_home_set(installed_spark_home)" in runner
-    assert runner.index("spark_install_tar(") < runner.index("spark_home_set(")
+    assert "Sys.setenv(SPARK_HOME = installed_spark_home)" in runner
+    assert runner.index("spark_install_tar(") < runner.index("Sys.setenv(")
     assert 'spark_home = Sys.getenv("SPARK_HOME")' in generator
 
 

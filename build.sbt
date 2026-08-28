@@ -283,8 +283,9 @@ uploadNotebooks := {
 }
 
 val settings = Seq(
-  // javac otherwise emits bytecode for the build JDK, while published artifacts still support Java 8 Spark runtimes.
-  Compile / javacOptions ++= Seq("--release", "8"),
+  // Resolve both Java and Scala sources against Java 8 APIs so published artifacts remain compatible.
+  Compile / compile / javacOptions ++= Seq("--release", "8"),
+  Compile / compile / scalacOptions ++= Seq("-release:8"),
   Test / scalastyleConfig := (ThisBuild / baseDirectory).value / "scalastyle-test-config.xml",
   Test / logBuffered := false,
   Test / parallelExecution := false,

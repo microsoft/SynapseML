@@ -13,7 +13,7 @@ if (!nzchar(Sys.getenv("SPARK_HOME", ""))) {
   if (!dir.exists(installed_spark_home)) {
     stop("Unable to locate Spark after installing ", spark_archive)
   }
-  spark_home_set(installed_spark_home)
+  Sys.setenv(SPARK_HOME = installed_spark_home)
 }
 
 options("testthat.output_file" = "../../../../r-test-results.xml")
