@@ -3,6 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.io.http
 
+import com.microsoft.azure.synapse.ml.fabric.FabricClient
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.config.RequestConfig
@@ -193,17 +194,158 @@ object HandlingUtils extends SparkLogging {
   //scalastyle:on method.length
   //scalastyle:on cyclomatic.complexity
 
+  //scalastyle:off cyclomatic.complexity
+  //scalastyle:off method.length
+  //scalastyle:off magic.number
+  private[ml] def sendWithFabricAuthRetries(
+      client: CloseableHttpClient,
+      requestData: HTTPRequestData,
+      retriesLeft: Array[Int],
+      extraCodesToRetry: Set[Int] = Set(),
+      getAuthHeader: () => String = () => FabricClient.getCognitiveMWCTokenAuthHeader,
+      refreshAuthHeader: String => String = FabricClient.refreshCognitiveMWCTokenAuthHeader,
+      backoff429Ms: Long = 0,
+      authRetryUsed: Boolean = false,
+      authOverride: Option[String] = None): (CloseableHttpResponse, HttpRequestBase) = {
+    val request = requestData.toHTTPCore
+    val authHeader = authOverride.getOrElse(getAuthHeader())
+    request.setHeader("Authorization", authHeader)
+    var executingRequest = true
+    try {
+      val response = client.execute(request)
+      executingRequest = false
+      val code = response.getStatusLine.getStatusCode
+      val capacityLimitExceeded = if (code == 429) {
+        val maxInspectionBytes = 1024 * 1024L
+        Option(response.getEntity).exists { entity =>
+          if (entity.getContentLength > maxInspectionBytes) {
+            false
+          } else {
+            response.setEntity(new BufferedHttpEntity(entity))
+            Option(response.getEntity)
+              .flatMap(e => Try(IOUtils.toString(e.getContent, "UTF-8")).toOption)
+              .exists(_.contains("CapacityLimitExceeded"))
+          }
+        }
+      } else {
+        false
+      }
+
+      val successful = Set(200, 201, 202)(code)
+      val retryable = if (code == 429) {
+        !capacityLimitExceeded
+      } else if (code == 401) {
+        false
+      } else if (extraCodesToRetry(code)) {
+        true
+      } else {
+        !code.toString.startsWith("4")
+      }
+
+      if (code == 401 && !authRetryUsed) {
+        response.close()
+        request.releaseConnection()
+        val refreshedAuthHeader = refreshAuthHeader(authHeader)
+        sendWithFabricAuthRetries(
+          client,
+          requestData,
+          retriesLeft,
+          extraCodesToRetry,
+          getAuthHeader,
+          refreshAuthHeader,
+          backoff429Ms,
+          authRetryUsed = true,
+          authOverride = Some(refreshedAuthHeader))
+      } else if (successful || !retryable || retriesLeft.isEmpty) {
+        if (capacityLimitExceeded) {
+          logWarning(s"Capacity limit exceeded (non-retryable 429) on ${request.getURI}")
+        }
+        response -> request
+      } else {
+        val retryAfterMs = if (code == 429) {
+          Option(response.getFirstHeader("Retry-After"))
+            .flatMap(h => Try(h.getValue.toLong * 1000).toOption)
+            .filter(_ >= 0)
+            .map(math.min(_, MaxBackoffMs))
+        } else {
+          None
+        }
+        response.close()
+        request.releaseConnection()
+        if (code == 429) {
+          val baseBackoff = retryAfterMs.getOrElse {
+            val current = math.max(backoff429Ms, retriesLeft.head.toLong)
+            math.min(current * 2, MaxBackoffMs)
+          }
+          val jitter = Random.nextInt(math.max((baseBackoff / 10).toInt, 1))
+          Thread.sleep(math.min(baseBackoff + jitter, MaxBackoffMs))
+          sendWithFabricAuthRetries(
+            client,
+            requestData,
+            retriesLeft,
+            extraCodesToRetry,
+            getAuthHeader,
+            refreshAuthHeader,
+            baseBackoff,
+            authRetryUsed)
+        } else {
+          Thread.sleep(retriesLeft.head.toLong)
+          sendWithFabricAuthRetries(
+            client,
+            requestData,
+            retriesLeft.tail,
+            extraCodesToRetry,
+            getAuthHeader,
+            refreshAuthHeader,
+            authRetryUsed = authRetryUsed)
+        }
+      }
+    } catch {
+      case e: java.io.IOException if executingRequest =>
+        request.releaseConnection()
+        if (retriesLeft.isEmpty) {
+          throw e
+        }
+        logError("Encountering a connection error", e)
+        Thread.sleep(retriesLeft.head.toLong)
+        sendWithFabricAuthRetries(
+          client,
+          requestData,
+          retriesLeft.tail,
+          extraCodesToRetry,
+          getAuthHeader,
+          refreshAuthHeader,
+          backoff429Ms,
+          authRetryUsed)
+    }
+  }
+  //scalastyle:on magic.number
+  //scalastyle:on method.length
+  //scalastyle:on cyclomatic.complexity
+
   def advanced(retryTimes: Int*)(client: CloseableHttpClient,
                                  request: HTTPRequestData): HTTPResponseData = {
     try {
-      val req = request.toHTTPCore
-      val message = req match {
+      val previewRequest = request.toHTTPCore
+      val message = previewRequest match {
         case r: HttpPost => Try(IOUtils.toString(r.getEntity.getContent, "UTF-8")).getOrElse("")
         case r => r.getURI
       }
+      previewRequest.releaseConnection()
       SynapseMLLogging.logDebug(s"sending $message")
       val start = System.currentTimeMillis()
-      val resp = sendWithRetries(client, req, retryTimes.toArray)
+      val usesTrustedFabricAuth = request.usesFabricAuth &&
+        FabricClient.isOpenAIEndpoint(request.requestLine.uri)
+      val (resp, req) = if (usesTrustedFabricAuth) {
+        sendWithFabricAuthRetries(
+          client,
+          request,
+          retryTimes.toArray,
+          authOverride = request.authorizationHeader)
+      } else {
+        val httpRequest = request.toHTTPCore
+        sendWithRetries(client, httpRequest, retryTimes.toArray) -> httpRequest
+      }
       SynapseMLLogging.logMessage(
         s"finished sending to ${req.getURI} took (${System.currentTimeMillis() - start}ms)")
       val respData = convertAndClose(resp)

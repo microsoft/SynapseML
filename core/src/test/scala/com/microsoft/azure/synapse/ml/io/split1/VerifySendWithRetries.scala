@@ -3,16 +3,20 @@
 
 package com.microsoft.azure.synapse.ml.io.split1
 
-import com.microsoft.azure.synapse.ml.io.http.HandlingUtils
+import com.microsoft.azure.synapse.ml.fabric.FabricClient
+import com.microsoft.azure.synapse.ml.io.http.{HTTPRequestData, HandlingUtils}
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.sun.net.httpserver.{HttpExchange, HttpServer}
-import org.apache.http.client.methods.HttpGet
+import org.apache.http.client.methods.{HttpGet, HttpPost}
+import org.apache.http.entity.StringEntity
 import org.apache.http.impl.client.HttpClients
 
 import java.net.{InetSocketAddress, ServerSocket}
-import java.util.concurrent.Executors
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.{ConcurrentLinkedQueue, Executors}
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
+import scala.collection.JavaConverters._
+import scala.io.Source
 
 class VerifySendWithRetries extends TestBase {
 
@@ -42,6 +46,27 @@ class VerifySendWithRetries extends TestBase {
       os.close()
     }
     exchange.close()
+  }
+
+  private def readRequestBody(exchange: HttpExchange): String = {
+    val source = Source.fromInputStream(exchange.getRequestBody, "UTF-8")
+    try {
+      source.mkString
+    } finally {
+      source.close()
+    }
+  }
+
+  private def fabricPost(port: Int): HTTPRequestData = {
+    val request = new HttpPost(s"http://localhost:$port/test")
+    request.setHeader(HTTPRequestData.FabricAuthMarkerHeader, "true")
+    request.setHeader("X-Custom", "preserved")
+    request.setHeader("X-Taxonomy-TrafficType", "Background")
+    request.setHeader("X-Llm-Service-Tier", "flex")
+    request.setHeader("X-Taxonomy-ExtendedProperties", """{"feature":"synapseml"}""")
+    request.setHeader("x-ms-llm-feature-name", "SparkCodeFirst")
+    request.setEntity(new StringEntity("""{"prompt":"hello"}""", "UTF-8"))
+    new HTTPRequestData(request)
   }
 
   test("429 without Retry-After uses exponential backoff") {
@@ -426,5 +451,183 @@ class VerifySendWithRetries extends TestBase {
     } finally {
       server.stop(0)
     }
+  }
+
+  test("implicit Fabric auth refreshes and replays a request once after 401") {
+    val port = getFreePort
+    val requestCount = new AtomicInteger(0)
+    val refreshCount = new AtomicInteger(0)
+    val currentAuth = new AtomicReference("MwcToken stale")
+    val authHeaders = new ConcurrentLinkedQueue[String]()
+    val requestBodies = new ConcurrentLinkedQueue[String]()
+    val customHeaders = new ConcurrentLinkedQueue[String]()
+    val taxonomyHeaders = new ConcurrentLinkedQueue[String]()
+    val server = startServer(port) { exchange =>
+      authHeaders.add(exchange.getRequestHeaders.getFirst("Authorization"))
+      customHeaders.add(exchange.getRequestHeaders.getFirst("X-Custom"))
+      taxonomyHeaders.add(exchange.getRequestHeaders.getFirst("X-Taxonomy-TrafficType"))
+      requestBodies.add(readRequestBody(exchange))
+      if (requestCount.incrementAndGet() == 1) {
+        respond(exchange, 401, "expired")
+      } else {
+        respond(exchange, 200, """{"ok":true}""")
+      }
+    }
+    try {
+      val client = HttpClients.createDefault()
+      val requestData = fabricPost(port)
+      val (response, request) = HandlingUtils.sendWithFabricAuthRetries(
+        client,
+        requestData,
+        Array(10),
+        getAuthHeader = () => currentAuth.get(),
+        refreshAuthHeader = rejectedAuthHeader => {
+          assert(rejectedAuthHeader == "MwcToken stale")
+          refreshCount.incrementAndGet()
+          currentAuth.set("MwcToken fresh")
+          currentAuth.get()
+        })
+      val code = response.getStatusLine.getStatusCode
+      response.close()
+      request.releaseConnection()
+      client.close()
+
+      assert(code === 200)
+      assert(requestCount.get() === 2)
+      assert(refreshCount.get() === 1)
+      assert(authHeaders.asScala.toSeq === Seq("MwcToken stale", "MwcToken fresh"))
+      assert(requestBodies.asScala.toSeq === Seq("""{"prompt":"hello"}""", """{"prompt":"hello"}"""))
+      assert(customHeaders.asScala.toSeq === Seq("preserved", "preserved"))
+      assert(taxonomyHeaders.asScala.toSeq === Seq("Background", "Background"))
+      Seq(
+        "X-Taxonomy-TrafficType",
+        "X-Llm-Service-Tier",
+        "X-Taxonomy-ExtendedProperties",
+        "x-ms-llm-feature-name"
+      ).foreach { headerName =>
+        assert(requestData.headers.exists(_.name.equalsIgnoreCase(headerName)))
+      }
+    } finally {
+      server.stop(0)
+    }
+  }
+
+  test("implicit Fabric auth returns the second 401 without retrying again") {
+    val port = getFreePort
+    val requestCount = new AtomicInteger(0)
+    val refreshCount = new AtomicInteger(0)
+    val server = startServer(port) { exchange =>
+      requestCount.incrementAndGet()
+      readRequestBody(exchange)
+      respond(exchange, 401, "unauthorized")
+    }
+    try {
+      val client = HttpClients.createDefault()
+      val (response, request) = HandlingUtils.sendWithFabricAuthRetries(
+        client,
+        fabricPost(port),
+        Array(10, 10),
+        extraCodesToRetry = Set(401),
+        getAuthHeader = () => "MwcToken stale",
+        refreshAuthHeader = _ => {
+          refreshCount.incrementAndGet()
+          "MwcToken refreshed"
+        })
+      val code = response.getStatusLine.getStatusCode
+      response.close()
+      request.releaseConnection()
+      client.close()
+
+      assert(code === 401)
+      assert(requestCount.get() === 2)
+      assert(refreshCount.get() === 1)
+    } finally {
+      server.stop(0)
+    }
+  }
+
+  test("implicit Fabric auth is reacquired for a 429 retry") {
+    val port = getFreePort
+    val requestCount = new AtomicInteger(0)
+    val authCallCount = new AtomicInteger(0)
+    val authHeaders = new ConcurrentLinkedQueue[String]()
+    val server = startServer(port) { exchange =>
+      authHeaders.add(exchange.getRequestHeaders.getFirst("Authorization"))
+      readRequestBody(exchange)
+      if (requestCount.incrementAndGet() == 1) {
+        respond(exchange, 429, headers = Map("Retry-After" -> "0"))
+      } else {
+        respond(exchange, 200, """{"ok":true}""")
+      }
+    }
+    try {
+      val client = HttpClients.createDefault()
+      val (response, request) = HandlingUtils.sendWithFabricAuthRetries(
+        client,
+        fabricPost(port),
+        Array(10),
+        getAuthHeader = () => s"MwcToken token-${authCallCount.incrementAndGet()}",
+        refreshAuthHeader = _ => fail("401 refresh should not run for a 429"))
+      val code = response.getStatusLine.getStatusCode
+      response.close()
+      request.releaseConnection()
+      client.close()
+
+      assert(code === 200)
+      assert(requestCount.get() === 2)
+      assert(authCallCount.get() === 2)
+      assert(authHeaders.asScala.toSeq === Seq("MwcToken token-1", "MwcToken token-2"))
+    } finally {
+      server.stop(0)
+    }
+  }
+
+  test("untrusted marker does not replace explicit auth on a non-Fabric endpoint") {
+    val port = getFreePort
+    val authorization = new AtomicReference[String]()
+    val server = startServer(port) { exchange =>
+      authorization.set(exchange.getRequestHeaders.getFirst("Authorization"))
+      respond(exchange, 200, """{"ok":true}""")
+    }
+    try {
+      val client = HttpClients.createDefault()
+      val request = new HttpGet(s"http://localhost:$port/test")
+      request.setHeader(HTTPRequestData.FabricAuthMarkerHeader, "true")
+      request.setHeader("Authorization", "Bearer explicit")
+
+      val response = HandlingUtils.advanced(10)(client, new HTTPRequestData(request))
+
+      client.close()
+      assert(response.statusLine.statusCode === 200)
+      assert(authorization.get() === "Bearer explicit")
+    } finally {
+      server.stop(0)
+    }
+  }
+
+  test("Fabric endpoint validation requires HTTPS host and path containment") {
+    val endpointRoot = "https://workspace.fabric.microsoft.com/cognitive/openai/"
+
+    assert(FabricClient.isEndpointUnder(
+      "https://workspace.fabric.microsoft.com//cognitive/openai/chat",
+      endpointRoot))
+    assert(FabricClient.isEndpointUnder(
+      "https://workspace.fabric.microsoft.com:443/cognitive/openai/chat",
+      endpointRoot))
+    assert(!FabricClient.isEndpointUnder(
+      "http://workspace.fabric.microsoft.com/cognitive/openai/chat",
+      endpointRoot))
+    assert(!FabricClient.isEndpointUnder(
+      "https://attacker.example/cognitive/openai/chat",
+      endpointRoot))
+    assert(!FabricClient.isEndpointUnder(
+      "https://workspace.fabric.microsoft.com/other",
+      endpointRoot))
+    assert(!FabricClient.isEndpointUnder(
+      "https://workspace.fabric.microsoft.com/cognitive/openai/../other",
+      endpointRoot))
+    assert(!FabricClient.isEndpointUnder(
+      "https://workspace.fabric.microsoft.com/cognitive/openai/%2e%2e/other",
+      endpointRoot))
   }
 }

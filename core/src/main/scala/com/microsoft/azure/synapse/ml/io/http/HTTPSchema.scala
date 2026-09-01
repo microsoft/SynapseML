@@ -166,6 +166,12 @@ case class HTTPRequestData(requestLine: RequestLineData,
                            headers: Array[HeaderData],
                            entity: Option[EntityData]) {
 
+  private[ml] def usesFabricAuth: Boolean =
+    headers.exists(h => HTTPRequestData.isFabricAuthMarker(h.name))
+
+  private[ml] def authorizationHeader: Option[String] =
+    headers.find(_.name.equalsIgnoreCase("Authorization")).map(_.value)
+
   def this(r: HttpRequestBase) = {
     this(new RequestLineData(r.getRequestLine),
       r.getAllHeaders.map(new HeaderData(_)),
@@ -197,7 +203,7 @@ case class HTTPRequestData(requestLine: RequestLineData,
     request.setURI(new URI(requestLine.uri))
     requestLine.protocolVersion.foreach(pv =>
       request.setProtocolVersion(pv.toHTTPCore))
-    request.setHeaders(headers.map(_.toHTTPCore) ++
+    request.setHeaders(headers.filterNot(h => HTTPRequestData.isFabricAuthMarker(h.name)).map(_.toHTTPCore) ++
       Array(new BasicHeader(
         "User-Agent", s"synapseml/${BuildInfo.version}${HeaderValues.PlatformInfo}")))
     request
@@ -206,6 +212,11 @@ case class HTTPRequestData(requestLine: RequestLineData,
 }
 
 object HTTPRequestData extends SparkBindings[HTTPRequestData] {
+  private[ml] val FabricAuthMarkerHeader = "X-SynapseML-Implicit-Fabric-Auth"
+
+  private[ml] def isFabricAuthMarker(headerName: String): Boolean =
+    FabricAuthMarkerHeader.equalsIgnoreCase(headerName)
+
   def fromHTTPExchange(httpEx: HttpExchange): HTTPRequestData = {
     val requestHeaders = httpEx.getRequestHeaders
     val isChunked = Option(requestHeaders.getFirst("Transfer-Encoding") == "chunked").getOrElse(false)
