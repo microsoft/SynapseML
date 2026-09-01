@@ -30,6 +30,8 @@ class SafeObjectInputStream(
     classFilter: DeserializationClassFilter
 ) extends ContextObjectInputStream(input) {
 
+  // SerializedLambda stores implementation classes as strings, so resolveClass cannot validate them.
+  // ModuleSerializationProxy stores its target as Class, whose descriptor is validated by resolveClass.
   private val alwaysRejectedClasses = Set(
     "java.lang.invoke.SerializedLambda"
   )
