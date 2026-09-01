@@ -5,11 +5,14 @@ package com.microsoft.azure.synapse.ml.stages
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import org.apache.spark.ml.Serializer
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.udf
 import org.scalatest.Assertion
+
+import java.io.File
 
 class UDFTransformerSuite extends TestBase with TransformerFuzzing[UDFTransformer] {
   lazy val baseDF: DataFrame = makeBasicDF()
@@ -100,6 +103,29 @@ class UDFTransformerSuite extends TestBase with TransformerFuzzing[UDFTransforme
       val inColName = "doubles"
       val inColNames = Array("doubles", "longs")
       new UDFTransformer().setInputCols(inColNames).setInputCol(inColName)
+    }
+  }
+
+  test("Persisted UDFs require explicit trusted legacy opt-in") {
+    val path = new File(tmpDir.toFile, "trusted-udf.model")
+    val transformer = new UDFTransformer().setUDF(stringToIntegerUDF)
+      .setInputCol("words").setOutputCol(outCol)
+    val config = Serializer.LegacyObjectDeserializationConfig
+    val previous = spark.conf.getOption(config)
+    transformer.write.overwrite().save(path.toString)
+    spark.conf.unset(config)
+
+    try {
+      val error = intercept[SecurityException] {
+        UDFTransformer.load(path.toString)
+      }
+      assert(error.getMessage.contains(config))
+
+      spark.conf.set(config, "true")
+      val loaded = UDFTransformer.load(path.toString)
+      assertDFEq(transformer.transform(baseDF), loaded.transform(baseDF))
+    } finally {
+      previous.fold(spark.conf.unset(config))(spark.conf.set(config, _))
     }
   }
 

@@ -10,6 +10,7 @@ import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.core.utils.SafeObjectInputStream
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, ObjectOutputStream}
+import java.lang.invoke.{MethodHandleInfo, SerializedLambda}
 
 class VerifySchemas extends TestBase {
 
@@ -144,6 +145,33 @@ class VerifySchemas extends TestBase {
     val result = using(new SafeObjectInputStream(bais, Set("com.microsoft.azure.synapse.ml.nn."))) { ois =>
       ois.readObject()
     }
+    assert(result.isFailure)
+    assert(result.failed.get.isInstanceOf[java.io.InvalidClassException])
+  }
+
+  test("SafeObjectInputStream rejects SerializedLambda even through an allowed prefix") {
+    val serializedLambda = new SerializedLambda(
+      getClass,
+      "scala/Function0",
+      "apply",
+      "()Ljava/lang/Object;",
+      MethodHandleInfo.REF_invokeStatic,
+      getClass.getName.replace('.', '/'),
+      "unused",
+      "()Ljava/lang/Object;",
+      "()Ljava/lang/Object;",
+      Array.empty[AnyRef]
+    )
+    val output = new ByteArrayOutputStream()
+    using(new ObjectOutputStream(output))(_.writeObject(serializedLambda)).get
+
+    val result = using(
+      new SafeObjectInputStream(
+        new ByteArrayInputStream(output.toByteArray),
+        Set("java.lang.")
+      )
+    )(_.readObject())
+
     assert(result.isFailure)
     assert(result.failed.get.isInstanceOf[java.io.InvalidClassException])
   }

@@ -540,14 +540,27 @@ trait SerializationFuzzing[S <: PipelineStage with MLWritable] extends TestBase 
 
   val retrySerializationFuzzing = false
 
+  private def withTrustedTestArtifact[T](action: => T): T = {
+    val config = Serializer.LegacyObjectDeserializationConfig
+    val previous = spark.conf.getOption(config)
+    spark.conf.set(config, "true")
+    try {
+      action
+    } finally {
+      previous.fold(spark.conf.unset(config))(spark.conf.set(config, _))
+    }
+  }
+
   test("Serialization Fuzzing") {
     if (!ignoreSerializationFuzzing) {
-      if (retrySerializationFuzzing) {
-        tryWithRetries() { () =>
+      withTrustedTestArtifact {
+        if (retrySerializationFuzzing) {
+          tryWithRetries() { () =>
+            testSerialization()
+          }
+        } else {
           testSerialization()
         }
-      } else {
-        testSerialization()
       }
     }
   }

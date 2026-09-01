@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.core.serialize
 
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
+import com.microsoft.azure.synapse.ml.core.utils.DeserializationClassFilter
 import com.microsoft.azure.synapse.ml.param.ByteArrayParam
 import org.apache.commons.io.FileUtils
 import org.apache.hadoop.fs.Path
@@ -14,7 +15,43 @@ import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Object
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset}
 
-import java.io.File
+import java.io.{
+  ByteArrayInputStream,
+  ByteArrayOutputStream,
+  File,
+  ObjectInputStream,
+  StreamCorruptedException
+}
+import java.util.concurrent.atomic.AtomicBoolean
+
+private object DeserializationTripwire {
+  val Triggered = new AtomicBoolean(false)
+}
+
+@SerialVersionUID(1L)
+private class DeserializationTripwire extends Serializable {
+  private def readObject(input: ObjectInputStream): Unit = {
+    DeserializationTripwire.Triggered.set(true)
+    input.defaultReadObject()
+  }
+}
+
+private class CloseTrackingInputStream(bytes: Array[Byte]) extends ByteArrayInputStream(bytes) {
+  var closed = false
+
+  override def close(): Unit = {
+    closed = true
+    super.close()
+  }
+}
+
+private class UnsafePayloadParam(parent: Params, name: String, doc: String)
+  extends ComplexParam[DeserializationTripwire](
+    parent,
+    name,
+    doc,
+    (_: DeserializationTripwire) => true
+  )
 
 class TestEstimatorBase(val uid: String) extends Transformer {
   def this() = this(Identifiable.randomUID("TestEstimatorBase"))
@@ -43,6 +80,14 @@ trait HasStringParam extends Params {
   def setStringParam(value: String): this.type = set(stringParam, value)
 }
 
+private trait HasUnsafePayloadParam extends Params {
+  val unsafePayload = new UnsafePayloadParam(this, "unsafePayload", "test-only unsafe payload")
+
+  def getUnsafePayload: DeserializationTripwire = $(unsafePayload)
+
+  def setUnsafePayload(value: DeserializationTripwire): this.type = set(unsafePayload, value)
+}
+
 class ComplexParamTest(override val uid: String) extends TestEstimatorBase(uid)
   with HasByteArrayParam with ComplexParamsWritable {
   def this() = this(Identifiable.randomUID("ComplexParamTest"))
@@ -64,9 +109,22 @@ class MixedParamTest(override val uid: String) extends TestEstimatorBase(uid)
 
 object MixedParamTest extends ComplexParamsReadable[MixedParamTest]
 
+private class UnsafeComplexParamTest(override val uid: String) extends TestEstimatorBase(uid)
+  with HasUnsafePayloadParam with ComplexParamsWritable {
+  def this() = this(Identifiable.randomUID("UnsafeComplexParamTest"))
+}
+
+private object UnsafeComplexParamTest extends ComplexParamsReadable[UnsafeComplexParamTest]
+
 class ValidateComplexParamSerializer extends TestBase {
   val saveFile = new File(tmpDir.toFile, "m1.model").toString
   val saveFile2 = new File(tmpDir.toFile, "m2.model").toString
+  private val legacyDeserializationConfig =
+    Serializer.LegacyObjectDeserializationConfig
+
+  private def restoreConfig(key: String, previous: Option[String]): Unit = {
+    previous.fold(spark.conf.unset(key))(spark.conf.set(key, _))
+  }
 
   test("Complex Param serialization should work on all complex, all normal, or mixed") {
     spark
@@ -141,6 +199,67 @@ class ValidateComplexParamSerializer extends TestBase {
 
     assert(new ObjectSerializer[Array[Byte]](spark).read(legacyPath) === obj)
     assert(Serializer.readFromHDFS[Array[Byte]](spark, legacyPath) === obj)
+  }
+
+  test("Serializer rejects unconstrained objects before deserialization callbacks run") {
+    val output = new ByteArrayOutputStream()
+    Serializer.write(new DeserializationTripwire, output)
+    DeserializationTripwire.Triggered.set(false)
+
+    assertThrows[SecurityException] {
+      Serializer.read[DeserializationTripwire](new ByteArrayInputStream(output.toByteArray))
+    }
+    assert(!DeserializationTripwire.Triggered.get())
+  }
+
+  test("Serializer closes malformed filtered streams") {
+    val input = new CloseTrackingInputStream(Array[Byte](0, 1, 2, 3))
+
+    assertThrows[StreamCorruptedException] {
+      Serializer.read[String](input, DeserializationClassFilter(
+        allowedClasses = Set(classOf[String].getName)
+      ))
+    }
+    assert(input.closed)
+  }
+
+  test("ComplexParam filters reject crafted payloads before deserialization callbacks run") {
+    spark
+    new MixedParamTest("filtered").setByteArray(Array[Byte](1, 2, 3)).setStringParam("safe")
+      .write.overwrite().save(saveFile)
+    val payloadPath = new Path(new File(saveFile, "complexParams/byteArray").toString)
+    Serializer.writeToHDFS(spark, new DeserializationTripwire, payloadPath, overwrite = true)
+    DeserializationTripwire.Triggered.set(false)
+
+    assertThrows[SecurityException] {
+      MixedParamTest.load(saveFile)
+    }
+    assert(!DeserializationTripwire.Triggered.get())
+  }
+
+  test("Unconstrained ComplexParams require explicit trusted legacy opt-in") {
+    spark
+    new UnsafeComplexParamTest("unsafe").setUnsafePayload(new DeserializationTripwire)
+      .write.overwrite().save(saveFile)
+    val config = legacyDeserializationConfig
+    val previous = spark.conf.getOption(config)
+    spark.conf.unset(config)
+    DeserializationTripwire.Triggered.set(false)
+
+    try {
+      val error = intercept[SecurityException] {
+        UnsafeComplexParamTest.load(saveFile)
+      }
+      assert(error.getMessage.contains(config))
+      assert(!DeserializationTripwire.Triggered.get())
+
+      spark.conf.set(config, "true")
+      val loaded = UnsafeComplexParamTest.load(saveFile)
+      assert(Option(loaded.getUnsafePayload).nonEmpty)
+      assert(DeserializationTripwire.Triggered.get())
+    } finally {
+      restoreConfig(config, previous)
+    }
   }
 
   override def afterAll(): Unit = {
