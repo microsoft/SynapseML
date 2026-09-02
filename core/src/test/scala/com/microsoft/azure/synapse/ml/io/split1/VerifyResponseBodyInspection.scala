@@ -6,11 +6,12 @@ package com.microsoft.azure.synapse.ml.io.split1
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.io.http.HandlingUtils
 import org.apache.http.HttpVersion
-import org.apache.http.client.methods.CloseableHttpResponse
+import org.apache.http.client.methods.{CloseableHttpResponse, HttpPost}
 import org.apache.http.entity.BasicHttpEntity
 import org.apache.http.message.{BasicHttpResponse, BasicStatusLine}
 
-import java.io.{IOException, InputStream}
+import java.io.{ByteArrayInputStream, IOException, InputStream}
+import java.util.concurrent.atomic.AtomicBoolean
 import scala.io.Source
 
 class VerifyResponseBodyInspection extends TestBase {
@@ -69,5 +70,31 @@ class VerifyResponseBodyInspection extends TestBase {
     }
 
     assert(replayedBody === new String(content, "UTF-8"))
+  }
+
+  test("request preview closes its entity stream and releases the request") {
+    val content = """{"prompt":"hello"}""".getBytes("UTF-8")
+    val streamClosed = new AtomicBoolean(false)
+    val requestReleased = new AtomicBoolean(false)
+    val input = new ByteArrayInputStream(content) {
+      override def close(): Unit = {
+        streamClosed.set(true)
+        super.close()
+      }
+    }
+    val entity = new BasicHttpEntity()
+    entity.setContent(input)
+    entity.setContentLength(content.length)
+    val request = new HttpPost("https://example.test/openai") {
+      override def releaseConnection(): Unit = {
+        requestReleased.set(true)
+        super.releaseConnection()
+      }
+    }
+    request.setEntity(entity)
+
+    assert(HandlingUtils.previewMessage(request) === new String(content, "UTF-8"))
+    assert(streamClosed.get())
+    assert(requestReleased.get())
   }
 }

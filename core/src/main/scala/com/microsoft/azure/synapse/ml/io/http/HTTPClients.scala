@@ -169,6 +169,28 @@ object HandlingUtils extends SparkLogging {
   private def capacityLimitExceeded(response: CloseableHttpResponse): Boolean =
     responseBodyForInspection(response).exists(_.contains("CapacityLimitExceeded"))
 
+  private[ml] def previewMessage(previewRequest: HttpRequestBase): String = {
+    try {
+      previewRequest match {
+        case request: HttpPost =>
+          Option(request.getEntity).map { entity =>
+            Try {
+              val input = entity.getContent
+              try {
+                IOUtils.toString(input, "UTF-8")
+              } finally {
+                input.close()
+              }
+            }.getOrElse("")
+          }.getOrElse("")
+        case request =>
+          request.getURI.toString
+      }
+    } finally {
+      previewRequest.releaseConnection()
+    }
+  }
+
   //scalastyle:off cyclomatic.complexity
   //scalastyle:off method.length
   private[ml] def sendWithRetries(client: CloseableHttpClient,
@@ -381,12 +403,7 @@ object HandlingUtils extends SparkLogging {
   def advanced(retryTimes: Int*)(client: CloseableHttpClient,
                                  request: HTTPRequestData): HTTPResponseData = {
     try {
-      val previewRequest = request.toHTTPCore
-      val message = previewRequest match {
-        case r: HttpPost => Try(IOUtils.toString(r.getEntity.getContent, "UTF-8")).getOrElse("")
-        case r => r.getURI
-      }
-      previewRequest.releaseConnection()
+      val message = previewMessage(request.toHTTPCore)
       SynapseMLLogging.logDebug(s"sending $message")
       val start = System.currentTimeMillis()
       val usesTrustedFabricAuth = request.usesFabricAuth &&
