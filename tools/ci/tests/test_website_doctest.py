@@ -138,11 +138,11 @@ def test_markdown_is_preserved_when_ci_transformation_fails(tmp_path, monkeypatc
     def fail_transformation(content, markdown_name):
         raise RuntimeError("transformation failed")
 
-    monkeypatch.setattr(
-        WEBSITE_DOCTEST, "use_aad_for_ci_samples", fail_transformation
-    )
+    monkeypatch.setattr(WEBSITE_DOCTEST, "use_aad_for_ci_samples", fail_transformation)
 
     with pytest.raises(RuntimeError, match="transformation failed"):
-        WEBSITE_DOCTEST.add_python_helper_to_markdown(tmp_path, markdown, "test-version")
+        WEBSITE_DOCTEST.add_python_helper_to_markdown(
+            tmp_path, markdown, "test-version"
+        )
 
     assert path.read_text(encoding="utf-8") == source

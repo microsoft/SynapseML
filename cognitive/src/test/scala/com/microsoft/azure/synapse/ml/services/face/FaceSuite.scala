@@ -12,7 +12,6 @@ import org.apache.spark.sql.{DataFrame, Row}
 import java.time.LocalDateTime
 import java.time.format.{DateTimeFormatterBuilder, DateTimeParseException, SignStyle}
 import java.time.temporal.ChronoField
-import scala.util.matching.Regex
 
 class DetectFaceSuite extends TransformerFuzzing[DetectFace] with CognitiveKey {
   override val compareDataInSerializationTest: Boolean = false
@@ -195,16 +194,16 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
 
   lazy val pgId = {
     cleanOldGroups()
-    PersonGroup.create(pgName, pgName)
+    LargePersonGroup.create(pgName, pgName)
     Thread.sleep(500) // A little insurance
-    PersonGroup.list().find(_.name == pgName).get.personGroupId
+    LargePersonGroup.list().find(_.name == pgName).get.largePersonGroupId
   }
 
-  lazy val satyaId = Person.create("satya", pgId)
-  lazy val bradId = Person.create("brad", pgId)
+  lazy val satyaId = LargePerson.create("satya", pgId)
+  lazy val bradId = LargePerson.create("brad", pgId)
 
-  lazy val satyaFaceIds = satyaFaces.map(Person.addFace(_, pgId, satyaId))
-  lazy val bradFaceIds = bradFaces.map(Person.addFace(_, pgId, bradId))
+  lazy val satyaFaceIds = satyaFaces.map(LargePerson.addFace(_, pgId, satyaId))
+  lazy val bradFaceIds = bradFaces.map(LargePerson.addFace(_, pgId, bradId))
 
   lazy val detector = new DetectFace()
     .setCognitiveTestAuth
@@ -222,33 +221,35 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
   override def beforeAll(): Unit = {
     super.beforeAll()
     println(satyaFaceIds ++ bradFaceIds)
-    PersonGroup.train(pgId)
+    LargePersonGroup.train(pgId)
     tryWithRetries() { () =>
-      assert(PersonGroup.getTrainingStatus(pgId).status === "succeeded")
+      assert(LargePersonGroup.getTrainingStatus(pgId).status === "succeeded")
       ()
     }
     println("done training face group")
   }
 
   override def afterAll(): Unit = {
-    PersonGroup.list().find(_.name == pgName).foreach { pgi =>
-      PersonGroup.delete(pgi.personGroupId)
-      println("deleted group")
+    try {
+      LargePersonGroup.list().find(_.name == pgName).foreach { pgi =>
+        LargePersonGroup.delete(pgi.largePersonGroupId)
+        println("deleted group")
+      }
+    } finally {
+      super.afterAll()
     }
-
-    super.afterAll()
   }
 
   lazy val id = new IdentifyFaces()
     .setCognitiveTestAuth
     .setFaceIdsCol("faces")
-    .setPersonGroupId(pgId)
+    .setLargePersonGroupId(pgId)
     .setOutputCol("identified_faces")
 
   lazy val df = otherFaceIds.map(Seq[String](_)).toDF("faces")
 
   test("Basic Usage") {
-    Person.list(pgId).foreach(println)
+    LargePerson.list(pgId).foreach(println)
     val matches = id.transform(df).select(col("identified_faces")
       .getItem(0).getItem("candidates").getItem(0).getItem("personId"))
       .collect().map(_.getString(0))
@@ -259,7 +260,7 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
     val caught = intercept[AssertionError] {
       new IdentifyFaces()
         .setCognitiveTestAuth
-        .setPersonGroupId(pgId)
+        .setLargePersonGroupId(pgId)
         .setOutputCol("identified_faces")
         .transform(df).collect()
     }
@@ -271,46 +272,24 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
   def cleanOldGroups(): Unit = {
     val twoDaysAgo = LocalDateTime.now().minusDays(2)
     var groupDeleted: Boolean = false
-    val uuidPattern = new Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 
     // scalastyle:off while
     do {
       groupDeleted = false
-      PersonGroup.list(top = Some("500")).foreach { pgi =>
+      LargePersonGroup.list(top = Some("500")).foreach { pgi =>
         try {
-          val pgDateString = pgi.personGroupId.replaceFirst("group", "")
-          val pgDate = LocalDateTime.parse(pgDateString, formatter)
-          if (pgDate.isBefore(twoDaysAgo)) {
-            PersonGroup.delete(pgi.personGroupId)
-            println(s"Deleted group $pgi")
-            groupDeleted = true
-          }
-        } catch {
-          // for uuid-based names
-          // TODO: delete this after we can be assured that everyone has updated
-          case _: DateTimeParseException => {
-            if ((uuidPattern findFirstIn pgi.personGroupId).isDefined) {
-              PersonGroup.delete(pgi.personGroupId)
+          if (pgi.name == pgi.largePersonGroupId && pgi.largePersonGroupId.startsWith("group")) {
+            val pgDateString = pgi.largePersonGroupId.replaceFirst("group", "")
+            val pgDate = LocalDateTime.parse(pgDateString, formatter)
+            if (pgDate.isBefore(twoDaysAgo)) {
+              LargePersonGroup.delete(pgi.largePersonGroupId)
               println(s"Deleted group $pgi")
               groupDeleted = true
             }
           }
-          case t: Throwable => throw t
+        } catch {
+          case _: DateTimeParseException => ()
         }
-      }
-    } while (groupDeleted)
-    // scalastyle:on while
-  }
-
-  def cleanAllGroups(): Unit = {
-    var groupDeleted: Boolean = false
-    // scalastyle:off while
-    do {
-      groupDeleted = false
-      PersonGroup.list(top=Some("500")).foreach { pgi =>
-        PersonGroup.delete(pgi.personGroupId)
-        println(s"Deleted group $pgi")
-        groupDeleted = true
       }
     } while (groupDeleted)
     // scalastyle:on while
