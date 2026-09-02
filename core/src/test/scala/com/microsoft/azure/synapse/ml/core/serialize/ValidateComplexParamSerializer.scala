@@ -88,6 +88,12 @@ private trait HasUnsafePayloadParam extends Params {
   def setUnsafePayload(value: DeserializationTripwire): this.type = set(unsafePayload, value)
 }
 
+private class UnsafePayloadParams extends Params with HasUnsafePayloadParam {
+  override val uid: String = "unsafe-payload-params"
+
+  override def copy(extra: ParamMap): Params = this
+}
+
 class ComplexParamTest(override val uid: String) extends TestEstimatorBase(uid)
   with HasByteArrayParam with ComplexParamsWritable {
   def this() = this(Identifiable.randomUID("ComplexParamTest"))
@@ -109,13 +115,6 @@ class MixedParamTest(override val uid: String) extends TestEstimatorBase(uid)
 
 object MixedParamTest extends ComplexParamsReadable[MixedParamTest]
 
-private class UnsafeComplexParamTest(override val uid: String) extends TestEstimatorBase(uid)
-  with HasUnsafePayloadParam with ComplexParamsWritable {
-  def this() = this(Identifiable.randomUID("UnsafeComplexParamTest"))
-}
-
-private object UnsafeComplexParamTest extends ComplexParamsReadable[UnsafeComplexParamTest]
-
 class ValidateComplexParamSerializer extends TestBase {
   val saveFile = new File(tmpDir.toFile, "m1.model").toString
   val saveFile2 = new File(tmpDir.toFile, "m2.model").toString
@@ -124,6 +123,17 @@ class ValidateComplexParamSerializer extends TestBase {
 
   private def restoreConfig(key: String, previous: Option[String]): Unit = {
     previous.fold(spark.conf.unset(key))(spark.conf.set(key, _))
+  }
+
+  private def withoutLegacyDeserialization[T](action: => T): T = {
+    val config = legacyDeserializationConfig
+    val previous = spark.conf.getOption(config)
+    spark.conf.unset(config)
+    try {
+      action
+    } finally {
+      restoreConfig(config, previous)
+    }
   }
 
   test("Complex Param serialization should work on all complex, all normal, or mixed") {
@@ -231,16 +241,19 @@ class ValidateComplexParamSerializer extends TestBase {
     Serializer.writeToHDFS(spark, new DeserializationTripwire, payloadPath, overwrite = true)
     DeserializationTripwire.Triggered.set(false)
 
-    assertThrows[SecurityException] {
-      MixedParamTest.load(saveFile)
+    withoutLegacyDeserialization {
+      assertThrows[SecurityException] {
+        MixedParamTest.load(saveFile)
+      }
+      assert(!DeserializationTripwire.Triggered.get())
     }
-    assert(!DeserializationTripwire.Triggered.get())
   }
 
   test("Unconstrained ComplexParams require explicit trusted legacy opt-in") {
     spark
-    new UnsafeComplexParamTest("unsafe").setUnsafePayload(new DeserializationTripwire)
-      .write.overwrite().save(saveFile)
+    val holder = new UnsafePayloadParams
+    val payloadPath = new Path(new File(tmpDir.toFile, "unsafe-payload").toString)
+    holder.unsafePayload.save(new DeserializationTripwire, spark, payloadPath, overwrite = true)
     val config = legacyDeserializationConfig
     val previous = spark.conf.getOption(config)
     spark.conf.unset(config)
@@ -248,14 +261,14 @@ class ValidateComplexParamSerializer extends TestBase {
 
     try {
       val error = intercept[SecurityException] {
-        UnsafeComplexParamTest.load(saveFile)
+        holder.unsafePayload.load(spark, payloadPath)
       }
       assert(error.getMessage.contains(config))
       assert(!DeserializationTripwire.Triggered.get())
 
       spark.conf.set(config, "true")
-      val loaded = UnsafeComplexParamTest.load(saveFile)
-      assert(Option(loaded.getUnsafePayload).nonEmpty)
+      val loaded = holder.unsafePayload.load(spark, payloadPath)
+      assert(Option(loaded).nonEmpty)
       assert(DeserializationTripwire.Triggered.get())
     } finally {
       restoreConfig(config, previous)

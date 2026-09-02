@@ -27,6 +27,9 @@ private class BoosterDeserializationTripwire extends Serializable {
 
 class VerifyLightGBMBoosterParam extends TestBase {
 
+  private val legacyDeserializationConfig =
+    Serializer.LegacyObjectDeserializationConfig
+
   private class TestParamsHolder extends Params {
     override val uid: String = "lightgbm-booster-holder"
     val booster = new LightGBMBoosterParam(this, "booster", "A LightGBM booster param")
@@ -55,10 +58,18 @@ class VerifyLightGBMBoosterParam extends TestBase {
       overwrite = true
     )
     BoosterDeserializationTripwire.Triggered.set(false)
+    val previous = spark.conf.getOption(legacyDeserializationConfig)
+    spark.conf.unset(legacyDeserializationConfig)
 
-    assertThrows[SecurityException] {
-      holder.booster.load(spark, path)
+    try {
+      assertThrows[SecurityException] {
+        holder.booster.load(spark, path)
+      }
+      assert(!BoosterDeserializationTripwire.Triggered.get())
+    } finally {
+      previous.fold(spark.conf.unset(legacyDeserializationConfig))(
+        spark.conf.set(legacyDeserializationConfig, _)
+      )
     }
-    assert(!BoosterDeserializationTripwire.Triggered.get())
   }
 }
