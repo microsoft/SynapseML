@@ -9,6 +9,16 @@ import java.nio.file.Files
 import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import java.util.concurrent.{Callable, CountDownLatch, Executors, TimeUnit}
 
+object BrokenReflectionCandidate {
+  val Initialize: Unit = throw new RuntimeException("simulated initialization failure")
+
+  def clear(): Unit = ()
+}
+
+object WorkingReflectionCandidate {
+  def clear(): Unit = ()
+}
+
 class VerifyTokenInvalidation extends TestBase {
 
   test("Spark MWC invalidation resolves the encoded NFS cache key") {
@@ -52,6 +62,17 @@ class VerifyTokenInvalidation extends TestBase {
     }
 
     assert(error.getMessage.contains("does not expose MWC token cache invalidation"))
+  }
+
+  test("runtime reflection skips a broken candidate and uses the next compatible class") {
+    val method = TokenLibrary.objectMethod(
+      Seq(
+        "com.microsoft.azure.synapse.ml.fabric.BrokenReflectionCandidate$",
+        "com.microsoft.azure.synapse.ml.fabric.WorkingReflectionCandidate$"),
+      "clear",
+      0)
+
+    assert(method.exists(_._1.getClass.getName.endsWith("WorkingReflectionCandidate$")))
   }
 
   test("concurrent refreshes invalidate a rejected MWC token once") {

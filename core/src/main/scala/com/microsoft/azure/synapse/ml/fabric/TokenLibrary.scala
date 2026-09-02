@@ -59,11 +59,21 @@ object TokenLibrary {
       .asInstanceOf[String]
   }
 
-  private def objectMethod(classNames: Seq[String],
-                           methodName: String,
-                           parameterCount: Int): Option[(AnyRef, java.lang.reflect.Method)] = {
+  private def reflectionOrElse[T](fallback: => T)(operation: => T): T = {
+    try {
+      operation
+    } catch {
+      case _: ReflectiveOperationException | _: SecurityException |
+           _: LinkageError | _: IllegalArgumentException =>
+        fallback
+    }
+  }
+
+  private[ml] def objectMethod(classNames: Seq[String],
+                               methodName: String,
+                               parameterCount: Int): Option[(AnyRef, java.lang.reflect.Method)] = {
     classNames.iterator.flatMap { className =>
-      try {
+      reflectionOrElse(Option.empty[(AnyRef, java.lang.reflect.Method)]) {
         val cls = Class.forName(className)
         val module = cls.getField("MODULE$").get(null).asInstanceOf[AnyRef] //scalastyle:ignore null
         (cls.getMethods ++ cls.getDeclaredMethods)
@@ -72,49 +82,60 @@ object TokenLibrary {
             method.setAccessible(true)
             module -> method
           }
-      } catch {
-        case _: ClassNotFoundException | _: NoSuchFieldException => None
       }
     }.take(1).toSeq.headOption
   }
 
   private def invalidateWithRuntimeApi(workspaceId: String, artifactId: String): Boolean = {
     objectMethod(Seq(TokenLibraryClass), "invalidateMwcToken", 4).exists { case (module, method) =>
-      method.invoke(
-        module,
-        workspaceId,
-        artifactId,
-        Int.box(SparkTokenVersion),
-        SparkWorkloadType)
-      true
+      reflectionOrElse(false) {
+        method.invoke(
+          module,
+          workspaceId,
+          artifactId,
+          Int.box(SparkTokenVersion),
+          SparkWorkloadType)
+        true
+      }
     }
   }
 
   private def nfsCacheKey(cacheKey: String): String = {
     objectMethod(NfsCacheClasses, "getNFSCacheKey", 1)
-      .map { case (module, method) => method.invoke(module, cacheKey).asInstanceOf[String] }
+      .flatMap { case (module, method) =>
+        reflectionOrElse(Option.empty[String]) {
+          method.invoke(module, cacheKey) match {
+            case resolved: String => Some(resolved)
+            case _ => None
+          }
+        }
+      }
       .getOrElse(cacheKey)
   }
 
   private def deleteNfsToken(resolvedCacheKey: String): Boolean = {
     objectMethod(NfsCacheClasses, "getNFSTokenFilePath", 1).exists { case (module, method) =>
-      val tokenPath = method.invoke(module, resolvedCacheKey) match {
-        case path: Path => path
-        case file: File => file.toPath
-        case path: String => Paths.get(path)
-        case other =>
-          throw new IllegalStateException(
-            s"Unsupported Fabric token cache path type: ${Option(other).map(_.getClass.getName).orNull}")
+      reflectionOrElse(false) {
+        val tokenPath = method.invoke(module, resolvedCacheKey) match {
+          case path: Path => Some(path)
+          case file: File => Some(file.toPath)
+          case path: String => Some(Paths.get(path))
+          case _ => None
+        }
+        tokenPath.exists { path =>
+          Files.deleteIfExists(path)
+          true
+        }
       }
-      Files.deleteIfExists(tokenPath)
-      true
     }
   }
 
   private def clearInMemoryTokenCache(): Boolean = {
     objectMethod(InMemoryCacheClasses, "clear", 0).exists { case (module, method) =>
-      method.invoke(module)
-      true
+      reflectionOrElse(false) {
+        method.invoke(module)
+        true
+      }
     }
   }
 
