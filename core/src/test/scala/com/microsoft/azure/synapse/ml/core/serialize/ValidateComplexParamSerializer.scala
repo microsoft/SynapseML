@@ -5,7 +5,10 @@ package com.microsoft.azure.synapse.ml.core.serialize
 
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import com.microsoft.azure.synapse.ml.core.utils.DeserializationClassFilter
+import com.microsoft.azure.synapse.ml.core.utils.{
+  DeserializationClassFilter,
+  DeserializationClassRejectedException
+}
 import com.microsoft.azure.synapse.ml.param.ByteArrayParam
 import org.apache.commons.io.FileUtils
 import org.apache.hadoop.fs.Path
@@ -19,9 +22,11 @@ import java.io.{
   ByteArrayInputStream,
   ByteArrayOutputStream,
   File,
+  InvalidClassException,
   ObjectInputStream,
   StreamCorruptedException
 }
+import java.nio.charset.StandardCharsets
 import java.util.concurrent.atomic.AtomicBoolean
 
 private object DeserializationTripwire {
@@ -44,6 +49,9 @@ private class CloseTrackingInputStream(bytes: Array[Byte]) extends ByteArrayInpu
     super.close()
   }
 }
+
+@SerialVersionUID(1L)
+private class VersionedPayload extends Serializable
 
 private class UnsafePayloadParam(parent: Params, name: String, doc: String)
   extends ComplexParam[DeserializationTripwire](
@@ -231,6 +239,35 @@ class ValidateComplexParamSerializer extends TestBase {
       ))
     }
     assert(input.closed)
+  }
+
+  test("Serializer preserves ordinary Java compatibility failures") {
+    spark
+    val output = new ByteArrayOutputStream()
+    Serializer.write(new VersionedPayload, output)
+    val serialized = output.toByteArray
+    val className = classOf[VersionedPayload].getName
+    val classNameBytes = className.getBytes(StandardCharsets.UTF_8)
+    val classNameIndex = serialized.indexOfSlice(classNameBytes)
+    assert(classNameIndex >= 0)
+    serialized(classNameIndex + classNameBytes.length + java.lang.Long.BYTES - 1) = 2
+
+    val path = new Path(new File(tmpDir.toFile, "incompatible-object").toString)
+    using(path.getFileSystem(spark.sparkContext.hadoopConfiguration).create(path, true)) { stream =>
+      stream.write(serialized)
+    }.get
+
+    withoutLegacyDeserialization {
+      val error = intercept[InvalidClassException] {
+        Serializer.readFromHDFS[VersionedPayload](
+          spark,
+          path,
+          DeserializationClassFilter(allowedClasses = Set(className))
+        )
+      }
+      assert(error.classname === className)
+      assert(!error.isInstanceOf[DeserializationClassRejectedException])
+    }
   }
 
   test("ComplexParam filters reject crafted payloads before deserialization callbacks run") {

@@ -5,6 +5,9 @@ package com.microsoft.azure.synapse.ml.core.utils
 
 import java.io.{InputStream, InvalidClassException, ObjectStreamClass}
 
+final class DeserializationClassRejectedException(className: String, reason: String)
+  extends InvalidClassException(className, reason)
+
 final case class DeserializationClassFilter(
     allowedPrefixes: Set[String] = Set.empty,
     allowedClasses: Set[String] = Set.empty) {
@@ -70,7 +73,7 @@ class SafeObjectInputStream(
     }
 
     if (!allowed) {
-      throw new InvalidClassException(
+      throw new DeserializationClassRejectedException(
         className,
         "Deserialization of this class is not allowed. " +
           "Only classes with approved package prefixes may be deserialized."
@@ -89,7 +92,7 @@ class SafeObjectInputStream(
   protected override def resolveProxyClass(interfaces: Array[String]): Class[_] = {
     val disallowed = interfaces.filterNot(isAllowed)
     if (disallowed.nonEmpty) {
-      throw new InvalidClassException(
+      throw new DeserializationClassRejectedException(
         disallowed.mkString(", "),
         "Deserialization of dynamic proxy is not allowed. " +
           "Proxy interface(s) not in the approved allowlist."

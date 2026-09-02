@@ -7,6 +7,7 @@ import com.microsoft.azure.synapse.ml.core.env.StreamUtilities._
 import com.microsoft.azure.synapse.ml.core.utils.{
   ContextObjectInputStream,
   DeserializationClassFilter,
+  DeserializationClassRejectedException,
   SafeObjectInputStream
 }
 import org.apache.hadoop.conf.Configuration
@@ -14,7 +15,7 @@ import org.apache.hadoop.fs.Path
 import org.apache.spark.ml.util.MLWritable
 import org.apache.spark.sql._
 
-import java.io.{InputStream, InvalidClassException, ObjectOutputStream, OutputStream}
+import java.io.{InputStream, ObjectOutputStream, OutputStream}
 import scala.language.existentials
 import scala.reflect.runtime.universe._
 import scala.util.control.NonFatal
@@ -187,9 +188,9 @@ object Serializer {
         read[O](in, classFilter)(ttag)
       }.get
     } catch {
-      case _: InvalidClassException if legacyObjectDeserializationEnabled(spark) =>
+      case _: DeserializationClassRejectedException if legacyObjectDeserializationEnabled(spark) =>
         readFromHDFSUnsafe(spark, path)
-      case error: InvalidClassException =>
+      case error: DeserializationClassRejectedException =>
         val securityError = disabledDeserializationException(
           ttag.tpe,
           s"The object graph contains ${error.classname}, which is outside its approved class policy. " +
