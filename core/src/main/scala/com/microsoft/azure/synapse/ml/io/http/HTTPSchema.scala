@@ -167,10 +167,13 @@ case class HTTPRequestData(requestLine: RequestLineData,
                            entity: Option[EntityData]) {
 
   private[ml] def usesFabricAuth: Boolean =
-    headers.exists(h => HTTPRequestData.isFabricAuthMarker(h.name))
+    headers.exists(h =>
+      HTTPRequestData.isFabricAuthMarker(h.name) &&
+        Option(h.value).exists(_.equalsIgnoreCase("true"))) &&
+      authorizationHeader.exists(HTTPRequestData.isCognitiveMwcAuthHeader)
 
   private[ml] def authorizationHeader: Option[String] =
-    headers.find(_.name.equalsIgnoreCase("Authorization")).map(_.value)
+    headers.find(h => "Authorization".equalsIgnoreCase(h.name)).map(_.value)
 
   def this(r: HttpRequestBase) = {
     this(new RequestLineData(r.getRequestLine),
@@ -216,6 +219,11 @@ object HTTPRequestData extends SparkBindings[HTTPRequestData] {
 
   private[ml] def isFabricAuthMarker(headerName: String): Boolean =
     FabricAuthMarkerHeader.equalsIgnoreCase(headerName)
+
+  private def isCognitiveMwcAuthHeader(value: String): Boolean = {
+    val parts = Option(value).map(_.trim.split("\\s+", 2)).getOrElse(Array.empty)
+    parts.length == 2 && parts.head.equalsIgnoreCase("MwcToken") && parts.last.nonEmpty
+  }
 
   def fromHTTPExchange(httpEx: HttpExchange): HTTPRequestData = {
     val requestHeaders = httpEx.getRequestHeaders

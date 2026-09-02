@@ -582,6 +582,107 @@ class VerifySendWithRetries extends TestBase {
     }
   }
 
+  test("implicit Fabric auth bounds 429 retries") {
+    val port = getFreePort
+    val requestCount = new AtomicInteger(0)
+    val server = startServer(port) { exchange =>
+      requestCount.incrementAndGet()
+      readRequestBody(exchange)
+      respond(exchange, 429, """{"error":{"code":"RateLimitExceeded"}}""",
+        headers = Map("Retry-After" -> "0"))
+    }
+    try {
+      val client = HttpClients.createDefault()
+      val (response, request) = HandlingUtils.sendWithFabricAuthRetries(
+        client,
+        fabricPost(port),
+        Array(0),
+        getAuthHeader = () => "MwcToken current",
+        refreshAuthHeader = _ => fail("401 refresh should not run for a 429"))
+      val code = response.getStatusLine.getStatusCode
+      response.close()
+      request.releaseConnection()
+      client.close()
+
+      assert(code === 429)
+      assert(requestCount.get() === 2, "Initial request plus one configured retry should be sent")
+    } finally {
+      server.stop(0)
+    }
+  }
+
+  test("unknown-length 429 response bodies remain readable") {
+    val port = getFreePort
+    val responseBody = """{"error":{"code":"RateLimitExceeded"}}"""
+    val server = startServer(port) { exchange =>
+      exchange.sendResponseHeaders(429, 0)
+      val output = exchange.getResponseBody
+      output.write(responseBody.getBytes("UTF-8"))
+      output.close()
+      exchange.close()
+    }
+    try {
+      val client = HttpClients.createDefault()
+      val request = new HttpGet(s"http://localhost:$port/test")
+      val response = HandlingUtils.sendWithRetries(client, request, Array.empty)
+      val body = Source.fromInputStream(response.getEntity.getContent, "UTF-8")
+      val actualBody = try {
+        body.mkString
+      } finally {
+        body.close()
+      }
+      response.close()
+      client.close()
+
+      assert(actualBody === responseBody)
+    } finally {
+      server.stop(0)
+    }
+  }
+
+  test("large unknown-length 429 response bodies remain readable") {
+    val port = getFreePort
+    val responseBody = "x" * (1024 * 1024 + 128)
+    val server = startServer(port) { exchange =>
+      exchange.sendResponseHeaders(429, 0)
+      val output = exchange.getResponseBody
+      output.write(responseBody.getBytes("UTF-8"))
+      output.close()
+      exchange.close()
+    }
+    try {
+      val client = HttpClients.createDefault()
+      val request = new HttpGet(s"http://localhost:$port/test")
+      val response = HandlingUtils.sendWithRetries(client, request, Array.empty)
+      val body = Source.fromInputStream(response.getEntity.getContent, "UTF-8")
+      val actualBody = try {
+        body.mkString
+      } finally {
+        body.close()
+      }
+      response.close()
+      client.close()
+
+      assert(actualBody === responseBody)
+    } finally {
+      server.stop(0)
+    }
+  }
+
+  test("Fabric auth marker requires an MWC authorization header") {
+    def requestData(markerValue: String, authHeader: String): HTTPRequestData = {
+      val request = new HttpGet("https://workspace.fabric.microsoft.com/cognitive/openai/chat")
+      request.setHeader(HTTPRequestData.FabricAuthMarkerHeader, markerValue)
+      request.setHeader("Authorization", authHeader)
+      new HTTPRequestData(request)
+    }
+
+    assert(requestData("true", "MwcToken token").usesFabricAuth)
+    assert(!requestData("false", "MwcToken token").usesFabricAuth)
+    assert(!requestData("true", "Bearer explicit").usesFabricAuth)
+    assert(!requestData("true", "MwcToken ").usesFabricAuth)
+  }
+
   test("untrusted marker does not replace explicit auth on a non-Fabric endpoint") {
     val port = getFreePort
     val authorization = new AtomicReference[String]()
@@ -628,6 +729,12 @@ class VerifySendWithRetries extends TestBase {
       endpointRoot))
     assert(!FabricClient.isEndpointUnder(
       "https://workspace.fabric.microsoft.com/cognitive/openai/%2e%2e/other",
+      endpointRoot))
+    assert(!FabricClient.isEndpointUnder(
+      "https://workspace.fabric.microsoft.com/cognitive/openai/%252e%252e/other",
+      endpointRoot))
+    assert(!FabricClient.isEndpointUnder(
+      "https://workspace.fabric.microsoft.com",
       endpointRoot))
   }
 }

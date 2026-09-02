@@ -7,7 +7,7 @@ import spray.json.DefaultJsonProtocol.{StringJsonFormat, mapFormat}
 import spray.json._
 
 import java.net.{MalformedURLException, URI, URL}
-import java.util.UUID
+import java.util.{Locale, UUID}
 import scala.collection.concurrent.TrieMap
 import scala.io.Source
 import scala.util.control.NonFatal
@@ -22,6 +22,7 @@ object FabricClient extends RESTUtils {
   private val SparkConfPath = "/opt/spark/conf/spark-defaults.conf";
   private val ClusterInfoPath = "/opt/health-agent/conf/cluster-info.json";
   private val CognitiveMwcRefreshLocks = TrieMap.empty[(String, String), AnyRef]
+  private val AmbiguousPathEncoding = "(?i)%(?:25)*(?:2e|2f|5c)".r
 
   lazy val CapacityID: Option[String] = getCapacityID;
   lazy val WorkspaceID: Option[String] = getWorkspaceID;
@@ -220,11 +221,13 @@ object FabricClient extends RESTUtils {
   }
 
   private def trustedPath(rawPath: String): Option[String] = {
-    val lowerPath = rawPath.toLowerCase
-    val hasAmbiguousEncoding = Seq("%2e", "%2f", "%5c").exists(lowerPath.contains)
-    val normalizedPath = rawPath.replaceAll("/+", "/")
-    val hasDotSegment = normalizedPath.split("/", -1).exists(segment => segment == "." || segment == "..")
-    if (hasAmbiguousEncoding || rawPath.contains("\\") || hasDotSegment) None else Some(normalizedPath)
+    Option(rawPath).flatMap { path =>
+      val lowerPath = path.toLowerCase(Locale.ROOT)
+      val hasAmbiguousEncoding = AmbiguousPathEncoding.findFirstIn(lowerPath).nonEmpty
+      val normalizedPath = path.replaceAll("/+", "/")
+      val hasDotSegment = normalizedPath.split("/", -1).exists(segment => segment == "." || segment == "..")
+      if (hasAmbiguousEncoding || path.contains("\\") || hasDotSegment) None else Some(normalizedPath)
+    }
   }
 
   private[ml] def isOpenAIEndpoint(requestUrl: String): Boolean = {
@@ -239,13 +242,25 @@ object FabricClient extends RESTUtils {
     val workspaceId = WorkspaceID.getOrElse("")
     val artifactId = ArtifactID.getOrElse("")
     val refreshLock = CognitiveMwcRefreshLocks.getOrElseUpdate((workspaceId, artifactId), new Object())
+    refreshAuthHeader(
+      rejectedAuthHeader,
+      refreshLock,
+      () => TokenLibrary.getCognitiveMwcTokenAuthHeader(workspaceId, artifactId),
+      () => TokenLibrary.invalidateSparkMwcToken(workspaceId, artifactId))
+  }
+
+  private[ml] def refreshAuthHeader(
+      rejectedAuthHeader: String,
+      refreshLock: AnyRef,
+      getCurrentAuthHeader: () => String,
+      invalidateAuthHeader: () => Unit): String = {
     refreshLock.synchronized {
-      val currentAuthHeader = TokenLibrary.getCognitiveMwcTokenAuthHeader(workspaceId, artifactId)
+      val currentAuthHeader = getCurrentAuthHeader()
       if (currentAuthHeader != rejectedAuthHeader) {
         currentAuthHeader
       } else {
-        TokenLibrary.invalidateSparkMwcToken(workspaceId, artifactId)
-        TokenLibrary.getCognitiveMwcTokenAuthHeader(workspaceId, artifactId)
+        invalidateAuthHeader()
+        getCurrentAuthHeader()
       }
     }
   }

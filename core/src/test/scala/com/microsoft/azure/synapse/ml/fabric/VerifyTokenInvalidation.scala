@@ -6,6 +6,8 @@ package com.microsoft.azure.synapse.ml.fabric
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 
 import java.nio.file.Files
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
+import java.util.concurrent.{Callable, CountDownLatch, Executors, TimeUnit}
 
 class VerifyTokenInvalidation extends TestBase {
 
@@ -37,6 +39,51 @@ class VerifyTokenInvalidation extends TestBase {
       assert(!Files.exists(tokenPath))
     } finally {
       Files.deleteIfExists(tokenPath)
+    }
+  }
+
+  test("Spark MWC invalidation fails when the runtime exposes no supported cache API") {
+    val error = intercept[NoSuchMethodException] {
+      TokenLibrary.invalidateSparkMwcTokenCaches(
+        "cache-key",
+        identity,
+        _ => false,
+        () => false)
+    }
+
+    assert(error.getMessage.contains("does not expose MWC token cache invalidation"))
+  }
+
+  test("concurrent refreshes invalidate a rejected MWC token once") {
+    val workers = 8
+    val executor = Executors.newFixedThreadPool(workers)
+    val start = new CountDownLatch(1)
+    val currentAuth = new AtomicReference("MwcToken stale")
+    val invalidationCount = new AtomicInteger(0)
+    val refreshLock = new Object()
+
+    try {
+      val futures = (1 to workers).map { _ =>
+        executor.submit(new Callable[String] {
+          override def call(): String = {
+            start.await()
+            FabricClient.refreshAuthHeader(
+              "MwcToken stale",
+              refreshLock,
+              () => currentAuth.get(),
+              () => {
+                invalidationCount.incrementAndGet()
+                currentAuth.set("MwcToken fresh")
+              })
+          }
+        })
+      }
+      start.countDown()
+
+      assert(futures.map(_.get(10, TimeUnit.SECONDS)) === Seq.fill(workers)("MwcToken fresh"))
+      assert(invalidationCount.get() === 1)
+    } finally {
+      executor.shutdownNow()
     }
   }
 }

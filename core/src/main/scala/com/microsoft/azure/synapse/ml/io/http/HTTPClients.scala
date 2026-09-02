@@ -8,7 +8,7 @@ import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpPost, HttpRequestBase}
-import org.apache.http.entity.BufferedHttpEntity
+import org.apache.http.entity.{BasicHttpEntity, ByteArrayEntity}
 import org.apache.http.impl.client.{CloseableHttpClient, HttpClientBuilder}
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager
 import org.apache.spark.injections.UDFUtils
@@ -16,6 +16,8 @@ import org.apache.spark.internal.{Logging => SparkLogging}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.types.StringType
 
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, SequenceInputStream}
+import java.nio.charset.StandardCharsets
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, blocking}
 import scala.util.{Random, Try}
@@ -88,6 +90,48 @@ object HandlingUtils extends SparkLogging {
   }
 
   private val MaxBackoffMs: Long = 60000L // 1 minute cap for 429 backoff
+  private val MaxResponseInspectionBytes = 1024 * 1024L
+
+  private def responseBodyForInspection(response: CloseableHttpResponse): Option[String] = {
+    Option(response.getEntity).flatMap { entity =>
+      if (entity.getContentLength > MaxResponseInspectionBytes) {
+        None
+      } else {
+        val output = new ByteArrayOutputStream()
+        val input = entity.getContent
+        var keepInputOpen = false
+        try {
+          IOUtils.copyLarge(input, output, 0, MaxResponseInspectionBytes + 1)
+          val bytes = output.toByteArray
+          if (bytes.length > MaxResponseInspectionBytes) {
+            val replayEntity = new BasicHttpEntity()
+            replayEntity.setContent(new SequenceInputStream(new ByteArrayInputStream(bytes), input))
+            replayEntity.setContentLength(entity.getContentLength)
+            Option(entity.getContentEncoding).foreach(replayEntity.setContentEncoding)
+            Option(entity.getContentType).foreach(replayEntity.setContentType)
+            replayEntity.setChunked(entity.isChunked)
+            response.setEntity(replayEntity)
+            keepInputOpen = true
+            None
+          } else {
+            val bufferedEntity = new ByteArrayEntity(bytes)
+            Option(entity.getContentEncoding).foreach(bufferedEntity.setContentEncoding)
+            Option(entity.getContentType).foreach(bufferedEntity.setContentType)
+            bufferedEntity.setChunked(entity.isChunked)
+            response.setEntity(bufferedEntity)
+            Some(new String(bytes, StandardCharsets.UTF_8))
+          }
+        } finally {
+          if (!keepInputOpen) {
+            input.close()
+          }
+        }
+      }
+    }
+  }
+
+  private def capacityLimitExceeded(response: CloseableHttpResponse): Boolean =
+    responseBodyForInspection(response).exists(_.contains("CapacityLimitExceeded"))
 
   //scalastyle:off cyclomatic.complexity
   //scalastyle:off method.length
@@ -107,19 +151,7 @@ object HandlingUtils extends SparkLogging {
         case 202 => true
         case 429 =>
           // Inspect body to distinguish capacity errors from transient rate limits.
-          // Guard with Content-Length cap to avoid buffering unexpectedly large payloads.
-          val MaxInspectionBytes = 1024 * 1024L
-          val bodyStr = Option(response.getEntity).flatMap { entity =>
-            val contentLength = entity.getContentLength
-            if (contentLength > MaxInspectionBytes) {
-              None
-            } else {
-              response.setEntity(new BufferedHttpEntity(entity))
-              Option(response.getEntity)
-                .flatMap(e => Try(IOUtils.toString(e.getContent, "UTF-8")).toOption)
-            }
-          }.getOrElse("")
-          if (bodyStr.contains("CapacityLimitExceeded")) {
+          if (capacityLimitExceeded(response)) {
             // Fabric capacity-exceeded 429s are NOT transient rate limits —
             // retrying will not help and causes hangs
             logWarning(s"Capacity limit exceeded (non-retryable 429) on ${request.getURI}")
@@ -209,31 +241,18 @@ object HandlingUtils extends SparkLogging {
       authOverride: Option[String] = None): (CloseableHttpResponse, HttpRequestBase) = {
     val request = requestData.toHTTPCore
     val authHeader = authOverride.getOrElse(getAuthHeader())
+    request.removeHeaders("Authorization")
     request.setHeader("Authorization", authHeader)
     var executingRequest = true
     try {
       val response = client.execute(request)
       executingRequest = false
       val code = response.getStatusLine.getStatusCode
-      val capacityLimitExceeded = if (code == 429) {
-        val maxInspectionBytes = 1024 * 1024L
-        Option(response.getEntity).exists { entity =>
-          if (entity.getContentLength > maxInspectionBytes) {
-            false
-          } else {
-            response.setEntity(new BufferedHttpEntity(entity))
-            Option(response.getEntity)
-              .flatMap(e => Try(IOUtils.toString(e.getContent, "UTF-8")).toOption)
-              .exists(_.contains("CapacityLimitExceeded"))
-          }
-        }
-      } else {
-        false
-      }
+      val capacityLimitExceededResponse = code == 429 && capacityLimitExceeded(response)
 
       val successful = Set(200, 201, 202)(code)
       val retryable = if (code == 429) {
-        !capacityLimitExceeded
+        !capacityLimitExceededResponse
       } else if (code == 401) {
         false
       } else if (extraCodesToRetry(code)) {
@@ -257,7 +276,7 @@ object HandlingUtils extends SparkLogging {
           authRetryUsed = true,
           authOverride = Some(refreshedAuthHeader))
       } else if (successful || !retryable || retriesLeft.isEmpty) {
-        if (capacityLimitExceeded) {
+        if (capacityLimitExceededResponse) {
           logWarning(s"Capacity limit exceeded (non-retryable 429) on ${request.getURI}")
         }
         response -> request
@@ -282,7 +301,7 @@ object HandlingUtils extends SparkLogging {
           sendWithFabricAuthRetries(
             client,
             requestData,
-            retriesLeft,
+            retriesLeft.tail,
             extraCodesToRetry,
             getAuthHeader,
             refreshAuthHeader,
