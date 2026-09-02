@@ -683,6 +683,39 @@ class VerifySendWithRetries extends TestBase {
     assert(!requestData("true", "MwcToken ").usesFabricAuth)
   }
 
+  test("Fabric auth retries replace duplicate authorization headers") {
+    val port = getFreePort
+    val authorizationHeaders = new AtomicReference[Seq[String]]()
+    val server = startServer(port) { exchange =>
+      authorizationHeaders.set(exchange.getRequestHeaders.get("Authorization").asScala.toSeq)
+      readRequestBody(exchange)
+      respond(exchange, 200, """{"ok":true}""")
+    }
+    try {
+      val request = new HttpPost(s"http://localhost:$port/test")
+      request.setHeader(HTTPRequestData.FabricAuthMarkerHeader, "true")
+      request.addHeader("Authorization", "MwcToken stale")
+      request.addHeader("authorization", "Bearer duplicate")
+      request.setEntity(new StringEntity("""{"prompt":"hello"}""", "UTF-8"))
+
+      val client = HttpClients.createDefault()
+      val (response, replayedRequest) = HandlingUtils.sendWithFabricAuthRetries(
+        client,
+        new HTTPRequestData(request),
+        Array.empty,
+        getAuthHeader = () => "MwcToken current")
+      val code = response.getStatusLine.getStatusCode
+      response.close()
+      replayedRequest.releaseConnection()
+      client.close()
+
+      assert(code === 200)
+      assert(authorizationHeaders.get() === Seq("MwcToken current"))
+    } finally {
+      server.stop(0)
+    }
+  }
+
   test("untrusted marker does not replace explicit auth on a non-Fabric endpoint") {
     val port = getFreePort
     val authorization = new AtomicReference[String]()
