@@ -76,7 +76,7 @@ class SafeObjectInputStream(
       throw new DeserializationClassRejectedException(
         className,
         "Deserialization of this class is not allowed. " +
-          "Only classes with approved package prefixes may be deserialized."
+          "Only classes approved by the configured exact-name or prefix policy may be deserialized."
       )
     }
     super.resolveClass(desc)
