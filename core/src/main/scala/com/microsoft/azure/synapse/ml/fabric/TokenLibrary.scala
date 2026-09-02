@@ -75,7 +75,7 @@ object TokenLibrary {
       } catch {
         case _: ClassNotFoundException | _: NoSuchFieldException => None
       }
-    }.toSeq.headOption
+    }.take(1).toSeq.headOption
   }
 
   private def invalidateWithRuntimeApi(workspaceId: String, artifactId: String): Boolean = {

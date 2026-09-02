@@ -6,9 +6,10 @@ package com.microsoft.azure.synapse.ml.io.http
 import com.microsoft.azure.synapse.ml.fabric.FabricClient
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.commons.io.IOUtils
+import org.apache.http.HttpEntity
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpPost, HttpRequestBase}
-import org.apache.http.entity.{BasicHttpEntity, ByteArrayEntity}
+import org.apache.http.entity.{AbstractHttpEntity, BasicHttpEntity, ByteArrayEntity}
 import org.apache.http.impl.client.{CloseableHttpClient, HttpClientBuilder}
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager
 import org.apache.spark.injections.UDFUtils
@@ -16,11 +17,12 @@ import org.apache.spark.internal.{Logging => SparkLogging}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.types.StringType
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream, SequenceInputStream}
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, InputStream, SequenceInputStream}
 import java.nio.charset.StandardCharsets
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, blocking}
 import scala.util.{Random, Try}
+import scala.util.control.NonFatal
 
 trait Handler {
 
@@ -92,38 +94,72 @@ object HandlingUtils extends SparkLogging {
   private val MaxBackoffMs: Long = 60000L // 1 minute cap for 429 backoff
   private val MaxResponseInspectionBytes = 1024 * 1024L
 
-  private def responseBodyForInspection(response: CloseableHttpResponse): Option[String] = {
+  private def copyResponseEntityMetadata(source: HttpEntity, target: AbstractHttpEntity): Unit = {
+    Option(source.getContentEncoding).foreach(target.setContentEncoding)
+    Option(source.getContentType).foreach(target.setContentType)
+    target.setChunked(source.isChunked)
+  }
+
+  private def replayResponseEntity(response: CloseableHttpResponse,
+                                   source: HttpEntity,
+                                   bytes: Array[Byte],
+                                   input: InputStream): Unit = {
+    val replay = new BasicHttpEntity()
+    replay.setContent(new SequenceInputStream(new ByteArrayInputStream(bytes), input))
+    replay.setContentLength(source.getContentLength)
+    copyResponseEntityMetadata(source, replay)
+    response.setEntity(replay)
+  }
+
+  private def closeInspectionInput(input: InputStream): Unit = {
+    try {
+      input.close()
+    } catch {
+      case NonFatal(error) =>
+        logWarning("Could not close the HTTP response inspection stream.", error)
+    }
+  }
+
+  private[ml] def responseBodyForInspection(response: CloseableHttpResponse): Option[String] = {
     Option(response.getEntity).flatMap { entity =>
       if (entity.getContentLength > MaxResponseInspectionBytes) {
         None
       } else {
         val output = new ByteArrayOutputStream()
-        val input = entity.getContent
+        var input = Option.empty[InputStream]
         var keepInputOpen = false
         try {
-          IOUtils.copyLarge(input, output, 0, MaxResponseInspectionBytes + 1)
+          val responseInput = entity.getContent
+          input = Some(responseInput)
+          IOUtils.copyLarge(responseInput, output, 0, MaxResponseInspectionBytes + 1)
           val bytes = output.toByteArray
           if (bytes.length > MaxResponseInspectionBytes) {
-            val replayEntity = new BasicHttpEntity()
-            replayEntity.setContent(new SequenceInputStream(new ByteArrayInputStream(bytes), input))
-            replayEntity.setContentLength(entity.getContentLength)
-            Option(entity.getContentEncoding).foreach(replayEntity.setContentEncoding)
-            Option(entity.getContentType).foreach(replayEntity.setContentType)
-            replayEntity.setChunked(entity.isChunked)
-            response.setEntity(replayEntity)
+            replayResponseEntity(response, entity, bytes, responseInput)
             keepInputOpen = true
             None
           } else {
             val bufferedEntity = new ByteArrayEntity(bytes)
-            Option(entity.getContentEncoding).foreach(bufferedEntity.setContentEncoding)
-            Option(entity.getContentType).foreach(bufferedEntity.setContentType)
-            bufferedEntity.setChunked(entity.isChunked)
+            copyResponseEntityMetadata(entity, bufferedEntity)
             response.setEntity(bufferedEntity)
             Some(new String(bytes, StandardCharsets.UTF_8))
           }
+        } catch {
+          case NonFatal(error) =>
+            logWarning("Could not inspect the HTTP response body; preserving it for retry handling.", error)
+            input.foreach { responseInput =>
+              try {
+                replayResponseEntity(response, entity, output.toByteArray, responseInput)
+                keepInputOpen = true
+              } catch {
+                case NonFatal(replayError) =>
+                  error.addSuppressed(replayError)
+                  logWarning("Could not reconstruct the partially inspected HTTP response body.", replayError)
+              }
+            }
+            None
         } finally {
           if (!keepInputOpen) {
-            input.close()
+            input.foreach(closeInspectionInput)
           }
         }
       }
