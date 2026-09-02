@@ -91,8 +91,8 @@ object Serializer {
 
   private def disabledDeserializationException(tpe: Type, guidance: String): SecurityException = {
     new SecurityException(
-      s"Java deserialization is disabled for $tpe because its object graph is not constrained. " +
-        s"$guidance This may execute arbitrary code."
+      s"Java deserialization is disabled for $tpe. " +
+        s"$guidance Deserializing this artifact may execute arbitrary code."
     )
   }
 
