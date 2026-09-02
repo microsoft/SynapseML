@@ -30,6 +30,18 @@ class VerifyLightGBMBoosterParam extends TestBase {
   private val legacyDeserializationConfig =
     Serializer.LegacyObjectDeserializationConfig
 
+  private def withoutLegacyDeserialization[T](action: => T): T = {
+    val previous = spark.conf.getOption(legacyDeserializationConfig)
+    spark.conf.unset(legacyDeserializationConfig)
+    try {
+      action
+    } finally {
+      previous.fold(spark.conf.unset(legacyDeserializationConfig))(
+        spark.conf.set(legacyDeserializationConfig, _)
+      )
+    }
+  }
+
   private class TestParamsHolder extends Params {
     override val uid: String = "lightgbm-booster-holder"
     val booster = new LightGBMBoosterParam(this, "booster", "A LightGBM booster param")
@@ -43,9 +55,11 @@ class VerifyLightGBMBoosterParam extends TestBase {
     val expected = new LightGBMBooster("model-data")
 
     holder.booster.save(expected, spark, path, overwrite = true)
-    val loaded = holder.booster.load(spark, path)
 
-    assert(loaded.getNativeModel() === expected.getNativeModel())
+    withoutLegacyDeserialization {
+      val loaded = holder.booster.load(spark, path)
+      assert(loaded.getNativeModel() === expected.getNativeModel())
+    }
   }
 
   test("LightGBMBoosterParam rejects classes outside its policy before callbacks run") {
@@ -58,18 +72,12 @@ class VerifyLightGBMBoosterParam extends TestBase {
       overwrite = true
     )
     BoosterDeserializationTripwire.Triggered.set(false)
-    val previous = spark.conf.getOption(legacyDeserializationConfig)
-    spark.conf.unset(legacyDeserializationConfig)
 
-    try {
+    withoutLegacyDeserialization {
       assertThrows[SecurityException] {
         holder.booster.load(spark, path)
       }
       assert(!BoosterDeserializationTripwire.Triggered.get())
-    } finally {
-      previous.fold(spark.conf.unset(legacyDeserializationConfig))(
-        spark.conf.set(legacyDeserializationConfig, _)
-      )
     }
   }
 }

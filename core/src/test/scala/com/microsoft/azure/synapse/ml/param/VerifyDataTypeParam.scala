@@ -148,12 +148,20 @@ class VerifyDataTypeParam extends TestBase {
     ))
 
     holder.dataTypeParam.save(expected, spark, path, overwrite = true)
+    val previous = spark.conf.getOption(legacyDeserializationConfig)
+    spark.conf.unset(legacyDeserializationConfig)
 
-    using(path.getFileSystem(spark.sparkContext.hadoopConfiguration).open(path)) { input =>
-      assert(input.read() === 0xac)
-      assert(input.read() === 0xed)
-    }.get
-    assert(holder.dataTypeParam.load(spark, path) === expected)
+    try {
+      using(path.getFileSystem(spark.sparkContext.hadoopConfiguration).open(path)) { input =>
+        assert(input.read() === 0xac)
+        assert(input.read() === 0xed)
+      }.get
+      assert(holder.dataTypeParam.load(spark, path) === expected)
+    } finally {
+      previous.fold(spark.conf.unset(legacyDeserializationConfig))(
+        spark.conf.set(legacyDeserializationConfig, _)
+      )
+    }
   }
 
   test("DataTypeParam requires explicit trust for custom data types") {

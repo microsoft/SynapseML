@@ -19,7 +19,7 @@ final case class DeserializationClassFilter(
 /** An ObjectInputStream that restricts deserialization to an allowlist of class names and prefixes.
   *
   * This mitigates Java deserialization attacks (CWE-502) by rejecting any class
-  * whose fully-qualified name is not explicitly allowed.
+  * whose fully-qualified name is not allowed by the configured exact-name or prefix policy.
   * It also inherits the context-classloader resolution from [[ContextObjectInputStream]].
   *
   * @param input        the underlying input stream
