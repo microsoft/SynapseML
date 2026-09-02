@@ -25,7 +25,7 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
   val format = "simple"
 
   lazy val stt = new SpeechToText()
-    .setSubscriptionKey(cognitiveKey)
+    .setAADToken(speechAADToken)
     .setLocation(region)
     .setOutputCol("text")
     .setAudioDataCol("audio")
@@ -69,7 +69,7 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
   test("Throw errors if required fields not set") {
     val caught = intercept[AssertionError] {
       new SpeechToText()
-        .setSubscriptionKey(cognitiveKey)
+        .setAADToken(speechAADToken)
         .setLocation(region)
         .setOutputCol("text")
         .transform(df).collect()

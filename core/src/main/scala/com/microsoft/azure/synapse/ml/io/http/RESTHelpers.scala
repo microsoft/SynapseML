@@ -53,7 +53,22 @@ object RESTHelpers {
                backoffs: List[Int] = List(100, 500, 1000), //scalastyle:ignore magic.number
                expectedCodes: Set[Int] = Set(),
                close: Boolean = true): CloseableHttpResponse = {
+    safeSendImpl(request, backoffs, expectedCodes, close, redactErrorBodies = false)
+  }
 
+  def safeSendRedactingBodies(
+      request: HttpRequestBase,
+      backoffs: List[Int] = List(100, 500, 1000), //scalastyle:ignore magic.number
+      expectedCodes: Set[Int] = Set(),
+      close: Boolean = true): CloseableHttpResponse = {
+    safeSendImpl(request, backoffs, expectedCodes, close, redactErrorBodies = true)
+  }
+
+  private def safeSendImpl(request: HttpRequestBase,
+                           backoffs: List[Int],
+                           expectedCodes: Set[Int],
+                           close: Boolean,
+                           redactErrorBodies: Boolean): CloseableHttpResponse = {
     retry(backoffs, { () =>
       val response = Client.execute(request)
       try {
@@ -62,12 +77,20 @@ object RESTHelpers {
         ) {
           response
         } else {
-          val requestBodyOpt = Try(request match {
-            case er: HttpEntityEnclosingRequestBase => IOUtils.toString(er.getEntity.getContent, "UTF-8")
-            case _ => ""
-          }).get
+          val requestBodyOpt = if (redactErrorBodies) {
+            "<redacted>"
+          } else {
+            Try(request match {
+              case er: HttpEntityEnclosingRequestBase => IOUtils.toString(er.getEntity.getContent, "UTF-8")
+              case _ => ""
+            }).get
+          }
 
-          val responseBodyOpt = Try(IOUtils.toString(response.getEntity.getContent, "UTF-8")).getOrElse("")
+          val responseBodyOpt = if (redactErrorBodies) {
+            "<redacted>"
+          } else {
+            Try(IOUtils.toString(response.getEntity.getContent, "UTF-8")).getOrElse("")
+          }
 
           throw new RuntimeException(
             s"Failed: " +
@@ -96,7 +119,27 @@ object RESTHelpers {
                        expectedCodes: Set[Int] = Set(),
                        backoffs: List[Int] = List(100, 500, 1000) //scalastyle:ignore magic.number
                       ): JsValue = {
-    val response = safeSend(request, expectedCodes = expectedCodes, close = false, backoffs = backoffs)
+    sendAndParseJsonImpl(request, expectedCodes, backoffs, redactErrorBodies = false)
+  }
+
+  def sendAndParseJsonRedactingBodies(
+      request: HttpRequestBase,
+      expectedCodes: Set[Int] = Set(),
+      backoffs: List[Int] = List(100, 500, 1000) //scalastyle:ignore magic.number
+      ): JsValue = {
+    sendAndParseJsonImpl(request, expectedCodes, backoffs, redactErrorBodies = true)
+  }
+
+  private def sendAndParseJsonImpl(request: HttpRequestBase,
+                                   expectedCodes: Set[Int],
+                                   backoffs: List[Int],
+                                   redactErrorBodies: Boolean): JsValue = {
+    val response = safeSendImpl(
+      request,
+      expectedCodes = expectedCodes,
+      close = false,
+      backoffs = backoffs,
+      redactErrorBodies = redactErrorBodies)
     val output = parseResult(response).parseJson
     response.close()
     output

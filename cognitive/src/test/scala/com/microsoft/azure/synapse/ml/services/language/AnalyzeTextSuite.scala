@@ -112,8 +112,7 @@ class EntityLinkingSuite extends TransformerFuzzing[AnalyzeText] with TextEndpoi
   ).toDF("language", "text")
 
   def model: AnalyzeText = new AnalyzeText()
-    .setSubscriptionKey(textKey)
-    .setLocation(textApiLocation)
+    .setCognitiveTestAuth
     .setLanguageCol("language")
     .setTextCol("text")
     .setKind("EntityLinking")
@@ -168,8 +167,7 @@ class EntityRecognitionSuite extends TransformerFuzzing[AnalyzeText] with TextEn
   ).toDF("language", "text")
 
   def model: AnalyzeText = new AnalyzeText()
-    .setSubscriptionKey(textKey)
-    .setLocation(textApiLocation)
+    .setCognitiveTestAuth
     .setLanguageCol("language")
     .setTextCol("text")
     .setKind("EntityRecognition")
@@ -225,8 +223,7 @@ class KeyPhraseSuite extends TransformerFuzzing[AnalyzeText] with TextEndpoint {
   ).toDF("language", "text")
 
   def model: AnalyzeText = new AnalyzeText()
-    .setSubscriptionKey(textKey)
-    .setLocation(textApiLocation)
+    .setCognitiveTestAuth
     .setLanguageCol("language")
     .setTextCol("text")
     .setKind("KeyPhraseExtraction")
@@ -283,8 +280,7 @@ class LanguageDetectionSuite extends TransformerFuzzing[AnalyzeText] with TextEn
   ).toDF("text")
 
   def model: AnalyzeText = new AnalyzeText()
-    .setSubscriptionKey(textKey)
-    .setLocation(textApiLocation)
+    .setCognitiveTestAuth
     .setTextCol("text")
     .setKind("LanguageDetection")
     .setOutputCol("response")
@@ -339,8 +335,7 @@ class AnalyzeTextPIISuite extends TransformerFuzzing[AnalyzeText] with TextEndpo
   ).toDF("text")
 
   def model: AnalyzeText = new AnalyzeText()
-    .setSubscriptionKey(textKey)
-    .setLocation(textApiLocation)
+    .setCognitiveTestAuth
     .setTextCol("text")
     .setKind("PiiEntityRecognition")
     .setOutputCol("response")
@@ -403,8 +398,7 @@ class SentimentAnalysisSuite extends TransformerFuzzing[AnalyzeText] with TextEn
   ).toDF("text")
 
   def model: AnalyzeText = new AnalyzeText()
-    .setSubscriptionKey(textKey)
-    .setLocation(textApiLocation)
+    .setCognitiveTestAuth
     .setTextCol("text")
     .setKind("SentimentAnalysis")
     .setOutputCol("response")

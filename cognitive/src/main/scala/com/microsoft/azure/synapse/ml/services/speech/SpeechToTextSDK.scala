@@ -86,6 +86,62 @@ private[speech] object SpeechSDKBase {
   }
 }
 
+private[speech] object SpeechSDKAuth {
+  private val AadPrefix = "aad#"
+
+  private def nonBlank(value: String): Boolean =
+    value != null && value.trim.nonEmpty
+
+  def formatAADToken(aadToken: String, resourceId: String): String = {
+    if (!nonBlank(aadToken)) {
+      throw new IllegalArgumentException("Speech AAD token must be non-empty")
+    }
+    if (!nonBlank(resourceId)) {
+      throw new IllegalArgumentException(
+        "Cognitive Services resource ID must be set when using Speech AAD authentication")
+    }
+    s"$AadPrefix${resourceId.trim}#$aadToken"
+  }
+
+  def resolveCredential(aadToken: Option[String],
+                        resourceId: Option[String],
+                        subscriptionKey: Option[String]): String = {
+    aadToken.filter(nonBlank)
+      .map(token => formatAADToken(token, resourceId.orNull))
+      .orElse(subscriptionKey.filter(nonBlank))
+      .getOrElse {
+        throw new IllegalArgumentException(
+          "Set either a non-empty Speech AAD token and Cognitive Services resource ID or a subscription key")
+      }
+  }
+
+  def createSpeechConfig(uri: URI, credential: String): SpeechConfig = {
+    if (!nonBlank(credential)) {
+      throw new IllegalArgumentException("Speech authentication credential must be non-empty")
+    }
+    if (credential.startsWith(AadPrefix)) {
+      val config = SpeechConfig.fromEndpoint(uri)
+      config.setAuthorizationToken(credential)
+      config
+    } else {
+      SpeechConfig.fromEndpoint(uri, credential)
+    }
+  }
+}
+
+trait HasSpeechAADAuthorization extends HasAADToken {
+  val cognitiveServiceResourceId = new Param[String](
+    this,
+    "cognitiveServiceResourceId",
+    "Azure resource ID for the Cognitive Services account used with Speech AAD authentication")
+
+  def setCognitiveServiceResourceId(value: String): this.type =
+    set(cognitiveServiceResourceId, value)
+
+  def getCognitiveServiceResourceId: String =
+    $(cognitiveServiceResourceId)
+}
+
 //scalastyle:off no.finalize
 private[ml] class BlockingQueueIterator[T](lbq: LinkedBlockingQueue[Option[T]],
                                             onClose: => Unit) extends Iterator[T] with Closeable {
@@ -124,7 +180,8 @@ private[ml] class BlockingQueueIterator[T](lbq: LinkedBlockingQueue[Option[T]],
 
 abstract class SpeechSDKBase extends Transformer
   with HasSetLocation with HasServiceParams
-  with HasOutputCol with HasURL with HasSubscriptionKey with ComplexParamsWritable with SynapseMLLogging
+  with HasOutputCol with HasURL with HasSubscriptionKey with HasSpeechAADAuthorization
+  with ComplexParamsWritable with SynapseMLLogging
   with HasSetLinkedServiceUsingLocation {
 
   type ResponseType <: SharedSpeechFields
@@ -378,11 +435,15 @@ abstract class SpeechSDKBase extends Transformer
       } else {
         val dynamicParamRow = row.getAs[Row](dynamicParamColName)
         val (stream, audioFileFormat) = getStream(bconf, isUriAudio, row, dynamicParamRow)
+        val credential = SpeechSDKAuth.resolveCredential(
+          getValueOpt(dynamicParamRow, AADToken),
+          get(cognitiveServiceResourceId),
+          getValueOpt(dynamicParamRow, subscriptionKey))
         val results = inputStreamToText(
           stream,
           audioFileFormat,
           new URI(getUrl),
-          getValue(dynamicParamRow, subscriptionKey),
+          credential,
           getValue(dynamicParamRow, profanity),
           getValue(dynamicParamRow, wordLevelTimestamps),
           getValue(dynamicParamRow, language),
@@ -420,7 +481,7 @@ abstract class SpeechSDKBase extends Transformer
                       profanity: String,
                       wordLevelTimestamps: Boolean,
                       format: String): SpeechConfig = {
-    val speechConfig: SpeechConfig = SpeechConfig.fromEndpoint(uri, speechKey)
+    val speechConfig: SpeechConfig = SpeechSDKAuth.createSpeechConfig(uri, speechKey)
     assert(speechConfig != null)
     get(endpointId).foreach(id => speechConfig.setEndpointId(id))
     speechConfig.setProperty(PropertyId.SpeechServiceResponse_ProfanityOption, profanity)

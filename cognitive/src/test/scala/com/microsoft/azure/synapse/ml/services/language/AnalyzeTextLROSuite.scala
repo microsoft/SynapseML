@@ -5,16 +5,16 @@ package com.microsoft.azure.synapse.ml.services.language
 
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{ TestObject, TransformerFuzzing }
 import com.microsoft.azure.synapse.ml.services.text.{ SentimentAssessment, TextEndpoint }
-import com.microsoft.azure.synapse.ml.Secrets
+import com.microsoft.azure.synapse.ml.services.CognitiveKey
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{ DataFrame, Row }
 import org.apache.spark.sql.functions.{ col, flatten, map }
 import org.scalactic.{ Equality, TolerantNumerics }
 import org.scalatest.funsuite.AnyFunSuiteLike
 
-trait LanguageServiceEndpoint {
-  lazy val languageApiKey: String = sys.env.getOrElse("CUSTOM_LANGUAGE_KEY", Secrets.LanguageApiKey)
-  lazy val languageApiLocation: String = sys.env.getOrElse("LANGUAGE_API_LOCATION", "eastus")
+trait LanguageServiceEndpoint extends CognitiveKey {
+  lazy val languageServiceName: String =
+    sys.env.getOrElse("LANGUAGE_SERVICE_NAME", "mmlspark-cs-language")
 }
 
 class AnalyzeTextLROSuite extends AnyFunSuiteLike {
@@ -66,8 +66,7 @@ class ExtractiveSummarizationSuite extends TransformerFuzzing[AnalyzeTextLongRun
 
   test("Basic usage") {
     val model: AnalyzeTextLongRunningOperations = new AnalyzeTextLongRunningOperations()
-      .setSubscriptionKey(textKey)
-      .setLocation(textApiLocation)
+      .setCognitiveTestAuth
       .setTextCol("text")
       .setLanguage("en")
       .setKind(AnalysisTaskKind.ExtractiveSummarization)
@@ -99,8 +98,7 @@ class ExtractiveSummarizationSuite extends TransformerFuzzing[AnalyzeTextLongRun
   test("show-stats and sentence-count") {
     val sentenceCount = 10
     val model: AnalyzeTextLongRunningOperations = new AnalyzeTextLongRunningOperations()
-      .setSubscriptionKey(textKey)
-      .setLocation(textApiLocation)
+      .setCognitiveTestAuth
       .setTextCol("text")
       .setLanguage("en")
       .setKind(AnalysisTaskKind.ExtractiveSummarization)
@@ -142,8 +140,7 @@ class ExtractiveSummarizationSuite extends TransformerFuzzing[AnalyzeTextLongRun
 
   override def testObjects(): Seq[TestObject[AnalyzeTextLongRunningOperations]] =
     Seq(new TestObject[AnalyzeTextLongRunningOperations](new AnalyzeTextLongRunningOperations()
-                                             .setSubscriptionKey(textKey)
-                                             .setLocation(textApiLocation)
+                                             .setCognitiveTestAuth
                                              .setTextCol("text")
                                              .setLanguage("en")
                                              .setKind("ExtractiveSummarization")
@@ -186,8 +183,7 @@ class AbstractiveSummarizationSuite extends TransformerFuzzing[AnalyzeTextLongRu
 
   test("Basic usage") {
     val model: AnalyzeTextLongRunningOperations = new AnalyzeTextLongRunningOperations()
-      .setSubscriptionKey(textKey)
-      .setLocation(textApiLocation)
+      .setCognitiveTestAuth
       .setTextCol("text")
       .setLanguage("en")
       .setKind("AbstractiveSummarization")
@@ -212,8 +208,7 @@ class AbstractiveSummarizationSuite extends TransformerFuzzing[AnalyzeTextLongRu
 
   test("show-stats and summary-length") {
     val model: AnalyzeTextLongRunningOperations = new AnalyzeTextLongRunningOperations()
-      .setSubscriptionKey(textKey)
-      .setLocation(textApiLocation)
+      .setCognitiveTestAuth
       .setTextCol("text")
       .setLanguage("en")
       .setKind(AnalysisTaskKind.AbstractiveSummarization)
@@ -244,8 +239,7 @@ class AbstractiveSummarizationSuite extends TransformerFuzzing[AnalyzeTextLongRu
 
   override def testObjects(): Seq[TestObject[AnalyzeTextLongRunningOperations]] =
     Seq(new TestObject[AnalyzeTextLongRunningOperations](new AnalyzeTextLongRunningOperations()
-                                             .setSubscriptionKey(textKey)
-                                             .setLocation(textApiLocation)
+                                             .setCognitiveTestAuth
                                              .setTextCol("text")
                                              .setLanguage("en")
                                              .setKind("AbstractiveSummarization")
@@ -270,8 +264,7 @@ class HealthcareSuite extends TransformerFuzzing[AnalyzeTextLongRunningOperation
 
   test("Basic usage") {
     val model: AnalyzeTextLongRunningOperations = new AnalyzeTextLongRunningOperations()
-      .setSubscriptionKey(textKey)
-      .setLocation(textApiLocation)
+      .setCognitiveTestAuth
       .setTextCol("text")
       .setLanguage("en")
       .setKind("Healthcare")
@@ -289,8 +282,7 @@ class HealthcareSuite extends TransformerFuzzing[AnalyzeTextLongRunningOperation
 
   override def testObjects(): Seq[TestObject[AnalyzeTextLongRunningOperations]] =
     Seq(new TestObject[AnalyzeTextLongRunningOperations](new AnalyzeTextLongRunningOperations()
-                                             .setSubscriptionKey(textKey)
-                                             .setLocation(textApiLocation)
+                                             .setCognitiveTestAuth
                                              .setTextCol("text")
                                              .setLanguage("en")
                                              .setKind("Healthcare")
@@ -313,8 +305,7 @@ class SentimentAnalysisLROSuite extends TransformerFuzzing[AnalyzeTextLongRunnin
     ).toDF("text")
 
   def model: AnalyzeTextLongRunningOperations = new AnalyzeTextLongRunningOperations()
-    .setSubscriptionKey(textKey)
-    .setLocation(textApiLocation)
+    .setCognitiveTestAuth
     .setTextCol("text")
     .setKind(AnalysisTaskKind.SentimentAnalysis)
     .setOutputCol("response")
@@ -382,8 +373,7 @@ class KeyPhraseLROSuite extends TransformerFuzzing[AnalyzeTextLongRunningOperati
     ).toDF("language", "text")
 
   def model: AnalyzeTextLongRunningOperations = new AnalyzeTextLongRunningOperations()
-    .setSubscriptionKey(textKey)
-    .setLocation(textApiLocation)
+    .setCognitiveTestAuth
     .setLanguageCol("language")
     .setTextCol("text")
     .setKind("KeyPhraseExtraction")
@@ -440,8 +430,7 @@ class AnalyzeTextPIILORSuite extends TransformerFuzzing[AnalyzeTextLongRunningOp
     ).toDF("text")
 
   def model: AnalyzeTextLongRunningOperations = new AnalyzeTextLongRunningOperations()
-    .setSubscriptionKey(textKey)
-    .setLocation(textApiLocation)
+    .setCognitiveTestAuth
     .setTextCol("text")
     .setKind("PiiEntityRecognition")
     .setOutputCol("response")
@@ -505,8 +494,7 @@ class EntityLinkingLROSuite extends TransformerFuzzing[AnalyzeTextLongRunningOpe
     ).toDF("language", "text")
 
   def model: AnalyzeTextLongRunningOperations = new AnalyzeTextLongRunningOperations()
-    .setSubscriptionKey(textKey)
-    .setLocation(textApiLocation)
+    .setCognitiveTestAuth
     .setLanguageCol("language")
     .setTextCol("text")
     .setKind("EntityLinking")
@@ -562,8 +550,7 @@ class EntityRecognitionLROSuite extends TransformerFuzzing[AnalyzeTextLongRunnin
     ).toDF("language", "text")
 
   def model: AnalyzeTextLongRunningOperations = new AnalyzeTextLongRunningOperations()
-    .setSubscriptionKey(textKey)
-    .setLocation(textApiLocation)
+    .setCognitiveTestAuth
     .setLanguageCol("language")
     .setTextCol("text")
     .setKind("EntityRecognition")
@@ -618,8 +605,7 @@ class CustomEntityRecognitionSuite extends TransformerFuzzing[AnalyzeTextLongRun
       .toDF("text")
 
   def model: AnalyzeTextLongRunningOperations = new AnalyzeTextLongRunningOperations()
-    .setSubscriptionKey(languageApiKey)
-    .setLocation(languageApiLocation)
+    .setCognitiveTestAuth(languageServiceName)
     .setLanguage("en")
     .setTextCol("text")
     .setKind(AnalysisTaskKind.CustomEntityRecognition)
@@ -672,8 +658,7 @@ class MultiLableClassificationSuite extends TransformerFuzzing[AnalyzeTextLongRu
   }
 
   def model: AnalyzeTextLongRunningOperations = new AnalyzeTextLongRunningOperations()
-    .setSubscriptionKey(languageApiKey)
-    .setLocation(languageApiLocation)
+    .setCognitiveTestAuth(languageServiceName)
     .setLanguage("en")
     .setTextCol("text")
     .setKind(AnalysisTaskKind.CustomMultiLabelClassification)
@@ -699,6 +684,4 @@ class MultiLableClassificationSuite extends TransformerFuzzing[AnalyzeTextLongRu
 
   override def reader: MLReadable[_] = AnalyzeText
 }
-
-
 

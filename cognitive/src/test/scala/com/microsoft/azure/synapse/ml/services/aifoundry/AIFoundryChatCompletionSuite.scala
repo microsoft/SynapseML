@@ -3,27 +3,27 @@
 
 package com.microsoft.azure.synapse.ml.services.aifoundry
 
-import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.azure.synapse.ml.services.CognitiveKey
 import com.microsoft.azure.synapse.ml.services.openai._
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
 
-trait AIFoundryAPIKey {
-  lazy val aiFoundryAPIKey: String = sys.env.getOrElse("AI_FOUNDRY_API_KEY", Secrets.AIFoundryApiKey)
-  lazy val aiFoundryServiceName: String = sys.env.getOrElse("AI_FOUNDRY_SERVICE_NAME", "synapseml-ai-foundry-resource")
+trait AIFoundryTestAuth extends CognitiveKey {
+  lazy val aiFoundryServiceName: String = sys.env.getOrElse("AI_FOUNDRY_SERVICE_NAME", "synapseml-openai-3")
   lazy val aiFoundryModelName: String = "Llama-3.3-70B-Instruct" //"Phi-4-mini-instruct"
 }
 
-class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompletion] with AIFoundryAPIKey with Flaky {
+class AIFoundryChatCompletionSuite
+  extends TransformerFuzzing[AIFoundryChatCompletion] with AIFoundryTestAuth with Flaky {
   override val compareDataInSerializationTest: Boolean = false
 
 
   import spark.implicits._
 
   lazy val completion: AIFoundryChatCompletion = new AIFoundryChatCompletion()
-    .setCustomServiceName(aiFoundryServiceName)
+    .setCognitiveTestAuth(aiFoundryServiceName)
     .setApiVersion("2024-05-01-preview")
     .setMaxCompletionTokens(2048)
     .setOutputCol("out")
@@ -33,7 +33,6 @@ class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompl
     .setPresencePenalty(0.0)
     .setFrequencyPenalty(0.0)
     .setModel(aiFoundryModelName)
-    .setSubscriptionKey(aiFoundryAPIKey)
 
   lazy val goodDf: DataFrame = Seq(
     Seq(
@@ -101,7 +100,7 @@ class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompl
 
   test("getOptionalParam should include responseFormat"){
     val completion = new AIFoundryChatCompletion()
-      .setCustomServiceName(aiFoundryServiceName)
+      .setCognitiveTestAuth(aiFoundryServiceName)
 
     def validateResponseFormat(params: Map[String, Any], responseFormat: String): Unit = {
       val responseFormatPayloadName = this.completion.responseFormat.payloadName
@@ -199,7 +198,6 @@ class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompl
       .setOutputCol("out")
       .setMessagesCol("messages")
       .setTemperature(0)
-      .setSubscriptionKey(aiFoundryAPIKey)
       .setResponseFormat("json_object")
 
     testCompletion(completion, goodDf)

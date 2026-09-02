@@ -39,15 +39,13 @@ class OCRSuite extends TransformerFuzzing[OCR] with CognitiveKey with Flaky with
 
 
   lazy val ocr: OCR = new OCR()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setCognitiveTestAuth
     .setImageUrlCol("url")
     .setDetectOrientation(true)
     .setOutputCol("ocr")
 
   lazy val bytesOCR: OCR = new OCR()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setCognitiveTestAuth
     .setImageBytesCol("imageBytes")
     .setDetectOrientation(true)
     .setOutputCol("bocr")
@@ -55,7 +53,8 @@ class OCRSuite extends TransformerFuzzing[OCR] with CognitiveKey with Flaky with
   test("Getters") {
     assert(ocr.getDetectOrientation)
     assert(ocr.getImageUrlCol === "url")
-    assert(ocr.getSubscriptionKey == cognitiveKey)
+    assert(ocr.getAADToken.nonEmpty)
+    assert(ocr.getUrl.startsWith(s"https://$cognitiveServiceName.cognitiveservices.azure.com/"))
     assert(bytesOCR.getImageBytesCol === "imageBytes")
   }
 
@@ -105,8 +104,7 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage]
   //scalastyle:on null
 
   def baseAI: AnalyzeImage = new AnalyzeImage()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setCognitiveTestAuth
     .setOutputCol("features")
     .setLanguageCol("language")
     .setVisualFeatures(
@@ -208,16 +206,14 @@ class RecognizeTextSuite extends TransformerFuzzing[RecognizeText]
   override val compareDataInSerializationTest: Boolean = false
 
   lazy val rt: RecognizeText = new RecognizeText()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setCognitiveTestAuth
     .setImageUrlCol("url")
     .setMode("Printed")
     .setOutputCol("ocr")
     .setConcurrency(5)
 
   lazy val bytesRT: RecognizeText = new RecognizeText()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setCognitiveTestAuth
     .setImageBytesCol("imageBytes")
     .setMode("Printed")
     .setOutputCol("ocr")
@@ -252,15 +248,13 @@ class ReadImageSuite extends TransformerFuzzing[ReadImage]
   override val compareDataInSerializationTest: Boolean = false
 
   lazy val readImage: ReadImage = new ReadImage()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setCognitiveTestAuth
     .setImageUrlCol("url")
     .setOutputCol("ocr")
     .setConcurrency(5)
 
   lazy val bytesReadImage: ReadImage = new ReadImage()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setCognitiveTestAuth
     .setImageBytesCol("imageBytes")
     .setOutputCol("ocr")
     .setConcurrency(5)
@@ -311,9 +305,8 @@ class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDo
   ).toDF("url")
 
   lazy val celeb: RecognizeDomainSpecificContent = new RecognizeDomainSpecificContent()
-    .setSubscriptionKey(cognitiveKey)
+    .setCognitiveTestAuth
     .setModel("celebrities")
-    .setLocation("eastus")
     .setImageUrlCol("url")
     .setOutputCol("celebs")
 
@@ -322,9 +315,8 @@ class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDo
     .select("imageBytes")
 
   lazy val bytesCeleb: RecognizeDomainSpecificContent = new RecognizeDomainSpecificContent()
-    .setSubscriptionKey(cognitiveKey)
+    .setCognitiveTestAuth
     .setModel("celebrities")
-    .setLocation("eastus")
     .setImageBytesCol("imageBytes")
     .setOutputCol("celebs")
 
@@ -367,8 +359,7 @@ class GenerateThumbnailsSuite extends TransformerFuzzing[GenerateThumbnails]
   ).toDF("url")
 
   lazy val t: GenerateThumbnails = new GenerateThumbnails()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setCognitiveTestAuth
     .setHeight(50).setWidth(50).setSmartCropping(true)
     .setImageUrlCol("url")
     .setOutputCol("thumbnails")
@@ -378,8 +369,7 @@ class GenerateThumbnailsSuite extends TransformerFuzzing[GenerateThumbnails]
     .select("imageBytes")
 
   lazy val bytesGT: GenerateThumbnails = new GenerateThumbnails()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setCognitiveTestAuth
     .setHeight(50).setWidth(50).setSmartCropping(true)
     .setImageBytesCol("imageBytes")
     .setOutputCol("thumbnails")
@@ -410,8 +400,7 @@ class TagImageSuite extends TransformerFuzzing[TagImage] with CognitiveKey with 
   ).toDF("url")
 
   lazy val t: TagImage = new TagImage()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setCognitiveTestAuth
     .setImageUrlCol("url")
     .setOutputCol("tags")
 
@@ -420,8 +409,7 @@ class TagImageSuite extends TransformerFuzzing[TagImage] with CognitiveKey with 
     .select("imageBytes")
 
   lazy val bytesTI: TagImage = new TagImage()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setCognitiveTestAuth
     .setImageBytesCol("imageBytes")
     .setOutputCol("tags")
 
@@ -462,8 +450,7 @@ class DescribeImageSuite extends TransformerFuzzing[DescribeImage]
   ).toDF("url")
 
   lazy val t: DescribeImage = new DescribeImage()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setCognitiveTestAuth
     .setMaxCandidates(3)
     .setImageUrlCol("url")
     .setOutputCol("descriptions")
@@ -473,8 +460,7 @@ class DescribeImageSuite extends TransformerFuzzing[DescribeImage]
     .select("imageBytes")
 
   lazy val bytesDI: DescribeImage = new DescribeImage()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setCognitiveTestAuth
     .setMaxCandidates(3)
     .setImageBytesCol("imageBytes")
     .setOutputCol("descriptions")

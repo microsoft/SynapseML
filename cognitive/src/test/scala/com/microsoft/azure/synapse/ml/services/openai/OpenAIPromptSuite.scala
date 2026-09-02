@@ -3,7 +3,6 @@
 
 package com.microsoft.azure.synapse.ml.services.openai
 
-import com.microsoft.azure.synapse.ml.Secrets.{AIFoundryApiKey, getAccessToken}
 import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.http.entity.AbstractHttpEntity
@@ -12,24 +11,18 @@ import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.{col, lit, struct, to_json}
 import org.apache.spark.sql.types.{ArrayType, StringType, StructType}
-import com.microsoft.azure.synapse.ml.services.aifoundry.AIFoundryAPIKey
+import com.microsoft.azure.synapse.ml.services.aifoundry.AIFoundryTestAuth
 import spray.json._
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 
 class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIKey
-  with AIFoundryAPIKey
+  with AIFoundryTestAuth
   with Flaky {
   override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
-
-  override def beforeAll(): Unit = {
-    val aadToken = getAccessToken("https://cognitiveservices.azure.com/")
-    println(s"Triggering token creation early ${aadToken.length}")
-    super.beforeAll()
-  }
 
   lazy val prompt: OpenAIPrompt = new OpenAIPrompt()
     .setSubscriptionKey(openAIAPIKey)
@@ -38,7 +31,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     .setOutputCol("outParsed")
 
   lazy val aiFoundryPrompt: OpenAIPrompt = new OpenAIPrompt()
-    .setSubscriptionKey(aiFoundryAPIKey)
+    .setAADToken(cognitiveAADToken)
     .setApiVersion("2024-05-01-preview")
     .setModel(aiFoundryModelName)
     .setAIFoundryCustomServiceName(aiFoundryServiceName)

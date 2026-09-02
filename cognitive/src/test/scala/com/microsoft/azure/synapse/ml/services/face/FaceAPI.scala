@@ -17,7 +17,7 @@ object FaceUtils extends CognitiveKey {
 
   import com.microsoft.azure.synapse.ml.io.http.RESTHelpers._
 
-  val BaseURL = "https://eastus.api.cognitive.microsoft.com/face/v1.0/"
+  val BaseURL = s"https://$cognitiveServiceName.cognitiveservices.azure.com/face/v1.0/"
 
   def faceSend(request: HttpRequestBase, path: String,
                params: Map[String, String] = Map()): String = {
@@ -30,8 +30,8 @@ object FaceUtils extends CognitiveKey {
     request.setURI(new URI(BaseURL + path + paramString))
 
     retry(List(100, 500, 1000), { () =>
-      request.addHeader("Ocp-Apim-Subscription-Key", cognitiveKey)
-      request.addHeader("Content-Type", "application/json")
+      request.setHeader("Authorization", s"Bearer $cognitiveAADToken")
+      request.setHeader("Content-Type", "application/json")
       using(Client.execute(request)) { response =>
         if (!response.getStatusLine.getStatusCode.toString.startsWith("2")) {
           val bodyOpt = request match {

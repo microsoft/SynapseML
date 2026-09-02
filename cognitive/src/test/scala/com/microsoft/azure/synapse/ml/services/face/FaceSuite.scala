@@ -25,8 +25,7 @@ class DetectFaceSuite extends TransformerFuzzing[DetectFace] with CognitiveKey {
   ).toDF("url")
 
   lazy val face = new DetectFace()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setCognitiveTestAuth
     .setImageUrlCol("url")
     .setOutputCol("face")
     .setReturnFaceId(true)
@@ -63,8 +62,7 @@ class FindSimilarFaceSuite extends TransformerFuzzing[FindSimilarFace] with Cogn
   ).toDF("url")
 
   lazy val detector = new DetectFace()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setCognitiveTestAuth
     .setImageUrlCol("url")
     .setOutputCol("detected_faces")
     .setReturnFaceId(true)
@@ -82,8 +80,7 @@ class FindSimilarFaceSuite extends TransformerFuzzing[FindSimilarFace] with Cogn
     row.getAs[String]("id"))
 
   lazy val findSimilar = new FindSimilarFace()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setCognitiveTestAuth
     .setOutputCol("similar")
     .setFaceIdCol("id")
     .setFaceIds(faceIds)
@@ -99,8 +96,7 @@ class FindSimilarFaceSuite extends TransformerFuzzing[FindSimilarFace] with Cogn
   test("Throw errors if required fields not set") {
     val caught = intercept[AssertionError] {
       new FindSimilarFace()
-        .setSubscriptionKey(cognitiveKey)
-        .setLocation("eastus")
+        .setCognitiveTestAuth
         .setOutputCol("similar")
         .transform(faceIdDF).collect()
     }
@@ -127,8 +123,7 @@ class GroupFacesSuite extends TransformerFuzzing[GroupFaces] with CognitiveKey {
   ).toDF("url")
 
   lazy val detector = new DetectFace()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setCognitiveTestAuth
     .setImageUrlCol("url")
     .setOutputCol("detected_faces")
     .setReturnFaceId(true)
@@ -146,8 +141,7 @@ class GroupFacesSuite extends TransformerFuzzing[GroupFaces] with CognitiveKey {
     row.getAs[String]("id"))
 
   lazy val group = new GroupFaces()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setCognitiveTestAuth
     .setOutputCol("grouping")
     .setFaceIds(faceIds)
 
@@ -162,8 +156,7 @@ class GroupFacesSuite extends TransformerFuzzing[GroupFaces] with CognitiveKey {
   test("Throw errors if required fields not set") {
     val caught = intercept[AssertionError] {
       new GroupFaces()
-        .setSubscriptionKey(cognitiveKey)
-        .setLocation("eastus")
+        .setCognitiveTestAuth
         .setOutputCol("grouping")
         .transform(faceIdDF).collect()
     }
@@ -214,8 +207,7 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
   lazy val bradFaceIds = bradFaces.map(Person.addFace(_, pgId, bradId))
 
   lazy val detector = new DetectFace()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setCognitiveTestAuth
     .setImageUrlCol("url")
     .setOutputCol("detected_faces")
     .setReturnFaceId(true)
@@ -248,8 +240,7 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
   }
 
   lazy val id = new IdentifyFaces()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setCognitiveTestAuth
     .setFaceIdsCol("faces")
     .setPersonGroupId(pgId)
     .setOutputCol("identified_faces")
@@ -267,8 +258,7 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
   test("Throw errors if required fields not set") {
     val caught = intercept[AssertionError] {
       new IdentifyFaces()
-        .setSubscriptionKey(cognitiveKey)
-        .setLocation("eastus")
+        .setCognitiveTestAuth
         .setPersonGroupId(pgId)
         .setOutputCol("identified_faces")
         .transform(df).collect()
@@ -342,8 +332,7 @@ class VerifyFacesSuite extends TransformerFuzzing[VerifyFaces] with CognitiveKey
   ).toDF("url")
 
   lazy val detector = new DetectFace()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setCognitiveTestAuth
     .setImageUrlCol("url")
     .setOutputCol("detected_faces")
     .setReturnFaceId(true)
@@ -360,8 +349,7 @@ class VerifyFacesSuite extends TransformerFuzzing[VerifyFaces] with CognitiveKey
     "faceId2", lit(faceIdDF.take(1).head.getString(0)))
 
   lazy val verify = new VerifyFaces()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setCognitiveTestAuth
     .setOutputCol("same")
     .setFaceId1Col("faceId1")
     .setFaceId2Col("faceId2")

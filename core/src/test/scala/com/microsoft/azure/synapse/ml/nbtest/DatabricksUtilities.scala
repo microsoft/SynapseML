@@ -50,6 +50,9 @@ object DatabricksUtilities {
   private[nbtest] val PatAuthType = "pat"
   private[nbtest] val DatabricksAadResource = "2ff814a6-3304-4ab8-85cb-cd0e6f879c1d"
   private[nbtest] val AzureManagementResource = "https://management.core.windows.net/"
+  private[nbtest] val CognitiveServicesResource = "https://cognitiveservices.azure.com/"
+  private[nbtest] val CognitiveAadTokenParameter = "synapseml_cognitive_aad_token"
+  private[nbtest] val CognitiveAadNotebook = "Quickstart - Understand and Search Forms.ipynb"
   private[nbtest] val AadWorkspaceHost = "adb-1885762835647850.10.azuredatabricks.net"
   private[nbtest] val AadWorkspaceResourceId =
     "/subscriptions/e342c2c0-f844-4b18-9208-52c8c234c30e/resourceGroups/" +
@@ -293,11 +296,19 @@ object DatabricksUtilities {
   }
 
   //TODO convert all this to typed code
-  def databricksPost(path: String, body: String, apiVersion: String = "2.0"): JsValue = {
+  def databricksPost(
+      path: String,
+      body: String,
+      apiVersion: String = "2.0",
+      redactErrorBodies: Boolean = false): JsValue = {
     val request = new HttpPost(baseURL(apiVersion) + path)
     addAuthHeaders(request)
     request.setEntity(new StringEntity(body))
-    RESTHelpers.sendAndParseJson(request)
+    if (redactErrorBodies) {
+      RESTHelpers.sendAndParseJsonRedactingBodies(request)
+    } else {
+      RESTHelpers.sendAndParseJson(request)
+    }
   }
 
   def getClusterIdByName(name: String): String = {
@@ -527,13 +538,27 @@ object DatabricksUtilities {
      """.stripMargin
   }
 
+  private[nbtest] def notebookBaseParameters(
+      notebookName: String,
+      baseParameters: Map[String, String],
+      cognitiveTokenProvider: () => String): Map[String, String] = {
+    if (notebookName == CognitiveAadNotebook) {
+      val token = Option(cognitiveTokenProvider()).filter(_.trim.nonEmpty).getOrElse {
+        throw new IllegalStateException("Cognitive Services access token was empty")
+      }
+      baseParameters.updated(CognitiveAadTokenParameter, token)
+    } else {
+      baseParameters
+    }
+  }
+
   def submitRun(
       clusterId: String,
       notebookPath: String,
       timeoutSeconds: Int = TimeoutInMillis / 1000,
       baseParameters: Map[String, String] = Map.empty): Long = {
     val body = createSubmitRunRequest(clusterId, notebookPath, timeoutSeconds, baseParameters)
-    databricksPost("jobs/runs/submit", body).select[Long]("run_id")
+    databricksPost("jobs/runs/submit", body, redactErrorBodies = true).select[Long]("run_id")
   }
 
   def isClusterActive(clusterId: String): Boolean = {
@@ -624,7 +649,11 @@ object DatabricksUtilities {
     workspaceMkDir(folderToCreate)
     val destination: String = folderToCreate + notebookFile.getName
     uploadNotebook(notebookFile, destination)
-    val runId: Long = submitRun(clusterId, destination, timeoutSeconds, baseParameters)
+    val effectiveBaseParameters = notebookBaseParameters(
+      notebookFile.getName,
+      baseParameters,
+      () => Secrets.getAccessToken(CognitiveServicesResource))
+    val runId: Long = submitRun(clusterId, destination, timeoutSeconds, effectiveBaseParameters)
     val run: DatabricksNotebookRun = DatabricksNotebookRun(runId, notebookFile.getName, timeoutSeconds * 1000)
     println(s"Successfully submitted job run id ${run.runId} for notebook ${run.notebookName}")
     DatabricksState.JobIdsToCancel.append(run.runId)

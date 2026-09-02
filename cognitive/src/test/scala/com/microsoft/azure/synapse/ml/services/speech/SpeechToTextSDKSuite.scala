@@ -84,7 +84,7 @@ trait SpeechToTextSDKSuiteBase extends TestBase with CognitiveKey with CustomSpe
   def speechTest(format: String, audioBytes: Array[Byte], expectedText: String): Assertion = {
     val resultArray = sdk.inputStreamToText(
       new ByteArrayInputStream(audioBytes),
-      "wav", uri, cognitiveKey, profanity, wordLevelTimestamps, language, format, None, Seq())
+      "wav", uri, speechAADToken, profanity, wordLevelTimestamps, language, format, None, Seq())
     val result = speechArrayToText(resultArray.toSeq)
     if (format == "simple") {
       resultArray.foreach { rp =>
@@ -144,15 +144,21 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK] with Spee
   override val retrySerializationFuzzing: Boolean = true
 
   def sdk: SpeechToTextSDK = new SpeechToTextSDK()
-    .setSubscriptionKey(cognitiveKey)
+    .setAADToken(cognitiveAADToken)
+    .setCognitiveServiceResourceId(cognitiveResourceId)
     .setLocation(region)
     .setOutputCol("text")
     .setAudioDataCol("audio")
     .setLanguage("en-US")
     .setProfanity("Masked")
 
-  def customSdk: SpeechToTextSDK = sdk
+  def customSdk: SpeechToTextSDK = new SpeechToTextSDK()
     .setSubscriptionKey(customSpeechKey)
+    .setLocation(region)
+    .setOutputCol("text")
+    .setAudioDataCol("audio")
+    .setLanguage("en-US")
+    .setProfanity("Masked")
     .setEndpointId("395cdcf7-e7db-4083-aebe-868a7d80ca74")
 
   override lazy val dfEq = new Equality[DataFrame] {
@@ -284,7 +290,7 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK] with Spee
 
   test("API vs. SDK") {
     val stt = new SpeechToText()
-      .setSubscriptionKey(cognitiveKey)
+      .setAADToken(speechAADToken)
       .setLocation(region)
       .setOutputCol("text")
       .setAudioDataCol("audio")

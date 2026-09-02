@@ -42,6 +42,7 @@ object FormRecognizerUtils extends CognitiveKey {
   import com.microsoft.azure.synapse.ml.io.http.RESTHelpers._
 
   val PollingDelay = 1000
+  val BaseURL = s"https://$cognitiveServiceName.cognitiveservices.azure.com/formrecognizer/v2.1/custom/models"
 
   def formSend(request: HttpRequestBase, path: String,
                params: Map[String, String] = Map()): String = {
@@ -54,8 +55,8 @@ object FormRecognizerUtils extends CognitiveKey {
     request.setURI(new URI(path + paramString))
 
     retry(List(100, 500, 1000), { () =>
-      request.addHeader("Ocp-Apim-Subscription-Key", cognitiveKey)
-      request.addHeader("Content-Type", "application/json")
+      request.setHeader("Authorization", s"Bearer $cognitiveAADToken")
+      request.setHeader("Content-Type", "application/json")
       using(Client.execute(request)) { response =>
         if (!response.getStatusLine.getStatusCode.toString.startsWith("2")) {
           val bodyOpt = request match {
@@ -79,15 +80,14 @@ object FormRecognizerUtils extends CognitiveKey {
   }
 
   def formDelete(path: String, params: Map[String, String] = Map()): String = {
-    formSend(new HttpDelete(),
-      "https://eastus.api.cognitive.microsoft.com/formrecognizer/v2.1/custom/models/" + path, params)
+    formSend(new HttpDelete(), s"$BaseURL/$path", params)
   }
 
   def formPost(path: String, body: TrainCustomModelSchema, params: Map[String, String] = Map())
               (implicit format: JsonFormat[TrainCustomModelSchema]): String = {
     val post = new HttpPost()
     post.setEntity(new StringEntity(body.toJson.compactPrint))
-    formSend(post, "https://eastus.api.cognitive.microsoft.com/formrecognizer/v2.1/custom/models" + path, params)
+    formSend(post, BaseURL + path, params)
   }
 
   def formGet(path: String, params: Map[String, String] = Map()): String = {
@@ -158,11 +158,11 @@ class AnalyzeLayoutSuite extends TransformerFuzzing[AnalyzeLayout] with FormReco
 
 
   lazy val analyzeLayout: AnalyzeLayout = new AnalyzeLayout()
-    .setSubscriptionKey(cognitiveKey).setLocation("eastus")
+    .setCognitiveTestAuth
     .setImageUrlCol("source").setOutputCol("layout").setConcurrency(5)
 
   lazy val bytesAnalyzeLayout: AnalyzeLayout = new AnalyzeLayout()
-    .setSubscriptionKey(cognitiveKey).setLocation("eastus")
+    .setCognitiveTestAuth
     .setImageBytesCol("imageBytes").setOutputCol("layout").setConcurrency(5)
 
   test("Basic Usage with URL") {
@@ -216,11 +216,11 @@ class AnalyzeReceiptsSuite extends TransformerFuzzing[AnalyzeReceipts] with Form
 
 
   lazy val analyzeReceipts: AnalyzeReceipts = new AnalyzeReceipts()
-    .setSubscriptionKey(cognitiveKey).setLocation("eastus")
+    .setCognitiveTestAuth
     .setImageUrlCol("source").setOutputCol("receipts").setConcurrency(5)
 
   lazy val bytesAnalyzeReceipts: AnalyzeReceipts = new AnalyzeReceipts()
-    .setSubscriptionKey(cognitiveKey).setLocation("eastus")
+    .setCognitiveTestAuth
     .setImageBytesCol("imageBytes").setOutputCol("receipts").setConcurrency(5)
 
   test("Basic Usage with URL") {
@@ -258,11 +258,11 @@ class AnalyzeBusinessCardsSuite extends TransformerFuzzing[AnalyzeBusinessCards]
 
 
   lazy val analyzeBusinessCards: AnalyzeBusinessCards = new AnalyzeBusinessCards()
-    .setSubscriptionKey(cognitiveKey).setLocation("eastus")
+    .setCognitiveTestAuth
     .setImageUrlCol("source").setOutputCol("businessCards").setConcurrency(5)
 
   lazy val bytesAnalyzeBusinessCards: AnalyzeBusinessCards = new AnalyzeBusinessCards()
-    .setSubscriptionKey(cognitiveKey).setLocation("eastus")
+    .setCognitiveTestAuth
     .setImageBytesCol("imageBytes").setOutputCol("businessCards").setConcurrency(5)
 
   test("Basic Usage with URL") {
@@ -302,11 +302,11 @@ class AnalyzeInvoicesSuite extends TransformerFuzzing[AnalyzeInvoices] with Form
 
 
   lazy val analyzeInvoices: AnalyzeInvoices = new AnalyzeInvoices()
-    .setSubscriptionKey(cognitiveKey).setLocation("eastus")
+    .setCognitiveTestAuth
     .setImageUrlCol("source").setOutputCol("invoices").setConcurrency(5)
 
   lazy val bytesAnalyzeInvoices: AnalyzeInvoices = new AnalyzeInvoices()
-    .setSubscriptionKey(cognitiveKey).setLocation("eastus")
+    .setCognitiveTestAuth
     .setImageBytesCol("imageBytes").setOutputCol("invoices").setConcurrency(5)
 
   test("Basic Usage with URL") {
@@ -356,11 +356,11 @@ class AnalyzeIDDocumentsSuite extends TransformerFuzzing[AnalyzeIDDocuments] wit
 
 
   lazy val analyzeIDDocuments: AnalyzeIDDocuments = new AnalyzeIDDocuments()
-    .setSubscriptionKey(cognitiveKey).setLocation("eastus")
+    .setCognitiveTestAuth
     .setImageUrlCol("source").setOutputCol("ids").setConcurrency(5)
 
   lazy val bytesAnalyzeIDDocuments: AnalyzeIDDocuments = new AnalyzeIDDocuments()
-    .setSubscriptionKey(cognitiveKey).setLocation("eastus")
+    .setCognitiveTestAuth
     .setImageBytesCol("imageBytes").setOutputCol("ids").setConcurrency(5)
 
   test("Basic Usage with URL") {
@@ -412,8 +412,7 @@ class ListCustomModelsSuite extends TransformerFuzzing[ListCustomModels]
 
   lazy val listCustomModels: ListCustomModels = {
     new ListCustomModels()
-      .setSubscriptionKey(cognitiveKey)
-      .setLocation("eastus")
+      .setCognitiveTestAuth
       .setOp("full")
       .setOutputCol("models")
       .setConcurrency(5)

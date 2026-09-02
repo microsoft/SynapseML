@@ -20,7 +20,7 @@ class SpeakerEmotionInferenceSuite extends TransformerFuzzing[SpeakerEmotionInfe
 
   def ssmlGenerator: SpeakerEmotionInference = new SpeakerEmotionInference()
     .setLocation("eastus")
-    .setSubscriptionKey(cognitiveKey)
+    .setAADToken(speechAADToken)
     .setLocale("en-US")
     .setVoiceName("en-US-JaneNeural")
     .setTextCol("text")
@@ -129,7 +129,8 @@ class SpeakerEmotionInferenceSuite extends TransformerFuzzing[SpeakerEmotionInfe
   def tts: TextToSpeech = new TextToSpeech()
     .setUseSSML(true)
     .setLocation("eastus")
-    .setSubscriptionKey(cognitiveKey)
+    .setAADToken(cognitiveAADToken)
+    .setCognitiveServiceResourceId(cognitiveResourceId)
     .setTextCol("ssml")
     .setOutputFileCol("filename")
 
