@@ -403,8 +403,7 @@ object HandlingUtils extends SparkLogging {
   def advanced(retryTimes: Int*)(client: CloseableHttpClient,
                                  request: HTTPRequestData): HTTPResponseData = {
     try {
-      val message = previewMessage(request.toHTTPCore)
-      SynapseMLLogging.logDebug(s"sending $message")
+      SynapseMLLogging.logDebug(s"sending ${previewMessage(request.toHTTPCore)}")
       val start = System.currentTimeMillis()
       val usesTrustedFabricAuth = request.usesFabricAuth &&
         FabricClient.isOpenAIEndpoint(request.requestLine.uri)
