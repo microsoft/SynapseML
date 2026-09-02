@@ -83,7 +83,7 @@ object RESTHelpers {
             Try(request match {
               case er: HttpEntityEnclosingRequestBase => IOUtils.toString(er.getEntity.getContent, "UTF-8")
               case _ => ""
-            }).get
+            }).getOrElse("")
           }
 
           val responseBodyOpt = if (redactErrorBodies) {

@@ -56,19 +56,30 @@ def _use_aad_in_python_block(block, speech_sample):
         'getSecret("translator-key"))',
         "cognitiveToken = getAccessToken()",
     )
-    block = re.sub(
-        r"\.setSubscriptionKey\((?:cognitiveKey|textKey)\)\n(\s*)"
-        r'\.setLocation\("eastus"\)',
-        rf'.setAADToken(cognitiveToken)\n\1.setCustomServiceName("{COGNITIVE_SERVICE_NAME}")',
+    block, cognitive_auth_count = re.subn(
+        r"\.setSubscriptionKey\((?:cognitiveKey|textKey)\)",
+        ".setAADToken(cognitiveToken)",
         block,
     )
-    block = re.sub(
-        r"\.setSubscriptionKey\(translatorKey\)\n(\s*)" r'\.setLocation\("eastus"\)',
-        r".setAADToken(cognitiveToken)\n"
-        r'\1.setSubscriptionRegion("eastus")\n'
-        rf'\1.setEndpoint("{TRANSLATOR_ENDPOINT}")',
+    if cognitive_auth_count:
+        block = re.sub(
+            r'(?m)^(\s*)\.setLocation\("eastus"\)',
+            rf'\1.setCustomServiceName("{COGNITIVE_SERVICE_NAME}")',
+            block,
+        )
+
+    block, translator_auth_count = re.subn(
+        r"\.setSubscriptionKey\(translatorKey\)",
+        ".setAADToken(cognitiveToken)",
         block,
     )
+    if translator_auth_count:
+        block = re.sub(
+            r'(?m)^(\s*)\.setLocation\("eastus"\)',
+            r'\1.setSubscriptionRegion("eastus")\n'
+            rf'\1.setEndpoint("{TRANSLATOR_ENDPOINT}")',
+            block,
+        )
     return block
 
 
@@ -124,12 +135,11 @@ import synapse.ml
     )
     with io.open(os.path.join(folder, md), "r+", encoding="utf-8") as f:
         content = f.read()
-        f.truncate(0)
         content = use_aad_for_ci_samples(content, md)
         content = re.sub("<!--pytest-codeblocks:cont-->", replacement, content)
-        f.seek(0, 0)
+        f.seek(0)
         f.write(content)
-        f.close()
+        f.truncate()
 
 
 def iterate_over_documentation(folder, version):

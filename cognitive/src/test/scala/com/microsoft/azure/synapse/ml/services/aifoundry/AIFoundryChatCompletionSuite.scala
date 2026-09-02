@@ -191,7 +191,7 @@ class AIFoundryChatCompletionSuite
     ).toDF("messages")
 
     val completion = new AIFoundryChatCompletion()
-      .setCustomServiceName(aiFoundryServiceName)
+      .setCognitiveTestAuth(aiFoundryServiceName)
       .setModel(aiFoundryModelName)
       .setApiVersion("2024-05-01-preview")
       .setMaxCompletionTokens(500)
