@@ -249,6 +249,16 @@ def test_sbt_retry_script_referenced_and_exists():
     assert "tools/ci/get_sbt_version.sh" in txt
 
 
+def test_publish_template_repairs_poisoned_cache_before_packaging():
+    data = yaml.safe_load(PUBLISH_TPL.read_text())
+    script = data["steps"][0]["inputs"]["inlineScript"]
+    recovery = "SBT_SETUP_MAX_STAGGER_SECONDS=0 bash tools/ci/sbt_retry.sh update"
+
+    assert recovery in script
+    assert script.index(recovery) < script.index("sbt packagePython")
+    assert script.index("sbt packagePython") < script.index("sbt publishBlob")
+
+
 def test_no_dormant_ivy_cache_placeholders_remain():
     txt = _pipeline_text()
     assert "ivy_cache" not in txt, "dormant ivy_cache placeholders should be replaced"
