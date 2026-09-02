@@ -75,6 +75,20 @@ class VerifyTokenInvalidation extends TestBase {
     assert(method.exists(_._1.getClass.getName.endsWith("WorkingReflectionCandidate$")))
   }
 
+  test("NFS token deletion reports filesystem failures without throwing") {
+    val directory = Files.createTempDirectory("synapseml-mwc-cache")
+    val child = Files.createFile(directory.resolve("token"))
+
+    try {
+      assert(!TokenLibrary.deleteTokenPath(directory))
+      assert(Files.exists(directory))
+      assert(Files.exists(child))
+    } finally {
+      Files.deleteIfExists(child)
+      Files.deleteIfExists(directory)
+    }
+  }
+
   test("concurrent refreshes invalidate a rejected MWC token once") {
     val workers = 8
     val executor = Executors.newFixedThreadPool(workers)

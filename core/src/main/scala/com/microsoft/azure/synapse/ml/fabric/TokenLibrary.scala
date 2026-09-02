@@ -66,6 +66,9 @@ object TokenLibrary {
       case _: ReflectiveOperationException | _: SecurityException |
            _: LinkageError | _: IllegalArgumentException =>
         fallback
+      case error: RuntimeException
+          if error.getClass.getName == "java.lang.reflect.InaccessibleObjectException" =>
+        fallback
     }
   }
 
@@ -79,7 +82,6 @@ object TokenLibrary {
         (cls.getMethods ++ cls.getDeclaredMethods)
           .find(method => method.getName == methodName && method.getParameterCount == parameterCount)
           .map { method =>
-            method.setAccessible(true)
             module -> method
           }
       }
@@ -122,11 +124,17 @@ object TokenLibrary {
           case path: String => Some(Paths.get(path))
           case _ => None
         }
-        tokenPath.exists { path =>
-          Files.deleteIfExists(path)
-          true
-        }
+        tokenPath.exists(deleteTokenPath)
       }
+    }
+  }
+
+  private[ml] def deleteTokenPath(path: Path): Boolean = {
+    try {
+      Files.deleteIfExists(path)
+      true
+    } catch {
+      case _: java.io.IOException | _: SecurityException => false
     }
   }
 
