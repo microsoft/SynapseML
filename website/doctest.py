@@ -7,87 +7,56 @@ import re
 import subprocess
 import sys
 
-COGNITIVE_RESOURCE_ID = (
-    "/subscriptions/e342c2c0-f844-4b18-9208-52c8c234c30e/resourceGroups/"
-    "marhamil-mmlspark/providers/Microsoft.CognitiveServices/accounts/mmlspark-cs"
-)
-COGNITIVE_SERVICE_NAME = "mmlspark-cs"
+COGNITIVE_LOCATION = "centralus"
 TRANSLATOR_ENDPOINT = (
-    "https://mmlspark-cs.cognitiveservices.azure.com/translator/text/v3.0/"
+    "https://mmlspark-cs-central.cognitiveservices.azure.com/translator/text/v3.0/"
 )
+COGNITIVE_KEY_SAMPLES = {
+    "_ComputerVision.md",
+    "_Face.md",
+    "_FormRecognizer.md",
+    "_SpeechToText.md",
+    "_TextAnalytics.md",
+}
 
 
-def _use_aad_in_python_block(block, speech_sample):
-    if speech_sample:
-        block = block.replace(
-            'cognitiveKey = os.environ.get("COGNITIVE_API_KEY", '
-            'getSecret("cognitive-api-key"))',
-            "cognitiveToken = getAccessToken()\n"
-            f'cognitiveResourceId = "{COGNITIVE_RESOURCE_ID}"\n'
-            'speechToken = f"aad#{cognitiveResourceId}#{cognitiveToken}"',
+def _configure_python_block(block, markdown_name):
+    if os.path.basename(markdown_name) in COGNITIVE_KEY_SAMPLES:
+        return block.replace(
+            'getSecret("cognitive-api-key")',
+            'getSecret("cognitive-api-key-central")',
+        ).replace(
+            '.setLocation("eastus")',
+            f'.setLocation("{COGNITIVE_LOCATION}")',
         )
-        block = re.sub(
-            r"(\.setSubscriptionKey\(cognitiveKey\)\n)(\s*)"
-            r'(\.setLocation\("eastus"\))',
-            r".setAADToken(speechToken)\n\2\3",
-            block,
-        )
-        block = re.sub(
-            r"(SpeechToTextSDK\(\)\n\s*)\.setAADToken\(speechToken\)\n(\s*)"
-            r'(\.setLocation\("eastus"\))',
-            r"\1.setAADToken(cognitiveToken)\n"
-            r"\2.setCognitiveServiceResourceId(cognitiveResourceId)\n\2\3",
-            block,
-        )
+
+    if os.path.basename(markdown_name) != "_Translator.md":
         return block
 
-    block = block.replace(
-        'cognitiveKey = os.environ.get("COGNITIVE_API_KEY", '
-        'getSecret("cognitive-api-key"))',
-        "cognitiveToken = getAccessToken()",
-    )
-    block = block.replace(
-        'textKey = os.environ.get("COGNITIVE_API_KEY", '
-        'getSecret("cognitive-api-key"))',
-        "cognitiveToken = getAccessToken()",
-    )
     block = block.replace(
         'translatorKey = os.environ.get("TRANSLATOR_KEY", '
         'getSecret("translator-key"))',
         "cognitiveToken = getAccessToken()",
     )
-    block, cognitive_auth_count = re.subn(
-        r"\.setSubscriptionKey\((?:cognitiveKey|textKey)\)",
-        ".setAADToken(cognitiveToken)",
-        block,
-    )
-    if cognitive_auth_count:
-        block = re.sub(
-            r'(?m)^(\s*)\.setLocation\("eastus"\)',
-            rf'\1.setCustomServiceName("{COGNITIVE_SERVICE_NAME}")',
-            block,
-        )
-
-    block, translator_auth_count = re.subn(
+    block, auth_count = re.subn(
         r"\.setSubscriptionKey\(translatorKey\)",
         ".setAADToken(cognitiveToken)",
         block,
     )
-    if translator_auth_count:
+    if auth_count:
         block = re.sub(
             r'(?m)^(\s*)\.setLocation\("eastus"\)',
-            r'\1.setSubscriptionRegion("eastus")\n'
+            rf'\1.setSubscriptionRegion("{COGNITIVE_LOCATION}")\n'
             rf'\1.setEndpoint("{TRANSLATOR_ENDPOINT}")',
             block,
         )
     return block
 
 
-def use_aad_for_ci_samples(content, markdown_name):
-    speech_sample = os.path.basename(markdown_name) == "_SpeechToText.md"
+def configure_ci_samples(content, markdown_name):
     return re.sub(
         r"```python\n.*?\n```",
-        lambda match: _use_aad_in_python_block(match.group(0), speech_sample),
+        lambda match: _configure_python_block(match.group(0), markdown_name),
         content,
         flags=re.DOTALL,
     )
@@ -135,7 +104,7 @@ import synapse.ml
     )
     with io.open(os.path.join(folder, md), "r+", encoding="utf-8") as f:
         content = f.read()
-        content = use_aad_for_ci_samples(content, md)
+        content = configure_ci_samples(content, md)
         content = re.sub("<!--pytest-codeblocks:cont-->", replacement, content)
         f.seek(0)
         f.write(content)

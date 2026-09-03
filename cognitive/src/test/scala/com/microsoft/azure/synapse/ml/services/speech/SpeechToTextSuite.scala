@@ -17,7 +17,7 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
 
   import spark.implicits._
 
-  val region = "eastus"
+  val region = cognitiveLoc
   val resourcesDir = System.getProperty("user.dir") + "/src/test/resources/"
   val uri = new URI(s"https://$region.api.cognitive.microsoft.com/sts/v1.0/issuetoken")
   val language = "en-us"
@@ -25,7 +25,7 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
   val format = "simple"
 
   lazy val stt = new SpeechToText()
-    .setAADToken(speechAADToken)
+    .setSubscriptionKey(cognitiveKey)
     .setLocation(region)
     .setOutputCol("text")
     .setAudioDataCol("audio")
@@ -69,7 +69,7 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
   test("Throw errors if required fields not set") {
     val caught = intercept[AssertionError] {
       new SpeechToText()
-        .setAADToken(speechAADToken)
+        .setSubscriptionKey(cognitiveKey)
         .setLocation(region)
         .setOutputCol("text")
         .transform(df).collect()

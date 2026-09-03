@@ -25,7 +25,7 @@ trait SpeechToTextSDKSuiteBase extends TestBase with CognitiveKey {
 
   import spark.implicits._
 
-  val region = "eastus"
+  val region = cognitiveLoc
   lazy val resourcesDir = new File(getClass.getResource("/").toURI)
   val uri = new URI(s"https://$region.api.cognitive.microsoft.com/sts/v1.0/issuetoken")
   val language = "en-us"
@@ -81,7 +81,7 @@ trait SpeechToTextSDKSuiteBase extends TestBase with CognitiveKey {
   def speechTest(format: String, audioBytes: Array[Byte], expectedText: String): Assertion = {
     val resultArray = sdk.inputStreamToText(
       new ByteArrayInputStream(audioBytes),
-      "wav", uri, speechAADToken, profanity, wordLevelTimestamps, language, format, None, Seq())
+      "wav", uri, cognitiveKey, profanity, wordLevelTimestamps, language, format, None, Seq())
     val result = speechArrayToText(resultArray.toSeq)
     if (format == "simple") {
       resultArray.foreach { rp =>
@@ -141,8 +141,7 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK] with Spee
   override val retrySerializationFuzzing: Boolean = true
 
   def sdk: SpeechToTextSDK = new SpeechToTextSDK()
-    .setAADToken(cognitiveAADToken)
-    .setCognitiveServiceResourceId(cognitiveResourceId)
+    .setSubscriptionKey(cognitiveKey)
     .setLocation(region)
     .setOutputCol("text")
     .setAudioDataCol("audio")
@@ -208,13 +207,7 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK] with Spee
     val endpointId = "00000000-0000-0000-0000-000000000001"
     val config = new SpeechToTextSDK()
       .setEndpointId(endpointId)
-      .getSpeechConfig(
-        uri,
-        SpeechSDKAuth.formatAADToken("test-token", cognitiveResourceId),
-        language,
-        profanity,
-        wordLevelTimestamps,
-        format)
+      .getSpeechConfig(uri, "test-key", language, profanity, wordLevelTimestamps, format)
     try {
       assert(config.getProperty(PropertyId.SpeechServiceConnection_EndpointId) === endpointId)
     } finally {
@@ -292,7 +285,7 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK] with Spee
 
   test("API vs. SDK") {
     val stt = new SpeechToText()
-      .setAADToken(speechAADToken)
+      .setSubscriptionKey(cognitiveKey)
       .setLocation(region)
       .setOutputCol("text")
       .setAudioDataCol("audio")

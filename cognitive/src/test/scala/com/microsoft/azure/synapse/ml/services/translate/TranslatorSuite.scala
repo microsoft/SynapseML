@@ -13,19 +13,10 @@ import org.apache.spark.sql.functions.{col, flatten}
 import java.util.Locale
 
 trait TranslatorKey extends CognitiveKey {
-  lazy val translatorEndpoint: String =
-    sys.env.getOrElse(
-      "TRANSLATOR_ENDPOINT",
-      "https://mmlspark-cs.cognitiveservices.azure.com/translator/text/v3.0/")
+  lazy val translatorKey: String = sys.env.getOrElse("TRANSLATOR_KEY", cognitiveKey)
+  lazy val translatorLocation: String = sys.env.getOrElse("TRANSLATOR_LOCATION", cognitiveLoc)
 
-  protected implicit class TranslatorTestAuthOps[T <: TextTranslatorBase](stage: T) {
-    def setTranslatorTestAuth: T = {
-      stage.setAADToken(cognitiveAADToken)
-      stage.setSubscriptionRegion("eastus")
-      stage.setEndpoint(translatorEndpoint)
-      stage
-    }
-  }
+  lazy val translatorName: String = "mmlspark-translator"
 }
 
 trait TranslatorUtils extends TestBase {
@@ -59,7 +50,8 @@ class TranslateSuite extends TransformerFuzzing[Translate]
   import spark.implicits._
 
   def translate: Translate = new Translate()
-    .setTranslatorTestAuth
+    .setSubscriptionKey(translatorKey)
+    .setLocation(translatorLocation)
     .setTextCol("text")
     .setOutputCol("translation")
     .setConcurrency(5)
@@ -87,7 +79,8 @@ class TranslateSuite extends TransformerFuzzing[Translate]
       s"Round-trip failed: got '$backStr'")
 
     val translate1: Translate = new Translate()
-      .setTranslatorTestAuth
+      .setSubscriptionKey(translatorKey)
+      .setLocation(translatorLocation)
       .setText("Hi, this is Synapse!")
       .setOutputCol("translation")
       .setConcurrency(5)
@@ -96,7 +89,8 @@ class TranslateSuite extends TransformerFuzzing[Translate]
     assert(greeting1.contains("嗨") || greeting1.contains("你好"))
 
     val translate2: Translate = new Translate()
-      .setTranslatorTestAuth
+      .setSubscriptionKey(translatorKey)
+      .setLocation(translatorLocation)
       .setTextCol("text")
       .setToLanguageCol("language")
       .setOutputCol("translation")
@@ -220,7 +214,8 @@ class TransliterateSuite extends TransformerFuzzing[Transliterate]
   lazy val transDf: DataFrame = Seq(List("こんにちは", "さようなら")).toDF("text")
 
   def transliterate: Transliterate = new Transliterate()
-    .setTranslatorTestAuth
+    .setSubscriptionKey(translatorKey)
+    .setLocation(translatorLocation)
     .setLanguage("ja")
     .setFromScript("Jpan")
     .setToScript("Latn")
@@ -240,7 +235,8 @@ class TransliterateSuite extends TransformerFuzzing[Transliterate]
   test("Throw errors if required fields not set") {
     val caught = intercept[AssertionError] {
       new Transliterate()
-        .setTranslatorTestAuth
+        .setSubscriptionKey(translatorKey)
+        .setLocation(translatorLocation)
         .setTextCol("text")
         .transform(textDf2).collect()
     }
@@ -267,7 +263,8 @@ class DetectSuite extends TransformerFuzzing[Detect]
   override val compareDataInSerializationTest: Boolean = false
 
   def detect: Detect = new Detect()
-    .setTranslatorTestAuth
+    .setSubscriptionKey(translatorKey)
+    .setLocation(translatorLocation)
     .setTextCol("text")
     .setOutputCol("result")
 
@@ -290,7 +287,8 @@ class BreakSentenceSuite extends TransformerFuzzing[BreakSentence]
   override val compareDataInSerializationTest: Boolean = false
 
   def breakSentence: BreakSentence = new BreakSentence()
-    .setTranslatorTestAuth
+    .setSubscriptionKey(translatorKey)
+    .setLocation(translatorLocation)
     .setTextCol("text")
     .setOutputCol("result")
 
@@ -317,7 +315,8 @@ class DictionaryLookupSuite extends TransformerFuzzing[DictionaryLookup]
   lazy val dictDf: DataFrame = Seq(List("fly")).toDF("text")
 
   def dictionaryLookup: DictionaryLookup = new DictionaryLookup()
-    .setTranslatorTestAuth
+    .setSubscriptionKey(translatorKey)
+    .setLocation(translatorLocation)
     .setFromLanguage("en")
     .setToLanguage("es")
     .setTextCol("text")
@@ -336,7 +335,8 @@ class DictionaryLookupSuite extends TransformerFuzzing[DictionaryLookup]
   test("Throw errors if required fields not set") {
     val caught = intercept[AssertionError] {
       new DictionaryLookup()
-        .setTranslatorTestAuth
+        .setSubscriptionKey(translatorKey)
+        .setLocation(translatorLocation)
         .setTextCol("text")
         .transform(textDf2).collect()
     }
@@ -360,7 +360,8 @@ class DictionaryExamplesSuite extends TransformerFuzzing[DictionaryExamples]
   lazy val dictDf: DataFrame = Seq(List(TextAndTranslation("fly", "volar"))).toDF("textAndTranslation")
 
   def dictionaryExamples: DictionaryExamples = new DictionaryExamples()
-    .setTranslatorTestAuth
+    .setSubscriptionKey(translatorKey)
+    .setLocation(translatorLocation)
     .setFromLanguage("en")
     .setToLanguage("es")
     .setOutputCol("result")
@@ -393,7 +394,8 @@ class DictionaryExamplesSuite extends TransformerFuzzing[DictionaryExamples]
   test("Throw errors if required fields not set") {
     val caught = intercept[AssertionError] {
       new DictionaryExamples()
-        .setTranslatorTestAuth
+        .setSubscriptionKey(translatorKey)
+        .setLocation(translatorLocation)
         .transform(dictDf).collect()
     }
     assert(caught.getMessage.contains("Missing required params"))

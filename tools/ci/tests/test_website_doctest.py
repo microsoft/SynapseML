@@ -1,3 +1,6 @@
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See LICENSE in project root for information.
+
 import importlib.util
 import re
 from pathlib import Path
@@ -12,7 +15,7 @@ WEBSITE_DOCTEST = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(WEBSITE_DOCTEST)
 
 
-def test_ci_samples_use_aad_without_changing_scala_examples():
+def test_ci_cognitive_samples_keep_key_auth_and_use_central_region():
     markdown = """```python
 cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
 model = (DetectFace()
@@ -24,32 +27,15 @@ model.setSubscriptionKey(cognitiveKey).setLocation("eastus")
 ```
 """
 
-    transformed = WEBSITE_DOCTEST.use_aad_for_ci_samples(markdown, "_Face.md")
+    transformed = WEBSITE_DOCTEST.configure_ci_samples(markdown, "_Face.md")
 
-    assert "cognitiveToken = getAccessToken()" in transformed
-    assert ".setAADToken(cognitiveToken)" in transformed
-    assert '.setCustomServiceName("mmlspark-cs")' in transformed
-    assert "model.setSubscriptionKey(cognitiveKey).setLocation" in transformed
-
-
-def test_ci_samples_rewrite_cognitive_auth_when_location_is_not_adjacent():
-    markdown = """```python
-cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
-model = (RecognizeDomainSpecificContent()
-    .setSubscriptionKey(cognitiveKey)
-    .setModel("celebrities")
-    .setLocation("eastus"))
-```
-"""
-
-    transformed = WEBSITE_DOCTEST.use_aad_for_ci_samples(markdown, "_ComputerVision.md")
-
-    assert ".setSubscriptionKey(cognitiveKey)" not in transformed
-    assert ".setAADToken(cognitiveToken)" in transformed
-    assert '.setCustomServiceName("mmlspark-cs")' in transformed
+    assert ".setSubscriptionKey(cognitiveKey)" in transformed
+    assert 'getSecret("cognitive-api-key-central")' in transformed
+    assert '.setLocation("centralus")' in transformed
+    assert 'model.setSubscriptionKey(cognitiveKey).setLocation("eastus")' in transformed
 
 
-def test_ci_translator_samples_use_custom_endpoint_and_region():
+def test_ci_translator_samples_use_aad_on_the_central_endpoint():
     markdown = """```python
 translatorKey = os.environ.get("TRANSLATOR_KEY", getSecret("translator-key"))
 model = (Translate()
@@ -58,13 +44,13 @@ model = (Translate()
 ```
 """
 
-    transformed = WEBSITE_DOCTEST.use_aad_for_ci_samples(markdown, "_Translator.md")
+    transformed = WEBSITE_DOCTEST.configure_ci_samples(markdown, "_Translator.md")
 
     assert ".setAADToken(cognitiveToken)" in transformed
     assert 'getSecret("translator-key")' not in transformed
-    assert '.setSubscriptionRegion("eastus")' in transformed
+    assert '.setSubscriptionRegion("centralus")' in transformed
     assert (
-        '.setEndpoint("https://mmlspark-cs.cognitiveservices.azure.com/'
+        '.setEndpoint("https://mmlspark-cs-central.cognitiveservices.azure.com/'
         'translator/text/v3.0/")'
     ) in transformed
 
@@ -79,54 +65,34 @@ model = (DocumentTranslator()
 ```
 """
 
-    transformed = WEBSITE_DOCTEST.use_aad_for_ci_samples(markdown, "_Translator.md")
+    transformed = WEBSITE_DOCTEST.configure_ci_samples(markdown, "_Translator.md")
 
     assert ".setSubscriptionKey(translatorKey)" not in transformed
     assert ".setAADToken(cognitiveToken)" in transformed
     assert ".setServiceName(translatorName)" in transformed
 
 
-def test_ci_speech_samples_use_the_required_aad_credential_shapes():
-    markdown = """```python
-cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
-rest = (SpeechToText()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus"))
-sdk = (SpeechToTextSDK()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus"))
-```
-"""
-
-    transformed = WEBSITE_DOCTEST.use_aad_for_ci_samples(markdown, "_SpeechToText.md")
-
-    assert ".setAADToken(speechToken)" in transformed
-    assert ".setAADToken(cognitiveToken)" in transformed
-    assert ".setCognitiveServiceResourceId(cognitiveResourceId)" in transformed
-
-
-def test_all_live_cognitive_quick_examples_are_rewritten_for_ci():
+def test_all_live_cognitive_quick_examples_target_working_ci_auth():
     docs = REPO_ROOT / "docs" / "Quick Examples" / "transformers" / "cognitive"
-    names = [
-        "_ComputerVision.md",
-        "_Face.md",
-        "_FormRecognizer.md",
-        "_SpeechToText.md",
-        "_TextAnalytics.md",
-        "_Translator.md",
-    ]
 
-    for name in names:
-        transformed = WEBSITE_DOCTEST.use_aad_for_ci_samples(
+    for name in WEBSITE_DOCTEST.COGNITIVE_KEY_SAMPLES:
+        transformed = WEBSITE_DOCTEST.configure_ci_samples(
             (docs / name).read_text(encoding="utf-8"), name
         )
         python_blocks = "\n".join(
             re.findall(r"```python\n(.*?)\n```", transformed, flags=re.DOTALL)
         )
-        assert not re.search(
-            r"\.setSubscriptionKey\((?:cognitiveKey|textKey|translatorKey)\)",
-            python_blocks,
-        )
+        assert '.setLocation("eastus")' not in python_blocks
+        assert ".setAADToken(" not in python_blocks
+
+    translator = WEBSITE_DOCTEST.configure_ci_samples(
+        (docs / "_Translator.md").read_text(encoding="utf-8"),
+        "_Translator.md",
+    )
+    translator_blocks = "\n".join(
+        re.findall(r"```python\n(.*?)\n```", translator, flags=re.DOTALL)
+    )
+    assert ".setSubscriptionKey(translatorKey)" not in translator_blocks
 
 
 def test_markdown_is_preserved_when_ci_transformation_fails(tmp_path, monkeypatch):
@@ -138,7 +104,7 @@ def test_markdown_is_preserved_when_ci_transformation_fails(tmp_path, monkeypatc
     def fail_transformation(content, markdown_name):
         raise RuntimeError("transformation failed")
 
-    monkeypatch.setattr(WEBSITE_DOCTEST, "use_aad_for_ci_samples", fail_transformation)
+    monkeypatch.setattr(WEBSITE_DOCTEST, "configure_ci_samples", fail_transformation)
 
     with pytest.raises(RuntimeError, match="transformation failed"):
         WEBSITE_DOCTEST.add_python_helper_to_markdown(

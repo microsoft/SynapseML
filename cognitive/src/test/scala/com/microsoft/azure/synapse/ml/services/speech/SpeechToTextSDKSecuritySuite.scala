@@ -98,41 +98,4 @@ class SpeechToTextSDKSecuritySuite extends TestBase {
       SpeechSDKBase.validateRecordedFileName(missingProperty)
     }
   }
-
-  test("Speech AAD credentials take precedence and use the SDK authorization format") {
-    val credential = SpeechSDKAuth.resolveCredential(
-      Some("aad-token"),
-      Some("/subscriptions/test/resourceGroups/test/providers/Microsoft.CognitiveServices/accounts/test"),
-      Some("subscription-key"))
-
-    assert(credential ===
-      "aad#/subscriptions/test/resourceGroups/test/providers/Microsoft.CognitiveServices/accounts/test#aad-token")
-  }
-
-  test("Speech subscription keys remain the fallback credential") {
-    assert(SpeechSDKAuth.resolveCredential(None, None, Some("subscription-key")) === "subscription-key")
-    assert(SpeechSDKAuth.resolveCredential(Some("  "), None, Some("subscription-key")) === "subscription-key")
-  }
-
-  test("Speech AAD authentication requires a resource ID") {
-    Seq(None, Some("  ")).foreach { resourceId =>
-      val error = intercept[IllegalArgumentException] {
-        SpeechSDKAuth.resolveCredential(Some("aad-token"), resourceId, Some("subscription-key"))
-      }
-      assert(error.getMessage ===
-        "Cognitive Services resource ID must be set when using Speech AAD authentication")
-      assert(!error.getMessage.contains("aad-token"))
-      assert(!error.getMessage.contains("subscription-key"))
-    }
-  }
-
-  test("Speech authentication rejects blank credentials without exposing their values") {
-    val error = intercept[IllegalArgumentException] {
-      SpeechSDKAuth.resolveCredential(Some(" "), Some("/resource"), Some(""))
-    }
-
-    assert(error.getMessage ===
-      "Set either a non-empty Speech AAD token and Cognitive Services resource ID or a subscription key")
-    assert(!error.getMessage.contains("/resource"))
-  }
 }

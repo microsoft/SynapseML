@@ -5,15 +5,11 @@ package com.microsoft.azure.synapse.ml.nbtest
 
 import com.microsoft.azure.synapse.ml.Secrets.ExpiringAccessToken
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
-import com.sun.net.httpserver.HttpServer
-import org.apache.http.client.methods.{HttpGet, HttpPost}
-import org.apache.http.entity.StringEntity
+import org.apache.http.client.methods.HttpGet
 import org.scalatest.funsuite.AnyFunSuite
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
-import java.net.InetSocketAddress
-import java.nio.charset.StandardCharsets
 import java.time.Instant
 import scala.collection.mutable
 
@@ -248,73 +244,6 @@ class DatabricksUtilitiesSuite extends AnyFunSuite {
     assert(notebookTask.fields("notebook_path").convertTo[String] === "/SynapseMLBuild/test-notebook")
     assert(notebookTask.fields("base_parameters").convertTo[Map[String, String]] ===
       Map("synapseml_ci_smoke" -> "true"))
-  }
-
-  test("Pass a short-lived Cognitive token only to the notebook that requires it") {
-    var tokenRequests = 0
-    val provider = () => {
-      tokenRequests += 1
-      "cognitive-token"
-    }
-    val existing = Map("existing" -> "value")
-
-    val migrated = DatabricksUtilities.notebookBaseParameters(
-      DatabricksUtilities.CognitiveAadNotebook,
-      existing,
-      provider)
-
-    assert(migrated === existing.updated(
-      DatabricksUtilities.CognitiveAadTokenParameter,
-      "cognitive-token"))
-    assert(tokenRequests === 1)
-    assert(DatabricksUtilities.notebookBaseParameters(
-      "unrelated.ipynb",
-      existing,
-      provider) === existing)
-    assert(tokenRequests === 1)
-  }
-
-  test("Reject an empty Cognitive token without exposing notebook parameters") {
-    val error = intercept[IllegalStateException] {
-      DatabricksUtilities.notebookBaseParameters(
-        DatabricksUtilities.CognitiveAadNotebook,
-        Map("existing" -> "sensitive-value"),
-        () => " ")
-    }
-
-    assert(error.getMessage === "Cognitive Services access token was empty")
-    assert(!error.getMessage.contains("sensitive-value"))
-  }
-
-  test("Redact notebook parameters from REST failure messages") {
-    val sensitiveValue = "short-lived-cognitive-token"
-    val server = HttpServer.create(new InetSocketAddress("localhost", 0), 0)
-    server.createContext("/submit", exchange => {
-      val response = s"""{"error":"$sensitiveValue"}""".getBytes(StandardCharsets.UTF_8)
-      exchange.sendResponseHeaders(400, response.length) //scalastyle:ignore magic.number
-      val output = exchange.getResponseBody
-      try {
-        output.write(response)
-      } finally {
-        output.close()
-      }
-    })
-    server.start()
-
-    try {
-      val request = new HttpPost(s"http://localhost:${server.getAddress.getPort}/submit")
-      request.setEntity(new StringEntity(s"""{"token":"$sensitiveValue"}"""))
-
-      val error = intercept[RuntimeException] {
-        RESTHelpers.safeSendRedactingBodies(request, backoffs = Nil)
-      }
-
-      assert(error.getMessage.contains("requestBody: <redacted>"))
-      assert(error.getMessage.contains("responseBody: <redacted>"))
-      assert(!error.getMessage.contains(sensitiveValue))
-    } finally {
-      server.stop(0)
-    }
   }
 
   test("Require the migrated T4 node type for the stable GPU pool") {

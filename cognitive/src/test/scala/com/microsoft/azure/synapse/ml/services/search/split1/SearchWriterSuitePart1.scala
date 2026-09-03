@@ -491,7 +491,8 @@ class SearchWriterSuitePart1 extends SearchWriterSuiteUtilities
     ).toDF("searchAction", "id", "url")
 
     val tdf = new AnalyzeImage()
-      .setCognitiveTestAuth
+      .setSubscriptionKey(cognitiveKey)
+      .setLocation(cognitiveLoc)
       .setImageUrlCol("url")
       .setOutputCol("analyzed")
       .setErrorCol("errors")

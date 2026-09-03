@@ -17,7 +17,7 @@ object FaceUtils extends CognitiveKey {
 
   import com.microsoft.azure.synapse.ml.io.http.RESTHelpers._
 
-  val BaseURL = s"https://$cognitiveServiceName.cognitiveservices.azure.com/face/v1.0/"
+  val BaseURL = s"https://$cognitiveLoc.api.cognitive.microsoft.com/face/v1.0/"
 
   def faceSend(request: HttpRequestBase, path: String,
                params: Map[String, String] = Map()): String = {
@@ -30,8 +30,8 @@ object FaceUtils extends CognitiveKey {
     request.setURI(new URI(BaseURL + path + paramString))
 
     retry(List(100, 500, 1000), { () =>
-      request.setHeader("Authorization", s"Bearer $cognitiveAADToken")
-      request.setHeader("Content-Type", "application/json")
+      request.addHeader("Ocp-Apim-Subscription-Key", cognitiveKey)
+      request.addHeader("Content-Type", "application/json")
       using(Client.execute(request)) { response =>
         if (!response.getStatusLine.getStatusCode.toString.startsWith("2")) {
           val bodyOpt = request match {
@@ -179,48 +179,6 @@ object PersonGroup {
 
 }
 
-case class LargePersonGroupInfo(largePersonGroupId: String, name: String, userData: Option[String])
-
-object LargePersonGroupProtocol {
-  implicit val LpgiEnc = jsonFormat3(LargePersonGroupInfo.apply)
-}
-
-object LargePersonGroup {
-
-  import LargePersonGroupProtocol._
-  import PersonGroupProtocol._
-
-  def create(largePersonGroupId: String, name: String,
-             userData: Option[String] = None): Unit = {
-    facePut(
-      s"largepersongroups/$largePersonGroupId",
-      List(userData.map("userData" -> _), Some("name" -> name)).flatten.toMap
-    )
-    ()
-  }
-
-  def delete(largePersonGroupId: String): Unit = {
-    faceDelete(s"largepersongroups/$largePersonGroupId")
-    ()
-  }
-
-  def list(start: Option[String] = None, top: Option[String] = None): Seq[LargePersonGroupInfo] = {
-    faceGet(s"largepersongroups",
-      List(start.map("start" -> _), top.map("top" -> _)).flatten.toMap
-    ).parseJson.convertTo[Seq[LargePersonGroupInfo]]
-  }
-
-  def train(largePersonGroupId: String): Unit = {
-    facePost(s"largepersongroups/$largePersonGroupId/train", body = "")
-    ()
-  }
-
-  def getTrainingStatus(largePersonGroupId: String): PersonGroupTrainingStatus = {
-    faceGet(s"largepersongroups/$largePersonGroupId/training").parseJson.convertTo[PersonGroupTrainingStatus]
-  }
-
-}
-
 object PersonProtocol {
   implicit val PiEnc = jsonFormat4(PersonInfo.apply)
 }
@@ -268,34 +226,4 @@ object Person {
     ()
   }
 
-}
-
-object LargePerson {
-
-  import PersonProtocol._
-
-  def addFace(url: String, largePersonGroupId: String, personId: String,
-              userData: Option[String] = None, targetFace: Option[String] = None): String = {
-    facePost(
-      s"largepersongroups/$largePersonGroupId/persons/$personId/persistedFaces",
-      Map("url" -> url),
-      List(userData.map("userData" -> _), targetFace.map("targetFace" -> _)).flatten.toMap
-    ).parseJson.asJsObject().fields("persistedFaceId").convertTo[String]
-  }
-
-  def create(name: String, largePersonGroupId: String,
-             userData: Option[String] = None): String = {
-    facePost(
-      s"largepersongroups/$largePersonGroupId/persons",
-      List(Some("name" -> name), userData.map("userData" -> _)).flatten.toMap
-    ).parseJson.asJsObject().fields("personId").convertTo[String]
-  }
-
-  def list(largePersonGroupId: String,
-           start: Option[String] = None,
-           top: Option[String] = None): Seq[PersonInfo] = {
-    faceGet(s"largepersongroups/$largePersonGroupId/persons",
-      List(start.map("start" -> _), top.map("top" -> _)).flatten.toMap
-    ).parseJson.convertTo[Seq[PersonInfo]]
-  }
 }

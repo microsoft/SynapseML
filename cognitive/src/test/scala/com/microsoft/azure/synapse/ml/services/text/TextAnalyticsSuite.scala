@@ -3,8 +3,8 @@
 
 package com.microsoft.azure.synapse.ml.services.text
 
+import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
-import com.microsoft.azure.synapse.ml.services.CognitiveKey
 import com.microsoft.azure.synapse.ml.stages.{FixedMiniBatchTransformer, FlattenBatch}
 import org.apache.spark.SparkException
 import org.apache.spark.ml.util.MLReadable
@@ -13,7 +13,10 @@ import org.apache.spark.sql.{DataFrame, Row}
 import org.scalactic.{Equality, TolerantNumerics}
 
 //scalastyle:off null
-trait TextEndpoint extends CognitiveKey
+trait TextEndpoint {
+  lazy val textKey: String = sys.env.getOrElse("TEXT_API_KEY", Secrets.CognitiveApiKey)
+  lazy val textApiLocation: String = sys.env.getOrElse("TEXT_API_LOCATION", "centralus")
+}
 
 trait TATestBase[S <: TextAnalyticsBaseNoBinding with HasUnpackedBinding]
   extends TransformerFuzzing[S] with TextEndpoint {
@@ -44,7 +47,8 @@ class LanguageDetectorSuite extends TATestBase[LanguageDetector] {
   ).toDF("text")
 
   override def model: LanguageDetector = new LanguageDetector()
-    .setCognitiveTestAuth
+    .setSubscriptionKey(textKey)
+    .setLocation(textApiLocation)
     .setOutputCol("output")
 
   test("Basic Usage") {
@@ -55,7 +59,8 @@ class LanguageDetectorSuite extends TATestBase[LanguageDetector] {
   }
 
   def versionModel: LanguageDetector = new LanguageDetector()
-    .setCognitiveTestAuth
+    .setSubscriptionKey(textKey)
+    .setLocation(textApiLocation)
     .setModelVersion("latest")
     .setOutputCol("output")
 
@@ -82,7 +87,8 @@ class EntityDetectorSuite extends TATestBase[EntityDetector] {
   ).toDF("id", "text")
 
   override def model: EntityDetector = new EntityDetector()
-    .setCognitiveTestAuth
+    .setSubscriptionKey(textKey)
+    .setLocation(textApiLocation)
     .setLanguage("en")
     .setOutputCol("output")
 
@@ -115,7 +121,8 @@ class TextSentimentSuite extends TATestBase[TextSentiment] {
   ).toDF("lang", "text")
 
   override def model: TextSentiment = new TextSentiment()
-    .setCognitiveTestAuth
+    .setSubscriptionKey(textKey)
+    .setLocation(textApiLocation)
     .setLanguageCol("lang")
     .setModelVersion("latest")
     .setShowStats(true)
@@ -168,7 +175,8 @@ class KeyPhraseExtractorSuite extends TATestBase[KeyPhraseExtractor] {
   ).toDF("lang", "text")
 
   override def model: KeyPhraseExtractor = new KeyPhraseExtractor()
-    .setCognitiveTestAuth
+    .setSubscriptionKey(textKey)
+    .setLocation(textApiLocation)
     .setLanguageCol("lang")
     .setOutputCol("output")
 
@@ -196,7 +204,8 @@ class NERSuite extends TATestBase[NER] {
   ).toDF("language", "text")
 
   override def model: NER = new NER()
-    .setCognitiveTestAuth
+    .setSubscriptionKey(textKey)
+    .setLocation(textApiLocation)
     .setLanguage("en")
     .setOutputCol("output")
 
@@ -227,7 +236,8 @@ class PIISuite extends TATestBase[PII] {
   ).toDF("language", "text")
 
   override def model: PII = new PII()
-    .setCognitiveTestAuth
+    .setSubscriptionKey(textKey)
+    .setLocation(textApiLocation)
     .setLanguage("en")
     .setOutputCol("output")
 
@@ -263,7 +273,8 @@ class AnalyzeHealthTextSuite extends TATestBase[AnalyzeHealthText] {
   ).toDF("language", "text")
 
   override def model: AnalyzeHealthText = new AnalyzeHealthText()
-    .setCognitiveTestAuth
+    .setSubscriptionKey(textKey)
+    .setLocation(textApiLocation)
     .setLanguage("en")
     .setOutputCol("output")
 

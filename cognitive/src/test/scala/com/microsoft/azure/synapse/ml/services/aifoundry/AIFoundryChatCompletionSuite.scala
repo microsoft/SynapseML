@@ -3,27 +3,27 @@
 
 package com.microsoft.azure.synapse.ml.services.aifoundry
 
+import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
-import com.microsoft.azure.synapse.ml.services.CognitiveKey
 import com.microsoft.azure.synapse.ml.services.openai._
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
 
-trait AIFoundryTestAuth extends CognitiveKey {
+trait AIFoundryAPIKey {
+  lazy val aiFoundryAPIKey: String = sys.env.getOrElse("AI_FOUNDRY_API_KEY", Secrets.OpenAIApiKey)
   lazy val aiFoundryServiceName: String = sys.env.getOrElse("AI_FOUNDRY_SERVICE_NAME", "synapseml-openai-3")
   lazy val aiFoundryModelName: String = "Llama-3.3-70B-Instruct" //"Phi-4-mini-instruct"
 }
 
-class AIFoundryChatCompletionSuite
-  extends TransformerFuzzing[AIFoundryChatCompletion] with AIFoundryTestAuth with Flaky {
+class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompletion] with AIFoundryAPIKey with Flaky {
   override val compareDataInSerializationTest: Boolean = false
 
 
   import spark.implicits._
 
   lazy val completion: AIFoundryChatCompletion = new AIFoundryChatCompletion()
-    .setCognitiveTestAuth(aiFoundryServiceName)
+    .setCustomServiceName(aiFoundryServiceName)
     .setApiVersion("2024-05-01-preview")
     .setMaxCompletionTokens(2048)
     .setOutputCol("out")
@@ -33,6 +33,7 @@ class AIFoundryChatCompletionSuite
     .setPresencePenalty(0.0)
     .setFrequencyPenalty(0.0)
     .setModel(aiFoundryModelName)
+    .setSubscriptionKey(aiFoundryAPIKey)
 
   lazy val goodDf: DataFrame = Seq(
     Seq(
@@ -100,7 +101,7 @@ class AIFoundryChatCompletionSuite
 
   test("getOptionalParam should include responseFormat"){
     val completion = new AIFoundryChatCompletion()
-      .setCognitiveTestAuth(aiFoundryServiceName)
+      .setCustomServiceName(aiFoundryServiceName)
 
     def validateResponseFormat(params: Map[String, Any], responseFormat: String): Unit = {
       val responseFormatPayloadName = this.completion.responseFormat.payloadName
@@ -191,13 +192,14 @@ class AIFoundryChatCompletionSuite
     ).toDF("messages")
 
     val completion = new AIFoundryChatCompletion()
-      .setCognitiveTestAuth(aiFoundryServiceName)
+      .setCustomServiceName(aiFoundryServiceName)
       .setModel(aiFoundryModelName)
       .setApiVersion("2024-05-01-preview")
       .setMaxCompletionTokens(500)
       .setOutputCol("out")
       .setMessagesCol("messages")
       .setTemperature(0)
+      .setSubscriptionKey(aiFoundryAPIKey)
       .setResponseFormat("json_object")
 
     testCompletion(completion, goodDf)

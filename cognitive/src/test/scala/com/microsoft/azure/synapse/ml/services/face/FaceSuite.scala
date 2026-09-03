@@ -12,6 +12,7 @@ import org.apache.spark.sql.{DataFrame, Row}
 import java.time.LocalDateTime
 import java.time.format.{DateTimeFormatterBuilder, DateTimeParseException, SignStyle}
 import java.time.temporal.ChronoField
+import scala.util.matching.Regex
 
 class DetectFaceSuite extends TransformerFuzzing[DetectFace] with CognitiveKey {
   override val compareDataInSerializationTest: Boolean = false
@@ -24,7 +25,8 @@ class DetectFaceSuite extends TransformerFuzzing[DetectFace] with CognitiveKey {
   ).toDF("url")
 
   lazy val face = new DetectFace()
-    .setCognitiveTestAuth
+    .setSubscriptionKey(cognitiveKey)
+    .setLocation(cognitiveLoc)
     .setImageUrlCol("url")
     .setOutputCol("face")
     .setReturnFaceId(true)
@@ -61,7 +63,8 @@ class FindSimilarFaceSuite extends TransformerFuzzing[FindSimilarFace] with Cogn
   ).toDF("url")
 
   lazy val detector = new DetectFace()
-    .setCognitiveTestAuth
+    .setSubscriptionKey(cognitiveKey)
+    .setLocation(cognitiveLoc)
     .setImageUrlCol("url")
     .setOutputCol("detected_faces")
     .setReturnFaceId(true)
@@ -79,7 +82,8 @@ class FindSimilarFaceSuite extends TransformerFuzzing[FindSimilarFace] with Cogn
     row.getAs[String]("id"))
 
   lazy val findSimilar = new FindSimilarFace()
-    .setCognitiveTestAuth
+    .setSubscriptionKey(cognitiveKey)
+    .setLocation(cognitiveLoc)
     .setOutputCol("similar")
     .setFaceIdCol("id")
     .setFaceIds(faceIds)
@@ -95,7 +99,8 @@ class FindSimilarFaceSuite extends TransformerFuzzing[FindSimilarFace] with Cogn
   test("Throw errors if required fields not set") {
     val caught = intercept[AssertionError] {
       new FindSimilarFace()
-        .setCognitiveTestAuth
+        .setSubscriptionKey(cognitiveKey)
+        .setLocation(cognitiveLoc)
         .setOutputCol("similar")
         .transform(faceIdDF).collect()
     }
@@ -122,7 +127,8 @@ class GroupFacesSuite extends TransformerFuzzing[GroupFaces] with CognitiveKey {
   ).toDF("url")
 
   lazy val detector = new DetectFace()
-    .setCognitiveTestAuth
+    .setSubscriptionKey(cognitiveKey)
+    .setLocation(cognitiveLoc)
     .setImageUrlCol("url")
     .setOutputCol("detected_faces")
     .setReturnFaceId(true)
@@ -140,7 +146,8 @@ class GroupFacesSuite extends TransformerFuzzing[GroupFaces] with CognitiveKey {
     row.getAs[String]("id"))
 
   lazy val group = new GroupFaces()
-    .setCognitiveTestAuth
+    .setSubscriptionKey(cognitiveKey)
+    .setLocation(cognitiveLoc)
     .setOutputCol("grouping")
     .setFaceIds(faceIds)
 
@@ -155,7 +162,8 @@ class GroupFacesSuite extends TransformerFuzzing[GroupFaces] with CognitiveKey {
   test("Throw errors if required fields not set") {
     val caught = intercept[AssertionError] {
       new GroupFaces()
-        .setCognitiveTestAuth
+        .setSubscriptionKey(cognitiveKey)
+        .setLocation(cognitiveLoc)
         .setOutputCol("grouping")
         .transform(faceIdDF).collect()
     }
@@ -194,19 +202,20 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
 
   lazy val pgId = {
     cleanOldGroups()
-    LargePersonGroup.create(pgName, pgName)
+    PersonGroup.create(pgName, pgName)
     Thread.sleep(500) // A little insurance
-    LargePersonGroup.list().find(_.name == pgName).get.largePersonGroupId
+    PersonGroup.list().find(_.name == pgName).get.personGroupId
   }
 
-  lazy val satyaId = LargePerson.create("satya", pgId)
-  lazy val bradId = LargePerson.create("brad", pgId)
+  lazy val satyaId = Person.create("satya", pgId)
+  lazy val bradId = Person.create("brad", pgId)
 
-  lazy val satyaFaceIds = satyaFaces.map(LargePerson.addFace(_, pgId, satyaId))
-  lazy val bradFaceIds = bradFaces.map(LargePerson.addFace(_, pgId, bradId))
+  lazy val satyaFaceIds = satyaFaces.map(Person.addFace(_, pgId, satyaId))
+  lazy val bradFaceIds = bradFaces.map(Person.addFace(_, pgId, bradId))
 
   lazy val detector = new DetectFace()
-    .setCognitiveTestAuth
+    .setSubscriptionKey(cognitiveKey)
+    .setLocation(cognitiveLoc)
     .setImageUrlCol("url")
     .setOutputCol("detected_faces")
     .setReturnFaceId(true)
@@ -221,35 +230,34 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
   override def beforeAll(): Unit = {
     super.beforeAll()
     println(satyaFaceIds ++ bradFaceIds)
-    LargePersonGroup.train(pgId)
+    PersonGroup.train(pgId)
     tryWithRetries() { () =>
-      assert(LargePersonGroup.getTrainingStatus(pgId).status === "succeeded")
+      assert(PersonGroup.getTrainingStatus(pgId).status === "succeeded")
       ()
     }
     println("done training face group")
   }
 
   override def afterAll(): Unit = {
-    try {
-      LargePersonGroup.list().find(_.name == pgName).foreach { pgi =>
-        LargePersonGroup.delete(pgi.largePersonGroupId)
-        println("deleted group")
-      }
-    } finally {
-      super.afterAll()
+    PersonGroup.list().find(_.name == pgName).foreach { pgi =>
+      PersonGroup.delete(pgi.personGroupId)
+      println("deleted group")
     }
+
+    super.afterAll()
   }
 
   lazy val id = new IdentifyFaces()
-    .setCognitiveTestAuth
+    .setSubscriptionKey(cognitiveKey)
+    .setLocation(cognitiveLoc)
     .setFaceIdsCol("faces")
-    .setLargePersonGroupId(pgId)
+    .setPersonGroupId(pgId)
     .setOutputCol("identified_faces")
 
   lazy val df = otherFaceIds.map(Seq[String](_)).toDF("faces")
 
   test("Basic Usage") {
-    LargePerson.list(pgId).foreach(println)
+    Person.list(pgId).foreach(println)
     val matches = id.transform(df).select(col("identified_faces")
       .getItem(0).getItem("candidates").getItem(0).getItem("personId"))
       .collect().map(_.getString(0))
@@ -259,8 +267,9 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
   test("Throw errors if required fields not set") {
     val caught = intercept[AssertionError] {
       new IdentifyFaces()
-        .setCognitiveTestAuth
-        .setLargePersonGroupId(pgId)
+        .setSubscriptionKey(cognitiveKey)
+        .setLocation(cognitiveLoc)
+        .setPersonGroupId(pgId)
         .setOutputCol("identified_faces")
         .transform(df).collect()
     }
@@ -272,24 +281,46 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
   def cleanOldGroups(): Unit = {
     val twoDaysAgo = LocalDateTime.now().minusDays(2)
     var groupDeleted: Boolean = false
+    val uuidPattern = new Regex("[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")
 
     // scalastyle:off while
     do {
       groupDeleted = false
-      LargePersonGroup.list(top = Some("500")).foreach { pgi =>
+      PersonGroup.list(top = Some("500")).foreach { pgi =>
         try {
-          if (pgi.name == pgi.largePersonGroupId && pgi.largePersonGroupId.startsWith("group")) {
-            val pgDateString = pgi.largePersonGroupId.replaceFirst("group", "")
-            val pgDate = LocalDateTime.parse(pgDateString, formatter)
-            if (pgDate.isBefore(twoDaysAgo)) {
-              LargePersonGroup.delete(pgi.largePersonGroupId)
+          val pgDateString = pgi.personGroupId.replaceFirst("group", "")
+          val pgDate = LocalDateTime.parse(pgDateString, formatter)
+          if (pgDate.isBefore(twoDaysAgo)) {
+            PersonGroup.delete(pgi.personGroupId)
+            println(s"Deleted group $pgi")
+            groupDeleted = true
+          }
+        } catch {
+          // for uuid-based names
+          // TODO: delete this after we can be assured that everyone has updated
+          case _: DateTimeParseException => {
+            if ((uuidPattern findFirstIn pgi.personGroupId).isDefined) {
+              PersonGroup.delete(pgi.personGroupId)
               println(s"Deleted group $pgi")
               groupDeleted = true
             }
           }
-        } catch {
-          case _: DateTimeParseException => ()
+          case t: Throwable => throw t
         }
+      }
+    } while (groupDeleted)
+    // scalastyle:on while
+  }
+
+  def cleanAllGroups(): Unit = {
+    var groupDeleted: Boolean = false
+    // scalastyle:off while
+    do {
+      groupDeleted = false
+      PersonGroup.list(top=Some("500")).foreach { pgi =>
+        PersonGroup.delete(pgi.personGroupId)
+        println(s"Deleted group $pgi")
+        groupDeleted = true
       }
     } while (groupDeleted)
     // scalastyle:on while
@@ -311,7 +342,8 @@ class VerifyFacesSuite extends TransformerFuzzing[VerifyFaces] with CognitiveKey
   ).toDF("url")
 
   lazy val detector = new DetectFace()
-    .setCognitiveTestAuth
+    .setSubscriptionKey(cognitiveKey)
+    .setLocation(cognitiveLoc)
     .setImageUrlCol("url")
     .setOutputCol("detected_faces")
     .setReturnFaceId(true)
@@ -328,7 +360,8 @@ class VerifyFacesSuite extends TransformerFuzzing[VerifyFaces] with CognitiveKey
     "faceId2", lit(faceIdDF.take(1).head.getString(0)))
 
   lazy val verify = new VerifyFaces()
-    .setCognitiveTestAuth
+    .setSubscriptionKey(cognitiveKey)
+    .setLocation(cognitiveLoc)
     .setOutputCol("same")
     .setFaceId1Col("faceId1")
     .setFaceId2Col("faceId2")

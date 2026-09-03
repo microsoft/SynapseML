@@ -29,8 +29,7 @@ object TextToSpeech extends ComplexParamsReadable[TextToSpeech] with Serializabl
 class TextToSpeech(override val uid: String)
   extends Transformer
     with HasSetLocation with HasServiceParams
-    with HasErrorCol with HasURL with HasSubscriptionKey with HasSpeechAADAuthorization
-    with ComplexParamsWritable with SynapseMLLogging
+    with HasErrorCol with HasURL with HasSubscriptionKey with ComplexParamsWritable with SynapseMLLogging
     with HasSetLinkedServiceUsingLocation {
   logClass(FeatureNames.AiServices.Speech)
 
@@ -125,11 +124,7 @@ class TextToSpeech(override val uid: String)
     val hconf = new SerializableConfiguration(dataset.sparkSession.sparkContext.hadoopConfiguration)
     val toRow = SpeechSynthesisError.makeToRowConverter
     dataset.toDF().map { row =>
-      val credential = SpeechSDKAuth.resolveCredential(
-        getValueOpt(row, AADToken),
-        get(cognitiveServiceResourceId),
-        getValueOpt(row, subscriptionKey))
-      using(SpeechSDKAuth.createSpeechConfig(new URI(getUrl), credential)) { config =>
+      using(SpeechConfig.fromEndpoint(new URI(getUrl), getValue(row, subscriptionKey))) { config =>
         getValueOpt(row, language).foreach(lang => config.setSpeechSynthesisLanguage(lang))
         getValueOpt(row, voiceName).foreach(voice => config.setSpeechSynthesisVoiceName(voice))
         getValueOpt(row, outputFormat).foreach(format =>

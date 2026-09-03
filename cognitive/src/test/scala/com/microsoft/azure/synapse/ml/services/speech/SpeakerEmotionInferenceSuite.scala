@@ -19,8 +19,8 @@ class SpeakerEmotionInferenceSuite extends TransformerFuzzing[SpeakerEmotionInfe
   lazy val saveDir: File = tmpDir.toFile
 
   def ssmlGenerator: SpeakerEmotionInference = new SpeakerEmotionInference()
-    .setLocation("eastus")
-    .setAADToken(speechAADToken)
+    .setLocation(cognitiveLoc)
+    .setSubscriptionKey(cognitiveKey)
     .setLocale("en-US")
     .setVoiceName("en-US-JaneNeural")
     .setTextCol("text")
@@ -128,9 +128,8 @@ class SpeakerEmotionInferenceSuite extends TransformerFuzzing[SpeakerEmotionInfe
 
   def tts: TextToSpeech = new TextToSpeech()
     .setUseSSML(true)
-    .setLocation("eastus")
-    .setAADToken(cognitiveAADToken)
-    .setCognitiveServiceResourceId(cognitiveResourceId)
+    .setLocation(cognitiveLoc)
+    .setSubscriptionKey(cognitiveKey)
     .setTextCol("ssml")
     .setOutputFileCol("filename")
 
