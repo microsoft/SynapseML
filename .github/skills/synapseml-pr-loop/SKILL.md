@@ -114,18 +114,20 @@ is complete and green.
 - `/azp run` is privileged authorization to execute pull-request code with
   trusted Azure Pipeline credentials and is restricted to repository
   maintainers. Before triggering, wait for the current-head automated review,
-  clear its active and suppressed findings, and require the exact standalone
-  verdict `AZP SAFETY: SAFE TO RUN /azp run`. Never trigger an unsafe,
-  uncertain, or unreviewed head.
+  inspect its `/azp run` assessment, and clear its active and suppressed
+  findings. An explicit unsafe or ambiguous verdict blocks the trigger. GitHub
+  may omit a requested summary marker, so a missing marker is not treated as
+  safe; the maintainer must inspect the review and separately confirm the exact
+  head. Never trigger an unsafe, uncertain, or unreviewed head.
 - Run
   `Get-PrReadiness.ps1 -PullRequest <number> -RunPipeline -ConfirmHeadSha <sha>`
   from a trusted `master` worktree, never from the pull request's worktree: an
   untrusted pull request can modify its own copy of the helper. Inspect the
   completed review first, then pass its exact head in a separate invocation. The
   explicit maintainer confirmation, not AI-authored text, authorizes CI. The
-  helper fails closed unless that SHA and the safe verdict both cover the
-  current head and the authenticated GitHub user has repository write
-  permission.
+  helper fails closed unless that SHA and the completed automated review both
+  cover the current head, no explicit unsafe verdict or finding remains, and
+  the authenticated GitHub user has repository write permission.
 - Copilot reads its instructions, agent skills, and review setup from the pull
   request head. The trusted helper therefore refuses to trigger a head that
   adds, removes, renames, or edits one of those review inputs; its Copilot

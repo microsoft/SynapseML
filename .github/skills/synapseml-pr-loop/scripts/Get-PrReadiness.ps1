@@ -30,9 +30,11 @@
     build is the usual casualty because it does not queue itself on a push -- it
     waits for an `/azp run` comment. Because that command authorizes untrusted
     pull-request code to run with trusted pipeline credentials, `-RunPipeline`
-    posts it only after the current-head automated review emits the repository's
-    safe-to-run verdict, all current-head findings are clear, and the authenticated
-    GitHub user has write permission. Copilot reads instructions and skills from
+    posts it only after the current-head automated review finishes, no explicit
+    unsafe or ambiguous verdict or current-head finding remains, and the
+    authenticated GitHub user separately confirms the exact SHA and has write
+    permission. Copilot's overview format is not a machine authorization token;
+    the maintainer confirmation is. Copilot reads instructions and skills from
     the pull-request head, so a head that changes any of those review inputs is
     blocked from automated triggering and requires independent maintainer review.
 
@@ -84,10 +86,10 @@ param(
     [string[]]$RequiredCheck = @("microsoft.SynapseML"),
 
     # Post `/azp run` when a required check is missing, but only after the
-    # current-head automated review declares it safe and the caller is a
-    # maintainer. Without both conditions this switch fails closed. This cannot
-    # be combined with -WaitForReview: a maintainer must inspect the completed
-    # review before a separate trigger invocation.
+    # current-head automated review finishes without an explicit unsafe or
+    # ambiguous verdict and the caller is a maintainer. This cannot be combined
+    # with -WaitForReview: a maintainer must inspect the completed review before
+    # a separate trigger invocation.
     [switch]$RunPipeline,
 
     # Explicit maintainer attestation for -RunPipeline. Copy the exact head SHA
@@ -547,7 +549,7 @@ function Get-PrSnapshot {
             $pipelineRunBlockedReasons +=
                 "maintainer-confirmed SHA does not match the current PR head"
         }
-        if ($azpSafetyVerdict -ne "safe") {
+        if ($azpSafetyVerdict -in @("unsafe", "ambiguous")) {
             $pipelineRunBlockedReasons += "AZP safety verdict is '$azpSafetyVerdict'"
         }
         if (@($unresolved).Count -gt 0) {
@@ -647,6 +649,7 @@ function Get-PrSnapshot {
             automatedReviewCoversHead = $automatedReviewCoversHead
             automatedReviewRequested = $reviewRequested
             azpSafetyApproved = ($azpSafetyVerdict -eq "safe")
+            azpSafetyRejected = ($azpSafetyVerdict -in @("unsafe", "ambiguous"))
             pipelineRunRequested = $pipelineRunRequested
             # Everything verifiable must be clear. This previously tested only
             # $truncatedThreadComments, which counts comment-pagination truncation
@@ -659,7 +662,7 @@ function Get-PrSnapshot {
                 $fileInventory.complete -and
                 @($reviewInfluenceChanges).Count -eq 0 -and
                 $automatedReviewCoversHead -and
-                $azpSafetyVerdict -eq "safe" -and
+                $azpSafetyVerdict -notin @("unsafe", "ambiguous") -and
                 @($unresolved).Count -eq 0 -and
                 @($suppressedForHead).Count -eq 0 -and
                 @($missingRequiredChecks).Count -eq 0 -and
@@ -694,9 +697,13 @@ $results = @(foreach ($number in $PullRequest) {
                 "Findings for this head may still be pending; do not read this as clean." -f
                 $number, $snapshot.headSha, $TimeoutMinutes)
         }
-        if (-not $snapshot.completeness.azpSafetyApproved) {
+        if ($snapshot.completeness.azpSafetyRejected) {
             Write-Warning ("PR #{0}: current-head AZP safety verdict is '{1}'. " +
                 "Do not comment '/azp run'." -f $number, $snapshot.azpSafetyVerdict)
+        } elseif (-not $snapshot.completeness.azpSafetyApproved) {
+            Write-Warning ("PR #{0}: Copilot emitted no machine-readable AZP verdict. " +
+                "Inspect the completed review and diff before confirming the head." -f
+                $number)
         }
         if (-not $snapshot.changedFileInventoryComplete) {
             Write-Warning ("PR #{0}: changed-file inventory is incomplete ({1} of {2}); " +

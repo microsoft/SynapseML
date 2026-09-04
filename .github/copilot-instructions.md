@@ -33,6 +33,9 @@ AZP SAFETY: DO NOT RUN /azp run
 For an unsafe or uncertain review, also raise an actionable finding that
 identifies the risky path. Fail closed when evidence is incomplete. A verdict
 applies only to the exact reviewed commit; any push requires a new review.
+The verdict is review evidence, not authorization; GitHub may render an overview
+without the requested line, so a maintainer must always inspect the review and
+separately confirm the exact head before triggering.
 
 Copilot reads review instructions from the pull request head, so this verdict
 cannot authorize `/azp run` when the pull request changes any instruction,
