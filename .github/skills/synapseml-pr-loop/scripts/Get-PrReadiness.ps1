@@ -30,12 +30,12 @@
     build is the usual casualty because it does not queue itself on a push -- it
     waits for an `/azp run` comment. Because that command authorizes untrusted
     pull-request code to run with trusted pipeline credentials, `-RunPipeline`
-    posts it only after the current-head automated review finishes, no explicit
-    unsafe or ambiguous verdict or current-head finding remains, and the
-    authenticated GitHub user separately confirms the exact SHA and has write
-    permission. Copilot's overview format is not a machine authorization token;
-    the maintainer confirmation is. Copilot reads instructions and skills from
-    the pull-request head, so a head that changes any of those review inputs is
+    posts it only after the current-head automated review finishes with the
+    exact safe verdict, no current-head finding remains, and the authenticated
+    GitHub user separately confirms the exact SHA and has write permission.
+    Copilot's overview format is not a machine authorization token; the
+    maintainer confirmation is. Copilot reads instructions and skills from the
+    pull-request head, so a head that changes any of those review inputs is
     blocked from automated triggering and requires independent maintainer review.
 
     It does not make the readiness decision; use the skill's evidence gates for
@@ -86,10 +86,10 @@ param(
     [string[]]$RequiredCheck = @("microsoft.SynapseML"),
 
     # Post `/azp run` when a required check is missing, but only after the
-    # current-head automated review finishes without an explicit unsafe or
-    # ambiguous verdict and the caller is a maintainer. This cannot be combined
-    # with -WaitForReview: a maintainer must inspect the completed review before
-    # a separate trigger invocation.
+    # current-head automated review finishes with the exact safe verdict and the
+    # caller is a maintainer. A missing, ambiguous, or unsafe verdict fails
+    # closed. This cannot be combined with -WaitForReview: a maintainer must
+    # inspect the completed review before a separate trigger invocation.
     [switch]$RunPipeline,
 
     # Explicit maintainer attestation for -RunPipeline. Copy the exact head SHA
@@ -566,8 +566,9 @@ function Get-PrSnapshot {
             $pipelineRunBlockedReasons +=
                 "maintainer-confirmed SHA does not match the current PR head"
         }
-        if ($azpSafetyVerdict -in @("unsafe", "ambiguous")) {
-            $pipelineRunBlockedReasons += "AZP safety verdict is '$azpSafetyVerdict'"
+        if ($azpSafetyVerdict -ne "safe") {
+            $pipelineRunBlockedReasons +=
+                "AZP safety verdict is '$azpSafetyVerdict'; exact safe verdict required"
         }
         if (@($unresolved).Count -gt 0) {
             $pipelineRunBlockedReasons += "current review threads remain unresolved"
@@ -679,7 +680,7 @@ function Get-PrSnapshot {
                 $fileInventory.complete -and
                 @($reviewInfluenceChanges).Count -eq 0 -and
                 $automatedReviewCoversHead -and
-                $azpSafetyVerdict -notin @("unsafe", "ambiguous") -and
+                $azpSafetyVerdict -eq "safe" -and
                 @($unresolved).Count -eq 0 -and
                 @($suppressedForHead).Count -eq 0 -and
                 @($missingRequiredChecks).Count -eq 0 -and
@@ -719,7 +720,8 @@ $results = @(foreach ($number in $PullRequest) {
                 "Do not comment '/azp run'." -f $number, $snapshot.azpSafetyVerdict)
         } elseif (-not $snapshot.completeness.azpSafetyApproved) {
             Write-Warning ("PR #{0}: Copilot emitted no machine-readable AZP verdict. " +
-                "Inspect the completed review and diff before confirming the head." -f
+                "The trusted pipeline trigger is blocked; obtain a new current-head " +
+                "safety review or use an independently authorized manual process." -f
                 $number)
         }
         if (-not $snapshot.changedFileInventoryComplete) {
@@ -734,7 +736,8 @@ $results = @(foreach ($number in $PullRequest) {
         }
         if (@($snapshot.missingRequiredChecks).Count -gt 0) {
             if ($snapshot.changedFileInventoryComplete -and
-                @($snapshot.reviewInfluenceChanges).Count -eq 0) {
+                @($snapshot.reviewInfluenceChanges).Count -eq 0 -and
+                $snapshot.completeness.azpSafetyApproved) {
                 Write-Warning ("PR #{0}: required check(s) '{1}' are absent on {2}. " +
                     "After inspecting the completed review, use -RunPipeline " +
                     "-ConfirmHeadSha {2} from a trusted master worktree." -f

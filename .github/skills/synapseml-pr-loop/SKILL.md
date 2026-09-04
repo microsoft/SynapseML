@@ -115,10 +115,10 @@ is complete and green.
   trusted Azure Pipeline credentials and is restricted to repository
   maintainers. Before triggering, wait for the current-head automated review,
   inspect its `/azp run` assessment, and clear its active and suppressed
-  findings. An explicit unsafe or ambiguous verdict blocks the trigger. GitHub
-  may omit a requested summary marker, so a missing marker is not treated as
-  safe; the maintainer must inspect the review and separately confirm the exact
-  head. Never trigger an unsafe, uncertain, or unreviewed head.
+  findings. A missing, ambiguous, or unsafe verdict blocks the trusted helper.
+  GitHub may omit a requested summary marker, but maintainer confirmation cannot
+  turn that missing evidence into a safe verdict. Never trigger an unsafe,
+  uncertain, or unreviewed head.
 - Run
   `Get-PrReadiness.ps1 -PullRequest <number> -RunPipeline -ConfirmHeadSha <sha>`
   from a trusted `master` worktree, never from the pull request's worktree: an
@@ -126,8 +126,8 @@ is complete and green.
   completed review first, then pass its exact head in a separate invocation. The
   explicit maintainer confirmation, not AI-authored text, authorizes CI. The
   helper fails closed unless that SHA and the completed automated review both
-  cover the current head, no explicit unsafe verdict or finding remains, and
-  the authenticated GitHub user has repository write permission.
+  cover the current head, the exact safe verdict is present, no finding remains,
+  and the authenticated GitHub user has repository write permission.
 - Copilot reads its instructions, agent skills, and review setup from the pull
   request head. The trusted helper therefore refuses to trigger a head that
   adds, removes, renames, or edits one of those review inputs; its Copilot

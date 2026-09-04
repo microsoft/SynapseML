@@ -254,7 +254,8 @@ def test_readiness_helper_fails_closed_before_posting_azp_run():
     assert "$lastLine -ceq $azpUnsafeMarker" in script
     assert "$RunPipeline -and $WaitForReview" in script
     assert "-RunPipeline requires -ConfirmHeadSha" in script
-    assert '$azpSafetyVerdict -in @("unsafe", "ambiguous")' in trigger_block
+    assert '$azpSafetyVerdict -ne "safe"' in trigger_block
+    assert '$azpSafetyVerdict -eq "safe" -and' in script
     assert "$ConfirmHeadSha -ine $view.headRefOid" in trigger_block
     assert "-not $viewerCanTriggerPipeline" in trigger_block
     assert "@($unresolved).Count -gt 0" in trigger_block
@@ -277,7 +278,7 @@ def test_pr_loop_requires_trusted_helper_and_current_head_safety_review():
     assert "trusted `master` worktree" in skill
     assert "current-head automated review" in skill
     assert "`/azp run` assessment" in skill
-    assert "explicit unsafe or ambiguous verdict blocks" in skill
+    assert "missing, ambiguous, or unsafe verdict blocks" in skill
     assert "-ConfirmHeadSha <sha>" in skill
 
 
@@ -291,15 +292,16 @@ def test_readiness_posts_once_for_trusted_safe_head(tmp_path):
 
 
 @pytest.mark.skipif(POWERSHELL is None, reason="PowerShell is not installed")
-def test_readiness_uses_explicit_confirmation_when_overview_omits_marker(tmp_path):
+def test_readiness_rejects_missing_verdict_even_with_explicit_confirmation(tmp_path):
     snapshot, calls = _run_readiness(
         tmp_path,
         FAKE_REVIEW_BODY="Copilot review completed without findings.",
     )
 
     assert snapshot["azpSafetyVerdict"] == "missing"
-    assert snapshot["completeness"]["pipelineRunRequested"] is True
-    assert len(_azp_comments(calls)) == 1
+    assert snapshot["completeness"]["pipelineRunRequested"] is False
+    assert snapshot["pipelineRunBlockedReasons"]
+    assert _azp_comments(calls) == []
 
 
 @pytest.mark.skipif(POWERSHELL is None, reason="PowerShell is not installed")

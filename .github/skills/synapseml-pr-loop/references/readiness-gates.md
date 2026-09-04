@@ -77,11 +77,11 @@ by current-head evidence.
   by recency. A review produced before the last push does not clear the two
   gates above, because it never saw that code.
 - The current-head automated review inspected credential-exfiltration risk and
-  reports its `/azp run` assessment. Explicit ambiguous or unsafe verdicts block
-  the privileged trigger. GitHub can omit a requested machine-readable summary
-  marker, so missing is not equivalent to safe: inspect the completed review
-  and diff before a maintainer separately passes the exact reviewed SHA through
-  `-ConfirmHeadSha`.
+  reports its `/azp run` assessment. A missing, ambiguous, or unsafe verdict
+  blocks the trusted helper; `-ConfirmHeadSha` cannot replace absent safety
+  evidence. GitHub can omit a requested machine-readable summary marker, so
+  obtain another current-head review or use an independently authorized manual
+  process rather than treating missing as safe.
 - The pull request does not change a head-controlled Copilot review input:
   repository/path/agent instructions, agent skills, or Copilot review setup
   workflows. Copilot reads these from the head branch, so a verdict influenced
@@ -102,7 +102,7 @@ by current-head evidence.
 - Skips are expected and documented; a skipped required scenario is a blocker.
 - `Get-PrReadiness.ps1` reports these as `completeness.complete`, which is true
   only when comment pagination was not truncated, an automated review covers the
-  head without an explicit unsafe or ambiguous AZP verdict, the changed-file
+  head with the exact safe AZP verdict, the changed-file
   inventory is complete, no head-controlled review inputs changed, and
   unresolved threads, suppressed-for-head items, missing required checks,
   failed checks and pending checks are all zero. Treat a pending check as
