@@ -9,8 +9,9 @@ import com.microsoft.azure.synapse.ml.io.http.SimpleHTTPTransformer
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.stages.{DropColumns, Lambda}
-import org.apache.http.client.methods.{HttpPost, HttpRequestBase}
+import org.apache.http.client.methods.{HttpGet, HttpPost, HttpRequestBase}
 import org.apache.http.entity.{AbstractHttpEntity, StringEntity}
+import org.apache.spark.ml.param.{Param, StringArrayParam}
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel, Transformer}
 import org.apache.spark.sql.Row
@@ -77,7 +78,14 @@ trait HasToLanguage extends HasServiceParams {
   def getToLanguageCol: String = getVectorParam(toLanguage)
 }
 
+private[translate] object TranslatorApiVersion {
+  val V3: String = "3.0"
+  val V2026: String = "2026-06-06"
+  val Supported: Set[String] = Set(V3, V2026)
+}
+
 trait TextAsOnlyEntity extends HasTextInput with HasCognitiveServiceInput with HasSubscriptionRegion {
+  this: TextTranslatorBase =>
 
   override protected def contentType: Row => String = { _ => "application/json; charset=UTF-8" }
 
@@ -93,7 +101,9 @@ trait TextAsOnlyEntity extends HasTextInput with HasCognitiveServiceInput with H
 
         val texts = getValue(row, text)
 
-        val base = getUrl + "?api-version=3.0"
+        val version = getApiVersion
+        validateApiVersion(version)
+        val base = getUrl + s"?api-version=$version"
         val appended = if (!urlParams.isEmpty) {
           "&" + URLEncodingUtils.format(urlParams.flatMap(p =>
             getValueOpt(row, p).map {
@@ -113,7 +123,11 @@ trait TextAsOnlyEntity extends HasTextInput with HasCognitiveServiceInput with H
         addHeaders(post, row)
         getValueOpt(row, subscriptionRegion).foreach(post.setHeader("Ocp-Apim-Subscription-Region", _))
 
-        val json = texts.map(s => Map("Text" -> s)).toJson.compactPrint
+        val inputs = texts.map(s => JsObject("text" -> JsString(s)))
+        val json = version match {
+          case TranslatorApiVersion.V3 => texts.map(s => Map("Text" -> s)).toJson.compactPrint
+          case TranslatorApiVersion.V2026 => JsObject("inputs" -> JsArray(inputs.toVector)).compactPrint
+        }
         post.setEntity(new StringEntity(json, "UTF-8"))
         Some(post)
       }
@@ -126,6 +140,33 @@ trait TextAsOnlyEntity extends HasTextInput with HasCognitiveServiceInput with H
 abstract class TextTranslatorBase(override val uid: String) extends CognitiveServicesBase(uid)
   with HasInternalJsonOutputParser with HasSubscriptionRegion
   with HasSetLocation with HasSetLinkedServiceUsingLocation {
+
+  val apiVersion = new Param[String](
+    this,
+    "apiVersion",
+    "Translator Text API version.",
+    isValid = TranslatorApiVersion.Supported)
+
+  setDefault(apiVersion -> TranslatorApiVersion.V3)
+
+  def getApiVersion: String = $(apiVersion)
+
+  def setApiVersion(v: String): this.type = {
+    require(TranslatorApiVersion.Supported(v),
+      s"Unsupported Translator API version '$v'. Supported versions: $supportedApiVersions")
+    set(apiVersion, v)
+  }
+
+  private def supportedApiVersions: String = TranslatorApiVersion.Supported.mkString(", ")
+
+  protected def supportsApiVersion(version: String): Boolean = version == TranslatorApiVersion.V3
+
+  protected def validateApiVersion(version: String): Unit = {
+    require(TranslatorApiVersion.Supported(version),
+      s"Unsupported Translator API version '$version'. Supported versions: $supportedApiVersions")
+    require(supportsApiVersion(version),
+      s"${getClass.getSimpleName} is not available in Translator API $version. Use API 3.0 for this operation.")
+  }
 
   override private[ml] def internalServiceType: String = "texttranslation"
 
@@ -195,7 +236,10 @@ abstract class TextTranslatorBase(override val uid: String) extends CognitiveSer
   }
 
   override protected def getInternalTransformer(schema: StructType): PipelineModel =
-    customGetInternalTransformer(schema, Seq("text"))
+    {
+      validateApiVersion(getApiVersion)
+      customGetInternalTransformer(schema, Seq("text"))
+    }
 
   override def setLocation(v: String): this.type = {
     setSubscriptionRegion(v)
@@ -215,7 +259,64 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
 
   def urlPath: String = "translate"
 
+  override protected def supportsApiVersion(version: String): Boolean =
+    TranslatorApiVersion.Supported(version)
+
   override protected def contentType: Row => String = { _ => "application/json; charset=UTF-8" }
+
+  private def v3Query(row: Row): String = {
+    val urlParams = getUrlParams
+      .asInstanceOf[Array[ServiceParam[Any]]]
+    if (urlParams.isEmpty) {
+      ""
+    } else {
+      "&" + URLEncodingUtils.format(urlParams.flatMap(p =>
+        getValueOpt(row, p).map {
+          val pName = p.name match {
+            case "fromLanguage" => "from"
+            case "toLanguage" => "to"
+            case s => s
+          }
+          v => pName -> p.toValueString(v)
+        }
+      ).toMap)
+    }
+  }
+
+  private def v2026Payload(row: Row, texts: Seq[String]): String = {
+    require(!isSet(includeAlignment) && !isSet(includeSentenceLength) && !isSet(suggestedFrom),
+      "includeAlignment, includeSentenceLength, and suggestedFrom are only supported by Translator API 3.0.")
+    val sourceLanguage = getValueOpt(row, fromLanguage).map(JsString(_))
+    val sourceScript = getValueOpt(row, fromScript).map(JsString(_))
+    val sourceTextType = getValueOpt(row, textType).map { value =>
+      value match {
+        case "plain" => JsString("Plain")
+        case "html" => JsString("Html")
+        case _ => throw new IllegalArgumentException(
+          s"Invalid textType '$value'. Supported values are plain and html.")
+      }
+    }
+    val targetScript = getValueOpt(row, toScript).map(JsString(_))
+    val deploymentName = getValueOpt(row, category).filterNot(_ == "general").map(JsString(_))
+    val fallback = getValueOpt(row, allowFallback).filterNot(identity).map(JsBoolean(_))
+    val action = getValueOpt(row, profanityAction).filterNot(_ == "NoAction").map(JsString(_))
+    val marker = getValueOpt(row, profanityMarker).filterNot(_ == "Asterisk").map(JsString(_))
+    val targets = getValue(row, toLanguage).map { language =>
+      JsObject(Map("language" -> JsString(language)) ++
+        targetScript.map("script" -> _) ++
+        deploymentName.map("deploymentName" -> _) ++
+        fallback.map("allowFallback" -> _) ++
+        action.map("profanityAction" -> _) ++
+        marker.map("profanityMarker" -> _))
+    }
+    val inputs = texts.map { textValue =>
+      JsObject(Map("text" -> JsString(textValue), "targets" -> JsArray(targets.toVector)) ++
+        sourceLanguage.map("language" -> _) ++
+        sourceScript.map("script" -> _) ++
+        sourceTextType.filterNot(_ == JsString("Plain")).map("textType" -> _))
+    }
+    JsObject("inputs" -> JsArray(inputs.toVector)).compactPrint
+  }
 
   override protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
     { row: Row =>
@@ -226,32 +327,22 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
       } else if (getValue(row, toLanguage).forall(Option(_).isEmpty)) {
         None
       } else {
-        val urlParams: Array[ServiceParam[Any]] =
-          getUrlParams.asInstanceOf[Array[ServiceParam[Any]]]
-
         val texts = getValue(row, text)
-
-        val base = getUrl + "?api-version=3.0"
-        val appended = if (!urlParams.isEmpty) {
-          "&" + URLEncodingUtils.format(urlParams.flatMap(p =>
-            getValueOpt(row, p).map {
-              val pName = p.name match {
-                case "fromLanguage" => "from"
-                case "toLanguage" => "to"
-                case s => s
-              }
-              v => pName -> p.toValueString(v)
-            }
-          ).toMap)
-        } else {
-          ""
-        }
+        val version = getApiVersion
+        validateApiVersion(version)
+        val base = getUrl + s"?api-version=$version"
+        val appended = if (version == TranslatorApiVersion.V3) v3Query(row) else ""
 
         val post = new HttpPost(base + appended)
         addHeaders(post, row)
         getValueOpt(row, subscriptionRegion).foreach(post.setHeader("Ocp-Apim-Subscription-Region", _))
 
-        val json = texts.map(s => Map("Text" -> s)).toJson.compactPrint
+        val json = version match {
+          case TranslatorApiVersion.V3 =>
+            texts.map(s => Map("Text" -> s)).toJson.compactPrint
+          case TranslatorApiVersion.V2026 =>
+            v2026Payload(row, texts)
+        }
         post.setEntity(new StringEntity(json, "UTF-8"))
         Some(post)
       }
@@ -259,7 +350,10 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
   }
 
   override protected def getInternalTransformer(schema: StructType): PipelineModel =
-    customGetInternalTransformer(schema, Seq("text", "toLanguage"))
+    {
+      validateApiVersion(getApiVersion)
+      customGetInternalTransformer(schema, Seq("text", "toLanguage"))
+    }
 
   val toLanguage = new ServiceParam[Seq[String]](this, "toLanguage",
     "Specifies the language of the output text. The target language must be one of the supported languages" +
@@ -377,7 +471,10 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
     includeSentenceLength -> Left(false),
     allowFallback -> Left(true))
 
-  override def responseDataType: DataType = ArrayType(TranslateResponse.schema)
+  override def responseDataType: DataType = getApiVersion match {
+    case TranslatorApiVersion.V3 => ArrayType(TranslateResponse.schema)
+    case TranslatorApiVersion.V2026 => TranslateResponseV2026.schema
+  }
 }
 
 object Transliterate extends ComplexParamsReadable[Transliterate]
@@ -389,6 +486,9 @@ class Transliterate(override val uid: String) extends TextTranslatorBase(uid)
   def this() = this(Identifiable.randomUID("Transliterate"))
 
   def urlPath: String = "transliterate"
+
+  override protected def supportsApiVersion(version: String): Boolean =
+    TranslatorApiVersion.Supported(version)
 
   val language = new ServiceParam[String](this, "language", "Language tag identifying the" +
     " language of the input text. If a code is not specified, automatic language detection will be applied.",
@@ -412,7 +512,10 @@ class Transliterate(override val uid: String) extends TextTranslatorBase(uid)
 
   def setToScriptCol(v: String): this.type = setVectorParam(toScript, v)
 
-  override def responseDataType: DataType = ArrayType(TransliterateResponse.schema)
+  override def responseDataType: DataType = getApiVersion match {
+    case TranslatorApiVersion.V3 => ArrayType(TransliterateResponse.schema)
+    case TranslatorApiVersion.V2026 => TransliterateResponseV2026.schema
+  }
 }
 
 object Detect extends ComplexParamsReadable[Detect]
@@ -516,7 +619,9 @@ class DictionaryExamples(override val uid: String) extends TextTranslatorBase(ui
           None
         else {
 
-          val base = getUrl + "?api-version=3.0"
+          val version = getApiVersion
+          validateApiVersion(version)
+          val base = getUrl + s"?api-version=$version"
           val appended = if (!urlParams.isEmpty) {
             "&" + URLEncodingUtils.format(urlParams.flatMap(p =>
               getValueOpt(row, p).map {
@@ -553,7 +658,74 @@ class DictionaryExamples(override val uid: String) extends TextTranslatorBase(ui
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = { _ => None }
 
   override protected def getInternalTransformer(schema: StructType): PipelineModel =
-    customGetInternalTransformer(schema, Seq("textAndTranslation"))
+    {
+      validateApiVersion(getApiVersion)
+      customGetInternalTransformer(schema, Seq("textAndTranslation"))
+    }
 
   override def responseDataType: DataType = ArrayType(DictionaryExamplesResponse.schema)
+}
+
+object Languages extends ComplexParamsReadable[Languages]
+
+class Languages(override val uid: String) extends TextTranslatorBase(uid)
+  with HasCognitiveServiceInput with SynapseMLLogging {
+  logClass(FeatureNames.AiServices.Translate)
+
+  def this() = this(Identifiable.randomUID("Languages"))
+
+  override def urlPath: String = "languages"
+
+  override protected def supportsApiVersion(version: String): Boolean =
+    TranslatorApiVersion.Supported(version)
+
+  val scope = new StringArrayParam(
+    this,
+    "scope",
+    "Translator language groups to return. API 3.0 supports translation, transliteration, and dictionary; " +
+      "API 2026-06-06 supports translation, transliteration, and models.",
+    values => values.nonEmpty &&
+      values.forall(Set("translation", "transliteration", "dictionary", "models")))
+
+  def getScope: Array[String] = $(scope)
+
+  def setScope(v: Array[String]): this.type = set(scope, v)
+
+  def setScope(v: Seq[String]): this.type = set(scope, v.toArray)
+
+  def setScope(v: String): this.type = set(scope, Array(v))
+
+  private def validateScope(version: String, values: Seq[String]): Unit = {
+    val allowed = version match {
+      case TranslatorApiVersion.V3 => Set("translation", "transliteration", "dictionary")
+      case TranslatorApiVersion.V2026 => Set("translation", "transliteration", "models")
+    }
+    require(values.forall(allowed),
+      s"Translator API $version supports these language scopes: ${allowed.mkString(", ")}")
+  }
+
+  override protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {
+    { row: Row =>
+      val version = getApiVersion
+      validateApiVersion(version)
+      val selectedScope = this.get(scope).map(_.toSeq)
+      selectedScope.foreach(validateScope(version, _))
+      val query = Seq(Some("api-version" -> version), selectedScope.map("scope" -> _.mkString(","))).flatten
+      val request = new HttpGet(getUrl + "?" + URLEncodingUtils.format(query.toMap))
+      addHeaders(request, row)
+      getValueOpt(row, subscriptionRegion).foreach(request.setHeader("Ocp-Apim-Subscription-Region", _))
+      Some(request)
+    }
+  }
+
+  override protected def prepareEntity: Row => Option[AbstractHttpEntity] = { _ => None }
+
+  override protected def getInternalTransformer(schema: StructType): PipelineModel = {
+    val version = getApiVersion
+    validateApiVersion(version)
+    get(scope).foreach(values => validateScope(version, values))
+    customGetInternalTransformer(schema, Seq.empty)
+  }
+
+  override def responseDataType: DataType = TranslatorLanguagesResponse.schema
 }
