@@ -288,7 +288,10 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
   }
 
   private def v2026Payload(row: Row, texts: Seq[String]): String = {
-    require(!isSet(includeAlignment) && !isSet(includeSentenceLength) && !isSet(suggestedFrom),
+    val v3OnlyValueRequested = getValueOpt(row, includeAlignment).contains(true) ||
+      getValueOpt(row, includeSentenceLength).contains(true) ||
+      getValueOpt(row, suggestedFrom).exists(_.trim.nonEmpty)
+    require(!v3OnlyValueRequested,
       "includeAlignment, includeSentenceLength, and suggestedFrom are only supported by Translator API 3.0.")
     val sourceLanguage = getValueOpt(row, fromLanguage).map(JsString(_))
     val sourceScript = getValueOpt(row, fromScript).map(JsString(_))

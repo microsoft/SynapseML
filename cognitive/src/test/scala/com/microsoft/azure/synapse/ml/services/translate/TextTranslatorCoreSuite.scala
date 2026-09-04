@@ -222,6 +222,17 @@ class TextTranslatorCoreSuite extends TestBase {
     assert(body.contains(""""profanityMarker":"Tag""""))
     assert(body.contains(""""textType":"Html""""))
 
+    val neutralRequest = new TestableTranslate()
+      .setApiVersion("2026-06-06")
+      .setLocation("eastus")
+      .setText("hello")
+      .setToLanguage("es")
+      .setIncludeAlignment(false)
+      .setIncludeSentenceLength(false)
+      .setSuggestedFrom(" ")
+      .buildRequest(StructType(Seq.empty), Row.empty)
+    assert(neutralRequest.nonEmpty)
+
     val error = intercept[IllegalArgumentException] {
       new TestableTranslate()
         .setApiVersion("2026-06-06")
