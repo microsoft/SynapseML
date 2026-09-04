@@ -714,7 +714,7 @@ class Languages(override val uid: String) extends TextTranslatorBase(uid)
       case TranslatorApiVersion.V2026 => Set("translation", "transliteration", "models")
     }
     require(values.forall(allowed),
-      s"Translator API $version supports these language scopes: ${allowed.mkString(", ")}")
+      s"Translator API $version supports these language scopes: ${allowed.toSeq.sorted.mkString(", ")}")
   }
 
   override protected def inputFunc(schema: StructType): Row => Option[HttpRequestBase] = {

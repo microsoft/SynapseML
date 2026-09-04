@@ -447,15 +447,17 @@ class TextTranslatorCoreSuite extends TestBase {
     assert(new Languages().responseDataType == TranslatorLanguagesResponse.schema)
     assert(TranslatorLanguagesResponse.schema("models").dataType == ArrayType(org.apache.spark.sql.types.StringType))
 
-    intercept[IllegalArgumentException] {
+    val v3Error = intercept[IllegalArgumentException] {
       new Languages().setScope("models").transformSchema(StructType(Seq.empty))
     }
-    intercept[IllegalArgumentException] {
+    assert(v3Error.getMessage.contains("dictionary, translation, transliteration"))
+    val latestError = intercept[IllegalArgumentException] {
       new Languages()
         .setApiVersion("2026-06-06")
         .setScope("dictionary")
         .transformSchema(StructType(Seq.empty))
     }
+    assert(latestError.getMessage.contains("models, translation, transliteration"))
   }
 
   test("dictionary examples request building supports scalar text and translation input") {
