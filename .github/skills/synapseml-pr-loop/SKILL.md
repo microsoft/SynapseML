@@ -113,12 +113,11 @@ is complete and green.
 
 - `/azp run` is privileged authorization to execute pull-request code with
   trusted Azure Pipeline credentials and is restricted to repository
-  maintainers. Before triggering, wait for the current-head automated review,
-  inspect its `/azp run` assessment, and clear its active and suppressed
-  findings. A missing, ambiguous, or unsafe verdict blocks the trusted helper.
-  GitHub may omit a requested summary marker, but maintainer confirmation cannot
-  turn that missing evidence into a safe verdict. Never trigger an unsafe,
-  uncertain, or unreviewed head.
+  maintainers. Repository review instructions and the review-focused code-review
+  skill direct Copilot to inspect credential-exfiltration risk and raise an
+  actionable finding when `/azp run` is unsafe or uncertain. Before triggering,
+  wait for the current-head automated review and clear its active and suppressed
+  findings. Never trigger an unsafe, uncertain, or unreviewed head.
 - Run
   `Get-PrReadiness.ps1 -PullRequest <number> -RunPipeline -ConfirmHeadSha <sha>`
   from a trusted `master` worktree, never from the pull request's worktree: an
@@ -126,12 +125,13 @@ is complete and green.
   completed review first, then pass its exact head in a separate invocation. The
   explicit maintainer confirmation, not AI-authored text, authorizes CI. The
   helper fails closed unless that SHA and the completed automated review both
-  cover the current head, the exact safe verdict is present, no finding remains,
-  and the authenticated GitHub user has repository write permission.
+  cover the current head, no finding remains, and the authenticated GitHub user
+  has repository write permission. Copilot guidance is non-deterministic and
+  cannot be used as a machine authorization token.
 - Copilot reads its instructions, agent skills, and review setup from the pull
   request head. The trusted helper therefore refuses to trigger a head that
   adds, removes, renames, or edits one of those review inputs; its Copilot
-  verdict is not an independent attestation. Such a change requires an
+  review is not an independent attestation. Such a change requires an
   out-of-band maintainer security review before any manual trigger.
 - After the exact validated head is pushed and declared safe, trigger and
   confirm a build actually queued -- a comment is not evidence that CI ran, so
@@ -167,13 +167,13 @@ is complete and green.
 
 From a trusted `master` worktree, run
 `Get-PrReadiness.ps1 -PullRequest <numbers> -WaitForReview` after the final push.
-Inspect the current-head diff, completed review, safety verdict, and every gate
+Inspect the current-head diff, completed review, safety findings, and every gate
 in [references/readiness-gates.md](references/readiness-gates.md). If the head
 is safe and does not change a Copilot review input, authorize CI separately with
 `Get-PrReadiness.ps1 -PullRequest <number> -RunPipeline -ConfirmHeadSha <sha>`.
 Never combine waiting and triggering: a polling process must not authorize
-credential-bearing CI as soon as AI-authored text appears. Then poll readiness
-snapshots until the required Azure and GitHub checks finish.
+credential-bearing CI as soon as AI-authored review evidence appears. Then poll
+readiness snapshots until the required Azure and GitHub checks finish.
 
 For multiple PRs, after each merge:
 

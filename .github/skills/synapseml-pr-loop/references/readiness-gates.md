@@ -76,15 +76,16 @@ by current-head evidence.
 - Latest automated review covers the final head, compared by commit rather than
   by recency. A review produced before the last push does not clear the two
   gates above, because it never saw that code.
-- The current-head automated review inspected credential-exfiltration risk and
-  reports its `/azp run` assessment. A missing, ambiguous, or unsafe verdict
-  blocks the trusted helper; `-ConfirmHeadSha` cannot replace absent safety
-  evidence. GitHub can omit a requested machine-readable summary marker, so
-  obtain another current-head review or use an independently authorized manual
-  process rather than treating missing as safe.
+- Repository instructions and the review-focused code-review skill direct the
+  current-head automated review to inspect credential-exfiltration risk and
+  raise an actionable finding when `/azp run` is unsafe or uncertain. Custom
+  review instructions are advisory and non-deterministic; GitHub does not
+  support using them to control the pull-request overview format. A maintainer
+  must inspect the review and diff rather than treating AI-authored text as a
+  machine authorization token.
 - The pull request does not change a head-controlled Copilot review input:
   repository/path/agent instructions, agent skills, or Copilot review setup
-  workflows. Copilot reads these from the head branch, so a verdict influenced
+  workflows. Copilot reads these from the head branch, so a review influenced
   by such a change is not trusted authorization. Require an independent
   maintainer security review before manually triggering those PRs.
 - Targeted tests, compile, test compile, style, Black, codegen, Python, and
@@ -102,11 +103,10 @@ by current-head evidence.
 - Skips are expected and documented; a skipped required scenario is a blocker.
 - `Get-PrReadiness.ps1` reports these as `completeness.complete`, which is true
   only when comment pagination was not truncated, an automated review covers the
-  head with the exact safe AZP verdict, the changed-file
-  inventory is complete, no head-controlled review inputs changed, and
-  unresolved threads, suppressed-for-head items, missing required checks,
-  failed checks and pending checks are all zero. Treat a pending check as
-  unknown rather than passing.
+  head, the changed-file inventory is complete, no head-controlled review
+  inputs changed, and unresolved threads, suppressed-for-head items, missing
+  required checks, failed checks and pending checks are all zero. Treat a
+  pending check as unknown rather than passing.
   Trust the individual fields over the summary when they disagree: that flag has
   been wrong before, in both directions.
 

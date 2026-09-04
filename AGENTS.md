@@ -140,13 +140,15 @@ before running them because some create or delete cloud resources.
 - Resolve active and suppressed review findings; document why any finding is
   invalid.
 - Treat `/azp run` as privileged: only maintainers may post it, and only after
-  the automated review covers the exact head and its `/azp run` assessment has
-  no unsafe verdict or unresolved finding. Run readiness automation from a
-  trusted `master` worktree, never from an untrusted PR checkout. Because
-  Copilot reads review instructions from the PR head, instruction or
-  review-setup changes also require an independent maintainer security review.
-  AI review is evidence, not authorization: the maintainer must inspect it and
-  separately confirm the exact head SHA when triggering. Branch-specific
+  the automated review covers the exact head and its active and suppressed
+  findings are clear. Repository instructions and the code-review skill direct
+  Copilot to inspect credential-exfiltration risk, but AI review is advisory,
+  non-deterministic evidence rather than authorization. Run readiness automation
+  from a trusted `master` worktree, never from an untrusted PR checkout. Because
+  Copilot reads review instructions from the PR head, instruction or review-setup
+  changes also require an independent maintainer security review. The maintainer
+  must inspect the review and diff, then separately confirm the exact head SHA
+  when triggering. Branch-specific
   exceptions are documented in the
   [branch context skill](.github/skills/synapseml-branches/SKILL.md).
 - Treat [GitHub Actions](.github/workflows/) as fast checks and

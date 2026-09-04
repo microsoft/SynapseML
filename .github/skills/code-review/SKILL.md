@@ -16,6 +16,19 @@ Use this skill when reviewing SynapseML changes.
 5. Apply the checklists below to every changed file.
 6. Report only concrete issues with file paths and fixes.
 
+## Privileged Azure Pipelines (`/azp run`)
+
+Apply this checklist to every pull request.
+
+- [ ] Treat every pull-request-controlled build, test, documentation, packaging,
+      and publishing path as untrusted code that may run with credentials
+- [ ] Check YAML/templates, scripts, dependency hooks, generated commands,
+      logging, uploads, caches, artifacts, and network destinations for direct
+      or encoded credential exfiltration
+- [ ] Do not infer safety from a trusted author or passing GitHub checks
+- [ ] If the exact head is unsafe or evidence is uncertain, report an actionable
+      finding on the risky path and state that `/azp run` must not be authorized
+
 ## Security Checklist
 
 Apply when changes touch serialization, I/O, network, or authentication code.

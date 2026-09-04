@@ -21,9 +21,8 @@ READINESS_SCRIPT = (
     / "Get-PrReadiness.ps1"
 )
 PR_LOOP_SKILL = REPO_ROOT / ".github" / "skills" / "synapseml-pr-loop" / "SKILL.md"
+CODE_REVIEW_SKILL = REPO_ROOT / ".github" / "skills" / "code-review" / "SKILL.md"
 
-SAFE_VERDICT = "AZP SAFETY: SAFE TO RUN /azp run"
-UNSAFE_VERDICT = "AZP SAFETY: DO NOT RUN /azp run"
 POWERSHELL = shutil.which("pwsh") or shutil.which("powershell")
 
 FAKE_GH = r"""
@@ -43,9 +42,7 @@ def emit(value):
 
 
 head = os.environ.get("FAKE_HEAD", "a" * 40)
-review_body = os.environ.get(
-    "FAKE_REVIEW_BODY", "Security review complete.\nAZP SAFETY: SAFE TO RUN /azp run"
-)
+review_body = os.environ.get("FAKE_REVIEW_BODY", "Copilot review completed.")
 
 if args[:2] == ["pr", "view"]:
     emit(
@@ -228,16 +225,26 @@ def _azp_comments(calls):
     ]
 
 
-def test_copilot_review_requires_exact_head_azp_safety_verdict():
+def test_copilot_review_guides_privileged_pipeline_analysis():
     instructions = COPILOT_INSTRUCTIONS.read_text()
+    review_skill = CODE_REVIEW_SKILL.read_text()
 
+    assert "When performing a code review" in instructions
+    assert ".github/skills/code-review/SKILL.md" in instructions
     assert "exact head commit" in instructions
-    assert "credential exfiltration" in instructions
-    assert "restricted to SynapseML maintainers" in instructions
-    assert SAFE_VERDICT in instructions
-    assert UNSAFE_VERDICT in instructions
-    assert "do not wrap it in backticks or a code fence" in instructions
-    assert "any push requires a new review" in instructions
+    assert "credential-exfiltration" in instructions
+    assert "maintainer-only authorization" in instructions
+    assert "leave an actionable review finding" in instructions
+    assert "/azp run` must not be authorized" in instructions
+    assert "Do not recommend or authorize" in instructions
+    assert "advisory and non-deterministic" in instructions
+    assert "any push requires a new review" in instructions.lower()
+    assert "AZP SAFETY:" not in instructions
+    assert "## Privileged Azure Pipelines (`/azp run`)" in review_skill
+    assert "Apply this checklist to every pull request." in review_skill
+    assert "credential exfiltration" in review_skill
+    assert "report an actionable" in review_skill
+    assert "`/azp run` must not be authorized" in review_skill
 
 
 def test_readiness_helper_fails_closed_before_posting_azp_run():
@@ -248,14 +255,8 @@ def test_readiness_helper_fails_closed_before_posting_azp_run():
         )
     ]
 
-    assert SAFE_VERDICT in script
-    assert UNSAFE_VERDICT in script
-    assert "$lastLine -ceq $azpSafeMarker" in script
-    assert "$lastLine -ceq $azpUnsafeMarker" in script
     assert "$RunPipeline -and $WaitForReview" in script
     assert "-RunPipeline requires -ConfirmHeadSha" in script
-    assert '$azpSafetyVerdict -ne "safe"' in trigger_block
-    assert '$azpSafetyVerdict -eq "safe" -and' in script
     assert "$ConfirmHeadSha -ine $view.headRefOid" in trigger_block
     assert "-not $viewerCanTriggerPipeline" in trigger_block
     assert "@($unresolved).Count -gt 0" in trigger_block
@@ -270,6 +271,7 @@ def test_readiness_helper_fails_closed_before_posting_azp_run():
     )
     assert "$script:fileInventoryByHead" in script
     assert "-BaseSha $view.baseRefOid -HeadSha $view.headRefOid" in script
+    assert "AZP SAFETY:" not in script
 
 
 def test_pr_loop_requires_trusted_helper_and_current_head_safety_review():
@@ -277,31 +279,19 @@ def test_pr_loop_requires_trusted_helper_and_current_head_safety_review():
 
     assert "trusted `master` worktree" in skill
     assert "current-head automated review" in skill
-    assert "`/azp run` assessment" in skill
-    assert "missing, ambiguous, or unsafe verdict blocks" in skill
+    assert "credential-exfiltration risk" in skill
+    assert "actionable finding" in skill
+    assert "non-deterministic" in skill
     assert "-ConfirmHeadSha <sha>" in skill
 
 
 @pytest.mark.skipif(POWERSHELL is None, reason="PowerShell is not installed")
-def test_readiness_posts_once_for_trusted_safe_head(tmp_path):
+def test_readiness_posts_once_for_trusted_reviewed_head(tmp_path):
     snapshot, calls = _run_readiness(tmp_path)
 
     assert snapshot["completeness"]["pipelineRunRequested"] is True
     assert snapshot["pipelineRunBlockedReasons"] == []
     assert len(_azp_comments(calls)) == 1
-
-
-@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell is not installed")
-def test_readiness_rejects_missing_verdict_even_with_explicit_confirmation(tmp_path):
-    snapshot, calls = _run_readiness(
-        tmp_path,
-        FAKE_REVIEW_BODY="Copilot review completed without findings.",
-    )
-
-    assert snapshot["azpSafetyVerdict"] == "missing"
-    assert snapshot["completeness"]["pipelineRunRequested"] is False
-    assert snapshot["pipelineRunBlockedReasons"]
-    assert _azp_comments(calls) == []
 
 
 @pytest.mark.skipif(POWERSHELL is None, reason="PowerShell is not installed")
@@ -324,10 +314,9 @@ def test_readiness_rejects_implicit_maintainer_authorization(tmp_path, options):
 @pytest.mark.parametrize(
     "fixture",
     [
-        {"FAKE_REVIEW_BODY": f"Risk found.\n{UNSAFE_VERDICT}"},
-        {"FAKE_REVIEW_BODY": f"{SAFE_VERDICT}\n{UNSAFE_VERDICT}"},
         {"FAKE_REVIEW_COMMIT": "b" * 40},
         {"FAKE_UNRESOLVED": "1"},
+        {"FAKE_REVIEW_BODY": "Suppressed comments (1)\nCredential risk"},
         {"FAKE_CAN_PUSH": "0"},
         {"FAKE_PERMISSION_ERROR": "1"},
         {"FAKE_RECHECK_HEAD": "b" * 40},
@@ -335,10 +324,9 @@ def test_readiness_rejects_implicit_maintainer_authorization(tmp_path, options):
         {"confirmed_head": "b" * 40},
     ],
     ids=[
-        "unsafe-verdict",
-        "ambiguous-verdict",
         "stale-review",
         "unresolved-finding",
+        "suppressed-finding",
         "insufficient-permission",
         "permission-api-error",
         "changed-head",
