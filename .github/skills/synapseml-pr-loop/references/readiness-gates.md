@@ -100,13 +100,21 @@ by current-head evidence.
   head SHA, not by the absence of red. Only a maintainer may trigger it, and the
   readiness helper must be run from trusted `master`, not from an untrusted PR
   worktree that can modify the helper.
+- The readiness helper is read-only. It compares complete Git trees addressed by
+  the exact base and head commit SHAs and rejects truncated or malformed tree
+  responses; it never trusts the mutable PR-files endpoint or posts `/azp run`.
+- `/azp run` is not SHA-bound. A head recheck immediately before commenting
+  narrows but cannot close the race with a concurrent push. Do not use the
+  comment trigger for an adversarial author who can push during authorization;
+  require a trusted control plane that pins the reviewed commit before exposing
+  credentials.
 - Skips are expected and documented; a skipped required scenario is a blocker.
 - `Get-PrReadiness.ps1` reports these as `completeness.complete`, which is true
   only when comment pagination was not truncated, an automated review covers the
-  head, the changed-file inventory is complete, no head-controlled review
-  inputs changed, and unresolved threads, suppressed-for-head items, missing
-  required checks, failed checks and pending checks are all zero. Treat a
-  pending check as unknown rather than passing.
+  head, the immutable changed-file inventory is complete, no head-controlled
+  review inputs changed, and unresolved threads, suppressed-for-head items,
+  missing required checks, failed checks and pending checks are all zero. Treat
+  a pending check as unknown rather than passing.
   Trust the individual fields over the summary when they disagree: that flag has
   been wrong before, in both directions.
 

@@ -26,6 +26,10 @@ Apply this checklist to every pull request.
       logging, uploads, caches, artifacts, and network destinations for direct
       or encoded credential exfiltration
 - [ ] Do not infer safety from a trusted author or passing GitHub checks
+- [ ] Treat changes to Copilot instructions, agent skills, or review setup as
+      untrusted evidence requiring independent maintainer review
+- [ ] Treat `/azp run` as unbound to a commit SHA; flag any check-then-comment
+      automation that claims to make the trigger atomic
 - [ ] If the exact head is unsafe or evidence is uncertain, report an actionable
       finding on the risky path and state that `/azp run` must not be authorized
 

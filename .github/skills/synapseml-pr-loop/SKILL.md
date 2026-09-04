@@ -117,36 +117,39 @@ is complete and green.
   skill direct Copilot to inspect credential-exfiltration risk and raise an
   actionable finding when `/azp run` is unsafe or uncertain. Before triggering,
   wait for the current-head automated review and clear its active and suppressed
-  findings. Never trigger an unsafe, uncertain, or unreviewed head.
+  findings. Copilot guidance is non-deterministic evidence, not authorization.
+  Never trigger an unsafe, uncertain, or unreviewed head.
 - Run
-  `Get-PrReadiness.ps1 -PullRequest <number> -RunPipeline -ConfirmHeadSha <sha>`
-  from a trusted `master` worktree, never from the pull request's worktree: an
-  untrusted pull request can modify its own copy of the helper. Inspect the
-  completed review first, then pass its exact head in a separate invocation. The
-  explicit maintainer confirmation, not AI-authored text, authorizes CI. The
-  helper fails closed unless that SHA and the completed automated review both
-  cover the current head, no finding remains, and the authenticated GitHub user
-  has repository write permission. Copilot guidance is non-deterministic and
-  cannot be used as a machine authorization token.
+  `Get-PrReadiness.ps1 -PullRequest <number> -WaitForReview` from a trusted
+  `master` worktree, never from the pull request's worktree: an untrusted pull
+  request can modify its own copy of the helper. The helper compares immutable
+  Git trees for the exact base and head commits, reports review evidence, and is
+  intentionally read-only. It never posts `/azp run`.
 - Copilot reads its instructions, agent skills, and review setup from the pull
-  request head. The trusted helper therefore refuses to trigger a head that
-  adds, removes, renames, or edits one of those review inputs; its Copilot
-  review is not an independent attestation. Such a change requires an
-  out-of-band maintainer security review before any manual trigger.
-- After the exact validated head is pushed and declared safe, trigger and
-  confirm a build actually queued -- a comment is not evidence that CI ran, so
-  cite the build ID. A trigger-driven build records `reason=pullRequest`; one
-  queued directly records `reason=manual`, which is the quickest way to tell
-  whether the comment trigger fired or the build was merely re-run by hand.
+  request head. A head that adds, removes, renames, or edits one of those inputs
+  requires an out-of-band maintainer security review before any manual trigger;
+  its Copilot review is not an independent attestation.
+- `/azp run` is not SHA-bound, and GitHub has no conditional comment operation.
+  A pre-comment head check cannot make it atomic. Immediately recheck the head
+  before a maintainer comments, but do not use the comment trigger for an
+  adversarial author who can push concurrently; that case needs a trusted
+  control plane that queues an immutable reviewed commit before credentials are
+  exposed.
+- After a maintainer manually triggers the exact validated head, confirm a build
+  actually queued -- a comment is not evidence that CI ran, so cite the build
+  ID. A trigger-driven build records `reason=pullRequest`; one queued directly
+  records `reason=manual`, which is the quickest way to tell whether the comment
+  trigger fired or the build was merely re-run by hand. Verify the build's
+  recorded PR source commit and synthetic merge parents against the reviewed
+  base and head.
 - Do this after **every** push, not once per pull request. The build does not
   re-queue itself when the head moves, so the previous run's result belongs to
   code that no longer exists. The GitHub Actions checks do re-run on each push
   and go green within a couple of minutes, which makes a head with no Azure
   Pipelines build on it look fully checked; an absent check is neither failed
   nor pending, so nothing reports it. Verify the build against the head SHA by
-  name. Only after the current-head safety review clears may a maintainer run
-  the trusted helper with `-RunPipeline -ConfirmHeadSha <sha>` to post the
-  missing comment.
+  name. The helper reports the missing check but does not post the privileged
+  comment.
 - If no build appears, check the pipeline definition's own pull-request trigger
   rather than assuming a transient failure. That trigger can be defined in the
   pipeline UI, in which case it overrides the `pr:` block in `pipeline.yaml`
@@ -168,12 +171,12 @@ is complete and green.
 From a trusted `master` worktree, run
 `Get-PrReadiness.ps1 -PullRequest <numbers> -WaitForReview` after the final push.
 Inspect the current-head diff, completed review, safety findings, and every gate
-in [references/readiness-gates.md](references/readiness-gates.md). If the head
-is safe and does not change a Copilot review input, authorize CI separately with
-`Get-PrReadiness.ps1 -PullRequest <number> -RunPipeline -ConfirmHeadSha <sha>`.
-Never combine waiting and triggering: a polling process must not authorize
-credential-bearing CI as soon as AI-authored review evidence appears. Then poll
-readiness snapshots until the required Azure and GitHub checks finish.
+in [references/readiness-gates.md](references/readiness-gates.md). The readiness
+helper never authorizes CI: a polling process must not post a privileged command
+as soon as AI-authored review evidence appears. If repository policy permits a
+manual trigger for the author and threat model, the maintainer makes that
+decision separately. Then poll readiness snapshots until the required Azure and
+GitHub checks finish.
 
 For multiple PRs, after each merge:
 

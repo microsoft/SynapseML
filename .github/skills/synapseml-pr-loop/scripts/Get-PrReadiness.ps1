@@ -28,15 +28,16 @@
     never started scores zero in both and reads as finished;
     `missingRequiredChecks` catches that and gates `complete`. The Azure DevOps
     build is the usual casualty because it does not queue itself on a push -- it
-    waits for an `/azp run` comment. Because that command authorizes untrusted
-    pull-request code to run with trusted pipeline credentials, `-RunPipeline`
-    posts it only after the current-head automated review finishes with no
-    current-head finding, and the authenticated GitHub user separately confirms
-    the exact SHA and has write permission. Copilot review guidance is advisory
-    and its overview format is not a machine authorization token; the maintainer
-    confirmation is. Copilot reads instructions and skills from the pull-request
-    head, so a head that changes any of those review inputs is blocked from
-    automated triggering and requires independent maintainer review.
+    waits for an `/azp run` comment.
+
+    This helper is deliberately read-only. GitHub has no conditional comment
+    operation and `/azp run` carries no commit SHA, so a helper cannot atomically
+    bind that command to the reviewed head. It reports immutable, exact-SHA
+    evidence for a maintainer to inspect but never posts the privileged command.
+    Copilot review guidance is advisory and its overview format is not a machine
+    authorization token. Copilot also reads instructions and skills from the
+    pull-request head, so a head that changes those inputs requires independent
+    maintainer review.
 
     It does not make the readiness decision; use the skill's evidence gates for
     that judgment. Output can contain review content; keep it local or redact it
@@ -83,21 +84,7 @@ param(
     # never started scores zero failures and zero pending and looks finished. The
     # Azure DevOps build does not queue itself on every push here -- it needs an
     # `/azp run` comment -- which is exactly the check most likely to be missing.
-    [string[]]$RequiredCheck = @("microsoft.SynapseML"),
-
-    # Post `/azp run` when a required check is missing, but only after the
-    # current-head automated review finishes with no active or suppressed
-    # finding and the caller is a maintainer. This cannot be combined with
-    # -WaitForReview: a maintainer must inspect the completed review and diff
-    # before a separate trigger invocation.
-    [switch]$RunPipeline,
-
-    # Explicit maintainer attestation for -RunPipeline. Copy the exact head SHA
-    # from a completed readiness snapshot only after inspecting the review and
-    # diff. This makes the maintainer invocation, not AI-authored text, the
-    # authorization to run credential-bearing CI.
-    [ValidatePattern('^[0-9a-fA-F]{40}$')]
-    [string]$ConfirmHeadSha
+    [string[]]$RequiredCheck = @("microsoft.SynapseML")
 )
 
 $ErrorActionPreference = "Stop"
@@ -105,17 +92,6 @@ $ErrorActionPreference = "Stop"
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
     throw "GitHub CLI 'gh' is required."
 }
-if ($RunPipeline -and $WaitForReview) {
-    throw "-RunPipeline cannot be combined with -WaitForReview. Inspect the completed " +
-        "review, then trigger in a separate invocation."
-}
-if ($RunPipeline -and [string]::IsNullOrWhiteSpace($ConfirmHeadSha)) {
-    throw "-RunPipeline requires -ConfirmHeadSha with the exact reviewed head."
-}
-if (-not $RunPipeline -and $ConfirmHeadSha) {
-    throw "-ConfirmHeadSha is valid only with -RunPipeline."
-}
-
 $repoParts = $Repo.Split("/")
 if ($repoParts.Count -ne 2 -or -not $repoParts[0] -or -not $repoParts[1]) {
     throw "Repo must use owner/name format; got '$Repo'."
@@ -135,70 +111,10 @@ if (-not $automatedLogins) {
 # -RequestReview block in Get-PrSnapshot.
 $script:reviewRequestOutcome = @{}
 
-# Likewise for `/azp run` comments; see the -RunPipeline block in Get-PrSnapshot.
-$script:pipelineRunOutcome = @{}
-
-# Repository permission is stable during one invocation and should not cost an
-# API call on every -WaitForReview poll.
-$script:viewerTriggerPermission = $null
-
-# Changed files are stable for one base/head pair. Cache by PR and both SHAs so
-# polling a large PR does not repeatedly consume every page of the files API; a
-# push or target advance gets a new key and therefore a fresh inventory.
+# Git trees are immutable for one base/head pair. Cache by PR and both commit
+# SHAs so polling does not repeatedly traverse the repository; a push or target
+# advance gets a new key and therefore a fresh comparison.
 $script:fileInventoryByHead = @{}
-
-function Get-ViewerTriggerPermission {
-    if ($null -ne $script:viewerTriggerPermission) {
-        return $script:viewerTriggerPermission
-    }
-
-    $repoText = & gh api "repos/$Repo"
-    if ($LASTEXITCODE -ne 0) {
-        $script:viewerTriggerPermission = [pscustomobject]@{
-            permission = "UNKNOWN"
-            canTrigger = $false
-            error = "repository permission query failed for '$Repo'"
-        }
-        return $script:viewerTriggerPermission
-    }
-    $repoView = $repoText | ConvertFrom-Json
-    $permissions = $repoView.permissions
-    $canPush = [bool]($permissions -and $permissions.push)
-    $permission = if ($permissions -and $permissions.admin) {
-        "ADMIN"
-    } elseif ($permissions -and $permissions.maintain) {
-        "MAINTAIN"
-    } elseif ($canPush) {
-        "WRITE"
-    } elseif ($permissions -and $permissions.triage) {
-        "TRIAGE"
-    } else {
-        "READ"
-    }
-
-    $script:viewerTriggerPermission = [pscustomobject]@{
-        permission = $permission
-        canTrigger = $canPush
-        error = $null
-    }
-    return $script:viewerTriggerPermission
-}
-
-function Get-CurrentPullRequestHead {
-    param([Parameter(Mandatory)][int]$Number)
-
-    $head = & gh api "repos/$Repo/pulls/$Number" --jq ".head.sha"
-    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($head)) {
-        return [pscustomobject]@{
-            sha = $null
-            error = "could not revalidate the current PR head"
-        }
-    }
-    return [pscustomobject]@{
-        sha = $head.Trim()
-        error = $null
-    }
-}
 
 function Test-CopilotReviewInfluencePath {
     param([Parameter(Mandatory)][string]$Path)
@@ -225,11 +141,101 @@ function Test-CopilotReviewInfluencePath {
     return $false
 }
 
+function Get-CurrentPullRequestRefs {
+    param([Parameter(Mandatory)][int]$Number)
+
+    $refsText = & gh api "repos/$Repo/pulls/$Number" `
+        --jq '{baseSha:.base.sha,headSha:.head.sha}'
+    if ($LASTEXITCODE -ne 0) {
+        throw "Pull-request ref query failed for PR #$Number"
+    }
+    $refs = $refsText | ConvertFrom-Json
+    if ($refs.baseSha -notmatch '^[0-9a-fA-F]{40}$' -or
+        $refs.headSha -notmatch '^[0-9a-fA-F]{40}$') {
+        throw "Pull-request ref query returned incomplete data for PR #$Number"
+    }
+    return $refs
+}
+
+function Get-GitTreeSha {
+    param(
+        [Parameter(Mandatory)]
+        [ValidatePattern('^[0-9a-fA-F]{40}$')]
+        [string]$CommitSha,
+        [Parameter(Mandatory)][int]$Number
+    )
+
+    $commitText = & gh api "repos/$Repo/git/commits/$CommitSha"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Commit query failed for PR #$Number at $CommitSha"
+    }
+    $commit = $commitText | ConvertFrom-Json
+    $treeSha = if ($commit.tree) { [string]$commit.tree.sha } else { "" }
+    if ($commit.sha -ine $CommitSha -or
+        $treeSha -notmatch '^[0-9a-fA-F]{40}$') {
+        throw "Commit query returned mismatched or incomplete data for PR #$Number"
+    }
+    return $treeSha.ToLowerInvariant()
+}
+
+function Get-CompleteGitTree {
+    param(
+        [Parameter(Mandatory)]
+        [ValidatePattern('^[0-9a-fA-F]{40}$')]
+        [string]$TreeSha,
+        [Parameter(Mandatory)][int]$Number
+    )
+
+    $treeText = & gh api "repos/$Repo/git/trees/$TreeSha`?recursive=1"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Git-tree query failed for PR #$Number at $TreeSha"
+    }
+    $tree = $treeText | ConvertFrom-Json
+    if ($tree.sha -ine $TreeSha -or
+        -not $tree.PSObject.Properties['truncated'] -or
+        $tree.truncated -ne $false -or
+        -not $tree.PSObject.Properties['tree']) {
+        throw "Git-tree query returned mismatched, truncated, or incomplete data for PR #$Number"
+    }
+
+    $entries = [Collections.Generic.Dictionary[string, object]]::new(
+        [StringComparer]::Ordinal
+    )
+    $seenPaths = [Collections.Generic.HashSet[string]]::new(
+        [StringComparer]::Ordinal
+    )
+    foreach ($entry in @($tree.tree)) {
+        $path = [string]$entry.path
+        $sha = [string]$entry.sha
+        $mode = [string]$entry.mode
+        $type = [string]$entry.type
+        if ([string]::IsNullOrWhiteSpace($path) -or
+            $sha -notmatch '^[0-9a-fA-F]{40}$' -or
+            [string]::IsNullOrWhiteSpace($mode) -or
+            $type -notin @("blob", "tree", "commit") -or
+            -not $seenPaths.Add($path)) {
+            throw "Git-tree query returned an invalid or duplicate path for PR #$Number"
+        }
+        if ($type -ne "tree") {
+            $entries.Add($path, [pscustomobject]@{
+                sha = $sha.ToLowerInvariant()
+                mode = $mode
+                type = $type
+            })
+        }
+    }
+    return $entries
+}
+
 function Get-PullRequestFileInventory {
     param(
         [Parameter(Mandatory)][int]$Number,
-        [Parameter(Mandatory)][string]$BaseSha,
-        [Parameter(Mandatory)][string]$HeadSha
+        [Parameter(Mandatory)]
+        [ValidatePattern('^[0-9a-fA-F]{40}$')]
+        [string]$BaseSha,
+        [Parameter(Mandatory)]
+        [ValidatePattern('^[0-9a-fA-F]{40}$')]
+        [string]$HeadSha
     )
 
     $cacheKey = "${Number}:${BaseSha}:$HeadSha"
@@ -237,34 +243,46 @@ function Get-PullRequestFileInventory {
         return $script:fileInventoryByHead[$cacheKey]
     }
 
-    $pullText = & gh api "repos/$Repo/pulls/$Number"
-    if ($LASTEXITCODE -ne 0) {
-        throw "Pull-request metadata query failed for PR #$Number"
-    }
-    $pull = $pullText | ConvertFrom-Json
+    $baseTreeSha = Get-GitTreeSha -CommitSha $BaseSha -Number $Number
+    $headTreeSha = Get-GitTreeSha -CommitSha $HeadSha -Number $Number
+    $baseEntries = Get-CompleteGitTree -TreeSha $baseTreeSha -Number $Number
+    $headEntries = Get-CompleteGitTree -TreeSha $headTreeSha -Number $Number
 
-    # REST returns previous_filename for renames, unlike the GraphQL files
-    # connection. --paginate avoids trusting only the first 100 changed paths;
-    # --slurp makes the pages one valid JSON document for ConvertFrom-Json.
-    $filesText = & gh api --paginate --slurp `
-        "repos/$Repo/pulls/$Number/files?per_page=100"
-    if ($LASTEXITCODE -ne 0) {
-        throw "Changed-file query failed for PR #$Number"
-    }
-    $pages = $filesText | ConvertFrom-Json
-    $files = @($pages | ForEach-Object { $_ })
-    $reportedCount = [int]$pull.changed_files
-    $complete = (
-        $files.Count -eq $reportedCount -and
-        # GitHub caps this REST endpoint at 3,000 files. Refuse the boundary
-        # rather than assuming an instruction path was not hidden after it.
-        $files.Count -lt 3000
+    $allPaths = [Collections.Generic.HashSet[string]]::new(
+        [StringComparer]::Ordinal
     )
+    foreach ($path in $baseEntries.Keys) { [void]$allPaths.Add($path) }
+    foreach ($path in $headEntries.Keys) { [void]$allPaths.Add($path) }
+
+    # Compare immutable object identity rather than the mutable PR-files
+    # endpoint. Renames intentionally appear as a deletion plus an addition so
+    # both paths are checked for review influence.
+    $files = @($allPaths | Sort-Object -CaseSensitive | ForEach-Object {
+        $path = $_
+        $changed = -not $baseEntries.ContainsKey($path) -or
+            -not $headEntries.ContainsKey($path)
+        if (-not $changed) {
+            $baseEntry = $baseEntries[$path]
+            $headEntry = $headEntries[$path]
+            $changed = (
+                $baseEntry.sha -cne $headEntry.sha -or
+                $baseEntry.mode -cne $headEntry.mode -or
+                $baseEntry.type -cne $headEntry.type
+            )
+        }
+        if ($changed) {
+            [pscustomobject]@{ filename = $path }
+        }
+    })
 
     $inventory = [pscustomobject]@{
         files = $files
-        reportedCount = $reportedCount
-        complete = $complete
+        baseTreeSha = $baseTreeSha
+        headTreeSha = $headTreeSha
+        baseEntryCount = $baseEntries.Count
+        headEntryCount = $headEntries.Count
+        source = "immutable-git-trees"
+        complete = $true
     }
     $script:fileInventoryByHead[$cacheKey] = $inventory
     return $inventory
@@ -514,77 +532,20 @@ function Get-PrSnapshot {
         }
     }
 
-    $pipelineRunRequested = $false
-    $pipelineRunBlockedReasons = @()
-    $viewerPermission = $null
-    $viewerPermissionError = $null
-    $viewerCanTriggerPipeline = $false
-    if ($script:pipelineRunOutcome.ContainsKey($number)) {
-        $pipelineRunRequested = $script:pipelineRunOutcome[$number]
-    }
-    if ($RunPipeline -and @($missingRequiredChecks).Count -gt 0) {
-        $triggerPermission = Get-ViewerTriggerPermission
-        $viewerPermission = $triggerPermission.permission
-        $viewerPermissionError = $triggerPermission.error
-        $viewerCanTriggerPipeline = $triggerPermission.canTrigger
-
-        if (-not $automatedReviewCoversHead) {
-            $pipelineRunBlockedReasons += "automated review does not cover the current head"
-        }
-        if ($ConfirmHeadSha -ine $view.headRefOid) {
-            $pipelineRunBlockedReasons +=
-                "maintainer-confirmed SHA does not match the current PR head"
-        }
-        if (@($unresolved).Count -gt 0) {
-            $pipelineRunBlockedReasons += "current review threads remain unresolved"
-        }
-        if (@($suppressedForHead).Count -gt 0) {
-            $pipelineRunBlockedReasons += "current-head suppressed review findings remain"
-        }
-        if (-not $fileInventory.complete) {
-            $pipelineRunBlockedReasons +=
-                "changed-file inventory is incomplete; review inputs cannot be trusted"
-        }
-        if (@($reviewInfluenceChanges).Count -gt 0) {
-            $pipelineRunBlockedReasons += ("PR changes head-controlled Copilot " +
-                "review inputs: {0}" -f ($reviewInfluenceChanges -join ", "))
-        }
-        if ($viewerPermissionError) {
-            $pipelineRunBlockedReasons += $viewerPermissionError
-        } elseif (-not $viewerCanTriggerPipeline) {
-            $pipelineRunBlockedReasons +=
-                "authenticated GitHub user lacks repository write permission"
-        }
-
-        # Keep a once-per-invocation guard because each `/azp run` comment queues
-        # another build and notifies every subscriber.
-        if (@($pipelineRunBlockedReasons).Count -eq 0 -and
-            -not $script:pipelineRunOutcome.ContainsKey($number)) {
-            # Review evidence is commit-specific. Minimize the gap between the
-            # validated snapshot and the trigger by re-reading the head
-            # immediately before commenting; a push invalidates authorization.
-            $currentHead = Get-CurrentPullRequestHead -Number $number
-            if ($currentHead.error) {
-                $pipelineRunBlockedReasons += $currentHead.error
-            } elseif ($currentHead.sha -ne $view.headRefOid) {
-                $pipelineRunBlockedReasons +=
-                    "PR head changed after review; rerun readiness for the new head"
-            }
-        }
-
-        if (@($pipelineRunBlockedReasons).Count -eq 0 -and
-            -not $script:pipelineRunOutcome.ContainsKey($number)) {
-            # A comment is the only trigger the pipeline honours from here;
-            # queueing through the ADO API needs credentials this script does
-            # not assume.
-            gh pr comment $number --repo $Repo --body "/azp run" *> $null
-            $pipelineRunRequested = ($LASTEXITCODE -eq 0)
-            $script:pipelineRunOutcome[$number] = $pipelineRunRequested
-            if (-not $pipelineRunRequested) {
-                Write-Warning "PR #${number}: could not comment '/azp run'."
-            }
-        }
-    }
+    $currentRefs = Get-CurrentPullRequestRefs -Number $number
+    $snapshotStillCurrent = (
+        $currentRefs.baseSha -eq $view.baseRefOid -and
+        $currentRefs.headSha -eq $view.headRefOid
+    )
+    $privilegedPipelineReviewEvidenceComplete = (
+        @($truncatedThreadComments).Count -eq 0 -and
+        $fileInventory.complete -and
+        @($reviewInfluenceChanges).Count -eq 0 -and
+        $automatedReviewCoversHead -and
+        @($unresolved).Count -eq 0 -and
+        @($suppressedForHead).Count -eq 0 -and
+        $snapshotStillCurrent
+    )
 
     [pscustomobject]@{
         number = $view.number
@@ -596,6 +557,7 @@ function Get-PrSnapshot {
         mergeState = $view.mergeStateStatus
         reviewDecision = $view.reviewDecision
         base = $view.baseRefName
+        baseSha = $view.baseRefOid
         headSha = $view.headRefOid
         targetStatus = $compare.status
         aheadBy = $compare.ahead_by
@@ -608,12 +570,12 @@ function Get-PrSnapshot {
         suppressedReviewBodiesForHead = $suppressedForHead
         reviewInfluenceChanges = $reviewInfluenceChanges
         changedFileCount = $fileInventory.files.Count
-        reportedChangedFileCount = $fileInventory.reportedCount
         changedFileInventoryComplete = $fileInventory.complete
-        viewerPermission = $viewerPermission
-        viewerPermissionError = $viewerPermissionError
-        viewerCanTriggerPipeline = $viewerCanTriggerPipeline
-        pipelineRunBlockedReasons = $pipelineRunBlockedReasons
+        changedFileInventorySource = $fileInventory.source
+        baseTreeSha = $fileInventory.baseTreeSha
+        headTreeSha = $fileInventory.headTreeSha
+        snapshotStillCurrent = $snapshotStillCurrent
+        privilegedPipelineReviewEvidenceComplete = $privilegedPipelineReviewEvidenceComplete
         completeness = [pscustomobject]@{
             reviewThreadPages = $threadPage.pages
             reviewThreadCount = $threads.Count
@@ -625,7 +587,6 @@ function Get-PrSnapshot {
             latestAutomatedReviewAuthor = if ($latestAutomated) { $latestAutomated.author.login } else { $null }
             automatedReviewCoversHead = $automatedReviewCoversHead
             automatedReviewRequested = $reviewRequested
-            pipelineRunRequested = $pipelineRunRequested
             # Everything verifiable must be clear. This previously tested only
             # $truncatedThreadComments, which counts comment-pagination truncation
             # rather than unresolved review threads, so it reported complete=true
@@ -639,6 +600,7 @@ function Get-PrSnapshot {
                 $automatedReviewCoversHead -and
                 @($unresolved).Count -eq 0 -and
                 @($suppressedForHead).Count -eq 0 -and
+                $snapshotStillCurrent -and
                 @($missingRequiredChecks).Count -eq 0 -and
                 @($failedChecks).Count -eq 0 -and
                 @($pendingChecks).Count -eq 0
@@ -652,9 +614,9 @@ $results = @(foreach ($number in $PullRequest) {
 
     # Automated review lands some time after a push, so a single snapshot taken
     # straight after one reports zero findings for code that has not been looked
-    # at yet. Waiting deliberately stops at review evidence: triggering is a
-    # separate maintainer decision that requires -ConfirmHeadSha, and a polling
-    # process must not auto-authorize the instant an AI review appears.
+    # at yet. Waiting deliberately stops at review evidence. This read-only
+    # process must not auto-authorize credential-bearing CI when an AI review
+    # appears.
     if ($WaitForReview) {
         $deadline = (Get-Date).AddMinutes($TimeoutMinutes)
         while (-not $snapshot.completeness.automatedReviewCoversHead -and
@@ -672,9 +634,12 @@ $results = @(foreach ($number in $PullRequest) {
                 $number, $snapshot.headSha, $TimeoutMinutes)
         }
         if (-not $snapshot.changedFileInventoryComplete) {
-            Write-Warning ("PR #{0}: changed-file inventory is incomplete ({1} of {2}); " +
-                "the pipeline trigger is blocked." -f $number,
-                $snapshot.changedFileCount, $snapshot.reportedChangedFileCount)
+            Write-Warning ("PR #{0}: immutable changed-file inventory is incomplete; " +
+                "do not treat this snapshot as review evidence." -f $number)
+        }
+        if (-not $snapshot.snapshotStillCurrent) {
+            Write-Warning ("PR #{0}: base or head changed while evidence was collected; " +
+                "rerun readiness for the current commits." -f $number)
         }
         if (@($snapshot.reviewInfluenceChanges).Count -gt 0) {
             Write-Warning ("PR #{0}: head-controlled review input(s) changed: {1}. " +
@@ -682,22 +647,11 @@ $results = @(foreach ($number in $PullRequest) {
                 $number, ($snapshot.reviewInfluenceChanges -join ", "))
         }
         if (@($snapshot.missingRequiredChecks).Count -gt 0) {
-            if ($snapshot.changedFileInventoryComplete -and
-                @($snapshot.reviewInfluenceChanges).Count -eq 0 -and
-                $snapshot.completeness.automatedReviewCoversHead -and
-                @($snapshot.unresolvedThreads).Count -eq 0 -and
-                @($snapshot.suppressedReviewBodiesForHead).Count -eq 0) {
-                Write-Warning ("PR #{0}: required check(s) '{1}' are absent on {2}. " +
-                    "After inspecting the completed review and diff, use -RunPipeline " +
-                    "-ConfirmHeadSha {2} from a trusted master worktree." -f
-                    $number, ($snapshot.missingRequiredChecks -join ", "),
-                    $snapshot.headSha)
-            } else {
-                Write-Warning ("PR #{0}: required check(s) '{1}' are absent on {2}; " +
-                    "automated triggering is blocked for this head." -f
-                    $number, ($snapshot.missingRequiredChecks -join ", "),
-                    $snapshot.headSha)
-            }
+            Write-Warning ("PR #{0}: required check(s) '{1}' are absent on {2}. " +
+                "This helper is read-only and will not post '/azp run'; that command " +
+                "cannot be atomically bound to a commit SHA." -f
+                $number, ($snapshot.missingRequiredChecks -join ", "),
+                $snapshot.headSha)
         }
     }
 

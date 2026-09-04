@@ -143,13 +143,14 @@ before running them because some create or delete cloud resources.
   the automated review covers the exact head and its active and suppressed
   findings are clear. Repository instructions and the code-review skill direct
   Copilot to inspect credential-exfiltration risk, but AI review is advisory,
-  non-deterministic evidence rather than authorization. Run readiness automation
-  from a trusted `master` worktree, never from an untrusted PR checkout. Because
-  Copilot reads review instructions from the PR head, instruction or review-setup
-  changes also require an independent maintainer security review. The maintainer
-  must inspect the review and diff, then separately confirm the exact head SHA
-  when triggering. Branch-specific
-  exceptions are documented in the
+  non-deterministic evidence rather than authorization. Run the read-only
+  readiness helper from a trusted `master` worktree, never from an untrusted PR
+  checkout; it uses immutable Git trees and never posts the command. Because
+  Copilot reads review instructions from the PR head, instruction or
+  review-setup changes also require an independent maintainer security review.
+  `/azp run` is not SHA-bound, so do not use it when an adversarial author can
+  push concurrently; that case requires a trusted exact-commit control plane.
+  Branch-specific exceptions are documented in the
   [branch context skill](.github/skills/synapseml-branches/SKILL.md).
 - Treat [GitHub Actions](.github/workflows/) as fast checks and
   [pipeline.yaml](pipeline.yaml) as the full build.

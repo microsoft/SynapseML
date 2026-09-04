@@ -61,8 +61,6 @@ if args[:2] == ["pr", "view"]:
             "url": "https://github.com/owner/repo/pull/123",
         }
     )
-elif args[:2] == ["pr", "comment"]:
-    emit({"ok": True})
 elif args[:2] == ["api", "graphql"]:
     query = "\n".join(arg for arg in args if arg.startswith("query="))
     if "reviewThreads(" in query:
@@ -113,36 +111,73 @@ elif args[:2] == ["api", "graphql"]:
         sys.exit(2)
 elif args and args[0] == "api":
     path = next((arg for arg in args[1:] if arg.startswith("repos/")), "")
-    if "/files?per_page=100" in path:
-        changed_file = {
-            "filename": os.environ.get("FAKE_CHANGED_FILE", "src/example.py")
-        }
-        previous = os.environ.get("FAKE_PREVIOUS_FILE")
-        if previous:
-            changed_file["previous_filename"] = previous
-        pages = [[changed_file]]
+    if "/git/commits/" in path:
+        commit_sha = path.rsplit("/", 1)[-1]
+        if os.environ.get("FAKE_COMMIT_SHA_MISMATCH") == "1":
+            returned_sha = "9" * 40
+        else:
+            returned_sha = commit_sha
+        tree_sha = "d" * 40 if commit_sha == "c" * 40 else "e" * 40
+        emit({"sha": returned_sha, "tree": {"sha": tree_sha}})
+    elif "/git/trees/" in path:
+        tree_sha = path.split("/git/trees/", 1)[1].split("?", 1)[0]
+        is_base = tree_sha == "d" * 40
+        changed_file = os.environ.get("FAKE_CHANGED_FILE", "src/example.py")
+        previous_file = os.environ.get("FAKE_PREVIOUS_FILE")
         second_file = os.environ.get("FAKE_SECOND_CHANGED_FILE")
+        if previous_file:
+            paths = [previous_file] if is_base else [changed_file]
+        else:
+            paths = [changed_file]
         if second_file:
-            pages.append([{"filename": second_file}])
-        emit(pages)
+            paths.append(second_file)
+
+        object_sha = ("1" if is_base else "2") * 40
+        entries = [
+            {
+                "path": "src",
+                "mode": "040000",
+                "type": "tree",
+                "sha": object_sha,
+            },
+            {
+                "path": "src/stable.py",
+                "mode": "100644",
+                "type": "blob",
+                "sha": "f" * 40,
+            }
+        ]
+        entries.extend(
+            {
+                "path": changed_path,
+                "mode": "100644",
+                "type": "blob",
+                "sha": object_sha,
+            }
+            for changed_path in paths
+        )
+        if os.environ.get("FAKE_DUPLICATE_TREE_PATH") == "1":
+            entries.append(dict(entries[-1]))
+        if os.environ.get("FAKE_MALFORMED_TREE_ENTRY") == "1":
+            entries[-1].pop("sha")
+
+        truncated_target = os.environ.get("FAKE_TREE_TRUNCATED", "")
+        truncated = truncated_target in ("1", "all") or (
+            truncated_target == ("base" if is_base else "head")
+        )
+        returned_sha = (
+            "8" * 40
+            if os.environ.get("FAKE_TREE_SHA_MISMATCH") == "1"
+            else tree_sha
+        )
+        emit({"sha": returned_sha, "truncated": truncated, "tree": entries})
     elif "/compare/" in path:
         emit({"status": "ahead", "ahead_by": 1, "behind_by": 0})
-    elif path == "repos/owner/repo/pulls/123" and "--jq" in args:
-        print(os.environ.get("FAKE_RECHECK_HEAD", head))
     elif path == "repos/owner/repo/pulls/123":
-        emit({"changed_files": int(os.environ.get("FAKE_REPORTED_FILES", "1"))})
-    elif path == "repos/owner/repo":
-        if os.environ.get("FAKE_PERMISSION_ERROR") == "1":
-            sys.exit(1)
-        can_push = os.environ.get("FAKE_CAN_PUSH", "1") == "1"
         emit(
             {
-                "permissions": {
-                    "admin": False,
-                    "maintain": can_push,
-                    "push": can_push,
-                    "triage": True,
-                }
+                "baseSha": os.environ.get("FAKE_RECHECK_BASE", "c" * 40),
+                "headSha": os.environ.get("FAKE_RECHECK_HEAD", head),
             }
         )
     else:
@@ -160,9 +195,6 @@ def _write_fake_gh(tmp_path):
 
 def _invoke_readiness(
     tmp_path,
-    confirmed_head="a" * 40,
-    include_confirmation=True,
-    run_pipeline=True,
     wait_for_review=False,
     **fixture,
 ):
@@ -174,15 +206,10 @@ def _invoke_readiness(
     env["FAKE_GH_SCRIPT"] = str(fake_script)
     env["FAKE_PYTHON"] = sys.executable
     env["READINESS_SCRIPT"] = str(READINESS_SCRIPT)
-    env["CONFIRMED_HEAD"] = confirmed_head
 
     options = ""
-    if run_pipeline:
-        options = "-RunPipeline"
-        if include_confirmation:
-            options += " -ConfirmHeadSha $env:CONFIRMED_HEAD"
     if wait_for_review:
-        options += " -WaitForReview -PollSeconds 5 -TimeoutMinutes 1"
+        options = "-WaitForReview -PollSeconds 5 -TimeoutMinutes 1"
 
     result = subprocess.run(
         [
@@ -238,39 +265,32 @@ def test_copilot_review_guides_privileged_pipeline_analysis():
     assert "/azp run` must not be authorized" in instructions
     assert "Do not recommend or authorize" in instructions
     assert "advisory and non-deterministic" in instructions
+    assert "carries no commit SHA" in instructions
     assert "any push requires a new review" in instructions.lower()
     assert "AZP SAFETY:" not in instructions
     assert "## Privileged Azure Pipelines (`/azp run`)" in review_skill
     assert "Apply this checklist to every pull request." in review_skill
     assert "credential exfiltration" in review_skill
+    assert "unbound to a commit SHA" in review_skill
     assert "report an actionable" in review_skill
     assert "`/azp run` must not be authorized" in review_skill
 
 
-def test_readiness_helper_fails_closed_before_posting_azp_run():
+def test_readiness_helper_is_read_only_and_uses_immutable_trees():
     script = READINESS_SCRIPT.read_text()
-    trigger_block = script[
-        script.index("$pipelineRunRequested = $false") : script.index(
-            "[pscustomobject]@{", script.index("$pipelineRunRequested = $false")
-        )
-    ]
 
-    assert "$RunPipeline -and $WaitForReview" in script
-    assert "-RunPipeline requires -ConfirmHeadSha" in script
-    assert "$ConfirmHeadSha -ine $view.headRefOid" in trigger_block
-    assert "-not $viewerCanTriggerPipeline" in trigger_block
-    assert "@($unresolved).Count -gt 0" in trigger_block
-    assert "@($suppressedForHead).Count -gt 0" in trigger_block
-    assert "Get-CurrentPullRequestHead" in trigger_block
-    assert "$currentHead.sha -ne $view.headRefOid" in trigger_block
-    assert trigger_block.index("$pipelineRunBlockedReasons") < trigger_block.index(
-        'gh pr comment $number --repo $Repo --body "/azp run"'
-    )
-    assert trigger_block.index("Get-CurrentPullRequestHead") < trigger_block.index(
-        'gh pr comment $number --repo $Repo --body "/azp run"'
-    )
+    assert 'gh api "repos/$Repo/git/commits/$CommitSha"' in script
+    assert 'gh api "repos/$Repo/git/trees/$TreeSha`?recursive=1"' in script
+    assert "[StringComparer]::Ordinal" in script
+    assert "$tree.truncated -ne $false" in script
     assert "$script:fileInventoryByHead" in script
     assert "-BaseSha $view.baseRefOid -HeadSha $view.headRefOid" in script
+    assert "Get-CurrentPullRequestRefs" in script
+    assert "immutable-git-trees" in script
+    assert "gh pr comment" not in script
+    assert "[switch]$RunPipeline" not in script
+    assert "ConfirmHeadSha" not in script
+    assert "/pulls/$Number/files" not in script
     assert "AZP SAFETY:" not in script
 
 
@@ -282,31 +302,19 @@ def test_pr_loop_requires_trusted_helper_and_current_head_safety_review():
     assert "credential-exfiltration risk" in skill
     assert "actionable finding" in skill
     assert "non-deterministic" in skill
-    assert "-ConfirmHeadSha <sha>" in skill
+    assert "read-only" in skill
+    assert "not SHA-bound" in skill
 
 
 @pytest.mark.skipif(POWERSHELL is None, reason="PowerShell is not installed")
-def test_readiness_posts_once_for_trusted_reviewed_head(tmp_path):
+def test_readiness_reports_review_evidence_without_posting(tmp_path):
     snapshot, calls = _run_readiness(tmp_path)
 
-    assert snapshot["completeness"]["pipelineRunRequested"] is True
-    assert snapshot["pipelineRunBlockedReasons"] == []
-    assert len(_azp_comments(calls)) == 1
-
-
-@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell is not installed")
-@pytest.mark.parametrize(
-    "options",
-    [
-        {"include_confirmation": False},
-        {"wait_for_review": True},
-    ],
-    ids=["missing-head-confirmation", "polling-trigger"],
-)
-def test_readiness_rejects_implicit_maintainer_authorization(tmp_path, options):
-    result, calls = _invoke_readiness(tmp_path, **options)
-
-    assert result.returncode != 0
+    assert snapshot["privilegedPipelineReviewEvidenceComplete"] is True
+    assert snapshot["changedFileInventorySource"] == "immutable-git-trees"
+    assert snapshot["changedFileCount"] == 1
+    assert snapshot["snapshotStillCurrent"] is True
+    assert snapshot["missingRequiredChecks"] == ["microsoft.SynapseML"]
     assert _azp_comments(calls) == []
 
 
@@ -317,28 +325,23 @@ def test_readiness_rejects_implicit_maintainer_authorization(tmp_path, options):
         {"FAKE_REVIEW_COMMIT": "b" * 40},
         {"FAKE_UNRESOLVED": "1"},
         {"FAKE_REVIEW_BODY": "Suppressed comments (1)\nCredential risk"},
-        {"FAKE_CAN_PUSH": "0"},
-        {"FAKE_PERMISSION_ERROR": "1"},
         {"FAKE_RECHECK_HEAD": "b" * 40},
-        {"FAKE_REPORTED_FILES": "2"},
-        {"confirmed_head": "b" * 40},
+        {"FAKE_RECHECK_BASE": "b" * 40},
     ],
     ids=[
         "stale-review",
         "unresolved-finding",
         "suppressed-finding",
-        "insufficient-permission",
-        "permission-api-error",
-        "changed-head",
-        "incomplete-file-inventory",
-        "unconfirmed-head",
+        "head-changed-during-snapshot",
+        "base-changed-during-snapshot",
     ],
 )
-def test_readiness_fails_closed(tmp_path, fixture):
+def test_readiness_does_not_report_incomplete_review_evidence_as_ready(
+    tmp_path, fixture
+):
     snapshot, calls = _run_readiness(tmp_path, **fixture)
 
-    assert snapshot["completeness"]["pipelineRunRequested"] is False
-    assert snapshot["pipelineRunBlockedReasons"]
+    assert snapshot["privilegedPipelineReviewEvidenceComplete"] is False
     assert _azp_comments(calls) == []
 
 
@@ -362,7 +365,7 @@ def test_readiness_rejects_head_controlled_review_inputs(tmp_path, path):
     snapshot, calls = _run_readiness(tmp_path, FAKE_CHANGED_FILE=path)
 
     assert snapshot["reviewInfluenceChanges"] == [path]
-    assert snapshot["completeness"]["pipelineRunRequested"] is False
+    assert snapshot["privilegedPipelineReviewEvidenceComplete"] is False
     assert _azp_comments(calls) == []
 
 
@@ -375,22 +378,67 @@ def test_readiness_checks_previous_name_for_instruction_rename(tmp_path):
     )
 
     assert snapshot["reviewInfluenceChanges"] == ["nested/AGENTS.md"]
-    assert snapshot["completeness"]["pipelineRunRequested"] is False
+    assert snapshot["changedFileCount"] == 2
+    assert snapshot["privilegedPipelineReviewEvidenceComplete"] is False
     assert _azp_comments(calls) == []
 
 
 @pytest.mark.skipif(POWERSHELL is None, reason="PowerShell is not installed")
-def test_readiness_checks_every_changed_file_page(tmp_path):
+def test_readiness_checks_every_changed_tree_path(tmp_path):
     snapshot, calls = _run_readiness(
         tmp_path,
-        FAKE_REPORTED_FILES="2",
         FAKE_SECOND_CHANGED_FILE="nested/AGENTS.md",
     )
 
     assert snapshot["changedFileCount"] == 2
     assert snapshot["changedFileInventoryComplete"] is True
     assert snapshot["reviewInfluenceChanges"] == ["nested/AGENTS.md"]
-    assert snapshot["completeness"]["pipelineRunRequested"] is False
+    assert snapshot["privilegedPipelineReviewEvidenceComplete"] is False
+    assert _azp_comments(calls) == []
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell is not installed")
+def test_readiness_binds_inventory_to_exact_commit_and_tree_objects(tmp_path):
+    snapshot, calls = _run_readiness(tmp_path)
+
+    api_paths = [
+        next((arg for arg in call if arg.startswith("repos/")), "")
+        for call in calls
+        if call and call[0] == "api"
+    ]
+    assert "repos/owner/repo/git/commits/" + "c" * 40 in api_paths
+    assert "repos/owner/repo/git/commits/" + "a" * 40 in api_paths
+    assert "repos/owner/repo/git/trees/" + "d" * 40 + "?recursive=1" in api_paths
+    assert "repos/owner/repo/git/trees/" + "e" * 40 + "?recursive=1" in api_paths
+    assert not any("/pulls/123/files" in path for path in api_paths)
+    assert snapshot["baseSha"] == "c" * 40
+    assert snapshot["headSha"] == "a" * 40
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell is not installed")
+@pytest.mark.parametrize(
+    "fixture",
+    [
+        {"FAKE_COMMIT_SHA_MISMATCH": "1"},
+        {"FAKE_TREE_SHA_MISMATCH": "1"},
+        {"FAKE_TREE_TRUNCATED": "base"},
+        {"FAKE_TREE_TRUNCATED": "head"},
+        {"FAKE_DUPLICATE_TREE_PATH": "1"},
+        {"FAKE_MALFORMED_TREE_ENTRY": "1"},
+    ],
+    ids=[
+        "commit-mismatch",
+        "tree-mismatch",
+        "base-tree-truncated",
+        "head-tree-truncated",
+        "duplicate-path",
+        "malformed-entry",
+    ],
+)
+def test_readiness_rejects_incomplete_or_mismatched_git_objects(tmp_path, fixture):
+    result, calls = _invoke_readiness(tmp_path, **fixture)
+
+    assert result.returncode != 0
     assert _azp_comments(calls) == []
 
 
@@ -398,27 +446,30 @@ def test_readiness_checks_every_changed_file_page(tmp_path):
 def test_waiting_reuses_file_inventory_for_unchanged_head(tmp_path):
     result, calls = _invoke_readiness(
         tmp_path,
-        run_pipeline=False,
         wait_for_review=True,
         FAKE_DELAY_REVIEW="1",
     )
 
     assert result.returncode == 0, result.stderr
-    metadata_calls = [
+    commit_calls = [
         call
         for call in calls
-        if call[:2] == ["api", "repos/owner/repo/pulls/123"] and "--jq" not in call
+        if call
+        and call[0] == "api"
+        and any("/git/commits/" in argument for argument in call)
     ]
-    file_calls = [
+    tree_calls = [
         call
         for call in calls
-        if any("/files?per_page=100" in argument for argument in call)
+        if call
+        and call[0] == "api"
+        and any("/git/trees/" in argument for argument in call)
     ]
     review_calls = [
         call
         for call in calls
         if call[:2] == ["api", "graphql"] and "reviews(first:" in "\n".join(call)
     ]
-    assert len(metadata_calls) == 1
-    assert len(file_calls) == 1
+    assert len(commit_calls) == 2
+    assert len(tree_calls) == 2
     assert len(review_calls) == 2
