@@ -3,7 +3,7 @@
 - **Theme**: Polish & hardening
 - **Mode**: sequential
 - **Model**: claude-opus-5
-- **Artifact**: `C:\Users\singhrana\.copilot\session-state\16e6d9b2-ce73-41f9-9d38-9386edc5c48d\files\direct-pr-2628\reviews\release-skill\task-2628-attempt-1-review-6-claude-opus-5.md`
+- **Artifact**: `review/pr-2628/pr-2628-attempt-1-review-6-claude-opus-5.md`
 - **Issues Found**: 0
 - **Verdict**: CLEAN
 
@@ -78,12 +78,10 @@
       `scripts/release/README.md` resolve on disk (`broken: []`), and the skill
       front matter still uses the `name`/`description`/`compatibility` shape of
       `synapseml-branches`, `synapseml-local-setup`, and `synapseml-pr-loop`.
-- [x] The `reviews` denylist entry remains load-bearing and narrowly scoped:
-      `reviews` appears once in `scripts/bump-version.py` (line 131, inside
-      `DENYLIST_DIRS`) and in no `EXPECTED_FILES` entry; the only tracked
-      matching paths are the 19 files under `reviews/pr-2666/`; and the working
-      tree's `reviews/release-skill/` artifacts remain untracked and were
-      correctly ignored by the dry run above.
+- [x] The review-artifact denylist remains load-bearing and narrowly scoped:
+      `review` and `reviews` appear only in `DENYLIST_DIRS` and in no
+      `EXPECTED_FILES` entry. The historical `reviews/pr-2666/` files and the
+      new `review/pr-2628/` reports are both ignored by the version dry run.
 
 ## Prior Findings
 

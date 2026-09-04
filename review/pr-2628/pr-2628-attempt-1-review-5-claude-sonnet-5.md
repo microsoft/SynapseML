@@ -3,7 +3,7 @@
 - **Theme**: Testing & coverage
 - **Mode**: sequential
 - **Model**: claude-sonnet-5
-- **Artifact**: `C:\Users\singhrana\.copilot\session-state\16e6d9b2-ce73-41f9-9d38-9386edc5c48d\files\direct-pr-2628\reviews\release-skill\task-2628-attempt-1-review-5-claude-sonnet-5.md`
+- **Artifact**: `review/pr-2628/pr-2628-attempt-1-review-5-claude-sonnet-5.md`
 - **Issues Found**: 0 (2 resolved across two re-review passes)
 - **Verdict**: CLEAN
 

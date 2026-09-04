@@ -4,7 +4,7 @@
 - **Theme**: Architecture & patterns
 - **Mode**: sequential
 - **Model**: claude-sonnet-5
-- **Artifact**: C:\Users\singhrana\.copilot\session-state\16e6d9b2-ce73-41f9-9d38-9386edc5c48d\files\direct-pr-2628\reviews\release-skill\task-2628-attempt-1-review-2-claude-sonnet-5.md
+- **Artifact**: `review/pr-2628/pr-2628-attempt-1-review-2-claude-sonnet-5.md`
 - **Issues Found**: 0
 - **Verdict**: CLEAN
 
@@ -25,7 +25,7 @@
       reference that documents them.
 - [x] Re-verified Prior Finding 2: `scripts/test_bump_version.py:473-474`
       now has `test_reviews_in_path` asserting
-      `_skip_file(Path("reviews/release-skill/review.md"))`, mirroring the
+      `_skip_file(Path("review/pr-2628/review.md"))`, mirroring the
       existing `test_versioned_docs_in_path` pattern (bare-name case plus
       nested-path case both covered).
 - [x] Re-verified Prior Finding 3: `scripts/bump-version.py` (lines
@@ -97,7 +97,7 @@
   `test_versioned_docs_in_path` asserts
   `_skip_file(Path("versioned_docs/v1/intro.md"))`. No equivalent
   `test_reviews_in_path`-style case was added for `reviews/...`. I confirmed
-  by direct import that `_skip_file(Path("reviews/release-skill/foo.md"))`
+  by direct import that `_skip_file(Path("review/pr-2628/foo.md"))`
   does return `True` today, so there is no functional bug -- only a gap
   against the file's own established test-parity convention for this kind of
   change.
@@ -108,7 +108,7 @@
   that broke only nested-path handling would not be caught by
   `test_review_artifacts` alone.
 - **Suggested Fix**: Add a `TestSkipFile` case such as
-  `assert _skip_file(Path("reviews/release-skill/foo.md"))`, mirroring
+  `assert _skip_file(Path("review/pr-2628/foo.md"))`, mirroring
   `test_versioned_docs_in_path`.
 
 ### Issue 3: `reviews` is denylisted by bare basename anywhere in the tree, not just at the repo root
@@ -159,7 +159,7 @@
 
 - **Status**: Resolved
 - **What changed**: `scripts/test_bump_version.py` now checks
-  `_skip_file(Path("reviews/release-skill/review.md"))`.
+  `_skip_file(Path("review/pr-2628/review.md"))`.
 - **Why**: The test now covers both the bare directory predicate and the
   nested-file path used by the scanner, matching the established
   `versioned_docs` test pattern.

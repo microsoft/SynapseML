@@ -3,7 +3,7 @@
 - **Theme**: Detailed correctness
 - **Mode**: sequential
 - **Model**: gpt-5.6-sol
-- **Artifact**: C:\Users\singhrana\.copilot\session-state\16e6d9b2-ce73-41f9-9d38-9386edc5c48d\files\direct-pr-2628\reviews\release-skill\task-2628-attempt-1-review-4-gpt-5.6-sol.md
+- **Artifact**: `review/pr-2628/pr-2628-attempt-1-review-4-gpt-5.6-sol.md`
 - **Issues Found**: 0
 - **Verdict**: CLEAN
 
