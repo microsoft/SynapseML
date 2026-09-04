@@ -178,9 +178,6 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
       Option(row.get(index)).map(value => name -> encodeMessageValue(value))
     }: _*)
 
-  private def encodeChatMessagesToMap(messages: Seq[Row]): Seq[Map[String, Any]] =
-    messages.map(encodeMessageRow)
-
   private def validatePublicColumnNames(): Unit = {
     val configured = Seq(
       Some("messagesCol" -> getMessagesCol),
