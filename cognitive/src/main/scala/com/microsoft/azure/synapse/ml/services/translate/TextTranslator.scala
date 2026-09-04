@@ -93,43 +93,47 @@ trait TextAsOnlyEntity extends HasTextInput with HasCognitiveServiceInput with H
     { row: Row =>
       if (shouldSkip(row)) {
         None
-      } else if (getValue(row, text).forall(Option(_).isEmpty)) {
-        None
       } else {
         val urlParams: Array[ServiceParam[Any]] =
           getUrlParams.asInstanceOf[Array[ServiceParam[Any]]]
 
-        val texts = getValue(row, text)
-
         val version = getApiVersion
         validateApiVersion(version)
-        val base = getUrl + s"?api-version=$version"
-        val appended = if (!urlParams.isEmpty) {
-          "&" + URLEncodingUtils.format(urlParams.flatMap(p =>
-            getValueOpt(row, p).map {
-              val pName = p.name match {
-                case "fromLanguage" => "from"
-                case "toLanguage" => "to"
-                case s => s
-              }
-              v => pName -> p.toValueString(v)
-            }
-          ).toMap)
+        val texts = getValue(row, text)
+          .flatMap(Option(_))
+          .filter(value => version == TranslatorApiVersion.V3 || value.trim.nonEmpty)
+        if (texts.isEmpty) {
+          None
         } else {
-          ""
-        }
+          val base = getUrl + s"?api-version=$version"
+          val appended = if (!urlParams.isEmpty) {
+            "&" + URLEncodingUtils.format(urlParams.flatMap(p =>
+              getValueOpt(row, p).map {
+                val pName = p.name match {
+                  case "fromLanguage" => "from"
+                  case "toLanguage" => "to"
+                  case s => s
+                }
+                v => pName -> p.toValueString(v)
+              }
+            ).toMap)
+          } else {
+            ""
+          }
 
-        val post = new HttpPost(base + appended)
-        addHeaders(post, row)
-        getValueOpt(row, subscriptionRegion).foreach(post.setHeader("Ocp-Apim-Subscription-Region", _))
+          val post = new HttpPost(base + appended)
+          addHeaders(post, row)
+          getValueOpt(row, subscriptionRegion).foreach(post.setHeader("Ocp-Apim-Subscription-Region", _))
 
-        val inputs = texts.map(s => JsObject("text" -> JsString(s)))
-        val json = version match {
-          case TranslatorApiVersion.V3 => texts.map(s => Map("Text" -> s)).toJson.compactPrint
-          case TranslatorApiVersion.V2026 => JsObject("inputs" -> JsArray(inputs.toVector)).compactPrint
+          val json = version match {
+            case TranslatorApiVersion.V3 => texts.map(s => Map("Text" -> s)).toJson.compactPrint
+            case TranslatorApiVersion.V2026 =>
+              val inputs = texts.map(s => JsObject("text" -> JsString(s)))
+              JsObject("inputs" -> JsArray(inputs.toVector)).compactPrint
+          }
+          post.setEntity(new StringEntity(json, "UTF-8"))
+          Some(post)
         }
-        post.setEntity(new StringEntity(json, "UTF-8"))
-        Some(post)
       }
     }
   }
@@ -157,7 +161,7 @@ abstract class TextTranslatorBase(override val uid: String) extends CognitiveSer
     set(apiVersion, v)
   }
 
-  private def supportedApiVersions: String = TranslatorApiVersion.Supported.mkString(", ")
+  private def supportedApiVersions: String = TranslatorApiVersion.Supported.toSeq.sorted.mkString(", ")
 
   protected def supportsApiVersion(version: String): Boolean = version == TranslatorApiVersion.V3
 
@@ -301,7 +305,12 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
     val fallback = getValueOpt(row, allowFallback).filterNot(identity).map(JsBoolean(_))
     val action = getValueOpt(row, profanityAction).filterNot(_ == "NoAction").map(JsString(_))
     val marker = getValueOpt(row, profanityMarker).filterNot(_ == "Asterisk").map(JsString(_))
-    val targets = getValue(row, toLanguage).map { language =>
+    val targetLanguages = getValue(row, toLanguage)
+      .flatMap(Option(_))
+      .filter(_.trim.nonEmpty)
+    require(targetLanguages.nonEmpty,
+      "Translator API 2026-06-06 requires at least one non-blank target language.")
+    val targets = targetLanguages.map { language =>
       JsObject(Map("language" -> JsString(language)) ++
         targetScript.map("script" -> _) ++
         deploymentName.map("deploymentName" -> _) ++
@@ -322,29 +331,33 @@ class Translate(override val uid: String) extends TextTranslatorBase(uid)
     { row: Row =>
       if (shouldSkip(row)) {
         None
-      } else if (getValue(row, text).forall(Option(_).isEmpty)) {
-        None
-      } else if (getValue(row, toLanguage).forall(Option(_).isEmpty)) {
-        None
       } else {
-        val texts = getValue(row, text)
         val version = getApiVersion
         validateApiVersion(version)
-        val base = getUrl + s"?api-version=$version"
-        val appended = if (version == TranslatorApiVersion.V3) v3Query(row) else ""
+        val texts = getValue(row, text)
+          .flatMap(Option(_))
+          .filter(value => version == TranslatorApiVersion.V3 || value.trim.nonEmpty)
+        val targetsMissing = version == TranslatorApiVersion.V3 &&
+          getValue(row, toLanguage).forall(Option(_).isEmpty)
+        if (texts.isEmpty || targetsMissing) {
+          None
+        } else {
+          val base = getUrl + s"?api-version=$version"
+          val appended = if (version == TranslatorApiVersion.V3) v3Query(row) else ""
 
-        val post = new HttpPost(base + appended)
-        addHeaders(post, row)
-        getValueOpt(row, subscriptionRegion).foreach(post.setHeader("Ocp-Apim-Subscription-Region", _))
+          val post = new HttpPost(base + appended)
+          addHeaders(post, row)
+          getValueOpt(row, subscriptionRegion).foreach(post.setHeader("Ocp-Apim-Subscription-Region", _))
 
-        val json = version match {
-          case TranslatorApiVersion.V3 =>
-            texts.map(s => Map("Text" -> s)).toJson.compactPrint
-          case TranslatorApiVersion.V2026 =>
-            v2026Payload(row, texts)
+          val json = version match {
+            case TranslatorApiVersion.V3 =>
+              texts.map(s => Map("Text" -> s)).toJson.compactPrint
+            case TranslatorApiVersion.V2026 =>
+              v2026Payload(row, texts)
+          }
+          post.setEntity(new StringEntity(json, "UTF-8"))
+          Some(post)
         }
-        post.setEntity(new StringEntity(json, "UTF-8"))
-        Some(post)
       }
     }
   }

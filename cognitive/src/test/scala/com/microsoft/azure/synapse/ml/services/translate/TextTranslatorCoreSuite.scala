@@ -86,9 +86,10 @@ class TextTranslatorCoreSuite extends TestBase {
   }
 
   test("translator API version validation is deterministic") {
-    intercept[IllegalArgumentException] {
+    val error = intercept[IllegalArgumentException] {
       new Translate().setApiVersion("2025-10-01-preview")
     }
+    assert(error.getMessage.contains("Supported versions: 2026-06-06, 3.0"))
     assert(!classOf[Translate].getMethods.exists(_.getName == "setApiVersionCol"))
   }
 
@@ -172,6 +173,30 @@ class TextTranslatorCoreSuite extends TestBase {
         Seq(JsObject("language" -> JsString("de")), JsObject("language" -> JsString("fr"))))
     }
     assert(t.responseDataType == TranslateResponseV2026.schema)
+  }
+
+  test("translate filters invalid 2026 text and target array entries") {
+    val df = Seq((Seq("hello", null, " "), Seq("de", null, " "))) //scalastyle:ignore null
+      .toDF("text", "toLanguage")
+    val t = new TestableTranslate()
+      .setApiVersion("2026-06-06")
+      .setLocation("eastus")
+      .setTextCol("text")
+      .setToLanguageCol("toLanguage")
+
+    val request = t.buildRequest(df.schema, df.head()).get
+    val inputs = EntityUtils.toString(request.getEntity, "UTF-8")
+      .parseJson.asJsObject.fields("inputs").asInstanceOf[JsArray].elements
+    assert(inputs.map(_.asJsObject.fields("text")) == Seq(JsString("hello")))
+    assert(inputs.head.asJsObject.fields("targets").asInstanceOf[JsArray].elements ==
+      Seq(JsObject("language" -> JsString("de"))))
+
+    val blankTargets = Seq((Seq("hello"), Seq(null, " "))) //scalastyle:ignore null
+      .toDF("text", "toLanguage")
+    val error = intercept[IllegalArgumentException] {
+      t.buildRequest(blankTargets.schema, blankTargets.head())
+    }
+    assert(error.getMessage.contains("at least one non-blank target language"))
   }
 
   test("translate maps compatible 2026 controls and rejects removed controls") {
@@ -287,6 +312,30 @@ class TextTranslatorCoreSuite extends TestBase {
     assert(EntityUtils.toString(request.getEntity, "UTF-8") ==
       """{"inputs":[{"text":"пример текста"}]}""")
     assert(t.responseDataType == TransliterateResponseV2026.schema)
+  }
+
+  test("text-only request bodies ignore null entries") {
+    val df = Seq(Seq("hello", null)) //scalastyle:ignore null
+      .toDF("text")
+
+    val v3Request = new TestableDetect()
+      .setLocation("eastus")
+      .setTextCol("text")
+      .buildRequest(df.schema, df.head())
+      .get
+    assert(EntityUtils.toString(v3Request.getEntity, "UTF-8") == """[{"Text":"hello"}]""")
+
+    val v2026Request = new TestableTransliterate()
+      .setApiVersion("2026-06-06")
+      .setLocation("eastus")
+      .setTextCol("text")
+      .setLanguage("en")
+      .setFromScript("Latn")
+      .setToScript("Latn")
+      .buildRequest(df.schema, df.head())
+      .get
+    assert(EntityUtils.toString(v2026Request.getEntity, "UTF-8") ==
+      """{"inputs":[{"text":"hello"}]}""")
   }
 
   test("detect and breaksentence request building is deterministic offline") {
