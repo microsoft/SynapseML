@@ -407,9 +407,8 @@ class TestSkipDir:
     def test_docusaurus(self):
         assert _skip_dir(".docusaurus")
 
-    @pytest.mark.parametrize("name", ["review", "reviews"])
-    def test_review_artifacts(self, name):
-        assert _skip_dir(name)
+    def test_review_artifacts(self):
+        assert _skip_dir("reviews")
 
     def test_node_modules(self):
         assert _skip_dir("node_modules")
@@ -471,15 +470,8 @@ class TestSkipFile:
     def test_versioned_docs_in_path(self):
         assert _skip_file(Path("versioned_docs/v1/intro.md"))
 
-    @pytest.mark.parametrize(
-        "path",
-        [
-            "review/pr-2628/review.md",
-            "reviews/pr-2666/review.md",
-        ],
-    )
-    def test_review_artifact_dir_in_path(self, path):
-        assert _skip_file(Path(path))
+    def test_reviews_in_path(self):
+        assert _skip_file(Path("reviews/pr-2628/review.md"))
 
     @pytest.mark.parametrize("path", sorted(bump.DENYLIST_PATHS))
     def test_denylist_repo_relative_path(self, path):

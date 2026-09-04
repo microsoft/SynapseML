@@ -3,7 +3,7 @@
 - **Theme**: Edge cases & robustness
 - **Mode**: sequential
 - **Model**: claude-opus-5
-- **Artifact**: `review/pr-2628/pr-2628-attempt-1-review-3-claude-opus-5.md`
+- **Artifact**: `reviews/pr-2628/pr-2628-attempt-1-review-3-claude-opus-5.md`
 - **Issues Found**: 0 (9 prior findings, all resolved)
 - **Verdict**: CLEAN
 
@@ -22,7 +22,7 @@
 
 - [x] `python -m pytest scripts/test_bump_version.py scripts/release/test_release_matrix.py scripts/release/test_verify_release.py scripts/release/test_bump_bbcvhd.py scripts/release/test_release_workflows.py -q` -> `305 passed, 2 warnings in 63.76s`.
 - [x] `python scripts\bump-version.py --to 1.1.4 --dry-run` in the worktree (where `Test-Path website\docs` is `False`) exits 0 and prints both `[DRY RUN] Would run: sbt convertNotebooks (in ...)` and `[DRY RUN] Would run: npm exec -- docusaurus docs:version 1.1.4 (in ...\website)` with no `ERROR`. The write-path guard survives the reorder: `scripts/test_bump_version.py:522` still asserts `not bump._run_docusaurus(tmp_path, "2.0.0", dry_run=False)` when `website/docs` is absent.
-- [x] The review-artifact denylist is load-bearing, not cosmetic. Loading `scripts/bump-version.py` read-only and calling `analyze()` on `review/pr-2628/pr-2628-attempt-1-review-1-gpt-5.6-sol.md` returns 0 anchored matches and 2 **unanchored** matches (lines 159-160, `bump-version.py --to 1.1.3 --dry-run`), which is the `sys.exit(1)` FATAL path at `scripts/bump-version.py:539-546`. With the change, `_skip_dir("review")`, `_skip_dir("reviews")`, and their nested `_skip_file(...)` paths all return `True`; both the historical `reviews/pr-2666/` evidence and the new `review/pr-2628/` evidence are excluded from version replacement.
+- [x] The review-artifact denylist is load-bearing, not cosmetic. Loading `scripts/bump-version.py` read-only and calling `analyze()` on `reviews/pr-2628/pr-2628-attempt-1-review-1-gpt-5.6-sol.md` returns 0 anchored matches and 2 **unanchored** matches (lines 159-160, `bump-version.py --to 1.1.3 --dry-run`), which is the `sys.exit(1)` FATAL path at `scripts/bump-version.py:539-546`. With the change, `_skip_dir("reviews")` and nested `_skip_file(...)` paths return `True`; both `reviews/pr-2666/` and `reviews/pr-2628/` are excluded from version replacement.
 - [x] Live artifact probe (read-only, ADO-authenticated): `python scripts\release\verify_release.py --version 1.1.1 --targets spark4.0 --skip github,internal,public,pip` reports `PRESENT upack spark4.0 synapseml 1.1.1-spark4-0` -> `18 checks, 0 missing -> COMPLETE`; the same command with `--upack-iteration spark4.0=1` reports `PRESENT ... 1.1.1-spark4-0-1 -> COMPLETE`. Both versions exist in `BBC-VHD_PublicPackages`, so a counter-free verify passes against the superseded package (Issue 1).
 - [x] `gh variable list --repo microsoft/SynapseML --json name,value --jq '.[] | select(.name == "SKIP_SPARK40")'` -> `failed to get variables: HTTP 403: You must have repository read permissions or have the repository variables fine-grained permission`, empty stdout, exit 1 (Issue 2).
 - [x] `python scripts\release\release_matrix.py --version 1.1.4 --internal-patch 1` -> exit 2, `error: a nonzero Internal patch is an Internal-only hotfix; use --scope internal-only` (Issue 4); `python scripts\bump-version.py --to 1.1.3 --dry-run` -> exit 1, `Error: current version is already 1.1.3.` (Issue 3, proves Release Prepare cannot be re-run for an already-bumped version).

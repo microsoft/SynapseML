@@ -3,7 +3,7 @@
 - **Theme**: Polish & hardening
 - **Mode**: sequential
 - **Model**: claude-opus-5
-- **Artifact**: `review/pr-2628/pr-2628-attempt-1-review-6-claude-opus-5.md`
+- **Artifact**: `reviews/pr-2628/pr-2628-attempt-1-review-6-claude-opus-5.md`
 - **Issues Found**: 0
 - **Verdict**: CLEAN
 
@@ -79,9 +79,9 @@
       front matter still uses the `name`/`description`/`compatibility` shape of
       `synapseml-branches`, `synapseml-local-setup`, and `synapseml-pr-loop`.
 - [x] The review-artifact denylist remains load-bearing and narrowly scoped:
-      `review` and `reviews` appear only in `DENYLIST_DIRS` and in no
-      `EXPECTED_FILES` entry. The historical `reviews/pr-2666/` files and the
-      new `review/pr-2628/` reports are both ignored by the version dry run.
+      `reviews` appears only in `DENYLIST_DIRS` and in no `EXPECTED_FILES`
+      entry. Both `reviews/pr-2666/` and `reviews/pr-2628/` are ignored by the
+      version dry run.
 
 ## Prior Findings
 
