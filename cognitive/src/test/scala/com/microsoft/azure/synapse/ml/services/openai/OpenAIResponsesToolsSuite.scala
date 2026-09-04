@@ -432,6 +432,17 @@ class OpenAIResponsesToolsSuite extends TransformerFuzzing[OpenAIResponses] {
     }
   }
 
+  test("setTools distinguishes blank text from an empty JSON array") {
+    assert(new OpenAIResponses().setTools("[]").getTools === "[]")
+
+    Seq(null, "", " \t").foreach { value => //scalastyle:ignore null
+      val error = intercept[IllegalArgumentException] {
+        new OpenAIResponses().setTools(value)
+      }
+      assert(error.getMessage.contains("tools must be a non-blank JSON array string"))
+    }
+  }
+
   test("continuation schema validation ignores nullability but rejects wrong fields") {
     val validElement = StructType(Seq(
       StructField("call_id", StringType, nullable = false),

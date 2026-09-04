@@ -18,6 +18,22 @@ import scala.util.Try
 object OpenAIToolUtils {
   private val FunctionNamePattern = "^[A-Za-z0-9_-]{1,64}$".r
 
+  private def finiteNumber(value: Double): JsNumber = {
+    if (!java.lang.Double.isFinite(value)) {
+      throw new IllegalArgumentException(
+        s"Cannot serialize non-finite Double tool value $value")
+    }
+    JsNumber(value)
+  }
+
+  private def finiteNumber(value: Float): JsNumber = {
+    if (!java.lang.Float.isFinite(value)) {
+      throw new IllegalArgumentException(
+        s"Cannot serialize non-finite Float tool value $value")
+    }
+    JsNumber(BigDecimal(value.toString))
+  }
+
   val DocumentedToolChoices: Seq[String] = Seq("none", "auto", "required")
   val MessageItemType = "message"
   val FunctionCallItemType = "function_call"
@@ -52,8 +68,8 @@ object OpenAIToolUtils {
     case v: Boolean => JsBoolean(v)
     case v: Int => JsNumber(v)
     case v: Long => JsNumber(v)
-    case v: Double => JsNumber(v)
-    case v: Float => JsNumber(BigDecimal(v.toString))
+    case v: Double => finiteNumber(v)
+    case v: Float => finiteNumber(v)
     case v: BigDecimal => JsNumber(v)
     case v: java.lang.Boolean => JsBoolean(v.booleanValue())
     case v: java.lang.Number => JsNumber(BigDecimal(v.toString))

@@ -65,7 +65,7 @@ trait HasOpenAICommonToolParams extends HasServiceParams {
   def setTools(value: String): this.type = {
     require(
       Option(value).exists(_.trim.nonEmpty),
-      "tools must be a non-empty JSON array")
+      "tools must be a non-blank JSON array string")
     setScalarParam(tools, OpenAIToolUtils.parseTools(value).compactPrint)
   }
 

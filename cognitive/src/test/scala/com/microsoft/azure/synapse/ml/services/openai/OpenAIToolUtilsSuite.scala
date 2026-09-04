@@ -191,6 +191,23 @@ class OpenAIToolUtilsSuite extends TestBase {
     }
   }
 
+  test("toJsValue rejects non-finite floating point values clearly") {
+    Seq[Any](
+      Double.NaN,
+      Double.PositiveInfinity,
+      Double.NegativeInfinity,
+      Float.NaN,
+      Float.PositiveInfinity,
+      Float.NegativeInfinity
+    ).foreach { value =>
+      val error = intercept[IllegalArgumentException] {
+        OpenAIToolUtils.toJsValue(value)
+      }
+      assert(error.getMessage ===
+        s"Cannot serialize non-finite ${value.getClass.getSimpleName} tool value $value")
+    }
+  }
+
   test("function call output rows preserve order and omit null status") {
     val outputs = Seq(
       ToolTestFixtures.functionOutput("call_a", """{"tempC":20}""", "completed"),
