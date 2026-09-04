@@ -126,6 +126,9 @@ DENYLIST_DIRS = {
     "versioned_sidebars",
     "build",
     "dist",
+    # Matched by basename at any depth. Review artifacts are immutable evidence,
+    # and their growing file set cannot be listed in DENYLIST_PATHS.
+    "reviews",
 }
 DENYLIST_FILES = {
     "CHANGELOG.md",
@@ -400,6 +403,11 @@ def _run_docusaurus(root, new_v, dry_run):
 
     website = root / "website"
     docs_dir = website / "docs"
+    cmd = ["npm", "exec", "--", "docusaurus", "docs:version", new_v]
+
+    if dry_run:
+        print(f"[DRY RUN] Would run: {' '.join(cmd)} (in {website})")
+        return True
 
     if not docs_dir.exists():
         print()
@@ -410,10 +418,6 @@ def _run_docusaurus(root, new_v, dry_run):
         print("  Cannot create versioned docs snapshot.", file=sys.stderr)
         return False
 
-    cmd = ["npm", "exec", "--", "docusaurus", "docs:version", new_v]
-    if dry_run:
-        print(f"[DRY RUN] Would run: {' '.join(cmd)} (in {website})")
-        return True
     print(f"Creating docs version snapshot: {new_v}...")
     r = subprocess.run(cmd, cwd=str(website), capture_output=True, text=True)
     if r.returncode != 0:
