@@ -409,6 +409,21 @@ class DictionaryExamplesSuite extends TransformerFuzzing[DictionaryExamples]
   override def reader: MLReadable[_] = DictionaryExamples
 }
 
+class LanguagesSuite extends TransformerFuzzing[Languages]
+  with TranslatorUtils {
+  override val compareDataInSerializationTest: Boolean = false
+
+  def languages: Languages = new Languages()
+    .setLocation("eastus")
+    .setScope("translation")
+    .setOutputCol("languages")
+
+  override def testObjects(): Seq[TestObject[Languages]] =
+    Seq(new TestObject(languages, emptyDf))
+
+  override def reader: MLReadable[_] = Languages
+}
+
 // TODO add this test back in when fixed
 //class DocumentTranslatorSuite extends TransformerFuzzing[DocumentTranslator]
 //  with TranslatorKey with Flaky {

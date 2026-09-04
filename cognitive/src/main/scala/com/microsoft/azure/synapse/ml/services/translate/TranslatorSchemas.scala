@@ -28,6 +28,22 @@ case class SentLen(srcSentLen: Seq[Int], transSentLen: Seq[Int])
 
 case class SourceText(text: String)
 
+object TranslateResponseV2026 extends SparkBindings[TranslateResponseV2026]
+
+case class TranslateResponseV2026(value: Seq[TranslateResultV2026])
+
+case class TranslateResultV2026(detectedLanguage: Option[TranslatorDetectedLanguage],
+                                translations: Seq[TranslationV2026])
+
+case class TranslationV2026(language: String,
+                            text: String,
+                            script: Option[String],
+                            sourceCharacters: Option[Long],
+                            instructionTokens: Option[Long],
+                            sourceTokens: Option[Long],
+                            targetTokens: Option[Long],
+                            responseTokens: Option[Long])
+
 object DetectResponse extends SparkBindings[DetectResponse]
 
 case class DetectResponse(language: String,
@@ -48,6 +64,10 @@ case class BreakSentenceResponse(sentLen: Seq[Int],
 object TransliterateResponse extends SparkBindings[TransliterateResponse]
 
 case class TransliterateResponse(text: String, script: String)
+
+object TransliterateResponseV2026 extends SparkBindings[TransliterateResponseV2026]
+
+case class TransliterateResponseV2026(value: Seq[TransliterateResponse])
 
 object DictionaryLookupResponse extends SparkBindings[DictionaryLookupResponse]
 
@@ -77,6 +97,41 @@ case class DictionaryExamplesResponse(normalizedSource: String,
 
 case class Example(sourcePrefix: String, sourceTerm: String, sourceSuffix: String,
                    targetPrefix: String, targetTerm: String, targetSuffix: String)
+
+object TranslatorLanguagesResponse extends SparkBindings[TranslatorLanguagesResponse]
+
+case class TranslatorLanguagesResponse(
+  translation: Option[Map[String, TranslatorLanguage]],
+  transliteration: Option[Map[String, TranslatorTransliterationLanguage]],
+  dictionary: Option[Map[String, TranslatorDictionaryLanguage]],
+  models: Option[Seq[String]])
+
+case class TranslatorLanguage(name: String,
+                              nativeName: String,
+                              dir: String,
+                              models: Option[Seq[String]])
+
+case class TranslatorTransliterationLanguage(name: String,
+                                             nativeName: String,
+                                             scripts: Seq[TranslatorSourceScript])
+
+case class TranslatorSourceScript(code: String,
+                                  name: String,
+                                  nativeName: String,
+                                  dir: String,
+                                  toScripts: Seq[TranslatorTargetScript])
+
+case class TranslatorTargetScript(code: String, name: String, nativeName: String, dir: String)
+
+case class TranslatorDictionaryLanguage(name: String,
+                                        nativeName: String,
+                                        dir: String,
+                                        translations: Seq[TranslatorTargetDictionaryLanguage])
+
+case class TranslatorTargetDictionaryLanguage(name: String,
+                                              nativeName: String,
+                                              dir: String,
+                                              code: String)
 
 case class DocumentTranslationInput(inputs: Seq[BatchRequest])
 

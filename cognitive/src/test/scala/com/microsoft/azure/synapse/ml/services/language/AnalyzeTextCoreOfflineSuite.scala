@@ -69,6 +69,10 @@ class AnalyzeTextCoreOfflineSuite extends AnyFunSuite {
     }
   }
 
+  test("analyze text defaults to the latest GA API version") {
+    assert(new AnalyzeText().getApiVersion == "2024-11-01")
+  }
+
   test("analyze text request-building is deterministic for language detection") {
     val transformer = new TestableAnalyzeText()
       .setKind("LanguageDetection")
