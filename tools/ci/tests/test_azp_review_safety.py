@@ -221,6 +221,7 @@ def test_copilot_review_requires_exact_head_azp_safety_verdict():
     assert "restricted to SynapseML maintainers" in instructions
     assert SAFE_VERDICT in instructions
     assert UNSAFE_VERDICT in instructions
+    assert "do not wrap it in backticks or a code fence" in instructions
     assert "any push requires a new review" in instructions
 
 

@@ -19,14 +19,16 @@ encoded secret output, environment or filesystem enumeration, artifact/cache
 exfiltration, endpoint redirection, guard bypasses, and changes that cause
 untrusted code to run after credentials are loaded.
 
-End the review summary with exactly one standalone verdict line:
+End the review summary with exactly one of the following standalone verdict
+lines. Emit it as plain text: do not wrap it in backticks or a code fence, and
+do not prefix it with a bullet, heading, quote, or emphasis.
 
-`AZP SAFETY: SAFE TO RUN /azp run`
+AZP SAFETY: SAFE TO RUN /azp run
 
 Use that verdict only when the reviewed head is safe to execute in the
 credential-bearing pipeline. Otherwise use:
 
-`AZP SAFETY: DO NOT RUN /azp run`
+AZP SAFETY: DO NOT RUN /azp run
 
 For an unsafe or uncertain review, also raise an actionable finding that
 identifies the risky path. Fail closed when evidence is incomplete. A verdict
