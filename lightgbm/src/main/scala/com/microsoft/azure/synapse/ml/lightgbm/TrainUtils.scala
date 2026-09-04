@@ -107,10 +107,8 @@ private[lightgbm] object TrainUtils extends Serializable {
       }
     } catch {
       case e: java.lang.Exception =>
-        log.warn("LightGBM reached early termination on one task," +
-          " stopping training on task. This message should rarely occur." +
-          " Inner exception: " + e.toString)
-        state.isFinished = true
+        log.error(s"LightGBM task failed during iteration ${state.iteration}", e)
+        throw e
     }
   }
 
