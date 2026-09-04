@@ -140,6 +140,10 @@ before running them because some create or delete cloud resources.
 - Target `master` unless the change exists only for a port branch.
 - Resolve active and suppressed review findings; document why any finding is
   invalid.
+- Store committed review artifacts under `reviews/pr-<PR-number>/`. When work
+  has a defined feature but no PR, use `reviews/feature-<feature-number>/`.
+  Prefix report filenames with the same identifier and add a README linking
+  the tracked work; do not create topic-named review directories.
 - Trigger Azure validation with `/azp run` where supported. Branch-specific
   exceptions are documented in the
   [branch context skill](.github/skills/synapseml-branches/SKILL.md).

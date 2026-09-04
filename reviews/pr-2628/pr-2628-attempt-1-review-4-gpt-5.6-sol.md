@@ -3,7 +3,7 @@
 - **Theme**: Detailed correctness
 - **Mode**: sequential
 - **Model**: gpt-5.6-sol
-- **Artifact**: `review/pr-2628/pr-2628-attempt-1-review-4-gpt-5.6-sol.md`
+- **Artifact**: `reviews/pr-2628/pr-2628-attempt-1-review-4-gpt-5.6-sol.md`
 - **Issues Found**: 0
 - **Verdict**: CLEAN
 

@@ -3,7 +3,7 @@
 - **Theme**: Testing & coverage
 - **Mode**: sequential
 - **Model**: claude-sonnet-5
-- **Artifact**: `review/pr-2628/pr-2628-attempt-1-review-5-claude-sonnet-5.md`
+- **Artifact**: `reviews/pr-2628/pr-2628-attempt-1-review-5-claude-sonnet-5.md`
 - **Issues Found**: 0 (2 resolved across two re-review passes)
 - **Verdict**: CLEAN
 
