@@ -105,13 +105,18 @@ def _json_get_page(url: str, headers: Dict[str, str]) -> Tuple[Optional[dict], o
     req = urllib.request.Request(url, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=60) as r:
-            return json.loads(r.read().decode("utf-8")), r.headers
+            body = r.read()
+            response_headers = r.headers
     except urllib.error.HTTPError as e:
         if e.code == 404:
             return None, {}
         raise RuntimeError(f"HTTP {e.code} for {url}") from e
     except urllib.error.URLError as e:
         raise RuntimeError(f"request failed for {url}: {e.reason}") from e
+    try:
+        return json.loads(body.decode("utf-8")), response_headers
+    except (UnicodeDecodeError, json.JSONDecodeError) as e:
+        raise RuntimeError(f"invalid JSON response from {url}: {e}") from e
 
 
 def _json_get(url: str, headers: Dict[str, str]) -> Optional[dict]:

@@ -102,6 +102,24 @@ def test_json_get_parses_successful_response(monkeypatch):
     assert verify._json_get("https://example", {}) == {"value": ["ok"]}
 
 
+@pytest.mark.parametrize("body", [b"<html>failure</html>", b'{"truncated":'])
+def test_json_get_reports_url_for_malformed_response(monkeypatch, body):
+    url = "https://example.invalid/feed"
+    response = FakeResponse(None)
+    response.read = lambda: body
+    monkeypatch.setattr(
+        verify.urllib.request,
+        "urlopen",
+        lambda *_args, **_kwargs: response,
+    )
+
+    with pytest.raises(RuntimeError) as exc:
+        verify._json_get(url, {})
+
+    assert "invalid JSON response" in str(exc.value)
+    assert url in str(exc.value)
+
+
 def test_json_get_returns_none_only_for_not_found(monkeypatch):
     def not_found(*_args, **_kwargs):
         raise urllib.error.HTTPError("https://example", 404, "missing", {}, None)
