@@ -51,6 +51,8 @@ trait SparkSessionManagement {
       .set("spark.driver.maxResultSize", "6g")
       .set("spark.sql.crossJoin.enabled", "true")
       .set("spark.sql.warehouse.dir", localWarehousePath)
+      // Repository test fixtures are generated locally; security tests explicitly disable this.
+      .set(Serializer.LegacyObjectDeserializationConfig, "true")
   }
 
   def getSession(name: String,

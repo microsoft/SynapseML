@@ -5,19 +5,43 @@ package com.microsoft.azure.synapse.ml.core.utils
 
 import java.io.{InputStream, InvalidClassException, ObjectStreamClass}
 
-/** An ObjectInputStream that restricts deserialization to an allowlist of class name prefixes.
+final class DeserializationClassRejectedException(className: String, reason: String)
+  extends InvalidClassException(className, reason)
+
+final case class DeserializationClassFilter(
+    allowedPrefixes: Set[String] = Set.empty,
+    allowedClasses: Set[String] = Set.empty) {
+
+  require(!allowedPrefixes.contains(""), "Deserialization class prefixes cannot contain an empty prefix")
+
+  private[utils] def allows(className: String): Boolean = {
+    allowedClasses.contains(className) || allowedPrefixes.exists(className.startsWith)
+  }
+}
+
+/** An ObjectInputStream that restricts deserialization to an allowlist of class names and prefixes.
   *
   * This mitigates Java deserialization attacks (CWE-502) by rejecting any class
-  * whose fully-qualified name does not start with one of the allowed prefixes.
+  * whose fully-qualified name is not allowed by the configured exact-name or prefix policy.
   * It also inherits the context-classloader resolution from [[ContextObjectInputStream]].
   *
-  * @param input            the underlying input stream
-  * @param allowedPrefixes  set of class name prefixes that are permitted for deserialization
+  * @param input        the underlying input stream
+  * @param classFilter  exact class names and class-name prefixes permitted for deserialization
   */
 class SafeObjectInputStream(
     input: InputStream,
-    allowedPrefixes: Set[String]
+    classFilter: DeserializationClassFilter
 ) extends ContextObjectInputStream(input) {
+
+  // SerializedLambda stores implementation classes as strings, so resolveClass cannot validate them.
+  // ModuleSerializationProxy stores its target as Class, whose descriptor is validated by resolveClass.
+  private val alwaysRejectedClasses = Set(
+    "java.lang.invoke.SerializedLambda"
+  )
+
+  def this(input: InputStream, allowedPrefixes: Set[String]) = {
+    this(input, DeserializationClassFilter(allowedPrefixes = allowedPrefixes))
+  }
 
   /** Extracts the component type name from a JVM array descriptor.
     * Primitive arrays (e.g. `[I`, `[D`) return None since they are always safe.
@@ -34,7 +58,7 @@ class SafeObjectInputStream(
   }
 
   private def isAllowed(className: String): Boolean = {
-    allowedPrefixes.exists(prefix => className.startsWith(prefix))
+    !alwaysRejectedClasses.contains(className) && classFilter.allows(className)
   }
 
   protected override def resolveClass(desc: ObjectStreamClass): Class[_] = {
@@ -49,10 +73,10 @@ class SafeObjectInputStream(
     }
 
     if (!allowed) {
-      throw new InvalidClassException(
+      throw new DeserializationClassRejectedException(
         className,
         "Deserialization of this class is not allowed. " +
-          "Only classes with approved package prefixes may be deserialized."
+          "Only classes approved by the configured exact-name or prefix policy may be deserialized."
       )
     }
     super.resolveClass(desc)
@@ -68,7 +92,7 @@ class SafeObjectInputStream(
   protected override def resolveProxyClass(interfaces: Array[String]): Class[_] = {
     val disallowed = interfaces.filterNot(isAllowed)
     if (disallowed.nonEmpty) {
-      throw new InvalidClassException(
+      throw new DeserializationClassRejectedException(
         disallowed.mkString(", "),
         "Deserialization of dynamic proxy is not allowed. " +
           "Proxy interface(s) not in the approved allowlist."
@@ -79,6 +103,13 @@ class SafeObjectInputStream(
 }
 
 object SafeObjectInputStream {
+
+  val CommonDataAllowedPrefixes: Set[String] = Set(
+    "java.lang.",
+    "java.math.",
+    "java.util.",
+    "scala."
+  )
 
   /** Default allowlist suitable for deserializing SynapseML nn package objects
     * (BallTree, ConditionalBallTree, and their object graphs).

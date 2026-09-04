@@ -93,6 +93,7 @@ object RTestGen {
          |options(sparklyr.verbose = TRUE)
          |
          |conf <- spark_config()
+         |conf[["spark.synapseml.legacy.allowUnsafeJavaDeserialization"]] <- "true"
          |conf$$sparklyr.shell.conf <- c(
          |  "spark.app.name=SparklyRTests",
          |  "spark.jars.packages=$SparkMavenPackageList",

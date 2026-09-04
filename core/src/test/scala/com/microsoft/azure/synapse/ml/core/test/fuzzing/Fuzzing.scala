@@ -198,6 +198,7 @@ trait PyTestFuzzing[S <: PipelineStage] extends TestBase with DataFrameEquality 
          |from pyspark.ml import PipelineModel
          |
          |spark = init_spark()
+         |spark.conf.set("spark.synapseml.legacy.allowUnsafeJavaDeserialization", "true")
          |sc = SQLContext(spark.sparkContext)
          |
          |test_data_dir = "${pyTestDataDir(conf).toString.replaceAllLiterally("\\", "\\\\")}"

@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.lightgbm.params
 
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
+import com.microsoft.azure.synapse.ml.core.utils.DeserializationClassFilter
 import com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster
 import com.microsoft.azure.synapse.ml.param.WrappableParam
 import org.apache.spark.ml.param.Params
@@ -19,5 +20,17 @@ class LightGBMBoosterParam(parent: Params, name: String, doc: String,
   def this(parent: Params, name: String, doc: String) =
     this(parent, name, doc, { _ => true })
 
+  override protected def deserializationClassFilter: Option[DeserializationClassFilter] = {
+    Some(DeserializationClassFilter(
+      allowedClasses = Set(
+        classOf[LightGBMBooster].getName,
+        "java.lang.String",
+        "scala.None$",
+        "scala.Option",
+        "scala.Some",
+        "scala.runtime.ModuleSerializationProxy"
+      )
+    ))
+  }
 
 }
