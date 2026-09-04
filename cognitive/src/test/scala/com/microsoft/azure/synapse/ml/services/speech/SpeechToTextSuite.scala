@@ -17,7 +17,7 @@ class SpeechToTextSuite extends TransformerFuzzing[SpeechToText]
 
   import spark.implicits._
 
-  val region = "eastus"
+  val region = cognitiveLoc
   val resourcesDir = System.getProperty("user.dir") + "/src/test/resources/"
   val uri = new URI(s"https://$region.api.cognitive.microsoft.com/sts/v1.0/issuetoken")
   val language = "en-us"

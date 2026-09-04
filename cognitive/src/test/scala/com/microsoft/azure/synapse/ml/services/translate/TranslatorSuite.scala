@@ -3,17 +3,18 @@
 
 package com.microsoft.azure.synapse.ml.services.translate
 
-import com.microsoft.azure.synapse.ml.Secrets
 import com.microsoft.azure.synapse.ml.core.test.base.{Flaky, TestBase}
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.azure.synapse.ml.services.CognitiveKey
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{col, flatten}
 
 import java.util.Locale
 
-trait TranslatorKey {
-  lazy val translatorKey: String = sys.env.getOrElse("TRANSLATOR_KEY", Secrets.TranslatorKey)
+trait TranslatorKey extends CognitiveKey {
+  lazy val translatorKey: String = sys.env.getOrElse("TRANSLATOR_KEY", cognitiveKey)
+  lazy val translatorLocation: String = sys.env.getOrElse("TRANSLATOR_LOCATION", cognitiveLoc)
 
   lazy val translatorName: String = "mmlspark-translator"
 }
@@ -50,7 +51,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
 
   def translate: Translate = new Translate()
     .setSubscriptionKey(translatorKey)
-    .setLocation("eastus")
+    .setLocation(translatorLocation)
     .setTextCol("text")
     .setOutputCol("translation")
     .setConcurrency(5)
@@ -79,7 +80,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
 
     val translate1: Translate = new Translate()
       .setSubscriptionKey(translatorKey)
-      .setLocation("eastus")
+      .setLocation(translatorLocation)
       .setText("Hi, this is Synapse!")
       .setOutputCol("translation")
       .setConcurrency(5)
@@ -89,7 +90,7 @@ class TranslateSuite extends TransformerFuzzing[Translate]
 
     val translate2: Translate = new Translate()
       .setSubscriptionKey(translatorKey)
-      .setLocation("eastus")
+      .setLocation(translatorLocation)
       .setTextCol("text")
       .setToLanguageCol("language")
       .setOutputCol("translation")
@@ -214,7 +215,7 @@ class TransliterateSuite extends TransformerFuzzing[Transliterate]
 
   def transliterate: Transliterate = new Transliterate()
     .setSubscriptionKey(translatorKey)
-    .setLocation("eastus")
+    .setLocation(translatorLocation)
     .setLanguage("ja")
     .setFromScript("Jpan")
     .setToScript("Latn")
@@ -235,7 +236,7 @@ class TransliterateSuite extends TransformerFuzzing[Transliterate]
     val caught = intercept[AssertionError] {
       new Transliterate()
         .setSubscriptionKey(translatorKey)
-        .setLocation("eastus")
+        .setLocation(translatorLocation)
         .setTextCol("text")
         .transform(textDf2).collect()
     }
@@ -263,7 +264,7 @@ class DetectSuite extends TransformerFuzzing[Detect]
 
   def detect: Detect = new Detect()
     .setSubscriptionKey(translatorKey)
-    .setLocation("eastus")
+    .setLocation(translatorLocation)
     .setTextCol("text")
     .setOutputCol("result")
 
@@ -287,7 +288,7 @@ class BreakSentenceSuite extends TransformerFuzzing[BreakSentence]
 
   def breakSentence: BreakSentence = new BreakSentence()
     .setSubscriptionKey(translatorKey)
-    .setLocation("eastus")
+    .setLocation(translatorLocation)
     .setTextCol("text")
     .setOutputCol("result")
 
@@ -315,7 +316,7 @@ class DictionaryLookupSuite extends TransformerFuzzing[DictionaryLookup]
 
   def dictionaryLookup: DictionaryLookup = new DictionaryLookup()
     .setSubscriptionKey(translatorKey)
-    .setLocation("eastus")
+    .setLocation(translatorLocation)
     .setFromLanguage("en")
     .setToLanguage("es")
     .setTextCol("text")
@@ -335,7 +336,7 @@ class DictionaryLookupSuite extends TransformerFuzzing[DictionaryLookup]
     val caught = intercept[AssertionError] {
       new DictionaryLookup()
         .setSubscriptionKey(translatorKey)
-        .setLocation("eastus")
+        .setLocation(translatorLocation)
         .setTextCol("text")
         .transform(textDf2).collect()
     }
@@ -360,7 +361,7 @@ class DictionaryExamplesSuite extends TransformerFuzzing[DictionaryExamples]
 
   def dictionaryExamples: DictionaryExamples = new DictionaryExamples()
     .setSubscriptionKey(translatorKey)
-    .setLocation("eastus")
+    .setLocation(translatorLocation)
     .setFromLanguage("en")
     .setToLanguage("es")
     .setOutputCol("result")
@@ -394,7 +395,7 @@ class DictionaryExamplesSuite extends TransformerFuzzing[DictionaryExamples]
     val caught = intercept[AssertionError] {
       new DictionaryExamples()
         .setSubscriptionKey(translatorKey)
-        .setLocation("eastus")
+        .setLocation(translatorLocation)
         .transform(dictDf).collect()
     }
     assert(caught.getMessage.contains("Missing required params"))

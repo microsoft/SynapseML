@@ -8,6 +8,7 @@ import com.microsoft.azure.synapse.ml.services._
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
+import com.microsoft.cognitiveservices.speech.PropertyId
 import org.apache.commons.compress.utils.IOUtils
 import org.apache.commons.io.FileUtils
 import org.apache.spark.ml.util.MLReadable
@@ -19,16 +20,12 @@ import org.scalatest.Assertion
 import java.io.{ByteArrayInputStream, File, FileInputStream}
 import java.net.URI
 
-trait CustomSpeechKey {
-  lazy val customSpeechKey = sys.env.getOrElse("CUSTOM_SPEECH_API_KEY", Secrets.CustomSpeechApiKey)
-}
-
 //scalastyle:off null
-trait SpeechToTextSDKSuiteBase extends TestBase with CognitiveKey with CustomSpeechKey {
+trait SpeechToTextSDKSuiteBase extends TestBase with CognitiveKey {
 
   import spark.implicits._
 
-  val region = "eastus"
+  val region = cognitiveLoc
   lazy val resourcesDir = new File(getClass.getResource("/").toURI)
   val uri = new URI(s"https://$region.api.cognitive.microsoft.com/sts/v1.0/issuetoken")
   val language = "en-us"
@@ -151,10 +148,6 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK] with Spee
     .setLanguage("en-US")
     .setProfanity("Masked")
 
-  def customSdk: SpeechToTextSDK = sdk
-    .setSubscriptionKey(customSpeechKey)
-    .setEndpointId("395cdcf7-e7db-4083-aebe-868a7d80ca74")
-
   override lazy val dfEq = new Equality[DataFrame] {
     override def areEqual(a: DataFrame, b: Any): Boolean = {
       jaccardSimilarity(
@@ -210,8 +203,16 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK] with Spee
     dfTest("simple", audioDf1, text1, sdk = sdk.setStreamIntermediateResults(false))
   }
 
-  test("Custom SDK Usage") {
-    dfTest("simple", audioDf1, text1, sdk = customSdk)
+  test("Custom endpoint ID is applied to the Speech SDK config") {
+    val endpointId = "00000000-0000-0000-0000-000000000001"
+    val config = new SpeechToTextSDK()
+      .setEndpointId(endpointId)
+      .getSpeechConfig(uri, "test-key", language, profanity, wordLevelTimestamps, format)
+    try {
+      assert(config.getProperty(PropertyId.SpeechServiceConnection_EndpointId) === endpointId)
+    } finally {
+      config.close()
+    }
   }
 
   test("Detailed SDK Usage Audio 2") {

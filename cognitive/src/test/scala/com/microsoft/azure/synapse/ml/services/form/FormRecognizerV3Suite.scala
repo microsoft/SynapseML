@@ -64,7 +64,7 @@ class AnalyzeDocumentSuite extends TransformerFuzzing[AnalyzeDocument] with Form
 
   def analyzeDocument: AnalyzeDocument = new AnalyzeDocument()
     .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setLocation(cognitiveLoc)
     .setOutputCol("result")
     .setConcurrency(5)
 

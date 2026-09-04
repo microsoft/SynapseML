@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.services.openai
 
-import com.microsoft.azure.synapse.ml.Secrets.{AIFoundryApiKey, getAccessToken}
+import com.microsoft.azure.synapse.ml.Secrets.getAccessToken
 import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.http.entity.AbstractHttpEntity

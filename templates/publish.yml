@@ -11,6 +11,7 @@ steps:
         set -e
         az account get-access-token --scope https://storage.azure.com/.default --output none
         source activate synapseml
+        SBT_SETUP_MAX_STAGGER_SECONDS=0 bash tools/ci/sbt_retry.sh update
         sbt packagePython
         sbt publishBlob
     env:

@@ -17,7 +17,7 @@ class FormOntologyLearnerSuite extends EstimatorFuzzing[FormOntologyLearner] wit
 
   lazy val analyzeInvoices: AnalyzeInvoices = new AnalyzeInvoices()
     .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setLocation(cognitiveLoc)
     .setImageUrlCol("url")
     .setOutputCol("invoices")
     .setConcurrency(5)
@@ -41,7 +41,7 @@ class FormOntologyLearnerSuite extends EstimatorFuzzing[FormOntologyLearner] wit
   test("Yields a reasonable error message when input rows dont contain documentResults") {
     val analyzedDf = new AnalyzeLayout()
       .setSubscriptionKey(cognitiveKey)
-      .setLocation("eastus")
+      .setLocation(cognitiveLoc)
       .setImageUrlCol("url")
       .setOutputCol("layout")
       .setConcurrency(5)
