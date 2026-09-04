@@ -4,17 +4,17 @@
 package com.microsoft.azure.synapse.ml.services.language
 
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{ TestObject, TransformerFuzzing }
-import com.microsoft.azure.synapse.ml.services.CognitiveKey
 import com.microsoft.azure.synapse.ml.services.text.{ SentimentAssessment, TextEndpoint }
+import com.microsoft.azure.synapse.ml.Secrets
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{ DataFrame, Row }
 import org.apache.spark.sql.functions.{ col, flatten, map }
 import org.scalactic.{ Equality, TolerantNumerics }
 import org.scalatest.funsuite.AnyFunSuiteLike
 
-trait LanguageServiceEndpoint extends CognitiveKey {
-  lazy val languageServiceName: String =
-    sys.env.getOrElse("LANGUAGE_SERVICE_NAME", "mmlspark-cs-language")
+trait LanguageServiceEndpoint {
+  lazy val languageApiKey: String = sys.env.getOrElse("CUSTOM_LANGUAGE_KEY", Secrets.LanguageApiKey)
+  lazy val languageApiLocation: String = sys.env.getOrElse("LANGUAGE_API_LOCATION", "eastus")
 }
 
 class AnalyzeTextLROSuite extends AnyFunSuiteLike {
@@ -617,8 +617,8 @@ class CustomEntityRecognitionSuite extends TransformerFuzzing[AnalyzeTextLongRun
       .toDF("text")
 
   def model: AnalyzeTextLongRunningOperations = new AnalyzeTextLongRunningOperations()
-    .setAADToken(cognitiveAADToken)
-    .setCustomServiceName(languageServiceName)
+    .setSubscriptionKey(languageApiKey)
+    .setLocation(languageApiLocation)
     .setLanguage("en")
     .setTextCol("text")
     .setKind(AnalysisTaskKind.CustomEntityRecognition)
@@ -671,8 +671,8 @@ class MultiLableClassificationSuite extends TransformerFuzzing[AnalyzeTextLongRu
   }
 
   def model: AnalyzeTextLongRunningOperations = new AnalyzeTextLongRunningOperations()
-    .setAADToken(cognitiveAADToken)
-    .setCustomServiceName(languageServiceName)
+    .setSubscriptionKey(languageApiKey)
+    .setLocation(languageApiLocation)
     .setLanguage("en")
     .setTextCol("text")
     .setKind(AnalysisTaskKind.CustomMultiLabelClassification)
@@ -698,4 +698,3 @@ class MultiLableClassificationSuite extends TransformerFuzzing[AnalyzeTextLongRu
 
   override def reader: MLReadable[_] = AnalyzeText
 }
-
