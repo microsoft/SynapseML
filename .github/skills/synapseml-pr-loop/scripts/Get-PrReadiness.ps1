@@ -145,6 +145,11 @@ $script:pipelineRunOutcome = @{}
 # API call on every -WaitForReview poll.
 $script:viewerTriggerPermission = $null
 
+# Changed files are stable for one base/head pair. Cache by PR and both SHAs so
+# polling a large PR does not repeatedly consume every page of the files API; a
+# push or target advance gets a new key and therefore a fresh inventory.
+$script:fileInventoryByHead = @{}
+
 function Get-AzpSafetyVerdict {
     param([object]$Review)
 
@@ -251,7 +256,16 @@ function Test-CopilotReviewInfluencePath {
 }
 
 function Get-PullRequestFileInventory {
-    param([Parameter(Mandatory)][int]$Number)
+    param(
+        [Parameter(Mandatory)][int]$Number,
+        [Parameter(Mandatory)][string]$BaseSha,
+        [Parameter(Mandatory)][string]$HeadSha
+    )
+
+    $cacheKey = "${Number}:${BaseSha}:$HeadSha"
+    if ($script:fileInventoryByHead.ContainsKey($cacheKey)) {
+        return $script:fileInventoryByHead[$cacheKey]
+    }
 
     $pullText = & gh api "repos/$Repo/pulls/$Number"
     if ($LASTEXITCODE -ne 0) {
@@ -277,11 +291,13 @@ function Get-PullRequestFileInventory {
         $files.Count -lt 3000
     )
 
-    [pscustomobject]@{
+    $inventory = [pscustomobject]@{
         files = $files
         reportedCount = $reportedCount
         complete = $complete
     }
+    $script:fileInventoryByHead[$cacheKey] = $inventory
+    return $inventory
 }
 
 $threadQuery = @'
@@ -397,13 +413,14 @@ function Get-PrSnapshot {
     Set-StrictMode -Off
 
     $jsonFields = "number,title,state,isDraft,mergeable,mergeStateStatus,reviewDecision," +
-        "headRefOid,baseRefName,statusCheckRollup,url"
+        "headRefOid,baseRefName,baseRefOid,statusCheckRollup,url"
     $viewText = & gh pr view $number --repo $Repo --json $jsonFields
     if ($LASTEXITCODE -ne 0) {
         throw "gh pr view failed for PR #$number"
     }
     $view = $viewText | ConvertFrom-Json
-    $fileInventory = Get-PullRequestFileInventory -Number $number
+    $fileInventory = Get-PullRequestFileInventory `
+        -Number $number -BaseSha $view.baseRefOid -HeadSha $view.headRefOid
     $reviewInfluenceChanges = @($fileInventory.files | ForEach-Object {
         foreach ($candidate in @($_.filename, $_.previous_filename)) {
             if ($candidate -and (Test-CopilotReviewInfluencePath -Path $candidate)) {

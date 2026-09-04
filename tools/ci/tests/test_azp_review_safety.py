@@ -59,6 +59,7 @@ if args[:2] == ["pr", "view"]:
             "reviewDecision": None,
             "headRefOid": head,
             "baseRefName": "master",
+            "baseRefOid": "c" * 40,
             "statusCheckRollup": [],
             "url": "https://github.com/owner/repo/pull/123",
         }
@@ -89,10 +90,21 @@ elif args[:2] == ["api", "graphql"]:
         }
         emit({"data": {"repository": {"pullRequest": {"reviewThreads": connection}}}})
     elif "reviews(" in query:
+        review_commit = os.environ.get("FAKE_REVIEW_COMMIT", head)
+        if os.environ.get("FAKE_DELAY_REVIEW") == "1":
+            logged_calls = [
+                json.loads(line)
+                for line in Path(os.environ["FAKE_GH_LOG"]).read_text().splitlines()
+            ]
+            review_calls = sum(
+                "reviews(first:" in "\n".join(call) for call in logged_calls
+            )
+            if review_calls == 1:
+                review_commit = "b" * 40
         review = {
             "submittedAt": "2026-08-31T00:00:00Z",
             "body": review_body,
-            "commit": {"oid": os.environ.get("FAKE_REVIEW_COMMIT", head)},
+            "commit": {"oid": review_commit},
             "author": {"login": "copilot-pull-request-reviewer[bot]"},
         }
         connection = {
@@ -153,6 +165,7 @@ def _invoke_readiness(
     tmp_path,
     confirmed_head="a" * 40,
     include_confirmation=True,
+    run_pipeline=True,
     wait_for_review=False,
     **fixture,
 ):
@@ -166,11 +179,13 @@ def _invoke_readiness(
     env["READINESS_SCRIPT"] = str(READINESS_SCRIPT)
     env["CONFIRMED_HEAD"] = confirmed_head
 
-    options = "-RunPipeline"
-    if include_confirmation:
-        options += " -ConfirmHeadSha $env:CONFIRMED_HEAD"
+    options = ""
+    if run_pipeline:
+        options = "-RunPipeline"
+        if include_confirmation:
+            options += " -ConfirmHeadSha $env:CONFIRMED_HEAD"
     if wait_for_review:
-        options += " -WaitForReview"
+        options += " -WaitForReview -PollSeconds 5 -TimeoutMinutes 1"
 
     result = subprocess.run(
         [
@@ -252,6 +267,8 @@ def test_readiness_helper_fails_closed_before_posting_azp_run():
     assert trigger_block.index("Get-CurrentPullRequestHead") < trigger_block.index(
         'gh pr comment $number --repo $Repo --body "/azp run"'
     )
+    assert "$script:fileInventoryByHead" in script
+    assert "-BaseSha $view.baseRefOid -HeadSha $view.headRefOid" in script
 
 
 def test_pr_loop_requires_trusted_helper_and_current_head_safety_review():
@@ -385,3 +402,33 @@ def test_readiness_checks_every_changed_file_page(tmp_path):
     assert snapshot["reviewInfluenceChanges"] == ["nested/AGENTS.md"]
     assert snapshot["completeness"]["pipelineRunRequested"] is False
     assert _azp_comments(calls) == []
+
+
+@pytest.mark.skipif(POWERSHELL is None, reason="PowerShell is not installed")
+def test_waiting_reuses_file_inventory_for_unchanged_head(tmp_path):
+    result, calls = _invoke_readiness(
+        tmp_path,
+        run_pipeline=False,
+        wait_for_review=True,
+        FAKE_DELAY_REVIEW="1",
+    )
+
+    assert result.returncode == 0, result.stderr
+    metadata_calls = [
+        call
+        for call in calls
+        if call[:2] == ["api", "repos/owner/repo/pulls/123"] and "--jq" not in call
+    ]
+    file_calls = [
+        call
+        for call in calls
+        if any("/files?per_page=100" in argument for argument in call)
+    ]
+    review_calls = [
+        call
+        for call in calls
+        if call[:2] == ["api", "graphql"] and "reviews(first:" in "\n".join(call)
+    ]
+    assert len(metadata_calls) == 1
+    assert len(file_calls) == 1
+    assert len(review_calls) == 2
