@@ -329,6 +329,8 @@ object URLEncodingUtils {
 }
 
 private[ml] object ServiceAuthHeaders {
+  private[ml] case class Resolution(headers: Map[String, String], usesFabricFallback: Boolean)
+
   private[ml] def nonBlank(value: String): Boolean = value != null && value.trim.nonEmpty
 
   // Normalize a header map from any caller (a writer-supplied java.util.HashMap included) into a
@@ -360,15 +362,15 @@ private[ml] object ServiceAuthHeaders {
       .headOption
       .map { case (_, value) => canonicalName -> value }
 
-  def build(subscriptionKey: Option[String],
-            subscriptionKeyHeaderName: String,
-            aadHeaderName: String,
-            aadToken: Option[String],
-            customAuthHeader: Option[String],
-            customHeaders: Option[Map[String, String]],
-            fabricFallbackAuthHeader: => Option[String],
-            telemHeaders: Option[Map[String, String]],
-            contentType: Option[String]): Map[String, String] = {
+  def resolve(subscriptionKey: Option[String],
+              subscriptionKeyHeaderName: String,
+              aadHeaderName: String,
+              aadToken: Option[String],
+              customAuthHeader: Option[String],
+              customHeaders: Option[Map[String, String]],
+              fabricFallbackAuthHeader: => Option[String],
+              telemHeaders: Option[Map[String, String]],
+              contentType: Option[String]): Resolution = {
     val providedCustomHeaders = sanitizeHeaderMap(customHeaders)
 
     // Header names that carry credentials in this context, compared case-insensitively.
@@ -383,13 +385,18 @@ private[ml] object ServiceAuthHeaders {
     // higher-priority source above is absent. A fallback that acquires a token (and may throw) is
     // therefore never run while a subscription key, AAD token, explicit custom-auth header, or an
     // embedded customHeaders credential is present.
-    val authHeader: Option[(String, String)] = subscriptionKey.filter(nonBlank)
+    val explicitAuthHeader: Option[(String, String)] = subscriptionKey.filter(nonBlank)
       .map(value => subscriptionKeyHeaderName -> value)
       .orElse(aadToken.filter(nonBlank).map(value => aadHeaderName -> ("Bearer " + value)))
       .orElse(customAuthHeader.filter(nonBlank).map(value => aadHeaderName -> value))
       .orElse(embeddedCredential(providedCustomHeaders, subscriptionKeyHeaderName))
       .orElse(embeddedCredential(providedCustomHeaders, aadHeaderName))
-      .orElse(fabricFallbackAuthHeader.filter(nonBlank).map(value => aadHeaderName -> value))
+    val fabricAuthHeader = if (explicitAuthHeader.isDefined) {
+      None
+    } else {
+      fabricFallbackAuthHeader.filter(nonBlank).map(value => aadHeaderName -> value)
+    }
+    val authHeader = explicitAuthHeader.orElse(fabricAuthHeader)
 
     // Generic headers never carry auth: strip api-key/Authorization entries (any casing) so they
     // can neither override the resolved credential nor duplicate it under a different case.
@@ -412,7 +419,30 @@ private[ml] object ServiceAuthHeaders {
     }
     contentType.filterNot(StringUtils.isEmpty).foreach(value => headers += ("Content-Type" -> value))
 
-    new scala.collection.immutable.TreeMap[String, String]() ++ headers
+    Resolution(
+      new scala.collection.immutable.TreeMap[String, String]() ++ headers,
+      usesFabricFallback = fabricAuthHeader.isDefined)
+  }
+
+  def build(subscriptionKey: Option[String],
+            subscriptionKeyHeaderName: String,
+            aadHeaderName: String,
+            aadToken: Option[String],
+            customAuthHeader: Option[String],
+            customHeaders: Option[Map[String, String]],
+            fabricFallbackAuthHeader: => Option[String],
+            telemHeaders: Option[Map[String, String]],
+            contentType: Option[String]): Map[String, String] = {
+    resolve(
+      subscriptionKey,
+      subscriptionKeyHeaderName,
+      aadHeaderName,
+      aadToken,
+      customAuthHeader,
+      customHeaders,
+      fabricFallbackAuthHeader,
+      telemHeaders,
+      contentType).headers
   }
 }
 
@@ -503,12 +533,22 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
     getValueOpt(row, customHeaders)
   }
 
+  protected def supportsImplicitFabricAuthRetry: Boolean = false
+
   protected def addHeaders(req: HttpRequestBase,
                            row: Row,
                            addContentType: Boolean = true): Unit = {
 
-    val headers = getHeaders(row, addContentType)
-    headers.foreach { case (headerName, headerValue) => req.addHeader(headerName, headerValue) }
+    val resolution = resolveServiceAuthHeaders(row, addContentType, getFabricFallbackAuthHeader(row))
+    req.removeHeaders(HTTPRequestData.FabricAuthMarkerHeader)
+    resolution.headers.foreach { case (headerName, headerValue) =>
+      if (!HTTPRequestData.isFabricAuthMarker(headerName)) {
+        req.addHeader(headerName, headerValue)
+      }
+    }
+    if (resolution.usesFabricFallback && supportsImplicitFabricAuthRetry) {
+      req.addHeader(HTTPRequestData.FabricAuthMarkerHeader, "true")
+    }
   }
 
   // Returns a list of key-value pairs representing the headers
@@ -523,7 +563,14 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
   private[ml] def buildServiceAuthHeaders(row: Row,
                                           addContentType: Boolean,
                                           fabricFallbackAuthHeader: => Option[String]): Map[String, String] = {
-    ServiceAuthHeaders.build(
+    resolveServiceAuthHeaders(row, addContentType, fabricFallbackAuthHeader).headers
+  }
+
+  private def resolveServiceAuthHeaders(
+      row: Row,
+      addContentType: Boolean,
+      fabricFallbackAuthHeader: => Option[String]): ServiceAuthHeaders.Resolution = {
+    ServiceAuthHeaders.resolve(
       getValueOpt(row, subscriptionKey),
       subscriptionKeyHeaderName,
       aadHeaderName,

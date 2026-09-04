@@ -577,6 +577,16 @@ trait HasOpenAIFabricHeaders extends HasCognitiveServiceInput {
     runningOnFabric && usingDefaultOpenAIEndpoint && !hasCustomUrlRoot
   }
 
+  override protected def supportsImplicitFabricAuthRetry: Boolean = usingImplicitFabricEndpoint
+
+  abstract override protected def getFabricFallbackAuthHeader(row: Row): Option[String] = {
+    if (usingImplicitFabricEndpoint) {
+      super.getFabricFallbackAuthHeader(row)
+    } else {
+      None
+    }
+  }
+
   abstract override protected def getCustomHeaders(row: Row): Option[Map[String, String]] = {
     val headers = super.getCustomHeaders(row)
     if (usingImplicitFabricEndpoint) {

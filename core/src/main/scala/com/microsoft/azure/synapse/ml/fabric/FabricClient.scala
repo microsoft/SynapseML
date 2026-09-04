@@ -6,9 +6,11 @@ package com.microsoft.azure.synapse.ml.fabric
 import spray.json.DefaultJsonProtocol.{StringJsonFormat, mapFormat}
 import spray.json._
 
-import java.net.{MalformedURLException, URL}
-import java.util.UUID
+import java.net.{MalformedURLException, URI, URL}
+import java.util.{Locale, UUID}
+import scala.collection.concurrent.TrieMap
 import scala.io.Source
+import scala.util.control.NonFatal
 
 object FabricClient extends RESTUtils {
   private val WorkloadEndpointTypeML = "ML";
@@ -19,6 +21,8 @@ object FabricClient extends RESTUtils {
   private val ContextFilePath = "/home/trusted-service-user/.trident-context";
   private val SparkConfPath = "/opt/spark/conf/spark-defaults.conf";
   private val ClusterInfoPath = "/opt/health-agent/conf/cluster-info.json";
+  private val CognitiveMwcRefreshLocks = TrieMap.empty[(String, String), AnyRef]
+  private val AmbiguousPathEncoding = "(?i)%(?:25)*(?:2e|2f|5c)".r
 
   lazy val CapacityID: Option[String] = getCapacityID;
   lazy val WorkspaceID: Option[String] = getWorkspaceID;
@@ -194,5 +198,70 @@ object FabricClient extends RESTUtils {
 
   def getCognitiveMWCTokenAuthHeader: String = {
     TokenLibrary.getCognitiveMwcTokenAuthHeader(WorkspaceID.getOrElse(""), ArtifactID.getOrElse(""))
+  }
+
+  private[ml] def isEndpointUnder(requestUrl: String, endpointRoot: String): Boolean = {
+    try {
+      val request = new URL(requestUrl)
+      val root = new URL(endpointRoot)
+      val requestPort = if (request.getPort >= 0) request.getPort else request.getDefaultPort
+      val rootPort = if (root.getPort >= 0) root.getPort else root.getDefaultPort
+      val requestPath = trustedPath(new URI(requestUrl).getRawPath)
+      val rootPath = trustedPath(new URI(endpointRoot).getRawPath)
+      requestPath.exists(path =>
+        rootPath.exists(rootPrefix =>
+          request.getProtocol.equalsIgnoreCase("https") &&
+            root.getProtocol.equalsIgnoreCase("https") &&
+            request.getHost.equalsIgnoreCase(root.getHost) &&
+            requestPort == rootPort &&
+            path.startsWith(rootPrefix)))
+    } catch {
+      case _: MalformedURLException | _: java.net.URISyntaxException => false
+    }
+  }
+
+  private def trustedPath(rawPath: String): Option[String] = {
+    Option(rawPath).flatMap { path =>
+      val lowerPath = path.toLowerCase(Locale.ROOT)
+      val hasAmbiguousEncoding = AmbiguousPathEncoding.findFirstIn(lowerPath).nonEmpty
+      val normalizedPath = path.replaceAll("/+", "/")
+      val hasDotSegment = normalizedPath.split("/", -1).exists(segment => segment == "." || segment == "..")
+      if (hasAmbiguousEncoding || path.contains("\\") || hasDotSegment) None else Some(normalizedPath)
+    }
+  }
+
+  private[ml] def isOpenAIEndpoint(requestUrl: String): Boolean = {
+    try {
+      isEndpointUnder(requestUrl, MLWorkloadEndpointOpenAI)
+    } catch {
+      case NonFatal(_) => false
+    }
+  }
+
+  def refreshCognitiveMWCTokenAuthHeader(rejectedAuthHeader: String): String = {
+    val workspaceId = WorkspaceID.getOrElse("")
+    val artifactId = ArtifactID.getOrElse("")
+    val refreshLock = CognitiveMwcRefreshLocks.getOrElseUpdate((workspaceId, artifactId), new Object())
+    refreshAuthHeader(
+      rejectedAuthHeader,
+      refreshLock,
+      () => TokenLibrary.getCognitiveMwcTokenAuthHeader(workspaceId, artifactId),
+      () => TokenLibrary.invalidateSparkMwcToken(workspaceId, artifactId))
+  }
+
+  private[ml] def refreshAuthHeader(
+      rejectedAuthHeader: String,
+      refreshLock: AnyRef,
+      getCurrentAuthHeader: () => String,
+      invalidateAuthHeader: () => Unit): String = {
+    refreshLock.synchronized {
+      val currentAuthHeader = getCurrentAuthHeader()
+      if (currentAuthHeader != rejectedAuthHeader) {
+        currentAuthHeader
+      } else {
+        invalidateAuthHeader()
+        getCurrentAuthHeader()
+      }
+    }
   }
 }
