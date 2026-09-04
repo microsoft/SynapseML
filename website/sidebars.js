@@ -53,6 +53,7 @@ module.exports = {
                             id: 'Explore Algorithms/OpenAI/OpenAI_ToolUse',
                             label: 'OpenAI Tool Use',
                         },
+                        "Explore Algorithms/OpenAI/Quickstart - OpenAI Responses Tool Calling",
                         "Explore Algorithms/OpenAI/Quickstart - OpenAI Embedding",
                         "Explore Algorithms/OpenAI/Quickstart - OpenAI Embedding and GPU based KNN",
                         "Explore Algorithms/OpenAI/Quickstart - Custom Embeddings and Approximate KNN on GPU",
