@@ -72,6 +72,34 @@ class VerifyResponseBodyInspection extends TestBase {
     assert(replayedBody === new String(content, "UTF-8"))
   }
 
+  test("response inspection detects capacity errors in large bodies without consuming them") {
+    val content = ("""{"error":{"code":"CapacityLimitExceeded"}}""" +
+      ("x" * (1024 * 1024 + 128))).getBytes("UTF-8")
+
+    Seq(-1L, content.length.toLong).foreach { contentLength =>
+      val entity = new BasicHttpEntity()
+      entity.setContent(new ByteArrayInputStream(content))
+      entity.setContentLength(contentLength)
+      val response = new BasicHttpResponse(
+        new BasicStatusLine(HttpVersion.HTTP_1_1, 429, "Too Many Requests"))
+        with CloseableHttpResponse {
+        override def close(): Unit = ()
+      }
+      response.setEntity(entity)
+
+      val inspected = HandlingUtils.responseBodyForInspection(response)
+      assert(inspected.exists(_.contains("CapacityLimitExceeded")))
+      val replayed = Source.fromInputStream(response.getEntity.getContent, "UTF-8")
+      val replayedBody = try {
+        replayed.mkString
+      } finally {
+        replayed.close()
+      }
+
+      assert(replayedBody === new String(content, "UTF-8"))
+    }
+  }
+
   test("request preview closes its entity stream and releases the request") {
     val content = """{"prompt":"hello"}""".getBytes("UTF-8")
     val streamClosed = new AtomicBoolean(false)

@@ -122,45 +122,41 @@ object HandlingUtils extends SparkLogging {
 
   private[ml] def responseBodyForInspection(response: CloseableHttpResponse): Option[String] = {
     Option(response.getEntity).flatMap { entity =>
-      if (entity.getContentLength > MaxResponseInspectionBytes) {
-        None
-      } else {
-        val output = new ByteArrayOutputStream()
-        var input = Option.empty[InputStream]
-        var keepInputOpen = false
-        try {
-          val responseInput = entity.getContent
-          input = Some(responseInput)
-          IOUtils.copyLarge(responseInput, output, 0, MaxResponseInspectionBytes + 1)
-          val bytes = output.toByteArray
-          if (bytes.length > MaxResponseInspectionBytes) {
-            replayResponseEntity(response, entity, bytes, responseInput)
-            keepInputOpen = true
-            None
-          } else {
-            val bufferedEntity = new ByteArrayEntity(bytes)
-            copyResponseEntityMetadata(entity, bufferedEntity)
-            response.setEntity(bufferedEntity)
-            Some(new String(bytes, StandardCharsets.UTF_8))
-          }
-        } catch {
-          case NonFatal(error) =>
-            logWarning("Could not inspect the HTTP response body; preserving it for retry handling.", error)
-            input.foreach { responseInput =>
-              try {
-                replayResponseEntity(response, entity, output.toByteArray, responseInput)
-                keepInputOpen = true
-              } catch {
-                case NonFatal(replayError) =>
-                  error.addSuppressed(replayError)
-                  logWarning("Could not reconstruct the partially inspected HTTP response body.", replayError)
-              }
+      val output = new ByteArrayOutputStream()
+      var input = Option.empty[InputStream]
+      var keepInputOpen = false
+      try {
+        val responseInput = entity.getContent
+        input = Some(responseInput)
+        IOUtils.copyLarge(responseInput, output, 0, MaxResponseInspectionBytes + 1)
+        val bytes = output.toByteArray
+        if (bytes.length > MaxResponseInspectionBytes) {
+          replayResponseEntity(response, entity, bytes, responseInput)
+          keepInputOpen = true
+          Some(new String(bytes, 0, MaxResponseInspectionBytes.toInt, StandardCharsets.UTF_8))
+        } else {
+          val bufferedEntity = new ByteArrayEntity(bytes)
+          copyResponseEntityMetadata(entity, bufferedEntity)
+          response.setEntity(bufferedEntity)
+          Some(new String(bytes, StandardCharsets.UTF_8))
+        }
+      } catch {
+        case NonFatal(error) =>
+          logWarning("Could not inspect the HTTP response body; preserving it for retry handling.", error)
+          input.foreach { responseInput =>
+            try {
+              replayResponseEntity(response, entity, output.toByteArray, responseInput)
+              keepInputOpen = true
+            } catch {
+              case NonFatal(replayError) =>
+                error.addSuppressed(replayError)
+                logWarning("Could not reconstruct the partially inspected HTTP response body.", replayError)
             }
-            None
-        } finally {
-          if (!keepInputOpen) {
-            input.foreach(closeInspectionInput)
           }
+          None
+      } finally {
+        if (!keepInputOpen) {
+          input.foreach(closeInspectionInput)
         }
       }
     }

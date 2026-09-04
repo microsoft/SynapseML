@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.io.split1
 
 import com.microsoft.azure.synapse.ml.fabric.FabricClient
-import com.microsoft.azure.synapse.ml.io.http.{HTTPRequestData, HandlingUtils}
+import com.microsoft.azure.synapse.ml.io.http.{HTTPRequestData, HandlingUtils, HeaderData, RequestLineData}
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.sun.net.httpserver.{HttpExchange, HttpServer}
@@ -681,6 +681,18 @@ class VerifySendWithRetries extends TestBase {
     assert(!requestData("false", "MwcToken token").usesFabricAuth)
     assert(!requestData("true", "Bearer explicit").usesFabricAuth)
     assert(!requestData("true", "MwcToken ").usesFabricAuth)
+  }
+
+  test("null authorization values are treated as absent") {
+    val requestData = HTTPRequestData(
+      RequestLineData("GET", "https://workspace.fabric.microsoft.com/cognitive/openai/chat", None),
+      Array(
+        HeaderData(HTTPRequestData.FabricAuthMarkerHeader, "true"),
+        HeaderData("Authorization", null)), //scalastyle:ignore null
+      None)
+
+    assert(requestData.authorizationHeader.isEmpty)
+    assert(!requestData.usesFabricAuth)
   }
 
   test("Fabric auth retries replace duplicate authorization headers") {

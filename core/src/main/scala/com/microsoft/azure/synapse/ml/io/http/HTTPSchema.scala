@@ -173,7 +173,7 @@ case class HTTPRequestData(requestLine: RequestLineData,
       authorizationHeader.exists(HTTPRequestData.isCognitiveMwcAuthHeader)
 
   private[ml] def authorizationHeader: Option[String] =
-    headers.find(h => "Authorization".equalsIgnoreCase(h.name)).map(_.value)
+    headers.find(h => "Authorization".equalsIgnoreCase(h.name)).flatMap(h => Option(h.value))
 
   def this(r: HttpRequestBase) = {
     this(new RequestLineData(r.getRequestLine),
