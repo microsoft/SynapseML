@@ -12,6 +12,13 @@ import scala.collection.JavaConverters._
 
 object AnyJsonFormat extends DefaultJsonProtocol {
 
+  private def writeFloat(value: Float): JsNumber = {
+    if (!java.lang.Float.isFinite(value)) {
+      throw new IllegalArgumentException(s"Cannot serialize non-finite Float value $value")
+    }
+    JsNumber(BigDecimal(value.toString))
+  }
+
   //scalastyle:off cyclomatic.complexity
   implicit def anyFormat: JsonFormat[Any] = {
     def throwFailure(any: Any) = throw new IllegalArgumentException(s"Cannot serialize ${any} of type ${any.getClass}")
@@ -23,7 +30,7 @@ object AnyJsonFormat extends DefaultJsonProtocol {
         case v: Int => v.toJson
         case v: Long => v.toJson
         case v: Double => v.toJson
-        case v: Float => JsNumber(BigDecimal(v.toString))
+        case v: Float => writeFloat(v)
         case v: String => v.toJson
         case v: Boolean => v.toJson
         case v: Integer => v.toLong.toJson

@@ -106,6 +106,15 @@ class VerifyUntypedArrayParam extends TestBase {
     assert((0.1f: Any).toJson.compactPrint === "0.1")
   }
 
+  test("AnyJsonFormat rejects non-finite Float values clearly") {
+    Seq(Float.NaN, Float.PositiveInfinity, Float.NegativeInfinity).foreach { value =>
+      val error = intercept[IllegalArgumentException] {
+        (value: Any).toJson
+      }
+      assert(error.getMessage === s"Cannot serialize non-finite Float value $value")
+    }
+  }
+
   test("AnyJsonFormat reads JsNull") {
     assert(JsNull.convertTo[Any] == null) //scalastyle:ignore null
   }
