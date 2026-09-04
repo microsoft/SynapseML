@@ -19,6 +19,7 @@ GitHub checks use GH_TOKEN when set and otherwise use the unauthenticated API.
 Usage:
     python scripts/release/verify_release.py --version 1.1.3
     python scripts/release/verify_release.py --version 1.1.4 --internal-patch 0 --json
+    python scripts/release/verify_release.py --version 1.1.3 --internal-patch 1 --scope internal-only
     python scripts/release/verify_release.py --version 1.1.4 --skip ado,internal
     python scripts/release/verify_release.py --version 1.1.4 --skip internal
 """
@@ -39,6 +40,7 @@ sys.path.insert(0, __file__.rsplit("/", 1)[0].rsplit("\\", 1)[0])
 from release_matrix import (  # noqa: E402
     ADO_ORG,
     ADO_PROJECT,
+    RELEASE_SCOPES,
     build_plan,
     parse_iterations,
 )
@@ -354,17 +356,20 @@ def run(
     skip,
     upack_iteration=None,
     internal_upack_iteration=None,
+    scope=None,
 ) -> Tuple[List[dict], bool]:
+    scope = _resolve_scope(scope, internal_patch)
     plan = build_plan(
         version,
         internal_patch,
         target_keys,
         upack_iteration,
         internal_upack_iteration,
-        "internal-only" if internal_patch != "0" else "full",
+        scope,
     )
     c = Checker(token, gh_token, skip)
     rows: List[dict] = []
+    include_oss = plan.scope == "full"
 
     def add(kind, target, name, ident, status):
         rows.append(
@@ -399,21 +404,22 @@ def run(
         )
 
     for tp in plan.targets:
-        add_tag_family(
-            tp.key,
-            "github/" + GITHUB_REPO,
-            tp.oss_tags,
-            c.github_tag,
-        )
-        for module in PUBLIC_MAVEN_MODULES:
-            artifact = f"{module}_{tp.scala}"
-            add(
-                "maven",
+        if include_oss:
+            add_tag_family(
                 tp.key,
-                artifact,
-                tp.oss_maven_version,
-                c.public_maven(module, tp.scala, tp.oss_maven_version),
+                "github/" + GITHUB_REPO,
+                tp.oss_tags,
+                c.github_tag,
             )
+            for module in PUBLIC_MAVEN_MODULES:
+                artifact = f"{module}_{tp.scala}"
+                add(
+                    "maven",
+                    tp.key,
+                    artifact,
+                    tp.oss_maven_version,
+                    c.public_maven(module, tp.scala, tp.oss_maven_version),
+                )
         add(
             "maven",
             tp.key,
@@ -421,7 +427,7 @@ def run(
             tp.internal_maven_version,
             c.internal_maven(tp.scala, tp.internal_maven_version),
         )
-        if tp.key == "master":
+        if include_oss and tp.key == "master":
             add(
                 "pypi",
                 tp.key,
@@ -435,13 +441,14 @@ def run(
             tp.internal_tags,
             c.ado_tag,
         )
-        add(
-            "upack",
-            tp.key,
-            "synapseml",
-            tp.oss_upack_version,
-            c.upack("synapseml", tp.oss_upack_version),
-        )
+        if include_oss:
+            add(
+                "upack",
+                tp.key,
+                "synapseml",
+                tp.oss_upack_version,
+                c.upack("synapseml", tp.oss_upack_version),
+            )
         add(
             "upack",
             tp.key,
@@ -453,13 +460,14 @@ def run(
                 internal=True,
             ),
         )
-        add(
-            "pip",
-            tp.key,
-            "synapseml",
-            tp.oss_pip_version,
-            c.pip("synapseml", tp.oss_pip_version),
-        )
+        if include_oss:
+            add(
+                "pip",
+                tp.key,
+                "synapseml",
+                tp.oss_pip_version,
+                c.pip("synapseml", tp.oss_pip_version),
+            )
         add(
             "pip",
             tp.key,
@@ -476,12 +484,25 @@ def run(
     return rows, ok
 
 
+def _resolve_scope(scope: Optional[str], internal_patch: str) -> str:
+    return scope or ("internal-only" if internal_patch != "0" else "full")
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(
         description="Verify a SynapseML release's artifacts and tags."
     )
     p.add_argument("--version", required=True)
     p.add_argument("--internal-patch", default="0")
+    p.add_argument(
+        "--scope",
+        choices=RELEASE_SCOPES,
+        default=None,
+        help=(
+            "Verify the full release or only a nonzero Internal patch "
+            "(default: infer from --internal-patch)"
+        ),
+    )
     p.add_argument("--targets", default="")
     p.add_argument(
         "--upack-iteration",
@@ -521,6 +542,7 @@ def main(argv=None) -> int:
         return 2
 
     try:
+        scope = _resolve_scope(args.scope, args.internal_patch)
         upack_iteration = parse_iterations(args.upack_iteration, "--upack-iteration")
         internal_upack_iteration = parse_iterations(
             args.internal_upack_iteration,
@@ -535,6 +557,7 @@ def main(argv=None) -> int:
             skip,
             upack_iteration,
             internal_upack_iteration,
+            scope=scope,
         )
     except (ValueError, RuntimeError) as e:
         print(f"error: {e}", file=sys.stderr)
@@ -543,10 +566,21 @@ def main(argv=None) -> int:
     if args.json:
         print(
             json.dumps(
-                {"version": args.version, "complete": ok, "rows": rows}, indent=2
+                {
+                    "version": args.version,
+                    "internal_patch": args.internal_patch,
+                    "scope": scope,
+                    "complete": ok,
+                    "rows": rows,
+                },
+                indent=2,
             )
         )
     else:
+        print(
+            f"SynapseML verification  OSS v{args.version}  "
+            f"Internal patch {args.internal_patch}  scope={scope}"
+        )
         print(
             f"{'STATUS':<8} {'KIND':<8} {'TARGET':<9} {'PACKAGE/REPO':<30} IDENTIFIER"
         )

@@ -302,6 +302,46 @@ def test_run_applies_upack_rebuild_counters(monkeypatch):
     )
 
 
+def test_run_internal_only_scope_omits_all_oss_rows(monkeypatch):
+    monkeypatch.setattr(verify, "Checker", AlwaysPresentChecker)
+
+    rows, complete = verify.run(
+        "1.1.3",
+        "1",
+        ["master"],
+        None,
+        None,
+        [],
+        scope="internal-only",
+    )
+
+    assert complete
+    assert len(rows) == 7
+    assert all(
+        row["name"].startswith("ado/")
+        or row["name"].startswith("synapseml-internal_")
+        or row["name"] in {"synapseml_internal", "synapseml-internal"}
+        for row in rows
+    )
+
+
+def test_run_infers_internal_only_scope_from_nonzero_patch(monkeypatch):
+    monkeypatch.setattr(verify, "Checker", AlwaysPresentChecker)
+
+    rows, complete = verify.run(
+        "1.1.3",
+        "1",
+        ["master"],
+        None,
+        None,
+        [],
+    )
+
+    assert complete
+    assert len(rows) == 7
+    assert all(not row["name"].startswith("github/") for row in rows)
+
+
 def test_internal_skip_omits_only_internal_ado_artifacts(monkeypatch):
     feed_calls = []
 
@@ -357,6 +397,107 @@ def test_internal_skip_omits_only_internal_ado_artifacts(monkeypatch):
 def test_main_rejects_unknown_skip_without_network(capsys):
     assert verify.main(["--version", "1.1.3", "--skip", "typo"]) == 2
     assert "unknown --skip" in capsys.readouterr().err
+
+
+def test_main_passes_internal_only_scope_to_run(monkeypatch):
+    captured = {}
+
+    def fake_run(*args, **kwargs):
+        captured["args"] = args
+        captured["kwargs"] = kwargs
+        return [], True
+
+    monkeypatch.setattr(verify, "run", fake_run)
+
+    assert (
+        verify.main(
+            [
+                "--version",
+                "1.1.3",
+                "--internal-patch",
+                "1",
+                "--scope",
+                "internal-only",
+            ]
+        )
+        == 0
+    )
+    assert captured["kwargs"]["scope"] == "internal-only"
+
+
+def test_main_infers_internal_only_scope_from_nonzero_patch(monkeypatch):
+    captured = {}
+
+    def fake_run(*args, **kwargs):
+        captured["scope"] = kwargs["scope"]
+        return [], True
+
+    monkeypatch.setattr(verify, "run", fake_run)
+
+    assert verify.main(["--version", "1.1.3", "--internal-patch", "1"]) == 0
+    assert captured["scope"] == "internal-only"
+
+
+def test_main_json_reports_resolved_scope(monkeypatch, capsys):
+    monkeypatch.setattr(verify, "run", lambda *_args, **_kwargs: ([], True))
+
+    assert (
+        verify.main(
+            [
+                "--version",
+                "1.1.3",
+                "--internal-patch",
+                "1",
+                "--json",
+            ]
+        )
+        == 0
+    )
+    output = json.loads(capsys.readouterr().out)
+    assert output["version"] == "1.1.3"
+    assert output["internal_patch"] == "1"
+    assert output["scope"] == "internal-only"
+
+
+def test_main_text_reports_resolved_scope(monkeypatch, capsys):
+    monkeypatch.setattr(verify, "run", lambda *_args, **_kwargs: ([], True))
+
+    assert verify.main(["--version", "1.1.3", "--internal-patch", "1"]) == 0
+    assert "scope=internal-only" in capsys.readouterr().out
+
+
+def test_internal_only_scope_requires_nonzero_patch(capsys):
+    assert (
+        verify.main(
+            [
+                "--version",
+                "1.1.3",
+                "--internal-patch",
+                "0",
+                "--scope",
+                "internal-only",
+            ]
+        )
+        == 2
+    )
+    assert "requires a nonzero --internal-patch" in capsys.readouterr().err
+
+
+def test_full_scope_rejects_nonzero_patch(capsys):
+    assert (
+        verify.main(
+            [
+                "--version",
+                "1.1.3",
+                "--internal-patch",
+                "1",
+                "--scope",
+                "full",
+            ]
+        )
+        == 2
+    )
+    assert "use --scope internal-only" in capsys.readouterr().err
 
 
 def test_skip_help_defines_internal_and_public_scopes(capsys):

@@ -4,6 +4,11 @@ Support scripts for the SynapseML Fabric release. They exist to remove
 hand-typing and hand-checking from the release, so the remaining human work is
 decision-making and approvals.
 
+Agents should start with the
+[SynapseML release skill](../../.github/skills/synapseml-release/SKILL.md).
+It defines the safe workflow, automation boundaries, required evidence, and
+manual approval points.
+
 | Script | Release Guide step | What it replaces |
 | --- | --- | --- |
 | `release_matrix.py` | all | Reading version conventions off a wiki page and retyping them |
@@ -89,10 +94,18 @@ by itself prove the artifacts exist.
 ```bash
 python scripts/release/verify_release.py --version 1.1.3 --internal-patch 0
 
+# Internal-only hotfixes omit every OSS row:
+python scripts/release/verify_release.py --version 1.1.3 \
+    --internal-patch 1 --scope internal-only
+
 # Historical/rebuilt packages use the same independent counters as the matrix:
 python scripts/release/verify_release.py --version 1.1.1 \
     --targets spark4.0 --upack-iteration spark4.0=1
 ```
+
+Text and JSON output record the resolved scope and Internal patch. When
+`--scope` is omitted, the verifier infers `internal-only` from a nonzero
+`--internal-patch` and `full` otherwise.
 
 The full v1.1.3 replay intentionally reports one missing artifact:
 `synapseml-internal_2.13:1.1.3.0-spark4.0`. That historical gap is why
@@ -150,7 +163,8 @@ an intentional image-only rebuild.
 ## Tests
 
 ```bash
-pytest scripts/release/test_release_matrix.py \
+pytest scripts/test_bump_version.py \
+    scripts/release/test_release_matrix.py \
     scripts/release/test_verify_release.py \
     scripts/release/test_bump_bbcvhd.py \
     scripts/release/test_release_workflows.py

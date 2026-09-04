@@ -407,6 +407,9 @@ class TestSkipDir:
     def test_docusaurus(self):
         assert _skip_dir(".docusaurus")
 
+    def test_review_artifacts(self):
+        assert _skip_dir("reviews")
+
     def test_node_modules(self):
         assert _skip_dir("node_modules")
 
@@ -467,6 +470,9 @@ class TestSkipFile:
     def test_versioned_docs_in_path(self):
         assert _skip_file(Path("versioned_docs/v1/intro.md"))
 
+    def test_reviews_in_path(self):
+        assert _skip_file(Path("reviews/release-skill/review.md"))
+
     @pytest.mark.parametrize("path", sorted(bump.DENYLIST_PATHS))
     def test_denylist_repo_relative_path(self, path):
         assert _skip_file(Path(path))
@@ -515,6 +521,24 @@ class TestRunDocusaurus:
 
         assert not bump._run_docusaurus(tmp_path, "2.0.0", dry_run=False)
 
+    def test_dry_run_does_not_require_generated_docs(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        (tmp_path / "website").mkdir()
+
+        def fail_if_called(*args, **kwargs):
+            raise AssertionError("subprocess should not run during a dry run")
+
+        monkeypatch.setattr(subprocess, "run", fail_if_called)
+
+        assert bump._run_docusaurus(tmp_path, "2.0.0", dry_run=True)
+        captured = capsys.readouterr()
+        assert (
+            "[DRY RUN] Would run: npm exec -- docusaurus docs:version 2.0.0"
+            in captured.out
+        )
+        assert "ERROR" not in captured.err
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 6. Integration Tests — End-to-end with temp directory
@@ -556,6 +580,12 @@ class TestIntegration:
             text=True,
         )
         assert result.returncode == 0
+        assert "[DRY RUN] Would run: sbt convertNotebooks" in result.stdout
+        assert (
+            "[DRY RUN] Would run: npm exec -- docusaurus docs:version 2.0.0"
+            in result.stdout
+        )
+        assert "ERROR" not in result.stderr
         readme = (fake_repo / "README.md").read_text()
         assert V in readme
         assert "2.0.0" not in readme
