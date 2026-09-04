@@ -3,16 +3,18 @@
 
 package com.microsoft.azure.synapse.ml.services.openai
 
-import com.microsoft.azure.synapse.ml.io.http.ErrorUtils
+import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
+import com.microsoft.azure.synapse.ml.io.http.{ErrorUtils, HTTPOutputParser, JSONOutputParser}
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.AnyJsonFormat.anyFormat
 import com.microsoft.azure.synapse.ml.param.ServiceParam
-import com.microsoft.azure.synapse.ml.services.{HasCognitiveServiceInput, HasInternalJsonOutputParser}
+import com.microsoft.azure.synapse.ml.services.{HasCognitiveServiceInput, HasCustomHeaders, HasInternalJsonOutputParser}
 import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util._
-import org.apache.spark.sql.{DataFrame, Dataset, Row, functions => F}
+import org.apache.spark.sql.{Column, DataFrame, Dataset, Row, functions => F}
 import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
@@ -20,7 +22,7 @@ import spray.json._
 import scala.collection.JavaConverters._
 import scala.collection.{Seq => CollectionSeq}
 import scala.language.existentials
-import com.microsoft.azure.synapse.ml.services.HasCustomHeaders
+import scala.util.control.NonFatal
 
 object OpenAIResponseFormat extends Enumeration {
   case class ResponseFormat(paylodName: String) extends super.Val(paylodName)
@@ -38,7 +40,8 @@ object OpenAIResponseFormat extends Enumeration {
   }
 }
 
-trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
+trait HasOpenAITextParamsResponses extends HasOpenAITextParams
+  with HasOpenAIToolParams with HasOpenAIResponsesModernParams {
   val responseFormat: ServiceParam[Map[String, Any]] = new ServiceParam[Map[String, Any]](
     this,
     "responseFormat",
@@ -117,18 +120,22 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
     responseFormat,
     store,
     previousResponseId
-  )
+  ) ++ toolPayloadParams ++ modernResponsesParams
 }
 
 object OpenAIResponses extends ComplexParamsReadable[OpenAIResponses]
 
+// scalastyle:off number.of.methods
 class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
-  with HasOpenAITextParamsResponses with HasMessagesInput with HasCognitiveServiceInput
-  with HasOpenAIFabricHeaders with HasInternalJsonOutputParser with SynapseMLLogging with HasCustomHeaders
-  with HasRAIContentFilter with HasTextOutput {
+  with HasOpenAITextParamsResponses with HasMessagesInput with HasResponsesInputParams
+  with HasCognitiveServiceInput with HasOpenAIFabricHeaders
+  with HasInternalJsonOutputParser with SynapseMLLogging with HasCustomHeaders
+  with HasRAIContentFilter with HasTextOutput with HasOpenAIToolCallOutput {
   logClass(FeatureNames.AiServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAIResponses"))
+
+  private[openai] def generatedPythonClass: String = pythonClass()
 
   def urlPath: String = ""
 
@@ -163,8 +170,9 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
     val withTokens = resolveMaxTokens(base, "max_output_tokens")
     val withModel = mergeModel(withTokens, r)
     val withText = mergeTextVerbosity(withModel, r)
-    val withReasoning = mergeReasoning(withText, r)
-    dropSamplingForGpt5(withReasoning)
+    val withReasoning = mergeReasoningExtras(mergeReasoning(withText, r), r)
+    val withTools = mergeToolPayload(dropSamplingForGpt5(withReasoning), r)
+    mergeContinuationInput(withTools, r)
   }
 
   private def mergeModel(params: Map[String, Any], r: Row): Map[String, Any] = {
@@ -211,147 +219,105 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
 
   override val subscriptionKeyHeaderName: String = "api-key"
 
-  override def shouldSkip(row: Row): Boolean =
-    super.shouldSkip(row) || row.get(row.fieldIndex(getMessagesCol)) == null
-
-  override protected def getVectorParamMap: Map[String, String] = super.getVectorParamMap
-    .updated("input", getMessagesCol)
-
-  override def responseDataType: DataType = ResponsesModelResponse.schema
-
-  private def runtimeType(value: Any): String = {
-    Option(value).map(_.getClass.getSimpleName).getOrElse("null")
+  private def validatePublicColumnNames(): Unit = {
+    val configured = Seq(
+      if (isSet(messagesCol)) Some("messagesCol" -> getMessagesCol) else None,
+      Some("outputCol" -> getOutputCol),
+      Some("errorCol" -> getErrorCol),
+      get(toolCallsCol).map("toolCallsCol" -> _)
+    ).flatten
+    OpenAIColumnUtils.validateDistinctColumns(configured: _*)
   }
 
-  private def encodeStruct(value: Any, structType: StructType): Map[String, Any] = {
-    value match {
-      case row: Row =>
-        if (row.length != structType.length) {
-          throw new IllegalArgumentException("Struct content part does not match its declared schema")
-        }
-        structType.fields.zipWithIndex.flatMap { case (field, index) =>
-          if (row.isNullAt(index)) {
-            None
-          } else {
-            Some(field.name -> encodeStructuredValue(row.get(index), field.dataType))
-          }
-        }.toMap
-      case other =>
-        throw new IllegalArgumentException(
-          s"Expected struct content part but found ${runtimeType(other)}")
-    }
-  }
-
-  private def encodeArray(value: Any, elementType: DataType): Seq[Any] = {
-    value match {
-      case values: CollectionSeq[_] => values.map(encodeStructuredValue(_, elementType)).toSeq
-      case values: Array[_] => values.toSeq.map(encodeStructuredValue(_, elementType))
-      case other =>
-        throw new IllegalArgumentException(
-          s"Expected array content but found ${runtimeType(other)}")
-    }
-  }
-
-  private def encodeMap(value: Any, valueType: DataType): Map[String, Any] = {
-    value match {
-      case values: scala.collection.Map[_, _] =>
-        values.iterator.map {
-          case (key: String, entryValue) => key -> encodeStructuredValue(entryValue, valueType)
-          case _ => throw new IllegalArgumentException("Content part map keys must be strings")
-        }.filter { case (_, entryValue) => entryValue != null }.toMap
-      case other =>
-        throw new IllegalArgumentException(
-          s"Expected map content part but found ${runtimeType(other)}")
-    }
-  }
-
-  private def encodeStructuredValue(value: Any, dataType: DataType): Any = {
-    if (value == null) {
-      null // scalastyle:ignore null
+  private def dynamicField[T](
+      row: Row,
+      isConfigured: Boolean,
+      colName: => String): Option[T] = {
+    if (!isConfigured) {
+      None
     } else {
-      dataType match {
-        case structType: StructType => encodeStruct(value, structType)
-        case ArrayType(elementType, _) => encodeArray(value, elementType)
-        case MapType(StringType, valueType, _) => encodeMap(value, valueType)
-        case _: MapType =>
-          throw new IllegalArgumentException("Content part map keys must have string type")
-        case _ => value
+      val name = colName
+      if (row.schema.fieldNames.contains(name)) {
+        Option(row.getAs[T](name))
+      } else {
+        None
       }
     }
   }
 
-  private def invalidRoleError(messageIndex: Int): IllegalArgumentException = {
-    new IllegalArgumentException(s"messages[$messageIndex].role must be a non-empty string")
-  }
-
-  private def validatedRole(message: Row, messageIndex: Int): String = {
-    val roleIndex = message.schema.fieldNames.indexOf("role")
-    if (roleIndex < 0 || roleIndex >= message.length ||
-        message.schema.fields(roleIndex).dataType != StringType || message.isNullAt(roleIndex)) {
-      throw invalidRoleError(messageIndex)
-    }
-    message.get(roleIndex) match {
-      case role: String if role.trim.nonEmpty => role
-      case _ => throw invalidRoleError(messageIndex)
-    }
-  }
-
-  private def encodedMessageContent(message: Row, messageIndex: Int): Any = {
-    val contentIndex = message.schema.fieldNames.indexOf("content")
-    if (contentIndex < 0 || contentIndex >= message.length) {
-      throw new IllegalArgumentException(
-        s"messages[$messageIndex].content must be a string or an array of content part objects")
-    }
-
-    message.schema.fields(contentIndex).dataType match {
-      case StringType =>
-        if (message.isNullAt(contentIndex)) {
-          null // scalastyle:ignore null
-        } else {
-          message.get(contentIndex) match {
-            case text: String => text
-            case _ =>
-              throw new IllegalArgumentException(s"messages[$messageIndex].content must be a string")
-          }
-        }
-      case arrayType: ArrayType =>
-        if (message.isNullAt(contentIndex)) {
-          throw new IllegalArgumentException(
-            s"messages[$messageIndex].content must be an array of content part objects")
-        }
-        encodeStructuredValue(message.get(contentIndex), arrayType)
-      case other =>
-        throw new IllegalArgumentException(
-          s"messages[$messageIndex].content has unsupported type ${other.typeName}")
+  private def mergeContinuationInput(
+      params: Map[String, Any],
+      row: Row): Map[String, Any] = {
+    val inputItems = dynamicField[String](
+      row,
+      hasInputItemsCol,
+      getInputItemsCol
+    ).toSeq.flatMap(OpenAIToolUtils.parseInputItems)
+    val functionOutputs = dynamicField[scala.collection.Seq[Row]](
+      row,
+      hasFunctionCallOutputsCol,
+      getFunctionCallOutputsCol
+    ).map(_.toSeq).map(OpenAIToolColumns.toFunctionCallOutputs).getOrElse(Vector.empty)
+    val continuationInput: Seq[Any] = inputItems ++ functionOutputs
+    if (continuationInput.nonEmpty) {
+      params.updated("input", continuationInput)
+    } else {
+      params
     }
   }
 
-  private def encodeResponseMessage(message: Row, messageIndex: Int): Map[String, Any] = {
-    if (message == null) {
-      throw new IllegalArgumentException(s"messages[$messageIndex] must be an object")
-    }
-    Map(
-      "role" -> validatedRole(message, messageIndex),
-      "content" -> encodedMessageContent(message, messageIndex)
-    )
+  override def shouldSkip(row: Row): Boolean = {
+    val noMessages = dynamicField[scala.collection.Seq[Row]](
+      row,
+      isSet(messagesCol),
+      getMessagesCol
+    ).forall(_.isEmpty)
+    val noInputItems = dynamicField[String](
+      row,
+      hasInputItemsCol,
+      getInputItemsCol
+    ).forall(_.trim.isEmpty)
+    val noFunctionOutputs = dynamicField[scala.collection.Seq[Row]](
+      row,
+      hasFunctionCallOutputsCol,
+      getFunctionCallOutputsCol
+    ).forall(_.isEmpty)
+    super.shouldSkip(row) || (noMessages && noInputItems && noFunctionOutputs)
   }
 
-  private def encodeResponsesMessages(messages: Seq[Row]): Seq[Map[String, Any]] = {
-    messages.zipWithIndex.map { case (message, messageIndex) =>
-      encodeResponseMessage(message, messageIndex)
+  override protected def getVectorParamMap: Map[String, String] = {
+    var paramMap = super.getVectorParamMap
+    if (isSet(messagesCol)) {
+      paramMap = paramMap.updated("input", getMessagesCol)
     }
+    if (hasInputItemsCol) {
+      paramMap = paramMap.updated("input_items", getInputItemsCol)
+    }
+    if (hasFunctionCallOutputsCol) {
+      paramMap = paramMap.updated("function_call_outputs", getFunctionCallOutputsCol)
+    }
+    paramMap
   }
 
-  private def validatePublicColumnNames(): Unit =
-    OpenAIColumnUtils.validateDistinctColumns(
-      "messagesCol" -> getMessagesCol,
-      "outputCol" -> getOutputCol,
-      "errorCol" -> getErrorCol
-    )
+  override def responseDataType: DataType = ResponsesModelResponse.schema
+
+  override protected def getInternalOutputParser(schema: StructType): HTTPOutputParser =
+    new JSONOutputParser().setDataType(ResponsesModelResponseV2.schema)
 
   override def transform(dataset: Dataset[_]): DataFrame = {
     transferGlobalParamsToParamMap()
     validatePublicColumnNames()
+    validateToolSetup()
+    validateResponsesSetup(dataset.schema)
+    val result = transformWithRowValidation(dataset)
+    if (isSet(toolCallsCol)) {
+      result.withColumn(getToolCallsCol, toolCallsColumn(getOutputCol))
+    } else {
+      result
+    }
+  }
+
+  private def transformPrepared(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({
       val df = dataset.toDF()
       val colsToAvoid = df.schema.fieldNames.toSet ++ Set(getErrorCol, getOutputCol)
@@ -362,9 +328,10 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
       val messagesDataType = df.schema(resolvedMessagesCol).dataType
 
       val validationErrorUDF = UDFUtils.oldUdf(
-        (messages: CollectionSeq[Row]) => structuredMessageValidationError(messages).map(message =>
-          Row(message, null) //scalastyle:ignore null
-        ).orNull,
+        (messages: CollectionSeq[Row]) =>
+          OpenAIResponsesMessageUtils.validationError(messages).map(message =>
+            Row(message, null) //scalastyle:ignore null
+          ).orNull,
         ErrorUtils.ErrorSchema
       )
 
@@ -395,173 +362,258 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
     }, dataset.columns.length)
   }
 
+  private def vectorStringColumn(param: ServiceParam[String]): Option[String] =
+    get(param).orElse(getDefault(param)).flatMap(_.right.toOption)
+
+  private def hasRowValidation: Boolean =
+    vectorStringColumn(tools).isDefined ||
+      vectorStringColumn(toolChoice).isDefined ||
+      hasInputItemsCol ||
+      hasFunctionCallOutputsCol
+
+  private def transformWithRowValidation(dataset: Dataset[_]): DataFrame = {
+    if (!hasRowValidation) {
+      transformPrepared(dataset)
+    } else {
+      val errorInputCol = DatasetExtensions.findUnusedColumnName(
+        "openaiRowValidationError",
+        dataset.schema)
+      var prepared = dataset.toDF.withColumn(errorInputCol, rowValidationErrorColumn)
+      var temporaryColumns = Seq(errorInputCol)
+      val worker = copy(ParamMap.empty).asInstanceOf[OpenAIResponses]
+
+      def shadowInput(configured: Boolean, originalName: => String, setWorker: String => Unit): Unit = {
+        if (configured) {
+          val name = originalName
+          val shadow = DatasetExtensions.findUnusedColumnName(s"${name}_validated", prepared.schema)
+          val dataType = prepared.schema(name).dataType
+          prepared = prepared.withColumn(
+            shadow,
+            F.when(F.col(errorInputCol).isNull, F.col(name))
+              .otherwise(F.lit(null).cast(dataType))) //scalastyle:ignore null
+          temporaryColumns :+= shadow
+          setWorker(shadow)
+        }
+      }
+
+      shadowInput(isSet(messagesCol), getMessagesCol, worker.setMessagesCol)
+      if (!isSet(messagesCol)) {
+        val emptyMessagesCol = DatasetExtensions.findUnusedColumnName(
+          "openaiEmptyMessages",
+          prepared.schema)
+        prepared = prepared.withColumn(
+          emptyMessagesCol,
+          F.typedLit(Seq.empty[OpenAIMessage]))
+        temporaryColumns :+= emptyMessagesCol
+        worker.setMessagesCol(emptyMessagesCol)
+      }
+      shadowInput(hasInputItemsCol, getInputItemsCol, worker.setInputItemsCol)
+      shadowInput(
+        hasFunctionCallOutputsCol,
+        getFunctionCallOutputsCol,
+        worker.setFunctionCallOutputsCol)
+
+      val transformed = worker.transformPrepared(prepared)
+      val errorType = transformed.schema(getErrorCol).dataType.asInstanceOf[StructType]
+      val validationError = F.when(
+        F.col(errorInputCol).isNotNull,
+        F.struct(
+          F.col(errorInputCol).as("response"),
+          F.lit(null).cast(errorType("status").dataType).as("status") //scalastyle:ignore null
+        ))
+      transformed
+        .withColumn(getErrorCol, F.coalesce(F.col(getErrorCol), validationError))
+        .drop(temporaryColumns: _*)
+    }
+  }
+
+  private def rowValidationErrorColumn: Column = {
+    val scalarTools = get(tools).flatMap(_.left.toOption).map(OpenAIToolUtils.parseTools)
+    val scalarChoice = get(toolChoice).flatMap(_.left.toOption)
+      .flatMap(OpenAIToolUtils.parseToolChoice)
+    val toolsJson = vectorStringColumn(tools).map(F.col)
+      .getOrElse(F.lit(null).cast(StringType)) //scalastyle:ignore null
+    val choiceJson = vectorStringColumn(toolChoice).map(F.col)
+      .getOrElse(F.lit(null).cast(StringType)) //scalastyle:ignore null
+    val inputItems = if (hasInputItemsCol) {
+      F.col(getInputItemsCol)
+    } else {
+      F.lit(null).cast(StringType) //scalastyle:ignore null
+    }
+    val outputs = if (hasFunctionCallOutputsCol) {
+      F.col(getFunctionCallOutputsCol)
+    } else {
+      F.lit(null).cast(OpenAIToolColumns.FunctionCallOutputStructType) //scalastyle:ignore null
+    }
+    val validate = F.udf(
+      (toolsValue: String, choiceValue: String, itemsValue: String, outputRows: Seq[Row]) => {
+        try {
+          val effectiveTools = Option(toolsValue).map(_.trim).filter(_.nonEmpty)
+            .map(OpenAIToolUtils.parseTools)
+            .orElse(scalarTools)
+          val effectiveChoice = OpenAIToolUtils.parseToolChoice(choiceValue)
+            .orElse(scalarChoice)
+          validateResolvedToolSetup(
+            effectiveTools,
+            effectiveChoice,
+            effectiveTools.isDefined)
+          OpenAIToolUtils.parseInputItems(itemsValue)
+          OpenAIToolColumns.toFunctionCallOutputs(outputRows)
+          null //scalastyle:ignore null
+        } catch {
+          case NonFatal(error) =>
+            Option(error.getMessage).getOrElse(error.getClass.getSimpleName)
+        }
+      })
+    validate(toolsJson, choiceJson, inputItems, outputs)
+  }
+
   override def transformSchema(schema: StructType): StructType = {
     validatePublicColumnNames()
-    super.transformSchema(schema)
-  }
-
-  private def requireOnlyFields(part: Map[String, Any], allowed: Set[String], location: String): Unit = {
-    if ((part.keySet -- allowed).nonEmpty) {
-      throw new IllegalArgumentException(s"$location contains unsupported fields")
+    validateToolSetup()
+    validateResponsesSetup(schema)
+    val baseSchema = super.transformSchema(schema)
+    if (isSet(toolCallsCol)) {
+      baseSchema.add(getToolCallsCol, OpenAIToolColumns.ToolCallStructType)
+    } else {
+      baseSchema
     }
   }
 
-  private def requireNonEmptyString(value: Any, errorMessage: String): Unit = {
-    value match {
-      case text: String if text.trim.nonEmpty =>
-      case _ => throw new IllegalArgumentException(errorMessage)
+  private def validateResponsesSetup(schema: StructType): Unit = {
+    require(
+      isSet(messagesCol) || hasInputItemsCol || hasFunctionCallOutputsCol,
+      "Set at least one of messagesCol, inputItemsCol, functionCallOutputsCol")
+    require(
+      !(isSet(conversation) && isSet(previousResponseId)),
+      "conversation and previousResponseId are mutually exclusive")
+    validateDistinctInputColumns()
+    val hasStoredContext = isSet(previousResponseId) || isSet(conversation)
+    validateContinuation(schema, hasStoredContext)
+    warnOnContinuationConfiguration()
+    get(toolCallsCol).foreach { columnName =>
+      require(
+        !schema.fieldNames.contains(columnName),
+        s"Column '$columnName' already exists in the input DataFrame")
     }
+    warnOnAzureFieldSupport()
   }
 
-  private def validateInputTextPart(part: Map[String, Any], location: String): Unit = {
-    requireOnlyFields(part, Set("type", "text"), location)
-    part.get("text") match {
-      case Some(_: String) =>
-      case _ => throw new IllegalArgumentException(s"$location requires a string 'text' field")
-    }
-  }
-
-  private def validateInputImagePart(part: Map[String, Any], location: String): Unit = {
-    requireOnlyFields(part, Set("type", "image_url", "file_id", "detail"), location)
-    val imageUrlDefined = part.get("image_url").exists { value =>
-      requireNonEmptyString(value, s"$location requires a non-empty string 'image_url' or 'file_id' field")
-      true
-    }
-    val fileIdDefined = part.get("file_id").exists { value =>
-      requireNonEmptyString(value, s"$location requires a non-empty string 'image_url' or 'file_id' field")
-      true
-    }
-    if (!imageUrlDefined && !fileIdDefined) {
+  private def validateDistinctInputColumns(): Unit = {
+    val inputColumns = Seq(
+      if (isSet(messagesCol)) Some(getMessagesCol) else None,
+      if (hasInputItemsCol) Some(getInputItemsCol) else None,
+      if (hasFunctionCallOutputsCol) Some(getFunctionCallOutputsCol) else None
+    ).flatten
+    inputColumns.groupBy(identity).collect {
+      case (columnName, occurrences) if occurrences.size > 1 => columnName
+    }.foreach { columnName =>
       throw new IllegalArgumentException(
-        s"$location requires a non-empty string 'image_url' or 'file_id' field")
-    }
-    part.get("detail").foreach(value =>
-      requireNonEmptyString(value, s"$location 'detail' must be a non-empty string when provided"))
-  }
-
-  private def validateInputFilePart(part: Map[String, Any], location: String): Unit = {
-    requireOnlyFields(part, Set("type", "file_data", "file_id", "filename"), location)
-    val fileDataDefined = part.get("file_data").exists { value =>
-      requireNonEmptyString(value, s"$location requires a non-empty string 'file_data' or 'file_id' field")
-      true
-    }
-    val fileIdDefined = part.get("file_id").exists { value =>
-      requireNonEmptyString(value, s"$location requires a non-empty string 'file_data' or 'file_id' field")
-      true
-    }
-    if (!fileDataDefined && !fileIdDefined) {
-      throw new IllegalArgumentException(
-        s"$location requires a non-empty string 'file_data' or 'file_id' field")
-    }
-    part.get("filename").foreach(value =>
-      requireNonEmptyString(value, s"$location 'filename' must be a non-empty string when provided"))
-  }
-
-  private def validateContentPart(part: Any, messageIndex: Int, partIndex: Int): Unit = {
-    val location = s"messages[$messageIndex].content[$partIndex]"
-    val fields = part match {
-      case values: scala.collection.Map[_, _] =>
-        values.asInstanceOf[scala.collection.Map[String, Any]].toMap
-      case _ => throw new IllegalArgumentException(s"$location must be an object")
-    }
-
-    fields.get("type") match {
-      case Some("input_text") => validateInputTextPart(fields, location)
-      case Some("input_image") => validateInputImagePart(fields, location)
-      case Some("input_file") => validateInputFilePart(fields, location)
-      case Some(value: String) if value.trim.nonEmpty =>
-        throw new IllegalArgumentException(
-          s"$location has an unsupported type; supported types are 'input_text', 'input_image', and 'input_file'")
-      case _ => throw new IllegalArgumentException(s"$location requires a non-empty string 'type' field")
+        "messagesCol, inputItemsCol and functionCallOutputsCol must reference different " +
+          s"columns; '$columnName' is used twice")
     }
   }
 
-  private def contentItems(value: Any, messageIndex: Int): CollectionSeq[Any] = {
-    val items = value match {
-      case values: CollectionSeq[_] => values
-      case values: Array[_] => values.toSeq
-      case _ =>
-        throw new IllegalArgumentException(
-          s"messages[$messageIndex].content must be an array of content part objects")
-    }
-    if (items.isEmpty) {
-      throw new IllegalArgumentException(s"messages[$messageIndex].content must not be empty")
-    }
-    items
-  }
+  private def validateContinuation(schema: StructType, hasStoredContext: Boolean): Unit = {
+    if (hasFunctionCallOutputsCol) {
+      require(
+        hasStoredContext || hasInputItemsCol,
+        "functionCallOutputsCol requires previousResponseIdCol, conversation, or inputItemsCol")
+      require(
+        isSet(tools),
+        "Tools are not carried across turns; resend tools on the continuation transform")
+      requireFieldShape(
+        schema,
+        getFunctionCallOutputsCol,
+        OpenAIToolColumns.FunctionCallOutputStructType)
 
-  private def validateEncodedMessage(message: Map[String, Any], messageIndex: Int): Unit = {
-    message.get("role") match {
-      case Some(role: String) if role.trim.nonEmpty =>
-      case _ =>
-        throw new IllegalArgumentException(s"messages[$messageIndex].role must be a non-empty string")
-    }
-
-    message.get("content") match {
-      case Some(_: String) =>
-      case Some(null) => // scalastyle:ignore null
-        throw new IllegalArgumentException(
-          s"messages[$messageIndex].content must be a string or an array of content part objects")
-      case Some(content) =>
-        contentItems(content, messageIndex).zipWithIndex.foreach {
-          case (part, partIndex) => validateContentPart(part, messageIndex, partIndex)
-        }
-      case _ =>
-        throw new IllegalArgumentException(
-          s"messages[$messageIndex].content must be a string or an array of content part objects")
-    }
-  }
-
-  private def validateMessages(messages: CollectionSeq[Row]): Unit = {
-    if (messages.isEmpty) {
-      throw new IllegalArgumentException("messages must not be empty")
-    }
-    messages.zipWithIndex.foreach { case (message, messageIndex) =>
-      if (message == null) {
-        throw new IllegalArgumentException(s"messages[$messageIndex] must be an object")
-      }
-      val encoded = encodeResponseMessage(message, messageIndex)
-      validateEncodedMessage(encoded, messageIndex)
-    }
-  }
-
-  private def structuredMessageValidationError(messages: CollectionSeq[Row]): Option[String] = {
-    Option(messages).flatMap { messageRows =>
-      try {
-        validateMessages(messageRows)
-        None
-      } catch {
-        case e: IllegalArgumentException => Some(e.getMessage)
-      }
-    }
-  }
-
-  private[openai] def getStringEntity(messages: Seq[Row], optionalParams: Map[String, Any]): StringEntity = {
-    val mappedMessages = encodeResponsesMessages(messages)
-      .zipWithIndex
-      .map { case (message, messageIndex) =>
-        validateEncodedMessage(message, messageIndex)
-        message
-      }
-      .map(_.filter { case (_, value) => value != null })
-      .map { m =>
-        // For Responses API, ensure content is an array of parts with type 'input_text'
-        m.get("content") match {
-          case Some(s: String) =>
-            m.updated("content", Seq(Map("type" -> "input_text", "text" -> s)))
-          case _ => m
+      if (hasInputItemsCol && !hasStoredContext) {
+        require(
+          isSet(messagesCol),
+          "stateless replay must resend the originating user message: set messagesCol " +
+            "(or use previousResponseIdCol/conversation instead)")
+        if (get(store).flatMap(_.left.toOption).contains(true)) {
+          logWarning(
+            "stateless replay with store=true drops reasoning items without encrypted_content; " +
+              "use store=false or previousResponseIdCol")
         }
       }
-    val fullPayload = optionalParams.updated("input", mappedMessages)
+    }
+  }
+
+  private def warnOnContinuationConfiguration(): Unit = {
+    if (isSet(previousResponseId) && get(store).flatMap(_.left.toOption).contains(false)) {
+      logWarning(
+        "previous_response_id requires the turn that produced it to have been sent with " +
+          "store=true; this stage has store=false")
+    }
+    if (isSet(conversation)) {
+      logWarning(
+        "conversation is server-side mutable state; concurrent Spark partitions appending " +
+          "to one conversation are non-deterministic")
+    }
+  }
+
+  private def requireFieldShape(
+      schema: StructType,
+      columnName: String,
+      expectedType: DataType): Unit = {
+    val actualType = schema.find(_.name == columnName).map(_.dataType).getOrElse {
+      throw new IllegalArgumentException(
+        s"Column '$columnName' was not found in the input DataFrame")
+    }
+    require(
+      DataType.equalsStructurally(actualType, expectedType, ignoreNullability = true),
+      s"$columnName must have type ${expectedType.simpleString}; got ${actualType.simpleString}")
+  }
+
+  private[openai] def getStringEntity(
+      messages: Seq[Row],
+      optionalParams: Map[String, Any]): StringEntity = {
+    val continuationInput = optionalParams.get("input").collect {
+      case input: scala.collection.Seq[_] => input.toSeq
+    }.getOrElse(Seq.empty)
+    buildStringEntity(messages, continuationInput, optionalParams - "input")
+  }
+
+  private[openai] def getStringEntity(
+      messages: Seq[Row],
+      inputItemsJson: String,
+      functionOutputs: Seq[Row],
+      optionalParams: Map[String, Any]): StringEntity = {
+    val continuationInput: Seq[Any] =
+      OpenAIToolUtils.parseInputItems(inputItemsJson) ++
+        OpenAIToolColumns.toFunctionCallOutputs(functionOutputs)
+    buildStringEntity(messages, continuationInput, optionalParams - "input")
+  }
+
+  private def buildStringEntity(
+      messages: Seq[Row],
+      continuationInput: Seq[Any],
+      optionalParams: Map[String, Any]): StringEntity = {
+    val mappedMessages = OpenAIResponsesMessageUtils.encodeMessages(
+      Option(messages).getOrElse(Seq.empty))
+    val input: Seq[Any] = mappedMessages ++ continuationInput
+    val fullPayload = optionalParams.updated("input", input)
     new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
   }
 
-  override private[openai] def getOutputMessageText(outputColName: String): org.apache.spark.sql.Column = {
-    val outputEntries = F.col(outputColName).getField("output")
-    val lastOutputEntry = F.element_at(outputEntries, -1)
-    val textValues = F.transform(lastOutputEntry.getField("content"), part => part.getField("text"))
+  override private[openai] def getOutputMessageText(outputColName: String): Column = {
+    val items = F.col(outputColName).getField("output")
+    val typedItems = F.filter(items, item => item.getField("type").isNotNull)
+    val typedMessages = F.filter(
+      typedItems,
+      item => item.getField("type") === OpenAIToolUtils.MessageItemType)
+    val legacyMessages = F.filter(items, item => item.getField("type").isNull)
+    val messages = F.when(F.size(typedItems) > 0, typedMessages).otherwise(legacyMessages)
+    val textValues = F.transform(
+      F.element_at(messages, -1).getField("content"),
+      part => part.getField("text"))
     val definedTextValues = F.filter(textValues, text => text.isNotNull)
-    F.element_at(definedTextValues, 1)
+    F.when(
+      F.size(messages) > 0,
+      F.element_at(definedTextValues, 1)
+    )
   }
 
   private def outputEntries(outputRow: Row): Seq[Row] = {
@@ -585,15 +637,105 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
     }
   }
 
+  private def hasFunctionCall(outputRow: Row): Boolean =
+    outputEntries(outputRow).exists(itemType(_).contains(OpenAIToolUtils.FunctionCallItemType))
+
+  private def incompleteReason(outputRow: Row): Option[String] =
+    optionalField[Row](outputRow, "incomplete_details")
+      .flatMap(optionalField[String](_, "reason"))
+
   override private[openai] def isContentFiltered(outputRow: Row): Boolean = {
-    lastOutputText(outputRow).isEmpty
+    incompleteReason(outputRow) match {
+      case Some(OpenAIToolUtils.ContentFilterReason) => true
+      case Some(OpenAIToolUtils.MaxOutputTokensReason) => false
+      case _ if hasFunctionCall(outputRow) => false
+      case _ => lastMessageText(outputRow).isEmpty
+    }
   }
 
   override private[openai] def getFilterReason(outputRow: Row): String = {
-    lastOutputEntry(outputRow).iterator
-      .flatMap(outputEntry => Option(outputEntry.getAs[String]("status")))
-      .find(_.nonEmpty)
-      .getOrElse("content_filtered_or_empty")
+    if (incompleteReason(outputRow).contains(OpenAIToolUtils.ContentFilterReason)) {
+      OpenAIToolUtils.ContentFilterReason
+    } else {
+      lastMessageEntry(outputRow)
+        .flatMap(optionalField[String](_, "status"))
+        .filter(_.nonEmpty)
+        .getOrElse("content_filtered_or_empty")
+    }
   }
 
+  private def optionalField[T](row: Row, fieldName: String): Option[T] = {
+    Option(row).filter(_.schema.fieldNames.contains(fieldName))
+      .flatMap(value => Option(value.getAs[T](fieldName)))
+  }
+
+  private def itemType(row: Row): Option[String] =
+    optionalField[String](row, "type")
+
+  private def messageEntries(outputRow: Row): Seq[Row] = {
+    val entries = outputEntries(outputRow)
+    val typedEntries = entries.filter(itemType(_).isDefined)
+    if (typedEntries.nonEmpty) {
+      typedEntries.filter(itemType(_).contains(OpenAIToolUtils.MessageItemType))
+    } else {
+      entries.filter(itemType(_).isEmpty)
+    }
+  }
+
+  private def lastMessageEntry(outputRow: Row): Option[Row] = {
+    messageEntries(outputRow).lastOption
+  }
+
+  private def lastMessageText(outputRow: Row): Option[String] = {
+    lastMessageEntry(outputRow).flatMap { outputEntry =>
+      firstDefinedText(
+        optionalField[scala.collection.Seq[Row]](outputEntry, "content")
+          .getOrElse(Seq.empty)
+          .toSeq)
+    }
+  }
+
+  private def warnOnAzureStrictParallel(isAzure: Boolean): Unit = {
+    if (isAzure && strictToolsNeedSequentialCalls) {
+      logWarning(
+        "Azure OpenAI strict function schemas require parallel_tool_calls=false; " +
+          "call setParallelToolCalls(false) to avoid HTTP 400")
+    }
+  }
+
+  private def warnOnAzureV1Fields(isAzure: Boolean): Unit = {
+    if (isAzure && !isOpenAIV1BaseUrl) {
+      val fields = Seq(
+        maxToolCalls -> "max_tool_calls",
+        include -> "include",
+        topLogprobs -> "top_logprobs",
+        safetyIdentifier -> "safety_identifier",
+        promptCacheKey -> "prompt_cache_key",
+        conversation -> "conversation",
+        reasoningSummary -> "reasoning.summary",
+        reasoningContext -> "reasoning.context",
+        reasoningMode -> "reasoning.mode"
+      ).collect { case (param, wireName) if isSet(param) => wireName }
+      if (fields.nonEmpty) {
+        logWarning(
+          s"${fields.mkString(", ")} are documented only on the Azure /openai/v1 surface; " +
+            "this dated api-version endpoint may reject them with HTTP 400")
+      }
+    }
+  }
+
+  private def warnOnAzureFieldSupport(): Unit = {
+    val configuredUrl = get(url).orElse(getDefault(url)).map(_.toLowerCase)
+    val isAzure = configuredUrl.exists(_.contains("azure.com"))
+    warnOnAzureStrictParallel(isAzure)
+    if (isAzure && isSet(serviceTier)) {
+      logWarning(
+        "serviceTier is not supported by Azure OpenAI and will likely return HTTP 400")
+    }
+    warnOnAzureV1Fields(isAzure)
+  }
+
+  override def pyAdditionalMethods: String =
+    super.pyAdditionalMethods + OpenAIToolPythonOverrides.ResponsesMethods
 }
+// scalastyle:on number.of.methods

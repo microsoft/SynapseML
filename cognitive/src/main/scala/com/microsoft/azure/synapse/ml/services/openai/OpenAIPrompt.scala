@@ -10,6 +10,7 @@ import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.{GlobalParams, HasGlobalParams, ServiceParam, StringStringMapParam}
 import com.microsoft.azure.synapse.ml.services._
 import com.microsoft.azure.synapse.ml.services.aifoundry.{AIFoundryChatCompletion, HasAIFoundryTextParamsExtended}
+import OpenAIPromptMixins.{ToolEnabledServiceDomain => HasCustomCogServiceDomain}
 import org.apache.hadoop.conf.Configuration
 import org.apache.http.entity.AbstractHttpEntity
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
@@ -29,7 +30,6 @@ import scala.collection.JavaConverters._
 import scala.util.{Try, Using}
 
 object OpenAIPrompt extends ComplexParamsReadable[OpenAIPrompt]
-
 // scalastyle:off number.of.methods
 class OpenAIPrompt(override val uid: String) extends Transformer
   with HasAIFoundryTextParamsExtended
@@ -41,11 +41,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   with ComplexParamsWritable with SynapseMLLogging with HasGlobalParams {
 
   logClass(FeatureNames.AiServices.OpenAI)
-
   def this() = this(Identifiable.randomUID("OpenAIPrompt"))
-
   private[openai] def generatedPythonClass: String = pythonClass()
-
   override def copy(extra: ParamMap): Transformer = {
     val copied = defaultCopy(extra).asInstanceOf[OpenAIPrompt]
     copied.postProcessingExplicitlySet =
@@ -60,7 +57,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     }
     copied
   }
-
   override def write: MLWriter = {
     val delegate = super.write
     new MLWriter {
@@ -79,11 +75,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       }
     }
   }
-
   def urlPath: String = ""
-
   override private[ml] def internalServiceType: String = "openai"
-
   import UsageUtils.{UsageFieldMapping, UsageMappings, UsageStructType}
 
   val usageCol: Param[String] = new Param[String](
@@ -97,10 +90,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   setDefault(responseIdCol -> s"${uid}_responseId")
   def getResponseIdCol: String = $(responseIdCol)
   def setResponseIdCol(value: String): this.type = set(responseIdCol, value)
-
   val promptTemplate = new Param[String](
     this, "promptTemplate", "The prompt. supports string interpolation {col1}: {col2}.")
-
   def getPromptTemplate: String = $(promptTemplate)
 
   def setPromptTemplate(value: String): this.type = set(promptTemplate, value)
@@ -110,9 +101,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     isValid = ParamValidators.inArray(Array("", "csv", "json", "regex")))
 
   def getPostProcessing: String = $(postProcessing)
-
   private var postProcessingExplicitlySet: Boolean = false
-
   def setPostProcessing(value: String): this.type = {
     OpenAIPromptPostProcessing.inferMode(getPostProcessingOptions)
       .foreach(expectedMode => OpenAIPromptPostProcessing.validateModeValue(value, expectedMode))
@@ -123,9 +112,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   val postProcessingOptions = new StringStringMapParam(
     this, "postProcessingOptions", "Options (default): delimiter=',', jsonSchema, regex, regexGroup=0")
-
   def getPostProcessingOptions: Map[String, String] = $(postProcessingOptions)
-
   def setPostProcessingOptions(value: Map[String, String]): this.type = {
     def setOrValidatePostProcessing(expected: String): Unit = {
       if (isSet(postProcessing)) {
@@ -165,8 +152,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   override protected def pySetParamsFunc: String =
     OpenAIPromptPythonOverrides.setParamsFunc(super.pySetParamsFunc)
 
-  override def pyAdditionalMethods: String =
-    super.pyAdditionalMethods + OpenAIPromptPythonOverrides.AdditionalMethods
+  override def pyAdditionalMethods: String = super.pyAdditionalMethods +
+    OpenAIPromptPythonOverrides.AdditionalMethods + OpenAIToolPythonOverrides.PromptMethods
 
   override def pyInitFunc(): String =
     OpenAIPromptPythonOverrides.initFunc(super.pyInitFunc())
@@ -292,7 +279,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   private val localParamNames = Seq(
     "promptTemplate", "outputCol", "postProcessing", "postProcessingOptions", "dropPrompt", "dropMessages",
-    "systemPrompt", "apiType", "usageCol", "responseIdCol")
+    "systemPrompt", "apiType", "usageCol", "responseIdCol", "toolCallsCol", "responseStructCol")
 
   private val textExtensions = Set("md", "csv", "tsv", "json", "xml")
   private val imageExtensions = Set("jpg", "jpeg", "png", "gif", "webp")
@@ -310,7 +297,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       val isFiltered = originalOutput.exists(completion.isContentFiltered)
 
       if (isFiltered) {
-        val updatedRowSeq = row.toSeq.updated(
+        val updatedRowSeq = row.toSeq.toVector.updated(
           row.fieldIndex(errorCol),
           Row(completion.getFilterReason(originalOutput.get), null) //scalastyle:ignore null
         )
@@ -381,8 +368,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     if (service.isInstanceOf[OpenAIResponses] && getStore) {
       result = result.withColumn(getResponseIdCol, F.when(responseCol.isNotNull, responseCol.getField("id")))
     }
-
-    result = result.drop(serviceOutputCol)
+    result = addPromptToolColumns(result, serviceOutputCol)
     result.select(result.columns.filter(_ != getErrorCol).map(col) :+ col(getErrorCol): _*)
   }
 
@@ -445,6 +431,13 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       throw new IllegalArgumentException(
         "previousResponseId requires apiType='responses'. Use .setApiType(\"responses\")")
     }
+
+    if (currentApiType != "responses") {
+      promptResponsesOnlyParamNames.filter(name => isSet(getParam(name))).foreach { name =>
+        throw new IllegalArgumentException(
+          s"""$name requires apiType='responses'. Use .setApiType("responses")""")
+      }
+    }
   }
 
   private def validateUsageColSupport(currentApiType: String): Unit = {
@@ -462,13 +455,16 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     validateResponsesOnlyParams(currentApiType)
     validateUsageColSupport(currentApiType)
   }
-
-  private def validatePublicColumnNames(): Unit =
-    OpenAIColumnUtils.validateDistinctColumns(
-      "messagesCol" -> getMessagesCol,
-      "outputCol" -> getOutputCol,
-      "errorCol" -> getErrorCol
-    )
+  private def validatePublicColumnNames(): Unit = {
+    val configured = Seq(
+      Some("messagesCol" -> getMessagesCol),
+      Some("outputCol" -> getOutputCol),
+      Some("errorCol" -> getErrorCol),
+      get(toolCallsCol).map("toolCallsCol" -> _),
+      get(responseStructCol).map("responseStructCol" -> _)
+    ).flatten
+    OpenAIColumnUtils.validateDistinctColumns(configured: _*)
+  }
 
   private def attachmentsColumn(pathColumnNames: Seq[String]): Column = {
     if (pathColumnNames.nonEmpty) {
@@ -530,7 +526,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     transferGlobalParamsToParamMap()
     validateResponsesApiParams()
     validatePublicColumnNames()
-
+    validatePromptToolOutputColumns(dataset.schema)
     logTransform[DataFrame]({
       val df = dataset.toDF
       val service = getOpenAIChatService
@@ -667,7 +663,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     this.isDefined(model) && isAIFoundryEndpoint && !isOpenAIV1Endpoint
 
   //deployment name can be set by user, it doesn't have to match with model name
-  private def getOpenAIChatService: OpenAIServicesBase with HasTextOutput = {
+  private[openai] def getOpenAIChatService: OpenAIServicesBase with HasTextOutput = {
     val completion: OpenAIServicesBase with HasTextOutput =
       if (hasAIFoundryModel) {
         new AIFoundryChatCompletion()
@@ -744,7 +740,9 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   }
 
   override def transformSchema(schema: StructType): StructType = {
+    validateResponsesApiParams()
     validatePublicColumnNames()
+    validatePromptToolOutputColumns(schema)
     val outputDataType: DataType = getParser.outputSchema
     val service = getOpenAIChatService
     val inputSchema = schemaWithPromptMessages(schema)
@@ -757,9 +755,11 @@ class OpenAIPrompt(override val uid: String) extends Transformer
         chatCompletion.transformSchema(inputSchema)
     }
 
+    val responseStructField = serviceSchema.fields.find(_.name == service.getOutputCol)
     val fieldsToDrop = Set(service.getOutputCol) ++
       (if (getDropPrompt) Set(getMessagesCol) else Set.empty[String])
-    var withoutServiceOutput = StructType(serviceSchema.filterNot(field => fieldsToDrop(field.name)))
+    val withoutServiceOutput = StructType(
+      serviceSchema.filterNot(field => fieldsToDrop(field.name)))
     var resultSchema = withoutServiceOutput.add(getOutputCol, outputDataType)
 
     if (isSet(usageCol) && usageMappingFor(service).isDefined) {
@@ -770,6 +770,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     if (isResponsesApi && getStore) {
       resultSchema = resultSchema.add(getResponseIdCol, T.StringType)
     }
+    resultSchema = addPromptToolSchema(resultSchema, responseStructField)
 
     val errorFieldOpt: Option[StructField] = resultSchema.fields.find(_.name == getErrorCol)
     val fieldsWithoutError: Array[StructField] = resultSchema.fields.filterNot(_.name == getErrorCol)

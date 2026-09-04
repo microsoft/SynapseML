@@ -260,8 +260,6 @@ class OpenAIChatCompletionMultimodalSuite extends TestBase {
     assert(requestCount.value == 0L)
     assert(output("empty-content").getAs[Row]("error").getAs[String]("response") ==
       "messages[0].content must not be empty")
-    assert(output("empty-messages").getAs[Row]("error").getAs[String]("response") ==
-      "messages must not be empty")
     assert(output("null-content").getAs[Row]("error").getAs[String]("response") ==
       "messages[0].content must be an array of content part objects")
     assert(output("null-part").getAs[Row]("error").getAs[String]("response") ==
@@ -269,6 +267,7 @@ class OpenAIChatCompletionMultimodalSuite extends TestBase {
     assert(output("blank-type").getAs[Row]("error").getAs[String]("response") ==
       "messages[0].content[0] requires a non-empty string 'type' field")
     assert(output("existing-error").getAs[Row]("error").getAs[String]("response") == "upstream error")
+    assert(Option(output("empty-messages").getAs[Row]("error")).isEmpty)
     assert(Option(output("null-messages").getAs[Row]("error")).isEmpty)
     output.values.foreach(row => assert(Option(row.getAs[Row]("output")).isEmpty))
   }
