@@ -139,9 +139,15 @@ before running them because some create or delete cloud resources.
 - Target `master` unless the change exists only for a port branch.
 - Resolve active and suppressed review findings; document why any finding is
   invalid.
-- Trigger Azure validation with `/azp run` where supported. Branch-specific
-  exceptions are documented in the
-  [branch context skill](.github/skills/synapseml-branches/SKILL.md).
+- Treat `/azp run` as privileged: only maintainers may post it, and only after
+  the automated review of the exact head reports
+  `AZP SAFETY: SAFE TO RUN /azp run`. Run readiness automation from a trusted
+  `master` worktree, never from an untrusted PR checkout. Because Copilot reads
+  review instructions from the PR head, instruction or review-setup changes
+  also require an independent maintainer security review. AI review is evidence,
+  not authorization: the maintainer must inspect it and separately confirm the
+  exact head SHA when triggering. Branch-specific exceptions are documented in
+  the [branch context skill](.github/skills/synapseml-branches/SKILL.md).
 - Treat [GitHub Actions](.github/workflows/) as fast checks and
   [pipeline.yaml](pipeline.yaml) as the full build.
 - Do not equate green checks with correctness: compare before/after failures,

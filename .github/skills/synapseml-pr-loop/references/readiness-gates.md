@@ -76,6 +76,16 @@ by current-head evidence.
 - Latest automated review covers the final head, compared by commit rather than
   by recency. A review produced before the last push does not clear the two
   gates above, because it never saw that code.
+- The current-head automated review inspected credential-exfiltration risk and
+  ends with `AZP SAFETY: SAFE TO RUN /azp run`. Missing, ambiguous, or unsafe
+  verdicts block the privileged trigger. Treat this as review evidence, not
+  authorization: after inspecting the completed review, a maintainer separately
+  passes the exact reviewed SHA through `-ConfirmHeadSha`.
+- The pull request does not change a head-controlled Copilot review input:
+  repository/path/agent instructions, agent skills, or Copilot review setup
+  workflows. Copilot reads these from the head branch, so a verdict influenced
+  by such a change is not trusted authorization. Require an independent
+  maintainer security review before manually triggering those PRs.
 - Targeted tests, compile, test compile, style, Black, codegen, Python, and
   port-branch compatibility pass as applicable.
 - Full Azure Pipelines and required GitHub checks are complete with zero
@@ -85,14 +95,18 @@ by current-head evidence.
   that never got one carries only the GitHub Actions checks, and those going
   green is not CI passing. An absent check is neither failed nor pending, so it
   is invisible to both of those gates -- confirm the build by name against the
-  head SHA, not by the absence of red.
+  head SHA, not by the absence of red. Only a maintainer may trigger it, and the
+  readiness helper must be run from trusted `master`, not from an untrusted PR
+  worktree that can modify the helper.
 - Skips are expected and documented; a skipped required scenario is a blocker.
 - `Get-PrReadiness.ps1` reports these as `completeness.complete`, which is true
   only when comment pagination was not truncated, an automated review covers the
-  head, and unresolved threads, suppressed-for-head items, missing required
-  checks, failed checks and pending checks are all zero. Treat a pending check as
-  unknown rather than passing. Trust the individual fields over the summary when
-  they disagree: that flag has been wrong before, in both directions.
+  head with a safe AZP verdict, the changed-file inventory is complete, no
+  head-controlled review inputs changed, and unresolved threads,
+  suppressed-for-head items, missing required checks, failed checks and pending
+  checks are all zero. Treat a pending check as unknown rather than passing.
+  Trust the individual fields over the summary when they disagree: that flag has
+  been wrong before, in both directions.
 
 ## Honest confidence language
 

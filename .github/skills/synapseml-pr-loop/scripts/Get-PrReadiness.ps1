@@ -28,7 +28,13 @@
     never started scores zero in both and reads as finished;
     `missingRequiredChecks` catches that and gates `complete`. The Azure DevOps
     build is the usual casualty because it does not queue itself on a push -- it
-    waits for an `/azp run` comment -- so `-RunPipeline` posts one.
+    waits for an `/azp run` comment. Because that command authorizes untrusted
+    pull-request code to run with trusted pipeline credentials, `-RunPipeline`
+    posts it only after the current-head automated review emits the repository's
+    safe-to-run verdict, all current-head findings are clear, and the authenticated
+    GitHub user has write permission. Copilot reads instructions and skills from
+    the pull-request head, so a head that changes any of those review inputs is
+    blocked from automated triggering and requires independent maintainer review.
 
     It does not make the readiness decision; use the skill's evidence gates for
     that judgment. Output can contain review content; keep it local or redact it
@@ -77,15 +83,35 @@ param(
     # `/azp run` comment -- which is exactly the check most likely to be missing.
     [string[]]$RequiredCheck = @("microsoft.SynapseML"),
 
-    # Post `/azp run` when a required check is missing from the head, instead of
-    # leaving a human to notice that full CI never started.
-    [switch]$RunPipeline
+    # Post `/azp run` when a required check is missing, but only after the
+    # current-head automated review declares it safe and the caller is a
+    # maintainer. Without both conditions this switch fails closed. This cannot
+    # be combined with -WaitForReview: a maintainer must inspect the completed
+    # review before a separate trigger invocation.
+    [switch]$RunPipeline,
+
+    # Explicit maintainer attestation for -RunPipeline. Copy the exact head SHA
+    # from a completed readiness snapshot only after inspecting the review and
+    # diff. This makes the maintainer invocation, not AI-authored text, the
+    # authorization to run credential-bearing CI.
+    [ValidatePattern('^[0-9a-fA-F]{40}$')]
+    [string]$ConfirmHeadSha
 )
 
 $ErrorActionPreference = "Stop"
 
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
     throw "GitHub CLI 'gh' is required."
+}
+if ($RunPipeline -and $WaitForReview) {
+    throw "-RunPipeline cannot be combined with -WaitForReview. Inspect the completed " +
+        "review, then trigger in a separate invocation."
+}
+if ($RunPipeline -and [string]::IsNullOrWhiteSpace($ConfirmHeadSha)) {
+    throw "-RunPipeline requires -ConfirmHeadSha with the exact reviewed head."
+}
+if (-not $RunPipeline -and $ConfirmHeadSha) {
+    throw "-ConfirmHeadSha is valid only with -RunPipeline."
 }
 
 $repoParts = $Repo.Split("/")
@@ -94,6 +120,9 @@ if ($repoParts.Count -ne 2 -or -not $repoParts[0] -or -not $repoParts[1]) {
 }
 $owner = $repoParts[0]
 $name = $repoParts[1]
+
+$azpSafeMarker = "AZP SAFETY: SAFE TO RUN /azp run"
+$azpUnsafeMarker = "AZP SAFETY: DO NOT RUN /azp run"
 
 $automatedLogins = @($AutomatedReviewer |
     Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
@@ -109,6 +138,149 @@ $script:reviewRequestOutcome = @{}
 
 # Likewise for `/azp run` comments; see the -RunPipeline block in Get-PrSnapshot.
 $script:pipelineRunOutcome = @{}
+
+# Repository permission is stable during one invocation and should not cost an
+# API call on every -WaitForReview poll.
+$script:viewerTriggerPermission = $null
+
+function Get-AzpSafetyVerdict {
+    param([object]$Review)
+
+    if (-not $Review -or -not $Review.body) {
+        return "missing"
+    }
+
+    $lines = @($Review.body -split "\r?\n" | ForEach-Object { $_.Trim() })
+    $nonEmptyLines = @($lines | Where-Object { $_ })
+    $lastLine = $nonEmptyLines | Select-Object -Last 1
+    $safeCount = @($lines | Where-Object { $_ -ceq $azpSafeMarker }).Count
+    $unsafeCount = @($lines | Where-Object { $_ -ceq $azpUnsafeMarker }).Count
+
+    if ($safeCount -eq 1 -and $unsafeCount -eq 0 -and
+        $lastLine -ceq $azpSafeMarker) {
+        return "safe"
+    }
+    if ($unsafeCount -eq 1 -and $safeCount -eq 0 -and
+        $lastLine -ceq $azpUnsafeMarker) {
+        return "unsafe"
+    }
+    if ($safeCount -gt 0 -or $unsafeCount -gt 0) {
+        return "ambiguous"
+    }
+    return "missing"
+}
+
+function Get-ViewerTriggerPermission {
+    if ($null -ne $script:viewerTriggerPermission) {
+        return $script:viewerTriggerPermission
+    }
+
+    $repoText = & gh api "repos/$Repo"
+    if ($LASTEXITCODE -ne 0) {
+        $script:viewerTriggerPermission = [pscustomobject]@{
+            permission = "UNKNOWN"
+            canTrigger = $false
+            error = "repository permission query failed for '$Repo'"
+        }
+        return $script:viewerTriggerPermission
+    }
+    $repoView = $repoText | ConvertFrom-Json
+    $permissions = $repoView.permissions
+    $canPush = [bool]($permissions -and $permissions.push)
+    $permission = if ($permissions -and $permissions.admin) {
+        "ADMIN"
+    } elseif ($permissions -and $permissions.maintain) {
+        "MAINTAIN"
+    } elseif ($canPush) {
+        "WRITE"
+    } elseif ($permissions -and $permissions.triage) {
+        "TRIAGE"
+    } else {
+        "READ"
+    }
+
+    $script:viewerTriggerPermission = [pscustomobject]@{
+        permission = $permission
+        canTrigger = $canPush
+        error = $null
+    }
+    return $script:viewerTriggerPermission
+}
+
+function Get-CurrentPullRequestHead {
+    param([Parameter(Mandatory)][int]$Number)
+
+    $head = & gh api "repos/$Repo/pulls/$Number" --jq ".head.sha"
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($head)) {
+        return [pscustomobject]@{
+            sha = $null
+            error = "could not revalidate the current PR head"
+        }
+    }
+    return [pscustomobject]@{
+        sha = $head.Trim()
+        error = $null
+    }
+}
+
+function Test-CopilotReviewInfluencePath {
+    param([Parameter(Mandatory)][string]$Path)
+
+    $normalized = $Path.Replace("\", "/").TrimStart("/")
+    $leaf = [IO.Path]::GetFileName($normalized)
+
+    if ($normalized -ieq ".github/copilot-instructions.md" -or
+        $normalized.StartsWith(".github/skills/", [StringComparison]::OrdinalIgnoreCase) -or
+        ($normalized.StartsWith(
+                ".github/instructions/", [StringComparison]::OrdinalIgnoreCase
+            ) -and $normalized.EndsWith(
+                ".instructions.md", [StringComparison]::OrdinalIgnoreCase
+            )) -or
+        $leaf -in @("AGENTS.md", "CLAUDE.md", "GEMINI.md", "REVIEW.md") -or
+        $normalized -in @(
+            ".github/workflows/copilot-code-review.yml",
+            ".github/workflows/copilot-code-review.yaml",
+            ".github/workflows/copilot-setup-steps.yml",
+            ".github/workflows/copilot-setup-steps.yaml"
+        )) {
+        return $true
+    }
+    return $false
+}
+
+function Get-PullRequestFileInventory {
+    param([Parameter(Mandatory)][int]$Number)
+
+    $pullText = & gh api "repos/$Repo/pulls/$Number"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Pull-request metadata query failed for PR #$Number"
+    }
+    $pull = $pullText | ConvertFrom-Json
+
+    # REST returns previous_filename for renames, unlike the GraphQL files
+    # connection. --paginate avoids trusting only the first 100 changed paths;
+    # --slurp makes the pages one valid JSON document for ConvertFrom-Json.
+    $filesText = & gh api --paginate --slurp `
+        "repos/$Repo/pulls/$Number/files?per_page=100"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Changed-file query failed for PR #$Number"
+    }
+    $pages = $filesText | ConvertFrom-Json
+    $files = @($pages | ForEach-Object { $_ })
+    $reportedCount = [int]$pull.changed_files
+    $complete = (
+        $files.Count -eq $reportedCount -and
+        # GitHub caps this REST endpoint at 3,000 files. Refuse the boundary
+        # rather than assuming an instruction path was not hidden after it.
+        $files.Count -lt 3000
+    )
+
+    [pscustomobject]@{
+        files = $files
+        reportedCount = $reportedCount
+        complete = $complete
+    }
+}
 
 $threadQuery = @'
 query($owner: String!, $name: String!, $number: Int!, $cursor: String) {
@@ -229,6 +401,14 @@ function Get-PrSnapshot {
         throw "gh pr view failed for PR #$number"
     }
     $view = $viewText | ConvertFrom-Json
+    $fileInventory = Get-PullRequestFileInventory -Number $number
+    $reviewInfluenceChanges = @($fileInventory.files | ForEach-Object {
+        foreach ($candidate in @($_.filename, $_.previous_filename)) {
+            if ($candidate -and (Test-CopilotReviewInfluencePath -Path $candidate)) {
+                $candidate
+            }
+        }
+    } | Sort-Object -Unique)
 
     $threadPage = Invoke-PagedQuery -Query $threadQuery -Owner $owner -Name $name `
         -Number $number -Description "GraphQL review-thread query" `
@@ -300,10 +480,15 @@ function Get-PrSnapshot {
     # premature all-clear this gate exists to prevent.
     $reviewsForHead = @($automatedReviews |
         Where-Object { $_.submittedAt -and $_.commit.oid -eq $view.headRefOid })
-    $latestAutomated = if ($reviewsForHead) {
+    $latestAutomatedForHead = if ($reviewsForHead) {
         $reviewsForHead |
             Sort-Object { [datetime]$_.submittedAt } |
             Select-Object -Last 1
+    } else {
+        $null
+    }
+    $latestAutomated = if ($latestAutomatedForHead) {
+        $latestAutomatedForHead
     } else {
         $automatedReviews |
             Where-Object { $_.submittedAt } |
@@ -311,6 +496,7 @@ function Get-PrSnapshot {
             Select-Object -Last 1
     }
     $automatedReviewCoversHead = [bool]$reviewsForHead
+    $azpSafetyVerdict = Get-AzpSafetyVerdict -Review $latestAutomatedForHead
     $suppressedForHead = @($suppressed |
         Where-Object { $_.commit -eq $view.headRefOid })
 
@@ -341,21 +527,77 @@ function Get-PrSnapshot {
     }
 
     $pipelineRunRequested = $false
+    $pipelineRunBlockedReasons = @()
+    $viewerPermission = $null
+    $viewerPermissionError = $null
+    $viewerCanTriggerPipeline = $false
     if ($script:pipelineRunOutcome.ContainsKey($number)) {
         $pipelineRunRequested = $script:pipelineRunOutcome[$number]
     }
-    # Same once-per-invocation guard as the review request above: under
-    # -WaitForReview this runs every poll, and each `/azp run` comment queues
-    # another build and notifies every subscriber.
-    if ($RunPipeline -and @($missingRequiredChecks).Count -gt 0 -and
-        -not $script:pipelineRunOutcome.ContainsKey($number)) {
-        # A comment is the only trigger the pipeline honours from here; queueing
-        # through the ADO API needs credentials this script does not assume.
-        gh pr comment $number --repo $Repo --body "/azp run" *> $null
-        $pipelineRunRequested = ($LASTEXITCODE -eq 0)
-        $script:pipelineRunOutcome[$number] = $pipelineRunRequested
-        if (-not $pipelineRunRequested) {
-            Write-Warning "PR #${number}: could not comment '/azp run'."
+    if ($RunPipeline -and @($missingRequiredChecks).Count -gt 0) {
+        $triggerPermission = Get-ViewerTriggerPermission
+        $viewerPermission = $triggerPermission.permission
+        $viewerPermissionError = $triggerPermission.error
+        $viewerCanTriggerPipeline = $triggerPermission.canTrigger
+
+        if (-not $automatedReviewCoversHead) {
+            $pipelineRunBlockedReasons += "automated review does not cover the current head"
+        }
+        if ($ConfirmHeadSha -ine $view.headRefOid) {
+            $pipelineRunBlockedReasons +=
+                "maintainer-confirmed SHA does not match the current PR head"
+        }
+        if ($azpSafetyVerdict -ne "safe") {
+            $pipelineRunBlockedReasons += "AZP safety verdict is '$azpSafetyVerdict'"
+        }
+        if (@($unresolved).Count -gt 0) {
+            $pipelineRunBlockedReasons += "current review threads remain unresolved"
+        }
+        if (@($suppressedForHead).Count -gt 0) {
+            $pipelineRunBlockedReasons += "current-head suppressed review findings remain"
+        }
+        if (-not $fileInventory.complete) {
+            $pipelineRunBlockedReasons +=
+                "changed-file inventory is incomplete; review inputs cannot be trusted"
+        }
+        if (@($reviewInfluenceChanges).Count -gt 0) {
+            $pipelineRunBlockedReasons += ("PR changes head-controlled Copilot " +
+                "review inputs: {0}" -f ($reviewInfluenceChanges -join ", "))
+        }
+        if ($viewerPermissionError) {
+            $pipelineRunBlockedReasons += $viewerPermissionError
+        } elseif (-not $viewerCanTriggerPipeline) {
+            $pipelineRunBlockedReasons +=
+                "authenticated GitHub user lacks repository write permission"
+        }
+
+        # Keep a once-per-invocation guard because each `/azp run` comment queues
+        # another build and notifies every subscriber.
+        if (@($pipelineRunBlockedReasons).Count -eq 0 -and
+            -not $script:pipelineRunOutcome.ContainsKey($number)) {
+            # A review verdict is commit-specific. Minimize the gap between the
+            # validated snapshot and the trigger by re-reading the head
+            # immediately before commenting; a push invalidates authorization.
+            $currentHead = Get-CurrentPullRequestHead -Number $number
+            if ($currentHead.error) {
+                $pipelineRunBlockedReasons += $currentHead.error
+            } elseif ($currentHead.sha -ne $view.headRefOid) {
+                $pipelineRunBlockedReasons +=
+                    "PR head changed after review; rerun readiness for the new head"
+            }
+        }
+
+        if (@($pipelineRunBlockedReasons).Count -eq 0 -and
+            -not $script:pipelineRunOutcome.ContainsKey($number)) {
+            # A comment is the only trigger the pipeline honours from here;
+            # queueing through the ADO API needs credentials this script does
+            # not assume.
+            gh pr comment $number --repo $Repo --body "/azp run" *> $null
+            $pipelineRunRequested = ($LASTEXITCODE -eq 0)
+            $script:pipelineRunOutcome[$number] = $pipelineRunRequested
+            if (-not $pipelineRunRequested) {
+                Write-Warning "PR #${number}: could not comment '/azp run'."
+            }
         }
     }
 
@@ -379,6 +621,20 @@ function Get-PrSnapshot {
         unresolvedThreads = $unresolved
         suppressedReviewBodies = $suppressed
         suppressedReviewBodiesForHead = $suppressedForHead
+        reviewInfluenceChanges = $reviewInfluenceChanges
+        changedFileCount = $fileInventory.files.Count
+        reportedChangedFileCount = $fileInventory.reportedCount
+        changedFileInventoryComplete = $fileInventory.complete
+        azpSafetyVerdict = $azpSafetyVerdict
+        azpSafetyReviewCommit = if ($latestAutomatedForHead) {
+            $latestAutomatedForHead.commit.oid
+        } else {
+            $null
+        }
+        viewerPermission = $viewerPermission
+        viewerPermissionError = $viewerPermissionError
+        viewerCanTriggerPipeline = $viewerCanTriggerPipeline
+        pipelineRunBlockedReasons = $pipelineRunBlockedReasons
         completeness = [pscustomobject]@{
             reviewThreadPages = $threadPage.pages
             reviewThreadCount = $threads.Count
@@ -390,6 +646,7 @@ function Get-PrSnapshot {
             latestAutomatedReviewAuthor = if ($latestAutomated) { $latestAutomated.author.login } else { $null }
             automatedReviewCoversHead = $automatedReviewCoversHead
             automatedReviewRequested = $reviewRequested
+            azpSafetyApproved = ($azpSafetyVerdict -eq "safe")
             pipelineRunRequested = $pipelineRunRequested
             # Everything verifiable must be clear. This previously tested only
             # $truncatedThreadComments, which counts comment-pagination truncation
@@ -399,7 +656,10 @@ function Get-PrSnapshot {
             # is neither failed nor pending.
             complete = (
                 @($truncatedThreadComments).Count -eq 0 -and
+                $fileInventory.complete -and
+                @($reviewInfluenceChanges).Count -eq 0 -and
                 $automatedReviewCoversHead -and
+                $azpSafetyVerdict -eq "safe" -and
                 @($unresolved).Count -eq 0 -and
                 @($suppressedForHead).Count -eq 0 -and
                 @($missingRequiredChecks).Count -eq 0 -and
@@ -415,16 +675,17 @@ $results = @(foreach ($number in $PullRequest) {
 
     # Automated review lands some time after a push, so a single snapshot taken
     # straight after one reports zero findings for code that has not been looked
-    # at yet. The required build is worse: it does not start at all until someone
-    # comments, so waiting only on the review would still return a head with no
-    # CI on it. Wait for both, for this exact head.
+    # at yet. Waiting deliberately stops at review evidence: triggering is a
+    # separate maintainer decision that requires -ConfirmHeadSha, and a polling
+    # process must not auto-authorize the instant an AI review appears.
     if ($WaitForReview) {
         $deadline = (Get-Date).AddMinutes($TimeoutMinutes)
-        while (-not ($snapshot.completeness.automatedReviewCoversHead -and
-                @($snapshot.missingRequiredChecks).Count -eq 0) -and
+        while (-not $snapshot.completeness.automatedReviewCoversHead -and
+            $snapshot.changedFileInventoryComplete -and
+            @($snapshot.reviewInfluenceChanges).Count -eq 0 -and
             (Get-Date) -lt $deadline) {
-            Write-Verbose ("PR #{0}: waiting for automated review and required checks of {1}" -f
-                $number, $snapshot.headSha)
+            Write-Verbose ("PR #{0}: waiting for automated review and AZP safety " +
+                "verdict of {1}" -f $number, $snapshot.headSha)
             Start-Sleep -Seconds $PollSeconds
             $snapshot = Get-PrSnapshot -number $number
         }
@@ -433,12 +694,34 @@ $results = @(foreach ($number in $PullRequest) {
                 "Findings for this head may still be pending; do not read this as clean." -f
                 $number, $snapshot.headSha, $TimeoutMinutes)
         }
+        if (-not $snapshot.completeness.azpSafetyApproved) {
+            Write-Warning ("PR #{0}: current-head AZP safety verdict is '{1}'. " +
+                "Do not comment '/azp run'." -f $number, $snapshot.azpSafetyVerdict)
+        }
+        if (-not $snapshot.changedFileInventoryComplete) {
+            Write-Warning ("PR #{0}: changed-file inventory is incomplete ({1} of {2}); " +
+                "the pipeline trigger is blocked." -f $number,
+                $snapshot.changedFileCount, $snapshot.reportedChangedFileCount)
+        }
+        if (@($snapshot.reviewInfluenceChanges).Count -gt 0) {
+            Write-Warning ("PR #{0}: head-controlled review input(s) changed: {1}. " +
+                "Require an independent maintainer security review and manual trigger." -f
+                $number, ($snapshot.reviewInfluenceChanges -join ", "))
+        }
         if (@($snapshot.missingRequiredChecks).Count -gt 0) {
-            Write-Warning ("PR #{0}: required check(s) '{1}' never appeared on {2} within " +
-                "{3} minute(s). Full CI has not run on this head; comment '/azp run' " +
-                "(or pass -RunPipeline)." -f
-                $number, ($snapshot.missingRequiredChecks -join ", "),
-                $snapshot.headSha, $TimeoutMinutes)
+            if ($snapshot.changedFileInventoryComplete -and
+                @($snapshot.reviewInfluenceChanges).Count -eq 0) {
+                Write-Warning ("PR #{0}: required check(s) '{1}' are absent on {2}. " +
+                    "After inspecting the completed review, use -RunPipeline " +
+                    "-ConfirmHeadSha {2} from a trusted master worktree." -f
+                    $number, ($snapshot.missingRequiredChecks -join ", "),
+                    $snapshot.headSha)
+            } else {
+                Write-Warning ("PR #{0}: required check(s) '{1}' are absent on {2}; " +
+                    "automated triggering is blocked for this head." -f
+                    $number, ($snapshot.missingRequiredChecks -join ", "),
+                    $snapshot.headSha)
+            }
         }
     }
 

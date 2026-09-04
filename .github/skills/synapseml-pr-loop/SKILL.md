@@ -111,19 +111,38 @@ is complete and green.
 
 ### 7. Run and triage full CI
 
-- Push the exact validated head, comment `/azp run`, then confirm a build
-  actually queued -- a comment is not evidence that CI ran, so cite the build
-  ID. A trigger-driven build records `reason=pullRequest`; one you queued
-  yourself records `reason=manual`, which is the quickest way to tell whether
-  the trigger really fired or you merely re-ran it by hand.
+- `/azp run` is privileged authorization to execute pull-request code with
+  trusted Azure Pipeline credentials and is restricted to repository
+  maintainers. Before triggering, wait for the current-head automated review,
+  clear its active and suppressed findings, and require the exact standalone
+  verdict `AZP SAFETY: SAFE TO RUN /azp run`. Never trigger an unsafe,
+  uncertain, or unreviewed head.
+- Run `Get-PrReadiness.ps1 -RunPipeline -ConfirmHeadSha <sha>` from a trusted
+  `master` worktree, never from the pull request's worktree: an untrusted pull
+  request can modify its own copy of the helper. Inspect the completed review
+  first, then pass its exact head in a separate invocation. The explicit
+  maintainer confirmation, not AI-authored text, authorizes CI. The helper fails
+  closed unless that SHA and the safe verdict both cover the current head and
+  the authenticated GitHub user has repository write permission.
+- Copilot reads its instructions, agent skills, and review setup from the pull
+  request head. The trusted helper therefore refuses to trigger a head that
+  adds, removes, renames, or edits one of those review inputs; its Copilot
+  verdict is not an independent attestation. Such a change requires an
+  out-of-band maintainer security review before any manual trigger.
+- After the exact validated head is pushed and declared safe, trigger and
+  confirm a build actually queued -- a comment is not evidence that CI ran, so
+  cite the build ID. A trigger-driven build records `reason=pullRequest`; one
+  queued directly records `reason=manual`, which is the quickest way to tell
+  whether the comment trigger fired or the build was merely re-run by hand.
 - Do this after **every** push, not once per pull request. The build does not
   re-queue itself when the head moves, so the previous run's result belongs to
   code that no longer exists. The GitHub Actions checks do re-run on each push
   and go green within a couple of minutes, which makes a head with no Azure
   Pipelines build on it look fully checked; an absent check is neither failed
   nor pending, so nothing reports it. Verify the build against the head SHA by
-  name, or run `Get-PrReadiness.ps1 -RunPipeline` to post the comment
-  automatically when it is missing.
+  name. Only after the current-head safety review clears may a maintainer run
+  the trusted helper with `-RunPipeline -ConfirmHeadSha <sha>` to post the
+  missing comment.
 - If no build appears, check the pipeline definition's own pull-request trigger
   rather than assuming a transient failure. That trigger can be defined in the
   pipeline UI, in which case it overrides the `pr:` block in `pipeline.yaml`
@@ -142,13 +161,15 @@ is complete and green.
 
 ### 8. Final readiness loop
 
-Run `Get-PrReadiness.ps1 -PullRequest <numbers> -WaitForReview -RunPipeline`
-after the final push and confirm every gate in
-[references/readiness-gates.md](references/readiness-gates.md). Those two
-switches cover the asynchronous gaps that a bare snapshot reports as clean: the
-automated review has not arrived yet, and the Azure Pipelines build has not been
-asked to start. Both leave the same signature -- nothing failed, nothing
-pending, nothing there.
+From a trusted `master` worktree, run
+`Get-PrReadiness.ps1 -PullRequest <numbers> -WaitForReview` after the final push.
+Inspect the current-head diff, completed review, safety verdict, and every gate
+in [references/readiness-gates.md](references/readiness-gates.md). If the head
+is safe and does not change a Copilot review input, authorize CI separately with
+`Get-PrReadiness.ps1 -PullRequest <number> -RunPipeline -ConfirmHeadSha <sha>`.
+Never combine waiting and triggering: a polling process must not authorize
+credential-bearing CI as soon as AI-authored text appears. Then poll readiness
+snapshots until the required Azure and GitHub checks finish.
 
 For multiple PRs, after each merge:
 
