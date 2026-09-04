@@ -128,6 +128,7 @@ DENYLIST_DIRS = {
     "dist",
     # Matched by basename at any depth. Review artifacts are immutable evidence,
     # and their growing file set cannot be listed in DENYLIST_PATHS.
+    "review",
     "reviews",
 }
 DENYLIST_FILES = {
