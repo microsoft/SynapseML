@@ -282,6 +282,7 @@ def test_readiness_helper_is_read_only_and_uses_immutable_trees():
     assert 'gh api "repos/$Repo/git/commits/$CommitSha"' in script
     assert 'gh api "repos/$Repo/git/trees/$TreeSha`?recursive=1"' in script
     assert "[StringComparer]::Ordinal" in script
+    assert "Sort-Object -CaseSensitive" not in script
     assert "$tree.truncated -ne $false" in script
     assert "$script:fileInventoryByHead" in script
     assert "-BaseSha $view.baseRefOid -HeadSha $view.headRefOid" in script

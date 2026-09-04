@@ -257,7 +257,7 @@ function Get-PullRequestFileInventory {
     # Compare immutable object identity rather than the mutable PR-files
     # endpoint. Renames intentionally appear as a deletion plus an addition so
     # both paths are checked for review influence.
-    $files = @($allPaths | Sort-Object -CaseSensitive | ForEach-Object {
+    $files = @($allPaths | ForEach-Object {
         $path = $_
         $changed = -not $baseEntries.ContainsKey($path) -or
             -not $headEntries.ContainsKey($path)
