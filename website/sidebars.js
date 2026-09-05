@@ -33,6 +33,7 @@ module.exports = {
                     items: [
                         "Explore Algorithms/AI Services/Overview",
                         "Explore Algorithms/AI Services/Geospatial Services",
+                        "Explore Algorithms/AI Services/Content Understanding",
                         "Explore Algorithms/AI Services/Advanced Usage - Async, Batching, and Multi-Key",
                         "Explore Algorithms/AI Services/Quickstart - Analyze Celebrity Quotes",
                         "Explore Algorithms/AI Services/Quickstart - Analyze Text",
