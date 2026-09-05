@@ -13,8 +13,9 @@ Use this file for repository-wide rules. Human contributors should start with
    shared guide.
 3. Use the narrowest relevant repository skill:
    [Scala changes](.github/skills/scala-code/SKILL.md),
-   [local setup](.github/skills/synapseml-local-setup/SKILL.md), and
-   [code review](.github/skills/code-review/SKILL.md).
+   [local setup](.github/skills/synapseml-local-setup/SKILL.md),
+   [code review](.github/skills/code-review/SKILL.md), and
+   [release operations](.github/skills/synapseml-release/SKILL.md).
 4. For requests to make one or more issues or PRs "5/5", "200% ready", or
    merge-ready, use the
    [SynapseML PR loop](.github/skills/synapseml-pr-loop/SKILL.md).
@@ -139,6 +140,10 @@ before running them because some create or delete cloud resources.
 - Target `master` unless the change exists only for a port branch.
 - Resolve active and suppressed review findings; document why any finding is
   invalid.
+- Store committed review artifacts under `reviews/pr-<PR-number>/`. When work
+  has a defined feature but no PR, use `reviews/feature-<feature-number>/`.
+  Prefix report filenames with the same identifier and add a README linking
+  the tracked work; do not create topic-named review directories.
 - Trigger Azure validation with `/azp run` where supported. Branch-specific
   exceptions are documented in the
   [branch context skill](.github/skills/synapseml-branches/SKILL.md).

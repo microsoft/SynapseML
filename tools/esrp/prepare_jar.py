@@ -1,79 +1,132 @@
-import getpass
-import os
+#!/usr/bin/env python3
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License.
+"""Stage one explicit Maven release for ESRP without modifying the Ivy cache."""
+
+import argparse
+import json
+import re
 import shutil
-import glob
+import sys
+import tempfile
+import xml.etree.ElementTree as ET
+import zipfile
+from pathlib import Path
 
-current_username = getpass.getuser()
-
-root_dir = f"/home/{current_username}/.ivy2/local/com.microsoft.azure/"
-
-
-def find_second_level_folder(root):
-    # Walk through the root directory
-    for foldername, subfolders, filenames in os.walk(root):
-        # Check if the current folder is a second-level folder by comparing its depth to the root's depth
-        if foldername.count(os.path.sep) == root.count(os.path.sep) + 1:
-            # Return the name of the second-level folder
-            return os.path.basename(foldername)
-    # Return None if no such folder is found
-    return None
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts" / "release"))
+from verify_release import PUBLIC_MAVEN_MODULES  # noqa: E402
 
 
-version = find_second_level_folder(root_dir)
+def collect_artifacts(root, version, scala):
+    if not re.fullmatch(r"[0-9][0-9A-Za-z.+_-]*", version):
+        raise ValueError("version must be an explicit safe Maven version")
+    if scala not in {"2.12", "2.13"}:
+        raise ValueError("unsupported Scala binary version")
+    root = Path(root).resolve()
+    artifacts = []
+    destinations = set()
+    for name in PUBLIC_MAVEN_MODULES:
+        module = f"{name}_{scala}"
+        source = root / module / version
+        invalid_directory = (
+            f"missing or linked release artifact directory: {module}/{version}"
+        )
+        if not source.is_dir() or source.is_symlink():
+            raise ValueError(invalid_directory)
+        resolved_source = source.resolve()
+        if not resolved_source.is_relative_to(root):
+            raise ValueError(invalid_directory)
+        selected = {}
+        for path in sorted(source.rglob("*")):
+            if not path.is_file() or not path.name.startswith(module):
+                continue
+            if path.is_symlink() or not path.resolve().is_relative_to(resolved_source):
+                raise ValueError(
+                    "release artifacts must stay inside the selected source directory"
+                )
+            suffix = path.name[len(module) :]
+            if not suffix.startswith((".", "-")):
+                continue
+            filename = (
+                path.name
+                if suffix.startswith(f"-{version}.")
+                or suffix.startswith(f"-{version}-")
+                else f"{module}-{version}{suffix}"
+            )
+            destination = Path(module) / filename
+            if destination in destinations:
+                raise ValueError(
+                    f"duplicate release artifact destination: {destination}"
+                )
+            if path.stat().st_size == 0:
+                raise ValueError(f"empty release artifact: {destination}")
+            destinations.add(destination)
+            selected[filename] = path
+            artifacts.append((path, destination))
+        expected = [f"{module}-{version}.pom", f"{module}-{version}.jar"]
+        if name == "synapseml-core":
+            expected.append(f"{module}-{version}-tests.jar")
+        if any(filename not in selected for filename in expected):
+            raise ValueError(f"incomplete Maven release output for {module}/{version}")
+        pom = ET.parse(selected[expected[0]]).getroot()
+
+        def value(element):
+            child = next(
+                (child for child in pom if child.tag.rsplit("}", 1)[-1] == element),
+                None,
+            )
+            return None if child is None or child.text is None else child.text.strip()
+
+        if (value("groupId"), value("artifactId"), value("version")) != (
+            "com.microsoft.azure",
+            module,
+            version,
+        ):
+            raise ValueError(f"unexpected Maven coordinates in {module} POM")
+        for filename in expected[1:]:
+            if not zipfile.is_zipfile(selected[filename]):
+                raise ValueError(f"invalid release JAR: {filename}")
+    return artifacts
 
 
-def flatten_dir(top_dir):
-    # Collect directories to delete
-    directories_to_delete = []
-
-    # Walk through all subdirectories
-    for foldername, subfolders, filenames in os.walk(top_dir, topdown=False):
-        # If we are not in the top-level directory, move files to the top-level directory
-        if foldername != top_dir:
-            for filename in filenames:
-                source = os.path.join(foldername, filename)
-                destination = os.path.join(top_dir, filename)
-
-                # Check if a file with the same name already exists in the top-level directory
-                if os.path.exists(destination):
-                    base, ext = os.path.splitext(filename)
-                    counter = 1
-                    new_destination = os.path.join(top_dir, f"{base}_{counter}{ext}")
-
-                    # Find a new destination path that does not exist yet
-                    while os.path.exists(new_destination):
-                        counter += 1
-                        new_destination = os.path.join(
-                            top_dir, f"{base}_{counter}{ext}"
-                        )
-
-                    destination = new_destination
-
-                # Move file
-                shutil.move(source, destination)
-                print(f"Moved: {source} to {destination}")
-
-            # Add the foldername to the list of directories to delete
-            directories_to_delete.append(foldername)
-
-    # Delete the old subdirectories
-    for directory in directories_to_delete:
-        os.rmdir(directory)
-        print(f"Deleted: {directory}")
+def stage_release(root, output, version, scala):
+    artifacts = collect_artifacts(root, version, scala)
+    output = Path(output).resolve()
+    if output.exists() or output.is_relative_to(Path(root).resolve()):
+        raise ValueError("output must be a new directory outside the Ivy cache")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with tempfile.TemporaryDirectory(
+        prefix=".esrp-stage-", dir=output.parent
+    ) as temporary:
+        staging = Path(temporary) / "artifacts"
+        staging.mkdir()
+        for source, relative in artifacts:
+            destination = staging / relative
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source, destination)
+        staging.rename(output)
+    return [relative.as_posix() for _, relative in artifacts]
 
 
-for top_dir in os.listdir(root_dir):
-    path_to_jars = os.path.join(root_dir, top_dir)
-    flatten_dir(path_to_jars)
+def main(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--version", required=True)
+    parser.add_argument("--scala", required=True)
+    parser.add_argument(
+        "--root",
+        type=Path,
+        default=Path.home() / ".ivy2" / "local" / "com.microsoft.azure",
+    )
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args(argv)
+    try:
+        files = stage_release(args.root, args.output, args.version, args.scala)
+    except (ValueError, OSError, ET.ParseError) as error:
+        print(f"error: {error}", file=sys.stderr)
+        return 2
+    print(json.dumps({"version": args.version, "scala": args.scala, "files": files}))
+    return 0
 
-    for file in os.listdir(path_to_jars):
-        if "_2.12" in file and version not in file:
-            old_file_path = os.path.join(path_to_jars, file)
-            name_parts = file.split("_2.12")
-            if name_parts[1].startswith(".") or name_parts[1].startswith("-"):
-                sep_char = ""
-            else:
-                sep_char = "-"
-            new_file = f"{name_parts[0]}_2.12-{version}{sep_char}{name_parts[1]}"
-            new_file_path = os.path.join(path_to_jars, new_file)
-            shutil.move(old_file_path, new_file_path)
+
+if __name__ == "__main__":
+    sys.exit(main())

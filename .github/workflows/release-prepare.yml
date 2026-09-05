@@ -1,0 +1,342 @@
+name: Release Prepare — Version Bump PR
+
+# Automates Release Guide Step 1.1-1.3: bump every version string in the repo,
+# regenerate the versioned docs snapshot, and open the release PR.
+#
+# Two recent version bumps (v1.1.0, v1.1.3) landed as unsigned direct pushes
+# to master with no PR and no review. This workflow provides a repeatable,
+# reviewed path and tags the exact merged commit.
+#
+# See also: release-tag.yml (creates derivative tags and Spark release PRs).
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "New OSS version, three components (e.g. 1.1.4)"
+        required: true
+        type: string
+      skip_docs:
+        description: "Skip the versioned-docs snapshot (faster; PR will be incomplete)"
+        required: false
+        default: false
+        type: boolean
+  pull_request:
+    types: [closed]
+    branches: [master]
+
+permissions: {}
+
+jobs:
+  prepare:
+    name: Bump versions & open release PR
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    permissions:
+      actions: write
+      contents: write
+      pull-requests: write
+
+    steps:
+      # A release must be cut from master. Running this from a feature branch
+      # would open a PR that bumps versions against unreleased code.
+      - name: Validate ref
+        env:
+          REF: ${{ github.ref }}
+        run: |
+          set -euo pipefail
+          if [ "$REF" != "refs/heads/master" ]; then
+            echo "::error::Release prepare must run on master, got '$REF'."
+            exit 1
+          fi
+
+      - name: Validate version format
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::Version '$VERSION' must be exactly X.Y.Z. SynapseML OSS \
+          does not use a fourth component; the .N super-patch belongs to SynapseML-Internal."
+            exit 1
+          fi
+
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # Refuse to re-prepare a version that is already published. Without this
+      # the workflow would happily open a PR that "bumps" to a shipped version.
+      - name: Guard against an already-released version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          if git rev-parse -q --verify "refs/tags/v${VERSION}" >/dev/null; then
+            echo "::error::Tag v${VERSION} already exists. That version is already released."
+            exit 1
+          fi
+          if git ls-remote --exit-code --heads origin "release/prepare-v${VERSION}" >/dev/null 2>&1; then
+            echo "::error::Branch release/prepare-v${VERSION} already exists on origin. \
+          Delete it or finish the existing release PR first."
+            exit 1
+          fi
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Validate the full release policy
+        env:
+          VERSION: ${{ inputs.version }}
+          SKIP_SPARK40: ${{ vars.SKIP_SPARK40 == 'true' }}
+        run: |
+          set -euo pipefail
+          python scripts/release/release_guard.py full-release \
+            --version "$VERSION" --skip-spark40 "$SKIP_SPARK40" --repo . \
+            > "$RUNNER_TEMP/release-draft.json"
+
+      - name: Set up JDK 11
+        if: ${{ !inputs.skip_docs }}
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          distribution: temurin
+          java-version: 11
+          cache: sbt
+
+      - name: Install sbt
+        if: ${{ !inputs.skip_docs }}
+        run: |
+          SBT_VERSION="$(sed -n 's/^sbt.version *= *//p' project/build.properties | tr -d ' ')"
+          mkdir -p "$HOME/.local/bin"
+          curl --fail --show-error --location --retry 3 --retry-all-errors \
+            --output "$HOME/.local/bin/sbt-launch.jar" \
+            "https://repo1.maven.org/maven2/org/scala-sbt/sbt-launch/${SBT_VERSION}/sbt-launch-${SBT_VERSION}.jar"
+          cat > "$HOME/.local/bin/sbt" <<EOF
+          #!/usr/bin/env bash
+          exec java -Dsbt.version="${SBT_VERSION}" -jar "$HOME/.local/bin/sbt-launch.jar" "\$@"
+          EOF
+          chmod +x "$HOME/.local/bin/sbt"
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Set up Node
+        if: ${{ !inputs.skip_docs }}
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          cache: "npm"
+          cache-dependency-path: website/package-lock.json
+
+      - name: Install website dependencies
+        if: ${{ !inputs.skip_docs }}
+        working-directory: website
+        run: npm ci
+
+      # bump-version.py is context-anchored: it refuses to replace a bare version
+      # number that has no SynapseML-identifying text near it, and exits non-zero
+      # if any anchored occurrence of the old version survives the run. Both
+      # behaviours are load-bearing here, so the exit code is not suppressed.
+      - name: Bump version strings
+        id: bump
+        env:
+          VERSION: ${{ inputs.version }}
+          SKIP_DOCS: ${{ inputs.skip_docs }}
+        run: |
+          set -euo pipefail
+          ARGS=(--to "$VERSION")
+          if [ "$SKIP_DOCS" = "true" ]; then
+            ARGS+=(--skip-docs)
+          fi
+          python scripts/bump-version.py "${ARGS[@]}"
+
+      - name: Verify the working tree actually changed
+        run: |
+          set -euo pipefail
+          if git diff --quiet; then
+            echo "::error::bump-version.py reported success but changed nothing. \
+          Refusing to open an empty release PR."
+            exit 1
+          fi
+          echo "Files touched: $(git diff --name-only | wc -l)"
+
+      - name: Configure git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit and push
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          BRANCH="release/prepare-v${VERSION}"
+          git checkout -b "$BRANCH"
+          git add -A
+          git commit -m "chore: Bump version to v${VERSION}"
+          git push origin "$BRANCH"
+
+      - name: Open release PR
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+          SKIP_DOCS: ${{ inputs.skip_docs }}
+        run: |
+          set -euo pipefail
+          BODY=$(cat <<EOF
+          Automated version bump for the **v${VERSION}** release.
+
+          Generated by \`release-prepare.yml\` from \`scripts/bump-version.py\`.
+
+          ### Reviewer checklist
+          - [ ] Version strings look right (\`scripts/bump-version.py\` post-condition passed in CI)
+          - [ ] Versioned docs snapshot present for ${VERSION}$([ "$SKIP_DOCS" = "true" ] && echo " — **SKIPPED, must be added before merge**")
+          - [ ] No unrelated changes
+
+          ### After merge
+          1. This workflow tags the merged commit with \`v${VERSION}\` and dispatches \`release-tag.yml\`.
+          2. Finish the reviewed OSS port PRs. Bind their merged commits in an OSS-only Maven plan and run \`release_ops.py preflight\`.
+          3. Approve that plan ID, use \`release_ops.py resume --apply --approve-plan <id>\`, and complete ESRP/SAW approval.
+          4. Once the OSS dependencies are published, prepare and merge the Internal release PRs. Bind those merged commits in a separate Internal plan.
+          5. Approve and publish the Internal plan. Neither initial Internal patch zero nor later hotfixes queue OSS jobs.
+          6. Publish notes using the original public-only Maven plan, its recorded state, and its fresh producer evidence. Do not regenerate a different plan for existing receipts.
+          7. Use the reviewed UPack plans and producer evidence for BBC-VHD. The driver records builds and never repeats pending submissions.
+          See \`scripts/release/README.md\` and the \`synapseml-release\` skill for the complete commands.
+          EOF
+          )
+          gh pr create \
+            --title "chore: Bump version to v${VERSION}" \
+            --body "$BODY" \
+            --base master \
+            --head "release/prepare-v${VERSION}"
+
+      # GITHUB_TOKEN-created PR events may wait for workflow approval. Keep the
+      # explicit branch-safe checks, and still require maintainer-approved Azure CI.
+      - name: Queue release PR validation
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          set -euo pipefail
+          BRANCH="release/prepare-v${VERSION}"
+          gh workflow run pr-validation.yml --ref "$BRANCH"
+          gh workflow run website-deploy.yml --ref "$BRANCH"
+
+  finalize:
+    name: Tag merged release PR
+    runs-on: ubuntu-latest
+    if: >-
+      github.event_name == 'pull_request' &&
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'release/prepare-v')
+    permissions:
+      actions: write
+      contents: write
+
+    steps:
+      - name: Resolve merged release
+        id: release
+        env:
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+          TITLE: ${{ github.event.pull_request.title }}
+          MERGED_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          set -euo pipefail
+          if [[ ! "$BRANCH" =~ ^release/prepare-v([0-9]+\.[0-9]+\.[0-9]+)$ ]]; then
+            echo "::error::Unexpected release branch '$BRANCH'."
+            exit 1
+          fi
+          VERSION="${BASH_REMATCH[1]}"
+          if [ "$TITLE" != "chore: Bump version to v${VERSION}" ]; then
+            echo "::error::Release PR title does not match branch version v${VERSION}."
+            exit 1
+          fi
+          if [ -z "$MERGED_SHA" ]; then
+            echo "::error::pull_request.merge_commit_sha is empty."
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "sha=$MERGED_SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Checkout merged commit
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ steps.release.outputs.sha }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify merged version and ancestry
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          MERGED_SHA: ${{ steps.release.outputs.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags origin '+refs/heads/master:refs/remotes/origin/master'
+          if ! git merge-base --is-ancestor "$MERGED_SHA" origin/master; then
+            echo "::error::Merged commit $MERGED_SHA is not contained in origin/master."
+            exit 1
+          fi
+          ACTUAL=$(sed -n 's/^let version = "\([^"]*\)";/\1/p' website/docusaurus.config.js)
+          if [ "$ACTUAL" != "$VERSION" ]; then
+            echo "::error::Merged docusaurus version '$ACTUAL' does not match v${VERSION}."
+            exit 1
+          fi
+          if [ ! -d "website/versioned_docs/version-${VERSION}" ] ||
+             [ ! -f "website/versioned_sidebars/version-${VERSION}-sidebars.json" ]; then
+            echo "::error::Versioned docs snapshot for ${VERSION} is missing."
+            exit 1
+          fi
+          if ! grep -Fxq "  \"${VERSION}\"," website/versions.json; then
+            echo "::error::website/versions.json does not list ${VERSION}."
+            exit 1
+          fi
+
+      - name: Tag the exact merged commit
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+          MERGED_SHA: ${{ steps.release.outputs.sha }}
+          SKIP_SPARK40: ${{ vars.SKIP_SPARK40 == 'true' }}
+        run: |
+          set -euo pipefail
+          python3 scripts/release/release_guard.py full-release \
+            --version "$VERSION" --skip-spark40 "$SKIP_SPARK40" --repo . \
+            > "$RUNNER_TEMP/release-draft.json"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          TAG="v${VERSION}"
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            EXISTING=$(git rev-parse "refs/tags/$TAG^{commit}")
+            if [ "$EXISTING" != "$MERGED_SHA" ]; then
+              echo "::error::$TAG exists at $EXISTING, expected $MERGED_SHA. Refusing to move it."
+              exit 1
+            fi
+            echo "$TAG already identifies the merged commit."
+          else
+            git tag "$TAG" "$MERGED_SHA"
+            git push --atomic origin "$TAG"
+          fi
+          REMOTE=$(git ls-remote --tags origin "refs/tags/$TAG" "refs/tags/$TAG^{}")
+          if ! printf '%s\n' "$REMOTE" | grep -Eq "^${MERGED_SHA}[[:space:]]"; then
+            echo "::error::Remote $TAG does not confirm the merged commit."
+            exit 1
+          fi
+
+      # Pushes made with GITHUB_TOKEN do not emit another workflow run. Use the
+      # supported workflow_dispatch exception to continue the release chain.
+      - name: Dispatch derivative tag orchestration
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ steps.release.outputs.version }}
+        run: gh workflow run release-tag.yml --ref "v${VERSION}"
+
+      - name: Summary
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: |
+          echo "### Release v${VERSION} tagged" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Derivative tag and Spark branch orchestration was dispatched." >> "$GITHUB_STEP_SUMMARY"
+          echo "Next: bind all reviewed source commits in the release plan, then run preflight and approved resume." >> "$GITHUB_STEP_SUMMARY"

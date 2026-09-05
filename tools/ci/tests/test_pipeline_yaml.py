@@ -291,6 +291,11 @@ def test_prewarm_job_present():
     }
 
 
+def test_release_tags_require_explicit_maven_pipeline_queue():
+    data = yaml.safe_load(_pipeline_text())
+    assert "tags" not in data["trigger"]
+
+
 def test_databricks_e2e_uses_fail_open_pr_impact_detection():
     assert DATABRICKS_IMPACT.exists()
     data = yaml.safe_load(_pipeline_text())
@@ -338,6 +343,17 @@ def test_databricks_e2e_uses_fail_open_pr_impact_detection():
     steps = yaml.safe_load(DATABRICKS_STEPS_TPL.read_text())["steps"]
     assert any(step.get("displayName") == "E2E" for step in steps)
     assert any(step.get("displayName") == "Publish Test Results" for step in steps)
+
+
+def test_fabric_e2e_skips_untrusted_fork_builds():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+    condition = jobs["FabricE2E"]["condition"]
+    fork_guard = (
+        r"ne\(\s*variables\[['\"]System\.PullRequest\.IsFork['\"]\],"
+        + r"\s*['\"]True['\"]\s*\)"
+    )
+    assert re.search(fork_guard, condition)
 
 
 def test_fabric_e2e_cleans_stale_artifacts_before_running_tests():
@@ -1655,8 +1671,6 @@ def test_publish_jobs_resolve_and_preserve_package_versions():
     assert "PACKAGE_VERSION" in release_version["bash"]
     release_guard_index = release_steps.index(release_version)
     side_effect_steps = [
-        next(step for step in release_steps if "git-chglog" in step.get("bash", "")),
-        next(step for step in release_steps if step.get("task") == "GitHubRelease@1"),
         next(step for step in release_steps if "publishPypi" in step.get("bash", "")),
         next(
             step
@@ -1671,6 +1685,41 @@ def test_publish_jobs_resolve_and_preserve_package_versions():
     ]
     assert all(
         release_guard_index < release_steps.index(step) for step in side_effect_steps
+    )
+    assert not any(step.get("task") == "GitHubRelease@1" for step in release_steps)
+    assert "isMaster" not in str(release)
+    assert {"Style", "UnitTests", "PythonTests", "Publish"} <= set(release["dependsOn"])
+    plan_guard = next(
+        step
+        for step in release_steps
+        if step.get("displayName") == "Validate approved Maven release source"
+    )
+    assert release_steps.index(plan_guard) < release_guard_index
+    assert (
+        plan_guard["env"]["RELEASE_PLAN_BASE64"]
+        == "${{ parameters.release_plan_base64 }}"
+    )
+
+
+def test_maven_receipt_follows_esrp_publication_and_uses_its_actual_directory():
+    data = yaml.safe_load(_pipeline_text())
+    release = next(job for job in _jobs(data["jobs"]) if job["job"] == "Release")
+    steps = release["steps"]
+    esrp = next(step for step in steps if step.get("task") == "EsrpRelease@9")
+    receipt = next(
+        step
+        for step in steps
+        if step.get("displayName")
+        == "Record published Maven source and artifact hashes"
+    )
+    published_root = esrp["inputs"]["folderlocation"]
+    assert f'--artifact-root "{published_root}"' in receipt["bash"]
+    assert ".ivy2" not in receipt["bash"]
+    assert steps.index(esrp) < steps.index(receipt)
+    assert any(
+        "prepare_jar.py" in step.get("bash", "")
+        and f'--output "{published_root}"' in step["bash"]
+        for step in steps[: steps.index(esrp)]
     )
 
 
@@ -1720,15 +1769,29 @@ def test_every_sbt_running_job_waits_for_the_prewarm_cache():
             if isinstance(s, dict) and s.get("template")
         ]
         uses_cache = "templates/sbt_cache.yml" in templates
-        depends_on = job.get("dependsOn", [])
-        if isinstance(depends_on, str):
-            depends_on = [depends_on]
+        dependency_cases = (
+            [job]
+            if "dependsOn" in job
+            else [
+                value
+                for key, value in job.items()
+                if key.startswith("${{") and isinstance(value, dict)
+            ]
+        )
+
+        def waits_for_cache(case):
+            dependencies = case.get("dependsOn", [])
+            if isinstance(dependencies, str):
+                dependencies = [dependencies]
+            return "BuildAndCacheSbt" in dependencies
+
+        waits_in_every_case = bool(dependency_cases) and all(
+            waits_for_cache(case) for case in dependency_cases
+        )
         condition = job.get("condition")
         gated_by_success = condition is None or "succeeded()" in condition
         if runs_sbt and (
-            not uses_cache
-            or "BuildAndCacheSbt" not in depends_on
-            or not gated_by_success
+            not uses_cache or not waits_in_every_case or not gated_by_success
         ):
             offenders.append(job.get("job"))
     assert not offenders, f"sbt jobs missing required cache gate: {offenders}"
