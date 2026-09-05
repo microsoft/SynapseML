@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.services.form.contentunderstanding
 
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import org.apache.commons.io.IOUtils
+import org.apache.http.HttpStatus
 
 import java.io.ByteArrayOutputStream
 import java.net.InetSocketAddress
@@ -19,6 +20,23 @@ private[contentunderstanding] object ContentUnderstandingFixtures {
   val ResultsPath = "/contentunderstanding/analyzerResults/"
   val DefaultApiVersion = "2025-11-01"
   val TooManyRequests = 429
+
+  val LocationPath = ResultsPath + "op-1?api-version=" + DefaultApiVersion
+  val Running = """{"id":"op-1","status":"Running","result":{"contents":[]}}"""
+  val Succeeded =
+    """{
+      |  "id":"op-1",
+      |  "status":"Succeeded",
+      |  "result":{"contents":[{"metadata":{"preview":true},"fields":{"A":{"type":"string","confidence":0.8}}}]},
+      |  "usage":{"documentPagesBasic":2,"gpt-5.2-input":51},
+      |  "warnings":[{"code":"ExampleWarning"}],
+      |  "futureProperty":{"nested":[1,true,null]}
+      |}""".stripMargin
+  val Failed =
+    """{"id":"op-1","status":"Failed","result":{"contents":[]},"error":{"code":"ResourceError","innererror":""" +
+      """{"code":"DeploymentNotFound","message":"Missing model deployment."}}}"""
+  val Accepted = ContentUnderstandingStubReply(HttpStatus.SC_ACCEPTED, Running,
+    Map("Operation-Location" -> ("$ROOT" + LocationPath), "Retry-After" -> "0"))
 }
 
 private[contentunderstanding] case class ContentUnderstandingStubReply(status: Int,

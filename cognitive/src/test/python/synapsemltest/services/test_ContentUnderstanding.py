@@ -8,7 +8,7 @@ import tempfile
 import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from urllib.parse import parse_qs, urlsplit
+from urllib.parse import urlsplit
 
 from synapse.ml.core.init_spark import init_spark
 from synapse.ml.services.contentunderstanding import ContentUnderstanding
@@ -41,11 +41,10 @@ class TestContentUnderstanding(unittest.TestCase):
             def do_POST(self):
                 requests.append(("POST", self.path, self.read_body()))
                 operation = "123e4567-e89b-12d3-a456-426614174000"
-                version = parse_qs(urlsplit(self.path).query)["api-version"][0]
                 location = (
                     f"http://127.0.0.1:{self.server.server_port}"
                     f"/contentunderstanding/analyzerResults/{operation}"
-                    f"?api-version={version}"
+                    "?api-version=2025-11-01"
                 )
                 self.send_json(
                     202,
