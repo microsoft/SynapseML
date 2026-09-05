@@ -189,8 +189,6 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
       require(configured(documentUrl) != configured(documentBytes),
         "Configure exactly one of documentUrl and documentBytes, using a scalar value or a column.")
     }
-    require(!schema.fieldNames.contains(getOutputCol) && !schema.fieldNames.contains(getErrorCol),
-      "outputCol and errorCol must not overwrite input columns.")
     activeParams(poll).foreach(validateParamSchema(_, schema))
   }
 
@@ -278,6 +276,8 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
 
   override protected def getInternalTransformer(schema: StructType): PipelineModel = {
     validateInputSchema(schema)
+    require(!schema.fieldNames.contains(getOutputCol) && !schema.fieldNames.contains(getErrorCol),
+      "outputCol and errorCol must not overwrite input columns.")
     val reserved = schema.fieldNames.toSet ++ Set(getOutputCol, getErrorCol)
     val inputColumn = DatasetExtensions.findUnusedColumnName("contentUnderstandingInput")(reserved)
     val resultColumn = DatasetExtensions.findUnusedColumnName("contentUnderstandingResult")(reserved + inputColumn)

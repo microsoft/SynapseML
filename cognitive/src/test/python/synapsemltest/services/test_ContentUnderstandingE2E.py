@@ -234,7 +234,12 @@ class TestContentUnderstandingE2E(unittest.TestCase):
                 ),
             ]
         )
-        stage = self.analyzer().setMaxResponseBytes(2048)
+        stage = (
+            self.analyzer()
+            .setMaxResponseBytes(2048)
+            .setOutputCol("body")
+            .setErrorCol("mimeType")
+        )
         try:
             with self.assertRaises(Py4JJavaError) as raised:
                 stage.writeToTable(documents, "documentId", table, self.format)
@@ -292,7 +297,12 @@ class TestContentUnderstandingE2E(unittest.TestCase):
             self.spark.sql(f"DROP TABLE IF EXISTS `{table}`")
 
     def test_submit_only_path_resumes_the_original_pdf_operation(self):
-        stage = self.analyzer().setOperationMode("submit")
+        stage = (
+            self.analyzer()
+            .setOperationMode("submit")
+            .setOutputCol("body")
+            .setErrorCol("documentId")
+        )
         documents = self.pdf_document()
         with self.output_path() as path:
             submitted = stage.writeToPath(
