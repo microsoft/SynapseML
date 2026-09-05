@@ -333,6 +333,55 @@ class ContentUnderstandingSuite extends TestBase {
     }
   }
 
+  test("large chunked and compressed responses preserve the size-limit error and saved handle") {
+    val bytes = new Array[Byte](65536)
+    new scala.util.Random(1234).nextBytes(bytes)
+    val body = JsObject(succeeded.parseJson.asJsObject.fields +
+      ("padding" -> JsString(java.util.Base64.getEncoder.encodeToString(bytes)))).compactPrint
+    Seq(false, true).foreach { gzip =>
+      withReplies(Seq(accepted, ContentUnderstandingStubReply(HttpStatus.SC_OK, body,
+        chunked = true, gzip = gzip))) { server =>
+        withJournal { path =>
+          val transformer = stage(server).setDocumentBytes(Array[Byte](1))
+            .setMaxResponseBytes(1024).setMaxPollAttempts(2)
+          val failure = intercept[ContentUnderstandingException] {
+            transformer.writeToPath(input, "id", path, "parquet")
+          }
+          assert(failure.response.error.exists(_.contains("ResponseTooLarge")))
+          assert(server.requests.map(_.method) == Seq("POST", "GET"))
+          assert(transformer.readPath(spark, path, "parquet").head().getAs[String]("status") == "Running")
+          val resumed = transformer.setMaxResponseBytes(body.getBytes(java.nio.charset.StandardCharsets.UTF_8).length)
+            .writeToPath(input, "id", path, "parquet").head()
+          assert(resumed.getAs[String]("status") == "Succeeded")
+          assert(resumed.getAs[String]("rawResponse") == body)
+          assert(server.requests.map(_.method) == Seq("POST", "GET", "GET"))
+        }
+      }
+    }
+  }
+
+  test("response stream cleanup cannot replace the size-limit failure") {
+    val input = new java.io.ByteArrayInputStream(Array[Byte](1, 2, 3)) {
+      override def close(): Unit = throw new java.io.IOException("Synthetic stream close failure")
+    }
+    val protocolClass = Class.forName(
+      "com.microsoft.azure.synapse.ml.services.contentunderstanding.ContentUnderstandingProtocol$")
+    val protocol = protocolClass.getField("MODULE$").get(None.orNull)
+    val read = protocolClass.getDeclaredMethod("readBounded", classOf[java.io.InputStream],
+      java.lang.Integer.TYPE, classOf[org.apache.http.client.methods.HttpRequestBase])
+    read.setAccessible(true)
+    val request = new org.apache.http.client.methods.HttpGet("http://127.0.0.1/")
+    try {
+      val failure = intercept[java.lang.reflect.InvocationTargetException] {
+        read.invoke(protocol, input, Int.box(2), request)
+      }
+      assert(failure.getCause.getClass.getSimpleName == "ResponseTooLarge")
+      assert(request.isAborted)
+    } finally {
+      intercept[java.io.IOException](input.close())
+    }
+  }
+
   test("ambiguous POST transport failures are marked Unknown and are not retried") {
     withReplies(Seq(ContentUnderstandingStubReply(0, "", disconnect = true))) { server =>
       val result = submit(stage(server).setDocumentBytes(Array[Byte](1)))
