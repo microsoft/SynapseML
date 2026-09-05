@@ -37,6 +37,7 @@ trait ContentUnderstandingPersistence extends Wrappable { this: ContentUnderstan
       |    Use unique, stable string IDs, including the range for split documents.
       |    The table is an append-only journal. The returned DataFrame contains
       |    the latest state per ID. Only one writer may own a destination.
+      |    In submit mode, save handles only; rerun in analyze mode to collect results.
       |    '''
       |    from pyspark.sql import DataFrame
       |    self._transfer_params_to_java()
@@ -51,6 +52,7 @@ trait ContentUnderstandingPersistence extends Wrappable { this: ContentUnderstan
       |
       |    Accepted operation handles are committed before polling. Each result
       |    is committed separately. Rerun with the same IDs and options to resume.
+      |    In submit mode, save handles only; rerun in analyze mode to collect results.
       |    '''
       |    from pyspark.sql import DataFrame
       |    self._transfer_params_to_java()

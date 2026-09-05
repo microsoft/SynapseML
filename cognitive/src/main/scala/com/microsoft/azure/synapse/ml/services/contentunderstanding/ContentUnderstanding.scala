@@ -7,7 +7,8 @@ import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.io.http.{HTTPRequestData, HTTPResponseData, HTTPSchema, SimpleHTTPTransformer}
 import com.microsoft.azure.synapse.ml.logging.FeatureNames
 import com.microsoft.azure.synapse.ml.param.ServiceParam
-import com.microsoft.azure.synapse.ml.services._
+import com.microsoft.azure.synapse.ml.services.{
+  CognitiveServicesBaseNoHandler, HasAPIVersion, HasCognitiveServiceInput, HasInternalJsonOutputParser}
 import com.microsoft.azure.synapse.ml.stages.{DropColumns, Lambda}
 import org.apache.http.client.methods.{HttpGet, HttpPost, HttpPut, HttpRequestBase}
 import org.apache.http.client.utils.URIBuilder
@@ -18,7 +19,7 @@ import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel}
 import org.apache.spark.sql.functions.{coalesce, col, lit, struct, when}
-import org.apache.spark.sql.types._
+import org.apache.spark.sql.types.{BinaryType, DataType, MapType, StringType, StructType}
 import org.apache.spark.sql.{DataFrame, Row}
 import spray.json._
 
@@ -63,7 +64,7 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
 
   private def activeParams(poll: Boolean): Seq[ServiceParam[_]] = {
     val inputParams = if (poll) {
-      Seq(operationLocation, apiVersion)
+      Seq(operationLocation)
     } else {
       Seq(analyzerId, apiVersion, documentUrl, documentBytes, range, mimeType, documentName,
         modelDeployments, stringEncoding, processingLocation)

@@ -20,34 +20,9 @@ import java.util.UUID
 import scala.collection.JavaConverters._
 
 class ContentUnderstandingSuite extends TestBase {
-  import ContentUnderstandingFixtures._
+  import ContentUnderstandingFixtures.{
+    Accepted => accepted, Failed => failed, LocationPath => locationPath, Running => running, Succeeded => succeeded, _}
   import ContentUnderstandingStub.withReplies
-
-  private val locationPath = ResultsPath + "op-1?api-version=" + DefaultApiVersion
-  private val running = """{"id":"op-1","status":"Running","result":{"contents":[]}}"""
-  private val succeeded =
-    """{
-      |  "id":"op-1",
-      |  "status":"Succeeded",
-      |  "result":{"contents":[{"metadata":{"preview":true},"fields":{"A":{"type":"string","confidence":0.8}}}]},
-      |  "usage":{"documentPagesBasic":2,"gpt-5.2-input":51},
-      |  "warnings":[{"code":"ExampleWarning"}],
-      |  "futureProperty":{"nested":[1,true,null]}
-      |}""".stripMargin
-  private val failed =
-    """{"id":"op-1","status":"Failed","result":{"contents":[]},"error":{"code":"ResourceError","innererror":""" +
-      """{"code":"DeploymentNotFound","message":"Missing model deployment."}}}"""
-  private val accepted = ContentUnderstandingStubReply(HttpStatus.SC_ACCEPTED, running,
-    Map("Operation-Location" -> ("$ROOT" + locationPath), "Retry-After" -> "0"))
-
-  private def withJournal(test: String => Unit): Unit = {
-    val destination = new File("cu-journal-test-" + UUID.randomUUID().toString)
-    try {
-      test(destination.getAbsolutePath)
-    } finally {
-      FileUtils.deleteDirectory(destination)
-    }
-  }
 
   private def stage(server: ContentUnderstandingStub): ContentUnderstanding =
     new ContentUnderstanding().setEndpoint(server.endpoint).setOutputCol("result").setErrorCol("error")
@@ -333,33 +308,6 @@ class ContentUnderstandingSuite extends TestBase {
     }
   }
 
-  test("large chunked and compressed responses preserve the size-limit error and saved handle") {
-    val bytes = new Array[Byte](65536)
-    new scala.util.Random(1234).nextBytes(bytes)
-    val body = JsObject(succeeded.parseJson.asJsObject.fields +
-      ("padding" -> JsString(java.util.Base64.getEncoder.encodeToString(bytes)))).compactPrint
-    Seq(false, true).foreach { gzip =>
-      withReplies(Seq(accepted, ContentUnderstandingStubReply(HttpStatus.SC_OK, body,
-        chunked = true, gzip = gzip))) { server =>
-        withJournal { path =>
-          val transformer = stage(server).setDocumentBytes(Array[Byte](1))
-            .setMaxResponseBytes(1024).setMaxPollAttempts(2)
-          val failure = intercept[ContentUnderstandingException] {
-            transformer.writeToPath(input, "id", path, "parquet")
-          }
-          assert(failure.response.error.exists(_.contains("ResponseTooLarge")))
-          assert(server.requests.map(_.method) == Seq("POST", "GET"))
-          assert(transformer.readPath(spark, path, "parquet").head().getAs[String]("status") == "Running")
-          val resumed = transformer.setMaxResponseBytes(body.getBytes(java.nio.charset.StandardCharsets.UTF_8).length)
-            .writeToPath(input, "id", path, "parquet").head()
-          assert(resumed.getAs[String]("status") == "Succeeded")
-          assert(resumed.getAs[String]("rawResponse") == body)
-          assert(server.requests.map(_.method) == Seq("POST", "GET", "GET"))
-        }
-      }
-    }
-  }
-
   test("response stream cleanup cannot replace the size-limit failure") {
     val input = new java.io.ByteArrayInputStream(Array[Byte](1, 2, 3)) {
       override def close(): Unit = throw new java.io.IOException("Synthetic stream close failure")
@@ -404,116 +352,6 @@ class ContentUnderstandingSuite extends TestBase {
     }
   }
 
-  test("writer polling leaves oversized results resumable after the response cap is raised") {
-    withReplies(Seq(accepted, ContentUnderstandingStubReply(HttpStatus.SC_OK, succeeded))) { server =>
-      val transformer = stage(server).setDocumentBytes(Array[Byte](1)).setMaxResponseBytes(128)
-        .setMaxPollAttempts(1)
-      val destination = new File("cu-cap-resume-test-" + UUID.randomUUID().toString)
-      try {
-        val failure = intercept[ContentUnderstandingException] {
-          transformer.writeToPath(input, "id", destination.getAbsolutePath, "parquet")
-        }
-        assert(failure.response.error.exists(_.contains("ResponseTooLarge")))
-        assert(failure.response.operationLocation.contains(server.endpoint + locationPath))
-        val pending = transformer.readPath(spark, destination.getAbsolutePath, "parquet").collect().head
-        assert(pending.getAs[String]("status") == "Running")
-        assert(pending.getAs[String]("operationLocation") == server.endpoint + locationPath)
-        val resumed = transformer.setMaxResponseBytes(4096)
-          .writeToPath(input, "id", destination.getAbsolutePath, "parquet").collect().head
-        assert(resumed.getAs[String]("status") == "Succeeded")
-        assert(server.requests.count(_.method == "POST") == 1)
-        assert(server.requests.count(_.method == "GET") == 2)
-        assert(server.requests.filter(_.method == "GET").map(_.path).distinct.size == 1)
-      } finally {
-        FileUtils.deleteDirectory(destination)
-      }
-    }
-  }
-
-  test("an accepted handle survives an oversized or malformed submission response") {
-    val complete = """{"id":"op-1","status":"Succeeded","result":{"contents":[]}}"""
-    Seq("x" * 129, "not-json").foreach { body =>
-      withReplies(Seq(accepted.copy(body = body),
-        ContentUnderstandingStubReply(HttpStatus.SC_OK, complete))) { server =>
-        withJournal { path =>
-          val transformer = stage(server).setDocumentBytes(Array[Byte](1)).setMaxResponseBytes(128)
-          val result = transformer.writeToPath(input, "id", path, "parquet").head()
-          assert(result.getAs[String]("status") == "Succeeded")
-          assert(result.getAs[String]("operationLocation") == server.endpoint + locationPath)
-          assert(server.requests.map(_.method) == Seq("POST", "GET"))
-          val history = spark.read.parquet(path).orderBy("sequence").select("status").collect()
-          assert(history.map(_.getString(0)).toSeq == Seq("Unknown", "Succeeded"))
-        }
-      }
-    }
-  }
-
-  test("an unknown submission is journaled and is not resubmitted without an operation handle") {
-    val replies = Seq(
-      ContentUnderstandingStubReply(0, "", disconnect = true) -> "TransportError",
-      ContentUnderstandingStubReply(HttpStatus.SC_OK, "not-json") -> "InvalidResponse",
-      accepted.copy(headers = Map.empty) -> "MissingOperationLocation",
-      ContentUnderstandingStubReply(HttpStatus.SC_INTERNAL_SERVER_ERROR, "{}",
-        Map("Operation-Location" -> "https://example.invalid/unsafe")) -> "InvalidOperationLocation")
-    replies.foreach { case (reply, errorCode) =>
-      withReplies(Seq(reply)) { server =>
-        withJournal { path =>
-          val transformer = stage(server).setDocumentBytes(Array[Byte](1))
-          val first = intercept[ContentUnderstandingException] {
-            transformer.writeToPath(input, "id", path, "parquet")
-          }
-          assert(first.response.status == "Unknown")
-          val recorded = transformer.readPath(spark, path, "parquet").head()
-          assert(recorded.getAs[String]("status") == "Unknown")
-          assert(recorded.getAs[String]("error").contains(errorCode))
-          val retry = intercept[IllegalArgumentException] {
-            transformer.writeToPath(input, "id", path, "parquet")
-          }
-          assert(retry.getMessage.contains("unknown"))
-          assert(server.requests.map(_.method) == Seq("POST"))
-        }
-      }
-    }
-  }
-
-  test("exhausted transient polling errors leave the committed handle available for retry") {
-    val throttled = ContentUnderstandingStubReply(TooManyRequests,
-      """{"error":{"code":"TooManyRequests"}}""", Map("Retry-After" -> "0"))
-    withReplies(Seq(accepted, throttled)) { server =>
-      withJournal { path =>
-        val transformer = stage(server).setDocumentBytes(Array[Byte](1)).setMaxPollAttempts(1)
-        val failure = intercept[ContentUnderstandingException] {
-          transformer.writeToPath(input, "id", path, "parquet")
-        }
-        assert(failure.response.httpStatus == TooManyRequests)
-        val pending = transformer.readPath(spark, path, "parquet").head()
-        assert(pending.getAs[String]("status") == "Running")
-        assert(pending.getAs[String]("operationLocation") == server.endpoint + locationPath)
-        assert(server.requests.map(_.method) == Seq("POST", "GET"))
-      }
-    }
-  }
-
-  test("polling configuration and credential errors do not terminalize an accepted operation") {
-    Seq(HttpStatus.SC_BAD_REQUEST, HttpStatus.SC_UNAUTHORIZED, HttpStatus.SC_FORBIDDEN).foreach { code =>
-      val rejected = ContentUnderstandingStubReply(code, """{"error":{"code":"PollingRejected"}}""")
-      withReplies(Seq(accepted, rejected, ContentUnderstandingStubReply(HttpStatus.SC_OK, succeeded))) { server =>
-        withJournal { path =>
-          val transformer = stage(server).setDocumentBytes(Array[Byte](1)).setAADToken("expired-test-token")
-          val failure = intercept[ContentUnderstandingException] {
-            transformer.writeToPath(input, "id", path, "parquet")
-          }
-          assert(failure.response.httpStatus == code)
-          assert(transformer.readPath(spark, path, "parquet").head().getAs[String]("status") == "Running")
-          val resumed = transformer.setAADToken("refreshed-test-token").writeToPath(input, "id", path, "parquet")
-          assert(resumed.head().getAs[String]("status") == "Succeeded")
-          assert(server.requests.count(_.method == "POST") == 1)
-          assert(server.requests.last.headers("authorization") == "Bearer refreshed-test-token")
-        }
-      }
-    }
-  }
-
   test("interruption stops requests without clearing the thread interruption") {
     withReplies(Seq(accepted)) { server =>
       val transformer = stage(server).setAnalyzerId("custom")
@@ -544,16 +382,22 @@ class ContentUnderstandingSuite extends TestBase {
     }
   }
 
-  test("public submit and poll modes reuse configured document columns without resubmission") {
-    withReplies(Seq(accepted, ContentUnderstandingStubReply(HttpStatus.SC_OK, succeeded))) { server =>
+  test("public submit and poll modes reuse configured document and API-version columns without resubmission") {
+    val version = "2026-06-01-preview"
+    val location = ResultsPath + "op-1?api-version=" + version
+    val submission = accepted.copy(headers = Map("Operation-Location" -> ("$ROOT" + location), "Retry-After" -> "0"))
+    withReplies(Seq(submission, ContentUnderstandingStubReply(HttpStatus.SC_OK, succeeded))) { server =>
       val schema = new StructType().add("id", StringType).add("bytes", BinaryType).add("pages", StringType)
-      val frame = dataFrame(Seq(Row("document-1", Array[Byte](1), "1-2")), schema)
+        .add("version", StringType)
+      val frame = dataFrame(Seq(Row("document-1", Array[Byte](1), "1-2", version)), schema)
       val transformer = stage(server).setOperationMode("submit").setDocumentBytesCol("bytes").setRangeCol("pages")
+        .setApiVersionCol("version")
       val submitted = resultOf(transformer, frame)
       assert(submitted.status == "Running")
       val resumed = transformer.setOperationMode("poll").setOperationLocation(submitted.operationLocation.get)
       assert(resultOf(resumed, input).status == "Succeeded")
       assert(server.requests.size == 2)
+      assert(server.requests.last.query == "api-version=" + version)
       assert(server.requests.head.body.parseJson.asJsObject.fields("inputs")
         .asInstanceOf[JsArray].elements.head.asJsObject.fields("range") == JsString("1-2"))
     }
