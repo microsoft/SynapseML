@@ -144,6 +144,18 @@ class ContentUnderstandingSuite extends TestBase {
     }
   }
 
+  test("transform rejects input columns matching public output names before service calls") {
+    withReplies(Seq(accepted)) { server =>
+      val base = stage(server).setDocumentBytes(Array[Byte](1))
+      Seq(base.copy(ParamMap.empty).setOutputCol("id"), base.copy(ParamMap.empty).setErrorCol("id"))
+        .foreach { transformer =>
+          intercept[IllegalArgumentException](transformer.transformSchema(input.schema))
+          intercept[IllegalArgumentException](transformer.transform(input))
+        }
+      assert(server.requests.isEmpty)
+    }
+  }
+
   test("HTTP 200 Failed operations retain the nested service error and fill errorCol") {
     withReplies(Seq(accepted, ContentUnderstandingStubReply(HttpStatus.SC_OK, failed))) { server =>
       val row = stage(server).setDocumentBytes(Array[Byte](1)).transform(input).collect().head
