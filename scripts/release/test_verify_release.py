@@ -38,6 +38,9 @@ class AlwaysPresentChecker:
     def public_maven(self, _module, _scala, _version):
         return verify.OK
 
+    def public_central_maven(self, _module, _scala, _version):
+        return verify.OK
+
     def internal_maven(self, _scala, _version):
         return verify.OK
 

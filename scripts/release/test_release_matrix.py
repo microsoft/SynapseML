@@ -137,12 +137,14 @@ def test_text_plan_emits_every_selected_maven_build():
     plan = build_plan("1.1.4", target_keys=["master", "spark4.1"])
     text = render_text(plan)
 
-    assert text.count("az pipelines run --id 17563") == 2
-    assert text.count("az pipelines run --id 18453") == 2
-    assert "--branch refs/tags/v1.1.4" in text
-    assert "--branch refs/tags/v1.1.4.0" in text
-    assert "--branch refs/tags/v1.1.4-spark4.1" in text
-    assert "--branch refs/tags/v1.1.4.0-spark4.1" in text
+    assert text.count("pipeline=17563") == 2
+    assert text.count("pipeline=18453") == 2
+    assert "tag=refs/tags/v1.1.4" in text
+    assert "tag=refs/tags/v1.1.4.0" in text
+    assert "tag=refs/tags/v1.1.4-spark4.1" in text
+    assert "tag=refs/tags/v1.1.4.0-spark4.1" in text
+    assert "DRAFT" in text
+    assert "az pipelines run" not in text
 
 
 def test_internal_superpatch_flows_everywhere():
@@ -245,8 +247,8 @@ def test_internal_only_hotfix_never_republishes_oss():
     )
     assert plan.publish_parameters["build_internal_pip_py311"] is True
     assert plan.publish_parameters["build_internal_upack_default"] is True
-    assert "az pipelines run --id 17563" not in text
-    assert text.count("az pipelines run --id 18453") == 1
+    assert "pipeline=17563" not in text
+    assert text.count("pipeline=18453") == 1
 
 
 def test_internal_only_hotfix_preserves_but_does_not_republish_oss_rebuild():
@@ -285,7 +287,7 @@ def test_rebuild_counter_reaches_publish_pipeline():
         "SYNAPSEML_INTERNAL_PATCH_VERSION": "2",
     }
     assert (
-        "--variables SYNAPSEML_PATCH_VERSION=1 "
+        "UPack counters: SYNAPSEML_PATCH_VERSION=1 "
         "SYNAPSEML_INTERNAL_PATCH_VERSION=2" in text
     )
 

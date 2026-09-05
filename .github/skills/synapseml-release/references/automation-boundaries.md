@@ -1,43 +1,35 @@
 # Release automation boundaries
 
-The release is deliberately split between repeatable automation and
-credentialed human decisions.
+| Phase | Automation | Approval boundary |
+| --- | --- | --- |
+| Matrix | Derives a sealed schema-v1 plan | Review scope, commits, coordinates, counters, and feeds |
+| Preflight/status | Reads source, policy, destinations, Azure runs, and artifacts; updates local state | No remote writes |
+| Version PR | Release Prepare bumps versions/docs and opens a PR | Explicit workflow dispatch, then reviewed PR merge |
+| Public tags | Tags recorded merge commits; atomically pushes and confirms derivative families | Version/port PR merges authorize tagging |
+| Internal tags | Preview-first clean-source/ref validation and atomic publication | `tag --apply --approve-plan` |
+| Maven/pip/UPack | Driver queues missing authorized actions and records build IDs | `resume --apply --approve-plan`; ESRP/SAW remain manual |
+| Recovery | Adopts matching runs or retries a terminal failed pip/UPack group with complete absence evidence | Explicit approved `--adopt` or `--retry`; Maven needs a new coordinate and plan |
+| Lock inspection | Reads bounded local metadata without Azure calls or file changes | Confirm a dead owner and Azure outcomes before any manual lock removal |
+| Evidence | Revalidates producer outcomes, receipts, and artifact visibility | Inventory alone is not approval |
+| GitHub Release | Checks the public plan/evidence and current artifacts, then creates primary notes | Manual Release Notes dispatch |
+| BBC-VHD | Previews or edits selected pins and component revision | Complete fresh evidence plus `--apply --approve-plan`, then PR review |
+| Fabric rollout | Existing image/train deployment systems | BBC-VHD CI, White-Glove, train selection, and monitoring |
 
-| Phase | Trigger | Automation | Human gate |
-| --- | --- | --- | --- |
-| Plan | Release engineer runs `release_matrix.py` | Validates inputs and prints tags, package coordinates, and queue commands | Review and accept the plan |
-| Preview | Release engineer runs dry-run commands | Reports version and BBC-VHD edits without writing | Decide whether to start |
-| Version PR | **Release Prepare** runs on the canonical branch | Bumps versions, snapshots docs, pushes a branch, opens a PR, and starts checks | Review and merge the PR |
-| Primary tag | Version PR merges | Verifies the merge and tags that exact commit | The PR merge is the approval |
-| Derivative work | Primary tag is created | Creates canonical derivative tags and opens ordered Spark release PRs | Review and merge each Spark PR |
-| Spark tags | Spark release PR merges | Tags the recorded merge commit and removes the temporary branch | Verify content and merge order |
-| Maven | Engineer runs matrix commands | Public and Internal tag builds create Maven artifacts | Queue access plus ESRP and SAW approval |
-| pip and UPack | Engineer runs Publish-Official | Builds selected pip and UPack packages | Queue and publication approval |
-| Artifact proof | Engineer runs `verify_release.py` | Reads live tags and package stores and reports missing rows | Investigate every missing row |
-| GitHub Release | Engineer runs **Release Notes** on the primary tag | Verifies public artifacts, generates notes, and creates one Release | Select the tag and start the workflow |
-| BBC-VHD | Engineer runs `bump_bbcvhd.py` | Calculates or writes the package and component revision changes | Review, CI, and White-Glove approval |
-| Fabric rollout | Release train deploys | Platform deployment follows the train schedule | Select and monitor the train |
+Normal CI remains snapshot-only. A clean tagged checkout does not authorize
+release coordinates or overwriting existing artifacts. Producer pipelines
+validate explicit release inputs before publication.
 
-## State-changing points
+The driver preserves the sealed plan. Per-run flags may narrow its authorized
+operations, never expand them. The publisher's own source SHA is distinct from
+the released code SHA and is recorded separately.
 
-- **Release Prepare** is the first repository write. It creates a branch,
-  commit, and pull request.
-- Merging the version PR creates the primary tag and starts derivative
-  automation.
-- Merging each Spark PR creates its derivative tags.
-- Queueing Maven or Publish-Official can create immutable package versions.
-- **Release Notes** creates the public GitHub Release.
-- `bump_bbcvhd.py` writes only when `--dry-run` is absent.
+Retain the authoritative ledger and its persistent same-directory claim.
+Neither a new state filename nor a copied directory is a supported way to
+discard failed or unknown work. Lock metadata is not proof of owner death.
 
-## Actions that remain manual
+Full releases may use staged OSS-first and Internal-only-repository plans.
+Internal hotfixes do not run public tag workflows, public Maven publication, or
+GitHub Release creation.
 
-- Accepting the release plan.
-- Approving and merging every release pull request.
-- Queueing public and Internal Maven builds.
-- Completing ESRP and SAW approvals.
-- Queueing Publish-Official.
-- Reviewing and merging the BBC-VHD pull request.
-- Completing White-Glove approval.
-- Selecting and monitoring the Fabric release train.
-
-Do not add credentials or automatic approvals to remove these boundaries.
+Do not remove human approval boundaries by adding credentials to GitHub,
+auto-merging PRs, clicking approvals, changing permissions, or editing a ledger.
