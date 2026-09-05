@@ -80,3 +80,19 @@ def test_bad_release_output_fails_before_staging(tmp_path, corruption):
     with pytest.raises(ValueError):
         staging.stage_release(root, output, "1.1.4", "2.12")
     assert not output.exists()
+
+
+def test_resolves_each_selected_module_directory_once(tmp_path, monkeypatch):
+    root = tmp_path / "ivy"
+    ivy_fixture(root, "1.1.4", "2.12")
+    directories = {root / f"{name}_2.12" / "1.1.4": 0 for name in PUBLIC_MAVEN_MODULES}
+    original = Path.resolve
+
+    def resolve(path, *args, **kwargs):
+        if path in directories:
+            directories[path] += 1
+        return original(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "resolve", resolve)
+    assert staging.collect_artifacts(root, "1.1.4", "2.12")
+    assert set(directories.values()) == {1}

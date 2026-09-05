@@ -277,3 +277,30 @@ The seven new public cases failed before the fixes and passed afterwards.
 The affected driver, plan-evidence, verifier and BBC-VHD suites then passed
 402 cases. Unchanged build/pipeline files retain the earlier separate evidence;
 this local result does not claim a new Azure build.
+
+## Current-head CI and review follow-up, 2026-09-05
+
+[GitHub run 33964603972](https://github.com/microsoft/SynapseML/actions/runs/33964603972)
+reported 582 passing cases and one failure. The native SBT launcher treated the
+sbt-extras `-batch` switch as a task name. Both release probes now use explicit
+tasks with closed standard input instead of a launcher-specific switch. Two
+isolated public/Internal probes passed through the native SBT launcher on JDK 11.
+
+The current-head Copilot review also raised two actionable findings:
+
+- [Blob inspection diagnostics](https://github.com/microsoft/SynapseML/pull/2628#discussion_r3940562986).
+  An unsuccessful inspection now names the release destination and exit code.
+  A missing executable keeps its `IOException` cause. Inspection failures still
+  refuse upload; they are never interpreted as absence. The real SBT regression
+  failed before the change and now covers absent, present, malformed, nonzero
+  and missing-executable cases. It also compiles the complete current
+  `BuildUtils` source, not just a replica of the changed method.
+- [Repeated directory resolution](https://github.com/microsoft/SynapseML/pull/2628#discussion_r3940562998).
+  ESRP staging now resolves each admitted module directory once and reuses that
+  path for file containment. The regression observed three or four resolutions
+  before the fix and one afterwards. Existing linked-directory checks remain.
+
+After these fixes, the real public SBT probe and 28 ESRP/publication-guard cases
+passed. Pinned Python formatting and whitespace checks passed. These are
+follow-up fixes to the six-round implementation review, not a claim that the
+initial CI run passed or that a live release was performed.
