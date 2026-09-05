@@ -32,14 +32,23 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import hashlib
+import hmac
 import json
 import re
 import sys
 from dataclasses import dataclass, asdict, field
+from pathlib import Path
 from typing import Dict, List, Optional, Union
 
-OSS_VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
-PATCH_RE = re.compile(r"^(0|[1-9]\d*)$")
+OSS_VERSION_RE = re.compile(r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$")
+PATCH_RE = re.compile(r"^(0|[1-9][0-9]*)$")
+COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
+PLAN_ID_RE = re.compile(r"^[0-9a-f]{64}$")
+SCHEMA_VERSION = 1
+ARTIFACT_FAMILIES = ("maven", "pip", "upack")
+REPOSITORIES = ("oss", "internal")
+RELEASE_MODES = ("production", "rehearsal")
 
 UPACK_FEED = "BBC-VHD_PublicPackages"
 PIP_FEED = "Synapse-Conda"
@@ -131,6 +140,8 @@ class TargetPlan:
     internal_upack_version: str
     oss_pip_version: str
     internal_pip_version: str
+    oss_commit: Optional[str] = None
+    internal_commit: Optional[str] = None
 
 
 @dataclass
@@ -149,6 +160,11 @@ class ReleasePlan:
     publish_parameters: Dict[str, PipelineValue] = field(default_factory=dict)
     publish_variables: Dict[str, str] = field(default_factory=dict)
     targets: List[TargetPlan] = field(default_factory=list)
+    schema_version: int = SCHEMA_VERSION
+    plan_id: str = ""
+    families: List[str] = field(default_factory=lambda: list(ARTIFACT_FAMILIES))
+    repositories: List[str] = field(default_factory=lambda: list(REPOSITORIES))
+    mode: str = "production"
 
     @property
     def all_oss_tags(self) -> List[str]:
@@ -159,6 +175,104 @@ class ReleasePlan:
         return [t for tp in self.targets for t in tp.internal_tags]
 
 
+def _selection(values, choices, label, default):
+    values = list(default) if values is None else values
+    if (
+        not isinstance(values, list)
+        or not values
+        or any(not isinstance(value, str) or value not in choices for value in values)
+        or len(values) != len(set(values))
+    ):
+        raise ValueError(f"{label} must be a nonempty unique list from {list(choices)}")
+    return list(values)
+
+
+def _commit_bindings(values, keys, label):
+    values = {} if values is None else values
+    if not isinstance(values, dict):
+        raise ValueError(f"{label} must map selected target names to commit SHAs")
+    for key, value in values.items():
+        if key not in keys:
+            raise ValueError(f"{label} contains unselected target {key!r}")
+        if (
+            not isinstance(value, str)
+            or not COMMIT_RE.fullmatch(value)
+            or value == "0" * 40
+        ):
+            raise ValueError(
+                f"{label} for {key!r} must be a nonzero lowercase 40-character commit"
+            )
+    return dict(values)
+
+
+def parse_commits(raw: str, flag: str) -> Dict[str, str]:
+    out = {}
+    for item in (part.strip() for part in raw.split(",") if part.strip()):
+        key, separator, sha = item.partition("=")
+        key, sha = key.strip(), sha.strip()
+        if not separator or not key or key in out:
+            raise ValueError(f"{flag} expects unique KEY=SHA bindings, got {item!r}")
+        out[key] = sha
+    return out
+
+
+def _feed(value: Optional[str], default: str, mode: str) -> str:
+    if value is None:
+        if mode == "rehearsal":
+            raise ValueError(
+                "rehearsal requires explicit non-production pip and UPack feeds"
+            )
+        return default
+    if not isinstance(value, str) or not re.fullmatch(
+        r"(?:[A-Za-z0-9_.-]+/)?[A-Za-z0-9][A-Za-z0-9_.-]*", value
+    ):
+        raise ValueError("feed must be a name or a project-qualified name")
+    parts = value.split("/")
+    if len(parts) == 2 and parts[0].casefold() != ADO_PROJECT.casefold():
+        raise ValueError(f"feed project must be {ADO_PROJECT}")
+    name = parts[-1]
+    if mode == "production":
+        if name.casefold() != default.casefold():
+            raise ValueError(f"production feed must be {default}")
+        return default
+    if name.casefold() in {UPACK_FEED.casefold(), PIP_FEED.casefold()}:
+        raise ValueError("rehearsal cannot use a production feed")
+    if re.fullmatch(r"[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}", name):
+        raise ValueError(
+            "rehearsal requires named feeds; feed IDs must not bypass production protection"
+        )
+    return value
+
+
+def plan_digest(data: dict) -> str:
+    body = {key: value for key, value in data.items() if key != "plan_id"}
+    return hashlib.sha256(
+        json.dumps(
+            body, sort_keys=True, separators=(",", ":"), ensure_ascii=True
+        ).encode("utf-8")
+    ).hexdigest()
+
+
+def plan_to_dict(plan: ReleasePlan) -> dict:
+    data = asdict(plan)
+    if data["plan_id"] != plan_digest(data):
+        raise ValueError(
+            "plan changed after its plan_id was calculated; generate a new plan"
+        )
+    return data
+
+
+def _require_bindings(plan: ReleasePlan) -> None:
+    for target in plan.targets:
+        # An Internal-only release still binds its existing OSS dependency base.
+        if not target.oss_commit:
+            raise ValueError(f"target {target.key} has no reviewed OSS commit binding")
+        if "internal" in plan.repositories and not target.internal_commit:
+            raise ValueError(
+                f"target {target.key} has no reviewed Internal commit binding"
+            )
+
+
 def build_plan(
     oss_version: str,
     internal_patch: str = "0",
@@ -166,6 +280,13 @@ def build_plan(
     upack_iteration: Optional[Dict[str, int]] = None,
     internal_upack_iteration: Optional[Dict[str, int]] = None,
     scope: str = "full",
+    families: Optional[List[str]] = None,
+    oss_commits: Optional[Dict[str, str]] = None,
+    internal_commits: Optional[Dict[str, str]] = None,
+    mode: str = "production",
+    pip_feed: Optional[str] = None,
+    upack_feed: Optional[str] = None,
+    repositories: Optional[List[str]] = None,
 ) -> ReleasePlan:
     """Derive the full release plan.
 
@@ -194,14 +315,39 @@ def build_plan(
         )
     if scope == "internal-only" and internal_patch == "0":
         raise ValueError("--scope internal-only requires a nonzero --internal-patch")
+    families = _selection(families, ARTIFACT_FAMILIES, "families", ARTIFACT_FAMILIES)
+    repositories = _selection(
+        repositories,
+        REPOSITORIES,
+        "repositories",
+        ["internal"] if scope == "internal-only" else REPOSITORIES,
+    )
+    if scope == "internal-only" and repositories != ["internal"]:
+        raise ValueError("internal-only plans may select only the internal repository")
+    if mode not in RELEASE_MODES:
+        raise ValueError(f"mode must be one of {RELEASE_MODES}")
+    resolved_pip_feed = _feed(pip_feed, PIP_FEED, mode)
+    resolved_upack_feed = _feed(upack_feed, UPACK_FEED, mode)
+    if mode == "rehearsal" and "maven" in families:
+        raise ValueError(
+            "rehearsal cannot select maven publication; select pip and/or upack"
+        )
 
-    keys = target_keys or [t.key for t in TARGETS]
+    keys = [t.key for t in TARGETS] if target_keys is None else target_keys
+    if (
+        not isinstance(keys, list)
+        or not keys
+        or any(not isinstance(key, str) for key in keys)
+    ):
+        raise ValueError("targets must be a list of known target names")
     unknown = [k for k in keys if k not in TARGETS_BY_KEY]
     if unknown:
         raise ValueError(f"unknown target(s): {unknown}. Known: {list(TARGETS_BY_KEY)}")
     if len(keys) != len(set(keys)):
         raise ValueError(f"targets must be unique (got {keys!r})")
     selected = set(keys)
+    oss_commits = _commit_bindings(oss_commits, keys, "OSS commits")
+    internal_commits = _commit_bindings(internal_commits, keys, "Internal commits")
 
     upack_iteration = upack_iteration or {}
     internal_upack_iteration = internal_upack_iteration or {}
@@ -240,33 +386,65 @@ def build_plan(
     internal_version = f"{oss_version}.{internal_patch}"
     oss_counter = next(iter(upack_iteration.values()), None)
     internal_counter = next(iter(internal_upack_iteration.values()), None)
-    build_oss = scope == "full"
+    build_oss = "oss" in repositories
+    build_internal = "internal" in repositories
+    build_pip = "pip" in families
+    build_upack = "upack" in families
     publish_variables = {}
-    if oss_counter and build_oss:
+    if oss_counter and build_oss and build_upack:
         publish_variables["SYNAPSEML_PATCH_VERSION"] = str(oss_counter)
-    if internal_counter:
+    if internal_counter and build_internal and build_upack:
         publish_variables["SYNAPSEML_INTERNAL_PATCH_VERSION"] = str(internal_counter)
     plan = ReleasePlan(
         oss_version=oss_version,
         internal_version=internal_version,
         internal_patch=internal_patch,
         scope=scope,
+        families=families,
+        repositories=repositories,
+        mode=mode,
+        pip_feed=resolved_pip_feed,
+        upack_feed=resolved_upack_feed,
         publish_variables=publish_variables,
         publish_parameters={
             "synapseml_version": oss_version,
             "internal_patch_version": internal_patch,
-            "build_synapseml_pip_py311": build_oss and "master" in selected,
-            "build_synapseml_pip_py312": build_oss and "spark4.0" in selected,
-            "build_synapseml_pip_py313": build_oss and "spark4.1" in selected,
-            "build_synapseml_upack_default": build_oss and "master" in selected,
-            "build_synapseml_upack_spark4": build_oss and "spark4.0" in selected,
-            "build_synapseml_upack_spark41": build_oss and "spark4.1" in selected,
-            "build_internal_pip_py311": "master" in selected,
-            "build_internal_pip_py312": "spark4.0" in selected,
-            "build_internal_pip_py313": "spark4.1" in selected,
-            "build_internal_upack_default": "master" in selected,
-            "build_internal_upack_spark4": "spark4.0" in selected,
-            "build_internal_upack_spark41": "spark4.1" in selected,
+            "build_synapseml_pip_py311": build_oss
+            and build_pip
+            and "master" in selected,
+            "build_synapseml_pip_py312": build_oss
+            and build_pip
+            and "spark4.0" in selected,
+            "build_synapseml_pip_py313": build_oss
+            and build_pip
+            and "spark4.1" in selected,
+            "build_synapseml_upack_default": build_oss
+            and build_upack
+            and "master" in selected,
+            "build_synapseml_upack_spark4": build_oss
+            and build_upack
+            and "spark4.0" in selected,
+            "build_synapseml_upack_spark41": build_oss
+            and build_upack
+            and "spark4.1" in selected,
+            "build_internal_pip_py311": build_internal
+            and build_pip
+            and "master" in selected,
+            "build_internal_pip_py312": build_internal
+            and build_pip
+            and "spark4.0" in selected,
+            "build_internal_pip_py313": build_internal
+            and build_pip
+            and "spark4.1" in selected,
+            "build_internal_upack_default": build_internal
+            and build_upack
+            and "master" in selected,
+            "build_internal_upack_spark4": build_internal
+            and build_upack
+            and "spark4.0" in selected,
+            "build_internal_upack_spark41": build_internal
+            and build_upack
+            and "spark4.1" in selected,
         },
     )
 
@@ -307,16 +485,134 @@ def build_plan(
                 ),
                 oss_pip_version=f"{v}+python{t.python}",
                 internal_pip_version=f"{iv}+python{t.python}",
+                oss_commit=oss_commits.get(key),
+                internal_commit=internal_commits.get(key),
             )
         )
+    plan.plan_id = plan_digest(asdict(plan))
     return plan
 
 
+def load_plan(data: dict, require_bound: bool = False) -> ReleasePlan:
+    if not isinstance(data, dict):
+        raise ValueError("release plan must be a JSON object")
+    if (
+        type(data.get("schema_version")) is not int
+        or data["schema_version"] != SCHEMA_VERSION
+    ):
+        raise ValueError(f"release plan schema_version must be {SCHEMA_VERSION}")
+    plan_id = data.get("plan_id")
+    if not isinstance(plan_id, str) or not PLAN_ID_RE.fullmatch(plan_id):
+        raise ValueError("release plan has no valid plan_id")
+    if not hmac.compare_digest(plan_id, plan_digest(data)):
+        raise ValueError("release plan digest does not match plan_id")
+    required = {
+        "oss_version",
+        "internal_patch",
+        "scope",
+        "targets",
+        "families",
+        "repositories",
+        "mode",
+        "pip_feed",
+        "upack_feed",
+    }
+    if not required <= data.keys():
+        raise ValueError(
+            f"release plan is missing fields: {sorted(required - data.keys())}"
+        )
+    targets = data["targets"]
+    if (
+        not isinstance(targets, list)
+        or not targets
+        or any(
+            not isinstance(target, dict) or not isinstance(target.get("key"), str)
+            for target in targets
+        )
+    ):
+        raise ValueError("release plan targets must contain named target objects")
+    keys = [target["key"] for target in targets]
+    options = {
+        "families": data["families"],
+        "repositories": data["repositories"],
+        "mode": data["mode"],
+        "pip_feed": data["pip_feed"],
+        "upack_feed": data["upack_feed"],
+        "oss_commits": {
+            target["key"]: target["oss_commit"]
+            for target in targets
+            if target.get("oss_commit") is not None
+        },
+        "internal_commits": {
+            target["key"]: target["internal_commit"]
+            for target in targets
+            if target.get("internal_commit") is not None
+        },
+    }
+    base = build_plan(
+        data["oss_version"],
+        data["internal_patch"],
+        keys,
+        scope=data["scope"],
+        **options,
+    )
+
+    def iterations(field_name):
+        result = {}
+        for raw, expected in zip(targets, base.targets):
+            value = raw.get(field_name)
+            base_version = getattr(expected, field_name)
+            if value == base_version:
+                continue
+            match = re.fullmatch(
+                re.escape(base_version) + r"-([1-9][0-9]*)",
+                value if isinstance(value, str) else "",
+            )
+            if not match:
+                raise ValueError(f"{expected.key} has an inconsistent {field_name}")
+            result[expected.key] = int(match.group(1))
+        return result
+
+    expected = build_plan(
+        data["oss_version"],
+        data["internal_patch"],
+        keys,
+        iterations("oss_upack_version"),
+        iterations("internal_upack_version"),
+        data["scope"],
+        **options,
+    )
+    # Re-derive rather than trusting a rehashed plan to select arbitrary pipelines,
+    # repositories, coordinates or unchecked publication flags.
+    if plan_to_dict(expected) != data:
+        raise ValueError("release plan fields differ from the derived release contract")
+    if require_bound:
+        _require_bindings(expected)
+    return expected
+
+
+def read_plan(path: str, require_bound: bool = False) -> ReleasePlan:
+    try:
+        if path == "-":
+            data = json.load(sys.stdin)
+        else:
+            with Path(path).open(encoding="utf-8-sig") as stream:
+                data = json.load(stream)
+    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+        raise ValueError(f"cannot read release plan {path}: {error}") from error
+    return load_plan(data, require_bound=require_bound)
+
+
 def render_text(plan: ReleasePlan) -> str:
+    plan_to_dict(plan)
     out: List[str] = []
     out.append(
         f"SynapseML release plan  OSS v{plan.oss_version}  "
         f"Internal v{plan.internal_version}  scope={plan.scope}"
+    )
+    out.append(f"Plan {plan.plan_id}  schema={plan.schema_version}  mode={plan.mode}")
+    out.append(
+        f"Repositories: {', '.join(plan.repositories)}; families: {', '.join(plan.families)}"
     )
     out.append("")
     out.append("GIT TAGS")
@@ -325,41 +621,44 @@ def render_text(plan: ReleasePlan) -> str:
             f"  [{tp.key}] branch={tp.branch} spark={tp.spark} "
             f"python={tp.python} scala={tp.scala}"
         )
-        oss_label = "create" if plan.scope == "full" else "required existing"
+        oss_label = "in scope" if "oss" in plan.repositories else "required existing"
         out.append(
             f"      github/microsoft/SynapseML ({oss_label}) : "
             f"{', '.join(tp.oss_tags)}"
         )
-        out.append(
-            f"      ado/SynapseML-Internal (create)       : "
-            f"{', '.join(tp.internal_tags)}"
-        )
+        if "internal" in plan.repositories:
+            out.append(
+                f"      ado/SynapseML-Internal (in scope) : {', '.join(tp.internal_tags)}"
+            )
+        else:
+            out.append("      ado/SynapseML-Internal: not selected")
+        out.append(f"      reviewed OSS commit: {tp.oss_commit or 'UNBOUND'}")
+        out.append(f"      reviewed Internal commit: {tp.internal_commit or 'UNBOUND'}")
     out.append("")
     out.append("MAVEN TAG BUILDS")
     out.append(
-        "  Queue every selected row. These builds publish the Maven coordinates; "
-        "Publish-Official does not."
+        "  Execute only through the approved plan's release_ops.py resume command. "
+        "Publish-Official does not publish Maven."
     )
-    for tp in plan.targets:
-        if plan.scope == "full":
+    for tp in plan.targets if "maven" in plan.families else []:
+        if "oss" in plan.repositories:
             out.append(
                 f"  [{tp.key}] OSS      com.microsoft.azure:synapseml_{tp.scala}:"
                 f"{tp.oss_maven_version}"
             )
             out.append(
-                f"      az pipelines run --id {plan.oss_maven_pipeline_id} "
-                f"--org {plan.ado_org} --project {plan.ado_project} "
-                f"--branch refs/tags/{tp.oss_maven_tag}"
+                f"      pipeline={plan.oss_maven_pipeline_id} "
+                f"tag=refs/tags/{tp.oss_maven_tag}"
             )
-        out.append(
-            f"  [{tp.key}] Internal com.microsoft.azure:synapseml-internal_{tp.scala}:"
-            f"{tp.internal_maven_version}"
-        )
-        out.append(
-            f"      az pipelines run --id {plan.internal_maven_pipeline_id} "
-            f"--org {plan.ado_org} --project {plan.ado_project} "
-            f"--branch refs/tags/{tp.internal_maven_tag}"
-        )
+        if "internal" in plan.repositories:
+            out.append(
+                f"  [{tp.key}] Internal com.microsoft.azure:synapseml-internal_{tp.scala}:"
+                f"{tp.internal_maven_version}"
+            )
+            out.append(
+                f"      pipeline={plan.internal_maven_pipeline_id} "
+                f"tag=refs/tags/{tp.internal_maven_tag}"
+            )
     out.append("")
     out.append(
         f"ADO PUBLISH PIPELINE {plan.publish_pipeline_id} "
@@ -369,40 +668,62 @@ def render_text(plan: ReleasePlan) -> str:
         rendered = str(value).lower() if isinstance(value, bool) else value
         out.append(f"  {name}={rendered}")
     out.append("")
-    out.append("COPY-PASTE QUEUE COMMAND")
-    parameters = []
-    for name, value in plan.publish_parameters.items():
-        rendered = str(value).lower() if isinstance(value, bool) else value
-        parameters.append(f"{name}={rendered}")
-    publish_command = (
-        f"  az pipelines run --id {plan.publish_pipeline_id} "
-        f"--org {plan.ado_org} --project {plan.ado_project} --parameters "
-        + " ".join(parameters)
+    out.append("GUARDED EXECUTION")
+    out.append("  Save the JSON plan, then run:")
+    out.append(
+        "  python scripts/release/release_ops.py preflight --plan release-plan.json"
     )
+    if all(
+        target.oss_commit
+        and ("internal" not in plan.repositories or target.internal_commit)
+        for target in plan.targets
+    ):
+        out.append(
+            "  python scripts/release/release_ops.py resume --plan release-plan.json "
+            f"--state release-state.json --apply --approve-plan {plan.plan_id}"
+        )
+    else:
+        out.append(
+            "  DRAFT: bind the reviewed commits and approve the resulting new plan before writes."
+        )
     if plan.publish_variables:
-        publish_command += " --variables " + " ".join(
-            f"{name}={value}" for name, value in plan.publish_variables.items()
-        )
-    out.append(publish_command)
-    out.append("")
-    out.append(f"UPACK ({plan.upack_feed})")
-    for tp in plan.targets:
         out.append(
-            f"  [{tp.key}] synapseml={tp.oss_upack_version}  synapseml_internal={tp.internal_upack_version}"
+            "  UPack counters: "
+            + " ".join(
+                f"{name}={value}" for name, value in plan.publish_variables.items()
+            )
         )
     out.append("")
-    out.append(f"PIP ({plan.pip_feed})")
-    for tp in plan.targets:
+    for family, feed in (("upack", plan.upack_feed), ("pip", plan.pip_feed)):
         out.append(
-            f"  [{tp.key}] synapseml={tp.oss_pip_version}  synapseml-internal={tp.internal_pip_version}"
+            f"{family.upper()} ({feed})"
+            if family in plan.families
+            else f"{family.upper()}: not selected"
         )
+        for tp in plan.targets if family in plan.families else []:
+            for repository in plan.repositories:
+                name = "synapseml" if repository == "oss" else "synapseml_internal"
+                out.append(
+                    f"  [{tp.key}] {name}={getattr(tp, f'{repository}_{family}_version')}"
+                )
+        out.append("")
     out.append("")
     out.append("BBC-VHD setup.sh values")
-    for tp in plan.targets:
+    for tp in (
+        plan.targets if "upack" in plan.families and plan.mode == "production" else []
+    ):
         comp = "spark35" if tp.key == "master" else "spark" + tp.spark.replace(".", "")
         out.append(f"  Components/MMLSpark/{comp}/setup.sh")
-        out.append(f"      SYNAPSEML_VERSION={tp.oss_upack_version}")
-        out.append(f"      SYNAPSEML_INTERNAL_VERSION={tp.internal_upack_version}")
+        if "oss" in plan.repositories:
+            out.append(f"      SYNAPSEML_VERSION={tp.oss_upack_version}")
+        else:
+            out.append(
+                f"      Preserve existing SYNAPSEML_VERSION={tp.oss_upack_version}"
+            )
+        if "internal" in plan.repositories:
+            out.append(f"      SYNAPSEML_INTERNAL_VERSION={tp.internal_upack_version}")
+        else:
+            out.append("      Preserve existing SYNAPSEML_INTERNAL_VERSION")
     return "\n".join(out)
 
 
@@ -412,9 +733,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument(
         "--internal-patch", default="0", help="Internal super-patch digit (default 0)"
     )
-    p.add_argument(
-        "--targets", default="", help="Comma-separated subset, e.g. master,spark4.0"
-    )
+    p.add_argument("--targets", help="Comma-separated subset, e.g. master,spark4.0")
     p.add_argument(
         "--upack-iteration",
         default="",
@@ -435,10 +754,24 @@ def main(argv: Optional[List[str]] = None) -> int:
         default="full",
         help="full release or a nonzero Internal-only super-patch",
     )
+    p.add_argument("--families", help="Selected maven,pip,upack families")
+    p.add_argument("--repositories", help="Selected oss,internal repositories")
+    p.add_argument("--oss-commit", default="", metavar="KEY=SHA")
+    p.add_argument("--internal-commit", default="", metavar="KEY=SHA")
+    p.add_argument("--mode", choices=RELEASE_MODES, default="production")
+    p.add_argument("--pip-feed", help="Explicit named rehearsal wheel feed")
+    p.add_argument("--upack-feed", help="Explicit named rehearsal UPack feed")
     p.add_argument("--json", action="store_true", help="Emit JSON instead of text")
     args = p.parse_args(argv)
 
-    keys = [k.strip() for k in args.targets.split(",") if k.strip()] or None
+    def selected(value):
+        return (
+            None
+            if value is None
+            else [key.strip() for key in value.split(",") if key.strip()]
+        )
+
+    keys = selected(args.targets)
 
     try:
         iterations = parse_iterations(args.upack_iteration, "--upack-iteration")
@@ -452,12 +785,19 @@ def main(argv: Optional[List[str]] = None) -> int:
             iterations,
             internal_iterations,
             args.scope,
+            families=selected(args.families),
+            repositories=selected(args.repositories),
+            oss_commits=parse_commits(args.oss_commit, "--oss-commit"),
+            internal_commits=parse_commits(args.internal_commit, "--internal-commit"),
+            mode=args.mode,
+            pip_feed=args.pip_feed,
+            upack_feed=args.upack_feed,
         )
     except ValueError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
 
-    print(json.dumps(asdict(plan), indent=2) if args.json else render_text(plan))
+    print(json.dumps(plan_to_dict(plan), indent=2) if args.json else render_text(plan))
     return 0
 
 

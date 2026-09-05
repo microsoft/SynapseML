@@ -95,16 +95,20 @@ object BuildUtils {
                    dest: String,
                    container: String,
                    accountName: String = "mmlspark"): Unit = {
+    val overwrite = ReleaseVersion.mayOverwrite(container, dest)
+    if (!overwrite) {
+      refuseExistingReleaseBlob(dest + "/", container, accountName, batch = true)
+    }
     val command = Seq("az", "storage", "blob", "upload-batch",
       "--source", source,
       "--destination", container,
       "--destination-path", dest,
       "--account-name", accountName,
-      "--overwrite", "true",
+      "--overwrite", overwrite.toString,
       "--auth-mode", "login"
     )
 
-    runCmd(osPrefix ++ command, retries=2)
+    runCmd(osPrefix ++ command, retries = if (overwrite) 2 else 0)
 
   }
 
@@ -127,15 +131,37 @@ object BuildUtils {
                          container: String,
                          accountName: String = "mmlspark",
                          extraArgs: Seq[String] = Seq()): Unit = {
+    val overwrite = ReleaseVersion.mayOverwrite(container, dest)
+    if (!overwrite) {
+      refuseExistingReleaseBlob(dest, container, accountName, batch = false)
+    }
     val command = Seq("az", "storage", "blob", "upload",
       "--file", source,
       "--container-name", container,
       "--name", dest,
       "--account-name", accountName,
-      "--overwrite", "true",
+      "--overwrite", overwrite.toString,
       "--auth-mode", "login"
     ) ++ extraArgs
-    runCmd(osPrefix ++ command, retries=2)
+    runCmd(osPrefix ++ command, retries = if (overwrite) 2 else 0)
+  }
+
+  private def refuseExistingReleaseBlob(destination: String,
+                                       container: String,
+                                       accountName: String,
+                                       batch: Boolean): Unit = {
+    import scala.sys.process.Process
+    val operation = if (batch) {
+      Seq("list", "--prefix", destination, "--num-results", "1", "--query", "length(@)")
+    } else {
+      Seq("exists", "--name", destination, "--query", "exists")
+    }
+    val command = osPrefix ++ Seq("az", "storage", "blob") ++ operation ++ Seq(
+      "--container-name", container, "--account-name", accountName,
+      "--auth-mode", "login", "--output", "tsv")
+    val result = Process(command).!!.trim
+    val absent = if (batch) result == "0" else result.equalsIgnoreCase("false")
+    require(absent, s"Release destination $container/$destination already exists or could not be verified empty")
   }
 
 

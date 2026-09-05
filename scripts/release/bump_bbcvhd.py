@@ -1,28 +1,36 @@
 #!/usr/bin/env python3
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
-"""Apply a SynapseML release to a BBC-VHD component directory (Release Guide Step 4).
+"""Preview or apply a producer-verified SynapseML release to BBC-VHD.
 
-Step 4 is hand-edited today, and it is the single most error-prone edit in the
-release. Each component's setup.sh carries two version strings that look almost
-identical but follow *different* mangling rules:
+Each component's setup.sh carries OSS and Internal UPack versions with different
+coordinate rules:
 
     SYNAPSEML_VERSION=1.1.1-spark4-0-1        # spark dot -> dash, rebuild counter
     SYNAPSEML_INTERNAL_VERSION=1.1.1-0-spark4.0   # spark dot PRESERVED, no counter
 
-Getting either wrong produces a VHD that fails at image-build time, hours later
-and far from the typo. This script derives both from release_matrix, so the two
-conventions are applied by the same code that the tests pin against production.
+The sealed release plans supply both coordinates.
 
 version.txt is a VHD component revision, unrelated to the SynapseML version; it
 is bumped by exactly one patch to force the image to rebuild.
 
 Usage:
-    python bump_bbcvhd.py --repo <bbc-vhd-checkout> --version 1.1.4 \\
-        --internal-patch 0 --target spark4.0
+    python bump_bbcvhd.py --repo <bbc-vhd-checkout> --plan plan.json \\
+        --target spark4.0 --evidence evidence.json --apply --approve-plan <plan-id>
+
+For separately published full-scope releases, use the Internal plan as --plan
+and add --oss-plan oss-plan.json --oss-evidence oss-evidence.json
+--approve-oss-plan <oss-plan-id>. Each original plan needs its own approval and
+complete producer evidence. No receipts are relabeled and no packages republished.
+Only full scope authorizes a paired base change; an internal-only hotfix must
+preserve the exact existing OSS pin.
+
+Without --apply, a plan produces a preview. Historical --version input requires
+--dry-run and cannot authorize a write.
 """
 
 import argparse
+import json
 import os
 import re
 import sys
@@ -30,7 +38,14 @@ from pathlib import Path
 from typing import List, Optional, Tuple
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from release_matrix import TARGETS_BY_KEY, build_plan  # noqa: E402
+from release_matrix import (  # noqa: E402
+    TARGETS_BY_KEY,
+    ReleasePlan,
+    TargetPlan,
+    build_plan,
+    read_plan,
+)
+from verify_release import validate_evidence  # noqa: E402
 
 # BBC-VHD names component directories without the dot: spark4.0 -> spark40.
 COMPONENT_DIR = {"master": "spark35", "spark4.0": "spark40", "spark4.1": "spark41"}
@@ -88,22 +103,84 @@ def set_shell_var(text: str, var: str, value: str) -> Tuple[str, Optional[str]]:
     )
 
 
+def _paired_oss_target(
+    plan: ReleasePlan, oss_plan: ReleasePlan, target: TargetPlan
+) -> TargetPlan:
+    for flag, candidate, repository in (
+        ("--plan", plan, "internal"),
+        ("--oss-plan", oss_plan, "oss"),
+    ):
+        if (
+            candidate.mode != "production"
+            or candidate.scope != "full"
+            or candidate.repositories != [repository]
+            or "upack" not in candidate.families
+        ):
+            raise ValueError(
+                f"paired BBC-VHD rollout requires {flag} with production mode, "
+                f"scope=full, repositories=[{repository}], and selected upack"
+            )
+    selected = [value for value in oss_plan.targets if value.key == target.key]
+    if len(selected) != 1:
+        raise ValueError("requested BBC-VHD target is not in --oss-plan")
+    oss_target = selected[0]
+    for label, expected, actual in (
+        ("OSS base version", plan.oss_version, oss_plan.oss_version),
+        (
+            "selected target runtime",
+            (target.key, target.spark, target.scala, target.python),
+            (oss_target.key, oss_target.spark, oss_target.scala, oss_target.python),
+        ),
+        ("bound OSS source commit", target.oss_commit, oss_target.oss_commit),
+        (
+            "OSS UPack coordinate and counter",
+            target.oss_upack_version,
+            oss_target.oss_upack_version,
+        ),
+        (
+            "UPack destination",
+            (plan.ado_org, plan.ado_project, plan.upack_feed),
+            (oss_plan.ado_org, oss_plan.ado_project, oss_plan.upack_feed),
+        ),
+    ):
+        if expected != actual:
+            raise ValueError(f"--oss-plan {label} does not match --plan")
+    return oss_target
+
+
 def main(argv=None) -> int:
     p = argparse.ArgumentParser(description="Apply a SynapseML release to BBC-VHD.")
     p.add_argument("--repo", required=True, type=Path, help="BBC-VHD checkout root")
-    p.add_argument("--version", required=True, help="OSS version, e.g. 1.1.4")
-    p.add_argument("--internal-patch", default="0", help="Internal super-patch digit")
+    source = p.add_mutually_exclusive_group(required=True)
+    source.add_argument("--version", help="Historical OSS version; preview only")
+    source.add_argument("--plan", type=Path, help="Bound schema-v1 release plan")
+    p.add_argument("--internal-patch", help="Internal super-patch digit")
+    p.add_argument("--evidence", type=Path, help="Fresh complete verification JSON")
+    p.add_argument("--approve-plan", help="Exact plan ID approved for this update")
+    p.add_argument(
+        "--oss-plan",
+        type=Path,
+        help="Separate full-scope OSS plan paired with an Internal-only-repository --plan",
+    )
+    p.add_argument(
+        "--oss-evidence",
+        type=Path,
+        help="Fresh complete producer evidence for the original --oss-plan",
+    )
+    p.add_argument(
+        "--approve-oss-plan",
+        help="Exact companion OSS plan ID approved for this update",
+    )
     p.add_argument(
         "--target",
         required=True,
         choices=sorted(COMPONENT_DIR),
         help="Which spark component to update",
     )
-    p.add_argument("--upack-iteration", type=int, default=0, help="OSS rebuild counter")
+    p.add_argument("--upack-iteration", type=int, help="OSS rebuild counter")
     p.add_argument(
         "--internal-upack-iteration",
         type=int,
-        default=0,
         help="Internal rebuild counter",
     )
     p.add_argument(
@@ -111,36 +188,105 @@ def main(argv=None) -> int:
         action="store_true",
         help="Bump version.txt even when both package versions already match",
     )
-    p.add_argument("--dry-run", action="store_true")
+    execution = p.add_mutually_exclusive_group()
+    execution.add_argument("--dry-run", action="store_true")
+    execution.add_argument(
+        "--apply", action="store_true", help="Write the approved update"
+    )
     args = p.parse_args(argv)
 
     if args.target not in TARGETS_BY_KEY:
         print(f"error: unknown target {args.target}", file=sys.stderr)
         return 2
 
+    oss_plan = None
+    oss_target = None
     try:
-        plan = build_plan(
-            args.version,
-            args.internal_patch,
-            [args.target],
-            {args.target: args.upack_iteration} if args.upack_iteration else None,
-            (
+        if args.oss_plan is not None and args.plan is None:
+            raise ValueError("--oss-plan requires --plan, not legacy --version")
+        if args.oss_plan is None and (
+            args.oss_evidence is not None or args.approve_oss_plan is not None
+        ):
+            raise ValueError("--oss-evidence and --approve-oss-plan require --oss-plan")
+        if args.plan:
+            if any(
+                value is not None
+                for value in (
+                    args.internal_patch,
+                    args.upack_iteration,
+                    args.internal_upack_iteration,
+                )
+            ):
+                raise ValueError(
+                    "--plan cannot be combined with re-entered coordinates"
+                )
+            plan = read_plan(args.plan, require_bound=True)
+            if plan.mode != "production" or "upack" not in plan.families:
+                raise ValueError("BBC-VHD requires a production plan selecting UPacks")
+            if args.oss_plan is not None:
+                oss_plan = read_plan(args.oss_plan, require_bound=True)
+            if args.apply:
+                if args.approve_plan != plan.plan_id:
+                    raise ValueError(
+                        "--apply requires the exact --approve-plan identity"
+                    )
+                if args.evidence is None:
+                    raise ValueError("--apply requires fresh --evidence")
+                if oss_plan is not None:
+                    if args.approve_oss_plan != oss_plan.plan_id:
+                        raise ValueError(
+                            "--apply requires the exact --approve-oss-plan identity"
+                        )
+                    if args.oss_evidence is None:
+                        raise ValueError("--apply requires fresh --oss-evidence")
+                with args.evidence.open(encoding="utf-8-sig") as stream:
+                    evidence = json.load(stream)
+                validate_evidence(plan, evidence)
+                if oss_plan is not None:
+                    with args.oss_evidence.open(encoding="utf-8-sig") as stream:
+                        oss_evidence = json.load(stream)
+                    validate_evidence(oss_plan, oss_evidence)
+        else:
+            if not args.dry_run or args.apply:
+                raise ValueError(
+                    "writes require --plan and evidence; --version is preview-only with --dry-run"
+                )
+            patch = args.internal_patch if args.internal_patch is not None else "0"
+            plan = build_plan(
+                args.version,
+                patch,
+                [args.target],
+                {args.target: args.upack_iteration}
+                if args.upack_iteration is not None
+                else None,
                 {args.target: args.internal_upack_iteration}
-                if args.internal_upack_iteration
-                else None
-            ),
-            "internal-only" if args.internal_patch != "0" else "full",
-        )
-    except ValueError as e:
+                if args.internal_upack_iteration is not None
+                else None,
+                "internal-only" if patch != "0" else "full",
+            )
+        selected = [target for target in plan.targets if target.key == args.target]
+        if len(selected) != 1:
+            raise ValueError("requested BBC-VHD target is not in the approved plan")
+        if oss_plan is not None:
+            oss_target = _paired_oss_target(plan, oss_plan, selected[0])
+            if args.apply and (
+                evidence["producer_evidence"]["destinations"]["upack"]
+                != oss_evidence["producer_evidence"]["destinations"]["upack"]
+            ):
+                raise ValueError(
+                    "--oss-evidence UPack destination does not match --evidence"
+                )
+    except (ValueError, OSError) as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
 
-    tp = plan.targets[0]
+    tp = selected[0]
+    args.repo = args.repo.resolve()
     comp = args.repo / "Components" / "MMLSpark" / COMPONENT_DIR[args.target]
     setup_sh, version_txt = comp / "setup.sh", comp / "version.txt"
 
     for f in (setup_sh, version_txt):
-        if not f.is_file():
+        if not f.resolve().is_relative_to(args.repo) or not f.is_file():
             print(
                 f"error: {f} not found. Is --repo a BBC-VHD checkout?", file=sys.stderr
             )
@@ -153,20 +299,48 @@ def main(argv=None) -> int:
         setup_text, old_int = set_shell_var(
             setup_text, INTERNAL_VAR, tp.internal_upack_version
         )
+        for var, old in ((OSS_VAR, old_oss), (INTERNAL_VAR, old_int)):
+            if old is None:
+                raise ValueError(f"{var} not found")
+        new_oss = (
+            oss_target.oss_upack_version
+            if oss_target is not None
+            else tp.oss_upack_version
+        )
+        new_int = tp.internal_upack_version
+        if "oss" not in plan.repositories and oss_target is None:
+            if args.plan or args.upack_iteration is not None:
+                if old_oss != tp.oss_upack_version:
+                    raise ValueError(
+                        "Internal-only plan conflicts with the existing OSS pin; bind its exact rebuild counter"
+                    )
+            elif not re.fullmatch(
+                re.escape(tp.oss_upack_version) + r"(?:-[1-9][0-9]*)?", old_oss
+            ):
+                raise ValueError(
+                    "Internal-only preview cannot change the existing OSS base"
+                )
+            new_oss = old_oss
+        if "internal" not in plan.repositories:
+            suffix = "" if tp.key == "master" else f"-{tp.key}"
+            pattern = (
+                re.escape(plan.oss_version)
+                + r"-(?:0|[1-9][0-9]*)"
+                + re.escape(suffix)
+                + r"(?:-[1-9][0-9]*)?"
+            )
+            if not re.fullmatch(pattern, old_int):
+                raise ValueError(
+                    "OSS-only recovery must preserve a compatible existing Internal base"
+                )
+            new_int = old_int
+        setup_text, _ = set_shell_var(original_setup_text, OSS_VAR, new_oss)
+        setup_text, _ = set_shell_var(setup_text, INTERNAL_VAR, new_int)
     except ValueError as e:
         print(f"error: {setup_sh}: {e}", file=sys.stderr)
         return 2
 
-    # Both assignments must exist. A missing one means the component layout
-    # changed and a silent no-op would ship the previous release's artifacts.
-    for var, old in ((OSS_VAR, old_oss), (INTERNAL_VAR, old_int)):
-        if old is None:
-            print(f"error: {var} not found in {setup_sh}", file=sys.stderr)
-            return 2
-
-    packages_changed = (
-        old_oss != tp.oss_upack_version or old_int != tp.internal_upack_version
-    )
+    packages_changed = old_oss != new_oss or old_int != new_int
     if not packages_changed and not args.force_revision:
         print(
             "error: BBC-VHD already references the requested package versions; "
@@ -183,13 +357,13 @@ def main(argv=None) -> int:
         print(f"error: {version_txt}: {e}", file=sys.stderr)
         return 2
 
-    label = "[DRY RUN] " if args.dry_run else ""
+    label = "[DRY RUN] " if not args.apply else ""
     print(f"{label}{comp.relative_to(args.repo).as_posix()}")
-    print(f"  {OSS_VAR}      {old_oss}  ->  {tp.oss_upack_version}")
-    print(f"  {INTERNAL_VAR}  {old_int}  ->  {tp.internal_upack_version}")
+    print(f"  {OSS_VAR}      {old_oss}  ->  {new_oss}")
+    print(f"  {INTERNAL_VAR}  {old_int}  ->  {new_int}")
     print(f"  version.txt                 {old_rev}  ->  {new_rev}")
 
-    if args.dry_run:
+    if not args.apply:
         return 0
 
     def restore_originals() -> List[str]:
@@ -235,8 +409,8 @@ def main(argv=None) -> int:
 
     postcondition_error = None
     for var, want in (
-        (OSS_VAR, tp.oss_upack_version),
-        (INTERNAL_VAR, tp.internal_upack_version),
+        (OSS_VAR, new_oss),
+        (INTERNAL_VAR, new_int),
     ):
         if not re.search(
             rf"^{re.escape(var)}={re.escape(want)}\r?$",

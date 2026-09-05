@@ -60,6 +60,18 @@ jobs:
           set -o pipefail
           sbt scalastyle test:scalastyle 2>&1 | tee "$RUNNER_TEMP/scalastyle-output.log"
 
+      - name: Set up Python for release tooling
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+
+      - name: Exercise release tooling without publication
+        env:
+          SYNAPSEML_TEST_RELEASE_SBT: "1"
+        run: |
+          python -m pip install pytest pyyaml
+          python -m pytest scripts/release tools/ci/tests/test_pipeline_yaml.py -q
+
       - name: Annotate scalastyle violations
         if: failure()
         run: |

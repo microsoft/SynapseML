@@ -89,6 +89,16 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Validate the full release policy
+        env:
+          VERSION: ${{ inputs.version }}
+          SKIP_SPARK40: ${{ vars.SKIP_SPARK40 == 'true' }}
+        run: |
+          set -euo pipefail
+          python scripts/release/release_guard.py full-release \
+            --version "$VERSION" --skip-spark40 "$SKIP_SPARK40" --repo . \
+            > "$RUNNER_TEMP/release-draft.json"
+
       - name: Set up JDK 11
         if: ${{ !inputs.skip_docs }}
         uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
@@ -187,10 +197,13 @@ jobs:
 
           ### After merge
           1. This workflow tags the merged commit with \`v${VERSION}\` and dispatches \`release-tag.yml\`.
-          2. Queue ADO build 17563 for each OSS release tag (needs ESRP/SAW approval).
-          3. Complete the SynapseML-Internal bump, tags, and build.
-          4. Run Publish-Official pipeline 35879 with the parameters from \`release_matrix.py\`.
-          5. After public artifacts exist, run \`release-notes.yml\` with \`v${VERSION}\` selected.
+          2. Finish the reviewed OSS port PRs. Bind their merged commits in an OSS-only Maven plan and run \`release_ops.py preflight\`.
+          3. Approve that plan ID, use \`release_ops.py resume --apply --approve-plan <id>\`, and complete ESRP/SAW approval.
+          4. Once the OSS dependencies are published, prepare and merge the Internal release PRs. Bind those merged commits in a separate Internal plan.
+          5. Approve and publish the Internal plan. Neither initial Internal patch zero nor later hotfixes queue OSS jobs.
+          6. Publish notes using the original public-only Maven plan, its recorded state, and its fresh producer evidence. Do not regenerate a different plan for existing receipts.
+          7. Use the reviewed UPack plans and producer evidence for BBC-VHD. The driver records builds and never repeats pending submissions.
+          See \`scripts/release/README.md\` and the \`synapseml-release\` skill for the complete commands.
           EOF
           )
           gh pr create \
@@ -199,9 +212,8 @@ jobs:
             --base master \
             --head "release/prepare-v${VERSION}"
 
-      # PRs opened with GITHUB_TOKEN do not emit new pull_request workflow
-      # events. Dispatch the two branch-safe validations explicitly so the
-      # generated commit still receives current-head checks.
+      # GITHUB_TOKEN-created PR events may wait for workflow approval. Keep the
+      # explicit branch-safe checks, and still require maintainer-approved Azure CI.
       - name: Queue release PR validation
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -286,8 +298,12 @@ jobs:
         env:
           VERSION: ${{ steps.release.outputs.version }}
           MERGED_SHA: ${{ steps.release.outputs.sha }}
+          SKIP_SPARK40: ${{ vars.SKIP_SPARK40 == 'true' }}
         run: |
           set -euo pipefail
+          python3 scripts/release/release_guard.py full-release \
+            --version "$VERSION" --skip-spark40 "$SKIP_SPARK40" --repo . \
+            > "$RUNNER_TEMP/release-draft.json"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           TAG="v${VERSION}"
@@ -300,7 +316,12 @@ jobs:
             echo "$TAG already identifies the merged commit."
           else
             git tag "$TAG" "$MERGED_SHA"
-            git push origin "$TAG"
+            git push --atomic origin "$TAG"
+          fi
+          REMOTE=$(git ls-remote --tags origin "refs/tags/$TAG" "refs/tags/$TAG^{}")
+          if ! printf '%s\n' "$REMOTE" | grep -Eq "^${MERGED_SHA}[[:space:]]"; then
+            echo "::error::Remote $TAG does not confirm the merged commit."
+            exit 1
           fi
 
       # Pushes made with GITHUB_TOKEN do not emit another workflow run. Use the
@@ -318,4 +339,4 @@ jobs:
           echo "### Release v${VERSION} tagged" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "Derivative tag and Spark branch orchestration was dispatched." >> "$GITHUB_STEP_SUMMARY"
-          echo "Next: queue ADO pipeline 17563 and complete ESRP approval." >> "$GITHUB_STEP_SUMMARY"
+          echo "Next: bind all reviewed source commits in the release plan, then run preflight and approved resume." >> "$GITHUB_STEP_SUMMARY"

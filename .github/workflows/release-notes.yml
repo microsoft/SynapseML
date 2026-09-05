@@ -20,6 +20,19 @@ name: Release Notes — Publish GitHub Release
 
 on:
   workflow_dispatch:
+    inputs:
+      plan_json:
+        description: 'Bound production OSS-only Maven plan for all supported targets'
+        required: true
+        type: string
+      approve_plan:
+        description: 'Reviewed plan_id from that public-only plan'
+        required: true
+        type: string
+      evidence_base64:
+        description: 'Fresh public Maven evidence from verify_release.py --github-evidence'
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -70,11 +83,18 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.v.outputs.tag }}
+          PLAN_JSON: ${{ inputs.plan_json }}
+          APPROVE_PLAN: ${{ inputs.approve_plan }}
+          RELEASE_EVIDENCE_BASE64: ${{ inputs.evidence_base64 }}
         run: |
           set -euo pipefail
+          printf '%s\n' "$PLAN_JSON" > "$RUNNER_TEMP/public-release-plan.json"
+          python3 scripts/release/release_guard.py notes \
+            --plan "$RUNNER_TEMP/public-release-plan.json" \
+            --evidence-base64-env \
+            --approve-plan "$APPROVE_PLAN" --tag "$TAG" --commit "$(git rev-parse HEAD)"
           python3 scripts/release/verify_release.py \
-            --version "${TAG#v}" \
-            --skip ado,internal
+            --plan "$RUNNER_TEMP/public-release-plan.json" --inventory-only
 
       # Pick the highest primary tag strictly below this one. `sort -V` gives
       # correct numeric ordering (v1.1.10 > v1.1.9), which a lexical sort does not.

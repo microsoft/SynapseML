@@ -91,6 +91,14 @@ parameters:
     displayName: Publish Release
     type: boolean
     default: false
+  - name: release_plan_base64
+    displayName: Approved release plan, base64 JSON
+    type: string
+    default: ''
+  - name: release_plan_id
+    displayName: Approved release plan ID
+    type: string
+    default: ''
 
 variables:
   runTests: True
@@ -112,7 +120,28 @@ jobs:
     vmImage: $(UBUNTU_VERSION)
   steps:
     - checkout: self
-      fetchDepth: 1
+      ${{ if eq(parameters.publishRelease, true) }}:
+        fetchDepth: 0
+        fetchTags: true
+      ${{ else }}:
+        fetchDepth: 1
+    - ${{ if eq(parameters.publishRelease, true) }}:
+      - bash: |
+          set -euo pipefail
+          if [ "${STYLE,,}" != "true" ] || [ "${UNIT,,}" != "true" ] ||
+             [ "${PYTHON,,}" != "true" ] || [ "${ARTIFACTS,,}" != "true" ]; then
+            echo "Release publication requires style, unit, Python and artifact jobs." >&2
+            exit 1
+          fi
+          python3 scripts/release/release_guard.py maven
+        displayName: 'Reject incomplete or unapproved release requests'
+        env:
+          RELEASE_PLAN_BASE64: ${{ parameters.release_plan_base64 }}
+          RELEASE_PLAN_ID: ${{ parameters.release_plan_id }}
+          STYLE: ${{ parameters.testStyle }}
+          UNIT: ${{ parameters.testUnit }}
+          PYTHON: ${{ parameters.testPython }}
+          ARTIFACTS: ${{ parameters.publishArtifacts }}
     - bash: |
         set -uo pipefail
         run_databricks_cpu=true
@@ -194,12 +223,33 @@ jobs:
       displayName: 'Python Style Check'
 - ${{ if eq(parameters.publishArtifacts, true) }}:
   - job: Publish
-    dependsOn: BuildAndCacheSbt
+    ${{ if eq(parameters.publishRelease, true) }}:
+      dependsOn: [BuildAndCacheSbt, Style, UnitTests, PythonTests, RTests, DatabricksCPUE2E, DatabricksGPUE2E, FabricE2E, WebsiteSamplesTests, BuildDocker]
+    ${{ else }}:
+      dependsOn: BuildAndCacheSbt
     condition: and(succeeded(), eq('${{ parameters.publishArtifacts }}', true))
     cancelTimeoutInMinutes: 0
     pool:
       vmImage: $(UBUNTU_VERSION)
     steps:
+      - ${{ if eq(parameters.publishRelease, true) }}:
+        - checkout: self
+          fetchDepth: 0
+          fetchTags: true
+        - bash: |
+            set -euo pipefail
+            if [ "${STYLE,,}" != "true" ] || [ "${UNIT,,}" != "true" ] || [ "${PYTHON,,}" != "true" ]; then
+              echo "Release publication requires style, unit and Python tests." >&2
+              exit 1
+            fi
+            python3 scripts/release/release_guard.py maven
+          displayName: 'Validate approved release source before artifact publication'
+          env:
+            RELEASE_PLAN_BASE64: ${{ parameters.release_plan_base64 }}
+            RELEASE_PLAN_ID: ${{ parameters.release_plan_id }}
+            STYLE: ${{ parameters.testStyle }}
+            UNIT: ${{ parameters.testUnit }}
+            PYTHON: ${{ parameters.testPython }}
       - template: templates/sbt_cache.yml
       - template: templates/update_cli.yml
       - template: templates/conda.yml
@@ -207,9 +257,15 @@ jobs:
       - bash: |
           set -euo pipefail
           PACKAGE_VERSION=$(bash tools/ci/get_sbt_version.sh)
+          if [ "${RELEASE_REQUESTED,,}" != "true" ] && [[ "$PACKAGE_VERSION" != *-SNAPSHOT ]]; then
+            echo "Ordinary CI may publish only snapshot coordinates." >&2
+            exit 1
+          fi
           echo "Publishing SynapseML package version $PACKAGE_VERSION"
           echo "##vso[task.setvariable variable=packageVersion]$PACKAGE_VERSION"
         displayName: 'Resolve package version'
+        env:
+          RELEASE_REQUESTED: ${{ parameters.publishRelease }}
       - task: MavenAuthenticate@0
         name: mavenAuthPublicPackages
         displayName: Authenticate SynapseML_PublicPackages
@@ -233,7 +289,6 @@ jobs:
             sbt genBuildInfo
             echo "##vso[task.uploadsummary]$(pwd)/target/Build.md"
             sbt -DskipCodegen=true publishLocalSigned
-            python tools/esrp/prepare_jar.py
         env:
           NEXUS-UN: $(nexus-un)
           NEXUS-PW: $(nexus-pw)
@@ -489,17 +544,24 @@ jobs:
 
 - ${{ if eq(parameters.publishRelease, true) }}:
   - job: Release
-    dependsOn: BuildAndCacheSbt
+    dependsOn: [BuildAndCacheSbt, Style, UnitTests, PythonTests, Publish]
     condition: and(succeeded(), eq('${{ parameters.publishRelease }}', true))
     cancelTimeoutInMinutes: 0
     pool:
       vmImage: $(UBUNTU_VERSION)
     steps:
+      - checkout: self
+        fetchDepth: 0
+        fetchTags: true
+      - bash: |
+          set -euo pipefail
+          python3 scripts/release/release_guard.py maven
+        displayName: 'Validate approved Maven release source'
+        env:
+          RELEASE_PLAN_BASE64: ${{ parameters.release_plan_base64 }}
+          RELEASE_PLAN_ID: ${{ parameters.release_plan_id }}
       - template: templates/sbt_cache.yml
       - template: templates/update_cli.yml
-      - bash: |
-          echo '##vso[task.setvariable variable=tag]'$(git tag -l --points-at HEAD)
-        displayName: 'Get Git Tag'
       - bash: |
           set -euo pipefail
           PACKAGE_VERSION=$(bash tools/ci/get_sbt_version.sh)
@@ -510,35 +572,15 @@ jobs:
           fi
           echo "Publishing release package version $PACKAGE_VERSION"
           echo "##vso[task.setvariable variable=packageVersion]$PACKAGE_VERSION"
-        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
         displayName: 'Validate release package version'
         env:
-          RELEASE_TAG: $(tag)
-      - bash: |
-          set -e
-          wget https://github.com/git-chglog/git-chglog/releases/download/0.8.0/git-chglog_linux_amd64
-          chmod +x git-chglog_linux_amd64
-          ./git-chglog_linux_amd64 -o CHANGELOG.md $TAG
-        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
-      - task: GitHubRelease@1
-        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
-        inputs:
-          gitHubConnection: 'MMLSpark Github'
-          repositoryName: '$(Build.Repository.Name)'
-          action: 'create'
-          target: '$(Build.SourceVersion)'
-          tagSource: 'gitTag'
-          releaseNotesFile: 'CHANGELOG.md'
-          isDraft: true
+          RELEASE_TAG: $(SYNAPSEML_RELEASE_TAG)
       - bash: echo "##vso[task.prependpath]$CONDA/bin"
-        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
         displayName: Add conda to PATH
       - bash: sudo chown -R $(whoami):$(id -ng) $(CONDA_CACHE_DIR)
         displayName: Fix directory permissions
-        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
       - task: Cache@2
         displayName: Use cached Anaconda environment
-        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
         continueOnError: true
         inputs:
           key: 'conda | "$(Agent.OS)" | environment.yml'
@@ -551,10 +593,9 @@ jobs:
           set -e
           conda env remove --name synapseml --yes || true
           conda env create --yes -f environment.yml -v
-        condition: and(eq(variables.isMaster, true), and(startsWith(variables['tag'], 'v'), ne(variables.CONDA_CACHE_RESTORED, 'true')))
+        condition: and(succeeded(), ne(variables.CONDA_CACHE_RESTORED, 'true'))
         displayName: Create Anaconda environment
       - task: AzureKeyVault@2
-        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
         inputs:
           azureSubscription: 'SynapseML Build'
           keyVaultName: mmlspark-keys
@@ -563,7 +604,7 @@ jobs:
           source activate synapseml
           echo "Publishing Python package version $(packageVersion)"
           sbt publishPypi
-        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
+        condition: and(succeeded(), eq(variables.isPrimaryRelease, 'true'))
         env:
           STORAGE-KEY: $(storage-key)
           NEXUS-UN: $(nexus-un)
@@ -579,8 +620,9 @@ jobs:
           source activate synapseml
           echo "Preparing Maven package version $(packageVersion)"
           sbt publishLocalSigned
-          python tools/esrp/prepare_jar.py
-        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
+          python tools/esrp/prepare_jar.py --version "$(packageVersion)" \
+            --scala "$(releaseScala)" \
+            --output "$(Build.ArtifactStagingDirectory)/maven-release-$(System.JobAttempt)"
         env:
           STORAGE-KEY: $(storage-key)
           NEXUS-UN: $(nexus-un)
@@ -598,13 +640,31 @@ jobs:
           signcertname: 'esrp-release-mi-cert'
           clientid: '1fc1c0d1-5a85-4081-8f1e-12a8c225b9a6'
           contenttype: maven
-          folderlocation: '/home/vsts/.ivy2/local/com.microsoft.azure/'
+          folderlocation: '$(Build.ArtifactStagingDirectory)/maven-release-$(System.JobAttempt)'
           owners: 'zhoubo@microsoft.com,marcozo@microsoft.com,romanbat@microsoft.com'
           approvers: 'romanbat@microsoft.com,markus.weimer@microsoft.com,negust@microsoft.com'
           mainpublisher: synapseml
           domaintenantid: '33e01921-4d64-4f8c-a055-5bdaffd5e33d'
         displayName: 'ESRP Publish Package'
-        condition: and(eq(variables.isMaster, true), startsWith(variables['tag'], 'v'))
+      - bash: |
+          set -euo pipefail
+          PYPI_ARGS=()
+          if [ "$(isPrimaryRelease)" = "true" ]; then
+            PYPI_ARGS=(--pypi-wheel "target/scala-$(releaseScala)/generated/package/python/$(releasePypiWheel)")
+          fi
+          python3 scripts/release/release_guard.py maven \
+            --artifact-root "$(Build.ArtifactStagingDirectory)/maven-release-$(System.JobAttempt)" \
+            --receipt "$(Build.ArtifactStagingDirectory)/release-provenance/release-provenance.json" \
+            "${PYPI_ARGS[@]}"
+        displayName: 'Record published Maven source and artifact hashes'
+        env:
+          RELEASE_PLAN_BASE64: ${{ parameters.release_plan_base64 }}
+          RELEASE_PLAN_ID: ${{ parameters.release_plan_id }}
+      - task: PublishPipelineArtifact@1
+        displayName: 'Publish Maven release provenance'
+        inputs:
+          targetPath: '$(Build.ArtifactStagingDirectory)/release-provenance'
+          artifact: 'release-provenance'
 
 - job: PythonTests
   dependsOn: BuildAndCacheSbt
