@@ -233,6 +233,28 @@ class ContentUnderstandingWriterSuite extends TestBase {
     }
   }
 
+  test("durable writers accept input columns matching transform output names") {
+    withService { service =>
+      withOutput { path =>
+        val tableName = "cu_writer_" + UUID.randomUUID().toString.replace("-", "")
+        try {
+          val stage = analyzer(service).setOutputCol("source").setErrorCol("docId")
+          val input = documents.filter(col("docId") === "a")
+          val pathResult = stage.writeToPath(input, "docId", path, "parquet").head()
+          val tableResult = stage.writeToTable(input, "docId", tableName, "parquet").head()
+          Seq(pathResult, tableResult).foreach { row =>
+            assert(row.getAs[String]("documentId") == "a")
+            assert(row.getAs[String]("status") == "Succeeded")
+            assert(row.getAs[String]("rawResponse").contains("synthetic a"))
+          }
+          assert(service.submitted("a") == 2)
+        } finally {
+          spark.sql(s"DROP TABLE IF EXISTS `$tableName`")
+        }
+      }
+    }
+  }
+
   test("empty input creates a readable empty journal without calling the service") {
     withService { service =>
       withOutput { path =>

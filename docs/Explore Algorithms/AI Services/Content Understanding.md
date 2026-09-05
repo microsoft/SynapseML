@@ -37,6 +37,9 @@ These are instance methods on a configured analyzer:
 `status`, `httpStatus`, `rawResponse`, and `error`. The durable methods return
 those fields as top-level columns, with `documentId`, `requestHash`, and
 `sequence`. They do not copy the input document bytes into the journal.
+The writers do not add `outputCol` or `errorCol` to the input, so existing
+columns with those names are allowed. `transform` rejects those collisions
+to avoid overwriting input columns.
 
 ### REST calls under the hood
 
