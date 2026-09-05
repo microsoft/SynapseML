@@ -222,6 +222,7 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
         read()
       }
     }
+    // The enclosing HTTP response owns the stream; closing it here after abort can mask the original failure.
     try {
       read()
       new String(output.toByteArray, StandardCharsets.UTF_8)
@@ -232,9 +233,6 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
       case error: IOException =>
         request.abort()
         throw error
-    } finally {
-      input.close()
-      output.close()
     }
   }
 
@@ -267,14 +265,15 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
         WireResponse(code, "", location, retryAfter, Some(diagnostic("ResponseTooLarge",
           "Response exceeded maxResponseBytes. Use explicit input ranges or increase the configured bound.")))
       case error: InterruptedIOException if Thread.currentThread().isInterrupted => throw error
-      case _: IOException =>
+      case error: IOException =>
         request.abort()
         val message = if (data.requestLine.method == "GET") {
           "HTTP polling transport failed. Retain the operation handle and resume polling."
         } else {
           "HTTP transport failed. A submitted request may have been accepted; it was not resubmitted."
         }
-        WireResponse(code, "", location, retryAfter, Some(diagnostic("TransportError", message)),
+        WireResponse(code, "", location, retryAfter,
+          Some(diagnostic("TransportError", s"${error.getClass.getSimpleName}: $message")),
           transportFailure = true)
     } finally {
       request.releaseConnection()

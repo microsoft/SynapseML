@@ -6,10 +6,12 @@ package com.microsoft.azure.synapse.ml.services.form.contentunderstanding
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import org.apache.commons.io.IOUtils
 
+import java.io.ByteArrayOutputStream
 import java.net.InetSocketAddress
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.{CopyOnWriteArrayList, Executors}
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.zip.GZIPOutputStream
 import scala.collection.JavaConverters._
 
 private[contentunderstanding] object ContentUnderstandingFixtures {
@@ -23,7 +25,8 @@ private[contentunderstanding] case class ContentUnderstandingStubReply(status: I
                                                                       body: String,
                                                                       headers: Map[String, String] = Map.empty,
                                                                       chunked: Boolean = false,
-                                                                      disconnect: Boolean = false)
+                                                                      disconnect: Boolean = false,
+                                                                      gzip: Boolean = false)
 
 private[contentunderstanding] case class ContentUnderstandingStubRequest(method: String,
                                                                         path: String,
@@ -54,6 +57,22 @@ private[contentunderstanding] class ContentUnderstandingStub(
 
   def requests: Seq[ContentUnderstandingStubRequest] = recorded.asScala.toVector
 
+  private def responseBytes(response: ContentUnderstandingStubReply): Array[Byte] = {
+    val bytes = response.body.getBytes(StandardCharsets.UTF_8)
+    if (response.gzip) {
+      val output = new ByteArrayOutputStream()
+      val gzip = new GZIPOutputStream(output)
+      try {
+        gzip.write(bytes)
+      } finally {
+        gzip.close()
+      }
+      output.toByteArray
+    } else {
+      bytes
+    }
+  }
+
   server.setExecutor(executor)
   server.createContext("/", new HttpHandler {
     override def handle(exchange: HttpExchange): Unit = {
@@ -76,7 +95,10 @@ private[contentunderstanding] class ContentUnderstandingStub(
             exchange.getResponseHeaders.set(name, value.replace("$ROOT", endpoint))
           }
           exchange.getResponseHeaders.set("Content-Type", "application/json; charset=utf-8")
-          val bytes = response.body.getBytes(StandardCharsets.UTF_8)
+          if (response.gzip) {
+            exchange.getResponseHeaders.set("Content-Encoding", "gzip")
+          }
+          val bytes = responseBytes(response)
           exchange.sendResponseHeaders(response.status, if (response.chunked) 0L else bytes.length.toLong)
           exchange.getResponseBody.write(bytes)
         }
