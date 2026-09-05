@@ -28,19 +28,19 @@ def collect_artifacts(root, version, scala):
     for name in PUBLIC_MAVEN_MODULES:
         module = f"{name}_{scala}"
         source = root / module / version
-        if (
-            not source.is_dir()
-            or source.is_symlink()
-            or not source.resolve().is_relative_to(root)
-        ):
-            raise ValueError(
-                f"missing or linked release artifact directory: {module}/{version}"
-            )
+        invalid_directory = (
+            f"missing or linked release artifact directory: {module}/{version}"
+        )
+        if not source.is_dir() or source.is_symlink():
+            raise ValueError(invalid_directory)
+        resolved_source = source.resolve()
+        if not resolved_source.is_relative_to(root):
+            raise ValueError(invalid_directory)
         selected = {}
         for path in sorted(source.rglob("*")):
             if not path.is_file() or not path.name.startswith(module):
                 continue
-            if path.is_symlink() or not path.resolve().is_relative_to(source.resolve()):
+            if path.is_symlink() or not path.resolve().is_relative_to(resolved_source):
                 raise ValueError(
                     "release artifacts must stay inside the selected source directory"
                 )

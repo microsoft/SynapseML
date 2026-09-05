@@ -1,9 +1,11 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
+import json
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -47,6 +49,32 @@ def test_real_sbt_version_resolver_and_immutable_artifact_policy(tmp_path):
         ROOT / "project" / "ReleaseVersion.scala", project / "ReleaseVersion.scala"
     )
     shutil.copyfile(ROOT / "project" / "build.properties", project / "build.properties")
+    shutil.copyfile(ROOT / "project" / "build.scala", project / "BuildUtils.scala")
+    azure = tmp_path / "azure_fixture.py"
+    azure.write_text(
+        "import sys\n"
+        "if sys.argv[1] == 'error':\n"
+        "    print('synthetic inspection failure', file=sys.stderr)\n"
+        "    sys.exit(17)\n"
+        "print(sys.argv[1])\n",
+        encoding="utf-8",
+    )
+    helpers = (ROOT / "project" / "build.scala").read_text(encoding="utf-8")
+    probe = (
+        "  def refuseExistingReleaseBlob"
+        + helpers.split("  private def refuseExistingReleaseBlob", 1)[1].split(
+            "\n  def allFiles", 1
+        )[0]
+    )
+    (project / "BlobProbe.scala").write_text(
+        "object BlobProbe {\n"
+        f"  val python = {json.dumps(sys.executable)}\n"
+        f"  val fixture = {json.dumps(str(azure))}\n"
+        '  var osPrefix: Seq[String] = Seq(python, fixture, "false")\n'
+        + probe
+        + "\n}\n",
+        encoding="utf-8",
+    )
     (tmp_path / "build.sbt").write_text(
         """
 name := "release-version-regression"
@@ -84,6 +112,27 @@ TaskKey[Unit]("releaseVersionChecks") := {
   assert(!ReleaseVersion.mayOverwrite("rrr", "synapseml-1.1.4.zip"))
   assert(ReleaseVersion.mayOverwrite("docs", "latest/index.html"))
   println("RELEASE_VERSION_CHECKS_PASSED")
+  def blob(batch: Boolean): Unit =
+    BlobProbe.refuseExistingReleaseBlob("release/version", "maven", "inert-account", batch)
+  for ((output, batch) <- Seq(("false", false), ("0", true))) {
+    BlobProbe.osPrefix = Seq(BlobProbe.python, BlobProbe.fixture, output)
+    blob(batch)
+  }
+  for ((output, batch) <- Seq(("true", false), ("1", true), ("unknown", false))) {
+    BlobProbe.osPrefix = Seq(BlobProbe.python, BlobProbe.fixture, output)
+    assert(scala.util.Try(blob(batch)).isFailure)
+  }
+  for (batch <- Seq(false, true)) {
+    BlobProbe.osPrefix = Seq(BlobProbe.python, BlobProbe.fixture, "error")
+    val failure = scala.util.Try(blob(batch)).failed.get
+    assert(failure.getMessage.contains("maven/release/version"))
+    assert(failure.getMessage.contains("exit code 17"))
+  }
+  BlobProbe.osPrefix = Seq((baseDirectory.value / "missing-executable").getPath)
+  val missing = scala.util.Try(blob(false)).failed.get
+  assert(missing.getMessage.contains("maven/release/version"))
+  assert(missing.getCause.isInstanceOf[java.io.IOException])
+  println("RELEASE_BLOB_CHECKS_PASSED")
 }
 """.replace(
             '"COMMIT"', f'"{commit}"'
@@ -91,14 +140,16 @@ TaskKey[Unit]("releaseVersionChecks") := {
         encoding="utf-8",
     )
     result = subprocess.run(
-        ["sbt", "-batch", "releaseVersionChecks"],
+        ["sbt", "releaseVersionChecks"],
         cwd=tmp_path,
+        stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
         timeout=300,
     )
     assert result.returncode == 0, result.stdout + result.stderr
     assert "RELEASE_VERSION_CHECKS_PASSED" in result.stdout
+    assert "RELEASE_BLOB_CHECKS_PASSED" in result.stdout
     assert "ReleaseVersion.resolve(dynverVersion, sys.env)" in (
         ROOT / "build.sbt"
     ).read_text(encoding="utf-8")
@@ -143,8 +194,9 @@ rootGenDir := baseDirectory.value
         encoding="utf-8",
     )
     collision = subprocess.run(
-        ["sbt", "-batch", "publishPypi"],
+        ["sbt", "publishPypi"],
         cwd=tmp_path,
+        stdin=subprocess.DEVNULL,
         capture_output=True,
         text=True,
         timeout=300,

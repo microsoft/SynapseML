@@ -150,7 +150,7 @@ object BuildUtils {
                                        container: String,
                                        accountName: String,
                                        batch: Boolean): Unit = {
-    import scala.sys.process.Process
+    import scala.sys.process.{Process, ProcessLogger}
     val operation = if (batch) {
       Seq("list", "--prefix", destination, "--num-results", "1", "--query", "length(@)")
     } else {
@@ -159,7 +159,17 @@ object BuildUtils {
     val command = osPrefix ++ Seq("az", "storage", "blob") ++ operation ++ Seq(
       "--container-name", container, "--account-name", accountName,
       "--auth-mode", "login", "--output", "tsv")
-    val result = Process(command).!!.trim
+    val output = new StringBuilder
+    val failure = s"Release destination $container/$destination could not be verified empty"
+    val exitCode = try {
+      Process(command).!(ProcessLogger(
+        line => output.append(line).append("\n"),
+        line => Console.err.println(line)))
+    } catch {
+      case error: java.io.IOException => throw new IllegalStateException(failure, error)
+    }
+    require(exitCode == 0, s"$failure: Azure CLI failed with exit code $exitCode")
+    val result = output.toString.trim
     val absent = if (batch) result == "0" else result.equalsIgnoreCase("false")
     require(absent, s"Release destination $container/$destination already exists or could not be verified empty")
   }
