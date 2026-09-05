@@ -72,7 +72,7 @@ object ContentUnderstandingWriter {
     require(path != null && path.trim.nonEmpty, "path must not be empty")
     val spark = dataset.sparkSession
     val output = new Path(path)
-    val fs = output.getFileSystem(spark.sparkContext.hadoopConfiguration)
+    val fs = output.getFileSystem(spark.sessionState.newHadoopConf())
     val store = new Journal {
       override def exists: Boolean = fs.exists(output)
       override def read(): DataFrame = spark.read.format(format).load(path)
@@ -176,7 +176,7 @@ object ContentUnderstandingWriter {
       }
       val location = submitted.flatMap(_.operationLocation)
         .orElse(previous.map(_.getAs[String]("operationLocation")))
-      if (!submitted.exists(r => TerminalStatuses(r.status))) {
+      if (analyzer.getOperationMode == "analyze" && !submitted.exists(r => TerminalStatuses(r.status))) {
         require(location.isDefined, "An accepted analysis is missing its operationLocation")
         val response = analyzer.pollOne(row, location.get)
         val nextSequence = if (previous.isDefined) sequence + 1 else sequence + 2
@@ -209,8 +209,8 @@ object ContentUnderstandingWriter {
       val batch = remaining.orderBy(quoted(idCol)).limit(batchSize).collect()
       if (batch.nonEmpty) {
         val ids = batch.map(_.getAs[String](idCol))
-        val states = latest(journal.read())
-          .filter(col("documentId").isin(ids.toSeq: _*))
+        val relevant = journal.read().filter(col("documentId").isin(ids.toSeq: _*))
+        val states = latest(relevant)
           .select(MetadataColumns.map(col): _*)
           .collect()
           .map(state => state.getAs[String]("documentId") -> state).toMap

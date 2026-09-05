@@ -18,6 +18,44 @@ when completed documents must survive a later failure. The durable methods save
 each accepted operation handle before polling, then commit each result separately.
 They do not wait for the entire input DataFrame to finish before writing results.
 
+## API at a glance
+
+Import `ContentUnderstanding` from `synapse.ml.services.contentunderstanding`.
+These are instance methods on a configured analyzer:
+
+| Python method | Behavior and return value |
+| --- | --- |
+| `transform(dataset)` | Lazy Spark transformation. Returns the input columns plus `outputCol` and `errorCol`. |
+| `writeToTable(dataset, idCol, tableName, format="delta", batchSize=1)` | Eagerly processes input and persists each operation. Returns a DataFrame with the latest state of every ID in the journal. |
+| `writeToPath(dataset, idCol, path, format="delta", batchSize=1)` | Same persistence and return schema, using a lakehouse or filesystem path. |
+| `readTable(spark, tableName)` | Reads the latest persisted state per ID without contacting the service. |
+| `readPath(spark, path, format="delta")` | Reads the latest persisted state from a path without contacting the service. |
+| `createAnalyzer(definition, allowReplace=False)` | Explicit driver call. Accepts a dictionary or JSON string and returns the analyzer definition as a JSON string. |
+| `getAnalyzer()` | Explicit driver call that returns the configured analyzer's definition as a JSON string. |
+
+`transform` adds a response struct containing `operationLocation`, `id`,
+`status`, `httpStatus`, `rawResponse`, and `error`. The durable methods return
+those fields as top-level columns, with `documentId`, `requestHash`, and
+`sequence`. They do not copy the input document bytes into the journal.
+
+### REST calls under the hood
+
+The Scala implementation uses the same SynapseML HTTP and Spark pipeline
+infrastructure as other cognitive-service stages. It sends REST requests
+directly, without a Content Understanding Python SDK dependency:
+
+| Method | REST operation |
+| --- | --- |
+| Analyze or submit | `POST {endpoint}/contentunderstanding/analyzers/{analyzerId}:analyze?api-version={version}` |
+| Poll an accepted operation | `GET {Operation-Location}` |
+| `createAnalyzer` | `PUT {endpoint}/contentunderstanding/analyzers/{analyzerId}?api-version={version}&allowReplace={bool}`, then poll its management operation |
+| `getAnalyzer` | `GET {endpoint}/contentunderstanding/analyzers/{analyzerId}?api-version={version}` |
+
+The analyze body contains one `inputs` entry with either `url` or base64 `data`,
+optional `name`, `mimeType`, and `range`, and an optional top-level
+`modelDeployments` map. `stringEncoding` and `processingLocation` are query
+parameters. Analyzer configuration is sent only by `createAnalyzer`.
+
 ## Configure an analyzer
 
 Install the SynapseML Python package and matching JVM artifacts that include this
@@ -89,6 +127,18 @@ Configure exactly one source, `documentUrl` or `documentBytes`. Do not set both
 on the same stage. Binary input is base64-encoded in the request's `inputs[].data`
 property. Prefer URLs for large files when access requirements permit it, since
 base64 encoding increases memory and request size.
+
+PDF and DOCX files can use the same bytes API. For DOCX, supply a `.docx` name
+and, when setting `mimeType`, use
+`application/vnd.openxmlformats-officedocument.wordprocessingml.document`.
+Use `setMimeTypeCol` for mixed-format input.
+
+Do not assume every document response contains a `pages` array. In live
+`prebuilt-read` tests, PDFs returned page-level output and DOCX returned text and
+tables as Markdown with `documentPagesMinimal` usage. A DOCX request with
+`range="2"` still returned the whole document. Use whole-document IDs for DOCX;
+do not use its page range as a checkpoint boundary. The PDF range examples below
+are not a DOCX pagination guarantee.
 
 ### Request options
 
@@ -240,6 +290,24 @@ original manifest when resuming an operation that was already submitted.
 Likewise, version custom analyzers and model deployments: the fingerprint does
 not fetch remote analyzer definitions or model revisions.
 
+To persist accepted handles without waiting for analysis to complete, use
+submit-only mode. Resume against the same destination in analyze mode:
+
+```python
+analyzer.setOperationMode("submit").writeToTable(
+    documents, "documentId", "content_understanding_operations"
+)
+latest = analyzer.setOperationMode("analyze").writeToTable(
+    documents, "documentId", "content_understanding_operations"
+)
+```
+
+Repeated submit-only writes skip IDs that already have saved handles.
+Poll-only `transform` can also consume operation handles through
+`setOperationLocationCol`. It uses the API version in each saved URL, so the
+original document and API-version columns are not required. The durable writers
+require the original document manifest and use `analyze` or `submit` mode.
+
 For a path destination, use
 `analyzer.readPath(spark, "Files/content-understanding/operations")`.
 The read helpers and write return values contain the latest state per ID.
@@ -353,6 +421,18 @@ storage; the journal's committed `rawResponse` is.
 Scala uses the same implementation and persistence behavior:
 
 ```scala
+def transform(dataset: Dataset[_]): DataFrame
+def writeToTable(dataset: Dataset[_], idCol: String, tableName: String,
+                 format: String = "delta", batchSize: Int = 1): DataFrame
+def writeToPath(dataset: Dataset[_], idCol: String, path: String,
+                format: String = "delta", batchSize: Int = 1): DataFrame
+def readTable(spark: SparkSession, tableName: String): DataFrame
+def readPath(spark: SparkSession, path: String, format: String = "delta"): DataFrame
+def createAnalyzer(definitionJson: String, allowReplace: Boolean): String
+def getAnalyzer(): String
+```
+
+```scala
 import com.microsoft.azure.synapse.ml.services.contentunderstanding.ContentUnderstanding
 
 val analyzer = new ContentUnderstanding()
@@ -368,3 +448,23 @@ val resumed = analyzer.readTable(spark, "content_understanding_operations")
 
 No Content Understanding Python SDK is required. The public transformer,
 request handling, and journal logic live in the JVM implementation.
+
+## Content Understanding tests
+
+Offline Scala suites are under
+`cognitive/src/test/scala/com/microsoft/azure/synapse/ml/services/form/contentunderstanding`.
+They remain in the existing document-service CI group, with separate files for
+the public API and protocol, journal writes, recovery, session filesystem
+configuration, and framework fuzzing. Run only this feature with:
+
+```bash
+sbt "cognitive/testOnly *ContentUnderstanding*Suite"
+```
+
+`test_ContentUnderstanding.py` exercises the generated Python wrapper against a
+loopback REST fixture. `test_ContentUnderstandingE2E.py` is a separate, opt-in
+Azure suite that generates synthetic PDF and DOCX files. It covers PDF ranges,
+DOCX text and tables, optional preview metadata, partial table results, and
+submit-only path resumption. Its module docstring lists the environment
+variables and the scratch resources it creates and removes. Without explicitly
+configured live-service credentials, the live suite is skipped.

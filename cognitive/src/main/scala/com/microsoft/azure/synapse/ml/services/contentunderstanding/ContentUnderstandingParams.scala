@@ -191,7 +191,7 @@ private[contentunderstanding] trait ContentUnderstandingPython extends Wrappable
       |    self._java_obj.clear(self._java_obj.getParam(param.name))
       |    return super().clear(param)
       |
-      |def createAnalyzer(self, definition, allowReplace=False) -> str:
+      |def createAnalyzer(self, definition: "dict | str", allowReplace: bool = False) -> str:
       |    '''Explicit driver-only provisioning. Never changes resource defaults.'''
       |    import json
       |    self._transfer_params_to_java()

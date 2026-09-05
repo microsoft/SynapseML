@@ -284,6 +284,29 @@ class ContentUnderstandingWriterSuite extends TestBase {
     new ContentUnderstanding().setEndpoint(server.endpoint).setDocumentBytes(Array[Byte](1))
       .setDocumentNameCol("docId").setPollingDelay(0).setMaxPollAttempts(1)
 
+  test("submit-only writer respects the configured operation mode and later resumes saved handles") {
+    ContentUnderstandingStub.withReplies(Seq(accepted, completed)) { server =>
+      withOutput { path =>
+        val stage = stubAnalyzer(server).setOperationMode("submit")
+        val input = documents.filter(col("docId") === "a")
+        val submitted = stage.writeToPath(input, "docId", path, "parquet").head()
+        assert(submitted.getAs[String]("status") == "Running")
+        assert(submitted.getAs[Long]("sequence") == 0L)
+        assert(server.requests.map(_.method) == Seq("POST"))
+
+        stage.writeToPath(input, "docId", path, "parquet")
+        assert(server.requests.map(_.method) == Seq("POST"))
+        assert(spark.read.parquet(path).count() == 1)
+
+        val resumed = stage.setOperationMode("analyze").writeToPath(input, "docId", path, "parquet").head()
+        assert(resumed.getAs[String]("status") == "Succeeded")
+        assert(resumed.getAs[String]("operationLocation") == submitted.getAs[String]("operationLocation"))
+        assert(resumed.getAs[Long]("sequence") == 1L)
+        assert(server.requests.map(_.method) == Seq("POST", "GET"))
+      }
+    }
+  }
+
   test("writer recovery retries definite admission rejections without poisoning completed IDs") {
     Seq(401, 403, 429).foreach { code =>
       val rejected = ContentUnderstandingStubReply(code, """{"error":{"code":"Rejected"}}""")
