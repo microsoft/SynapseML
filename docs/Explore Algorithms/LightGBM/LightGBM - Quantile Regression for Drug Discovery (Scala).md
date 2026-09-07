@@ -1,5 +1,23 @@
 # LightGBM - Quantile Regression for Drug Discovery (Scala)
 
+## Contents
+
+- [Overview & Background](#overview--background)
+- [Tested runtime / compatibility matrix](#tested-runtime--compatibility-matrix)
+- [Key Syntax Differences](#key-syntax-differences-pyspark-vs-spark-scala)
+- [Step 1: Environment Setup and Dependencies](#step-1-environment-setup-and-dependencies)
+- [Step 2: Spark Session and Imports](#step-2-spark-session-and-imports)
+- [Step 3: Dataset Preparation](#step-3-dataset-preparation)
+- [Step 4: Feature Assembly & Train/Test Split](#step-4-feature-assembly--traintest-split)
+- [Step 5: Training Multi-Quantile LightGBM Models](#step-5-training-multi-quantile-lightgbm-models)
+- [Step 6: Generating the Uncertainty Envelope](#step-6-generating-the-uncertainty-envelope)
+- [Step 7: Model Evaluation & Validation](#step-7-model-evaluation--validation)
+- [Step 8: Standalone Spark Scala Application (`spark-submit`)](#step-8-standalone-spark-scala-application-spark-submit)
+- [Troubleshooting & common runtime errors](#troubleshooting--common-runtime-errors)
+- [Summary](#summary)
+
+---
+
 ## Overview & Background
 
 In pharmaceutical research and drug discovery, predicting the biological activity or potency of chemical compounds (Quantitative Structure-Activity Relationship, or **QSAR**) is a foundational task.
@@ -10,6 +28,15 @@ Traditional machine learning regression models optimize for **Mean Squared Error
 * High variance and uncertainty can lead to costly laboratory synthesis and in vitro assay failures.
 
 **Quantile Regression** addresses this challenge by estimating conditional percentiles (e.g., 20th percentile, 50th percentile / median, and 80th percentile) of the response distribution. Fitting models across multiple quantiles produces an **uncertainty envelope** (prediction interval) for every candidate compound. This empowers medicinal chemists to quantify risk, prioritize high-confidence candidates, and flag compounds requiring further experimental validation.
+
+## Tested runtime / compatibility matrix
+
+| Component | Version (tested) | Notes |
+|---|---:|---|
+| Scala | 2.12.17 | Use the 2.12 SynapseML build (`synapseml_2.12`) |
+| Spark | 3.5.0 | Examples were run on Spark 3.5.0 |
+| SynapseML | 1.1.3 | Verify runtime supports this coordinate; managed runtimes may have different preinstalled versions |
+| Hadoop connector (if using wasbs://) | org.apache.hadoop:hadoop-azure:3.3.4 | Required only for standalone clusters reading wasbs:// blobs |
 
 ---
 
