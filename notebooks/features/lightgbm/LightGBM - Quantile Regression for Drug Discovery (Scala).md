@@ -273,7 +273,7 @@ libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-core" % sparkVersion % "provided",
   "org.apache.spark" %% "spark-sql"  % sparkVersion % "provided",
   "org.apache.spark" %% "spark-mllib" % sparkVersion % "provided",
-  "com.microsoft.azure" %% "synapseml_2.12" % "1.1.3"
+  "com.microsoft.azure" % "synapseml_2.12" % "1.1.3"
 )
 ```
 
