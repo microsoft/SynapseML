@@ -246,9 +246,13 @@ predictionsWithInterval
 ```
 
 ### Interpretation for Medicinal Chemists
-* **Small `uncertainty_width`:** The model is confident; the molecule's chemical features lie in well-sampled chemical space.
-* **Large `uncertainty_width`:** High epistemic or assay uncertainty; proceed with caution before ordering synthesis.
-* **High `pred_q20`:** Even under pessimistic estimation, the molecule exhibits strong potency—ideal for prioritization.
+For correctly ordered quantiles:
+
+* A small `uncertainty_width` means the estimated 20th and 80th percentiles are close. It does not establish model confidence or show that a compound is inside the training domain.
+* A large `uncertainty_width` means the estimated response interval is wide. These models do not separate assay noise from uncertainty in the fitted model.
+* A high `pred_q20` is a high estimated lower response quantile, not a guaranteed minimum potency. Check held-out interval coverage and applicability to new compounds before using it for prioritization.
+
+This synthetic example demonstrates the API, not a validated predictor of compound activity.
 * **`is_crossed` flag:** Compounds with reversed or crossed endpoints (`is_crossed == true`) have negative widths or inconsistent medians. They must not be treated as valid uncertainty intervals; taking absolute values or sorting does not establish advertised coverage.
 
 ---
