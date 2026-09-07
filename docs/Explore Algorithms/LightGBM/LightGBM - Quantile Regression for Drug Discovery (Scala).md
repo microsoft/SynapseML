@@ -263,10 +263,10 @@ val predictions = modelQ80.transform(
 // Independent quantile fits do not guarantee monotonic ordering (q20 <= q50 <= q80).
 // When crossed, subtracting predictions produces negative widths and invalid intervals.
 // See maintainer explanation in lightgbm-org/LightGBM#3447.
-val crossingCount = predictions.filter(
+val numCrossedRows = predictions.filter(
   $"pred_q20" > $"pred_q50_median" || $"pred_q50_median" > $"pred_q80"
 ).count()
-println(s"Rows with crossed quantiles: $crossingCount")
+println(s"Rows with crossed quantiles: $numCrossedRows")
 
 // Flag crossed quantiles and calculate prediction interval width & coverage
 val predictionsWithInterval = predictions
@@ -325,10 +325,6 @@ println(f"Median Model MAE:  $mae%.4f")
 // reported here so the reader can make an informed judgement.
 // Taking an absolute value or sorting the bounds is NOT a valid fix: it does
 // not establish the advertised 60 % nominal coverage.
-val crossingCount = predictions.filter(
-  $"pred_q20" > $"pred_q50_median" || $"pred_q50_median" > $"pred_q80"
-).count()
-
 val totalCount    = predictionsWithInterval.count()
 val coverageCount = predictionsWithInterval.filter($"within_interval" === true).count()
 val empiricalCoverage = (coverageCount.toDouble / totalCount.toDouble) * 100.0
@@ -339,8 +335,8 @@ val validTotal         = validRows.count()
 val validCoverageCount = validRows.filter($"within_interval" === true).count()
 val validCoverage      = if (validTotal > 0) (validCoverageCount.toDouble / validTotal.toDouble) * 100.0 else 0.0
 
-println(f"Rows with crossed quantiles        : $crossingCount (out of $totalCount)")
-println(f"Empirical Coverage (all rows)      : $empiricalCoverage%.2f%% — includes $crossingCount crossed row(s); interpret with caution")
+println(f"Rows with crossed quantiles        : $numCrossedRows (out of $totalCount)")
+println(f"Empirical Coverage (all rows)      : $empiricalCoverage%.2f%% — includes $numCrossedRows crossed row(s); interpret with caution")
 println(f"Empirical Coverage (valid rows only): $validCoverage%.2f%% (Nominal target: 60.00%%)")
 // ─────────────────────────────────────────────────────────────────────────────
 ```
