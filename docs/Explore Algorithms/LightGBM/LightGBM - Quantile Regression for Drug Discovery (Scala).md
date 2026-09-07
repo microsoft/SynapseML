@@ -262,7 +262,7 @@ val predictions = modelQ80.transform(
 // ── Crossed-Quantile Diagnostic ───────────────────────────────────────────────
 // Independent quantile fits do not guarantee monotonic ordering (q20 <= q50 <= q80).
 // When crossed, subtracting predictions produces negative widths and invalid intervals.
-// See maintainer explanation in lightgbm-org/LightGBM#3447.
+// See maintainer explanation in [LightGBM issue #3447](https://github.com/LightGBM/LightGBM/issues/3447).
 val numCrossedRows = predictions.filter(
   $"pred_q20" > $"pred_q50_median" || $"pred_q50_median" > $"pred_q80"
 ).count()
@@ -318,7 +318,8 @@ println(f"Median Model MAE:  $mae%.4f")
 // 3. Crossed-quantile count reported alongside empirical coverage
 // ── IMPORTANT ────────────────────────────────────────────────────────────────
 // Because each quantile model is trained independently, there is no guarantee
-// that q20 ≤ q50 ≤ q80 holds for every compound (see lightgbm-org/LightGBM#3447).
+// that q20 ≤ q50 ≤ q80 holds for every compound. See maintainer explanation in
+// [LightGBM issue #3447](https://github.com/LightGBM/LightGBM/issues/3447).
 // Rows where that ordering is violated have a negative uncertainty_width and
 // must NOT be presented as valid uncertainty intervals. Coverage computed over
 // all rows (including crossed ones) is therefore misleading — both figures are
@@ -468,6 +469,23 @@ spark-submit \
 
 ---
 
+## Troubleshooting & common runtime errors
+
+- `ClassNotFoundException: org.apache.hadoop.fs.azure.NativeAzureFileSystem$Secure`
+  - Cause: missing Hadoop Azure connector on standalone Spark clusters when reading `wasbs://`.
+  - Fix: add `org.apache.hadoop:hadoop-azure:3.3.4` to `--packages` (or match your runtime's Hadoop version).
+  - Example:
+    ```bash
+    spark-shell \
+      --packages com.microsoft.azure:synapseml_2.12:1.1.3,org.apache.hadoop:hadoop-azure:3.3.4 \
+      --repositories https://mmlspark.blob.core.windows.net/maven
+    ```
+
+- Quantile crossing ($q_{20} > q_{50}$ or $q_{50} > q_{80}$):
+  - Explanation: independent quantile fits can cross because each quantile regression model is trained separately without joint monotonic constraints. See maintainer explanation in [LightGBM issue #3447](https://github.com/LightGBM/LightGBM/issues/3447).
+
+---
+
 ## Summary
 
 In this guide, you learned how to:
@@ -476,5 +494,3 @@ In this guide, you learned how to:
 3. Model biological activity ($pIC_{50}$) with Quantile Regression to estimate uncertainty intervals ($q_{20}, q_{50}, q_{80}$).
 4. Calculate empirical coverage and evaluate prediction accuracy with Spark ML's `RegressionEvaluator`.
 5. Package and submit a standalone Spark Scala LightGBM application using `sbt` and `spark-submit`.
-
-
