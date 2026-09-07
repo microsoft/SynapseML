@@ -33,13 +33,13 @@ To use LightGBM in Spark Scala, attach the SynapseML Maven coordinate to your Sp
 
 * **Maven Coordinate:** `com.microsoft.azure:synapseml_2.12:1.1.3`
 * **Spark Packages:** `com.microsoft.azure:synapseml_2.12:1.1.3`
-* **Repository:** `https://mmlspark.azureedge.net/maven`
+* **Repository:** `https://mmlspark.blob.core.windows.net/maven`
 
 ### Spark Shell / Databricks / Synapse Configuration
 When launching `spark-shell` or `spark-submit`, include the package:
 ```bash
 spark-shell --packages com.microsoft.azure:synapseml_2.12:1.1.3 \
-            --repositories https://mmlspark.azureedge.net/maven
+            --repositories https://mmlspark.blob.core.windows.net/maven
 ```
 
 ---
@@ -109,7 +109,9 @@ qsarDf.show(5, truncate = false)
 ```
 
 ### Option B: Public Triazines Benchmark Dataset (LibSVM)
-SynapseML also hosts the classic benchmark Triazines QSAR dataset (predicting inhibition of dihydrofolate reductase by pyrimidines):
+SynapseML also hosts the classic benchmark Triazines QSAR dataset (predicting inhibition of dihydrofolate reductase by pyrimidines).
+
+> **Note on LibSVM Schema:** The LibSVM format pre-assembles molecular features into a single Vector column (`features`) and maps the target property to `label`. As shown below, it does not require an intermediate `VectorAssembler` step and can be fed directly to `LightGBMRegressor`:
 
 ```scala
 // Load benchmark Triazines QSAR dataset (requires cluster network connectivity)
@@ -119,7 +121,20 @@ val triazinesDf = spark.read
 
 println(s"Total records in Triazines dataset: ${triazinesDf.count()}")
 triazinesDf.printSchema()
+
+// Direct training on LibSVM's native columns without VectorAssembler:
+val Array(triazinesTrain, triazinesTest) = triazinesDf.randomSplit(Array(0.8, 0.2), seed = 1234L)
+val triazinesModel = new LightGBMRegressor()
+  .setObjective("quantile")
+  .setAlpha(0.5)
+  .setLabelCol("label")
+  .setFeaturesCol("features")
+  .fit(triazinesTrain)
+
+triazinesModel.transform(triazinesTest).select("label", "prediction").show(5)
 ```
+
+> **Tutorial Flow:** The subsequent sections (Steps 4 through 7) follow **Option A (`qsarDf`)** to demonstrate how to perform custom feature engineering with `VectorAssembler`, multi-quantile uncertainty envelope modeling, and domain-specific bioactivity metric evaluation.
 
 ---
 
@@ -265,9 +280,9 @@ name := "synapseml-lightgbm-qsar-standalone"
 version := "1.0.0"
 scalaVersion := "2.12.18"
 
-resolvers += "SynapseML Maven Repo" at "https://mmlspark.azureedge.net/maven"
+resolvers += "SynapseML Maven Repo" at "https://mmlspark.blob.core.windows.net/maven"
 
-val sparkVersion = "3.4.1"
+val sparkVersion = "3.5.0"
 
 libraryDependencies ++= Seq(
   "org.apache.spark" %% "spark-core" % sparkVersion % "provided",
@@ -366,7 +381,7 @@ spark-submit \
   --master yarn \
   --deploy-mode client \
   --packages com.microsoft.azure:synapseml_2.12:1.1.3 \
-  --repositories https://mmlspark.azureedge.net/maven \
+  --repositories https://mmlspark.blob.core.windows.net/maven \
   target/scala-2.12/synapseml-lightgbm-qsar-standalone_2.12-1.0.0.jar
 ```
 
