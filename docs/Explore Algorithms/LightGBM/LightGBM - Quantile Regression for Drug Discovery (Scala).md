@@ -118,15 +118,12 @@ qsarDf.show(5, truncate = false)
 ### Option B: Public Triazines Benchmark Dataset (LibSVM)
 SynapseML also hosts the classic benchmark Triazines QSAR dataset (predicting inhibition of dihydrofolate reductase by pyrimidines).
 
-> **Note on LibSVM Schema:** The LibSVM format pre-assembles molecular features into a single Vector column (`features`) and maps the target property to `label`. As shown below, it does not require an intermediate `VectorAssembler` step and can be fed directly to `LightGBMRegressor`:
-
-> **⚠️ Standalone Spark Requirement:** The URL below uses the `wasbs://` scheme to read from Azure Blob Storage. On **standard standalone Apache Spark 3.5.0** (with only SynapseML included), this will throw `ClassNotFoundException: org.apache.hadoop.fs.azure.NativeAzureFileSystem$Secure` because the Azure Hadoop file system driver is **not bundled by default**. Managed platforms (Databricks, Azure Synapse) pre-install this connector automatically.
+> LibSVM supplies a `features` vector and a `label` column, so this path does not need `VectorAssembler`.
 >
-> To resolve this on standalone Spark, add `org.apache.hadoop:hadoop-azure:3.3.4` to your `--packages` flag (see Step 1 above).
+> Standalone Apache Spark also needs Hadoop's Azure connector to read `wasbs://` URLs. For Spark 3.5.0 with Hadoop 3.3.4, use `--packages com.microsoft.azure:synapseml_2.12:1.1.3,org.apache.hadoop:hadoop-azure:3.3.4` with the Maven repository from Step 1. On managed clusters, use the connector supplied by the runtime or match the connector to the runtime's Hadoop version.
 
 ```scala
 // Load benchmark Triazines QSAR dataset (requires cluster network connectivity)
-// NOTE: wasbs:// requires hadoop-azure on standalone Spark — see Step 1 for the correct --packages flag
 val triazinesDf = spark.read
   .format("libsvm")
   .load("wasbs://publicwasb@mmlspark.blob.core.windows.net/triazines.scale.svmlight")
