@@ -233,6 +233,19 @@ val predictionsWithInterval = predictions.withColumn(
   $"pIC50" >= $"pred_q20" && $"pIC50" <= $"pred_q80"
 )
 
+// ── Crossed-Quantile Diagnostic ───────────────────────────────────────────────
+// Each quantile model (q20, q50, q80) is trained *independently*, so there is
+// no mathematical guarantee that q20 ≤ q50 ≤ q80 holds for every compound.
+// When the ordering is violated the resulting "interval" has a negative width or
+// a reversed median, making it meaningless as an uncertainty estimate.  These
+// rows must be flagged explicitly rather than absorbed silently by taking absolute
+// values or sorting the bounds — doing so would hide a real model quality signal.
+val crossingCount = predictions.filter(
+  $"pred_q20" > $"pred_q50_median" || $"pred_q50_median" > $"pred_q80"
+).count()
+println(s"Rows with crossed quantiles: $crossingCount")
+// ─────────────────────────────────────────────────────────────────────────────
+
 // Display sample predictions with uncertainty bounds
 predictionsWithInterval
   .select("compound_id", "pIC50", "pred_q20", "pred_q50_median", "pred_q80", "uncertainty_width", "within_interval")
