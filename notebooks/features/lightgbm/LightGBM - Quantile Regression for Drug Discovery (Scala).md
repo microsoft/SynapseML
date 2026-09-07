@@ -278,8 +278,7 @@ To package this workflow into a standalone Scala application as requested in [#7
 ```scala
 name := "synapseml-lightgbm-qsar-standalone"
 version := "1.0.0"
-scalaVersion := "2.12.18"
-
+scalaVersion := "2.12.17"
 resolvers += "SynapseML Maven Repo" at "https://mmlspark.blob.core.windows.net/maven"
 
 val sparkVersion = "3.5.0"
