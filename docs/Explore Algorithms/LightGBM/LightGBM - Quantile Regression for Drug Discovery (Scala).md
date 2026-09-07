@@ -42,6 +42,14 @@ spark-shell --packages com.microsoft.azure:synapseml_2.12:1.1.3 \
             --repositories https://mmlspark.blob.core.windows.net/maven
 ```
 
+> **Note for Standalone Spark users (Option B — `wasbs://` dataset):** If you intend to use **Option B** (reading the public LibSVM dataset over Azure Blob Storage via `wasbs://`), you must also include the `hadoop-azure` connector. Managed cloud platforms (Databricks, Azure Synapse) pre-install this driver, but **standalone Apache Spark does not include it by default**. Add `org.apache.hadoop:hadoop-azure:3.3.4` to `--packages`:
+> ```bash
+> spark-shell \
+>   --packages com.microsoft.azure:synapseml_2.12:1.1.3,org.apache.hadoop:hadoop-azure:3.3.4 \
+>   --repositories https://mmlspark.blob.core.windows.net/maven
+> ```
+> Without this, Spark will throw `ClassNotFoundException: org.apache.hadoop.fs.azure.NativeAzureFileSystem$Secure`.
+
 ---
 
 ## Step 2: Spark Session and Imports
@@ -112,8 +120,13 @@ SynapseML also hosts the classic benchmark Triazines QSAR dataset (predicting in
 
 > **Note on LibSVM Schema:** The LibSVM format pre-assembles molecular features into a single Vector column (`features`) and maps the target property to `label`. As shown below, it does not require an intermediate `VectorAssembler` step and can be fed directly to `LightGBMRegressor`:
 
+> **⚠️ Standalone Spark Requirement:** The URL below uses the `wasbs://` scheme to read from Azure Blob Storage. On **standard standalone Apache Spark 3.5.0** (with only SynapseML included), this will throw `ClassNotFoundException: org.apache.hadoop.fs.azure.NativeAzureFileSystem$Secure` because the Azure Hadoop file system driver is **not bundled by default**. Managed platforms (Databricks, Azure Synapse) pre-install this connector automatically.
+>
+> To resolve this on standalone Spark, add `org.apache.hadoop:hadoop-azure:3.3.4` to your `--packages` flag (see Step 1 above).
+
 ```scala
 // Load benchmark Triazines QSAR dataset (requires cluster network connectivity)
+// NOTE: wasbs:// requires hadoop-azure on standalone Spark — see Step 1 for the correct --packages flag
 val triazinesDf = spark.read
   .format("libsvm")
   .load("wasbs://publicwasb@mmlspark.blob.core.windows.net/triazines.scale.svmlight")
@@ -373,12 +386,21 @@ object QSARQuantileApp {
 # Package the application
 sbt package
 
-# Submit to Spark cluster
+# Submit to Spark cluster (Databricks / Azure Synapse — hadoop-azure is pre-installed)
 spark-submit \
   --class com.example.drugdiscovery.QSARQuantileApp \
   --master yarn \
   --deploy-mode client \
   --packages com.microsoft.azure:synapseml_2.12:1.1.3 \
+  --repositories https://mmlspark.blob.core.windows.net/maven \
+  target/scala-2.12/synapseml-lightgbm-qsar-standalone_2.12-1.0.0.jar
+
+# Submit to standalone Spark cluster (hadoop-azure must be added explicitly for wasbs:// support)
+spark-submit \
+  --class com.example.drugdiscovery.QSARQuantileApp \
+  --master yarn \
+  --deploy-mode client \
+  --packages com.microsoft.azure:synapseml_2.12:1.1.3,org.apache.hadoop:hadoop-azure:3.3.4 \
   --repositories https://mmlspark.blob.core.windows.net/maven \
   target/scala-2.12/synapseml-lightgbm-qsar-standalone_2.12-1.0.0.jar
 ```
