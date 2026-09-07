@@ -104,6 +104,11 @@ import spark.implicits._
 
 In QSAR modeling, compounds are typically represented by physicochemical descriptors or molecular fingerprints (e.g., Molecular Weight, LogP, Hydrogen Bond Donors/Acceptors, Topological Polar Surface Area, Rotatable Bonds) mapped to a biological potency target (such as $pIC_{50} = -\log_{10}(IC_{50})$).
 
+> Note: this tutorial uses a canonical target column name `pIC50` across examples.
+> - Option A (synthetic) uses `pIC50`.
+> - Option B (LibSVM) renames the incoming `label` to `pIC50` for consistency.
+> - The standalone app uses `pIC50` as the target column too.
+
 ### Option A: Self-Contained Synthetic QSAR Dataset
 To run this tutorial immediately without external network dependencies, generate a synthetic QSAR dataset:
 
@@ -145,7 +150,7 @@ qsarDf.show(5, truncate = false)
 ### Option B: Public Triazines Benchmark Dataset (LibSVM)
 SynapseML also hosts the classic benchmark Triazines QSAR dataset (predicting inhibition of dihydrofolate reductase by pyrimidines).
 
-> LibSVM supplies a `features` vector and a `label` column, so this path does not need `VectorAssembler`.
+> LibSVM supplies a `features` vector and a `label` column (renamed to `pIC50` below), so this path does not need `VectorAssembler`.
 >
 > Standalone Apache Spark also needs Hadoop's Azure connector to read `wasbs://` URLs. For Spark 3.5.0 with Hadoop 3.3.4, use `--packages com.microsoft.azure:synapseml_2.12:1.1.3,org.apache.hadoop:hadoop-azure:3.3.4` with the Maven repository from Step 1. On managed clusters, use the connector supplied by the runtime or match the connector to the runtime's Hadoop version.
 
@@ -158,16 +163,19 @@ val triazinesDf = spark.read
 println(s"Total records in Triazines dataset: ${triazinesDf.count()}")
 triazinesDf.printSchema()
 
-// Direct training on LibSVM's native columns without VectorAssembler:
-val Array(triazinesTrain, triazinesTest) = triazinesDf.randomSplit(Array(0.8, 0.2), seed = 1234L)
+// Rename LibSVM's default 'label' column to the canonical target column 'pIC50'
+// so column names match the rest of this tutorial
+val triazinesDfRenamed = triazinesDf.withColumnRenamed("label", "pIC50")
+
+val Array(triazinesTrain, triazinesTest) = triazinesDfRenamed.randomSplit(Array(0.8, 0.2), seed = 1234L)
 val triazinesModel = new LightGBMRegressor()
   .setObjective("quantile")
   .setAlpha(0.5)
-  .setLabelCol("label")
+  .setLabelCol("pIC50")
   .setFeaturesCol("features")
   .fit(triazinesTrain)
 
-triazinesModel.transform(triazinesTest).select("label", "prediction").show(5)
+triazinesModel.transform(triazinesTest).select("pIC50", "prediction").show(5)
 ```
 
 > **Tutorial Flow:** The subsequent sections (Steps 4 through 7) follow **Option A (`qsarDf`)** to demonstrate how to perform custom feature engineering with `VectorAssembler`, multi-quantile uncertainty envelope modeling, and domain-specific bioactivity metric evaluation.
@@ -386,9 +394,9 @@ object QSARQuantileApp {
       val logP = -1.0 + random.nextDouble() * 6.0
       val hbd = random.nextInt(5).toDouble
       val hba = random.nextInt(9).toDouble
-      val potency = 5.0 + 0.004 * mw + 0.35 * logP - 0.1 * hbd + random.nextGaussian() * 0.25
-      (s"MOL_$i", mw, logP, hbd, hba, potency)
-    }.toDF("id", "mw", "logP", "hbd", "hba", "potency")
+      val pIC50 = 5.0 + 0.004 * mw + 0.35 * logP - 0.1 * hbd + random.nextGaussian() * 0.25
+      (s"MOL_$i", mw, logP, hbd, hba, pIC50)
+    }.toDF("id", "mw", "logP", "hbd", "hba", "pIC50")
 
     // 2. Assemble Features
     val assembler = new VectorAssembler()
@@ -410,7 +418,7 @@ object QSARQuantileApp {
       val model = new LightGBMRegressor()
         .setObjective("quantile")
         .setAlpha(alpha)
-        .setLabelCol("potency")
+        .setLabelCol("pIC50")
         .setFeaturesCol("features")
         .setPredictionCol(predCol)
         .setNumLeaves(31)
@@ -423,14 +431,14 @@ object QSARQuantileApp {
 
     // 4. Compute Metrics
     val evaluator = new RegressionEvaluator()
-      .setLabelCol("potency")
+      .setLabelCol("pIC50")
       .setPredictionCol("pred_median_50")
       .setMetricName("rmse")
 
     val rmse = evaluator.evaluate(scoredTest)
     println(f"Median Model RMSE: $rmse%.4f")
 
-    scoredTest.select("id", "potency", "pred_lower_10", "pred_median_50", "pred_upper_90")
+    scoredTest.select("id", "pIC50", "pred_lower_10", "pred_median_50", "pred_upper_90")
       .show(5, truncate = false)
 
     spark.stop()
