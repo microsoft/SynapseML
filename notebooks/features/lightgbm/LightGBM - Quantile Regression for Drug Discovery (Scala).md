@@ -53,12 +53,11 @@ import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.evaluation.RegressionEvaluator
-import com.microsoft.azure.synapse.ml.lightgbm.{LightGBMRegressor, LightGBMRegressionModel}
+import com.microsoft.azure.synapse.ml.lightgbm.LightGBMRegressor
 
 // Initialize or retrieve the active SparkSession
 val spark = SparkSession.builder()
   .appName("LightGBM-QSAR-QuantileRegression")
-  .master("local[*]") // Use cluster master when deploying in production
   .getOrCreate()
 
 import spark.implicits._
