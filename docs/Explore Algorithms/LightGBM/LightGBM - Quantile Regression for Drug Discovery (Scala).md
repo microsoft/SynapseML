@@ -224,31 +224,24 @@ val predictions = modelQ80.transform(
   )
 )
 
-// Calculate prediction interval width (uncertainty) and interval coverage
-val predictionsWithInterval = predictions.withColumn(
-  "uncertainty_width",
-  $"pred_q80" - $"pred_q20"
-).withColumn(
-  "within_interval",
-  $"pIC50" >= $"pred_q20" && $"pIC50" <= $"pred_q80"
-)
-
 // ── Crossed-Quantile Diagnostic ───────────────────────────────────────────────
-// Each quantile model (q20, q50, q80) is trained *independently*, so there is
-// no mathematical guarantee that q20 ≤ q50 ≤ q80 holds for every compound.
-// When the ordering is violated the resulting "interval" has a negative width or
-// a reversed median, making it meaningless as an uncertainty estimate.  These
-// rows must be flagged explicitly rather than absorbed silently by taking absolute
-// values or sorting the bounds — doing so would hide a real model quality signal.
+// Independent quantile fits do not guarantee monotonic ordering (q20 <= q50 <= q80).
+// When crossed, subtracting predictions produces negative widths and invalid intervals.
+// See maintainer explanation in lightgbm-org/LightGBM#3447.
 val crossingCount = predictions.filter(
   $"pred_q20" > $"pred_q50_median" || $"pred_q50_median" > $"pred_q80"
 ).count()
 println(s"Rows with crossed quantiles: $crossingCount")
-// ─────────────────────────────────────────────────────────────────────────────
 
-// Display sample predictions with uncertainty bounds
+// Flag crossed quantiles and calculate prediction interval width & coverage
+val predictionsWithInterval = predictions
+  .withColumn("is_crossed", $"pred_q20" > $"pred_q50_median" || $"pred_q50_median" > $"pred_q80")
+  .withColumn("uncertainty_width", $"pred_q80" - $"pred_q20")
+  .withColumn("within_interval", $"pIC50" >= $"pred_q20" && $"pIC50" <= $"pred_q80")
+
+// Display sample predictions with uncertainty bounds and crossed flags
 predictionsWithInterval
-  .select("compound_id", "pIC50", "pred_q20", "pred_q50_median", "pred_q80", "uncertainty_width", "within_interval")
+  .select("compound_id", "pIC50", "pred_q20", "pred_q50_median", "pred_q80", "uncertainty_width", "within_interval", "is_crossed")
   .show(10, truncate = false)
 ```
 
@@ -256,12 +249,13 @@ predictionsWithInterval
 * **Small `uncertainty_width`:** The model is confident; the molecule's chemical features lie in well-sampled chemical space.
 * **Large `uncertainty_width`:** High epistemic or assay uncertainty; proceed with caution before ordering synthesis.
 * **High `pred_q20`:** Even under pessimistic estimation, the molecule exhibits strong potency—ideal for prioritization.
+* **`is_crossed` flag:** Compounds with reversed or crossed endpoints (`is_crossed == true`) have negative widths or inconsistent medians. They must not be treated as valid uncertainty intervals; taking absolute values or sorting does not establish advertised coverage.
 
 ---
 
 ## Step 7: Model Evaluation & Validation
 
-Evaluate the median model using standard regression metrics (RMSE and MAE) via `RegressionEvaluator`, and compute empirical coverage:
+Evaluate the median model using standard regression metrics (RMSE and MAE) via `RegressionEvaluator`. The **crossed-quantile count and empirical coverage are printed together** so the reader can judge whether the coverage figure is reliable:
 
 ```scala
 // 1. Evaluate Median Model RMSE
@@ -282,12 +276,34 @@ val maeEvaluator = new RegressionEvaluator()
 val mae = maeEvaluator.evaluate(predictionsWithInterval)
 println(f"Median Model MAE:  $mae%.4f")
 
-// 3. Empirical Interval Coverage (Nominal target: 80% - 20% = 60%)
+// 3. Crossed-quantile count reported alongside empirical coverage
+// ── IMPORTANT ────────────────────────────────────────────────────────────────
+// Because each quantile model is trained independently, there is no guarantee
+// that q20 ≤ q50 ≤ q80 holds for every compound (see lightgbm-org/LightGBM#3447).
+// Rows where that ordering is violated have a negative uncertainty_width and
+// must NOT be presented as valid uncertainty intervals. Coverage computed over
+// all rows (including crossed ones) is therefore misleading — both figures are
+// reported here so the reader can make an informed judgement.
+// Taking an absolute value or sorting the bounds is NOT a valid fix: it does
+// not establish the advertised 60 % nominal coverage.
+val crossingCount = predictions.filter(
+  $"pred_q20" > $"pred_q50_median" || $"pred_q50_median" > $"pred_q80"
+).count()
+
+val totalCount    = predictionsWithInterval.count()
 val coverageCount = predictionsWithInterval.filter($"within_interval" === true).count()
-val totalCount = predictionsWithInterval.count()
 val empiricalCoverage = (coverageCount.toDouble / totalCount.toDouble) * 100.0
 
-println(f"Empirical Coverage: $empiricalCoverage%.2f%% (Nominal target: 60.00%%)")
+// Coverage restricted to rows where quantile ordering is correct
+val validRows          = predictionsWithInterval.filter($"uncertainty_width" >= 0)
+val validTotal         = validRows.count()
+val validCoverageCount = validRows.filter($"within_interval" === true).count()
+val validCoverage      = if (validTotal > 0) (validCoverageCount.toDouble / validTotal.toDouble) * 100.0 else 0.0
+
+println(f"Rows with crossed quantiles        : $crossingCount (out of $totalCount)")
+println(f"Empirical Coverage (all rows)      : $empiricalCoverage%.2f%% — includes $crossingCount crossed row(s); interpret with caution")
+println(f"Empirical Coverage (valid rows only): $validCoverage%.2f%% (Nominal target: 60.00%%)")
+// ─────────────────────────────────────────────────────────────────────────────
 ```
 
 ---
