@@ -1,3 +1,9 @@
+---
+title: LightGBM - Quantile Regression for Drug Discovery (Scala)
+hide_title: true
+sidebar_label: Quantile Regression (Scala)
+---
+
 # LightGBM - Quantile Regression for Drug Discovery (Scala)
 
 ## Contents
