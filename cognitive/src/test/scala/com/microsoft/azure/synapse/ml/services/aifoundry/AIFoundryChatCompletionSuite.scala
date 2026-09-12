@@ -91,7 +91,8 @@ class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompl
 
   test("Robustness to bad inputs") {
     val results = completion.transform(badDf).collect()
-    assert(Option(results.head.getAs[Row](completion.getErrorCol)).isDefined)
+    assert(Option(results.head.getAs[Row](completion.getErrorCol)).isEmpty)
+    assert(Option(results.head.getAs[Row]("out")).isEmpty)
     // empty user message is valid for Phi 4, no error
     //assert(Option(results.apply(1).getAs[Row](completion.getErrorCol)).isDefined)
     assert(Option(results.apply(2).getAs[Row](completion.getErrorCol)).isEmpty)
