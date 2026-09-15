@@ -257,3 +257,53 @@ rounds and their original findings remain above and in the sibling reports.
 
 The reported defect is fixed and locally verified. Current-head automated
 review, CI and required human policies must still be checked after pushing.
+
+## Pipeline contract follow-up
+
+The review of `9d51056493884bee4f10e4427f83dfec62147c4b` raised two
+pipeline findings. This was another direct bounded follow-up by the
+implementation driver, not a new independent multi-model review.
+
+### Missing Publish dependency
+
+The [dependency finding](https://github.com/microsoft/SynapseML/pull/2628#discussion_r4017966480)
+is valid, although the affected dependency is on the `Release` job rather than
+the displayed `Publish` line. A real Azure no-run preview with
+`publishRelease=true` and `publishArtifacts=false` failed with
+`Job Release depends on unknown job Publish.` One of four new flag-combination
+regressions also failed before the fix.
+
+`Release` now requires both flags at compile time. The initial
+`BuildAndCacheSbt` admission guard remains present when release publication
+is requested, so it can explicitly reject the incomplete request. Valid
+release dependencies, ordinary artifact publication, test prerequisites and
+approval checks are unchanged.
+
+All four combinations passed native Azure expansion using the reviewed YAML.
+The expanded jobs had no missing dependencies; the invalid combination omitted
+both publication jobs but retained the initial guard. Executing that expanded
+guard with artifacts disabled returned 1 and the intended incomplete-release
+diagnostic. The other combinations selected the expected publication jobs.
+These were no-run previews, not publication or full CI executions.
+
+The full release/pipeline suite passed **715 cases**, with one explicit
+opt-in SBT/native probe skipped. Black 22.3.0 accepted the changed test file.
+The review checked correctness, existing YAML patterns, all Boolean boundaries,
+dependency membership, regression quality and operator guidance.
+
+### Separate publisher parameter contract
+
+The [parameter finding](https://github.com/microsoft/SynapseML/pull/2628#discussion_r4017966524)
+compares different pipeline definitions and is not a production defect.
+Live definition metadata confirms that public Maven producer `17563` uses this
+repository's `pipeline.yaml`, while official pip/UPack publisher `35879` uses
+a different repository and YAML contract. That contract declares
+`publish_release` and the `build_*` family flags. `build_actions` selects
+`publish_pipeline_id` only for publisher operations, and `_operation` constructs
+their parameters separately from public Maven's `publishRelease` interface.
+
+The real publisher consumer tests and seven earlier native no-run previews
+confirm the declared flags, exact approved request and selected jobs, including
+single-job UPack recovery. The thread was answered with this evidence and
+resolved. Renaming these flags to match the public Maven producer would break
+the actual consumer, so no production parameter change was made.

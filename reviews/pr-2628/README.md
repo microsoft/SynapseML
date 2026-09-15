@@ -16,3 +16,5 @@ Follow-up sections cover derivative-tag recovery at recorded merge commits,
 native Git failure cases, and request-level verification of Azure authentication.
 The Round 1 report also records the later ESRP output-symlink finding, its
 red/green API and CLI regressions, and a direct bounded follow-up review.
+It also records the subsequent publication-dependency correction, native Azure
+expansion evidence and verification of the separate publisher parameter contract.

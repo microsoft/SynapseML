@@ -542,7 +542,7 @@ jobs:
           docker push mmlsparkmcr.azurecr.io/public/mmlspark/release:latest
     - task: ComponentGovernanceComponentDetection@0
 
-- ${{ if eq(parameters.publishRelease, true) }}:
+- ${{ if and(eq(parameters.publishRelease, true), eq(parameters.publishArtifacts, true)) }}:
   - job: Release
     dependsOn: [BuildAndCacheSbt, Style, UnitTests, PythonTests, Publish]
     condition: and(succeeded(), eq('${{ parameters.publishRelease }}', true))

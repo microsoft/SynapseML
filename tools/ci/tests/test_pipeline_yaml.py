@@ -1723,6 +1723,35 @@ def test_maven_receipt_follows_esrp_publication_and_uses_its_actual_directory():
     )
 
 
+@pytest.mark.parametrize("publish_release", [False, True])
+@pytest.mark.parametrize("publish_artifacts", [False, True])
+def test_release_job_dependencies_exist_for_every_publication_combination(
+    publish_release, publish_artifacts
+):
+    conditions = {
+        "${{ if eq(parameters.publishArtifacts, true) }}": publish_artifacts,
+        "${{ if eq(parameters.publishRelease, true) }}": publish_release,
+        "${{ if and(eq(parameters.publishRelease, true), eq(parameters.publishArtifacts, true)) }}": (
+            publish_release and publish_artifacts
+        ),
+    }
+    jobs = {}
+    for node in yaml.safe_load(_pipeline_text())["jobs"]:
+        if "job" in node:
+            jobs[node["job"]] = node
+        else:
+            assert len(node) == 1
+            condition, selected = next(iter(node.items()))
+            assert condition in conditions, f"Unhandled job condition: {condition}"
+            if conditions[condition]:
+                jobs.update((job["job"], job) for job in selected)
+    assert "BuildAndCacheSbt" in jobs
+    assert ("Publish" in jobs) == publish_artifacts
+    assert ("Release" in jobs) == (publish_release and publish_artifacts)
+    if "Release" in jobs:
+        assert set(jobs["Release"]["dependsOn"]) <= set(jobs)
+
+
 def test_style_does_not_restore_the_full_conda_environment():
     data = yaml.safe_load(_pipeline_text())
     jobs = {j.get("job"): j for j in _jobs(data["jobs"])}

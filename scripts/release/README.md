@@ -200,6 +200,11 @@ python scripts/release/release_ops.py status \
 The driver queues only selected missing work. Maven uses public pipeline
 `17563` or Internal pipeline `18453`; official pip/UPack publication uses
 `35879`. It preserves the sealed plan and narrows only separate per-run flags.
+These are separate pipeline definitions with different parameter interfaces;
+the driver constructs each request for its actual consumer. Public Maven
+release requests require style, unit, Python and artifact jobs. Disabling
+artifact publication rejects the request in the initial guard, without
+constructing a release job that depends on the omitted artifact job.
 Unselected Maven work is a dependency blocker when needed, not permission to
 expand the plan.
 
