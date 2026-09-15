@@ -307,3 +307,33 @@ confirm the declared flags, exact approved request and selected jobs, including
 single-job UPack recovery. The thread was answered with this evidence and
 resolved. Renaming these flags to match the public Maven producer would break
 the actual consumer, so no production parameter change was made.
+
+## Guide-version navigation follow-up
+
+The current command and rollout references now point to guide v3. The original
+v2 is retained as historical material rather than silently replacing its
+contents with the automation procedure. The target-branch link becomes
+available when the guide change merges.
+
+Six sequential documentation review rounds across `gpt-6-astra`,
+`gemini-3.8-flash` and `claude-opus-5` found no actionable issues in the new
+guide and these two current links. The detailed reports are committed with
+the guide. Checks covered history preservation, maintainership, navigation,
+actual CLI options, preview side effects, recovery limits and approval boundaries.
+No runtime code changed. Documentation review does not clear existing CI or
+release approval gates.
+
+### Target refresh and new tutorial anchors
+
+The public target advanced to
+`133c38a1f3b0cec10cea6a70afbb818c26c1e6aa` while the guide was reviewed.
+None of its changed paths overlapped the release PR. Rebase preserved all
+23 original PR patches exactly, as checked with `git range-diff`.
+
+The refreshed target introduced two bare `1.1.3` references in the new Scala
+quantile-regression tutorial. The existing version-bump regression failed
+with those two unanchored matches. A direct follow-up changed only those
+references to the same full Maven coordinate already used in the tutorial.
+This preserves their version and meaning while using an existing safe
+scanner pattern; no broad version matching or allowlist exception was added.
+The full version-bump suite then passed all 228 cases.

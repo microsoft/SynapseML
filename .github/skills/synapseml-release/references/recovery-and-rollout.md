@@ -136,8 +136,10 @@ ledger and reconciling Azure, not creating an empty replacement.
 ## Rollout source
 
 The detailed human process lives in the
-[SynapseML Fabric Release Guide v2](https://msdata.visualstudio.com/A365/_wiki/wikis/Osmos%20Team%20Wiki/130638/SynapseML-Fabric-Release-Guide-v2).
+[SynapseML Fabric Release Guide v3](https://dev.azure.com/msdata/A365/_git/Osmos-Wiki?path=/Osmos-Team-Wiki/SynapseML/SynapseML-Team-Wiki/Engineering-Knowledgebase/Engineering-Systems/Release/SynapseML-Fabric-Release-Guide-v3.md).
 Use its BBC-VHD, White-Glove, release-train, and deployment-monitoring steps.
+The v2 page remains historical reference, not the current automation procedure.
+The v3 link becomes available on the target branch when its guide PR merges.
 
 The wiki page
 `Engineering-Knowledgebase/Synapse-ML-(OSS-Library)/Release-Guide/Step-6-Monitor-Deployment`

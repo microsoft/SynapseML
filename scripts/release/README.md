@@ -486,7 +486,7 @@ its OSS base.
 
 Review and merge the BBC-VHD PR, complete its CI and White-Glove approval, and
 monitor the selected release train using the
-[canonical release guide](https://msdata.visualstudio.com/A365/_wiki/wikis/Osmos%20Team%20Wiki/130638/SynapseML-Fabric-Release-Guide-v2).
+[canonical release guide v3](https://dev.azure.com/msdata/A365/_git/Osmos-Wiki?path=/Osmos-Team-Wiki/SynapseML/SynapseML-Team-Wiki/Engineering-Knowledgebase/Engineering-Systems/Release/SynapseML-Fabric-Release-Guide-v3.md).
 Package publication alone does not complete rollout.
 
 ## Recovery and rehearsal
