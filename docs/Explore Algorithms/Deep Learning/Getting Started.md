@@ -50,5 +50,5 @@ to ensure horovod recognizes SynapseML.
 
 You could follow the rest of this [sample](../Quickstart%20-%20Fine-Tune a Vision Classifier) and have a try on your own dataset.
 
-Supported models (`backbone` parameter for `DeepVisionClassifer`) should be string format of [Torchvision-supported models](https://github.com/pytorch/vision/blob/v0.12.0/torchvision/models/__init__.py);
+Supported models (`backbone` parameter for `DeepVisionClassifier`) should be string format of [Torchvision-supported models](https://github.com/pytorch/vision/blob/v0.12.0/torchvision/models/__init__.py);
 You could also check by running `backbone in torchvision.models.__dict__`.
