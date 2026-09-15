@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.lightgbm.swig.SwigUtils
 import com.microsoft.azure.synapse.ml.lightgbm._
 import com.microsoft.ml.lightgbm._
 import org.apache.spark.sql._
-import org.slf4j.Logger
+import org.slf4j.{Logger, LoggerFactory}
 
 
 object ReferenceDatasetUtils {
@@ -112,8 +112,21 @@ object ReferenceDatasetUtils {
       datasetParams)
 
     initializeOwnedDataset(lightGBMDataset) {
+      DatasetUtils.validateFeatureSize(lightGBMDataset.numFeature(), ctx.trainingCtx.numCols)
+
       // Initialize the dataset for streaming (allocates arrays mostly)
-      val maxOmpThreads = ctx.trainingParams.executionParams.maxStreamingOMPThreads
+      val configuredMaxOmpThreads = ctx.trainingParams.executionParams.maxStreamingOMPThreads
+      val maxOmpThreads = streamingOmpAllocationBound(
+        configuredMaxOmpThreads,
+        ctx.trainingParams.executionParams.numThreads)
+      if (ctx.trainingParams.generalParams.verbosity > 1) {
+        LoggerFactory.getLogger(getClass).info(
+          s"Initializing streaming Dataset: executor=${LightGBMUtils.getExecutorId}, " +
+            s"partition=${ctx.partitionId}, task=${ctx.taskId}, rows=$count, " +
+            s"localPartitions=${ctx.networkTopologyInfo.executorPartitionIdList.sorted.mkString(",")}, " +
+            s"externalThreads=${ctx.executorPartitionCount}, " +
+            s"configuredMaxStreamingOMPThreads=$configuredMaxOmpThreads, allocationBound=$maxOmpThreads")
+      }
       LightGBMUtils.validate(lightgbmlib.LGBM_DatasetInitStreaming(lightGBMDataset.datasetPtr,
         ctx.trainingCtx.hasWeightsAsInt,
         ctx.trainingCtx.hasInitialScoresAsInt,
@@ -124,6 +137,16 @@ object ReferenceDatasetUtils {
         "LGBM_DatasetInitStreaming")
 
       lightGBMDataset.setFeatureNames(ctx.trainingCtx.featureNames, ctx.trainingCtx.numCols)
+    }
+  }
+
+  private[lightgbm] def streamingOmpAllocationBound(configuredMaxThreads: Int,
+                                                    configuredNumThreads: Int): Int = {
+    if (configuredMaxThreads <= 0 || configuredNumThreads <= 0) {
+      // Let the native runtime use the same OpenMP team size for buffer allocation and indexing.
+      -1
+    } else {
+      math.max(configuredMaxThreads, configuredNumThreads)
     }
   }
 
