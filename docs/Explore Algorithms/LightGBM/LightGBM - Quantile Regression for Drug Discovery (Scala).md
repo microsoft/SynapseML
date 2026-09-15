@@ -2,6 +2,7 @@
 title: LightGBM - Quantile Regression for Drug Discovery (Scala)
 hide_title: true
 sidebar_label: Quantile Regression (Scala)
+slug: quantile-regression-scala
 ---
 
 # LightGBM - Quantile Regression for Drug Discovery (Scala)
@@ -9,7 +10,7 @@ sidebar_label: Quantile Regression (Scala)
 ## Contents
 
 - [Overview & Background](#overview--background)
-- [Tested runtime / compatibility matrix](#tested-runtime--compatibility-matrix)
+- [Runtime and dependency versions](#runtime-and-dependency-versions)
 - [Key Syntax Differences](#key-syntax-differences-pyspark-vs-spark-scala)
 - [Step 1: Environment Setup and Dependencies](#step-1-environment-setup-and-dependencies)
 - [Step 2: Spark Session and Imports](#step-2-spark-session-and-imports)
@@ -35,12 +36,12 @@ Traditional machine learning regression models optimize for **Mean Squared Error
 
 **Quantile Regression** addresses this challenge by estimating conditional percentiles (e.g., 20th percentile, 50th percentile / median, and 80th percentile) of the response distribution. Fitting models across multiple quantiles produces an **uncertainty envelope** (prediction interval) for every candidate compound. This empowers medicinal chemists to quantify risk, prioritize high-confidence candidates, and flag compounds requiring further experimental validation.
 
-## Tested runtime / compatibility matrix
+## Runtime and dependency versions
 
-| Component | Version (tested) | Notes |
+| Component | Version | Notes |
 |---|---:|---|
-| Scala | 2.12.17 | Use the 2.12 SynapseML build (`synapseml_2.12`) |
-| Spark | 3.5.0 | Examples were run on Spark 3.5.0 |
+| Scala | 2.12.17 | Standalone build version; use the Scala 2.12 SynapseML artifact (`synapseml_2.12`) |
+| Spark | 3.5.0 | Standalone build version; use a compatible Spark 3.5 runtime |
 | SynapseML | 1.1.3 | Verify runtime supports this coordinate; managed runtimes may have different preinstalled versions |
 | Hadoop connector (if using wasbs://) | org.apache.hadoop:hadoop-azure:3.3.4 | Required only for standalone clusters reading wasbs:// blobs |
 
@@ -265,20 +266,17 @@ val predictions = modelQ80.transform(
   )
 )
 
-// ── Crossed-Quantile Diagnostic ───────────────────────────────────────────────
 // Independent quantile fits do not guarantee monotonic ordering (q20 <= q50 <= q80).
-// When crossed, subtracting predictions produces negative widths and invalid intervals.
-// See maintainer explanation in [LightGBM issue #3447](https://github.com/LightGBM/LightGBM/issues/3447).
-val numCrossedRows = predictions.filter(
-  $"pred_q20" > $"pred_q50_median" || $"pred_q50_median" > $"pred_q80"
-).count()
-println(s"Rows with crossed quantiles: $numCrossedRows")
-
-// Flag crossed quantiles and calculate prediction interval width & coverage
+// A crossing can reverse the endpoints or put the median outside them.
+// See https://github.com/lightgbm-org/LightGBM/issues/3447.
 val predictionsWithInterval = predictions
   .withColumn("is_crossed", $"pred_q20" > $"pred_q50_median" || $"pred_q50_median" > $"pred_q80")
   .withColumn("uncertainty_width", $"pred_q80" - $"pred_q20")
   .withColumn("within_interval", $"pIC50" >= $"pred_q20" && $"pIC50" <= $"pred_q80")
+  .cache()
+
+val numCrossedRows = predictionsWithInterval.filter($"is_crossed").count()
+println(s"Rows with crossed quantiles: $numCrossedRows")
 
 // Display sample predictions with uncertainty bounds and crossed flags
 predictionsWithInterval
@@ -300,7 +298,7 @@ This synthetic example demonstrates the API, not a validated predictor of compou
 
 ## Step 7: Model Evaluation & Validation
 
-Evaluate the median model using standard regression metrics (RMSE and MAE) via `RegressionEvaluator`. The **crossed-quantile count and empirical coverage are printed together** so the reader can judge whether the coverage figure is reliable:
+Evaluate the median model using RMSE and MAE via `RegressionEvaluator`. Report coverage over all test rows and over the non-crossed subset separately. Neither is guaranteed to match the interval's nominal 60% coverage. The subset result describes only the retained rows, not the full test population.
 
 ```scala
 // 1. Evaluate Median Model RMSE
@@ -321,38 +319,43 @@ val maeEvaluator = new RegressionEvaluator()
 val mae = maeEvaluator.evaluate(predictionsWithInterval)
 println(f"Median Model MAE:  $mae%.4f")
 
-// 3. Crossed-quantile count reported alongside empirical coverage
-// ── IMPORTANT ────────────────────────────────────────────────────────────────
-// Because each quantile model is trained independently, there is no guarantee
-// that q20 ≤ q50 ≤ q80 holds for every compound. See maintainer explanation in
-// [LightGBM issue #3447](https://github.com/LightGBM/LightGBM/issues/3447).
-// Rows where that ordering is violated have a negative uncertainty_width and
-// must NOT be presented as valid uncertainty intervals. Coverage computed over
-// all rows (including crossed ones) is therefore misleading — both figures are
-// reported here so the reader can make an informed judgement.
-// Taking an absolute value or sorting the bounds is NOT a valid fix: it does
-// not establish the advertised 60 % nominal coverage.
+// A positive width does not rule out a median outside the endpoints.
+// Use the complete crossing diagnostic, not just uncertainty_width >= 0.
+// See https://github.com/lightgbm-org/LightGBM/issues/3447.
 val totalCount    = predictionsWithInterval.count()
+require(totalCount > 0, "The test split must contain rows to evaluate coverage.")
 val coverageCount = predictionsWithInterval.filter($"within_interval" === true).count()
 val empiricalCoverage = (coverageCount.toDouble / totalCount.toDouble) * 100.0
 
-// Coverage restricted to rows where quantile ordering is correct
-val validRows          = predictionsWithInterval.filter($"uncertainty_width" >= 0)
+val validRows          = predictionsWithInterval.filter(!$"is_crossed")
 val validTotal         = validRows.count()
 val validCoverageCount = validRows.filter($"within_interval" === true).count()
-val validCoverage      = if (validTotal > 0) (validCoverageCount.toDouble / validTotal.toDouble) * 100.0 else 0.0
+val validCoverage = if (validTotal > 0) {
+  Some((validCoverageCount.toDouble / validTotal.toDouble) * 100.0)
+} else {
+  None
+}
 
 println(f"Rows with crossed quantiles        : $numCrossedRows (out of $totalCount)")
-println(f"Empirical Coverage (all rows)      : $empiricalCoverage%.2f%% — includes $numCrossedRows crossed row(s); interpret with caution")
-println(f"Empirical Coverage (valid rows only): $validCoverage%.2f%% (Nominal target: 60.00%%)")
-// ─────────────────────────────────────────────────────────────────────────────
+println(f"Empirical Coverage (all rows)      : $empiricalCoverage%.2f%%")
+validCoverage match {
+  case Some(coverage) =>
+    println(f"Coverage on non-crossed rows      : $coverage%.2f%% ($validTotal rows)")
+  case None =>
+    println("Coverage on non-crossed rows      : not available, all rows have crossed quantiles")
+}
+println("The q20-q80 interval has nominal 60% coverage; measured coverage may differ.")
+
+predictionsWithInterval.unpersist()
+trainData.unpersist()
+testData.unpersist()
 ```
 
 ---
 
 ## Step 8: Standalone Spark Scala Application (`spark-submit`)
 
-To package this workflow into a standalone Scala application as requested in [#731](https://github.com/microsoft/SynapseML/issues/731), organize the project with sbt:
+To package this workflow into a standalone Scala application as requested in [#731](https://github.com/microsoft/SynapseML/issues/731), create an sbt project. Put `build.sbt` in the project root and the application in `src/main/scala/com/example/drugdiscovery/QSARQuantileApp.scala`.
 
 ### 1. `build.sbt`
 ```scala
@@ -371,7 +374,7 @@ libraryDependencies ++= Seq(
 )
 ```
 
-### 2. Standalone Application (`QSARQuantileApp.scala`)
+### 2. Standalone Application (`src/main/scala/com/example/drugdiscovery/QSARQuantileApp.scala`)
 ```scala
 package com.example.drugdiscovery
 
@@ -409,7 +412,7 @@ object QSARQuantileApp {
     val assembled = assembler.transform(data)
     val Array(train, test) = assembled.randomSplit(Array(0.8, 0.2), 42L)
 
-    // 3. Train Quantile Models (10th, 50th, 90th percentiles for an 80% confidence band)
+    // 3. Train Quantile Models (10th, 50th, 90th percentiles for a nominal 80% prediction interval)
     val quantiles = Seq(
       (0.10, "pred_lower_10"),
       (0.50, "pred_median_50"),
@@ -450,11 +453,32 @@ object QSARQuantileApp {
 ```
 
 ### 3. Execution via `spark-submit`
+
+Run these commands from the project root. Choose the submission command for your cluster manager. The standalone application uses synthetic data, so it does not need `hadoop-azure`. If you adapt it to read Option B's `wasbs://` dataset, add the matching connector described in Step 1.
+
 ```bash
 # Package the application
 sbt package
 
-# Submit to Spark cluster (Databricks / Azure Synapse — hadoop-azure is pre-installed)
+# Run locally with an installed Spark 3.5 distribution
+spark-submit \
+  --class com.example.drugdiscovery.QSARQuantileApp \
+  --master 'local[*]' \
+  --deploy-mode client \
+  --packages com.microsoft.azure:synapseml_2.12:1.1.3 \
+  --repositories https://mmlspark.blob.core.windows.net/maven \
+  target/scala-2.12/synapseml-lightgbm-qsar-standalone_2.12-1.0.0.jar
+
+# Submit to a Spark standalone cluster; replace spark-master with your master host
+spark-submit \
+  --class com.example.drugdiscovery.QSARQuantileApp \
+  --master spark://spark-master:7077 \
+  --deploy-mode client \
+  --packages com.microsoft.azure:synapseml_2.12:1.1.3 \
+  --repositories https://mmlspark.blob.core.windows.net/maven \
+  target/scala-2.12/synapseml-lightgbm-qsar-standalone_2.12-1.0.0.jar
+
+# Submit to a configured YARN cluster with HADOOP_CONF_DIR or YARN_CONF_DIR set
 spark-submit \
   --class com.example.drugdiscovery.QSARQuantileApp \
   --master yarn \
@@ -462,16 +486,9 @@ spark-submit \
   --packages com.microsoft.azure:synapseml_2.12:1.1.3 \
   --repositories https://mmlspark.blob.core.windows.net/maven \
   target/scala-2.12/synapseml-lightgbm-qsar-standalone_2.12-1.0.0.jar
-
-# Submit to standalone Spark cluster (hadoop-azure must be added explicitly for wasbs:// support)
-spark-submit \
-  --class com.example.drugdiscovery.QSARQuantileApp \
-  --master yarn \
-  --deploy-mode client \
-  --packages com.microsoft.azure:synapseml_2.12:1.1.3,org.apache.hadoop:hadoop-azure:3.3.4 \
-  --repositories https://mmlspark.blob.core.windows.net/maven \
-  target/scala-2.12/synapseml-lightgbm-qsar-standalone_2.12-1.0.0.jar
 ```
+
+For Databricks or Azure Synapse, use the platform's supported JAR submission mechanism and attach the SynapseML dependency. The commands above are local, Spark standalone, and YARN examples, not managed-platform submission commands.
 
 ---
 
@@ -488,7 +505,7 @@ spark-submit \
     ```
 
 - Quantile crossing ($q_{20} > q_{50}$ or $q_{50} > q_{80}$):
-  - Explanation: independent quantile fits can cross because each quantile regression model is trained separately without joint monotonic constraints. See maintainer explanation in [LightGBM issue #3447](https://github.com/LightGBM/LightGBM/issues/3447).
+  - Explanation: independent quantile fits can cross because each quantile regression model is trained separately without joint monotonic constraints. See maintainer explanation in [LightGBM issue #3447](https://github.com/lightgbm-org/LightGBM/issues/3447).
 
 ---
 
