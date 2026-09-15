@@ -373,6 +373,11 @@ Its Maven file records come from the actual ESRP publish directory after the
 ESRP step, including present signatures and checksums, not the original Ivy
 cache. Missing required modules, POMs, or the Core tests JAR prevent a receipt.
 
+ESRP preparation requires a new output directory outside the Ivy cache.
+Existing output paths, including dangling symlinks, are rejected without
+writing through the link or changing its target. Use an isolated build workspace
+and select a fresh staging path rather than reusing an earlier output.
+
 Keep evidence in trusted operator storage and generate it through the driver.
 Its JSON records authenticated service reads; it is not a cryptographic
 signature on an arbitrary file received from someone else.

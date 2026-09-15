@@ -82,6 +82,68 @@ def test_bad_release_output_fails_before_staging(tmp_path, corruption):
     assert not output.exists()
 
 
+@pytest.mark.parametrize("entrypoint", ["api", "cli"])
+@pytest.mark.parametrize("target_kind", ["missing", "directory", "file"])
+@pytest.mark.parametrize("relative", [False, True])
+def test_output_symlink_is_rejected_without_modifying_target_or_cache(
+    tmp_path, entrypoint, target_kind, relative, capsys
+):
+    root, output = tmp_path / "ivy", tmp_path / "stage"
+    ivy_fixture(root, "1.1.4", "2.12")
+    target = tmp_path / "elsewhere"
+    if target_kind == "directory":
+        target.mkdir()
+        (target / "keep").write_bytes(b"unchanged")
+    elif target_kind == "file":
+        target.write_bytes(b"unchanged")
+    try:
+        output.symlink_to(
+            target.name if relative else target,
+            target_is_directory=target_kind != "file",
+        )
+    except OSError as error:
+        if sys.platform == "win32" and getattr(error, "winerror", None) == 1314:
+            pytest.skip("Creating symlinks requires Windows developer mode or WSL")
+        raise
+    link_target = output.readlink()
+    before = {
+        path.relative_to(tmp_path): path.read_bytes()
+        for path in tmp_path.rglob("*")
+        if path.is_file() and not path.is_symlink()
+    }
+    if entrypoint == "api":
+        with pytest.raises(ValueError, match="output must be a new directory"):
+            staging.stage_release(root, output, "1.1.4", "2.12")
+    else:
+        assert (
+            staging.main(
+                [
+                    "--root",
+                    str(root),
+                    "--output",
+                    str(output),
+                    "--version",
+                    "1.1.4",
+                    "--scala",
+                    "2.12",
+                ]
+            )
+            == 2
+        )
+        captured = capsys.readouterr()
+        assert captured.out == ""
+        assert "output must be a new directory" in captured.err
+    assert output.is_symlink()
+    assert output.readlink() == link_target
+    assert target.exists() == (target_kind != "missing")
+    assert {
+        path.relative_to(tmp_path): path.read_bytes()
+        for path in tmp_path.rglob("*")
+        if path.is_file() and not path.is_symlink()
+    } == before
+    assert not list(tmp_path.glob(".esrp-stage-*"))
+
+
 def test_resolves_each_selected_module_directory_once(tmp_path, monkeypatch):
     root = tmp_path / "ivy"
     ivy_fixture(root, "1.1.4", "2.12")

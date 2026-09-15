@@ -217,3 +217,43 @@ temporary repositories were removed afterward. No implementation was edited,
 no GitHub workflow was run, and no real remote tag, publication or merge was
 performed. No concrete remaining fix was identified in this bounded scope;
 this result is not live CI or release approval.
+
+## ESRP output-path follow-up
+
+Copilot's review of `73064e80d1ef409d30df50ffd9d4843fb202e387` reported
+[a dangling output symlink](https://github.com/microsoft/SynapseML/pull/2628#discussion_r4017729455).
+The finding is valid. Resolving the output before checking it discarded the
+original link identity and let preparation create the missing link target.
+
+This narrow follow-up was reviewed directly by the implementation driver,
+`gpt-6-astra`. It is not a new independent multi-model review. The earlier
+rounds and their original findings remain above and in the sibling reports.
+
+1. Correctness. `stage_release` now rejects an output symlink before calling
+   `resolve`. Artifact validation still precedes filesystem writes. Existing
+   output and canonical Ivy-cache containment checks remain unchanged.
+2. Patterns. The fix uses the existing `Path` checks and `ValueError`
+   diagnostic. CLI arguments, exit codes, successful output JSON and artifact
+   layout are unchanged.
+3. Boundaries. Twelve cases cover the direct API and CLI entry point, relative
+   and absolute links, and missing, directory and file targets. Rejection leaves
+   the link, target and cache contents unchanged and creates no staging directory.
+4. Detailed verification. The regression captures the original `readlink`
+   value and compares it after rejection. This verifies identity without
+   assuming Windows and POSIX use the same absolute-link representation.
+   Only the explicit Windows privilege error may skip link creation; other
+   operating-system errors fail the test.
+5. Test evidence. Four dangling-link cases failed before the production fix;
+   the other eight cases passed. The full release/pipeline suite then passed
+   711 cases with one explicit opt-in SBT/native probe skipped. After correcting
+   the Windows-specific test assertion, all 64 staging/admission cases passed
+   on both Linux and native Windows, with no skips. Production code did not
+   change after the full-suite run.
+6. Documentation and limits. The operator guide requires a fresh, non-linked
+   staging output in an isolated workspace. Black 22.3.0 accepts both changed
+   Python files. These tests do not establish protection against an actively
+   hostile process changing workspace paths during execution, successful live
+   publishing, or complete remote CI.
+
+The reported defect is fixed and locally verified. Current-head automated
+review, CI and required human policies must still be checked after pushing.

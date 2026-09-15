@@ -14,3 +14,5 @@ Attempt 3 covers repeatable version bumps, no-overwrite plan output and bounded
 release polling. Reports record the reviewed delta and verification limits.
 Follow-up sections cover derivative-tag recovery at recorded merge commits,
 native Git failure cases, and request-level verification of Azure authentication.
+The Round 1 report also records the later ESRP output-symlink finding, its
+red/green API and CLI regressions, and a direct bounded follow-up review.

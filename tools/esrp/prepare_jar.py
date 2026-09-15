@@ -91,7 +91,10 @@ def collect_artifacts(root, version, scala):
 
 def stage_release(root, output, version, scala):
     artifacts = collect_artifacts(root, version, scala)
-    output = Path(output).resolve()
+    output = Path(output)
+    if output.is_symlink():
+        raise ValueError("output must be a new directory outside the Ivy cache")
+    output = output.resolve()
     if output.exists() or output.is_relative_to(Path(root).resolve()):
         raise ValueError("output must be a new directory outside the Ivy cache")
     output.parent.mkdir(parents=True, exist_ok=True)
