@@ -95,8 +95,6 @@ def run(args):
         )
     if args.native_threads < 0:
         raise ValueError("native-threads must be nonnegative")
-    if args.max_streaming_omp_threads == 0 or args.max_streaming_omp_threads < -1:
-        raise ValueError("max-streaming-omp-threads must be positive or -1")
     spark = SparkSession.builder.getOrCreate()
     sources = {
         "core": class_source(spark, "com.microsoft.azure.synapse.ml.build.BuildInfo$"),
