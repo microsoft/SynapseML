@@ -76,6 +76,7 @@ class StreamingLayoutSuite extends TestBase {
     assert(ReferenceDatasetUtils.streamingOmpAllocationBound(16, 32) == 32)
     assert(ReferenceDatasetUtils.streamingOmpAllocationBound(32, 16) == 32)
     assert(ReferenceDatasetUtils.streamingOmpAllocationBound(-1, 32) == -1)
+    assert(ReferenceDatasetUtils.streamingOmpAllocationBound(0, 32) == -1)
     assert(ReferenceDatasetUtils.streamingOmpAllocationBound(16, 0) == -1)
   }
 }

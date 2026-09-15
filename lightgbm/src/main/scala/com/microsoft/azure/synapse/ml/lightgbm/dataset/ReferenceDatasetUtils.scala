@@ -143,7 +143,7 @@ object ReferenceDatasetUtils {
   private[lightgbm] def streamingOmpAllocationBound(configuredMaxThreads: Int,
                                                     configuredNumThreads: Int): Int = {
     if (configuredMaxThreads <= 0 || configuredNumThreads <= 0) {
-      // Let the native runtime use the exact OpenMP team size when it is selected automatically.
+      // Let the native runtime use the same OpenMP team size for buffer allocation and indexing.
       -1
     } else {
       math.max(configuredMaxThreads, configuredNumThreads)

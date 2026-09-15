@@ -148,10 +148,10 @@ including empty local partitions, rather than for every partition in the cluster
 With `verbosity=2`, executor logs include the local partition IDs, row count, and
 external-thread count passed to native initialization. These ingestion threads
 are distinct from the native training threads controlled by `numThreads`. When
-`numThreads` is explicit, streaming allocation uses at least that many OpenMP
-slots even if `maxStreamingOMPThreads` is lower. With automatic or unbounded
-native threading, the LightGBM runtime allocates against its actual OpenMP team
-size instead of relying on a fixed configured limit.
+`numThreads` and `maxStreamingOMPThreads` are positive, streaming allocation
+uses at least `numThreads` OpenMP slots. With automatic `numThreads` or a
+nonpositive `maxStreamingOMPThreads`, the LightGBM runtime allocates against
+its actual OpenMP team size instead of relying on a fixed configured limit.
 
 #### GPU training with a custom OpenCL native library
 
