@@ -169,7 +169,8 @@ trait LightGBMExecutionParams extends Wrappable {
   val maxStreamingOMPThreads = new IntParam(this,
     "maxStreamingOMPThreads",
     "Maximum number of OpenMP threads used by a LightGBM thread. Used only for thread-safe buffer allocation." +
-      " Use -1 to use OpenMP default, but in a Spark environment it's best to set a fixed value.")
+      " Values below numThreads are raised to numThreads. Use -1, or automatic numThreads, to allocate for the" +
+      " OpenMP runtime team size.")
   setDefault(maxStreamingOMPThreads -> 16)
   def getMaxStreamingOMPThreads: Int = $(maxStreamingOMPThreads)
   def setMaxStreamingOMPThreads(value: Int): this.type = set(maxStreamingOMPThreads, value)

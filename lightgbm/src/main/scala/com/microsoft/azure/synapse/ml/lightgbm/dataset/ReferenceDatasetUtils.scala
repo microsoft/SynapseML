@@ -112,14 +112,20 @@ object ReferenceDatasetUtils {
       datasetParams)
 
     initializeOwnedDataset(lightGBMDataset) {
+      DatasetUtils.validateFeatureSize(lightGBMDataset.numFeature(), ctx.trainingCtx.numCols)
+
       // Initialize the dataset for streaming (allocates arrays mostly)
-      val maxOmpThreads = ctx.trainingParams.executionParams.maxStreamingOMPThreads
+      val configuredMaxOmpThreads = ctx.trainingParams.executionParams.maxStreamingOMPThreads
+      val maxOmpThreads = streamingOmpAllocationBound(
+        configuredMaxOmpThreads,
+        ctx.trainingParams.executionParams.numThreads)
       if (ctx.trainingParams.generalParams.verbosity > 1) {
         LoggerFactory.getLogger(getClass).info(
           s"Initializing streaming Dataset: executor=${LightGBMUtils.getExecutorId}, " +
             s"partition=${ctx.partitionId}, task=${ctx.taskId}, rows=$count, " +
             s"localPartitions=${ctx.networkTopologyInfo.executorPartitionIdList.sorted.mkString(",")}, " +
-            s"externalThreads=${ctx.executorPartitionCount}, maxStreamingOMPThreads=$maxOmpThreads")
+            s"externalThreads=${ctx.executorPartitionCount}, " +
+            s"configuredMaxStreamingOMPThreads=$configuredMaxOmpThreads, allocationBound=$maxOmpThreads")
       }
       LightGBMUtils.validate(lightgbmlib.LGBM_DatasetInitStreaming(lightGBMDataset.datasetPtr,
         ctx.trainingCtx.hasWeightsAsInt,
@@ -134,12 +140,13 @@ object ReferenceDatasetUtils {
     }
   }
 
-  private[lightgbm] def validateReferenceFeatures(serializedDataset: Array[Byte],
-                                                 datasetParams: String,
-                                                 numCols: Int): Unit = {
-    val reference = deserializeReferenceDataset(serializedDataset, 1, datasetParams)
-    NetworkManager.withCleanupPreservingPrimary(reference.close()) {
-      DatasetUtils.validateFeatureSize(numCols, reference.numFeature())
+  private[lightgbm] def streamingOmpAllocationBound(configuredMaxThreads: Int,
+                                                    configuredNumThreads: Int): Int = {
+    if (configuredMaxThreads <= 0 || configuredNumThreads <= 0) {
+      // Let the native runtime use the exact OpenMP team size when it is selected automatically.
+      -1
+    } else {
+      math.max(configuredMaxThreads, configuredNumThreads)
     }
   }
 

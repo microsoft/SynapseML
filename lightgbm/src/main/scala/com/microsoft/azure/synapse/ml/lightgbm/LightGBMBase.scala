@@ -688,7 +688,6 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     val precalculatedDataset = getReferenceDataset
     val serializedReference = if (precalculatedDataset.nonEmpty) {
       log.info(s"Using precalculated reference Dataset of length: ${precalculatedDataset.length}")
-      ReferenceDatasetUtils.validateReferenceFeatures(precalculatedDataset, datasetParams, numCols)
       precalculatedDataset
     } else {
       // Get sample data rows

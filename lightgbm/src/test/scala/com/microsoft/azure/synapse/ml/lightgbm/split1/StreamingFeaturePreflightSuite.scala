@@ -55,9 +55,10 @@ class StreamingFeaturePreflightSuite extends LightGBMTestUtils with Eventually {
     if (validation) estimator.setValidationIndicatorCol(validationCol) else estimator
   }
 
-  private def assertRejectedBeforeTraining(estimator: LightGBMRegressor,
-                                           data: DataFrame,
-                                           message: String): Unit = {
+  private def assertRejected(estimator: LightGBMRegressor,
+                             data: DataFrame,
+                             message: String,
+                             expectedTrainingStarted: Boolean): Unit = {
     val session = spark
     val group = s"streaming-feature-preflight-${UUID.randomUUID()}"
     val executor = Executors.newSingleThreadExecutor()
@@ -79,13 +80,19 @@ class StreamingFeaturePreflightSuite extends LightGBMTestUtils with Eventually {
         val tracker = session.sparkContext.statusTracker
         assert(tracker.getJobIdsForGroup(group).toSet.intersect(tracker.getActiveJobIds().toSet).isEmpty)
       }
-      assert(!estimator.getPerformanceMeasures.get.hasTrainingStarted)
+      assert(estimator.getPerformanceMeasures.get.hasTrainingStarted == expectedTrainingStarted)
     } finally {
       session.sparkContext.cancelJobGroup(group)
       result.cancel(true)
       executor.shutdownNow()
       assert(executor.awaitTermination(30, TimeUnit.SECONDS))
     }
+  }
+
+  private def assertRejectedBeforeTraining(estimator: LightGBMRegressor,
+                                           data: DataFrame,
+                                           message: String): Unit = {
+    assertRejected(estimator, data, message, expectedTrainingStarted = false)
   }
 
   private def validationSpools: Set[String] = {
@@ -125,14 +132,14 @@ class StreamingFeaturePreflightSuite extends LightGBMTestUtils with Eventually {
     }
   }
 
-  test("reused reference datasets reject a different feature count before native preparation") {
+  test("reused reference datasets reject a different feature count during executor reference preparation") {
     val valid = input(sparse = false, validation = false, malformed = false).coalesce(2)
     val estimator = learner("dense", validation = false).setNumTasks(2)
     estimator.fit(valid)
     assert(estimator.getReferenceDataset.nonEmpty)
     val twoFeatures = udf { vector: Vector => Vectors.dense(vector(0), vector(0)) }
     val changed = valid.withColumn(featuresCol, twoFeatures(col(featuresCol)))
-    assertRejectedBeforeTraining(estimator, changed, "Expected feature vector size 1 but found 2")
+    assertRejected(estimator, changed, "Expected feature vector size 2 but found 1", expectedTrainingStarted = true)
     assert(estimator.fit(valid).transform(valid).count() == rowCount)
   }
 

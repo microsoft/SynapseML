@@ -93,6 +93,10 @@ def run(args):
         raise ValueError(
             "Ranker control requires complete groups in every range partition"
         )
+    if args.native_threads < 0:
+        raise ValueError("native-threads must be nonnegative")
+    if args.max_streaming_omp_threads == 0 or args.max_streaming_omp_threads < -1:
+        raise ValueError("max-streaming-omp-threads must be positive or -1")
     spark = SparkSession.builder.getOrCreate()
     sources = {
         "core": class_source(spark, "com.microsoft.azure.synapse.ml.build.BuildInfo$"),
@@ -118,6 +122,8 @@ def run(args):
         "sparkVersion": spark.version,
         "classSources": sources,
         "driverNativeHashes": driver_native,
+        "maxStreamingOMPThreads": args.max_streaming_omp_threads,
+        "nativeThreads": args.native_threads,
     }
     print("SYNAPSEML_FABRIC_E2E_DIAGNOSTIC=" + json.dumps(diagnostics, sort_keys=True))
     deadline = time.monotonic() + 120
@@ -169,8 +175,8 @@ def run(args):
             dataTransferMode="streaming",
             useSingleDatasetMode=True,
             numTasks=args.partitions,
-            numThreads=1,
-            maxStreamingOMPThreads=1,
+            numThreads=args.native_threads,
+            maxStreamingOMPThreads=args.max_streaming_omp_threads,
             microBatchSize=8,
             matrixType=matrix,
             samplingMode="fixed",
@@ -350,6 +356,8 @@ def run(args):
                 "expectedExecutors": args.executors,
                 "executorSamplesBefore": [row.asDict() for row in before],
                 "executorSamples": [row.asDict() for row in after],
+                "maxStreamingOMPThreads": args.max_streaming_omp_threads,
+                "nativeThreads": args.native_threads,
                 "partitions": args.partitions,
             },
             sort_keys=True,
@@ -370,4 +378,6 @@ if __name__ == "__main__":
     parser.add_argument("--partitions", type=int, default=16)
     parser.add_argument("--executors", type=int, default=2)
     parser.add_argument("--repetitions", type=int, default=2)
+    parser.add_argument("--native-threads", type=int, default=1)
+    parser.add_argument("--max-streaming-omp-threads", type=int, default=1)
     run(parser.parse_args())

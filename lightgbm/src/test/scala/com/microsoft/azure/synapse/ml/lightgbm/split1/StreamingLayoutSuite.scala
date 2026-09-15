@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.lightgbm.split1
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.io.http.SharedSingleton
 import com.microsoft.azure.synapse.ml.lightgbm._
+import com.microsoft.azure.synapse.ml.lightgbm.dataset.ReferenceDatasetUtils
 import org.apache.spark.ml.linalg.SQLDataTypes
 import org.apache.spark.sql.types.{StructField, StructType}
 
@@ -69,5 +70,12 @@ class StreamingLayoutSuite extends TestBase {
     assert(task.threadIndex == 2)
     assert(task.executorRowCount == 9)
     assert(task.streamingPartitionOffset == 5)
+  }
+
+  test("streaming OpenMP allocation covers the configured native thread team") {
+    assert(ReferenceDatasetUtils.streamingOmpAllocationBound(16, 32) == 32)
+    assert(ReferenceDatasetUtils.streamingOmpAllocationBound(32, 16) == 32)
+    assert(ReferenceDatasetUtils.streamingOmpAllocationBound(-1, 32) == -1)
+    assert(ReferenceDatasetUtils.streamingOmpAllocationBound(16, 0) == -1)
   }
 }
