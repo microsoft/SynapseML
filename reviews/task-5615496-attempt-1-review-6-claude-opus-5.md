@@ -45,3 +45,20 @@ The markdown at `OpenAI.ipynb`:446-453 is unchanged context and remains accurate
 The configure-time statement describes the helper's eager validation. The
 shared writer can also serialize request payloads; this follow-up leaves those
 allocations unchanged. No per-row performance improvement is claimed.
+
+## Formatter-only CI follow-up
+
+Build 236052474 passed the eight-case live OpenAI notebook, all published test
+runs, Spark 4.1 compatibility, and LightGBM coverage publication. Its only
+remaining failure was Black's parenthesization of two notebook assertions.
+
+The driver ran the pipeline's pinned `black[jupyter]==22.3.0` in an isolated
+temporary dependency directory. Earlier local Black lacked Jupyter support;
+checking Python files alone had not covered this notebook. The formatter
+changed only cell 21, preserved its exact Python AST and all notebook metadata,
+and passed the full repository check with notebook support enabled.
+
+The six completed semantic reviews remain applicable to this formatting-only
+change. No assertion predicate, message, request, source API, or test behavior
+changed. The driver checked the resulting diff directly across all six review
+themes; a new current-head CI run is still required before reporting green CI.
