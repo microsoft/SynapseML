@@ -57,6 +57,19 @@ class VerifyUntypedArrayParam extends TestBase {
     assert(result === List(1, 2, 3))
   }
 
+  test("AnyJsonFormat serializes mutable sequences used by Java collection conversion") {
+    val values = Seq(
+      scala.collection.mutable.ArrayBuffer[Any]("answer", Option.empty[AnyRef].orNull, Long.MaxValue),
+      scala.collection.mutable.ListBuffer[Any]("answer", Option.empty[AnyRef].orNull, Long.MaxValue)
+    )
+    val expected = JsArray(JsString("answer"), JsNull, JsNumber(Long.MaxValue))
+    values.foreach { value =>
+      assert(anyFormat.write(value) == expected)
+      val nested: Any = Map("enum" -> value)
+      assert(nested.toJson.asJsObject.fields("enum") == expected)
+    }
+  }
+
   test("AnyJsonFormat roundtrip for Map[String, Any]") {
     val original: Any = Map("key" -> "value", "num" -> 10)
     val json = original.toJson

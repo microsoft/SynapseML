@@ -30,14 +30,16 @@ object AnyJsonFormat extends DefaultJsonProtocol {
         case v: Double => v.toJson
         case v: String => v.toJson
         case v: Boolean => v.toJson
+        case v: Integer => v.toLong.toJson
         case v: Seq[_] => seqFormat[Any].write(v)
-        case v: Map[_, _] =>
+        case v: Map[_, _] => {
           val fields = v.toSeq.map {
             case (key: String, value) => key -> write(value)
             case (key, _) => throwFailure(key)
           }
           // mapFormat rebuilds larger objects as HashMap, losing schema property order.
           JsObject(ListMap(fields: _*))
+        }
         case _ => throwFailure(any)
       }
 
