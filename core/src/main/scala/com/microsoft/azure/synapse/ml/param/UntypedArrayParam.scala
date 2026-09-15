@@ -14,35 +14,35 @@ object AnyJsonFormat extends DefaultJsonProtocol {
 
   //scalastyle:off cyclomatic.complexity
   implicit def anyFormat: JsonFormat[Any] = {
-    def throwFailure(any: Any) = throw new IllegalArgumentException(s"Cannot serialize ${any} of type ${any.getClass}")
+    def throwFailure(any: Any): Nothing = {
+      val valueType = if (any == null) "null" else any.getClass.toString
+      throw new IllegalArgumentException(s"Cannot serialize $any of type $valueType")
+    }
 
     new JsonFormat[Any] {
       def write(any: Any): JsValue = any match {
+        case v if v == null => JsNull
         case v: Int => v.toJson
+        case v: Long => v.toJson
+        case v: Short => v.toJson
+        case v: Byte => v.toJson
+        case v: Float => v.toJson
         case v: Double => v.toJson
         case v: String => v.toJson
         case v: Boolean => v.toJson
-        case v: Integer => v.toLong.toJson
         case v: Seq[_] => seqFormat[Any].write(v)
-        case v: Map[_, _] => {
-          try {
-            val m = v.asInstanceOf[Map[String, Any]]
-            // Convert to ListMap to preserve insertion order during JSON serialization;
-            // then delegate to spray-json to render.
-            val ordered = m match {
-              case lm: ListMap[String, Any] => lm
-              case other => ListMap(other.toSeq: _*)
-            }
-            // Use spray-json mapFormat via toMap to serialize while preserving order in the underlying fields
-            ordered.toMap.toJson
-          } catch {
-            case _: Throwable => throwFailure(any)
+        case v: Map[_, _] =>
+          val fields = v.toSeq.map {
+            case (key: String, value) => key -> write(value)
+            case (key, _) => throwFailure(key)
           }
-        }
+          // mapFormat rebuilds larger objects as HashMap, losing schema property order.
+          JsObject(ListMap(fields: _*))
         case _ => throwFailure(any)
       }
 
       def read(value: JsValue): Any = value match {
+        case JsNull => Option.empty[AnyRef].orNull
         case v: JsNumber =>
           val num = v.value
           num match {

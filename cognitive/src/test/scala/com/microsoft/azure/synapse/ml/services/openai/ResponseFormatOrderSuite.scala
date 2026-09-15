@@ -8,6 +8,8 @@ import org.scalatest.funsuite.AnyFunSuite
 import org.apache.http.entity.StringEntity
 import org.apache.spark.sql.Row
 
+import scala.collection.immutable.ListMap
+
 class ResponseFormatOrderSuite extends AnyFunSuite {
 
   private def entityToString(e: StringEntity): String =
@@ -138,5 +140,25 @@ class ResponseFormatOrderSuite extends AnyFunSuite {
     assert(json.contains("\"type\":\"json_schema\""), s"missing type json_schema in JSON: $json")
     assert(!json.contains("\"json_schema\":{"), s"Responses should flatten, unexpected nested json_schema: $json")
     assert(json.contains("\"name\":\"ordered_schema\""), s"missing name in flattened format: $json")
+  }
+
+  test("Existing response-format setters preserve more than four properties in both APIs") {
+    val names = Seq("e_one", "d_two", "c_three", "b_four", "a_five", "z_six")
+    val properties: Map[String, Any] = ListMap(names.map(_ -> Map("type" -> "string")): _*)
+    val responseFormat = makeJsonSchema(properties)
+    val chat = new OpenAIChatCompletion().setResponseFormat(responseFormat)
+    val responses = new OpenAIResponses().setResponseFormat(responseFormat)
+    val entities = Seq(
+      chat.getStringEntity(Seq.empty[Row], Map("response_format" -> chat.getResponseFormat)),
+      responses.getStringEntity(Seq.empty[Row], responses.getResponseFormat)
+    )
+    entities.foreach { entity =>
+      val json = entityToString(entity)
+      val start = json.indexOf("\"properties\":{")
+      assert(start >= 0)
+      val positions = names.map(name => json.indexOf(s""""$name":""", start))
+      assert(positions.forall(_ >= 0), s"Missing property in $json")
+      assert(positions == positions.sorted, s"Incorrect property order in $json")
+    }
   }
 }

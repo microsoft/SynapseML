@@ -38,7 +38,7 @@ object OpenAIResponseFormat extends Enumeration {
   }
 }
 
-trait HasOpenAITextParamsResponses extends HasOpenAITextParams {
+trait HasOpenAITextParamsResponses extends HasOpenAITextParams with HasOpenAIResponseSchema {
   val responseFormat: ServiceParam[Map[String, Any]] = new ServiceParam[Map[String, Any]](
     this,
     "responseFormat",

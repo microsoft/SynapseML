@@ -21,7 +21,7 @@ import scala.collection.{Seq => CollectionSeq}
 import scala.language.existentials
 
 
-trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
+trait HasOpenAITextParamsExtended extends HasOpenAITextParams with HasOpenAIResponseSchema {
   val responseFormat: ServiceParam[Map[String, Any]] = new ServiceParam[Map[String, Any]](
     this,
     "responseFormat",
