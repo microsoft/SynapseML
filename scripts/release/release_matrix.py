@@ -35,6 +35,7 @@ import argparse
 import hashlib
 import hmac
 import json
+import os
 import re
 import sys
 from dataclasses import dataclass, asdict, field
@@ -591,14 +592,27 @@ def load_plan(data: dict, require_bound: bool = False) -> ReleasePlan:
     return expected
 
 
+def _unique_object(pairs):
+    result = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("release plan contains a duplicate JSON member")
+        result[key] = value
+    return result
+
+
+def parse_plan_json(value):
+    return json.loads(value, object_pairs_hook=_unique_object)
+
+
 def read_plan(path: str, require_bound: bool = False) -> ReleasePlan:
     try:
         if path == "-":
-            data = json.load(sys.stdin)
+            data = parse_plan_json(sys.stdin.read())
         else:
             with Path(path).open(encoding="utf-8-sig") as stream:
-                data = json.load(stream)
-    except (OSError, UnicodeError, json.JSONDecodeError) as error:
+                data = parse_plan_json(stream.read())
+    except (OSError, ValueError) as error:
         raise ValueError(f"cannot read release plan {path}: {error}") from error
     return load_plan(data, require_bound=require_bound)
 
@@ -762,6 +776,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument("--pip-feed", help="Explicit named rehearsal wheel feed")
     p.add_argument("--upack-feed", help="Explicit named rehearsal UPack feed")
     p.add_argument("--json", action="store_true", help="Emit JSON instead of text")
+    p.add_argument(
+        "--output",
+        metavar="PATH",
+        help="Also save JSON to a new file; never overwrite an existing plan or ledger",
+    )
     args = p.parse_args(argv)
 
     def selected(value):
@@ -793,11 +812,34 @@ def main(argv: Optional[List[str]] = None) -> int:
             pip_feed=args.pip_feed,
             upack_feed=args.upack_feed,
         )
+        encoded = json.dumps(plan_to_dict(plan), indent=2)
+        if args.output is not None:
+            if args.output in ("", "-"):
+                raise ValueError("Use --json for stdout; --output requires a new file")
+            try:
+                descriptor = os.open(
+                    args.output, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600
+                )
+                with os.fdopen(
+                    descriptor, "w", encoding="utf-8", newline="\n"
+                ) as stream:
+                    stream.write(encoded + "\n")
+                    stream.flush()
+                    os.fsync(stream.fileno())
+            except FileExistsError as error:
+                raise ValueError(
+                    "Plan output already exists; preserve it and choose a new file"
+                ) from error
+            except OSError as error:
+                raise ValueError(
+                    "Plan output creation or persistence failed; a partial or unconfirmed file "
+                    "may remain. Do not use it; inspect the destination and choose a new output file"
+                ) from error
     except ValueError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
 
-    print(json.dumps(plan_to_dict(plan), indent=2) if args.json else render_text(plan))
+    print(encoded if args.json else render_text(plan))
     return 0
 
 

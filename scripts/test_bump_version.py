@@ -431,6 +431,28 @@ class TestSkipDir:
 
 
 class TestSkipFile:
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "scripts/release/test_future_release.py",
+            "scripts/release/release_future.py",
+            "scripts/release/fixtures/historical.json",
+        ],
+    )
+    def test_release_tools_and_fixtures_are_not_release_inputs(self, path):
+        assert _skip_file(Path(path))
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "core/release/runtime.py",
+            "docs/release/README.md",
+            "scripts/release_notes.py",
+        ],
+    )
+    def test_release_exclusion_is_repo_relative(self, path):
+        assert not _skip_file(Path(path))
+
     def test_denylist_name(self):
         assert _skip_file(Path("CHANGELOG.md"))
 
@@ -563,6 +585,41 @@ def fake_repo(tmp_path):
 
 
 class TestIntegration:
+    def test_successive_bumps_preserve_release_tools_and_fixtures(self, fake_repo):
+        historical = {
+            "scripts/release/test_future_release.py": f'VERSIONS = ["{V}", "2.0.0", "3.0.0"]\n',
+            "scripts/release/release_future.py": f'USAGE = "synapseml=={V}"\n',
+            "scripts/release/fixtures/historical.json": f'{{"version": "{V}"}}\n',
+        }
+        for name, content in historical.items():
+            path = fake_repo / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content, encoding="utf-8")
+        live = fake_repo / "core" / "release" / "runtime.py"
+        live.parent.mkdir(parents=True)
+        live.write_text(f'PACKAGE = "synapseml=={V}"\n', encoding="utf-8")
+        for previous, following in [(V, "2.0.0"), ("2.0.0", "3.0.0")]:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    SCRIPT,
+                    "--from",
+                    previous,
+                    "--to",
+                    following,
+                    "--repo-root",
+                    str(fake_repo),
+                    "--skip-docs",
+                ],
+                capture_output=True,
+                text=True,
+            )
+            assert result.returncode == 0, result.stdout + result.stderr
+            assert "SWEEP WARNING" not in result.stdout
+            assert f"synapseml=={following}" in live.read_text(encoding="utf-8")
+            for name, content in historical.items():
+                assert (fake_repo / name).read_text(encoding="utf-8") == content
+
     def test_dry_run_no_modification(self, fake_repo):
         result = subprocess.run(
             [

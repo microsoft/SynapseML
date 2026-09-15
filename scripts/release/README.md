@@ -36,19 +36,37 @@ not the full-release GitHub workflow.
 ## 1. Create a plan
 
 Keep plans and state outside source checkouts. Release builds reject dirty
-source, including untracked files.
+source, including untracked files. Use a separate directory for each version
+and release track, such as `../release-runs/v1.1.4/oss-maven` and
+`../release-runs/v1.1.4/internal-patch-0`. The `../release-run` paths below stand
+for that chosen directory; replace them consistently. A later patch or recovery
+plan gets its own directory. Resuming an existing plan always uses its original
+directory and ledger.
 
 ```bash
 mkdir -p ../release-run
 python scripts/release/release_matrix.py \
-  --version 1.1.4 --repositories oss --families maven --json \
-  > ../release-run/draft.json
+  --version 1.1.4 --repositories oss --families maven \
+  --output ../release-run/draft.json
 python scripts/bump-version.py --to 1.1.4 --dry-run
 ```
 
 The first command is a coordinate preview. Its unbound source commits make it
 non-executable. The version-bump preview does not edit files or open a PR.
 `skip_docs` is not a dry run.
+
+Version bumps leave `scripts/release/` unchanged, including new helper files
+and historical fixtures. Those versions describe the release protocol and test
+cases, not the package being released. The exclusion applies to this
+repository-relative directory only; live package references elsewhere still
+update on every bump.
+
+`--output` saves JSON without overwriting any existing file, including a plan
+or ledger. It validates the inputs before creating the file and fails if the
+parent directory does not exist. Keep drafts separate from approved plans.
+Use `--json` when stdout is needed, but do not redirect it over saved release
+records. Plan readers reject duplicate JSON members rather than silently
+choosing one value differently from an Internal producer.
 
 For a full release, run **Release Prepare** on `master`, review the generated
 version/docs PR, and merge it only after its required gates pass. The merge
@@ -62,7 +80,7 @@ After the reviewed source commits are known, bind them:
 python scripts/release/release_matrix.py \
   --version 1.1.4 --repositories oss --families maven \
   --oss-commit "master=$MASTER_SHA,spark4.0=$SPARK40_SHA,spark4.1=$SPARK41_SHA" \
-  --json > ../release-run/plan.json
+  --output ../release-run/plan.json
 ```
 
 Use the actual merged commits, not a feature-branch SHA that a merge may rewrite.
@@ -73,14 +91,16 @@ Any change requires regeneration and approval of the new ID.
 
 ## 2. Prepare an independent Internal release
 
-For a hotfix, start from reviewed Internal code and an existing OSS base:
+For a hotfix, start from reviewed Internal code and an existing OSS base.
+Choose a new Internal release directory rather than reusing the OSS plan's
+directory from the previous example.
 
 ```bash
 python scripts/release/release_matrix.py \
   --version 1.1.3 --scope internal-only --internal-patch 1 --targets master \
   --oss-commit "master=$OSS_BASE_SHA" \
   --internal-commit "master=$INTERNAL_SHA" \
-  --json > ../release-run/plan.json
+  --output ../release-run/plan.json
 ```
 
 For initial patch `0` against a newly published base, use
@@ -168,6 +188,54 @@ The local ledger is locked, checksummed, and written atomically. It records
 submission intent before queueing and the returned build ID afterward.
 Pending, failed, or ambiguous submissions are never blindly repeated.
 ESRP/SAW approvals remain manual.
+
+### Wait for an approved release
+
+Add `--wait` to approved resume to poll recorded builds and queue selected
+downstream work when its dependencies are proven complete:
+
+```bash
+python scripts/release/release_ops.py resume \
+  --plan ../release-run/plan.json --state ../release-run/state.json \
+  --apply --approve-plan "$REVIEWED_PLAN_ID" \
+  --wait --poll-seconds 60 --timeout-seconds 3600
+```
+
+This uses the same approved plan for every iteration. It reloads the ledger,
+rechecks source, policy, feeds and producer evidence, and releases local locks
+between polls. A changed plan file or missing ledger stops the command.
+Initial Internal releases and hotfixes still queue no OSS work. Neither this
+option nor a timeout authorizes retries, adoption, additional targets or families,
+or human approval clicks.
+
+For monitoring without any queueing, use `status --wait` with the same polling
+options. It can finish with incomplete work if another resume is needed to
+queue downstream actions. Resume without `--apply` remains a single preview
+and cannot use `--wait`.
+
+Waiting stops on failed or unknown work, existing artifacts that need adoption,
+or a blocked plan with no pending build. Inspect the final JSON and use the
+explicit recovery commands below. `--wait` cannot be combined with `--retry`,
+`--adopt`, or `--inspect-lock`. Defaults are 60 seconds between polls and a
+one-hour timeout; the limits are 1..3600 and 1..86400 seconds respectively.
+Progress goes to stderr and normal completion emits one final JSON report.
+
+A failed source, policy, feed or inventory probe ends polling with exit `2`
+and no final JSON report. The driver does not retry these reads automatically.
+Restore service access, then rerun the same command with the original plan
+and ledger. Recorded builds are not canceled. Do not replace state or request
+adoption or retry solely because a read failed.
+
+Timeout limits polling; service calls already in progress may finish afterward.
+Timeout exits `1`, and interruption exits `130`. Neither cancels Azure builds
+nor discards their saved IDs. Continue with the original plan and ledger, not
+a new release directory.
+
+If plan output creation or persistence fails, a partial or unconfirmed output
+file may remain. Do not use that file. Inspect the destination and generate to
+a new filename; the generator will not overwrite or delete the failed output.
+
+### Keep the authoritative ledger
 
 Use one authoritative directory and state filename per approved plan. The
 driver reserves that filename with `.release-plan-<plan_id>.json` and holds
@@ -356,7 +424,7 @@ python scripts/release/release_matrix.py --version 1.1.4 \
   --scope full --repositories internal --internal-patch 0 \
   --targets spark4.0 --families upack --upack-iteration spark4.0=1 \
   --oss-commit "spark4.0=$OSS_BASE_SHA" \
-  --internal-commit "spark4.0=$INTERNAL_SHA" --json > ../internal-run/plan.json
+  --internal-commit "spark4.0=$INTERNAL_SHA" --output ../internal-run/plan.json
 ```
 
 Use the reviewed Spark-specific merge commits for both variables. Both original

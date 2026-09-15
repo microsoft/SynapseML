@@ -419,6 +419,294 @@ def action(state, repository, family, target="master"):
     )
 
 
+@pytest.fixture
+def wait_clock(monkeypatch):
+    class Clock:
+        elapsed = 0
+        delays = ()
+        on_sleep = None
+
+        def sleep(self, seconds):
+            self.delays += (seconds,)
+            self.elapsed += seconds
+            if self.on_sleep:
+                self.on_sleep()
+
+    clock = Clock()
+    monkeypatch.setattr(ops, "monotonic", lambda: clock.elapsed, raising=False)
+    monkeypatch.setattr(ops, "sleep", clock.sleep, raising=False)
+    return clock
+
+
+@pytest.mark.parametrize(
+    "repository,scope,patch",
+    [
+        ("oss", "full", "0"),
+        ("internal", "full", "0"),
+        ("internal", "internal-only", "2"),
+    ],
+)
+def test_wait_advances_only_approved_dependencies(
+    cli, wait_clock, repository, scope, patch
+):
+    plan = release_plan(repositories=[repository], scope=scope, internal_patch=patch)
+    cli.remote.missing = {(repository, family) for family in plan.families}
+
+    def finish_build():
+        assert not list(cli.state.parent.glob("*.lock"))
+        if len(cli.remote.queued) == 1:
+            cli.remote.succeed(101, plan, repository, ["maven"])
+        else:
+            cli.remote.succeed(102, plan, repository, ["pip", "upack"])
+
+    wait_clock.on_sleep = finish_build
+    code, report, error = cli(plan=plan, apply=True, extra=["--wait"])
+    assert code == 0, error
+    assert report["complete"]
+    assert len(cli.remote.queued) == 2
+    assert len(wait_clock.delays) == 2
+    assert {item["repository"] for item in report["actions"]} == {repository}
+    assert all(item["status"] == "complete" for item in report["actions"])
+    assert saved(cli)["plan_id"] == plan.plan_id
+
+
+def test_status_wait_never_queues(cli, wait_clock):
+    plan = release_plan(repositories=["internal"], families=["upack"])
+    cli.remote.missing = {("internal", "upack")}
+    assert cli(plan=plan, apply=True)[0] == 1
+    wait_clock.on_sleep = lambda: cli.remote.succeed(101, plan, "internal", ["upack"])
+    code, report, error = cli("status", plan=plan, extra=["--wait"])
+    assert code == 0, error
+    assert report["complete"] and not report["apply"]
+    assert len(cli.remote.queued) == 1
+
+
+def test_status_wait_leaves_downstream_queueing_to_approved_resume(cli, wait_clock):
+    plan = release_plan(repositories=["oss"])
+    cli.remote.missing = {("oss", family) for family in plan.families}
+    assert cli(plan=plan, apply=True)[0] == 1
+    wait_clock.on_sleep = lambda: cli.remote.succeed(101, plan, "oss", ["maven"])
+    code, report, error = cli("status", plan=plan, extra=["--wait"])
+    assert code == 1
+    assert not report["complete"]
+    assert len(cli.remote.queued) == 1
+    assert "manual" in error.lower()
+    assert action(report, "oss", "maven")["status"] == "complete"
+    assert action(report, "oss", "upack")["status"] == "planned"
+
+
+def test_wait_stops_before_unrelated_queue_after_ambiguous_submission(cli, wait_clock):
+    plan = release_plan(families=["upack"])
+    cli.remote.missing = {("oss", "upack"), ("internal", "upack")}
+    cli.remote.queue_error = RuntimeError("ambiguous submission")
+    code, _, error = cli(plan=plan, apply=True, extra=["--wait"])
+    assert code == 1, error
+    assert len(cli.remote.queued) == 1
+    assert not wait_clock.delays
+
+
+def test_wait_does_not_queue_if_preflight_consumes_the_timeout(cli, wait_clock):
+    plan = release_plan(repositories=["oss"], families=["upack"])
+    cli.remote.missing = {("oss", "upack")}
+    original = cli.remote.inventory
+
+    def slow_inventory(selected):
+        wait_clock.elapsed += 60
+        return original(selected)
+
+    cli.remote.inventory = slow_inventory
+    code, report, error = cli(
+        plan=plan, apply=True, extra=["--wait", "--timeout-seconds", "30"]
+    )
+    assert code == 1, error
+    assert not report["complete"]
+    assert not cli.remote.queued
+    assert not wait_clock.delays
+    assert "timed out" in error.lower()
+
+
+def test_wait_does_not_queue_if_last_policy_check_consumes_timeout(cli, wait_clock):
+    plan = release_plan(repositories=["oss"], families=["upack"])
+    cli.remote.missing = {("oss", "upack")}
+    original = cli.remote.github_variables
+
+    def slow_policy():
+        if cli.remote.policy_calls:
+            wait_clock.elapsed += 60
+        return original()
+
+    cli.remote.github_variables = slow_policy
+    code, _, error = cli(
+        plan=plan, apply=True, extra=["--wait", "--timeout-seconds", "30"]
+    )
+    assert code == 1
+    assert "timed out" in error.lower()
+    assert not cli.remote.queued
+    assert action(saved(cli), "oss", "upack")["operation"] is None
+
+
+@pytest.mark.parametrize("families", [["upack"], ["pip", "upack"]])
+@pytest.mark.parametrize("elapsed", [30, 31])
+def test_wait_restores_unsubmitted_intent_when_its_save_exhausts_deadline(
+    cli, wait_clock, monkeypatch, families, elapsed
+):
+    plan = release_plan(repositories=["oss"], families=families)
+    cli.remote.missing = {("oss", family) for family in families}
+    original_save = ops.StateStore.save
+
+    def slow_intent_save(store):
+        original_save(store)
+        if any(item["status"] == "unknown" for item in store.state["actions"]):
+            wait_clock.elapsed = elapsed
+
+    monkeypatch.setattr(ops.StateStore, "save", slow_intent_save)
+    code, report, error = cli(
+        plan=plan, apply=True, extra=["--wait", "--timeout-seconds", "30"]
+    )
+    assert code == 1 and "timed out" in error.lower()
+    assert not cli.remote.queued and not wait_clock.delays
+    assert all(item["status"] == "planned" for item in report["actions"])
+    for item in saved(cli)["actions"]:
+        assert item["operation"] is None
+        assert item["intent_at"] is None and item["build_id"] is None
+        assert item["attempts"] == []
+    assert not list(cli.state.parent.glob("*.lock"))
+    code, _, error = cli(plan=plan, apply=True)
+    assert code == 1, error
+    assert len(cli.remote.queued) == 1
+
+
+def test_wait_timeout_retains_the_original_pending_run(cli, wait_clock):
+    plan = release_plan(repositories=["oss"], families=["upack"])
+    cli.remote.missing = {("oss", "upack")}
+    code, report, error = cli(
+        plan=plan,
+        apply=True,
+        extra=["--wait", "--poll-seconds", "10", "--timeout-seconds", "25"],
+    )
+    assert code == 1
+    assert not report["complete"]
+    assert "timed out" in error.lower()
+    assert wait_clock.delays == (10, 10, 5)
+    assert len(cli.remote.queued) == 1
+    assert action(saved(cli), "oss", "upack")["build_id"] == 101
+    cli.remote.succeed(101, plan, "oss", ["upack"])
+    assert cli(plan=plan, apply=True)[0] == 0
+    assert len(cli.remote.queued) == 1
+
+
+@pytest.mark.parametrize("failure", ["failed", "unknown", "existing", "blocked"])
+def test_wait_stops_for_manual_recovery(cli, wait_clock, failure):
+    plan = release_plan(repositories=["oss"], families=["upack"])
+    cli.remote.missing = {("oss", "upack")}
+    if failure == "failed":
+        wait_clock.on_sleep = lambda: cli.remote.fail(101)
+    elif failure == "unknown":
+        cli.remote.queue_error = RuntimeError("ambiguous submission")
+    elif failure == "existing":
+        cli.remote.missing = set()
+    else:
+        cli.remote.missing.add(("oss", "maven"))
+    code, report, error = cli(plan=plan, apply=True, extra=["--wait"])
+    assert code == 1, error
+    assert not report["complete"]
+    assert len(wait_clock.delays) == (1 if failure == "failed" else 0)
+    assert len(cli.remote.queued) == (1 if failure in {"failed", "unknown"} else 0)
+    assert "manual" in error.lower()
+
+
+@pytest.mark.parametrize(
+    "command,apply,extra",
+    [
+        ("resume", False, ["--wait"]),
+        ("resume", True, ["--wait", "--retry", "publisher.oss.master.upack"]),
+        ("resume", True, ["--wait", "--adopt", "publisher.oss.master.upack=101"]),
+        ("status", False, ["--wait", "--inspect-lock"]),
+        ("resume", True, ["--poll-seconds", "5"]),
+        ("status", False, ["--timeout-seconds", "10"]),
+        ("resume", True, ["--wait", "--poll-seconds", "0"]),
+        ("resume", True, ["--wait", "--timeout-seconds", "-1"]),
+        ("resume", True, ["--wait", "--poll-seconds", "3601"]),
+        ("resume", True, ["--wait", "--timeout-seconds", "86401"]),
+        ("preflight", False, ["--state", ""]),
+        ("status", False, ["--state", ""]),
+        ("status", False, ["--wait", "--state", ""]),
+        ("resume", False, ["--state", ""]),
+        ("resume", True, ["--state", ""]),
+        ("resume", True, ["--wait", "--state", ""]),
+        ("status", False, ["--inspect-lock", "--state", ""]),
+    ],
+)
+def test_wait_options_fail_before_any_probe(cli, command, apply, extra):
+    code, _, error = cli(command, apply=apply, extra=extra)
+    assert code == 2, error
+    assert not cli.remote.inventory_calls
+    assert not cli.remote.queued
+    assert not cli.state.exists()
+
+
+def test_wait_rechecks_policy_before_queueing_downstream(cli, wait_clock):
+    plan = release_plan(repositories=["oss"])
+    cli.remote.missing = {("oss", family) for family in plan.families}
+    original_variables = cli.remote.variables
+
+    def policy_changes():
+        cli.remote.succeed(101, plan, "oss", ["maven"])
+        cli.remote.variables = RuntimeError("Policy read failed")
+
+    wait_clock.on_sleep = policy_changes
+    code, report, error = cli(plan=plan, apply=True, extra=["--wait"])
+    assert code == 2 and report is None and error
+    assert len(cli.remote.queued) == 1
+    assert action(saved(cli), "oss", "maven")["build_id"] == 101
+    cli.remote.variables = original_variables
+    code, _, error = cli(plan=plan, apply=True)
+    assert code == 1, error
+    assert len(cli.remote.queued) == 2
+
+
+def test_wait_does_not_recreate_a_removed_ledger(cli, wait_clock):
+    plan = release_plan(repositories=["oss"], families=["upack"])
+    cli.remote.missing = {("oss", "upack")}
+    wait_clock.on_sleep = lambda: cli.state.unlink()
+    assert cli(plan=plan, apply=True, extra=["--wait"])[0] == 2
+    assert len(cli.remote.queued) == 1
+    assert not cli.state.exists()
+
+
+def test_wait_rejects_plan_file_changes(cli, wait_clock):
+    plan = release_plan(repositories=["oss"])
+    cli.remote.missing = {("oss", family) for family in plan.families}
+
+    def replace_plan():
+        cli.remote.succeed(101, plan, "oss", ["maven"])
+        replacement = release_plan(repositories=["oss"], families=["upack"])
+        cli.plan.write_text(
+            json.dumps(matrix.plan_to_dict(replacement)), encoding="utf-8"
+        )
+
+    wait_clock.on_sleep = replace_plan
+    code, _, error = cli(plan=plan, apply=True, extra=["--wait"])
+    assert code == 2
+    assert "plan" in error.lower()
+    assert len(cli.remote.queued) == 1
+
+
+def test_wait_interrupt_preserves_pending_state_and_releases_locks(cli, wait_clock):
+    plan = release_plan(repositories=["oss"], families=["upack"])
+    cli.remote.missing = {("oss", "upack")}
+
+    def interrupt():
+        raise KeyboardInterrupt
+
+    wait_clock.on_sleep = interrupt
+    code, _, error = cli(plan=plan, apply=True, extra=["--wait"])
+    assert code == 130
+    assert "interrupt" in error.lower()
+    assert action(saved(cli), "oss", "upack")["build_id"] == 101
+    assert not list(cli.state.parent.glob("*.lock"))
+
+
 def failed_publisher(cli, families=("upack",)):
     plan = release_plan(families=list(families), repositories=["oss"])
     cli.remote.missing = {("oss", family) for family in families}

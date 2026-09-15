@@ -15,7 +15,14 @@ import zipfile
 from email.parser import BytesParser
 from pathlib import Path
 
-from release_matrix import TARGETS, build_plan, load_plan, plan_to_dict, read_plan
+from release_matrix import (
+    TARGETS,
+    build_plan,
+    load_plan,
+    parse_plan_json,
+    plan_to_dict,
+    read_plan,
+)
 from verify_release import (
     PUBLIC_MAVEN_MODULES,
     decode_evidence,
@@ -61,9 +68,13 @@ def maven_plan(payload, approval, source_ref, commit):
     if not isinstance(payload, str) or not payload or len(payload) > 65536:
         raise ValueError("Maven publication requires a bounded release-plan payload")
     try:
-        data = json.loads(base64.b64decode(payload, validate=True))
+        decoded = base64.b64decode(payload, validate=True)
     except (binascii.Error, UnicodeError, ValueError) as error:
         raise ValueError("invalid base64 release plan") from error
+    try:
+        data = parse_plan_json(decoded)
+    except (UnicodeError, json.JSONDecodeError) as error:
+        raise ValueError("invalid JSON release plan") from error
     plan = load_plan(data, require_bound=True)
     if approval != plan.plan_id:
         raise ValueError("Maven approval does not match plan_id")

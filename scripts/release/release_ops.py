@@ -34,6 +34,7 @@ import zipfile
 from contextlib import nullcontext
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from time import monotonic, sleep
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import release_matrix as matrix  # noqa: E402
@@ -2514,8 +2515,15 @@ def _retry(plan, store, identifier, remote):
     _queue(plan, store, group, remote, retry_snapshot=retry_snapshot)
 
 
-def _queue(plan, store, actions, remote, retry_snapshot=None):
+def _queue(plan, store, actions, remote, retry_snapshot=None, deadline=None):
     store.state["policy"] = _policy(plan, remote)
+    if deadline is not None and monotonic() >= deadline:
+        return
+    before_intent = (
+        copy.deepcopy(retry_snapshot if retry_snapshot is not None else store.state)
+        if deadline is not None
+        else None
+    )
     if retry_snapshot is not None:
         absence = actions[0]["attempts"][-1]["proof"]["absence"]
         _validate_absence(plan, actions, store.state["destinations"], absence)
@@ -2545,6 +2553,12 @@ def _queue(plan, store, actions, remote, retry_snapshot=None):
             raise ReleaseError(
                 f"Retry not submitted; original failed attempt restored. {error}"
             ) from error
+    if deadline is not None and monotonic() >= deadline:
+        before_intent["revision"] = store.state["revision"]
+        store.state.clear()
+        store.state.update(before_intent)
+        store.save()
+        return
     try:
         returned = remote.queue(operation["command"])
     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError):
@@ -2591,10 +2605,17 @@ def _queue(plan, store, actions, remote, retry_snapshot=None):
     store.save()
 
 
-def _execute(plan, store, remote):
+def _execute(plan, store, remote, stop_on_blocker=False, deadline=None):
     state = store.state
     attempted = set()
     for action in state["actions"]:
+        if deadline is not None and monotonic() >= deadline:
+            break
+        if stop_on_blocker and any(
+            item["status"] in {"failed", "unknown", "existing"}
+            for item in state["actions"]
+        ):
+            break
         _observe(state)
         if (
             action["status"] != "planned"
@@ -2616,7 +2637,7 @@ def _execute(plan, store, remote):
                 and not other["blocked"]
             ]
         attempted.update(value["id"] for value in group)
-        _queue(plan, store, group, remote)
+        _queue(plan, store, group, remote, deadline=deadline)
     _observe(state)
 
 
@@ -2949,6 +2970,60 @@ def verified_evidence(plan, state_path, remote=None):
         return report
 
 
+def _reconcile(plan, args, service, must_exist=False, deadline=None):
+    apply = getattr(args, "apply", False)
+    adoptions = getattr(args, "adopt", [])
+    retries = getattr(args, "retry", [])
+    context = (
+        StateStore(
+            args.state,
+            plan,
+            must_exist=must_exist or args.command == "status" or bool(retries),
+        )
+        if args.state
+        else nullcontext(None)
+    )
+    with context as store:
+        state = store.state if store is not None else _new_state(plan)
+        policy, destinations, inventory, dependencies = _probes(plan, service)
+        if state["destinations"] is not None and state["destinations"] != destinations:
+            raise ReleaseError(
+                "Resolved feed destination changed since preflight; refusing stale state"
+            )
+        state.update(
+            policy=policy,
+            destinations=destinations,
+            inventory=inventory,
+            dependency_inventory=dependencies,
+        )
+        _observe(state)
+        if retries:
+            _retry(plan, store, retries[0], service)
+        else:
+            if adoptions:
+                _adopt(plan, state, adoptions, service)
+                store.save()
+            _refresh(plan, state, service)
+        if store is not None:
+            store.save()
+        if (
+            apply
+            and not adoptions
+            and not retries
+            and (deadline is None or monotonic() < deadline)
+        ):
+            _execute(
+                plan,
+                store,
+                service,
+                stop_on_blocker=getattr(args, "wait", False),
+                deadline=deadline,
+            )
+        if store is not None:
+            store.save()
+        return _report(state, apply)
+
+
 def main(argv=None, remote=None):
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
@@ -2956,6 +3031,22 @@ def main(argv=None, remote=None):
         command = commands.add_parser(name)
         command.add_argument("--plan", required=True)
         command.add_argument("--state", required=name != "preflight")
+        if name in {"status", "resume"}:
+            command.add_argument(
+                "--wait",
+                action="store_true",
+                help="Poll pending work; approved resume also advances its selected dependencies",
+            )
+            command.add_argument(
+                "--poll-seconds",
+                type=int,
+                help="Polling interval with --wait (default 60)",
+            )
+            command.add_argument(
+                "--timeout-seconds",
+                type=int,
+                help="Stop polling after this duration with --wait (default 3600)",
+            )
         if name == "status":
             command.add_argument(
                 "--inspect-lock",
@@ -2984,6 +3075,7 @@ def main(argv=None, remote=None):
     approved = getattr(args, "approve_plan", None)
     adoptions = getattr(args, "adopt", [])
     retries = getattr(args, "retry", [])
+    wait = getattr(args, "wait", False)
     try:
         plan = matrix.read_plan(args.plan, require_bound=True)
         plan = matrix.load_plan(matrix.plan_to_dict(plan), require_bound=True)
@@ -3004,8 +3096,28 @@ def main(argv=None, remote=None):
                 "Retry requires --apply, matching --approve-plan and exactly one --retry; "
                 "it cannot be combined with --adopt"
             )
-        if args.state and (
-            args.state == "-"
+        poll = getattr(args, "poll_seconds", None)
+        timeout = getattr(args, "timeout_seconds", None)
+        if not wait and (poll is not None or timeout is not None):
+            raise ReleaseError("--poll-seconds and --timeout-seconds require --wait")
+        if wait and (
+            (args.command == "resume" and not apply)
+            or adoptions
+            or retries
+            or getattr(args, "inspect_lock", False)
+        ):
+            raise ReleaseError(
+                "--wait requires status or approved resume without --adopt, --retry or --inspect-lock"
+            )
+        poll = 60 if poll is None else poll
+        timeout = 3600 if timeout is None else timeout
+        if not 1 <= poll <= 3600 or not 1 <= timeout <= 86400:
+            raise ReleaseError(
+                "Polling must be 1..3600 seconds and timeout must be 1..86400 seconds"
+            )
+        if args.state is not None and (
+            not args.state.strip()
+            or args.state == "-"
             or (
                 args.plan != "-"
                 and Path(args.state).resolve() == Path(args.plan).resolve()
@@ -3015,47 +3127,61 @@ def main(argv=None, remote=None):
         if getattr(args, "inspect_lock", False):
             print(json.dumps(inspect_locks(plan, args.state), indent=2, sort_keys=True))
             return 0
-        context = (
-            StateStore(
-                args.state, plan, must_exist=args.command == "status" or bool(retries)
-            )
-            if args.state
-            else nullcontext(None)
-        )
-        with context as store:
-            state = store.state if store is not None else _new_state(plan)
-            service = remote if remote is not None else AzureRemote()
-            policy, destinations, inventory, dependencies = _probes(plan, service)
+        service = remote if remote is not None else AzureRemote()
+        deadline = monotonic() + timeout if wait else None
+        report = None
+        while True:
+            if report is not None and monotonic() >= deadline:
+                print(
+                    "Polling timed out; recorded builds continue. Use the same plan and state to resume.",
+                    file=sys.stderr,
+                )
+                break
             if (
-                state["destinations"] is not None
-                and state["destinations"] != destinations
+                report is not None
+                and args.plan != "-"
+                and (
+                    matrix.read_plan(args.plan, require_bound=True).plan_id
+                    != plan.plan_id
+                )
             ):
                 raise ReleaseError(
-                    "Resolved feed destination changed since preflight; refusing stale state"
+                    "Release plan changed while waiting; new inputs require separate approval"
                 )
-            state.update(
-                policy=policy,
-                destinations=destinations,
-                inventory=inventory,
-                dependency_inventory=dependencies,
+            report = _reconcile(
+                plan, args, service, must_exist=report is not None, deadline=deadline
             )
-            _observe(state)
-            if retries:
-                _retry(plan, store, retries[0], service)
-            else:
-                if adoptions:
-                    _adopt(plan, state, adoptions, service)
-                    store.save()
-                _refresh(plan, state, service)
-            if store is not None:
-                store.save()
-            if apply and not adoptions and not retries:
-                _execute(plan, store, service)
-            if store is not None:
-                store.save()
-            report = _report(state, apply)
-            print(json.dumps(report, indent=2, sort_keys=True))
-            return 0 if args.command == "preflight" or report["complete"] else 1
+            if not wait or report["complete"]:
+                break
+            if monotonic() >= deadline:
+                continue
+            statuses = {item["status"] for item in report["actions"]}
+            if (
+                statuses & {"failed", "unknown", "existing"}
+                or "pending" not in statuses
+            ):
+                print(
+                    "Polling stopped for manual action; inspect the action errors and blockers. "
+                    "No automatic adoption, retry or approval is performed.",
+                    file=sys.stderr,
+                )
+                break
+            remaining = deadline - monotonic()
+            if remaining > 0:
+                print(
+                    "Waiting for recorded Azure builds and artifact visibility.",
+                    file=sys.stderr,
+                    flush=True,
+                )
+                sleep(min(poll, remaining))
+        print(json.dumps(report, indent=2, sort_keys=True))
+        return 0 if args.command == "preflight" or report["complete"] else 1
+    except KeyboardInterrupt:
+        print(
+            "Interrupted; recorded Azure builds are not canceled. Resume using the same plan and state.",
+            file=sys.stderr,
+        )
+        return 130
     except (ValueError, RuntimeError, OSError) as error:
         message = (
             str(error)

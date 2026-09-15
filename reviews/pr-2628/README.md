@@ -9,3 +9,6 @@ Each report records its findings and the changes made before the next round.
 The `pr-2628-attempt-2-review-*.md` files cover the approved execution,
 recovery, evidence and publication changes in six further sequential rounds.
 Original findings remain alongside their resolutions.
+
+Attempt 3 covers repeatable version bumps, no-overwrite plan output and bounded
+release polling. Reports record the reviewed delta and verification limits.

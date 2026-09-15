@@ -93,6 +93,35 @@ def test_maven_payload_checks_plan_tag_source_and_family():
         guard.maven_plan("not-base64!", plan.plan_id, "refs/tags/v1.1.4", SHA)
 
 
+@pytest.mark.parametrize("member", ["scope", "oss_commit"])
+def test_maven_payload_rejects_duplicate_members_before_checkout(
+    member, monkeypatch, tmp_path, capsys
+):
+    plan = public_plan()
+    raw = json.dumps(matrix.plan_to_dict(plan), separators=(",", ":"))
+    original = f'"{member}":{json.dumps("full" if member == "scope" else SHA)}'
+    raw = raw.replace(original, f'"{member}":"unapproved",{original}', 1)
+    payload = base64.b64encode(raw.encode()).decode()
+    with pytest.raises(ValueError, match="duplicate"):
+        guard.maven_plan(payload, plan.plan_id, "refs/tags/v1.1.4", SHA)
+    for key, value in {
+        "RELEASE_PLAN_BASE64": payload,
+        "RELEASE_PLAN_ID": plan.plan_id,
+        "BUILD_SOURCEBRANCH": "refs/tags/v1.1.4",
+        "BUILD_SOURCEVERSION": SHA,
+    }.items():
+        monkeypatch.setenv(key, value)
+    checked = []
+    monkeypatch.setattr(
+        guard, "validate_checkout", lambda *arguments: checked.append(arguments)
+    )
+    assert guard.main(["maven", "--repo", str(tmp_path)]) == 2
+    assert not checked
+    output = capsys.readouterr()
+    assert not output.out
+    assert "duplicate" in output.err and "unapproved" not in output.err
+
+
 def test_missing_maven_files_cannot_produce_a_success_receipt(tmp_path):
     plan = public_plan()
     with pytest.raises(ValueError, match="artifact"):

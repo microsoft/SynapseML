@@ -2,6 +2,7 @@
 # Licensed under the MIT License.
 
 import hashlib
+import io
 import json
 import sys
 from pathlib import Path
@@ -13,6 +14,75 @@ import release_matrix as matrix  # noqa: E402
 
 OSS_SHA = "a" * 40
 INTERNAL_SHA = "b" * 40
+
+
+@pytest.mark.parametrize("source", ["file", "stdin"])
+@pytest.mark.parametrize("nested", [False, True])
+def test_read_plan_rejects_duplicate_members(tmp_path, monkeypatch, source, nested):
+    body = json.dumps(matrix.plan_to_dict(bound_plan()))
+    if nested:
+        body = body.replace(
+            '"oss_commit":', '"oss_commit": "' + "c" * 40 + '", "oss_commit":', 1
+        )
+    else:
+        body = '{"scope": "internal-only", ' + body[1:]
+    path = tmp_path / "plan.json"
+    path.write_text(body, encoding="utf-8")
+    monkeypatch.setattr(sys, "stdin", io.StringIO(body))
+    with pytest.raises(ValueError, match="duplicate") as caught:
+        matrix.read_plan("-" if source == "stdin" else str(path))
+    assert ("-" if source == "stdin" else str(path)) in str(caught.value)
+
+
+def test_output_persistence_failure_marks_the_retained_file_unusable(
+    tmp_path, monkeypatch, capsys
+):
+    path = tmp_path / "plan.json"
+
+    def fail_sync(descriptor):
+        raise OSError("synthetic durability failure")
+
+    monkeypatch.setattr(matrix.os, "fsync", fail_sync)
+    assert matrix.main(["--version", "1.1.4", "--output", str(path)]) == 2
+    output = capsys.readouterr()
+    assert not output.out
+    assert "partial or unconfirmed file" in output.err
+    assert "Do not use it" in output.err
+    original = path.read_bytes()
+    assert matrix.main(["--version", "1.1.5", "--output", str(path)]) == 2
+    assert path.read_bytes() == original
+
+
+def test_plan_output_never_overwrites_an_earlier_release(tmp_path, capsys):
+    path = tmp_path / "plan.json"
+    assert matrix.main(["--version", "1.1.4", "--output", str(path), "--json"]) == 0
+    original = path.read_bytes()
+    assert json.loads(capsys.readouterr().out) == json.loads(original)
+    assert matrix.read_plan(str(path)).oss_version == "1.1.4"
+
+    assert matrix.main(["--version", "1.1.5", "--output", str(path)]) == 2
+    assert path.read_bytes() == original
+    assert "exists" in capsys.readouterr().err
+
+    next_path = tmp_path / "next-plan.json"
+    assert matrix.main(["--version", "1.1.5", "--output", str(next_path)]) == 0
+    assert matrix.read_plan(str(next_path)).oss_version == "1.1.5"
+    assert path.read_bytes() == original
+
+
+def test_invalid_plan_does_not_create_output(tmp_path, capsys):
+    path = tmp_path / "plan.json"
+    assert matrix.main(["--version", "invalid", "--output", str(path)]) == 2
+    assert not path.exists()
+    assert capsys.readouterr().err
+
+
+@pytest.mark.parametrize("output", ["", "-", "missing/plan.json"])
+def test_plan_output_errors_are_explicit(tmp_path, monkeypatch, capsys, output):
+    monkeypatch.chdir(tmp_path)
+    assert matrix.main(["--version", "1.1.4", "--output", output]) == 2
+    assert not (tmp_path / "-").exists()
+    assert capsys.readouterr().err
 
 
 def bound_plan(**overrides):

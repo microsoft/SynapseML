@@ -148,7 +148,7 @@ DENYLIST_FILES = {
     "yarn.lock",
     "versions.json",
 }
-# Repo-relative posix paths. For files whose basename is too common to denylist
+# Repo-relative posix file/directory paths whose basenames are too common to denylist
 # safely -- the release README documents the version conventions using real
 # shipped versions, which must never be rewritten, but "README.md" as a
 # basename would also exclude the root README, which does need bumping.
@@ -157,7 +157,8 @@ DENYLIST_PATHS = {
     ".github/workflows/release-prepare.yml",
     ".github/workflows/release-tag-spark.yml",
     ".github/workflows/release-tag.yml",
-    "scripts/release/README.md",
+    # Tooling and regression fixtures describe fixed historical and future releases.
+    "scripts/release",
 }
 ALLOWED_EXTENSIONS = {
     ".md",
@@ -228,10 +229,14 @@ def _skip_dir(name):
     return name in DENYLIST_DIRS or name.startswith(".")
 
 
+def _denylisted_path(rel):
+    return any(path.as_posix() in DENYLIST_PATHS for path in (rel, *rel.parents))
+
+
 def _skip_file(rel):
     if rel.name in DENYLIST_FILES:
         return True
-    if rel.as_posix() in DENYLIST_PATHS:
+    if _denylisted_path(rel):
         return True
     for p in rel.parts:
         if p in DENYLIST_DIRS:
@@ -638,7 +643,7 @@ Examples:
                 if (
                     rel_str in modified_set
                     or f in DENYLIST_FILES
-                    or rel_str in DENYLIST_PATHS
+                    or _denylisted_path(rel)
                 ):
                     continue
                 try:
