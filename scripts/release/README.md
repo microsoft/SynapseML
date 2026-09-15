@@ -72,6 +72,25 @@ For a full release, run **Release Prepare** on `master`, review the generated
 version/docs PR, and merge it only after its required gates pass. The merge
 authorizes primary tagging. The derivative workflow opens the port PRs, whose
 merges authorize their tags. Do not rebase or force-push shared port branches.
+
+Rerunning **Release Tag Orchestrator** reconciles both derivative tags for
+already-merged port PRs. Missing tags are created atomically at the PR's
+recorded merge commit, never at a later branch tip. Existing tags must identify
+that same commit and are never moved. For an already-contained legacy release
+without a recorded merged PR, both tags must already exist, agree, and remain
+on the target branch. Missing or inconsistent tags stop the run rather than
+reporting a complete release or guessing a source commit.
+Tag verification matches full ref names and peeled object IDs. A nested
+lookalike tag or a tag shadowing a branch name cannot stand in for the required
+release ref. Tag creation and recovery share the read-only
+`release_guard.py verify-tag` check. Maven admission also requires the exact local
+tag. The workflow-only `push-tags` helper stages selected object IDs under a
+unique temporary local ref prefix. An atomic pattern push maps that prefix
+literally to `refs/tags/`, avoiding Git's suffix-based single-ref destination
+lookup. The temporary refs are removed afterward, including on push failure.
+Cleanup requires their original object IDs. If another process changes one,
+cleanup fails visibly and preserves the changed refs instead of deleting them.
+Existing branches and unrelated tags are never renamed or removed to continue.
 Request `/azp run` only after a maintainer reviews PR execution safety.
 
 After the reviewed source commits are known, bind them:

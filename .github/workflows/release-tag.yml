@@ -4,6 +4,7 @@ name: Release Tag Orchestrator
 # Creates the python3.11 and spark3.5 tags at the tagged commit, then opens a
 # rebase PR for each spark branch as a chain: spark4.0 onto the release commit,
 # then spark4.1 onto spark4.0.
+# Reruns recover missing derivative tags at recorded, reviewed port-merge commits.
 #
 # A full release includes every supported target. Legacy skip requests fail
 # before this workflow creates any tags.
@@ -97,7 +98,8 @@ jobs:
           # The release tag must identify a commit from master. Refuse to mint
           # derivative tags or PRs from an accidental tag on another branch.
           git fetch --no-tags origin '+refs/heads/master:refs/remotes/origin/master'
-          if ! git merge-base --is-ancestor "$RELEASE_COMMIT" origin/master; then
+          MASTER_COMMIT=$(git show-ref --hash --verify refs/remotes/origin/master)
+          if ! git merge-base --is-ancestor "$RELEASE_COMMIT" "$MASTER_COMMIT"; then
             echo "::error::${GITHUB_REF_NAME} points to $RELEASE_COMMIT, which is not contained in origin/master"
             exit 1
           fi
@@ -116,11 +118,12 @@ jobs:
           TO_PUSH=()
           for TAG in "v${VERSION}-python3.11" "v${VERSION}-spark3.5"; do
             # Use the immutable tagged commit captured above, not a moving branch ref.
-            if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            if git show-ref --verify --quiet "refs/tags/$TAG"; then
               # Same reasoning as release-tag-spark.yml: an existing tag is only
               # benign if it already points at this release. Otherwise the release
               # is mis-tagged and skipping would report success for a bad release.
-              EXISTING=$(git rev-parse "refs/tags/$TAG^{commit}")
+              TAG_OBJECT=$(git show-ref --hash --verify "refs/tags/$TAG")
+              EXISTING=$(git rev-parse "$TAG_OBJECT^{commit}")
               if [ "$EXISTING" != "$RELEASE_COMMIT" ]; then
                 echo "::error::$TAG already exists at $EXISTING but v${VERSION} is \
           $RELEASE_COMMIT. Refusing to move a published release tag — resolve manually."
@@ -129,19 +132,17 @@ jobs:
               echo "⚠️ $TAG already exists at the same commit — skipping"
             else
               git tag "$TAG" "$RELEASE_COMMIT"
-              TO_PUSH+=("refs/tags/$TAG")
+              TO_PUSH+=(--tag "$TAG")
               echo "✅ Created $TAG"
             fi
           done
           if [ ${#TO_PUSH[@]} -gt 0 ]; then
-            git push --atomic origin "${TO_PUSH[@]}"
+            python3 scripts/release/release_guard.py push-tags --repo . "${TO_PUSH[@]}" \
+              --commit "$RELEASE_COMMIT"
           fi
           for TAG in "v${VERSION}-python3.11" "v${VERSION}-spark3.5"; do
-            REMOTE=$(git ls-remote --tags origin "refs/tags/$TAG" "refs/tags/$TAG^{}")
-            if ! printf '%s\n' "$REMOTE" | grep -Eq "^${RELEASE_COMMIT}[[:space:]]"; then
-              echo "::error::Remote $TAG does not confirm the released commit."
-              exit 1
-            fi
+            python3 scripts/release/release_guard.py verify-tag \
+              --tag "$TAG" --commit "$RELEASE_COMMIT" --repo . > /dev/null
           done
 
       # ── Rebase PRs for the spark release branches ──────────
@@ -170,29 +171,70 @@ jobs:
           REBASE_ONTO="$RELEASE_COMMIT"
 
           FAILED=()
+          reconcile_target_tags() {
+            local TARGET="$1" EXPECTED="$2" TARGET_COMMIT="$3"
+            local PYTHON_VER TAG TAG_OBJECT EXISTING
+            local -a MISSING_TAGS=() TO_PUSH=()
+            case "$TARGET" in
+              spark4.0) PYTHON_VER=3.12 ;;
+              spark4.1) PYTHON_VER=3.13 ;;
+              *) echo "::error::Unknown release target $TARGET"; return 1 ;;
+            esac
+
+            # Only a recorded merge authorizes creating missing tags. Legacy
+            # releases without that record must already have a consistent pair.
+            if [ -z "$EXPECTED" ]; then
+              for TAG in "v${VERSION}-${TARGET}" "v${VERSION}-python${PYTHON_VER}"; do
+                if ! git show-ref --verify --quiet "refs/tags/$TAG"; then
+                  echo "::error::$TAG is missing and no reviewed merge commit is recorded. \
+          Recover both tags from an independently verified release commit; do not tag the current branch tip."
+                  return 1
+                fi
+              done
+              TAG_OBJECT=$(git show-ref --hash --verify "refs/tags/v${VERSION}-${TARGET}")
+              EXPECTED=$(git rev-parse "$TAG_OBJECT^{commit}")
+            fi
+            if ! git merge-base --is-ancestor "$EXPECTED" "$TARGET_COMMIT"; then
+              echo "::error::Release tags for $TARGET identify $EXPECTED, which is no longer on the target branch."
+              return 1
+            fi
+
+            for TAG in "v${VERSION}-${TARGET}" "v${VERSION}-python${PYTHON_VER}"; do
+              if git show-ref --verify --quiet "refs/tags/$TAG"; then
+                TAG_OBJECT=$(git show-ref --hash --verify "refs/tags/$TAG")
+                EXISTING=$(git rev-parse "$TAG_OBJECT^{commit}")
+                if [ "$EXISTING" != "$EXPECTED" ]; then
+                  echo "::error::$TAG already exists at $EXISTING but the reviewed release is $EXPECTED. \
+          Refusing to move a published release tag."
+                  return 1
+                fi
+              else
+                MISSING_TAGS+=("refs/tags/$TAG")
+              fi
+            done
+            for TAG in "${MISSING_TAGS[@]}"; do
+              git tag "${TAG#refs/tags/}" "$EXPECTED"
+              TO_PUSH+=(--tag "${TAG#refs/tags/}")
+            done
+            if [ ${#TO_PUSH[@]} -gt 0 ]; then
+              python3 scripts/release/release_guard.py push-tags --repo . "${TO_PUSH[@]}" \
+                --commit "$EXPECTED"
+            fi
+            for TAG in "v${VERSION}-${TARGET}" "v${VERSION}-python${PYTHON_VER}"; do
+              python3 scripts/release/release_guard.py verify-tag \
+                --tag "$TAG" --commit "$EXPECTED" --repo . > /dev/null
+            done
+          }
+
           for TARGET in "${TARGETS[@]}"; do
-            if ! git rev-parse -q --verify "refs/remotes/origin/$TARGET" >/dev/null; then
+            if ! git show-ref --verify --quiet "refs/remotes/origin/$TARGET"; then
               echo "::error::$TARGET branch is missing; a full release cannot omit it."
               exit 1
             fi
+            TARGET_COMMIT=$(git show-ref --hash --verify "refs/remotes/origin/$TARGET")
 
             BRANCH="release/v${VERSION}-${TARGET}"
             echo "═══ $TARGET (onto $REBASE_ONTO) ═══"
-
-            # Nothing to do if the branch already has the released commit, and
-            # rebasing anyway is not harmless. `git rebase` only no-ops when the
-            # branch is linear on top of the release; if the branch picked up a
-            # merge commit (e.g. the previous release PR was merged with a merge
-            # commit rather than "Rebase and merge"), the rebase flattens that
-            # merge and rewrites SHAs. If the tip *is* the release commit there
-            # is nothing ahead at all and `gh pr create` fails with "No commits
-            # between". Both only show up on a re-run, which is exactly when the
-            # workflow is supposed to be safe to repeat.
-            if git merge-base --is-ancestor "$REBASE_ONTO" "origin/$TARGET"; then
-              echo "✅ $TARGET already contains $REBASE_ONTO — nothing to rebase"
-              REBASE_ONTO="origin/$TARGET"
-              continue
-            fi
 
             # Check before rebuilding the branch: an existing PR may contain
             # manual conflict resolution that must not be replaced or made to
@@ -205,12 +247,12 @@ jobs:
               echo "   If that PR needs refreshing, update it manually."
               # Chain the next target onto what that PR will land, not onto master.
               git fetch --no-tags origin "+refs/heads/$BRANCH:refs/remotes/origin/$BRANCH"
-              REBASE_ONTO="origin/$BRANCH"
+              REBASE_ONTO="refs/remotes/origin/$BRANCH"
               continue
             fi
 
-            # "Rebase and merge" rewrites the primary release commit, so the
-            # ancestor check above cannot recognize a completed release on its
+            # "Rebase and merge" rewrites the primary release commit, so
+            # an ancestor check cannot recognize a completed release on its
             # own. Reuse a merged PR only while its recorded result remains on
             # the target branch; otherwise fail instead of opening a duplicate.
             MERGED=$(gh pr list --head "$BRANCH" --base "$TARGET" \
@@ -224,17 +266,28 @@ jobs:
                 FAILED+=("$TARGET")
                 break
               fi
-              if ! git merge-base --is-ancestor "$MERGED_SHA" "origin/$TARGET"; then
+              if ! git merge-base --is-ancestor "$MERGED_SHA" "$TARGET_COMMIT"; then
                 echo "::error::PR #$MERGED_PR merged at $MERGED_SHA, which is no longer on $TARGET"
                 FAILED+=("$TARGET")
                 break
               fi
-              echo "✅ PR #$MERGED_PR already merged at $MERGED_SHA — $TARGET is complete"
-              REBASE_ONTO="origin/$TARGET"
+              reconcile_target_tags "$TARGET" "$MERGED_SHA" "$TARGET_COMMIT"
+              echo "✅ PR #$MERGED_PR merged at $MERGED_SHA and both remote tags are verified"
+              REBASE_ONTO="$TARGET_COMMIT"
               continue
             fi
 
-            git checkout -B "$BRANCH" "origin/$TARGET"
+            # Do not flatten an already-contained release or open an empty PR.
+            # Without a recorded merge, verify existing tags rather than guessing
+            # which commit on the moving target branch was approved for release.
+            if git merge-base --is-ancestor "$REBASE_ONTO" "$TARGET_COMMIT"; then
+              reconcile_target_tags "$TARGET" "" "$TARGET_COMMIT"
+              echo "✅ $TARGET already contains $REBASE_ONTO and both remote tags are verified"
+              REBASE_ONTO="$TARGET_COMMIT"
+              continue
+            fi
+
+            git checkout -B "$BRANCH" "$TARGET_COMMIT"
 
             if ! git rebase "$REBASE_ONTO"; then
               git rebase --abort
@@ -245,22 +298,24 @@ jobs:
 
             git push --force-with-lease -u origin "$BRANCH"
             BASED_ON="$REBASE_ONTO"
-            REBASE_ONTO="$BRANCH"
+            REBASE_ONTO="refs/heads/$BRANCH"
+            DISPLAY_BASE="${BASED_ON#refs/heads/}"
+            DISPLAY_BASE="${DISPLAY_BASE#refs/remotes/origin/}"
 
             # Only tell the release engineer to merge something else first when there
             # really is something else. On a re-run where spark4.0 has already
             # landed, this PR is based on a commit that is
             # already on master or on the target branch and can merge on its own.
             case "$BASED_ON" in
-              release/v*|origin/release/v*)
+              refs/heads/release/v*|refs/remotes/origin/release/v*)
                 MERGE_ORDER="The spark branches form a chain: \`spark4.1\` is maintained as
           \`spark4.0\` plus its own upgrade commit. This PR is stacked on
-          \`${BASED_ON#origin/}\`, so **merge that PR first**, then re-check this one —
+          \`${DISPLAY_BASE}\`, so **merge that PR first**, then re-check this one —
           \"Rebase and merge\" rewrites SHAs on the base branch, so merging this PR
           first would leave it without the spark4.0 release commit."
                 ;;
               *)
-                MERGE_ORDER="This PR is based on \`${BASED_ON#origin/}\`, which has already
+                MERGE_ORDER="This PR is based on \`${DISPLAY_BASE}\`, which has already
           landed, so there is no other release PR to merge ahead of it."
                 ;;
             esac
@@ -282,7 +337,7 @@ jobs:
           Auto-generated by the Release Tag Orchestrator.
 
           ### What this does
-          Rebases \`${TARGET}\` onto \`${BASED_ON}\`.
+          Rebases \`${TARGET}\` onto \`${DISPLAY_BASE}\`.
 
           ### Merge order
           ${MERGE_ORDER}

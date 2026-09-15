@@ -110,14 +110,16 @@ jobs:
         run: |
           set -euo pipefail
 
-          if ! git rev-parse -q --verify "refs/tags/v${VERSION}" >/dev/null; then
+          if ! git show-ref --verify --quiet "refs/tags/v${VERSION}"; then
             echo "::error::No v${VERSION} tag exists, so there is no such release to derive \
           tags from. This workflow only runs for releases cut by release-tag.yml, which creates \
           v${VERSION} on master first. If this PR is not part of a release, its branch should \
           not be named release/v${VERSION}-*."
             exit 1
           fi
-          echo "✅ Release v${VERSION} exists at $(git rev-parse --short "refs/tags/v${VERSION}^{commit}")"
+          RELEASE_OBJECT=$(git show-ref --hash --verify "refs/tags/v${VERSION}")
+          RELEASE_COMMIT=$(git rev-parse "$RELEASE_OBJECT^{commit}")
+          echo "✅ Release v${VERSION} exists at $RELEASE_COMMIT"
 
           # Ancestry is reported rather than enforced. "Rebase and merge" -- one of
           # only two methods this repo allows -- replays the release commit onto the
@@ -127,7 +129,7 @@ jobs:
           # when it does hold, the tags satisfy the same ancestry the manual release
           # guide produces, and when it does not, that is the known limitation to
           # check before the tags are consumed downstream.
-          if git merge-base --is-ancestor "refs/tags/v${VERSION}" HEAD; then
+          if git merge-base --is-ancestor "$RELEASE_COMMIT" HEAD; then
             echo "✅ v${VERSION} is an ancestor of the merged commit"
           else
             echo "::warning::v${VERSION} is not an ancestor of the merged commit. This is \
@@ -140,6 +142,7 @@ jobs:
           VERSION: ${{ steps.info.outputs.version }}
           TARGET: ${{ steps.info.outputs.target }}
           PYTHON_VER: ${{ steps.info.outputs.python_ver }}
+          MERGED_SHA: ${{ github.event.pull_request.merge_commit_sha }}
         run: |
           set -euo pipefail
 
@@ -148,11 +151,12 @@ jobs:
 
           TO_PUSH=()
           for TAG in "$SPARK_TAG" "$PYTHON_TAG"; do
-            if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
+            if git show-ref --verify --quiet "refs/tags/$TAG"; then
               # An existing tag is only benign if it already points where this run
               # would put it. If it points elsewhere, the release is mis-tagged and
               # silently skipping would report success for a bad release.
-              EXISTING=$(git rev-parse "refs/tags/$TAG^{commit}")
+              TAG_OBJECT=$(git show-ref --hash --verify "refs/tags/$TAG")
+              EXISTING=$(git rev-parse "$TAG_OBJECT^{commit}")
               if [ "$EXISTING" != "$(git rev-parse HEAD)" ]; then
                 echo "::error::$TAG already exists at $EXISTING but this release is \
           $(git rev-parse HEAD). Refusing to move a published release tag — resolve manually."
@@ -161,7 +165,7 @@ jobs:
               echo "⚠️ $TAG already exists at the same commit — skipping"
             else
               git tag "$TAG"
-              TO_PUSH+=("$TAG")
+              TO_PUSH+=(--tag "$TAG")
               echo "🏷️ Created $TAG"
             fi
           done
@@ -169,16 +173,14 @@ jobs:
           if [ ${#TO_PUSH[@]} -eq 0 ]; then
             echo "✅ Nothing to push — both tags already exist"
           else
-            git push --atomic origin "${TO_PUSH[@]}"
-            echo "✅ Pushed: ${TO_PUSH[*]}"
+            python3 scripts/release/release_guard.py push-tags --repo . "${TO_PUSH[@]}" \
+              --commit "$MERGED_SHA"
+            echo "✅ Tag push finished; verifying $SPARK_TAG and $PYTHON_TAG"
           fi
           EXPECTED=$(git rev-parse HEAD)
           for TAG in "$SPARK_TAG" "$PYTHON_TAG"; do
-            REMOTE=$(git ls-remote --tags origin "refs/tags/$TAG" "refs/tags/$TAG^{}")
-            if ! printf '%s\n' "$REMOTE" | grep -Eq "^${EXPECTED}[[:space:]]"; then
-              echo "::error::Remote $TAG does not confirm the merged commit."
-              exit 1
-            fi
+            python3 scripts/release/release_guard.py verify-tag \
+              --tag "$TAG" --commit "$EXPECTED" --repo . > /dev/null
           done
 
       - name: Cleanup release branch
@@ -189,6 +191,7 @@ jobs:
           set -euo pipefail
           REF="refs/heads/$HEAD_REF"
           REMOTE_HEAD=$(git ls-remote --heads origin "$REF")
+          REMOTE_HEAD=$(printf '%s\n' "$REMOTE_HEAD" | awk -v ref="$REF" '$2 == ref')
           if [ -z "$REMOTE_HEAD" ]; then
             echo "🧹 $HEAD_REF is already absent from origin"
           else

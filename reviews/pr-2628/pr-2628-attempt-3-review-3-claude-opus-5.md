@@ -283,3 +283,156 @@ _Updated by the driving agent as findings are addressed._
 - **What changed**: pending
 - **Why**: pending
 - **How verified**: pending
+
+---
+
+# PR 2628 - Attempt 3, Round 3 (re-run): Release tag reconciliation delta
+
+All text above is preserved from the earlier Round 3 pass. The section below
+reviews only the current uncommitted follow-up.
+
+## Review Summary
+- **Round**: 3 (re-run)
+- **Theme**: Edge cases, boundary conditions, races, partial failure, rerun behaviour
+- **Model**: claude-opus-5
+- **Artifact**: `reviews/pr-2628/pr-2628-attempt-3-review-3-claude-opus-5.md`
+- **Reviewed base**: `fcbe55b7875a4cc8e66b5870e93e01d26c510490`
+- **Reviewed delta**: uncommitted working-tree changes only -
+  `.github/workflows/release-tag.yml` (+67/-18),
+  `scripts/release/test_release_tag_recovery.py` (new, 297 lines),
+  `scripts/release/test_release_ops.py` (+19),
+  `scripts/release/README.md` (+8)
+- **Verdict**: no blocking defect. One reproducible low-severity robustness gap
+  (fail-closed, recoverable by rerun) and one informational note.
+
+## Independently executed evidence
+
+Executed rather than inferred, on GNU bash 5.2.21 and git 2.43.0 on Linux - the
+same shell and git family as the hosted Ubuntu runner the workflow targets:
+
+- `scripts/release/test_release_tag_recovery.py`: **22 passed**. Those 22 plus
+  the 3 new parametrisations of `test_direct_azure_reads_send_the_cached_token`
+  in `scripts/release/test_release_ops.py` account for the 25 new cases.
+- Pinned **black 22.3.0** (the pin recorded in `environment.yml`) on
+  `scripts/release/test_release_tag_recovery.py` and
+  `scripts/release/test_release_ops.py`: both left unchanged. Note for later
+  rounds: a non-pinned Black (26.x) reports reformatting, but only against
+  pre-existing code in `scripts/release/test_release_ops.py`. That is a
+  version artifact, not a defect in this delta.
+- **Skip visibility caution.** The new suite is guarded on
+  `shutil.which("bash")` and `shutil.which("git")`. On a host without git on
+  PATH the same file reports `22 skipped` and still exits green. Confirmed
+  directly. Keep this file on a leg where both binaries exist, or the suite can
+  report success while proving nothing.
+
+Four throwaway probes were written against the delta's own fixture to attack
+this round's theme. They were run and then discarded; none were added to the
+repository and none performed a remote write.
+
+1. **Errexit chain abort.** A reconcile failure on the first target aborts the
+   whole step: the second target is never reconciled, no tag for it is created,
+   and no remote ref changes. Passed. This confirms the bare
+   `reconcile_target_tags` call is not swallowed and that no partial release
+   advances past a failure, even though that path bypasses the `FAILED`
+   summary rather than adding to it.
+2. **Unknown target arm.** With `TARGETS` patched to a target that has no
+   Python mapping, the `case` default fires, the step exits non-zero with
+   `Unknown release target`, and nothing is pushed. Passed.
+3. **Partial pair with a remote-only lightweight tag.** One derivative tag
+   present on the remote but absent locally, its partner absent everywhere:
+   both end at the recorded merge commit. Passed.
+4. **Remote-only annotated tag.** See Finding 1.
+
+## Finding 1 - Low, non-blocking, fail-closed
+
+**A remote-only annotated tag makes a rerun fail even though the remote is
+already correct.**
+
+- **Where**: `.github/workflows/release-tag.yml`, `reconcile_target_tags`, the
+  loop that builds `TO_PUSH`.
+- **Mechanism**: the "is this tag missing" decision reads only the local tag
+  database. When the remote carries an *annotated* tag that the local clone
+  lacks, the function recreates the tag locally as a lightweight ref, so the
+  local value is the commit id while the remote ref is the tag object id. git
+  therefore treats the push as a tag update, correctly refuses it without
+  force, and `--atomic` correctly rejects the whole pair. The step then dies on
+  raw git output (`[rejected] ... (already exists)`, `atomic push failed for
+  ref ...`) instead of the workflow's own `::error::` guidance.
+- **Isolation**: the identical probe with *lightweight* remote-only tags
+  passes, and the annotated variant fails. That asymmetry isolates the cause to
+  tag-object peeling in the local existence check, not to the push, the
+  ancestry check, or the remote verification.
+- **Why it is narrow**: `actions/checkout` at `fetch-depth: 0` fetches
+  `refs/tags/*`, so the local database normally mirrors the remote, and the
+  workflow that mints these tags on port-PR merge creates lightweight tags. The
+  conjunction required is an annotated tag - which this workflow's own
+  "resolve manually" and "create both manually" guidance invites - plus a clone
+  that does not yet hold it, such as a tag created concurrently after checkout.
+  The delta's own suite already treats a pre-existing annotated pair as a
+  supported shape, which is why the remaining case is worth recording.
+- **Why it does not block**: every stated invariant holds. No tag is moved or
+  overwritten, the pair stays atomic, no open PR is touched, and the failure is
+  loud rather than a false success. A plain rerun from a fresh checkout
+  succeeds; the suite's passing annotated cases prove the peeled comparison and
+  the remote verification both handle annotated tags once the ref is local.
+- **Concrete fix, if taken**: decide `TO_PUSH` from the remote rather than from
+  the local tag database, reusing the query the function already runs after the
+  push (`git ls-remote --tags origin "refs/tags/$TAG" "refs/tags/$TAG^{}"`).
+  Skip a tag whose remote already confirms the expected commit; reuse the
+  existing "Refusing to move a published release tag" error when the remote
+  holds it at another commit; push only genuinely absent tags; leave the
+  post-push verification loop unchanged. This additionally replaces the raw git
+  rejection in the remote-conflict case with the workflow's own diagnostic.
+
+## Finding 2 - Informational
+
+**The Spark-to-Python mapping is now duplicated a third time.** The canonical
+rows live in `scripts/release/release_matrix.py`; the derivative tag workflow
+carries its own `case`; this delta adds a third copy in
+`.github/workflows/release-tag.yml`, and
+`scripts/release/test_release_tag_recovery.py` hardcodes a fourth for its
+expectations. `scripts/release/test_release_workflows.py` pins other workflow
+invariants but nothing ties either workflow's mapping to the canonical rows.
+
+Downgraded to informational because probe 2 shows the unknown-target arm fails
+closed: a target added without a mapping stops the run instead of minting a
+wrong tag. The residual exposure is a silent change to an existing target's
+Python version, which is pre-existing rather than introduced by this delta.
+
+## Properties checked clean this round
+
+- rerun idempotency: a second run changes no remote ref
+- never tags a moving branch tip; the recorded merge commit is used, and the
+  suite asserts it differs from the branch tip
+- never moves an existing tag, including when the wrong commit is still
+  reachable from the target branch
+- open release PRs are left untouched and mint no tags
+- unreachable or nonexistent merge evidence is rejected before any push
+- legacy already-contained branches verify an existing agreeing pair or fail
+  closed, and never guess a source commit
+- local tags are not accepted as proof of remote tags
+- a remote-side rejection cannot be reported as success
+- a failure on the first target cannot leave the second target tagged
+- empty `TO_PUSH` expansion under `set -u` is safe on bash 5.2
+- a null merge commit from the PR query renders empty and is caught
+- the piped `grep` verification under `pipefail` does not misreport a match on
+  the success path
+
+## Resolution Log - re-run findings
+_Updated by the driving agent as findings are addressed._
+
+### Re-run Finding 1
+- **Status**: Accepted as designed, non-blocking
+- **What changed**: No automatic retry or force push was added.
+- **Why**: A tag introduced after checkout is concurrent remote state. The visible
+  Git rejection stops the run without moving that tag. A fresh workflow checkout
+  fetches the existing annotated object and verifies it on the next run.
+- **How verified**: The independent remote-only annotated-tag probe failed closed;
+  native regressions also verify preserved annotated objects, atomic rejection,
+  and that local tags alone cannot prove remote completion.
+
+### Re-run Finding 2
+- **Status**: Informational, no action required
+- **What changed**: n/a
+- **Why**: unknown-target arm already fails closed
+- **How verified**: probe 2, described above

@@ -173,3 +173,47 @@ No remaining issue was confirmed within these two fixes. Their original Open
 statuses are superseded by this verified local disposition, with history retained.
 No remote API, full suite or production-source edit was performed. This permits
 the next review round, not merge or publication approval.
+
+## Public derivative-tag recovery follow-up
+
+**CLEAN for the reviewed delta.** Reviewer: `gpt-6-astra`, reasoning effort
+`max`. Reviewed against `fcbe55b7875a4cc8e66b5870e93e01d26c510490`.
+Scope was limited to `.github/workflows/release-tag.yml`,
+`scripts/release/test_release_tag_recovery.py`,
+`scripts/release/test_release_ops.py`, and `scripts/release/README.md`.
+
+- [x] The recovery calls in `.github/workflows/release-tag.yml:173-287`
+  preserve open PRs first. Recorded merged-PR recovery checks target ancestry
+  and uses the recorded merge commit, not a later target tip. Existing tag
+  objects are not replaced; missing members use an atomic remote push.
+- [x] The legacy path requires an existing consistent pair on the target.
+  Both recovery paths inspect actual remote refs before reporting verified
+  tags. Local tags alone cannot establish remote completion.
+- [x] Checked Bash failure propagation under `set -euo pipefail`. The helper
+  is called as an ordinary command, not an error-suppressing conditional.
+  Command substitutions are separate from `local` declarations. Native Git
+  rejection and atomic-conflict tests confirm that failures do not become
+  successful recovery reports.
+- [x] Read the complete new regression module. It covers rewritten ancestry,
+  later target advances, annotated partial pairs, idempotence, missing or
+  unreachable evidence, mismatches, open PR preservation and stale local refs.
+- [x] The three new mocked request tests exercise actual `AzureRemote._get`
+  and confirm cached-token Authorization headers. No authentication defect
+  was reproduced, and no production authentication change is required.
+
+Focused command with native Bash/Git:
+
+```text
+python -m pytest -q -rs -p no:cacheprovider scripts/release/test_release_tag_recovery.py scripts/release/test_release_ops.py::test_direct_azure_reads_send_the_cached_token
+```
+
+Result: **25 passed, no skips**. The extracted workflow step passed `bash -n`;
+Black 22.3.0 accepted both changed Python test files, and scoped whitespace
+checks passed. The four reviewed files remained unchanged during validation.
+
+Git operations were restricted to temporary local bare repositories, with
+global/system Git configuration excluded and a read-only fake `gh`. Those
+temporary repositories were removed afterward. No implementation was edited,
+no GitHub workflow was run, and no real remote tag, publication or merge was
+performed. No concrete remaining fix was identified in this bounded scope;
+this result is not live CI or release approval.

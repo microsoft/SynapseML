@@ -2941,6 +2941,25 @@ def test_azure_http_error_never_prints_signed_url_or_token():
     assert "do-not-leak" not in str(error.value)
 
 
+@pytest.mark.parametrize(
+    "host",
+    ["dev.azure.com", "feeds.dev.azure.com", "msdata.visualstudio.com"],
+)
+def test_direct_azure_reads_send_the_cached_token(host):
+    observed = []
+
+    class Opener:
+        def open(self, request, timeout):
+            observed.append(request.get_header("Authorization"))
+            return io.BytesIO(b"{}")
+
+    remote = ops.AzureRemote()
+    remote._token = "test-only-token"
+    remote._opener = Opener()
+    assert remote._get(f"https://{host}/example") == {}
+    assert observed == ["Bearer " + remote.token()]
+
+
 def test_artifact_redirect_drops_auth_and_rejects_non_azure_hosts():
     request = urllib.request.Request(
         "https://dev.azure.com/msdata/artifact",

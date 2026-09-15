@@ -8,6 +8,7 @@ import os
 import sys
 import zipfile
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -40,12 +41,12 @@ def test_full_release_cli_checks_actual_source_branches(tmp_path, monkeypatch, m
     observed = []
 
     def check_ref(_repo, *arguments):
-        assert arguments[:-1] == ("ls-remote", "--exit-code", "--heads", "origin")
+        assert arguments[:-1] == ("ls-remote", "--heads", "origin")
         ref = arguments[-1]
         observed.append(ref)
         if ref == missing:
-            raise ValueError("required release branch is missing")
-        return SHA
+            return ""
+        return f"{SHA}\t{ref}"
 
     monkeypatch.setattr(guard, "_git", check_ref)
     result = guard.main(["full-release", "--version", "1.1.4", "--repo", str(tmp_path)])
@@ -55,6 +56,215 @@ def test_full_release_cli_checks_actual_source_branches(tmp_path, monkeypatch, m
         "refs/heads/spark4.1",
     ]
     assert result == (2 if missing else 0)
+
+
+@pytest.mark.parametrize(
+    "records,accepted",
+    [
+        ([(SHA, "refs/tags/v1.1.4")], True),
+        (
+            [("b" * 40, "refs/tags/v1.1.4"), (SHA, "refs/tags/v1.1.4^{}")],
+            True,
+        ),
+        (
+            [(SHA, "refs/tags/v1.1.4"), ("b" * 40, "refs/tags/refs/tags/v1.1.4")],
+            True,
+        ),
+        ([], False),
+        ([(SHA, "refs/tags/refs/tags/v1.1.4")], False),
+        ([(SHA, "refs/tags/v1.1.4^{}")], False),
+        (
+            [("b" * 40, "refs/tags/v1.1.4"), (SHA, "refs/tags/refs/tags/v1.1.4")],
+            False,
+        ),
+        (
+            [(SHA, "refs/tags/v1.1.4"), ("b" * 40, "refs/tags/v1.1.4^{}")],
+            False,
+        ),
+        ([(SHA, "refs/tags/v1.1.4"), (SHA, "refs/tags/v1.1.4")], False),
+        ([("invalid", "refs/tags/v1.1.4")], False),
+    ],
+)
+def test_remote_tag_cli_requires_exact_refs_and_peeled_identity(
+    tmp_path, monkeypatch, capsys, records, accepted
+):
+    def read(_repo, *arguments):
+        if arguments[0] == "check-ref-format":
+            assert arguments == ("check-ref-format", "refs/tags/v1.1.4")
+            return ""
+        assert arguments == (
+            "ls-remote",
+            "--tags",
+            "origin",
+            "refs/tags/v1.1.4",
+            "refs/tags/v1.1.4^{}",
+        )
+        return "\n".join(f"{oid}\t{ref}" for oid, ref in records)
+
+    monkeypatch.setattr(guard, "_git", read)
+    result = guard.main(
+        ["verify-tag", "--repo", str(tmp_path), "--tag", "v1.1.4", "--commit", SHA]
+    )
+    assert result == (0 if accepted else 2)
+    output = capsys.readouterr()
+    if accepted:
+        assert json.loads(output.out) == {"tag": "v1.1.4", "commit": SHA}
+        assert not output.err
+    else:
+        assert "error:" in output.err
+        assert not output.out
+
+
+@pytest.mark.parametrize("commit", ["", "a" * 39, "A" * 40])
+def test_remote_tag_rejects_invalid_expected_commit_before_git(
+    tmp_path, monkeypatch, commit
+):
+    def unexpected(*_args):
+        pytest.fail("invalid expected commit must fail before Git is invoked")
+
+    monkeypatch.setattr(guard, "_git", unexpected)
+    with pytest.raises(ValueError, match="commit ID"):
+        guard.verify_remote_tag(tmp_path, "v1.1.4", commit)
+
+
+@pytest.mark.parametrize("tags", [[], ["v1.1.4", "v1.1.4"]])
+def test_push_tags_rejects_empty_or_duplicate_selection_before_git(
+    tmp_path, monkeypatch, tags
+):
+    def unexpected(*_args, **_kwargs):
+        pytest.fail("invalid selection must not invoke Git")
+
+    monkeypatch.setattr(guard, "_git", unexpected)
+    with pytest.raises(ValueError, match="unique tag selection"):
+        guard.push_tags(tmp_path, tags, SHA)
+
+
+@pytest.mark.parametrize("failure", ["check-ref-format", "show-ref"])
+def test_push_tags_validation_failure_precedes_staging(tmp_path, monkeypatch, failure):
+    calls = []
+
+    def run(_repo, *arguments, **_kwargs):
+        calls.append(arguments[0])
+        if arguments[0] == failure:
+            raise ValueError("invalid or missing exact tag")
+        return ""
+
+    monkeypatch.setattr(guard, "_git", run)
+    with pytest.raises(ValueError, match="invalid or missing"):
+        guard.push_tags(tmp_path, ["v1.1.4"], SHA)
+    assert "update-ref" not in calls and "push" not in calls
+
+
+@pytest.mark.parametrize("failure", [None, "push", "cleanup"])
+def test_push_tags_cli_preserves_objects_and_always_cleans_staging(
+    tmp_path, monkeypatch, capsys, failure
+):
+    tags = {"v1.1.4": SHA, "v1.1.4-python3.11": "b" * 40}
+    prefix = "refs/synapseml-release-push/" + "c" * 32 + "/"
+    transactions = []
+
+    def run(_repo, *arguments, input_text=None):
+        if arguments[0] == "check-ref-format":
+            return ""
+        if arguments[0] == "show-ref":
+            return tags[arguments[-1].removeprefix("refs/tags/")]
+        if arguments[0] == "rev-parse":
+            return SHA
+        if arguments[0] == "update-ref":
+            transactions.append(input_text)
+            if failure == "cleanup" and "\ndelete " in input_text:
+                raise ValueError("synthetic cleanup rejection")
+            return ""
+        assert arguments == (
+            "push",
+            "--atomic",
+            "--no-follow-tags",
+            "--porcelain",
+            "origin",
+            prefix + "*:refs/tags/*",
+        )
+        if failure == "push":
+            raise ValueError("synthetic atomic push rejection")
+        return ""
+
+    monkeypatch.setattr(guard, "_git", run)
+    monkeypatch.setattr(guard.uuid, "uuid4", lambda: SimpleNamespace(hex="c" * 32))
+    result = guard.main(
+        [
+            "push-tags",
+            "--repo",
+            str(tmp_path),
+            "--tag",
+            "v1.1.4",
+            "--tag",
+            "v1.1.4-python3.11",
+            "--commit",
+            SHA,
+        ]
+    )
+    assert transactions == [
+        "start\n"
+        + "".join(f"{operation} {prefix}{tag} {oid}\n" for tag, oid in tags.items())
+        + "prepare\ncommit\n"
+        for operation in ("create", "delete")
+    ]
+    output = capsys.readouterr()
+    assert result == (2 if failure else 0)
+    if failure:
+        if failure == "push":
+            assert "synthetic atomic push rejection" in output.err
+        else:
+            assert "remote tags may already exist" in output.err
+            assert prefix in output.err
+        assert not output.out
+    else:
+        assert json.loads(output.out) == {"pushed_tags": list(tags)}
+        assert not output.err
+
+
+def test_git_transactions_use_lf_bytes_without_echoing_stderr(tmp_path, monkeypatch):
+    calls = []
+
+    def run(*_args, **kwargs):
+        calls.append(kwargs)
+        return SimpleNamespace(returncode=0, stdout=b"start: ok\n")
+
+    monkeypatch.setattr(guard.subprocess, "run", run)
+    assert (
+        guard._git(
+            tmp_path, "update-ref", "--stdin", input_text="start\nprepare\nabort\n"
+        )
+        == "start: ok"
+    )
+    assert calls[0]["input"] == b"start\nprepare\nabort\n"
+    assert not calls[0].get("text", False)
+    monkeypatch.setattr(
+        guard.subprocess,
+        "run",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            returncode=1, stdout=b"", stderr=b"synthetic-do-not-echo"
+        ),
+    )
+    with pytest.raises(ValueError) as error:
+        guard._git(tmp_path, "update-ref", "--stdin", input_text="start\n")
+    assert "synthetic-do-not-echo" not in str(error.value)
+
+
+def test_push_tags_rejects_changed_source_before_staging(tmp_path, monkeypatch):
+    calls = []
+
+    def run(_repo, *arguments, **_kwargs):
+        calls.append(arguments[0])
+        if arguments[0] == "show-ref":
+            return SHA
+        if arguments[0] == "rev-parse":
+            return "b" * 40
+        return ""
+
+    monkeypatch.setattr(guard, "_git", run)
+    with pytest.raises(ValueError, match="approved commit"):
+        guard.push_tags(tmp_path, ["v1.1.4"], SHA)
+    assert "update-ref" not in calls and "push" not in calls
 
 
 def test_notes_require_an_explicit_complete_public_plan():

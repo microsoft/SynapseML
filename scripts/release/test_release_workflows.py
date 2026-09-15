@@ -57,8 +57,8 @@ def test_full_release_policy_precedes_primary_and_derivative_tags():
     )
     tags = read_workflow("release-tag.yml")
     assert tags.index("release_guard.py full-release") < tags.index('git tag "$TAG"')
-    assert 'git push --atomic origin "${TO_PUSH[@]}"' in tags
-    assert 'git push --atomic origin "${TO_PUSH[@]}"' in read_workflow(
+    assert 'release_guard.py push-tags --repo . "${TO_PUSH[@]}"' in tags
+    assert 'release_guard.py push-tags --repo . "${TO_PUSH[@]}"' in read_workflow(
         "release-tag-spark.yml"
     )
     assert "outside the branch filters" not in tags

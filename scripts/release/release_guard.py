@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
-"""Shared no-write guards for public release workflows and Maven publication."""
+"""Release guards and exact tag pushes for approved public release workflows."""
 
 import argparse
 import base64
@@ -9,8 +9,10 @@ import binascii
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
+import uuid
 import zipfile
 from email.parser import BytesParser
 from pathlib import Path
@@ -94,30 +96,107 @@ def maven_plan(payload, approval, source_ref, commit):
     return plan, selected[0]
 
 
-def _git(repo, *arguments):
+def _git(repo, *arguments, input_text=None):
     result = subprocess.run(
         ["git", "-C", str(repo), *arguments],
+        input=input_text.encode("utf-8") if input_text is not None else None,
         capture_output=True,
-        text=True,
         check=False,
     )
     if result.returncode:
-        raise ValueError(
-            f"git {arguments[0]} failed while validating the release checkout"
-        )
-    return result.stdout.strip()
+        raise ValueError(f"git {arguments[0]} failed during release Git operations")
+    return result.stdout.decode("utf-8").strip()
 
 
 def validate_checkout(repo, target):
     if _git(repo, "rev-parse", "HEAD") != target.oss_commit:
         raise ValueError("checkout HEAD does not match the approved commit")
-    if (
-        _git(repo, "rev-parse", f"refs/tags/{target.oss_maven_tag}^{{commit}}")
-        != target.oss_commit
-    ):
+    tag_object = _git(
+        repo, "show-ref", "--hash", "--verify", f"refs/tags/{target.oss_maven_tag}"
+    )
+    if _git(repo, "rev-parse", f"{tag_object}^{{commit}}") != target.oss_commit:
         raise ValueError("local release tag does not match the approved commit")
     if _git(repo, "status", "--porcelain", "--untracked-files=normal"):
         raise ValueError("release checkout is dirty")
+
+
+def _remote_refs(repo, kind, requested):
+    output = _git(repo, "ls-remote", kind, "origin", *requested)
+    refs = {}
+    for line in output.splitlines():
+        fields = line.split()
+        if len(fields) != 2:
+            raise ValueError("invalid remote ref response")
+        oid, ref = fields
+        if ref not in requested:
+            continue
+        if not re.fullmatch(r"[0-9a-f]{40}", oid) or ref in refs:
+            raise ValueError("invalid or duplicate remote ref response")
+        refs[ref] = oid
+    return refs
+
+
+def verify_remote_tag(repo, tag, commit):
+    if not re.fullmatch(r"[0-9a-f]{40}", commit):
+        raise ValueError("expected tag commit must be a full commit ID")
+    ref = f"refs/tags/{tag}"
+    _git(repo, "check-ref-format", ref)
+    refs = _remote_refs(repo, "--tags", (ref, f"{ref}^{{}}"))
+    if ref not in refs or refs.get(f"{ref}^{{}}", refs[ref]) != commit:
+        raise ValueError(f"Remote {tag} does not confirm the reviewed commit {commit}")
+
+
+def push_tags(repo, tags, commit):
+    if not re.fullmatch(r"[0-9a-f]{40}", commit):
+        raise ValueError("expected tag commit must be a full commit ID")
+    if not tags or len(set(tags)) != len(tags):
+        raise ValueError("tag push requires a nonempty unique tag selection")
+    objects = {}
+    for tag in tags:
+        ref = f"refs/tags/{tag}"
+        _git(repo, "check-ref-format", ref)
+        oid = _git(repo, "show-ref", "--hash", "--verify", ref)
+        if _git(repo, "rev-parse", f"{oid}^{{commit}}") != commit:
+            raise ValueError(f"local tag {tag} does not match the approved commit")
+        objects[tag] = oid
+    prefix = f"refs/synapseml-release-push/{uuid.uuid4().hex}/"
+    _git(
+        repo,
+        "update-ref",
+        "--stdin",
+        input_text="start\n"
+        + "".join(f"create {prefix}{tag} {oid}\n" for tag, oid in objects.items())
+        + "prepare\ncommit\n",
+    )
+    try:
+        # Pattern refspecs map names literally, unlike Git's DWIM single-ref
+        # destinations. This private namespace contains only the selected tags.
+        _git(
+            repo,
+            "push",
+            "--atomic",
+            "--no-follow-tags",
+            "--porcelain",
+            "origin",
+            f"{prefix}*:refs/tags/*",
+        )
+    finally:
+        try:
+            _git(
+                repo,
+                "update-ref",
+                "--stdin",
+                input_text="start\n"
+                + "".join(
+                    f"delete {prefix}{tag} {oid}\n" for tag, oid in objects.items()
+                )
+                + "prepare\ncommit\n",
+            )
+        except ValueError as error:
+            raise ValueError(
+                f"Tag staging cleanup failed; remote tags may already exist. "
+                f"Inspect retained refs under {prefix} without deleting unknown state."
+            ) from error
 
 
 def pypi_wheel_receipt(path, version):
@@ -252,6 +331,14 @@ def main(argv=None):
     notes.add_argument("--approve-plan", required=True)
     notes.add_argument("--tag", required=True)
     notes.add_argument("--commit", required=True)
+    tag = commands.add_parser("verify-tag")
+    tag.add_argument("--repo", type=Path, default=Path("."))
+    tag.add_argument("--tag", required=True)
+    tag.add_argument("--commit", required=True)
+    push = commands.add_parser("push-tags")
+    push.add_argument("--repo", type=Path, default=Path("."))
+    push.add_argument("--tag", required=True, action="append")
+    push.add_argument("--commit", required=True)
     maven = commands.add_parser("maven")
     maven.add_argument("--repo", type=Path, default=Path("."))
     maven.add_argument(
@@ -265,15 +352,16 @@ def main(argv=None):
             plan = full_release(args.version, args.skip_spark40)
             if args.repo:
                 for target in plan.targets:
-                    _git(
-                        args.repo,
-                        "ls-remote",
-                        "--exit-code",
-                        "--heads",
-                        "origin",
-                        f"refs/heads/{target.branch}",
-                    )
+                    ref = f"refs/heads/{target.branch}"
+                    if ref not in _remote_refs(args.repo, "--heads", (ref,)):
+                        raise ValueError(f"required release branch is missing: {ref}")
             print(json.dumps(plan_to_dict(plan), indent=2))
+        elif args.command == "verify-tag":
+            verify_remote_tag(args.repo, args.tag, args.commit)
+            print(json.dumps({"tag": args.tag, "commit": args.commit}))
+        elif args.command == "push-tags":
+            push_tags(args.repo, args.tag, args.commit)
+            print(json.dumps({"pushed_tags": args.tag}))
         elif args.command == "notes":
             plan = read_plan(args.plan, require_bound=True)
             notes_plan(plan, args.tag, args.commit, args.approve_plan)

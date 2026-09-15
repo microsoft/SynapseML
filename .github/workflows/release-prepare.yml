@@ -74,7 +74,7 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          if git rev-parse -q --verify "refs/tags/v${VERSION}" >/dev/null; then
+          if git show-ref --verify --quiet "refs/tags/v${VERSION}"; then
             echo "::error::Tag v${VERSION} already exists. That version is already released."
             exit 1
           fi
@@ -275,7 +275,8 @@ jobs:
         run: |
           set -euo pipefail
           git fetch --no-tags origin '+refs/heads/master:refs/remotes/origin/master'
-          if ! git merge-base --is-ancestor "$MERGED_SHA" origin/master; then
+          MASTER_COMMIT=$(git show-ref --hash --verify refs/remotes/origin/master)
+          if ! git merge-base --is-ancestor "$MERGED_SHA" "$MASTER_COMMIT"; then
             echo "::error::Merged commit $MERGED_SHA is not contained in origin/master."
             exit 1
           fi
@@ -307,8 +308,9 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           TAG="v${VERSION}"
-          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then
-            EXISTING=$(git rev-parse "refs/tags/$TAG^{commit}")
+          if git show-ref --verify --quiet "refs/tags/$TAG"; then
+            TAG_OBJECT=$(git show-ref --hash --verify "refs/tags/$TAG")
+            EXISTING=$(git rev-parse "$TAG_OBJECT^{commit}")
             if [ "$EXISTING" != "$MERGED_SHA" ]; then
               echo "::error::$TAG exists at $EXISTING, expected $MERGED_SHA. Refusing to move it."
               exit 1
@@ -316,13 +318,11 @@ jobs:
             echo "$TAG already identifies the merged commit."
           else
             git tag "$TAG" "$MERGED_SHA"
-            git push --atomic origin "$TAG"
+            python3 scripts/release/release_guard.py push-tags \
+              --repo . --tag "$TAG" --commit "$MERGED_SHA"
           fi
-          REMOTE=$(git ls-remote --tags origin "refs/tags/$TAG" "refs/tags/$TAG^{}")
-          if ! printf '%s\n' "$REMOTE" | grep -Eq "^${MERGED_SHA}[[:space:]]"; then
-            echo "::error::Remote $TAG does not confirm the merged commit."
-            exit 1
-          fi
+          python3 scripts/release/release_guard.py verify-tag \
+            --tag "$TAG" --commit "$MERGED_SHA" --repo . > /dev/null
 
       # Pushes made with GITHUB_TOKEN do not emit another workflow run. Use the
       # supported workflow_dispatch exception to continue the release chain.

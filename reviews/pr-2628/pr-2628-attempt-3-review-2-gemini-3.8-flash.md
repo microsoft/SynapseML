@@ -79,3 +79,66 @@ Scope limits:
 ## Verdict
 
 **CLEAN_FOR_NEXT_ROUND.** Architecture, abstraction layers, repository conventions, and design patterns are clean and consistent. Zero issues found.
+
+## Public derivative-tag recovery follow-up
+
+**CLEAN for the reviewed delta.** Reviewer: `gemini-3.8-flash`, reasoning effort `high`.
+Reviewed against `fcbe55b7875a4cc8e66b5870e93e01d26c510490`.
+Scope was limited to `.github/workflows/release-tag.yml`,
+`scripts/release/test_release_tag_recovery.py`,
+`scripts/release/test_release_ops.py`, and `scripts/release/README.md`.
+
+### Architecture and repository pattern evaluation
+
+- [x] **Separation of concerns and encapsulation (`.github/workflows/release-tag.yml:173-225`):**
+  `reconcile_target_tags` encapsulates target-to-runtime mapping (`spark4.0` -> `3.12`,
+  `spark4.1` -> `3.13`), authorization checks, reachability validation, tag immutability,
+  atomic push, and remote ref confirmation into a cohesive, reusable Bash helper.
+  It cleanly decouples target tag reconciliation from branch creation and rebase orchestration.
+- [x] **Authorization and approval boundaries (`.github/workflows/release-tag.yml:183-207,267-283`):**
+  Follows core repository safety principles: reruns cannot mint tags at arbitrary moving branch tips.
+  Missing tags are authorized solely by a recorded same-repo merge commit (`$MERGED_SHA`)
+  verified to be an ancestor of `origin/$TARGET`. For legacy contained releases without a recorded
+  PR, both tags must already exist, agree on the same commit, and remain on the target branch.
+  Otherwise, the workflow aborts rather than guessing an unreviewed commit.
+- [x] **Tag immutability and atomic publication (`.github/workflows/release-tag.yml:198-216`):**
+  Existing tags are strictly verified against `$EXPECTED` and never moved (`Refusing to move a published release tag`).
+  Missing tags in a pair are created and pushed together using `git push --atomic origin`, preventing
+  partial or desynchronized tag pairs if concurrent updates or push rejections occur.
+- [x] **Remote verification contract (`.github/workflows/release-tag.yml:217-224`):**
+  The workflow does not conflate local tag existence with remote completion. It executes
+  `git ls-remote --tags origin` and verifies dereferenced commit matches (`^{}`) before reporting success.
+- [x] **Open PR preservation (`.github/workflows/release-tag.yml:239-251`):**
+  Open PRs are detected and preserved first, ensuring active PRs and manual conflict resolutions
+  are neither overwritten nor tagged prematurely.
+- [x] **Test architecture and fidelity (`scripts/release/test_release_tag_recovery.py`):**
+  The test suite parses `.github/workflows/release-tag.yml` via `yaml.safe_load` and executes the
+  actual workflow step against isolated, temporary bare Git repositories. Mocks are restricted to
+  a lightweight `gh` reader. No production code is duplicated into test scripts.
+- [x] **Credential safety and token caching (`scripts/release/test_release_ops.py:2944-2961`):**
+  The mocked request tests exercise `AzureRemote._get` across all three allowed Azure DevOps hosts
+  using an in-memory `Opener`, confirming
+  Authorization header transmission using the cached token without network requests, credential leaks, or hardcoded secrets.
+- [x] **Documentation consistency (`scripts/release/README.md:76-84`):**
+  Operator guidance precisely documents orchestrator rerun behavior: atomic missing tag creation
+  at recorded merge SHAs, immutability of existing tags, legacy pair consistency, and aborting on discrepancies.
+
+### Validation and evidence
+
+- Extracted workflow step validated with `bash -n` (syntax check passed cleanly).
+- Python formatting validated with pinned Black 22.3.0 across changed test files without modification.
+- Whitespace validation (`git diff --check`) passed with zero defects.
+- Offline regression suite:
+
+```text
+python -m pytest -q -rs -p no:cacheprovider scripts/release/test_release_tag_recovery.py scripts/release/test_release_ops.py::test_direct_azure_reads_send_the_cached_token
+```
+
+Result: **25 passed, no skips**. All 25 regression cases (covering linear and cherry-picked histories,
+partial pairs, annotated tags, legacy branches, remote push rejections, open PR preservation,
+mismatches, and remote ls-remote verification) pass cleanly in an isolated test environment.
+
+### Verdict
+
+**CLEAN for the reviewed delta.** Architecture, abstraction layers, authorization boundaries,
+and repository patterns conform strictly to SynapseML standards. Zero issues found; no fixes required.
