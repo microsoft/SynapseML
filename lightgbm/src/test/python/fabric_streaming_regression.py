@@ -84,6 +84,15 @@ def executor_snapshot(spark, partitions):
 def run(args):
     if not __debug__:
         raise RuntimeError("This regression requires assertions")
+    group_size = 32
+    if args.expect_malformed == "reject" and (
+        args.partitions <= 0
+        or args.rows <= 0
+        or args.rows % (args.partitions * group_size) != 0
+    ):
+        raise ValueError(
+            "Ranker control requires complete groups in every range partition"
+        )
     spark = SparkSession.builder.getOrCreate()
     sources = {
         "core": class_source(spark, "com.microsoft.azure.synapse.ml.build.BuildInfo$"),
@@ -142,7 +151,7 @@ def run(args):
         return spark.range(args.rows, numPartitions=args.partitions).select(
             "id",
             (sf.col("id") % 2).cast("double").alias("label"),
-            (sf.col("id") / 32).cast("int").alias("group"),
+            (sf.col("id") / group_size).cast("int").alias("group"),
             (
                 sf.lit(validation)
                 & ((sf.col("id") % 5 == 0) | (sf.col("id") == last_id))
@@ -179,7 +188,8 @@ def run(args):
         if validation:
             result.setValidationIndicatorCol("validation")
         if kind == "ranker":
-            result.setGroupCol("group")
+            # Range partitions already contain complete groups; preserve that fixed topology.
+            result.setGroupCol("group").setRepartitionByGroupingColumn(False)
         return result
 
     outcomes = []
@@ -314,6 +324,10 @@ def run(args):
                 )
                 outcomes.append(
                     {"learner": kind, "rows": args.rows, "outcome": "passed"}
+                )
+                print(
+                    "SYNAPSEML_FABRIC_E2E_DIAGNOSTIC="
+                    + json.dumps({"phase": kind, "learnerOutcome": outcomes[-1]})
                 )
         finally:
             frame.unpersist()

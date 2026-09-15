@@ -68,3 +68,12 @@ preflight tests now assert that it is false. A separate regression distinguishes
 never-started, started-without-completion, and successfully completed training while
 preserving the existing `trainingTime()` semantics. These assertions passed with
 all 35 tests in the four selected suites, including bounded public-fit rejection.
+
+## Follow-up: Fabric fixture correctness
+
+The extra ranker control incorrectly assumed its grouping shuffle retained
+`numTasks` partitions under AQE. Both Fabric applications reached the correct
+regression outcomes before this control timed out with one worker versus the
+requested 16/32. The fixture now retains its already group-aligned range
+partitions, checks that alignment explicitly, and does not claim to fix default
+ranker/AQE topology coordination. Production Scala is unchanged.

@@ -39,3 +39,9 @@ Validation row counts retain checked Int conversion (`ValidationDataServer.scala
 Existing unchecked training row-count/offset narrowing (`BasePartitionTask.scala:92-111`) and Int buffer
 products (`StreamingPartitionTask.scala:36-47`) remain unchanged. This patch does not establish overflow safety.
 Runtime and E2E evidence remain the parent's responsibility.
+# Follow-up: fixture boundaries
+
+Positive row/partition counts and divisibility by `partitions * group_size`
+ensure every range boundary is also a group boundary. The default two- and
+four-executor cases both have 512 rows per partition and 32 rows per group.
+Short-circuit validation avoids division by zero; invalid layouts raise an error.

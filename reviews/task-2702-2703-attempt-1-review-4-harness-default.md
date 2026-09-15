@@ -37,3 +37,9 @@ Paths below are relative to `lightgbm\src\main\scala\com\microsoft\azure\synapse
 This is a static, stable-input verdict, not runtime AQE or native-execution proof.
 General lifecycle/root-cause claims beyond stable inputs and pre-existing Int row-offset/buffer limits remain outside scope.
 Parent validation remains authoritative; no test or build success is inferred here.
+# Follow-up: fixture data flow
+
+The shared group-size constant drives both feature-frame grouping and the
+alignment check. Only the ranker disables its redundant grouping shuffle;
+regressor/classifier parameters, malformed fixtures, persistence checks,
+native hashes, and executor membership checks remain unchanged.

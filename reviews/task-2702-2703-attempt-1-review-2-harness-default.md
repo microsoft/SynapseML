@@ -33,3 +33,9 @@ No dependencies, pipelines, generated wrappers, or shared branch guidance change
 
 Static review only. No tests, builds, source edits, or subagents.
 Runtime AQE, cross-version, and multi-executor results remain with the parent; this verdict does not claim those checks passed.
+# Follow-up: fixture architecture
+
+The ranker uses the existing `repartitionByGroupingColumn` parameter only in the
+standalone Fabric control. No global Spark configuration, service setting,
+production default, or public API changes. Input group alignment is a checked
+precondition rather than an assumption.

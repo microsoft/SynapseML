@@ -34,3 +34,9 @@ Its valid feature vectors have one feature; these results do not establish a fix
 Neither the scoped documentation nor these results establish a fix for #2333 native corruption.
 Fixed Fabric execution is pending. No fixed E2E pass, performance savings, or native-corruption resolution is claimed.
 Existing compile/style and 35 passing tests are parent-reported evidence, not rerun or evaluated in this round.
+# Follow-up: fixture observability and cost
+
+The correction adds arithmetic precondition checks and compact learner-result
+markers, with no additional Spark action or row-value logging. It avoids a
+redundant shuffle in this synthetic aligned fixture, not a claimed production
+performance improvement. Final runtime reruns remain required.

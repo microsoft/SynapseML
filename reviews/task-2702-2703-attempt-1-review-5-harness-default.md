@@ -51,3 +51,10 @@ ordered count against a full-row census, and exercises a public streaming fit.
 No RDD API, extra production action, or public signature was added. The AQE
 regression passed with all 38 tests in the five selected suites. Scoped core and
 LightGBM codegen and generated estimator imports also passed.
+
+## Follow-up: Fabric control coverage
+
+Added a diagnostic result immediately after each classifier/ranker control so
+a later failure cannot hide an earlier successful control. Failed applications
+remain failed; their successful regression subcases are not whole-run passes.
+A separate baseline-jar probe tests the ranker AQE mismatch and aligned control.
