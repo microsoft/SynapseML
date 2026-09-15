@@ -88,19 +88,13 @@ spark-shell --packages com.microsoft.azure:synapseml_2.12:1.1.3 \
 
 ## Step 2: Spark Session and Imports
 
-Import the necessary classes from Spark SQL, Spark ML, and SynapseML:
+In `spark-shell` or a managed Scala notebook, reuse the supplied `spark` session and import the classes below. The standalone application in Step 8 creates and stops its own session.
 
 ```scala
-import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.evaluation.RegressionEvaluator
 import com.microsoft.azure.synapse.ml.lightgbm.LightGBMRegressor
-
-// Initialize or retrieve the active SparkSession
-val spark = SparkSession.builder()
-  .appName("LightGBM-QSAR-QuantileRegression")
-  .getOrCreate()
 
 import spark.implicits._
 ```

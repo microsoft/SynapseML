@@ -15,9 +15,15 @@ const markdown = fs.readFileSync(
 test('the Scala quantile tutorial route matches its published URL', () => {
   const slug =
     markdown.match(/^slug:\s*(.+)$/m)?.[1] ?? path.posix.basename(documentId);
-  const route = `/SynapseML/docs/${path.posix.dirname(documentId)}/${slug}/`;
+  const prefix = `/SynapseML/docs/next/${path.posix.dirname(documentId)}/`;
+  const route = `${prefix}${slug}/`;
+  const expectedRoute =
+    '/SynapseML/docs/next/Explore Algorithms/LightGBM/quantile-regression-scala/';
+  const legacyRoute = `${prefix}${path.posix.basename(documentId)}/`;
 
-  assert.ok(matchPath(route, {path: route, exact: true}));
+  assert.equal(matchPath(legacyRoute, {path: legacyRoute, exact: true}), null);
+  assert.equal(route, expectedRoute);
+  assert.ok(matchPath(expectedRoute, {path: route, exact: true}));
 });
 
 test('the LightGBM sidebar includes the Scala quantile tutorial', () => {
