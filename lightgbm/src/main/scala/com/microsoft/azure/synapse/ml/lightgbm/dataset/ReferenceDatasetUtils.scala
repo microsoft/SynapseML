@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.lightgbm.swig.SwigUtils
 import com.microsoft.azure.synapse.ml.lightgbm._
 import com.microsoft.ml.lightgbm._
 import org.apache.spark.sql._
-import org.slf4j.Logger
+import org.slf4j.{Logger, LoggerFactory}
 
 
 object ReferenceDatasetUtils {
@@ -114,6 +114,13 @@ object ReferenceDatasetUtils {
     initializeOwnedDataset(lightGBMDataset) {
       // Initialize the dataset for streaming (allocates arrays mostly)
       val maxOmpThreads = ctx.trainingParams.executionParams.maxStreamingOMPThreads
+      if (ctx.trainingParams.generalParams.verbosity > 1) {
+        LoggerFactory.getLogger(getClass).info(
+          s"Initializing streaming Dataset: executor=${LightGBMUtils.getExecutorId}, " +
+            s"partition=${ctx.partitionId}, task=${ctx.taskId}, rows=$count, " +
+            s"localPartitions=${ctx.networkTopologyInfo.executorPartitionIdList.sorted.mkString(",")}, " +
+            s"externalThreads=${ctx.executorPartitionCount}, maxStreamingOMPThreads=$maxOmpThreads")
+      }
       LightGBMUtils.validate(lightgbmlib.LGBM_DatasetInitStreaming(lightGBMDataset.datasetPtr,
         ctx.trainingCtx.hasWeightsAsInt,
         ctx.trainingCtx.hasInitialScoresAsInt,
@@ -124,6 +131,15 @@ object ReferenceDatasetUtils {
         "LGBM_DatasetInitStreaming")
 
       lightGBMDataset.setFeatureNames(ctx.trainingCtx.featureNames, ctx.trainingCtx.numCols)
+    }
+  }
+
+  private[lightgbm] def validateReferenceFeatures(serializedDataset: Array[Byte],
+                                                 datasetParams: String,
+                                                 numCols: Int): Unit = {
+    val reference = deserializeReferenceDataset(serializedDataset, 1, datasetParams)
+    NetworkManager.withCleanupPreservingPrimary(reference.close()) {
+      DatasetUtils.validateFeatureSize(numCols, reference.numFeature())
     }
   }
 

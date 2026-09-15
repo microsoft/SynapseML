@@ -128,6 +128,27 @@ When `deterministic=True`, SynapseML logs a warning if Spark marks the training 
 nondeterministic. For effective CPU training, it also warns if neither `force_col_wise=true`
 nor `force_row_wise=true` is enabled.
 
+#### Streaming feature vectors
+
+Every training and validation vector must have the same declared size, including
+sparse vectors with no stored entries. A sparse vector of size zero is not a
+valid replacement for an all-zero vector of the expected size. Streaming fits
+reject null vectors and dimension mismatches with an input error rather than
+filling missing columns from a reused micro-batch buffer. A supplied or reused
+`referenceDataset` must also have the same feature count.
+
+SynapseML checks training rows during its partition-count action and validation
+rows during validation transfer, before starting distributed native ingestion.
+Keep the input stable between Spark actions, for example by materializing a
+persisted snapshot. These checks do not provide recovery from executor loss or
+arbitrary failures after native training starts.
+
+Streaming ingestion allocates thread slots for partitions on each executor,
+including empty local partitions, rather than for every partition in the cluster.
+With `verbosity=2`, executor logs include the local partition IDs, row count, and
+external-thread count passed to native initialization. These ingestion threads
+are distinct from the native training threads controlled by `numThreads`.
+
 #### GPU training with a custom OpenCL native library
 
 SynapseML's published `lightgbmlib` artifact contains CPU-only native libraries. Only

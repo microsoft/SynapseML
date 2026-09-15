@@ -85,7 +85,7 @@ case class PartitionTaskContext(trainingCtx: TrainingContext,
 
   /* The count of partitions in this executor
    */
-  lazy val executorPartitionCount: Int = trainingCtx.partitionCounts.get.length
+  lazy val executorPartitionCount: Int = networkTopologyInfo.executorPartitionIdList.length
 
   /* The total count of partition rows in this executor
    */

@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.lightgbm
 
-import com.microsoft.azure.synapse.ml.lightgbm.dataset.{LightGBMDataset, ReferenceDatasetUtils}
+import com.microsoft.azure.synapse.ml.lightgbm.dataset.{DatasetUtils, LightGBMDataset, ReferenceDatasetUtils}
 import com.microsoft.azure.synapse.ml.lightgbm.swig._
 import com.microsoft.ml.lightgbm._
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
@@ -282,8 +282,9 @@ class StreamingPartitionTask extends BasePartitionTask {
                                            maxBatchCount: Int): Int = {
     if (inputRows.hasNext && currentCount < maxBatchCount) {
       val row = inputRows.next()
+      val features = DatasetUtils.validatedFeatures(row, state.featureIndex, state.numCols)
       // Each row might be either sparse or dense, so convert to overall dense format
-      row.getAs[Any](state.featureIndex) match {
+      features match {
         case dense: DenseVector => dense.values.zipWithIndex.foreach { case (x, i) =>
           state.featureDataBuffer.setItem(currentCount * state.numCols + i, x) }
         case sparse: SparseVector => sparse.toArray.zipWithIndex.foreach { case (x, i) =>
@@ -305,8 +306,9 @@ class StreamingPartitionTask extends BasePartitionTask {
                                             maxBatchCount: Int): (Int, Int) = {
     if (inputRows.hasNext && batchRowCount < maxBatchCount) {
       val row = inputRows.next()
+      val features = DatasetUtils.validatedFeatures(row, state.featureIndex, state.numCols)
       // Each row might be either sparse or dense, so convert to overall sparse format
-      val sparseVector = row.getAs[Any](state.featureIndex) match {
+      val sparseVector = features match {
         case dense: DenseVector => dense.toSparse
         case sparse: SparseVector => sparse
         case _ => throw new Exception(row.getAs[Any](state.featureIndex).toString)

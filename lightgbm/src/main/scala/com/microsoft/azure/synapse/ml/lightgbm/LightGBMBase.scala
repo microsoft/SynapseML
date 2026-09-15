@@ -558,7 +558,8 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
         (Some(referenceDataset), Some(partitionCounts))
       } else (None, None)
 
-    withValidationDataServer(validationData, dataset.sparkSession, numTasks, measures) { validationParams =>
+    val checkedValidationData = checkValidationFeatures(validationData, numCols, isStreamingMode)
+    withValidationDataServer(checkedValidationData, dataset.sparkSession, numTasks, measures) { validationParams =>
       executeTraining(preprocessedDF,
                       validationParams,
                       serializedReferenceDataset,
@@ -571,6 +572,18 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
                       numTasksPerExecutor,
                       measures)
     }
+  }
+
+  private def checkValidationFeatures(validationData: Option[DataFrame],
+                                      numCols: Int,
+                                      isStreamingMode: Boolean): Option[DataFrame] = {
+    if (isStreamingMode) {
+      validationData.map { data =>
+        val featureIndex = data.schema.fieldIndex(getFeaturesCol)
+        data.mapPartitions(rows => DatasetUtils.validateFeatureRows(rows, featureIndex, numCols))(
+          Encoders.row(data.schema))
+      }
+    } else validationData
   }
 
   private def withValidationDataServer[T](validationData: Option[DataFrame],
@@ -659,8 +672,8 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
 
     // Get the row counts per partition
     measures.markRowCountsStart()
-    // Get an array where the index is implicitly the partition id
-    val rowCounts: Array[Long] = ClusterUtil.getNumRowsPerPartition(dataframe, dataframe.col(getLabelCol))
+    // Check every row during the existing count action, before shared native preparation starts.
+    val rowCounts = DatasetUtils.validatedRowCounts(dataframe, getFeaturesCol, numCols)
     val totalNumRows = rowCounts.sum
     measures.markRowCountsStop()
 
@@ -675,6 +688,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     val precalculatedDataset = getReferenceDataset
     val serializedReference = if (precalculatedDataset.nonEmpty) {
       log.info(s"Using precalculated reference Dataset of length: ${precalculatedDataset.length}")
+      ReferenceDatasetUtils.validateReferenceFeatures(precalculatedDataset, datasetParams, numCols)
       precalculatedDataset
     } else {
       // Get sample data rows
