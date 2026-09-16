@@ -291,7 +291,7 @@ class RankingTrainValidationSplitModel(
   val bestModel: ModelParam =
     new ModelParam(
       this,
-      "bestModel", "The internal ALS model used splitter")
+      "bestModel", "The internal ALS model used by the splitter")
 
   /** @group getParam */
   def getBestModel: Model[_ <: Model[_]] = $(bestModel)

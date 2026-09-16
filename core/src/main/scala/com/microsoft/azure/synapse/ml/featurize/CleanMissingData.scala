@@ -38,11 +38,11 @@ object CleanMissingData extends DefaultParamsReadable[CleanMissingData] {
   }
 }
 
-/** Removes missing values from input dataset.
+/** Removes missing values from the input dataset.
   * The following modes are supported:
-  * Mean   - replaces missings with mean of fit column
-  * Median - replaces missings with approximate median of fit column
-  * Custom - replaces missings with custom value specified by user
+  * Mean   - replaces missing values with the mean of the fit column
+  * Median - replaces missing values with the approximate median of the fit column
+  * Custom - replaces missing values with a custom value specified by the user
   * For mean and median modes, only numeric column types are supported, specifically:
   * `Int`, `Long`, `Float`, `Double`
   * For custom mode, the types above are supported and additionally:
@@ -62,7 +62,7 @@ class CleanMissingData(override val uid: String) extends Estimator[CleanMissingD
   def getCleaningMode: String = $(cleaningMode)
 
   /** Custom value for imputation, supports numeric, string and boolean types.
-    * Date and Timestamp currently not supported.
+    * Date and Timestamp are currently not supported.
     */
   val customValue: Param[String] = new Param[String](this, "customValue", "Custom value for replacement")
 
@@ -73,7 +73,7 @@ class CleanMissingData(override val uid: String) extends Estimator[CleanMissingD
   /** Fits the dataset, prepares the transformation function.
     *
     * @param dataset The input dataset.
-    * @return The model for removing missings.
+    * @return The model for removing missing values.
     */
   override def fit(dataset: Dataset[_]): CleanMissingDataModel = {
     logFit({

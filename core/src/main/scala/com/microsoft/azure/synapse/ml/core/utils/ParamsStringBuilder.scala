@@ -99,7 +99,7 @@ class ParamsStringBuilder(parent: Option[Params], prefix: String, delimiter: Str
     */
   def appendParamValueIfNotThere[T](optionLong: String, param: Option[T]): ParamsStringBuilder = {
     if (param.isDefined &&
-      // boost allow " " or "="
+      // boost allows " " or "="
       s"$prefix$optionLong[ =]".r.findAllIn(sb.result).isEmpty)
     {
       append(s"$prefix$optionLong$delimiter${param.get}")

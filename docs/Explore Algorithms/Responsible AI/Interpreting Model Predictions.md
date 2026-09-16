@@ -90,12 +90,12 @@ All vector model explainers ([VectorLIME](#vectorlime), [VectorSHAP](#vectorshap
 
 All image model explainers ([ImageLIME](#imagelime), [ImageSHAP](#imageshap)) support the following params:
 
-| Param         | Type     | Default       | Description                                                        |
-|---------------|----------|---------------|--------------------------------------------------------------------|
-| inputCol      | `String` |               | The names of input image column to the black-box model.            |
-| cellSize      | `Double` | 16            | Number that controls the size of the super-pixels.                 |
-| modifier      | `Double` | 130           | Controls the trade-off spatial and color distance of super-pixels. |
-| superpixelCol | `String` | "superpixels" | The column holding the super-pixel decompositions.                 |
+| Param         | Type     | Default       | Description                                                                |
+|---------------|----------|---------------|----------------------------------------------------------------------------|
+| inputCol      | `String` |               | The names of input image column to the black-box model.                    |
+| cellSize      | `Double` | 16            | Number that controls the size of the super-pixels.                         |
+| modifier      | `Double` | 130           | Controls the trade-off between spatial and color distance of super-pixels. |
+| superpixelCol | `String` | "superpixels" | The column holding the super-pixel decompositions.                         |
 
 ### Text model explainer params
 

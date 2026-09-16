@@ -22,12 +22,12 @@ Furthermore it includes many advances in the area of reinforcement learning (for
     SparkML Pipelines, and used for batch, streaming, and serving workloads.
 -  **Small footprint**: VowpalWabbit memory consumption is rather small and can be controlled through '-b 18' or the setNumBits method.
     This option determines the size of the model (2^18 * some_constant, in this example).
--  **Feature Interactions**: Feature interactions (quadratic, cubic,... terms, for instance) are created on-the-fly within the most inner
+-  **Feature Interactions**: Feature interactions (quadratic, cubic,... terms, for instance) are created on-the-fly within the innermost
     learning loop in VW.
     Interactions can be specified by using the -q parameter and passing the first character of the namespaces that should be _interacted_.
-    The VW namespace concept is mapped to Spark using columns. The column name is used as namespace name, thus one sparse or dense Spark ML vector corresponds to the features of a single namespace.
-    To allow passing of multiple namespaces, the VW estimator (classifier or regression) exposes a property called _additionalFeatures_. Users can pass an array of column names.
--  **Simple deployment**: all native dependencies are packaged into a single jars (including boost and zlib).
+    The VW namespace concept is mapped to Spark using columns. The column name is used as a namespace name, thus one sparse or dense Spark ML vector corresponds to the features of a single namespace.
+    To allow passing of multiple namespaces, the VW estimator (classifier or regressor) exposes a property called _additionalFeatures_. Users can pass an array of column names.
+-  **Simple deployment**: all native dependencies are packaged into a single jar (including boost and zlib).
 -  **VowpalWabbit command line arguments**: users can pass VW command line arguments to control the learning process.
 -  **VowpalWabbit binary models** To start the training, users can supply an initial VowpalWabbit model, which can be produced outside of
     VW on Spark, by invoking _setInitialModel_ and passing the model as a byte array. Similarly, users can access the binary model by invoking
@@ -38,7 +38,7 @@ Furthermore it includes many advances in the area of reinforcement learning (for
 
 ### Limitations of VowpalWabbit on Spark
 
--  **Linux and CentOS only** The native binaries included with the published jar are built Linux and CentOS only.
+-  **Linux and CentOS only** The native binaries included with the published jar are built for Linux and CentOS only.
     We're working on creating a more portable version by statically linking Boost and lib C++.
 -  **Limited Parsing** Features implemented in the native VW parser (ngrams, skips, ...) are not yet implemented in
     VowpalWabbitFeaturizer.
@@ -68,7 +68,7 @@ example](../Quickstart%20-%20Classification,%20Quantile%20Regression,%20and%20Re
 
 ### Hyper-parameter tuning
 
-- Common parameters can also be set through methods enabling the use of SparkMLs ParamGridBuilder and CrossValidator ([example](https://github.com/Azure/mmlspark/blob/master/src/test/scala/com/microsoft/azure/synapse/ml/vw/VerifyVowpalWabbitClassifier.scala#L29)). If
+- Common parameters can also be set through methods enabling the use of SparkML's ParamGridBuilder and CrossValidator ([example](https://github.com/Azure/mmlspark/blob/master/src/test/scala/com/microsoft/azure/synapse/ml/vw/VerifyVowpalWabbitClassifier.scala#L29)). If
     the same parameters are passed through the _args_ property (for instance, args="-l 0.2" and setLearningRate(0.5)) the _args_ value will
     take precedence.
  parameter
@@ -102,9 +102,9 @@ features.
 
 - VW multi-pass training can be enabled using '--passes 4' argument or setNumPasses method. Cache file is automatically named.
     - Pro: simplified usage.
-    - Pro: certain algorithms (for example, l-bfgs) require a cache file when running in multi-pass node.
+    - Pro: certain algorithms (for example, l-bfgs) require a cache file when running in multi-pass mode.
     - Cons: Since the cache file resides in the Java temp directory, a bottleneck may arise, depending on your node's I/O performance and the location of the temp directory.
-- VW distributed training is transparently set up and can be controlled through the input dataframes number of partitions.
+- VW distributed training is transparently set up and can be controlled through the input dataframe's number of partitions.
   Similar to LightGBM all training instances must be running at the same time, thus the maximum parallelism is restricted by the
   number of executors available in the cluster. Under the hood, VW's built-in spanning tree functionality is used to coordinate _allreduce_.
   Required parameters are automatically determined and supplied to VW. The spanning tree coordination process is run on the driver node.

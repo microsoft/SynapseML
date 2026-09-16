@@ -5,14 +5,14 @@ status: stable
 ---
 # Embedding Text with local (per node) NVIDIA TensorRT accelerator and GPU based Aproximate Nearest Neighbor (ANN)
 
-The demo extending existing [Azure OpenAI based demo](https://github.com/microsoft/SynapseML/blob/master/docs/Explore%20Algorithms/OpenAI/Quickstart%20-%20OpenAI%20Embedding%20and%20GPU%20based%20KNN.ipynb) when encoding is processed by OpenAI requests and KNN was using GPU based brute force search. This tutorial shows how to perform fast local embeddings using [multilingual E5 text embeddings](https://arxiv.org/abs/2402.05672) and fast aproximate Nearest Neighbor search using IVFFlat alcorithm. All tutorial stages accelerated by NVIDIA GPU using [NVIDIA TensorRT](https://developer.nvidia.com/tensorrt) and [Spark Rapids ML](https://github.com/NVIDIA/spark-rapids-ml). The tutorial folder contains two benchmark notebooks to demonstrate advantages of the presented GPU based approach compare to [previos CPU based demo](https://github.com/microsoft/SynapseML/blob/master/docs/Explore%20Algorithms/OpenAI/Quickstart%20-%20OpenAI%20Embedding.ipynb)
+The demo extends the existing [Azure OpenAI based demo](https://github.com/microsoft/SynapseML/blob/master/docs/Explore%20Algorithms/OpenAI/Quickstart%20-%20OpenAI%20Embedding%20and%20GPU%20based%20KNN.ipynb) where encoding is processed by OpenAI requests and KNN was using GPU based brute force search. This tutorial shows how to perform fast local embeddings using [multilingual E5 text embeddings](https://arxiv.org/abs/2402.05672) and fast approximate Nearest Neighbor search using the IVFFlat algorithm. All tutorial stages are accelerated by an NVIDIA GPU using [NVIDIA TensorRT](https://developer.nvidia.com/tensorrt) and [Spark Rapids ML](https://github.com/NVIDIA/spark-rapids-ml). The tutorial folder contains two benchmark notebooks to demonstrate advantages of the presented GPU based approach compared to the [previous CPU based demo](https://github.com/microsoft/SynapseML/blob/master/docs/Explore%20Algorithms/OpenAI/Quickstart%20-%20OpenAI%20Embedding.ipynb)
 
 The key prerequisites for this quickstart include a working Azure OpenAI resource, and an Apache Spark cluster with SynapseML installed. We suggest creating a Synapse workspace, but currently the notebook was running on Databricks GPU based cluster using Standard_NC24ads_A100_v4 with 6 workers. Databricks Runtime was 13.3 LTS ML (includes Apache Spark 3.4.1, GPU, Scala 2.12) with related [init_script](https://github.com/microsoft/SynapseML/tree/master/tools/init_scripts) to install all required packages.
 
 
 ## Step 1: Prepare Environment
 
-It will imports required libraries and get initial settings
+It will import the required libraries and get the initial settings.
 
 
 ```python
@@ -32,11 +32,11 @@ from synapse.ml.nn import KNN
 
 ## Step 2: Load Input Data
 
-It will load public dataset and generate extra syntetic rows if set by size parameter
+It will load a public dataset and generate extra synthetic rows if set by the size parameter.
 
 The loaded dataset has 1000 rows. If you specify <i>number_of_input_rows</i> in [1..1000] it will cut extra rows if needed
 
-If <i>number_of_input_rows</i> in [1000..1000000] it will generate extra rows using cross join of original data
+If <i>number_of_input_rows</i> is in [1000..1000000], it will generate extra rows using a cross join of the original data
 
 
 ```python
@@ -70,7 +70,7 @@ if number_of_input_rows > 1000:
     # Select only the necessary columns and show the result
     tmp_df = tmp_df.select("result_vector")
 
-    # Shuffle the DataFrame with a fixed seed to have close strings spreaded
+    # Shuffle the DataFrame with a fixed seed to have close strings spread
     seed = 42
 
     df = (
@@ -86,7 +86,7 @@ print(f"Loaded: {number_of_input_rows} rows")
 
 ## Step 3: Generate Embeddings
 
-We will first generate embeddings using NVIDIA TensorRT optimized SentenceTransformer. In the demo you can use two fifferent HF models: intfloat/e5-large-v2 or sentence-transformers/all-MiniLM-L6-v2"
+We will first generate embeddings using NVIDIA TensorRT optimized SentenceTransformer. In the demo you can use two different HF models: intfloat/e5-large-v2 or sentence-transformers/all-MiniLM-L6-v2.
 
 
 ```python
@@ -205,9 +205,9 @@ display(result_df)
 
 # Results
 
-The goal of this demo is to showcase two acceleration techniques: local (per node) embedding generation and approximate KNN. Compared to the original method, which relies on HTTP requests to the OpenAI model and CPU-based KNN. The new approach is significantly more scalable and provides substantial acceleration, especially for large input datasets.
+The goal of this demo is to showcase two acceleration techniques: local (per node) embedding generation and approximate KNN. Compared to the original method, which relies on HTTP requests to the OpenAI model and CPU-based KNN, the new approach is significantly more scalable and provides substantial acceleration, especially for large input datasets.
 
-This is the comparison dureation results on 10 T4 GPU nodes for both approaches:
+These are the comparison duration results on 10 T4 GPU nodes for both approaches:
 
 ![KNN Comparison](https://mmlspark.blob.core.windows.net/graphics/Documentation/knn_comparison.png)
 

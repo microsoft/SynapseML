@@ -110,10 +110,10 @@ You can deploy head node load balancing with the `HTTPSource` and
 `HTTPSink` classes.  This mode spins up a queue on the head node,
 distributes work across partitions, then collects response data back to
 the head node.  All HTTP requests are kept and replied to on the head
-node. In both python and Scala these classes can be access by using
+node. In both Python and Scala these classes can be accessed by using
 `spark.readStream.server()` after importing SynapseML.
 This mode allows for more complex windowing, repartitioning, and
-SQL operations.  This option is also idea for rapid setup and testing,
+SQL operations.  This option is also ideal for rapid setup and testing,
 as it doesn't require any further load balancing or network
 switches.  A diagram of this configuration can be seen in this image:
 
@@ -126,7 +126,7 @@ switches.  A diagram of this configuration can be seen in this image:
 You can configure Spark Serving for a custom load balancer using the
 `DistributedHTTPSource` and `DistributedHTTPSink` classes.  This mode
 spins up servers on each executor JVM.
-In both python and Scala these classes can be access by using
+In both Python and Scala these classes can be accessed by using
 `spark.readStream.distributedServer()` after importing SynapseML.
 Each server will feed its
 executor's partitions in parallel.  This mode is key for high throughput

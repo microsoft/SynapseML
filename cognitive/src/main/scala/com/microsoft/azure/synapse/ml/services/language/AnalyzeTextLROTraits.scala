@@ -499,7 +499,7 @@ private[language] trait HandleCustomEntityRecognition extends HasServiceParams
 
   private[language] def createCustomEntityRecognitionRequest(row: Row,
                                            analysisInput: MultiLanguageAnalysisInput,
-                                           // This paremeter is not used and only exists for compatibility
+                                           // This parameter is not used and only exists for compatibility
                                            modelVersion: String,
                                            stringIndexType: String,
                                            loggingOptOut: Boolean): String = {
@@ -617,9 +617,9 @@ private[language] trait HandleCustomLabelClassification extends HasServiceParams
 
   private[language] def createCustomMultiLabelRequest(row: Row,
                                     analysisInput: MultiLanguageAnalysisInput,
-                                    // This paremeter is not used and only exists for compatibility
+                                    // This parameter is not used and only exists for compatibility
                                     modelVersion: String,
-                                    // This paremeter is not used and only exists for compatibility
+                                    // This parameter is not used and only exists for compatibility
                                     stringIndexType: String,
                                     loggingOptOut: Boolean): String = {
     val taskParameter = CustomLabelLROTask(

@@ -86,7 +86,7 @@ trait VowpalWabbitBaseProgressive
     }
   }
 
-  // implementors are task with the transfer of the data to VW
+  // Implementers are tasked with transferring the data to VW
   def trainFromRow(vw: VowpalWabbitNative, row: Row): Seq[Any]
 
   def getAdditionalOutputSchema: StructType

@@ -16,7 +16,7 @@ class VerifyVowpalWabbitGenericProgressive
 
   lazy val simpleDf = Seq("1 |a b c", "0 |d e f", "1 |a b c")
     .toDF("input")
-    // TODO: remove coalese and fix it
+    // TODO: remove coalesce and fix it
     .coalesce(1)
 
   test("Verify VerifyVowpalWabbitGenericProgressive from string") {
@@ -42,7 +42,7 @@ class VerifyVowpalWabbitGenericProgressive
       "1:0 2:1 3:1 4:1 | a b c",
       "1:1 2:1 3:0 4:1 | b c d")
       .toDF("input")
-      // TODO: remove coalese and fix it
+      // TODO: remove coalesce and fix it
       .coalesce(1)
 
     val actual = vw.transform(dataset)
@@ -65,7 +65,7 @@ class VerifyVowpalWabbitGenericProgressive
       "4 | b d f",
       "2 | d e f")
       .toDF("input")
-      // TODO: remove coalese and fix it
+      // TODO: remove coalesce and fix it
       .coalesce(1)
 
     val actual = vw.transform(dataset)

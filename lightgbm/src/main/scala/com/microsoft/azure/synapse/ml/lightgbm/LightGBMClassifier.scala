@@ -18,9 +18,9 @@ import org.apache.spark.sql.types.StructField
 
 object LightGBMClassifier extends DefaultParamsReadable[LightGBMClassifier]
 
-/** Trains a LightGBM Classification model, a fast, distributed, high performance gradient boosting
+/** Trains a LightGBM Classification model using a fast, distributed, high-performance gradient boosting
   * framework based on decision tree algorithms.
-  * For more information please see here: https://github.com/lightgbm-org/LightGBM.
+  * For more information, please see here: https://github.com/lightgbm-org/LightGBM.
   * For parameter information see here: https://github.com/lightgbm-org/LightGBM/blob/master/docs/Parameters.rst
   * @param uid The unique ID.
   */

@@ -8,7 +8,7 @@ import useBaseUrl from "@docusaurus/useBaseUrl";
 
 # What is SynapseML?
 
-SynapseML (previously known as MMLSpark), is an open-source library that simplifies the creation of massively scalable machine learning (ML) pipelines. SynapseML provides simple, composable, and distributed APIs for a wide variety of different machine learning tasks such as text analytics, vision, anomaly detection, and many others. SynapseML is built on the [Apache Spark distributed computing framework](https://spark.apache.org/) and shares the same API as the [SparkML/MLLib library](https://spark.apache.org/mllib/), allowing you to seamlessly embed SynapseML models into existing Apache Spark workflows.
+SynapseML (previously known as MMLSpark) is an open-source library that simplifies the creation of massively scalable machine learning (ML) pipelines. SynapseML provides simple, composable, and distributed APIs for a wide variety of different machine learning tasks such as text analytics, vision, anomaly detection, and many others. SynapseML is built on the [Apache Spark distributed computing framework](https://spark.apache.org/) and shares the same API as the [SparkML/MLLib library](https://spark.apache.org/mllib/), allowing you to seamlessly embed SynapseML models into existing Apache Spark workflows.
 
 {/* truncate */}
 
