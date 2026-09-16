@@ -49,14 +49,14 @@ protected object BoosterHandler {
   }
 }
 
-/** Wraps the boosterPtr and guarantees that Native library is initialized
- * everytime it is needed
+/** Wraps the boosterPtr and guarantees that the native library is initialized
+ * every time it is needed
  * @param boosterPtr The pointer to the native lightgbm booster
  */
 protected class BoosterHandler(var boosterPtr: SWIGTYPE_p_void) {
 
-  /** Wraps the boosterPtr and guarantees that Native library is initialized
-    * everytime it is needed
+  /** Wraps the boosterPtr and guarantees that the native library is initialized
+    * every time it is needed
     *
     * @param model The string serialized representation of the learner
     */

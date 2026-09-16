@@ -25,14 +25,14 @@ trait HasCellSize extends Params {
 }
 
 trait HasModifier extends Params {
-  val modifier = new DoubleParam(this, "modifier", "Controls the trade-off spatial and color distance")
+  val modifier = new DoubleParam(this, "modifier", "Controls the trade-off between spatial and color distance")
 
   def getModifier: Double = $(modifier)
 
   def setModifier(v: Double): this.type = set(modifier, v)
 }
 
-/** A transformer that decomposes an image into it's superpixels
+/** A transformer that decomposes an image into its superpixels
   */
 class SuperpixelTransformer(val uid: String) extends Transformer
   with HasInputCol with HasOutputCol

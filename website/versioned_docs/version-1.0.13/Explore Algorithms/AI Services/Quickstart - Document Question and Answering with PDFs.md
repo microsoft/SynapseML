@@ -6,7 +6,7 @@ status: stable
 # A Guide to Q&A on PDF Documents
 
 ## Introduction
-In this notebook, we'll demonstrate how to develop a context-aware question answering framework for any form of a document using [OpenAI models](https://azure.microsoft.com/products/ai-services/openai-service), [SynapseML](https://microsoft.github.io/SynapseML/) and [Azure AI Services](https://azure.microsoft.com/products/ai-services/). In this notebook, we assume that PDF documents are the source of data, however, the same framework can be easiy extended to other document formats too.   
+In this notebook, we'll demonstrate how to develop a context-aware question answering framework for any form of a document using [OpenAI models](https://azure.microsoft.com/products/ai-services/openai-service), [SynapseML](https://microsoft.github.io/SynapseML/) and [Azure AI Services](https://azure.microsoft.com/products/ai-services/). In this notebook, we assume that PDF documents are the source of data; however, the same framework can be easily extended to other document formats too.
 
 We’ll cover the following key steps:
 
@@ -109,7 +109,7 @@ analyzed_df = (
 ).cache()
 ```
 
-We can observe the analayzed Spark DataFrame named ```analyzed_df``` using the following code. Note that we drop the "content" column as it is not needed anymore.
+We can observe the analyzed Spark DataFrame named ```analyzed_df``` using the following code. Note that we drop the "content" column as it is not needed anymore.
 
 
 ```python
@@ -142,7 +142,7 @@ Note that the chunks for each document are presented in a single row inside an a
 
 ```python
 # Each column contains many chunks for the same document as a vector.
-# Explode will distribute and replicate the content of a vecor across multple rows
+# Explode will distribute and replicate the content of a vector across multiple rows
 from pyspark.sql.functions import explode, col
 
 exploded_df = splitted_df.select("path", explode(col("chunks")).alias("chunk")).select(
@@ -324,7 +324,7 @@ def qa_chain_func():
 # Concatenate the content of retrieved documents
 context = [i["chunk"] for i in output["value"]]
 
-# Make a Quesion Answer chain function and pass
+# Make a Question Answer chain function and pass
 qa_chain = qa_chain_func()
 answer = qa_chain.run({"context": context, "query": user_question})
 

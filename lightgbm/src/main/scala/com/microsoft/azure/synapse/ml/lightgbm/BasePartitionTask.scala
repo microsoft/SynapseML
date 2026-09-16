@@ -23,7 +23,7 @@ case class PartitionResult(booster: Option[LightGBMBooster],
 
 /**
   * Object to encapsulate all intermediate data calculations.
-  * Note tha only bulk mode uses these properties, but BasePartitionTask uses this class for consistent interfaces.
+  * Note that only bulk mode uses these properties, but BasePartitionTask uses this class for consistent interfaces.
   */
 case class PartitionDataState(aggregatedTrainingData: Option[BaseAggregatedColumns],
                               aggregatedValidationData: Option[BaseAggregatedColumns])

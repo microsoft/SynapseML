@@ -279,7 +279,7 @@ Race has a JS Distance of 0.5104 while Sex has a JS Distance of 0.1217.
 
 Knowing that JS Distance is between [0, 1] where 0 means perfectly balanced distribution, we can tell that:
 * There is a larger disparity between various races than various sexes in our dataset.
-* Race is nowhere close to a perfectly balanced distribution (i.e. some races are seen ALOT more than others in our dataset).
+* Race is nowhere close to a perfectly balanced distribution (i.e. some races are seen A LOT more than others in our dataset).
 * Sex is fairly close to a perfectly balanced distribution.
 
 ### Calculate [Aggregate Balance Measures](../Data%20Balance%20Analysis)

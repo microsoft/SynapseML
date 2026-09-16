@@ -39,7 +39,7 @@ trait TextFeaturizerParams extends Wrappable with DefaultParamsWritable {
   /** @group getParam */
   final def getTokenizerGaps: Boolean = $(tokenizerGaps)
 
-  /** Minumum token length; must be 0 or greater.
+  /** Minimum token length; must be 0 or greater.
     *
     * @group param
     */

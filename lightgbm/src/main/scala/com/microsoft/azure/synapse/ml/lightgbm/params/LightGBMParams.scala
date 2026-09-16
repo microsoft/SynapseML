@@ -425,7 +425,7 @@ trait LightGBMSeedParams extends Wrappable {
   def setSeed(value: Int): this.type = set(seed, value)
 
   val deterministic = new BooleanParam(this, "deterministic", "Used only with cpu " +
-    "devide type. Setting this to true should ensure stable results when using the same data and the " +
+    "device type. Setting this to true should ensure stable results when using the same data and the " +
     "same parameters.  Note: setting this to true may slow down training.  To avoid potential instability " +
     "due to numerical issues, please set force_col_wise=true or force_row_wise=true when setting " +
     "deterministic=true")
@@ -592,7 +592,7 @@ trait LightGBMParams extends Wrappable
   def setLambdaL2(value: Double): this.type = set(lambdaL2, value)
 
   val isProvideTrainingMetric = new BooleanParam(this, "isProvideTrainingMetric",
-    "Whether output metric result over training dataset.")
+    "Whether to output metric results over the training dataset.")
   setDefault(isProvideTrainingMetric -> false)
   def getIsProvideTrainingMetric: Boolean = $(isProvideTrainingMetric)
   def setIsProvideTrainingMetric(value: Boolean): this.type = set(isProvideTrainingMetric, value)
