@@ -21,7 +21,7 @@ import scala.collection.{Seq => CollectionSeq}
 import scala.language.existentials
 
 
-trait HasOpenAITextParamsExtended extends HasOpenAITextParams {
+trait HasOpenAITextParamsExtended extends HasOpenAITextParams with HasOpenAIResponseSchema {
   val responseFormat: ServiceParam[Map[String, Any]] = new ServiceParam[Map[String, Any]](
     this,
     "responseFormat",
@@ -105,6 +105,8 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   logClass(FeatureNames.AiServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAIChatCompletion"))
+
+  @transient private lazy val requestBody = new OpenAIRequestBodyCache(OpenAIRequestBody.chat)
 
   def urlPath: String = ""
 
@@ -547,7 +549,8 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   ): StringEntity = {
     val mappedMessages = encodedMessageMaps(messages)
     val fullPayload = optionalParams.updated("messages", mappedMessages)
-    new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
+    val encoded = requestBody.encode(fullPayload, get(responseFormat).orElse(getDefault(responseFormat)))
+    new StringEntity(encoded, ContentType.APPLICATION_JSON)
   }
 
   override private[openai] def getOutputMessageText(outputColName: String): org.apache.spark.sql.Column = {
