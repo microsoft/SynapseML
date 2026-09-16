@@ -4,6 +4,8 @@
 package com.microsoft.azure.synapse.ml.codegen
 
 import org.apache.commons.io.{FileUtils, IOUtils}
+import org.apache.spark.ml.classification.{ProbabilisticClassificationModel, ProbabilisticClassifier}
+import org.apache.spark.ml.linalg.{Vector, Vectors}
 import org.apache.spark.ml.{Estimator, Model, Transformer}
 import org.apache.spark.ml.param.{DoubleParam, Param, ParamMap, StringArrayParam}
 import org.apache.spark.sql.{DataFrame, Dataset}
@@ -78,6 +80,34 @@ private[codegen] object PyCodegenFixtures {
     override def transformSchema(schema: StructType): StructType = schema
 
     override def copy(extra: ParamMap): TypedPythonEstimator = defaultCopy(extra)
+  }
+
+  class TypedPythonClassificationModel(override val uid: String = "typedPythonClassificationModel")
+    extends ProbabilisticClassificationModel[Vector, TypedPythonClassificationModel] with Wrappable {
+
+    override protected lazy val classNameHelper: String = "TypedPythonClassificationModel"
+
+    override def numClasses: Int = 2
+
+    override def predictRaw(features: Vector): Vector = Vectors.dense(0.0, 1.0)
+
+    override protected def raw2probabilityInPlace(rawPrediction: Vector): Vector = rawPrediction
+
+    override def copy(extra: ParamMap): TypedPythonClassificationModel = defaultCopy(extra)
+  }
+
+  class TypedPythonClassifier(override val uid: String = "typedPythonClassifier")
+    extends ProbabilisticClassifier[Vector, TypedPythonClassifier, TypedPythonClassificationModel] with Wrappable {
+
+    override protected lazy val classNameHelper: String = "TypedPythonClassifier"
+
+    override protected def companionModelClassName: String =
+      "com.microsoft.azure.synapse.ml.codegen.TypedPythonClassificationModel"
+
+    override protected def train(dataset: Dataset[_]): TypedPythonClassificationModel =
+      new TypedPythonClassificationModel()
+
+    override def copy(extra: ParamMap): TypedPythonClassifier = defaultCopy(extra)
   }
 }
 
@@ -262,6 +292,44 @@ class PyCodegenSuite extends AnyFunSuite {
       assert(stub.contains(
         "def _fit(self, dataset: DataFrame) -> TypedPythonModel: ..."))
       assertPythonCompiles(stubFile)
+    }
+  }
+
+  test("generated probabilistic classifier wrappers implement the raw prediction contract") {
+    withTempDir { root =>
+      val conf = codegenConfig(root)
+
+      new TypedPythonClassificationModel().makePyFile(conf)
+      new TypedPythonClassifier().makePyFile(conf)
+      new TypedPythonEstimator().makePyFile(conf)
+
+      val folder = packageDir(conf.pySrcDir, "/codegen")
+      val estimator = readUtf8(new File(folder, "TypedPythonClassifier.py"))
+      val estimatorStub = readUtf8(new File(folder, "TypedPythonClassifier.pyi"))
+      val model = readUtf8(new File(folder, "TypedPythonClassificationModel.py"))
+      val modelStub = readUtf8(new File(folder, "TypedPythonClassificationModel.pyi"))
+      val unrelatedEstimator = readUtf8(new File(folder, "TypedPythonEstimator.py"))
+      val unrelatedEstimatorStub = readUtf8(new File(folder, "TypedPythonEstimator.pyi"))
+      val expectedMixinImport = "from pyspark.ml.param.shared import HasRawPredictionCol"
+      val expectedEstimator =
+        "class TypedPythonClassifier(ComplexParamsMixin, JavaMLReadable, JavaMLWritable, " +
+          "HasRawPredictionCol, JavaEstimator):"
+      val expectedModel =
+        "class TypedPythonClassificationModel(ComplexParamsMixin, JavaMLReadable, JavaMLWritable, " +
+          "HasRawPredictionCol, JavaModel):"
+
+      assert(estimator.contains(expectedEstimator))
+      assert(estimatorStub.contains(expectedEstimator))
+      assert(model.contains(expectedModel))
+      assert(modelStub.contains(expectedModel))
+      assert(estimatorStub.contains(expectedMixinImport))
+      assert(modelStub.contains(expectedMixinImport))
+      assert(!unrelatedEstimator.contains("HasRawPredictionCol"))
+      assert(!unrelatedEstimatorStub.contains("HasRawPredictionCol"))
+      assertPythonCompiles(new File(folder, "TypedPythonClassifier.py"))
+      assertPythonCompiles(new File(folder, "TypedPythonClassifier.pyi"))
+      assertPythonCompiles(new File(folder, "TypedPythonClassificationModel.py"))
+      assertPythonCompiles(new File(folder, "TypedPythonClassificationModel.pyi"))
     }
   }
 

@@ -7,6 +7,7 @@ import com.microsoft.azure.synapse.ml.core.env.FileUtilities
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import com.microsoft.azure.synapse.ml.param._
 import org.apache.commons.lang.StringEscapeUtils
+import org.apache.spark.ml.classification.{ProbabilisticClassificationModel, ProbabilisticClassifier}
 import org.apache.spark.ml.evaluation.Evaluator
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.{Estimator, Model, Transformer}
@@ -103,8 +104,18 @@ trait PythonWrappable extends BaseWrappable {
     }
   }
 
+  private lazy val pySparkParamMixins: Seq[String] = thisStage match {
+    case _: ProbabilisticClassifier[_, _, _] | _: ProbabilisticClassificationModel[_, _] =>
+      Seq("HasRawPredictionCol")
+    case _ => Seq.empty
+  }
+
+  private lazy val pySparkParamMixinImports: String =
+    pySparkParamMixins.map(name => s"from pyspark.ml.param.shared import $name").mkString("\n")
+
   protected lazy val pyInheritedClasses: Seq[String] =
-    Seq("ComplexParamsMixin", "JavaMLReadable", "JavaMLWritable", pyObjectBaseClass)
+    Seq("ComplexParamsMixin", "JavaMLReadable", "JavaMLWritable") ++
+      pySparkParamMixins :+ pyObjectBaseClass
 
   // TODO add default values
   protected lazy val pyClassDoc: String = {
@@ -565,6 +576,7 @@ trait PythonWrappable extends BaseWrappable {
         |
         |from pyspark.ml.evaluation import JavaEvaluator
         |from pyspark.ml.param import Param, ParamMap
+        |$pySparkParamMixinImports
         |from pyspark.ml.util import JavaMLReadable, JavaMLWritable
         |from pyspark.ml.wrapper import JavaEstimator, JavaModel, JavaTransformer
         |from pyspark.sql import DataFrame
