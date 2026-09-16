@@ -87,7 +87,7 @@ def getTextFunction(ocrRow):
     return "\n".join([line.text for line in ocrRow.recognitionResult.lines])
 
 
-# this transformer wil extract a simpler string from the structured output of recognize text
+# this transformer will extract a simpler string from the structured output of recognize text
 getText = (
     UDFTransformer()
     .setUDF(udf(getTextFunction))

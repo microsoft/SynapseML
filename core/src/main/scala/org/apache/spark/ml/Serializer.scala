@@ -4,7 +4,12 @@
 package org.apache.spark.ml
 
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities._
-import com.microsoft.azure.synapse.ml.core.utils.ContextObjectInputStream
+import com.microsoft.azure.synapse.ml.core.utils.{
+  ContextObjectInputStream,
+  DeserializationClassFilter,
+  DeserializationClassRejectedException,
+  SafeObjectInputStream
+}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.Path
 import org.apache.spark.ml.util.MLWritable
@@ -13,6 +18,7 @@ import org.apache.spark.sql._
 import java.io.{InputStream, ObjectOutputStream, OutputStream}
 import scala.language.existentials
 import scala.reflect.runtime.universe._
+import scala.util.control.NonFatal
 
 abstract class Serializer[O] {
   def write(obj: O, path: Path, overwrite: Boolean): Unit
@@ -20,6 +26,10 @@ abstract class Serializer[O] {
 }
 
 object Serializer {
+
+  /** Compatibility switch for trusted legacy artifacts whose object graphs cannot be constrained. */
+  val LegacyObjectDeserializationConfig: String =
+    "spark.synapseml.legacy.allowUnsafeJavaDeserialization"
 
   val ContextClassLoader: ClassLoader = Thread.currentThread().getContextClassLoader
 
@@ -39,10 +49,22 @@ object Serializer {
   }
 
   def typeToSerializer[T](tpe: Type, sparkSession: SparkSession): Serializer[T] = {
+    typeToSerializer(tpe, sparkSession, None)
+  }
+
+  def typeToSerializer[T](
+      tpe: Type,
+      sparkSession: SparkSession,
+      classFilter: Option[DeserializationClassFilter]): Serializer[T] = {
     (if (tpe <:< typeOf[PipelineStage])              new PipelineSerializer()
      else if (tpe <:< typeOf[Array[PipelineStage]])  new PipelineArraySerializer()
      else if (tpe <:< typeOf[Dataset[_]])            new DFSerializer(sparkSession)
-     else new ObjectSerializer(sparkSession)(typeToTypeTag(tpe)))
+     else classFilter match {
+       case Some(filter) =>
+         new FilteredObjectSerializer(sparkSession, filter)(typeToTypeTag(tpe))
+       case None =>
+         new ObjectSerializer(sparkSession)(typeToTypeTag(tpe))
+     })
       .asInstanceOf[Serializer[T]]
   }
 
@@ -58,7 +80,59 @@ object Serializer {
     }.get
   }
 
+  private val PrimitiveByteArrayFilter = DeserializationClassFilter()
+
+  private def defaultClassFilter(tpe: Type): Option[DeserializationClassFilter] = {
+    if (tpe =:= typeOf[Array[Byte]]) Some(PrimitiveByteArrayFilter) else None
+  }
+
+  private def legacyObjectDeserializationEnabled(spark: SparkSession): Boolean = {
+    spark.conf.getOption(LegacyObjectDeserializationConfig).exists(_.equalsIgnoreCase("true"))
+  }
+
+  private def disabledDeserializationException(tpe: Type, guidance: String): SecurityException = {
+    new SecurityException(
+      s"Java deserialization is disabled for $tpe. " +
+        s"$guidance Deserializing this artifact may execute arbitrary code."
+    )
+  }
+
+  private def closeAndThrow(input: InputStream, error: Throwable): Nothing = {
+    try input.close() catch {
+      case NonFatal(closeError) => error.addSuppressed(closeError)
+    }
+    throw error
+  }
+
+  def read[A](
+      is: InputStream,
+      classFilter: DeserializationClassFilter)(implicit ttag: TypeTag[A]): A = {
+    val safeInput = try {
+      new SafeObjectInputStream(is, classFilter)
+    } catch {
+      case NonFatal(error) => closeAndThrow(is, error)
+    }
+    using(safeInput) { in =>
+      in.readObject.asInstanceOf[A]
+    }.get
+  }
+
   def read[A](is: InputStream)(implicit ttag: TypeTag[A]): A = {
+    defaultClassFilter(ttag.tpe) match {
+      case Some(filter) => read(is, filter)
+      case None =>
+        closeAndThrow(
+          is,
+          disabledDeserializationException(
+            ttag.tpe,
+            "Call Serializer.readUnsafe only for a trusted legacy artifact."
+          )
+        )
+    }
+  }
+
+  /** Reads an object without a class policy. The caller must already trust the artifact. */
+  def readUnsafe[A](is: InputStream)(implicit ttag: TypeTag[A]): A = {
     using(new ContextObjectInputStream(is)) { in =>
       in.readObject.asInstanceOf[A]
     }.get
@@ -93,8 +167,46 @@ object Serializer {
     * @return The loaded object.
     */
   def readFromHDFS[O](spark: SparkSession, path: Path)(implicit ttag: TypeTag[O]): O = {
+    defaultClassFilter(ttag.tpe) match {
+      case Some(filter) => readFromHDFS(spark, path, filter)
+      case None if legacyObjectDeserializationEnabled(spark) =>
+        readFromHDFSUnsafe(spark, path)
+      case None =>
+        throw disabledDeserializationException(
+          ttag.tpe,
+          s"Set $LegacyObjectDeserializationConfig=true only when loading a trusted legacy model."
+        )
+    }
+  }
+
+  def readFromHDFS[O](
+      spark: SparkSession,
+      path: Path,
+      classFilter: DeserializationClassFilter)(implicit ttag: TypeTag[O]): O = {
+    try {
+      using(path.getFileSystem(sessionHadoopConf(spark)).open(path)) { in =>
+        read[O](in, classFilter)(ttag)
+      }.get
+    } catch {
+      case _: DeserializationClassRejectedException if legacyObjectDeserializationEnabled(spark) =>
+        readFromHDFSUnsafe(spark, path)
+      case error: DeserializationClassRejectedException =>
+        val securityError = disabledDeserializationException(
+          ttag.tpe,
+          s"The object graph contains ${error.classname}, which is outside its approved class policy. " +
+            s"Set $LegacyObjectDeserializationConfig=true only when loading a trusted legacy model."
+        )
+        securityError.initCause(error)
+        throw securityError
+    }
+  }
+
+  /** Reads an object without a class policy. The caller must already trust the artifact. */
+  def readFromHDFSUnsafe[O](
+      spark: SparkSession,
+      path: Path)(implicit ttag: TypeTag[O]): O = {
     using(path.getFileSystem(sessionHadoopConf(spark)).open(path)) { in =>
-      read[O](in)(ttag)
+      readUnsafe[O](in)(ttag)
     }.get
   }
 
@@ -116,6 +228,16 @@ class ObjectSerializer[O](spark: SparkSession)(implicit ttag: TypeTag[O]) extend
   def write(obj: O, path: Path, overwrite: Boolean): Unit = Serializer.writeToHDFS(spark, obj, path, overwrite)
 
   def read(path: Path): O = Serializer.readFromHDFS(spark, path)
+}
+
+private[ml] class FilteredObjectSerializer[O](
+    spark: SparkSession,
+    classFilter: DeserializationClassFilter)(implicit ttag: TypeTag[O]) extends Serializer[O] {
+
+  def write(obj: O, path: Path, overwrite: Boolean): Unit =
+    Serializer.writeToHDFS(spark, obj, path, overwrite)
+
+  def read(path: Path): O = Serializer.readFromHDFS(spark, path, classFilter)
 }
 
 class DFSerializer(spark: SparkSession) extends Serializer[DataFrame] {

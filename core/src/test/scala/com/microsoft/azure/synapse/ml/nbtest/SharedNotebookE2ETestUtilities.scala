@@ -165,7 +165,7 @@ object SharedNotebookE2ETestUtilities {
       osPrefix ++ Seq("activate", condaEnvName, "&&")
     } else {
       Seq()
-      //TODO figure out why this doesent work
+      //TODO figure out why this doesn't work
       //Seq("/bin/bash", "-l", "-c", "source activate " + condaEnvName, "&&")
     }
   }

@@ -29,7 +29,7 @@ Now, lets read the `ANOMALY_API_KEY` and `BLOB_CONNECTION_STRING` environment va
 ```python
 from synapse.ml.core.platform import find_secret
 
-# An Anomaly Dectector subscription key
+# An Anomaly Detector subscription key
 anomalyKey = find_secret("anomaly-api-key")  # use your own anomaly api key
 # Your storage account name
 storageName = "anomalydetectiontest"  # use your own storage account name

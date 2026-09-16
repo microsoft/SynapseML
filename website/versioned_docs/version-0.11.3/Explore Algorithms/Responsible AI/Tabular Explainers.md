@@ -36,7 +36,7 @@ df = spark.read.parquet(
 labelIndexer = StringIndexer(
     inputCol="income", outputCol="label", stringOrderType="alphabetAsc"
 ).fit(df)
-print("Label index assigment: " + str(set(zip(labelIndexer.labels, [0, 1]))))
+print("Label index assignment: " + str(set(zip(labelIndexer.labels, [0, 1]))))
 
 training = labelIndexer.transform(df).cache()
 display(training)

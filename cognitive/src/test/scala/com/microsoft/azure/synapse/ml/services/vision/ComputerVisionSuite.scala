@@ -40,14 +40,14 @@ class OCRSuite extends TransformerFuzzing[OCR] with CognitiveKey with Flaky with
 
   lazy val ocr: OCR = new OCR()
     .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setLocation(cognitiveLoc)
     .setImageUrlCol("url")
     .setDetectOrientation(true)
     .setOutputCol("ocr")
 
   lazy val bytesOCR: OCR = new OCR()
     .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setLocation(cognitiveLoc)
     .setImageBytesCol("imageBytes")
     .setDetectOrientation(true)
     .setOutputCol("bocr")
@@ -106,7 +106,7 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage]
 
   def baseAI: AnalyzeImage = new AnalyzeImage()
     .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setLocation(cognitiveLoc)
     .setOutputCol("features")
     .setLanguageCol("language")
     .setVisualFeatures(
@@ -209,7 +209,7 @@ class RecognizeTextSuite extends TransformerFuzzing[RecognizeText]
 
   lazy val rt: RecognizeText = new RecognizeText()
     .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setLocation(cognitiveLoc)
     .setImageUrlCol("url")
     .setMode("Printed")
     .setOutputCol("ocr")
@@ -217,7 +217,7 @@ class RecognizeTextSuite extends TransformerFuzzing[RecognizeText]
 
   lazy val bytesRT: RecognizeText = new RecognizeText()
     .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setLocation(cognitiveLoc)
     .setImageBytesCol("imageBytes")
     .setMode("Printed")
     .setOutputCol("ocr")
@@ -253,14 +253,14 @@ class ReadImageSuite extends TransformerFuzzing[ReadImage]
 
   lazy val readImage: ReadImage = new ReadImage()
     .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setLocation(cognitiveLoc)
     .setImageUrlCol("url")
     .setOutputCol("ocr")
     .setConcurrency(5)
 
   lazy val bytesReadImage: ReadImage = new ReadImage()
     .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setLocation(cognitiveLoc)
     .setImageBytesCol("imageBytes")
     .setOutputCol("ocr")
     .setConcurrency(5)
@@ -313,7 +313,7 @@ class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDo
   lazy val celeb: RecognizeDomainSpecificContent = new RecognizeDomainSpecificContent()
     .setSubscriptionKey(cognitiveKey)
     .setModel("celebrities")
-    .setLocation("eastus")
+    .setLocation(cognitiveLoc)
     .setImageUrlCol("url")
     .setOutputCol("celebs")
 
@@ -324,7 +324,7 @@ class RecognizeDomainSpecificContentSuite extends TransformerFuzzing[RecognizeDo
   lazy val bytesCeleb: RecognizeDomainSpecificContent = new RecognizeDomainSpecificContent()
     .setSubscriptionKey(cognitiveKey)
     .setModel("celebrities")
-    .setLocation("eastus")
+    .setLocation(cognitiveLoc)
     .setImageBytesCol("imageBytes")
     .setOutputCol("celebs")
 
@@ -368,7 +368,7 @@ class GenerateThumbnailsSuite extends TransformerFuzzing[GenerateThumbnails]
 
   lazy val t: GenerateThumbnails = new GenerateThumbnails()
     .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setLocation(cognitiveLoc)
     .setHeight(50).setWidth(50).setSmartCropping(true)
     .setImageUrlCol("url")
     .setOutputCol("thumbnails")
@@ -379,7 +379,7 @@ class GenerateThumbnailsSuite extends TransformerFuzzing[GenerateThumbnails]
 
   lazy val bytesGT: GenerateThumbnails = new GenerateThumbnails()
     .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setLocation(cognitiveLoc)
     .setHeight(50).setWidth(50).setSmartCropping(true)
     .setImageBytesCol("imageBytes")
     .setOutputCol("thumbnails")
@@ -411,7 +411,7 @@ class TagImageSuite extends TransformerFuzzing[TagImage] with CognitiveKey with 
 
   lazy val t: TagImage = new TagImage()
     .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setLocation(cognitiveLoc)
     .setImageUrlCol("url")
     .setOutputCol("tags")
 
@@ -421,7 +421,7 @@ class TagImageSuite extends TransformerFuzzing[TagImage] with CognitiveKey with 
 
   lazy val bytesTI: TagImage = new TagImage()
     .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setLocation(cognitiveLoc)
     .setImageBytesCol("imageBytes")
     .setOutputCol("tags")
 
@@ -463,7 +463,7 @@ class DescribeImageSuite extends TransformerFuzzing[DescribeImage]
 
   lazy val t: DescribeImage = new DescribeImage()
     .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setLocation(cognitiveLoc)
     .setMaxCandidates(3)
     .setImageUrlCol("url")
     .setOutputCol("descriptions")
@@ -474,7 +474,7 @@ class DescribeImageSuite extends TransformerFuzzing[DescribeImage]
 
   lazy val bytesDI: DescribeImage = new DescribeImage()
     .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setLocation(cognitiveLoc)
     .setMaxCandidates(3)
     .setImageBytesCol("imageBytes")
     .setOutputCol("descriptions")

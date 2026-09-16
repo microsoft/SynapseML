@@ -7,9 +7,20 @@ import breeze.linalg.DenseVector
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 
 import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
-import com.microsoft.azure.synapse.ml.core.utils.SafeObjectInputStream
+import com.microsoft.azure.synapse.ml.core.utils.{DeserializationClassFilter, SafeObjectInputStream}
 
-import java.io.{ByteArrayInputStream, ByteArrayOutputStream, ObjectOutputStream}
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, InvalidClassException, ObjectOutputStream}
+import java.lang.invoke.{MethodHandleInfo, SerializedLambda}
+import java.util.concurrent.atomic.AtomicBoolean
+import scala.util.Try
+
+private object ModuleInitializationState {
+  val Triggered = new AtomicBoolean(false)
+}
+
+private object RejectedModuleInitializationTripwire {
+  ModuleInitializationState.Triggered.set(true)
+}
 
 class VerifySchemas extends TestBase {
 
@@ -146,6 +157,59 @@ class VerifySchemas extends TestBase {
     }
     assert(result.isFailure)
     assert(result.failed.get.isInstanceOf[java.io.InvalidClassException])
+  }
+
+  test("SafeObjectInputStream rejects SerializedLambda even through an allowed prefix") {
+    val serializedLambda = new SerializedLambda(
+      getClass,
+      "scala/Function0",
+      "apply",
+      "()Ljava/lang/Object;",
+      MethodHandleInfo.REF_invokeStatic,
+      getClass.getName.replace('.', '/'),
+      "unused",
+      "()Ljava/lang/Object;",
+      "()Ljava/lang/Object;",
+      Array.empty[AnyRef]
+    )
+    val output = new ByteArrayOutputStream()
+    using(new ObjectOutputStream(output))(_.writeObject(serializedLambda)).get
+
+    val result = using(
+      new SafeObjectInputStream(
+        new ByteArrayInputStream(output.toByteArray),
+        Set("java.lang.")
+      )
+    )(_.readObject())
+
+    assert(result.isFailure)
+    assert(result.failed.get.isInstanceOf[java.io.InvalidClassException])
+  }
+
+  test("SafeObjectInputStream validates a ModuleSerializationProxy target before initialization") {
+    Try(Class.forName("scala.runtime.ModuleSerializationProxy")).toOption.foreach { proxyClass =>
+      ModuleInitializationState.Triggered.set(false)
+      val moduleClass = Class.forName(
+        s"${getClass.getPackage.getName}.RejectedModuleInitializationTripwire$$",
+        false,
+        getClass.getClassLoader
+      )
+      val proxy = proxyClass.getConstructor(classOf[Class[_]]).newInstance(moduleClass)
+      val output = new ByteArrayOutputStream()
+      using(new ObjectOutputStream(output))(_.writeObject(proxy)).get
+
+      val result = using(
+        new SafeObjectInputStream(
+          new ByteArrayInputStream(output.toByteArray),
+          DeserializationClassFilter(allowedClasses = Set(proxyClass.getName))
+        )
+      )(_.readObject())
+
+      assert(result.isFailure)
+      val error = result.failed.get.asInstanceOf[InvalidClassException]
+      assert(error.classname === moduleClass.getName)
+      assert(!ModuleInitializationState.Triggered.get())
+    }
   }
 
 }

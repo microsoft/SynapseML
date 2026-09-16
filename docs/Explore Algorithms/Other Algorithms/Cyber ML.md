@@ -65,7 +65,7 @@ sidebar_label: CyberML
    is a SparkML [Estimator](https://spark.apache.org/docs/2.2.0/api/java/index.html?org/apache/spark/ml/Estimator.html).
    Given a dataframe, the estimator generates an AccessAnomalyModel (described next). The model
    can detect anomalous access of users to resources where the access
-   is outside of the user's or resources's profile. For instance, a user from HR accessing
+   is outside of the user's or resource's profile. For instance, a user from HR accessing
    a resource from Finance. This result is based solely on access patterns rather than explicit features.
    Internally, the code is based on Collaborative Filtering as implemented in Spark, using
    Matrix Factorization with Alternating Least Squares.

@@ -50,7 +50,7 @@ trait OpenAIFabricSetting extends RESTUtils {
           s"for Cross Geo, please contact your admin if you want to use default fabric LLM model. " +
           s"Or you can set your Azure OpenAI credentials." +
           s"Refer to https://learn.microsoft.com/en-us/fabric/data-science/ai-services/ai-services-overview " +
-          s"for more detials")
+          s"for more details")
         case "ModelNotFound" => throw new RuntimeException(s"Default OpenAI model ${modelName} not found, " +
           s"please check your deployment name. " +
           s"Refer to https://learn.microsoft.com/en-us/fabric/data-science/ai-services/ai-services-overview " +

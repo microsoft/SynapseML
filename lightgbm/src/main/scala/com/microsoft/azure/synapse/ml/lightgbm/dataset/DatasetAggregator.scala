@@ -283,7 +283,7 @@ private[lightgbm] abstract class BaseAggregatedColumns(val chunkSize: Int) exten
 
   /**
     * LightGBM expects initial scores to be column-based, but the chunks load them as rows.
-    * We need to to transpose the values before sending.
+    * We need to transpose the values before sending.
     * @param chunkedCols Source ChunkedColumns to add from
     * @param startIndex Start index of insertion
     */

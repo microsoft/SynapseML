@@ -70,7 +70,7 @@ class HTTPSinkProviderV2 extends SimpleTableProvider
   def shortName(): String = "HTTPv2"
 }
 
-/** Common methods used to create writes for the the console sink */
+/** Common methods used to create writes for the console sink */
 class HTTPWriter(schema: StructType, options: CaseInsensitiveStringMap)
   extends StreamingWrite with Logging {
 
@@ -108,7 +108,7 @@ private[streaming] class HTTPDataWriter(val partitionId: Int,
                                         val replyColIndex: Int,
                                         val name: String)
   extends DataWriter[InternalRow] with Logging {
-  logDebug(s"Creating writer on parition:$partitionId epoch $epochId")
+  logDebug(s"Creating writer on partition:$partitionId epoch $epochId")
 
   val server = HTTPSourceStateHolder.getServer(name)
   if (server.isContinuous) {

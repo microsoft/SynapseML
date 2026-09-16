@@ -4,8 +4,10 @@
 package com.microsoft.azure.synapse.ml.codegen
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
+import com.microsoft.azure.synapse.ml.param.ServiceParam
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
+import spray.json.DefaultJsonProtocol._
 
 class VerifyDefaultParamInfo extends TestBase {
 
@@ -47,5 +49,37 @@ class VerifyDefaultParamInfo extends TestBase {
     assert(DefaultParamInfo.StringStringMapInfo.pyType === "dict")
     assert(DefaultParamInfo.StringInfo.pyType === "str")
     assert(DefaultParamInfo.UnknownInfo.pyType === "object")
+  }
+
+  test("ParamInfo instances publish precise stub types") {
+    assert(DefaultParamInfo.pythonTypeInfo(DefaultParamInfo.LongInfo).pyiType === "int")
+    assert(DefaultParamInfo.pythonTypeInfo(DefaultParamInfo.StringArrayInfo).pyiType === "List[str]")
+    assert(DefaultParamInfo.pythonTypeInfo(DefaultParamInfo.DoubleArrayInfo).pyiType === "List[float]")
+    assert(DefaultParamInfo.pythonTypeInfo(DefaultParamInfo.StringStringMapInfo).pyiType === "Dict[str, str]")
+    assert(DefaultParamInfo.pythonTypeInfo(DefaultParamInfo.UnknownInfo).pyiType === "Any")
+  }
+
+  test("ServiceParam types are inferred from their scalar getters without adding converters") {
+    class ServiceParams extends Params {
+      override val uid: String = Identifiable.randomUID("ServiceParams")
+      val temperature = new ServiceParam[Double](this, "temperature", "temperature")
+      val model = new ServiceParam[String](this, "model", "model")
+
+      def getTemperature: Double = 0.0
+      def getModel: String = ""
+
+      override def copy(extra: ParamMap): Params = this
+    }
+
+    val params = new ServiceParams
+    val temperatureType = DefaultParamInfo.defaultPythonTypeInfo(params, params.temperature)
+    val modelType = DefaultParamInfo.defaultPythonTypeInfo(params, params.model)
+    val temperatureInfo = DefaultParamInfo.defaultGetParamInfo(params, params.temperature)
+    val modelInfo = DefaultParamInfo.defaultGetParamInfo(params, params.model)
+
+    assert(temperatureType.pyiType === "float")
+    assert(modelType.pyiType === "str")
+    assert(temperatureInfo.pyTypeConverter.isEmpty)
+    assert(modelInfo.pyTypeConverter.isEmpty)
   }
 }

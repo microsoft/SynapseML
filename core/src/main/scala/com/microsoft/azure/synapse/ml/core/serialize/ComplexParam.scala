@@ -3,6 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.core.serialize
 
+import com.microsoft.azure.synapse.ml.core.utils.DeserializationClassFilter
 import com.microsoft.azure.synapse.ml.param.WrappableParam
 import org.apache.hadoop.fs.Path
 import org.apache.spark.ml.Serializer
@@ -16,12 +17,16 @@ abstract class ComplexParam[T: TypeTag](parent: Params, name: String, doc: Strin
 
   def ttag: TypeTag[T] = typeTag[T]
 
+  /** Class policy for Java object streams. No policy requires explicit trusted-legacy opt-in. */
+  protected def deserializationClassFilter: Option[DeserializationClassFilter] = None
+
   def save(obj: T, sparkSession: SparkSession, path: Path, overwrite: Boolean): Unit = {
-    Serializer.typeToSerializer[T](ttag.tpe, sparkSession).write(obj, path, overwrite)
+    Serializer.typeToSerializer[T](ttag.tpe, sparkSession, deserializationClassFilter)
+      .write(obj, path, overwrite)
   }
 
   def load(sparkSession: SparkSession, path: Path): T = {
-    Serializer.typeToSerializer[T](ttag.tpe, sparkSession).read(path)
+    Serializer.typeToSerializer[T](ttag.tpe, sparkSession, deserializationClassFilter).read(path)
   }
 
   override def jsonEncode(value: T): String = {

@@ -19,7 +19,7 @@ class TextToSpeechSuite extends TransformerFuzzing[TextToSpeech] with CognitiveK
   lazy val saveDir: File = tmpDir.toFile
 
   def tts: TextToSpeech = new TextToSpeech()
-    .setLocation("eastus")
+    .setLocation(cognitiveLoc)
     .setSubscriptionKey(cognitiveKey)
     .setTextCol("text")
     .setOutputFileCol("filename")
@@ -53,7 +53,7 @@ class TextToSpeechSuite extends TransformerFuzzing[TextToSpeech] with CognitiveK
 
   def ttsSSML: TextToSpeech = new TextToSpeech()
     .setUseSSML(true)
-    .setLocation("eastus")
+    .setLocation(cognitiveLoc)
     .setSubscriptionKey(cognitiveKey)
     .setTextCol("text")
     .setOutputFileCol("filename")

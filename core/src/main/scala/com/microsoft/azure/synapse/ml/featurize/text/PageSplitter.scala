@@ -39,8 +39,8 @@ class PageSplitter(override val uid: String)
 
   val minimumPageLength =
     new IntParam(this, "minimumPageLength",
-      "the the minimum number of characters " +
-        "to have on a page in order to preserve work boundaries")
+      "the minimum number of characters " +
+        "to have on a page in order to preserve word boundaries")
 
   def setMinimumPageLength(v: Int): this.type = set(minimumPageLength, v)
 

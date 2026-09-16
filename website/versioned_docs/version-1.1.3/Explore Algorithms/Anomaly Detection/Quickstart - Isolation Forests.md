@@ -10,7 +10,8 @@ To learn more about the Isolation Forest model please refer to the original pape
 
 ## Prerequisites
  - If running on Synapse, you'll need to [create an AML workspace and set up linked Service](../../Use%20with%20MLFlow/Overview.md) and add the following installation cell.
- - If running on Fabric, you need to add the following installation cell and attach the notebook to a lakehouse. On the left side of your notebook, select Add to add an existing lakehouse or create a new one.
+ - This notebook's existing dependency set and installation cell are scoped to Spark 3.5 / Scala 2.12. Do not substitute a Spark 4 coordinate: the pinned dependencies below are not a Python 3.12/3.13 setup.
+ - If running on Fabric with a Spark 3.5 runtime, add the following installation cell and attach the notebook to a lakehouse. On the left side of your notebook, select Add to add an existing lakehouse or create a new one.
 
 
 ```python
@@ -18,7 +19,7 @@ To learn more about the Isolation Forest model please refer to the original pape
 # {
 #   "name": "synapseml",
 #   "conf": {
-#       "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:<THE_SYNAPSEML_VERSION_YOU_WANT>",
+#       "spark.jars.packages": "com.microsoft.azure:synapseml_2.12:1.1.3",
 #       "spark.jars.repositories": "https://mmlspark.blob.core.windows.net/maven",
 #       "spark.jars.excludes": "org.scala-lang:scala-reflect,org.apache.spark:spark-tags_2.12,org.scalactic:scalactic_2.12,org.scalatest:scalatest_2.12,com.fasterxml.jackson.core:jackson-databind",
 #       "spark.yarn.user.classpath.first": "true",

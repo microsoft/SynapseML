@@ -22,7 +22,7 @@ class TestCategoricalMap extends TestBase {
                                         isOrdinal: Boolean, mmlStyle: Boolean = true): Unit = {
 
     val map = new CategoricalMap(levels, isOrdinal)
-    val s   = " " + classTag[T]; // to idenfity which type throws the error
+    val s   = " " + classTag[T]; // to identify which type throws the error
 
     assert(map.numLevels == levels.length, "numLevels" + s)
     assert(map.isOrdinal == isOrdinal, "isOrdinal" + s)
@@ -36,7 +36,7 @@ class TestCategoricalMap extends TestBase {
     val mmlMeta = map.toMetadata(mmlStyle) //TODO: check metadata for correctness
   }
 
-  /** Test CategoricalMap for different undelying types */
+  /** Test CategoricalMap for different underlying types */
   test("Test: Create basic CategoricalMap") {
     for (mmlStyle <- List(true, false)) {
       val isOrdinal = mmlStyle

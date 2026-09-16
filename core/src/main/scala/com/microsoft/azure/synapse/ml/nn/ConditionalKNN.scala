@@ -79,7 +79,7 @@ class ConditionalKNNModel(val uid: String) extends Model[ConditionalKNNModel]
   private var broadcastedModelOption: Option[Broadcast[ConditionalBallTree[_, _]]] = None
 
   val ballTree = new ConditionalBallTreeParam(this, "ballTree",
-    "the ballTree model used for perfoming queries", { _ => true })
+    "the ballTree model used for performing queries", { _ => true })
 
   def getBallTree: ConditionalBallTree[_, _] = $(ballTree)
 

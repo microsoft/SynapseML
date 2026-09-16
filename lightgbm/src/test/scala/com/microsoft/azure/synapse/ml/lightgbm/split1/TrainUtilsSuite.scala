@@ -3,7 +3,13 @@
 
 package com.microsoft.azure.synapse.ml.lightgbm.split1
 
-import com.microsoft.azure.synapse.ml.lightgbm.{LightGBMRegressor, NetworkManager, TrainUtils}
+import com.microsoft.azure.synapse.ml.io.http.SharedSingleton
+import com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster
+import com.microsoft.azure.synapse.ml.lightgbm.{ColumnParams, LightGBMRegressor, NetworkManager, NetworkParams,
+  NetworkTopologyInfo, PartitionTaskContext, PartitionTaskTrainingState, SharedState, TaskInstrumentationMeasures,
+  TrainingContext, TrainUtils}
+import org.apache.spark.ml.linalg.SQLDataTypes
+import org.apache.spark.sql.types.{StructField, StructType}
 import org.scalatest.funsuite.AnyFunSuite
 import org.slf4j.LoggerFactory
 
@@ -42,6 +48,41 @@ class TrainUtilsSuite extends AnyFunSuite {
     "average_precision")
 
   private val tolerances = Seq(0.0, 0.25, 2.0, 25.0)
+
+  private def newTrainingState(booster: LightGBMBooster): PartitionTaskTrainingState = {
+    val featuresField = StructField("features", SQLDataTypes.VectorType)
+    val trainParams = new LightGBMRegressor().getTrainParams(
+      numTasks = 1,
+      featuresSchema = featuresField,
+      numTasksPerExec = 1)
+    val trainingContext = TrainingContext(
+      batchIndex = 0,
+      sharedStateSingleton = SharedSingleton(new SharedState(trainParams)),
+      schema = StructType(Seq(featuresField)),
+      numCols = 1,
+      numInitScoreClasses = 0,
+      trainingParams = trainParams,
+      networkParams = NetworkParams(12400, "127.0.0.1", 12400, barrierExecutionMode = false),
+      columnParams = ColumnParams("label", "features", None, None, None),
+      datasetParams = "",
+      featureNames = None,
+      numTasksPerExecutor = 1,
+      validationData = None,
+      serializedReferenceDataset = None,
+      partitionCounts = Some(Array(1L)))
+    val taskContext = PartitionTaskContext(
+      trainingCtx = trainingContext,
+      partitionId = 0,
+      taskId = 0L,
+      measures = new TaskInstrumentationMeasures(0),
+      networkTopologyInfo = NetworkTopologyInfo("127.0.0.1:12400", Array(0), 12400),
+      shouldExecuteTraining = true,
+      isEmptyPartition = false,
+      shouldReturnBooster = true,
+      shouldCalcValidationDataset = false)
+
+    PartitionTaskTrainingState(taskContext, booster)
+  }
 
   test("Improvement tolerance is symmetric across metrics and tolerance values") {
     val bestScore = 100.0
@@ -144,6 +185,21 @@ class TrainUtilsSuite extends AnyFunSuite {
     assert(!TrainUtils.shouldStopEarly(iteration = 4, bestIteration = 0, earlyStoppingRound = 5))
     assert(TrainUtils.shouldStopEarly(iteration = 5, bestIteration = 0, earlyStoppingRound = 5))
     assert(TrainUtils.shouldStopEarly(iteration = 10, bestIteration = 5, earlyStoppingRound = 5))
+  }
+
+  test("A native iteration failure is not reported as completed training") {
+    val nativeFailure = new RuntimeException("injected native iteration failure")
+    val booster = new LightGBMBooster() {
+      override def updateOneIteration(): Boolean = throw nativeFailure
+    }
+    val state = newTrainingState(booster)
+
+    val thrown = intercept[RuntimeException] {
+      TrainUtils.updateOneIteration(state, log)
+    }
+
+    assert(thrown eq nativeFailure)
+    assert(!state.isFinished)
   }
 
   test("Early stopping parameters accept valid values and reject invalid values") {

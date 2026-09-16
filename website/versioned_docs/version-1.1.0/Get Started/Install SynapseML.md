@@ -189,8 +189,8 @@ SynapseML has recently transitioned to a new build infrastructure.
 For detailed developer docs, see the [Developer Readme](../../Reference/Docker%20Setup)
 
 If you're an existing SynapseML developer, you'll need to reconfigure your
-development setup. We now support platform independent development and
-better integrate with intellij and SBT.
+development setup. We now support platform-independent development and
+better integrate with IntelliJ and SBT.
 If you encounter issues, reach out to our support email!
 
 ## R (Beta)

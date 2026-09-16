@@ -10,7 +10,8 @@ import com.microsoft.azure.synapse.ml.param.{GlobalKey, GlobalParams, ServicePar
 import com.microsoft.azure.synapse.ml.services._
 import org.apache.spark.ml.PipelineModel
 import org.apache.spark.ml.param.{Param, Params}
-import org.apache.spark.sql.Row
+import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types._
 import spray.json.DefaultJsonProtocol._
 import spray.json._
@@ -20,8 +21,14 @@ import scala.language.existentials
 
 trait HasMessagesInput extends Params {
   val messagesCol: Param[String] = new Param[String](
-    this, "messagesCol", "The column messages to generate chat completions for," +
-      " in the chat format. This column should have type Array(Struct(role: String, content: String)).")
+    this, "messagesCol", "The column of messages to send to the OpenAI service. " +
+      "The column should have type Array(Struct(role: String, content: String or Array of content parts)). " +
+      "Chat Completions structured parts match either {\"type\":\"text\",\"text\":\"...\"} or " +
+      "{\"type\":\"image_url\",\"image_url\":{\"url\":\"...\",\"detail\":\"...\"}}; image detail is optional. " +
+      "Responses structured parts match {\"type\":\"input_text\",\"text\":\"...\"}, " +
+      "{\"type\":\"input_image\",\"image_url\":\"...\",\"detail\":\"...\"} (or use file_id), or " +
+      "{\"type\":\"input_file\",\"file_data\":\"...\",\"filename\":\"...\"} (or use file_id instead of file_data); " +
+      "image detail and filename are optional.")
 
   def getMessagesCol: String = $(messagesCol)
 
@@ -51,6 +58,51 @@ private[openai] object OpenAIEndpointUtils {
     stripTrailingSlashes(withoutQueryOrFragment(baseUrl))
       .toLowerCase(Locale.ROOT)
       .endsWith("/v1")
+  }
+}
+
+private[openai] object OpenAIColumnUtils {
+  private def namesMatch(left: String, right: String): Boolean =
+    SQLConf.get.resolver(left, right)
+
+  def validateDistinctColumns(columns: (String, String)*): Unit = {
+    columns.combinations(2).foreach { pair =>
+      val (leftParam, leftName) = pair.head
+      val (rightParam, rightName) = pair(1)
+      require(
+        !namesMatch(leftName, rightName),
+        s"$leftParam '$leftName' must be different from $rightParam '$rightName'"
+      )
+    }
+  }
+
+  private def existingColumn(df: DataFrame, configuredName: String): Option[String] =
+    df.columns.find(columnName => namesMatch(columnName, configuredName))
+
+  def resolvedColumnName(df: DataFrame, configuredName: String): String =
+    existingColumn(df, configuredName).getOrElse(configuredName)
+
+  def existingColumnOfType(
+      df: DataFrame,
+      configuredName: String,
+      expectedType: DataType
+  ): Option[String] =
+    existingColumn(df, configuredName)
+      .filter(columnName => df.schema(columnName).dataType == expectedType)
+
+  def replaceOrAppendField(schema: StructType, replacement: StructField): StructType = {
+    if (schema.fields.exists(field => namesMatch(field.name, replacement.name))) {
+      StructType(schema.fields.map { field =>
+        if (namesMatch(field.name, replacement.name)) replacement else field
+      })
+    } else {
+      StructType(schema.fields :+ replacement)
+    }
+  }
+
+  def findUnusedColumnName(prefix: String)(columnNames: Set[String]): String = {
+    val candidates = Iterator(prefix) ++ Iterator.from(1).map(index => s"${prefix}_$index")
+    candidates.dropWhile(candidate => columnNames.exists(namesMatch(_, candidate))).next()
   }
 }
 
@@ -495,8 +547,6 @@ abstract class OpenAIServicesBase(override val uid: String) extends CognitiveSer
 
   protected[openai] def runningOnFabric: Boolean = PlatformDetails.runningOnFabric()
 
-  protected[openai] def fabricRuntime: String = PlatformDetails.CurrentPlatform
-
   override protected def getInternalTransformer(schema: StructType): PipelineModel = {
     if (runningOnFabric && usingDefaultOpenAIEndpoint) {
       assertModelStatus(getDeploymentName)
@@ -505,34 +555,46 @@ abstract class OpenAIServicesBase(override val uid: String) extends CognitiveSer
   }
 }
 
+private[openai] object OpenAIFabricHeaders {
+  lazy val Values: Map[String, String] = build(PlatformDetails.FabricRuntime)
+
+  private[openai] def build(runtime: String): Map[String, String] = Map(
+    "X-Taxonomy-TrafficType" -> "Background",
+    "X-Llm-Service-Tier" -> "flex",
+    "X-Taxonomy-ExtendedProperties" ->
+      Map(
+        "feature" -> "synapseml",
+        "runtime" -> runtime
+      ).toJson.compactPrint
+  )
+}
+
 trait HasOpenAIFabricHeaders extends HasCognitiveServiceInput {
   self: OpenAIServicesBase =>
-
-  private val extendedPropertiesHeader = "X-Taxonomy-ExtendedProperties"
-  private val trafficTypeHeader = "X-Taxonomy-TrafficType"
-  private val serviceTierHeader = "x-llm-service-tier"
 
   private def usingImplicitFabricEndpoint: Boolean = {
     val hasCustomUrlRoot = get(customUrlRoot).nonEmpty
     runningOnFabric && usingDefaultOpenAIEndpoint && !hasCustomUrlRoot
   }
 
+  override protected def supportsImplicitFabricAuthRetry: Boolean = usingImplicitFabricEndpoint
+
+  abstract override protected def getFabricFallbackAuthHeader(row: Row): Option[String] = {
+    if (usingImplicitFabricEndpoint) {
+      super.getFabricFallbackAuthHeader(row)
+    } else {
+      None
+    }
+  }
+
   abstract override protected def getCustomHeaders(row: Row): Option[Map[String, String]] = {
     val headers = super.getCustomHeaders(row)
     if (usingImplicitFabricEndpoint) {
       // SynapseML owns the complete workload classification on its implicit Fabric endpoint.
-      val fabricHeaders = Map(
-        trafficTypeHeader -> "Background",
-        serviceTierHeader -> "flex",
-        extendedPropertiesHeader ->
-          Map(
-            "feature" -> "synapseml",
-            "runtime" -> fabricRuntime
-          ).toJson.compactPrint
-      )
+      val fabricHeaders = OpenAIFabricHeaders.Values
       val remainingHeaders = headers.map(ServiceAuthHeaders.sanitizeHeaderMap).getOrElse(Map.empty)
         .filterNot { case (name, _) => fabricHeaders.keys.exists(_.equalsIgnoreCase(name)) }
-      Some(remainingHeaders ++ fabricHeaders)
+      Some(if (remainingHeaders.isEmpty) fabricHeaders else remainingHeaders ++ fabricHeaders)
     } else {
       headers
     }
