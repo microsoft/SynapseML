@@ -45,9 +45,7 @@ class TestOpenAIResponseSchema(unittest.TestCase):
         param = stage._java_obj.responseFormat()
         value = stage._java_obj.getOrDefault(param)
         payload = json.loads(param.jsonEncode(value))["left"]
-        return payload[
-            "format" if isinstance(stage, OpenAIResponses) else "json_schema"
-        ]
+        return payload.get("format", payload.get("json_schema", payload))
 
     def test_schema_only_setters_are_available_on_all_generated_stages(self):
         original = copy.deepcopy(self.schema)
@@ -211,6 +209,38 @@ class TestOpenAIResponseSchema(unittest.TestCase):
                 self.assertNotIn("strict", self.response_format(stage))
                 stage.setResponseSchema(self.schema)
                 self.assertTrue(self.response_format(stage)["strict"])
+
+    def test_text_and_json_object_selectors_do_not_get_schema_envelopes(self):
+        for stage_type in self.stage_types:
+            for token in ("text", "json_object"):
+                for value in (token, {"type": token}):
+                    with self.subTest(stage=stage_type.__name__, value=value):
+                        stage = stage_type().setResponseFormat(value)
+                        self.assertEqual(self.response_format(stage), {"type": token})
+
+    def test_named_partial_and_full_formats_preserve_name_and_strictness(self):
+        for strict in (None, False, True):
+            metadata = {"name": "ai_function_schema", "schema": self.schema}
+            if strict is not None:
+                metadata["strict"] = strict
+            formats = (
+                metadata,
+                {"type": "json_schema", **metadata},
+                {"type": "json_schema", "json_schema": metadata},
+            )
+            for stage_type in self.stage_types:
+                for value in formats:
+                    with self.subTest(
+                        stage=stage_type.__name__, strict=strict, value=value
+                    ):
+                        stage = stage_type().setResponseFormat(value)
+                        actual = self.response_format(stage)
+                        self.assertEqual(actual["name"], "ai_function_schema")
+                        self.assertEqual(actual["schema"], self.schema)
+                        if strict is None:
+                            self.assertNotIn("strict", actual)
+                        else:
+                            self.assertIs(actual["strict"], strict)
 
 
 if __name__ == "__main__":

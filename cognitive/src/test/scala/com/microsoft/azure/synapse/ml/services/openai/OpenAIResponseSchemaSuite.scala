@@ -195,7 +195,7 @@ class OpenAIResponseSchemaSuite extends TestBase {
         .setMessagesCol("messages")
         .setOutputCol("output")
         .setErrorCol("error")
-      val input = Seq(Seq(OpenAIMessage("user", "I love this."))).toDF("messages")
+      val input = Seq("first", "second", "third").map(text => Seq(OpenAIMessage("user", text))).toDF("messages")
       val originalSchema = chat.transformSchema(input.schema)
       val originalRuntimeSchema = chat.transform(input).schema
       chat.setResponseSchema(schema)
@@ -204,14 +204,19 @@ class OpenAIResponseSchemaSuite extends TestBase {
       assert(output.schema == originalRuntimeSchema)
       val parsed = output.withColumn("parsed",
         from_json(col("output.choices").getItem(0).getField("message").getField("content"), sparkSchema))
-      val result = parsed.head()
-      assert(Option(result.getAs[Row]("error")).isEmpty)
-      assert(result.getAs[Row]("parsed") == Row("positive", 9))
-      assert(requests.size() == 1)
-      assertSchemaOrder(requests.asScala.head)
-      val payload = requests.asScala.head.parseJson.asJsObject.fields("response_format").asJsObject
-      assert(payload.fields("type") == JsString("json_schema"))
-      assertSchema(payload.fields("json_schema").asJsObject)
+      val results = parsed.collect()
+      assert(results.length == 3)
+      results.foreach { result =>
+        assert(Option(result.getAs[Row]("error")).isEmpty)
+        assert(result.getAs[Row]("parsed") == Row("positive", 9))
+      }
+      assert(requests.size() == 3)
+      requests.asScala.foreach { request =>
+        assertSchemaOrder(request)
+        val payload = request.parseJson.asJsObject.fields("response_format").asJsObject
+        assert(payload.fields("type") == JsString("json_schema"))
+        assertSchema(payload.fields("json_schema").asJsObject)
+      }
     }
   }
 
@@ -224,22 +229,25 @@ class OpenAIResponseSchemaSuite extends TestBase {
         .setMessagesCol("messages")
         .setOutputCol("output")
         .setErrorCol("error")
-      val input = Seq(Seq(OpenAIMessage("user", "I love this."))).toDF("messages")
+      val input = Seq("first", "second", "third").map(text => Seq(OpenAIMessage("user", text))).toDF("messages")
       val originalSchema = responses.transformSchema(input.schema)
       val originalRuntimeSchema = responses.transform(input).schema
       responses.setResponseSchema(schema)
       val output = responses.transform(input)
       assert(responses.transformSchema(input.schema) == originalSchema)
       assert(output.schema == originalRuntimeSchema)
-      val result = output.head()
-      assert(Option(result.getAs[Row]("error")).isEmpty)
-      assert(requests.size() == 1)
-      assertSchemaOrder(requests.asScala.head)
-      val payload = requests.asScala.head.parseJson.asJsObject
-      assert(!payload.fields.contains("response_format"))
-      val format = payload.fields("text").asJsObject.fields("format").asJsObject
-      assert(format.fields("type") == JsString("json_schema"))
-      assertSchema(format)
+      val results = output.collect()
+      assert(results.length == 3)
+      assert(results.forall(result => Option(result.getAs[Row]("error")).isEmpty))
+      assert(requests.size() == 3)
+      requests.asScala.foreach { request =>
+        assertSchemaOrder(request)
+        val payload = request.parseJson.asJsObject
+        assert(!payload.fields.contains("response_format"))
+        val format = payload.fields("text").asJsObject.fields("format").asJsObject
+        assert(format.fields("type") == JsString("json_schema"))
+        assertSchema(format)
+      }
     }
   }
 
@@ -257,21 +265,26 @@ class OpenAIResponseSchemaSuite extends TestBase {
           .setPostProcessingOptions(Map("jsonSchema" -> "sentiment STRING, score INT"))
           .setOutputCol("output")
           .setErrorCol("error")
-        val input = Seq("I love this.").toDF("text")
+        val input = Seq("first", "second", "third").toDF("text")
         val output = prompt.transform(input)
         assert(output.schema == prompt.transformSchema(input.schema))
-        val result = output.head()
-        assert(Option(result.getAs[Row]("error")).isEmpty)
-        assert(result.getAs[Row]("output") == Row("positive", 9))
-        assert(requests.size() == 1)
-        assertSchemaOrder(requests.asScala.head)
-        val payload = requests.asScala.head.parseJson.asJsObject
-        val format = if (apiType == "responses") {
-          payload.fields("text").asJsObject.fields("format").asJsObject
-        } else {
-          payload.fields("response_format").asJsObject.fields("json_schema").asJsObject
+        val results = output.collect()
+        assert(results.length == 3)
+        results.foreach { result =>
+          assert(Option(result.getAs[Row]("error")).isEmpty)
+          assert(result.getAs[Row]("output") == Row("positive", 9))
         }
-        assertSchema(format)
+        assert(requests.size() == 3)
+        requests.asScala.foreach { request =>
+          assertSchemaOrder(request)
+          val payload = request.parseJson.asJsObject
+          val format = if (apiType == "responses") {
+            payload.fields("text").asJsObject.fields("format").asJsObject
+          } else {
+            payload.fields("response_format").asJsObject.fields("json_schema").asJsObject
+          }
+          assertSchema(format)
+        }
       }
     }
   }

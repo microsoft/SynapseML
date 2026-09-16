@@ -106,6 +106,8 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
 
   def this() = this(Identifiable.randomUID("OpenAIChatCompletion"))
 
+  @transient private lazy val requestBody = new OpenAIRequestBodyCache(OpenAIRequestBody.chat)
+
   def urlPath: String = ""
 
   override private[ml] def internalServiceType: String = "openai"
@@ -547,7 +549,8 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   ): StringEntity = {
     val mappedMessages = encodedMessageMaps(messages)
     val fullPayload = optionalParams.updated("messages", mappedMessages)
-    new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
+    val encoded = requestBody.encode(fullPayload, get(responseFormat).orElse(getDefault(responseFormat)))
+    new StringEntity(encoded, ContentType.APPLICATION_JSON)
   }
 
   override private[openai] def getOutputMessageText(outputColName: String): org.apache.spark.sql.Column = {

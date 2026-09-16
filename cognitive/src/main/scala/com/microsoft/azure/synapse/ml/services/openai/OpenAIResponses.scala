@@ -130,6 +130,8 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
 
   def this() = this(Identifiable.randomUID("OpenAIResponses"))
 
+  @transient private lazy val requestBody = new OpenAIRequestBodyCache(OpenAIRequestBody.responses)
+
   def urlPath: String = ""
 
   override private[ml] def internalServiceType: String = "openai"
@@ -553,7 +555,8 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
         }
       }
     val fullPayload = optionalParams.updated("input", mappedMessages)
-    new StringEntity(fullPayload.toJson.compactPrint, ContentType.APPLICATION_JSON)
+    val encoded = requestBody.encode(fullPayload, get(responseFormat).orElse(getDefault(responseFormat)))
+    new StringEntity(encoded, ContentType.APPLICATION_JSON)
   }
 
   override private[openai] def getOutputMessageText(outputColName: String): org.apache.spark.sql.Column = {
