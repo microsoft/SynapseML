@@ -367,7 +367,6 @@ class SentimentAnalysisLROSuite extends TransformerFuzzing[AnalyzeTextLongRunnin
   override def reader: MLReadable[_] = AnalyzeText
 }
 
-
 class KeyPhraseLROSuite extends TransformerFuzzing[AnalyzeTextLongRunningOperations] with TextEndpoint {
   override val compareDataInSerializationTest: Boolean = false
 
@@ -699,6 +698,3 @@ class MultiLableClassificationSuite extends TransformerFuzzing[AnalyzeTextLongRu
 
   override def reader: MLReadable[_] = AnalyzeText
 }
-
-
-

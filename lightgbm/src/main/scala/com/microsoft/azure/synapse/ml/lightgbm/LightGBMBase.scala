@@ -16,6 +16,7 @@ import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.ml.param.shared.{HasFeaturesCol => HasFeaturesColSpark, HasLabelCol => HasLabelColSpark}
 import org.apache.spark.ml.{ComplexParamsWritable, Estimator, Model}
 import org.apache.spark.sql._
+import org.apache.spark.sql.functions.{lit, raise_error, when}
 import org.apache.spark.sql.types._
 
 import scala.collection.immutable.HashSet
@@ -28,6 +29,8 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
   with LightGBMParams with ComplexParamsWritable
   with HasFeaturesColSpark with HasLabelColSpark with LightGBMPerformance with SynapseMLLogging {
 
+  private val forcedHistogramModes = Set("force_col_wise", "force_row_wise")
+
   /** Trains the LightGBM model.  If batches are specified, breaks training dataset into batches for training.
     *
     * @param dataset The input dataset to train.
@@ -35,6 +38,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     */
   protected def train(dataset: Dataset[_]): TrainedModel = {
     LightGBMUtils.initializeNativeLibrary()
+    logReproducibilityWarnings(dataset)
 
     val isMultiBatch = getNumBatches > 0
     val numBatches = if (isMultiBatch) getNumBatches else 1
@@ -62,6 +66,45 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
         trainOneDataBatch(dataset, batchIndex = 0, 1)
       }
     }, dataset.columns.length)
+  }
+
+  private[lightgbm] def reproducibilityWarningMessages(dataset: Dataset[_]): Seq[String] = {
+    val warnings = scala.collection.mutable.ArrayBuffer[String]()
+    val configuredArgs = get(passThroughArgs).getOrElse("")
+    val configuredParameters =
+      LightGBMUtils.parameterValues(configuredArgs, forcedHistogramModes + "deterministic")
+    val deterministicTraining = configuredParameters.get("deterministic")
+      .map(LightGBMUtils.isEnabledParameterValue)
+      .orElse(get(deterministic))
+      .contains(true)
+    if (deterministicTraining) {
+      if (getEffectiveDeviceType == LightGBMConstants.CPUDeviceType) {
+        val histogramModes = configuredParameters.filter { case (name, _) => forcedHistogramModes.contains(name) }
+        if (!histogramModes.values.exists(LightGBMUtils.isEnabledParameterValue)) {
+          warnings +=
+            "deterministic=true does not by itself select a stable LightGBM histogram strategy. " +
+              "For reproducibility on CPU, set passThroughArgs to force_col_wise=true or force_row_wise=true, " +
+              "as required by LightGBM's deterministic parameter documentation."
+        }
+        if (histogramModes.values.count(LightGBMUtils.isEnabledParameterValue) > 1) {
+          warnings +=
+            "Both force_col_wise and force_row_wise are enabled in passThroughArgs. LightGBM requires choosing " +
+              "exactly one histogram strategy for deterministic CPU training."
+        }
+      }
+
+      if (!dataset.queryExecution.optimizedPlan.deterministic) {
+        warnings +=
+          "The training DataFrame contains nondeterministic Spark expressions. Repeated fit() calls can consume " +
+            "different rows or row order even when LightGBM seeds and deterministic=true are set. Materialize and " +
+            "reload the exact training snapshot, or persist it and complete one materializing action, before fit()."
+      }
+    }
+    warnings.toSeq
+  }
+
+  private def logReproducibilityWarnings(dataset: Dataset[_]): Unit = {
+    reproducibilityWarningMessages(dataset).foreach(log.warn)
   }
 
   def beforeTrainBatch(batchIndex: Int, dataset: Dataset[_], model: Option[TrainedModel]): Unit = {
@@ -484,15 +527,9 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
           "The upstream CUDA objective dereferences missing CUDA metadata for SynapseML streaming Datasets and " +
           "can crash the Spark executor. Use deviceType=gpu with an OpenCL-enabled custom native library.")
     }
-    val sc = dataset.sparkSession.sparkContext
-
     val df = prepareDataframe(dataset, numTasks)
 
-    val (trainingData, validationData) =
-      if (get(validationIndicatorCol).isDefined && dataset.columns.contains(getValidationIndicatorCol))
-        (df.filter(x => !x.getBoolean(x.fieldIndex(getValidationIndicatorCol))),
-          Some(sc.broadcast(collectValidationData(df, measures))))
-      else (df, None)
+    val (trainingData, validationData) = splitTrainingAndValidationData(df)
 
     val preprocessedDF = preprocessData(trainingData)
 
@@ -521,17 +558,62 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
         (Some(referenceDataset), Some(partitionCounts))
       } else (None, None)
 
-    executeTraining(preprocessedDF,
-                    validationData,
-                    serializedReferenceDataset,
-                    partitionCounts,
-                    trainParams,
-                    numCols,
-                    numInitScoreClasses,
-                    batchIndex,
-                    numTasks,
-                    numTasksPerExecutor,
-                    measures)
+    val checkedValidationData = checkValidationFeatures(validationData, numCols, isStreamingMode)
+    withValidationDataServer(checkedValidationData, dataset.sparkSession, numTasks, measures) { validationParams =>
+      executeTraining(preprocessedDF,
+                      validationParams,
+                      serializedReferenceDataset,
+                      partitionCounts,
+                      trainParams,
+                      numCols,
+                      numInitScoreClasses,
+                      batchIndex,
+                      numTasks,
+                      numTasksPerExecutor,
+                      measures)
+    }
+  }
+
+  private def checkValidationFeatures(validationData: Option[DataFrame],
+                                      numCols: Int,
+                                      isStreamingMode: Boolean): Option[DataFrame] = {
+    if (isStreamingMode) {
+      validationData.map { data =>
+        val featureIndex = data.schema.fieldIndex(getFeaturesCol)
+        data.mapPartitions(rows => DatasetUtils.validateFeatureRows(rows, featureIndex, numCols))(
+          Encoders.row(data.schema))
+      }
+    } else validationData
+  }
+
+  private def withValidationDataServer[T](validationData: Option[DataFrame],
+                                          spark: SparkSession,
+                                          partitionCount: Int,
+                                          measures: InstrumentationMeasures)
+                                         (train: Option[Broadcast[Array[Row]]] => T): T = {
+    val server = LightGBMValidationDataSupport.measureCollection(validationData.isDefined, measures) {
+      validationData.map(data =>
+        ValidationDataServer.create(data, ClusterUtil.getDriverHost(spark), partitionCount, getTimeout))
+    }
+    LightGBMValidationDataSupport.withResources(
+      server.map(validationServer => spark.sparkContext.broadcast(validationServer.params.toRows)),
+      (params: Option[Broadcast[Array[Row]]]) => params.foreach(_.destroy()),
+      server.foreach(_.close())) { params =>
+        train(params)
+    }
+  }
+
+  private def splitTrainingAndValidationData(df: DataFrame): (DataFrame, Option[DataFrame]) = {
+    if (get(validationIndicatorCol).isDefined && df.columns.contains(getValidationIndicatorCol)) {
+      val validationColumn = df(getValidationIndicatorCol)
+      val checkedValidationColumn = when(
+        validationColumn.isNull,
+        raise_error(lit(s"Validation indicator column '$getValidationIndicatorCol' contains null")).cast(BooleanType))
+        .otherwise(validationColumn)
+      (df.filter(!checkedValidationColumn), Some(preprocessData(df.filter(checkedValidationColumn))))
+    } else {
+      (df, None)
+    }
   }
 
   private def determineNumTasks(dataset: Dataset[_], configNumTasks: Int, numTasksPerExecutor: Int) = {
@@ -541,20 +623,6 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
       val numExecutorTasks = ClusterUtil.getNumExecutorTasks(dataset.sparkSession, numTasksPerExecutor, log)
       min(numExecutorTasks, dataset.rdd.getNumPartitions)
     }
-  }
-
-  /**
-    * Get the validation data from the initial dataset.
-    *
-    * @param df The dataset to train on.
-    * @return The number of feature columns and initial score classes
-    */
-  private def collectValidationData(df: DataFrame, measures: InstrumentationMeasures): Array[Row] = {
-    measures.markValidDataCollectionStart()
-    val data = preprocessData(df.filter(x =>
-      x.getBoolean(x.fieldIndex(getValidationIndicatorCol)))).collect()
-    measures.markValidDataCollectionStop()
-    data
   }
 
   /**
@@ -604,8 +672,8 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
 
     // Get the row counts per partition
     measures.markRowCountsStart()
-    // Get an array where the index is implicitly the partition id
-    val rowCounts: Array[Long] = ClusterUtil.getNumRowsPerPartition(dataframe, dataframe.col(getLabelCol))
+    // Check every row during the existing count action, before shared native preparation starts.
+    val rowCounts = DatasetUtils.validatedRowCounts(dataframe, getFeaturesCol, numCols)
     val totalNumRows = rowCounts.sum
     measures.markRowCountsStop()
 
@@ -846,6 +914,26 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
         // just take first 'N' rows.  Quick but assumes data already randomized and representative.
         dataframe.select(dataframe.col(featureColName)).limit(numSamples).collect()
       case _ => throw new NotImplementedError(s"Unknown sampling mode: $samplingMode")
+    }
+  }
+}
+
+private[lightgbm] object LightGBMValidationDataSupport {
+  def measureCollection[T](enabled: Boolean, measures: InstrumentationMeasures)(operation: => T): T = {
+    if (enabled) measures.markValidDataCollectionStart()
+    try operation
+    finally if (enabled) measures.markValidDataCollectionStop()
+  }
+
+  def withResources[P, T](createParams: => P,
+                          destroyParams: P => Unit,
+                          closeServer: => Unit)
+                         (operation: P => T): T = {
+    NetworkManagerSocketSupport.withCleanupPreservingPrimary(closeServer) {
+      val params = createParams
+      NetworkManagerSocketSupport.withCleanupPreservingPrimary(destroyParams(params)) {
+        operation(params)
+      }
     }
   }
 }

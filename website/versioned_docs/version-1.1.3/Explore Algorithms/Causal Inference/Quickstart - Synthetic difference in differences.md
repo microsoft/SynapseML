@@ -91,7 +91,7 @@ plt.xlabel("Iteration")
 plt.ylabel("Loss")
 plt.show()
 
-print("Mimimal loss: {}".format(lossHistory.min()))
+print("Minimal loss: {}".format(lossHistory.min()))
 ```
 
 We can also visualize the synthetic control and compare it with the treated unit.
@@ -158,7 +158,7 @@ plt.xlabel("Iteration")
 plt.ylabel("Loss")
 plt.show()
 
-print("Mimimal loss: {}".format(lossHistory.min()))
+print("Minimal loss: {}".format(lossHistory.min()))
 ```
 
 
@@ -171,7 +171,7 @@ plt.xlabel("Iteration")
 plt.ylabel("Loss")
 plt.show()
 
-print("Mimimal loss: {}".format(lossHistory.min()))
+print("Minimal loss: {}".format(lossHistory.min()))
 ```
 
 Here we plot the synthetic diff in diff estimate together with the time weights.

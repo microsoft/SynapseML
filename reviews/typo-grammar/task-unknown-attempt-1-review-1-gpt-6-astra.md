@@ -1,0 +1,21 @@
+## Review Summary
+- **Round**: 1
+- **Theme**: Broad sweep
+- **Mode**: sequential
+- **Model**: gpt-6-astra
+- **Artifact**: `reviews\typo-grammar\task-unknown-attempt-1-review-1-gpt-6-astra.md`
+- **Issues Found**: 0
+- **Verdict**: CLEAN
+
+## Evidence Checklist
+- [x] Reviewed all 154 unique full diff hunks with context. Independently verified the duplicate mappings against the full diff, including path multiplicities, covering all 690 hunk occurrences in 437 files. The isolated `docs/typo-grammar-sweep` checkout is based on `master` commit `133c38a1f3b0cec10cea6a70afbb818c26c1e6aa`. Its live diff matches the reviewed input byte-for-byte, SHA-256 `03e2976185e1ff745cf41a13bbd721655dd8b91ddee41ac28d6303a0aa42632c`.
+- [x] Checked the bounded cleanup against `AGENTS.md` and the target branch guidance. No changes touch `AGENTS.md`, `CONTRIBUTING.md`, dependency manifests, CI workflows, release tooling, or files under `target\`. The hunks introduce no algorithm, performance, public-signature, or serialized-name changes.
+- [x] Reviewed all nine source files with non-comment string changes. Param edits change descriptions, not keys, defaults, validators, or setters. Concrete examples are `cognitive\src\main\scala\com\microsoft\azure\synapse\ml\services\speech\SpeechToTextSDK.scala:175-178`, `core\src\main\scala\com\microsoft\azure\synapse\ml\featurize\text\PageSplitter.scala:40-45`, and `lightgbm\src\main\scala\com\microsoft\azure\synapse\ml\lightgbm\params\LightGBMParams.scala:427-431,594-598`.
+- [x] Checked diagnostic and website text for executable or security changes. `core\src\main\python\synapse\ml\core\platform\Platform.py:78-84` preserves interpolation expressions and exception behavior. `core\src\main\scala\org\apache\spark\sql\execution\streaming\continuous\HTTPSinkV2.scala:111` preserves both interpolated values and the log level. `website\src\pages\videos.js:62,80,120` and `website\src\theme\NotFound\index.js:21` change visible prose only. No changed hunk introduces credentials, request construction, unsafe HTML, or authentication changes.
+- [x] Checked all five approved notebook print-label edits and their mapped archived copies. `docs\Explore Algorithms\Causal Inference\Quickstart - Synthetic difference in differences.ipynb:207,336,363` retains the format placeholder and `lossHistory.min()` computation. `docs\Explore Algorithms\Responsible AI\Explanation Dashboard.ipynb:72` and `docs\Explore Algorithms\Responsible AI\Tabular Explainers.ipynb:83` retain the complete label-index expression.
+- [x] Checked the four added compatibility anchors against the replaced heading spellings at `docs\Explore Algorithms\Causal Inference\Quickstart - Measure Heterogeneous Effects.ipynb:124-126`, `docs\Explore Algorithms\OpenAI\Quickstart - Custom Embeddings and Approximate KNN on GPU.ipynb:18-20,282-284`, and `docs\Explore Algorithms\OpenAI\Quickstart - OpenAI Embedding.ipynb:303-305`. They retain the old heading fragments while correcting displayed text. Archived heading spellings remain unchanged. A per-hunk comparison also found no changed URL tokens.
+- [x] Read the supplied structural evidence for 30 Scala files, five Python files, 16 notebooks, two JavaScript files, and 384 text/code-fence checks. It reports unchanged executable structure apart from the reviewed human-readable string exceptions, preserved notebook outputs and metadata, and no structural failures. The supplied 3,610-file spelling scan drops from 1,281 to 808 findings, with no new findings and zero repeated words. Deliberately excluded identifiers, fixtures, legacy headings, and the protected release comment are not findings against this patch.
+- [x] Read the supplied successful validation results for Scala main/test style and compilation on JDK 11, Black 22.3.0 on the five changed Python files, one safe Spark smoke test, 34 website tests, and the production website build with no source drift. These are existing validation results, not tests rerun during this review.
+- [ ] Code generation verification is being handled separately and is not claimed as completed by this round.
+
+Clean review round: zero introduced correctness, security, or specification-conformance defects found. This verdict covers round 1 only.

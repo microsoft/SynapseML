@@ -75,7 +75,7 @@ These clients send requests to the cloud, and turn the JSON responses into Spark
 
 <img src="https://mmlspark.blob.core.windows.net/graphics/Cog%20Service%20NB/async_parallelism.svg" width="700"/>
 
-Apache Spark ordinarily parallelizes a computation to all of it's worker threads. When working with services however this parallelism doesent fully maximize throughput because workers sit idle as requests are processed on the server. The `concurrency` parameter makes sure that each worker can stay busy as they wait for requests to complete.
+Apache Spark ordinarily parallelizes a computation to all of its worker threads. When working with services, however, this parallelism doesn't fully maximize throughput because workers sit idle as requests are processed on the server. The `concurrency` parameter makes sure that each worker can stay busy as they wait for requests to complete.
 
 
 ```

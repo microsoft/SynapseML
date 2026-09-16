@@ -191,7 +191,7 @@ class ImageTransformer(_ImageTransformer):
 
     def normalize(self, mean, std, color_scale_factor):
         """
-        Normalizes the image by multiplying the color_scale_factor, substracting mean and dividing by std
+        Normalizes the image by multiplying by color_scale_factor, subtracting mean and dividing by std
         """
         self._java_obj.normalize(mean, std, color_scale_factor)
         return self

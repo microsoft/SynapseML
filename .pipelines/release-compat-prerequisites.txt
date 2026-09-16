@@ -1,12 +1,37 @@
-# PR #2591 adds Azure AI Search AAD auth required by this change.
-# Remove this prerequisite once every validated release branch contains that backport.
-04897bae9baa08f0d67855566f7bad235791d508
-# PR #2612 introduces the WorkerMessage protocol used by the IPv6 endpoint parsing fix.
-# Remove this prerequisite once every validated release branch contains that backport.
-4a52d9ae4184d3ce00394cd9cb4209c35990fc47
-# PR #2507 introduced tests modified by PR #2635 but absent from Spark 4.1.
-# Remove this scoped prerequisite once every validated release branch contains these tests.
-6938c472175ed1592ec24e7d8c65d9174f17c4e5	core/src/test/scala/com/microsoft/azure/synapse/ml/automl/VerifyEvaluationUtils.scala	core/src/test/scala/com/microsoft/azure/synapse/ml/core/metrics/VerifyMetricConstants.scala
-# PR #2635 changed ComputeModelStatistics and its tests before this metadata fix.
-# Remove this prerequisite once every validated release branch contains that backport.
-f7a1dc50d09d400d279d08bf69a1fac322896748
+# PR #2662 supplies the Dataset ownership helpers composed by this change.
+0b508581d58e84453109bbafb8695ef1249e9597
+3035eb13c2ce225a689698ff6d060e78ca3c58b4
+9683fcb3a54b560b275b45581bc746a9eb9789cd
+# PR #2664 supplies the validation streaming path modified by this change.
+8e545e59185b79697fac8cc2222f7f9dd7297af8
+e49060a1cd067ffb98cd1a6635b7b59a2639ed97
+681c85f17c4d88c51e4133c29d999b6c8f07f8f5
+0d57b9c9e61e0cd3bff9a1eb8b72b669545235b3
+78cac506780576a858d675898df83cef60cbd0ea
+d739ff767dc2c7e7858416657c392d03c2ed791d
+b728de744bc176785f63f7cf9b2c31b095352b1c
+b9c331a290b32daa16a1beac38189d3236291ef8
+553d015b25eb1752e9fa78494153a317243f80df
+fb43f93e2587ed0c2c4f390e3d14e85ad5f6c155
+f363e0aa6bfc35876ea630010fcd3cee0391b7f2
+ba001d95433d344911490dcb26b195be6401868f
+2c40d31c2a0269bdc64b9e562de6cafb124e3e0c
+053fb297d0d1620624f669646287309262138a25
+0fad5951d08b0a433018acff6645f481f37e65a0
+063d58af383b1f929dde40993e68bea8b6818738
+38cb00696706c01a0b65cd412d710ccd9811a2b1
+5498d0363baf8d1bc2579108870f4bd8a0b96fb1
+2c047bced97378905b72f26e1510268a7c558763
+42b9f4a66ba5c0407a16d71520146a267c02c5b0
+6336f93e722c5c632bb235a7c433854fb8d7f96f
+7741ff7e45a7d921004d6db5e4c25c37cdeb96b4
+77d553ff0a358dcbe77a046dfa6127813b27f73c
+66aae722d766dd088a664e9e97838e3a92c45107
+ff3d8ec141e458bbd86769f98dcbc406fb960da6
+16e4d083088b73cfdd0f92a0ec4b12fff8a1e1a5
+2564c6b9070e5fee8d86f55069909c09b9992d83
+7253dabc4134fdcdaa58ec27083e62107ffcf2f3
+dbc291726db95075f7411ae73ce5ae0931861fd4
+a3516fdc6d06e3ef25d50cfd1138d06dd6a49017
+b43805a9e245c51026a6f4c38fef68e46a93cd5c
+7c72c49f6fd7f8064ea19662add399d222545b85

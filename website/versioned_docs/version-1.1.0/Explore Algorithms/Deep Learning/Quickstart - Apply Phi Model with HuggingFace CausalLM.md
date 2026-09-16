@@ -7,15 +7,15 @@ status: stable
 
 ![HuggingFace Logo](https://huggingface.co/front/assets/huggingface_logo-noborder.svg)
 
-**HuggingFace** is a popular open-source platform that develops computation tools for building application using machine learning. It is widely known for its Transformers library which contains open-source implementation of transformer models for text, image, and audio task.
+**HuggingFace** is a popular open-source platform that develops computation tools for building applications using machine learning. It is widely known for its Transformers library which contains open-source implementations of transformer models for text, image, and audio tasks.
 
-[**Phi 3**](https://azure.microsoft.com/en-us/blog/introducing-phi-3-redefining-whats-possible-with-slms/) is a family of AI models developed by Microsoft, designed to redefine what is possible with small language models (SLMs). Phi-3 models are the most compatable and cost-effective SLMs, [outperforming models of the same size and even larger ones in language](https://news.microsoft.com/source/features/ai/the-phi-3-small-language-models-with-big-potential/?msockid=26355e446adb6dfa06484f956b686c27), reasoning, coding, and math benchmarks. 
+[**Phi 3**](https://azure.microsoft.com/en-us/blog/introducing-phi-3-redefining-whats-possible-with-slms/) is a family of AI models developed by Microsoft, designed to redefine what is possible with small language models (SLMs). Phi-3 models are the most compatible and cost-effective SLMs, [outperforming models of the same size and even larger ones in language](https://news.microsoft.com/source/features/ai/the-phi-3-small-language-models-with-big-potential/?msockid=26355e446adb6dfa06484f956b686c27), reasoning, coding, and math benchmarks.
 
 ![Phi 3 model performance](https://mmlspark.blob.core.windows.net/graphics/The-Phi-3-small-language-models-with-big-potential-1.jpg)
 
 To make it easier to scale up causal language model prediction on a large dataset, we have integrated [HuggingFace Causal LM](https://huggingface.co/docs/transformers/tasks/language_modeling) with SynapseML. This integration makes it easy to use the Apache Spark distributed computing framework to process large data on text generation tasks.
 
-This tutorial shows hot to apply [phi3 model](https://huggingface.co/collections/microsoft/phi-3-6626e15e9585a200d2d761e3) at scale with no extra setting.
+This tutorial shows how to apply [phi3 model](https://huggingface.co/collections/microsoft/phi-3-6626e15e9585a200d2d761e3) at scale with no extra settings.
 
 
 ```python

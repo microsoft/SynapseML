@@ -8,7 +8,7 @@ status: stable
 The Azure OpenAI service can be used to solve a large number of natural language tasks through prompting the completion API. To make it easier to scale your prompting workflows from a few examples to large datasets of examples we have integrated the Azure OpenAI service with the distributed machine learning library [Spark Rapids ML](https://github.com/NVIDIA/spark-rapids-ml/). This integration makes it easy to use the [Apache Spark](https://spark.apache.org/) distributed computing framework to process millions of prompts with the OpenAI service. This tutorial shows how to apply large language models to generate embeddings for large datasets of text. This demo is based on "Quickstart - OpenAI Embedding" notebook with NVIDIA GPU accelerated KNN.
 
 **Note**: Running the notebook with the demo dataset (Step 4) will generate the same results as CPU based “Quickstart - OpenAI Embedding” notebook. To see  GPU acceleration you need to run query against bigger embeddings. 
-For example, running 100K rows dataset will give 6x acceleration and consume less than 10x memory on 2 nodes NVIDIA T4 cluster compare to AMD Epic (Rome) 2 nodes CPU cluster.
+For example, running 100K rows dataset will give 6x acceleration and consume less than 10x memory on 2 nodes NVIDIA T4 cluster compare to AMD EPYC (Rome) 2 nodes CPU cluster.
 
 ## Step 1: Prerequisites
 
@@ -27,7 +27,7 @@ The next step is to add this code into your Spark cluster. You can either create
 1.	Import the notebook [into the Synapse Workspace](https://docs.microsoft.com/en-us/azure/synapse-analytics/spark/apache-spark-development-using-notebooks#create-a-notebook) or if using Databricks [into the Databricks Workspace](https://docs.microsoft.com/en-us/azure/databricks/notebooks/notebooks-manage#create-a-notebook)
 1. Install SynapseML on your cluster. Please see the installation instructions for Synapse at the bottom of [the SynapseML website](https://microsoft.github.io/SynapseML/). Note that this requires pasting an additional cell at the top of the notebook you just imported
 3. To run the notebook on Databricks add related init script (/tools/init_scripts/init-rapidsml-cuda-11.8.sh)
-4.	Connect your notebook to a cluster and follow along, editing and rnnung the cells below.
+4.	Connect your notebook to a cluster and follow along, editing and running the cells below.
 
 ## Step 3: Fill in your service information
 

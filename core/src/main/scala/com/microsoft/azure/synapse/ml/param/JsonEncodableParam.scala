@@ -60,7 +60,7 @@ object ServiceParam {
     case m: java.util.Map[_, _] =>
       ListMap(m.asScala.toSeq.map { case (k, v) => k.toString -> toScalaAny(v) }: _*)
     case l: java.util.List[_] =>
-      l.asScala.toSeq.map(toScalaAny)
+      l.asScala.iterator.map(toScalaAny).toList
     case other => toScalaPrimitive(other)
   }
 

@@ -9,7 +9,7 @@ Maven Central. When many fresh agents — and several overlapping PR builds — 
 this simultaneously, Maven Central returns **HTTP 429 (rate limit)** and the
 `Setup repo` step fails before any test runs (e.g. ADO build 229124511).
 
-The durable fix has three layers:
+The durable fix has four layers:
 
 1. **`templates/sbt_cache.yml`** (primary) — Azure `Cache@2` for the sbt launcher
    boot directory (`~/.sbt/boot`), Ivy cache (`~/.ivy2/cache`), and Coursier
@@ -23,12 +23,48 @@ The durable fix has three layers:
    depends on this gate, so a new cache key is populated before the fan-out
    starts instead of racing it. A failed prewarm remains visible and prevents a
    cold-cache stampede.
-3. **`sbt_retry.sh`** (supplement) — smooths the *cold-cache* path only. It adds a
-   bounded random start stagger so concurrent cold jobs don't hit Maven at the
-   same instant, then bounded jittered exponential-backoff retries. On exhaustion
-   it fails visibly (non-zero exit); it never masks a failure with a success
-   fallback. Exact hits on all three caches disable the start stagger
+3. **Canonical Maven Central fallback** — `build.sbt` keeps
+   `https://repo.maven.apache.org/maven2` after sbt's default
+   `https://repo1.maven.org/maven2` resolver. Ivy therefore continues to the
+   same official repository through its canonical hostname when `repo1` returns
+   HTTP 429. A synthetic Ivy test with a resolver that returned only HTTP 429
+   confirmed that the fallback downloaded every dependency successfully.
+4. **`sbt_retry.sh`** (supplement) — covers cold-cache starts and resolution
+   failures caused by unusable restored entries. It adds a bounded random start
+   stagger so concurrent cold jobs don't hit Maven at the same instant, then
+   bounded jittered exponential-backoff retries and the targeted recovery below.
+   On exhaustion it fails visibly (non-zero exit); it never masks a failure with
+   a success fallback. Exact hits on all three caches disable the start stagger
    automatically.
+
+### Unusable restored caches
+
+A restored cache can be **unusable on a single agent**: the module directory
+under `~/.ivy2/cache` exists, but Ivy still reports the dependency as unresolved.
+Retrying the identical command preserves that local state and can fail
+identically.
+
+Observed in ADO build 231667649: `UnitTests language` failed ten consecutive
+times in 12–17s each on `com.globalmentor#hadoop-bare-naked-local-fs`, while the
+other **39 of 40** shards in that same build resolved that module offline from
+the byte-identical cache key. This isolates the exposure to one agent's restored
+state, but does not by itself distinguish a later HTTP 404/429, TLS, or DNS
+failure; the diagnostic probe exists to make that distinction.
+
+`sbt_retry.sh` therefore parses `unresolved dependency: <org>#<name>;<rev>` out
+of each failed attempt, including when Ivy wraps the coordinate onto the next
+log line, and deletes exactly those modules from `~/.ivy2/cache`, `~/.ivy2/local`,
+and the Coursier entries for both Maven Central hostnames before backing off, so
+the next attempt re-fetches them cleanly. Unrelated failures evict nothing.
+Override
+`SBT_SETUP_IVY_HOME` / `SBT_SETUP_COURSIER_CACHE` with absolute, non-root paths
+to relocate the scan. Eviction is disabled if `HOME` is unavailable and no safe
+override is provided. Cache entries with a symlinked ancestor are skipped rather
+than recursively followed outside the configured root. Only one representative
+unresolved coordinate is probed per wrapper invocation; both Maven Central
+endpoints share a 30-second total timeout, so diagnostics cannot grow with the
+number of missing modules or retry attempts. Terminal failures are still probed,
+but cache entries are removed only when another wrapper retry will follow.
 
 ### Tests
 
@@ -37,7 +73,10 @@ python -m pytest tools/ci/tests/ -v
 ```
 
 `test_sbt_retry.py` drives the wrapper with a fake `sbt` (deterministic, no real
-sleeps) to verify retry/backoff/stagger and visible-failure behaviour.
+sleeps) to verify retry/backoff/stagger, visible-failure behaviour, and that a
+resolution failure evicts exactly the named modules before retrying — including
+a control asserting that the same state exhausts every attempt when eviction
+cannot reach it.
 `test_pipeline_yaml.py` verifies `pipeline.yaml` parses and that every
 sbt-running job is wired to the shared cache template + prewarm job.
 

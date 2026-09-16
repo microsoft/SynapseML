@@ -17,7 +17,7 @@ abstract class SparkBindings[T: TypeTag] extends Serializable {
   private lazy val rowEnc: ExpressionEncoder[Row] = ExpressionEncoder(enc.schema).resolveAndBind()
 
   // WARNING: each time you use this function on a dataframe, you should make a new converter.
-  // Spark does some magic that makes this leak memory if re-used on a
+  // Spark does some magic that makes this leak memory if reused on a
   // different symbolic node of the parallel computation. That being said,
   // you should make a single converter before using it in a udf so
   // that the slow resolving and binding is not in the hotpath

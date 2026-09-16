@@ -253,11 +253,11 @@ object Threshold {
   val thresholdType: String = "type"
 }
 
-/** Applies gaussian kernel to blur the image. Please refer to
+/** Applies a Gaussian kernel to blur the image. Please refer to
   * [[http://docs.opencv.org/2.4/modules/imgproc/doc/filtering.html#gaussianblur OpenCV]] for detailed information
   * about the parameters and their allowable values.
   *
-  * @param params Map of parameter values containg the aperture and sigma for the kernel.
+  * @param params Map of parameter values containing the aperture and sigma for the kernel.
   */
 class GaussianKernel(params: Map[String, Any]) extends ImageTransformerStage(params) {
   val appertureSize: Int = params(GaussianKernel.apertureSize).asInstanceOf[Int]

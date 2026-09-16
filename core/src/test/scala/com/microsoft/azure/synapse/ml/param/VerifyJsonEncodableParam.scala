@@ -104,5 +104,25 @@ class VerifyJsonEncodableParam extends TestBase {
     outer.put("list", javaList)
     val result = ServiceParam.toMap(outer)
     assert(result("list") === Seq(1, 2))
+    assert(result("list").isInstanceOf[scala.collection.immutable.Seq[_]])
+    javaList.add(java.lang.Integer.valueOf(3))
+    assert(result("list") === Seq(1, 2))
+  }
+
+  test("ServiceParam.toMap copies nested Java lists into immutable sequences") {
+    val inner = new java.util.ArrayList[Object]()
+    inner.add("before")
+    val lists = new java.util.ArrayList[Object]()
+    lists.add(inner)
+    val outer = new java.util.LinkedHashMap[String, Object]()
+    outer.put("lists", lists)
+    val converted = ServiceParam.toMap(outer)("lists") match {
+      case values: scala.collection.immutable.Seq[_] => values
+      case other => fail(s"Expected an immutable sequence, got ${other.getClass.getName}")
+    }
+    assert(converted.head.isInstanceOf[scala.collection.immutable.Seq[_]])
+    inner.set(0, "after")
+    lists.clear()
+    assert(converted === Seq(Seq("before")))
   }
 }

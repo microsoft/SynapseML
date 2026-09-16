@@ -3,11 +3,13 @@
 
 package com.microsoft.azure.synapse.ml.io.http
 
+import com.microsoft.azure.synapse.ml.fabric.FabricClient
 import com.microsoft.azure.synapse.ml.logging.SynapseMLLogging
 import org.apache.commons.io.IOUtils
+import org.apache.http.HttpEntity
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpPost, HttpRequestBase}
-import org.apache.http.entity.BufferedHttpEntity
+import org.apache.http.entity.{AbstractHttpEntity, BasicHttpEntity, ByteArrayEntity}
 import org.apache.http.impl.client.{CloseableHttpClient, HttpClientBuilder}
 import org.apache.http.impl.conn.PoolingHttpClientConnectionManager
 import org.apache.spark.injections.UDFUtils
@@ -15,9 +17,12 @@ import org.apache.spark.internal.{Logging => SparkLogging}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.types.StringType
 
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream, InputStream, SequenceInputStream}
+import java.nio.charset.StandardCharsets
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, blocking}
 import scala.util.{Random, Try}
+import scala.util.control.NonFatal
 
 trait Handler {
 
@@ -87,6 +92,100 @@ object HandlingUtils extends SparkLogging {
   }
 
   private val MaxBackoffMs: Long = 60000L // 1 minute cap for 429 backoff
+  private val MaxResponseInspectionBytes = 1024 * 1024L
+
+  private def copyResponseEntityMetadata(source: HttpEntity, target: AbstractHttpEntity): Unit = {
+    Option(source.getContentEncoding).foreach(target.setContentEncoding)
+    Option(source.getContentType).foreach(target.setContentType)
+    target.setChunked(source.isChunked)
+  }
+
+  private def replayResponseEntity(response: CloseableHttpResponse,
+                                   source: HttpEntity,
+                                   bytes: Array[Byte],
+                                   input: InputStream): Unit = {
+    val replay = new BasicHttpEntity()
+    replay.setContent(new SequenceInputStream(new ByteArrayInputStream(bytes), input))
+    replay.setContentLength(source.getContentLength)
+    copyResponseEntityMetadata(source, replay)
+    response.setEntity(replay)
+  }
+
+  private def closeInspectionInput(input: InputStream): Unit = {
+    try {
+      input.close()
+    } catch {
+      case NonFatal(error) =>
+        logWarning("Could not close the HTTP response inspection stream.", error)
+    }
+  }
+
+  private[ml] def responseBodyForInspection(response: CloseableHttpResponse): Option[String] = {
+    Option(response.getEntity).flatMap { entity =>
+      val output = new ByteArrayOutputStream()
+      var input = Option.empty[InputStream]
+      var keepInputOpen = false
+      try {
+        val responseInput = entity.getContent
+        input = Some(responseInput)
+        IOUtils.copyLarge(responseInput, output, 0, MaxResponseInspectionBytes + 1)
+        val bytes = output.toByteArray
+        if (bytes.length > MaxResponseInspectionBytes) {
+          replayResponseEntity(response, entity, bytes, responseInput)
+          keepInputOpen = true
+          Some(new String(bytes, 0, MaxResponseInspectionBytes.toInt, StandardCharsets.UTF_8))
+        } else {
+          val bufferedEntity = new ByteArrayEntity(bytes)
+          copyResponseEntityMetadata(entity, bufferedEntity)
+          response.setEntity(bufferedEntity)
+          Some(new String(bytes, StandardCharsets.UTF_8))
+        }
+      } catch {
+        case NonFatal(error) =>
+          logWarning("Could not inspect the HTTP response body; preserving it for retry handling.", error)
+          input.foreach { responseInput =>
+            try {
+              replayResponseEntity(response, entity, output.toByteArray, responseInput)
+              keepInputOpen = true
+            } catch {
+              case NonFatal(replayError) =>
+                error.addSuppressed(replayError)
+                logWarning("Could not reconstruct the partially inspected HTTP response body.", replayError)
+            }
+          }
+          None
+      } finally {
+        if (!keepInputOpen) {
+          input.foreach(closeInspectionInput)
+        }
+      }
+    }
+  }
+
+  private def capacityLimitExceeded(response: CloseableHttpResponse): Boolean =
+    responseBodyForInspection(response).exists(_.contains("CapacityLimitExceeded"))
+
+  private[ml] def previewMessage(previewRequest: HttpRequestBase): String = {
+    try {
+      previewRequest match {
+        case request: HttpPost =>
+          Option(request.getEntity).map { entity =>
+            Try {
+              val input = entity.getContent
+              try {
+                IOUtils.toString(input, "UTF-8")
+              } finally {
+                input.close()
+              }
+            }.getOrElse("")
+          }.getOrElse("")
+        case request =>
+          request.getURI.toString
+      }
+    } finally {
+      previewRequest.releaseConnection()
+    }
+  }
 
   //scalastyle:off cyclomatic.complexity
   //scalastyle:off method.length
@@ -106,19 +205,7 @@ object HandlingUtils extends SparkLogging {
         case 202 => true
         case 429 =>
           // Inspect body to distinguish capacity errors from transient rate limits.
-          // Guard with Content-Length cap to avoid buffering unexpectedly large payloads.
-          val MaxInspectionBytes = 1024 * 1024L
-          val bodyStr = Option(response.getEntity).flatMap { entity =>
-            val contentLength = entity.getContentLength
-            if (contentLength > MaxInspectionBytes) {
-              None
-            } else {
-              response.setEntity(new BufferedHttpEntity(entity))
-              Option(response.getEntity)
-                .flatMap(e => Try(IOUtils.toString(e.getContent, "UTF-8")).toOption)
-            }
-          }.getOrElse("")
-          if (bodyStr.contains("CapacityLimitExceeded")) {
+          if (capacityLimitExceeded(response)) {
             // Fabric capacity-exceeded 429s are NOT transient rate limits —
             // retrying will not help and causes hangs
             logWarning(s"Capacity limit exceeded (non-retryable 429) on ${request.getURI}")
@@ -193,17 +280,139 @@ object HandlingUtils extends SparkLogging {
   //scalastyle:on method.length
   //scalastyle:on cyclomatic.complexity
 
+  //scalastyle:off cyclomatic.complexity
+  //scalastyle:off method.length
+  //scalastyle:off magic.number
+  private[ml] def sendWithFabricAuthRetries(
+      client: CloseableHttpClient,
+      requestData: HTTPRequestData,
+      retriesLeft: Array[Int],
+      extraCodesToRetry: Set[Int] = Set(),
+      getAuthHeader: () => String = () => FabricClient.getCognitiveMWCTokenAuthHeader,
+      refreshAuthHeader: String => String = FabricClient.refreshCognitiveMWCTokenAuthHeader,
+      backoff429Ms: Long = 0,
+      authRetryUsed: Boolean = false,
+      authOverride: Option[String] = None): (CloseableHttpResponse, HttpRequestBase) = {
+    val request = requestData.toHTTPCore
+    val authHeader = authOverride.getOrElse(getAuthHeader())
+    request.removeHeaders("Authorization")
+    request.setHeader("Authorization", authHeader)
+    var executingRequest = true
+    try {
+      val response = client.execute(request)
+      executingRequest = false
+      val code = response.getStatusLine.getStatusCode
+      val capacityLimitExceededResponse = code == 429 && capacityLimitExceeded(response)
+
+      val successful = Set(200, 201, 202)(code)
+      val retryable = if (code == 429) {
+        !capacityLimitExceededResponse
+      } else if (code == 401) {
+        false
+      } else if (extraCodesToRetry(code)) {
+        true
+      } else {
+        !code.toString.startsWith("4")
+      }
+
+      if (code == 401 && !authRetryUsed) {
+        response.close()
+        request.releaseConnection()
+        val refreshedAuthHeader = refreshAuthHeader(authHeader)
+        sendWithFabricAuthRetries(
+          client,
+          requestData,
+          retriesLeft,
+          extraCodesToRetry,
+          getAuthHeader,
+          refreshAuthHeader,
+          backoff429Ms,
+          authRetryUsed = true,
+          authOverride = Some(refreshedAuthHeader))
+      } else if (successful || !retryable || retriesLeft.isEmpty) {
+        if (capacityLimitExceededResponse) {
+          logWarning(s"Capacity limit exceeded (non-retryable 429) on ${request.getURI}")
+        }
+        response -> request
+      } else {
+        val retryAfterMs = if (code == 429) {
+          Option(response.getFirstHeader("Retry-After"))
+            .flatMap(h => Try(h.getValue.toLong * 1000).toOption)
+            .filter(_ >= 0)
+            .map(math.min(_, MaxBackoffMs))
+        } else {
+          None
+        }
+        response.close()
+        request.releaseConnection()
+        if (code == 429) {
+          val baseBackoff = retryAfterMs.getOrElse {
+            val current = math.max(backoff429Ms, retriesLeft.head.toLong)
+            math.min(current * 2, MaxBackoffMs)
+          }
+          val jitter = Random.nextInt(math.max((baseBackoff / 10).toInt, 1))
+          Thread.sleep(math.min(baseBackoff + jitter, MaxBackoffMs))
+          sendWithFabricAuthRetries(
+            client,
+            requestData,
+            retriesLeft.tail,
+            extraCodesToRetry,
+            getAuthHeader,
+            refreshAuthHeader,
+            baseBackoff,
+            authRetryUsed)
+        } else {
+          Thread.sleep(retriesLeft.head.toLong)
+          sendWithFabricAuthRetries(
+            client,
+            requestData,
+            retriesLeft.tail,
+            extraCodesToRetry,
+            getAuthHeader,
+            refreshAuthHeader,
+            authRetryUsed = authRetryUsed)
+        }
+      }
+    } catch {
+      case e: java.io.IOException if executingRequest =>
+        request.releaseConnection()
+        if (retriesLeft.isEmpty) {
+          throw e
+        }
+        logError("Encountering a connection error", e)
+        Thread.sleep(retriesLeft.head.toLong)
+        sendWithFabricAuthRetries(
+          client,
+          requestData,
+          retriesLeft.tail,
+          extraCodesToRetry,
+          getAuthHeader,
+          refreshAuthHeader,
+          backoff429Ms,
+          authRetryUsed)
+    }
+  }
+  //scalastyle:on magic.number
+  //scalastyle:on method.length
+  //scalastyle:on cyclomatic.complexity
+
   def advanced(retryTimes: Int*)(client: CloseableHttpClient,
                                  request: HTTPRequestData): HTTPResponseData = {
     try {
-      val req = request.toHTTPCore
-      val message = req match {
-        case r: HttpPost => Try(IOUtils.toString(r.getEntity.getContent, "UTF-8")).getOrElse("")
-        case r => r.getURI
-      }
-      SynapseMLLogging.logDebug(s"sending $message")
+      SynapseMLLogging.logDebug(s"sending ${previewMessage(request.toHTTPCore)}")
       val start = System.currentTimeMillis()
-      val resp = sendWithRetries(client, req, retryTimes.toArray)
+      val usesTrustedFabricAuth = request.usesFabricAuth &&
+        FabricClient.isOpenAIEndpoint(request.requestLine.uri)
+      val (resp, req) = if (usesTrustedFabricAuth) {
+        sendWithFabricAuthRetries(
+          client,
+          request,
+          retryTimes.toArray,
+          authOverride = request.authorizationHeader)
+      } else {
+        val httpRequest = request.toHTTPCore
+        sendWithRetries(client, httpRequest, retryTimes.toArray) -> httpRequest
+      }
       SynapseMLLogging.logMessage(
         s"finished sending to ${req.getURI} took (${System.currentTimeMillis() - start}ms)")
       val respData = convertAndClose(resp)

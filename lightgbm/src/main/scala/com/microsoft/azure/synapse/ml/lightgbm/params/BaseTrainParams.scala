@@ -178,7 +178,8 @@ case class DartModeParams(dropRate: Double,
   * @param samplingSetSize The size of the subset if sampling only a subset.
   * @param microBatchSize The number of elements in a streaming micro-batch.
   * @param useSingleDatasetMode Whether to create only 1 LightGBM Dataset on each worker.
-  * @param maxStreamingOMPThreads Maximum number of streaming mode OpenMP threads per Spark Task thread.
+  * @param maxStreamingOMPThreads Positive streaming OpenMP allocation bound per Spark task thread;
+  *                               nonpositive values use the native runtime team size.
   */
 case class ExecutionParams(chunkSize: Int,
                            matrixType: String,

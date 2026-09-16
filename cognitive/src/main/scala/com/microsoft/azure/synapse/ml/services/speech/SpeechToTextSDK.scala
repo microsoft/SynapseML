@@ -109,7 +109,7 @@ private[ml] class BlockingQueueIterator[T](lbq: LinkedBlockingQueue[Option[T]],
     onClose
   }
 
-  // This is for occurance that someone starts pulling rows but doesen't finish, like in a df.show
+  // This is for the case where someone starts pulling rows but doesn't finish, like in a df.show
   override def finalize(): Unit = {
     onClose
     super.finalize()
@@ -173,7 +173,7 @@ abstract class SpeechSDKBase extends Transformer
   def setFileTypeCol(v: String): this.type = setVectorParam(fileType, v)
 
   val wordLevelTimestamps = new ServiceParam[Boolean](
-    this, "wordLevelTimestamps", "Whether to request timestamps foe each indivdual word")
+    this, "wordLevelTimestamps", "Whether to request timestamps for each individual word")
 
   def setWordLevelTimestamps(v: Boolean): this.type = setScalarParam(wordLevelTimestamps, v)
 

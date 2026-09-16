@@ -129,7 +129,7 @@ object CategoricalUtilities {
     */
   def getCategoricalTypeForValue[T](value: T): DataType = {
     value match {
-      // Complicated type matching is requred to get around type erasure
+      // Complicated type matching is required to get around type erasure
       case _: String  => DataTypes.StringType
       case _: Double  => DataTypes.DoubleType
       case _: Int     => DataTypes.IntegerType

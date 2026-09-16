@@ -34,7 +34,7 @@ class GroupIdManager {
       case sVal: String =>
         lock.synchronized {
           if (!stringGroupIds.contains(sVal)) {
-            stringGroupIds(sVal) = longGroupIds.size
+            stringGroupIds(sVal) = stringGroupIds.size
           }
           stringGroupIds(sVal)
         }
