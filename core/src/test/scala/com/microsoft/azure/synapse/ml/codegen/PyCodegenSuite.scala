@@ -17,7 +17,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.zip.ZipFile
 
-// Keep PipelineStage fixtures nested so production-stage discovery ignores test-only classes.
+// Nesting does not hide these JVM classes; discovery must exclude their test artifact.
 private[codegen] object PyCodegenFixtures {
 
   class TypedPythonStage(override val uid: String = "typedPythonStage")

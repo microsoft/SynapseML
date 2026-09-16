@@ -8,6 +8,7 @@ import org.sparkproject.guava.reflect.ClassPath
 
 import java.io.{File, IOException}
 import java.lang.reflect.{InvocationTargetException, Modifier}
+import java.net.{JarURLConnection, URL}
 import scala.collection.JavaConverters._
 import scala.reflect.{ClassTag, classTag}
 
@@ -29,6 +30,23 @@ object JarLoadingUtils {
     AllClasses.filter(classOf[Wrappable].isAssignableFrom(_))
   }
 
+  private[ml] def matchesJar(resource: URL, name: String): Boolean = {
+    if (resource.getProtocol == "jar") {
+      val connection = resource.openConnection().asInstanceOf[JarURLConnection]
+      val jarPath = connection.getJarFileURL.toURI.getPath
+      val actualName = jarPath.substring(jarPath.lastIndexOf('/') + 1)
+      // Snapshot aliases may differ, but artifact names and classifiers must not.
+      def normalized(value: String): String = value.replaceFirst("-SNAPSHOT(?=(-tests)?\\.jar$)", "")
+      normalized(actualName) == normalized(name)
+    } else {
+      val resourcePath = resource.toURI.getSchemeSpecificPart
+      val classes = if (name.matches(".*-tests(-SNAPSHOT)?\\.jar")) "test-classes" else "classes"
+      "synapseml-([a-z0-9\\-]+)_".r.findFirstMatchIn(name).exists { module =>
+        resourcePath.matches(s".*/${module.group(1)}/target/(scala-[^/]+/)?$classes/.*")
+      }
+    }
+  }
+
   def instantiateServices[T: ClassTag](instantiate: Class[_] => Any, jarName: Option[String]): List[T] = {
     AllClasses
       .filter(classTag[T].runtimeClass.isAssignableFrom(_))
@@ -37,14 +55,7 @@ object JarLoadingUtils {
         if (jarResource == null) {
           throw new IOException(s"Could not find resource for class ${c.getSimpleName}")
         }
-        val resourcePath = jarResource.toString
-        val strippedSnapshot = name.replaceFirst("(-tests)?-SNAPSHOT\\.jar$", "")
-        val strippedJar = name.replaceFirst("(-tests)?\\.jar$", "")
-        val moduleHint = "synapseml-([a-z0-9\\-]+)_".r.findFirstMatchIn(name).map(_.group(1))
-        resourcePath.contains(name) ||
-          (strippedSnapshot != name && resourcePath.contains(strippedSnapshot)) ||
-          (strippedJar != name && resourcePath.contains(strippedJar)) ||
-          moduleHint.exists(hint => resourcePath.contains("/" + hint + "/target/"))
+        matchesJar(jarResource, name)
       }))
       .filter(clazz => !Modifier.isAbstract(clazz.getModifiers))
       .map(instantiate(_)).asInstanceOf[List[T]]
