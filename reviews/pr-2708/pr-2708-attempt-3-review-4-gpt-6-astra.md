@@ -5,7 +5,7 @@
 - **Mode:** Sequential
 - **Model / reasoning:** gpt-6-astra / max
 - **HEAD:** `ee2bb4685e93ba3d0e620257254760ebcc7d61af`
-- **Artifact:** `C:\Users\singhrana\Documents\SynapseML\.worktrees\openai-schema-convenience-2700\reviews\task-5615496-attempt-2-review-4-gpt-6-astra.md`
+- **Artifact:** `reviews/pr-2708/pr-2708-attempt-3-review-4-gpt-6-astra.md`
 - **Issues found:** 0
 - **Verdict:** CLEAN
 

@@ -5,7 +5,7 @@
 - **Actual model:** Gemini 3.8 Flash (`gemini-3.8-flash`, high reasoning)
 - **HEAD:** `ee2bb4685e93ba3d0e620257254760ebcc7d61af`
 - **Target:** `master` at `133c38a1f3`
-- **Artifact:** `reviews/task-5615496-attempt-2-review-5-gemini-3.8-flash.md`
+- **Artifact:** `reviews/pr-2708/pr-2708-attempt-3-review-5-gemini-3.8-flash.md`
 - **Issue count:** 0
 - **Status:** **CLEAN**
 

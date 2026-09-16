@@ -4,7 +4,7 @@
 - **Theme:** Architecture and repository-pattern review
 - **Mode:** Sequential
 - **Actual model:** Gemini 3.8 Flash, `gemini-3.8-flash`
-- **Artifact:** `reviews/task-2700-attempt-1-review-2-gemini-3.8-flash.md`
+- **Artifact:** `reviews/pr-2708/pr-2708-attempt-1-review-2-gemini-3.8-flash.md`
 - **Issue count:** 0
 - **Verdict:** **CLEAN**
 

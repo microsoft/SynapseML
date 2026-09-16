@@ -4,7 +4,7 @@
 - **Theme:** Broad correctness, security, and spec-conformance sweep
 - **Mode:** Sequential
 - **Actual model:** GPT-6 Astra, `gpt-6-astra`
-- **Artifact:** `reviews/task-2700-attempt-1-review-1-gpt-6-astra.md`
+- **Artifact:** `reviews/pr-2708/pr-2708-attempt-1-review-1-gpt-6-astra.md`
 - **Issue count:** 2
 - **Verdict:** **ISSUES_FOUND**
 
