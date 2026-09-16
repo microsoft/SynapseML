@@ -260,3 +260,21 @@ _Updated by the driving agent as findings are addressed._
 The final all-file check passes for 441 product files, including 33 Scala files,
 five Python files, and 16 notebooks. The repeated deterministic spelling scan
 still reports 1,281 to 808 findings, with no new findings or repeated words.
+
+## Published-review follow-up
+
+The [current-head Copilot review](https://github.com/microsoft/SynapseML/pull/2711#pullrequestreview-5217663640)
+reported no formal findings, but its file-summary table requested clearer cleanup
+wording in `CloseableIterator.scala`. Updated that comment to describe the actual
+sequence: `next()` fetches the final row, checks the delegate, and runs cleanup
+before returning, without requiring another consumer call. This replaces the
+ambiguous suggestion that the iterator need not be exhausted.
+
+The driving agent directly checked the complete method for correctness,
+repository conventions, final-row and empty-iterator boundaries, unchanged
+expressions/types, validation coverage, and wording. No runtime code, signature,
+exception, logging level, or resource-management action changes.
+
+Verification passed: the follow-up has an identical Scala executable AST and no
+literal changes; the corrected file has no codespell findings; core main/test
+scalastyle and main/test compilation pass on JDK 11.

@@ -11,7 +11,7 @@ class CloseableIterator[+T](delegate: Iterator[T], cleanup: => Unit) extends Ite
     val t = delegate.next()
 
     if (!delegate.hasNext) {
-      // Clean up the resource if there are no more rows, but the iterator does not have to be exhausted.
+      // Clean up after fetching the last row, without requiring another call from the consumer.
       cleanup
     }
 
