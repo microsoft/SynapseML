@@ -1,5 +1,6 @@
 import unittest
 from pyspark.ml import PipelineModel, Transformer
+from pyspark.ml.param.shared import HasRawPredictionCol
 from pyspark.ml.util import DefaultParamsReadable, DefaultParamsWritable
 from pyspark.ml.linalg import Vectors
 import pyspark.sql.functions as f
@@ -53,6 +54,14 @@ class LightGBMSerializationTests(unittest.TestCase):
             # Verify that the prediction column is present.
             self.assertIn("prediction", result.columns)
             self.assertIn("label", result.columns)
+
+    def test_raw_prediction_contract(self):
+        classifier = lgbm.LightGBMClassifier()
+
+        self.assertIsInstance(classifier, HasRawPredictionCol)
+        self.assertEqual(classifier.getRawPredictionCol(), "rawPrediction")
+        self.assertIsInstance(self.model, HasRawPredictionCol)
+        self.assertEqual(self.model.getRawPredictionCol(), "rawPrediction")
 
     def test_pipeline_serialization(self):
         """
