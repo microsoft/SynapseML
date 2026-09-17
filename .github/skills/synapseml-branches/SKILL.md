@@ -33,8 +33,7 @@ branch active.
    - For direct branch work, use the checked-out shared branch.
 3. Load the mapped reference. Filenames use `p` for the version decimal:
    - `master` ->
-     [branch-spark3p5.md](references/branch-spark3p5.md). `master` is currently
-     the canonical Spark 3.5 development baseline.
+     [branch-spark3p5.md](references/branch-spark3p5.md).
    - `spark4.0` ->
      [branch-spark4p0.md](references/branch-spark4p0.md).
    - `spark4.1` ->
@@ -48,6 +47,18 @@ branch active.
 5. Recheck branch context at three points: before implementation, before
    validation, and immediately before push/readiness. Target movement or a
    changed base invalidates earlier evidence.
+
+## Sources of truth
+
+Read these on the target branch; do not maintain a copied version matrix.
+
+| Concern | Source |
+| --- | --- |
+| Spark and Scala versions | [build.sbt](../../../build.sbt) |
+| Python and dependency constraints | [environment.yml](../../../environment.yml), plus `environment.dev.yml` where present |
+| JDK selection | [Java setup](../../../templates/java_setup.yml), workflow jobs, environment files, and Dockerfiles |
+| Selected CI suites and replay targets | [pipeline.yaml](../../../pipeline.yaml) and the Azure definition's trigger settings |
+| Databricks runtimes, pools, and notebooks | [DatabricksUtilities.scala](../../../core/src/test/scala/com/microsoft/azure/synapse/ml/nbtest/DatabricksUtilities.scala) |
 
 ## Responsibilities
 
@@ -65,3 +76,11 @@ branch active.
   add a concise reference from the
   [branch template](references/branch-template.md) when the branch is an active
   supported target.
+
+## Keep references durable
+
+Keep only branch purpose, compatibility constraints, porting boundaries, and
+decision-changing validation rules. Link shared guidance and live sources.
+PR numbers, commit IDs, build results, benchmark snapshots, and incident
+narratives belong in PR descriptions or review artifacts, not branch references.
+Update a reference when a branch contract changes, not after every merge.
