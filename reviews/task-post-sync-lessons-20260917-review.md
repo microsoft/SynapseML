@@ -68,3 +68,20 @@ publication failures. It preserves required publication, review, and replay
 gates, and requires approval before protected tooling changes. No credentials,
 private implementation details, or machine-local evidence paths are included.
 No open finding.
+
+## Revision: durable branch guidance
+
+User feedback: branch references should support future sessions without needing
+an update after every PR. Historical evidence above remains in this audit
+record, not in the branch guidance.
+
+Removed PR/commit/build chronology, benchmark anecdotes, copied pin matrices,
+and repeated procedures. Preserved branch-specific compatibility and runtime
+boundaries, with live source links and shared testing/CI references.
+The skill and reference template now explicitly reject running incident logs.
+
+Direct review covered completeness, consistency, edge cases, correctness,
+validation, and clarity. All seven branch-skill documents now total 309 lines,
+down from 735. Checks found no fixed PR/build/commit/date references, verified
+25 local links and anchors, and passed `git diff --check`.
+No executable code, runtime pins, root contributor guides, or CI tooling changed.
