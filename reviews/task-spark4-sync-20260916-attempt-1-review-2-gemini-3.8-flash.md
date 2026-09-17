@@ -18,7 +18,7 @@ No agents were launched. No files outside this review artifact were created or m
 
 | Item | Reviewed value |
 | --- | --- |
-| Worktree | `C:\Users\singhrana\Documents\SynapseML\.worktrees\branch-context-20260916` |
+| Checkout | Repository root, branch `docs/spark4-branch-context-20260916` |
 | Branch | `docs/spark4-branch-context-20260916` |
 | Target master and HEAD | `1305587a4afe92d27c8e28894b90e38020252e04` |
 | Staged index tree (`write-tree`) | `14e3057db49bd6e46133fd7beb4bd776071be383` |

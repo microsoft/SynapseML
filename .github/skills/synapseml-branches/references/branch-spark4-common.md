@@ -23,6 +23,8 @@ what has already landed on its target.
   work on `master`, then merge it into the port branch.
 - Resolve conflicts per hunk and compare content with the merge base and
   `master`; blanket `ours`/`theirs` and reachability are insufficient.
+- Publish review evidence with commit identifiers and repository-relative
+  source paths. Omit machine-local worktree, tool, and session-artifact paths.
 - Earlier sync PRs were squash-merged. Their master commits can therefore be
   absent from ancestry even when their content is present. #2659 and #2661 both
   integrated master `a6fd536ad7`. Compare the target against that recorded
