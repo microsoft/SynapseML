@@ -13,7 +13,7 @@
 
 | Item | Value |
 | --- | --- |
-| Worktree | `C:\Users\singhrana\Documents\SynapseML\.worktrees\sync-spark40-20260916` |
+| Checkout | Repository root, branch `sync/spark4.0-master-20260916` |
 | Branch | `sync/spark4.0-master-20260916` |
 | Target / HEAD | `ecec8dd58b7a07ebc24d816e321a85ff5dc19d57` |
 | Master / MERGE_HEAD (real, retained) | `1305587a4afe92d27c8e28894b90e38020252e04` |

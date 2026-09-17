@@ -12,7 +12,7 @@
 
 | Item | Value |
 | --- | --- |
-| Worktree | `C:\Users\singhrana\Documents\SynapseML\.worktrees\sync-spark40-20260916` |
+| Checkout | Repository root, branch `sync/spark4.0-master-20260916` |
 | Branch | `sync/spark4.0-master-20260916` |
 | Target / HEAD | `ecec8dd58b7a07ebc24d816e321a85ff5dc19d57` |
 | Master / MERGE_HEAD | `1305587a4afe92d27c8e28894b90e38020252e04` |
@@ -71,8 +71,8 @@ Only the following source files differ from the Round 1 tree:
 All calls used native Git with process-local PATH and `GIT_OPTIONAL_LOCKS=0`.
 
 ```powershell
-$git = 'C:\Users\singhrana\AppData\Local\GitHubDesktop\app-3.6.4\resources\app\git\cmd\git.exe'
-$wt = 'C:\Users\singhrana\Documents\SynapseML\.worktrees\sync-spark40-20260916'
+$git = (Get-Command git).Source
+$wt = '.'
 & $git --no-pager -C $wt diff --no-ext-diff --unified=6 306e08e24ddb515ba14cabdab79fc6376836e62c -- 'core\src\main\scala\com\microsoft\azure\synapse\ml\codegen\Wrappable.scala' 'core\src\test\scala\com\microsoft\azure\synapse\ml\codegen\PyCodegenSuite.scala' 'tools\ci\tests\test_pipeline_yaml.py'
 & $git --no-pager -C $wt diff --name-only cd6bd3b6eacb3062707f0f3247ec04f4f019d106 --
 & $git --no-pager -C $wt diff --check cd6bd3b6eacb3062707f0f3247ec04f4f019d106 --

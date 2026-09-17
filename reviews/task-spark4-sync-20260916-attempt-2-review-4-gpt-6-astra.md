@@ -34,7 +34,7 @@ J, D and O are byte-identical across both ports and were reviewed once. All 183 
 - [x] **Branch baseline.** Live `build.sbt:33,36,373` selects Spark 4.0.1, Scala 2.13.16 and forked tests. `environment.yml:6,18,27` specifies Python 3.12.11, Java 17 and PySpark 4.0.1. The sibling's Spark 4.1.1 / Scala 2.13.17 / Python 3.13 context was checked separately, not inferred from this port.
 
 ## Existing validation evidence
-Evidence root E: `C:\Users\singhrana\.copilot\session-state\9e8e3352-e4d3-40c1-bbec-869822c1c661\files`.
+Evidence prefix E identifies retained local validation logs, not repository files.
 
 - [x] Read `E\codegen-testjar-repair\repair-report.json` and `validation-commands.json`. Their earlier fixture failure, packaging and wheel records establish repair history, not the current J/D source hashes; those records predate the round-1 URL correction.
 - [x] `E\spark40-url-red.log:37-44` records both compiled URL regressions failing. `E\spark40-url-green.log:331-375` records those tests and the published-JAR probe passing, 29 successes across four suites, no failed/canceled/ignored/pending tests, and both packaging-task completions. Its task list and success records at lines 10,220,222,272,322 cover all-module compile/testcompile/style; there are 14 zero-error style reports. ASCII SBT result records were extracted from the log containing NUL bytes without treating it as uniformly UTF-16.

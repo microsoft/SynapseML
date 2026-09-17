@@ -1,25 +1,21 @@
 # Shared Spark 4 branch context
 
-Condensed from the branch guides developed in
-[#2645](https://github.com/microsoft/SynapseML/pull/2645) and
-[#2646](https://github.com/microsoft/SynapseML/pull/2646).
+Originally developed in [#2645](https://github.com/microsoft/SynapseML/pull/2645)
+and [#2646](https://github.com/microsoft/SynapseML/pull/2646). Those PRs and the
+follow-up syncs [#2659](https://github.com/microsoft/SynapseML/pull/2659) and
+[#2661](https://github.com/microsoft/SynapseML/pull/2661) have merged.
 
-**Read this as describing the branches as of those two sync PRs, not as a
-snapshot of the live branches.** Both guides were written on the sync branches,
-so they describe the merged result. Until those PRs land, a live branch can lack
-things described here — at the time of writing, live `spark4.0` has no
-`OpenAIPromptPythonOverrides.scala`, no `test_http_package.py` /
-`test_package_exports.py`, no `new_ml_pipeline_stage` in generated R, and its
-own GPU pool (`DatabricksUtilities.scala` sets
-`GpuPoolName = "synapseml-build-17.3-gpu"` there, not master's
-`synapseml-build-14.3-gpu`). Verify every item against the live target branch
-with `git show <branch>:<path>` or `git grep <pattern> <branch>`; do not read it
-out of a local sync worktree, which is a PR result rather than branch state.
-That specific mistake produced several wrong claims in earlier revisions of this
-file, and an automated reviewer then made it against this very paragraph —
-reporting the GPU pool sentence as stale after reading the sync branch. Quote
-the file and value you checked, so the next reader can repeat the check instead
-of re-deriving it from whatever tree they happen to have open.
+The repository snapshot below was checked on 2026-09-16 against `master`
+`1305587a4a`, `spark4.0` `ecec8dd58b`, and `spark4.1` `06897e5b27`.
+These are target-branch commits, not proposed sync results. Both ports now
+contain the OpenAI Python overrides, package-export guard tests, R codegen
+guards and nested-stage loading, Petastorm compatibility layer, and the shared
+`synapseml-build-14.3-gpu` pool. Older failure measurements below are history,
+not current-head validation.
+
+Recheck values with `git show <remote>/<branch>:<path>` before acting. Quote
+the commit, file, and value checked; a local sync worktree is not evidence of
+what has already landed on its target.
 
 ## Purpose and sync
 
@@ -27,6 +23,16 @@ of re-deriving it from whatever tree they happen to have open.
   work on `master`, then merge it into the port branch.
 - Resolve conflicts per hunk and compare content with the merge base and
   `master`; blanket `ours`/`theirs` and reachability are insufficient.
+- Earlier sync PRs were squash-merged. Their master commits can therefore be
+  absent from ancestry even when their content is present. #2659 and #2661 both
+  integrated master `a6fd536ad7`. Compare the target against that recorded
+  content baseline as well as the actual merge base when resolving repeated
+  conflicts. Retain real merge parents in new sync branches; never fabricate
+  ancestry or assume an ahead/behind count measures missing functionality.
+  At this snapshot GitHub reports `allow_merge_commit: false` and allows squash
+  merges. Do not change repository merge settings as part of a sync. Record the
+  integrated master SHA in the PR description so a later sync can identify its
+  content baseline even if the PR is squash-merged.
 - Diff `spark4.0` and `spark4.1` before debugging or merging
   (`git diff spark4.0 spark4.1 -- <path>`). `spark4.1` descends from `spark4.0`'s
   upgrade commit and is maintained more actively, so it has usually already hit
@@ -50,6 +56,43 @@ of re-deriving it from whatever tree they happen to have open.
 - Do not infer the Maven dependency version from the Python package version.
   Changing the JNI/SWIG artifact is a separate compatibility change.
 
+## Portable sync lessons
+
+The follow-up [#2719](https://github.com/microsoft/SynapseML/pull/2719) carries
+shared fixes discovered while validating [#2718](https://github.com/microsoft/SynapseML/pull/2718)
+and [#2720](https://github.com/microsoft/SynapseML/pull/2720). These are proposed
+changes, not additions to the target snapshot above.
+
+- Python wrapper default lookup also rejects foreign-owned parameters on
+  Spark 3.5. Preserve the guard in runtime constructor arguments, defaults, and
+  stub defaults. It is not a Spark 4-only workaround.
+- Discovery must distinguish production JARs from `-tests.jar`, including
+  snapshot aliases and exploded `classes`/`test-classes` directories. Test real
+  packaged JARs together, require generated production outputs, and prove test
+  fixtures are excluded. An exploded-classpath pass is insufficient.
+  `CodegenDiscoverySuite` derives the Scala binary version and uses an isolated
+  SBT-like URL loader for the subprocess. Non-forked SBT dependencies are not all
+  listed in `java.class.path`.
+  SBT's `bgRunMain` uses `Runtime / fullClasspathAsJars`; overriding ordinary
+  `fullClasspath` can leave codegen using a released dependency. Verify the
+  loaded candidate version and nonempty generated wrappers and stubs.
+- Generated OpenAI stubs may belong to the public class on master or a private
+  generated base on a port. Inspect the public class's inheritance and test its
+  actual stub and runtime methods; do not hardcode one layout for all branches.
+- A minor-series Python pin is valid. Candidate Maven versions can themselves
+  contain `-pythonX.Y`; this is not evidence of an accidentally copied Conda
+  local version. Assert coordinates against the build's exact published version.
+- Internal branch layouts differ. The older direct-OSS-codegen build has no
+  typing adapter. Recognize that specific layout without skipping packaging,
+  but fail for a referenced missing helper or an unknown layout. See
+  [the CI helper documentation](../../../../tools/ci/README.md).
+- Read the first Fabric provisioning response. A workspace warehouse-limit
+  error can leave a partial artifact; retries then report a name conflict and
+  obscure the quota failure. Names already include a timestamp and UUID.
+  Another uniqueness patch or blind retry does not restore runtime coverage.
+  Cleanup of shared resources requires verified ownership and authorization.
+  This is diagnostic guidance, not a quota fix in the master follow-up.
+
 ## Common deliberate differences from master
 
 - Spark 4 uses Scala 2.13 and Java 17-era tooling, so generated Python lands in
@@ -72,17 +115,16 @@ of re-deriving it from whatever tree they happen to have open.
   | | master | spark4.0 | spark4.1 |
   | --- | --- | --- | --- |
   | `python` | 3.11.8 | 3.12.11 | 3.13 |
-  | `pyarrow` | 10.0.1 | 22.0.0 | 18.0.0 |
-  | `mlflow` | 2.21.3 | 1.26.1 | 2.21.3 |
+  | `pyarrow` | 10.0.1 | 18.0.0 | 18.0.0 |
+  | `mlflow` | 2.21.3 | 2.21.3 | 2.21.3 |
+  | `numpy` | 1.26.4 | 1.26.4 | unpinned |
 
   Each branch reached its `pyarrow` by a different route, so do not carry the
   reasoning across: `spark4.0` needs a release with cp312 wheels (older ones
   such as 11.0.0 have none and would build from source), `spark4.1` needs cp313
-  wheels under an `mlflow` 2.x `pyarrow<19` bound, and master is held *down* at
+  wheels, and master is held *down* at
   10.0.1 because Petastorm uses legacy Parquet and fsspec APIs removed after
-  PyArrow 10. Note also that `spark4.0` carries `mlflow==1.26.1`, a downgrade
-  from master's 2.21.3, which is not explained by the Python version and has not
-  been validated.
+  PyArrow 10. Both ports now pair PyArrow 18 with MLflow 2.21.3.
 - The `pyarrow` and `mlflow` pins are coupled, and the pinned versions are not
   the same on every branch — read both live values on the branch you are editing
   before changing either. The bound comes from MLflow: `mlflow==2.21.3` declares
@@ -96,23 +138,23 @@ of re-deriving it from whatever tree they happen to have open.
   an `immutable.Seq` is expected throws `ClassCastException` **at runtime, not
   at compile time**, so a green compile proves nothing and the break surfaces
   one or two layers away from its cause. Prefer `toIndexedSeq` over `toList`
-  when converting, because it preserves O(1) indexing. Be careful what you
-  believe about *where* this is handled: the branch-local notes claimed
-  `CognitiveServiceBase.getValueOpt` converted centrally through a helper called
-  `asImmutableCollection`, and neither is true — `getValueOpt` returns the row
-  or default value with no conversion, and `asImmutableCollection` appears in no
-  branch, only in two abandoned commits (`745b342b48`, `6cab133efd`) that are
-  contained in no tip. Verify with
-  `git grep asImmutableCollection ms/master ms/spark4.0 ms/spark4.1`. If the
-  `ClassCastException` resurfaces, one conversion in `CognitiveServiceBase` is
-  the right shape of fix, but treat it as a change to make rather than one
-  already in place.
-- Preserve the Spark 4 adaptations. In `SAR.scala`/`SARModel.scala` the affinity
-  pairs use a named `case class` with explicit struct fields because Spark 4
-  rejects the old `Seq[Row]` UDF shape with `UnboundRowEncoder`, and the join
-  column is qualified (`col("sarUserFactors.flatList")`) because a self-join now
-  trips `DetectAmbiguousSelfJoin`. `Wrappable.safeGetDefault` guards
-  `getDefault`, which throws on Spark 4 where Spark 3 returned a default.
+  when converting, because it preserves O(1) indexing. Both ports now normalize
+  column-backed service parameter values in
+  `CognitiveServiceBase.scala` through `getValueOpt` and
+  `asImmutableCollection`; master does not have that conversion. Preserve it
+  when merging unrelated authentication changes. It does not cover every
+  direct `row.getAs[Seq[...]]` elsewhere, so test newly imported request paths
+  with Spark-produced rows rather than only hand-built immutable fixtures.
+- Preserve each port's actual Spark 4 adaptations. The pinned `spark4.0`
+  target's `SAR.scala` uses `SAR.ItemAffinity` with explicit `itemIndex` and
+  `affinity` struct fields after the old `Seq[Row]` UDF caused
+  `UnboundRowEncoder`. The pinned `spark4.1` target still uses `Seq[Row]`;
+  the same failure has not been established there by this source audit.
+  Both targets qualify `col("sarUserFactors.flatList")` in `SARModel.scala`
+  to avoid `DetectAmbiguousSelfJoin`.
+  Both pinned ports have `Wrappable.safeGetDefault`; the shared follow-up above
+  also proves the need on master. `RWrappable.rParamArg` still calls `getDefault`
+  directly. Do not describe the Python guard as an R fix.
   `VerifyTrainClassifier`'s vector fixture no longer feeds `Double.NaN` to the
   trainer, because Spark 4 does not tolerate a NaN feature reaching logistic
   regression the way 3.5 did. That test is about training on a vector column,
@@ -125,7 +167,7 @@ of re-deriving it from whatever tree they happen to have open.
   name. Python emitted into that class must use zero-argument `super()`; a
   hardcoded `super(OpenAIPrompt, self)` raises `NameError` because that name does
   not exist inside the generated module. See `OpenAIPromptPythonOverrides.scala`,
-  which is on `spark4.1` and reaches `spark4.0` with #2646.
+  which is present on both ports.
 - `PythonInitMerger` makes hand-written `__init__.py` files live package code by
   splicing them *after* the generated imports; before it, codegen overwrote them
   and their contents were inert, so a stale one is now a real bug. Keep the HTTP
@@ -135,8 +177,8 @@ of re-deriving it from whatever tree they happen to have open.
   duplicate generated exports, and do not narrow `import *` by redefining
   `__all__` as a hand-maintained list. Keep the ones that add exports codegen
   does not emit. `test_http_package.py` and `test_package_exports.py` guard this
-  where they exist; they are not on live `spark4.0` yet and arrive there with
-  #2646, so on that branch the policy is currently unenforced.
+  on both ports. The master follow-up above adds those guards; the pinned master
+  target does not yet contain them.
 - `cyber/utils/spark_utils.py` differs between the branches without either form
   being version-specific: `spark4.0` builds its indexed frame with
   `rdd.toDF(schema)` and `spark4.1` uses `spark.createDataFrame(rdd, schema)`.
@@ -151,10 +193,8 @@ of re-deriving it from whatever tree they happen to have open.
   Spark 4 reads `"class"` as a string literal and fails with
   `PARSE_SYNTAX_ERROR`. It also requires the validated sparklyr
   1.9.5 pin from the PR snapshots, `SPARK_HOME` connection behavior, and JVM
-  loading of nested stages. That pin is not yet everywhere — check
-  `environment.yml` on your branch, since a branch still on sparklyr 1.9.3 has
-  the failure below as a live concern rather than as history. Where 1.9.5 is
-  applied, keep it paired with `r-base=4.4`: 69/69 `RTests` was measured for the
+  loading of nested stages. Both ports now pin sparklyr 1.9.5 with
+  `r-base=4.4`. Keep that pairing: 69/69 `RTests` was historically measured for the
   combination, not for the sparklyr pin alone. Interleaved failures with
   successful tests between them point to selection/proxy behavior, not a dead
   Spark session; read the backtrace. Under sparklyr 1.9.3 with dbplyr 2.6 the
@@ -162,13 +202,10 @@ of re-deriving it from whatever tree they happen to have open.
   `sparklyr:::tidyselect_data_proxy.tbl_spark`
   and `simulate_vars_spark`, which surfaces as `invoke_static`/`hive_context`
   being called on `NULL` and reads misleadingly like a dead session.
-- `RCodegenSuite` asserts cheap R generation invariants without a full pipeline
-  run, but it is not present on every branch — `spark4.1` has it and `spark4.0`
-  does not yet. Check for it before relying on it, run it before spending a
+- `RCodegenSuite` asserts cheap R generation invariants on both ports. Run it before spending a
   pipeline run on an R failure, and keep its assertions in step when changing
   generated R.
-- Nested stages load off the JVM on branches that have adopted it — `spark4.1`
-  has, live `spark4.0` has not yet. `PipelineStageWrappable.rLoadLine` emits
+- Nested stages load off the JVM on both ports. `PipelineStageWrappable.rLoadLine` emits
   `sparklyr:::new_ml_pipeline_stage(invoke(spark_jobj(x), "getStages")[[1]])`
   rather than `ml_stages(x)[[1]]`. `new_ml_pipeline_stage` is sparklyr-internal
   but has an identical signature in every release from v1.8.0 to v1.9.5.
@@ -198,22 +235,18 @@ of re-deriving it from whatever tree they happen to have open.
   not all reached `INSTALLED` before the retry budget ran out (`60 * 10` attempts
   at 1s, about 10 minutes). A slow install reads exactly like a starved pool.
   Read statuses and notebook duration before classifying it.
-- `DatabricksCPUStreamingTests` exists only on the Spark 4 branches, and whether
-  it is scheduled varies by branch — read `pipeline.yaml` on the branch you are
-  working on rather than assuming. As measured on 2026-08-17, only live
-  `spark4.0` gives it a leg, and it got one in the original port commit
-  `b76c391be4`; `master` and `spark4.1` leave the class defined but unscheduled
-  pending pool capacity and a notebook fix. A sync from master therefore drops
-  that leg on `spark4.0`, which converges the three branches rather than
-  regressing one — but record it as a decision, because nothing reports it. It
+- `DatabricksCPUStreamingTests` is defined on the Spark 4 branches but neither
+  target currently schedules it in `pipeline.yaml`. Spark 4.0's original port
+  scheduled it before later syncs aligned the matrix. Record this coverage gap
+  explicitly; an unscheduled class produces no skipped-test result. It
   is a separate class because the streaming notebook's `server.stop()` cancels
   concurrent SparkContext jobs, so it needs its own cluster instead of a slot on
   an existing leg, which is why scheduling it costs pool capacity. The in-repo
   comment attributes that behaviour to Spark 4.0 and it has not been
   re-confirmed on 4.1. If a sync drops the leg while leaving the class defined,
   nothing fails to compile and nothing reports the gap, so check deliberately.
-- The Databricks GPU suite was split and then deliberately re-merged, and the
-  history matters because `spark4.0` still carries the abandoned shape. #2538
+- The Databricks GPU suite was split and then deliberately re-merged. Both
+  ports now use the consolidated suite. Historically, #2538
   split it into `DatabricksGPUTests1/2/3`, each building its own cluster with two
   workers and running exactly one notebook via `gpuNotebook(0)`, `(1)`, `(2)`.
   #2573 (`fix: restore SynapseML Azure pipeline`) reverted that to a single
@@ -230,25 +263,20 @@ of re-deriving it from whatever tree they happen to have open.
   timeout to absorb the sequential run. Read the file rather than this paragraph
   for the mechanism: it changed between #2573 and now, and an earlier draft of
   this bullet described the #2573 snapshot as if it were current.
-- Prefer the consolidated form on every branch, and never restore the split
-  during a sync. Its indices are hardcoded, so it tests exactly three notebooks
-  no matter how many exist: at the time of writing `master` and `spark4.1` have
-  four GPU notebooks (`Fine-tune`/`Phi Model` matches) while live `spark4.0` has
-  three, so the split covers `spark4.0` today and would silently skip index 3 —
-  `Quickstart - End-to-end Local RAG with Phi Model` — the moment a sync brings
-  master's fourth notebook in. `DatabricksGPUTests` reads `GPUNotebooks` whole
-  and cannot drift that way. #2646 already lands exactly this: the merged
-  `DatabricksGPUTests.scala` is byte-identical to master's and the branch picks
-  up the fourth notebook, so `spark4.0` needs no separate change.
+- Keep the consolidated form. The former hardcoded indices tested exactly
+  three notebooks and would miss `Quickstart - End-to-end Local RAG with Phi Model`.
+  That notebook is now on both ports. `DatabricksGPUTests` reads the complete
+  `GPUNotebooks` set; verify the actual selected notebook list and test results.
 - Petastorm calls pyarrow APIs the pinned pyarrow no longer ships, so Horovod's
-  Spark backend needs a compatibility layer. Only `spark4.1` has one. This is a
+  Spark backend needs a compatibility layer. Both ports have one. This is a
   library-version problem, not a Python-version one, so a branch on the same
   pyarrow is not exempt. Deep-learning unit tests will not reveal the gap:
   without a usable Horovod the estimators are stubbed and the Petastorm path
   never runs.
-- `/azp run` queues these targets. The ADO pull-request trigger filter allowed
-  only `master` until 2026-08-17; it now covers `master`, `spark3.5`,
-  `spark4.0` and `spark4.1`, verified by builds recording `reason=pullRequest`
+- `/azp run` was verified to queue these targets after the ADO pull-request
+  trigger filter changed on 2026-08-17. It previously allowed only `master`;
+  the updated filter covered `master`, `spark3.5`,
+  `spark4.0` and `spark4.1`, verified then by builds recording `reason=pullRequest`
   and `requestedFor=GitHub` rather than `reason=manual`. Those two fields are
   the reliable way to tell a trigger-driven run from one you queued by hand. If
   a comment produces no build, re-read the
@@ -266,7 +294,7 @@ of re-deriving it from whatever tree they happen to have open.
   GET .../_apis/build/definitions/17563?api-version=7.0
   ```
 
-  `triggers[].branchFilters` is currently `+master, +spark3.5, +spark4.0,
+  The recorded `triggers[].branchFilters` was `+master, +spark3.5, +spark4.0,
   +spark4.1`, and the `continuousIntegration` trigger reports
   `settingsSourceType: 2`, which means UI-defined rather than YAML-defined.
   Consequence for a future release branch: adding it to `pipeline.yaml` does not
@@ -286,35 +314,23 @@ updated. Measured values:
 
 | File | master | spark4.0 | spark4.1 |
 | --- | --- | --- | --- |
-| `.github/workflows/pr-validation.yml` | 11 | **11** | 17 |
+| `.github/workflows/pr-validation.yml` | 11 | 17 | 17 |
 | `environment.yml` (`openjdk`) | absent | 17 | 17 |
 | `environment.dev.yml` (`openjdk`) | no file | 17 | 17 |
-| `templates/java_setup.yml` (`versionSpec`) | no file | 17 | 17 |
-| `pipeline.yaml` (`JAVA_VERSION`, ReleaseBranchCompat) | 17 | absent | 17 |
+| `templates/java_setup.yml` (`versionSpec`) | 11 | 17 | 17 |
+| `pipeline.yaml` (`JAVA_VERSION`, ReleaseBranchCompat) | 17 | 17 | 17 |
 | `tools/docker/*/Dockerfile` (`JAVA_HOME`) | 11 | 17 | 17 |
 
-Two things in that table are not typos. `spark4.0`'s GitHub workflow pins JDK
-11 while the rest of the branch is on 17, so do not assume the workflow proves
-the branch's Java version; check `environment.yml` or `java_setup.yml` instead.
-And `spark4.0` has no `JAVA_VERSION` because it is not yet in the
-ReleaseBranchCompat matrix, which is a separate follow-up.
+`JAVA_VERSION` describes the replay target, not the branch owning the pipeline.
+All three pipelines currently replay `RELEASE_BRANCH: spark4.1`; this does not
+prove Spark 4.0 compatibility. Validate the Spark 4.0 sync directly.
 
-`templates/java_setup.yml` is the pin that CI jobs consume. On `spark4.0` it is
-included by the `Style` job; on `spark4.1` the file exists but nothing includes
-it yet. Master does **not** have the file at the time of writing: it arrives
-with [#2652](https://github.com/microsoft/SynapseML/pull/2652), which sets it to
-11 — master's already-effective JDK, measured from a build that echoes
-`java -version` — and includes it from the InternalCompat job so that job stops
-compiling Spark 4 code on master's JDK. If that PR has not merged yet, expect
-the file to be absent on master and the table row above to read "no file";
-confirm with `git show ms/master:templates/java_setup.yml`.
-
-**Conflict rule: on the first sync after #2652 merges, `templates/java_setup.yml`
-conflicts add/add and git leaves markers. Always keep the branch's own 17.**
-Taking master's side is the intuitive resolution and the wrong one: it silently
-drops the branch to Java 11 and reintroduces `Class java.lang.Record not found`.
-The conflict is one-time — once resolved, the file histories are connected and
-later syncs merge it cleanly. Verify with:
+[#2652](https://github.com/microsoft/SynapseML/pull/2652) has merged.
+`templates/java_setup.yml` exists on all three branches and is included by
+InternalCompat. Preserve each port's JDK 17 while accepting master's independent
+action/template updates. Restoring JDK 11 can cause `Class java.lang.Record not found`.
+Do not describe an add/add conflict as one-time: squash-merging a sync can make
+it recur. Verify the final value with:
 
 ```
 git show <branch>:templates/java_setup.yml | grep versionSpec
@@ -332,7 +348,8 @@ This is why the Spark 4 branches had to audit them.
 | --- | --- | --- |
 | `core/.../io/http/__init__.py` | must stay empty | Listed free-function modules; see below |
 | `vw/`, `services/openai/` | removed | Duplicated codegen output |
-| `recommendation/`, `dl/`, `hf/`, `cognitive/`, `mmlspark/` | kept | Add exports codegen omits |
+| `recommendation/` | redundant on the pinned targets; removed by the master follow-up | All nine class exports are already generated |
+| `dl/`, `hf/`, `cognitive/`, `mmlspark/` | kept | Add exports codegen omits |
 
 `core/.../io/http/__init__.py` listed `HTTPFunctions` and `ServingFunctions`,
 which are modules of free functions with no same-named class, so the import
@@ -344,11 +361,13 @@ Do not add new `__init__.py` files that re-list generated classes. On the Spark 
 branches this is guarded by two tests,
 `core/src/test/python/synapsemltest/io/http/test_http_package.py` and
 `core/src/test/python/synapsemltest/recommendation/test_package_exports.py`. Note
-where they are and are not: both are on `spark4.1`, both reach `spark4.0` through
-[#2646](https://github.com/microsoft/SynapseML/pull/2646), and **neither is on
-`master`**, which carries `PythonInitMerger` without them. So a change to these
-files on `master` is unguarded, and the guards cannot be assumed from the merger's
-presence. Verify with
+where they are and are not: both are on both ports, and **neither is on
+`master` at the pinned target snapshot**, which carries `PythonInitMerger`
+without them. The master follow-up removes the redundant recommendation
+initializer so generated model exports are no longer narrowed by its stale
+`__all__`. Its guard checks both the previously missing names and every generated
+model module. Verify whether it has landed rather than assuming
+the guards from the merger's presence:
 `git ls-tree -r --name-only ms/<branch> | grep -E 'test_http_package|test_package_exports'`.
 
 ## Before merging a sync

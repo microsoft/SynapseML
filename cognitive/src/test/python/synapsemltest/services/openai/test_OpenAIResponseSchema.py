@@ -19,7 +19,6 @@ from synapse.ml.services.openai import (
     OpenAIPrompt,
     OpenAIResponses,
 )
-from synapse.ml.services.openai._OpenAIPrompt import _OpenAIPrompt
 
 spark = init_spark()
 
@@ -75,8 +74,13 @@ class TestOpenAIResponseSchema(unittest.TestCase):
     def test_generated_stubs_do_not_expose_nested_conversion_helpers(self):
         for stage_type in self.stage_types:
             with self.subTest(stage=stage_type.__name__):
-                generated_type = (
-                    _OpenAIPrompt if stage_type is OpenAIPrompt else stage_type
+                generated_type = next(
+                    (
+                        base
+                        for base in stage_type.__mro__
+                        if base.__name__ == f"_{stage_type.__name__}"
+                    ),
+                    stage_type,
                 )
                 self.assertTrue(issubclass(stage_type, generated_type))
                 stub = Path(inspect.getfile(generated_type)).with_suffix(".pyi")

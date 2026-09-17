@@ -29,6 +29,11 @@ This reference intentionally serves both `master` and `spark3.5`.
 - Confirm the affected suites were selected and executed. Green matrices can
   omit an unclaimed package or explicit test class.
 - Recheck target movement immediately before readiness.
+- Spark 4 syncs exposed shared codegen and packaging defects on this baseline
+  too. See [portable sync lessons](branch-spark4-common.md#portable-sync-lessons)
+  for foreign-owned defaults, main/test JAR discovery, generated stub layouts,
+  package exports, and exact compatibility artifact versions. Validate on
+  this branch's JDK and Scala version rather than assuming a port pass applies.
 
 ## Fabric LightGBM baseline
 

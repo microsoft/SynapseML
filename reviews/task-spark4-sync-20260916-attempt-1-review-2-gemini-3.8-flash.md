@@ -18,7 +18,7 @@ No agents were launched. No source, documentation, test files, git staging, or c
 
 | Item | Reviewed value |
 | --- | --- |
-| Worktree | `C:\Users\singhrana\Documents\SynapseML\.worktrees\sync-spark40-20260916` |
+| Checkout | Repository root, branch `sync/spark4.0-master-20260916` |
 | Branch | `sync/spark4.0-master-20260916` |
 | Target and HEAD | `ecec8dd58b7a07ebc24d816e321a85ff5dc19d57` |
 | Incoming master and MERGE_HEAD | `1305587a4afe92d27c8e28894b90e38020252e04` |
