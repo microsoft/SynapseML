@@ -5,9 +5,16 @@ and [#2646](https://github.com/microsoft/SynapseML/pull/2646). Those PRs and the
 follow-up syncs [#2659](https://github.com/microsoft/SynapseML/pull/2659) and
 [#2661](https://github.com/microsoft/SynapseML/pull/2661) have merged.
 
-The repository snapshot below was checked on 2026-09-16 against `master`
+The next syncs landed on 2026-09-17: [#2719](https://github.com/microsoft/SynapseML/pull/2719)
+on master at `cd45147c70`, [#2718](https://github.com/microsoft/SynapseML/pull/2718)
+on Spark 4.0 at `0e23141685`, and [#2720](https://github.com/microsoft/SynapseML/pull/2720)
+on Spark 4.1 at `2ac299ddd6`. Both ports included master `6df5898d14` and the
+shared follow-up source `7c1bf9eb56`. The landed master tree matches that source.
+Use this recorded content baseline when a later merge encounters squash history.
+
+The earlier configuration snapshot below was checked on 2026-09-16 against `master`
 `1305587a4a`, `spark4.0` `ecec8dd58b`, and `spark4.1` `06897e5b27`.
-These are target-branch commits, not proposed sync results. Both ports now
+These are historical target commits, not the latest sync tips. Both ports already
 contain the OpenAI Python overrides, package-export guard tests, R codegen
 guards and nested-stage loading, Petastorm compatibility layer, and the shared
 `synapseml-build-14.3-gpu` pool. Older failure measurements below are history,
@@ -62,10 +69,10 @@ what has already landed on its target.
 
 ## Portable sync lessons
 
-The follow-up [#2719](https://github.com/microsoft/SynapseML/pull/2719) carries
+The merged follow-up [#2719](https://github.com/microsoft/SynapseML/pull/2719) carries
 shared fixes discovered while validating [#2718](https://github.com/microsoft/SynapseML/pull/2718)
-and [#2720](https://github.com/microsoft/SynapseML/pull/2720). These are proposed
-changes, not additions to the target snapshot above.
+and [#2720](https://github.com/microsoft/SynapseML/pull/2720). These fixes are
+present in all three landed syncs, after the earlier configuration snapshot.
 
 - Python wrapper default lookup also rejects foreign-owned parameters on
   Spark 3.5. Preserve the guard in runtime constructor arguments, defaults, and
@@ -95,6 +102,11 @@ changes, not additions to the target snapshot above.
   typing adapter. Recognize that specific layout without skipping packaging,
   but fail for a referenced missing helper or an unknown layout. See
   [the CI helper documentation](../../../../tools/ci/README.md).
+- Carry portable regression rules with a backport, not another branch's runtime
+  pins. See [Python isolation and async cleanup](../../code-review/SKILL.md#python-isolation-and-async-cleanup)
+  for cold Spark startup, no-SDK imports, loop ownership, and failed-batch cleanup.
+  See [CI provenance](../../synapseml-pr-loop/references/ci-triage.md#attempts-reviews-and-dependency-provenance)
+  for exact dependency pairs, stale review/check status, and retry accounting.
 - Read the first Fabric provisioning response. A workspace warehouse-limit
   error can leave a partial artifact; retries then report a name conflict and
   obscure the quota failure. Names already include a timestamp and UUID.
