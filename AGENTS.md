@@ -42,9 +42,9 @@ pins. These changes affect every branch and require CI evidence.
 | `master` | Ordinary features, fixes, and repository-wide changes |
 | `spark<version>` port branches | Differences required specifically by that Spark port |
 
-Run `git branch -r` to see which port branches currently exist; this guide does
-not name them, so that adding one does not require editing a file that must stay
-identical on every branch.
+Use the [branch context skill](.github/skills/synapseml-branches/SKILL.md) for
+the active target list. Historical remote refs are not active merely because
+`git branch -r` lists them. Unqualified branch work covers only active targets.
 
 Land cross-version changes on `master`; port branches receive them by merging
 `master`. When resolving a port-branch merge:
