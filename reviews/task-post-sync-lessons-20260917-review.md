@@ -81,8 +81,9 @@ boundaries, with live source links and shared testing/CI references.
 The skill and reference template now explicitly reject running incident logs.
 
 Direct review covered completeness, consistency, edge cases, correctness,
-validation, and clarity. All seven branch-skill documents now total 309 lines,
-down from 735. Checks found no fixed PR/build/commit/date references, verified
+validation, and clarity. The initial cleanup reduced the seven branch-skill
+documents from 735 to 309 lines, before the review clarifications below.
+Checks found no fixed PR/build/commit/date references, verified
 25 local links and anchors, and passed `git diff --check`.
 No executable code, runtime pins, root contributor guides, or CI tooling changed.
 
@@ -99,3 +100,9 @@ Verified against the Java templates, branch pipeline/workspace configuration,
 and both ports' SAR implementations. Direct six-theme review found no further
 documentation issue. These are decision rules, not configuration snapshots;
 no runtime or pipeline change is implied.
+
+The JDK source map also links the pipeline directly because replay selects its
+JDK outside the Java templates. Measurements are revision snapshots, not a
+running inventory: after clarification, the seven guides total 313 lines and
+all 26 local links and anchors resolve. The earlier 309-line result describes
+the initial cleanup only.
