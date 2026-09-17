@@ -95,3 +95,10 @@ ledger, and a minimal Python environment cannot prove compatibility with
 optional dependencies installed by CI. The driver checked these additions
 against the observed review and environment failures; no private source,
 resource identifiers, or credentials appear in the public guide.
+
+Current-head Copilot finding `discussion_r4032405777` identified a remaining
+checkout-directory alias in round 3's tree-state evidence. Both occurrences
+were removed, preserving the reviewed branch, source locations, findings,
+and dispositions. The driver checked the complete Java 8 review group for
+remaining checkout-specific paths. This correction changes documentation
+only, not the code already validated on Java 8, 11, and 17.
