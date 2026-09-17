@@ -20,12 +20,14 @@ object CodegenDiscoveryLauncher {
   def main(args: Array[String]): Unit = {
     val urls = System.getProperty("java.class.path").split(File.pathSeparator).map(path => new File(path).toURI.toURL)
     // Match SBT's URL-based loader; Spark 3's shaded Guava cannot scan the JDK application loader.
-    val loader = new URLClassLoader(urls, ClassLoader.getPlatformClassLoader)
+    // The application loader's parent is the extension loader on Java 8 and platform loader on newer JDKs.
+    val loader = new URLClassLoader(urls, ClassLoader.getSystemClassLoader.getParent)
     val thread = Thread.currentThread()
     val original = thread.getContextClassLoader
     try {
       thread.setContextClassLoader(loader)
       val probe = loader.loadClass("com.microsoft.azure.synapse.ml.codegen.CodegenDiscoveryProbe")
+      require(probe.getClassLoader eq loader, "Probe must load through the isolated URL classloader")
       probe.getMethod("main", classOf[Array[String]]).invoke(probe, args)
     } finally {
       thread.setContextClassLoader(original)
