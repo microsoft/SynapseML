@@ -56,6 +56,43 @@ what has already landed on its target.
 - Do not infer the Maven dependency version from the Python package version.
   Changing the JNI/SWIG artifact is a separate compatibility change.
 
+## Portable sync lessons
+
+The follow-up [#2719](https://github.com/microsoft/SynapseML/pull/2719) carries
+shared fixes discovered while validating [#2718](https://github.com/microsoft/SynapseML/pull/2718)
+and [#2720](https://github.com/microsoft/SynapseML/pull/2720). These are proposed
+changes, not additions to the target snapshot above.
+
+- Python wrapper default lookup also rejects foreign-owned parameters on
+  Spark 3.5. Preserve the guard in runtime constructor arguments, defaults, and
+  stub defaults. It is not a Spark 4-only workaround.
+- Discovery must distinguish production JARs from `-tests.jar`, including
+  snapshot aliases and exploded `classes`/`test-classes` directories. Test real
+  packaged JARs together, require generated production outputs, and prove test
+  fixtures are excluded. An exploded-classpath pass is insufficient.
+  `CodegenDiscoverySuite` derives the Scala binary version and uses an isolated
+  SBT-like URL loader for the subprocess. Non-forked SBT dependencies are not all
+  listed in `java.class.path`.
+  SBT's `bgRunMain` uses `Runtime / fullClasspathAsJars`; overriding ordinary
+  `fullClasspath` can leave codegen using a released dependency. Verify the
+  loaded candidate version and nonempty generated wrappers and stubs.
+- Generated OpenAI stubs may belong to the public class on master or a private
+  generated base on a port. Inspect the public class's inheritance and test its
+  actual stub and runtime methods; do not hardcode one layout for all branches.
+- A minor-series Python pin is valid. Candidate Maven versions can themselves
+  contain `-pythonX.Y`; this is not evidence of an accidentally copied Conda
+  local version. Assert coordinates against the build's exact published version.
+- Internal branch layouts differ. The older direct-OSS-codegen build has no
+  typing adapter. Recognize that specific layout without skipping packaging,
+  but fail for a referenced missing helper or an unknown layout. See
+  [the CI helper documentation](../../../../tools/ci/README.md).
+- Read the first Fabric provisioning response. A workspace warehouse-limit
+  error can leave a partial artifact; retries then report a name conflict and
+  obscure the quota failure. Names already include a timestamp and UUID.
+  Another uniqueness patch or blind retry does not restore runtime coverage.
+  Cleanup of shared resources requires verified ownership and authorization.
+  This is diagnostic guidance, not a quota fix in the master follow-up.
+
 ## Common deliberate differences from master
 
 - Spark 4 uses Scala 2.13 and Java 17-era tooling, so generated Python lands in
@@ -115,10 +152,9 @@ what has already landed on its target.
   the same failure has not been established there by this source audit.
   Both targets qualify `col("sarUserFactors.flatList")` in `SARModel.scala`
   to avoid `DetectAmbiguousSelfJoin`.
-  On both pinned targets, `Wrappable.safeGetDefault` guards Python wrapper
-  default lookups for foreign-owned parameters. `RWrappable.rParamArg` still
-  calls `getDefault` directly. Preserve the Python guard in newly imported
-  generation paths, including Python stub defaults.
+  Both pinned ports have `Wrappable.safeGetDefault`; the shared follow-up above
+  also proves the need on master. `RWrappable.rParamArg` still calls `getDefault`
+  directly. Do not describe the Python guard as an R fix.
   `VerifyTrainClassifier`'s vector fixture no longer feeds `Double.NaN` to the
   trainer, because Spark 4 does not tolerate a NaN feature reaching logistic
   regression the way 3.5 did. That test is about training on a vector column,
@@ -141,7 +177,8 @@ what has already landed on its target.
   duplicate generated exports, and do not narrow `import *` by redefining
   `__all__` as a hand-maintained list. Keep the ones that add exports codegen
   does not emit. `test_http_package.py` and `test_package_exports.py` guard this
-  on both ports. Master still lacks those two guard files at the snapshot above.
+  on both ports. The master follow-up above adds those guards; the pinned master
+  target does not yet contain them.
 - `cyber/utils/spark_utils.py` differs between the branches without either form
   being version-specific: `spark4.0` builds its indexed frame with
   `rdd.toDF(schema)` and `spark4.1` uses `spark.createDataFrame(rdd, schema)`.
@@ -311,7 +348,8 @@ This is why the Spark 4 branches had to audit them.
 | --- | --- | --- |
 | `core/.../io/http/__init__.py` | must stay empty | Listed free-function modules; see below |
 | `vw/`, `services/openai/` | removed | Duplicated codegen output |
-| `recommendation/`, `dl/`, `hf/`, `cognitive/`, `mmlspark/` | kept | Add exports codegen omits |
+| `recommendation/` | redundant on the pinned targets; removed by the master follow-up | All nine class exports are already generated |
+| `dl/`, `hf/`, `cognitive/`, `mmlspark/` | kept | Add exports codegen omits |
 
 `core/.../io/http/__init__.py` listed `HTTPFunctions` and `ServingFunctions`,
 which are modules of free functions with no same-named class, so the import
@@ -324,9 +362,12 @@ branches this is guarded by two tests,
 `core/src/test/python/synapsemltest/io/http/test_http_package.py` and
 `core/src/test/python/synapsemltest/recommendation/test_package_exports.py`. Note
 where they are and are not: both are on both ports, and **neither is on
-`master`**, which carries `PythonInitMerger` without them. So a change to these
-files on `master` is unguarded, and the guards cannot be assumed from the merger's
-presence. Verify with
+`master` at the pinned target snapshot**, which carries `PythonInitMerger`
+without them. The master follow-up removes the redundant recommendation
+initializer so generated model exports are no longer narrowed by its stale
+`__all__`. Its guard checks both the previously missing names and every generated
+model module. Verify whether it has landed rather than assuming
+the guards from the merger's presence:
 `git ls-tree -r --name-only ms/<branch> | grep -E 'test_http_package|test_package_exports'`.
 
 ## Before merging a sync

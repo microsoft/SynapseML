@@ -15,8 +15,9 @@ versions="$(
 )"
 version_count="$(printf '%s\n' "$versions" | grep -c . || true)"
 
+# Port branches may select a minor series rather than an exact patch release.
 if [ "$version_count" -ne 1 ] ||
-  ! printf '%s\n' "$versions" | grep -Eq '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+  ! printf '%s\n' "$versions" | grep -Eq '^[0-9]+\.[0-9]+(\.[0-9]+)?$'; then
   echo "Expected exactly one pinned python=<version> dependency in $environment_file" >&2
   exit 1
 fi
