@@ -25,6 +25,8 @@ what has already landed on its target.
   `master`; blanket `ours`/`theirs` and reachability are insufficient.
 - Publish review evidence with commit identifiers and repository-relative
   source paths. Omit machine-local worktree, tool, and session-artifact paths.
+  Preserve original findings with appended resolutions. Historical review
+  reports are not the current gate ledger; keep the PR description current.
 - Earlier sync PRs were squash-merged. Their master commits can therefore be
   absent from ancestry even when their content is present. #2659 and #2661 both
   integrated master `a6fd536ad7`. Compare the target against that recorded
@@ -84,6 +86,11 @@ changes, not additions to the target snapshot above.
 - A minor-series Python pin is valid. Candidate Maven versions can themselves
   contain `-pythonX.Y`; this is not evidence of an accidentally copied Conda
   local version. Assert coordinates against the build's exact published version.
+- Test the declared Python environment as well as focused installed-wheel
+  checks. An SDK can import an optional HTTP transport only when it is present;
+  omitting an incompatible declared transport from a minimal environment can
+  hide the failure seen in CI. Report such isolation explicitly and obtain
+  approval before changing dependency constraints.
 - Internal branch layouts differ. The older direct-OSS-codegen build has no
   typing adapter. Recognize that specific layout without skipping packaging,
   but fail for a referenced missing helper or an unknown layout. See

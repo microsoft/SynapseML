@@ -29,11 +29,24 @@ This reference intentionally serves both `master` and `spark3.5`.
 - Confirm the affected suites were selected and executed. Green matrices can
   omit an unclaimed package or explicit test class.
 - Recheck target movement immediately before readiness.
+- Master Azure validation is not single-JDK. The Internal compatibility job
+  includes `templates/java_setup.yml`, which selects JDK 11, while setup and
+  publication jobs in build 236308415 ran on the agent's Java 8 default.
+  Read each job's SBT startup log; one template does not set every job's JDK.
+- Shared test helpers must compile on the oldest CI JDK too; a local JDK 11
+  pass does not prove Java 8 API compatibility. Avoid the Java 9-only
+  `ClassLoader.getPlatformClassLoader` in portable subprocess launchers.
+  The system application loader's parent provides extension/platform isolation
+  on both generations.
 - Spark 4 syncs exposed shared codegen and packaging defects on this baseline
   too. See [portable sync lessons](branch-spark4-common.md#portable-sync-lessons)
   for foreign-owned defaults, main/test JAR discovery, generated stub layouts,
   package exports, and exact compatibility artifact versions. Validate on
   this branch's JDK and Scala version rather than assuming a port pass applies.
+- Compatibility replay applies the PR patch to the existing release target,
+  not an unmerged sync PR. When that target needs overlapping port resolutions,
+  retain the conflict as a merge-order gate and validate the resolved sync
+  independently. Do not weaken patch application or skip the compatibility leg.
 
 ## Fabric LightGBM baseline
 
