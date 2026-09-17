@@ -1,18 +1,15 @@
 # Branch reference template
 
-Keep each branch file concise and use these headings:
+Keep only rules that change how future work on this branch is done.
+Use the headings that apply:
 
-1. **Purpose and baseline sources** — what targets the branch and which live
-   files define versions.
-2. **Sync policy** — merge/rebase direction and conflict rules.
-3. **Differences from master** — only deliberate runtime or tooling deltas.
-4. **Sibling-port rules** — what should and must not move between branches.
-5. **Runtime and CI** — supported environments, intentional skips, triggering,
-   capacity, and required real-environment validation.
-6. **Known failures** — evidence-backed current exceptions, with a reminder to
-   revalidate rather than normalize them forever.
-7. **Before merge** — content comparison, target refresh, tests, and sibling
-   branch diff.
+1. **Purpose and sources.** What targets the branch and where its configuration
+   is defined. Link the shared source map rather than copying versions.
+2. **Compatibility boundaries.** Deliberate differences from master or sibling
+   ports, why they matter, and what must survive a sync.
+3. **Runtime and validation.** Supported environments, intentional coverage
+   limits, and checks specific to this branch.
 
-Link shared material instead of copying it. Treat versions and known failures
-as snapshots; verify them against the live target branch.
+Link shared sync, testing, and CI guidance instead of repeating it.
+Keep PR/commit/build history, benchmark snapshots, and current failure status
+in PR descriptions or review artifacts. Do not add a running incident log.
