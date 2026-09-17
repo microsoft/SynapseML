@@ -22,8 +22,10 @@ this process:
 Most contributions target `master`.
 
 This repository also maintains ports of the library to newer Spark versions on
-long-lived branches named `spark<version>`.  Run `git branch -r` to see which
-ones currently exist.  Target one of those only when the change exists *because
+long-lived branches named `spark<version>`. Consult the
+[branch context skill](.github/skills/synapseml-branches/SKILL.md) for active
+targets; historical remote refs are not automatically in scope. Target an
+active port only when the change exists *because
 of* that Spark version — for example, replacing an API that behaves differently
 there.  Ordinary bug fixes and new features belong on `master` and reach the port
 branches when `master` is merged into them.
@@ -32,8 +34,8 @@ If a fix applies everywhere, land it on `master` first so the port branches
 inherit it on the next sync.  Fixing the same thing separately on each branch
 creates a conflict that someone then has to resolve by hand.
 
-Each port branch carries an `AGENTS_<branch>.md` describing what diverges there
-and why.  Read it before changing anything on that branch — several of the
+The branch context skill links each active target to its runtime and sync
+reference. Read that reference before changing a port branch. Several of the
 differences look like mistakes until you know the reason for them, and a
 "cleanup" that reverts one tends to break the build in a way that is not obvious
 from the diff.  Repository-wide guidance for automated coding agents is in
