@@ -56,7 +56,7 @@ Read these on the target branch; do not maintain a copied version matrix.
 | --- | --- |
 | Spark and Scala versions | [build.sbt](../../../build.sbt) |
 | Python and dependency constraints | [environment.yml](../../../environment.yml), plus `environment.dev.yml` where present |
-| JDK selection | [Java setup](../../../templates/java_setup.yml), workflow jobs, environment files, and Dockerfiles |
+| JDK selection | [Java templates](../../../templates), workflow jobs, environment files, and Dockerfiles |
 | Selected CI suites and replay targets | [pipeline.yaml](../../../pipeline.yaml) and the Azure definition's trigger settings |
 | Databricks runtimes, pools, and notebooks | [DatabricksUtilities.scala](../../../core/src/test/scala/com/microsoft/azure/synapse/ml/nbtest/DatabricksUtilities.scala) |
 

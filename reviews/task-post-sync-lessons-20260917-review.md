@@ -85,3 +85,17 @@ validation, and clarity. All seven branch-skill documents now total 309 lines,
 down from 735. Checks found no fixed PR/build/commit/date references, verified
 25 local links and anchors, and passed `git diff --check`.
 No executable code, runtime pins, root contributor guides, or CI tooling changed.
+
+### Review clarification
+
+The automated review requested a broader JDK source map, qualification of Fabric
+support, and preservation of the primary-runtime replay and SAR boundaries.
+The source map now links all Java templates, including the separate CLI setup.
+The master reference explains duplicate replay coverage and suite selection.
+The Spark 4.1 reference distinguishes runtime availability from branch support
+and keeps its Row representation separate from the Spark 4.0 encoder workaround.
+
+Verified against the Java templates, branch pipeline/workspace configuration,
+and both ports' SAR implementations. Direct six-theme review found no further
+documentation issue. These are decision rules, not configuration snapshots;
+no runtime or pipeline change is implied.
