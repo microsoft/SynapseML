@@ -225,32 +225,15 @@ trait PythonWrappable extends BaseWrappable {
         }
         s"""|def set$capName(self, value):
             |${indent(docString, 1)}
-            |    if isinstance(value, list):
-            |        value = SparkContext._active_spark_context._jvm.com.microsoft.azure.synapse.ml.param.ServiceParam.toSeq(value)
-            |    elif isinstance(value, dict):
-            |        # Recursively convert Python dict/list to Java LinkedHashMap/ArrayList to preserve order
-            |        sc = SparkContext._active_spark_context
-            |        jvm = sc._jvm
-            |        def _convert(val):
-            |            if isinstance(val, dict):
-            |                jmap = jvm.java.util.LinkedHashMap()
-            |                for k, v in val.items():
-            |                    jmap.put(k, _convert(v))
-            |                return jmap
-            |            elif isinstance(val, list):
-            |                jlist = jvm.java.util.ArrayList()
-            |                for it in val:
-            |                    jlist.add(_convert(it))
-            |                return jlist
-            |            else:
-            |                return val
-            |        value = jvm.com.microsoft.azure.synapse.ml.param.ServiceParam.toMap(_convert(value))
+            |    value = self._service_param_value_to_java(value)
             |    self._java_obj = $scalarSetter
+            |    self._paramMap.pop(self.${sp.name}, None)
             |    return self
             |
             |def set${capName}Col(self, value):
             |${indent(docString, 1)}
             |    self._java_obj = $vectorSetter
+            |    self._paramMap.pop(self.${sp.name}, None)
             |    return self
             |""".stripMargin
       case _ =>

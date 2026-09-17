@@ -1,10 +1,13 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 
+import os
+import tempfile
 import unittest
 from unittest.mock import patch
 
-from py4j.protocol import Py4JJavaError
+from py4j.protocol import Py4JError, Py4JJavaError
+from pyspark.errors.exceptions.captured import IllegalArgumentException
 
 from synapse.ml.core.init_spark import init_spark
 from synapse.ml.services.openai.OpenAIEmbedding import OpenAIEmbedding
@@ -111,6 +114,73 @@ class TestServiceParamPythonBridge(unittest.TestCase):
         with self.assertRaises(Py4JJavaError):
             restored_copy.getTextCol()
 
+    def test_named_service_setters_replace_pending_generic_values(self):
+        for use_column in (False, True):
+            with self.subTest(use_column=use_column):
+                embedding = OpenAIEmbedding()
+                embedding.set(embedding.text, "old")
+                if use_column:
+                    embedding.setTextCol("body")
+                else:
+                    embedding.setText("new")
+
+                self.assertFalse(embedding.isSet(embedding.text))
+                embedding._transfer_params_to_java()
+                copied = embedding.copy()
+                for stage in (embedding, copied):
+                    if use_column:
+                        self.assertEqual(stage.getTextCol(), "body")
+                    else:
+                        self.assertEqual(stage.getText(), "new")
+
+    def test_set_params_replaces_pending_generic_service_value(self):
+        embedding = OpenAIEmbedding()
+        embedding.set(embedding.text, "old")
+        embedding.setParams(textCol="body")
+        embedding._transfer_params_to_java()
+
+        self.assertEqual(embedding.getTextCol(), "body")
+        self.assertFalse(embedding.isSet(embedding.text))
+
+    def test_generic_service_set_after_named_setter_remains_latest(self):
+        embedding = OpenAIEmbedding(textCol="body")
+        embedding.set(embedding.text, "new")
+        embedding._transfer_params_to_java()
+
+        self.assertEqual(embedding.getText(), "new")
+        self.assertFalse(embedding.isSet(embedding.text))
+
+    def test_failed_named_service_setter_preserves_pending_value(self):
+        embedding = OpenAIEmbedding()
+        embedding.set(embedding.text, "pending")
+
+        with self.assertRaises(Py4JError):
+            embedding.setTextCol(123)
+
+        self.assertEqual(embedding.getOrDefault(embedding.text), "pending")
+        embedding._transfer_params_to_java()
+        self.assertEqual(embedding.getText(), "pending")
+
+    def test_named_service_updates_survive_save_and_load(self):
+        for use_column in (False, True):
+            with self.subTest(use_column=use_column):
+                prompt = OpenAIPrompt()
+                prompt.set(prompt.temperature, 0.25)
+                if use_column:
+                    prompt.setTemperatureCol("sampling")
+                else:
+                    prompt.setTemperature(0.75)
+
+                with tempfile.TemporaryDirectory() as temp_dir:
+                    path = os.path.join(temp_dir, "prompt")
+                    prompt.save(path)
+                    loaded = OpenAIPrompt.load(path)
+                    loaded._transfer_params_to_java()
+                    if use_column:
+                        self.assertEqual(loaded.getTemperatureCol(), "sampling")
+                    else:
+                        self.assertEqual(loaded.getTemperature(), 0.75)
+
     def test_transform_extra_service_value_uses_public_pyspark_path(self):
         embedding = OpenAIEmbedding(textCol="body")
 
@@ -125,6 +195,23 @@ class TestServiceParamPythonBridge(unittest.TestCase):
             )
 
         self.assertEqual(result, "updated")
+        self.assertEqual(embedding.getTextCol(), "body")
+
+    def test_transform_preserves_latest_binding_without_service_requests(self):
+        embedding = (
+            OpenAIEmbedding()
+            .setUrl("http://127.0.0.1:1/")
+            .setDeploymentName("unused")
+            .setSubscriptionKey("unused")
+            .setOutputCol("embedding")
+        )
+        embedding.set(embedding.text, "old")
+        embedding.setTextCol("body")
+
+        result = embedding.transform(spark.createDataFrame([], "body string"))
+
+        self.assertIn("embedding", result.columns)
+        self.assertEqual(result.count(), 0)
         self.assertEqual(embedding.getTextCol(), "body")
 
     def test_openai_prompt_service_updates_remain_atomic(self):
@@ -155,6 +242,32 @@ class TestServiceParamPythonBridge(unittest.TestCase):
         self.assertNotEqual(setter_java_ids[0], original_java_id)
         self.assertEqual(setter_java_ids[1], original_java_id)
         self.assertEqual(prompt.getTemperatureCol(), "sampling")
+
+    def test_failed_atomic_update_preserves_pending_service_values(self):
+        prompt = OpenAIPrompt().setTemperature(0.25)
+        prompt.set(prompt.temperature, 0.5)
+        original_param_map = prompt._paramMap
+
+        with self.assertRaises(IllegalArgumentException):
+            prompt.setParams(
+                temperatureCol="sampling",
+                responseFormat="invalid_format",
+            )
+
+        self.assertIs(prompt._paramMap, original_param_map)
+        self.assertEqual(prompt.getTemperature(), 0.25)
+        self.assertEqual(prompt.getOrDefault(prompt.temperature), 0.5)
+        prompt._transfer_params_to_java()
+        self.assertEqual(prompt.getTemperature(), 0.5)
+
+    def test_successful_atomic_update_replaces_pending_service_value(self):
+        prompt = OpenAIPrompt().setTemperature(0.25)
+        prompt.set(prompt.temperature, 0.5)
+        prompt.setParams(temperatureCol="sampling")
+        prompt._transfer_params_to_java()
+
+        self.assertEqual(prompt.getTemperatureCol(), "sampling")
+        self.assertFalse(prompt.isSet(prompt.temperature))
 
     def test_ordinary_params_keep_python_param_behavior(self):
         embedding = OpenAIEmbedding().setParams(outputCol="vector")

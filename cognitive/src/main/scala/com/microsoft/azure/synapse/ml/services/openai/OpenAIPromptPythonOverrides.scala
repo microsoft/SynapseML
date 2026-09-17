@@ -197,14 +197,17 @@ private[openai] object OpenAIPromptPythonOverrides {
       |        else:
       |            service_values.append((param, value))
       |    original_java_obj = self._java_obj
+      |    original_param_map = self._paramMap
       |    scratch_java_obj = original_java_obj.copy(self._empty_java_param_map())
       |    try:
       |        self._java_obj = scratch_java_obj
+      |        self._paramMap = dict(original_param_map)
       |        for param, value in service_values:
       |            setter = "set" + param[0].upper() + param[1:]
       |            getattr(self, setter)(value)
       |    finally:
       |        self._java_obj = original_java_obj
+      |        self._paramMap = original_param_map
       |    for param, value in service_values:
       |        setter = "set" + param[0].upper() + param[1:]
       |        getattr(self, setter)(value)

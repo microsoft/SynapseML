@@ -97,6 +97,30 @@ class ComplexParamsMixin(MLReadable):
                     )
                 service_arguments[service_param] = argument
 
+    def _service_param_value_to_java(self, value):
+        jvm = SparkContext._active_spark_context._jvm
+        if isinstance(value, list):
+            return jvm.com.microsoft.azure.synapse.ml.param.ServiceParam.toSeq(value)
+        if isinstance(value, dict):
+
+            def convert(item):
+                if isinstance(item, dict):
+                    result = jvm.java.util.LinkedHashMap()
+                    for key, nested in item.items():
+                        result.put(key, convert(nested))
+                    return result
+                if isinstance(item, list):
+                    result = jvm.java.util.ArrayList()
+                    for nested in item:
+                        result.add(convert(nested))
+                    return result
+                return item
+
+            return jvm.com.microsoft.azure.synapse.ml.param.ServiceParam.toMap(
+                convert(value)
+            )
+        return value
+
     def _service_param_scalar_to_python(self, name, value):
         sc = SparkContext._active_spark_context
         converted = _java2py(sc, value)

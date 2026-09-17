@@ -304,6 +304,13 @@ class PyCodegenSuite extends AnyFunSuite {
         "def copy(self: _T, extra: Optional[ParamMap] = ...) -> _T: ..."))
       assert(runtime.contains("self._java_obj.setScalarParam(\"model\", value)"))
       assert(runtime.contains("self._java_obj.setVectorParam(\"model\", value)"))
+      assert(runtime.contains("value = self._service_param_value_to_java(value)"))
+      assert(runtime.contains(
+        """self._java_obj.setScalarParam("model", value)
+          |        self._paramMap.pop(self.model, None)""".stripMargin))
+      assert(runtime.contains(
+        """self._java_obj.setVectorParam("model", value)
+          |        self._paramMap.pop(self.model, None)""".stripMargin))
       assert(runtime.contains(
         "self._service_param_scalar_to_python(\"model\", self._java_obj.getModel())"))
       assert(runtime.contains("return self._java_obj.getVectorParam(\"model\")"))
