@@ -129,6 +129,7 @@ class InstrumentationMeasures() extends Serializable {
   def rowCountTime(): Long = getInterval(rowCountsStart, rowCountsStop)
   def samplingTime(): Long = getInterval(samplingStart, samplingStop)
   def trainingTime(): Long = getInterval(trainingStart, trainingStop)
+  private[lightgbm] def hasTrainingStarted: Boolean = trainingStart != 0
   def totalTime: Long = getInterval(startTime, endTime)
 
   def overheadTime: Long = { (totalTime

@@ -57,6 +57,29 @@ model = LightGBMRegressor(application='quantile',
 For an end to end application, check out the LightGBM [notebook
 example](../Quickstart%20-%20Classification,%20Ranking,%20and%20Regression).
 
+#### Python classifier interoperability
+
+`LightGBMClassifier` and `LightGBMClassificationModel` implement PySpark's
+`HasRawPredictionCol` contract. The raw-prediction column defaults to
+`rawPrediction`; a custom `rawPredictionCol` is preserved through fitting,
+copying, and saving/loading the classifier or model.
+
+To train separate binary classifiers for a multiclass task, use PySpark's
+`OneVsRest` with the default raw-prediction column:
+
+```python
+from pyspark.ml.classification import OneVsRest
+from synapse.ml.lightgbm import LightGBMClassifier
+
+classifier = LightGBMClassifier(objective="binary")
+model = OneVsRest(classifier=classifier, parallelism=1).fit(train)
+predictions = model.transform(test)
+```
+
+`OneVsRest` fits one model per class. For LightGBM's native multiclass training,
+set `objective="multiclass"` or `objective="multiclassova"` on a single
+`LightGBMClassifier` instead.
+
 ### Arguments/Parameters
 
 SynapseML exposes getters/setters for many common LightGBM parameters.
@@ -101,6 +124,57 @@ Spark.
 You can mix *passThroughArgs* and explicit args, as shown in the example. SynapseML
 merges them to create one argument string to send to LightGBM. If you set a parameter in
 both places, *passThroughArgs* takes precedence.
+
+#### Reproducible training
+
+`deterministic=True` applies to LightGBM after Spark has produced the training rows. For
+CPU training, LightGBM also recommends selecting one histogram strategy explicitly:
+
+```python
+model = LightGBMClassifier(
+    deterministic=True,
+    seed=777,
+    passThroughArgs="force_col_wise=true",
+).fit(train)
+```
+
+This does not make a nondeterministic Spark query deterministic. Operations such as
+`orderBy(rand())` without a seed can be evaluated again for each action, so a write and a
+later `fit()` may consume different row order or even a different sample. Materialize one
+training snapshot before comparing fits: write and reload it, or persist it and complete a
+materializing action before training. A Parquet reload can therefore expose an input-lineage
+difference without changing vector values, feature metadata, labels, weights, or initial
+scores. Compare the exact rows and metadata before interpreting a higher training AUC as a
+serialization defect; stable validation AUC can instead indicate training-set overfit.
+
+When `deterministic=True`, SynapseML logs a warning if Spark marks the training query as
+nondeterministic. For effective CPU training, it also warns if neither `force_col_wise=true`
+nor `force_row_wise=true` is enabled.
+
+#### Streaming feature vectors
+
+Every training and validation vector must have the same declared size, including
+sparse vectors with no stored entries. A sparse vector of size zero is not a
+valid replacement for an all-zero vector of the expected size. Streaming fits
+reject null vectors and dimension mismatches with an input error rather than
+filling missing columns from a reused micro-batch buffer. A supplied or reused
+`referenceDataset` must also have the same feature count.
+
+SynapseML checks training rows during its partition-count action and validation
+rows during validation transfer, before starting distributed native ingestion.
+Keep the input stable between Spark actions, for example by materializing a
+persisted snapshot. These checks do not provide recovery from executor loss or
+arbitrary failures after native training starts.
+
+Streaming ingestion allocates thread slots for partitions on each executor,
+including empty local partitions, rather than for every partition in the cluster.
+With `verbosity=2`, executor logs include the local partition IDs, row count, and
+external-thread count passed to native initialization. These ingestion threads
+are distinct from the native training threads controlled by `numThreads`. When
+`numThreads` and `maxStreamingOMPThreads` are positive, streaming allocation
+uses at least `numThreads` OpenMP slots. With automatic `numThreads` or a
+nonpositive `maxStreamingOMPThreads`, the LightGBM runtime allocates against
+its actual OpenMP team size instead of relying on a fixed configured limit.
 
 #### GPU training with a custom OpenCL native library
 

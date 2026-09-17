@@ -166,6 +166,20 @@ class TestMustAnchor:
         r = _analyze(f'"com.microsoft.azure" % "synapseml_2.12" % "{V}"')
         assert r.matches and not r.unanchored
 
+    @pytest.mark.parametrize(
+        "coordinate",
+        [
+            f"com.microsoft.azure:synapseml_2.13:{V}-spark4.0",
+            f"com.microsoft.azure:synapseml_2.13:{V}-spark4.1",
+            f"com.microsoft.azure:synapseml-deep-learning_2.12:{V}",
+            f"com.microsoft.azure:synapseml-deep-learning_2.13:{V}-spark4.0",
+            f"com.microsoft.azure:synapseml-deep-learning_2.13:{V}-spark4.1",
+        ],
+    )
+    def test_runtime_specific_maven_coords(self, coordinate):
+        r = _analyze(coordinate)
+        assert r.matches and not r.unanchored
+
     def test_pip_install(self):
         r = _analyze(f"pip install synapseml=={V}")
         assert r.matches and not r.unanchored
@@ -203,8 +217,20 @@ class TestMustAnchor:
         r = _analyze(f"version-{V}-blue")
         assert r.matches and not r.unanchored
 
-    def test_r_package(self):
-        r = _analyze(f"synapseml-{V}.zip")
+    @pytest.mark.parametrize(
+        "archive",
+        [
+            f"synapseml-{V}.zip",
+            f"synapseml-core-{V}.zip",
+            f"synapseml-cognitive-{V}.zip",
+            f"synapseml-deep-learning-{V}.zip",
+            f"synapseml-lightgbm-{V}.zip",
+            f"synapseml-opencv-{V}.zip",
+            f"synapseml-vw-{V}.zip",
+        ],
+    )
+    def test_r_package(self, archive):
+        r = _analyze(archive)
         assert r.matches and not r.unanchored
 
     def test_prose_v_prefix(self):
@@ -223,6 +249,11 @@ class TestMustAnchor:
         r = _analyze(f'"com.microsoft.azure" % "synapseml_2.12" % "{V}"')
         assert r.matches and not r.unanchored
 
+    @pytest.mark.parametrize("port", ["spark4.0", "spark4.1"])
+    def test_sbt_spark_port_line_anchored(self, port):
+        r = _analyze(f'"com.microsoft.azure" % "synapseml_2.13" % "{V}-{port}"')
+        assert r.matches and not r.unanchored
+
     def test_comment_line_anchored(self):
         r = _analyze(f"# Use {V} version for spark 3.5")
         assert r.matches and not r.unanchored
@@ -233,6 +264,53 @@ class TestMustAnchor:
 
     def test_docusaurus_file_anchored_colon(self):
         r = _analyze(f'version: "{V}"', rel="website/docusaurus.config.js")
+        assert r.matches and not r.unanchored
+
+    def test_install_artifacts_file_anchored_version(self):
+        r = _analyze(
+            f'const version = "{V}";',
+            rel="website/src/installArtifacts.js",
+        )
+        assert r.matches and not r.unanchored
+
+    @pytest.mark.parametrize(
+        "rel",
+        [
+            "docs/Explore Algorithms/Deep Learning/ONNX.md",
+            "website/docs/Explore Algorithms/Deep Learning/ONNX.md",
+        ],
+    )
+    def test_onnx_maven_file_anchored_version(self, rel):
+        r = _analyze(
+            f"<version>{V}-spark4.1</version>",
+            rel=rel,
+        )
+        assert r.matches and not r.unanchored
+
+    @pytest.mark.parametrize(
+        "line",
+        [
+            f'version = "{V}",',
+            f'pythonizedVersion = "{V}",',
+            f'rVersion = "{V}",',
+        ],
+    )
+    def test_r_codegen_file_anchored_versions(self, line):
+        r = _analyze(
+            line,
+            rel=(
+                "core/src/test/scala/com/microsoft/azure/synapse/ml/"
+                "codegen/VerifyRCodegen.scala"
+            ),
+        )
+        assert r.matches and not r.unanchored
+
+    @pytest.mark.parametrize("python_version", ["3.12", "3.13"])
+    def test_pipeline_snapshot_file_anchored_version(self, python_version):
+        r = _analyze(
+            f"{V}-python{python_version}-102-bfba9c82-SNAPSHOT",
+            rel="pipeline.yaml",
+        )
         assert r.matches and not r.unanchored
 
     def test_synapseml_colon(self):

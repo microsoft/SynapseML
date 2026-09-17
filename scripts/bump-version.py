@@ -24,11 +24,25 @@ from typing import List, Optional, Tuple
 # SELF-ANCHORED: pattern contains SynapseML-identifying text. Safe anywhere.
 SELF_ANCHORED = [
     "synapseml_2.12:{V}",
+    "synapseml_2.13:{V}-spark4.0",
+    "synapseml_2.13:{V}-spark4.1",
+    "synapseml-deep-learning_2.12:{V}",
+    "synapseml-deep-learning_2.13:{V}-spark4.0",
+    "synapseml-deep-learning_2.13:{V}-spark4.1",
     "synapseml=={V}",
     "synapseml-{V}.zip",
+    "synapseml-core-{V}.zip",
+    "synapseml-cognitive-{V}.zip",
+    "synapseml-deep-learning-{V}.zip",
+    "synapseml-lightgbm-{V}.zip",
+    "synapseml-opencv-{V}.zip",
+    "synapseml-vw-{V}.zip",
     "synapseml:{V}",
     "SynapseMLExamplesv{V}.dbc",
     "SynapseML/v{V}",
+    "SynapseML/tree/v{V}",
+    "v{V}-spark4.0",
+    "v{V}-spark4.1",
     "SynapseML v{V}",
     "SynapseML {V}",
     "SYNAPSEML_VERSION={V}",
@@ -43,6 +57,8 @@ SELF_ANCHORED = [
 LINE_ANCHORED = [
     ("--version {V}", ["SynapseML"]),
     ('% "{V}"', ["synapseml"]),
+    ('% "{V}-spark4.0"', ["synapseml"]),
+    ('% "{V}-spark4.1"', ["synapseml"]),
     ("{V} version for", ["spark", "Spark"]),
     ("`{V}` tag", ["mmlspark"]),
 ]
@@ -51,6 +67,34 @@ LINE_ANCHORED = [
 FILE_ANCHORED = [
     ('version = "{V}"', ["website/docusaurus.config.js"]),
     ('version: "{V}"', ["website/docusaurus.config.js"]),
+    ('const version = "{V}";', ["website/src/installArtifacts.js"]),
+    (
+        "<version>{V}-spark4.1</version>",
+        [
+            "docs/Explore Algorithms/Deep Learning/ONNX.md",
+            "website/docs/Explore Algorithms/Deep Learning/ONNX.md",
+        ],
+    ),
+    (
+        'version = "{V}",',
+        [
+            "core/src/test/scala/com/microsoft/azure/synapse/ml/codegen/VerifyRCodegen.scala"
+        ],
+    ),
+    (
+        'pythonizedVersion = "{V}",',
+        [
+            "core/src/test/scala/com/microsoft/azure/synapse/ml/codegen/VerifyRCodegen.scala"
+        ],
+    ),
+    (
+        'rVersion = "{V}",',
+        [
+            "core/src/test/scala/com/microsoft/azure/synapse/ml/codegen/VerifyRCodegen.scala"
+        ],
+    ),
+    ("{V}-python3.12-", ["pipeline.yaml"]),
+    ("{V}-python3.13-", ["pipeline.yaml"]),
 ]
 
 # ── Denylists and allowlists ──────────────────────────────────────────────────

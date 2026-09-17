@@ -77,7 +77,7 @@ def find_secret(secret_name, keyvault):
     except:
         raise RuntimeError(
             f"Could not find {secret_name} in keyvault {keyvault}. "
-            f"If you are trying to use the mmlspark-buil-keys keyvault, you cant! "
+            f"If you are trying to use the mmlspark-build-keys keyvault, you can't! "
             f"You need to make your own keyvault with secrets or replace this call with a string. "
             f"Make sure your notebook has access to a "
             f"keyvault named {keyvault} which contains a secret named {secret_name}. "

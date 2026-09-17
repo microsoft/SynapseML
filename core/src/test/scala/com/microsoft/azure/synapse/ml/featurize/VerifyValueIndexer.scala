@@ -57,7 +57,7 @@ class VerifyIndexToValue extends ValueIndexerUtilities with TransformerFuzzing[I
 //scalastyle:off null
 class VerifyValueIndexer extends ValueIndexerUtilities with EstimatorFuzzing[ValueIndexer] {
 
-  /** test CategoricalMap for different undelying types */
+  /** test CategoricalMap for different underlying types */
   test("Test: Convert the regular column into categorical") {
     for (col <- df.columns) {
       val newName = col + "_cat"

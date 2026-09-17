@@ -17,7 +17,7 @@ object FaceUtils extends CognitiveKey {
 
   import com.microsoft.azure.synapse.ml.io.http.RESTHelpers._
 
-  val BaseURL = "https://eastus.api.cognitive.microsoft.com/face/v1.0/"
+  val BaseURL = s"https://$cognitiveLoc.api.cognitive.microsoft.com/face/v1.0/"
 
   def faceSend(request: HttpRequestBase, path: String,
                params: Map[String, String] = Map()): String = {

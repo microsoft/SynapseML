@@ -96,8 +96,8 @@ class DoubleMLEstimator(override val uid: String)
         }
       }
 
-      // sampling with replacement to redraw data and get TE value
-      // Run it for multiple times in parallel, get a number of TE values,
+      // sampling with replacement to redraw data and get a TE value
+      // Run it multiple times in parallel, get a number of TE values,
       // Use average as Ate value, and 2.5% low end, 97.5% high end as Ci value
       // Create execution context based on $(parallelism)
       log.info(s"Parallelism: $getParallelism")

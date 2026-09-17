@@ -44,7 +44,7 @@ class Repartition(val uid: String) extends Transformer with Wrappable with Defau
 
   /** Partition the dataset
     * @param dataset The data to be partitioned
-    * @return partitoned DataFrame
+    * @return partitioned DataFrame
     */
   override def transform(dataset: Dataset[_]): DataFrame = {
     logTransform[DataFrame]({

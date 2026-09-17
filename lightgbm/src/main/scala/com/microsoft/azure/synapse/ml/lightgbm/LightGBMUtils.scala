@@ -15,6 +15,7 @@ import java.util.Locale
 /** Helper utilities for LightGBM learners */
 object LightGBMUtils {
   private val DeviceParamNames = Set("device", "device_type")
+  private val TrueValues = Set("1", "+1", "true", "yes", "on")
 
   private def removeLightGBMQuotationSymbols(value: String): String = {
     def isQuote(char: Char): Boolean = char == '\'' || char == '"'
@@ -37,6 +38,12 @@ object LightGBMUtils {
 
   private[lightgbm] def hasDeviceParameter(parameters: String): Boolean =
     parseLightGBMParams(parameters).keys.exists(DeviceParamNames)
+
+  private[lightgbm] def parameterValues(parameters: String, names: Set[String]): Map[String, String] =
+    parseLightGBMParams(parameters).filter { case (name, _) => names.contains(name) }
+
+  private[lightgbm] def isEnabledParameterValue(value: String): Boolean =
+    TrueValues.contains(value.toLowerCase(Locale.ROOT))
 
   private[lightgbm] def effectiveDeviceType(parameters: String): Option[String] = {
     val params = parseLightGBMParams(parameters)

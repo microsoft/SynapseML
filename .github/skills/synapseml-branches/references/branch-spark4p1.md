@@ -1,8 +1,9 @@
 # `spark4.1`
 
 Read [branch-spark4-common.md](branch-spark4-common.md) first. This is a condensed,
-templatized version of the branch context from
-[#2645](https://github.com/microsoft/SynapseML/pull/2645).
+version of the branch context from
+[#2645](https://github.com/microsoft/SynapseML/pull/2645), updated against target
+`06897e5b27` after [#2659](https://github.com/microsoft/SynapseML/pull/2659).
 
 ## Purpose and baseline
 
@@ -19,10 +20,10 @@ templatized version of the branch context from
 - The Petastorm/Horovod compatibility layer is separate from that: it restores
   pyarrow APIs Petastorm still calls, which the pinned pyarrow no longer
   provides. Do not describe it as a Python 3.13 workaround — that framing makes
-  `spark4.0` look exempt when it is not. `spark4.0` pins a different, newer
-  pyarrow, so those APIs are missing there too. The layer has two halves:
+  `spark4.0` look exempt when it is not. Both ports now pin PyArrow 18.0.0
+  with MLflow 2.21.3 and contain the layer's two halves:
   `_petastorm_compat.py` and the `_serialize_petastorm_compatibility()` path in
-  `_horovod.py`. A back-port needs both.
+  `_horovod.py`. Preserve both through syncs.
 - `LongOffset` moved to `...execution.streaming.runtime`; the 4.0 import does
   not compile here. `HTTPSource.scala` and `DistributedHTTPSource.scala` are the
   files that import it, and they are the whole surface of this difference.
@@ -38,13 +39,12 @@ templatized version of the branch context from
 - Fabric Runtime 2.0 supports Spark 4.1, so the old "unsupported runtime"
   reason for disabling Fabric E2E is stale. On this branch's `pipeline.yaml` the
   job is switched off with a bare `condition: false`, so it is skipped rather
-  than reported. Do not check `master` to confirm that, because `master` has
-  the normal `and(succeeded(), eq('${{ parameters.testFabricE2E }}', true))` and
-  `spark4.0` a third form, `eq('${{ parameters.testFabricE2E }}', true)` with no
-  `succeeded()`. Re-enable only in a dedicated PR, where the pipeline run *is*
+  than executed. `spark4.0` also uses `condition: false`. Master now gates this
+  job on success, `runTests`, `testFabricE2E`, and a non-fork PR. Re-enable only
+  in a dedicated PR, where the pipeline run *is*
   the test, rather than folding it into a sync: a Fabric provisioning failure
   would otherwise block an unrelated merge. That PR should restore `master`'s
-  form, drop the stale comment, request Spark 4.1 in workspace creation, and
+  current guards, drop the stale comment, request Spark 4.1 in workspace creation, and
   validate against real Fabric capacity and service connection. The
   workspace-creation payload lives in the Fabric test package's
   `FabricOperations.scala`, which hardcodes `'SparkVersion': '3.5'` and must

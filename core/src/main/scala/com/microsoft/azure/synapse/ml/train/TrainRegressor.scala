@@ -75,7 +75,7 @@ class TrainRegressor(override val uid: String) extends AutoTrainer[TrainedRegres
         }
 
       // TODO: Handle DateType, TimestampType and DecimalType for label
-      // Convert the label column during train to the correct type and drop missings
+      // Convert the label column during training to the correct type and drop missing values
       val convertedLabelDataset = dataset.withColumn(labelColumn,
         dataset.schema(labelColumn).dataType match {
           case _: IntegerType |

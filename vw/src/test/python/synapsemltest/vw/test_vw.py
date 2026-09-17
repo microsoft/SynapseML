@@ -5,9 +5,14 @@ import tempfile
 import pyspark
 
 from synapse.ml.vw.VowpalWabbitClassifier import VowpalWabbitClassifier
+from synapse.ml.vw.VowpalWabbitClassificationModel import (
+    VowpalWabbitClassificationModel,
+)
 from synapse.ml.vw.VowpalWabbitRegressor import VowpalWabbitRegressor
+from synapse.ml.vw.VowpalWabbitRegressionModel import VowpalWabbitRegressionModel
 from synapse.ml.vw.VowpalWabbitFeaturizer import VowpalWabbitFeaturizer
 
+from pyspark.ml.param.shared import HasRawPredictionCol
 from pyspark.sql.types import *
 from pyspark.sql import SQLContext
 from synapse.ml.core.init_spark import *
@@ -48,6 +53,34 @@ class VowpalWabbitSpec(unittest.TestCase):
 
     def test_save_model_regression(self):
         self.save_model(VowpalWabbitRegressor())
+
+    def test_raw_prediction_contract_copy_and_persistence(self):
+        estimator = VowpalWabbitClassifier()
+        self.assertIsInstance(estimator, HasRawPredictionCol)
+        self.assertEqual(estimator.getRawPredictionCol(), "rawPrediction")
+        self.assertFalse(issubclass(VowpalWabbitRegressor, HasRawPredictionCol))
+        self.assertFalse(issubclass(VowpalWabbitRegressionModel, HasRawPredictionCol))
+
+        copied = estimator.copy({estimator.rawPredictionCol: "confidence"})
+        self.assertIsInstance(copied, HasRawPredictionCol)
+        self.assertEqual(estimator.getRawPredictionCol(), "rawPrediction")
+        self.assertEqual(copied.getRawPredictionCol(), "confidence")
+        data = self.get_data().coalesce(1)
+        model = copied.fit(data)
+        self.assertIsInstance(model, HasRawPredictionCol)
+        self.assertEqual(model.getRawPredictionCol(), "confidence")
+        expected = model.transform(data).select("confidence", "prediction").collect()
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "model")
+            model.save(path)
+            reloaded = VowpalWabbitClassificationModel.load(path)
+            self.assertIsInstance(reloaded, HasRawPredictionCol)
+            self.assertEqual(reloaded.getRawPredictionCol(), "confidence")
+            self.assertEqual(
+                reloaded.transform(data).select("confidence", "prediction").collect(),
+                expected,
+            )
 
     def test_initial_model(self):
         featurized_data = self.get_data()

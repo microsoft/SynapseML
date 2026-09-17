@@ -3,7 +3,7 @@
 
 package com.microsoft.azure.synapse.ml.lightgbm
 
-import com.microsoft.azure.synapse.ml.lightgbm.dataset.{LightGBMDataset, ReferenceDatasetUtils}
+import com.microsoft.azure.synapse.ml.lightgbm.dataset.{DatasetUtils, LightGBMDataset, ReferenceDatasetUtils}
 import com.microsoft.azure.synapse.ml.lightgbm.swig._
 import com.microsoft.ml.lightgbm._
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
@@ -127,9 +127,9 @@ class StreamingPartitionTask extends BasePartitionTask {
 
     insertRowsIntoTrainingDataset(ctx, rowIterator)
 
-    // Now handle validation data, which comes from a broadcast-ed hardcoded array
+    // Now handle validation data, streamed without materializing it on the driver
     if (ctx.shouldCalcValidationDataset) {
-      ctx.sharedState.validationDatasetState.streamingDataset = Option(generateOptValidationDataset(ctx))
+      generateAndStoreValidationDataset(ctx)
     }
 
     // streaming does not use data state (it stores intermediate results in the context shared state),
@@ -151,23 +151,22 @@ class StreamingPartitionTask extends BasePartitionTask {
     ctx.sharedState.validationDatasetState.streamingDataset.get
   }
 
-  private def generateOptValidationDataset(ctx: PartitionTaskContext): LightGBMDataset = {
-    val validationData = ctx.trainingCtx.validationData.get.value
+  private def generateAndStoreValidationDataset(ctx: PartitionTaskContext): Unit = {
+    val validationData = ctx.trainingCtx.validationData.get
 
-    val validationDataset = createSharedValidationDataset(ctx, validationData.length)
+    val rowCount = ValidationDataServer.rowCount(validationData)
+    val validationDataset = createSharedValidationDataset(ctx, rowCount)
 
-    insertRowsIntoDataset(
-      ctx,
-      validationDataset,
-      validationData.toIterator,
-      0,
-      validationData.length,
-      0)
-
-    // Complete the dataset here since we only add data to it once
-    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetMarkFinished(validationDataset.datasetPtr),
-      "Dataset mark finished")
-    validationDataset
+    StreamingPartitionTask.initializeValidationDataset(validationDataset)(
+      {
+        val rows = ValidationDataServer.read(validationData)
+        ValidationDataServer.withRows(rows) {
+          insertRowsIntoDataset(ctx, validationDataset, rows, 0, rowCount, 0)
+        }
+      })(
+      LightGBMUtils.validate(lightgbmlib.LGBM_DatasetMarkFinished(validationDataset.datasetPtr),
+        "Dataset mark finished"))(
+      ctx.sharedState.validationDatasetState.streamingDataset = Option(validationDataset))
   }
 
   private def insertRowsIntoTrainingDataset(ctx: PartitionTaskContext, inputRows: Iterator[Row]): Unit = {
@@ -283,8 +282,9 @@ class StreamingPartitionTask extends BasePartitionTask {
                                            maxBatchCount: Int): Int = {
     if (inputRows.hasNext && currentCount < maxBatchCount) {
       val row = inputRows.next()
+      val features = DatasetUtils.validatedFeatures(row, state.featureIndex, state.numCols)
       // Each row might be either sparse or dense, so convert to overall dense format
-      row.getAs[Any](state.featureIndex) match {
+      features match {
         case dense: DenseVector => dense.values.zipWithIndex.foreach { case (x, i) =>
           state.featureDataBuffer.setItem(currentCount * state.numCols + i, x) }
         case sparse: SparseVector => sparse.toArray.zipWithIndex.foreach { case (x, i) =>
@@ -306,8 +306,9 @@ class StreamingPartitionTask extends BasePartitionTask {
                                             maxBatchCount: Int): (Int, Int) = {
     if (inputRows.hasNext && batchRowCount < maxBatchCount) {
       val row = inputRows.next()
+      val features = DatasetUtils.validatedFeatures(row, state.featureIndex, state.numCols)
       // Each row might be either sparse or dense, so convert to overall sparse format
-      val sparseVector = row.getAs[Any](state.featureIndex) match {
+      val sparseVector = features match {
         case dense: DenseVector => dense.toSparse
         case sparse: SparseVector => sparse
         case _ => throw new Exception(row.getAs[Any](state.featureIndex).toString)
@@ -348,18 +349,34 @@ class StreamingPartitionTask extends BasePartitionTask {
 
   private def createSharedValidationDataset(ctx: PartitionTaskContext, rowCount: Int): LightGBMDataset = {
     val pointer = lightgbmlib.voidpp_handle()
-    val reference = ctx.sharedState.datasetState.streamingDataset.get.datasetPtr
-    LightGBMUtils.validate(
-      lightgbmlib.LGBM_DatasetCreateByReference(reference, rowCount, pointer),
-      "Dataset create from reference")
+    val dataset = try {
+      val reference = ctx.sharedState.datasetState.streamingDataset.get.datasetPtr
+      LightGBMUtils.validate(
+        lightgbmlib.LGBM_DatasetCreateByReference(reference, rowCount, pointer),
+        "Dataset create from reference")
+      new LightGBMDataset(lightgbmlib.voidpp_value(pointer))
+    } finally {
+      lightgbmlib.delete_voidpp(pointer)
+    }
 
-    val datasetPtr = lightgbmlib.voidpp_value(pointer)
-    LightGBMUtils.validate(
-      lightgbmlib.LGBM_DatasetSetWaitForManualFinish(datasetPtr, 1),
-      "Dataset LGBM_DatasetSetWaitForManualFinish")
+    ReferenceDatasetUtils.initializeOwnedDataset(dataset) {
+      LightGBMUtils.validate(
+        lightgbmlib.LGBM_DatasetSetWaitForManualFinish(dataset.datasetPtr, 1),
+        "Dataset LGBM_DatasetSetWaitForManualFinish")
+      dataset.setFeatureNames(ctx.trainingCtx.featureNames, ctx.trainingCtx.numCols)
+    }
+  }
+}
 
-    lightgbmlib.delete_voidpp(pointer)
-    val dataset = new LightGBMDataset(datasetPtr)
-    dataset.setFeatureNames(ctx.trainingCtx.featureNames, ctx.trainingCtx.numCols)
+object StreamingPartitionTask {
+  private[lightgbm] def initializeValidationDataset(dataset: LightGBMDataset)
+                                                   (insertRows: => Unit)
+                                                   (markFinished: => Unit)
+                                                   (transferOwnership: => Unit): Unit = {
+    ReferenceDatasetUtils.initializeOwnedDataset(dataset) {
+      insertRows
+      markFinished
+      transferOwnership
+    }
   }
 }

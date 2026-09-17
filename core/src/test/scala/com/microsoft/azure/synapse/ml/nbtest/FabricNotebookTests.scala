@@ -10,8 +10,10 @@ import com.microsoft.azure.synapse.ml.fabric.{FabricTestConstants, HasFabricOper
 import java.io.{File, PrintWriter}
 import java.time.LocalDateTime
 import java.util.concurrent.{ExecutorService, Executors, TimeUnit}
+import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration.Duration
 import scala.concurrent.{Await, ExecutionContext, Future, blocking}
+import scala.util.control.NonFatal
 
 trait HasFabricNotebookTestConnection extends HasFabricOperationsConnection {
   fabricClientId = Some(FabricTestConstants.INTEGRATION_APP_ID)
@@ -148,8 +150,9 @@ class FabricNotebookTests extends TestBase with HasFabricNotebookTestConnection 
 
   override def afterAll(): Unit = {
     try {
-      FabricNotebookTests.shutdownExecutor(executorService)
-      cleanupTrackedArtifacts()
+      FabricNotebookTests.shutdownAndCleanup(
+        FabricNotebookTests.shutdownExecutor(executorService),
+        cleanupTrackedArtifacts())
     } finally {
       super.afterAll()
     }
@@ -202,6 +205,34 @@ object FabricNotebookTests {
         executorService.shutdownNow()
         Thread.currentThread().interrupt()
         throw e
+    }
+  }
+
+  private[nbtest] def shutdownAndCleanup(shutdown: => Unit, cleanup: => Unit): Unit = {
+    val failures = ListBuffer.empty[Throwable]
+    var interrupted = false
+    try {
+      shutdown
+    } catch {
+      case error: InterruptedException =>
+        interrupted = true
+        failures += error
+      case NonFatal(error) => failures += error
+    }
+    try {
+      cleanup
+    } catch {
+      case error: InterruptedException =>
+        interrupted = true
+        failures += error
+      case NonFatal(error) => failures += error
+    }
+    if (interrupted) {
+      Thread.currentThread().interrupt()
+    }
+    failures.headOption.foreach { failure =>
+      failures.tail.foreach(failure.addSuppressed)
+      throw failure
     }
   }
 

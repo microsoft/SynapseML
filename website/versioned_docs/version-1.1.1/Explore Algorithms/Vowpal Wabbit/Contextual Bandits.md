@@ -69,8 +69,8 @@ display(df_train.drop("input"))
 VowpalWabbitGeneric performs these steps:
 
 * trains a model for each split (=group)
-* synchronizes accross partitions after every split
-* store the 1-step ahead predictions in the model
+* synchronizes across partitions after every split
+* stores the 1-step ahead predictions in the model
 
 
 ```python

@@ -4,11 +4,43 @@
 package com.microsoft.azure.synapse.ml.lightgbm.dataset
 
 import com.microsoft.azure.synapse.ml.lightgbm.ColumnParams
-import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
-import org.apache.spark.sql.Row
+import org.apache.spark.TaskContext
+import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
+import org.apache.spark.sql.{DataFrame, Encoders, Row}
 import org.apache.spark.sql.types.StructType
 
 object DatasetUtils {
+
+  private[lightgbm] def validateFeatureSize(actualSize: Int, expectedSize: Int): Unit = {
+    require(actualSize == expectedSize, s"Expected feature vector size $expectedSize but found $actualSize")
+  }
+
+  private[lightgbm] def validatedFeatures(row: Row, featureIndex: Int, expectedSize: Int): Vector = {
+    require(!row.isNullAt(featureIndex), "Feature vector must not be null")
+    val features = row.getAs[Vector](featureIndex)
+    validateFeatureSize(features.size, expectedSize)
+    features
+  }
+
+  private[lightgbm] def validateFeatureRows(rows: Iterator[Row],
+                                          featureIndex: Int,
+                                          expectedSize: Int): Iterator[Row] = {
+    rows.map { row =>
+      validatedFeatures(row, featureIndex, expectedSize)
+      row
+    }
+  }
+
+  private[lightgbm] def validatedRowCounts(dataframe: DataFrame,
+                                          featuresColumn: String,
+                                          expectedSize: Int): Array[Long] = {
+    val featureIndex = dataframe.schema.fieldIndex(featuresColumn)
+    // Keep the full Row so column pruning cannot change the adaptive partition topology.
+    dataframe.mapPartitions { rows =>
+      val count = validateFeatureRows(rows, featureIndex, expectedSize).foldLeft(0L)((count, _) => count + 1L)
+      Iterator.single((TaskContext.getPartitionId(), count))
+    }(Encoders.tuple(Encoders.scalaInt, Encoders.scalaLong)).collect().sortBy(_._1).map(_._2)
+  }
 
   case class CardinalityTriplet[T](groupCounts: List[Int], currentValue: T, currentCount: Int)
 

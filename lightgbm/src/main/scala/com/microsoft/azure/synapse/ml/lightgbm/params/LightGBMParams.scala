@@ -169,7 +169,8 @@ trait LightGBMExecutionParams extends Wrappable {
   val maxStreamingOMPThreads = new IntParam(this,
     "maxStreamingOMPThreads",
     "Maximum number of OpenMP threads used by a LightGBM thread. Used only for thread-safe buffer allocation." +
-      " Use -1 to use OpenMP default, but in a Spark environment it's best to set a fixed value.")
+      " Positive values below a positive numThreads are raised to numThreads. Use a nonpositive value, or" +
+      " automatic numThreads, to allocate for the OpenMP runtime team size.")
   setDefault(maxStreamingOMPThreads -> 16)
   def getMaxStreamingOMPThreads: Int = $(maxStreamingOMPThreads)
   def setMaxStreamingOMPThreads(value: Int): this.type = set(maxStreamingOMPThreads, value)
@@ -424,7 +425,7 @@ trait LightGBMSeedParams extends Wrappable {
   def setSeed(value: Int): this.type = set(seed, value)
 
   val deterministic = new BooleanParam(this, "deterministic", "Used only with cpu " +
-    "devide type. Setting this to true should ensure stable results when using the same data and the " +
+    "device type. Setting this to true should ensure stable results when using the same data and the " +
     "same parameters.  Note: setting this to true may slow down training.  To avoid potential instability " +
     "due to numerical issues, please set force_col_wise=true or force_row_wise=true when setting " +
     "deterministic=true")
@@ -591,7 +592,7 @@ trait LightGBMParams extends Wrappable
   def setLambdaL2(value: Double): this.type = set(lambdaL2, value)
 
   val isProvideTrainingMetric = new BooleanParam(this, "isProvideTrainingMetric",
-    "Whether output metric result over training dataset.")
+    "Whether to output metric results over the training dataset.")
   setDefault(isProvideTrainingMetric -> false)
   def getIsProvideTrainingMetric: Boolean = $(isProvideTrainingMetric)
   def setIsProvideTrainingMetric(value: Boolean): this.type = set(isProvideTrainingMetric, value)

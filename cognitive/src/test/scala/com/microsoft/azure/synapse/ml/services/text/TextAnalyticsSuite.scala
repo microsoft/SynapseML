@@ -15,7 +15,7 @@ import org.scalactic.{Equality, TolerantNumerics}
 //scalastyle:off null
 trait TextEndpoint {
   lazy val textKey: String = sys.env.getOrElse("TEXT_API_KEY", Secrets.CognitiveApiKey)
-  lazy val textApiLocation: String = sys.env.getOrElse("TEXT_API_LOCATION", "eastus")
+  lazy val textApiLocation: String = sys.env.getOrElse("TEXT_API_LOCATION", "centralus")
 }
 
 trait TATestBase[S <: TextAnalyticsBaseNoBinding with HasUnpackedBinding]

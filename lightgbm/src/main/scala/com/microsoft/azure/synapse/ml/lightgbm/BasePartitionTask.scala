@@ -23,7 +23,7 @@ case class PartitionResult(booster: Option[LightGBMBooster],
 
 /**
   * Object to encapsulate all intermediate data calculations.
-  * Note tha only bulk mode uses these properties, but BasePartitionTask uses this class for consistent interfaces.
+  * Note that only bulk mode uses these properties, but BasePartitionTask uses this class for consistent interfaces.
   */
 case class PartitionDataState(aggregatedTrainingData: Option[BaseAggregatedColumns],
                               aggregatedValidationData: Option[BaseAggregatedColumns])
@@ -85,7 +85,7 @@ case class PartitionTaskContext(trainingCtx: TrainingContext,
 
   /* The count of partitions in this executor
    */
-  lazy val executorPartitionCount: Int = trainingCtx.partitionCounts.get.length
+  lazy val executorPartitionCount: Int = networkTopologyInfo.executorPartitionIdList.length
 
   /* The total count of partition rows in this executor
    */

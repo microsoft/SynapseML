@@ -7,7 +7,7 @@ import com.microsoft.azure.synapse.ml.lightgbm.swig.SwigUtils
 import com.microsoft.azure.synapse.ml.lightgbm._
 import com.microsoft.ml.lightgbm._
 import org.apache.spark.sql._
-import org.slf4j.Logger
+import org.slf4j.{Logger, LoggerFactory}
 
 
 object ReferenceDatasetUtils {
@@ -111,18 +111,51 @@ object ReferenceDatasetUtils {
       count,
       datasetParams)
 
-    // Initialize the dataset for streaming (allocates arrays mostly)
-    val maxOmpThreads = ctx.trainingParams.executionParams.maxStreamingOMPThreads
-    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetInitStreaming(lightGBMDataset.datasetPtr,
-      ctx.trainingCtx.hasWeightsAsInt,
-      ctx.trainingCtx.hasInitialScoresAsInt,
-      ctx.trainingCtx.hasGroupsAsInt,
-      ctx.trainingParams.getNumClass,
-      ctx.executorPartitionCount,
-      maxOmpThreads),
-      "LGBM_DatasetInitStreaming")
+    initializeOwnedDataset(lightGBMDataset) {
+      DatasetUtils.validateFeatureSize(lightGBMDataset.numFeature(), ctx.trainingCtx.numCols)
 
-    lightGBMDataset.setFeatureNames(ctx.trainingCtx.featureNames, ctx.trainingCtx.numCols)
+      // Initialize the dataset for streaming (allocates arrays mostly)
+      val configuredMaxOmpThreads = ctx.trainingParams.executionParams.maxStreamingOMPThreads
+      val maxOmpThreads = streamingOmpAllocationBound(
+        configuredMaxOmpThreads,
+        ctx.trainingParams.executionParams.numThreads)
+      if (ctx.trainingParams.generalParams.verbosity > 1) {
+        LoggerFactory.getLogger(getClass).info(
+          s"Initializing streaming Dataset: executor=${LightGBMUtils.getExecutorId}, " +
+            s"partition=${ctx.partitionId}, task=${ctx.taskId}, rows=$count, " +
+            s"localPartitions=${ctx.networkTopologyInfo.executorPartitionIdList.sorted.mkString(",")}, " +
+            s"externalThreads=${ctx.executorPartitionCount}, " +
+            s"configuredMaxStreamingOMPThreads=$configuredMaxOmpThreads, allocationBound=$maxOmpThreads")
+      }
+      LightGBMUtils.validate(lightgbmlib.LGBM_DatasetInitStreaming(lightGBMDataset.datasetPtr,
+        ctx.trainingCtx.hasWeightsAsInt,
+        ctx.trainingCtx.hasInitialScoresAsInt,
+        ctx.trainingCtx.hasGroupsAsInt,
+        ctx.trainingParams.getNumClass,
+        ctx.executorPartitionCount,
+        maxOmpThreads),
+        "LGBM_DatasetInitStreaming")
+
+      lightGBMDataset.setFeatureNames(ctx.trainingCtx.featureNames, ctx.trainingCtx.numCols)
+    }
+  }
+
+  private[lightgbm] def streamingOmpAllocationBound(configuredMaxThreads: Int,
+                                                    configuredNumThreads: Int): Int = {
+    if (configuredMaxThreads <= 0 || configuredNumThreads <= 0) {
+      // Let the native runtime use the same OpenMP team size for buffer allocation and indexing.
+      -1
+    } else {
+      math.max(configuredMaxThreads, configuredNumThreads)
+    }
+  }
+
+  private[lightgbm] def initializeOwnedDataset(dataset: LightGBMDataset)
+                                                (initialization: => Unit): LightGBMDataset = {
+    NetworkManager.withCleanupOnFailurePreservingPrimary(dataset.close()) {
+      initialization
+      dataset
+    }
   }
 
   private def toByteArray(buffer: SWIGTYPE_p_p_void, bufferLen: Int): Array[Byte] = {
@@ -152,17 +185,24 @@ object ReferenceDatasetUtils {
                                           datasetParams: String): LightGBMDataset = {
     // Convert byte array to native memory
     val datasetVoidPtr = lightgbmlib.voidpp_handle()
-    val nativeByteArray = SwigUtils.byteArrayToNative(serializedDataset)
-    LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromSerializedReference( //scalastyle:ignore token
-      lightgbmlib.byte_to_voidp_ptr(nativeByteArray),
-      serializedDataset.length,
-      rowCount,
-      0, // Always zero since we will be using InitStreaming to do allocation
-      datasetParams,
-      datasetVoidPtr), "Dataset create from reference")
+    try {
+      val nativeByteArray = SwigUtils.byteArrayToNative(serializedDataset)
+      try {
+        LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromSerializedReference( //scalastyle:ignore token
+          lightgbmlib.byte_to_voidp_ptr(nativeByteArray),
+          serializedDataset.length,
+          rowCount,
+          0, // Always zero since we will be using InitStreaming to do allocation
+          datasetParams,
+          datasetVoidPtr), "Dataset create from reference")
 
-    val datasetPtr: SWIGTYPE_p_void = lightgbmlib.voidpp_value(datasetVoidPtr)
-    lightgbmlib.delete_voidpp(datasetVoidPtr)
-    new LightGBMDataset(datasetPtr)
+        val datasetPtr: SWIGTYPE_p_void = lightgbmlib.voidpp_value(datasetVoidPtr)
+        new LightGBMDataset(datasetPtr)
+      } finally {
+        lightgbmlib.delete_byteArray(nativeByteArray)
+      }
+    } finally {
+      lightgbmlib.delete_voidpp(datasetVoidPtr)
+    }
   }
 }
