@@ -20,7 +20,7 @@ current GPT-6 Astra session. No other agents or factory were launched.
 
 ## Exact scope
 
-Worktree: `C:\Users\singhrana\Documents\SynapseML\.worktrees\branch-context-20260916`
+Checkout: repository root on `docs/spark4-branch-context-20260916`.
 
 Local branch: `docs/spark4-branch-context-20260916`.
 HEAD: `e97b63c43ce194c8128fceac7e866463864745af`.

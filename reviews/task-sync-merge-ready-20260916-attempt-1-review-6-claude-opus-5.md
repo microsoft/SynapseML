@@ -3,7 +3,7 @@
 - **Model:** claude-opus-5
 - **Theme:** round 6 only, sequential. Diagnostics, durability, cost, and documentation accuracy.
 - **Verdict:** ISSUES_FOUND — six low-severity polish items. No correctness defect found; nothing changed.
-- **Scope:** uncommitted diff + untracked sources in `.worktrees/branch-context-20260916`
+- **Scope:** uncommitted diff + untracked sources at the repository root
   (`docs/spark4-branch-context-20260916`, HEAD `e97b63c43c`), public `master` / PR #2719:
   11 modified tracked files, 1 deletion (`core/.../python/synapse/ml/recommendation/__init__.py`),
   3 untracked sources. `reviews/` is evidence, not code scope. Rounds 1–4 findings verified fixed in
@@ -126,3 +126,13 @@ tests, aggregate main/test Scala style, and all-module codegen on JDK 11.
 The Python run passed all 164 CI-helper tests, pinned Black across 205 files,
 and the actual legacy-layout adapter check. These are local results, not
 exact-head CI or downstream packaging proof. Downstream validation remains open.
+
+## Published review follow-up
+
+Copilot review `5229643608` requested a functional PR title/description and
+portable evidence references. The PR description now covers the codegen,
+exports, and compatibility changes with their validation limits. Removed
+machine-local checkout and tool paths from both review groups, retaining
+branches, commit identifiers, findings, commands, and resolution history.
+The shared branch guide now records that evidence-publication convention.
+This follow-up changes documentation only.

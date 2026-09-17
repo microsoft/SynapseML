@@ -25,7 +25,7 @@ The parent owns corrections and later rounds.
 
 | Item | Reviewed value |
 | --- | --- |
-| Worktree | `C:\Users\singhrana\Documents\SynapseML\.worktrees\branch-context-20260916` |
+| Checkout | Repository root, branch `docs/spark4-branch-context-20260916` |
 | Branch | `docs/spark4-branch-context-20260916` |
 | Target master and HEAD | `1305587a4afe92d27c8e28894b90e38020252e04` |
 | Initial staged tree | `ab05f8f716021f7626187405b8f5618aaadece9a` |
@@ -105,10 +105,9 @@ silently covered by an earlier tree hash.
 ### Exact diff and reference commands
 
 ```powershell
-$env:PATH = 'C:\Users\singhrana\AppData\Local\GitHubDesktop\app-3.6.4\resources\app\git\cmd;' + $env:PATH
 $env:GIT_OPTIONAL_LOCKS = '0'
-$git = 'C:\Users\singhrana\AppData\Local\GitHubDesktop\app-3.6.4\resources\app\git\cmd\git.exe'
-$wt = 'C:\Users\singhrana\Documents\SynapseML\.worktrees\branch-context-20260916'
+$git = (Get-Command git).Source
+$wt = '.'
 & $git --no-pager -C $wt diff --no-ext-diff --no-renames --unified=3 HEAD -- '.github\skills\synapseml-branches\references\branch-spark4-common.md' '.github\skills\synapseml-branches\references\branch-spark4p0.md' '.github\skills\synapseml-branches\references\branch-spark4p1.md'
 & $git --no-pager -C $wt diff --no-ext-diff --unified=4 ab05f8f716021f7626187405b8f5618aaadece9a -- '.github\skills\synapseml-branches\references\branch-spark4-common.md'
 & $git --no-pager -C $wt show 'ecec8dd58b7a07ebc24d816e321a85ff5dc19d57:core/src/main/scala/com/microsoft/azure/synapse/ml/recommendation/SAR.scala'

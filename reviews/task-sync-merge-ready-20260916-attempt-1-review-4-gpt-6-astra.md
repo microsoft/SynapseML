@@ -9,7 +9,7 @@
 
 ## Exact scope
 
-Worktree: `C:\Users\singhrana\Documents\SynapseML\.worktrees\branch-context-20260916`.
+Checkout: repository root on `docs/spark4-branch-context-20260916`.
 Target supplied by the driver: public `master`, PR #2719.
 HEAD: `e97b63c43ce194c8128fceac7e866463864745af`.
 Reviewed the current uncommitted follow-up: 11 modified files, one deletion and three untracked source files.

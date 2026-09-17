@@ -2,7 +2,7 @@
 
 - **Model:** claude-opus-5
 - **Theme:** failure paths, boundaries, concurrency, resource cleanup, exact compatibility guards
-- **Scope:** uncommitted diff + untracked sources in `.worktrees/branch-context-20260916`
+- **Scope:** uncommitted diff + untracked sources at the repository root
   (`docs/spark4-branch-context-20260916`, on `e97b63c43c`). `reviews/` excluded from code scope.
   Round 1 findings are fixed with resolution notes; round 2 was clean.
 

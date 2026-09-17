@@ -12,7 +12,7 @@
 
 | Item | Value |
 | --- | --- |
-| Worktree | `C:\Users\singhrana\Documents\SynapseML\.worktrees\branch-context-20260916` |
+| Checkout | Repository root, branch `docs/spark4-branch-context-20260916` |
 | Branch | `docs/spark4-branch-context-20260916` |
 | Target / HEAD / master | `1305587a4afe92d27c8e28894b90e38020252e04` |
 | Round 1 comparison tree | `11224c917329c402e208bf39084c51702603576f` |
@@ -63,8 +63,8 @@ The other two branch references are unchanged from the already reviewed Round 1 
 Native Git was used with process-local PATH, `GIT_OPTIONAL_LOCKS=0`, and this exact worktree.
 
 ```powershell
-$git = 'C:\Users\singhrana\AppData\Local\GitHubDesktop\app-3.6.4\resources\app\git\cmd\git.exe'
-$wt = 'C:\Users\singhrana\Documents\SynapseML\.worktrees\branch-context-20260916'
+$git = (Get-Command git).Source
+$wt = '.'
 & $git --no-pager -C $wt diff --no-ext-diff --unified=6 11224c917329c402e208bf39084c51702603576f -- '.github\skills\synapseml-branches\references\branch-spark4-common.md'
 & $git --no-pager -C $wt diff --name-only 14e3057db49bd6e46133fd7beb4bd776071be383 --
 & $git --no-pager -C $wt diff --check 14e3057db49bd6e46133fd7beb4bd776071be383 --

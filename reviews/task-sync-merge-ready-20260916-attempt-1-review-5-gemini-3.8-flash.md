@@ -9,7 +9,7 @@
 
 ## Exact scope
 
-Worktree: `C:\Users\singhrana\Documents\SynapseML\.worktrees\branch-context-20260916`.
+Checkout: repository root on `docs/spark4-branch-context-20260916`.
 Target: public `master`, PR #2719.
 HEAD: `e97b63c43ce194c8128fceac7e866463864745af`.
 Scope reviewed: 11 modified tracked files, 1 deleted file (`core\src\main\python\synapse\ml\recommendation\__init__.py`), and 3 untracked test/source files.
