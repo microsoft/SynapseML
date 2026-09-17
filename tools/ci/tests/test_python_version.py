@@ -5,6 +5,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
 SCRIPT = REPO_ROOT / "tools" / "ci" / "get_python_version.sh"
@@ -66,10 +67,19 @@ def test_extracts_minor_series_python_version(tmp_path):
 
 
 def test_extracts_repository_python_version_for_docker():
+    dependencies = yaml.safe_load((REPO_ROOT / "environment.yml").read_text())[
+        "dependencies"
+    ]
+    versions = [
+        dependency.removeprefix("python=")
+        for dependency in dependencies
+        if isinstance(dependency, str) and dependency.startswith("python=")
+    ]
+    assert len(versions) == 1
     result = _run()
 
     assert result.returncode == 0, result.stderr
-    assert result.stdout == "3.13\n"
+    assert result.stdout == versions[0] + "\n"
 
 
 def test_rejects_multiple_python_versions(tmp_path):

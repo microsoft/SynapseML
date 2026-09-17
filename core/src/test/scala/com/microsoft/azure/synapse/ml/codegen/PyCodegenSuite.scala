@@ -54,6 +54,7 @@ private[codegen] object PyCodegenFixtures {
   }
 
   class ForeignParamPythonStage extends TypedPythonStage("foreignParamPythonStage") {
+
     override protected lazy val classNameHelper: String = "ForeignParamPythonStage"
 
     override val text = new Param[String]("otherStage", "text", "text value")
@@ -252,7 +253,7 @@ class PyCodegenSuite extends AnyFunSuite {
     }
   }
 
-  test("generated wrappers and stubs tolerate Spark 4 rejecting foreign parameter defaults") {
+  test("generated runtime wrappers and stubs tolerate foreign-owned parameters") {
     withTempDir { root =>
       val conf = codegenConfig(root)
       val stage = new ForeignParamPythonStage

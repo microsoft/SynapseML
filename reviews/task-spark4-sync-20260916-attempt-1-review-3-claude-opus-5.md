@@ -22,7 +22,7 @@ services were touched; only this artifact was written.
 
 | Item | Reviewed value |
 | --- | --- |
-| Worktree | `C:\Users\singhrana\Documents\SynapseML\.worktrees\sync-spark41-20260916` |
+| Checkout | Repository root, branch `sync/spark4.1-master-20260916` |
 | Branch | `sync/spark4.1-master-20260916` |
 | Target and HEAD | `06897e5b27e28d84ce7ffa33e93d7f756992d0f2` |
 | Incoming master and MERGE_HEAD | `1305587a4afe92d27c8e28894b90e38020252e04` |

@@ -12,7 +12,7 @@
 
 | Item | Value |
 | --- | --- |
-| Worktree | `C:\Users\singhrana\Documents\SynapseML\.worktrees\sync-spark41-20260916` |
+| Checkout | Repository root, branch `sync/spark4.1-master-20260916` |
 | Branch | `sync/spark4.1-master-20260916` |
 | Target / HEAD | `06897e5b27e28d84ce7ffa33e93d7f756992d0f2` |
 | Master / MERGE_HEAD | `1305587a4afe92d27c8e28894b90e38020252e04` |
@@ -76,8 +76,8 @@ These are all four source changes from the Round 1 comparison tree:
 All Git calls used process-local PATH, `GIT_OPTIONAL_LOCKS=0`, and the exact worktree.
 
 ```powershell
-$git = 'C:\Users\singhrana\AppData\Local\GitHubDesktop\app-3.6.4\resources\app\git\cmd\git.exe'
-$wt = 'C:\Users\singhrana\Documents\SynapseML\.worktrees\sync-spark41-20260916'
+$git = (Get-Command git).Source
+$wt = '.'
 & $git --no-pager -C $wt diff --no-ext-diff --unified=6 0eabccd3a82c4ff1e50721b2fe60e4d051a2bc0e -- 'tools\ci\README.md' 'tools\ci\get_python_version.sh' 'tools\ci\tests\test_pipeline_yaml.py' 'tools\ci\tests\test_python_version.py'
 & $git --no-pager -C $wt diff --name-only 0eabccd3a82c4ff1e50721b2fe60e4d051a2bc0e --
 & $git --no-pager -C $wt diff --check 0eabccd3a82c4ff1e50721b2fe60e4d051a2bc0e --

@@ -31,7 +31,7 @@ and later rounds belong to the parent.
 
 | Item | Reviewed value |
 | --- | --- |
-| Worktree | `C:\Users\singhrana\Documents\SynapseML\.worktrees\sync-spark41-20260916` |
+| Checkout | Repository root, branch `sync/spark4.1-master-20260916` |
 | Branch | `sync/spark4.1-master-20260916` |
 | Target and HEAD | `06897e5b27e28d84ce7ffa33e93d7f756992d0f2` |
 | Incoming master and MERGE_HEAD | `1305587a4afe92d27c8e28894b90e38020252e04` |
@@ -133,10 +133,9 @@ reviewed and are not part of the source verdict.
 ### Exact diff basis
 
 ```powershell
-$env:PATH = 'C:\Users\singhrana\AppData\Local\GitHubDesktop\app-3.6.4\resources\app\git\cmd;' + $env:PATH
 $env:GIT_OPTIONAL_LOCKS = '0'
-$git = 'C:\Users\singhrana\AppData\Local\GitHubDesktop\app-3.6.4\resources\app\git\cmd\git.exe'
-$wt = 'C:\Users\singhrana\Documents\SynapseML\.worktrees\sync-spark41-20260916'
+$git = (Get-Command git).Source
+$wt = '.'
 $master = '1305587a4afe92d27c8e28894b90e38020252e04'
 & $git --no-pager -C $wt diff --name-only a6fd536ad7 $master
 & $git --no-pager -C $wt diff --name-status --no-renames $master
