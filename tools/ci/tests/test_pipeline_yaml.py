@@ -17,16 +17,21 @@ import pytest
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[3]
+BUILD_SBT = REPO_ROOT / "build.sbt"
 PIPELINE = REPO_ROOT / "pipeline.yaml"
 SBT_CACHE_TPL = REPO_ROOT / "templates" / "sbt_cache.yml"
 SBT_RETRY = REPO_ROOT / "tools" / "ci" / "sbt_retry.sh"
 SBT_VERSION = REPO_ROOT / "tools" / "ci" / "get_sbt_version.sh"
 DATABRICKS_IMPACT = REPO_ROOT / "tools" / "ci" / "databricks_impact.py"
 DATABRICKS_STEPS_TPL = REPO_ROOT / "templates" / "databricks_e2e_steps.yml"
+KEY_VAULT_TPL = REPO_ROOT / "templates" / "kv.yml"
+FABRIC_KEY_VAULT_TPL = REPO_ROOT / "templates" / "fabric_kv.yml"
+PUBLISH_TPL = REPO_ROOT / "templates" / "publish.yml"
 CLEAN_ACR_PIPELINE = REPO_ROOT / ".pipelines" / "clean-acr.yml"
 PR_VALIDATION = REPO_ROOT / ".github" / "workflows" / "pr-validation.yml"
-BUILD_SBT = REPO_ROOT / "build.sbt"
 PLUGINS_SBT = REPO_ROOT / "project" / "plugins.sbt"
+DEMO_DOCKERFILE = REPO_ROOT / "tools" / "docker" / "demo" / "Dockerfile"
+MINIMAL_DOCKERFILE = REPO_ROOT / "tools" / "docker" / "minimal" / "Dockerfile"
 RELEASE_COMPAT_PREREQUISITES = (
     REPO_ROOT / ".pipelines" / "release-compat-prerequisites.txt"
 )
@@ -46,6 +51,56 @@ def _jobs(node):
     elif isinstance(node, list):
         for value in node:
             yield from _jobs(value)
+
+
+def _secret_filter(value):
+    return set(value.replace(",", " ").split())
+
+
+def _fabric_certificate_script():
+    data = yaml.safe_load(FABRIC_KEY_VAULT_TPL.read_text())
+    certificate_task = next(
+        step
+        for step in data["steps"]
+        if step.get("displayName") == "Get Fabric Test Certificate from Key Vault"
+    )
+    return certificate_task["inputs"]["inlineScript"]
+
+
+def _run_fabric_certificate_script(
+    tmp_path, account, certificate="test-pfx", az_exit=0
+):
+    mock_az = tmp_path / "az"
+    mock_az.write_text(
+        """#!/usr/bin/env bash
+printf '%s\\n' "$@" > "$MOCK_AZ_ARGS"
+if [ "$MOCK_AZ_EXIT" -ne 0 ]; then
+  exit "$MOCK_AZ_EXIT"
+fi
+printf '%s' "$MOCK_CERTIFICATE"
+"""
+    )
+    mock_az.chmod(0o755)
+    az_args = tmp_path / "az-args.txt"
+    env = os.environ.copy()
+    env.update(
+        {
+            "PATH": f"{tmp_path}{os.pathsep}{env['PATH']}",
+            "FABRIC_CERT_KEY_VAULT_NAME": "test-cert-vault",
+            "INTEGRATION_ACCOUNT": account,
+            "MOCK_AZ_ARGS": str(az_args),
+            "MOCK_AZ_EXIT": str(az_exit),
+            "MOCK_CERTIFICATE": certificate,
+        }
+    )
+    result = subprocess.run(
+        ["bash", "-c", _fabric_certificate_script()],
+        check=False,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    return result, az_args
 
 
 def _release_compat_script():
@@ -116,6 +171,22 @@ def test_pipeline_and_templates_parse():
         assert yaml.safe_load(tpl.read_text()) is not None, f"{tpl} failed to parse"
 
 
+def test_build_has_canonical_maven_central_fallback():
+    build = "\n".join(
+        line
+        for line in BUILD_SBT.read_text().splitlines()
+        if not line.lstrip().startswith("//")
+    )
+    resolver = (
+        r'"Maven Central fallback"\s+at\s+' r'"https://repo\.maven\.apache\.org/maven2"'
+    )
+    active_setting = (
+        rf"ThisBuild\s*/\s*resolvers\s*"
+        rf"(?:\+=\s*{resolver}|\+\+=\s*Seq\s*\([^)]*{resolver}[^)]*\))"
+    )
+    assert len(re.findall(active_setting, build, flags=re.DOTALL)) == 1
+
+
 def test_sbt_cache_template_exists_and_parses():
     assert SBT_CACHE_TPL.exists()
     data = yaml.safe_load(SBT_CACHE_TPL.read_text())
@@ -145,8 +216,12 @@ def test_sbt_cache_template_exists_and_parses():
     ]
     assert len(fallback_scripts) == 1
     fallback_script = fallback_scripts[0]
-    assert "SBT_SETUP_MAX_STAGGER_SECONDS" in fallback_script
+    stagger_export = "export SBT_SETUP_MAX_STAGGER_SECONDS=0"
+    assert stagger_export in fallback_script
     assert 'bash "$SBT_RETRY_SCRIPT_PATH" update' in fallback_script
+    assert fallback_script.index(stagger_export) < fallback_script.index(
+        'bash "$SBT_RETRY_SCRIPT_PATH" update'
+    )
     assert 'if [ "$exact_hit" != "true" ]' in fallback_script
     parameters = {parameter["name"]: parameter for parameter in data["parameters"]}
     assert parameters["retryScriptPath"]["default"] == "tools/ci/sbt_retry.sh"
@@ -174,6 +249,16 @@ def test_sbt_retry_script_referenced_and_exists():
     txt = _pipeline_text()
     assert "tools/ci/sbt_retry.sh" in txt
     assert "tools/ci/get_sbt_version.sh" in txt
+
+
+def test_publish_template_repairs_poisoned_cache_before_packaging():
+    data = yaml.safe_load(PUBLISH_TPL.read_text())
+    script = data["steps"][0]["inputs"]["inlineScript"]
+    recovery = "SBT_SETUP_MAX_STAGGER_SECONDS=0 bash tools/ci/sbt_retry.sh update"
+
+    assert recovery in script
+    assert script.index(recovery) < script.index("sbt packagePython")
+    assert script.index("sbt packagePython") < script.index("sbt publishBlob")
 
 
 def test_no_dormant_ivy_cache_placeholders_remain():
@@ -359,6 +444,232 @@ def test_github_pr_validation_supports_spark41():
     assert "--add-opens=java.prefs/java.util.prefs=ALL-UNNAMED" in workflow
 
 
+def test_fabric_e2e_keeps_key_vault_authentication_while_disabled():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+    fabric_e2e = jobs["FabricE2E"]
+
+    assert fabric_e2e["condition"] is False
+
+    template_steps = {
+        step["template"]: step
+        for step in fabric_e2e["steps"]
+        if isinstance(step, dict) and "template" in step
+    }
+    assert "templates/kv.yml" in template_steps
+    assert "templates/fabric_kv.yml" in template_steps
+    assert "templates/publish.yml" in template_steps
+    bootstrap_filter = _secret_filter(
+        template_steps["templates/kv.yml"]["parameters"]["secretsFilter"]
+    )
+    assert bootstrap_filter == {
+        "fabric-test-kv-name",
+        "fabric-cert-kv-name",
+        "ado-feed-token",
+        "nexus-un",
+        "nexus-pw",
+        "pgp-private",
+        "pgp-public",
+        "pgp-pw",
+    }
+
+    e2e = next(step for step in fabric_e2e["steps"] if step.get("displayName") == "E2E")
+    assert e2e["env"] == {
+        "INTEGRATION_ENV": "$(sempy-integration-region)",
+        "INTEGRATION_ACCOUNT": "$(sempy-integration-account)",
+        "INTEGRATION_CERTIFICATE": "$(sempy-integration-certificate)",
+        "INTEGRATION_WORKSPACE_PREFIX": "$(sempy-integration-workspace-prefix)",
+    }
+    assert e2e["inputs"]["azureSubscription"] == "SynapseML Build"
+    script = e2e["inputs"]["inlineScript"]
+    assert "authentication=key-vault" in script
+    assert "fabric-spark-cli" not in script
+    assert "INTEGRATION_AUTH_MODE" not in script
+    assert "fabricE2EAuthMode" not in _pipeline_text()
+
+    key_vault_template = yaml.safe_load(KEY_VAULT_TPL.read_text())
+    parameters = {
+        parameter["name"]: parameter for parameter in key_vault_template["parameters"]
+    }
+    assert parameters["secretsFilter"]["default"] == "*"
+    bootstrap_task = key_vault_template["steps"][0]
+    assert bootstrap_task["inputs"]["keyVaultName"] == "mmlspark-keys"
+    assert bootstrap_task["inputs"]["SecretsFilter"] == (
+        "${{ parameters.secretsFilter }}"
+    )
+
+    fabric_template = yaml.safe_load(FABRIC_KEY_VAULT_TPL.read_text())
+    assert len(fabric_template["steps"]) == 2
+    credential_task, certificate_task = fabric_template["steps"]
+    assert credential_task["inputs"]["KeyVaultName"] == "$(fabric-test-kv-name)"
+    assert _secret_filter(credential_task["inputs"]["SecretsFilter"]) == {
+        "sempy-integration-region",
+        "sempy-integration-account",
+        "sempy-integration-workspace-prefix",
+    }
+    certificate_script = certificate_task["inputs"]["inlineScript"]
+    assert "set -euo pipefail" in certificate_script
+    assert 'certificate_secret_name="${username}-${tenant}"' in certificate_script
+    assert '--vault-name "$FABRIC_CERT_KEY_VAULT_NAME"' in certificate_script
+    assert '--name "$certificate_secret_name"' in certificate_script
+    assert "--only-show-errors" in certificate_script
+    assert "Fabric integration certificate was empty." in certificate_script
+    assert "Computed certificate secret name" not in certificate_script
+    assert certificate_task["env"] == {
+        "FABRIC_CERT_KEY_VAULT_NAME": "$(fabric-cert-kv-name)",
+        "INTEGRATION_ACCOUNT": "$(sempy-integration-account)",
+    }
+    publish_template = yaml.safe_load(PUBLISH_TPL.read_text())
+    assert publish_template["steps"][0]["env"]["ADO-FEED-TOKEN"] == (
+        "$(ado-feed-token)"
+    )
+
+
+@pytest.mark.skipif(os.name != "posix", reason="certificate retrieval requires Bash")
+def test_fabric_certificate_lookup_derives_the_existing_secret_name(tmp_path):
+    result, az_args = _run_fabric_certificate_script(
+        tmp_path, "test-admin@test-tenant.onmicrosoft.com"
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert result.stdout == (
+        "##vso[task.setvariable variable=sempy-integration-certificate;"
+        "issecret=true]test-pfx\n"
+    )
+    assert "test-admin-test-tenant" not in result.stdout
+    assert az_args.read_text().splitlines() == [
+        "keyvault",
+        "secret",
+        "show",
+        "--vault-name",
+        "test-cert-vault",
+        "--name",
+        "test-admin-test-tenant",
+        "--query",
+        "value",
+        "--output",
+        "tsv",
+        "--only-show-errors",
+    ]
+
+
+@pytest.mark.skipif(os.name != "posix", reason="certificate retrieval requires Bash")
+@pytest.mark.parametrize(
+    ("account", "certificate", "az_exit", "expected_error"),
+    [
+        ("not-an-account", "test-pfx", 0, "must use the username@tenant format"),
+        ("test@test@tenant", "test-pfx", 0, "must use the username@tenant format"),
+        (
+            "test-admin@test-tenant.onmicrosoft.com",
+            "",
+            0,
+            "certificate was empty",
+        ),
+        (
+            "test-admin@test-tenant.onmicrosoft.com",
+            "test-pfx",
+            17,
+            None,
+        ),
+    ],
+)
+def test_fabric_certificate_lookup_fails_closed(
+    tmp_path, account, certificate, az_exit, expected_error
+):
+    result, az_args = _run_fabric_certificate_script(
+        tmp_path, account, certificate=certificate, az_exit=az_exit
+    )
+
+    assert result.returncode != 0
+    if expected_error:
+        assert expected_error in result.stderr
+    if "@" not in account:
+        assert not az_args.exists()
+
+
+def test_fabric_e2e_retains_results_and_metadata_on_failure():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+    steps = jobs["FabricE2E"]["steps"]
+
+    e2e = next(step for step in steps if step.get("displayName") == "E2E")
+    script = e2e["inputs"]["inlineScript"]
+    assert "run-metadata.txt" in script
+    assert "source_version=$(Build.SourceVersion)" in script
+    assert "e2e_step=preparing" in script
+    assert "e2e_step=running" in script
+    assert "e2e_step=finished" in script
+    assert "sbt_exit_code=$?" in script
+    assert 'exit "$sbt_exit_code"' in script
+
+    collect = next(
+        step
+        for step in steps
+        if step.get("displayName") == "Collect Fabric E2E evidence"
+    )
+    assert collect["condition"] == "always()"
+    assert "INTEGRATION_ACCOUNT" not in collect["bash"]
+    assert "INTEGRATION_CERTIFICATE" not in collect["bash"]
+    assert "e2e_step=not-started" in collect["bash"]
+    assert "TEST-com.microsoft.azure.synapse.ml.nbtest.Fabric*.xml" in collect["bash"]
+
+    publish_results = next(
+        step for step in steps if step.get("displayName") == "Publish Test Results"
+    )
+    assert publish_results["condition"] == "always()"
+    assert publish_results["inputs"]["failTaskOnFailedTests"] is True
+
+    publish_evidence = next(
+        step
+        for step in steps
+        if step.get("displayName") == "Publish Fabric E2E evidence"
+    )
+    assert publish_evidence["condition"] == "always()"
+    assert publish_evidence["inputs"]["targetPath"] == (
+        "$(Build.ArtifactStagingDirectory)/fabric-e2e"
+    )
+
+
+def test_internal_python_adapts_typing_package_data_to_current_codegen():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+    internal = jobs["InternalCompat"]
+    retarget_step = next(
+        step
+        for step in internal["steps"]
+        if isinstance(step, dict)
+        and step.get("displayName") == "Retarget Internal to this build"
+    )
+
+    script = retarget_step["bash"]
+    assert 'if [ "$COMPAT_LANE" = "python" ]; then' in script
+    assert '"": ["*.pyi", "py.typed"]' in script
+    assert (
+        'python "$(Agent.BuildDirectory)/s/tools/ci/'
+        'patch_internal_typing_support.py"' in script
+    )
+    assert "utils/typing_build_support.py" in script
+
+
+def test_internal_python_isolates_typing_from_spark_tests():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+    internal = jobs["InternalCompat"]
+    test_step = next(
+        step
+        for step in internal["steps"]
+        if isinstance(step, dict)
+        and step.get("displayName") == "Run Internal Python compatibility tests"
+    )
+
+    script = test_step["inputs"]["inlineScript"]
+    assert '--ignore=typing"' in script
+    assert "sbt testPythonAIFuncCommon" in script
+    assert "sbt testPythonExcludeAIFunc" not in script
+    assert "COMPAT_LANE" in test_step["condition"]
+    assert "python" in test_step["condition"]
+
+
 def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
     data = yaml.safe_load(_pipeline_text())
     jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
@@ -467,7 +778,7 @@ def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
         == 2
     )
     assert (
-        'git diff --name-only -z "$PREREQUISITE_PARENT" "$PREREQUISITE"'
+        'git diff --no-renames --name-only -z "$PREREQUISITE_PARENT" "$PREREQUISITE"'
         in rebase_script
     )
     release_exclusions = (
@@ -659,6 +970,88 @@ def test_release_compat_replays_prerequisite_before_pr_patch():
             "src/value.txt"
         ]
         assert f"Prerequisite {prerequisite} applies cleanly" in result.stdout
+        assert "PR changes apply cleanly onto release" in result.stdout
+    finally:
+        shutil.rmtree(scratch_root, ignore_errors=True)
+
+
+@pytest.mark.skipif(os.name != "posix", reason="release replay script requires Bash")
+def test_release_compat_replays_prerequisite_rename_without_leaving_source():
+    scratch_root = REPO_ROOT / "target" / f"release-compat-rename-{uuid.uuid4().hex}"
+    repo = scratch_root / "repo"
+    origin = scratch_root / "origin.git"
+    agent_temp = scratch_root / "agent"
+
+    try:
+        repo.mkdir(parents=True)
+        agent_temp.mkdir()
+        _init_release_compat_scratch_repo(repo)
+
+        value_file = repo / "src" / "value.txt"
+        old_file = repo / "src" / "old.txt"
+        new_file = repo / "src" / "new.txt"
+        value_file.parent.mkdir()
+        value_file.write_text("base\n")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "base")
+        base = _git(repo, "rev-parse", "HEAD").stdout.strip()
+        _git(repo, "branch", "release", base)
+
+        old_file.write_text("prerequisite\n")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "add prerequisite source")
+        add_prerequisite = _git(repo, "rev-parse", "HEAD").stdout.strip()
+
+        _git(
+            repo, "mv", str(old_file.relative_to(repo)), str(new_file.relative_to(repo))
+        )
+        _git(repo, "commit", "-m", "rename prerequisite source")
+        rename_prerequisite = _git(repo, "rev-parse", "HEAD").stdout.strip()
+
+        _git(repo, "checkout", "-b", "source")
+        prerequisite_config = repo / ".pipelines" / "release-compat-prerequisites.txt"
+        prerequisite_config.parent.mkdir()
+        prerequisite_config.write_text(f"{add_prerequisite}\n{rename_prerequisite}\n")
+        value_file.write_text("feature\n")
+        _git(repo, "add", ".")
+        _git(repo, "commit", "-m", "feature")
+
+        _git(repo, "checkout", "master")
+        _assert_git_clean(repo, "checkout before synthetic rename PR merge")
+        _git(repo, "merge", "--no-ff", "source", "-m", "merge feature")
+
+        subprocess.run(
+            ["git", "init", "--bare", str(origin)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        _git(repo, "remote", "add", "origin", str(origin))
+        _git(repo, "push", "origin", "master", "source", "release")
+
+        script = _release_compat_script()
+        script = script.replace("$(Agent.TempDirectory)", str(agent_temp))
+        script = script.replace("$(RELEASE_BRANCH)", "release")
+        result = subprocess.run(
+            ["bash", "-c", script],
+            cwd=repo,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+
+        assert (
+            result.returncode == 0
+        ), f"release replay failed\nstdout:\n{result.stdout}\nstderr:\n{result.stderr}"
+        assert not old_file.exists()
+        assert new_file.read_text() == "prerequisite\n"
+        assert value_file.read_text() == "feature\n"
+        assert _git(repo, "diff", "--cached", "--name-only").stdout.splitlines() == [
+            "src/new.txt",
+            "src/value.txt",
+        ]
+        assert f"Prerequisite {add_prerequisite} applies cleanly" in result.stdout
+        assert f"Prerequisite {rename_prerequisite} applies cleanly" in result.stdout
         assert "PR changes apply cleanly onto release" in result.stdout
     finally:
         shutil.rmtree(scratch_root, ignore_errors=True)
@@ -1249,6 +1642,52 @@ def test_build_docker_allows_time_for_both_image_builds():
     data = yaml.safe_load(_pipeline_text())
     jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
     assert jobs["BuildDocker"]["timeoutInMinutes"] >= 120
+
+
+def test_build_docker_reuses_bootstrap_layers_and_emits_progress():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+    image_builds = [
+        step
+        for step in jobs["BuildDocker"]["steps"]
+        if step.get("displayName") in {"Demo Image Build", "Minimal Image Build"}
+    ]
+
+    assert len(image_builds) == 2
+    for step in image_builds:
+        assert "--quiet" not in step["inputs"]["arguments"]
+        assert (
+            "--build-arg PYTHON_VERSION=$(pythonVersion)" in step["inputs"]["arguments"]
+        )
+        assert step["env"]["DOCKER_BUILDKIT"] == "1"
+        assert step["env"]["BUILDKIT_PROGRESS"] == "plain"
+
+    version_step = next(
+        step
+        for step in jobs["BuildDocker"]["steps"]
+        if step.get("displayName") == "Get Docker Tag + Version"
+    )
+    assert "tools/ci/get_python_version.sh" in version_step["bash"]
+    assert "variable=pythonVersion" in version_step["bash"]
+
+    dependency_marker = "# SYNAPSEML_BOOTSTRAP_END"
+    demo_bootstrap, separator, _ = DEMO_DOCKERFILE.read_text().partition(
+        dependency_marker
+    )
+    assert separator
+    minimal_bootstrap, separator, _ = MINIMAL_DOCKERFILE.read_text().partition(
+        dependency_marker
+    )
+    assert separator
+    assert demo_bootstrap == minimal_bootstrap
+    assert "pip install --no-cache-dir" in DEMO_DOCKERFILE.read_text()
+    assert "pip install --no-cache-dir" in MINIMAL_DOCKERFILE.read_text()
+    assert 'conda install -y "python=${PYTHON_VERSION}"' in DEMO_DOCKERFILE.read_text()
+    assert (
+        'conda install -y "python=${PYTHON_VERSION}"' in MINIMAL_DOCKERFILE.read_text()
+    )
+    assert "PYTHON_VERSION build argument is required" in DEMO_DOCKERFILE.read_text()
+    assert "PYTHON_VERSION build argument is required" in MINIMAL_DOCKERFILE.read_text()
 
 
 def test_publish_jobs_resolve_and_preserve_package_versions():

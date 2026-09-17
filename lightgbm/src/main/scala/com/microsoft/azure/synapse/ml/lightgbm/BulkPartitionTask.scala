@@ -43,11 +43,24 @@ class BulkPartitionTask extends BasePartitionTask {
       log.info(s"Merging data on task ${ctx.taskId}, partition ${ctx.partitionId}")
       mergeChunksIntoAggregatedArrays(ctx, prepAggregatedColumns, isForValidation = false)
     }
-    val aggregatedValidationColumns = ctx.trainingCtx.validationData.map { data =>
-      val prepAggregatedColumns: BaseChunkedColumns = getChunkedColumns(ctx, data.value.toIterator)
-      mergeChunksIntoAggregatedArrays(ctx, prepAggregatedColumns, isForValidation = true)
+    val aggregatedValidationColumns = ctx.trainingCtx.validationData.flatMap { data =>
+      if (shouldReadValidationData(ctx.trainingCtx.useSingleDatasetMode, ctx.shouldExecuteTraining)) {
+        val rows = ValidationDataServer.read(data)
+        Some(ValidationDataServer.withRows(rows) {
+          val prepAggregatedColumns: BaseChunkedColumns = getChunkedColumns(ctx, rows)
+          mergeChunksIntoAggregatedArrays(ctx, prepAggregatedColumns, isForValidation = true)
+        })
+      } else {
+        ctx.sharedState.validationDatasetState.arrayProcessedSignal.countDown()
+        None
+      }
     }
     PartitionDataState(Option(aggregatedColumns), aggregatedValidationColumns)
+  }
+
+  private[lightgbm] def shouldReadValidationData(useSingleDatasetMode: Boolean,
+                                                 shouldExecuteTraining: Boolean): Boolean = {
+    !useSingleDatasetMode || shouldExecuteTraining
   }
 
   protected def getTrainingDatasetInternal(ctx: PartitionTaskContext,
@@ -109,7 +122,7 @@ class BulkPartitionTask extends BasePartitionTask {
     }
 
     // For the validation Dataset in useSingleDataset mode, we only want 1 copy of the data (otherwise
-    // every partition appends the same broadcast-ed data). That one copy will be made by the main execution worker.
+    // every partition appends the same validation data). That one copy will be made by the main execution worker.
     val mergeRowsIntoDataset: Boolean =
       if (!isForValidation) true
       else !useSingleDataset || sharedState.mainExecutorWorker.get == LightGBMUtils.getTaskId

@@ -316,7 +316,7 @@ jobs:
   # the testFabricE2E condition when a compatible managed runtime is available.
   condition: false
   timeoutInMinutes: 120
-  cancelTimeoutInMinutes: 0
+  cancelTimeoutInMinutes: 5
   pool:
     vmImage: $(UBUNTU_VERSION)
   steps:
@@ -324,6 +324,16 @@ jobs:
     - template: templates/update_cli.yml
     - template: templates/conda.yml
     - template: templates/kv.yml
+      parameters:
+        secretsFilter: >
+          fabric-test-kv-name,
+          fabric-cert-kv-name,
+          ado-feed-token,
+          nexus-un,
+          nexus-pw,
+          pgp-private,
+          pgp-public,
+          pgp-pw
     - template: templates/fabric_kv.yml
     - template: templates/publish.yml
     - task: AzureCLI@2
@@ -333,23 +343,63 @@ jobs:
         scriptLocation: inlineScript
         scriptType: bash
         inlineScript: |
-          set -e
+          set -eo pipefail
+          artifact_root='$(Build.ArtifactStagingDirectory)/fabric-e2e'
+          mkdir -p "$artifact_root"
+          printf '%s\n' \
+            'authentication=key-vault' \
+            'source_version=$(Build.SourceVersion)' \
+            'suites=FabricTestCleanup,FabricSmokeTests,FabricNotebookTests' \
+            'e2e_step=preparing' \
+            > "$artifact_root/run-metadata.txt"
+
           source activate synapseml
+          printf '%s\n' 'e2e_step=running' >> "$artifact_root/run-metadata.txt"
+          set +e
           sbt \
             "testOnly com.microsoft.azure.synapse.ml.nbtest.FabricTestCleanup" \
             "testOnly com.microsoft.azure.synapse.ml.nbtest.FabricSmokeTests com.microsoft.azure.synapse.ml.nbtest.FabricNotebookTests"
+          sbt_exit_code=$?
+          set -e
+          printf 'e2e_step=finished\nsbt_exit_code=%s\n' "$sbt_exit_code" \
+            >> "$artifact_root/run-metadata.txt"
+          exit "$sbt_exit_code"
       env:
         INTEGRATION_ENV: $(sempy-integration-region)
         INTEGRATION_ACCOUNT: $(sempy-integration-account)
         INTEGRATION_CERTIFICATE: $(sempy-integration-certificate)
         INTEGRATION_WORKSPACE_PREFIX: $(sempy-integration-workspace-prefix)
-      condition: and(succeeded(), eq(variables.runTests, 'True'))
+    - bash: |
+        set -euo pipefail
+        artifact_root='$(Build.ArtifactStagingDirectory)/fabric-e2e'
+        report_root='$(Build.SourcesDirectory)/core/target/test-reports'
+        mkdir -p "$artifact_root/test-reports"
+        if [ ! -f "$artifact_root/run-metadata.txt" ]; then
+          printf '%s\n' \
+            'authentication=key-vault' \
+            'source_version=$(Build.SourceVersion)' \
+            'e2e_step=not-started' \
+            > "$artifact_root/run-metadata.txt"
+        fi
+        if [ -d "$report_root" ]; then
+          find "$report_root" -maxdepth 1 -type f \
+            -name 'TEST-com.microsoft.azure.synapse.ml.nbtest.Fabric*.xml' \
+            -exec cp '{}' "$artifact_root/test-reports/" \;
+        fi
+      displayName: 'Collect Fabric E2E evidence'
+      condition: always()
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
         testResultsFiles: '**/test-reports/TEST-*.xml'
         failTaskOnFailedTests: true
-      condition: and(eq(variables.runTests, 'True'), succeededOrFailed())
+      condition: always()
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish Fabric E2E evidence'
+      inputs:
+        targetPath: '$(Build.ArtifactStagingDirectory)/fabric-e2e'
+        artifact: 'fabric-e2e-$(System.JobAttempt)'
+      condition: always()
 #
 - job: BuildDocker
   dependsOn: BuildAndCacheSbt
@@ -362,7 +412,9 @@ jobs:
     - bash: |
         set -euo pipefail
         VERSION=$(bash tools/ci/get_sbt_version.sh)
+        PYTHON_VERSION=$(bash tools/ci/get_python_version.sh)
         echo '##vso[task.setvariable variable=version]'$VERSION
+        echo '##vso[task.setvariable variable=pythonVersion]'$PYTHON_VERSION
         echo '##vso[task.setvariable variable=gittag]'$(git tag -l --points-at HEAD)
       displayName: 'Get Docker Tag + Version'
     # Build all images (runs on every build to validate Dockerfiles)
@@ -373,11 +425,16 @@ jobs:
         repository: mmlspark-demo
         Dockerfile: tools/docker/demo/Dockerfile
         buildContext: $(Build.SourcesDirectory)
-        arguments: --quiet --build-arg SYNAPSEML_VERSION=$(version)
+        arguments: >-
+          --build-arg SYNAPSEML_VERSION=$(version)
+          --build-arg PYTHON_VERSION=$(pythonVersion)
         tags: |
           $(version)
         addPipelineData: true
         addBaseImageData: true
+      env:
+        DOCKER_BUILDKIT: "1"
+        BUILDKIT_PROGRESS: plain
     - task: Docker@2
       displayName: Minimal Image Build
       inputs:
@@ -385,11 +442,16 @@ jobs:
         repository: mmlspark-minimal
         Dockerfile: tools/docker/minimal/Dockerfile
         buildContext: $(Build.SourcesDirectory)
-        arguments: --quiet --build-arg SYNAPSEML_VERSION=$(version)
+        arguments: >-
+          --build-arg SYNAPSEML_VERSION=$(version)
+          --build-arg PYTHON_VERSION=$(pythonVersion)
         tags: |
           $(version)
         addPipelineData: true
         addBaseImageData: true
+      env:
+        DOCKER_BUILDKIT: "1"
+        BUILDKIT_PROGRESS: plain
     # Push demo and minimal when Docker publishing is enabled on master
     - task: AzureCLI@2
       condition: and(eq(variables.isMaster, true), eq('${{ parameters.publishDockerImages }}', true))
@@ -1264,7 +1326,7 @@ jobs:
                   PREREQUISITE_PATHSPECS+=(":(literal)$path")
                   ;;
               esac
-            done < <(git diff --name-only -z "$PREREQUISITE_PARENT" "$PREREQUISITE")
+            done < <(git diff --no-renames --name-only -z "$PREREQUISITE_PARENT" "$PREREQUISITE")
           fi
 
           if [ ${#PREREQUISITE_PATHS[@]} -eq 0 ]; then
@@ -1580,6 +1642,18 @@ jobs:
         sed -n '/^resolvers ++= Seq(/,/^)/p' build.sbt | grep -qF 'Resolver.mavenLocal' || {
           echo "##vso[task.logissue type=error]Failed to add Resolver.mavenLocal to the resolvers block"; exit 1; }
 
+        if [ "$COMPAT_LANE" = "python" ]; then
+          # The OSS checkout already emits PEP 561 package data. Internal's compatibility
+          # helper still recognizes only the former one-line setup.py declaration,
+          # so teach the disposable checkout the current exact representation
+          # instead of rewriting OSS package metadata or disabling its typing gate.
+          oss_codegen="$(Agent.BuildDirectory)/s/core/src/main/scala/com/microsoft/azure/synapse/ml/codegen/PyCodegen.scala"
+          grep -qF '"": ["*.pyi", "py.typed"]' "$oss_codegen" || {
+            echo "##vso[task.logissue type=error]OSS PyCodegen no longer declares the expected PEP 561 package data"; exit 1; }
+          python "$(Agent.BuildDirectory)/s/tools/ci/patch_internal_typing_support.py" \
+            utils/typing_build_support.py
+        fi
+
         echo "=== Modified build.sbt ==="
         grep -n 'synapseMLVersion' build.sbt
         grep -n -A4 'resolvers ++=' build.sbt
@@ -1841,7 +1915,7 @@ jobs:
     # gating ExcludeAIFunc step could finish. They remain covered by
     # SynapseML-Internal's own pipeline.
     - task: AzureCLI@2
-      displayName: 'Run Internal Python tests (ExcludeAIFunc)'
+      displayName: 'Run Internal Python compatibility tests'
       timeoutInMinutes: 30
       inputs:
         azureSubscription: 'SynapseML Build'
@@ -1874,8 +1948,15 @@ jobs:
             sleep 30
             python ./src/test/python/make_mlflow_models.py
           fi
-          echo "Running ExcludeAIFunc Python tests against OSS $OSS_VERSION..."
-          sbt testPythonExcludeAIFunc
+          # Internal's non-live suites create Spark in this process, while its typing
+          # suite verifies that importing the pandas-on-Spark facade does not create
+          # a Py4J gateway. Running both in one pytest process makes that assertion
+          # order-dependent. The common target preserves Internal's default live-test
+          # exclusions, runs the non-typing tests first, then validates the installed
+          # typing artifacts in a fresh Python process that clears PYTEST_ADDOPTS.
+          export PYTEST_ADDOPTS="${PYTEST_ADDOPTS:+$PYTEST_ADDOPTS }--ignore=typing"
+          echo "Running non-live and isolated typing tests against OSS $OSS_VERSION..."
+          sbt testPythonAIFuncCommon
       condition: and(succeeded(), eq(variables['COMPAT_LANE'], 'python'))
     - task: PublishTestResults@2
       displayName: 'Publish Internal Scala Test Results'

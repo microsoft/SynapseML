@@ -54,15 +54,13 @@ case class SampledData(numRows: Int, numCols: Int) {
 
   // Store non-zero elements in arrays given a dense feature value array
   def pushRow(rowData: Array[Double], index: Int): Unit = {
-    require(rowData.length <= numCols, s"Row is too large for sample data.  size should be $numCols" +
-                                     s", but is ${rowData.length}")
+    DatasetUtils.validateFeatureSize(rowData.length, numCols)
     (0 until numCols).foreach(col => pushRowElementIfNotZero(col, rowData(col), index))
   }
 
   // Store non-zero elements in arrays given a sparse feature value row
   def pushRow(rowData: SparseVector, index: Int): Unit = {
-    require(rowData.size <= numCols, s"Row is too large for sample data.  size should be $numCols" +
-                                     s", but is ${rowData.size}")
+    DatasetUtils.validateFeatureSize(rowData.size, numCols)
     (0 until rowData.numActives).foreach(i =>
       pushRowElementIfNotZero(rowData.indices(i), rowData.values(i), index))
   }

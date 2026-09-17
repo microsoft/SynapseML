@@ -1,6 +1,12 @@
+parameters:
+  - name: secretsFilter
+    type: string
+    default: '*'
+
 steps:
   - task: AzureKeyVault@2
     retryCountOnTaskFailure: 3
     inputs:
       azureSubscription: 'SynapseML Build'
       keyVaultName: mmlspark-keys
+      SecretsFilter: ${{ parameters.secretsFilter }}

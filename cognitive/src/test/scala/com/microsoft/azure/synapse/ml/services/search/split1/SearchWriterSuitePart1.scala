@@ -492,7 +492,7 @@ class SearchWriterSuitePart1 extends SearchWriterSuiteUtilities
 
     val tdf = new AnalyzeImage()
       .setSubscriptionKey(cognitiveKey)
-      .setLocation("eastus")
+      .setLocation(cognitiveLoc)
       .setImageUrlCol("url")
       .setOutputCol("analyzed")
       .setErrorCol("errors")

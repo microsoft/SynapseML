@@ -86,7 +86,7 @@ class LitDeepVisionModel(pl.LightningModule):
             """Inception v3
             Be careful, expects (299,299) sized images and has auxiliary output
             """
-            # Handle the auxilary net
+            # Handle the auxiliary net
             self.model.AuxLogits.fc = nn.Linear(
                 self.model.AuxLogits.fc.in_features, num_classes
             )

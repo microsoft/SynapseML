@@ -56,7 +56,7 @@ class DataFrameUtils:
         col_name : str
             the name of the index column which will be added as last column in the output data frame
         partition_col : Union[List[str], str]
-            optional column name or list of columns names that define a partitioning to assign indices independently to,
+            optional column name or list of column names that define a partitioning to assign indices independently to,
             e.g., assign sequential indices separately to each distinct tenant
         order_by_col : Union[List[str], str]
             optional order by column name or list of columns that are used for sorting
@@ -71,7 +71,7 @@ class DataFrameUtils:
         if order_by_col is None:
             raise ValueError("order_by_col cannot be None")
 
-        # coalese input columns to arrays from singular strings
+        # coalesce input columns to arrays from singular strings
         partition_col = (
             partition_col if isinstance(partition_col, list) else [partition_col]
         )

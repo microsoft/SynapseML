@@ -121,4 +121,42 @@ class FabricTestArtifactTrackerSuite extends AnyFunSuite {
       executor.shutdownNow()
     }
   }
+
+  test("Attempt artifact cleanup after executor shutdown fails") {
+    val shutdownFailure = new RuntimeException("shutdown failed")
+    val cleanupFailure = new RuntimeException("cleanup failed")
+    var cleanupAttempted = false
+
+    val thrown = intercept[RuntimeException] {
+      FabricNotebookTests.shutdownAndCleanup(
+        throw shutdownFailure,
+        {
+          cleanupAttempted = true
+          throw cleanupFailure
+        })
+    }
+
+    assert(cleanupAttempted)
+    assert(thrown eq shutdownFailure)
+    assert(thrown.getSuppressed.toSeq == Seq(cleanupFailure))
+  }
+
+  test("Attempt artifact cleanup after executor shutdown is interrupted") {
+    var cleanupAttempted = false
+    try {
+      val thrown = intercept[InterruptedException] {
+        FabricNotebookTests.shutdownAndCleanup(
+          throw new InterruptedException("shutdown interrupted"),
+          {
+            cleanupAttempted = true
+          })
+      }
+
+      assert(cleanupAttempted)
+      assert(thrown.getMessage == "shutdown interrupted")
+      assert(Thread.currentThread().isInterrupted)
+    } finally {
+      Thread.interrupted()
+    }
+  }
 }

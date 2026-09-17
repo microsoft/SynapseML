@@ -169,7 +169,7 @@ class AnalyzeText(override val uid: String) extends CognitiveServicesBase(uid)
                                                        "SentimentAnalysis")
 
   setDefault(
-    apiVersion -> Left("2022-05-01")
+    apiVersion -> Left("2024-11-01")
   )
 
   override def urlPath: String = "/language/:analyze-text"

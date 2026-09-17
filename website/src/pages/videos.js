@@ -59,7 +59,7 @@ function Videos() {
               <h2>Spark + AI Summit Europe Keynote 2018</h2>
               <p>
                 We use Bing on Spark, CNTK on Spark, and Spark serving to create
-                a automated fire detection service for gas station safety. We
+                an automated fire detection service for gas station safety. We
                 then deploy this to an FPGA accelerated camera for Shell
                 Industries.
               </p>
@@ -77,7 +77,7 @@ function Videos() {
               <p>
                 We use CNTK on Spark to distribute a Faster RCNN object
                 detection network and deploy it as a web service with SynapseML
-                Serving for use on Unmanned Aerial Vehicals (UAVs)
+                Serving for use on Unmanned Aerial Vehicles (UAVs)
               </p>
               <a
                 href="https://databricks.com/sparkaisummit/north-america/spark-summit-2018-keynotes#Intelligent-cloud"
@@ -117,7 +117,7 @@ function Videos() {
               <h2>Microsoft Connect Keynote 2017</h2>
               <p>
                 We use CNTK on Spark and deep transfer learning to create a
-                real-time geospacial application for conservation biology in 5
+                real-time geospatial application for conservation biology in 5
                 minutes
               </p>
               <a

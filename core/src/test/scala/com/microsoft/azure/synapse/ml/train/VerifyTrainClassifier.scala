@@ -305,7 +305,7 @@ object TrainClassifierTestUtilities {
   val DefaultFeaturesCol = "mlfeatures"
 
   //TODO none of these functions should require a label name,
-  //TODO thats the whole point of the .setLabelColumn call
+  //TODO that's the whole point of the .setLabelColumn call
   def createLR: TrainClassifier = {
     wrap(new LogisticRegression()
       .setRegParam(0.3)

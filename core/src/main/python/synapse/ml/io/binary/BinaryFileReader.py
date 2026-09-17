@@ -111,7 +111,7 @@ def isBinaryFile(df, column):
         column (bool): The name of the column being inspected
 
     Returns:
-        bool: True if the colum is a binary files column
+        bool: True if the column is a binary file column
 
     """
     ctx = SparkContext.getOrCreate()

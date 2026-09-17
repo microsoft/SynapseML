@@ -23,7 +23,7 @@ The next step is to add this code into your Spark cluster. You can either create
 1.	[Download this demo as a notebook](https://github.com/microsoft/SynapseML/blob/master/notebooks/features/cognitive_services/CognitiveServices%20-%20OpenAI%20Embedding.ipynb) (click Raw, then save the file)
 1.	Import the notebook [into the Synapse Workspace](https://docs.microsoft.com/en-us/azure/synapse-analytics/spark/apache-spark-development-using-notebooks#create-a-notebook) or if using Databricks [into the Databricks Workspace](https://docs.microsoft.com/en-us/azure/databricks/notebooks/notebooks-manage#create-a-notebook)
 1. Install SynapseML on your cluster. Please see the installation instructions for Synapse at the bottom of [the SynapseML website](https://microsoft.github.io/SynapseML/). Note that this requires pasting an additional cell at the top of the notebook you just imported
-3.	Connect your notebook to a cluster and follow along, editing and rnnung the cells below.
+3.	Connect your notebook to a cluster and follow along, editing and running the cells below.
 
 ## Step 3: Fill in your service information
 

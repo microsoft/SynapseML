@@ -80,7 +80,7 @@ class VerifyDataConversions extends TestBase with TransformerFuzzing[DataConvers
   }
 
   /*
-  Verify sting to boolean throws an error
+  Verify string to boolean throws an error
   */
   test("Test convert string to boolean throws an exception") {
     assertThrows[Exception] {

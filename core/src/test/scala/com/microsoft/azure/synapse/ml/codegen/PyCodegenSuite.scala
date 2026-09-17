@@ -4,14 +4,123 @@
 package com.microsoft.azure.synapse.ml.codegen
 
 import org.apache.commons.io.{FileUtils, IOUtils}
+import org.apache.spark.ml.classification.{ProbabilisticClassificationModel, ProbabilisticClassifier}
+import org.apache.spark.ml.linalg.{Vector, Vectors}
+import org.apache.spark.ml.{Estimator, Model, Transformer}
+import org.apache.spark.ml.param.{DoubleParam, Param, ParamMap, StringArrayParam}
+import org.apache.spark.sql.{DataFrame, Dataset}
+import org.apache.spark.sql.types.StructType
 import org.scalatest.funsuite.AnyFunSuite
+import spray.json.DefaultJsonProtocol._
 
 import java.io.File
+import java.lang.reflect.Modifier
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.zip.ZipFile
 
+// Nesting does not hide these JVM classes; discovery must exclude their test artifact.
+private[codegen] object PyCodegenFixtures {
+
+  class TypedPythonStage(override val uid: String = "typedPythonStage")
+    extends Transformer with Wrappable {
+
+    override protected lazy val classNameHelper: String = "TypedPythonStage"
+
+    val count = new DoubleParam(this, "count", "numeric value")
+    val labels = new StringArrayParam(this, "labels", "labels")
+    val model = new com.microsoft.azure.synapse.ml.param.ServiceParam[String](
+      this, "model", "model name")
+    val text = new Param[String](this, "text", "text value")
+
+    def getModel: String = ""
+    def setAlias(value: String): this.type = this
+
+    override def pyAdditionalMethods: String =
+      super.pyAdditionalMethods +
+        """|def setAlias(self, value):
+           |    return self
+           |
+           |def clear(self, param):
+           |    return None
+           |
+           |def copy(self, extra=None):
+           |    return self
+           |""".stripMargin
+
+    override def transform(dataset: Dataset[_]): DataFrame = dataset.toDF()
+
+    override def transformSchema(schema: StructType): StructType = schema
+
+    override def copy(extra: ParamMap): TypedPythonStage = defaultCopy(extra)
+  }
+
+  class ForeignParamPythonStage extends TypedPythonStage("foreignParamPythonStage") {
+
+    override protected lazy val classNameHelper: String = "ForeignParamPythonStage"
+
+    override val text = new Param[String]("otherStage", "text", "text value")
+  }
+
+  class TypedPythonModel(override val uid: String = "typedPythonModel")
+    extends Model[TypedPythonModel] with Wrappable {
+
+    override protected lazy val classNameHelper: String = "TypedPythonModel"
+
+    override def transform(dataset: Dataset[_]): DataFrame = dataset.toDF()
+
+    override def transformSchema(schema: StructType): StructType = schema
+
+    override def copy(extra: ParamMap): TypedPythonModel = defaultCopy(extra)
+  }
+
+  class TypedPythonEstimator(override val uid: String = "typedPythonEstimator")
+    extends Estimator[TypedPythonModel] with Wrappable {
+
+    override protected lazy val classNameHelper: String = "TypedPythonEstimator"
+
+    override protected def companionModelClassName: String =
+      "com.microsoft.azure.synapse.ml.codegen.TypedPythonModel"
+
+    override def fit(dataset: Dataset[_]): TypedPythonModel = new TypedPythonModel()
+
+    override def transformSchema(schema: StructType): StructType = schema
+
+    override def copy(extra: ParamMap): TypedPythonEstimator = defaultCopy(extra)
+  }
+
+  class TypedPythonClassificationModel(override val uid: String = "typedPythonClassificationModel")
+    extends ProbabilisticClassificationModel[Vector, TypedPythonClassificationModel] with Wrappable {
+
+    override protected lazy val classNameHelper: String = "TypedPythonClassificationModel"
+
+    override def numClasses: Int = 2
+
+    override def predictRaw(features: Vector): Vector = Vectors.dense(0.0, 1.0)
+
+    override protected def raw2probabilityInPlace(rawPrediction: Vector): Vector = rawPrediction
+
+    override def copy(extra: ParamMap): TypedPythonClassificationModel = defaultCopy(extra)
+  }
+
+  class TypedPythonClassifier(override val uid: String = "typedPythonClassifier")
+    extends ProbabilisticClassifier[Vector, TypedPythonClassifier, TypedPythonClassificationModel] with Wrappable {
+
+    override protected lazy val classNameHelper: String = "TypedPythonClassifier"
+
+    override protected def companionModelClassName: String =
+      "com.microsoft.azure.synapse.ml.codegen.TypedPythonClassificationModel"
+
+    override protected def train(dataset: Dataset[_]): TypedPythonClassificationModel =
+      new TypedPythonClassificationModel()
+
+    override def copy(extra: ParamMap): TypedPythonClassifier = defaultCopy(extra)
+  }
+}
+
 class PyCodegenSuite extends AnyFunSuite {
+
+  import PyCodegenFixtures._
 
   private def pythonExecutable: String =
     if (System.getProperty("os.name").toLowerCase.contains("windows")) "python" else "python3"
@@ -38,6 +147,9 @@ class PyCodegenSuite extends AnyFunSuite {
 
   private def initFile(base: File, packageFolder: String): File =
     new File(packageDir(base, packageFolder), "__init__.py")
+
+  private def initStubFile(base: File, packageFolder: String): File =
+    new File(packageDir(base, packageFolder), "__init__.pyi")
 
   private def writeUtf8(file: File, content: String): Unit = {
     file.getParentFile.mkdirs()
@@ -111,17 +223,139 @@ class PyCodegenSuite extends AnyFunSuite {
     }
   }
 
+  private def repositoryRoot(candidate: File): File = {
+    if (new File(candidate, "build.sbt").isFile && new File(candidate, "core").isDirectory) candidate
+    else Option(candidate.getParentFile).map(repositoryRoot)
+      .getOrElse(fail(s"Could not find repository root from ${System.getProperty("user.dir")}"))
+  }
+
+  private def aggregateBuildFile: File =
+    new File(repositoryRoot(new File(System.getProperty("user.dir"))), "build.sbt")
+
   private def aggregatePackageDiscovery(): String = {
-    def repositoryRoot(candidate: File): File = {
-      if (new File(candidate, "build.sbt").isFile && new File(candidate, "core").isDirectory) candidate
-      else Option(candidate.getParentFile).map(repositoryRoot)
-        .getOrElse(fail(s"Could not find repository root from ${System.getProperty("user.dir")}"))
-    }
-    val buildFile = new File(repositoryRoot(new File(System.getProperty("user.dir"))), "build.sbt")
-    val lines = readUtf8(buildFile).split("\n")
+    val lines = readUtf8(aggregateBuildFile).split("\n")
       .filter(_.contains("|    packages=find_namespace_packages("))
     assert(lines.length === 1)
     lines.head.trim.stripPrefix("|    packages=").stripSuffix(",")
+  }
+
+  private def aggregatePackageData(): String = {
+    val content = readUtf8(aggregateBuildFile)
+    val pattern = """(?s)\|\s+package_data=(\{.*?\}),\n\s+\|\)""".r
+    pattern.findFirstMatchIn(content).map(_.group(1).replaceAllLiterally("|", ""))
+      .getOrElse(fail("Could not find aggregate package_data in build.sbt"))
+  }
+
+  test("stub helpers do not add abstract state to the public PythonWrappable trait") {
+    val abstractMethods = classOf[PythonWrappable].getDeclaredMethods
+      .filter(method => Modifier.isAbstract(method.getModifiers))
+    assert(abstractMethods.isEmpty, abstractMethods.map(_.getName).mkString(", "))
+  }
+
+  test("generated wrappers include typed constructor, param, and method stubs") {
+    withTempDir { root =>
+      val conf = codegenConfig(root)
+      val stage = new TypedPythonStage
+
+      stage.makePyFile(conf)
+
+      val folder = "/codegen"
+      val runtimeFile = new File(packageDir(conf.pySrcDir, folder), "TypedPythonStage.py")
+      val stubFile = new File(packageDir(conf.pySrcDir, folder), "TypedPythonStage.pyi")
+      val stub = readUtf8(stubFile)
+
+      assert(runtimeFile.isFile)
+      assert(stubFile.isFile)
+      assert(stub.contains("class TypedPythonStage("))
+      assert(stub.contains("count: Param"))
+      assert(stub.contains("count: Optional[float] = ..."))
+      assert(stub.contains("labels: Optional[List[str]] = ..."))
+      assert(stub.contains("model: Optional[str] = ..."))
+      assert(stub.contains("modelCol: Optional[str] = ..."))
+      assert(stub.contains("""_T = TypeVar("_T", bound="TypedPythonStage")"""))
+      assert(stub.contains("def setCount(self: _T, value: float) -> _T: ..."))
+      assert(stub.contains("def getText(self) -> str: ..."))
+      assert(stub.contains("def setAlias(self: _T, value: str) -> _T: ..."))
+      assert(stub.contains("def clear(self, param: Param) -> None: ..."))
+      assert(stub.contains(
+        "def copy(self: _T, extra: Optional[ParamMap] = ...) -> _T: ..."))
+      assertPythonCompiles(stubFile)
+    }
+  }
+
+  test("generated runtime wrappers and stubs tolerate foreign-owned parameters") {
+    withTempDir { root =>
+      val conf = codegenConfig(root)
+      val stage = new ForeignParamPythonStage
+      intercept[IllegalArgumentException](stage.getDefault(stage.text))
+
+      stage.makePyFile(conf)
+
+      val folder = packageDir(conf.pySrcDir, "/codegen")
+      val runtimeFile = new File(folder, "ForeignParamPythonStage.py")
+      val stubFile = new File(folder, "ForeignParamPythonStage.pyi")
+      assert(readUtf8(runtimeFile).contains("text=None"))
+      assert(readUtf8(stubFile).contains("text: Optional[str] = ..."))
+      assertPythonCompiles(runtimeFile)
+      assertPythonCompiles(stubFile)
+    }
+  }
+
+  test("generated estimator stubs preserve companion model return types") {
+    withTempDir { root =>
+      val conf = codegenConfig(root)
+
+      new TypedPythonModel().makePyFile(conf)
+      new TypedPythonEstimator().makePyFile(conf)
+
+      val stubFile = new File(packageDir(conf.pySrcDir, "/codegen"), "TypedPythonEstimator.pyi")
+      val stub = readUtf8(stubFile)
+      assert(stub.contains(
+        "from synapse.ml.codegen.TypedPythonModel import TypedPythonModel"))
+      assert(stub.contains(
+        "def _create_model(self, java_model: Any) -> TypedPythonModel: ..."))
+      assert(stub.contains(
+        "def _fit(self, dataset: DataFrame) -> TypedPythonModel: ..."))
+      assertPythonCompiles(stubFile)
+    }
+  }
+
+  test("generated probabilistic classifier wrappers implement the raw prediction contract") {
+    withTempDir { root =>
+      val conf = codegenConfig(root)
+
+      new TypedPythonClassificationModel().makePyFile(conf)
+      new TypedPythonClassifier().makePyFile(conf)
+      new TypedPythonEstimator().makePyFile(conf)
+
+      val folder = packageDir(conf.pySrcDir, "/codegen")
+      val estimator = readUtf8(new File(folder, "TypedPythonClassifier.py"))
+      val estimatorStub = readUtf8(new File(folder, "TypedPythonClassifier.pyi"))
+      val model = readUtf8(new File(folder, "TypedPythonClassificationModel.py"))
+      val modelStub = readUtf8(new File(folder, "TypedPythonClassificationModel.pyi"))
+      val unrelatedEstimator = readUtf8(new File(folder, "TypedPythonEstimator.py"))
+      val unrelatedEstimatorStub = readUtf8(new File(folder, "TypedPythonEstimator.pyi"))
+      val expectedMixinImport = "from pyspark.ml.param.shared import HasRawPredictionCol"
+      val expectedEstimator =
+        "class TypedPythonClassifier(ComplexParamsMixin, JavaMLReadable, JavaMLWritable, " +
+          "HasRawPredictionCol, JavaEstimator):"
+      val expectedModel =
+        "class TypedPythonClassificationModel(ComplexParamsMixin, JavaMLReadable, JavaMLWritable, " +
+          "HasRawPredictionCol, JavaModel):"
+
+      assert(estimator.contains(expectedEstimator))
+      assert(estimatorStub.contains(expectedEstimator))
+      assert(model.contains(expectedModel))
+      assert(modelStub.contains(expectedModel))
+      assert(estimatorStub.contains(expectedMixinImport))
+      assert(modelStub.contains(expectedMixinImport))
+      assert(!unrelatedEstimator.contains("HasRawPredictionCol"))
+      assert(!unrelatedEstimatorStub.contains("HasRawPredictionCol"))
+      assertPythonCompiles(new File(folder, "TypedPythonClassifier.py"))
+      assertPythonCompiles(new File(folder, "TypedPythonClassifier.pyi"))
+      assertPythonCompiles(new File(folder, "TypedPythonClassificationModel.py"))
+      assertPythonCompiles(new File(folder, "TypedPythonClassificationModel.pyi"))
+    }
   }
 
   test("nested init keeps UTF-8 manual content after deterministic generated imports") {
@@ -202,9 +436,32 @@ class PyCodegenSuite extends AnyFunSuite {
       assert(generated.indexOf(hook) < generated.indexOf(manual))
       assert(occurrences(generated, hook) === 1)
       assert(occurrences(generated, manual) === 1)
+      assert(!initStubFile(conf.pySrcDir, folder).exists())
 
       PyCodegen.generateInitFiles(conf)
       assert(Files.readAllBytes(output.toPath).sameElements(first))
+    }
+  }
+
+  test("OpenAI init stub exports generated classes and the deprecated compatibility class") {
+    withTempDir { root =>
+      val conf = codegenConfig(root)
+      val folder = "/services/openai"
+      addModule(conf, folder, "OpenAIPrompt.py")
+      addModule(conf, folder, "OpenAICompletion.py")
+      writeUtf8(
+        new File(packageDir(conf.pySrcDir, folder), "OpenAIPrompt.pyi"),
+        "class OpenAIPrompt: ...\n"
+      )
+
+      PyCodegen.generateInitFiles(conf)
+
+      val stub = readUtf8(initStubFile(conf.pySrcDir, folder))
+      assert(stub.contains(
+        "from synapse.ml.services.openai.OpenAIPrompt import OpenAIPrompt as OpenAIPrompt"))
+      assert(stub.contains(
+        "from synapse.ml.services.openai.OpenAICompletion import OpenAICompletion as OpenAICompletion"))
+      assert(!stub.contains("OpenAICompletion import *"))
     }
   }
 
@@ -215,6 +472,8 @@ class PyCodegenSuite extends AnyFunSuite {
       ensurePackage(conf, folder)
       addModule(conf, folder, "Zulu.py")
       addModule(conf, folder, "Alpha.py")
+      writeUtf8(new File(packageDir(conf.pySrcDir, folder), "Zulu.pyi"), "class Zulu: ...\n")
+      writeUtf8(new File(packageDir(conf.pySrcDir, folder), "Alpha.pyi"), "class Alpha: ...\n")
 
       PyCodegen.generateInitFiles(conf)
 
@@ -227,9 +486,31 @@ class PyCodegenSuite extends AnyFunSuite {
       assert(generated.indexOf(alphaImport) < generated.indexOf(zuluImport))
       assert(occurrences(generated, alphaImport) === 1)
       assert(occurrences(generated, zuluImport) === 1)
+      val stubOutput = initStubFile(conf.pySrcDir, folder)
+      val firstStub = Files.readAllBytes(stubOutput.toPath)
+      val stub = new String(firstStub, StandardCharsets.UTF_8)
+      val alphaStubImport = "from synapse.ml.plain.Alpha import Alpha as Alpha"
+      val zuluStubImport = "from synapse.ml.plain.Zulu import Zulu as Zulu"
+      assert(stub.indexOf(alphaStubImport) >= 0)
+      assert(stub.indexOf(alphaStubImport) < stub.indexOf(zuluStubImport))
 
       PyCodegen.generateInitFiles(conf)
       assert(Files.readAllBytes(output.toPath).sameElements(first))
+      assert(Files.readAllBytes(stubOutput.toPath).sameElements(firstStub))
+    }
+  }
+
+  test("services init stub mirrors the runtime langchain exclusion") {
+    withTempDir { root =>
+      val conf = codegenConfig(root)
+      ensurePackage(conf, "/services/openai")
+      ensurePackage(conf, "/services/langchain")
+
+      PyCodegen.generateInitFiles(conf)
+
+      val stub = readUtf8(initStubFile(conf.pySrcDir, "/services"))
+      assert(stub.contains("from synapse.ml.services.openai import *"))
+      assert(!stub.contains("langchain"))
     }
   }
 
@@ -357,12 +638,17 @@ class PyCodegenSuite extends AnyFunSuite {
       val manual = "wheel_marker = \"Grüße 雪\"\n"
       addManualInit(conf, "", manual)
       addModule(conf, "/nested", "Widget.py")
+      writeUtf8(new File(packageDir(conf.pySrcDir, "/nested"), "Widget.pyi"), "class Widget: ...\n")
       PyCodegen.generatePyPackageData(conf)
       PyCodegen.generateInitFiles(conf)
 
       val wheel = buildWheel(conf.pySrcDir, new File(conf.targetDir, "wheel-test"))
       assert(wheelEntryContent(wheel, "synapse/ml/__init__.py").contains(manual))
+      assert(wheelEntryContent(wheel, "synapse/ml/py.typed").isEmpty)
       assert(wheelEntryContent(wheel, "synapse/ml/nested/__init__.py").nonEmpty)
+      assert(wheelEntryContent(wheel, "synapse/ml/nested/__init__.pyi").nonEmpty)
+      assert(wheelEntryContent(wheel, "synapse/ml/nested/py.typed").nonEmpty)
+      assert(wheelEntryContent(wheel, "synapse/ml/nested/Widget.pyi").nonEmpty)
     }
   }
 
@@ -373,14 +659,24 @@ class PyCodegenSuite extends AnyFunSuite {
       val manual = "aggregate_marker = \"café 雪\"\n"
       writeUtf8(new File(sourceDir, "synapse/ml/__init__.py"), manual)
       writeUtf8(new File(sourceDir, "synapse/ml/nested/__init__.py"), "")
+      writeUtf8(
+        new File(sourceDir, "synapse/ml/nested/__init__.pyi"),
+        "from .Widget import Widget as Widget\n"
+      )
+      writeUtf8(new File(sourceDir, "synapse/ml/nested/py.typed"), "")
+      writeUtf8(new File(sourceDir, "synapse/ml/nested/Widget.pyi"), "class Widget: ...\n")
       val setup = "from setuptools import setup, find_namespace_packages\n" +
         "setup(name=\"aggregate-wheel-test\", version=\"1.0.0\", packages=" +
-        aggregatePackageDiscovery() + ")\n"
+        aggregatePackageDiscovery() + ", package_data=" + aggregatePackageData() + ")\n"
       writeUtf8(new File(sourceDir, "setup.py"), setup)
 
       val wheel = buildWheel(sourceDir, wheelDir)
       assert(wheelEntryContent(wheel, "synapse/ml/__init__.py").contains(manual))
+      assert(wheelEntryContent(wheel, "synapse/ml/py.typed").isEmpty)
       assert(wheelEntryContent(wheel, "synapse/ml/nested/__init__.py").nonEmpty)
+      assert(wheelEntryContent(wheel, "synapse/ml/nested/__init__.pyi").nonEmpty)
+      assert(wheelEntryContent(wheel, "synapse/ml/nested/py.typed").nonEmpty)
+      assert(wheelEntryContent(wheel, "synapse/ml/nested/Widget.pyi").nonEmpty)
     }
   }
 }

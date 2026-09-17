@@ -5,6 +5,14 @@ import DocTable from "@theme/DocumentationTable";
 
 ## Translator
 
+Translator API `3.0` remains the default for backward compatibility. `Translate`,
+`Transliterate`, and `Languages` can opt into API `2026-06-06` with
+`.setApiVersion("2026-06-06")`. The newer API uses an `inputs` request object
+and wraps Translate and Transliterate results in a `value` field, so update
+downstream column expressions accordingly. `Detect`, `BreakSentence`,
+`DictionaryLookup`, and `DictionaryExamples` are not available in API
+`2026-06-06` and must continue using API `3.0`.
+
 ### Translate
 
 <Tabs

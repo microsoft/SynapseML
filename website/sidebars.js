@@ -25,6 +25,7 @@ module.exports = {
                     items: [
                         'Explore Algorithms/LightGBM/Overview',
                         'Explore Algorithms/LightGBM/Quickstart - Classification, Ranking, and Regression',
+                        'Explore Algorithms/LightGBM/LightGBM - Quantile Regression for Drug Discovery (Scala)',
                     ],
                 },
                 {

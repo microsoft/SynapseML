@@ -3,14 +3,14 @@
 
 package com.microsoft.azure.synapse.ml.services.openai
 
-import com.microsoft.azure.synapse.ml.Secrets.{AIFoundryApiKey, getAccessToken}
+import com.microsoft.azure.synapse.ml.Secrets.getAccessToken
 import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import org.apache.http.entity.AbstractHttpEntity
 import org.apache.http.util.EntityUtils
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
-import org.apache.spark.sql.functions.{col, lit}
+import org.apache.spark.sql.functions.{col, lit, struct, to_json}
 import org.apache.spark.sql.types.{ArrayType, StringType, StructType}
 import com.microsoft.azure.synapse.ml.services.aifoundry.AIFoundryAPIKey
 import spray.json._
@@ -355,6 +355,34 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     .foreach { case (row, keyword) =>
       assert(row.getString(0).toLowerCase.contains(keyword))
     }
+  }
+
+  test("Responses OpenAIPrompt supports AI Functions URL rows") {
+    val imageUrl = "https://mmlspark.blob.core.windows.net/datasets/OCR/test2.png"
+    val input = Seq((imageUrl, "stable-test-asset")).toDF("image_path", "source")
+    val rowJsonCol = "ai_functions_row_json"
+    val prepared = input.withColumn(rowJsonCol, to_json(struct(input.columns.map(col): _*)))
+
+    val promptResponses = new OpenAIPrompt()
+      .setSubscriptionKey(openAIAPIKey)
+      .setDeploymentName(deploymentName)
+      .setCustomServiceName(openAIServiceName)
+      .setApiVersion("2025-04-01-preview")
+      .setApiType("responses")
+      .setColumnType("image_path", "path")
+      .setSystemPrompt("User input text is encoded in JSON\nDescribe the attached image in one sentence.")
+      .setPromptTemplate(s"{$rowJsonCol}")
+      .setOutputCol("outParsed")
+      .setErrorCol("error")
+
+    val result = promptResponses
+      .transform(prepared)
+      .select("outParsed", "error")
+      .head()
+
+    val error = Option(result.getAs[Row]("error")).map(_.getAs[String]("response"))
+    assert(error.isEmpty, error.getOrElse(""))
+    assert(Option(result.getAs[String]("outParsed")).exists(_.nonEmpty))
   }
 
   test("null path columns return null output") {

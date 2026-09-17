@@ -18,7 +18,7 @@ function NotFound() {
         <div className="row">
           <div className={classnames("col col--6 col--offset-3", styles.notFoundContainer)}>
             <h1 className="hero__title">Sorry! Page Not Found</h1>
-            <p>We have been doing some work on our website, chances are that the page you're looking for is <a href="./docs/Overview/">in the new docs section</a>.</p>
+            <p>We have been doing some work on our website. Chances are that the page you're looking for is <a href="./docs/Overview/">in the new docs section</a>.</p>
           </div>
         </div>
       </div>

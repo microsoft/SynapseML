@@ -30,7 +30,7 @@ You can now select one of the sample notebooks and run it, or create your own.
 ## Running a specific version
 
 In the preceding docker command, `mcr.microsoft.com/mmlspark/release` specifies the project and image name that you
-want to run.  There's another component implicit here: the _tsag_ (=
+want to run.  There's another component implicit here: the _tag_ (=
 version) that you want to use. Specifying it explicitly looks like
 `mcr.microsoft.com/mmlspark/release:1.0.15` for the `1.0.15` tag.
 
@@ -105,7 +105,7 @@ Let's break this command and go over the meaning of each part:
     This more complete example resolves these issues: we replaced `8888:8888` with
     `80:8888` so HTTP port 80 goes to the container's running Jupyter (making just
     <http://localhost/> work); and we also added a `127.0.0.1:` prefix to make the
-    Jupyter inteface available only from your own machine rather than the whole network.
+    Jupyter interface available only from your own machine rather than the whole network.
 
     You can repeat this flag to forward additional ports similarly.  For example,
     you can expose some of the [Spark ports], for example: `-p 127.0.0.1:4040:4040`.

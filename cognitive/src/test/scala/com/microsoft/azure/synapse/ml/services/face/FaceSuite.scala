@@ -26,7 +26,7 @@ class DetectFaceSuite extends TransformerFuzzing[DetectFace] with CognitiveKey {
 
   lazy val face = new DetectFace()
     .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setLocation(cognitiveLoc)
     .setImageUrlCol("url")
     .setOutputCol("face")
     .setReturnFaceId(true)
@@ -64,7 +64,7 @@ class FindSimilarFaceSuite extends TransformerFuzzing[FindSimilarFace] with Cogn
 
   lazy val detector = new DetectFace()
     .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setLocation(cognitiveLoc)
     .setImageUrlCol("url")
     .setOutputCol("detected_faces")
     .setReturnFaceId(true)
@@ -83,7 +83,7 @@ class FindSimilarFaceSuite extends TransformerFuzzing[FindSimilarFace] with Cogn
 
   lazy val findSimilar = new FindSimilarFace()
     .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setLocation(cognitiveLoc)
     .setOutputCol("similar")
     .setFaceIdCol("id")
     .setFaceIds(faceIds)
@@ -100,7 +100,7 @@ class FindSimilarFaceSuite extends TransformerFuzzing[FindSimilarFace] with Cogn
     val caught = intercept[AssertionError] {
       new FindSimilarFace()
         .setSubscriptionKey(cognitiveKey)
-        .setLocation("eastus")
+        .setLocation(cognitiveLoc)
         .setOutputCol("similar")
         .transform(faceIdDF).collect()
     }
@@ -128,7 +128,7 @@ class GroupFacesSuite extends TransformerFuzzing[GroupFaces] with CognitiveKey {
 
   lazy val detector = new DetectFace()
     .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setLocation(cognitiveLoc)
     .setImageUrlCol("url")
     .setOutputCol("detected_faces")
     .setReturnFaceId(true)
@@ -147,7 +147,7 @@ class GroupFacesSuite extends TransformerFuzzing[GroupFaces] with CognitiveKey {
 
   lazy val group = new GroupFaces()
     .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setLocation(cognitiveLoc)
     .setOutputCol("grouping")
     .setFaceIds(faceIds)
 
@@ -163,7 +163,7 @@ class GroupFacesSuite extends TransformerFuzzing[GroupFaces] with CognitiveKey {
     val caught = intercept[AssertionError] {
       new GroupFaces()
         .setSubscriptionKey(cognitiveKey)
-        .setLocation("eastus")
+        .setLocation(cognitiveLoc)
         .setOutputCol("grouping")
         .transform(faceIdDF).collect()
     }
@@ -215,7 +215,7 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
 
   lazy val detector = new DetectFace()
     .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setLocation(cognitiveLoc)
     .setImageUrlCol("url")
     .setOutputCol("detected_faces")
     .setReturnFaceId(true)
@@ -249,7 +249,7 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
 
   lazy val id = new IdentifyFaces()
     .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setLocation(cognitiveLoc)
     .setFaceIdsCol("faces")
     .setPersonGroupId(pgId)
     .setOutputCol("identified_faces")
@@ -268,7 +268,7 @@ class IdentifyFacesSuite extends TransformerFuzzing[IdentifyFaces] with Cognitiv
     val caught = intercept[AssertionError] {
       new IdentifyFaces()
         .setSubscriptionKey(cognitiveKey)
-        .setLocation("eastus")
+        .setLocation(cognitiveLoc)
         .setPersonGroupId(pgId)
         .setOutputCol("identified_faces")
         .transform(df).collect()
@@ -343,7 +343,7 @@ class VerifyFacesSuite extends TransformerFuzzing[VerifyFaces] with CognitiveKey
 
   lazy val detector = new DetectFace()
     .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setLocation(cognitiveLoc)
     .setImageUrlCol("url")
     .setOutputCol("detected_faces")
     .setReturnFaceId(true)
@@ -361,7 +361,7 @@ class VerifyFacesSuite extends TransformerFuzzing[VerifyFaces] with CognitiveKey
 
   lazy val verify = new VerifyFaces()
     .setSubscriptionKey(cognitiveKey)
-    .setLocation("eastus")
+    .setLocation(cognitiveLoc)
     .setOutputCol("same")
     .setFaceId1Col("faceId1")
     .setFaceId2Col("faceId2")
