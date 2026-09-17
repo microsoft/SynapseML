@@ -90,8 +90,9 @@ builds always run both suites.
 The detector mirrors the enabled test suites:
 
 - CPU runs for runtime changes in any module and non-GPU notebooks.
-- GPU runs for shared core/deep-learning runtime changes and the three
-  `Fine-tune`/`Phi Model` notebooks selected by `DatabricksGPUTests`.
+- GPU runs for shared core/deep-learning runtime changes and the complete
+  `GPUNotebooks` set selected by `DatabricksGPUTests`, including
+  `Quickstart - End-to-end Local RAG with Phi Model`.
 - Databricks utility changes are assigned to CPU, GPU, or both according to
   which suite imports them.
 
@@ -109,3 +110,33 @@ runtime artifacts or notebook execution:
 
 Unknown non-notebook assets under `docs/` remain fail-open because notebooks may
 load adjacent data or configuration files.
+
+## `get_python_version.sh`
+
+Read exactly one numeric `python=major.minor` or `python=major.minor.patch`
+dependency from the supplied environment file, defaulting to `environment.yml`.
+Preserve the declared value without inventing a patch release. Missing,
+duplicate, range, wildcard, and malformed pins fail explicitly.
+
+The interpreter pin is not a Maven-version parser. Candidate artifact versions
+can legitimately contain `-pythonX.Y`; use the version published by the build,
+not a blanket suffix-removal rule.
+
+## `patch_internal_typing_support.py`
+
+Internal compatibility calls this adapter after checking out the paired
+Internal branch. For a present `utils/typing_build_support.py`, it patches the
+known legacy `TYPING_PACKAGE_DATA` constant idempotently and rejects unknown
+values or malformed declarations.
+
+Older Internal builds invoke OSS `CodeGen` directly and have no typing helper.
+The adapter accepts that layout only when the root build and codegen plugin
+exist, the plugin contains active direct-codegen/package task definitions, and
+no SBT build or project Scala source references the absent helper.
+Comments and multiline documentation strings cannot establish the task layout.
+A missing referenced helper, unknown layout, or misspelled path remains an error. This
+path creates no helper and does not disable packaging or compatibility tests.
+Recognizing the layout alone is not proof that the candidate wheel works.
+
+`test_patch_internal_typing_support.py` covers both layouts. Verify actual
+Internal packaging and tests against the exact OSS candidate after adaptation.
