@@ -15,16 +15,17 @@ Treat non-version-specific fixes as candidates for master and Spark 4.0.
   NumPy policy rather than importing Spark 4.0's pin.
 - Petastorm's local and worker-side compatibility paths are shared Spark 4
   requirements, not an interpreter-specific workaround.
+- SAR uses `Seq[Row]` affinity pairs here. Spark 4.0's `SAR.ItemAffinity`
+  encoder workaround is not automatically required on this branch; validate
+  schema and recommendation behavior before changing that representation.
 
 ## Fabric and validation
 
-- A managed Fabric runtime supports Spark 4.1, but the branch's Fabric E2E job
-  is deliberately disabled. Runtime availability is not evidence that CI ran.
+- Fabric runtime availability is separate from this branch's support. Check the
+  job condition and workspace Spark selection in `FabricOperations.scala`;
+  a disabled job or mismatched selection is not Spark 4.1 evidence.
 - Re-enablement is a separate, approved change. Restore the appropriate success,
-  parameter, and non-fork guards; check `FabricOperations.scala`'s workspace
-  Spark selection as well as the job condition.
-- Verify authorized capacity and service-connection support, then exercise the
-  actual workspace runtime. Enabling a job alone can still select another Spark
-  version.
+  parameter, and non-fork guards; validate compatible artifacts on the actual
+  Spark 4.1 runtime with authorized capacity and service-connection support.
 - Check streaming-suite scheduling and shared GPU capacity as described in the
   common rules. Replay compilation is not full Spark 4.1 validation.

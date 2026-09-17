@@ -20,6 +20,9 @@ historical release branch active; use the [active scope](../SKILL.md#active-bran
 
 ## Release validation
 
+- Master's own validation covers its primary runtime, so replay may omit a
+  duplicate leg. Verify the selected targets and affected suites actually ran;
+  a green matrix can omit a package or test class.
 - Replay uses the selected release target, not an unmerged sync proposal.
   Recheck the target and prerequisite baseline when content has moved.
 - Preserve genuine port resolutions and conflict rejection. Validate resolved
