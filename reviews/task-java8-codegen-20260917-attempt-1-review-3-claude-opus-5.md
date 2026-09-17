@@ -5,8 +5,7 @@
 - Scope of this round: edge-case and robustness only (parent delegation across
   Java generations, class/resource identity, exception and resource/context
   restoration, documentation accuracy of the merge-order gates)
-- Worktree: `.worktrees/branch-context-20260916`, branch
-  `docs/spark4-branch-context-20260916`
+- Reviewed branch: `docs/spark4-branch-context-20260916`
 - Tracked change surface reviewed (only these two files are modified):
   - `core/src/test/scala/com/microsoft/azure/synapse/ml/codegen/CodegenDiscoverySuite.scala` (+3/-1)
   - `.github/skills/synapseml-branches/references/branch-spark3p5.md` (+11)
@@ -282,9 +281,8 @@ These bound what this review proves. It is a static review only.
    in `reviews/`. I saw only their `getPlatformClassLoader` reference lines
    incidentally through a tree-wide grep and did not otherwise read them;
    findings above were derived independently, so some overlap is possible.
-7. **Tree state.** All citations are line numbers in the working tree of
-   `.worktrees/branch-context-20260916` at branch
-   `docs/spark4-branch-context-20260916`, with only the two files above
+7. **Tree state.** All citations are repository-relative source locations on
+   branch `docs/spark4-branch-context-20260916`, with only the two files above
    modified and the two prior review files untracked.
 
 ## Driver disposition
