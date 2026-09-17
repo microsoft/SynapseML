@@ -32,7 +32,8 @@ class LightGBMRawPredictionTests(unittest.TestCase):
             numLeaves=3,
             verbosity=-1,
         )
-        cls.model = cls.classifier.fit(cls.df)
+        # Fitting caches binning metadata, so keep the shared estimator unfitted.
+        cls.model = cls.classifier.copy().fit(cls.df)
 
     def test_lightgbm_model_serialization(self):
         with tempfile.TemporaryDirectory() as tmpdirname:
