@@ -18,7 +18,7 @@ Executed directly in the `gemini-3.8-flash` session. No nested agents, factories
 
 ## Exact scope
 
-Worktree: `C:\Users\singhrana\Documents\SynapseML\.worktrees\branch-context-20260916`
+Checkout: repository root on `docs/spark4-branch-context-20260916`.
 Local branch: `docs/spark4-branch-context-20260916` (HEAD: `e97b63c43ce194c8128fceac7e866463864745af`).
 Reviewed uncommitted scope: 12 modified tracked files and 3 untracked source files. Existing review artifacts excluded.
 
