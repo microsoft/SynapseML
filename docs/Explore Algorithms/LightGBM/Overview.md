@@ -57,6 +57,29 @@ model = LightGBMRegressor(application='quantile',
 For an end to end application, check out the LightGBM [notebook
 example](../Quickstart%20-%20Classification,%20Ranking,%20and%20Regression).
 
+#### Python classifier interoperability
+
+`LightGBMClassifier` and `LightGBMClassificationModel` implement PySpark's
+`HasRawPredictionCol` contract. The raw-prediction column defaults to
+`rawPrediction`; a custom `rawPredictionCol` is preserved through fitting,
+copying, and saving/loading the classifier or model.
+
+To train separate binary classifiers for a multiclass task, use PySpark's
+`OneVsRest` with the default raw-prediction column:
+
+```python
+from pyspark.ml.classification import OneVsRest
+from synapse.ml.lightgbm import LightGBMClassifier
+
+classifier = LightGBMClassifier(objective="binary")
+model = OneVsRest(classifier=classifier, parallelism=1).fit(train)
+predictions = model.transform(test)
+```
+
+`OneVsRest` fits one model per class. For LightGBM's native multiclass training,
+set `objective="multiclass"` or `objective="multiclassova"` on a single
+`LightGBMClassifier` instead.
+
 ### Arguments/Parameters
 
 SynapseML exposes getters/setters for many common LightGBM parameters.
