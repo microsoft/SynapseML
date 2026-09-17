@@ -74,12 +74,21 @@ class TestOpenAIResponseSchema(unittest.TestCase):
     def test_generated_stubs_do_not_expose_nested_conversion_helpers(self):
         for stage_type in self.stage_types:
             with self.subTest(stage=stage_type.__name__):
-                stub = Path(inspect.getfile(stage_type)).with_suffix(".pyi")
+                generated_type = next(
+                    (
+                        base
+                        for base in stage_type.__mro__
+                        if base.__name__ == f"_{stage_type.__name__}"
+                    ),
+                    stage_type,
+                )
+                self.assertTrue(issubclass(stage_type, generated_type))
+                stub = Path(inspect.getfile(generated_type)).with_suffix(".pyi")
                 classes = [
                     node
                     for node in ast.parse(stub.read_text()).body
                     if isinstance(node, ast.ClassDef)
-                    and node.name == stage_type.__name__
+                    and node.name == generated_type.__name__
                 ]
                 self.assertEqual(len(classes), 1)
                 methods = {

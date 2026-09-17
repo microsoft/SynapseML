@@ -19,7 +19,7 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.zip.ZipFile
 
-// Keep PipelineStage fixtures nested so production-stage discovery ignores test-only classes.
+// Nesting does not hide these JVM classes; discovery must exclude their test artifact.
 private[codegen] object PyCodegenFixtures {
 
   class TypedPythonStage(override val uid: String = "typedPythonStage")
@@ -53,6 +53,13 @@ private[codegen] object PyCodegenFixtures {
     override def transformSchema(schema: StructType): StructType = schema
 
     override def copy(extra: ParamMap): TypedPythonStage = defaultCopy(extra)
+  }
+
+  class ForeignParamPythonStage extends TypedPythonStage("foreignParamPythonStage") {
+
+    override protected lazy val classNameHelper: String = "ForeignParamPythonStage"
+
+    override val text = new Param[String]("otherStage", "text", "text value")
   }
 
   class TypedPythonModel(override val uid: String = "typedPythonModel")
@@ -272,6 +279,24 @@ class PyCodegenSuite extends AnyFunSuite {
       assert(stub.contains("def clear(self, param: Param) -> None: ..."))
       assert(stub.contains(
         "def copy(self: _T, extra: Optional[ParamMap] = ...) -> _T: ..."))
+      assertPythonCompiles(stubFile)
+    }
+  }
+
+  test("generated runtime wrappers and stubs tolerate foreign-owned parameters") {
+    withTempDir { root =>
+      val conf = codegenConfig(root)
+      val stage = new ForeignParamPythonStage
+      intercept[IllegalArgumentException](stage.getDefault(stage.text))
+
+      stage.makePyFile(conf)
+
+      val folder = packageDir(conf.pySrcDir, "/codegen")
+      val runtimeFile = new File(folder, "ForeignParamPythonStage.py")
+      val stubFile = new File(folder, "ForeignParamPythonStage.pyi")
+      assert(readUtf8(runtimeFile).contains("text=None"))
+      assert(readUtf8(stubFile).contains("text: Optional[str] = ..."))
+      assertPythonCompiles(runtimeFile)
       assertPythonCompiles(stubFile)
     }
   }

@@ -8,8 +8,10 @@ import org.sparkproject.guava.reflect.ClassPath
 
 import java.io.{File, IOException}
 import java.lang.reflect.{InvocationTargetException, Modifier}
+import java.net.{JarURLConnection, URL}
 import scala.collection.JavaConverters._
 import scala.reflect.{ClassTag, classTag}
+import scala.util.control.NonFatal
 
 /** Contains logic for loading classes. */
 object JarLoadingUtils {
@@ -29,15 +31,38 @@ object JarLoadingUtils {
     AllClasses.filter(classOf[Wrappable].isAssignableFrom(_))
   }
 
+  private[ml] def matchesJar(resource: URL, name: String): Boolean = try {
+    // Reject malformed resource URLs explicitly rather than silently omitting generated APIs.
+    if (resource.getProtocol == "jar") {
+      // Locate the container before decoding delimiters; getJarFileURL does not open the archive.
+      val connection = resource.openConnection().asInstanceOf[JarURLConnection]
+      val jarPath = connection.getJarFileURL.toURI.getPath
+      val actualName = jarPath.substring(jarPath.lastIndexOf('/') + 1)
+      // Snapshot aliases may differ, but artifact names and classifiers must not.
+      def normalized(value: String): String = value.replaceFirst("-SNAPSHOT(?=(-tests)?\\.jar$)", "")
+      normalized(actualName) == normalized(name)
+    } else {
+      val resourcePath = resource.toURI.getSchemeSpecificPart
+      val classes = if (name.matches(".*-tests(-SNAPSHOT)?\\.jar")) "test-classes" else "classes"
+      // SBT module directories use the artifact stem after "synapseml-"; only SBT exploded layouts match.
+      "synapseml-([a-z0-9\\-]+)_".r.findFirstMatchIn(name).exists { module =>
+        resourcePath.matches(s".*/${module.group(1)}/target/(scala-[^/]+/)?$classes/.*")
+      }
+    }
+  } catch {
+    case NonFatal(error) =>
+      throw new IOException(s"Could not match class resource $resource against artifact $name", error)
+  }
+
   def instantiateServices[T: ClassTag](instantiate: Class[_] => Any, jarName: Option[String]): List[T] = {
     AllClasses
       .filter(classTag[T].runtimeClass.isAssignableFrom(_))
-      .filter(c => jarName.forall({
+      .filter(c => jarName.forall({ name =>
         val jarResource = c.getResource("/" + c.getName.replace('.', '/') + ".class")
         if (jarResource == null) {
           throw new IOException(s"Could not find resource for class ${c.getSimpleName}")
         }
-        jarResource.toString.contains(_)
+        matchesJar(jarResource, name)
       }))
       .filter(clazz => !Modifier.isAbstract(clazz.getModifiers))
       .map(instantiate(_)).asInstanceOf[List[T]]

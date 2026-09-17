@@ -117,6 +117,15 @@ trait PythonWrappable extends BaseWrappable {
     Seq("ComplexParamsMixin", "JavaMLReadable", "JavaMLWritable") ++
       pySparkParamMixins :+ pyObjectBaseClass
 
+  private def safeGetDefault[T](p: Param[T]): Option[T] = {
+    try {
+      thisStage.getDefault(p)
+    } catch {
+      case _: IllegalArgumentException =>
+        None
+    }
+  }
+
   // TODO add default values
   protected lazy val pyClassDoc: String = {
     val argLines = thisStage.params.map { p =>
@@ -149,7 +158,7 @@ trait PythonWrappable extends BaseWrappable {
   }
 
   protected def pyParamArg[T](p: Param[T]): String = {
-    (p, thisStage.getDefault(p)) match {
+    (p, safeGetDefault(p)) match {
       case (_: ServiceParam[_], _) =>
         s"${p.name}=None,\n${p.name}Col=None"
       case (_: ComplexParam[_], _) | (_, None) =>
@@ -160,7 +169,7 @@ trait PythonWrappable extends BaseWrappable {
   }
 
   protected def pyParamDefault[T](p: Param[T]): Option[String] = {
-    (p, thisStage.getDefault(p)) match {
+    (p, safeGetDefault(p)) match {
       case (_: ServiceParam[_], _) =>
         None
       case (_: ComplexParam[_], _) | (_, None) =>
@@ -316,7 +325,7 @@ trait PythonWrappable extends BaseWrappable {
 
   private def pyStubParamArgs(p: Param[_]): Seq[String] = {
     val pyiType = getPythonTypeInfo(p).pyiType
-    (p, thisStage.getDefault(p)) match {
+    (p, safeGetDefault(p)) match {
       case (_: ServiceParam[_], _) =>
         Seq(
           s"${p.name}: ${pyStubOptionalType(pyiType)} = ...",
