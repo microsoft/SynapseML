@@ -546,6 +546,9 @@ trait PythonWrappable extends BaseWrappable {
   //scalastyle:off method.length
   protected def pythonClass(): String = {
     validateServiceParamAliases()
+    val serviceParamNames = thisStage.params.collect {
+      case p: ServiceParam[_] => "\"" + escape(p.name) + "\""
+    }.mkString(", ")
     s"""|$copyrightLines
         |
         |import sys
@@ -570,6 +573,8 @@ trait PythonWrappable extends BaseWrappable {
         |@inherit_doc
         |class $pyClassName(${pyInheritedClasses.mkString(", ")}):
         |${indent(pyClassDoc, 1)}
+        |
+        |    _service_param_names = frozenset([$serviceParamNames])
         |
         |${indent(pyParamsDefinitions, 1)}
         |

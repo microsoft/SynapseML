@@ -73,6 +73,12 @@ class ComplexParamsMixin(MLReadable):
         candidates = [argument]
         if argument.endswith("Col"):
             candidates.insert(0, argument[:-3])
+        service_param_names = getattr(self, "_service_param_names", None)
+        if service_param_names is not None:
+            return next(
+                (name for name in candidates if name in service_param_names), None
+            )
+        # Older generated wrappers do not include service parameter metadata.
         for candidate in candidates:
             if self._java_obj.hasParam(candidate):
                 java_param = self._java_obj.getParam(candidate)

@@ -4,6 +4,7 @@
 import os
 import tempfile
 import unittest
+from contextlib import contextmanager
 from unittest.mock import patch
 
 from py4j.protocol import Py4JError, Py4JJavaError
@@ -13,11 +14,76 @@ from synapse.ml.core.init_spark import init_spark
 from synapse.ml.services.openai.OpenAIEmbedding import OpenAIEmbedding
 from synapse.ml.services.openai.OpenAIPrompt import OpenAIPrompt
 from synapse.ml.services.text.TextSentiment import TextSentiment
+from synapse.ml.stages.SelectColumns import SelectColumns
 
 spark = init_spark()
 
 
 class TestServiceParamPythonBridge(unittest.TestCase):
+    @contextmanager
+    def assert_no_jvm_calls(self):
+        client = spark.sparkContext._gateway._gateway_client
+        with patch.object(client, "send_command", wraps=client.send_command) as send:
+            yield
+        # Py4J may release unrelated object references during Python garbage collection.
+        calls = [
+            call for call in send.call_args_list if not call.args[0].startswith("m\n")
+        ]
+        self.assertEqual(len(calls), 0, "Configuration must not call the JVM")
+
+    def test_ordinary_set_params_does_not_call_jvm(self):
+        for stage_type in (OpenAIEmbedding, OpenAIPrompt):
+            with self.subTest(stage=stage_type.__name__):
+                stage = stage_type()
+                with self.assert_no_jvm_calls():
+                    stage.setParams(outputCol="first")
+                    stage.setParams(outputCol="second", concurrency=2)
+                    self.assertIs(stage.setParams(), stage)
+                self.assertEqual(stage.getOutputCol(), "second")
+                self.assertEqual(stage.getConcurrency(), 2)
+
+    def test_nonservice_wrapper_uses_empty_local_metadata(self):
+        stage = SelectColumns()
+        self.assertEqual(stage._service_param_names, frozenset())
+        with self.assert_no_jvm_calls():
+            stage.setParams(cols=["text", "result"])
+        self.assertEqual(stage.getCols(), ["text", "result"])
+
+    def test_prompt_ordinary_updates_remain_atomic_without_jvm(self):
+        prompt = OpenAIPrompt().setOutputCol("original")
+        prompt.set(prompt.temperature, 0.5)
+        original_param_map = prompt._paramMap
+        with self.assert_no_jvm_calls():
+            with self.assertRaises(TypeError):
+                prompt.setParams(outputCol="changed", concurrency="invalid")
+        self.assertIs(prompt._paramMap, original_param_map)
+        self.assertEqual(prompt.getOutputCol(), "original")
+        self.assertEqual(prompt.getOrDefault(prompt.temperature), 0.5)
+
+    def test_generated_service_argument_metadata_does_not_call_jvm(self):
+        embedding = OpenAIEmbedding()
+        self.assertIsInstance(embedding._service_param_names, frozenset)
+        with self.assert_no_jvm_calls():
+            for argument in ("text", "textCol"):
+                self.assertEqual(
+                    embedding._service_param_name_for_argument(argument), "text"
+                )
+            for argument in ("outputCol", "unknown"):
+                self.assertIsNone(embedding._service_param_name_for_argument(argument))
+            with self.assertRaises(ValueError):
+                embedding._validate_service_param_arguments(
+                    {"text": "value", "textCol": "body"}
+                )
+            with self.assertRaises(TypeError):
+                embedding._validate_service_param_arguments({"textCol": None})
+
+    def test_legacy_wrappers_without_service_metadata_remain_supported(self):
+        embedding = OpenAIEmbedding()
+        with patch.object(OpenAIEmbedding, "_service_param_names", None, create=True):
+            embedding.setParams(textCol="body", outputCol="result")
+            self.assertEqual(embedding.getTextCol(), "body")
+            self.assertEqual(embedding.getOutputCol(), "result")
+
     def test_transfer_does_not_inspect_every_unset_param(self):
         embedding = OpenAIEmbedding()
         java_obj = embedding._java_obj

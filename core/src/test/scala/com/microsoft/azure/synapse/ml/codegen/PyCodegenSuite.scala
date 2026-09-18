@@ -287,6 +287,7 @@ class PyCodegenSuite extends AnyFunSuite {
 
       assert(runtimeFile.isFile)
       assert(stubFile.isFile)
+      assert(runtime.contains("""_service_param_names = frozenset(["model"])"""))
       assert(stub.contains("class TypedPythonStage("))
       assert(stub.contains("count: Param"))
       assert(stub.contains("count: Optional[float] = ..."))
@@ -331,9 +332,20 @@ class PyCodegenSuite extends AnyFunSuite {
       val runtimeFile = new File(folder, "ForeignParamPythonStage.py")
       val stubFile = new File(folder, "ForeignParamPythonStage.pyi")
       assert(readUtf8(runtimeFile).contains("text=None"))
+      assert(readUtf8(runtimeFile).contains("""_service_param_names = frozenset(["model"])"""))
       assert(readUtf8(stubFile).contains("text: Optional[str] = ..."))
       assertPythonCompiles(runtimeFile)
       assertPythonCompiles(stubFile)
+    }
+  }
+
+  test("generated wrappers without service parameters have empty service metadata") {
+    withTempDir { root =>
+      val conf = codegenConfig(root)
+      new TypedPythonModel().makePyFile(conf)
+      val runtimeFile = new File(packageDir(conf.pySrcDir, "/codegen"), "TypedPythonModel.py")
+      assert(readUtf8(runtimeFile).contains("_service_param_names = frozenset([])"))
+      assertPythonCompiles(runtimeFile)
     }
   }
 
