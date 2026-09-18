@@ -8,7 +8,6 @@ import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.fabric.{FabricTestConstants, HasFabricOperationsConnection}
 
 import java.io.{File, PrintWriter}
-import java.time.LocalDateTime
 import java.util.concurrent.{ExecutorService, Executors, TimeUnit}
 import scala.collection.mutable.ListBuffer
 import scala.concurrent.duration.Duration
@@ -32,18 +31,10 @@ trait HasFabricNotebookTestConnection extends HasFabricOperationsConnection {
 }
 
 class FabricTestCleanup extends TestBase with HasFabricNotebookTestConnection {
-  test("Clean up old artifacts") {
-    val cutoff = LocalDateTime.now().minusDays(3)
-    fabric.listArtifacts()
-      .filter(artifact =>
-        FabricNotebookTests.isTestArtifactName(artifact.displayName) &&
-          artifact.lastUpdatedDate.isBefore(cutoff))
-      .foreach(artifact => {
-        println(s"Artifact cleanup: scheduling artifact ${artifact.displayName} for deletion.")
-        println(s"Last Update Date: ${artifact.lastUpdatedDate.toString()}")
-        trackArtifact(artifact.objectId)
-      })
-    cleanupTrackedArtifacts()
+  test("Clean up owned Fabric test artifacts older than 24 hours") {
+    val dryRun = sys.env.getOrElse("SYNAPSEML_FABRIC_CLEANUP_DRY_RUN", "false")
+    require(Set("true", "false")(dryRun), "SYNAPSEML_FABRIC_CLEANUP_DRY_RUN must be true or false")
+    fabric.cleanupTestArtifacts(dryRun.toBoolean)
   }
 }
 
