@@ -66,6 +66,34 @@ Compiles the main, test, and integration test classes respectively
 
 Runs all synapsemltests
 
+### Fabric test workspace cleanup
+
+`core/testOnly com.microsoft.azure.synapse.ml.nbtest.FabricTestCleanup` deletes
+repository-owned test items only when both their creation and last-update times
+are strictly older than 24 hours, measured in UTC. It uses the existing Fabric
+integration account and workspace environment variables.
+
+Set `SYNAPSEML_FABRIC_CLEANUP_DRY_RUN=true` to preview eligible deletions without
+changing the workspace. Omit it, or set it to `false`, to perform cleanup.
+Review the preview before a manual cleanup. A preview can omit lakehouses whose
+job definitions have not yet been deleted.
+
+Cleanup recognizes the OSS ownership description on new items and the exact
+test names and descriptions on older items. A legacy lakehouse without a unique
+suffix also needs a relationship to an identified OSS test job. Unknown items,
+missing metadata, active or recently completed jobs, enabled or unknown
+schedules, and shared dependencies are not deletion candidates.
+Stores are also retained while any OSS test job remains, or any notebook/job
+has no usable reference edges, rather than assuming that missing edges prove
+there are no consumers.
+
+Job definitions are deleted before their stores. Each deletion is checked up to
+31 times, with two seconds between checks, to tolerate delayed inventory updates.
+An unconfirmed or failed deletion prevents store deletion. Independent job
+deletions are still attempted, and collected errors fail the cleanup afterward.
+SQL endpoints are left to Fabric's lakehouse deletion rather than deleted
+independently. Authentication, inventory, and deletion errors fail the cleanup.
+
 ### `scalastyle`
 
 Runs scalastyle check on main

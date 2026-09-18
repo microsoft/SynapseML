@@ -12,7 +12,7 @@ import com.microsoft.azure.synapse.ml.fabric.FabricSchemas._
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers._
 import com.microsoft.azure.synapse.ml.nbtest.SharedNotebookE2ETestUtilities._
-import com.microsoft.azure.synapse.ml.nbtest.SynapseUtilities
+import com.microsoft.azure.synapse.ml.nbtest.{FabricArtifactCleanup, SynapseUtilities}
 import org.apache.commons.io.IOUtils
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods._
@@ -60,7 +60,27 @@ private[fabric] class FabricOperations(clientId: String, redirectUri: String, wo
   val storageContainer: String = "synapse-extension"
   val storageAccountData: String = "mmlspark"
   val storageContainerPublic: String = "publicwasb"
-  val platform: String = Secrets.Platform.toUpperCase
+  lazy val platform: String = Secrets.Platform.toUpperCase
+
+  def cleanupTestArtifacts(dryRun: Boolean): Vector[String] = {
+    val operations = this
+    FabricArtifactCleanup.run(new FabricArtifactCleanup.Client {
+      override def inventory(): Vector[FabricArtifactCleanup.Item] =
+        FabricArtifactCleanup.pages(
+          s"${sspHost.stripSuffix("/")}/metadata/workspaces/$workspaceId/artifacts",
+          getRequest).map(FabricArtifactCleanup.item)
+
+      override def jobs(id: String): Vector[JsValue] =
+        FabricArtifactCleanup.pages(
+          s"https://api.fabric.microsoft.com/v1/workspaces/$workspaceId/items/$id/jobs/instances", getRequest)
+
+      override def schedules(id: String): Vector[JsValue] =
+        FabricArtifactCleanup.pages(
+          s"https://api.fabric.microsoft.com/v1/workspaces/$workspaceId/items/$id/jobs/sparkjob/schedules", getRequest)
+
+      override def delete(id: String): Unit = operations.deleteArtifact(id)
+    }, java.time.Instant.now(), dryRun)
+  }
 
   def createSJDArtifact(path: String): String = {
     createSJDArtifact(path, "SparkJobDefinition")
@@ -120,7 +140,7 @@ private[fabric] class FabricOperations(clientId: String, redirectUri: String, wo
       s"""
          |{
          |  "displayName": "$displayName",
-         |  "description": "Synapse Spark Job Definition $artifactType",
+         |  "description": "${FabricArtifactCleanup.Owner}",
          |  "artifactType": "$artifactType"
          |}
          |""".stripMargin
@@ -137,7 +157,7 @@ private[fabric] class FabricOperations(clientId: String, redirectUri: String, wo
       s"""
          |{
          |  "displayName": "$displayName",
-         |  "description": "SynapseML Test Infra $store",
+         |  "description": "${FabricArtifactCleanup.Owner}",
          |  "artifactType": "$store"
          |}
          |""".stripMargin
