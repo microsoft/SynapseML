@@ -15,15 +15,46 @@ private[nbtest] final class FabricTestArtifactTracker(deleteArtifact: String => 
     artifactId
   }
 
+  def withArtifact[T](artifactId: String)(use: String => T): T = {
+    track(artifactId)
+    var failure = Option.empty[Throwable]
+    try {
+      use(artifactId)
+    } catch {
+      case error: Throwable =>
+        failure = Some(error)
+        throw error
+    } finally {
+      try {
+        deleteTrackedArtifact(artifactId)
+        artifactIds.remove(artifactId)
+      } catch {
+        case cleanupError: Throwable =>
+          failure match {
+            case Some(original) =>
+              if (original ne cleanupError) original.addSuppressed(cleanupError)
+            case None => throw cleanupError
+          }
+      }
+    }
+  }
+
+  private def deleteTrackedArtifact(artifactId: String): Unit = {
+    try {
+      deleteArtifact(artifactId)
+      println(s"Artifact cleanup: deleted artifact $artifactId.")
+    } catch {
+      case e: RuntimeException if Option(e.getMessage).exists(_.contains("PowerBIEntityNotFound")) =>
+        println(s"Artifact $artifactId was already deleted.")
+    }
+  }
+
   def cleanup(): Unit = {
     val failures = ArrayBuffer.empty[Throwable]
     Iterator.continually(artifactIds.poll()).takeWhile(_ != null).foreach { artifactId =>
       try {
-        deleteArtifact(artifactId)
-        println(s"Artifact cleanup: deleted artifact $artifactId.")
+        deleteTrackedArtifact(artifactId)
       } catch {
-        case e: RuntimeException if Option(e.getMessage).exists(_.contains("PowerBIEntityNotFound")) =>
-          println(s"Artifact $artifactId was already deleted.")
         case NonFatal(e) =>
           println(s"Artifact cleanup failed for artifact $artifactId: $e")
           failures += e

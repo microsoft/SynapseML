@@ -25,6 +25,9 @@ trait HasFabricNotebookTestConnection extends HasFabricOperationsConnection {
 
   protected def trackArtifact(artifactId: String): String = artifactTracker.track(artifactId)
 
+  protected def withTrackedArtifact[T](artifactId: String)(use: String => T): T =
+    artifactTracker.withArtifact(artifactId)(use)
+
   protected def cleanupTrackedArtifacts(): Unit = artifactTracker.cleanup()
 }
 
@@ -73,24 +76,25 @@ class FabricSmokeTests extends TestBase with HasFabricNotebookTestConnection {
 
   test("OnePlusOne") {
     val notebookName = fabric.getBlobNameFromFilepath(notebookFile.getPath)
-    val artifactId = trackArtifact(fabric.createSJDArtifact(notebookFile.getPath))
-    val notebookBlobPath = fabric.uploadNotebookToAzure(notebookFile)
-    fabric.updateSJDArtifact(notebookBlobPath, artifactId, storeArtifactId, includePackages = false)
-    blocking {
-      Thread.sleep(3000) //scalastyle:ignore
-    }
-    val jobInstanceId = fabric.submitJob(artifactId)
-    blocking {
-      Thread.sleep(10000) //scalastyle:ignore
-    }
-    try {
-      val result = Await.ready(
-        fabric.monitorJob(artifactId, jobInstanceId),
-        Duration(fabric.timeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
-      assert(result.isSuccess)
-    } catch {
-      case t: Throwable =>
-        throw new RuntimeException(s"Job failed for $notebookName", t)
+    withTrackedArtifact(fabric.createSJDArtifact(notebookFile.getPath)) { artifactId =>
+      val notebookBlobPath = fabric.uploadNotebookToAzure(notebookFile)
+      fabric.updateSJDArtifact(notebookBlobPath, artifactId, storeArtifactId, includePackages = false)
+      blocking {
+        Thread.sleep(3000) //scalastyle:ignore
+      }
+      val jobInstanceId = fabric.submitJob(artifactId)
+      blocking {
+        Thread.sleep(10000) //scalastyle:ignore
+      }
+      try {
+        val result = Await.ready(
+          fabric.monitorJob(artifactId, jobInstanceId),
+          Duration(fabric.timeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
+        assert(result.isSuccess)
+      } catch {
+        case t: Throwable =>
+          throw new RuntimeException(s"Job failed for $notebookName", t)
+      }
     }
   }
 
@@ -124,15 +128,16 @@ class FabricNotebookTests extends TestBase with HasFabricNotebookTestConnection 
   val futures: Array[(Future[String], String)] = selectedPythonFiles.map { notebookFile =>
     val notebookName = fabric.getBlobNameFromFilepath(notebookFile.getPath)
     val future = Future {
-      val artifactId = trackArtifact(fabric.createSJDArtifact(notebookFile.getPath))
-      val notebookBlobPath = fabric.uploadNotebookToAzure(notebookFile)
-      fabric.updateSJDArtifact(notebookBlobPath, artifactId, storeArtifactId)
-      blocking { Thread.sleep(3000) } //scalastyle:ignore
-      val jobInstanceId = fabric.submitJob(artifactId)
-      blocking { Thread.sleep(10000) } //scalastyle:ignore
-      Await.result(
-        fabric.monitorJob(artifactId, jobInstanceId),
-        Duration(fabric.timeoutInMillis.toLong, TimeUnit.MILLISECONDS))
+      withTrackedArtifact(fabric.createSJDArtifact(notebookFile.getPath)) { artifactId =>
+        val notebookBlobPath = fabric.uploadNotebookToAzure(notebookFile)
+        fabric.updateSJDArtifact(notebookBlobPath, artifactId, storeArtifactId)
+        blocking { Thread.sleep(3000) } //scalastyle:ignore
+        val jobInstanceId = fabric.submitJob(artifactId)
+        blocking { Thread.sleep(10000) } //scalastyle:ignore
+        Await.result(
+          fabric.monitorJob(artifactId, jobInstanceId),
+          Duration(fabric.timeoutInMillis.toLong, TimeUnit.MILLISECONDS))
+      }
     }
     (future, notebookName)
   }

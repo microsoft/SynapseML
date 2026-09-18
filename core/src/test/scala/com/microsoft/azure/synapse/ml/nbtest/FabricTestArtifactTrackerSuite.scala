@@ -25,6 +25,76 @@ class FabricTestArtifactTrackerSuite extends AnyFunSuite {
     assert(deleted == Seq("job-2", "job-1", "store"))
   }
 
+  test("Release each completed job before the next artifact allocation") {
+    val live = scala.collection.mutable.Set("store")
+    val deleted = ArrayBuffer.empty[String]
+    val tracker = new FabricTestArtifactTracker(artifactId => {
+      assert(live.remove(artifactId))
+      deleted += artifactId
+      ()
+    })
+    tracker.track("store")
+
+    (1 to 6).foreach { index =>
+      assert(live.size < 2, "Workspace artifact quota exhausted")
+      val artifactId = s"job-$index"
+      live += artifactId
+      val result = tracker.withArtifact(artifactId) { id =>
+        assert(live == Set("store", id))
+        s"completed-$id"
+      }
+      assert(result == s"completed-$artifactId")
+      assert(live == Set("store"))
+    }
+
+    tracker.cleanup()
+    assert(live.isEmpty)
+    assert(deleted == (1 to 6).map(index => s"job-$index") :+ "store")
+  }
+
+  test("Release failed jobs and preserve the original failure") {
+    val deleted = ArrayBuffer.empty[String]
+    val tracker = new FabricTestArtifactTracker(id => {
+      deleted += id
+      ()
+    })
+    val failure = new IllegalStateException("job failed")
+    val thrown = intercept[IllegalStateException] {
+      tracker.withArtifact("job") { _ => throw failure }
+    }
+    assert(thrown eq failure)
+    assert(deleted == Seq("job"))
+    tracker.cleanup()
+    assert(deleted == Seq("job"))
+  }
+
+  test("Retain unsuccessful deletions for final cleanup without masking job failure") {
+    val jobFailure = new IllegalStateException("job failed")
+    val cleanupFailure = new IllegalStateException("delete failed")
+    var attempts = 0
+    val tracker = new FabricTestArtifactTracker(_ => {
+      attempts += 1
+      if (attempts == 1) throw cleanupFailure
+    })
+
+    val thrown = intercept[IllegalStateException] {
+      tracker.withArtifact("job") { _ => throw jobFailure }
+    }
+    assert(thrown eq jobFailure)
+    assert(thrown.getSuppressed.toSeq == Seq(cleanupFailure))
+    tracker.cleanup()
+    assert(attempts == 2)
+  }
+
+  test("Fail successful jobs when artifact cleanup fails") {
+    val failure = new IllegalStateException("delete failed")
+    val tracker = new FabricTestArtifactTracker(_ => throw failure)
+    val thrown = intercept[IllegalStateException] {
+      tracker.withArtifact("job") { _ => "completed" }
+    }
+    assert(thrown eq failure)
+  }
+
   test("Ignore artifacts that were already deleted") {
     val attempted = ArrayBuffer.empty[String]
     val tracker = new FabricTestArtifactTracker(artifactId => {

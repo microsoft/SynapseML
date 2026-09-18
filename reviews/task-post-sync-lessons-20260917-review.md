@@ -1,5 +1,8 @@
 # Post-sync guidance review
 
+The first sections record the documentation-only revisions. The later CI and
+Fabric test changes are reviewed in the final section.
+
 ## Scope and evidence
 
 Direct, single-agent review of three documentation changes:
@@ -106,3 +109,31 @@ JDK outside the Java templates. Measurements are revision snapshots, not a
 running inventory: after clarification, the seven guides total 313 lines and
 all 26 local links and anchors resolve. The earlier 309-line result describes
 the initial cleanup only.
+
+## Revision: CI and Fabric lifecycle repair
+
+Direct, single-agent review across six themes. No independent multi-model
+review or cloud-runtime pass is claimed.
+
+| Theme | Evidence and disposition |
+| --- | --- |
+| Correctness | Completed and failed notebook operations release their owned SJD before a worker starts the next notebook. The shared store remains suite-scoped. Failed deletions remain tracked for final cleanup. |
+| Architecture | Changes reuse the existing tracker, notebook concurrency limit, and final cleanup. No production API, dependency pin, runtime selection, or branch enablement changes. |
+| Failure paths | The original job exception survives cleanup failure, with the latter suppressed. Cleanup failure after successful work fails visibly. Already-deleted artifacts retain the existing handling. |
+| Replay | Only Markdown under `reviews/` gains an exclusion. Executable review files and mixed changes still replay. Strict conflict handling remains. The obsolete prerequisite list was drained after checking the integrated backports. |
+| Coverage | All 82 pipeline regressions passed, including five scratch-Git path cases and three retry contracts. Core compilation, test compilation, both Scala style tasks, and 15 lifecycle/naming tests passed on JDK 11. Pinned Black passed. |
+| Hardening | Credential reads and coverage publication retry twice but still fail after exhaustion. TLS verification and required coverage remain enabled. Cleanup is limited to IDs created and tracked by the running tests. |
+
+An isolated index replayed the actual three-file Fabric repair onto the current
+Spark 4.1 target without prerequisites. All resulting file blobs match the
+master repair. This proves patch application, not full runtime compatibility.
+
+The fixture-capacity regression runs six jobs with room for only one store and
+one job. Other regressions cover failed jobs, failed cleanup, retained cleanup
+work, and exception identity. The earlier red stage for the new tracker API
+was a test-compilation failure, not a runtime baseline.
+
+No open finding in this direct review. Branch-specific compilation and fresh
+CI remain required. Early deletion cannot guarantee capacity in an already
+saturated shared workspace, and bounded retries cannot repair a persistent
+certificate or service configuration error.
