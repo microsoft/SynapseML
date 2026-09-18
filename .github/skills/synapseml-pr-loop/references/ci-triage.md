@@ -30,11 +30,14 @@ the tracking issue or repair it when tightly coupled.
 ## Infrastructure failure
 
 Repository setup, capacity allocation, authentication, TLS, artifact download,
-agent loss, or publishing failed before relevant tests ran.
+agent loss, or publishing failed independently of product behavior. Setup can
+fail before tests run; test-result or coverage publication can fail after the
+tests pass.
 
-Action: cite the log line proving where execution stopped, verify no test result
-was produced, and rerun. Repeated infrastructure failures still block readiness
-when they prevent required evidence.
+Action: cite where execution stopped and preserve any completed test evidence.
+Do not claim execution for an abandoned test step, or dismiss a required
+publication failure because the tests passed. Rerun the affected gate. Repeated
+infrastructure failures still block readiness when they prevent required evidence.
 
 ## Reading job results correctly
 
@@ -59,6 +62,38 @@ run the job published, and compare them against a prior build. Comparing
 per-test outcomes across builds is the only reliable way to tell a real fix
 from a coincidence: a fix that changes nothing will leave the same tests
 failing in the same way, which a green/red job summary will not reveal.
+
+## Attempts, reviews, and dependency provenance
+
+- Check the producer's build timeline as well as the GitHub check. Agent loss
+  can leave a GitHub check showing `in_progress` after Azure has completed.
+  Record the mismatch; a completed Azure build does not clear a pending required
+  GitHub check.
+- After a retry, verify which jobs actually advanced to another attempt.
+  Preserve successful-job evidence and distinguish repeated results from unique
+  tests; do not add attempt totals and call them new coverage.
+- An approved automated-review policy can retain an old source commit. Compare
+  the reviewed commit with the current PR head. An accepted reevaluation request
+  is not proof that a fresh review ran.
+- A downstream repair's own green build does not validate a public candidate.
+  Record the actual downstream checkout SHA and exact public artifact version.
+  If the pipeline selects a target branch, an unmerged repair is not consumed.
+  After the dependency merges, validate the new source/artifact pair.
+- For release replay, capture the target, patch baseline, and prerequisite
+  revisions. A missing baseline and a genuine port conflict need different
+  repairs; prerequisites can also be obsolete after a sync. Preserve conflict
+  rejection and compilation. Follow `AGENTS.md` approval rules before changing
+  release tooling rather than adding a blanket skip.
+- Separate service/model failures from client lifecycle errors using comparable
+  runs and targeted regressions. Keep the original fixtures and assertions.
+  One passing rerun alone does not establish which change caused the recovery.
+
+## After a maintainer merges
+
+Record the landed commit and compare its tree with the validated PR source,
+especially after a squash merge. Carry unresolved failures into linked,
+scoped follow-up PRs or issues with their original evidence. Merging does not
+retroactively turn a failed, skipped, or missing validation gate into a pass.
 
 ## False-green patterns to reject
 

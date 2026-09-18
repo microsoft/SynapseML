@@ -707,7 +707,7 @@ def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
         in rebase_script
     )
     release_exclusions = (
-        ".github/*|.pipelines/*|docs/*|templates/*|tools/acr/*|tools/ci/*|"
+        ".github/*|.pipelines/*|docs/*|reviews/*.md|templates/*|tools/acr/*|tools/ci/*|"
         "tools/docker/*|tools/helm/*|website/*"
     )
     assert rebase_script.count(release_exclusions) == 2
@@ -787,6 +787,94 @@ def test_release_compat_prerequisites_have_valid_format():
         assert all(_is_normalized_prerequisite_path(path) for path in paths)
     shas = [fields[0] for fields in entries]
     assert len(shas) == len(set(shas)), "prerequisite commits must be unique"
+
+
+@pytest.mark.skipif(os.name != "posix", reason="release replay script requires Bash")
+@pytest.mark.parametrize(
+    "changed_paths,expected_paths",
+    [
+        (["reviews/report.md"], []),
+        (["reviews/nested/report.md"], []),
+        (["reviews/check.py"], ["reviews/check.py"]),
+        (["src/contract.md"], ["src/contract.md"]),
+        (["reviews/report.md", "src/value.txt"], ["src/value.txt"]),
+    ],
+)
+def test_release_compat_distinguishes_review_records_from_code(
+    tmp_path, changed_paths, expected_paths
+):
+    repo = tmp_path / "repo"
+    origin = tmp_path / "origin.git"
+    agent_temp = tmp_path / "agent"
+    agent_temp.mkdir()
+    _init_release_compat_scratch_repo(repo)
+    (repo / "base.txt").write_text("base\n")
+    _git(repo, "add", "base.txt")
+    _git(repo, "commit", "-m", "base")
+    _git(repo, "branch", "release")
+    _git(repo, "checkout", "-b", "source")
+    for path in changed_paths:
+        target = repo / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("feature\n")
+    _git(repo, "add", "--", *changed_paths)
+    _git(repo, "commit", "-m", "feature")
+    _git(repo, "checkout", "master")
+    _git(repo, "merge", "--no-ff", "source", "-m", "merge feature")
+    subprocess.run(
+        ["git", "init", "--bare", str(origin)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    _git(repo, "remote", "add", "origin", str(origin))
+    _git(repo, "push", "origin", "master", "source", "release")
+
+    script = _release_compat_script()
+    script = script.replace("$(Agent.TempDirectory)", str(agent_temp))
+    script = script.replace("$(RELEASE_BRANCH)", "release")
+    result = subprocess.run(
+        ["bash", "-c", script],
+        cwd=repo,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    expected = str(bool(expected_paths)).lower()
+    assert f"variable=releaseCompatRequired]{expected}" in result.stdout
+    if expected_paths:
+        replayed = _git(repo, "diff", "--cached", "--name-only").stdout.splitlines()
+        assert replayed == expected_paths
+    else:
+        assert "Fetching release branch" not in result.stdout
+
+
+@pytest.mark.parametrize(
+    "template,step_name",
+    [
+        (FABRIC_KEY_VAULT_TPL, "Get Fabric Test Credentials from Key Vault"),
+        (FABRIC_KEY_VAULT_TPL, "Get Fabric Test Certificate from Key Vault"),
+        (
+            REPO_ROOT / "templates" / "publish_coverage_ado.yml",
+            "Publish Code Coverage to Azure DevOps",
+        ),
+    ],
+)
+def test_external_ci_steps_retry_without_ignoring_failures(template, step_name):
+    data = yaml.safe_load(template.read_text())
+    step = next(item for item in data["steps"] if item.get("displayName") == step_name)
+    assert step["retryCountOnTaskFailure"] == 2
+    assert not step.get("continueOnError", False)
+    if step_name == "Publish Code Coverage to Azure DevOps":
+        parameter = next(
+            item for item in data["parameters"] if item["name"] == "failIfCoverageEmpty"
+        )
+        assert parameter["default"] is True
+        assert step["inputs"]["failIfCoverageEmpty"] == (
+            "${{ parameters.failIfCoverageEmpty }}"
+        )
 
 
 @pytest.mark.parametrize(

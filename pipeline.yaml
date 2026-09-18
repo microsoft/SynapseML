@@ -1046,7 +1046,7 @@ jobs:
         RELEASE_RELEVANT_PATHS=()
         while IFS= read -r -d '' path; do
           case "$path" in
-            .github/*|.pipelines/*|docs/*|templates/*|tools/acr/*|tools/ci/*|tools/docker/*|tools/helm/*|website/*)
+            .github/*|.pipelines/*|docs/*|reviews/*.md|templates/*|tools/acr/*|tools/ci/*|tools/docker/*|tools/helm/*|website/*)
               ;;
             pipeline.yaml|CODEOWNERS|CONTRIBUTING.md|LICENSE|README.md|SECURITY.md)
               ;;
@@ -1318,7 +1318,7 @@ jobs:
           else
             while IFS= read -r -d '' path; do
               case "$path" in
-                .github/*|.pipelines/*|docs/*|templates/*|tools/acr/*|tools/ci/*|tools/docker/*|tools/helm/*|website/*)
+                .github/*|.pipelines/*|docs/*|reviews/*.md|templates/*|tools/acr/*|tools/ci/*|tools/docker/*|tools/helm/*|website/*)
                   ;;
                 pipeline.yaml|CODEOWNERS|CONTRIBUTING.md|LICENSE|README.md|SECURITY.md)
                   ;;
