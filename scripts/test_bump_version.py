@@ -407,6 +407,9 @@ class TestSkipDir:
     def test_docusaurus(self):
         assert _skip_dir(".docusaurus")
 
+    def test_review_artifacts(self):
+        assert _skip_dir("reviews")
+
     def test_node_modules(self):
         assert _skip_dir("node_modules")
 
@@ -428,6 +431,28 @@ class TestSkipDir:
 
 
 class TestSkipFile:
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "scripts/release/test_future_release.py",
+            "scripts/release/release_future.py",
+            "scripts/release/fixtures/historical.json",
+        ],
+    )
+    def test_release_tools_and_fixtures_are_not_release_inputs(self, path):
+        assert _skip_file(Path(path))
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "core/release/runtime.py",
+            "docs/release/README.md",
+            "scripts/release_notes.py",
+        ],
+    )
+    def test_release_exclusion_is_repo_relative(self, path):
+        assert not _skip_file(Path(path))
+
     def test_denylist_name(self):
         assert _skip_file(Path("CHANGELOG.md"))
 
@@ -466,6 +491,13 @@ class TestSkipFile:
 
     def test_versioned_docs_in_path(self):
         assert _skip_file(Path("versioned_docs/v1/intro.md"))
+
+    def test_reviews_in_path(self):
+        assert _skip_file(Path("reviews/pr-2628/review.md"))
+
+    @pytest.mark.parametrize("path", sorted(bump.DENYLIST_PATHS))
+    def test_denylist_repo_relative_path(self, path):
+        assert _skip_file(Path(path))
 
     @pytest.mark.parametrize("ext", sorted(ALLOWED_EXTENSIONS))
     def test_all_allowed_extensions(self, ext):
@@ -511,6 +543,24 @@ class TestRunDocusaurus:
 
         assert not bump._run_docusaurus(tmp_path, "2.0.0", dry_run=False)
 
+    def test_dry_run_does_not_require_generated_docs(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        (tmp_path / "website").mkdir()
+
+        def fail_if_called(*args, **kwargs):
+            raise AssertionError("subprocess should not run during a dry run")
+
+        monkeypatch.setattr(subprocess, "run", fail_if_called)
+
+        assert bump._run_docusaurus(tmp_path, "2.0.0", dry_run=True)
+        captured = capsys.readouterr()
+        assert (
+            "[DRY RUN] Would run: npm exec -- docusaurus docs:version 2.0.0"
+            in captured.out
+        )
+        assert "ERROR" not in captured.err
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 6. Integration Tests — End-to-end with temp directory
@@ -535,6 +585,41 @@ def fake_repo(tmp_path):
 
 
 class TestIntegration:
+    def test_successive_bumps_preserve_release_tools_and_fixtures(self, fake_repo):
+        historical = {
+            "scripts/release/test_future_release.py": f'VERSIONS = ["{V}", "2.0.0", "3.0.0"]\n',
+            "scripts/release/release_future.py": f'USAGE = "synapseml=={V}"\n',
+            "scripts/release/fixtures/historical.json": f'{{"version": "{V}"}}\n',
+        }
+        for name, content in historical.items():
+            path = fake_repo / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content, encoding="utf-8")
+        live = fake_repo / "core" / "release" / "runtime.py"
+        live.parent.mkdir(parents=True)
+        live.write_text(f'PACKAGE = "synapseml=={V}"\n', encoding="utf-8")
+        for previous, following in [(V, "2.0.0"), ("2.0.0", "3.0.0")]:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    SCRIPT,
+                    "--from",
+                    previous,
+                    "--to",
+                    following,
+                    "--repo-root",
+                    str(fake_repo),
+                    "--skip-docs",
+                ],
+                capture_output=True,
+                text=True,
+            )
+            assert result.returncode == 0, result.stdout + result.stderr
+            assert "SWEEP WARNING" not in result.stdout
+            assert f"synapseml=={following}" in live.read_text(encoding="utf-8")
+            for name, content in historical.items():
+                assert (fake_repo / name).read_text(encoding="utf-8") == content
+
     def test_dry_run_no_modification(self, fake_repo):
         result = subprocess.run(
             [
@@ -552,6 +637,12 @@ class TestIntegration:
             text=True,
         )
         assert result.returncode == 0
+        assert "[DRY RUN] Would run: sbt convertNotebooks" in result.stdout
+        assert (
+            "[DRY RUN] Would run: npm exec -- docusaurus docs:version 2.0.0"
+            in result.stdout
+        )
+        assert "ERROR" not in result.stderr
         readme = (fake_repo / "README.md").read_text()
         assert V in readme
         assert "2.0.0" not in readme
@@ -990,7 +1081,7 @@ class TestSnapshotRegression:
         docusaurus = REPO_ROOT / "website" / "docusaurus.config.js"
         if not docusaurus.exists():
             pytest.skip("Not running inside SynapseML repo")
-        content = docusaurus.read_text()
+        content = docusaurus.read_text(encoding="utf-8")
         m = re.search(r'let version\s*=\s*"([^"]+)"', content)
         assert m, "Cannot detect version from docusaurus.config.js"
         old_v = m.group(1)
@@ -1005,9 +1096,9 @@ class TestSnapshotRegression:
                 continue
             r = analyze(fp, rel, c, old_v, bare_re, self_a, line_a, file_a)
             if r.matches:
-                results[str(rel)] = len(r.matches)
+                results[rel.as_posix()] = len(r.matches)
             if r.unanchored:
-                unanchored[str(rel)] = r.unanchored
+                unanchored[rel.as_posix()] = r.unanchored
         return {
             "files": results,
             "total_files": len(results),
