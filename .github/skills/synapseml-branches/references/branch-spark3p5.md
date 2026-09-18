@@ -1,61 +1,31 @@
 # Master branch context
 
-This reference describes `master`, which currently uses the Spark 3.5 runtime
-family. The runtime version does not make the historical `spark3.5` branch
-active. See the [active branch scope](../SKILL.md#active-branches).
+Master is the canonical development branch. Portable fixes land here before
+being merged into the active ports. A matching Spark generation does not make a
+historical release branch active; use the [active scope](../SKILL.md#active-branches).
 
-## Branch mapping
+## Compatibility boundaries
 
-- `master` is the canonical development branch and currently uses the Spark 3.5
-  runtime family. Ordinary features and fixes target `master`.
-- Historical release refs can differ from `master` despite using the same
-  Spark generation. Work on them only when the user explicitly names them.
-- Always verify exact Spark/Scala versions and dependency pins in the target
-  branch's live `build.sbt` and `environment.yml`.
+- Read versions from the [target's source files](../SKILL.md#sources-of-truth).
+  Do not import a port's Scala, JDK, Python, or dependency settings merely because
+  they make its tests pass.
+- Check the JDK used by each setup, compilation, publication, and compatibility
+  job. A Java setup template does not control every stage. Shared helpers must
+  use APIs supported by the oldest JDK that actually builds them.
+- Class-loader APIs can differ across JDK generations. A launcher that compiles
+  on a newer JDK can still break older build stages.
+- Apply the [portable sync lessons](branch-spark4-common.md#portable-sync-lessons)
+  to codegen, defaults, package exports, and artifact coordinates here too.
+  Validate against master's own runtime and Scala version.
 
-## Sync policy
+## Release validation
 
-- PRs targeting `master` rebase onto latest `master` and push with lease.
-- Synchronize shared port branches by merging `master`; never rebase or
-  force-push a shared ref.
-- Cross-version work lands on `master` first unless it exists only to preserve
-  a port branch.
-
-## Validation
-
-- Master validation covers the primary Spark 3.5 runtime, so compatibility
-  replay can intentionally omit a duplicate Spark 3.5 leg. This is not a reason
-  to open work on the historical release branch.
-- Inspect workflows and Azure triggers on the actual target branch; a
-  historical branch's coverage is not evidence for an active target.
-- Confirm the affected suites were selected and executed. Green matrices can
-  omit an unclaimed package or explicit test class.
-- Recheck target movement immediately before readiness.
-- Master Azure validation is not single-JDK. The Internal compatibility job
-  includes `templates/java_setup.yml`, which selects JDK 11, while setup and
-  publication jobs in build 236308415 ran on the agent's Java 8 default.
-  Read each job's SBT startup log; one template does not set every job's JDK.
-- Shared test helpers must compile on the oldest CI JDK too; a local JDK 11
-  pass does not prove Java 8 API compatibility. Avoid the Java 9-only
-  `ClassLoader.getPlatformClassLoader` in portable subprocess launchers.
-  The system application loader's parent provides extension/platform isolation
-  on both generations.
-- Spark 4 syncs exposed shared codegen and packaging defects on this baseline
-  too. See [portable sync lessons](branch-spark4-common.md#portable-sync-lessons)
-  for foreign-owned defaults, main/test JAR discovery, generated stub layouts,
-  package exports, and exact compatibility artifact versions. Validate on
-  this branch's JDK and Scala version rather than assuming a port pass applies.
-- Compatibility replay applies the PR patch to the existing release target,
-  not an unmerged sync PR. When that target needs overlapping port resolutions,
-  retain the conflict as a merge-order gate and validate the resolved sync
-  independently. Do not weaken patch application or skip the compatibility leg.
-
-## Fabric LightGBM baseline
-
-- At the 2026-08-26 baseline, Fabric Runtime 1.3 supplies Python `lightgbm`
-  4.3.0, but its JVM/SWIG classes load from
-  `com.microsoft.ml.lightgbm:lightgbmlib:3.3.510`.
-- The managed JAR is byte-for-byte identical to the Maven Central artifact
-  (SHA-256 `f2b1b13172699832594303ab4c04f3bc8fc2d24737e3e8c11d98d69a88c09272`).
-- Do not infer the Maven dependency version from the Python package version.
-  Changing the JNI/SWIG artifact is a separate compatibility change.
+- Master's own validation covers its primary runtime, so replay may omit a
+  duplicate leg. Verify the selected targets and affected suites actually ran;
+  a green matrix can omit a package or test class.
+- Replay uses the selected release target, not an unmerged sync proposal.
+  Recheck the target and prerequisite baseline when content has moved.
+- Preserve genuine port resolutions and conflict rejection. Validate resolved
+  syncs separately; do not weaken patch application or skip a required leg.
+- A replay covers only its selected branch and checks. It does not establish
+  full compatibility for every active port.
