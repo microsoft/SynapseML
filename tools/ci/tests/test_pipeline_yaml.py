@@ -350,6 +350,20 @@ def test_fabric_e2e_cleans_stale_artifacts_before_running_tests():
         if isinstance(step, dict) and step.get("displayName") == "E2E"
     ]
     assert len(e2e_steps) == 1
+    cleanup_steps = [
+        step
+        for step in fabric_e2e["steps"]
+        if step.get("displayName") == "Fabric cleanup preflight"
+    ]
+    assert len(cleanup_steps) == 1
+    cleanup_step = cleanup_steps[0]
+    steps = fabric_e2e["steps"]
+    assert steps.index(cleanup_step) < steps.index(e2e_steps[0])
+    assert e2e_steps[0]["condition"] == "succeeded()"
+    assert not cleanup_step.get("continueOnError", False)
+    for template in ("templates/fabric_kv.yml", "templates/publish.yml"):
+        setup = next(step for step in steps if step.get("template") == template)
+        assert steps.index(setup) < steps.index(cleanup_step)
 
     script = e2e_steps[0]["inputs"]["inlineScript"]
     cleanup_command = (
@@ -360,9 +374,9 @@ def test_fabric_e2e_cleans_stale_artifacts_before_running_tests():
         'com.microsoft.azure.synapse.ml.nbtest.FabricNotebookTests"'
     )
     assert script.count("sbt ") == 1
-    assert cleanup_command in script
+    assert cleanup_command not in script
+    assert cleanup_command in cleanup_step["inputs"]["inlineScript"]
     assert test_command in script
-    assert script.index(cleanup_command) < script.index(test_command)
 
 
 def test_fabric_e2e_keeps_key_vault_authentication_and_blocks_forks():
@@ -398,18 +412,25 @@ def test_fabric_e2e_keeps_key_vault_authentication_and_blocks_forks():
         "pgp-pw",
     }
 
-    e2e = next(step for step in fabric_e2e["steps"] if step.get("displayName") == "E2E")
-    assert e2e["env"] == {
+    live_steps = [
+        step
+        for step in fabric_e2e["steps"]
+        if step.get("displayName") in ("Fabric cleanup preflight", "E2E")
+    ]
+    expected_env = {
         "INTEGRATION_ENV": "$(sempy-integration-region)",
         "INTEGRATION_ACCOUNT": "$(sempy-integration-account)",
         "INTEGRATION_CERTIFICATE": "$(sempy-integration-certificate)",
         "INTEGRATION_WORKSPACE_PREFIX": "$(sempy-integration-workspace-prefix)",
     }
-    assert e2e["inputs"]["azureSubscription"] == "SynapseML Build"
-    script = e2e["inputs"]["inlineScript"]
-    assert "authentication=key-vault" in script
-    assert "fabric-spark-cli" not in script
-    assert "INTEGRATION_AUTH_MODE" not in script
+    assert len(live_steps) == 2
+    for step in live_steps:
+        assert step["env"] == expected_env
+        assert step["inputs"]["azureSubscription"] == "SynapseML Build"
+        script = step["inputs"]["inlineScript"]
+        assert "fabric-spark-cli" not in script
+        assert "INTEGRATION_AUTH_MODE" not in script
+    assert "authentication=key-vault" in live_steps[0]["inputs"]["inlineScript"]
     assert "fabricE2EAuthMode" not in _pipeline_text()
 
     key_vault_template = yaml.safe_load(KEY_VAULT_TPL.read_text())
@@ -520,12 +541,23 @@ def test_fabric_e2e_retains_results_and_metadata_on_failure():
     e2e = next(step for step in steps if step.get("displayName") == "E2E")
     script = e2e["inputs"]["inlineScript"]
     assert "run-metadata.txt" in script
-    assert "source_version=$(Build.SourceVersion)" in script
     assert "e2e_step=preparing" in script
     assert "e2e_step=running" in script
     assert "e2e_step=finished" in script
     assert "sbt_exit_code=$?" in script
     assert 'exit "$sbt_exit_code"' in script
+    assert not re.search(r'(?<!>)> "\$artifact_root/run-metadata.txt"', script)
+    cleanup = next(
+        step for step in steps if step.get("displayName") == "Fabric cleanup preflight"
+    )
+    cleanup_script = cleanup["inputs"]["inlineScript"]
+    assert "source_version=$(Build.SourceVersion)" in cleanup_script
+    assert "cleanup_step=preparing" in cleanup_script
+    assert "cleanup_step=running" in cleanup_script
+    assert "cleanup_step=finished" in cleanup_script
+    assert "cleanup_exit_code=$?" in cleanup_script
+    assert 'exit "$cleanup_exit_code"' in cleanup_script
+    assert 'cp "$cleanup_report" "$artifact_root/test-reports/"' in cleanup_script
 
     collect = next(
         step
@@ -536,6 +568,7 @@ def test_fabric_e2e_retains_results_and_metadata_on_failure():
     assert "INTEGRATION_ACCOUNT" not in collect["bash"]
     assert "INTEGRATION_CERTIFICATE" not in collect["bash"]
     assert "e2e_step=not-started" in collect["bash"]
+    assert "cleanup_step=not-started" in collect["bash"]
     assert "TEST-com.microsoft.azure.synapse.ml.nbtest.Fabric*.xml" in collect["bash"]
 
     publish_results = next(
@@ -543,6 +576,11 @@ def test_fabric_e2e_retains_results_and_metadata_on_failure():
     )
     assert publish_results["condition"] == "always()"
     assert publish_results["inputs"]["failTaskOnFailedTests"] is True
+    assert publish_results["inputs"]["failTaskOnMissingResultsFile"] is True
+    assert publish_results["inputs"]["searchFolder"] == (
+        "$(Build.ArtifactStagingDirectory)/fabric-e2e/test-reports"
+    )
+    assert publish_results["inputs"]["testResultsFiles"] == "TEST-*.xml"
 
     publish_evidence = next(
         step
@@ -553,6 +591,94 @@ def test_fabric_e2e_retains_results_and_metadata_on_failure():
     assert publish_evidence["inputs"]["targetPath"] == (
         "$(Build.ArtifactStagingDirectory)/fabric-e2e"
     )
+
+
+@pytest.mark.skipif(os.name != "posix", reason="Fabric pipeline scripts require Bash")
+@pytest.mark.parametrize("cleanup_exit,e2e_exit", [(0, 0), (17, 0), (0, 23), (None, 0)])
+def test_fabric_preflight_scripts_preserve_exit_codes_and_evidence(
+    tmp_path, cleanup_exit, e2e_exit
+):
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+    steps = {step.get("displayName"): step for step in jobs["FabricE2E"]["steps"]}
+    mock_bin = tmp_path / "bin"
+    mock_bin.mkdir()
+    (mock_bin / "activate").write_text("return 0\n")
+    mock_sbt = mock_bin / "sbt"
+    mock_sbt.write_text(
+        """#!/usr/bin/env bash
+set -e
+mkdir -p "$MOCK_REPORTS"
+prefix="$MOCK_REPORTS/TEST-com.microsoft.azure.synapse.ml.nbtest."
+if [[ "$*" == *FabricTestCleanup* ]]; then
+  printf '<testsuite/>\\n' > "${prefix}FabricTestCleanup.xml"
+else
+  rm -f "${prefix}FabricTestCleanup.xml"
+  printf '<testsuite/>\\n' > "${prefix}FabricSmokeTests.xml"
+fi
+exit "$MOCK_SBT_EXIT"
+"""
+    )
+    mock_sbt.chmod(0o755)
+    staging = tmp_path / "staging"
+    source = tmp_path / "source"
+    env = os.environ.copy()
+    env["PATH"] = f"{mock_bin}{os.pathsep}{env['PATH']}"
+    env["MOCK_REPORTS"] = str(source / "core" / "target" / "test-reports")
+
+    def run_step(name, exit_code):
+        step = steps[name]
+        script = step.get("bash", step.get("inputs", {}).get("inlineScript"))
+        for key, value in {
+            "$(Build.ArtifactStagingDirectory)": str(staging),
+            "$(Build.SourcesDirectory)": str(source),
+            "$(Build.SourceVersion)": "test-source-sha",
+        }.items():
+            script = script.replace(key, value)
+        return subprocess.run(
+            ["bash", "-c", script],
+            env={**env, "MOCK_SBT_EXIT": str(exit_code)},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    if cleanup_exit is not None:
+        cleanup = run_step("Fabric cleanup preflight", cleanup_exit)
+        assert cleanup.returncode == cleanup_exit, cleanup.stderr
+    if cleanup_exit == 0:
+        e2e = run_step("E2E", e2e_exit)
+        assert e2e.returncode == e2e_exit, e2e.stderr
+    collect = run_step("Collect Fabric E2E evidence", 0)
+    assert collect.returncode == 0, collect.stderr
+    artifact_root = staging / "fabric-e2e"
+    metadata = (artifact_root / "run-metadata.txt").read_text()
+    assert "source_version=test-source-sha" in metadata
+    if cleanup_exit is None:
+        assert "cleanup_step=not-started" in metadata
+        assert "e2e_step=not-started" in metadata
+        assert "cleanup_exit_code=" not in metadata
+        assert not list((artifact_root / "test-reports").glob("*.xml"))
+        return
+    assert f"cleanup_exit_code={cleanup_exit}" in metadata
+    assert "cleanup_step=finished" in metadata
+    if cleanup_exit:
+        assert "e2e_step=not-started" in metadata
+        assert "e2e_step=running" not in metadata
+    else:
+        assert "e2e_step=finished" in metadata
+        assert "e2e_step=not-started" not in metadata
+        assert f"sbt_exit_code={e2e_exit}" in metadata
+    assert (
+        artifact_root
+        / "test-reports"
+        / "TEST-com.microsoft.azure.synapse.ml.nbtest.FabricTestCleanup.xml"
+    ).is_file()
+    assert (
+        artifact_root
+        / "test-reports"
+        / "TEST-com.microsoft.azure.synapse.ml.nbtest.FabricSmokeTests.xml"
+    ).is_file() == (cleanup_exit == 0)
 
 
 def test_internal_python_adapts_typing_package_data_to_current_codegen():
