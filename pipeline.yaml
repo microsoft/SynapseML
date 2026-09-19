@@ -340,7 +340,7 @@ jobs:
     - template: templates/fabric_kv.yml
     - template: templates/publish.yml
     - task: AzureCLI@2
-      displayName: 'E2E'
+      displayName: 'Fabric cleanup preflight'
       inputs:
         azureSubscription:  'SynapseML Build'
         scriptLocation: inlineScript
@@ -348,20 +348,47 @@ jobs:
         inlineScript: |
           set -eo pipefail
           artifact_root='$(Build.ArtifactStagingDirectory)/fabric-e2e'
-          mkdir -p "$artifact_root"
+          mkdir -p "$artifact_root/test-reports"
           printf '%s\n' \
             'authentication=key-vault' \
             'source_version=$(Build.SourceVersion)' \
             'suites=FabricTestCleanup,FabricSmokeTests,FabricNotebookTests' \
-            'e2e_step=preparing' \
+            'cleanup_step=preparing' \
             > "$artifact_root/run-metadata.txt"
 
           source activate synapseml
+          printf '%s\n' 'cleanup_step=running' >> "$artifact_root/run-metadata.txt"
+          set +e
+          sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.FabricTestCleanup"
+          cleanup_exit_code=$?
+          set -e
+          printf 'cleanup_step=finished\ncleanup_exit_code=%s\n' "$cleanup_exit_code" \
+            >> "$artifact_root/run-metadata.txt"
+          cleanup_report='$(Build.SourcesDirectory)/core/target/test-reports/TEST-com.microsoft.azure.synapse.ml.nbtest.FabricTestCleanup.xml'
+          if [ -f "$cleanup_report" ]; then
+            cp "$cleanup_report" "$artifact_root/test-reports/"
+          fi
+          exit "$cleanup_exit_code"
+      env:
+        INTEGRATION_ENV: $(sempy-integration-region)
+        INTEGRATION_ACCOUNT: $(sempy-integration-account)
+        INTEGRATION_CERTIFICATE: $(sempy-integration-certificate)
+        INTEGRATION_WORKSPACE_PREFIX: $(sempy-integration-workspace-prefix)
+    - task: AzureCLI@2
+      displayName: 'E2E'
+      condition: succeeded()
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          set -eo pipefail
+          artifact_root='$(Build.ArtifactStagingDirectory)/fabric-e2e'
+          printf '%s\n' 'e2e_step=preparing' >> "$artifact_root/run-metadata.txt"
+          source activate synapseml
           printf '%s\n' 'e2e_step=running' >> "$artifact_root/run-metadata.txt"
           set +e
-          sbt \
-            "testOnly com.microsoft.azure.synapse.ml.nbtest.FabricTestCleanup" \
-            "testOnly com.microsoft.azure.synapse.ml.nbtest.FabricSmokeTests com.microsoft.azure.synapse.ml.nbtest.FabricNotebookTests"
+          sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.FabricSmokeTests com.microsoft.azure.synapse.ml.nbtest.FabricNotebookTests"
           sbt_exit_code=$?
           set -e
           printf 'e2e_step=finished\nsbt_exit_code=%s\n' "$sbt_exit_code" \
@@ -381,8 +408,12 @@ jobs:
           printf '%s\n' \
             'authentication=key-vault' \
             'source_version=$(Build.SourceVersion)' \
+            'cleanup_step=not-started' \
             'e2e_step=not-started' \
             > "$artifact_root/run-metadata.txt"
+        fi
+        if ! grep -q '^e2e_step=' "$artifact_root/run-metadata.txt"; then
+          printf '%s\n' 'e2e_step=not-started' >> "$artifact_root/run-metadata.txt"
         fi
         if [ -d "$report_root" ]; then
           find "$report_root" -maxdepth 1 -type f \
@@ -394,8 +425,10 @@ jobs:
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
-        testResultsFiles: '**/test-reports/TEST-*.xml'
+        searchFolder: '$(Build.ArtifactStagingDirectory)/fabric-e2e/test-reports'
+        testResultsFiles: 'TEST-*.xml'
         failTaskOnFailedTests: true
+        failTaskOnMissingResultsFile: true
       condition: always()
     - task: PublishPipelineArtifact@1
       displayName: 'Publish Fabric E2E evidence'

@@ -73,6 +73,19 @@ repository-owned test items only when both their creation and last-update times
 are strictly older than 24 hours, measured in UTC. It uses the existing Fabric
 integration account and workspace environment variables.
 
+CI runs a named `Fabric cleanup preflight` task after authentication and build
+setup, then runs E2E only if that task succeeds. Cleanup results and phase
+metadata are retained even if E2E is skipped or fails.
+
+Each smoke and notebook suite performs its own cached preflight before creating
+its first Fabric resource, both in CI and when run directly. CI therefore runs
+cleanup once in the gate and once more per E2E suite. Suite construction does not
+connect to Fabric. A failed preflight is reported by the selected tests without retrying
+cleanup or starting notebook work; successful notebook runs retain their bounded
+parallel execution and per-job artifact cleanup. Interrupted cleanup preserves
+the interrupt signal. Store creation and executor setup failures are also
+cached, so later tests do not repeat initialization or start another notebook batch.
+
 Set `SYNAPSEML_FABRIC_CLEANUP_DRY_RUN=true` to preview eligible deletions without
 changing the workspace. Omit it, or set it to `false`, to perform cleanup.
 Review the preview before a manual cleanup. A preview can omit lakehouses whose
