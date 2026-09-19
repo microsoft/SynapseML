@@ -11,9 +11,7 @@ private[openai] object OpenAIPromptPythonOverrides {
 
   private val DefaultInitParamLoop =
     """    if java_obj is None:
-      |        for k,v in kwargs.items():
-      |            if v is not None:
-      |                getattr(self, "set" + k[0].upper() + k[1:])(v)
+      |        self._set_params_via_setters(kwargs, skip_none=True)
       |""".stripMargin
 
   private val OptionsLastInitParamLoop =
@@ -21,9 +19,7 @@ private[openai] object OpenAIPromptPythonOverrides {
       |    if java_obj is None:
       |        kwargs = dict(kwargs)
       |        post_processing_options = kwargs.pop("postProcessingOptions", None)
-      |        for k,v in kwargs.items():
-      |            if v is not None:
-      |                getattr(self, "set" + k[0].upper() + k[1:])(v)
+      |        self._set_params_via_setters(kwargs, skip_none=True)
       |        if post_processing_options is not None:
       |            self.setPostProcessingOptions(post_processing_options)
       |""".stripMargin
@@ -94,7 +90,7 @@ private[openai] object OpenAIPromptPythonOverrides {
         |        kwargs = self._input_kwargs
         |    else:
         |        kwargs = self.__init__._input_kwargs
-        |    return self._set(**kwargs)
+        |    return self._set_params_via_setters(kwargs)
         |""".stripMargin
     val validatedBody =
       """    if hasattr(self, "_input_kwargs"):
@@ -176,18 +172,46 @@ private[openai] object OpenAIPromptPythonOverrides {
       |    return result
       |
       |def _set_params_atomically(self, kwargs):
+      |    self._validate_service_param_arguments(kwargs)
       |    converted = {}
+      |    service_values = []
       |    for param, value in kwargs.items():
-      |        p = getattr(self, param)
+      |        service_param = self._service_param_name_for_argument(param)
+      |        if service_param is not None and param.endswith("Col"):
+      |            p = None
+      |            if value is not None:
+      |                value = TypeConverters.toString(value)
+      |        else:
+      |            p = getattr(self, param)
       |        if value is not None:
-      |            try:
-      |                value = p.typeConverter(value)
-      |            except TypeError as error:
-      |                raise TypeError(
-      |                    'Invalid param value given for param "%s". %s'
-      |                    % (p.name, error)
-      |                )
-      |        converted[p] = value
+      |            if p is not None:
+      |                try:
+      |                    value = p.typeConverter(value)
+      |                except TypeError as error:
+      |                    raise TypeError(
+      |                        'Invalid param value given for param "%s". %s'
+      |                        % (p.name, error)
+      |                    )
+      |        if service_param is None:
+      |            converted[p] = value
+      |        else:
+      |            service_values.append((param, value))
+      |    if service_values:
+      |        original_java_obj = self._java_obj
+      |        original_param_map = self._paramMap
+      |        scratch_java_obj = original_java_obj.copy(self._empty_java_param_map())
+      |        try:
+      |            self._java_obj = scratch_java_obj
+      |            self._paramMap = dict(original_param_map)
+      |            for param, value in service_values:
+      |                setter = "set" + param[0].upper() + param[1:]
+      |                getattr(self, setter)(value)
+      |        finally:
+      |            self._java_obj = original_java_obj
+      |            self._paramMap = original_param_map
+      |        for param, value in service_values:
+      |            setter = "set" + param[0].upper() + param[1:]
+      |            getattr(self, setter)(value)
       |    self._paramMap.update(converted)
       |    return self
       |
