@@ -3,15 +3,208 @@
 
 package com.microsoft.azure.synapse.ml.nbtest
 
-import java.util.concurrent.{CountDownLatch, Executors, TimeUnit}
+import java.io.File
+import java.util.concurrent.{ConcurrentLinkedQueue, CountDownLatch, ExecutorService, Executors, TimeUnit}
+import java.util.concurrent.atomic.AtomicInteger
+import org.scalatest.{Args, Reporter, Suite}
+import org.scalatest.events.{Event, TestFailed, TestSucceeded}
 import org.scalatest.funsuite.AnyFunSuite
 import spray.json._
 
 import java.time.Instant
 
 import scala.collection.mutable.ArrayBuffer
+import scala.collection.JavaConverters._
+import scala.concurrent.duration.Duration
 
 class FabricTestArtifactTrackerSuite extends AnyFunSuite {
+  private def executeSuite(suite: Suite): Vector[Event] = {
+    val events = new ConcurrentLinkedQueue[Event]()
+    val reporter = new Reporter {
+      override def apply(event: Event): Unit = { events.add(event); () }
+    }
+    suite.run(None, Args(reporter)).waitUntilCompleted()
+    events.iterator().asScala.toVector
+  }
+
+  private class NotebookFixture(cleanupFailure: Option[Exception] = None) extends FabricNotebookTests {
+    val calls = new ConcurrentLinkedQueue[String]()
+    val active = new AtomicInteger()
+    val peak = new AtomicInteger()
+    private val started = new CountDownLatch(FabricNotebookTests.MaxConcurrency)
+
+    override lazy val fabric: Nothing = throw new IllegalStateException("Unexpected Fabric connection")
+    override protected def discoverNotebooks(): Array[File] =
+      Array("one.py", "two.py", "three.py", "four.py").map(new File(_))
+    override protected def notebookTimeout: Duration = Duration(10, TimeUnit.SECONDS)
+    override protected def cleanupStaleArtifacts(): Unit = {
+      calls.add("cleanup")
+      cleanupFailure.foreach(throw _)
+    }
+    override protected def createTrackedStore(): String = {
+      calls.add("store")
+      "test-store"
+    }
+    override protected def createNotebookExecutor(): ExecutorService = {
+      calls.add("executor")
+      Executors.newFixedThreadPool(FabricNotebookTests.MaxConcurrency)
+    }
+    override protected def runNotebook(file: File, storeId: String): String = {
+      assert(storeId == "test-store")
+      calls.add(file.getName)
+      val concurrent = active.incrementAndGet()
+      peak.updateAndGet(previous => math.max(previous, concurrent))
+      try {
+        started.countDown()
+        assert(started.await(5, TimeUnit.SECONDS), "Notebook work stopped running in parallel")
+        file.getName
+      } finally {
+        active.decrementAndGet()
+      }
+    }
+  }
+
+  test("Register Fabric cleanup and smoke tests without resolving a live workspace") {
+    val cleanup = new FabricTestCleanup {
+      override lazy val fabric: Nothing = throw new IllegalStateException("Unexpected Fabric connection")
+    }
+    val smoke = new FabricSmokeTests {
+      override lazy val fabric: Nothing = throw new IllegalStateException("Unexpected Fabric connection")
+    }
+    assert(cleanup.fabricWorkspaceId.isEmpty)
+    assert(smoke.fabricWorkspaceId.isEmpty)
+    assert(cleanup.testNames == Set("Clean up owned Fabric test artifacts older than 24 hours"))
+    assert(smoke.testNames == Set("OnePlusOne"))
+  }
+
+  test("Run smoke preflight before store creation and block all work when it fails") {
+    Seq(None, Some(new IllegalStateException("cleanup failed"))).foreach { failure =>
+      val calls = ArrayBuffer.empty[String]
+      val suite = new FabricSmokeTests {
+        override lazy val fabric: Nothing = throw new IllegalStateException("Unexpected Fabric connection")
+        override protected def cleanupStaleArtifacts(): Unit = {
+          calls += "cleanup"
+          failure.foreach(throw _)
+        }
+        override protected def createTrackedStore(): String = {
+          calls += "store"
+          "test-store"
+        }
+        override protected def runSmokeTest(storeId: String): Unit = {
+          assert(storeId == "test-store")
+          calls += "smoke"
+        }
+      }
+      assert(calls.isEmpty)
+      val events = executeSuite(suite)
+      val failures = events.collect { case event: TestFailed => event }
+      if (failure.isDefined) {
+        assert(calls == Seq("cleanup"))
+        assert(failures.map(_.throwable) == Vector(failure))
+      } else {
+        assert(calls == Seq("cleanup", "store", "smoke"))
+        assert(failures.isEmpty)
+        assert(events.count(_.isInstanceOf[TestSucceeded]) == 1)
+      }
+    }
+  }
+
+  test("Cache workspace resolution failure before any smoke resource allocation") {
+    val failure = new IllegalStateException("workspace unavailable")
+    var lookups = 0
+    val suite = new FabricSmokeTests {
+      override lazy val fabric: Nothing = throw new IllegalStateException("Unexpected Fabric connection")
+      override protected def integrationWorkspaceId: String = {
+        lookups += 1
+        throw failure
+      }
+    }
+    (1 to 2).foreach { _ =>
+      assert(intercept[IllegalStateException](suite.storeArtifactId) eq failure)
+    }
+    assert(lookups == 1)
+    assert(suite.fabricWorkspaceId.isEmpty)
+  }
+
+  test("Defer notebook preflight and preserve bounded parallel execution and executor shutdown") {
+    val suite = new NotebookFixture()
+    assert(suite.calls.isEmpty)
+    assert(suite.fabricWorkspaceId.isEmpty)
+    assert(suite.testNames == Set("one.py", "two.py", "three.py", "four.py"))
+    val events = executeSuite(suite)
+    assert(events.collect { case event: TestFailed => event }.isEmpty)
+    assert(events.count(_.isInstanceOf[TestSucceeded]) == 4)
+    val calls = suite.calls.iterator().asScala.toVector
+    assert(calls.take(3) == Vector("cleanup", "store", "executor"))
+    assert(calls.drop(3).toSet == suite.testNames)
+    assert(calls.size == 7)
+    assert(suite.peak.get() == FabricNotebookTests.MaxConcurrency)
+    assert(suite.active.get() == 0)
+    assert(suite.executorService.isTerminated)
+  }
+
+  test("Cache notebook preflight failure and never initialize stores, submissions, or an executor") {
+    val failure = new IllegalStateException("cleanup failed")
+    val suite = new NotebookFixture(Some(failure))
+    val events = executeSuite(suite)
+    val failures = events.collect { case event: TestFailed => event }
+    assert(failures.size == 4)
+    assert(failures.forall(_.throwable.contains(failure)))
+    assert(suite.calls.iterator().asScala.toVector == Vector("cleanup"))
+    assert(suite.active.get() == 0)
+  }
+
+  test("Cache interrupted preflight and restore interrupt status on each access") {
+    val failure = new InterruptedException("cleanup interrupted")
+    var attempts = 0
+    val suite = new FabricSmokeTests {
+      override lazy val fabric: Nothing = throw new IllegalStateException("Unexpected Fabric connection")
+      override protected def cleanupStaleArtifacts(): Unit = {
+        attempts += 1
+        throw failure
+      }
+    }
+    try {
+      (1 to 2).foreach { _ =>
+        Thread.interrupted()
+        assert(intercept[InterruptedException](suite.storeArtifactId) eq failure)
+        assert(Thread.currentThread().isInterrupted)
+      }
+      assert(attempts == 1)
+    } finally {
+      Thread.interrupted()
+    }
+  }
+
+  test("Cache failed store allocation instead of retrying it for each notebook") {
+    val failure = new IllegalStateException("store allocation failed")
+    val suite = new NotebookFixture() {
+      override protected def createTrackedStore(): String = {
+        calls.add("store")
+        throw failure
+      }
+    }
+    val failures = executeSuite(suite).collect { case event: TestFailed => event }
+    assert(failures.size == 4)
+    assert(failures.forall(_.throwable.contains(failure)))
+    assert(intercept[IllegalStateException](suite.storeArtifactId) eq failure)
+    assert(suite.calls.iterator().asScala.toVector == Vector("cleanup", "store"))
+  }
+
+  test("Cache failed executor setup before submitting notebooks") {
+    val failure = new IllegalStateException("executor setup failed")
+    val suite = new NotebookFixture() {
+      override protected def createNotebookExecutor(): ExecutorService = {
+        calls.add("executor")
+        throw failure
+      }
+    }
+    val failures = executeSuite(suite).collect { case event: TestFailed => event }
+    assert(failures.size == 4)
+    assert(failures.forall(_.throwable.contains(failure)))
+    assert(suite.calls.iterator().asScala.toVector == Vector("cleanup", "store", "executor"))
+  }
+
   private val cleanupNow = Instant.parse("2026-09-18T12:00:00Z")
   private val expiredTime = cleanupNow.minusSeconds(25 * 60 * 60)
   private def cleanupId(n: Int): String = new java.util.UUID(0, n.toLong).toString
