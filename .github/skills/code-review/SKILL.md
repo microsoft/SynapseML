@@ -77,3 +77,25 @@ Apply when changes modify public classes, traits, or companion objects.
 - [ ] Tests use `using()` for resource cleanup (no bare `.close()` after assertions)
 - [ ] Negative tests verify rejection/error cases, not just happy paths
 - [ ] No test-only dependencies leaked into main scope
+
+### Python isolation and async cleanup
+
+Apply when changing Spark test setup, optional SDK support, or async batching.
+
+- [ ] Imports that can create a Spark session happen after the required Spark
+      fixture initializes, unless startup itself is under test. Reproduce
+      cold-start failures in a fresh process and verify actual JVM class/JAR
+      loading; a previously initialized session can hide the wrong setup.
+- [ ] No-SDK tests exercise the public import path in a fresh process on the
+      branch's Python. Import blockers implement `find_spec` and raise
+      `ImportError` for blocked dependencies; returning `None` permits another
+      finder to load them. Unrelated imports still work.
+- [ ] Async tasks and loop-bound clients are created and used on their owning
+      loop. A loop running on another thread receives thread-safe submissions,
+      not calls that drive it from the test/caller thread.
+- [ ] Fail-fast batches cancel and await pending siblings before returning the
+      original failure. Tests assert no orphaned requests remain, including
+      progress-enabled paths, and clean up even when the assertion fails.
+- [ ] Supported idle, same-thread nested, and foreign-thread loop paths are
+      covered. Optional nested-loop dependencies have explicit missing-dependency
+      behavior without breaking paths that do not require them.
