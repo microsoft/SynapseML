@@ -27,7 +27,7 @@ class FabricTestArtifactTrackerSuite extends AnyFunSuite {
     events.iterator().asScala.toVector
   }
 
-  private class NotebookFixture(cleanupFailure: Option[Exception] = None) extends FabricNotebookTests {
+  private abstract class NotebookFixture(cleanupFailure: Option[Exception] = None) extends FabricNotebookTests {
     val calls = new ConcurrentLinkedQueue[String]()
     val active = new AtomicInteger()
     val peak = new AtomicInteger()
@@ -127,7 +127,7 @@ class FabricTestArtifactTrackerSuite extends AnyFunSuite {
   }
 
   test("Defer notebook preflight and preserve bounded parallel execution and executor shutdown") {
-    val suite = new NotebookFixture()
+    val suite = new NotebookFixture() {}
     assert(suite.calls.isEmpty)
     assert(suite.fabricWorkspaceId.isEmpty)
     assert(suite.testNames == Set("one.py", "two.py", "three.py", "four.py"))
@@ -145,7 +145,7 @@ class FabricTestArtifactTrackerSuite extends AnyFunSuite {
 
   test("Cache notebook preflight failure and never initialize stores, submissions, or an executor") {
     val failure = new IllegalStateException("cleanup failed")
-    val suite = new NotebookFixture(Some(failure))
+    val suite = new NotebookFixture(Some(failure)) {}
     val events = executeSuite(suite)
     val failures = events.collect { case event: TestFailed => event }
     assert(failures.size == 4)
