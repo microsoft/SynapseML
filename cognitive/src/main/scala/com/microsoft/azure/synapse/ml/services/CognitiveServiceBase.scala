@@ -496,10 +496,20 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
 
   protected val aadHeaderName = "Authorization"
 
+  // Header ServiceParams may become sequences during automatic batching. Payload ServiceParams
+  // continue to use getValueOpt so document-aligned values such as text and language stay batched.
+  private def getHeaderStringValueOpt(row: Row, param: ServiceParam[String]): Option[String] =
+    ServiceHeaderValues.stringValue(getValueAnyOpt(row, param), param.name)
+
+  private def getHeaderMapValueOpt(
+      row: Row,
+      param: ServiceParam[Map[String, String]]): Option[Map[String, String]] =
+    ServiceHeaderValues.mapValue(getValueAnyOpt(row, param), param.name)
+
   protected def contentType: Row => String = { _ => "application/json" }
 
   protected def getCustomAuthHeader(row: Row): Option[String] = {
-    getValueOpt(row, CustomAuthHeader)
+    getHeaderStringValueOpt(row, CustomAuthHeader)
   }
 
   // The automatic Fabric fallback is eligible only when the request carries no explicit subscription
@@ -512,7 +522,7 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
   // fetches) is never reached when a non-blank embedded api-key/Authorization is present.
   private[ml] def lacksExplicitAuthCredential(row: Row): Boolean =
     !Seq(subscriptionKey, AADToken, CustomAuthHeader)
-      .exists(param => getValueOpt(row, param).exists(ServiceAuthHeaders.nonBlank))
+      .exists(param => getHeaderStringValueOpt(row, param).isDefined)
 
   // The automatic Fabric fallback is the lowest-priority credential. It is supplied by-name to
   // ServiceAuthHeaders.build and therefore invoked only when build's precedence chain finds no
@@ -530,7 +540,7 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
   }
 
   protected def getCustomHeaders(row: Row): Option[Map[String, String]] = {
-    getValueOpt(row, customHeaders)
+    getHeaderMapValueOpt(row, customHeaders)
   }
 
   protected def supportsImplicitFabricAuthRetry: Boolean = false
@@ -571,14 +581,14 @@ trait HasCognitiveServiceInput extends HasURL with HasSubscriptionKey with HasAA
       addContentType: Boolean,
       fabricFallbackAuthHeader: => Option[String]): ServiceAuthHeaders.Resolution = {
     ServiceAuthHeaders.resolve(
-      getValueOpt(row, subscriptionKey),
+      getHeaderStringValueOpt(row, subscriptionKey),
       subscriptionKeyHeaderName,
       aadHeaderName,
-      getValueOpt(row, AADToken),
+      getHeaderStringValueOpt(row, AADToken),
       getCustomAuthHeader(row),
       getCustomHeaders(row),
       fabricFallbackAuthHeader,
-      getValueOpt(row, telemHeaders),
+      getHeaderMapValueOpt(row, telemHeaders),
       if (addContentType) Option(contentType(row)) else None)
   }
 
