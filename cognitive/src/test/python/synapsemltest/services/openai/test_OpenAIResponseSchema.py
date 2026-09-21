@@ -71,6 +71,23 @@ class TestOpenAIResponseSchema(unittest.TestCase):
                 self.assertFalse(actual["strict"])
                 self.assertEqual(actual["schema"], self.schema)
 
+    def test_schema_setter_replaces_pending_response_format_only_on_success(self):
+        for stage_type in self.stage_types:
+            with self.subTest(stage=stage_type.__name__):
+                stage = stage_type()
+                stage.set(stage.responseFormat, {"type": "text"})
+                with self.assertRaisesRegex(IllegalArgumentException, "non-empty"):
+                    stage.setResponseSchema({})
+                self.assertEqual(
+                    stage.getOrDefault(stage.responseFormat), {"type": "text"}
+                )
+
+                stage.setResponseSchema(self.schema)
+                stage._transfer_params_to_java()
+
+                self.assertEqual(self.response_format(stage)["schema"], self.schema)
+                self.assertFalse(stage.isSet(stage.responseFormat))
+
     def test_generated_stubs_do_not_expose_nested_conversion_helpers(self):
         for stage_type in self.stage_types:
             with self.subTest(stage=stage_type.__name__):

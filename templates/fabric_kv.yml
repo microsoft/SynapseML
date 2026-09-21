@@ -13,6 +13,7 @@ steps:
   # (loaded by kv.yml): fabric-test-kv-name, fabric-cert-kv-name
   - task: AzureKeyVault@2
     displayName: 'Get Fabric Test Credentials from Key Vault'
+    retryCountOnTaskFailure: 2
     condition: ${{ parameters.condition }}
     inputs:
       azureSubscription: 'SynapseMLFabricTestCreds'
@@ -25,6 +26,7 @@ steps:
 
   - task: AzureCLI@2
     displayName: 'Get Fabric Test Certificate from Key Vault'
+    retryCountOnTaskFailure: 2
     condition: ${{ parameters.condition }}
     inputs:
       azureSubscription: 'SynapseMLFabricTestCreds'
