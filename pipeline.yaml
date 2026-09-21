@@ -51,6 +51,10 @@ schedules:
         - master
 
 parameters:
+  - name: fullTests
+    displayName: Force all PR test families
+    type: boolean
+    default: false
   - name: testStyle
     displayName: Run Style Tests
     type: boolean
@@ -105,6 +109,22 @@ variables:
   runCoverage: $[or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))]
 
 jobs:
+- job: CIHelpers
+  displayName: 'Test CI helpers'
+  timeoutInMinutes: 15
+  pool:
+    vmImage: $(UBUNTU_VERSION)
+  steps:
+    - bash: |
+        set -euo pipefail
+        python3 -m pip install --disable-pip-version-check --retries 5 --timeout 30 pytest pyyaml
+      displayName: 'Install CI test dependencies'
+      retryCountOnTaskFailure: 2
+    - bash: |
+        set -euo pipefail
+        python3 -m pytest tools/ci/tests/ -q
+      displayName: 'Test CI helpers'
+
 - job: BuildAndCacheSbt
   displayName: 'Prewarm sbt bootstrap cache'
   cancelTimeoutInMinutes: 0
@@ -112,59 +132,14 @@ jobs:
     vmImage: $(UBUNTU_VERSION)
   steps:
     - checkout: self
-      fetchDepth: 1
+      fetchDepth: 2
     - bash: |
-        set -uo pipefail
-        run_databricks_cpu=true
-        run_databricks_gpu=true
-
-        if [ "$(Build.Reason)" = "PullRequest" ]; then
-          target_ref="${SYSTEM_PULLREQUEST_TARGETBRANCH:-}"
-          if [ -z "$target_ref" ]; then
-            echo "##vso[task.logissue type=warning]PR target branch was unavailable; running Databricks E2E"
-          elif git fetch --no-tags --depth=1 origin "$target_ref"; then
-            target_commit="$(git rev-parse FETCH_HEAD)"
-
-            # Azure checks out the PR merge ref, so target tip -> HEAD is the
-            # effective PR diff. A source-only checkout can only over-report
-            # target changes, which safely keeps Databricks enabled.
-            echo "Changed paths used for Databricks E2E impact detection:"
-            changed_paths_file="$(mktemp)"
-            trap 'rm -f "$changed_paths_file"' EXIT
-            git diff --name-only -z --diff-filter=ACMRD "$target_commit" HEAD > "$changed_paths_file"
-            tr '\0' '\n' < "$changed_paths_file" | sed 's/^/  /'
-
-            cpu_decision="$(
-              python3 tools/ci/databricks_impact.py --null --suite cpu < "$changed_paths_file"
-            )"
-            gpu_decision="$(
-              python3 tools/ci/databricks_impact.py --null --suite gpu < "$changed_paths_file"
-            )"
-            case "$cpu_decision" in
-              true|false) run_databricks_cpu="$cpu_decision" ;;
-              *)
-                echo "##vso[task.logissue type=warning]Invalid Databricks CPU impact result; running CPU E2E"
-                ;;
-            esac
-            case "$gpu_decision" in
-              true|false) run_databricks_gpu="$gpu_decision" ;;
-              *)
-                echo "##vso[task.logissue type=warning]Invalid Databricks GPU impact result; running GPU E2E"
-                ;;
-            esac
-          else
-            echo "##vso[task.logissue type=warning]Could not fetch PR target branch; running Databricks E2E"
-          fi
-        else
-          echo "Non-PR build; Databricks E2E remains enabled"
-        fi
-
-        echo "Databricks CPU E2E enabled: $run_databricks_cpu"
-        echo "Databricks GPU E2E enabled: $run_databricks_gpu"
-        echo "##vso[task.setvariable variable=runDatabricksCpuE2E;isOutput=true]$run_databricks_cpu"
-        echo "##vso[task.setvariable variable=runDatabricksGpuE2E;isOutput=true]$run_databricks_gpu"
-      name: detectDatabricksImpact
-      displayName: 'Detect Databricks E2E impact'
+        set -euo pipefail
+        python3 tools/ci/e2e_impact.py
+      name: detectTestImpact
+      displayName: 'Select PR notebook E2E jobs'
+      env:
+        SYNAPSEML_FULL_TESTS: ${{ parameters.fullTests }}
     - template: templates/update_cli.yml
     - template: templates/sbt_cache.yml
       parameters:
@@ -260,7 +235,7 @@ jobs:
       succeeded(),
       eq(variables.runTests, 'True'),
       eq('${{ parameters.testDatabricksE2E }}', true),
-      eq(dependencies.BuildAndCacheSbt.outputs['detectDatabricksImpact.runDatabricksCpuE2E'], 'true')
+      ne(dependencies.BuildAndCacheSbt.outputs['detectTestImpact.runDatabricksCpuE2E'], 'false')
     )
   timeoutInMinutes: 300
   cancelTimeoutInMinutes: 0
@@ -293,7 +268,7 @@ jobs:
       succeeded(),
       eq(variables.runTests, 'True'),
       eq('${{ parameters.testDatabricksE2E }}', true),
-      eq(dependencies.BuildAndCacheSbt.outputs['detectDatabricksImpact.runDatabricksGpuE2E'], 'true')
+      ne(dependencies.BuildAndCacheSbt.outputs['detectTestImpact.runDatabricksGpuE2E'], 'false')
     )
   timeoutInMinutes: 300
   cancelTimeoutInMinutes: 0
@@ -316,6 +291,7 @@ jobs:
       succeeded(),
       eq(variables.runTests, 'True'),
       eq('${{ parameters.testFabricE2E }}', true),
+      ne(dependencies.BuildAndCacheSbt.outputs['detectTestImpact.runFabricE2E'], 'false'),
       ne(variables['System.PullRequest.IsFork'], 'True')
     )
   timeoutInMinutes: 120
