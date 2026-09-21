@@ -5,7 +5,7 @@
 - **Mode:** sequential
 - **Model:** claude-opus-5
 - **Base:** OSS `master` at `cd45147c7025f483e86fc028069d72b070e73a55`
-- **Worktree:** `.worktrees/fabric-test-cleanup-20260918`
+- **Worktree:** `fabric-test-cleanup-20260918` (local task checkout)
 - **Issues Found:** 4
 - **Verdict:** ISSUES_FOUND
 

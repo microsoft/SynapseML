@@ -189,14 +189,16 @@ private[ml] object FabricArtifactCleanup {
       managedEndpoint(i, candidate, cutoff) && neighbors(i.id, current) == Set(candidate.id)))
   }
 
-  private def deleteAndConfirm(client: Client, id: String, pause: () => Unit, log: String => Unit): Unit = {
+  private def tryDeleteItem(client: Client, id: String, log: String => Unit): Option[Throwable] = {
     try {
       client.delete(id)
+      None
     } catch {
       case e: RuntimeException if Option(e.getMessage).exists(_.contains("PowerBIEntityNotFound")) =>
         log(s"Fabric cleanup item $id was concurrently deleted; confirming absence")
+        None
+      case NonFatal(e) => Some(e)
     }
-    confirmAbsent(client, id, pause)
   }
 
   def run(client: Client, now: Instant, dryRun: Boolean = false,
@@ -208,38 +210,38 @@ private[ml] object FabricArtifactCleanup {
     val stores = initial.values.filter(i => ownedStore(i, initial)).toVector.sortBy(_.id)
     var deleted = Vector.empty[String]
     var failures = Vector.empty[Throwable]
-    (jobs ++ stores).filter(_.expired(cutoff)).foreach { candidate =>
-      val safe = try {
+    try {
+      (jobs ++ stores).filter(_.expired(cutoff)).foreach { candidate =>
         val current = index(client.inventory())
         val expected = candidate.copy(references = candidate.references -- deleted)
         val unchanged = current.get(candidate.id).contains(expected)
-        unchanged && (if (ownedJob(candidate)) {
+        val safe = unchanged && (if (ownedJob(candidate)) {
           safeJob(candidate, current, initial, client, cutoff)
         } else {
           failures.isEmpty && safeStore(candidate, current, cutoff)
         })
-      } catch {
-        case NonFatal(e) =>
-          failures.filterNot(_ eq e).foreach(e.addSuppressed)
-          throw e
-      }
-      if (safe) {
-        log(s"Fabric cleanup ${if (dryRun) "would delete" else "deleting"} ${candidate.kind} " +
-          s"${candidate.id} (${candidate.name}); created=${candidate.created}, updated=${candidate.updated}")
-        if (!dryRun) {
-          try {
-            deleteAndConfirm(client, candidate.id, pause, log)
-            deleted :+= candidate.id
-            log(s"Fabric cleanup confirmed deletion of ${candidate.id}")
-          } catch {
-            case NonFatal(e) =>
-              failures :+= e
-              log(s"Fabric cleanup failed for ${candidate.id}: ${e.getClass.getSimpleName}; retaining stores")
+        if (safe) {
+          log(s"Fabric cleanup ${if (dryRun) "would delete" else "deleting"} ${candidate.kind} " +
+            s"${candidate.id} (${candidate.name}); created=${candidate.created}, updated=${candidate.updated}")
+          if (!dryRun) {
+            tryDeleteItem(client, candidate.id, log) match {
+              case Some(e) =>
+                failures :+= e
+                log(s"Fabric cleanup failed for ${candidate.id}: ${e.getClass.getSimpleName}; retaining stores")
+              case None =>
+                confirmAbsent(client, candidate.id, pause)
+                deleted :+= candidate.id
+                log(s"Fabric cleanup confirmed deletion of ${candidate.id}")
+            }
           }
+        } else {
+          log(s"Fabric cleanup retains ${candidate.id}: changed metadata, active jobs, schedules, or dependencies")
         }
-      } else {
-        log(s"Fabric cleanup retains ${candidate.id}: changed metadata, active jobs, schedules, or dependencies")
       }
+    } catch {
+      case NonFatal(e) =>
+        failures.filterNot(_ eq e).foreach(e.addSuppressed)
+        throw e
     }
     failures.headOption.foreach { first =>
       failures.tail.filterNot(_ eq first).foreach(first.addSuppressed)

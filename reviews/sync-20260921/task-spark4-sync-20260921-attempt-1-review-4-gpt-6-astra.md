@@ -26,7 +26,7 @@
 - [x] Confirmed the index still matches the reviewed tree and no tracked unstaged changes exist.
 - [ ] The new probes were not separately executed on Spark 4.1 bytecode. No live Fabric validation was performed; Fabric E2E remains branch-disabled.
 
-Evidence logs are in `C:\Users\singhrana\.copilot\session-state\97d667ce-499f-46df-8884-4409e293afc0\files`.
+Evidence comes from locally retained validation logs that are not tracked in this repository: `spark41-cleanup-round3-green-v2.log`, `spark41-cleanup-round4-green.log`, `spark41-python-wheel-runtime.log`, and `master-cleanup-round4-red.log`.
 
 ## Issues
 

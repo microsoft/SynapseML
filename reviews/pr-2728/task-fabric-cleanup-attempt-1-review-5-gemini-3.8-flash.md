@@ -6,7 +6,7 @@
 **Issues:** 2 Medium
 **Verdict:** ISSUES_FOUND
 **Base:** OSS `master` at `cd45147c7025f483e86fc028069d72b070e73a55`
-**Worktree:** `.worktrees/fabric-test-cleanup-20260918`
+**Worktree:** `fabric-test-cleanup-20260918` (local task checkout)
 
 ## Evidence checklist
 

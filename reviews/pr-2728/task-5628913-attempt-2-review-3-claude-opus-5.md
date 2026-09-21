@@ -5,7 +5,7 @@
 - **Theme**: Edge cases & robustness
 - **Mode**: sequential
 - **Model**: claude-opus-5
-- **Artifact**: C:\Users\singhrana\Documents\SynapseML\.worktrees\fabric-test-cleanup-20260918\reviews\pr-2728\task-5628913-attempt-2-review-3-claude-opus-5.md
+- **Artifact**: `reviews/pr-2728/task-5628913-attempt-2-review-3-claude-opus-5.md`
 - **Issues Found**: 7
 - **Verdict**: ISSUES_FOUND
 
@@ -17,7 +17,7 @@ for direct suite runs).
 
 ## Evidence Checklist
 - [x] Enumerated the uncommitted change set with `git --no-pager status --porcelain=v1` and
-      `git --no-pager diff --stat` in `.worktrees\fabric-test-cleanup-20260918`: exactly five modified
+      `git --no-pager diff --stat` in the `fabric-test-cleanup-20260918` task checkout: exactly five modified
       files (`FabricNotebookTests.scala`, `FabricTestArtifactTrackerSuite.scala`,
       `docs/Reference/Developer Setup.md`, `pipeline.yaml`, `tools/ci/tests/test_pipeline_yaml.py`),
       387 insertions / 51 deletions, nothing staged.

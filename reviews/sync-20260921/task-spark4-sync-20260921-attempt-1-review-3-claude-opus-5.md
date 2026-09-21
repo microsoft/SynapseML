@@ -11,7 +11,7 @@
 - **MERGE_HEAD**: `714d365e71f6d2db5b7072094a4a3ad22485eb57`
 - **Content baseline**: `7c1bf9eb56`
 - **Reviewed index tree**: `8a40c8312e62e3d7e650a851d968ddfc0b95a3d8`
-- **Artifact**: `.worktrees\sync-spark41-20260921\reviews\sync-20260921\task-spark4-sync-20260921-attempt-1-review-3-claude-opus-5.md`
+- **Artifact**: `reviews/sync-20260921/task-spark4-sync-20260921-attempt-1-review-3-claude-opus-5.md`
 - **Issues Found**: 2 Low
 - **Verdict**: ISSUES_FOUND (two Low failure-signal gaps; no deletion-safety,
   header-resolution, service-parameter-atomicity, or concurrency defect found)
