@@ -62,7 +62,7 @@ private[nbtest] final class FabricTestArtifactTracker(deleteArtifact: String => 
     }
 
     failures.headOption.foreach { failure =>
-      failures.tail.foreach(failure.addSuppressed)
+      failures.tail.filterNot(_ eq failure).foreach(failure.addSuppressed)
       throw failure
     }
   }

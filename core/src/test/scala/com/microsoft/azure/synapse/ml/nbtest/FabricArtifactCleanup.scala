@@ -44,12 +44,11 @@ private[ml] object FabricArtifactCleanup {
       Try(OffsetDateTime.parse(s).toInstant).getOrElse(LocalDateTime.parse(s).toInstant(ZoneOffset.UTC))
     }
 
-  private def references(value: JsValue): Set[String] = value match {
+  private def references(value: JsValue, field: String): Set[String] = value match {
     case JsString(s) if s.matches(Guid) => Set(java.util.UUID.fromString(s).toString)
-    case JsObject(fields) => fields.values.flatMap(references).toSet
-    case JsArray(values) => values.flatMap(references).toSet
-    case JsNull => Set.empty
-    case _ => Set.empty
+    case JsObject(fields) if fields.nonEmpty => fields.values.flatMap(references(_, field)).toSet
+    case JsArray(values) if values.nonEmpty => values.flatMap(references(_, field)).toSet
+    case _ => throw new IllegalArgumentException(s"Invalid or unknown $field relation metadata")
   }
 
   private def reference(value: JsValue, field: String): Set[String] = value.asJsObject.fields.get(field) match {
@@ -66,8 +65,7 @@ private[ml] object FabricArtifactCleanup {
       fields.get(field) match {
         case Some(JsNull) => Set.empty[String]
         case Some(JsArray(values)) =>
-          require(values.forall(v => references(v).nonEmpty), s"Unknown $field metadata for $id")
-          values.flatMap(references).toSet
+          values.flatMap(references(_, field)).toSet
         case _ => throw new IllegalArgumentException(s"Missing or invalid $field metadata for $id")
       }
     }.toSet
@@ -211,14 +209,20 @@ private[ml] object FabricArtifactCleanup {
     var deleted = Vector.empty[String]
     var failures = Vector.empty[Throwable]
     (jobs ++ stores).filter(_.expired(cutoff)).foreach { candidate =>
-      val current = index(client.inventory())
-      val expected = candidate.copy(references = candidate.references -- deleted)
-      val unchanged = current.get(candidate.id).contains(expected)
-      val safe = unchanged && (if (ownedJob(candidate)) {
-        safeJob(candidate, current, initial, client, cutoff)
-      } else {
-        failures.isEmpty && safeStore(candidate, current, cutoff)
-      })
+      val safe = try {
+        val current = index(client.inventory())
+        val expected = candidate.copy(references = candidate.references -- deleted)
+        val unchanged = current.get(candidate.id).contains(expected)
+        unchanged && (if (ownedJob(candidate)) {
+          safeJob(candidate, current, initial, client, cutoff)
+        } else {
+          failures.isEmpty && safeStore(candidate, current, cutoff)
+        })
+      } catch {
+        case NonFatal(e) =>
+          failures.filterNot(_ eq e).foreach(e.addSuppressed)
+          throw e
+      }
       if (safe) {
         log(s"Fabric cleanup ${if (dryRun) "would delete" else "deleting"} ${candidate.kind} " +
           s"${candidate.id} (${candidate.name}); created=${candidate.created}, updated=${candidate.updated}")
