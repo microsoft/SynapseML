@@ -87,6 +87,10 @@ cleanup or starting notebook work; successful notebook runs retain their bounded
 parallel execution and per-job artifact cleanup. Interrupted cleanup preserves
 the interrupt signal. Store creation and executor setup failures are also
 cached, so later tests do not repeat initialization or start another notebook batch.
+Per-job cleanup never suppresses an interrupt or fatal error behind a notebook
+failure. The cleanup throwable escapes with the earlier notebook failure attached
+where that throwable permits suppression. An unsuccessful per-job deletion stays
+tracked for final cleanup.
 
 Set `SYNAPSEML_FABRIC_CLEANUP_DRY_RUN=true` to preview eligible deletions without
 changing the workspace. Omit it, or set it to `false`, to perform cleanup.
