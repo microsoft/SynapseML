@@ -1,7 +1,9 @@
 ## Review summary
 
 Publication note: this prerequisite-specific directory preserves the separate
-port review records. Paths in the original review describe its review-time location.
+port review records. Paths in the original review describe its review-time
+location. Machine-local prefixes were removed: artifact references are
+repository-relative and locally retained validation logs are named by file.
 
 - Round: 4
 - Theme: Detailed correctness, data flow, type safety, and exception propagation
@@ -26,7 +28,7 @@ port review records. Paths in the original review describe its review-time locat
 - [x] Confirmed the index still matches the reviewed tree and no tracked unstaged changes exist.
 - [ ] No live endpoint/schema review or cloud validation was performed. Broader master code is outside this companion review.
 
-Evidence logs are in `C:\Users\singhrana\.copilot\session-state\97d667ce-499f-46df-8884-4409e293afc0\files`.
+Evidence comes from locally retained validation logs that are not tracked in this repository: `master-cleanup-round3-green-v2.log`, `master-cleanup-round4-red.log`, and `master-cleanup-round4-green.log`.
 
 ## Issues
 

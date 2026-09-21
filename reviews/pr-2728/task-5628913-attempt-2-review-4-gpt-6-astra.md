@@ -3,7 +3,7 @@
 - **Theme**: Detailed correctness
 - **Mode**: sequential
 - **Model**: gpt-6-astra
-- **Artifact**: C:\Users\singhrana\Documents\SynapseML\.worktrees\fabric-test-cleanup-20260918\reviews\pr-2728\task-5628913-attempt-2-review-4-gpt-6-astra.md
+- **Artifact**: `reviews/pr-2728/task-5628913-attempt-2-review-4-gpt-6-astra.md`
 - **Issues Found**: 0
 - **Verdict**: CLEAN
 
