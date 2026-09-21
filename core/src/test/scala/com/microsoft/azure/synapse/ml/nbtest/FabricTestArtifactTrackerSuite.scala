@@ -356,6 +356,36 @@ class FabricTestArtifactTrackerSuite extends AnyFunSuite {
     assert(inventoryFailure.deleted.isEmpty)
   }
 
+  test("Preserve deletion errors when later cleanup metadata reads fail") {
+    Seq("inventory", "jobs", "schedules").foreach { failedRead =>
+      val deletionFailure = new IllegalStateException("delete denied")
+      Seq(new IllegalStateException("metadata denied"), deletionFailure).foreach { metadataFailure =>
+        val nextJob = staleJob.copy(id = cleanupId(3))
+        val attempted = ArrayBuffer.empty[String]
+        val client = new CleanupClient(Vector(staleStore, staleJob, nextJob)) {
+          override def jobs(id: String): Vector[JsValue] = {
+            if (id == nextJob.id && failedRead == "jobs") throw metadataFailure
+            super.jobs(id)
+          }
+          override def schedules(id: String): Vector[JsValue] = {
+            if (id == nextJob.id && failedRead == "schedules") throw metadataFailure
+            super.schedules(id)
+          }
+          override def delete(id: String): Unit = {
+            attempted += id
+            throw deletionFailure
+          }
+        }
+        client.beforeRead = n => if (n == 3 && failedRead == "inventory") throw metadataFailure
+        val thrown = intercept[IllegalStateException](client.run())
+        assert(thrown eq metadataFailure)
+        assert(thrown.getSuppressed.toSeq == Seq(deletionFailure).filterNot(_ eq metadataFailure))
+        assert(attempted == Seq(staleJob.id))
+        assert(client.items.exists(_.id == staleStore.id))
+      }
+    }
+  }
+
   test("Recheck metadata and consumers immediately before deleting") {
     val changed = new CleanupClient()
     changed.beforeRead = n => if (n == 2) {
@@ -492,6 +522,10 @@ class FabricTestArtifactTrackerSuite extends AnyFunSuite {
     assert(consumer.id == "abcdefab-1234-5678-abcd-abcdefabcdee")
     assert(consumer.references == Set(storeId))
     assert(new CleanupClient(Vector(store, consumer)).run().isEmpty)
+    val nested = JsObject(foreign.fields.updated("artifactRelations", JsArray(
+      JsObject("artifactObjectId" -> JsString(cleanupId(4)),
+        "dependencies" -> JsArray(JsString(storeId.toUpperCase))))))
+    assert(FabricArtifactCleanup.item(nested).references == Set(storeId, cleanupId(4)))
   }
 
   test("Parse only artifact metadata, require known relation shapes, and interpret unzoned timestamps as UTC") {
@@ -514,6 +548,29 @@ class FabricTestArtifactTrackerSuite extends AnyFunSuite {
     }
     intercept[IllegalArgumentException] {
       FabricArtifactCleanup.item(JsObject(metadata.fields.updated("parentArtifactObjectId", JsNumber(1))))
+    }
+  }
+
+  test("Reject mixed valid and malformed relation metadata before any artifact deletion") {
+    val relationFields = Seq("artifactRelations", "datasetRelations", "dataflowRelations", "datamartRelations")
+    val malformed = Seq[JsValue](JsString(staleStore.id + " "), JsString("not-an-id"), JsNumber(1),
+      JsBoolean(false), JsNull, JsObject(), JsArray(),
+      JsObject("nestedId" -> JsNumber(1)), JsArray(JsString(cleanupId(4)), JsNull))
+    for (field <- relationFields; invalid <- malformed) {
+      val relation = JsObject("artifactObjectId" -> JsString(cleanupId(4)),
+        "dependentArtifactObjectId" -> invalid)
+      val foreign = JsObject(Map[String, JsValue](
+        "objectId" -> JsString(cleanupId(3)), "displayName" -> JsString("Customer notebook"),
+        "artifactType" -> JsString("Notebook")) ++ relationFields.map(_ -> JsNull) +
+        (field -> JsArray(relation)))
+      val client = new CleanupClient(Vector(staleStore)) {
+        override def inventory(): Vector[FabricArtifactCleanup.Item] =
+          super.inventory() :+ FabricArtifactCleanup.item(foreign)
+      }
+      val error = intercept[IllegalArgumentException](client.run())
+      assert(error.getMessage.contains(field))
+      assert(client.deleted.isEmpty)
+      assert(client.items == Vector(staleStore))
     }
   }
 

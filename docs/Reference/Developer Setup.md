@@ -99,11 +99,20 @@ schedules, and shared dependencies are not deletion candidates.
 Stores are also retained while any OSS test job remains, or any notebook/job
 has no usable reference edges, rather than assuming that missing edges prove
 there are no consumers.
+Relation entries must contain only GUID references in nonempty objects or arrays.
+Malformed references or unknown metadata fail the inventory read rather than
+authorizing cleanup with an incomplete graph. A valid reference elsewhere in
+the entry cannot hide them.
 
 Job definitions are deleted before their stores. Each deletion is checked up to
 31 times, with two seconds between checks, to tolerate delayed inventory updates.
-An unconfirmed or failed deletion prevents store deletion. Independent job
-deletions are still attempted, and collected errors fail the cleanup afterward.
+An unconfirmed or failed deletion prevents store deletion. After deletion
+failures, independent job deletions are still attempted, and collected errors
+fail the cleanup afterward. If a later inventory, job-history, or schedule read
+fails, cleanup stops immediately. Nonfatal read failures are rethrown with
+earlier deletion errors attached as suppressed exceptions. Reused exception
+instances are never added as their own suppressed error; interrupts and fatal
+errors keep their existing propagation.
 SQL endpoints are left to Fabric's lakehouse deletion rather than deleted
 independently. Authentication, inventory, and deletion errors fail the cleanup.
 
