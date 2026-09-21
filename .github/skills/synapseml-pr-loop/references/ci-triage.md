@@ -6,32 +6,39 @@ which category the failure belongs to.
 ## Waiting for Azure Pipelines
 
 After `/azp run`, confirm that the current-head build queued. Record its build
-ID and the PR head SHA, then run
+ID, PR head SHA, and the trigger comment's `created_at` as its kickoff time.
+For a manually queued run without that comment, use Azure's `queueTime`, not
+the time an agent first notices the build. Then run
 [watch_azure_pipeline.py](../scripts/watch_azure_pipeline.py):
 
 ```text
-python <watcher-script> --repo <owner/repo> --pull-request <number> --head-sha <full-sha> --build-id <id>
+python <watcher-script> --repo <owner/repo> --pull-request <number> --head-sha <full-sha> --build-id <id> --kickoff-at <ISO-8601-time>
 ```
 
 - Launch this command once through the terminal tool's attached
   asynchronous/background mode. Keep its job ID, confirm the startup message,
   and continue independent work. Do not detach it from the session unless asked.
 - The process checks the named Azure build's GitHub status every **10 minutes
-  (600 seconds)**, with a **120-minute maximum** including queries and sleeps.
+  (600 seconds)**, with a deadline **120 minutes after that run's kickoff**.
+  Late starts and watcher restarts only get the remaining time.
   `--timeout-minutes` may shorten that limit, not increase it.
 - It prints only startup and final JSON. Let the process sleep without model
   calls, subagents, recurring prompts, or short polls of the job's output.
   Read its result when the terminal tool sends a completion notification.
 - Exit zero means the named check succeeded. Failure, timeout, query errors,
-  or a changed PR head are nonzero results. A missing or replaced build is an
-  error rather than permission to follow another run.
+  or a changed PR head are nonzero results.
+- A newer build returns `outcome: replaced` with its ID and URL. Confirm its
+  kickoff time, then launch one new background job for that run. Its two-hour
+  window starts at the new kickoff, not when the replacement is noticed.
+  Do the same after a head change once its new run is confirmed.
 - On timeout, report the build link and leave CI unresolved. The monitor does
-  not cancel the Azure build, queue another run, or restart its own deadline.
-  Do not automatically relaunch it to evade the two-hour limit.
-- After completion, recheck the PR head and inspect Azure jobs and published
-  test results before declaring readiness. GitHub status can lag Azure; this
-  monitor is not a substitute for those checks.
-- Do not post another `/azp run` during monitoring.
+  not cancel or trigger builds. Rechecking the same run never resets its clock;
+  only a genuinely new run gets a fresh kickoff-based window.
+- After any monitor exit, recheck the current head and build, including for a
+  new run triggered near the old cutoff. Inspect Azure jobs and published test
+  results before declaring readiness; GitHub status can lag Azure.
+- Do not trigger duplicate runs just because a build is pending. If authorized
+  work requires a new run, record its new kickoff and replace the old monitor.
 - `Get-PrReadiness.ps1 -PollSeconds` controls its wait for automated review and
   required checks to appear, not Azure pipeline completion. Keep that separate
   from the 10-minute pipeline-monitoring cadence.

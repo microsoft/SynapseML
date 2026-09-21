@@ -127,8 +127,10 @@ is complete and green.
 - Once the build is queued, launch
   [watch_azure_pipeline.py](scripts/watch_azure_pipeline.py) as one attached
   background terminal job. It checks every **10 minutes (600 seconds)** and
-  stops after **2 hours**. Continue other work and use the job's completion
-  notification, not repeated agent turns or short status polls. Follow the
+  stops **2 hours after that run's kickoff**, not after the watcher starts.
+  A newly triggered run gets a new kickoff-based window. Continue other work
+  and use the job's completion notification, not repeated agent turns or short
+  status polls. Follow the
   [waiting guidance](references/ci-triage.md#waiting-for-azure-pipelines).
 - If no build appears, check the pipeline definition's own pull-request trigger
   rather than assuming a transient failure. That trigger can be defined in the
@@ -159,7 +161,8 @@ pending, nothing there.
 The helper waits for review coverage and required checks to appear, not for
 pipeline completion. If Azure is still pending when it returns, use the
 background monitor above. A timeout leaves CI unresolved; do not declare
-readiness or restart the monitor automatically to extend the two-hour limit.
+readiness or restart the same run's monitor to extend its deadline. For a new
+run, use its build ID and kickoff time to start a fresh monitoring window.
 
 For multiple PRs, after each merge:
 

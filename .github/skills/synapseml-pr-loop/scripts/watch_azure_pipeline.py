@@ -4,6 +4,7 @@
 """Watch one Azure build's GitHub check without repeated agent invocations."""
 
 import argparse
+from datetime import datetime, timedelta, timezone
 import json
 import re
 import subprocess
@@ -50,7 +51,10 @@ def query_pr(args, timeout):
 
 
 def monitor(args):
-    deadline = time.monotonic() + args.timeout_minutes * 60
+    remaining_budget = (
+        args.kickoff_at.timestamp() + args.timeout_minutes * 60 - time.time()
+    )
+    deadline = time.monotonic() + max(0, remaining_budget)
     timeout_result = {"outcome": "timeout"}
     while True:
         remaining = deadline - time.monotonic()
@@ -80,21 +84,33 @@ def monitor(args):
             isinstance(check, dict) for check in checks
         ):
             raise MonitorError("GitHub response is missing valid check results.")
-        matching = []
+        matching = {}
         for check in checks:
             if (check.get("name") or check.get("context")) != CHECK_NAME:
                 continue
             url = check.get("detailsUrl") or check.get("targetUrl") or ""
             if not isinstance(url, str):
                 raise MonitorError("Azure check has an invalid build URL.")
-            if parse_qs(urlparse(url).query).get("buildId") == [str(args.build_id)]:
-                matching.append((check, url))
-        if len(matching) != 1:
+            build_ids = parse_qs(urlparse(url).query).get("buildId", [])
+            if len(build_ids) != 1 or not re.fullmatch(r"[0-9]+", build_ids[0]):
+                raise MonitorError("Azure check has no valid build ID.")
+            build_id = int(build_ids[0])
+            if build_id in matching:
+                raise MonitorError("Azure check has duplicate results for one build.")
+            matching[build_id] = (check, url)
+        if not matching or max(matching) < args.build_id:
             raise MonitorError(
-                "Expected one matching Azure build check. Verify its registration "
-                "and build ID; do not silently follow a replacement run."
+                "Expected Azure build is not registered. Verify its build ID."
             )
-        check, url = matching[0]
+        latest_build_id = max(matching)
+        if latest_build_id != args.build_id:
+            return {
+                "outcome": "replaced",
+                "replacementBuildId": latest_build_id,
+                "replacementUrl": matching[latest_build_id][1],
+                "message": "Start a monitor using the new run's verified kickoff time.",
+            }
+        check, url = matching[args.build_id]
         timeout_result["url"] = url
         state = check.get("status") or check.get("state")
         if state == "COMPLETED":
@@ -115,12 +131,25 @@ def monitor(args):
         }
 
 
+def parse_kickoff(value):
+    try:
+        kickoff = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise argparse.ArgumentTypeError(
+            "Kickoff must be an ISO 8601 timestamp."
+        ) from error
+    if kickoff.tzinfo is None:
+        raise argparse.ArgumentTypeError("Kickoff must include its time zone.")
+    return kickoff.astimezone(timezone.utc)
+
+
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--repo", default="microsoft/SynapseML")
     parser.add_argument("--pull-request", required=True, type=int)
     parser.add_argument("--head-sha", required=True)
     parser.add_argument("--build-id", required=True, type=int)
+    parser.add_argument("--kickoff-at", required=True, type=parse_kickoff)
     parser.add_argument("--timeout-minutes", type=int, default=MAX_TIMEOUT_MINUTES)
     args = parser.parse_args(argv)
     if args.pull_request <= 0 or args.build_id <= 0:
@@ -132,6 +161,8 @@ def parse_args(argv=None):
     args.head_sha = args.head_sha.lower()
     if not 1 <= args.timeout_minutes <= MAX_TIMEOUT_MINUTES:
         parser.error("--timeout-minutes must be between 1 and 120.")
+    if args.kickoff_at.timestamp() > time.time():
+        parser.error("--kickoff-at cannot be in the future.")
     return args
 
 
@@ -142,6 +173,10 @@ def main(argv=None):
         "pullRequest": args.pull_request,
         "headSha": args.head_sha,
         "buildId": args.build_id,
+        "kickoffAt": args.kickoff_at.isoformat(),
+        "deadlineAt": (
+            args.kickoff_at + timedelta(minutes=args.timeout_minutes)
+        ).isoformat(),
     }
     print(
         json.dumps(
@@ -166,6 +201,7 @@ def main(argv=None):
         "failed": 1,
         "error": 1,
         "superseded": 2,
+        "replaced": 3,
         "timeout": 124,
         "interrupted": 130,
     }[result["outcome"]]

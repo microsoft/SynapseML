@@ -2,6 +2,7 @@
 # Licensed under the MIT License. See LICENSE in the project root for information.
 
 import contextlib
+from datetime import datetime
 import importlib.util
 import io
 import json
@@ -17,7 +18,18 @@ watcher = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(watcher)
 
 HEAD = "a" * 40
-ARGV = ["--pull-request", "1", "--head-sha", HEAD, "--build-id", "42"]
+KICKOFF = "2026-09-21T00:00:00+00:00"
+EPOCH = datetime.fromisoformat(KICKOFF).timestamp()
+ARGV = [
+    "--pull-request",
+    "1",
+    "--head-sha",
+    HEAD,
+    "--build-id",
+    "42",
+    "--kickoff-at",
+    KICKOFF,
+]
 URL = "https://dev.azure.com/example/project/_build/results?buildId=42"
 
 
@@ -39,15 +51,20 @@ def snapshot(state="IN_PROGRESS", conclusion="", head=HEAD, build_url=URL):
 class WatchAzurePipelineTests(unittest.TestCase):
     def setUp(self):
         self.now = 0
-        self.args = watcher.parse_args(ARGV)
         self.clock = patch.object(
             watcher.time, "monotonic", side_effect=lambda: self.now
         )
         self.sleep = patch.object(watcher.time, "sleep", side_effect=self.advance)
+        self.wall = patch.object(
+            watcher.time, "time", side_effect=lambda: EPOCH + self.now
+        )
         self.clock.start()
+        self.wall.start()
         self.sleep_mock = self.sleep.start()
+        self.args = watcher.parse_args(ARGV)
         self.addCleanup(self.clock.stop)
         self.addCleanup(self.sleep.stop)
+        self.addCleanup(self.wall.stop)
 
     def advance(self, seconds):
         self.now += seconds
@@ -85,6 +102,56 @@ class WatchAzurePipelineTests(unittest.TestCase):
             self.assertEqual("timeout", watcher.monitor(self.args)["outcome"])
         self.assertEqual(60, self.now)
         self.assertEqual(1, query.call_count)
+
+    def test_late_start_only_gets_remaining_time_from_kickoff(self):
+        self.now = 90 * 60
+        with patch.object(watcher, "query_pr", return_value=snapshot()) as query:
+            self.assertEqual("timeout", watcher.monitor(self.args)["outcome"])
+        self.assertEqual(7200, self.now)
+        self.assertEqual(3, query.call_count)
+
+    def test_restarting_same_run_does_not_extend_its_deadline(self):
+        self.now = 7000
+        with patch.object(watcher, "query_pr", return_value=snapshot()) as query:
+            self.assertEqual("timeout", watcher.monitor(self.args)["outcome"])
+            self.assertEqual("timeout", watcher.monitor(self.args)["outcome"])
+        self.assertEqual(7200, self.now)
+        self.assertEqual(1, query.call_count)
+        self.sleep_mock.assert_called_once_with(200)
+
+    def test_already_expired_run_does_not_query_or_sleep(self):
+        self.now = 8000
+        with patch.object(watcher, "query_pr") as query:
+            self.assertEqual("timeout", watcher.monitor(self.args)["outcome"])
+        query.assert_not_called()
+        self.sleep_mock.assert_not_called()
+
+    def test_new_run_gets_a_new_window_from_its_own_kickoff(self):
+        self.now = 6600
+        replacement = snapshot(build_url=URL.replace("42", "43"))
+        with patch.object(watcher, "query_pr", return_value=replacement):
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(3, watcher.main(ARGV))
+            event = json.loads(output.getvalue().splitlines()[-1])
+            self.assertEqual(43, event["replacementBuildId"])
+            self.now = 7200
+            new_args = watcher.parse_args(
+                ARGV + ["--build-id", "43", "--kickoff-at", "2026-09-21T01:50:00Z"]
+            )
+            self.assertEqual("timeout", watcher.monitor(new_args)["outcome"])
+        self.assertEqual(13800, self.now)
+        self.assertEqual(11, self.sleep_mock.call_count)
+
+    def test_replacement_wins_over_an_old_successful_check(self):
+        data = snapshot("COMPLETED", "SUCCESS")
+        data["statusCheckRollup"] += snapshot(build_url=URL.replace("42", "43"))[
+            "statusCheckRollup"
+        ]
+        with patch.object(watcher, "query_pr", return_value=data):
+            result = watcher.monitor(self.args)
+        self.assertEqual("replaced", result["outcome"])
+        self.assertEqual(43, result["replacementBuildId"])
 
     def test_query_time_counts_toward_deadline(self):
         self.args.timeout_minutes = 1
@@ -151,20 +218,26 @@ class WatchAzurePipelineTests(unittest.TestCase):
                     )
         self.sleep_mock.assert_not_called()
 
-    def test_missing_replaced_or_ambiguous_build_is_an_error(self):
+    def test_missing_older_or_ambiguous_build_is_an_error(self):
         missing = snapshot()
         missing["statusCheckRollup"] = []
-        replaced = snapshot(build_url=URL.replace("42", "43"))
+        older = snapshot(build_url=URL.replace("42", "41"))
         duplicate = snapshot()
         duplicate["statusCheckRollup"] *= 2
-        for data in (missing, replaced, duplicate):
+        for data in (missing, older, duplicate):
             with self.subTest(data=data):
                 with patch.object(watcher, "query_pr", return_value=data):
                     with self.assertRaises(watcher.MonitorError):
                         watcher.monitor(self.args)
 
     def test_invalid_responses_fail_explicitly(self):
-        for data in ({}, snapshot("UNKNOWN"), snapshot("COMPLETED", "")):
+        for data in (
+            {},
+            snapshot("UNKNOWN"),
+            snapshot("COMPLETED", ""),
+            snapshot(build_url=URL.replace("42", "abc")),
+            snapshot(build_url=URL.replace("42", "\u00b2")),
+        ):
             with self.subTest(data=data):
                 with patch.object(watcher, "query_pr", return_value=data):
                     with self.assertRaises(watcher.MonitorError):
@@ -204,10 +277,17 @@ class WatchAzurePipelineTests(unittest.TestCase):
             ["--pull-request", "-1"],
             ["--repo", "invalid"],
             ["--head-sha", "short"],
+            ["--kickoff-at", "not-a-time"],
+            ["--kickoff-at", "2026-09-21T00:00:00"],
+            ["--kickoff-at", "2026-09-22T00:00:00Z"],
         ):
             with self.subTest(extra=extra), contextlib.redirect_stderr(io.StringIO()):
                 with self.assertRaises(SystemExit):
                     watcher.parse_args(ARGV + extra)
+
+    def test_kickoff_time_zone_is_normalized(self):
+        args = watcher.parse_args(ARGV + ["--kickoff-at", "2026-09-20T17:00:00-07:00"])
+        self.assertEqual(self.args.kickoff_at, args.kickoff_at)
 
     def test_interrupt_is_reported_without_cancelling_the_build(self):
         with patch.object(watcher, "query_pr", side_effect=KeyboardInterrupt):
