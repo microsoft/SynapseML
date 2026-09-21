@@ -6,7 +6,7 @@
 - **Model**: gpt-6-astra
 - **Reasoning**: xhigh
 - **Target**: spark4.0
-- **Artifact**: `.worktrees\sync-spark40-20260921\reviews\sync-20260921\task-spark4-sync-20260921-attempt-1-review-1-gpt-6-astra.md`
+- **Artifact**: `reviews/sync-20260921/task-spark4-sync-20260921-attempt-1-review-1-gpt-6-astra.md`
 - **Reviewed index tree**: `5325163b0c60b8394b6fa77e3ed48e21e21ff2d7`
 - **HEAD**: `7251246d4513f597838bcd53402a9025943a4142`
 - **MERGE_HEAD**: `714d365e71f6d2db5b7072094a4a3ad22485eb57`

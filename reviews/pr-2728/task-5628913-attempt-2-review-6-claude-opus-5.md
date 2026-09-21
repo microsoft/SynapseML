@@ -5,7 +5,7 @@
 - **Theme**: Polish & hardening (performance, observability, documentation, naming clarity)
 - **Mode**: sequential
 - **Model**: Claude Opus 5 (`claude-opus-5`)
-- **Artifact**: C:\Users\singhrana\Documents\SynapseML\.worktrees\fabric-test-cleanup-20260918\reviews\pr-2728\task-5628913-attempt-2-review-6-claude-opus-5.md
+- **Artifact**: `reviews/pr-2728/task-5628913-attempt-2-review-6-claude-opus-5.md`
 - **Issues Found**: 4
 - **Verdict**: ISSUES_FOUND
 
@@ -16,7 +16,7 @@ observability and clarity polish appropriate to this round.
 ## Evidence Checklist
 
 - [x] Reviewed the **current** working-tree source, not the prompt diff or earlier rounds:
-      `git diff --stat` in `.worktrees\fabric-test-cleanup-20260918` shows the five modified files
+      `git diff --stat` in the `fabric-test-cleanup-20260918` task checkout shows the five modified files
       (`FabricNotebookTests.scala`, `FabricTestArtifactTrackerSuite.scala`,
       `docs/Reference/Developer Setup.md`, `pipeline.yaml`, `tools/ci/tests/test_pipeline_yaml.py`)
       on top of `1205df21f0`; read all 210 lines of `FabricNotebookTests.scala` and all

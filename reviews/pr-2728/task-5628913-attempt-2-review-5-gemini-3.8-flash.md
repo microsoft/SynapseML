@@ -3,7 +3,7 @@
 - **Theme**: Testing & coverage
 - **Mode**: sequential
 - **Model**: gemini-3.8-flash
-- **Artifact**: C:\Users\singhrana\Documents\SynapseML\.worktrees\fabric-test-cleanup-20260918\reviews\pr-2728\task-5628913-attempt-2-review-5-gemini-3.8-flash.md
+- **Artifact**: `reviews/pr-2728/task-5628913-attempt-2-review-5-gemini-3.8-flash.md`
 - **Issues Found**: 0
 - **Verdict**: CLEAN
 
