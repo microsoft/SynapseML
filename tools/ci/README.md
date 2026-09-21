@@ -80,6 +80,23 @@ cannot reach it.
 `test_pipeline_yaml.py` verifies `pipeline.yaml` parses and that every
 sbt-running job is wired to the shared cache template + prewarm job.
 
+## Release compatibility replay
+
+Replay excludes Markdown review records under `reviews/`, like other CI
+documentation. Executable files in that directory and mixed code/documentation
+changes still require replay. Conflicting patches remain errors.
+
+The prerequisite list is temporary dependency metadata, not a change history.
+Remove integrated backports after verifying the release targets contain them;
+reapplying an old patch onto a newer port can create a false conflict.
+
+## External setup and coverage publication
+
+Fabric credential reads and Azure coverage publication each allow two task
+retries for transient service failures. Exhausted attempts still fail the job.
+Certificate validation, test assertions, and required coverage reports are not
+bypassed.
+
 ## `databricks_impact.py` — conservative PR E2E gating
 
 The `BuildAndCacheSbt` job compares a pull request with its target branch and
