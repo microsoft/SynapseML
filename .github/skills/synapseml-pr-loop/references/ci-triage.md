@@ -3,6 +3,24 @@
 Do not rerun a failed pipeline blindly. Preserve the job URL and first determine
 which category the failure belongs to.
 
+## Waiting for Azure Pipelines
+
+After `/azp run`, confirm that the current-head build queued and record its ID.
+While it is queued or running, check that same build every **10 minutes
+(600 seconds)**. Short polling bursts do not help with this long-running build.
+
+- Use a real 600-second interval between scheduled status queries, for example
+  `Start-Sleep -Seconds 600` in a monitoring script. Do not replace the wait with
+  repeated short tool calls or extra status queries between polls.
+- The initial queue/provenance check and reacting to a completion notification
+  do not require a 10-minute delay. Stop polling once the build completes;
+  inspect its jobs and published test results before declaring success.
+- Do not post another `/azp run` during status polling. A pending build is not
+  a reason to queue a duplicate.
+- `Get-PrReadiness.ps1 -PollSeconds` controls its wait for automated review and
+  required checks to appear, not Azure pipeline completion. Keep that separate
+  from the 10-minute pipeline-monitoring cadence.
+
 ## Product defect
 
 The changed code compiled or ran and produced an incorrect result, crash,
