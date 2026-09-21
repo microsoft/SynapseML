@@ -124,6 +124,10 @@ is complete and green.
   nor pending, so nothing reports it. Verify the build against the head SHA by
   name, or run `Get-PrReadiness.ps1 -RunPipeline` to post the comment
   automatically when it is missing.
+- Once the build is queued, check its status every **10 minutes (600 seconds)**
+  until it completes. This is a long-running pipeline; do not monitor it in
+  short bursts. Follow the
+  [waiting guidance](references/ci-triage.md#waiting-for-azure-pipelines).
 - If no build appears, check the pipeline definition's own pull-request trigger
   rather than assuming a transient failure. That trigger can be defined in the
   pipeline UI, in which case it overrides the `pr:` block in `pipeline.yaml`
@@ -149,6 +153,10 @@ switches cover the asynchronous gaps that a bare snapshot reports as clean: the
 automated review has not arrived yet, and the Azure Pipelines build has not been
 asked to start. Both leave the same signature -- nothing failed, nothing
 pending, nothing there.
+
+The helper waits for review coverage and required checks to appear, not for
+pipeline completion. If Azure is still pending when it returns, continue
+monitoring at the 10-minute cadence above before declaring readiness.
 
 For multiple PRs, after each merge:
 
