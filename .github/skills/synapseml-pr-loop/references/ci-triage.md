@@ -5,18 +5,33 @@ which category the failure belongs to.
 
 ## Waiting for Azure Pipelines
 
-After `/azp run`, confirm that the current-head build queued and record its ID.
-While it is queued or running, check that same build every **10 minutes
-(600 seconds)**. Short polling bursts do not help with this long-running build.
+After `/azp run`, confirm that the current-head build queued. Record its build
+ID and the PR head SHA, then run
+[watch_azure_pipeline.py](../scripts/watch_azure_pipeline.py):
 
-- Use a real 600-second interval between scheduled status queries, for example
-  `Start-Sleep -Seconds 600` in a monitoring script. Do not replace the wait with
-  repeated short tool calls or extra status queries between polls.
-- The initial queue/provenance check and reacting to a completion notification
-  do not require a 10-minute delay. Stop polling once the build completes;
-  inspect its jobs and published test results before declaring success.
-- Do not post another `/azp run` during status polling. A pending build is not
-  a reason to queue a duplicate.
+```text
+python <watcher-script> --repo <owner/repo> --pull-request <number> --head-sha <full-sha> --build-id <id>
+```
+
+- Launch this command once through the terminal tool's attached
+  asynchronous/background mode. Keep its job ID, confirm the startup message,
+  and continue independent work. Do not detach it from the session unless asked.
+- The process checks the named Azure build's GitHub status every **10 minutes
+  (600 seconds)**, with a **120-minute maximum** including queries and sleeps.
+  `--timeout-minutes` may shorten that limit, not increase it.
+- It prints only startup and final JSON. Let the process sleep without model
+  calls, subagents, recurring prompts, or short polls of the job's output.
+  Read its result when the terminal tool sends a completion notification.
+- Exit zero means the named check succeeded. Failure, timeout, query errors,
+  or a changed PR head are nonzero results. A missing or replaced build is an
+  error rather than permission to follow another run.
+- On timeout, report the build link and leave CI unresolved. The monitor does
+  not cancel the Azure build, queue another run, or restart its own deadline.
+  Do not automatically relaunch it to evade the two-hour limit.
+- After completion, recheck the PR head and inspect Azure jobs and published
+  test results before declaring readiness. GitHub status can lag Azure; this
+  monitor is not a substitute for those checks.
+- Do not post another `/azp run` during monitoring.
 - `Get-PrReadiness.ps1 -PollSeconds` controls its wait for automated review and
   required checks to appear, not Azure pipeline completion. Keep that separate
   from the 10-minute pipeline-monitoring cadence.

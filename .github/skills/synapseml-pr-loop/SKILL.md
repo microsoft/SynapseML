@@ -124,9 +124,11 @@ is complete and green.
   nor pending, so nothing reports it. Verify the build against the head SHA by
   name, or run `Get-PrReadiness.ps1 -RunPipeline` to post the comment
   automatically when it is missing.
-- Once the build is queued, check its status every **10 minutes (600 seconds)**
-  until it completes. This is a long-running pipeline; do not monitor it in
-  short bursts. Follow the
+- Once the build is queued, launch
+  [watch_azure_pipeline.py](scripts/watch_azure_pipeline.py) as one attached
+  background terminal job. It checks every **10 minutes (600 seconds)** and
+  stops after **2 hours**. Continue other work and use the job's completion
+  notification, not repeated agent turns or short status polls. Follow the
   [waiting guidance](references/ci-triage.md#waiting-for-azure-pipelines).
 - If no build appears, check the pipeline definition's own pull-request trigger
   rather than assuming a transient failure. That trigger can be defined in the
@@ -155,8 +157,9 @@ asked to start. Both leave the same signature -- nothing failed, nothing
 pending, nothing there.
 
 The helper waits for review coverage and required checks to appear, not for
-pipeline completion. If Azure is still pending when it returns, continue
-monitoring at the 10-minute cadence above before declaring readiness.
+pipeline completion. If Azure is still pending when it returns, use the
+background monitor above. A timeout leaves CI unresolved; do not declare
+readiness or restart the monitor automatically to extend the two-hour limit.
 
 For multiple PRs, after each merge:
 
