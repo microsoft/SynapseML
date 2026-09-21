@@ -9,7 +9,11 @@ import com.microsoft.azure.synapse.ml.stages.{FixedMiniBatchTransformer, Flatten
 import org.apache.http.entity.AbstractHttpEntity
 import org.apache.spark.ml.param.{ParamMap, Params}
 import org.apache.spark.sql.Row
+import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
+import org.apache.spark.sql.types.{ArrayType, MapType, StringType, StructType}
 import spray.json.DefaultJsonProtocol._
+
+import scala.collection.mutable.ArrayBuffer
 
 private class ServiceParamHarness(override val uid: String = "serviceParamHarness")
   extends Params with HasServiceParams {
@@ -222,10 +226,11 @@ class CognitiveServiceBaseSuite extends TestBase {
     val input = Seq(
       ("first", "first-key"),
       ("second", "second-key")
-    ).toDF("text", "key")
+    ).toDF("text", "key").coalesce(1)
     val batched = new FixedMiniBatchTransformer().setBatchSize(10).transform(input)
     val inputBuilder = new CognitiveInputHarness().setSubscriptionKeyCol("key")
 
+    assert(batched.head().getAs[scala.collection.Seq[String]]("key") == Seq("first-key", "second-key"))
     assert(inputBuilder.headers(batched.head())("Ocp-Apim-Subscription-Key") == "first-key")
 
     val restored = new FlattenBatch().transform(batched)
@@ -251,6 +256,22 @@ class CognitiveServiceBaseSuite extends TestBase {
     assert(headers("X-Telemetry") == "2")
   }
 
+  test("header columns accept mutable Spark array representations") {
+    val input = new CognitiveInputHarness().setSubscriptionKeyCol("keys")
+    input.setVectorParam(input.customHeaders, "custom")
+    val schema = new StructType()
+      .add("keys", ArrayType(StringType))
+      .add("custom", ArrayType(MapType(StringType, StringType)))
+    val row = new GenericRowWithSchema(Array[Any](
+      ArrayBuffer("", "batch-key"),
+      ArrayBuffer(Map.empty[String, String], Map("X-Test" -> "kept"))
+    ), schema)
+
+    val headers = input.headers(row)
+    assert(headers("Ocp-Apim-Subscription-Key") == "batch-key")
+    assert(headers("X-Test") == "kept")
+  }
+
   test("empty automatically batched credentials do not fail header resolution") {
     val input = new CognitiveInputHarness()
     input.setSubscriptionKeyCol("keys")
@@ -268,6 +289,53 @@ class CognitiveServiceBaseSuite extends TestBase {
     assert(!headers.contains("Authorization"))
   }
 
+  test("batched credentials preserve auth precedence and lazy Fabric fallback") {
+    val input = new CognitiveInputHarness().setSubscriptionKeyCol("keys").setAADTokenCol("tokens")
+    input.setVectorParam(input.customHeaders, "custom")
+    input.setVectorParam(input.telemHeaders, "telemetry")
+    val row = Seq((
+      Seq("", "batch-key"),
+      Seq("batch-token"),
+      Seq(Map("Authorization" -> "embedded-token", "X-Custom" -> "kept")),
+      Seq(Map("AUTHORIZATION" -> "ignored", "Ocp-Apim-Subscription-Key" -> "ignored", "X-Telemetry" -> "kept"))
+    )).toDF("keys", "tokens", "custom", "telemetry").head()
+
+    def unexpectedFallback: Option[String] = throw new AssertionError("Fallback must remain lazy")
+
+    val headers = input.buildServiceAuthHeaders(row, addContentType = true,
+      fabricFallbackAuthHeader = unexpectedFallback)
+    assert(headers("Ocp-Apim-Subscription-Key") == "batch-key")
+    assert(!headers.keys.exists(_.equalsIgnoreCase("Authorization")))
+    assert(headers("X-Custom") == "kept")
+    assert(headers("X-Telemetry") == "kept")
+    assert(!input.lacksExplicitAuthCredential(row))
+  }
+
+  test("all-blank batched credentials allow Fabric fallback") {
+    val input = new CognitiveInputHarness().setSubscriptionKeyCol("keys")
+    val row = Seq(Seq(Option.empty[String], Some(" "), Some(""))).toDF("keys").head()
+    assert(input.lacksExplicitAuthCredential(row))
+    val headers = input.buildServiceAuthHeaders(row, addContentType = false,
+      fabricFallbackAuthHeader = Some("fallback-token"))
+    assert(headers("Authorization") == "fallback-token")
+    assert(!headers.contains("Ocp-Apim-Subscription-Key"))
+  }
+
+  test("batched maps skip null and sanitized-empty maps without merging later maps") {
+    val input = new CognitiveInputHarness()
+    input.setVectorParam(input.customHeaders, "custom")
+    val row = Seq(Seq(
+      Option.empty[Map[String, String]],
+      Some(Map("X-Null" -> Option.empty[String].orNull)),
+      Some(Map("X-First" -> "kept")),
+      Some(Map("X-Later" -> "ignored"))
+    )).toDF("custom").head()
+    val headers = input.headers(row)
+    assert(headers("X-First") == "kept")
+    assert(!headers.contains("X-Null"))
+    assert(!headers.contains("X-Later"))
+  }
+
   test("invalid automatically batched credential element types fail clearly") {
     val input = new CognitiveInputHarness().setSubscriptionKeyCol("keys")
     val row = Seq(Seq(1, 2)).toDF("keys").head()
@@ -283,6 +351,12 @@ class CognitiveServiceBaseSuite extends TestBase {
     val mapError = intercept[IllegalArgumentException](mapInput.headers(invalidMapRow))
     assert(mapError.getMessage.contains("customHeaders"))
     assert(mapError.getMessage.contains("map<string,string> or array<map<string,string>>"))
+
+    val invalidEntryRow = Seq(Seq(Map("sensitive-test-value" -> 123))).toDF("customHeadersCol").head()
+    val entryError = intercept[IllegalArgumentException](mapInput.headers(invalidEntryRow))
+    assert(entryError.getMessage.contains("customHeaders"))
+    assert(!entryError.getMessage.contains("sensitive-test-value"))
+    assert(!entryError.getMessage.contains("123"))
   }
 
   test("batch-aware header resolution does not change payload service parameters") {

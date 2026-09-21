@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.services
 private[ml] object ServiceHeaderValues {
 
   private def values(value: Option[Any]): Iterator[Any] = value.iterator.flatMap {
-    case batch: Seq[_] => batch.iterator
+    case batch: scala.collection.Seq[_] => batch.iterator
     case scalar => Iterator.single(scalar)
   }.flatMap(value => Option(value))
 
