@@ -1,7 +1,9 @@
 ## Review Summary
 
 Publication note: this prerequisite-specific directory preserves the separate
-port review records. Paths in the original review describe its review-time location.
+port review records. Paths in the original review describe its review-time
+location. Machine-local prefixes were removed: artifact references are
+repository-relative and locally retained validation logs are named by file.
 
 - **Round**: 3 only, attempt 1, master companion
 - **Theme**: Edge cases and robustness — error handling, boundary conditions,
@@ -12,7 +14,7 @@ port review records. Paths in the original review describe its review-time locat
 - **Branch**: `fix/fabric-cleanup-relations-20260921`
 - **HEAD**: `714d365e71f6d2db5b7072094a4a3ad22485eb57`
 - **Reviewed index tree**: `e8d864108bf2b8f285890e794604ee464bed2969`
-- **Artifact**: `.worktrees\sync-cleanup-master-20260921\reviews\sync-20260921\task-spark4-sync-20260921-attempt-1-review-3-claude-opus-5.md`
+- **Artifact**: `reviews/sync-20260921/task-spark4-sync-20260921-attempt-1-review-3-claude-opus-5.md`
 - **Issues Found**: 1 Low
 - **Verdict**: ISSUES_FOUND (one Low diagnostics-quality failure-mode gap; no
   deletion-safety, correctness, or concurrency defect found)

@@ -17,7 +17,7 @@ import scala.collection.mutable.ArrayBuffer
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
 
-class FabricTestArtifactTrackerSuite extends AnyFunSuite {
+class FabricTestArtifactTrackerSuite extends AnyFunSuite with FabricTestArtifactTrackerFailureTests {
   private def executeSuite(suite: Suite): Vector[Event] = {
     val events = new ConcurrentLinkedQueue[Event]()
     val reporter = new Reporter {
@@ -331,7 +331,8 @@ class FabricTestArtifactTrackerSuite extends AnyFunSuite {
   }
 
   test("Stop after bounded confirmation retries and never delete the parent after an unconfirmed child") {
-    val client = new CleanupClient()
+    val nextJob = staleJob.copy(id = cleanupId(3))
+    val client = new CleanupClient(Vector(staleStore, staleJob, nextJob))
     client.removeImmediately = false
     var pauses = 0
     val error = intercept[IllegalArgumentException](client.run(pause = () => pauses += 1))
@@ -357,32 +358,43 @@ class FabricTestArtifactTrackerSuite extends AnyFunSuite {
   }
 
   test("Preserve deletion errors when later cleanup metadata reads fail") {
-    Seq("inventory", "jobs", "schedules").foreach { failedRead =>
+    for {
+      failedRead <- Seq("inventory", "jobs", "schedules", "confirmation")
+      previousFailure <- Seq(false, true)
+      reuseFailure <- Seq(false, true)
+    } {
       val deletionFailure = new IllegalStateException("delete denied")
-      Seq(new IllegalStateException("metadata denied"), deletionFailure).foreach { metadataFailure =>
-        val nextJob = staleJob.copy(id = cleanupId(3))
-        val attempted = ArrayBuffer.empty[String]
-        val client = new CleanupClient(Vector(staleStore, staleJob, nextJob)) {
-          override def jobs(id: String): Vector[JsValue] = {
-            if (id == nextJob.id && failedRead == "jobs") throw metadataFailure
-            super.jobs(id)
-          }
-          override def schedules(id: String): Vector[JsValue] = {
-            if (id == nextJob.id && failedRead == "schedules") throw metadataFailure
-            super.schedules(id)
-          }
-          override def delete(id: String): Unit = {
-            attempted += id
-            throw deletionFailure
-          }
+      val metadataFailure = if (reuseFailure) deletionFailure else new IllegalStateException("metadata denied")
+      val nextJob = staleJob.copy(id = cleanupId(3))
+      val lastJob = staleJob.copy(id = cleanupId(4))
+      val failedJob = if (previousFailure) nextJob else staleJob
+      val attempted = ArrayBuffer.empty[String]
+      val client = new CleanupClient(Vector(staleStore, staleJob, nextJob, lastJob)) {
+        override def jobs(id: String): Vector[JsValue] = {
+          if (id == failedJob.id && failedRead == "jobs") throw metadataFailure
+          super.jobs(id)
         }
-        client.beforeRead = n => if (n == 3 && failedRead == "inventory") throw metadataFailure
-        val thrown = intercept[IllegalStateException](client.run())
-        assert(thrown eq metadataFailure)
-        assert(thrown.getSuppressed.toSeq == Seq(deletionFailure).filterNot(_ eq metadataFailure))
-        assert(attempted == Seq(staleJob.id))
-        assert(client.items.exists(_.id == staleStore.id))
+        override def schedules(id: String): Vector[JsValue] = {
+          if (id == failedJob.id && failedRead == "schedules") throw metadataFailure
+          super.schedules(id)
+        }
+        override def delete(id: String): Unit = {
+          attempted += id
+          if (previousFailure && id == staleJob.id) throw deletionFailure
+          super.delete(id)
+        }
       }
+      val readNumber = (if (previousFailure) 3 else 2) + (if (failedRead == "confirmation") 1 else 0)
+      client.beforeRead = n => {
+        if (Set("inventory", "confirmation")(failedRead) && n == readNumber) throw metadataFailure
+      }
+      val thrown = intercept[IllegalStateException](client.run())
+      val prior = if (previousFailure) Seq(deletionFailure) else Seq.empty
+      val priorAttempts = if (previousFailure) Seq(staleJob.id) else Seq.empty
+      assert(thrown eq metadataFailure)
+      assert(thrown.getSuppressed.toSeq == prior.filterNot(_ eq metadataFailure))
+      assert(attempted == priorAttempts ++ (if (failedRead == "confirmation") Seq(failedJob.id) else Seq.empty))
+      assert(client.items.exists(_.id == staleStore.id))
     }
   }
 
@@ -673,24 +685,6 @@ class FabricTestArtifactTrackerSuite extends AnyFunSuite {
     tracker.cleanup()
 
     assert(attempted == Seq("missing", "remaining"))
-  }
-
-  test("Attempt all deletions and preserve cleanup failures") {
-    val attempted = ArrayBuffer.empty[String]
-    val firstFailure = new RuntimeException("first failure")
-    val secondFailure = new RuntimeException("second failure")
-    val tracker = new FabricTestArtifactTracker(artifactId => {
-      attempted += artifactId
-      throw Map("first" -> firstFailure, "second" -> secondFailure)(artifactId)
-    })
-
-    tracker.track("first")
-    tracker.track("second")
-
-    val thrown = intercept[RuntimeException](tracker.cleanup())
-    assert(thrown eq secondFailure)
-    assert(thrown.getSuppressed.toSeq == Seq(firstFailure))
-    assert(attempted == Seq("second", "first"))
   }
 
   test("Recognize only SynapseML Fabric test artifact names") {
