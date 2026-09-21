@@ -29,12 +29,15 @@ private[nbtest] final class FabricTestArtifactTracker(deleteArtifact: String => 
         deleteTrackedArtifact(artifactId)
         artifactIds.remove(artifactId)
       } catch {
-        case cleanupError: Throwable =>
+        case NonFatal(cleanupError) =>
           failure match {
             case Some(original) =>
               if (original ne cleanupError) original.addSuppressed(cleanupError)
             case None => throw cleanupError
           }
+        case cleanupError: Throwable =>
+          failure.filterNot(_ eq cleanupError).foreach(cleanupError.addSuppressed)
+          throw cleanupError
       }
     }
   }
