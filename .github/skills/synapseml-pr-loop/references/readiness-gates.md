@@ -21,6 +21,9 @@ by current-head evidence.
 
 - The title and opening description accurately explain the current change and
   user value to a human reader; deeper technical evidence follows afterward.
+- The opening makes the what and why clear without the diff. Visuals clarify
+  real behavior where useful; risks and current validation status stay visible
+  rather than being hidden in expandable details.
 - The original issue and every material discussion point are addressed.
 - The behavior is reachable through the published artifact and public API.
 - Defaults remain backward compatible, or the intentional change is documented.
@@ -67,6 +70,10 @@ by current-head evidence.
 
 ## Review and validation
 
+- These evidence gates do not authorize CI. `/azp run`, `-RunPipeline`,
+  workflow approval, and manual queueing require explicit CI authorization
+  and, for external PRs, a fresh trusted safety check of the exact head.
+  Without those prerequisites, report missing CI as a blocker and stay read-only.
 - Active review threads: zero.
 - No blocking review decision, requested-change vote, ownership gate, or
   required coverage failure remains.
@@ -80,12 +87,11 @@ by current-head evidence.
   port-branch compatibility pass as applicable.
 - Full Azure Pipelines and required GitHub checks are complete with zero
   unexplained failures or pending jobs.
-- The Azure Pipelines build is present on the current head at all. It does not
-  queue itself on a push here, so every push needs its own `/azp run`; a head
-  that never got one carries only the GitHub Actions checks, and those going
-  green is not CI passing. An absent check is neither failed nor pending, so it
-  is invisible to both of those gates -- confirm the build by name against the
-  head SHA, not by the absence of red.
+- The Azure Pipelines build is present on the current head. It does not queue
+  itself on a push here, and green GitHub Actions alone are not full CI.
+  Confirm the Azure build by name against the head SHA, not by the absence of
+  red. A missing build remains a blocker; request it only after the authorization
+  and safety prerequisites above are satisfied.
 - Skips are expected and documented; a skipped required scenario is a blocker.
 - `Get-PrReadiness.ps1` reports these as `completeness.complete`, which is true
   only when comment pagination was not truncated, an automated review covers the
