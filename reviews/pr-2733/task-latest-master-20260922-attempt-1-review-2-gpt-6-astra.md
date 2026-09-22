@@ -5,7 +5,7 @@
 | Field | Result |
 | --- | --- |
 | Target | microsoft/SynapseML#2733, base `spark4.0` |
-| Worktree | `C:\Users\singhrana\Documents\SynapseML\.worktrees\sync-spark40-20260921` |
+| Worktree | Isolated port checkout; machine-local path omitted |
 | Reviewed HEAD | `96e5ac204b45b1d0c83c8407ca97904c56f7bd94` |
 | Merge source / MERGE_HEAD | `0a7fdafaa33ff4785dadc8d7eebee68efde110fb` |
 | Reviewed staged tree | `c95db6cba93345b1d3fd3912dbb5e8cfc17acaac` |

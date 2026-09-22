@@ -177,3 +177,17 @@ and the complete release and internal compatibility jobs were verified equal to
 the old HEAD, and the exact test function passed 10 of 10 with only the scratch
 repository root moved to a native filesystem, pipeline input unchanged. Native CI
 is still required; the mounted-filesystem flake is not claimed resolved.
+
+## Metadata-only publication correction
+
+The driving GPT reviewer removed machine-local checkout paths from the four
+GPT report headers, including the sibling reports corresponding to the three
+Copilot findings on microsoft/SynapseML#2734. This follows
+`reviews/pr-2708/README.md`; original findings, resolutions, source references,
+reviewed revisions and fingerprints remain intact.
+
+The correction was checked directly across the six review themes: completeness
+of all matching headers, consistent generic metadata, absence of residual host
+paths, unchanged evidence values, a repository scan and diff check, and no
+runtime or performance change. This is artifact-only recovery of the completed
+review, not a new multi-model review or a claim that Gemini became available.
