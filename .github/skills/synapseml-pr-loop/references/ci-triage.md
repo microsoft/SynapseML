@@ -12,7 +12,7 @@ the time an agent first notices the build. Then run
 [watch_azure_pipeline.py](../scripts/watch_azure_pipeline.py):
 
 ```text
-python <watcher-script> --repo <owner/repo> --pull-request <number> --head-sha <full-sha> --build-id <id> --kickoff-at <ISO-8601-time>
+python <watcher-script> --repo microsoft/SynapseML --pull-request <number> --head-sha <full-sha> --build-id <id> --kickoff-at <ISO-8601-time>
 ```
 
 - Launch this command once through the terminal tool's attached
@@ -27,8 +27,12 @@ python <watcher-script> --repo <owner/repo> --pull-request <number> --head-sha <
   Read its result when the terminal tool sends a completion notification.
 - Exit zero means the named check succeeded. Failure, timeout, query errors,
   or a changed PR head are nonzero results.
+- The watcher queries only `microsoft/SynapseML`. The optional `--repo` flag
+  accepts that name case-insensitively; a different repository is rejected
+  before any query, even if it could replay a real Azure build URL.
 - The watcher accepts only HTTPS build-results URLs for the trusted SynapseML
   Azure project, on `dev.azure.com/msdata` or `msdata.visualstudio.com`.
+  Both the project GUID and its verified `A365` alias are accepted.
   A matching check name or numeric build ID alone is not proof of Azure origin.
   Unexpected hosts, projects, or paths are errors, not successful checks.
 - A newer build returns `outcome: replaced` with its ID and URL. Confirm its

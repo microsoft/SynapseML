@@ -14,10 +14,15 @@ from urllib.parse import parse_qs, urlparse
 POLL_SECONDS = 600
 MAX_TIMEOUT_MINUTES = 120
 CHECK_NAME = "microsoft.SynapseML"
-AZURE_PROJECT = "b9b2accc-2d1c-45b3-9d24-0eb5d78cc47f"
+REPOSITORY = "microsoft/SynapseML"
+AZURE_PROJECTS = ("b9b2accc-2d1c-45b3-9d24-0eb5d78cc47f", "a365")
 AZURE_BUILD_PATHS = {
-    "dev.azure.com": f"/msdata/{AZURE_PROJECT}/_build/results",
-    "msdata.visualstudio.com": f"/{AZURE_PROJECT}/_build/results",
+    "dev.azure.com": {
+        f"/msdata/{project}/_build/results" for project in AZURE_PROJECTS
+    },
+    "msdata.visualstudio.com": {
+        f"/{project}/_build/results" for project in AZURE_PROJECTS
+    },
 }
 
 
@@ -31,14 +36,13 @@ def parse_build_id(url):
         raise MonitorError("Azure check has an invalid build URL.")
     try:
         parsed = urlparse(url)
-        trusted_path = AZURE_BUILD_PATHS.get(parsed.hostname)
+        trusted_paths = AZURE_BUILD_PATHS.get(parsed.hostname, ())
         trusted = (
             parsed.scheme == "https"
             and parsed.port in (None, 443)
             and parsed.username is None
             and parsed.password is None
-            and trusted_path is not None
-            and parsed.path == trusted_path
+            and parsed.path.lower() in trusted_paths
             and not parsed.fragment
         )
     except ValueError as error:
@@ -58,7 +62,7 @@ def query_pr(args, timeout):
         "view",
         str(args.pull_request),
         "--repo",
-        args.repo,
+        REPOSITORY,
         "--json",
         "state,headRefOid,statusCheckRollup",
     ]
@@ -178,7 +182,7 @@ def parse_kickoff(value):
 
 def parse_args(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--repo", default="microsoft/SynapseML")
+    parser.add_argument("--repo", default=REPOSITORY)
     parser.add_argument("--pull-request", required=True, type=int)
     parser.add_argument("--head-sha", required=True)
     parser.add_argument("--build-id", required=True, type=int)
@@ -187,8 +191,11 @@ def parse_args(argv=None):
     args = parser.parse_args(argv)
     if args.pull_request <= 0 or args.build_id <= 0:
         parser.error("PR and build IDs must be positive.")
-    if not re.fullmatch(r"[^/\s]+/[^/\s]+", args.repo):
-        parser.error("--repo must be owner/repository.")
+    if args.repo.lower() != REPOSITORY.lower():
+        parser.error(
+            f"--repo must be {REPOSITORY}; other repositories are unsupported."
+        )
+    args.repo = REPOSITORY
     if not re.fullmatch(r"[0-9a-fA-F]{40}", args.head_sha):
         parser.error("--head-sha must be a full 40-character commit SHA.")
     args.head_sha = args.head_sha.lower()

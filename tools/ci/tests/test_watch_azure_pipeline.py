@@ -298,6 +298,9 @@ class WatchAzurePipelineTests(unittest.TestCase):
         for url in (
             URL,
             LEGACY_URL,
+            URL.replace("b9b2accc-2d1c-45b3-9d24-0eb5d78cc47f", "A365"),
+            LEGACY_URL.replace("b9b2accc-2d1c-45b3-9d24-0eb5d78cc47f", "A365"),
+            URL.replace("b9b2accc-2d1c-45b3-9d24-0eb5d78cc47f", "a365"),
             URL.replace("dev.azure.com", "DEV.AZURE.COM:443") + "&view=results",
         ):
             for legacy in (False, True):
@@ -356,11 +359,28 @@ class WatchAzurePipelineTests(unittest.TestCase):
                 watcher.monitor(self.args)
 
     def test_query_is_read_only_and_bounded(self):
+        self.args.repo = "attacker/unrelated"
         response = subprocess.CompletedProcess([], 0, json.dumps(snapshot()), "")
         with patch.object(watcher.subprocess, "run", return_value=response) as run:
             watcher.query_pr(self.args, timeout=17)
         self.assertEqual(["gh", "pr", "view", "1"], run.call_args.args[0][:4])
+        self.assertEqual(["--repo", "microsoft/SynapseML"], run.call_args.args[0][4:6])
         self.assertEqual(17, run.call_args.kwargs["timeout"])
+
+    def test_other_repositories_are_rejected_before_querying(self):
+        with patch.object(
+            watcher, "query_pr", return_value=snapshot("COMPLETED", "SUCCESS")
+        ) as query:
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(
+                io.StringIO()
+            ):
+                with self.assertRaises(SystemExit):
+                    watcher.main(ARGV + ["--repo", "attacker/unrelated"])
+        query.assert_not_called()
+
+    def test_canonical_repository_matching_is_case_insensitive(self):
+        args = watcher.parse_args(ARGV + ["--repo", "MICROSOFT/SYNAPSEML"])
+        self.assertEqual("microsoft/SynapseML", args.repo)
 
     def test_cli_errors_are_not_success(self):
         failures = [
