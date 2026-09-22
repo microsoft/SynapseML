@@ -207,6 +207,43 @@ class WatchAzurePipelineTests(unittest.TestCase):
         with patch.object(watcher, "query_pr", return_value=data):
             self.assertEqual("success", watcher.monitor(self.args)["outcome"])
 
+    def test_legacy_expected_status_polls_through_pending_to_success(self):
+        responses = []
+        for state in ("EXPECTED", "PENDING", "SUCCESS"):
+            data = snapshot()
+            data["statusCheckRollup"] = [
+                {"context": watcher.CHECK_NAME, "state": state, "targetUrl": URL}
+            ]
+            responses.append(subprocess.CompletedProcess([], 0, json.dumps(data), ""))
+        output = io.StringIO()
+        with patch.object(watcher.subprocess, "run", side_effect=responses) as run:
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(0, watcher.main(ARGV))
+        self.assertEqual(3, run.call_count)
+        self.assertEqual(
+            [600, 600], [call.args[0] for call in self.sleep_mock.call_args_list]
+        )
+        events = [json.loads(line) for line in output.getvalue().splitlines()]
+        self.assertEqual(["started", "finished"], [event["event"] for event in events])
+        self.assertEqual("success", events[-1]["outcome"])
+        self.assertEqual(URL, events[-1]["url"])
+
+    def test_legacy_expected_status_keeps_the_kickoff_deadline(self):
+        data = snapshot()
+        data["statusCheckRollup"] = [
+            {"context": watcher.CHECK_NAME, "state": "EXPECTED", "targetUrl": URL}
+        ]
+        output = io.StringIO()
+        with patch.object(watcher, "query_pr", return_value=data) as query:
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(124, watcher.main(ARGV))
+        self.assertEqual(7200, self.now)
+        self.assertEqual(12, query.call_count)
+        self.assertEqual(12, self.sleep_mock.call_count)
+        self.assertEqual(
+            "timeout", json.loads(output.getvalue().splitlines()[-1])["outcome"]
+        )
+
     def test_changed_head_or_closed_pr_stops_without_following_it(self):
         closed = snapshot()
         closed["state"] = "CLOSED"

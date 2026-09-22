@@ -119,7 +119,14 @@ def monitor(args):
                 raise MonitorError("Completed Azure check has no conclusion.")
         elif state in ("SUCCESS", "FAILURE", "ERROR"):
             conclusion = state
-        elif state in ("QUEUED", "IN_PROGRESS", "WAITING", "PENDING", "REQUESTED"):
+        elif state in (
+            "QUEUED",
+            "IN_PROGRESS",
+            "WAITING",
+            "PENDING",
+            "REQUESTED",
+            "EXPECTED",
+        ):
             time.sleep(min(POLL_SECONDS, max(0, deadline - time.monotonic())))
             continue
         else:
