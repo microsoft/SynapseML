@@ -5,7 +5,7 @@
   claude-opus-5 (Anthropic Opus slot).
 - **Target**: master prerequisite, branch `fix/fabric-cleanup-relations-20260921`,
   HEAD `714d365e71`, index tree `b4dd50774784a1fd7fca611883c333a5a21458c2`
-- **Artifact**: `reviews\sync-20260921\task-spark4-sync-20260921-attempt-1-review-6-claude-opus-5.md`
+- **Artifact**: `reviews\pr-2732\task-spark4-sync-20260921-attempt-1-review-6-claude-opus-5.md`
 - **Issues Found**: 2 Low
 - **Verdict**: ISSUES_FOUND — two Low polish gaps; no performance, compatibility, naming,
   dead-code, or documentation-inaccuracy defect found
