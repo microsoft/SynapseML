@@ -9,6 +9,87 @@ import scala.collection.mutable.ArrayBuffer
 import scala.util.control.ControlThrowable
 
 private[nbtest] trait FabricTestArtifactTrackerFailureTests extends AnyFunSuite {
+  test("Release failed jobs and preserve the original failure") {
+    val deleted = ArrayBuffer.empty[String]
+    val tracker = new FabricTestArtifactTracker(id => {
+      deleted += id
+      ()
+    })
+    val failure = new IllegalStateException("job failed")
+    val thrown = intercept[IllegalStateException] {
+      tracker.withArtifact("job") { _ => throw failure }
+    }
+    assert(thrown eq failure)
+    assert(deleted == Seq("job"))
+    tracker.cleanup()
+    assert(deleted == Seq("job"))
+  }
+
+  test("Retain unsuccessful deletions for final cleanup without masking job failure") {
+    val jobFailure = new IllegalStateException("job failed")
+    val cleanupFailure = new IllegalStateException("delete failed")
+    var attempts = 0
+    val tracker = new FabricTestArtifactTracker(_ => {
+      attempts += 1
+      if (attempts == 1) throw cleanupFailure
+    })
+
+    val thrown = intercept[IllegalStateException] {
+      tracker.withArtifact("job") { _ => throw jobFailure }
+    }
+    assert(thrown eq jobFailure)
+    assert(thrown.getSuppressed.toSeq == Seq(cleanupFailure))
+    tracker.cleanup()
+    assert(attempts == 2)
+  }
+
+  test("Fail successful jobs when artifact cleanup fails") {
+    val failure = new IllegalStateException("delete failed")
+    val tracker = new FabricTestArtifactTracker(_ => throw failure)
+    val thrown = intercept[IllegalStateException] {
+      tracker.withArtifact("job") { _ => "completed" }
+    }
+    assert(thrown eq failure)
+  }
+
+  test("Attempt artifact cleanup after executor shutdown fails") {
+    val shutdownFailure = new RuntimeException("shutdown failed")
+    val cleanupFailure = new RuntimeException("cleanup failed")
+    var cleanupAttempted = false
+
+    val thrown = intercept[RuntimeException] {
+      FabricNotebookTests.shutdownAndCleanup(
+        throw shutdownFailure,
+        {
+          cleanupAttempted = true
+          throw cleanupFailure
+        })
+    }
+
+    assert(cleanupAttempted)
+    assert(thrown eq shutdownFailure)
+    assert(thrown.getSuppressed.toSeq == Seq(cleanupFailure))
+  }
+
+  test("Attempt artifact cleanup after executor shutdown is interrupted") {
+    var cleanupAttempted = false
+    try {
+      val thrown = intercept[InterruptedException] {
+        FabricNotebookTests.shutdownAndCleanup(
+          throw new InterruptedException("shutdown interrupted"),
+          {
+            cleanupAttempted = true
+          })
+      }
+
+      assert(cleanupAttempted)
+      assert(thrown.getMessage == "shutdown interrupted")
+      assert(Thread.currentThread().isInterrupted)
+    } finally {
+      Thread.interrupted()
+    }
+  }
+
   test("Propagate fatal per-artifact cleanup errors after successful or failed work") {
     val cleanupFailures = Seq[() => Throwable](
       () => new InterruptedException("cleanup interrupted"),

@@ -241,13 +241,17 @@ class FabricTestArtifactTrackerSuite extends AnyFunSuite with FabricTestArtifact
       deleted :+= id
       if (removeImmediately) remove(id)
     }
-    def run(dryRun: Boolean = false, pause: () => Unit = () => ()): Vector[String] =
+    def run(dryRun: Boolean = false, pause: Long => Unit = _ => ()): Vector[String] =
       FabricArtifactCleanup.run(this, cleanupNow, dryRun, pause, _ => ())
   }
 
   test("Clean expired repository jobs before their lakehouse and confirm each deletion") {
     val client = new CleanupClient()
-    assert(client.run() == Vector(staleJob.id, staleStore.id))
+    val pauses = ArrayBuffer.empty[Long]
+    assert(client.run(pause = millis => pauses += millis) == Vector(staleJob.id, staleStore.id))
+    assert(pauses.isEmpty)
+    assert(client.inventoryReads == 5)
+    assert(client.deleted == Vector(staleJob.id, staleStore.id))
     assert(client.items.isEmpty)
   }
 
@@ -317,27 +321,40 @@ class FabricTestArtifactTrackerSuite extends AnyFunSuite with FabricTestArtifact
     assert(client.items.map(_.id).toSet == Set(staleStore.id, active.id))
   }
 
-  test("Poll delayed deletion visibility without resending DELETE") {
-    val client = new CleanupClient(Vector(staleJob.copy(references = Set.empty)))
-    client.removeImmediately = false
-    var pauses = 0
-    val deleted = client.run(pause = () => {
-      pauses += 1
-      if (pauses == 2) client.remove(staleJob.id)
-    })
-    assert(pauses == 2)
-    assert(deleted == Vector(staleJob.id))
-    assert(client.deleted == Vector(staleJob.id))
+  test("Poll child and parent deletion every 30 seconds with a fresh five-minute budget") {
+    Seq(1, 5, 10).foreach { retries =>
+      val client = new CleanupClient()
+      client.removeImmediately = false
+      val pauses = ArrayBuffer.empty[Long]
+      val deleted = client.run(pause = millis => {
+        pauses += millis
+        if (pauses.size <= retries) {
+          assert(client.deleted == Vector(staleJob.id))
+          assert(client.items.exists(_.id == staleStore.id))
+        } else {
+          assert(client.deleted == Vector(staleJob.id, staleStore.id))
+          assert(!client.items.exists(_.id == staleJob.id))
+        }
+        if (pauses.size % retries == 0) client.remove(client.deleted.last)
+      })
+      assert(pauses.toVector == Vector.fill(2 * retries)(30000L))
+      assert(client.inventoryReads == 5 + 2 * retries)
+      assert(deleted == Vector(staleJob.id, staleStore.id))
+      assert(client.deleted == deleted)
+      assert(client.items.isEmpty)
+    }
   }
 
   test("Stop after bounded confirmation retries and never delete the parent after an unconfirmed child") {
     val nextJob = staleJob.copy(id = cleanupId(3))
     val client = new CleanupClient(Vector(staleStore, staleJob, nextJob))
     client.removeImmediately = false
-    var pauses = 0
-    val error = intercept[IllegalArgumentException](client.run(pause = () => pauses += 1))
-    assert(error.getMessage.contains("could not confirm deletion"))
-    assert(pauses == 30)
+    val pauses = ArrayBuffer.empty[Long]
+    val error = intercept[IllegalArgumentException](client.run(pause = millis => pauses += millis))
+    assert(error.getMessage.contains("after 11 reads"))
+    assert(pauses.toVector == Vector.fill(10)(30000L))
+    assert(pauses.sum == 300000L)
+    assert(client.inventoryReads == 13)
     assert(client.deleted == Vector(staleJob.id))
     assert(client.items.exists(_.id == staleStore.id))
   }
@@ -345,7 +362,14 @@ class FabricTestArtifactTrackerSuite extends AnyFunSuite with FabricTestArtifact
   test("Preserve interrupts, inventory failures, and deletion failures") {
     val interrupted = new CleanupClient()
     interrupted.removeImmediately = false
-    intercept[InterruptedException](interrupted.run(pause = () => throw new InterruptedException("stop")))
+    val pauses = ArrayBuffer.empty[Long]
+    val interruption = new InterruptedException("stop")
+    assert(intercept[InterruptedException](interrupted.run(pause = millis => {
+      pauses += millis
+      throw interruption
+    })) eq interruption)
+    assert(pauses.toVector == Vector(30000L))
+    assert(interrupted.inventoryReads == 3)
     assert(interrupted.deleted == Vector(staleJob.id))
     val failed = new CleanupClient() {
       override def delete(id: String): Unit = throw new IllegalStateException("delete denied")
@@ -355,6 +379,40 @@ class FabricTestArtifactTrackerSuite extends AnyFunSuite with FabricTestArtifact
     inventoryFailure.beforeRead = n => if (n == 2) throw new IllegalStateException("inventory denied")
     intercept[IllegalStateException](inventoryFailure.run())
     assert(inventoryFailure.deleted.isEmpty)
+  }
+
+  test("Confirmation inventory failures and conflicting IDs stop polling immediately") {
+    for (failedRead <- Seq(3, 4); conflicting <- Seq(false, true)) {
+      val client = new CleanupClient()
+      client.removeImmediately = false
+      val failure = new IllegalStateException("inventory unavailable")
+      val pauses = ArrayBuffer.empty[Long]
+      client.beforeRead = n => if (n == failedRead) {
+        if (conflicting) client.items :+= staleStore.copy(description = "conflicting metadata")
+        else throw failure
+      }
+      val thrown = intercept[Exception](client.run(pause = millis => pauses += millis))
+      if (conflicting) assert(thrown.getMessage.contains("Conflicting Fabric inventory IDs"))
+      else assert(thrown eq failure)
+      assert(client.inventoryReads == failedRead)
+      assert(pauses.toVector == Vector.fill(failedRead - 3)(30000L))
+      assert(client.deleted == Vector(staleJob.id))
+      assert(client.items.exists(_.id == staleStore.id))
+    }
+  }
+
+  test("Recheck protected consumers that arrive during deletion confirmation before deleting a parent") {
+    val client = new CleanupClient()
+    client.removeImmediately = false
+    val pauses = ArrayBuffer.empty[Long]
+    assert(client.run(pause = millis => {
+      pauses += millis
+      client.remove(staleJob.id)
+      client.items :+= staleJob.copy(id = cleanupId(3), kind = "Notebook", name = "Customer notebook")
+    }) == Vector(staleJob.id))
+    assert(pauses.toVector == Vector(30000L))
+    assert(client.deleted == Vector(staleJob.id))
+    assert(client.items.exists(_.id == staleStore.id))
   }
 
   test("Preserve deletion errors when later cleanup metadata reads fail") {
@@ -505,10 +563,11 @@ class FabricTestArtifactTrackerSuite extends AnyFunSuite with FabricTestArtifact
       }
     }
     client.removeImmediately = false
-    var pauses = 0
-    val error = intercept[IllegalArgumentException](client.run(pause = () => pauses += 1))
-    assert(error.getMessage.contains("could not confirm deletion"))
-    assert(pauses == 30)
+    val pauses = ArrayBuffer.empty[Long]
+    val error = intercept[IllegalArgumentException](client.run(pause = millis => pauses += millis))
+    assert(error.getMessage.contains("after 11 reads"))
+    assert(pauses.toVector == Vector.fill(10)(30000L))
+    assert(client.inventoryReads == 13)
     assert(client.deleted == Vector(staleJob.id))
     assert(client.items == Vector(staleStore, staleJob))
   }
@@ -628,49 +687,6 @@ class FabricTestArtifactTrackerSuite extends AnyFunSuite with FabricTestArtifact
     assert(deleted == (1 to 6).map(index => s"job-$index") :+ "store")
   }
 
-  test("Release failed jobs and preserve the original failure") {
-    val deleted = ArrayBuffer.empty[String]
-    val tracker = new FabricTestArtifactTracker(id => {
-      deleted += id
-      ()
-    })
-    val failure = new IllegalStateException("job failed")
-    val thrown = intercept[IllegalStateException] {
-      tracker.withArtifact("job") { _ => throw failure }
-    }
-    assert(thrown eq failure)
-    assert(deleted == Seq("job"))
-    tracker.cleanup()
-    assert(deleted == Seq("job"))
-  }
-
-  test("Retain unsuccessful deletions for final cleanup without masking job failure") {
-    val jobFailure = new IllegalStateException("job failed")
-    val cleanupFailure = new IllegalStateException("delete failed")
-    var attempts = 0
-    val tracker = new FabricTestArtifactTracker(_ => {
-      attempts += 1
-      if (attempts == 1) throw cleanupFailure
-    })
-
-    val thrown = intercept[IllegalStateException] {
-      tracker.withArtifact("job") { _ => throw jobFailure }
-    }
-    assert(thrown eq jobFailure)
-    assert(thrown.getSuppressed.toSeq == Seq(cleanupFailure))
-    tracker.cleanup()
-    assert(attempts == 2)
-  }
-
-  test("Fail successful jobs when artifact cleanup fails") {
-    val failure = new IllegalStateException("delete failed")
-    val tracker = new FabricTestArtifactTracker(_ => throw failure)
-    val thrown = intercept[IllegalStateException] {
-      tracker.withArtifact("job") { _ => "completed" }
-    }
-    assert(thrown eq failure)
-  }
-
   test("Ignore artifacts that were already deleted") {
     val attempted = ArrayBuffer.empty[String]
     val tracker = new FabricTestArtifactTracker(artifactId => {
@@ -747,44 +763,6 @@ class FabricTestArtifactTrackerSuite extends AnyFunSuite with FabricTestArtifact
       assert(executor.isTerminated)
     } finally {
       executor.shutdownNow()
-    }
-  }
-
-  test("Attempt artifact cleanup after executor shutdown fails") {
-    val shutdownFailure = new RuntimeException("shutdown failed")
-    val cleanupFailure = new RuntimeException("cleanup failed")
-    var cleanupAttempted = false
-
-    val thrown = intercept[RuntimeException] {
-      FabricNotebookTests.shutdownAndCleanup(
-        throw shutdownFailure,
-        {
-          cleanupAttempted = true
-          throw cleanupFailure
-        })
-    }
-
-    assert(cleanupAttempted)
-    assert(thrown eq shutdownFailure)
-    assert(thrown.getSuppressed.toSeq == Seq(cleanupFailure))
-  }
-
-  test("Attempt artifact cleanup after executor shutdown is interrupted") {
-    var cleanupAttempted = false
-    try {
-      val thrown = intercept[InterruptedException] {
-        FabricNotebookTests.shutdownAndCleanup(
-          throw new InterruptedException("shutdown interrupted"),
-          {
-            cleanupAttempted = true
-          })
-      }
-
-      assert(cleanupAttempted)
-      assert(thrown.getMessage == "shutdown interrupted")
-      assert(Thread.currentThread().isInterrupted)
-    } finally {
-      Thread.interrupted()
     }
   }
 }

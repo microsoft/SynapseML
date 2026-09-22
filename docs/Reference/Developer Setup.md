@@ -108,8 +108,10 @@ Malformed references or unknown metadata fail the inventory read rather than
 authorizing cleanup with an incomplete graph. A valid reference elsewhere in
 the entry cannot hide them.
 
-Job definitions are deleted before their stores. Each deletion is checked up to
-31 times, with two seconds between checks, to tolerate delayed inventory updates.
+Job definitions are deleted before their stores. After the deletion API returns,
+cleanup checks inventory immediately, then makes up to ten more checks with
+30-second waits per item. Each item gets a fresh five-minute waiting budget plus
+request time, not a wall-clock deadline. Confirmation polling never resends DELETE.
 An unconfirmed or failed deletion prevents store deletion. After failed DELETE
 requests, independent job deletions are still attempted, and collected errors
 fail the cleanup afterward. If a deletion cannot be confirmed, or any inventory,
