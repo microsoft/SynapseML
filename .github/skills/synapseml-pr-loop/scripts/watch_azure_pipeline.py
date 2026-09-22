@@ -13,6 +13,7 @@ from urllib.parse import parse_qs, urlparse
 
 POLL_SECONDS = 600
 MAX_TIMEOUT_MINUTES = 120
+MAX_BUILD_ID = 2_147_483_647
 CHECK_NAME = "microsoft.SynapseML"
 REPOSITORY = "microsoft/SynapseML"
 AZURE_PROJECTS = ("b9b2accc-2d1c-45b3-9d24-0eb5d78cc47f", "a365")
@@ -52,7 +53,13 @@ def parse_build_id(url):
     build_ids = parse_qs(parsed.query).get("buildId", [])
     if len(build_ids) != 1 or not re.fullmatch(r"[0-9]+", build_ids[0]):
         raise MonitorError("Azure check has no valid build ID.")
-    return int(build_ids[0])
+    number = build_ids[0].lstrip("0") or "0"
+    if len(number) > len(str(MAX_BUILD_ID)):
+        raise MonitorError("Azure check build ID exceeds the supported int32 range.")
+    build_id = int(number)
+    if not 1 <= build_id <= MAX_BUILD_ID:
+        raise MonitorError("Azure check build ID is outside the supported int32 range.")
+    return build_id
 
 
 def query_pr(args, timeout):
@@ -68,12 +75,19 @@ def query_pr(args, timeout):
     ]
     try:
         process = subprocess.run(
-            command, capture_output=True, text=True, timeout=timeout, check=False
+            command,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            timeout=timeout,
+            check=False,
         )
     except subprocess.TimeoutExpired as error:
         raise MonitorError("GitHub status query timed out.") from error
     except OSError as error:
         raise MonitorError(f"Could not run GitHub CLI: {error}") from error
+    except UnicodeError as error:
+        raise MonitorError("GitHub CLI output is not valid UTF-8.") from error
     if process.returncode:
         raise MonitorError(f"GitHub CLI failed: {process.stderr.strip()[:1000]}")
     try:
@@ -171,13 +185,13 @@ def monitor(args):
 def parse_kickoff(value):
     try:
         kickoff = datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError as error:
+        if kickoff.tzinfo is None:
+            raise argparse.ArgumentTypeError("Kickoff must include its time zone.")
+        return kickoff.astimezone(timezone.utc)
+    except (ValueError, OverflowError) as error:
         raise argparse.ArgumentTypeError(
-            "Kickoff must be an ISO 8601 timestamp."
+            "Kickoff must be an ISO 8601 timestamp within the supported UTC date range."
         ) from error
-    if kickoff.tzinfo is None:
-        raise argparse.ArgumentTypeError("Kickoff must include its time zone.")
-    return kickoff.astimezone(timezone.utc)
 
 
 def parse_args(argv=None):
@@ -191,6 +205,8 @@ def parse_args(argv=None):
     args = parser.parse_args(argv)
     if args.pull_request <= 0 or args.build_id <= 0:
         parser.error("PR and build IDs must be positive.")
+    if args.build_id > MAX_BUILD_ID:
+        parser.error(f"--build-id must be at most {MAX_BUILD_ID}.")
     if args.repo.lower() != REPOSITORY.lower():
         parser.error(
             f"--repo must be {REPOSITORY}; other repositories are unsupported."

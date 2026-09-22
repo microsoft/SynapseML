@@ -35,6 +35,9 @@ python <watcher-script> --repo microsoft/SynapseML --pull-request <number> --hea
   Both the project GUID and its verified `A365` alias are accepted.
   A matching check name or numeric build ID alone is not proof of Azure origin.
   Unexpected hosts, projects, or paths are errors, not successful checks.
+- Build IDs must fit Azure's positive `int32` range, `1` through `2147483647`,
+  in both CLI arguments and result URLs. Oversized IDs produce an explicit
+  error, not a replacement handoff or an unhandled conversion failure.
 - A newer build returns `outcome: replaced` with its ID and URL. Confirm its
   kickoff time, then launch one new background job for that run. Its two-hour
   window starts at the new kickoff, not when the replacement is noticed.

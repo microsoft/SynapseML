@@ -358,6 +358,36 @@ class WatchAzurePipelineTests(unittest.TestCase):
             with self.assertRaises(watcher.MonitorError):
                 watcher.monitor(self.args)
 
+    def test_oversized_build_ids_emit_a_structured_error(self):
+        for build_id in ("9" * 10000, "2147483648", "0"):
+            with self.subTest(length=len(build_id), prefix=build_id[:12]):
+                output = io.StringIO()
+                data = snapshot(
+                    "COMPLETED", "SUCCESS", build_url=URL.replace("42", build_id)
+                )
+                with patch.object(watcher, "query_pr", return_value=data):
+                    with contextlib.redirect_stdout(output):
+                        self.assertEqual(1, watcher.main(ARGV))
+                events = [json.loads(line) for line in output.getvalue().splitlines()]
+                self.assertEqual(
+                    ["started", "finished"], [event["event"] for event in events]
+                )
+                self.assertEqual("error", events[-1]["outcome"])
+
+    def test_valid_build_id_boundaries_and_leading_zeroes_are_preserved(self):
+        for build_id, value in (
+            ("1", 1),
+            ("2147483647", 2147483647),
+            ("00000000000000042", 42),
+        ):
+            with self.subTest(build_id=build_id):
+                args = watcher.parse_args(ARGV + ["--build-id", str(value)])
+                data = snapshot(
+                    "COMPLETED", "SUCCESS", build_url=URL.replace("42", build_id)
+                )
+                with patch.object(watcher, "query_pr", return_value=data):
+                    self.assertEqual("success", watcher.monitor(args)["outcome"])
+
     def test_query_is_read_only_and_bounded(self):
         self.args.repo = "attacker/unrelated"
         response = subprocess.CompletedProcess([], 0, json.dumps(snapshot()), "")
@@ -366,6 +396,7 @@ class WatchAzurePipelineTests(unittest.TestCase):
         self.assertEqual(["gh", "pr", "view", "1"], run.call_args.args[0][:4])
         self.assertEqual(["--repo", "microsoft/SynapseML"], run.call_args.args[0][4:6])
         self.assertEqual(17, run.call_args.kwargs["timeout"])
+        self.assertEqual("utf-8", run.call_args.kwargs["encoding"])
 
     def test_other_repositories_are_rejected_before_querying(self):
         with patch.object(
@@ -386,6 +417,7 @@ class WatchAzurePipelineTests(unittest.TestCase):
         failures = [
             subprocess.TimeoutExpired("gh", 60),
             OSError("gh is unavailable"),
+            UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid byte"),
         ]
         for failure in failures:
             with self.subTest(failure=failure):
@@ -406,12 +438,15 @@ class WatchAzurePipelineTests(unittest.TestCase):
             ["--timeout-minutes", "121"],
             ["--timeout-minutes", "0"],
             ["--build-id", "0"],
+            ["--build-id", "2147483648"],
             ["--pull-request", "-1"],
             ["--repo", "invalid"],
             ["--head-sha", "short"],
             ["--kickoff-at", "not-a-time"],
             ["--kickoff-at", "2026-09-21T00:00:00"],
             ["--kickoff-at", "2026-09-22T00:00:00Z"],
+            ["--kickoff-at", "0001-01-01T00:00:00+01:00"],
+            ["--kickoff-at", "9999-12-31T23:59:59-01:00"],
         ):
             with self.subTest(extra=extra), contextlib.redirect_stderr(io.StringIO()):
                 with self.assertRaises(SystemExit):
