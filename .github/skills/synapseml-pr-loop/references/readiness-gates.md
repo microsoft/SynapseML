@@ -21,6 +21,9 @@ by current-head evidence.
 
 - The title and opening description accurately explain the current change and
   user value to a human reader; deeper technical evidence follows afterward.
+- The opening makes the what and why clear without the diff. Visuals clarify
+  real behavior where useful; risks and current validation status stay visible
+  rather than being hidden in expandable details.
 - The original issue and every material discussion point are addressed.
 - The behavior is reachable through the published artifact and public API.
 - Defaults remain backward compatible, or the intentional change is documented.

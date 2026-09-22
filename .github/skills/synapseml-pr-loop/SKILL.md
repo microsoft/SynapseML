@@ -56,9 +56,11 @@ is complete and green.
 
 ### 3. Define the value and regression contract
 
-- Keep the PR title and description aligned with the current scope. Lead with a
-  short human-readable change/value summary; put detailed design and validation
-  evidence afterward. Refresh both after material changes.
+- Write a plain-language title and a short opening that explain **what changes
+  and why it matters** without reading the diff. Follow the
+  [PR writing guide](references/writing-prs.md): show useful visuals, then
+  disclose implementation and evidence later. Keep risks and validation status
+  visible, and refresh the title and description after material changes.
 - State the user-visible bug or feature, supported/unsupported cases, default
   behavior, compatibility contract, and measurable acceptance criteria.
 - Trace the real public path: Scala stage, generated/hand-written Python,
