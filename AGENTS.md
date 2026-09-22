@@ -139,6 +139,12 @@ before running them because some create or delete cloud resources.
 - Target `master` unless the change exists only for a port branch.
 - Resolve active and suppressed review findings; document why any finding is
   invalid.
+- Write review artifacts directly to `reviews/pr-<pr_number>/` and pass that
+  output directory explicitly to review tools. Preserve attempt/round/model
+  filenames, the reviewed commit SHA, and resolution evidence for debugging.
+  Before the PR number exists, keep drafts in the session workspace; their
+  first committed location must be the numbered PR directory, not a flat or
+  task-named folder under `reviews/`.
 - Trigger Azure validation with `/azp run` where supported. Branch-specific
   exceptions are documented in the
   [branch context skill](.github/skills/synapseml-branches/SKILL.md).

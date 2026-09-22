@@ -15,8 +15,8 @@ import scala.util.control.NonFatal
 private[ml] object FabricArtifactCleanup {
   val Owner = "SynapseML OSS Fabric E2E"
   private val RetentionSeconds = TimeUnit.HOURS.toSeconds(24)
-  private val ConfirmationAttempts = 31
-  private val ConfirmationDelaySeconds = 2L
+  private val ConfirmationAttempts = 11
+  private val ConfirmationDelayMillis = TimeUnit.SECONDS.toMillis(30)
   private val Guid = "[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}"
   private val UniqueStore = "(Lakehouse|Warehouse)[0-9]{14}[0-9a-fA-F]{32}".r
   private val RelationFields = Seq("artifactRelations", "datasetRelations", "dataflowRelations", "datamartRelations")
@@ -159,13 +159,13 @@ private[ml] object FabricArtifactCleanup {
     store.kind == "Lakehouse" && i.kind == "SQLEndpoint" &&
       i.references == Set(store.id) && i.expired(cutoff)
 
-  private def confirmAbsent(client: Client, id: String, pause: () => Unit): Unit = {
+  private def confirmAbsent(client: Client, id: String, pause: Long => Unit): Unit = {
     @tailrec
     def check(remaining: Int): Unit = {
       if (index(client.inventory()).contains(id)) {
         require(remaining > 1,
           s"Fabric cleanup could not confirm deletion of $id after $ConfirmationAttempts reads")
-        pause()
+        pause(ConfirmationDelayMillis)
         check(remaining - 1)
       }
     }
@@ -202,7 +202,7 @@ private[ml] object FabricArtifactCleanup {
   }
 
   def run(client: Client, now: Instant, dryRun: Boolean = false,
-          pause: () => Unit = () => TimeUnit.SECONDS.sleep(ConfirmationDelaySeconds),
+          pause: Long => Unit = millis => Thread.sleep(millis),
           log: String => Unit = println): Vector[String] = {
     val cutoff = now.minusSeconds(RetentionSeconds)
     val initial = index(client.inventory())
