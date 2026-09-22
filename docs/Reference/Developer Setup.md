@@ -65,6 +65,69 @@ Compiles the main, test, and integration test classes respectively
 
 Runs all synapsemltests
 
+### Fabric test workspace cleanup
+
+`core/testOnly com.microsoft.azure.synapse.ml.nbtest.FabricTestCleanup` deletes
+repository-owned test items only when both their creation and last-update times
+are strictly older than 24 hours, measured in UTC. It uses the existing Fabric
+integration account and workspace environment variables.
+
+Fabric E2E is disabled on this branch. Enabling it requires a separate runtime
+and capacity review. When enabled, CI runs a named `Fabric cleanup preflight`
+task after authentication and build setup, then runs E2E only if that task
+succeeds. Cleanup results and phase metadata are retained even if E2E is skipped
+or fails.
+
+Each smoke and notebook suite performs its own cached preflight before creating
+its first Fabric resource, both in CI and when run directly. CI therefore runs
+cleanup once in the gate and once more per E2E suite. Suite construction does not
+connect to Fabric. A failed preflight is reported by the selected tests without retrying
+cleanup or starting notebook work; successful notebook runs retain their bounded
+parallel execution and per-job artifact cleanup. Interrupted cleanup preserves
+the interrupt signal. Store creation and executor setup failures are also
+cached, so later tests do not repeat initialization or start another notebook batch.
+Per-job cleanup never suppresses an interrupt or fatal error behind a notebook
+failure. The cleanup throwable escapes with the earlier notebook failure attached
+where that throwable permits suppression. An unsuccessful per-job deletion stays
+tracked for final cleanup.
+
+Set `SYNAPSEML_FABRIC_CLEANUP_DRY_RUN=true` to preview eligible deletions without
+changing the workspace. Omit it, or set it to `false`, to perform cleanup.
+Review the preview before a manual cleanup. A preview can omit lakehouses whose
+job definitions have not yet been deleted.
+
+Cleanup recognizes the OSS ownership description on new items and the exact
+test names and descriptions on older items. A legacy lakehouse without a unique
+suffix also needs a relationship to an identified OSS test job. Unknown items,
+missing metadata, active or recently completed jobs, enabled or unknown
+schedules, and shared dependencies are not deletion candidates.
+Stores are also retained while any OSS test job remains, or any notebook/job
+has no usable reference edges, rather than assuming that missing edges prove
+there are no consumers.
+Relation entries must contain only GUID references in nonempty objects or arrays.
+Malformed references or unknown metadata fail the inventory read rather than
+authorizing cleanup with an incomplete graph. A valid reference elsewhere in
+the entry cannot hide them.
+
+Job definitions are deleted before their stores. After the deletion API returns,
+cleanup checks inventory immediately, then makes up to ten more checks with
+30-second waits per item. Each item gets a fresh five-minute waiting budget plus
+request time, not a wall-clock deadline. Confirmation polling never resends DELETE.
+An unconfirmed or failed deletion prevents store deletion. After failed DELETE
+requests, independent job deletions are still attempted, and collected errors
+fail the cleanup afterward. If a deletion cannot be confirmed, or any inventory,
+job-history, or schedule read fails, cleanup stops immediately. Nonfatal failures
+from those checks are rethrown with earlier deletion errors attached as
+suppressed exceptions. Reused exception
+instances are never added as their own suppressed error; interrupts and fatal
+errors keep their existing propagation.
+SQL endpoints are left to Fabric's lakehouse deletion rather than deleted
+independently. Authentication, inventory, and deletion errors fail the cleanup.
+
+Smoke and notebook job-wait handlers restore interrupt status and propagate
+interrupts and fatal errors unchanged. Ordinary failures retain the notebook
+name and the original cause.
+
 ### `scalastyle`
 
 Runs scalastyle check on main

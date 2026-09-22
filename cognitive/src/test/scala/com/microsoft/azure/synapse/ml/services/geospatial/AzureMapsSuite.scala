@@ -4,24 +4,15 @@
 package com.microsoft.azure.synapse.ml.services.geospatial
 
 import com.microsoft.azure.synapse.ml.Secrets
-import com.microsoft.azure.synapse.ml.build.BuildInfo
-import com.microsoft.azure.synapse.ml.services.URLEncodingUtils
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
-import com.microsoft.azure.synapse.ml.services.geospatial.AzureMapsJsonProtocol._
-import com.microsoft.azure.synapse.ml.io.http.{HeaderValues, RESTHelpers}
 import com.microsoft.azure.synapse.ml.stages.{FixedMiniBatchTransformer, FlattenBatch}
-import org.apache.http.client.methods.{HttpDelete, HttpGet, HttpPost}
-import org.apache.http.entity.StringEntity
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.col
 
-import java.net.URI
-
 trait AzureMapsKey {
   lazy val azureMapsKey: String = sys.env.getOrElse("AZURE_MAPS_KEY", Secrets.AzureMapsKey)
 }
-
 
 class AzMapsSearchAddressSuite extends TransformerFuzzing[AddressGeocoder] with AzureMapsKey {
   override val compareDataInSerializationTest: Boolean = false
@@ -80,7 +71,6 @@ class AzMapsSearchAddressSuite extends TransformerFuzzing[AddressGeocoder] with 
 
   override def reader: MLReadable[_] = AddressGeocoder
 }
-
 
 class AzMapsSearchReverseAddressSuite extends TransformerFuzzing[ReverseAddressGeocoder] with AzureMapsKey {
   override val compareDataInSerializationTest: Boolean = false
@@ -160,4 +150,5 @@ class AzMapsSearchReverseAddressSuite extends TransformerFuzzing[ReverseAddressG
 // AzMapsPointInPolygonSuite was removed because the Azure Maps Spatial service
 // was retired on September 30, 2025. The CheckPointInPolygon transformer now
 // throws UnsupportedOperationException on transform().
+// Keep its offline request, schema, retirement-error, and persistence coverage in GeospatialCoreSuite.
 // See: https://azure.microsoft.com/en-us/updates/v2/azure-maps-creator-services-retirement-on-30-september-2025

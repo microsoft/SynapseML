@@ -156,7 +156,24 @@ trait PythonWrappable extends BaseWrappable {
       }
     }.mkString("\n")
   }
-
+  private def hasPublicStageMethod(name: String, parameterCount: Int): Boolean =
+    thisStage.getClass.getMethods.exists(method =>
+      method.getName == name && method.getParameterCount == parameterCount)
+  private def validateServiceParamAliases(): Unit = {
+    val paramNames = thisStage.params.map(_.name).toSet
+    val additionalMethods = pyAdditionalMethods
+    thisStage.params.collect { case p: ServiceParam[_] => p }.foreach { p =>
+      val capName = p.name.capitalize
+      val alias = s"${p.name}Col"
+      require(!paramNames.contains(alias),
+        s"Service parameter ${p.name} cannot use Python alias $alias because that Param already exists")
+      Seq(s"get${capName}Col", s"set${capName}Col").foreach { methodName =>
+        val methodPattern = s"(?m)^\\s*def\\s+$methodName\\s*\\(".r
+        require(methodPattern.findFirstIn(additionalMethods).isEmpty,
+          s"Generated Python method $methodName conflicts with a hand-written method")
+      }
+    }
+  }
   protected def pyParamArg[T](p: Param[T]): String = {
     (p, safeGetDefault(p)) match {
       case (_: ServiceParam[_], _) =>
@@ -196,34 +213,27 @@ trait PythonWrappable extends BaseWrappable {
     // scalastyle:off line.size.limit
     p match {
       case sp: ServiceParam[_] =>
+        val scalarSetter = if (hasPublicStageMethod(s"set$capName", 1)) {
+          s"self._java_obj.set$capName(value)"
+        } else {
+          s"""self._java_obj.setScalarParam("${sp.name}", value)"""
+        }
+        val vectorSetter = if (hasPublicStageMethod(s"set${capName}Col", 1)) {
+          s"self._java_obj.set${capName}Col(value)"
+        } else {
+          s"""self._java_obj.setVectorParam("${sp.name}", value)"""
+        }
         s"""|def set$capName(self, value):
             |${indent(docString, 1)}
-            |    if isinstance(value, list):
-            |        value = SparkContext._active_spark_context._jvm.com.microsoft.azure.synapse.ml.param.ServiceParam.toSeq(value)
-            |    elif isinstance(value, dict):
-            |        # Recursively convert Python dict/list to Java LinkedHashMap/ArrayList to preserve order
-            |        sc = SparkContext._active_spark_context
-            |        jvm = sc._jvm
-            |        def _convert(val):
-            |            if isinstance(val, dict):
-            |                jmap = jvm.java.util.LinkedHashMap()
-            |                for k, v in val.items():
-            |                    jmap.put(k, _convert(v))
-            |                return jmap
-            |            elif isinstance(val, list):
-            |                jlist = jvm.java.util.ArrayList()
-            |                for it in val:
-            |                    jlist.add(_convert(it))
-            |                return jlist
-            |            else:
-            |                return val
-            |        value = jvm.com.microsoft.azure.synapse.ml.param.ServiceParam.toMap(_convert(value))
-            |    self._java_obj = self._java_obj.set$capName(value)
+            |    value = self._service_param_value_to_java(value)
+            |    self._java_obj = $scalarSetter
+            |    self._paramMap.pop(self.${sp.name}, None)
             |    return self
             |
             |def set${capName}Col(self, value):
             |${indent(docString, 1)}
-            |    self._java_obj = self._java_obj.set${capName}Col(value)
+            |    self._java_obj = $vectorSetter
+            |    self._paramMap.pop(self.${sp.name}, None)
             |    return self
             |""".stripMargin
       case _ =>
@@ -301,11 +311,25 @@ trait PythonWrappable extends BaseWrappable {
             |${indent(docString, 1)}
             |    return JavaParams._from_java(self._java_obj.get$capName())
             |""".stripMargin
-      case _: ServiceParam[_] =>
+      case sp: ServiceParam[_] =>
+        val scalarGetter = if (hasPublicStageMethod(s"get$capName", 0)) {
+          s"self._java_obj.get$capName()"
+        } else {
+          s"""self._java_obj.getScalarParam("${sp.name}")"""
+        }
+        val vectorGetter = if (hasPublicStageMethod(s"get${capName}Col", 0)) {
+          s"self._java_obj.get${capName}Col()"
+        } else {
+          s"""self._java_obj.getVectorParam("${sp.name}")"""
+        }
         s"""|
             |def get$capName(self):
             |${indent(docString, 1)}
-            |    return self._java_obj.get$capName()
+            |    return self._service_param_scalar_to_python("${sp.name}", $scalarGetter)
+            |
+            |def get${capName}Col(self):
+            |${indent(docString, 1)}
+            |    return $vectorGetter
             |""".stripMargin
       case _ =>
         s"""|
@@ -385,7 +409,13 @@ trait PythonWrappable extends BaseWrappable {
 
   private def pyStubParamGetter(p: Param[_]): String = {
     val capName = p.name.capitalize
-    s"def get$capName(self) -> ${getPythonTypeInfo(p).pyiType}: ..."
+    p match {
+      case _: ServiceParam[_] =>
+        s"""|def get$capName(self) -> ${getPythonTypeInfo(p).pyiType}: ...
+            |def get${capName}Col(self) -> str: ...""".stripMargin
+      case _ =>
+        s"def get$capName(self) -> ${getPythonTypeInfo(p).pyiType}: ..."
+    }
   }
 
   private def pyStubAdditionalArgument(
@@ -491,9 +521,7 @@ trait PythonWrappable extends BaseWrappable {
        |        kwargs = self.__init__._input_kwargs
        |
        |    if java_obj is None:
-       |        for k,v in kwargs.items():
-       |            if v is not None:
-       |                getattr(self, "set" + k[0].upper() + k[1:])(v)
+       |        self._set_params_via_setters(kwargs, skip_none=True)
        |""".stripMargin
 
   }
@@ -511,12 +539,16 @@ trait PythonWrappable extends BaseWrappable {
         |        kwargs = self._input_kwargs
         |    else:
         |        kwargs = self.__init__._input_kwargs
-        |    return self._set(**kwargs)
+        |    return self._set_params_via_setters(kwargs)
         |""".stripMargin
   }
 
   //scalastyle:off method.length
   protected def pythonClass(): String = {
+    validateServiceParamAliases()
+    val serviceParamNames = thisStage.params.collect {
+      case p: ServiceParam[_] => "\"" + escape(p.name) + "\""
+    }.mkString(", ")
     s"""|$copyrightLines
         |
         |import sys
@@ -541,6 +573,8 @@ trait PythonWrappable extends BaseWrappable {
         |@inherit_doc
         |class $pyClassName(${pyInheritedClasses.mkString(", ")}):
         |${indent(pyClassDoc, 1)}
+        |
+        |    _service_param_names = frozenset([$serviceParamNames])
         |
         |${indent(pyParamsDefinitions, 1)}
         |
@@ -576,6 +610,7 @@ trait PythonWrappable extends BaseWrappable {
   //scalastyle:on method.length
 
   private def pythonStubClass(): String = {
+    validateServiceParamAliases()
     val paramDefinitions = thisStage.params.map(pyStubParamDefinition).mkString("\n")
     val paramSetters = thisStage.params.map(pyStubParamSetter).mkString("\n")
     val paramGetters = thisStage.params.map(pyStubParamGetter).mkString("\n")

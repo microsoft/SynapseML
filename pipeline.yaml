@@ -51,6 +51,10 @@ schedules:
         - master
 
 parameters:
+  - name: fullTests
+    displayName: Force all PR test families
+    type: boolean
+    default: false
   - name: testStyle
     displayName: Run Style Tests
     type: boolean
@@ -106,6 +110,22 @@ variables:
   runCoverage: $[or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))]
 
 jobs:
+- job: CIHelpers
+  displayName: 'Test CI helpers'
+  timeoutInMinutes: 15
+  pool:
+    vmImage: $(UBUNTU_VERSION)
+  steps:
+    - bash: |
+        set -euo pipefail
+        python3 -m pip install --disable-pip-version-check --retries 5 --timeout 30 pytest pyyaml
+      displayName: 'Install CI test dependencies'
+      retryCountOnTaskFailure: 2
+    - bash: |
+        set -euo pipefail
+        python3 -m pytest tools/ci/tests/ -q
+      displayName: 'Test CI helpers'
+
 - job: BuildAndCacheSbt
   displayName: 'Prewarm sbt bootstrap cache'
   cancelTimeoutInMinutes: 0
@@ -113,59 +133,14 @@ jobs:
     vmImage: $(UBUNTU_VERSION)
   steps:
     - checkout: self
-      fetchDepth: 1
+      fetchDepth: 2
     - bash: |
-        set -uo pipefail
-        run_databricks_cpu=true
-        run_databricks_gpu=true
-
-        if [ "$(Build.Reason)" = "PullRequest" ]; then
-          target_ref="${SYSTEM_PULLREQUEST_TARGETBRANCH:-}"
-          if [ -z "$target_ref" ]; then
-            echo "##vso[task.logissue type=warning]PR target branch was unavailable; running Databricks E2E"
-          elif git fetch --no-tags --depth=1 origin "$target_ref"; then
-            target_commit="$(git rev-parse FETCH_HEAD)"
-
-            # Azure checks out the PR merge ref, so target tip -> HEAD is the
-            # effective PR diff. A source-only checkout can only over-report
-            # target changes, which safely keeps Databricks enabled.
-            echo "Changed paths used for Databricks E2E impact detection:"
-            changed_paths_file="$(mktemp)"
-            trap 'rm -f "$changed_paths_file"' EXIT
-            git diff --name-only -z --diff-filter=ACMRD "$target_commit" HEAD > "$changed_paths_file"
-            tr '\0' '\n' < "$changed_paths_file" | sed 's/^/  /'
-
-            cpu_decision="$(
-              python3 tools/ci/databricks_impact.py --null --suite cpu < "$changed_paths_file"
-            )"
-            gpu_decision="$(
-              python3 tools/ci/databricks_impact.py --null --suite gpu < "$changed_paths_file"
-            )"
-            case "$cpu_decision" in
-              true|false) run_databricks_cpu="$cpu_decision" ;;
-              *)
-                echo "##vso[task.logissue type=warning]Invalid Databricks CPU impact result; running CPU E2E"
-                ;;
-            esac
-            case "$gpu_decision" in
-              true|false) run_databricks_gpu="$gpu_decision" ;;
-              *)
-                echo "##vso[task.logissue type=warning]Invalid Databricks GPU impact result; running GPU E2E"
-                ;;
-            esac
-          else
-            echo "##vso[task.logissue type=warning]Could not fetch PR target branch; running Databricks E2E"
-          fi
-        else
-          echo "Non-PR build; Databricks E2E remains enabled"
-        fi
-
-        echo "Databricks CPU E2E enabled: $run_databricks_cpu"
-        echo "Databricks GPU E2E enabled: $run_databricks_gpu"
-        echo "##vso[task.setvariable variable=runDatabricksCpuE2E;isOutput=true]$run_databricks_cpu"
-        echo "##vso[task.setvariable variable=runDatabricksGpuE2E;isOutput=true]$run_databricks_gpu"
-      name: detectDatabricksImpact
-      displayName: 'Detect Databricks E2E impact'
+        set -euo pipefail
+        python3 tools/ci/e2e_impact.py
+      name: detectTestImpact
+      displayName: 'Select PR notebook E2E jobs'
+      env:
+        SYNAPSEML_FULL_TESTS: ${{ parameters.fullTests }}
     - template: templates/update_cli.yml
     - template: templates/sbt_cache.yml
       parameters:
@@ -261,7 +236,7 @@ jobs:
       succeeded(),
       eq(variables.runTests, 'True'),
       eq('${{ parameters.testDatabricksE2E }}', true),
-      eq(dependencies.BuildAndCacheSbt.outputs['detectDatabricksImpact.runDatabricksCpuE2E'], 'true')
+      ne(dependencies.BuildAndCacheSbt.outputs['detectTestImpact.runDatabricksCpuE2E'], 'false')
     )
   timeoutInMinutes: 300
   cancelTimeoutInMinutes: 0
@@ -294,7 +269,7 @@ jobs:
       succeeded(),
       eq(variables.runTests, 'True'),
       eq('${{ parameters.testDatabricksE2E }}', true),
-      eq(dependencies.BuildAndCacheSbt.outputs['detectDatabricksImpact.runDatabricksGpuE2E'], 'true')
+      ne(dependencies.BuildAndCacheSbt.outputs['detectTestImpact.runDatabricksGpuE2E'], 'false')
     )
   timeoutInMinutes: 300
   cancelTimeoutInMinutes: 0
@@ -337,7 +312,7 @@ jobs:
     - template: templates/fabric_kv.yml
     - template: templates/publish.yml
     - task: AzureCLI@2
-      displayName: 'E2E'
+      displayName: 'Fabric cleanup preflight'
       inputs:
         azureSubscription:  'SynapseML Build'
         scriptLocation: inlineScript
@@ -345,20 +320,47 @@ jobs:
         inlineScript: |
           set -eo pipefail
           artifact_root='$(Build.ArtifactStagingDirectory)/fabric-e2e'
-          mkdir -p "$artifact_root"
+          mkdir -p "$artifact_root/test-reports"
           printf '%s\n' \
             'authentication=key-vault' \
             'source_version=$(Build.SourceVersion)' \
             'suites=FabricTestCleanup,FabricSmokeTests,FabricNotebookTests' \
-            'e2e_step=preparing' \
+            'cleanup_step=preparing' \
             > "$artifact_root/run-metadata.txt"
 
           source activate synapseml
+          printf '%s\n' 'cleanup_step=running' >> "$artifact_root/run-metadata.txt"
+          set +e
+          sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.FabricTestCleanup"
+          cleanup_exit_code=$?
+          set -e
+          printf 'cleanup_step=finished\ncleanup_exit_code=%s\n' "$cleanup_exit_code" \
+            >> "$artifact_root/run-metadata.txt"
+          cleanup_report='$(Build.SourcesDirectory)/core/target/test-reports/TEST-com.microsoft.azure.synapse.ml.nbtest.FabricTestCleanup.xml'
+          if [ -f "$cleanup_report" ]; then
+            cp "$cleanup_report" "$artifact_root/test-reports/"
+          fi
+          exit "$cleanup_exit_code"
+      env:
+        INTEGRATION_ENV: $(sempy-integration-region)
+        INTEGRATION_ACCOUNT: $(sempy-integration-account)
+        INTEGRATION_CERTIFICATE: $(sempy-integration-certificate)
+        INTEGRATION_WORKSPACE_PREFIX: $(sempy-integration-workspace-prefix)
+    - task: AzureCLI@2
+      displayName: 'E2E'
+      condition: succeeded()
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptLocation: inlineScript
+        scriptType: bash
+        inlineScript: |
+          set -eo pipefail
+          artifact_root='$(Build.ArtifactStagingDirectory)/fabric-e2e'
+          printf '%s\n' 'e2e_step=preparing' >> "$artifact_root/run-metadata.txt"
+          source activate synapseml
           printf '%s\n' 'e2e_step=running' >> "$artifact_root/run-metadata.txt"
           set +e
-          sbt \
-            "testOnly com.microsoft.azure.synapse.ml.nbtest.FabricTestCleanup" \
-            "testOnly com.microsoft.azure.synapse.ml.nbtest.FabricSmokeTests com.microsoft.azure.synapse.ml.nbtest.FabricNotebookTests"
+          sbt "testOnly com.microsoft.azure.synapse.ml.nbtest.FabricSmokeTests com.microsoft.azure.synapse.ml.nbtest.FabricNotebookTests"
           sbt_exit_code=$?
           set -e
           printf 'e2e_step=finished\nsbt_exit_code=%s\n' "$sbt_exit_code" \
@@ -378,8 +380,12 @@ jobs:
           printf '%s\n' \
             'authentication=key-vault' \
             'source_version=$(Build.SourceVersion)' \
+            'cleanup_step=not-started' \
             'e2e_step=not-started' \
             > "$artifact_root/run-metadata.txt"
+        fi
+        if ! grep -q '^e2e_step=' "$artifact_root/run-metadata.txt"; then
+          printf '%s\n' 'e2e_step=not-started' >> "$artifact_root/run-metadata.txt"
         fi
         if [ -d "$report_root" ]; then
           find "$report_root" -maxdepth 1 -type f \
@@ -391,8 +397,10 @@ jobs:
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
-        testResultsFiles: '**/test-reports/TEST-*.xml'
+        searchFolder: '$(Build.ArtifactStagingDirectory)/fabric-e2e/test-reports'
+        testResultsFiles: 'TEST-*.xml'
         failTaskOnFailedTests: true
+        failTaskOnMissingResultsFile: true
       condition: always()
     - task: PublishPipelineArtifact@1
       displayName: 'Publish Fabric E2E evidence'
@@ -1045,7 +1053,7 @@ jobs:
         RELEASE_RELEVANT_PATHS=()
         while IFS= read -r -d '' path; do
           case "$path" in
-            .github/*|.pipelines/*|docs/*|templates/*|tools/acr/*|tools/ci/*|tools/docker/*|tools/helm/*|website/*)
+            .github/*|.pipelines/*|docs/*|reviews/*.md|templates/*|tools/acr/*|tools/ci/*|tools/docker/*|tools/helm/*|website/*)
               ;;
             pipeline.yaml|CODEOWNERS|CONTRIBUTING.md|LICENSE|README.md|SECURITY.md)
               ;;
@@ -1317,7 +1325,7 @@ jobs:
           else
             while IFS= read -r -d '' path; do
               case "$path" in
-                .github/*|.pipelines/*|docs/*|templates/*|tools/acr/*|tools/ci/*|tools/docker/*|tools/helm/*|website/*)
+                .github/*|.pipelines/*|docs/*|reviews/*.md|templates/*|tools/acr/*|tools/ci/*|tools/docker/*|tools/helm/*|website/*)
                   ;;
                 pipeline.yaml|CODEOWNERS|CONTRIBUTING.md|LICENSE|README.md|SECURITY.md)
                   ;;

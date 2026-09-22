@@ -346,7 +346,9 @@ class TestOpenAIPromptParams(unittest.TestCase):
 
     def test_copy_preserves_explicit_mode_provenance(self):
         source = OpenAIPrompt()
+        self.assertFalse(source._post_processing_explicitly_set)
         copied = source.copy({source.postProcessing: ""})
+        self.assertTrue(copied._post_processing_explicitly_set)
 
         with self.assertRaisesRegex(
             IllegalArgumentException,
@@ -358,6 +360,7 @@ class TestOpenAIPromptParams(unittest.TestCase):
         self.assertEqual(copied.getPostProcessingOptions(), {})
 
         csv_source = OpenAIPrompt().setPostProcessingOptions({"delimiter": ";"})
+        self.assertFalse(csv_source._post_processing_explicitly_set)
         with self.assertRaisesRegex(
             IllegalArgumentException,
             "postProcessing must be 'csv'",
@@ -371,6 +374,7 @@ class TestOpenAIPromptParams(unittest.TestCase):
         )
 
         options_copy = source.copy({source.postProcessingOptions: {"delimiter": ";"}})
+        self.assertFalse(options_copy._post_processing_explicitly_set)
         self.assertEqual(options_copy.getPostProcessing(), "csv")
         self.assertEqual(
             options_copy.getPostProcessingOptions(),

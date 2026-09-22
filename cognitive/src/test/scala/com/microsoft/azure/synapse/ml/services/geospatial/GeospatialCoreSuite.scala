@@ -164,4 +164,40 @@ class GeospatialCoreSuite extends TestBase {
     }
     assert(retiredError.getMessage.contains("retired on September 30, 2025"))
   }
+
+  test("retired checkpoint stage preserves scalar and column parameters through save and load") {
+    val input = Seq((Seq(47.6418), Seq(-122.1275), "udid-1")).toDF("latitude", "longitude", "udid")
+    val scalar = new CheckPointInPolygon()
+      .setLatitude(47.6418)
+      .setLongitude(-122.1275)
+      .setUserDataIdentifier("udid-1")
+    val columns = new CheckPointInPolygon()
+      .setLatitudeCol("latitude")
+      .setLongitudeCol("longitude")
+      .setUserDataIdentifierCol("udid")
+
+    Seq(scalar, columns).zipWithIndex.foreach { case (stage, index) =>
+      stage.setSubscriptionKey("fake-key")
+        .setGeography("us")
+        .setOutputCol("pointInPolygon")
+        .setErrorCol("pointInPolygonError")
+      val expectedSchema = stage.transformSchema(input.schema)
+      val path = tmpDir.resolve(s"checkpoint-$index").toString
+      stage.write.save(path)
+      val loaded = CheckPointInPolygon.load(path)
+
+      assert(loaded.uid == stage.uid)
+      assert(loaded.getUrl == stage.getUrl)
+      assert(loaded.getSubscriptionKey == "fake-key")
+      assert(loaded.getOrDefault(loaded.latitude) == stage.getOrDefault(stage.latitude))
+      assert(loaded.getOrDefault(loaded.longitude) == stage.getOrDefault(stage.longitude))
+      assert(loaded.getOrDefault(loaded.userDataIdentifier) == stage.getOrDefault(stage.userDataIdentifier))
+      assert(loaded.transformSchema(input.schema) == expectedSchema)
+
+      val error = intercept[UnsupportedOperationException] {
+        loaded.transform(input)
+      }
+      assert(error.getMessage.contains("retired on September 30, 2025"))
+    }
+  }
 }

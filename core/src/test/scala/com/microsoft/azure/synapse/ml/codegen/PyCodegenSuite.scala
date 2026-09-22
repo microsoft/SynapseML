@@ -62,6 +62,26 @@ private[codegen] object PyCodegenFixtures {
     override val text = new Param[String]("otherStage", "text", "text value")
   }
 
+  class ConflictingServiceAliasStage(override val uid: String = "conflictingServiceAliasStage")
+    extends TypedPythonStage(uid) {
+
+    override protected lazy val classNameHelper: String = "ConflictingServiceAliasStage"
+
+    val modelCol = new Param[String](this, "modelCol", "conflicting real parameter")
+  }
+
+  class ConflictingServiceAliasMethodStage(override val uid: String = "conflictingServiceAliasMethodStage")
+    extends TypedPythonStage(uid) {
+
+    override protected lazy val classNameHelper: String = "ConflictingServiceAliasMethodStage"
+
+    override def pyAdditionalMethods: String =
+      super.pyAdditionalMethods +
+        """|def getModelCol(self):
+           |    return "model"
+           |""".stripMargin
+  }
+
   class TypedPythonModel(override val uid: String = "typedPythonModel")
     extends Model[TypedPythonModel] with Wrappable {
 
@@ -262,16 +282,20 @@ class PyCodegenSuite extends AnyFunSuite {
       val folder = "/codegen"
       val runtimeFile = new File(packageDir(conf.pySrcDir, folder), "TypedPythonStage.py")
       val stubFile = new File(packageDir(conf.pySrcDir, folder), "TypedPythonStage.pyi")
+      val runtime = readUtf8(runtimeFile)
       val stub = readUtf8(stubFile)
 
       assert(runtimeFile.isFile)
       assert(stubFile.isFile)
+      assert(runtime.contains("""_service_param_names = frozenset(["model"])"""))
       assert(stub.contains("class TypedPythonStage("))
       assert(stub.contains("count: Param"))
       assert(stub.contains("count: Optional[float] = ..."))
       assert(stub.contains("labels: Optional[List[str]] = ..."))
       assert(stub.contains("model: Optional[str] = ..."))
       assert(stub.contains("modelCol: Optional[str] = ..."))
+      assert(stub.contains("def getModel(self) -> str: ..."))
+      assert(stub.contains("def getModelCol(self) -> str: ..."))
       assert(stub.contains("""_T = TypeVar("_T", bound="TypedPythonStage")"""))
       assert(stub.contains("def setCount(self: _T, value: float) -> _T: ..."))
       assert(stub.contains("def getText(self) -> str: ..."))
@@ -279,6 +303,19 @@ class PyCodegenSuite extends AnyFunSuite {
       assert(stub.contains("def clear(self, param: Param) -> None: ..."))
       assert(stub.contains(
         "def copy(self: _T, extra: Optional[ParamMap] = ...) -> _T: ..."))
+      assert(runtime.contains("self._java_obj.setScalarParam(\"model\", value)"))
+      assert(runtime.contains("self._java_obj.setVectorParam(\"model\", value)"))
+      assert(runtime.contains("value = self._service_param_value_to_java(value)"))
+      assert(runtime.contains(
+        """self._java_obj.setScalarParam("model", value)
+          |        self._paramMap.pop(self.model, None)""".stripMargin))
+      assert(runtime.contains(
+        """self._java_obj.setVectorParam("model", value)
+          |        self._paramMap.pop(self.model, None)""".stripMargin))
+      assert(runtime.contains(
+        "self._service_param_scalar_to_python(\"model\", self._java_obj.getModel())"))
+      assert(runtime.contains("return self._java_obj.getVectorParam(\"model\")"))
+      assert(runtime.contains("return self._set_params_via_setters(kwargs)"))
       assertPythonCompiles(stubFile)
     }
   }
@@ -295,9 +332,40 @@ class PyCodegenSuite extends AnyFunSuite {
       val runtimeFile = new File(folder, "ForeignParamPythonStage.py")
       val stubFile = new File(folder, "ForeignParamPythonStage.pyi")
       assert(readUtf8(runtimeFile).contains("text=None"))
+      assert(readUtf8(runtimeFile).contains("""_service_param_names = frozenset(["model"])"""))
       assert(readUtf8(stubFile).contains("text: Optional[str] = ..."))
       assertPythonCompiles(runtimeFile)
       assertPythonCompiles(stubFile)
+    }
+  }
+
+  test("generated wrappers without service parameters have empty service metadata") {
+    withTempDir { root =>
+      val conf = codegenConfig(root)
+      new TypedPythonModel().makePyFile(conf)
+      val runtimeFile = new File(packageDir(conf.pySrcDir, "/codegen"), "TypedPythonModel.py")
+      assert(readUtf8(runtimeFile).contains("_service_param_names = frozenset([])"))
+      assertPythonCompiles(runtimeFile)
+    }
+  }
+
+  test("service column aliases cannot shadow real parameters") {
+    withTempDir { root =>
+      val error = intercept[IllegalArgumentException] {
+        new ConflictingServiceAliasStage().makePyFile(codegenConfig(root))
+      }
+      assert(error.getMessage.contains(
+        "Service parameter model cannot use Python alias modelCol because that Param already exists"))
+    }
+  }
+
+  test("service column accessors cannot shadow hand-written Python methods") {
+    withTempDir { root =>
+      val error = intercept[IllegalArgumentException] {
+        new ConflictingServiceAliasMethodStage().makePyFile(codegenConfig(root))
+      }
+      assert(error.getMessage.contains(
+        "Generated Python method getModelCol conflicts with a hand-written method"))
     }
   }
 
