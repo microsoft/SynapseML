@@ -14,10 +14,41 @@ from urllib.parse import parse_qs, urlparse
 POLL_SECONDS = 600
 MAX_TIMEOUT_MINUTES = 120
 CHECK_NAME = "microsoft.SynapseML"
+AZURE_PROJECT = "b9b2accc-2d1c-45b3-9d24-0eb5d78cc47f"
+AZURE_BUILD_PATHS = {
+    "dev.azure.com": f"/msdata/{AZURE_PROJECT}/_build/results",
+    "msdata.visualstudio.com": f"/{AZURE_PROJECT}/_build/results",
+}
 
 
 class MonitorError(Exception):
     """The requested build could not be monitored reliably."""
+
+
+def parse_build_id(url):
+    """Reject checks outside the trusted SynapseML Azure project."""
+    if not isinstance(url, str):
+        raise MonitorError("Azure check has an invalid build URL.")
+    try:
+        parsed = urlparse(url)
+        trusted_path = AZURE_BUILD_PATHS.get(parsed.hostname)
+        trusted = (
+            parsed.scheme == "https"
+            and parsed.port in (None, 443)
+            and parsed.username is None
+            and parsed.password is None
+            and trusted_path is not None
+            and parsed.path == trusted_path
+            and not parsed.fragment
+        )
+    except ValueError as error:
+        raise MonitorError("Azure check has an invalid build URL.") from error
+    if not trusted:
+        raise MonitorError("Azure check URL is outside the trusted SynapseML project.")
+    build_ids = parse_qs(parsed.query).get("buildId", [])
+    if len(build_ids) != 1 or not re.fullmatch(r"[0-9]+", build_ids[0]):
+        raise MonitorError("Azure check has no valid build ID.")
+    return int(build_ids[0])
 
 
 def query_pr(args, timeout):
@@ -89,12 +120,7 @@ def monitor(args):
             if (check.get("name") or check.get("context")) != CHECK_NAME:
                 continue
             url = check.get("detailsUrl") or check.get("targetUrl") or ""
-            if not isinstance(url, str):
-                raise MonitorError("Azure check has an invalid build URL.")
-            build_ids = parse_qs(urlparse(url).query).get("buildId", [])
-            if len(build_ids) != 1 or not re.fullmatch(r"[0-9]+", build_ids[0]):
-                raise MonitorError("Azure check has no valid build ID.")
-            build_id = int(build_ids[0])
+            build_id = parse_build_id(url)
             if build_id in matching:
                 raise MonitorError("Azure check has duplicate results for one build.")
             matching[build_id] = (check, url)

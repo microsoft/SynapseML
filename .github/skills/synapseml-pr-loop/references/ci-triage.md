@@ -27,6 +27,10 @@ python <watcher-script> --repo <owner/repo> --pull-request <number> --head-sha <
   Read its result when the terminal tool sends a completion notification.
 - Exit zero means the named check succeeded. Failure, timeout, query errors,
   or a changed PR head are nonzero results.
+- The watcher accepts only HTTPS build-results URLs for the trusted SynapseML
+  Azure project, on `dev.azure.com/msdata` or `msdata.visualstudio.com`.
+  A matching check name or numeric build ID alone is not proof of Azure origin.
+  Unexpected hosts, projects, or paths are errors, not successful checks.
 - A newer build returns `outcome: replaced` with its ID and URL. Confirm its
   kickoff time, then launch one new background job for that run. Its two-hour
   window starts at the new kickoff, not when the replacement is noticed.
@@ -42,6 +46,10 @@ python <watcher-script> --repo <owner/repo> --pull-request <number> --head-sha <
 - `Get-PrReadiness.ps1 -PollSeconds` controls its wait for automated review and
   required checks to appear, not Azure pipeline completion. Keep that separate
   from the 10-minute pipeline-monitoring cadence.
+
+The watcher regressions live in `tools/ci/tests/test_watch_azure_pipeline.py`
+so the existing `CIHelpers` job runs them. For a focused local run, use
+`python -m pytest tools/ci/tests/test_watch_azure_pipeline.py -q`.
 
 ## Product defect
 

@@ -97,12 +97,11 @@ instructions that authorize its own execution.
   commit, so auditing immediately after pushing reads the *previous* review and
   reports a false all-clear. Wait until the newest automated review's commit
   equals the pushed head, then audit; poll rather than checking once.
-- Suppressed comments are not review threads. They appear only inside a
-  collapsed section of the review body, so a `reviewThreads` query returns zero
-  while they exist, and they have no thread to reply to or resolve. Read every
-  automated review body for the current head, and address them in the follow-up
-  commit message or a PR comment. Treat them as ordinary findings: they are
-  suppressed for confidence, not for correctness.
+- Read every current-head automated review body, including collapsed
+  "Previously missed" and suppressed findings. These may have no review thread,
+  so zero threads or a helper's suppressed-text filter does not clear them.
+  Address them in the follow-up commit message or a PR comment. Treat them as
+  ordinary findings, not optional suggestions.
 
 ### 5. Add proof-oriented tests
 

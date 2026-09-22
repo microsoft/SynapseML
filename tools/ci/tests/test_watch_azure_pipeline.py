@@ -12,7 +12,13 @@ import unittest
 from unittest.mock import patch
 
 SPEC = importlib.util.spec_from_file_location(
-    "watch_azure_pipeline", Path(__file__).parents[1] / "watch_azure_pipeline.py"
+    "watch_azure_pipeline",
+    Path(__file__).resolve().parents[3]
+    / ".github"
+    / "skills"
+    / "synapseml-pr-loop"
+    / "scripts"
+    / "watch_azure_pipeline.py",
 )
 watcher = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(watcher)
@@ -30,7 +36,14 @@ ARGV = [
     "--kickoff-at",
     KICKOFF,
 ]
-URL = "https://dev.azure.com/example/project/_build/results?buildId=42"
+URL = (
+    "https://dev.azure.com/msdata/b9b2accc-2d1c-45b3-9d24-0eb5d78cc47f"
+    "/_build/results?buildId=42"
+)
+LEGACY_URL = (
+    "https://msdata.visualstudio.com/b9b2accc-2d1c-45b3-9d24-0eb5d78cc47f"
+    "/_build/results?buildId=42"
+)
 
 
 def snapshot(state="IN_PROGRESS", conclusion="", head=HEAD, build_url=URL):
@@ -274,11 +287,73 @@ class WatchAzurePipelineTests(unittest.TestCase):
             snapshot("COMPLETED", ""),
             snapshot(build_url=URL.replace("42", "abc")),
             snapshot(build_url=URL.replace("42", "\u00b2")),
+            snapshot(build_url=URL + "&buildId=43"),
         ):
             with self.subTest(data=data):
                 with patch.object(watcher, "query_pr", return_value=data):
                     with self.assertRaises(watcher.MonitorError):
                         watcher.monitor(self.args)
+
+    def test_trusted_azure_build_urls_are_supported(self):
+        for url in (
+            URL,
+            LEGACY_URL,
+            URL.replace("dev.azure.com", "DEV.AZURE.COM:443") + "&view=results",
+        ):
+            for legacy in (False, True):
+                with self.subTest(url=url, legacy=legacy):
+                    data = snapshot("COMPLETED", "SUCCESS", build_url=url)
+                    if legacy:
+                        data["statusCheckRollup"] = [
+                            {
+                                "context": watcher.CHECK_NAME,
+                                "state": "SUCCESS",
+                                "targetUrl": url,
+                            }
+                        ]
+                    with patch.object(watcher, "query_pr", return_value=data):
+                        result = watcher.monitor(self.args)
+                    self.assertEqual("success", result["outcome"])
+                    self.assertEqual(url, result["url"])
+
+    def test_untrusted_build_urls_fail_instead_of_passing(self):
+        for url in (
+            "https://attacker.example/_build/results?buildId=42",
+            URL.replace("dev.azure.com", "dev.azure.com.attacker.example"),
+            URL.replace("/msdata/", "/another-org/"),
+            URL.replace("b9b2accc-2d1c-45b3-9d24-0eb5d78cc47f", "another-project"),
+            LEGACY_URL.replace("msdata.visualstudio.com", "other.visualstudio.com"),
+            URL.replace("/_build/results", "/_build/not-results"),
+            URL.replace("https://", "http://"),
+            URL.replace("https://", "https://user:password@"),
+            URL.replace("dev.azure.com", "dev.azure.com:444"),
+            URL.replace("dev.azure.com", "dev.azure.com:invalid"),
+            URL.replace("dev.azure.com", "dev.azure.com:99999"),
+            "https://[invalid/_build/results?buildId=42",
+            "/msdata/b9b2accc-2d1c-45b3-9d24-0eb5d78cc47f/_build/results?buildId=42",
+            URL + "#another-build",
+        ):
+            with self.subTest(url=url):
+                output = io.StringIO()
+                with patch.object(
+                    watcher,
+                    "query_pr",
+                    return_value=snapshot("COMPLETED", "SUCCESS", build_url=url),
+                ):
+                    with contextlib.redirect_stdout(output):
+                        self.assertEqual(1, watcher.main(ARGV))
+                event = json.loads(output.getvalue().splitlines()[-1])
+                self.assertEqual("error", event["outcome"])
+        self.sleep_mock.assert_not_called()
+
+    def test_untrusted_newer_build_cannot_replace_the_verified_run(self):
+        data = snapshot("COMPLETED", "SUCCESS")
+        data["statusCheckRollup"] += snapshot(
+            build_url="https://attacker.example/_build/results?buildId=43"
+        )["statusCheckRollup"]
+        with patch.object(watcher, "query_pr", return_value=data):
+            with self.assertRaises(watcher.MonitorError):
+                watcher.monitor(self.args)
 
     def test_query_is_read_only_and_bounded(self):
         response = subprocess.CompletedProcess([], 0, json.dumps(snapshot()), "")
