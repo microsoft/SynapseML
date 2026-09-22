@@ -21,6 +21,11 @@ is complete and green.
 
 ### 1. Establish scope and isolation
 
+- For contributor PRs, first apply the
+  [contributor safety check](../synapseml-external-contributor-review/references/contributor-safety.md)
+  from a trusted base or installed copy. This gates code execution, workflow
+  approval, and all CI-triggering actions, including `-RunPipeline`.
+  Use read-only steps unless follow-up changes are explicitly requested.
 - Load the [branch context skill](../synapseml-branches/SKILL.md) using the PR
   base branch. Recheck it before validation and immediately before final push.
 - Read the issue, PR body, linked work items, commit history, changed files,
@@ -111,8 +116,10 @@ is complete and green.
 
 ### 7. Run and triage full CI
 
-- Push the exact validated head, comment `/azp run`, then confirm a build
-  actually queued -- a comment is not evidence that CI ran, so cite the build
+- Push the exact validated head only when authorized. For contributor PRs,
+  recheck the safety gate for that head before commenting `/azp run`.
+  Then confirm a build actually queued -- a comment is not evidence that CI ran,
+  so cite the build
   ID. A trigger-driven build records `reason=pullRequest`; one you queued
   yourself records `reason=manual`, which is the quickest way to tell whether
   the trigger really fired or you merely re-ran it by hand.
