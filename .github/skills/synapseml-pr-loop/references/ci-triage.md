@@ -3,6 +3,67 @@
 Do not rerun a failed pipeline blindly. Preserve the job URL and first determine
 which category the failure belongs to.
 
+## Waiting for Azure Pipelines
+
+Trigger CI only with explicit authorization. For external PRs, first recheck
+the exact head using trusted safety guidance. Otherwise report missing CI as a
+blocker and remain read-only.
+
+After an authorized `/azp run`, confirm that the current-head build queued. Record its build
+ID, PR head SHA, and the trigger comment's `created_at` as its kickoff time.
+For a manually queued run without that comment, use Azure's `queueTime`, not
+the time an agent first notices the build. Then run
+[watch_azure_pipeline.py](../scripts/watch_azure_pipeline.py):
+
+```text
+python <watcher-script> --repo microsoft/SynapseML --pull-request <number> --head-sha <full-sha> --build-id <id> --kickoff-at <ISO-8601-time>
+```
+
+- Launch this command once through the terminal tool's attached
+  asynchronous/background mode. Keep its job ID, confirm the startup message,
+  and continue independent work. Do not detach it from the session unless asked.
+- The process checks the named Azure build's GitHub status every **10 minutes
+  (600 seconds)**, with a deadline **120 minutes after that run's kickoff**.
+  Late starts and watcher restarts only get the remaining time.
+  `--timeout-minutes` may shorten that limit, not increase it.
+- It prints only startup and final JSON. Let the process sleep without model
+  calls, subagents, recurring prompts, or short polls of the job's output.
+  Read its result when the terminal tool sends a completion notification.
+- Exit zero means the named check succeeded. Failure, timeout, query errors,
+  or a changed PR head are nonzero results.
+- The watcher queries only `microsoft/SynapseML`. The optional `--repo` flag
+  accepts that name case-insensitively; a different repository is rejected
+  before any query, even if it could replay a real Azure build URL.
+- The watcher accepts only HTTPS build-results URLs for the trusted SynapseML
+  Azure project, on `dev.azure.com/msdata` or `msdata.visualstudio.com`.
+  Both the project GUID and its verified `A365` alias are accepted.
+  A matching check name or numeric build ID alone is not proof of Azure origin.
+  Unexpected hosts, projects, or paths are errors, not successful checks.
+- Build IDs must fit Azure's positive `int32` range, `1` through `2147483647`,
+  in both CLI arguments and result URLs. Oversized IDs produce an explicit
+  error, not a replacement handoff or an unhandled conversion failure.
+- A newer build returns `outcome: replaced` with its ID and URL. Confirm its
+  kickoff time, then launch one new background job for that run. Its two-hour
+  window starts at the new kickoff, not when the replacement is noticed.
+  Do the same after a head change once its new run is confirmed.
+- On timeout, report the build link and leave CI unresolved. The monitor does
+  not cancel or trigger builds. Rechecking the same run never resets its clock;
+  only a genuinely new run gets a fresh kickoff-based window.
+  Even when no query fits before expiry, the timeout result includes the
+  canonical link for the validated build ID without extending the deadline.
+- After any monitor exit, recheck the current head and build, including for a
+  new run triggered near the old cutoff. Inspect Azure jobs and published test
+  results before declaring readiness; GitHub status can lag Azure.
+- Do not trigger duplicate runs just because a build is pending. If authorized
+  work requires a new run, record its new kickoff and replace the old monitor.
+- `Get-PrReadiness.ps1 -PollSeconds` controls its wait for automated review and
+  required checks to appear, not Azure pipeline completion. Keep that separate
+  from the 10-minute pipeline-monitoring cadence.
+
+The watcher regressions live in `tools/ci/tests/test_watch_azure_pipeline.py`
+so the existing `CIHelpers` job runs them. For a focused local run, use
+`python -m pytest tools/ci/tests/test_watch_azure_pipeline.py -q`.
+
 ## Product defect
 
 The changed code compiled or ran and produced an incorrect result, crash,
