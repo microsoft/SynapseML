@@ -179,3 +179,17 @@ Validation note, recorded as reported and not re-run: the latest full 291-test
 suite passed on this port. The other port hit the same unchanged
 scoped-prerequisite Git index fixture mismatch previously seen here, and the
 mounted-filesystem flake is not claimed resolved; native CI is still required.
+
+## Metadata-only publication correction
+
+The driving GPT reviewer removed machine-local checkout paths from all four
+GPT report headers, covering Copilot comments 4071822345, 4071822456 and
+4071822503 plus the same pattern in round 1. This follows
+`reviews/pr-2708/README.md`; original findings, resolutions, source references,
+reviewed revisions and fingerprints remain intact.
+
+The correction was checked directly across the six review themes: completeness
+of all matching headers, consistent generic metadata, absence of residual host
+paths, unchanged evidence values, a repository scan and diff check, and no
+runtime or performance change. This is artifact-only recovery of the completed
+review, not a new multi-model review or a claim that Gemini became available.
