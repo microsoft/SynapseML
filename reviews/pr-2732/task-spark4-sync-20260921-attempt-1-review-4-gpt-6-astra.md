@@ -12,7 +12,7 @@ repository-relative and locally retained validation logs are named by file.
 - Target: master companion, `fix/fabric-cleanup-relations-20260921`
 - HEAD: `714d365e71f6d2db5b7072094a4a3ad22485eb57`
 - Reviewed index tree: `15746e61f14873124f2d00c53aa74c1aa3cfb070`
-- Artifact: `reviews\sync-20260921\task-spark4-sync-20260921-attempt-1-review-4-gpt-6-astra.md`
+- Artifact: `reviews\pr-2732\task-spark4-sync-20260921-attempt-1-review-4-gpt-6-astra.md`
 - Issues found: 1 Low
 - Verdict: ISSUES_FOUND
 

@@ -7,7 +7,7 @@
 - Target: master follow-up for microsoft/SynapseML#2732, comment 4066179872
 - HEAD: `1aff4ce4704a2d1a4ec50f4aaaaedc9efc92dc73`
 - Reviewed state: working-tree changes, including the new untracked private test trait; not the staged diff
-- Artifact: `reviews\fabric-cleanup-relations-20260921\task-spark4-sync-20260921-attempt-2-review-4-gpt-6-astra.md`
+- Artifact: `reviews\pr-2732\task-spark4-sync-20260921-attempt-2-review-4-gpt-6-astra.md`
 - Issues found: 0
 - Verdict: CLEAN
 

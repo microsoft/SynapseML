@@ -6,9 +6,63 @@ package com.microsoft.azure.synapse.ml.nbtest
 import org.scalatest.funsuite.AnyFunSuite
 
 import scala.collection.mutable.ArrayBuffer
+import scala.concurrent.{Await, Future, Promise}
+import scala.concurrent.duration.Duration
 import scala.util.control.ControlThrowable
 
 private[nbtest] trait FabricTestArtifactTrackerFailureTests extends AnyFunSuite {
+  private class JobFailureFixture extends HasFabricNotebookTestConnection {
+    override lazy val fabric: Nothing = throw new IllegalStateException("Unexpected Fabric connection")
+
+    def run[T](job: => T): T = withFabricJobFailure("test-notebook.py")(job)
+  }
+
+  test("Preserve successful job results and notebook context for ordinary job failures") {
+    val fixture = new JobFailureFixture
+    assert(fixture.run(Await.result(Future.successful("completed"), Duration.Inf)) == "completed")
+    Seq(new IllegalStateException("job failed"), new AssertionError("job assertion failed")).foreach { failure =>
+      val thrown = intercept[RuntimeException](fixture.run(throw failure))
+      assert(thrown.getMessage == "Job failed for test-notebook.py")
+      assert(thrown.getCause eq failure)
+    }
+    val failedJob = new IllegalStateException("asynchronous job failed")
+    val thrown = intercept[RuntimeException] {
+      fixture.run(Await.result(Future.failed[String](failedJob), Duration.Inf))
+    }
+    assert(thrown.getCause eq failedJob)
+  }
+
+  test("Restore interrupt status and preserve the exception raised while awaiting a job") {
+    val fixture = new JobFailureFixture
+    var original: Option[InterruptedException] = None
+    try {
+      Thread.currentThread().interrupt()
+      val thrown = intercept[InterruptedException] {
+        fixture.run {
+          try {
+            Await.result(Promise[String]().future, Duration.Inf)
+          } catch {
+            case error: InterruptedException =>
+              original = Some(error)
+              throw error
+          }
+        }
+      }
+      assert(original.exists(_ eq thrown))
+      assert(Thread.currentThread().isInterrupted)
+    } finally {
+      Thread.interrupted()
+    }
+  }
+
+  test("Propagate fatal job-wait errors without wrapping them") {
+    val fixture = new JobFailureFixture
+    Seq[Throwable](new InternalError("job VM failure"), new ThreadDeath(),
+      new LinkageError("job linkage failure"), new ControlThrowable {}).foreach { failure =>
+      assert(intercept[Throwable](fixture.run(throw failure)) eq failure)
+    }
+  }
+
   test("Release failed jobs and preserve the original failure") {
     val deleted = ArrayBuffer.empty[String]
     val tracker = new FabricTestArtifactTracker(id => {
