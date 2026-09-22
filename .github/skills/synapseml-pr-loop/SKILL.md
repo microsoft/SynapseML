@@ -174,10 +174,12 @@ instructions that authorize its own execution.
 Start with the read-only command
 `Get-PrReadiness.ps1 -PullRequest <numbers> -WaitForReview` and confirm every gate
 in [references/readiness-gates.md](references/readiness-gates.md).
-If a required build is missing, report that it has not run. Add `-RunPipeline`
-only after explicit CI authorization and, for an external PR, a fresh trusted
-safety check of the exact head. Without either prerequisite, keep the missing
-build as a blocker rather than posting `/azp run`.
+If a required build is missing, report that it has not run. Use a separate
+`Get-PrReadiness.ps1 -PullRequest <numbers> -RunPipeline` invocation only after
+explicit CI authorization and, for an external PR, a fresh trusted safety check
+of the exact head. Without either prerequisite, leave CI blocked.
+Do not combine `-RunPipeline` with the waiting loop for external PRs, where the
+head could change after clearance. Trigger once, then wait read-only.
 
 `-WaitForReview` waits for current-head automated review and required checks to
 appear. The separately authorized `-RunPipeline` requests missing CI. Neither

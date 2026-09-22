@@ -111,8 +111,12 @@ class WatchAzurePipelineTests(unittest.TestCase):
 
     def test_shorter_timeout_clips_sleep(self):
         self.args.timeout_minutes = 1
-        with patch.object(watcher, "query_pr", return_value=snapshot()) as query:
-            self.assertEqual("timeout", watcher.monitor(self.args)["outcome"])
+        with patch.object(
+            watcher, "query_pr", return_value=snapshot(build_url=LEGACY_URL)
+        ) as query:
+            result = watcher.monitor(self.args)
+        self.assertEqual("timeout", result["outcome"])
+        self.assertEqual(LEGACY_URL, result["url"])
         self.assertEqual(60, self.now)
         self.assertEqual(1, query.call_count)
 
@@ -135,7 +139,9 @@ class WatchAzurePipelineTests(unittest.TestCase):
     def test_already_expired_run_does_not_query_or_sleep(self):
         self.now = 8000
         with patch.object(watcher, "query_pr") as query:
-            self.assertEqual("timeout", watcher.monitor(self.args)["outcome"])
+            self.assertEqual(
+                {"outcome": "timeout", "url": URL}, watcher.monitor(self.args)
+            )
         query.assert_not_called()
         self.sleep_mock.assert_not_called()
 
@@ -175,7 +181,9 @@ class WatchAzurePipelineTests(unittest.TestCase):
             return snapshot("COMPLETED", "SUCCESS")
 
         with patch.object(watcher, "query_pr", side_effect=query):
-            self.assertEqual("timeout", watcher.monitor(self.args)["outcome"])
+            self.assertEqual(
+                {"outcome": "timeout", "url": URL}, watcher.monitor(self.args)
+            )
         self.sleep_mock.assert_not_called()
 
     def test_query_timeout_is_clipped_to_remaining_budget(self):
@@ -200,7 +208,9 @@ class WatchAzurePipelineTests(unittest.TestCase):
             raise watcher.MonitorError("Query timed out.")
 
         with patch.object(watcher, "query_pr", side_effect=query):
-            self.assertEqual("timeout", watcher.monitor(self.args)["outcome"])
+            self.assertEqual(
+                {"outcome": "timeout", "url": URL}, watcher.monitor(self.args)
+            )
 
     def test_terminal_failures_do_not_pass(self):
         for conclusion in ("FAILURE", "CANCELLED", "TIMED_OUT", "SKIPPED", "NEUTRAL"):

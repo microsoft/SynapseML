@@ -5,7 +5,11 @@ which category the failure belongs to.
 
 ## Waiting for Azure Pipelines
 
-After `/azp run`, confirm that the current-head build queued. Record its build
+Trigger CI only with explicit authorization. For external PRs, first recheck
+the exact head using trusted safety guidance. Otherwise report missing CI as a
+blocker and remain read-only.
+
+After an authorized `/azp run`, confirm that the current-head build queued. Record its build
 ID, PR head SHA, and the trigger comment's `created_at` as its kickoff time.
 For a manually queued run without that comment, use Azure's `queueTime`, not
 the time an agent first notices the build. Then run
@@ -45,6 +49,8 @@ python <watcher-script> --repo microsoft/SynapseML --pull-request <number> --hea
 - On timeout, report the build link and leave CI unresolved. The monitor does
   not cancel or trigger builds. Rechecking the same run never resets its clock;
   only a genuinely new run gets a fresh kickoff-based window.
+  Even when no query fits before expiry, the timeout result includes the
+  canonical link for the validated build ID without extending the deadline.
 - After any monitor exit, recheck the current head and build, including for a
   new run triggered near the old cutoff. Inspect Azure jobs and published test
   results before declaring readiness; GitHub status can lag Azure.

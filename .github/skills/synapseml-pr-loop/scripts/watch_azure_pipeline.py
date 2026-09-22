@@ -16,7 +16,8 @@ MAX_TIMEOUT_MINUTES = 120
 MAX_BUILD_ID = 2_147_483_647
 CHECK_NAME = "microsoft.SynapseML"
 REPOSITORY = "microsoft/SynapseML"
-AZURE_PROJECTS = ("b9b2accc-2d1c-45b3-9d24-0eb5d78cc47f", "a365")
+AZURE_PROJECT_ID = "b9b2accc-2d1c-45b3-9d24-0eb5d78cc47f"
+AZURE_PROJECTS = (AZURE_PROJECT_ID, "a365")
 AZURE_BUILD_PATHS = {
     "dev.azure.com": {
         f"/msdata/{project}/_build/results" for project in AZURE_PROJECTS
@@ -104,7 +105,13 @@ def monitor(args):
         args.kickoff_at.timestamp() + args.timeout_minutes * 60 - time.time()
     )
     deadline = time.monotonic() + max(0, remaining_budget)
-    timeout_result = {"outcome": "timeout"}
+    timeout_result = {
+        "outcome": "timeout",
+        "url": (
+            f"https://dev.azure.com/msdata/{AZURE_PROJECT_ID}"
+            f"/_build/results?buildId={args.build_id}"
+        ),
+    }
     while True:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
