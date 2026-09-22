@@ -3,9 +3,9 @@
 - **Round**: 6 only, attempt 1. **Theme**: polish and hardening — performance,
   observability, documentation, naming. **Mode**: sequential, slot 3. **Model**:
   claude-opus-5 (Anthropic Opus slot).
-- **Target**: master prerequisite, branch `fix/fabric-cleanup-relations-20260921`,
-  HEAD `714d365e71`, index tree `b4dd50774784a1fd7fca611883c333a5a21458c2`
-- **Artifact**: `reviews\sync-20260921\task-spark4-sync-20260921-attempt-1-review-6-claude-opus-5.md`
+- **Target**: spark4.1, branch `sync/spark4.1-master-20260921`, HEAD `b4ca894139`,
+  MERGE_HEAD `714d365e71`, index tree `6d1a9a443e2693c8b98dcee14e867678545f3dd4`
+- **Artifact**: `reviews\pr-2734\task-spark4-sync-20260921-attempt-1-review-6-claude-opus-5.md`
 - **Issues Found**: 2 Low
 - **Verdict**: ISSUES_FOUND — two Low polish gaps; no performance, compatibility, naming,
   dead-code, or documentation-inaccuracy defect found
@@ -17,20 +17,14 @@ Round 6 Anthropic slot only. **No Gemini version has executed in this gauntlet**
 turns before Round 5, which used a direct GPT tests review. The three-family gate is
 **unfulfilled** and this is **not** a full-gauntlet green. Azure Pipelines and current-head
 GitHub review have not run because the PRs do not exist yet, so all evidence here is local.
-Scope: the frozen staged candidate of 5 files — 4 Scala test-infrastructure sources plus
-`docs/Reference/Developer Setup.md`, 106 insertions, 16 deletions. This is the master
-companion only; the port-only surface (runtime pins, workflows, Python bridge, batched
-headers, CI README) is reviewed in the two sync trees, not here. Rounds 1/3/4 are resolved.
+Scope: the frozen staged candidate of 41 files, 3,790 insertions, 203 deletions — a polish
+pass, not a re-audit. Rounds 1/3/4 are resolved and re-derived only where polish depends on them.
 
 ## Evidence Checklist
 
-Publication note: this prerequisite-specific directory preserves the separate
-port review records. Paths in the original review describe its review-time location.
-
-- [x] Frozen tree confirmed by hash (`git write-tree` = `b4dd50774784a1fd7fca611883c333a5a21458c2`)
-  and the staged set is exactly the 5 declared paths. The four changed Scala blobs are
-  byte-identical to the ports — cleanup `e7a385bf58`, tracker `1e01591ffd`, new failure
-  suite `fb905d3e3d`, suite `490dcf1bb2` — so this review transfers to both ports unchanged.
+- [x] Frozen tree confirmed by hash (`git write-tree` = `6d1a9a443e2693c8b98dcee14e867678545f3dd4`);
+  the four changed Scala blobs are byte-identical across all three trees — cleanup
+  `e7a385bf58`, tracker `1e01591ffd`, new failure suite `fb905d3e3d`, suite `490dcf1bb2`.
 - [x] **No Spark cost from the new suite.** `TestBase.spark/sc/ssc` are `lazy val`
   (`TestBase.scala:156-158`) and `beforeAll` (`:189-192`) only sets `log4j1.compatibility`
   and resets `suiteElapsed`, so no session starts and `logTime` evidences final-source execution.
@@ -39,24 +33,30 @@ port review records. Paths in the original review describe its review-time locat
   the 800-line scalastyle limit with no waiver, and `TestBase` matches AGENTS.md.
 - [x] **No new N+1 or hot loop.** The per-candidate `index(client.inventory())` and up-to-31
   `confirmAbsent` reads (`FabricArtifactCleanup.scala:163-172`) are inherited and unchanged in
-  count by Rounds 3/4, which only widened the `try` around existing work; the added handler
-  allocates nothing beyond the existing `failures` vector and does no extra I/O.
-- [x] **Dead code, markers, imports.** Zero `TODO`/`FIXME`/`HACK`/`XXX:` on added lines;
-  all imports used; nothing commented out; no debug or `println` left behind.
-- [x] **Backward compatibility.** The delta touches no `src/main/scala` at all — only
-  `core/src/test/scala/.../nbtest/` and one doc — so no public JVM signature, serialized
-  parameter shape, or generated Python wrapper can be affected, per AGENTS.md.
+  count by Rounds 3/4, which only widened the `try` around existing work.
+- [x] **Header path is allocation-lean.** `ServiceHeaderValues.values` returns an `Iterator` and
+  `stringValue`/`mapValue` stop at `find`, so a batch is scanned only to its first usable element
+  and at most one `Map` is materialised; its errors name the parameter without echoing values.
+- [x] **Dead code, markers, imports.** Zero `TODO`/`FIXME`/`HACK`/`XXX:` on added lines in
+  all 41 files (the 4 in-tree markers are pre-existing); all imports used; nothing commented out.
+- [x] **Backward compatibility.** The staged diff removes no `def`, `val`, `class`, `object`,
+  `trait`, or `case class` line under any `src/main/scala`: additive-only, per AGENTS.md.
 - [x] **Docs — relation contract.** The paragraph added to `docs/Reference/Developer Setup.md`
-  matches `references(value, field)` and the removed `forall(nonEmpty)` heuristic; it is
-  branch-neutral prose and names no Spark, Scala, Java, or Python version.
-- [ ] No compile, scalastyle, codegen, or ScalaTest run here; the reported green gates
-  (`master-cleanup-round4-green.log`: style 0 errors, 46/46 across 3 suites) and the negative
-  control (`master-cleanup-round4-red.log`: 3 pass, 1 fail) were read, not reproduced.
+  matches `references(value, field)` and the removed `forall(nonEmpty)` heuristic.
+- [x] **Docs — CI README.** Claims checked against source, not accepted:
+  `templates/fabric_kv.yml:16,29` and `templates/publish_coverage_ado.yml:12` each set
+  `retryCountOnTaskFailure: 2` with no `continueOnError` and `failIfCoverageEmpty: true`; the
+  certificate step uses `set -euo pipefail` and exits non-zero on a malformed account or empty
+  secret; the `reviews/*.md` replay exclusion matches `tools/ci/tests/test_pipeline_yaml.py:834,920-924`,
+  where `reviews/check.py` is still replayed. Retry config is identical in all three trees.
+- [ ] No compile, scalastyle, codegen, ScalaTest, Black, or PySpark run here; the reported green
+  gates (style 0 errors and 46/46 across 3 suites per tree, port compile/styles/codegen, 30 codegen
+  + 36 cognitive, 89 pipeline, Black over 215 files, 3 wheels with 54 Python tests) were read, not
+  reproduced.
 - [ ] No live Fabric, Azure, Databricks, or GitHub call; no endpoint schema assumed.
 
 **Considered, not filed:** `index` uses `Vector.distinct` (O(n²) on 2.12) but inputs are tens of
-items and it is not introduced here; the two tracker suites now sit on different bases, which is
-deliberate and the stricter base is the new one.
+items and it is not introduced here; shadowing in `ServiceHeaderValues` is behaviour-neutral.
 
 ## Issues
 
@@ -85,7 +85,7 @@ deliberate and the stricter base is the new one.
   "Independent job deletions are still attempted, and collected errors fail the cleanup afterward"
   plus "Authentication, inventory, and deletion errors fail the cleanup": true for deletion-only
   failures, silent on abort-and-suppress. It contains no "suppress", "abort", or "remaining", and
-  the changed Scala files carry only a licence header, leaving `filterNot(_ eq e)` unexplained.
+  the three changed Scala files carry only a licence header, leaving `filterNot(_ eq e)` unexplained.
 - **Risk**: An operator reads the thrown inventory error as the primary cause and can miss a
   deletion failure attached only as suppressed — the exact signal Rounds 3/4 preserved.
 - **Suggested Fix**: One doc sentence stating that a metadata, safety, or inventory error stops the
@@ -97,7 +97,7 @@ deliberate and the stricter base is the new one.
 - **Issue 1 — Open.** Nothing changed: this contract forbids source edits, staging, commits, and
   pushes, and the candidate is frozen. Verified by statement-order reading of `run` (`:211-251`).
 - **Issue 2 — Open.** Nothing changed, same reason. Verified by keyword search of
-  `Developer Setup.md` (zero hits) and a comment-line count of the changed Scala sources.
+  `Developer Setup.md` (zero hits) and a comment-line count of the three changed Scala sources.
 
 ## Round 6 Resolution Addendum (verification only)
 

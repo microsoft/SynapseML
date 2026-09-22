@@ -12,7 +12,7 @@ repository-relative and locally retained validation logs are named by file.
 - **Reasoning**: xhigh
 - **Target**: master
 - **Branch**: `fix/fabric-cleanup-relations-20260921`
-- **Artifact**: `reviews/sync-20260921/task-spark4-sync-20260921-attempt-1-review-1-gpt-6-astra.md`
+- **Artifact**: `reviews/pr-2732/task-spark4-sync-20260921-attempt-1-review-1-gpt-6-astra.md`
 - **HEAD**: `714d365e71f6d2db5b7072094a4a3ad22485eb57`
 - **Initial baseline index tree**: `70d410b583dc2d9a9a60711ae6cf4acb1bcb30fd`
 - **Reviewed index tree**: `e8d864108bf2b8f285890e794604ee464bed2969`

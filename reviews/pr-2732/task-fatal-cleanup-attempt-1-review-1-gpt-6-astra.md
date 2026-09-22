@@ -7,7 +7,7 @@
 - Target: master follow-up for microsoft/SynapseML#2734, comment 4066689707
 - Base HEAD: `02272e0a5d6f986a09289149310f5475c2457b1b`
 - Scope: The uncommitted three-file delta and relevant tracker context
-- Artifact: `reviews\fabric-cleanup-relations-20260921\task-fatal-cleanup-attempt-1-review-1-gpt-6-astra.md`
+- Artifact: `reviews\pr-2732\task-fatal-cleanup-attempt-1-review-1-gpt-6-astra.md`
 - Issues found: 0
 - Verdict: CLEAN
 

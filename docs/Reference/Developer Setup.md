@@ -124,6 +124,10 @@ errors keep their existing propagation.
 SQL endpoints are left to Fabric's lakehouse deletion rather than deleted
 independently. Authentication, inventory, and deletion errors fail the cleanup.
 
+Smoke and notebook job-wait handlers restore interrupt status and propagate
+interrupts and fatal errors unchanged. Ordinary failures retain the notebook
+name and the original cause.
+
 ### `scalastyle`
 
 Runs scalastyle check on main
