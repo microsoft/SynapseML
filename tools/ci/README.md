@@ -97,36 +97,63 @@ retries for transient service failures. Exhausted attempts still fail the job.
 Certificate validation, test assertions, and required coverage reports are not
 bypassed.
 
-## `databricks_impact.py` — conservative PR E2E gating
+## Conservative PR notebook E2E selection
 
-The `BuildAndCacheSbt` job compares a pull request with its target branch and
-uses `databricks_impact.py` to decide independently whether the five CPU matrix
-jobs and the GPU matrix job can be skipped. Scheduled, master, tag, and manual
-builds always run both suites.
+`e2e_impact.py` can skip the five Databricks CPU jobs and one Databricks GPU job
+for the isolated inputs below. Mixed changes take the union; any unrecognized
+path keeps all enabled notebook E2E jobs selected.
 
-The detector mirrors the enabled test suites:
+Fabric E2E remains disabled on this Spark port regardless of the selector output.
 
-- CPU runs for runtime changes in any module and non-GPU notebooks.
-- GPU runs for shared core/deep-learning runtime changes and the complete
-  `GPUNotebooks` set selected by `DatabricksGPUTests`, including
-  `Quickstart - End-to-end Local RAG with Phi Model`.
-- Databricks utility changes are assigned to CPU, GPU, or both according to
-  which suite imports them.
+| Paths allowed to skip notebook E2E | Why notebook execution is independent |
+| --- | --- |
+| Module `src/test/python/` | `CodegenConfig.pyTestOverrideDir` and `TestGen` copy these into the generated Python test tree, not the runtime package. |
+| Module `src/test/R/`, `tools/tests/run_r_tests.R` | `rTestOverrideDir` and `CodegenPlugin.testRImpl` consume these only as R tests. |
+| `website/`, Markdown under `docs/Quick Examples/` | `website/doctest.py` executes the Quick Examples Markdown. These are not runtime sources or `.ipynb` notebook inputs. |
+| Explicit root governance files, Markdown under `.github/skills/`, `.agents/`, `reviews/` | These are contributor/agent instructions and review records, not test inputs. The exact list is in `GOVERNANCE_FILES`. |
 
-The detector is fail-open. Unknown paths, build definitions, templates,
-environment files, shared test infrastructure, missing diffs, and detection
-errors run both suites. It skips both suites only for paths known not to affect
-runtime artifacts or notebook execution:
+Unit, Python, R, and website-sample tests remain unfiltered. This preserves all
+54 uploads expected by `codecov.yaml`, rather than silently losing coverage
+statuses/comments on selectively tested PRs. Generated tests and cross-module
+helpers also prevent a simple module-to-matrix mapping. Style, compilation/cache
+preparation, Docker builds, publishing, and compatibility keep their existing
+gates. More aggressive matrix filtering needs a separate coverage design and
+verified dependency model first.
 
-- GitHub metadata and workflows
-- unrelated pipelines and ACR/Docker/Helm tooling
-- CI helper code under `tools/ci/`
-- website files
-- Markdown/reStructuredText documentation
-- module test source outside the Databricks notebook and shared test infrastructure
+All production changes, Scala test changes, shared fixtures, resources,
+notebooks, build/dependency files, pipeline/templates, and CI helpers run all
+enabled notebook E2E jobs. There is no blanket Markdown exemption:
+`ONNXRuntimeDependencySuite` reads the ONNX documentation, and website samples
+execute Markdown. The former Databricks detector's broad test/tooling exemptions
+and CPU/GPU module assumptions are removed.
 
-Unknown non-notebook assets under `docs/` remain fail-open because notebooks may
-load adjacent data or configuration files.
+Only `Build.Reason=PullRequest` with a verified two-parent PR merge commit can
+skip anything. The checkout includes both parents. Detection compares the exact
+queued merge with its first parent, not a freshly fetched target tip that may
+have advanced. Renames are expanded into deletion/addition pairs; symlinks,
+submodules, missing history, empty/malformed diffs, unknown paths, and Git errors
+enable everything. Missing output variables also mean run, not skip. An
+unexpected detector crash fails the prerequisite job visibly.
+
+Scheduled, manual, push, and tag builds always retain all enabled test jobs.
+Set the queue parameter `fullTests=true` to bypass PR selection as well. A
+`/azp run` comment uses the default parameters and cannot set this override.
+For an unfiltered rerun, use Azure Pipelines **Run pipeline** against the PR's
+`refs/pull/<number>/merge` ref, not its source branch. Manual runs are always full.
+Explicit family-disable parameters still apply; "full" does not enable
+previously disabled suites.
+
+The independent `CIHelpers` job runs `python3 -m pytest tools/ci/tests/ -q` on
+every build. It has no cloud credentials or Spark dependency; dependency
+installation retries, but test failures do not. A failure marks CI red without
+preventing product tests from running. Use `python -m pytest` from the repository
+root so the helper modules are importable.
+
+The selector tests exercise real Git repositories, shallow
+checkouts, moving targets, renames, type changes, mixed inputs, manual/scheduled
+runs, and output-to-job wiring. This PR changes CI itself, so its own validation
+must run every family. A separate representative PR is needed to observe
+Azure's selective job scheduling before treating the skip path as proven in CI.
 
 ## `get_python_version.sh`
 

@@ -22,7 +22,7 @@ PIPELINE = REPO_ROOT / "pipeline.yaml"
 SBT_CACHE_TPL = REPO_ROOT / "templates" / "sbt_cache.yml"
 SBT_RETRY = REPO_ROOT / "tools" / "ci" / "sbt_retry.sh"
 SBT_VERSION = REPO_ROOT / "tools" / "ci" / "get_sbt_version.sh"
-DATABRICKS_IMPACT = REPO_ROOT / "tools" / "ci" / "databricks_impact.py"
+TEST_IMPACT = REPO_ROOT / "tools" / "ci" / "e2e_impact.py"
 DATABRICKS_STEPS_TPL = REPO_ROOT / "templates" / "databricks_e2e_steps.yml"
 KEY_VAULT_TPL = REPO_ROOT / "templates" / "kv.yml"
 FABRIC_KEY_VAULT_TPL = REPO_ROOT / "templates" / "fabric_kv.yml"
@@ -294,7 +294,7 @@ def test_prewarm_job_present():
 
 
 def test_databricks_e2e_uses_fail_open_pr_impact_detection():
-    assert DATABRICKS_IMPACT.exists()
+    assert TEST_IMPACT.exists()
     data = yaml.safe_load(_pipeline_text())
     jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
     prewarm = jobs["BuildAndCacheSbt"]
@@ -304,19 +304,12 @@ def test_databricks_e2e_uses_fail_open_pr_impact_detection():
     detection_steps = [
         step
         for step in prewarm["steps"]
-        if isinstance(step, dict) and step.get("name") == "detectDatabricksImpact"
+        if isinstance(step, dict) and step.get("name") == "detectTestImpact"
     ]
     assert len(detection_steps) == 1
     detection_script = detection_steps[0]["bash"]
-    assert "databricks_impact.py --null --suite cpu" in detection_script
-    assert "databricks_impact.py --null --suite gpu" in detection_script
-    assert "Build.Reason" in detection_script
-    assert "SYSTEM_PULLREQUEST_TARGETBRANCH" in detection_script
-    assert "isOutput=true" in detection_script
-    assert "run_databricks_cpu=true" in detection_script
-    assert "run_databricks_gpu=true" in detection_script
-    assert "runDatabricksCpuE2E;isOutput=true" in detection_script
-    assert "runDatabricksGpuE2E;isOutput=true" in detection_script
+    assert "python3 tools/ci/e2e_impact.py" in detection_script
+    assert "set -euo pipefail" in detection_script
 
     for job, suite in ((databricks_cpu, "Cpu"), (databricks_gpu, "Gpu")):
         condition = job["condition"]
@@ -325,7 +318,7 @@ def test_databricks_e2e_uses_fail_open_pr_impact_detection():
         assert "parameters.testDatabricksE2E" in condition
         assert (
             "dependencies.BuildAndCacheSbt.outputs"
-            f"['detectDatabricksImpact.runDatabricks{suite}E2E']"
+            f"['detectTestImpact.runDatabricks{suite}E2E']"
         ) in condition
         assert "DATABRICKS_SUITE" not in condition
         assert job["steps"] == [{"template": "templates/databricks_e2e_steps.yml"}]
