@@ -21,9 +21,10 @@ is complete and green.
 
 ### 1. Establish scope and isolation
 
-- For contributor PRs, first apply the
-  [contributor safety check](../synapseml-external-contributor-review/references/contributor-safety.md)
-  from a trusted base or installed copy. This gates code execution, workflow
+- For external contributor PRs, first apply the
+  [external contributor safety check](../synapseml-external-contributor-review/references/contributor-safety.md)
+  from a trusted base or installed copy. Use its Osmos group/team and trusted
+  owner-list classification. This gates code execution, workflow
   approval, and all CI-triggering actions, including `-RunPipeline`.
   Use read-only steps unless follow-up changes are explicitly requested.
 - Load the [branch context skill](../synapseml-branches/SKILL.md) using the PR
@@ -116,7 +117,7 @@ is complete and green.
 
 ### 7. Run and triage full CI
 
-- Push the exact validated head only when authorized. For contributor PRs,
+- Push the exact validated head only when authorized. For external contributor PRs,
   recheck the safety gate for that head before commenting `/azp run`.
   Then confirm a build actually queued -- a comment is not evidence that CI ran,
   so cite the build

@@ -1,4 +1,21 @@
-# Contributor safety check
+# External contributor safety check
+
+## Who counts as external
+
+External contributors are people outside the `Osmos@microsoft.com` group.
+Recognize an author as internal to this workflow when they are a confirmed
+group member, are listed in the trusted target branch's owner list, or have
+verified membership in the [Microsoft osmos GitHub team](https://github.com/orgs/microsoft/teams/osmos).
+Use `OWNERS.txt` where provided; this repository currently uses
+[CODEOWNERS](../../../../CODEOWNERS).
+
+Do not use contributor edits to the owner list, claims in PR text, a Microsoft
+email address, general organization membership, or fork ownership as proof.
+If membership cannot be verified, mark it unverified and retain external
+contributor safeguards until confirmed. Classification is not permission to
+edit or use secrets, and internal membership is not proof that code is safe.
+
+## Before execution
 
 Review the current PR head before reproducing a bug, installing dependencies,
 running builds/tests, approving a fork workflow, or posting `/azp run`.
