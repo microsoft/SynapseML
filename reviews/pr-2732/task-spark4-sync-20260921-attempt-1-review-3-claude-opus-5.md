@@ -14,7 +14,7 @@ repository-relative and locally retained validation logs are named by file.
 - **Branch**: `fix/fabric-cleanup-relations-20260921`
 - **HEAD**: `714d365e71f6d2db5b7072094a4a3ad22485eb57`
 - **Reviewed index tree**: `e8d864108bf2b8f285890e794604ee464bed2969`
-- **Artifact**: `reviews/sync-20260921/task-spark4-sync-20260921-attempt-1-review-3-claude-opus-5.md`
+- **Artifact**: `reviews/pr-2732/task-spark4-sync-20260921-attempt-1-review-3-claude-opus-5.md`
 - **Issues Found**: 1 Low
 - **Verdict**: ISSUES_FOUND (one Low diagnostics-quality failure-mode gap; no
   deletion-safety, correctness, or concurrency defect found)

@@ -7,7 +7,7 @@
 - Target: spark4.0 sync candidate
 - HEAD: `7251246d4513f597838bcd53402a9025943a4142`
 - Reviewed index tree: `3ec9f403724129eb8f48e4179ac9423ac58779c9`
-- Artifact: `reviews\sync-20260921\task-spark4-sync-20260921-attempt-1-review-4-gpt-6-astra.md`
+- Artifact: `reviews\pr-2733\task-spark4-sync-20260921-attempt-1-review-4-gpt-6-astra.md`
 - Issues found: 1 Low
 - Verdict: ISSUES_FOUND
 

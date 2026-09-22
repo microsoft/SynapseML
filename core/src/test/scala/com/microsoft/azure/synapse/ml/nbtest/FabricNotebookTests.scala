@@ -65,6 +65,18 @@ trait HasFabricNotebookTestConnection extends HasFabricOperationsConnection {
   protected def cleanupTrackedArtifacts(): Unit = artifactTracker.cleanup()
 
   protected def createTrackedStore(): String = trackArtifact(fabric.createStoreArtifact())
+
+  protected final def withFabricJobFailure[T](notebookName: String)(job: => T): T = {
+    try {
+      job
+    } catch {
+      case error: InterruptedException =>
+        Thread.currentThread().interrupt()
+        throw error
+      case NonFatal(t) =>
+        throw new RuntimeException(s"Job failed for $notebookName", t)
+    }
+  }
 }
 
 class FabricTestCleanup extends TestBase with HasFabricNotebookTestConnection {
@@ -117,14 +129,11 @@ class FabricSmokeTests extends TestBase with HasFabricNotebookTestConnection {
       blocking {
         Thread.sleep(10000) //scalastyle:ignore
       }
-      try {
+      withFabricJobFailure(notebookName) {
         val result = Await.ready(
           fabric.monitorJob(artifactId, jobInstanceId),
           Duration(fabric.timeoutInMillis.toLong, TimeUnit.MILLISECONDS)).value.get
         assert(result.isSuccess)
-      } catch {
-        case t: Throwable =>
-          throw new RuntimeException(s"Job failed for $notebookName", t)
       }
     }
   }
@@ -194,14 +203,8 @@ class FabricNotebookTests extends TestBase with HasFabricNotebookTestConnection 
     test(notebookName) {
       ensureFabricPreflight()
       val (future, submittedNotebookName) = futures(index)
-      try {
+      withFabricJobFailure(submittedNotebookName) {
         Await.result(future, notebookTimeout)
-      } catch {
-        case error: InterruptedException =>
-          Thread.currentThread().interrupt()
-          throw error
-        case NonFatal(t) =>
-          throw new RuntimeException(s"Job failed for $submittedNotebookName", t)
       }
     }
   }

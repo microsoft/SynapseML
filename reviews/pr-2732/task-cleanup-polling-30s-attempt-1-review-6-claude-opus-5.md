@@ -21,9 +21,10 @@ operation in the loop, while tolerated propagation delay rises from 60 to 300 se
 The fast path is untouched: an item already absent on the immediate read confirms with
 zero waits, which the baseline test pins at five reads and an empty pause list.
 
-Wall-clock exposure is bounded per item rather than multiplied across the run, because
-the first unconfirmable item throws and ends the loop. A stuck run therefore costs about
-five minutes plus request time once, not once per candidate.
+One unsuccessful confirmation consumes at most five minutes of requested waiting
+plus request time before it aborts the run. Earlier successful confirmations can
+each consume that same waiting budget. Total cleanup duration can therefore
+exceed five minutes; there is no run-level wall-clock limit.
 
 Two details are right and worth recording. `require` takes its message by name, so the
 interpolated failure string is never built during a successful poll. `index` is
@@ -45,8 +46,9 @@ the read count, and it interpolates the constant, so the text cannot drift from 
 One characteristic is worth stating plainly because this delta changed its magnitude.
 `confirmAbsent` does not receive the `log` function and emits nothing while waiting, so
 `FabricOperations.cleanupTestArtifacts`, which takes the `println` default, can now go
-**up to five minutes silent** between "deleting" and "confirmed deletion" for one item,
-where the old policy capped that gap near one minute. This is bounded, attributable to
+**up to five minutes of waiting plus request time silent** between "deleting" and
+"confirmed deletion" for one item, where the old policy allowed one minute of
+waiting plus request time. This is attributable to
 the item named in the preceding line, and always followed by an explicit outcome, so it
 is acceptable as it stands. It is recorded as an observation, not a defect.
 
@@ -109,7 +111,15 @@ None require a change, a rerun, or a delay before commit.
 
 ## Resolution note from the driving reviewer
 
-The performance paragraph's run-level wording needs qualification. Only one
+The original performance paragraph's run-level wording needed qualification:
+
+> Wall-clock exposure is bounded per item rather than multiplied across the run, because
+> the first unconfirmable item throws and ends the loop. A stuck run therefore costs about
+> five minutes plus request time once, not once per candidate.
+
+That original text is retained here as review history, not as a current claim.
+The performance and observability paragraphs above now state the correct limits.
+Only one
 *unsuccessful* confirmation can exhaust its budget in a run, because that
 failure stops the run. Earlier successful confirmations can each consume
 their own ten waits. Total cleanup duration can therefore exceed five minutes,

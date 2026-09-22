@@ -5,7 +5,7 @@
   claude-opus-5 (Anthropic Opus slot).
 - **Target**: spark4.0, branch `sync/spark4.0-master-20260921`, HEAD `7251246d45`,
   MERGE_HEAD `714d365e71`, index tree `4605bb9bc797b817626ce5c27ae93f7dcea993a1`
-- **Artifact**: `reviews\sync-20260921\task-spark4-sync-20260921-attempt-1-review-6-claude-opus-5.md`
+- **Artifact**: `reviews\pr-2733\task-spark4-sync-20260921-attempt-1-review-6-claude-opus-5.md`
 - **Issues Found**: 2 Low
 - **Verdict**: ISSUES_FOUND — two Low polish gaps; no performance, compatibility, naming,
   dead-code, or documentation-inaccuracy defect found
