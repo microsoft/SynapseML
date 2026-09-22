@@ -9,6 +9,7 @@ parameters:
 steps:
   - task: PublishCodeCoverageResults@2
     displayName: 'Publish Code Coverage to Azure DevOps'
+    retryCountOnTaskFailure: 2
     inputs:
       # Cobertura XML, which Azure DevOps understands.
       # sbt-scoverage writes it to target/scala-<binary-version>/coverage-report/

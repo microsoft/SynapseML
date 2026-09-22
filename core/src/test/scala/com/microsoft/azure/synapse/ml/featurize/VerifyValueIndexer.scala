@@ -40,10 +40,8 @@ class VerifyIndexToValue extends ValueIndexerUtilities with TransformerFuzzing[I
   private val testName = col + "_noncat"
 
   test("Test: Going to Categorical and Back") {
-    for (mmlStyle <- List(false, true)) { // TODO this is not used?
-      val df1 = new IndexToValue().setInputCol(newName).setOutputCol(testName).transform(df2)
-      df1.select(col, testName).collect.foreach(row => assert(row(0) == row(1), "two columns should be the same"))
-    }
+    val df1 = new IndexToValue().setInputCol(newName).setOutputCol(testName).transform(df2)
+    df1.select(col, testName).collect.foreach(row => assert(row(0) == row(1), "two columns should be the same"))
   }
 
   override def testObjects(): scala.Seq[TestObject[IndexToValue]] = Seq(new TestObject(
@@ -79,17 +77,15 @@ class VerifyValueIndexer extends ValueIndexerUtilities with EstimatorFuzzing[Val
     val col = "string"
     val trueLevels = df.select("string").collect().map(_(0).toString).distinct.sorted
 
-    for (mmlStyle <- List(false, true)) { // TODO this is not used?
-      val newName = col + "_cat"
-      val df2 = new ValueIndexer().setInputCol(col).setOutputCol(newName).fit(df).transform(df)
+    val newName = col + "_cat"
+    val df2 = new ValueIndexer().setInputCol(col).setOutputCol(newName).fit(df).transform(df)
 
-      val map = CategoricalUtilities.getMap[String](df2.schema(newName).metadata)
+    val map = CategoricalUtilities.getMap[String](df2.schema(newName).metadata)
 
-      val levels = map.levels.sorted
+    val levels = map.levels.sorted
 
-      (trueLevels zip levels).foreach {
-        case (a, b) => assert(a == b, "categorical levels are not the same")
-      }
+    (trueLevels zip levels).foreach {
+      case (a, b) => assert(a == b, "categorical levels are not the same")
     }
   }
 

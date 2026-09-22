@@ -22,7 +22,7 @@ PIPELINE = REPO_ROOT / "pipeline.yaml"
 SBT_CACHE_TPL = REPO_ROOT / "templates" / "sbt_cache.yml"
 SBT_RETRY = REPO_ROOT / "tools" / "ci" / "sbt_retry.sh"
 SBT_VERSION = REPO_ROOT / "tools" / "ci" / "get_sbt_version.sh"
-DATABRICKS_IMPACT = REPO_ROOT / "tools" / "ci" / "databricks_impact.py"
+TEST_IMPACT = REPO_ROOT / "tools" / "ci" / "e2e_impact.py"
 DATABRICKS_STEPS_TPL = REPO_ROOT / "templates" / "databricks_e2e_steps.yml"
 KEY_VAULT_TPL = REPO_ROOT / "templates" / "kv.yml"
 FABRIC_KEY_VAULT_TPL = REPO_ROOT / "templates" / "fabric_kv.yml"
@@ -294,7 +294,7 @@ def test_prewarm_job_present():
 
 
 def test_databricks_e2e_uses_fail_open_pr_impact_detection():
-    assert DATABRICKS_IMPACT.exists()
+    assert TEST_IMPACT.exists()
     data = yaml.safe_load(_pipeline_text())
     jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
     prewarm = jobs["BuildAndCacheSbt"]
@@ -304,19 +304,12 @@ def test_databricks_e2e_uses_fail_open_pr_impact_detection():
     detection_steps = [
         step
         for step in prewarm["steps"]
-        if isinstance(step, dict) and step.get("name") == "detectDatabricksImpact"
+        if isinstance(step, dict) and step.get("name") == "detectTestImpact"
     ]
     assert len(detection_steps) == 1
     detection_script = detection_steps[0]["bash"]
-    assert "databricks_impact.py --null --suite cpu" in detection_script
-    assert "databricks_impact.py --null --suite gpu" in detection_script
-    assert "Build.Reason" in detection_script
-    assert "SYSTEM_PULLREQUEST_TARGETBRANCH" in detection_script
-    assert "isOutput=true" in detection_script
-    assert "run_databricks_cpu=true" in detection_script
-    assert "run_databricks_gpu=true" in detection_script
-    assert "runDatabricksCpuE2E;isOutput=true" in detection_script
-    assert "runDatabricksGpuE2E;isOutput=true" in detection_script
+    assert "python3 tools/ci/e2e_impact.py" in detection_script
+    assert "set -euo pipefail" in detection_script
 
     for job, suite in ((databricks_cpu, "Cpu"), (databricks_gpu, "Gpu")):
         condition = job["condition"]
@@ -325,7 +318,7 @@ def test_databricks_e2e_uses_fail_open_pr_impact_detection():
         assert "parameters.testDatabricksE2E" in condition
         assert (
             "dependencies.BuildAndCacheSbt.outputs"
-            f"['detectDatabricksImpact.runDatabricks{suite}E2E']"
+            f"['detectTestImpact.runDatabricks{suite}E2E']"
         ) in condition
         assert "DATABRICKS_SUITE" not in condition
         assert job["steps"] == [{"template": "templates/databricks_e2e_steps.yml"}]
@@ -352,6 +345,20 @@ def test_fabric_e2e_cleans_stale_artifacts_before_running_tests():
         if isinstance(step, dict) and step.get("displayName") == "E2E"
     ]
     assert len(e2e_steps) == 1
+    cleanup_steps = [
+        step
+        for step in fabric_e2e["steps"]
+        if step.get("displayName") == "Fabric cleanup preflight"
+    ]
+    assert len(cleanup_steps) == 1
+    cleanup_step = cleanup_steps[0]
+    steps = fabric_e2e["steps"]
+    assert steps.index(cleanup_step) < steps.index(e2e_steps[0])
+    assert e2e_steps[0]["condition"] == "succeeded()"
+    assert not cleanup_step.get("continueOnError", False)
+    for template in ("templates/fabric_kv.yml", "templates/publish.yml"):
+        setup = next(step for step in steps if step.get("template") == template)
+        assert steps.index(setup) < steps.index(cleanup_step)
 
     script = e2e_steps[0]["inputs"]["inlineScript"]
     cleanup_command = (
@@ -362,9 +369,9 @@ def test_fabric_e2e_cleans_stale_artifacts_before_running_tests():
         'com.microsoft.azure.synapse.ml.nbtest.FabricNotebookTests"'
     )
     assert script.count("sbt ") == 1
-    assert cleanup_command in script
+    assert cleanup_command not in script
+    assert cleanup_command in cleanup_step["inputs"]["inlineScript"]
     assert test_command in script
-    assert script.index(cleanup_command) < script.index(test_command)
 
 
 def test_fabric_e2e_keeps_key_vault_authentication_while_disabled():
@@ -396,18 +403,25 @@ def test_fabric_e2e_keeps_key_vault_authentication_while_disabled():
         "pgp-pw",
     }
 
-    e2e = next(step for step in fabric_e2e["steps"] if step.get("displayName") == "E2E")
-    assert e2e["env"] == {
+    live_steps = [
+        step
+        for step in fabric_e2e["steps"]
+        if step.get("displayName") in ("Fabric cleanup preflight", "E2E")
+    ]
+    expected_env = {
         "INTEGRATION_ENV": "$(sempy-integration-region)",
         "INTEGRATION_ACCOUNT": "$(sempy-integration-account)",
         "INTEGRATION_CERTIFICATE": "$(sempy-integration-certificate)",
         "INTEGRATION_WORKSPACE_PREFIX": "$(sempy-integration-workspace-prefix)",
     }
-    assert e2e["inputs"]["azureSubscription"] == "SynapseML Build"
-    script = e2e["inputs"]["inlineScript"]
-    assert "authentication=key-vault" in script
-    assert "fabric-spark-cli" not in script
-    assert "INTEGRATION_AUTH_MODE" not in script
+    assert len(live_steps) == 2
+    for step in live_steps:
+        assert step["env"] == expected_env
+        assert step["inputs"]["azureSubscription"] == "SynapseML Build"
+        script = step["inputs"]["inlineScript"]
+        assert "fabric-spark-cli" not in script
+        assert "INTEGRATION_AUTH_MODE" not in script
+    assert "authentication=key-vault" in live_steps[0]["inputs"]["inlineScript"]
     assert "fabricE2EAuthMode" not in _pipeline_text()
 
     key_vault_template = yaml.safe_load(KEY_VAULT_TPL.read_text())
@@ -518,12 +532,23 @@ def test_fabric_e2e_retains_results_and_metadata_on_failure():
     e2e = next(step for step in steps if step.get("displayName") == "E2E")
     script = e2e["inputs"]["inlineScript"]
     assert "run-metadata.txt" in script
-    assert "source_version=$(Build.SourceVersion)" in script
     assert "e2e_step=preparing" in script
     assert "e2e_step=running" in script
     assert "e2e_step=finished" in script
     assert "sbt_exit_code=$?" in script
     assert 'exit "$sbt_exit_code"' in script
+    assert not re.search(r'(?<!>)> "\$artifact_root/run-metadata.txt"', script)
+    cleanup = next(
+        step for step in steps if step.get("displayName") == "Fabric cleanup preflight"
+    )
+    cleanup_script = cleanup["inputs"]["inlineScript"]
+    assert "source_version=$(Build.SourceVersion)" in cleanup_script
+    assert "cleanup_step=preparing" in cleanup_script
+    assert "cleanup_step=running" in cleanup_script
+    assert "cleanup_step=finished" in cleanup_script
+    assert "cleanup_exit_code=$?" in cleanup_script
+    assert 'exit "$cleanup_exit_code"' in cleanup_script
+    assert 'cp "$cleanup_report" "$artifact_root/test-reports/"' in cleanup_script
 
     collect = next(
         step
@@ -534,6 +559,7 @@ def test_fabric_e2e_retains_results_and_metadata_on_failure():
     assert "INTEGRATION_ACCOUNT" not in collect["bash"]
     assert "INTEGRATION_CERTIFICATE" not in collect["bash"]
     assert "e2e_step=not-started" in collect["bash"]
+    assert "cleanup_step=not-started" in collect["bash"]
     assert "TEST-com.microsoft.azure.synapse.ml.nbtest.Fabric*.xml" in collect["bash"]
 
     publish_results = next(
@@ -541,6 +567,11 @@ def test_fabric_e2e_retains_results_and_metadata_on_failure():
     )
     assert publish_results["condition"] == "always()"
     assert publish_results["inputs"]["failTaskOnFailedTests"] is True
+    assert publish_results["inputs"]["failTaskOnMissingResultsFile"] is True
+    assert publish_results["inputs"]["searchFolder"] == (
+        "$(Build.ArtifactStagingDirectory)/fabric-e2e/test-reports"
+    )
+    assert publish_results["inputs"]["testResultsFiles"] == "TEST-*.xml"
 
     publish_evidence = next(
         step
@@ -551,6 +582,94 @@ def test_fabric_e2e_retains_results_and_metadata_on_failure():
     assert publish_evidence["inputs"]["targetPath"] == (
         "$(Build.ArtifactStagingDirectory)/fabric-e2e"
     )
+
+
+@pytest.mark.skipif(os.name != "posix", reason="Fabric pipeline scripts require Bash")
+@pytest.mark.parametrize("cleanup_exit,e2e_exit", [(0, 0), (17, 0), (0, 23), (None, 0)])
+def test_fabric_preflight_scripts_preserve_exit_codes_and_evidence(
+    tmp_path, cleanup_exit, e2e_exit
+):
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+    steps = {step.get("displayName"): step for step in jobs["FabricE2E"]["steps"]}
+    mock_bin = tmp_path / "bin"
+    mock_bin.mkdir()
+    (mock_bin / "activate").write_text("return 0\n")
+    mock_sbt = mock_bin / "sbt"
+    mock_sbt.write_text(
+        """#!/usr/bin/env bash
+set -e
+mkdir -p "$MOCK_REPORTS"
+prefix="$MOCK_REPORTS/TEST-com.microsoft.azure.synapse.ml.nbtest."
+if [[ "$*" == *FabricTestCleanup* ]]; then
+  printf '<testsuite/>\\n' > "${prefix}FabricTestCleanup.xml"
+else
+  rm -f "${prefix}FabricTestCleanup.xml"
+  printf '<testsuite/>\\n' > "${prefix}FabricSmokeTests.xml"
+fi
+exit "$MOCK_SBT_EXIT"
+"""
+    )
+    mock_sbt.chmod(0o755)
+    staging = tmp_path / "staging"
+    source = tmp_path / "source"
+    env = os.environ.copy()
+    env["PATH"] = f"{mock_bin}{os.pathsep}{env['PATH']}"
+    env["MOCK_REPORTS"] = str(source / "core" / "target" / "test-reports")
+
+    def run_step(name, exit_code):
+        step = steps[name]
+        script = step.get("bash", step.get("inputs", {}).get("inlineScript"))
+        for key, value in {
+            "$(Build.ArtifactStagingDirectory)": str(staging),
+            "$(Build.SourcesDirectory)": str(source),
+            "$(Build.SourceVersion)": "test-source-sha",
+        }.items():
+            script = script.replace(key, value)
+        return subprocess.run(
+            ["bash", "-c", script],
+            env={**env, "MOCK_SBT_EXIT": str(exit_code)},
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+    if cleanup_exit is not None:
+        cleanup = run_step("Fabric cleanup preflight", cleanup_exit)
+        assert cleanup.returncode == cleanup_exit, cleanup.stderr
+    if cleanup_exit == 0:
+        e2e = run_step("E2E", e2e_exit)
+        assert e2e.returncode == e2e_exit, e2e.stderr
+    collect = run_step("Collect Fabric E2E evidence", 0)
+    assert collect.returncode == 0, collect.stderr
+    artifact_root = staging / "fabric-e2e"
+    metadata = (artifact_root / "run-metadata.txt").read_text()
+    assert "source_version=test-source-sha" in metadata
+    if cleanup_exit is None:
+        assert "cleanup_step=not-started" in metadata
+        assert "e2e_step=not-started" in metadata
+        assert "cleanup_exit_code=" not in metadata
+        assert not list((artifact_root / "test-reports").glob("*.xml"))
+        return
+    assert f"cleanup_exit_code={cleanup_exit}" in metadata
+    assert "cleanup_step=finished" in metadata
+    if cleanup_exit:
+        assert "e2e_step=not-started" in metadata
+        assert "e2e_step=running" not in metadata
+    else:
+        assert "e2e_step=finished" in metadata
+        assert "e2e_step=not-started" not in metadata
+        assert f"sbt_exit_code={e2e_exit}" in metadata
+    assert (
+        artifact_root
+        / "test-reports"
+        / "TEST-com.microsoft.azure.synapse.ml.nbtest.FabricTestCleanup.xml"
+    ).is_file()
+    assert (
+        artifact_root
+        / "test-reports"
+        / "TEST-com.microsoft.azure.synapse.ml.nbtest.FabricSmokeTests.xml"
+    ).is_file() == (cleanup_exit == 0)
 
 
 def test_internal_python_adapts_typing_package_data_to_current_codegen():
@@ -705,7 +824,7 @@ def test_release_compat_accepts_github_target_and_uses_one_sbt_process():
         in rebase_script
     )
     release_exclusions = (
-        ".github/*|.pipelines/*|docs/*|templates/*|tools/acr/*|tools/ci/*|"
+        ".github/*|.pipelines/*|docs/*|reviews/*.md|templates/*|tools/acr/*|tools/ci/*|"
         "tools/docker/*|tools/helm/*|website/*"
     )
     assert rebase_script.count(release_exclusions) == 2
@@ -785,6 +904,94 @@ def test_release_compat_prerequisites_have_valid_format():
         assert all(_is_normalized_prerequisite_path(path) for path in paths)
     shas = [fields[0] for fields in entries]
     assert len(shas) == len(set(shas)), "prerequisite commits must be unique"
+
+
+@pytest.mark.skipif(os.name != "posix", reason="release replay script requires Bash")
+@pytest.mark.parametrize(
+    "changed_paths,expected_paths",
+    [
+        (["reviews/report.md"], []),
+        (["reviews/nested/report.md"], []),
+        (["reviews/check.py"], ["reviews/check.py"]),
+        (["src/contract.md"], ["src/contract.md"]),
+        (["reviews/report.md", "src/value.txt"], ["src/value.txt"]),
+    ],
+)
+def test_release_compat_distinguishes_review_records_from_code(
+    tmp_path, changed_paths, expected_paths
+):
+    repo = tmp_path / "repo"
+    origin = tmp_path / "origin.git"
+    agent_temp = tmp_path / "agent"
+    agent_temp.mkdir()
+    _init_release_compat_scratch_repo(repo)
+    (repo / "base.txt").write_text("base\n")
+    _git(repo, "add", "base.txt")
+    _git(repo, "commit", "-m", "base")
+    _git(repo, "branch", "release")
+    _git(repo, "checkout", "-b", "source")
+    for path in changed_paths:
+        target = repo / path
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text("feature\n")
+    _git(repo, "add", "--", *changed_paths)
+    _git(repo, "commit", "-m", "feature")
+    _git(repo, "checkout", "master")
+    _git(repo, "merge", "--no-ff", "source", "-m", "merge feature")
+    subprocess.run(
+        ["git", "init", "--bare", str(origin)],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    _git(repo, "remote", "add", "origin", str(origin))
+    _git(repo, "push", "origin", "master", "source", "release")
+
+    script = _release_compat_script()
+    script = script.replace("$(Agent.TempDirectory)", str(agent_temp))
+    script = script.replace("$(RELEASE_BRANCH)", "release")
+    result = subprocess.run(
+        ["bash", "-c", script],
+        cwd=repo,
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    expected = str(bool(expected_paths)).lower()
+    assert f"variable=releaseCompatRequired]{expected}" in result.stdout
+    if expected_paths:
+        replayed = _git(repo, "diff", "--cached", "--name-only").stdout.splitlines()
+        assert replayed == expected_paths
+    else:
+        assert "Fetching release branch" not in result.stdout
+
+
+@pytest.mark.parametrize(
+    "template,step_name",
+    [
+        (FABRIC_KEY_VAULT_TPL, "Get Fabric Test Credentials from Key Vault"),
+        (FABRIC_KEY_VAULT_TPL, "Get Fabric Test Certificate from Key Vault"),
+        (
+            REPO_ROOT / "templates" / "publish_coverage_ado.yml",
+            "Publish Code Coverage to Azure DevOps",
+        ),
+    ],
+)
+def test_external_ci_steps_retry_without_ignoring_failures(template, step_name):
+    data = yaml.safe_load(template.read_text())
+    step = next(item for item in data["steps"] if item.get("displayName") == step_name)
+    assert step["retryCountOnTaskFailure"] == 2
+    assert not step.get("continueOnError", False)
+    if step_name == "Publish Code Coverage to Azure DevOps":
+        parameter = next(
+            item for item in data["parameters"] if item["name"] == "failIfCoverageEmpty"
+        )
+        assert parameter["default"] is True
+        assert step["inputs"]["failIfCoverageEmpty"] == (
+            "${{ parameters.failIfCoverageEmpty }}"
+        )
 
 
 @pytest.mark.parametrize(

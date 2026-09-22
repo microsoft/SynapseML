@@ -79,6 +79,7 @@ trait HasOpenAIResponseSchema extends Wrappable {
       |
       |    java_schema = jvm.com.microsoft.azure.synapse.ml.param.ServiceParam.toMap(_convert(schema))
       |    self._java_obj = self._java_obj.setResponseSchema(java_schema, name, strict)
+      |    self._paramMap.pop(self.responseFormat, None)
       |    return self
       |""".stripMargin
   }
