@@ -37,6 +37,105 @@ def workflow_script(filename, step_name):
 
 
 @pytest.mark.parametrize(
+    "existing_tag,annotated,branch_exists,remote_error,accepted",
+    [
+        ("", False, False, False, True),
+        ("v1.2.0", False, False, False, False),
+        ("v1.2.0-spark4.0", False, False, False, False),
+        ("v1.2.0-spark4.1", True, False, False, False),
+        ("v1.2.0-python3.11", False, False, False, False),
+        ("v1.2.0-python3.12", True, False, False, False),
+        ("v1.2.0-python3.13", False, False, False, False),
+        ("v1.2.0-spark3.5", False, False, False, False),
+        ("v1.2.0-python3.14", False, False, False, False),
+        ("v1.2.01-spark4.1", False, False, False, True),
+        ("v1.1.9-python3.13", False, False, False, True),
+        ("", False, True, False, False),
+        ("", False, False, True, False),
+    ],
+)
+def test_prepare_rejects_any_existing_release_family_before_starting(
+    tmp_path, existing_tag, annotated, branch_exists, remote_error, accepted
+):
+    remote = tmp_path / "origin.git"
+    repo = tmp_path / "checkout"
+    subprocess.run(
+        ["git", "init", "--bare", str(remote)], check=True, capture_output=True
+    )
+    subprocess.run(["git", "init", str(repo)], check=True, capture_output=True)
+
+    def git(*args):
+        return subprocess.run(
+            ["git", "-C", str(repo), *args], check=True, capture_output=True
+        )
+
+    git("config", "user.name", "Release test")
+    git("config", "user.email", "release@example.invalid")
+    (repo / "source.txt").write_text("release fixture\n")
+    git("add", "source.txt")
+    git("commit", "-m", "source")
+    git("remote", "add", "origin", str(remote))
+    git("push", "origin", "HEAD:refs/heads/master")
+    if existing_tag:
+        if annotated:
+            git("tag", "-a", existing_tag, "-m", "release fixture")
+        else:
+            git("tag", existing_tag)
+        git("push", "origin", f"refs/tags/{existing_tag}")
+        git("tag", "-d", existing_tag)
+    if branch_exists:
+        git("push", "origin", "HEAD:refs/heads/release/prepare-v1.2.0")
+    before = subprocess.check_output(["git", "--git-dir", str(remote), "show-ref"])
+    if remote_error:
+        git("remote", "set-url", "origin", str(tmp_path / "missing.git"))
+    result = subprocess.run(
+        [
+            "bash",
+            "-c",
+            workflow_script(
+                "release-prepare.yml", "Guard against an already-released version"
+            ),
+        ],
+        cwd=repo,
+        env={**os.environ, "VERSION": "1.2.0"},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert (result.returncode == 0) is accepted, result.stdout + result.stderr
+    assert (
+        subprocess.check_output(["git", "--git-dir", str(remote), "show-ref"]) == before
+    )
+
+
+def test_prepare_branch_lookup_failure_is_not_treated_as_absence():
+    stub = """
+git() {
+  case "$*" in
+    "ls-remote --tags "*) return 0 ;;
+    "ls-remote --heads "*) return 23 ;;
+    *) return 99 ;;
+  esac
+}
+"""
+    result = subprocess.run(
+        [
+            "bash",
+            "-c",
+            stub
+            + workflow_script(
+                "release-prepare.yml", "Guard against an already-released version"
+            ),
+        ],
+        env={**os.environ, "VERSION": "1.2.0"},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 23
+
+
+@pytest.mark.parametrize(
     "mode", ["valid", "corrupt", "empty", "missing-checksum", "download-failed"]
 )
 @pytest.mark.parametrize("workflow", ["release-prepare.yml", "pr-validation.yml"])
