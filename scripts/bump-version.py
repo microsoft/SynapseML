@@ -13,12 +13,26 @@ rather than make an ambiguous replacement.
 Usage:
     python scripts/bump-version.py --from 1.1.0 --to 1.1.1 --dry-run
     python scripts/bump-version.py --from 1.1.0 --to 1.1.1
+    python scripts/bump-version.py --finalize-docs --to 1.1.1
+
+Documentation recovery validates the current source version and complete HEAD
+ancestry before finalizing the new, uncommitted snapshot. Unrelated runtime
+branches and reflogs do not govern this snapshot's history. Recovery does not
+rerun the version bump, notebook conversion, or Docusaurus. Add --dry-run to
+validate without writing.
 """
 
 import argparse, os, re, sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional, Tuple
+
+# This script prints non-ASCII status glyphs. On a non-UTF-8 console (the
+# Windows cp1252 default) that raises UnicodeEncodeError *after* files have
+# already been rewritten, leaving a half-applied bump behind a non-zero exit.
+for _stream in (sys.stdout, sys.stderr):
+    if hasattr(_stream, "reconfigure"):
+        _stream.reconfigure(encoding="utf-8", errors="replace")
 
 # ── Context patterns ───────────────────────────────────────────────────────────
 # SELF-ANCHORED: pattern contains SynapseML-identifying text. Safe anywhere.
@@ -53,6 +67,10 @@ SELF_ANCHORED = [
     "version-{V}-blue",
 ]
 
+VERIFY_R_CODEGEN = (
+    "core/src/test/scala/com/microsoft/azure/synapse/ml/codegen/VerifyRCodegen.scala"
+)
+
 # LINE-ANCHORED: pattern + keyword must co-exist on the same line.
 LINE_ANCHORED = [
     ("--version {V}", ["SynapseML"]),
@@ -61,11 +79,14 @@ LINE_ANCHORED = [
     ('% "{V}-spark4.1"', ["synapseml"]),
     ("{V} version for", ["spark", "Spark"]),
     ("`{V}` tag", ["mmlspark"]),
+    # Per-module R artifact zips, e.g. synapseml-core-1.1.3.zip. Kept generic so
+    # a newly added module does not silently break the bump.
+    ("-{V}.zip", ["synapseml"]),
 ]
 
 # FILE-ANCHORED: pattern only safe in specific files.
 FILE_ANCHORED = [
-    ('version = "{V}"', ["website/docusaurus.config.js"]),
+    ('version = "{V}"', ["website/docusaurus.config.js", VERIFY_R_CODEGEN]),
     ('version: "{V}"', ["website/docusaurus.config.js"]),
     ('const version = "{V}";', ["website/src/installArtifacts.js"]),
     (
@@ -112,16 +133,40 @@ DENYLIST_DIRS = {
     "versioned_sidebars",
     "build",
     "dist",
+    # Matched by basename at any depth. Review artifacts are immutable evidence,
+    # and their growing file set cannot be listed in DENYLIST_PATHS.
+    "reviews",
 }
 DENYLIST_FILES = {
     "CHANGELOG.md",
     "CHANGES.md",
     "bump-version.py",
     "test_bump_version.py",
+    "release_matrix.py",
+    "test_release_matrix.py",
+    "test_verify_release.py",
+    "test_bump_bbcvhd.py",
+    "test_release_workflows.py",
+    "verify_release.py",
+    "bump_bbcvhd.py",
+    "test_prev_tag.sh",
     "package.json",
     "package-lock.json",
     "yarn.lock",
     "versions.json",
+}
+# Repo-relative posix file/directory paths whose basenames are too common to denylist
+# safely -- the release README documents the version conventions using real
+# shipped versions, which must never be rewritten, but "README.md" as a
+# basename would also exclude the root README, which does need bumping.
+DENYLIST_PATHS = {
+    ".github/workflows/release-notes.yml",
+    ".github/workflows/release-prepare.yml",
+    ".github/workflows/release-tag-spark.yml",
+    ".github/workflows/release-tag.yml",
+    # Tooling and regression fixtures describe fixed historical and future releases.
+    "scripts/release",
+    "website/test",
 }
 ALLOWED_EXTENSIONS = {
     ".md",
@@ -169,7 +214,7 @@ EXPECTED_FILES = {
     "tools/docker/demo/init_notebook.py",
     "tools/docker/minimal/Dockerfile",
     "website/docusaurus.config.js",
-    "website/src/pages/index.js",
+    "website/src/installArtifacts.js",
 }
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -192,8 +237,14 @@ def _skip_dir(name):
     return name in DENYLIST_DIRS or name.startswith(".")
 
 
+def _denylisted_path(rel):
+    return any(path.as_posix() in DENYLIST_PATHS for path in (rel, *rel.parents))
+
+
 def _skip_file(rel):
     if rel.name in DENYLIST_FILES:
+        return True
+    if _denylisted_path(rel):
         return True
     for p in rel.parts:
         if p in DENYLIST_DIRS:
@@ -243,7 +294,7 @@ class FileResult:
 
 def analyze(fp, rel, content, old_v, bare_re, self_a, line_a, file_a):
     res = FileResult(fp, rel, content)
-    rel_str = str(rel)
+    rel_str = rel.as_posix()
     lines = content.split("\n")
 
     for m in bare_re.finditer(content):
@@ -312,7 +363,10 @@ def _detect_version(root):
         sys.exit(
             "Error: cannot auto-detect version — website/docusaurus.config.js not found."
         )
-    m = re.search(r'let version\s*=\s*"([^"]+)"', cfg.read_text())
+    text = _read(cfg)
+    if text is None:
+        sys.exit("Error: cannot read website/docusaurus.config.js.")
+    m = re.search(r'let version\s*=\s*"([^"]+)"', text)
     if not m:
         sys.exit("Error: cannot parse version from website/docusaurus.config.js.")
     return m.group(1)
@@ -346,7 +400,11 @@ def _run_convert_notebooks(root, dry_run):
         print(f"[DRY RUN] Would run: {' '.join(cmd)} (in {root})")
         return True
     print("Running sbt convertNotebooks (generates website/docs/ from source)...")
-    r = subprocess.run(cmd, cwd=str(root), capture_output=True, text=True)
+    try:
+        r = subprocess.run(cmd, cwd=str(root), capture_output=True, text=True)
+    except OSError as error:
+        print(f"ERROR: sbt convertNotebooks could not start: {error}", file=sys.stderr)
+        return False
     if r.returncode != 0:
         print(
             f"ERROR: sbt convertNotebooks failed:\n{r.stderr[-2000:]}", file=sys.stderr
@@ -356,12 +414,115 @@ def _run_convert_notebooks(root, dry_run):
     return True
 
 
+def _finalize_versioned_docs(root, new_v, dry_run=False):
+    """Keep the new release installation guide independent of moving snapshots."""
+    root = Path(root).resolve()
+    guide = (
+        root
+        / "website"
+        / "versioned_docs"
+        / f"version-{new_v}"
+        / "Get Started"
+        / "Install SynapseML.md"
+    )
+    if not guide.is_file() or guide.resolve() != guide or guide.stat().st_nlink != 1:
+        raise ValueError("new versioned installation guide is missing or linked")
+    content = guide.read_text(encoding="utf-8")
+    released, count = re.subn(
+        r"^## Latest master snapshot[ \t]*\n.*?(?=^## |\Z)",
+        "",
+        content,
+        flags=re.MULTILINE | re.DOTALL,
+    )
+    if count > 1 or "master_version3.svg" in released:
+        raise ValueError(
+            "new versioned installation guide still uses a moving snapshot"
+        )
+    if count and not dry_run:
+        guide.write_text(released, encoding="utf-8")
+
+
+def _validate_docs_recovery(root, new_v):
+    """Admit only a current-version snapshot absent from current HEAD ancestry."""
+    import subprocess
+
+    if not re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", new_v):
+        raise ValueError("documentation recovery target must use X.Y.Z format")
+    cfg = root / "website" / "docusaurus.config.js"
+    if not cfg.is_file() or cfg.resolve() != cfg:
+        raise ValueError("current source version configuration is missing or linked")
+    if new_v != _detect_version(root):
+        raise ValueError(
+            "documentation recovery target must equal the current source version"
+        )
+
+    def git_output(*arguments):
+        result = subprocess.run(
+            ["git", "--no-replace-objects", "--no-pager", "-C", str(root), *arguments],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            env={**os.environ, "GIT_NO_LAZY_FETCH": "1", "GIT_TERMINAL_PROMPT": "0"},
+        )
+        if result.returncode:
+            raise ValueError(
+                "cannot verify local Git history: " + result.stderr.strip()[-2000:]
+            )
+        return result.stdout.strip()
+
+    if Path(git_output("rev-parse", "--show-toplevel")).resolve() != root:
+        raise ValueError("documentation recovery requires the Git worktree root")
+    if git_output("rev-parse", "--is-shallow-repository") != "false":
+        raise ValueError(
+            "documentation recovery requires complete, non-shallow local Git history"
+        )
+    history = git_output(
+        "log",
+        "HEAD",
+        "--full-history",
+        "--format=%H",
+        "--max-count=1",
+        "--",
+        f":(literal)website/versioned_docs/version-{new_v}",
+        f":(literal)website/versioned_sidebars/version-{new_v}-sidebars.json",
+    )
+    if history:
+        raise ValueError(
+            "versioned snapshot already exists in current HEAD history; "
+            "recovery only supports new, uncommitted snapshots"
+        )
+
+
+def _print_docs_recovery(root, new_v, *, convert=False, snapshot_created=False):
+    """Print the remaining steps without recreating an existing snapshot."""
+    snapshot = root / "website" / "versioned_docs" / f"version-{new_v}"
+    sidebar = root / "website" / "versioned_sidebars" / f"version-{new_v}-sidebars.json"
+    existing = snapshot_created or os.path.lexists(snapshot) or os.path.lexists(sidebar)
+    print("Fix the reported issue, then run the remaining steps:")
+    print(f'  cd "{root}"')
+    if convert:
+        print("  sbt convertNotebooks")
+    if existing:
+        print("  # Repair the existing snapshot if incomplete; do not recreate it.")
+    else:
+        print("  cd website")
+        print(f"  npm exec -- docusaurus docs:version {new_v}")
+        print("  cd ..")
+    script = Path("scripts") / "bump-version.py"
+    print(f"  python {script} --finalize-docs --to {new_v}")
+
+
 def _run_docusaurus(root, new_v, dry_run):
     """Create versioned docs snapshot via docusaurus (requires website/docs/)."""
     import subprocess
 
     website = root / "website"
     docs_dir = website / "docs"
+    cmd = ["npm", "exec", "--", "docusaurus", "docs:version", new_v]
+
+    if dry_run:
+        print(f"[DRY RUN] Would run: {' '.join(cmd)} (in {website})")
+        return True
 
     if not docs_dir.exists():
         print()
@@ -370,16 +531,30 @@ def _run_docusaurus(root, new_v, dry_run):
             file=sys.stderr,
         )
         print("  Cannot create versioned docs snapshot.", file=sys.stderr)
+        _print_docs_recovery(root, new_v, convert=True)
         return False
 
-    cmd = ["npm", "exec", "--", "docusaurus", "docs:version", new_v]
-    if dry_run:
-        print(f"[DRY RUN] Would run: {' '.join(cmd)} (in {website})")
-        return True
     print(f"Creating docs version snapshot: {new_v}...")
-    r = subprocess.run(cmd, cwd=str(website), capture_output=True, text=True)
+    try:
+        r = subprocess.run(cmd, cwd=str(website), capture_output=True, text=True)
+    except OSError as error:
+        print(
+            f"ERROR: docusaurus docs:version could not start: {error}", file=sys.stderr
+        )
+        _print_docs_recovery(root, new_v)
+        return False
     if r.returncode != 0:
         print(f"ERROR: docusaurus docs:version failed:\n{r.stderr}", file=sys.stderr)
+        _print_docs_recovery(root, new_v)
+        return False
+    try:
+        _finalize_versioned_docs(root, new_v)
+    except (OSError, ValueError) as error:
+        print(
+            f"ERROR: release documentation finalization failed: {error}",
+            file=sys.stderr,
+        )
+        _print_docs_recovery(root, new_v, snapshot_created=True)
         return False
     print(f"✓ Docs version {new_v} created.")
     return True
@@ -394,8 +569,11 @@ The script performs the full version bump pipeline:
   2. Post-condition verification (no stale versions, correct count)
   3. sbt convertNotebooks (generates website/docs/ with updated versions)
   4. docusaurus docs:version (snapshots versioned docs)
+  5. Finalize the new versioned installation guide
 
-Steps 3-4 can be skipped with --skip-docs.
+Steps 3-5 can be skipped with --skip-docs.
+Recovery requires complete local Git history and rejects snapshots in HEAD ancestry.
+Unrelated runtime branches and reflogs do not block recovery.
 
 Examples:
     # Preview bump (auto-detects current version):
@@ -409,6 +587,9 @@ Examples:
 
     # Override auto-detected current version:
     python scripts/bump-version.py --from 1.1.2 --to 1.1.3
+
+    # Finish an existing, uncommitted snapshot after repairing a docs failure:
+    python scripts/bump-version.py --finalize-docs --to 1.1.3
         """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
@@ -422,7 +603,7 @@ Examples:
         "--to",
         dest="new_version",
         required=True,
-        help="Target version. Must be X.Y.Z format, greater than current.",
+        help="X.Y.Z target: greater than current for a bump, equal for --finalize-docs.",
     )
     ap.add_argument("--repo-root", dest="repo_root", default=".")
     ap.add_argument(
@@ -435,8 +616,19 @@ Examples:
         action="store_true",
         help="Skip sbt convertNotebooks and docusaurus docs:version steps.",
     )
+    ap.add_argument(
+        "--finalize-docs",
+        action="store_true",
+        help="Finalize only the current-version, uncommitted docs snapshot; supports --dry-run.",
+    )
     ap.add_argument("--verbose", "-v", action="store_true")
     args = ap.parse_args()
+    if args.finalize_docs and (
+        args.old_version is not None or args.skip_docs or args.verbose
+    ):
+        ap.error(
+            "--finalize-docs cannot be combined with --from, --skip-docs, or --verbose"
+        )
 
     root = Path(args.repo_root).resolve()
     if not root.is_dir():
@@ -445,6 +637,19 @@ Examples:
         sys.exit(f"Error: '{root}' has no .git — not a repo.")
 
     new_v = args.new_version.removeprefix("v")
+    if args.finalize_docs:
+        try:
+            _validate_docs_recovery(root, new_v)
+            _finalize_versioned_docs(root, new_v, dry_run=args.dry_run)
+        except (OSError, ValueError) as error:
+            sys.exit(f"Error: documentation recovery refused: {error}")
+        if args.dry_run:
+            print(f"[DRY RUN] Would finalize the new docs snapshot {new_v}.")
+        else:
+            print(
+                f"Docs snapshot {new_v} finalized. Stage the finalized guide before committing."
+            )
+        return
     old_v = (
         args.old_version.removeprefix("v")
         if args.old_version
@@ -497,7 +702,7 @@ Examples:
         sys.exit(1)
 
     # Manifest check
-    modified = {str(r.rel) for r in results if r.matches}
+    modified = {r.rel.as_posix() for r in results if r.matches}
     missing = sorted(EXPECTED_FILES - modified)
     if missing:
         print("\n" + "!" * 70)
@@ -585,16 +790,18 @@ Examples:
         )
 
         # ── Broad sweep: warn about old version in ANY text file ───────────
-        modified_set = {str(r.rel) for r in changed}
+        modified_set = {r.rel.as_posix() for r in changed}
         sweep_hits = []
         for dp, dn, fn in os.walk(root):
             dn[:] = [d for d in dn if not _skip_dir(d)]
             for f in fn:
                 fp = Path(dp) / f
-                rel_str = str(fp.relative_to(root))
-                if rel_str in modified_set or f in (
-                    "bump-version.py",
-                    "test_bump_version.py",
+                rel = fp.relative_to(root)
+                rel_str = rel.as_posix()
+                if (
+                    rel_str in modified_set
+                    or f in DENYLIST_FILES
+                    or _denylisted_path(rel)
                 ):
                     continue
                 try:
@@ -622,17 +829,11 @@ Examples:
             # (generates website/docs/ with new versions) → docusaurus snapshot
             if not _run_convert_notebooks(root, dry_run=False):
                 print("Version strings updated but convertNotebooks failed.")
-                print("Fix the build issue, then run manually:")
-                print("  sbt convertNotebooks")
-                print("  npm --prefix website exec -- docusaurus docs:version " + new_v)
+                _print_docs_recovery(root, new_v, convert=True)
                 sys.exit(1)
             if not _run_docusaurus(root, new_v, dry_run=False):
                 print(
-                    "Version strings updated and docs generated, but versioning failed."
-                )
-                print(
-                    "Run manually: npm --prefix website exec -- docusaurus docs:version "
-                    + new_v
+                    "Version strings updated and docs generated, but documentation processing failed."
                 )
                 sys.exit(1)
 

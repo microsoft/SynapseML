@@ -15,6 +15,11 @@ const publishedVersions = JSON.parse(
   fs.readFileSync(path.join(repoRoot, "website", "versions.json"), "utf8"),
 );
 const currentVersion = installArtifacts.version;
+const previewSetting = process.env.SYNAPSEML_DOCS_PREVIEW;
+assert.ok(
+  [undefined, "true", "false"].includes(previewSetting),
+  "SYNAPSEML_DOCS_PREVIEW must be true or false",
+);
 const artifacts = [
   installArtifacts.spark35,
   installArtifacts.spark40,
@@ -36,22 +41,109 @@ assert.equal(
   "website versions.json must start with the current SynapseML version",
 );
 
+function validatePublicationLock(version, lock, versions, preview) {
+  assert.equal(typeof preview, "boolean");
+  assert.equal(versions[0], version);
+  for (const port of ["spark4.0", "spark4.1"]) {
+    const allowed = (preview ? versions : [version]).map(
+      (item) => `${item}-${port}`,
+    );
+    assert.ok(
+      allowed.includes(lock[port]),
+      `update published-spark-ports.lock only after ${version}-${port} is published`,
+    );
+  }
+}
+
 test("published Spark port versions are explicitly locked", () => {
+  validatePublicationLock(
+    currentVersion,
+    publishedPorts,
+    publishedVersions,
+    previewSetting === "true",
+  );
   for (const [port, artifact] of [
     ["spark4.0", installArtifacts.spark40],
     ["spark4.1", installArtifacts.spark41],
   ]) {
     const expectedVersion = `${currentVersion}-${port}`;
     assert.equal(
-      publishedPorts[port],
-      expectedVersion,
-      `update published-spark-ports.lock only after ${expectedVersion} is published`,
-    );
-    assert.equal(
       artifact.coordinate,
       `com.microsoft.azure:synapseml_2.13:${expectedVersion}`,
     );
     assert.equal(artifact.releaseTag, `v${expectedVersion}`);
+  }
+});
+
+test("unpublished documentation can be previewed but cannot be deployed", () => {
+  const version = "2.0.0";
+  const versions = [version, "1.0.0"];
+  const lock = {
+    "spark4.0": "1.0.0-spark4.0",
+    "spark4.1": "1.0.0-spark4.1",
+  };
+  validatePublicationLock(version, lock, versions, true);
+  assert.throws(() => validatePublicationLock(version, lock, versions, false));
+  assert.throws(() => validatePublicationLock(version, lock, versions, "true"));
+  for (const invalid of [undefined, "9.0.0-spark4.0", "1.0.0-spark4.1"]) {
+    assert.throws(() =>
+      validatePublicationLock(
+        version,
+        { ...lock, "spark4.0": invalid },
+        versions,
+        true,
+      ),
+    );
+  }
+  const released = {
+    "spark4.0": "2.0.0-spark4.0",
+    "spark4.1": "2.0.0-spark4.1",
+  };
+  validatePublicationLock(version, released, versions, false);
+});
+
+test("new release guidance only links artifacts produced by the public release", () => {
+  const sourceInstall = read("docs", "Get Started", "Install SynapseML.md");
+  const readme = read("README.md");
+  const index = read("website", "src", "pages", "index.js");
+  for (const guide of [readme, sourceInstall]) {
+    assert.doesNotMatch(guide, /SynapseMLExamplesv[0-9.]+\.dbc/);
+    for (const artifact of artifacts) {
+      assert.ok(
+        guide.includes(
+          `https://github.com/microsoft/SynapseML/tree/${artifact.releaseTag}/docs`,
+        ),
+      );
+    }
+  }
+  assert.doesNotMatch(index, /SynapseMLExamplesv[0-9.]+\.dbc/);
+  assert.ok(index.includes("${artifact.releaseTag}/docs"));
+  const sourceR = read("docs", "Reference", "R Setup.md");
+  assert.match(sourceR, /^r_installation: source$/m);
+  assert.doesNotMatch(sourceR, /blob\.core\.windows\.net\/rrr\//);
+  const versionedR = read(
+    "website",
+    "versioned_docs",
+    `version-${currentVersion}`,
+    "Reference",
+    "R Setup.md",
+  );
+  const sourceBuiltR = /^r_installation: source$/m.test(versionedR);
+  if (publishedPorts["spark4.0"] !== `${currentVersion}-spark4.0`) {
+    assert.ok(sourceBuiltR, "new releases must not invent R archive downloads");
+  }
+  if (sourceBuiltR) {
+    const versionedInstall = read(
+      "website",
+      "versioned_docs",
+      `version-${currentVersion}`,
+      "Get Started",
+      "Install SynapseML.md",
+    );
+    assert.doesNotMatch(versionedInstall, /SynapseMLExamplesv[0-9.]+\.dbc/);
+    for (const artifact of artifacts) {
+      assert.ok(versionedInstall.includes(`/tree/${artifact.releaseTag}/docs`));
+    }
   }
 });
 
