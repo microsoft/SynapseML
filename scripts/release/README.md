@@ -65,6 +65,9 @@ gh workflow run release-prepare.yml --repo github.com/microsoft/SynapseML \
 Dispatch creates a version/docs PR, not a dry run. Review its changes and
 current-head validation before merging. `skip_docs` is a preparation aid, not
 permission to finalize a release without its versioned documentation.
+Preparation refuses any existing primary, Spark or Python tag for that version,
+including an interrupted family with no primary tag. Use reviewed recovery
+instead; missing remote access is an error, not proof that the tags are absent.
 
 The primary release workflow checks that the release commit is on `master`,
 creates the primary derivative tags, and opens port release PRs. Review and
