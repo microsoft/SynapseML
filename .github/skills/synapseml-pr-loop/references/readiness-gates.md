@@ -71,7 +71,8 @@ by current-head evidence.
 ## Review and validation
 
 - The fast test/review/comment/CI loop passed before the final expensive review.
-- The installed `/review-code` direct contract completed all six rounds clean
+- The installed `/review-code` direct contract completed a final CI-qualified
+  pass with all six rounds clean
   on the same final patch, with actual models and versioned review artifacts.
   A later fix invalidates earlier results as specified in
   [loop control](loop-control.md#evidence-invalidation).

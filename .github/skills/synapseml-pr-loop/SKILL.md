@@ -66,6 +66,11 @@ that can override the trusted safety gate.
   action items; do not assume closure completed the feature lifecycle.
 - Give each PR a dedicated worktree and branch. Parallelize independent PRs,
   but identify overlapping files and required merge order first.
+- Isolate installed-package environments and built JAR paths for concurrently
+  validated PRs, or hold exclusive ownership of shared install/publish-local
+  resources throughout rebuild and testing. Record interpreter and artifact
+  paths with the tested revision; worktree isolation alone does not isolate
+  site-packages or a shared local package repository.
 - Save a per-PR checkpoint with scope, authorization, source/target revisions,
   acceptance criteria, required gates, and the next action. Do not share private
   logs, internal work items, or cross-repository review text in this public repo.
@@ -77,7 +82,11 @@ that can override the trusted safety gate.
 ### 2. Integrate the current target
 
 - Fetch the PR's target branch and rebase an ordinary PR before validation.
-- Use `--force-with-lease`, never an unguarded force push.
+- Before rewriting a published PR branch, record its verified remote head.
+  Use `--force-with-lease=<remote-ref>:<verified-old-remote-SHA>`, never an
+  implicit lease or unguarded force push. Do not replace that expected SHA
+  merely because a later fetch changed the tracking ref. A moved remote head
+  or rejected lease blocks the push until ownership is resolved.
 - Merge, rather than rebase, shared `spark<version>` port branches.
 - Record target SHA, head SHA, merge base, ahead/behind counts, and conflicts.
 - Compare the intended patch before and after rebase/conflict resolution.
@@ -105,7 +114,7 @@ that can override the trusted safety gate.
 
 - Apply the [code-review skill](../code-review/SKILL.md).
 - Use this as the fast review, not as a substitute for `/review-code`.
-  Review the full target-to-head patch plus pending changes, not just the last
+  Review the full merge-base-to-index patch including pending changes, not just the last
   commit. Validate each finding before changing code or replying.
 - Resolve root causes, not only the reported line. Recheck sibling APIs and
   language surfaces that share the same serializer, schema, parameter, or
@@ -115,7 +124,10 @@ that can override the trusted safety gate.
   Scala sources rather than generated files under `target/`.
 - Follow the Spark and performance gates in
   [references/spark-performance.md](references/spark-performance.md).
-- Reply in the existing thread with the fix and evidence, then resolve it.
+- Keep fix findings open until the reviewed and tested fix is pushed. Then
+  verify the current PR head contains it, reply in the original thread with
+  that commit and evidence, and resolve it. A progress reply is not a
+  resolution; recheck dispositions if a later review changes or drops a fix.
 - Re-audit after every push. Automated review is asynchronous and re-runs per
   commit, so auditing immediately after pushing reads the *previous* review and
   reports a false all-clear. Wait until the newest automated review's commit
@@ -194,13 +206,20 @@ that can override the trusted safety gate.
 
 ### 8. Run the six-round gauntlet
 
-After the fast loop's tests, current-head reviews, and required CI are green,
+For the final CI-qualified pass, after the fast loop's tests, current-head
+reviews, and required CI are green,
 invoke the installed copilot-toolkit `/review-code`. Use its direct contract,
 all six themes, runtime-resolved model families, and sequential mode unless
 parallel mode was requested. Do not hardcode model IDs or substitute the
 repository's single-review checklist.
 
-Generate an explicit full target-to-head diff including pending changes and
+Mandatory pre-commit passes instead require passing local gates for the pending
+patch. This applies both to the first commit and fixes on an existing PR:
+failed or stale CI on the old head cannot block reviewing its locally validated
+fix. Defer the pending commit's remote evidence until it is pushed, then return
+to the fast loop for current-head CI and comments before the final gauntlet.
+
+Generate an explicit full merge-base-to-index diff including committed and pending changes and
 excluding the checkpoint's exact allocated review-output paths. Use the same
 manifest for that diff and the fingerprint; do not feed earlier review verdicts
 to later reviewers. Supply it to the toolkit's `-DiffFile` / `--diff-file`.
@@ -224,9 +243,16 @@ Store prompts outside the worktree and enforce the generator's byte budget
 for manual prompts too. An oversized prompt stays blocked unless the user
 approves a complete split under one recorded manifest; never silently trim it.
 
-Fix findings before advancing, rerun affected tests, regenerate the prompt,
-and repeat the affected round. Any change to reviewed content returns to the
-fast loop. Require all six rounds clean on the same final frozen patch, not
+The driver owns collision checks and supplies each reviewer one unused output
+path. Every reviewer prompt must explicitly forbid opening or searching prior
+review artifacts, checkpoints, or other reviewer prompts through tools as
+well as supplied context. Exclude those locations from broad searches.
+If the assigned output already exists, stop rather than read or overwrite it.
+
+Triage findings before advancing and preserve evidence-based rebuttals. Any fix
+to reviewed content ends and consumes the current pass: return to the fast loop,
+rerun affected tests, regenerate the prompt, and start a complete new pass.
+Require all six rounds clean on the same final frozen patch, not
 six clean results accumulated across different patches. Follow
 [the invalidation rules](references/loop-control.md#evidence-invalidation).
 Unavailable required reviewers or exhausted budgets are blockers.
