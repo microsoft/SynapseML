@@ -24,6 +24,10 @@ their corresponding branches.
 | [`spark4.0`](https://github.com/microsoft/SynapseML/tree/spark4.0) | Spark 4.0.1+ (`<4.1`) | 2.13 | Python 3.12 | [`v1.1.3-spark4.0`](https://github.com/microsoft/SynapseML/tree/v1.1.3-spark4.0) | `synapseml==1.1.3` | `com.microsoft.azure:synapseml_2.13:1.1.3-spark4.0` |
 | [`spark4.1`](https://github.com/microsoft/SynapseML/tree/spark4.1) | Spark 4.1.x | 2.13 | Python 3.13 | [`v1.1.3-spark4.1`](https://github.com/microsoft/SynapseML/tree/v1.1.3-spark4.1) | `synapseml==1.1.3` | `com.microsoft.azure:synapseml_2.13:1.1.3-spark4.1` |
 
+New releases update the `master` and `spark4.1` builds by default. Maintainers
+may also release Spark 4.0; its examples retain the last published version
+until then.
+
 Always add the SynapseML repository:
 
 ```text
@@ -216,9 +220,13 @@ Use one of these exact Maven coordinates:
 Add the resolver `https://mmlspark.blob.core.windows.net/maven`, attach the
 library to the target cluster, and restart it before importing `synapse.ml`.
 
-You can use SynapseML in both your Scala and PySpark notebooks. To get started with our example notebooks, import the following databricks archive:
+Import the example notebooks from the release tag matching your runtime:
 
-`https://mmlspark.blob.core.windows.net/dbcs/SynapseMLExamplesv1.1.3.dbc`
+- [Spark 3.5 notebooks](https://github.com/microsoft/SynapseML/tree/v1.1.3/docs)
+- [Spark 4.0 notebooks](https://github.com/microsoft/SynapseML/tree/v1.1.3-spark4.0/docs)
+- [Spark 4.1 notebooks](https://github.com/microsoft/SynapseML/tree/v1.1.3-spark4.1/docs)
+
+Automated releases do not publish a version-specific DBC archive.
 
 ## Apache Livy and HDInsight
 

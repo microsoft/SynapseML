@@ -15,6 +15,14 @@ const publishedVersions = JSON.parse(
   fs.readFileSync(path.join(repoRoot, "website", "versions.json"), "utf8"),
 );
 const currentVersion = installArtifacts.version;
+const spark40Version = installArtifacts.spark40.releaseTag
+  .replace(/^v/, "")
+  .replace(/-spark4\.0$/, "");
+const previewSetting = process.env.SYNAPSEML_DOCS_PREVIEW;
+assert.ok(
+  [undefined, "true", "false"].includes(previewSetting),
+  "SYNAPSEML_DOCS_PREVIEW must be true or false",
+);
 const artifacts = [
   installArtifacts.spark35,
   installArtifacts.spark40,
@@ -36,22 +44,191 @@ assert.equal(
   "website versions.json must start with the current SynapseML version",
 );
 
+function validatePublicationLock(
+  version, lock, versions, preview, optionalVersion = version,
+) {
+  assert.equal(typeof preview, "boolean");
+  assert.equal(versions[0], version);
+  assert.ok(
+    versions.includes(optionalVersion),
+    "unknown Spark 4.0 documentation version",
+  );
+  for (const port of ["spark4.0", "spark4.1"]) {
+    const selectedVersion = port === "spark4.0" ? optionalVersion : version;
+    const allowed = (preview ? versions : [selectedVersion]).map(
+      (item) => `${item}-${port}`,
+    );
+    assert.ok(
+      allowed.includes(lock[port]),
+      `update published-spark-ports.lock only after ${selectedVersion}-${port} is published`,
+    );
+  }
+}
+
+function validateSpark40References(markdown, version) {
+  const references = [...markdown.matchAll(
+    /(?<![\d.])(\d+\.\d+\.\d+)-spark4\.0(?!\w|\.\d)/g,
+  )];
+  assert.ok(references.length, "missing Spark 4.0 artifact references");
+  for (const reference of references) {
+    assert.equal(reference[1], version, "mixed Spark 4.0 artifact versions");
+  }
+  for (const line of markdown.split(/\r?\n/)) {
+    if (!line.includes("| [`spark4.0`]") && !line.includes("pyspark>=4.0")) {
+      continue;
+    }
+    const pins = [...line.matchAll(/synapseml==([^\s"'`|]+)/g)];
+    assert.ok(pins.length, "missing Spark 4.0 Python package pin");
+    for (const pin of pins) {
+      assert.equal(pin[1], version, "mixed Spark 4.0 Python package versions");
+    }
+  }
+}
+
+test("partial optional-runtime edits cannot pass beside matching references", () => {
+  const readme = read("README.md");
+  const next = "999.8.7";
+  const partial = readme.split("\n").map((line) =>
+    line.includes("| [`spark4.0`]") || line.includes("Spark 4.0 notebooks")
+      ? line.replaceAll(spark40Version, next) : line,
+  ).join("\n");
+  assert.throws(() => validateSpark40References(partial, next), /mixed Spark 4.0/);
+  const artifactOnly = readme.replaceAll(
+    `${spark40Version}-spark4.0`, `${next}-spark4.0`,
+  );
+  assert.throws(
+    () => validateSpark40References(artifactOnly, next),
+    /mixed Spark 4.0 Python/,
+  );
+});
+
+test("a complete optional-runtime update or restoration uses one version", () => {
+  const readme = read("README.md");
+  const next = "999.8.7";
+  const updated = readme.split("\n").map((line) => {
+    if (line.includes("| [`spark4.0`]") || line.includes("pyspark>=4.0")) {
+      return line.replaceAll(spark40Version, next);
+    }
+    return line.replaceAll(`${spark40Version}-spark4.0`, `${next}-spark4.0`);
+  }).join("\n");
+  validateSpark40References(updated, next);
+  validateSpark40References(updated.replaceAll(next, spark40Version), spark40Version);
+});
+
+test("optional-runtime references include sentence endings and jar names", () => {
+  for (const suffix of [".", ".jar"]) {
+    validateSpark40References(`${spark40Version}-spark4.0${suffix}`, spark40Version);
+    assert.throws(
+      () => validateSpark40References(
+        `${spark40Version}-spark4.0 and 999.8.7-spark4.0${suffix}`, spark40Version,
+      ),
+      /mixed Spark 4.0 artifact versions/,
+    );
+  }
+});
+
 test("published Spark port versions are explicitly locked", () => {
+  validatePublicationLock(
+    currentVersion,
+    publishedPorts,
+    publishedVersions,
+    previewSetting === "true",
+    spark40Version,
+  );
   for (const [port, artifact] of [
     ["spark4.0", installArtifacts.spark40],
     ["spark4.1", installArtifacts.spark41],
   ]) {
-    const expectedVersion = `${currentVersion}-${port}`;
-    assert.equal(
-      publishedPorts[port],
-      expectedVersion,
-      `update published-spark-ports.lock only after ${expectedVersion} is published`,
-    );
+    const selectedVersion = port === "spark4.0" ? spark40Version : currentVersion;
+    const expectedVersion = `${selectedVersion}-${port}`;
     assert.equal(
       artifact.coordinate,
       `com.microsoft.azure:synapseml_2.13:${expectedVersion}`,
     );
     assert.equal(artifact.releaseTag, `v${expectedVersion}`);
+  }
+});
+
+test("unpublished documentation can be previewed but cannot be deployed", () => {
+  const version = "2.0.0";
+  const versions = [version, "1.0.0"];
+  const lock = {
+    "spark4.0": "1.0.0-spark4.0",
+    "spark4.1": "1.0.0-spark4.1",
+  };
+  validatePublicationLock(version, lock, versions, true);
+  assert.throws(() => validatePublicationLock(version, lock, versions, false));
+  assert.throws(() => validatePublicationLock(version, lock, versions, "true"));
+  for (const invalid of [undefined, "9.0.0-spark4.0", "1.0.0-spark4.1"]) {
+    assert.throws(() =>
+      validatePublicationLock(
+        version,
+        { ...lock, "spark4.0": invalid },
+        versions,
+        true,
+      ),
+    );
+  }
+  const released = {
+    "spark4.0": "2.0.0-spark4.0",
+    "spark4.1": "2.0.0-spark4.1",
+  };
+  validatePublicationLock(version, released, versions, false);
+  const defaultRelease = { ...released, "spark4.0": lock["spark4.0"] };
+  validatePublicationLock(version, defaultRelease, versions, false, "1.0.0");
+  assert.throws(() =>
+    validatePublicationLock(version, defaultRelease, versions, false),
+  );
+  assert.throws(() =>
+    validatePublicationLock(version, released, versions, false, "1.0.0"),
+  );
+  assert.throws(() =>
+    validatePublicationLock(version, defaultRelease, versions, false, "0.9.0"),
+  );
+});
+
+test("new release guidance only links artifacts produced by the public release", () => {
+  const sourceInstall = read("docs", "Get Started", "Install SynapseML.md");
+  const readme = read("README.md");
+  const index = read("website", "src", "pages", "index.js");
+  for (const guide of [readme, sourceInstall]) {
+    assert.doesNotMatch(guide, /SynapseMLExamplesv[0-9.]+\.dbc/);
+    for (const artifact of artifacts) {
+      assert.ok(
+        guide.includes(
+          `https://github.com/microsoft/SynapseML/tree/${artifact.releaseTag}/docs`,
+        ),
+      );
+    }
+  }
+  assert.doesNotMatch(index, /SynapseMLExamplesv[0-9.]+\.dbc/);
+  assert.ok(index.includes("${artifact.releaseTag}/docs"));
+  const sourceR = read("docs", "Reference", "R Setup.md");
+  assert.match(sourceR, /^r_installation: source$/m);
+  assert.doesNotMatch(sourceR, /blob\.core\.windows\.net\/rrr\//);
+  const versionedR = read(
+    "website",
+    "versioned_docs",
+    `version-${currentVersion}`,
+    "Reference",
+    "R Setup.md",
+  );
+  const sourceBuiltR = /^r_installation: source$/m.test(versionedR);
+  if (publishedPorts["spark4.0"] !== `${currentVersion}-spark4.0`) {
+    assert.ok(sourceBuiltR, "new releases must not invent R archive downloads");
+  }
+  if (sourceBuiltR) {
+    const versionedInstall = read(
+      "website",
+      "versioned_docs",
+      `version-${currentVersion}`,
+      "Get Started",
+      "Install SynapseML.md",
+    );
+    assert.doesNotMatch(versionedInstall, /SynapseMLExamplesv[0-9.]+\.dbc/);
+    for (const artifact of artifacts) {
+      assert.ok(versionedInstall.includes(`/tree/${artifact.releaseTag}/docs`));
+    }
   }
 });
 
@@ -65,7 +242,9 @@ test("runtime metadata identifies the maintained code lines", () => {
   assert.equal(installArtifacts.spark41.sparkRuntime, "4.1.x");
   assert.equal(installArtifacts.spark40.pysparkSpec, ">=4.0.1,<4.1");
   for (const artifact of artifacts) {
-    assert.equal(artifact.pythonPackage, `synapseml==${currentVersion}`);
+    const expectedVersion = artifact.branch === "spark4.0"
+      ? spark40Version : currentVersion;
+    assert.equal(artifact.pythonPackage, `synapseml==${expectedVersion}`);
   }
 });
 
@@ -94,6 +273,7 @@ for (const guide of installGuides) {
   const relativePath = guide.path.join("/");
   test(`installation examples are concrete in ${relativePath}`, () => {
     const markdown = read(...guide.path);
+    validateSpark40References(markdown, spark40Version);
 
     assert.match(markdown, /does \*\*not\*\* add the\s+JVM artifacts/);
     assert.match(markdown, /LightGBMClassifier does not exist in the JVM/);
@@ -183,6 +363,14 @@ test("specialized install guides use concrete maintained coordinates", () => {
     "Deep Learning",
     "ONNX.md",
   );
+  const versionedOnnx = read(
+    "website",
+    "versioned_docs",
+    `version-${currentVersion}`,
+    "Explore Algorithms",
+    "Deep Learning",
+    "ONNX.md",
+  );
   const rSetup = read("docs", "Reference", "R Setup.md");
   const versionedRSetup = read(
     "website",
@@ -197,6 +385,16 @@ test("specialized install guides use concrete maintained coordinates", () => {
     "Anomaly Detection",
     "Quickstart - Isolation Forests.ipynb",
   );
+  for (const guide of [
+    deepLearning, versionedDeepLearning, onnx, rSetup, versionedRSetup,
+  ]) {
+    validateSpark40References(guide, spark40Version);
+  }
+  // Older published ONNX snapshots predate the Spark 4.0 examples.
+  if (versionedOnnx.includes("-spark4.0") ||
+      /^r_installation: source$/m.test(versionedRSetup)) {
+    validateSpark40References(versionedOnnx, spark40Version);
+  }
 
   assert.doesNotMatch(overview, /requires Scala 2\.12/);
   assert.match(overview, /Spark 4\.0 and 4\.1 use Scala 2\.13/);

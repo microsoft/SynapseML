@@ -420,13 +420,22 @@ pyspark --repositories "${repository}" --packages "${spark35.coordinate}"`}
                     Restart the cluster after attaching the library so the JVM
                     artifact is available before importing <code>synapse.ml</code>.
                   </p>
-                  You can use SynapseML in both your Scala and PySpark
-                  notebooks. To get started with our example notebooks import
-                  the following databricks archive:
-                  <CodeSnippet
-                    snippet={`https://mmlspark.blob.core.windows.net/dbcs/SynapseMLExamplesv1.1.3.dbc`}
-                    lang="bash"
-                  ></CodeSnippet>
+                  <p>
+                    Import example notebooks from the release tag matching your
+                    runtime. Automated releases do not publish a version-specific
+                    DBC archive.
+                  </p>
+                  <ul>
+                    {[spark35, spark40, spark41].map((artifact) => (
+                      <li key={artifact.branch}>
+                        <a
+                          href={`https://github.com/microsoft/SynapseML/tree/${artifact.releaseTag}/docs`}
+                        >
+                          {artifact.sparkRuntime} notebooks
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
                 </TabItem>
                 <TabItem value="Docker">
                   The easiest way to evaluate SynapseML is via our pre-built

@@ -39,6 +39,91 @@ FileResult = bump.FileResult
 V = "1.1.0"
 
 
+@pytest.mark.parametrize("optional_updated", [False, True])
+def test_repeated_default_release_bumps_keep_optional_runtime_installations(
+    tmp_path, optional_updated
+):
+    root = Path(__file__).resolve().parents[1]
+    files = (
+        "README.md",
+        "docs/Get Started/Install SynapseML.md",
+        "website/src/installArtifacts.js",
+        "website/docusaurus.config.js",
+        "docs/Explore Algorithms/Deep Learning/Getting Started.md",
+        "docs/Explore Algorithms/Deep Learning/ONNX.md",
+        "docs/Reference/R Setup.md",
+    )
+    (tmp_path / ".git").mkdir()
+    for name in files:
+        destination = tmp_path / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(
+            (root / name).read_text(encoding="utf-8"), encoding="utf-8"
+        )
+    original = bump._detect_version(tmp_path)
+    next_major = int(original.split(".")[0]) + 1
+    optional = re.search(
+        r'const spark40Version = "([^"]+)";',
+        (tmp_path / "website/src/installArtifacts.js").read_text(),
+    ).group(1)
+    if optional_updated:
+        included_version = f"{next_major}.0.0"
+        for name in files:
+            path = tmp_path / name
+            lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+            updated = []
+            for line in lines:
+                if (
+                    "| [`spark4.0`]" in line
+                    or '"pyspark>=4.0' in line
+                    or line.startswith("const spark40Version = ")
+                ):
+                    line = line.replace(optional, included_version)
+                else:
+                    line = line.replace(
+                        optional + "-spark4.0", included_version + "-spark4.0"
+                    )
+                updated.append(line)
+            path.write_text("".join(updated), encoding="utf-8")
+        optional = included_version
+    for version in (f"{next_major}.0.0", f"{next_major}.1.0"):
+        command = [
+            sys.executable,
+            str(root / "scripts/bump-version.py"),
+            "--repo-root",
+            str(tmp_path),
+            "--to",
+            version,
+            "--skip-docs",
+        ]
+        before = {name: (tmp_path / name).read_bytes() for name in files}
+        preview = subprocess.run(
+            command + ["--dry-run"], capture_output=True, text=True
+        )
+        assert preview.returncode == 0, preview.stdout + preview.stderr
+        assert before == {name: (tmp_path / name).read_bytes() for name in files}
+        result = subprocess.run(command, capture_output=True, text=True)
+        assert result.returncode == 0, result.stdout + result.stderr
+        metadata = (tmp_path / "website/src/installArtifacts.js").read_text()
+        assert f'const version = "{version}";' in metadata
+        assert f'const spark40Version = "{optional}";' in metadata
+        for name in files[:2]:
+            guide = (tmp_path / name).read_text(encoding="utf-8")
+            assert f"synapseml_2.12:{version}" in guide
+            assert f"synapseml_2.13:{version}-spark4.1" in guide
+            assert f"synapseml_2.13:{optional}-spark4.0" in guide
+            assert f"/tree/v{optional}-spark4.0/docs" in guide
+            assert (f"synapseml_2.13:{version}-spark4.0" in guide) is (
+                version == optional
+            )
+            assert f'"synapseml=={optional}" "pyspark>=4.0.1,<4.1"' in guide
+            assert f'"synapseml=={version}" "pyspark>=4.1,<4.2"' in guide
+        for name in files[4:]:
+            guide = (tmp_path / name).read_text(encoding="utf-8")
+            assert f"{optional}-spark4.0" in guide
+            assert f"{version}-spark4.1" in guide
+
+
 def _build_anchors(old_v):
     bare_re = _bare_regex(old_v)
     self_a = [(t, _template_regex(t, old_v)) for t in SELF_ANCHORED]
@@ -407,6 +492,9 @@ class TestSkipDir:
     def test_docusaurus(self):
         assert _skip_dir(".docusaurus")
 
+    def test_review_artifacts(self):
+        assert _skip_dir("reviews")
+
     def test_node_modules(self):
         assert _skip_dir("node_modules")
 
@@ -428,6 +516,30 @@ class TestSkipDir:
 
 
 class TestSkipFile:
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "scripts/release/test_future_release.py",
+            "scripts/release/release_future.py",
+            "scripts/release/fixtures/historical.json",
+            "website/test/installDocs.test.js",
+            "website/test/published-spark-ports.lock",
+        ],
+    )
+    def test_release_tools_and_fixtures_are_not_release_inputs(self, path):
+        assert _skip_file(Path(path))
+
+    @pytest.mark.parametrize(
+        "path",
+        [
+            "core/release/runtime.py",
+            "docs/release/README.md",
+            "scripts/release_notes.py",
+        ],
+    )
+    def test_release_exclusion_is_repo_relative(self, path):
+        assert not _skip_file(Path(path))
+
     def test_denylist_name(self):
         assert _skip_file(Path("CHANGELOG.md"))
 
@@ -467,6 +579,13 @@ class TestSkipFile:
     def test_versioned_docs_in_path(self):
         assert _skip_file(Path("versioned_docs/v1/intro.md"))
 
+    def test_reviews_in_path(self):
+        assert _skip_file(Path("reviews/pr-2628/review.md"))
+
+    @pytest.mark.parametrize("path", sorted(bump.DENYLIST_PATHS))
+    def test_denylist_repo_relative_path(self, path):
+        assert _skip_file(Path(path))
+
     @pytest.mark.parametrize("ext", sorted(ALLOWED_EXTENSIONS))
     def test_all_allowed_extensions(self, ext):
         assert not _skip_file(Path(f"test{ext}"))
@@ -485,6 +604,19 @@ class TestRunDocusaurus:
 
         def fake_run(cmd, **kwargs):
             calls.append((cmd, kwargs))
+            guide = (
+                website
+                / "versioned_docs"
+                / "version-2.0.0"
+                / "Get Started"
+                / "Install SynapseML.md"
+            )
+            guide.parent.mkdir(parents=True)
+            guide.write_text(
+                "# Install\n\n## Latest master snapshot\nmaster_version3.svg\n"
+                "## Release\nPinned installation.\n",
+                encoding="utf-8",
+            )
             return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
         monkeypatch.setattr(subprocess, "run", fake_run)
@@ -511,6 +643,117 @@ class TestRunDocusaurus:
 
         assert not bump._run_docusaurus(tmp_path, "2.0.0", dry_run=False)
 
+    def test_dry_run_does_not_require_generated_docs(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        (tmp_path / "website").mkdir()
+
+        def fail_if_called(*args, **kwargs):
+            raise AssertionError("subprocess should not run during a dry run")
+
+        monkeypatch.setattr(subprocess, "run", fail_if_called)
+
+        assert bump._run_docusaurus(tmp_path, "2.0.0", dry_run=True)
+        captured = capsys.readouterr()
+        assert (
+            "[DRY RUN] Would run: npm exec -- docusaurus docs:version 2.0.0"
+            in captured.out
+        )
+        assert "ERROR" not in captured.err
+
+    def test_new_snapshot_is_pinned_without_changing_source_or_history(self, tmp_path):
+        website = tmp_path / "website"
+        content = (
+            "# Install\n\n## Latest master snapshot\nmaster_version3.svg\n\n"
+            "## Release\nPinned installation.\n"
+        )
+        paths = [
+            website / "docs" / "Get Started" / "Install SynapseML.md",
+            website
+            / "versioned_docs"
+            / "version-1.0.0"
+            / "Get Started"
+            / "Install SynapseML.md",
+            website
+            / "versioned_docs"
+            / "version-2.0.0"
+            / "Get Started"
+            / "Install SynapseML.md",
+        ]
+        for path in paths:
+            path.parent.mkdir(parents=True)
+            path.write_text(content, encoding="utf-8")
+        bump._finalize_versioned_docs(tmp_path, "2.0.0")
+        assert paths[0].read_text(encoding="utf-8") == content
+        assert paths[1].read_text(encoding="utf-8") == content
+        expected = "# Install\n\n## Release\nPinned installation.\n"
+        assert paths[2].read_text(encoding="utf-8") == expected
+        bump._finalize_versioned_docs(tmp_path, "2.0.0")
+        assert paths[2].read_text(encoding="utf-8") == expected
+
+    @pytest.mark.parametrize(
+        "original",
+        [
+            "# Install\n\nmaster_version3.svg\n",
+            "# Install\n\n## Latest master snapshot\nfirst\n## Release\nPinned.\n"
+            "## Latest master snapshot\nsecond\n",
+        ],
+    )
+    def test_unrecognized_moving_snapshot_refuses_without_editing(
+        self, tmp_path, original
+    ):
+        guide = (
+            tmp_path
+            / "website"
+            / "versioned_docs"
+            / "version-2.0.0"
+            / "Get Started"
+            / "Install SynapseML.md"
+        )
+        guide.parent.mkdir(parents=True)
+        guide.write_text(original, encoding="utf-8")
+        with pytest.raises(ValueError, match="moving snapshot"):
+            bump._finalize_versioned_docs(tmp_path, "2.0.0")
+        assert guide.read_text(encoding="utf-8") == original
+
+    def test_missing_snapshot_fails_explicitly(self, tmp_path):
+        with pytest.raises(ValueError, match="missing or linked"):
+            bump._finalize_versioned_docs(tmp_path, "2.0.0")
+
+    def test_successful_command_without_snapshot_is_not_reported_as_success(
+        self, tmp_path, monkeypatch, capsys
+    ):
+        (tmp_path / "website" / "docs").mkdir(parents=True)
+        monkeypatch.setattr(
+            subprocess,
+            "run",
+            lambda *args, **kwargs: subprocess.CompletedProcess(
+                args, 0, stdout="", stderr=""
+            ),
+        )
+        assert not bump._run_docusaurus(tmp_path, "2.0.0", dry_run=False)
+        assert "documentation finalization failed" in capsys.readouterr().err
+
+    def test_linked_snapshot_does_not_edit_its_target(self, tmp_path):
+        target = tmp_path / "historical.md"
+        target.write_text("Historical documentation.\n", encoding="utf-8")
+        guide = (
+            tmp_path
+            / "website"
+            / "versioned_docs"
+            / "version-2.0.0"
+            / "Get Started"
+            / "Install SynapseML.md"
+        )
+        guide.parent.mkdir(parents=True)
+        try:
+            guide.symlink_to(target)
+        except OSError:
+            pytest.skip("Creating filesystem symlinks is unavailable")
+        with pytest.raises(ValueError, match="missing or linked"):
+            bump._finalize_versioned_docs(tmp_path, "2.0.0")
+        assert target.read_text(encoding="utf-8") == "Historical documentation.\n"
+
 
 # ══════════════════════════════════════════════════════════════════════════════
 # 6. Integration Tests — End-to-end with temp directory
@@ -535,6 +778,43 @@ def fake_repo(tmp_path):
 
 
 class TestIntegration:
+    def test_successive_bumps_preserve_release_tools_and_fixtures(self, fake_repo):
+        historical = {
+            "scripts/release/test_future_release.py": f'VERSIONS = ["{V}", "2.0.0", "3.0.0"]\n',
+            "scripts/release/release_future.py": f'USAGE = "synapseml=={V}"\n',
+            "scripts/release/fixtures/historical.json": f'{{"version": "{V}"}}\n',
+            "website/test/installDocs.test.js": f'const versions = ["{V}", "2.0.0", "3.0.0"];\n',
+            "website/test/published-spark-ports.lock": f'{{"spark4.0": "{V}-spark4.0"}}\n',
+        }
+        for name, content in historical.items():
+            path = fake_repo / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(content, encoding="utf-8")
+        live = fake_repo / "core" / "release" / "runtime.py"
+        live.parent.mkdir(parents=True)
+        live.write_text(f'PACKAGE = "synapseml=={V}"\n', encoding="utf-8")
+        for previous, following in [(V, "2.0.0"), ("2.0.0", "3.0.0")]:
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    SCRIPT,
+                    "--from",
+                    previous,
+                    "--to",
+                    following,
+                    "--repo-root",
+                    str(fake_repo),
+                    "--skip-docs",
+                ],
+                capture_output=True,
+                text=True,
+            )
+            assert result.returncode == 0, result.stdout + result.stderr
+            assert "SWEEP WARNING" not in result.stdout
+            assert f"synapseml=={following}" in live.read_text(encoding="utf-8")
+            for name, content in historical.items():
+                assert (fake_repo / name).read_text(encoding="utf-8") == content
+
     def test_dry_run_no_modification(self, fake_repo):
         result = subprocess.run(
             [
@@ -552,6 +832,12 @@ class TestIntegration:
             text=True,
         )
         assert result.returncode == 0
+        assert "[DRY RUN] Would run: sbt convertNotebooks" in result.stdout
+        assert (
+            "[DRY RUN] Would run: npm exec -- docusaurus docs:version 2.0.0"
+            in result.stdout
+        )
+        assert "ERROR" not in result.stderr
         readme = (fake_repo / "README.md").read_text()
         assert V in readme
         assert "2.0.0" not in readme
@@ -670,6 +956,468 @@ class TestIntegration:
         assert result.returncode == 0
         readme = (fake_repo / "README.md").read_text()
         assert "synapseml==2.0.0" in readme
+
+
+RECOVERY_GUIDE = (
+    "# Install\n\n## Latest master snapshot\nmaster_version3.svg\n\n"
+    "## Release\nPinned installation.\n"
+)
+
+
+def _recovery_git(root, *arguments):
+    result = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(root),
+            "-c",
+            "user.name=Recovery test",
+            "-c",
+            "user.email=recovery@example.invalid",
+            "-c",
+            "commit.gpgsign=false",
+            "-c",
+            "core.hooksPath=" + str(root / ".git" / "hooks"),
+            *arguments,
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+    assert result.returncode == 0, result.stderr
+    return result.stdout.strip()
+
+
+@pytest.fixture
+def recovery_repo(tmp_path):
+    root = tmp_path / "repo with spaces"
+    root.mkdir()
+    _recovery_git(root, "init", "-q")
+    files = {
+        "website/docusaurus.config.js": 'let version = "1.0.0";\n',
+        "website/docs/Get Started/Install SynapseML.md": RECOVERY_GUIDE,
+        "website/versioned_docs/version-1.0.0/Get Started/Install SynapseML.md": RECOVERY_GUIDE,
+    }
+    for name, content in files.items():
+        path = root / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+    script = root / "scripts" / "bump-version.py"
+    script.parent.mkdir()
+    script.write_bytes(Path(SCRIPT).read_bytes())
+    _recovery_git(root, "add", ".")
+    _recovery_git(root, "commit", "-qm", "Initial documentation fixture")
+    (root / "website" / "docusaurus.config.js").write_text(
+        'let version = "2.0.0";\n', encoding="utf-8"
+    )
+    guide = _recovery_guide(root)
+    guide.parent.mkdir(parents=True)
+    guide.write_text(RECOVERY_GUIDE, encoding="utf-8")
+    return root
+
+
+def _recovery_guide(root, version="2.0.0"):
+    return (
+        root
+        / "website"
+        / "versioned_docs"
+        / f"version-{version}"
+        / "Get Started"
+        / "Install SynapseML.md"
+    )
+
+
+def _recover(root, *arguments, version="2.0.0"):
+    return subprocess.run(
+        [
+            sys.executable,
+            SCRIPT,
+            "--finalize-docs",
+            "--to",
+            version,
+            "--repo-root",
+            str(root),
+            *arguments,
+        ],
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+    )
+
+
+class TestDocsRecoveryCLI:
+    def test_finalizes_only_new_snapshot_and_is_idempotent(self, recovery_repo):
+        guide = _recovery_guide(recovery_repo)
+        unchanged = {
+            path: path.read_bytes()
+            for path in (recovery_repo / "website").rglob("*")
+            if path.is_file() and path != guide
+        }
+        result = _recover(recovery_repo)
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert guide.read_text(encoding="utf-8") == (
+            "# Install\n\n## Release\nPinned installation.\n"
+        )
+        assert all(path.read_bytes() == content for path, content in unchanged.items())
+        modified_at = guide.stat().st_mtime_ns
+        result = _recover(recovery_repo)
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert guide.stat().st_mtime_ns == modified_at
+        assert "Bumping:" not in result.stdout
+
+    def test_dry_run_validates_without_writing(self, recovery_repo):
+        guide = _recovery_guide(recovery_repo)
+        before = guide.read_bytes(), guide.stat().st_mtime_ns
+        result = _recover(recovery_repo, "--dry-run")
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert (guide.read_bytes(), guide.stat().st_mtime_ns) == before
+        assert "[DRY RUN]" in result.stdout
+        guide.write_text("# Install\nmaster_version3.svg\n", encoding="utf-8")
+        result = _recover(recovery_repo, "--dry-run")
+        assert result.returncode != 0 and "moving snapshot" in result.stderr
+        assert guide.read_text(encoding="utf-8") == "# Install\nmaster_version3.svg\n"
+
+    def test_staged_but_uncommitted_snapshot_is_supported(self, recovery_repo):
+        _recovery_git(recovery_repo, "add", "website/versioned_docs/version-2.0.0")
+        result = _recover(recovery_repo)
+        assert result.returncode == 0, result.stderr
+        assert "master_version3.svg" not in _recovery_guide(recovery_repo).read_text()
+
+    @pytest.mark.parametrize("port", ["spark4.0", "spark4.1"])
+    @pytest.mark.parametrize("staged", [False, True], ids=["untracked", "staged"])
+    def test_sibling_runtime_snapshot_does_not_block_recovery(
+        self, recovery_repo, port, staged
+    ):
+        baseline = _recovery_git(recovery_repo, "rev-parse", "HEAD")
+        version = "1.2.0"
+        guide = _recovery_guide(recovery_repo, version)
+        _recovery_guide(recovery_repo).parent.parent.rename(guide.parent.parent)
+        source = recovery_repo / "website" / "docusaurus.config.js"
+        source.write_text(f'let version = "{version}";\n', encoding="utf-8")
+        sidebar = (
+            recovery_repo
+            / "website"
+            / "versioned_sidebars"
+            / f"version-{version}-sidebars.json"
+        )
+        sidebar.parent.mkdir()
+        sidebar.write_text('{"docs":[]}', encoding="utf-8")
+        _recovery_git(recovery_repo, "checkout", "-qb", "primary-candidate")
+        _recovery_git(recovery_repo, "add", "website")
+        _recovery_git(recovery_repo, "commit", "-qm", "Primary runtime snapshot")
+        primary = _recovery_git(recovery_repo, "rev-parse", "HEAD")
+        _recovery_git(
+            recovery_repo,
+            "update-ref",
+            "refs/remotes/origin/primary-candidate",
+            primary,
+        )
+        _recovery_git(recovery_repo, "checkout", "-qb", port, baseline)
+        source.write_text(f'let version = "{version}";\n', encoding="utf-8")
+        guide.parent.mkdir(parents=True)
+        guide.write_text(RECOVERY_GUIDE, encoding="utf-8")
+        sidebar.parent.mkdir(exist_ok=True)
+        sidebar.write_text('{"docs":[]}', encoding="utf-8")
+        if staged:
+            _recovery_git(recovery_repo, "add", str(guide), str(sidebar))
+        original = {
+            path: path.read_bytes()
+            for path in (recovery_repo / "website").rglob("*")
+            if path.is_file()
+        }
+        preview = _recover(recovery_repo, "--dry-run", version=version)
+        assert preview.returncode == 0, preview.stdout + preview.stderr
+        assert all(path.read_bytes() == content for path, content in original.items())
+        result = _recover(recovery_repo, version=version)
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert guide.read_text(encoding="utf-8") == (
+            "# Install\n\n## Release\nPinned installation.\n"
+        )
+        assert all(
+            path.read_bytes() == content
+            for path, content in original.items()
+            if path != guide
+        )
+        assert _recovery_git(recovery_repo, "rev-parse", "HEAD") == baseline
+        assert _recovery_git(recovery_repo, "rev-parse", "primary-candidate") == primary
+        assert (
+            _recovery_git(
+                recovery_repo,
+                "show",
+                f"{primary}:{guide.relative_to(recovery_repo).as_posix()}",
+            )
+            == RECOVERY_GUIDE.strip()
+        )
+
+    @pytest.mark.parametrize("history", ["head", "deleted"])
+    def test_refuses_committed_snapshot_even_after_deletion(
+        self, recovery_repo, history
+    ):
+        _recovery_git(recovery_repo, "add", "website/versioned_docs/version-2.0.0")
+        _recovery_git(recovery_repo, "commit", "-qm", "Retained versioned snapshot")
+        if history == "deleted":
+            _recovery_git(
+                recovery_repo, "rm", "-qr", "website/versioned_docs/version-2.0.0"
+            )
+            _recovery_git(recovery_repo, "commit", "-qm", "Remove fixture snapshot")
+        guide = _recovery_guide(recovery_repo)
+        guide.parent.mkdir(parents=True, exist_ok=True)
+        guide.write_text(RECOVERY_GUIDE, encoding="utf-8")
+        result = _recover(recovery_repo)
+        assert result.returncode != 0
+        assert "history" in result.stderr
+        assert guide.read_text(encoding="utf-8") == RECOVERY_GUIDE
+
+    def test_refuses_historical_sidebar_with_untracked_docs(self, recovery_repo):
+        sidebar = (
+            recovery_repo
+            / "website"
+            / "versioned_sidebars"
+            / "version-2.0.0-sidebars.json"
+        )
+        sidebar.parent.mkdir()
+        sidebar.write_text('{"docs":[]}', encoding="utf-8")
+        _recovery_git(recovery_repo, "add", str(sidebar))
+        _recovery_git(recovery_repo, "commit", "-qm", "Retained versioned sidebar")
+        result = _recover(recovery_repo)
+        assert result.returncode != 0 and "history" in result.stderr
+        assert (
+            _recovery_guide(recovery_repo).read_text(encoding="utf-8") == RECOVERY_GUIDE
+        )
+
+    @pytest.mark.parametrize(
+        "arguments", [["--from", "1.0.0"], ["--skip-docs"], ["--verbose"]]
+    )
+    def test_rejects_incompatible_flags(self, recovery_repo, arguments):
+        result = _recover(recovery_repo, *arguments)
+        assert result.returncode != 0
+        assert "cannot be combined" in result.stderr
+        assert (
+            _recovery_guide(recovery_repo).read_text(encoding="utf-8") == RECOVERY_GUIDE
+        )
+
+    @pytest.mark.parametrize("version", ["1.0.0", "3.0.0", "../old", "2.0.0.1"])
+    def test_rejects_wrong_or_invalid_target(self, recovery_repo, version):
+        result = _recover(recovery_repo, version=version)
+        assert result.returncode != 0
+        assert "current source version" in result.stderr or "X.Y.Z" in result.stderr
+        assert (
+            _recovery_guide(recovery_repo).read_text(encoding="utf-8") == RECOVERY_GUIDE
+        )
+
+    @pytest.mark.parametrize(
+        "fault",
+        ["missing-guide", "unknown-section", "missing-source", "unknown-source"],
+    )
+    def test_explicit_errors_preserve_remaining_files(self, recovery_repo, fault):
+        guide = _recovery_guide(recovery_repo)
+        source = recovery_repo / "website" / "docusaurus.config.js"
+        if fault == "missing-guide":
+            guide.unlink()
+        elif fault == "unknown-section":
+            guide.write_text("# Install\nmaster_version3.svg\n", encoding="utf-8")
+        elif fault == "missing-source":
+            source.unlink()
+        else:
+            source.write_text("// No recognized source version.\n", encoding="utf-8")
+        before = guide.read_bytes() if guide.exists() else None
+        result = _recover(recovery_repo)
+        assert result.returncode != 0
+        assert "unrecognized arguments" not in result.stderr
+        assert (guide.read_bytes() if guide.exists() else None) == before
+        assert "Traceback" not in result.stderr
+
+    @pytest.mark.parametrize("kind", ["symlink", "hardlink"])
+    def test_linked_guide_cannot_change_old_snapshot(self, recovery_repo, kind):
+        guide = _recovery_guide(recovery_repo)
+        historical = (
+            recovery_repo
+            / "website"
+            / "versioned_docs"
+            / "version-1.0.0"
+            / "Get Started"
+            / "Install SynapseML.md"
+        )
+        guide.unlink()
+        try:
+            if kind == "symlink":
+                guide.symlink_to(historical)
+            else:
+                os.link(historical, guide)
+        except OSError as error:
+            if kind == "symlink" and getattr(error, "winerror", None) == 1314:
+                pytest.skip("Symlink creation requires Windows developer mode")
+            raise
+        result = _recover(recovery_repo)
+        assert result.returncode != 0 and "linked" in result.stderr
+        assert historical.read_text(encoding="utf-8") == RECOVERY_GUIDE
+
+    def test_shallow_history_cannot_authorize_recovery(self, recovery_repo):
+        head = _recovery_git(recovery_repo, "rev-parse", "HEAD")
+        (recovery_repo / ".git" / "shallow").write_text(head + "\n", encoding="ascii")
+        result = _recover(recovery_repo)
+        assert result.returncode != 0 and "shallow" in result.stderr
+        assert (
+            _recovery_guide(recovery_repo).read_text(encoding="utf-8") == RECOVERY_GUIDE
+        )
+
+    def test_invalid_git_directory_cannot_authorize_recovery(self, fake_repo):
+        result = _recover(fake_repo, version=V)
+        assert (
+            result.returncode != 0
+            and "cannot verify local Git history" in result.stderr
+        )
+        assert "Traceback" not in result.stderr
+
+    def test_linked_source_version_cannot_authorize_recovery(self, recovery_repo):
+        source = recovery_repo / "website" / "docusaurus.config.js"
+        target = recovery_repo / "version-source.js"
+        target.write_bytes(source.read_bytes())
+        source.unlink()
+        try:
+            source.symlink_to(target)
+        except OSError as error:
+            if getattr(error, "winerror", None) == 1314:
+                pytest.skip("Symlink creation requires Windows developer mode")
+            raise
+        result = _recover(recovery_repo)
+        assert result.returncode != 0 and "missing or linked" in result.stderr
+        assert (
+            _recovery_guide(recovery_repo).read_text(encoding="utf-8") == RECOVERY_GUIDE
+        )
+
+    def test_normal_bump_still_rejects_same_source_and_target(self, recovery_repo):
+        result = subprocess.run(
+            [
+                sys.executable,
+                SCRIPT,
+                "--to",
+                "2.0.0",
+                "--repo-root",
+                str(recovery_repo),
+                "--skip-docs",
+            ],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+        assert result.returncode != 0 and "already" in result.stderr
+
+    def test_printed_conversion_recovery_invokes_real_finalization(
+        self, recovery_repo, monkeypatch, capsys
+    ):
+        guide = _recovery_guide(recovery_repo)
+        guide.unlink()
+        guide.parent.rmdir()
+        guide.parent.parent.rmdir()
+        (recovery_repo / "website" / "docusaurus.config.js").write_text(
+            'let version = "1.0.0";\n', encoding="utf-8"
+        )
+        monkeypatch.setattr(
+            sys, "argv", [SCRIPT, "--to", "2.0.0", "--repo-root", str(recovery_repo)]
+        )
+        monkeypatch.setattr(
+            bump, "_run_convert_notebooks", lambda *_args, **_kwargs: False
+        )
+        with pytest.raises(SystemExit) as error:
+            bump.main()
+        assert error.value.code == 1
+        output = capsys.readouterr().out
+        command = next(
+            line.strip()
+            for line in output.splitlines()
+            if line.strip().startswith("python ") and "--finalize-docs" in line
+        )
+        assert output.index("sbt convertNotebooks") < output.index(
+            "npm exec -- docusaurus docs:version"
+        )
+        assert output.index("npm exec -- docusaurus docs:version") < output.index(
+            command
+        )
+        guide.parent.mkdir(parents=True)
+        guide.write_text(RECOVERY_GUIDE, encoding="utf-8")
+        result = subprocess.run(
+            [sys.executable, *command.split()[1:]],
+            cwd=recovery_repo,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "master_version3.svg" not in guide.read_text(encoding="utf-8")
+
+    @pytest.mark.parametrize("external_failure", [True, False])
+    def test_existing_snapshot_recovery_never_repeats_version_creation(
+        self, recovery_repo, monkeypatch, capsys, external_failure
+    ):
+        if not external_failure:
+            _recovery_guide(recovery_repo).write_text(
+                "# Install\nmaster_version3.svg\n", encoding="utf-8"
+            )
+        (recovery_repo / "website" / "docusaurus.config.js").write_text(
+            'let version = "1.0.0";\n', encoding="utf-8"
+        )
+        monkeypatch.setattr(
+            sys, "argv", [SCRIPT, "--to", "2.0.0", "--repo-root", str(recovery_repo)]
+        )
+        monkeypatch.setattr(
+            bump, "_run_convert_notebooks", lambda *_args, **_kwargs: True
+        )
+        monkeypatch.setattr(
+            subprocess,
+            "run",
+            lambda *args, **kwargs: subprocess.CompletedProcess(
+                args[0],
+                1 if external_failure else 0,
+                stdout="",
+                stderr="synthetic failure",
+            ),
+        )
+        with pytest.raises(SystemExit) as error:
+            bump.main()
+        assert error.value.code == 1
+        captured = capsys.readouterr()
+        assert "--finalize-docs --to 2.0.0" in captured.out
+        assert "npm exec -- docusaurus docs:version" not in captured.out
+        expected = (
+            "docusaurus docs:version failed"
+            if external_failure
+            else "documentation finalization failed"
+        )
+        assert expected in captured.err
+
+    @pytest.mark.parametrize("missing_command", [False, True])
+    def test_external_failure_before_snapshot_prints_creation_and_finalization(
+        self, recovery_repo, monkeypatch, capsys, missing_command
+    ):
+        guide = _recovery_guide(recovery_repo)
+        guide.unlink()
+        guide.parent.rmdir()
+        guide.parent.parent.rmdir()
+
+        def fail(cmd, **kwargs):
+            if missing_command:
+                raise FileNotFoundError("synthetic missing npm")
+            return subprocess.CompletedProcess(
+                cmd, 1, stdout="", stderr="synthetic npm failure"
+            )
+
+        monkeypatch.setattr(subprocess, "run", fail)
+        assert not bump._run_docusaurus(recovery_repo, "2.0.0", dry_run=False)
+        captured = capsys.readouterr()
+        assert "npm exec -- docusaurus docs:version 2.0.0" in captured.out
+        assert "--finalize-docs --to 2.0.0" in captured.out
+        assert "synthetic" in captured.err
+
+    def test_missing_conversion_command_is_reported(
+        self, recovery_repo, monkeypatch, capsys
+    ):
+        def fail(*args, **kwargs):
+            raise FileNotFoundError("synthetic missing sbt")
+
+        monkeypatch.setattr(subprocess, "run", fail)
+        assert not bump._run_convert_notebooks(recovery_repo, dry_run=False)
+        assert "sbt convertNotebooks could not start" in capsys.readouterr().err
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -990,7 +1738,7 @@ class TestSnapshotRegression:
         docusaurus = REPO_ROOT / "website" / "docusaurus.config.js"
         if not docusaurus.exists():
             pytest.skip("Not running inside SynapseML repo")
-        content = docusaurus.read_text()
+        content = docusaurus.read_text(encoding="utf-8")
         m = re.search(r'let version\s*=\s*"([^"]+)"', content)
         assert m, "Cannot detect version from docusaurus.config.js"
         old_v = m.group(1)
@@ -1005,9 +1753,9 @@ class TestSnapshotRegression:
                 continue
             r = analyze(fp, rel, c, old_v, bare_re, self_a, line_a, file_a)
             if r.matches:
-                results[str(rel)] = len(r.matches)
+                results[rel.as_posix()] = len(r.matches)
             if r.unanchored:
-                unanchored[str(rel)] = r.unanchored
+                unanchored[rel.as_posix()] = r.unanchored
         return {
             "files": results,
             "total_files": len(results),
@@ -1176,7 +1924,7 @@ class TestPostCondition:
         )
         assert result.returncode == 0
         assert "Post-condition verified" in result.stdout
-        assert "0 old version remaining" in result.stdout
+        assert "0 stale selected versions" in result.stdout
 
     def test_dry_run_skips_postcondition(self, fake_repo):
         result = subprocess.run(
