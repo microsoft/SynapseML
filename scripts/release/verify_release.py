@@ -921,7 +921,9 @@ def main(argv=None) -> int:
             "(default: infer from --internal-patch)"
         ),
     )
-    p.add_argument("--targets", default="")
+    p.add_argument(
+        "--targets", default="", help="Explicit targets (default: master,spark4.1)"
+    )
     p.add_argument(
         "--upack-iteration",
         default="",

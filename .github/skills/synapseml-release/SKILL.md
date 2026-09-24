@@ -13,6 +13,12 @@ Load the branch skill and read runtime versions from the selected source.
 
 - Public releases select OSS and Maven, including primary public PyPI.
   Private integrations and their deployment procedures are outside this guide.
+- Default targets are `master` and `spark4.1`. Spark 4.0 requires explicit
+  selection in a newly approved plan; never change a saved plan's targets.
+  Default version bumps retain its last published installation examples.
+- Check optional-runtime policy and readiness before promising new artifacts
+  in its guides. If that runtime is dropped, use the operator guide's back-out
+  procedure; do not weaken the publication lock or edit a tagged candidate.
 - Generate plans rather than editing their fields or approval IDs.
 - Use only public allowlisted plans and evidence in GitHub inputs. Base64 and
   compression do not redact private information.
@@ -46,7 +52,7 @@ Load the branch skill and read runtime versions from the selected source.
    ledger. Complete required human signing gates.
 6. Revalidate producer runs, exact artifacts and hashes. Export public
    evidence immediately before use; it expires after one hour. Publish primary
-   notes only after all targets complete and the unchanged primary candidate
+   notes only after all selected targets complete and the unchanged primary candidate
    has merged first, before other automation changes. Run the read-only
    integration check before dispatch. Squash and rebase merges use canonical
    merged-PR provenance, not a moved tag. Resolve conflicts through a separate
@@ -55,6 +61,7 @@ Load the branch skill and read runtime versions from the selected source.
 7. Verify installation and consumer behavior for every released runtime.
 8. After the primary versioned documentation merges to master, land the reviewed
    `published-spark-ports.lock` follow-up using verified artifact versions.
+   Keep the unselected Spark 4.0 entry at its retained published version.
    Expect strict master Website Deploy to fail until that follow-up lands.
    Confirm successful deployment before reporting the website updated.
 

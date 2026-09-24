@@ -49,6 +49,7 @@ TARGET_KEYS = {
 def public_plan():
     return matrix.build_plan(
         "1.2.0",
+        target_keys=[target.key for target in matrix.TARGETS],
         oss_commits={target.key: SHA for target in matrix.TARGETS},
     )
 
@@ -57,6 +58,7 @@ def legacy_document(combined=False):
     data = asdict(
         matrix.build_plan(
             "1.2.0",
+            target_keys=[target.key for target in matrix.TARGETS],
             repositories=["oss", "internal"],
             families=["maven"],
             oss_commits={target.key: SHA for target in matrix.TARGETS},
@@ -184,6 +186,7 @@ def test_public_object_cannot_silently_discard_private_mutation(change):
 def test_combined_document_is_rejected_by_public_maven_guard():
     plan = matrix.build_plan(
         "1.2.0",
+        target_keys=[target.key for target in matrix.TARGETS],
         repositories=["oss", "internal"],
         families=["maven"],
         oss_commits={target.key: SHA for target in matrix.TARGETS},

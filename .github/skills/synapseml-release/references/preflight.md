@@ -17,9 +17,10 @@ Both commands queue nothing, although they may save local state. Keep the
 authoritative plan and ledger outside source. A second filename or copied
 directory is not a supported way to escape recorded work.
 
-Full releases include every supported target and reject `SKIP_SPARK40`.
-Unknown policy state must stop the release. Do not weaken it to bypass a
-failed read or use scoped recovery to omit a required runtime.
+Full releases require `master` and `spark4.1`; Spark 4.0 is opt-in.
+`SKIP_SPARK40` is checked only when Spark 4.0 is selected. For that selection,
+unknown policy state stops the release. Do not use scoped recovery to omit a
+required runtime. All selected targets must complete before notes can publish.
 
 The normal workflow requires the primary source on `master`. Before the
 automation merges, verify a separately reviewed bootstrap entry point exists.

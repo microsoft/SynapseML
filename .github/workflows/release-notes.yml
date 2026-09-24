@@ -22,7 +22,7 @@ on:
   workflow_dispatch:
     inputs:
       plan_json:
-        description: 'Bound production OSS-only Maven plan for all supported targets'
+        description: 'Bound production OSS-only Maven plan for master and spark4.1, optionally spark4.0'
         required: true
         type: string
       approve_plan:
@@ -87,6 +87,7 @@ jobs:
           python3 scripts/release/release_guard.py notes \
             --plan "$RUNNER_TEMP/public-release-plan.json" \
             --evidence-base64-env \
+            --installation-output "$RUNNER_TEMP/release-installation.md" \
             --approve-plan "$APPROVE_PLAN" --tag "$TAG" --commit "$(git rev-parse HEAD)"
           python3 scripts/release/verify_release.py \
             --plan "$RUNNER_TEMP/public-release-plan.json" --inventory-only
@@ -141,21 +142,8 @@ jobs:
           NOTES=$(gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" \
                     -X POST "${ARGS[@]}" --jq '.body')
 
-          VERSION="${TAG#v}"
           {
-            echo "## Installation"
-            echo
-            echo '```bash'
-            echo "pip install synapseml==${VERSION}"
-            echo '```'
-            echo
-            echo "Maven coordinate: \`com.microsoft.azure:synapseml_2.12:${VERSION}\`"
-            echo
-            echo "| Spark | Python | Tag |"
-            echo "| --- | --- | --- |"
-            echo "| 3.5 | 3.11 | \`${TAG}-spark3.5\` |"
-            echo "| 4.0 | 3.12 | \`${TAG}-spark4.0\` |"
-            echo "| 4.1 | 3.13 | \`${TAG}-spark4.1\` |"
+            cat "$RUNNER_TEMP/release-installation.md"
             echo
             echo "$NOTES"
           } > notes.md
