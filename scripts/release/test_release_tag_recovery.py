@@ -243,6 +243,110 @@ git() {
         assert output.read_text().strip() == f"prev={previous}"
 
 
+@pytest.mark.parametrize(
+    "status,transport_exit,expected",
+    [
+        ("200", 0, "existing"),
+        ("404", 0, "created"),
+        ("301", 0, "failed"),
+        ("401", 0, "failed"),
+        ("403", 0, "failed"),
+        ("429", 0, "failed"),
+        ("500", 0, "failed"),
+        ("503", 0, "failed"),
+        ("000", 6, "failed"),
+        ("404", 28, "failed"),
+        ("200", 18, "failed"),
+        ("", 0, "failed"),
+        ("invalid", 0, "failed"),
+    ],
+)
+def test_release_notes_lookup_only_publishes_after_confirmed_absence(
+    tmp_path, status, transport_exit, expected
+):
+    output = tmp_path / "output"
+    calls = tmp_path / "publication-calls"
+    curl_args = tmp_path / "curl-args"
+    (tmp_path / "release-installation.md").write_text("Verified installation\n")
+    stub = """
+curl() {
+  printf '%s\\n' "$@" > "$CURL_ARGS"
+  printf '%s' "$HTTP_STATUS"
+  return "$TRANSPORT_EXIT"
+}
+gh() {
+  case "$*" in
+    "release view "*)
+      test "$HTTP_STATUS" = 200 && test "$TRANSPORT_EXIT" = 0
+      ;;
+    "api repos/microsoft/SynapseML/releases/generate-notes "*)
+      echo generate >> "$PUBLICATION_CALLS"
+      printf 'Generated release notes\\n'
+      ;;
+    "release create "*)
+      echo create >> "$PUBLICATION_CALLS"
+      ;;
+    *) return 99 ;;
+  esac
+}
+"""
+    script = (
+        stub
+        + workflow_script("release-notes.yml", "Skip if the Release already exists")
+        + '\nif grep -qx "found=false" "$GITHUB_OUTPUT"; then\n'
+        + workflow_script("release-notes.yml", "Generate and publish release notes")
+        + "\nfi\n"
+    )
+    result = subprocess.run(
+        ["bash", "-c", script],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "TAG": "v1.2.0",
+            "PREV": "",
+            "GH_TOKEN": "test-token",
+            "GITHUB_REPOSITORY": "microsoft/SynapseML",
+            "GITHUB_OUTPUT": str(output),
+            "RUNNER_TEMP": str(tmp_path),
+            "HTTP_STATUS": status,
+            "TRANSPORT_EXIT": str(transport_exit),
+            "CURL_ARGS": str(curl_args),
+            "PUBLICATION_CALLS": str(calls),
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if expected == "failed":
+        assert result.returncode != 0, result.stdout + result.stderr
+        assert not output.exists()
+        assert not calls.exists()
+        assert not (tmp_path / "notes.md").exists()
+    else:
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert output.read_text().strip() == (
+            "found=true" if expected == "existing" else "found=false"
+        )
+        if expected == "created":
+            assert calls.read_text().splitlines() == ["generate", "create"]
+            assert "Verified installation" in (tmp_path / "notes.md").read_text()
+        else:
+            assert not calls.exists()
+            assert not (tmp_path / "notes.md").exists()
+    if curl_args.exists():
+        arguments = curl_args.read_text().splitlines()
+        assert arguments[0] == "--disable"
+        assert arguments[-1] == (
+            "https://api.github.com/repos/microsoft/SynapseML/releases/tags/v1.2.0"
+        )
+        assert arguments[arguments.index("--max-time") + 1] == "60"
+        assert arguments[arguments.index("--connect-timeout") + 1] == "15"
+        assert arguments[arguments.index("--write-out") + 1] == "%{http_code}"
+        assert "Authorization: Bearer test-token" in arguments
+        assert "--location" not in arguments
+        assert "--insecure" not in arguments
+
+
 def test_both_workflow_python_mappings_match_the_release_matrix():
     expected = {
         target.branch: target.python for target in guard.TARGETS if not target.is_anchor

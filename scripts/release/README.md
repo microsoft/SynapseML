@@ -411,6 +411,9 @@ gh workflow run release-notes.yml --repo github.com/microsoft/SynapseML --ref v1
 
 Only the public allowlisted plan and evidence may enter those inputs. The
 workflow repeats public checks and leaves an existing GitHub Release unchanged.
+Only a completed HTTP 404 lookup permits release creation. Authentication,
+rate-limit, server and transport errors stop the workflow without generating
+or publishing notes; retry after resolving the lookup failure.
 
 Only after artifact and producer verification succeeds and the primary
 candidate's versioned documentation has merged to master, update
