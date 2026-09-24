@@ -24,14 +24,14 @@ def test_default_plan_is_public_oss_without_internal_or_private_feed_work():
     plan = build_plan("1.2.0")
     assert plan.repositories == ["oss"]
     assert plan.families == ["maven"]
-    assert [target.key for target in plan.targets] == ["master", "spark4.0", "spark4.1"]
+    assert [target.key for target in plan.targets] == ["master", "spark4.1"]
     assert not any(
         value
         for name, value in plan.publish_parameters.items()
         if name.startswith("build_")
     )
     text = render_text(plan)
-    assert text.count("pipeline=17563") == 3
+    assert text.count("pipeline=17563") == 2
     assert "pipeline=900001" not in text
     assert "pipeline=900002" not in text
 
@@ -107,7 +107,7 @@ def test_master_carries_three_oss_tags():
 
 
 def test_non_anchor_targets_have_no_bare_tag():
-    t = _by_key(build_plan("1.1.3"))["spark4.0"]
+    t = _by_key(build_plan("1.1.3", target_keys=["spark4.0"]))["spark4.0"]
     assert t.oss_tags == ["v1.1.3-spark4.0", "v1.1.3-python3.12"]
     assert "v1.1.3" not in t.oss_tags
 
@@ -115,7 +115,7 @@ def test_non_anchor_targets_have_no_bare_tag():
 def test_upack_dot_dash_asymmetry_is_preserved():
     """The single most error-prone fact in the whole release:
     OSS UPack mangles the dot, internal UPack does not."""
-    t = _by_key(build_plan("1.1.3"))["spark4.0"]
+    t = _by_key(build_plan("1.1.3", target_keys=["spark4.0"]))["spark4.0"]
     assert t.oss_upack_version == "1.1.3-spark4-0"
     assert t.internal_upack_version == "1.1.3-0-spark4.0"
 
@@ -131,14 +131,14 @@ def test_master_upack_has_no_spark_suffix():
 
 
 def test_pip_uses_pep440_local_segment():
-    m = _by_key(build_plan("1.1.3"))
+    m = _by_key(build_plan("1.1.3", target_keys=["master", "spark4.0", "spark4.1"]))
     assert m["master"].oss_pip_version == "1.1.3+python3.11"
     assert m["spark4.0"].oss_pip_version == "1.1.3+python3.12"
     assert m["spark4.1"].internal_pip_version == "1.1.3.0+python3.13"
 
 
 def test_maven_coordinates_follow_release_tags():
-    m = _by_key(build_plan("1.1.3"))
+    m = _by_key(build_plan("1.1.3", target_keys=["master", "spark4.0", "spark4.1"]))
     assert m["master"].scala == "2.12"
     assert m["master"].oss_maven_version == "1.1.3"
     assert m["master"].internal_maven_version == "1.1.3.0"
@@ -313,22 +313,33 @@ def test_rebuild_counter_reaches_publish_pipeline():
 
 def test_rejects_per_target_counters_that_one_pipeline_cannot_express():
     with pytest.raises(ValueError, match="cover every selected target"):
-        build_plan("1.1.1", upack_iteration={"spark4.0": 1}, families=["upack"])
+        build_plan(
+            "1.1.1",
+            target_keys=["master", "spark4.0", "spark4.1"],
+            upack_iteration={"spark4.0": 1},
+            families=["upack"],
+        )
     with pytest.raises(ValueError, match="one value per pipeline run"):
         build_plan(
             "1.1.1",
+            target_keys=["master", "spark4.0", "spark4.1"],
             upack_iteration={"master": 1, "spark4.0": 2, "spark4.1": 1},
             families=["upack"],
         )
 
 
-def test_base_branch_chain_matches_rebase_order():
-    b = {tp.key: tp.base_branch for tp in build_plan("1.1.4").targets}
+def test_base_branch_lineage_is_preserved_for_explicit_three_target_plans():
+    b = {
+        tp.key: tp.base_branch
+        for tp in build_plan(
+            "1.1.4", target_keys=["master", "spark4.0", "spark4.1"]
+        ).targets
+    }
     assert b == {"master": None, "spark4.0": "master", "spark4.1": "spark4.0"}
 
 
 def test_all_tag_helpers_are_unique_and_complete():
-    plan = build_plan("1.1.4")
+    plan = build_plan("1.1.4", target_keys=["master", "spark4.0", "spark4.1"])
     assert len(plan.all_oss_tags) == len(set(plan.all_oss_tags)) == 7
     assert len(plan.all_internal_tags) == len(set(plan.all_internal_tags)) == 7
 

@@ -634,8 +634,12 @@ class AzureRemote:
         }
 
 
+def _requires_spark40_policy(plan):
+    return plan.scope == "full" and any(t.key == "spark4.0" for t in plan.targets)
+
+
 def _policy(plan, remote):
-    if plan.scope != "full":
+    if not _requires_spark40_policy(plan):
         return {"checked_at": now(), "required": False}
     data = remote.github_variables()
     if (
@@ -658,7 +662,7 @@ def _policy(plan, remote):
     value = values.get("SKIP_SPARK40")
     if value is not None and value.strip().lower() == "true":
         raise ReleaseError(
-            "SKIP_SPARK40 is true. Full release mutations are forbidden; "
+            "SKIP_SPARK40 is true. Mutations selecting Spark 4.0 are forbidden; "
             "resolve the repository policy with its owner first."
         )
     return {
@@ -1125,7 +1129,9 @@ def _validate_state(data, plan):
     if (
         not isinstance(data["policy"], dict)
         or type(data["policy"].get("required")) is not bool
-        or data["policy"]["required"] != (plan.scope == "full")
+        or (not data["policy"]["required"] and _requires_spark40_policy(plan))
+        # Older full-release ledgers checked this policy even without Spark 4.0.
+        or (data["policy"]["required"] and plan.scope != "full")
         or not isinstance(data["inventory"], dict)
         or data["inventory"].get("plan_id") != plan.plan_id
         or not isinstance(data["inventory"].get("rows"), list)

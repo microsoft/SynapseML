@@ -18,6 +18,7 @@ from email.parser import BytesParser
 from pathlib import Path
 
 from release_matrix import (
+    DEFAULT_TARGET_KEYS,
     TARGETS,
     build_plan,
     load_plan,
@@ -36,13 +37,23 @@ from verify_release import (
 )
 
 
-def full_release(version, skip_spark40="false"):
-    if skip_spark40 != "false":
+def full_release(version, skip_spark40="false", include_spark40="false"):
+    if skip_spark40 not in ("true", "false") or include_spark40 not in (
+        "true",
+        "false",
+    ):
+        raise ValueError("Spark 4.0 selection flags must be true or false")
+    if include_spark40 == "true" and skip_spark40 == "true":
         raise ValueError(
-            "a full release requires every supported target; disable SKIP_SPARK40 "
-            "before preparing or tagging it. Use a scoped recovery plan for an existing release."
+            "SKIP_SPARK40 conflicts with explicit Spark 4.0 inclusion; "
+            "resolve the repository policy before creating tags"
         )
-    return build_plan(version)
+    return build_plan(
+        version,
+        target_keys=[target.key for target in TARGETS]
+        if include_spark40 == "true"
+        else list(DEFAULT_TARGET_KEYS),
+    )
 
 
 def notes_plan(plan, tag, commit, approval):
@@ -56,8 +67,8 @@ def notes_plan(plan, tag, commit, approval):
         or plan.families != ["maven"]
     ):
         raise ValueError("release notes require a production OSS-only Maven plan")
-    if {target.key for target in plan.targets} != {target.key for target in TARGETS}:
-        raise ValueError("release notes require all supported public targets")
+    if not set(DEFAULT_TARGET_KEYS).issubset(target.key for target in plan.targets):
+        raise ValueError("release notes require the master and spark4.1 targets")
     if any(target.internal_commit is not None for target in plan.targets):
         raise ValueError(
             "public release-notes plans must omit Internal commit bindings"
@@ -67,6 +78,30 @@ def notes_plan(plan, tag, commit, approval):
     primary = next(target for target in plan.targets if target.key == "master")
     if primary.oss_commit != commit:
         raise ValueError("release-notes checkout does not match the reviewed commit")
+
+
+def notes_installation(plan):
+    require_public_plan(plan)
+    rows = [
+        "## Installation",
+        "",
+        "Primary Python package:",
+        "",
+        "```bash",
+        f"pip install synapseml=={plan.oss_version}",
+        "```",
+        "",
+        f"Maven coordinate: `com.microsoft.azure:synapseml_2.12:{plan.oss_version}`",
+        "",
+        "| Spark | Python | Tag |",
+        "| --- | --- | --- |",
+    ]
+    rows.extend(
+        f"| {target.spark} | {target.python} | "
+        f"`v{plan.oss_version}-spark{target.spark}` |"
+        for target in plan.targets
+    )
+    return "\n".join(rows) + "\n"
 
 
 def maven_plan(payload, approval, source_ref, commit):
@@ -437,6 +472,7 @@ def main(argv=None):
     full = commands.add_parser("full-release")
     full.add_argument("--version", required=True)
     full.add_argument("--skip-spark40", default="false", choices=("true", "false"))
+    full.add_argument("--include-spark40", default="false", choices=("true", "false"))
     full.add_argument(
         "--repo", type=Path, help="Also confirm every release branch exists on origin"
     )
@@ -448,6 +484,7 @@ def main(argv=None):
     notes.add_argument("--approve-plan", required=True)
     notes.add_argument("--tag", required=True)
     notes.add_argument("--commit", required=True)
+    notes.add_argument("--installation-output", type=Path)
     tag = commands.add_parser("verify-tag")
     tag.add_argument("--repo", type=Path, default=Path("."))
     tag.add_argument("--tag", required=True)
@@ -470,7 +507,7 @@ def main(argv=None):
     args = parser.parse_args(argv)
     try:
         if args.command == "full-release":
-            plan = full_release(args.version, args.skip_spark40)
+            plan = full_release(args.version, args.skip_spark40, args.include_spark40)
             if args.repo:
                 for target in plan.targets:
                     ref = f"refs/heads/{target.branch}"
@@ -499,6 +536,9 @@ def main(argv=None):
                 with Path(args.evidence).open(encoding="utf-8-sig") as stream:
                     report = parse_plan_json(stream.read())
             validate_evidence(plan, report)
+            if args.installation_output:
+                with args.installation_output.open("x", encoding="utf-8") as stream:
+                    stream.write(notes_installation(plan))
             print(f"Public release-notes plan {plan.plan_id}")
         else:
             plan, target = maven_plan(

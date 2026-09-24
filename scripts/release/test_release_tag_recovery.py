@@ -347,7 +347,7 @@ def release_repo(tmp_path, request):
     gh.chmod(0o755)
     script = workflow_script("release-tag.yml", "Create spark rebase PRs")
 
-    def run(merge_results=None, open_prs=(), allow_create=False):
+    def run(merge_results=None, open_prs=(), allow_create=False, include_spark40=True):
         return subprocess.run(
             ["bash", "-c", script],
             cwd=repo,
@@ -356,6 +356,7 @@ def release_repo(tmp_path, request):
                 "PATH": str(commands) + os.pathsep + os.environ["PATH"],
                 "VERSION": "1.2.3",
                 "RELEASE_COMMIT": primary,
+                "INCLUDE_SPARK40": str(include_spark40).lower(),
                 "TEST_MERGED_SHAS": json.dumps(
                     merged if merge_results is None else merge_results
                 ),
@@ -387,6 +388,88 @@ def publish_tags(repo, merged, omit=(), annotated=False):
 
 def remote_tags(origin):
     return git(origin, "show-ref", "--tags")
+
+
+@pytest.mark.parametrize("include_spark40", [False, True])
+def test_orchestration_summary_names_only_selected_ports(include_spark40):
+    result = subprocess.run(
+        ["bash", "-c", workflow_script("release-tag.yml", "Summary")],
+        env={
+            **os.environ,
+            "VERSION": "1.2.3",
+            "INCLUDE_SPARK40": str(include_spark40).lower(),
+        },
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    assert "spark4.1" in result.stdout
+    assert ("spark4.0" in result.stdout) is include_spark40
+
+
+def test_optin_preserves_default_spark41_pr_and_requires_explicit_tag_recovery(
+    release_repo,
+):
+    repo, origin, primary, merged, run = release_repo
+    branch = "release/v1.2.3-spark4.1"
+    git(repo, "checkout", "-b", branch, primary)
+    (repo / "reviewed-resolution").write_text("keep the reviewed source\n")
+    git(repo, "add", "reviewed-resolution")
+    git(repo, "commit", "-m", "reviewed default port release")
+    reviewed = git(repo, "rev-parse", "HEAD")
+    git(repo, "push", "origin", branch)
+    git(repo, "checkout", "master")
+    selected = {"spark4.0": merged["spark4.0"]}
+    result = run(selected, open_prs=["spark4.1"])
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert git(origin, "rev-parse", "refs/heads/" + branch) == reviewed
+    missing = tags("spark4.0")[1]
+    git(repo, "tag", "-d", missing)
+    git(origin, "update-ref", "-d", "refs/tags/" + missing)
+    default = run(selected, open_prs=["spark4.1"], include_spark40=False)
+    assert default.returncode == 0, default.stdout + default.stderr
+    assert missing not in remote_tags(origin)
+    recovered = run(selected, open_prs=["spark4.1"], include_spark40=True)
+    assert recovered.returncode == 0, recovered.stdout + recovered.stderr
+    assert git(origin, "rev-parse", "refs/tags/" + missing) == merged["spark4.0"]
+    assert git(origin, "rev-parse", "refs/heads/" + branch) == reviewed
+    assert "v1.2.3-spark4.1" not in remote_tags(origin)
+
+
+@pytest.mark.parametrize("recover", [False, True])
+def test_default_orchestration_does_not_require_or_release_spark40(
+    release_repo, recover
+):
+    repo, origin, primary, merged, run = release_repo
+    git(origin, "update-ref", "-d", "refs/heads/spark4.0")
+    git(repo, "update-ref", "-d", "refs/remotes/origin/spark4.0")
+    if not recover:
+        git(repo, "checkout", "-b", "unreleased-spark41", f"{primary}^")
+        (repo / "spark41-base").write_text("unreleased port\n")
+        git(repo, "add", "spark41-base")
+        git(repo, "commit", "-m", "port before new release")
+        port = git(repo, "rev-parse", "HEAD")
+        git(repo, "push", "origin", "HEAD:refs/heads/test-unreleased-port")
+        git(origin, "update-ref", "refs/heads/spark4.1", port)
+        git(repo, "update-ref", "refs/remotes/origin/spark4.1", port)
+        git(repo, "checkout", "master")
+    before = git(origin, "rev-parse", "refs/heads/spark4.1")
+    result = run(
+        {"spark4.1": merged["spark4.1"]} if recover else {},
+        allow_create=not recover,
+        include_spark40=False,
+    )
+    assert result.returncode == 0, result.stdout + result.stderr
+    refs = git(origin, "show-ref")
+    assert "spark4.0" not in refs
+    assert "python3.12" not in refs
+    assert git(origin, "rev-parse", "refs/heads/spark4.1") == before
+    if recover:
+        for tag in tags("spark4.1"):
+            assert git(origin, "rev-parse", f"refs/tags/{tag}") == merged["spark4.1"]
+    else:
+        release = git(origin, "rev-parse", "refs/heads/release/v1.2.3-spark4.1")
+        git(origin, "merge-base", "--is-ancestor", primary, release)
 
 
 @pytest.mark.parametrize("release_repo", [False, True], indirect=True)

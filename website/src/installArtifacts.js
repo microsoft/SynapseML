@@ -1,4 +1,6 @@
 const version = "1.1.3";
+// Update only for an explicitly included and verified Spark 4.0 release.
+const spark40Version = "1.1.3";
 const pythonPackage = `synapseml==${version}`;
 const repository = "https://mmlspark.blob.core.windows.net/maven";
 
@@ -17,11 +19,11 @@ const installArtifacts = Object.freeze({
   }),
   spark40: Object.freeze({
     branch: "spark4.0",
-    coordinate: `com.microsoft.azure:synapseml_2.13:${version}-spark4.0`,
+    coordinate: `com.microsoft.azure:synapseml_2.13:${spark40Version}-spark4.0`,
     pythonBaseline: "3.12",
-    pythonPackage,
+    pythonPackage: `synapseml==${spark40Version}`,
     pysparkSpec: ">=4.0.1,<4.1",
-    releaseTag: `v${version}-spark4.0`,
+    releaseTag: `v${spark40Version}-spark4.0`,
     sparkRuntime: "4.0.1+ (<4.1)",
     scalaBinaryVersion: "2.13",
   }),

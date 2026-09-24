@@ -103,7 +103,7 @@ def candidates(tmp_path, monkeypatch):
         git(repo, "push", "origin", "HEAD:refs/heads/" + branch)
     primary_branch = bootstrap.candidate_branch("1.2.0", "master")
     git(repo, "checkout", primary_branch)
-    plan = matrix.build_plan("1.2.0", oss_commits=commits)
+    plan = matrix.build_plan("1.2.0", target_keys=list(commits), oss_commits=commits)
     monkeypatch.setattr(bootstrap, "check_origin", lambda _repo: None)
     checks = {
         sha: [
@@ -194,6 +194,51 @@ def test_preview_then_atomic_bootstrap_and_idempotence(candidates):
     bootstrap.execute(repo, plan, plan.plan_id, apply=True)
     assert git(origin, "show-ref", "--tags") == tags
     assert not git(repo, "for-each-ref", "refs/synapseml-release-bootstrap")
+
+
+def test_default_bootstrap_needs_no_spark40_branch_candidate_checks_or_policy(
+    candidates, monkeypatch
+):
+    import release_matrix as matrix
+
+    bootstrap, repo, origin, original, checks, _ = candidates
+    optional = next(target for target in original.targets if target.key == "spark4.0")
+    git(origin, "update-ref", "-d", "refs/heads/spark4.0")
+    git(
+        origin,
+        "update-ref",
+        "-d",
+        "refs/heads/" + bootstrap.candidate_branch("1.2.0", "spark4.0"),
+    )
+    del checks[optional.oss_commit]
+    plan = matrix.build_plan(
+        "1.2.0",
+        oss_commits={
+            target.key: target.oss_commit
+            for target in original.targets
+            if target.key != "spark4.0"
+        },
+    )
+    monkeypatch.setenv("SKIP_SPARK40", "true")
+    monkeypatch.setenv("BOOTSTRAP_POLICY_SKIP_SPARK40", "true")
+    monkeypatch.setenv("INCLUDE_SPARK40", "true")
+    original_github = bootstrap.github
+
+    def selected_only(path):
+        assert "/actions/variables?" not in path
+        assert optional.oss_commit not in path
+        return original_github(path)
+
+    monkeypatch.setattr(bootstrap, "github", selected_only)
+    before = git(origin, "show-ref")
+    assert len(bootstrap.execute(repo, plan, None)["tags"]) == 5
+    assert git(origin, "show-ref") == before
+    result = bootstrap.execute(repo, plan, plan.plan_id, apply=True)
+    assert result["applied"] is True
+    assert len(result["tags"]) == 5
+    assert "spark4.0" not in git(origin, "show-ref", "--tags")
+    assert "python3.12" not in git(origin, "show-ref", "--tags")
+    assert len(bootstrap.execute(repo, plan, plan.plan_id, apply=True)["tags"]) == 5
 
 
 @pytest.mark.parametrize(
@@ -333,7 +378,7 @@ def test_dispatch_pins_public_host_despite_inherited_gh_host(monkeypatch, apply)
     monkeypatch.setattr(matrix, "load_profile", unexpected)
     monkeypatch.setenv("GH_HOST", "synthetic-enterprise.invalid")
     plan = matrix.build_plan(
-        "1.2.0", oss_commits={target.key: "a" * 40 for target in matrix.TARGETS}
+        "1.2.0", oss_commits={key: "a" * 40 for key in matrix.DEFAULT_TARGET_KEYS}
     )
     calls = []
 
@@ -384,7 +429,7 @@ def test_dispatch_timeout_has_non_echoing_workflow_recovery(monkeypatch, capsys,
     import release_matrix as matrix
 
     plan = matrix.build_plan(
-        "1.2.0", oss_commits={target.key: "a" * 40 for target in matrix.TARGETS}
+        "1.2.0", oss_commits={key: "a" * 40 for key in matrix.DEFAULT_TARGET_KEYS}
     )
     raw = json.dumps(matrix.plan_to_dict(plan))
     monkeypatch.setenv("BOOTSTRAP_PLAN_JSON", raw)

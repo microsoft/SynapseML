@@ -14,7 +14,7 @@ from pathlib import Path
 
 from release_config import strict_json
 from release_guard import _git, _remote_refs, notes_plan, verify_remote_tag
-from release_matrix import TARGETS, load_plan, parse_plan_json, plan_to_dict, read_plan
+from release_matrix import load_plan, parse_plan_json, plan_to_dict, read_plan
 
 REPOSITORY = "microsoft/SynapseML"
 API = "repos/" + REPOSITORY
@@ -57,10 +57,14 @@ def check_origin(repo):
 
 def require_full_release(value):
     if not isinstance(value, str) or value.strip().lower() not in ("", "false"):
-        raise ValueError("Full-release policy must not omit a supported target")
+        raise ValueError(
+            "SKIP_SPARK40 policy conflicts with the selected Spark 4.0 target"
+        )
 
 
-def check_policy(workflow=False):
+def check_policy(workflow=False, target_keys=None):
+    if target_keys is not None and "spark4.0" not in target_keys:
+        return
     if os.environ.get("SKIP_SPARK40", "false").strip().lower() != "false":
         raise ValueError("Bootstrap cannot use a target-skip request")
     if workflow:
@@ -219,8 +223,6 @@ def execute(repo, plan, approval, apply=False):
         primary.oss_commit,
         approval if apply else plan.plan_id,
     )
-    if {target.key for target in plan.targets} != {target.key for target in TARGETS}:
-        raise ValueError("Bootstrap requires every supported public target")
     workflow = os.environ.get("GITHUB_ACTIONS") == "true"
     if apply or workflow:
         expected = {
@@ -239,7 +241,7 @@ def execute(repo, plan, approval, apply=False):
         raise ValueError("Bootstrap checkout must equal the approved primary source")
     if _git(repo, "status", "--porcelain", "--untracked-files=normal"):
         raise ValueError("Bootstrap checkout must be clean")
-    check_policy(workflow=workflow)
+    check_policy(workflow=workflow, target_keys=[target.key for target in plan.targets])
     branches = {
         target.key: candidate_branch(plan.oss_version, target.key)
         for target in plan.targets

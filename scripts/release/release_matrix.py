@@ -93,6 +93,8 @@ TARGETS: List[Target] = [
 ]
 
 TARGETS_BY_KEY = {t.key: t for t in TARGETS}
+# Keep the catalog and its serialized lineage stable for already-approved plans.
+DEFAULT_TARGET_KEYS = ("master", "spark4.1")
 
 
 def parse_iterations(raw: str, flag: str) -> Dict[str, int]:
@@ -468,7 +470,7 @@ def _derive_plan(
             "rehearsal cannot select maven publication; select pip and/or upack"
         )
 
-    keys = [t.key for t in TARGETS] if target_keys is None else target_keys
+    keys = list(DEFAULT_TARGET_KEYS) if target_keys is None else target_keys
     if (
         not isinstance(keys, list)
         or not keys
@@ -922,7 +924,11 @@ def main(argv: Optional[List[str]] = None) -> int:
     p.add_argument(
         "--internal-patch", default="0", help="Internal super-patch digit (default 0)"
     )
-    p.add_argument("--targets", help="Comma-separated subset, e.g. master,spark4.0")
+    p.add_argument(
+        "--targets",
+        help="Comma-separated selection (default: master,spark4.1). "
+        "Include spark4.0 explicitly when needed.",
+    )
     p.add_argument(
         "--upack-iteration",
         default="",

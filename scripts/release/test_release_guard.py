@@ -25,6 +25,7 @@ SHA = "a" * 40
 
 def public_plan(**changes):
     options = {
+        "target_keys": [target.key for target in matrix.TARGETS],
         "repositories": ["oss"],
         "families": ["maven"],
         "oss_commits": {target.key: SHA for target in matrix.TARGETS},
@@ -33,10 +34,12 @@ def public_plan(**changes):
     return matrix.build_plan("1.1.4", **options)
 
 
-def test_full_release_cannot_silently_skip_a_supported_target():
-    assert len(guard.full_release("1.1.4", "false").targets) == len(matrix.TARGETS)
+def test_explicit_three_target_release_cannot_silently_skip_spark40():
+    assert len(guard.full_release("1.1.4", "false", "true").targets) == len(
+        matrix.TARGETS
+    )
     with pytest.raises(ValueError, match="SKIP_SPARK40"):
-        guard.full_release("1.1.4", "true")
+        guard.full_release("1.1.4", "true", "true")
 
 
 @pytest.fixture
@@ -317,7 +320,6 @@ def test_full_release_cli_checks_actual_source_branches(tmp_path, monkeypatch, m
     result = guard.main(["full-release", "--version", "1.1.4", "--repo", str(tmp_path)])
     assert observed == [
         "refs/heads/master",
-        "refs/heads/spark4.0",
         "refs/heads/spark4.1",
     ]
     assert result == (2 if missing else 0)

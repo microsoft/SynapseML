@@ -33,6 +33,23 @@ def test_release_notes_is_manual_and_artifact_gated():
         "release_guard.py notes"
     )
     assert "pull-requests: read" in workflow
+    assert "--installation-output" in workflow
+    assert 'cat "$RUNNER_TEMP/release-installation.md"' in workflow
+    assert 'echo "| 4.0' not in workflow
+
+
+def test_optional_target_requires_per_dispatch_opt_in_not_repository_variables():
+    workflow = yaml.safe_load(read_workflow("release-tag.yml"))
+    inputs = workflow.get("on", workflow.get(True))["workflow_dispatch"]["inputs"]
+    assert inputs["include_spark40"]["default"] is False
+    assert workflow["env"]["INCLUDE_SPARK40"] == "${{ inputs.include_spark40 == true }}"
+    assert "vars.INCLUDE_SPARK40" not in read_workflow("release-tag.yml")
+    guard = next(
+        step
+        for step in workflow["jobs"]["release-tags"]["steps"]
+        if step.get("name") == "Validate the full release policy before creating tags"
+    )
+    assert '--include-spark40 "$INCLUDE_SPARK40"' in guard["run"]
 
 
 def test_unpublished_docs_preview_cannot_deploy_pages():

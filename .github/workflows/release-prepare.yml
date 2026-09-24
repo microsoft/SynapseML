@@ -145,7 +145,8 @@ jobs:
 
       # bump-version.py is context-anchored: it refuses to replace a bare version
       # number that has no SynapseML-identifying text near it, and exits non-zero
-      # if any anchored occurrence of the old version survives the run. Both
+      # if a selected old-version reference survives. Optional Spark 4.0
+      # installation references retain their published version. Both
       # behaviours are load-bearing here, so the exit code is not suppressed.
       - name: Bump version strings
         id: bump
@@ -205,7 +206,7 @@ jobs:
 
           ### After merge
           1. This workflow tags the merged commit with \`v${VERSION}\` and dispatches \`release-tag.yml\`.
-          2. Finish the reviewed OSS port PRs. Bind their merged commits in an OSS-only Maven plan and run \`release_ops.py preflight\`.
+          2. Finish the reviewed Spark 4.1 port PR. The default release covers master and spark4.1, not spark4.0. Bind their merged commits in an OSS-only Maven plan and run \`release_ops.py preflight\`.
           3. Approve that plan ID, use \`release_ops.py resume --apply --approve-plan <id>\`, and complete the required signing approvals.
           4. Publish notes using the original public-only Maven plan, its recorded state, and its fresh producer evidence. Do not regenerate a different plan for existing receipts.
 

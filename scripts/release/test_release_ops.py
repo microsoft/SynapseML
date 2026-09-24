@@ -49,10 +49,10 @@ def no_network(monkeypatch):
     monkeypatch.setattr(urllib.request.OpenerDirector, "open", forbidden)
 
 
-def release_plan(**overrides):
+def release_plan(*, target="master", **overrides):
     options = {
-        "target_keys": ["master"],
-        "oss_commits": {"master": OSS_SHA},
+        "target_keys": [target],
+        "oss_commits": {target: OSS_SHA},
         "repositories": (
             ["internal"]
             if overrides.get("scope") == "internal-only"
@@ -61,7 +61,7 @@ def release_plan(**overrides):
         "families": ["maven", "pip", "upack"],
     }
     if overrides.get("repositories") != ["oss"]:
-        options["internal_commits"] = {"master": INTERNAL_SHA}
+        options["internal_commits"] = {target: INTERNAL_SHA}
     options.update(overrides)
     return matrix.build_plan("1.1.4", **options)
 
@@ -561,7 +561,7 @@ def test_wait_does_not_queue_if_preflight_consumes_the_timeout(cli, wait_clock):
 
 
 def test_wait_does_not_queue_if_last_policy_check_consumes_timeout(cli, wait_clock):
-    plan = release_plan(repositories=["oss"], families=["upack"])
+    plan = release_plan(target="spark4.0", repositories=["oss"], families=["upack"])
     cli.remote.missing = {("oss", "upack")}
     original = cli.remote.github_variables
 
@@ -577,7 +577,7 @@ def test_wait_does_not_queue_if_last_policy_check_consumes_timeout(cli, wait_clo
     assert code == 1
     assert "timed out" in error.lower()
     assert not cli.remote.queued
-    assert action(saved(cli), "oss", "upack")["operation"] is None
+    assert action(saved(cli), "oss", "upack", "spark4.0")["operation"] is None
 
 
 @pytest.mark.parametrize("families", [["upack"], ["pip", "upack"]])
@@ -681,19 +681,19 @@ def test_wait_options_fail_before_any_probe(cli, command, apply, extra):
 
 
 def test_wait_rechecks_policy_before_queueing_downstream(cli, wait_clock):
-    plan = release_plan(repositories=["internal"])
+    plan = release_plan(target="spark4.0", repositories=["internal"])
     cli.remote.missing = {("internal", family) for family in plan.families}
     original_variables = cli.remote.variables
 
     def policy_changes():
-        cli.remote.succeed(101, plan, "internal", ["maven"])
+        cli.remote.succeed(101, plan, "internal", ["maven"], target="spark4.0")
         cli.remote.variables = RuntimeError("Policy read failed")
 
     wait_clock.on_sleep = policy_changes
     code, report, error = cli(plan=plan, apply=True, extra=["--wait"])
     assert code == 2 and report is None and error
     assert len(cli.remote.queued) == 1
-    assert action(saved(cli), "internal", "maven")["build_id"] == 101
+    assert action(saved(cli), "internal", "maven", "spark4.0")["build_id"] == 101
     cli.remote.variables = original_variables
     code, _, error = cli(plan=plan, apply=True)
     assert code == 1, error
@@ -1711,6 +1711,30 @@ def test_dry_run_exercises_cli_and_never_queues(cli):
     assert action(saved(cli), "oss", "upack")["status"] == "planned"
 
 
+@pytest.mark.parametrize("optional_selected", [False, True])
+def test_policy_ledger_compatibility_does_not_waive_selected_target_policy(
+    cli, optional_selected
+):
+    keys = ["spark4.0"] if optional_selected else list(matrix.DEFAULT_TARGET_KEYS)
+    plan = matrix.build_plan(
+        "1.2.0", target_keys=keys, oss_commits={key: OSS_SHA for key in keys}
+    )
+    cli.remote.missing = {("oss", "maven")}
+    assert cli(plan=plan)[0] == 1
+    state = saved(cli)
+    assert state["policy"]["required"] is optional_selected
+    state["policy"]["required"] = not optional_selected
+    state["state_id"] = ops._digest(state, "state_id")
+    cli.state.write_text(json.dumps(state), encoding="utf-8")
+    code, _, error = cli("status", plan=plan)
+    if optional_selected:
+        assert code == 2 and "malformed preflight evidence" in error
+    else:
+        assert code == 1, error
+        assert not cli.remote.policy_calls
+    assert not cli.remote.queued
+
+
 @pytest.mark.parametrize(
     "extra",
     [
@@ -1754,7 +1778,8 @@ def test_full_release_skip_policy_blocks_all_actions(cli, value):
         "variables": [{"name": "SKIP_SPARK40", "value": value}],
     }
     cli.remote.missing = {("oss", "maven"), ("internal", "maven")}
-    code, _, error = cli(apply=True)
+    plan = release_plan(target="spark4.0", repositories=["oss"], families=["maven"])
+    code, _, error = cli(plan=plan, apply=True)
     assert code == 2
     assert "SKIP_SPARK40" in error
     assert not cli.remote.queued
@@ -1771,7 +1796,11 @@ def test_full_release_skip_policy_blocks_all_actions(cli, value):
 )
 def test_skip_policy_fails_closed_for_inaccessible_or_invalid_api(cli, response):
     cli.remote.variables = response
-    assert cli(apply=True)[0] == 2
+    plan = release_plan(target="spark4.0", repositories=["oss"], families=["maven"])
+    code, _, error = cli(plan=plan, apply=True)
+    assert code == 2
+    assert cli.remote.policy_calls == 1
+    assert "policy" in error.lower() or "service query failed" in error.lower()
     assert not cli.remote.queued
 
 
@@ -1836,7 +1865,7 @@ def test_internal_track_reuses_bound_base_without_oss_jobs(cli, scope, patch):
         "build_internal_pip_py311"
     }
     assert all(item["repository"] == "internal" for item in saved(cli)["actions"])
-    assert bool(cli.remote.policy_calls) == (scope == "full")
+    assert not cli.remote.policy_calls
     assert any(
         checked.repositories == ["oss"] and checked.targets[0].oss_commit == OSS_SHA
         for checked in cli.remote.inventory_calls
@@ -2054,8 +2083,9 @@ def produced_maven_receipt(plan, build_id, root, target_key="master"):
     return maven_receipt(plan, target, root, build_id, pypi_wheel=wheel)
 
 
-def test_default_public_release_completes_without_private_or_internal_calls(
-    cli, tmp_path, monkeypatch
+@pytest.mark.parametrize("include_spark40", [False, True])
+def test_public_release_completes_without_private_or_internal_calls(
+    cli, tmp_path, monkeypatch, include_spark40
 ):
     def forbidden(*_args, **_kwargs):
         raise AssertionError("Public OSS release tried a private or Internal operation")
@@ -2063,13 +2093,17 @@ def test_default_public_release_completes_without_private_or_internal_calls(
     monkeypatch.setattr(cli.remote, "resolve_feed", forbidden)
     for method in ("ado_tag", "internal_maven", "pip", "upack"):
         monkeypatch.setattr(InventoryChecker, method, forbidden)
+    keys = [target.key for target in matrix.TARGETS] if include_spark40 else None
+    selected = keys or matrix.DEFAULT_TARGET_KEYS
     plan = matrix.build_plan(
         "1.2.0",
-        oss_commits={key: OSS_SHA for key in ("master", "spark4.0", "spark4.1")},
+        target_keys=keys,
+        oss_commits={key: OSS_SHA for key in selected},
     )
     cli.remote.missing = {("oss", "maven")}
     assert cli(plan=plan, apply=True)[0] == 1
-    assert len(cli.remote.queued) == 3
+    assert len(cli.remote.queued) == len(selected)
+    assert bool(cli.remote.policy_calls) is include_spark40
     for command in cli.remote.queued:
         assert command[command.index("--id") + 1] == "17563"
     for item in saved(cli)["actions"]:
@@ -2083,9 +2117,9 @@ def test_default_public_release_completes_without_private_or_internal_calls(
     code, report, error = cli("status", plan=plan)
     assert code == 0, error
     assert report["complete"]
-    assert len(saved(cli)["actions"]) == 3
+    assert len(saved(cli)["actions"]) == len(selected)
     assert ops.verified_evidence(plan, cli.state, remote=cli.remote)["complete"]
-    assert len(cli.remote.queued) == 3
+    assert len(cli.remote.queued) == len(selected)
 
 
 @pytest.mark.parametrize(
@@ -2855,7 +2889,7 @@ def test_full_release_policy_is_rechecked_immediately_before_submission(
     cli, monkeypatch
 ):
     cli.remote.missing = {("oss", "upack")}
-    plan = release_plan(families=["upack"], repositories=["oss"])
+    plan = release_plan(target="spark4.0", families=["upack"], repositories=["oss"])
     real_inventory = cli.remote.inventory
 
     def change_policy(value):
@@ -3374,12 +3408,17 @@ def test_inventory_cannot_be_promoted_by_setting_complete(cli):
     assert not cli.remote.queued
 
 
+@pytest.mark.parametrize("include_spark40", [False, True])
 def test_public_notes_export_fits_github_and_passes_the_real_guard(
-    cli, monkeypatch, capsys
+    cli, monkeypatch, capsys, tmp_path, include_spark40
 ):
     import release_guard
 
-    keys = [target.key for target in matrix.TARGETS]
+    keys = (
+        [target.key for target in matrix.TARGETS]
+        if include_spark40
+        else list(matrix.DEFAULT_TARGET_KEYS)
+    )
     plan = release_plan(
         target_keys=keys,
         oss_commits={key: OSS_SHA for key in keys},
@@ -3441,23 +3480,32 @@ def test_public_notes_export_fits_github_and_passes_the_real_guard(
     }
     assert len(json.dumps(payload)) < 65535
     monkeypatch.setenv("RELEASE_EVIDENCE_BASE64", encoded)
-    assert (
-        release_guard.main(
-            [
-                "notes",
-                "--plan",
-                str(cli.plan),
-                "--evidence-base64-env",
-                "--approve-plan",
-                plan.plan_id,
-                "--tag",
-                "v1.1.4",
-                "--commit",
-                OSS_SHA,
-            ]
-        )
-        == 0
-    )
+    header = tmp_path / "installation.md"
+    arguments = [
+        "notes",
+        "--plan",
+        str(cli.plan),
+        "--evidence-base64-env",
+        "--approve-plan",
+        plan.plan_id,
+        "--tag",
+        "v1.1.4",
+        "--commit",
+        OSS_SHA,
+        "--installation-output",
+        str(header),
+    ]
+    bad_approval = list(arguments)
+    bad_approval[bad_approval.index("--approve-plan") + 1] = "0" * 64
+    assert release_guard.main(bad_approval) == 2
+    assert not header.exists()
+    assert release_guard.main(arguments) == 0
+    original_header = header.read_bytes()
+    assert ("| 4.0 | 3.12 |" in header.read_text()) is include_spark40
+    assert "| 3.5 | 3.11 |" in header.read_text()
+    assert "| 4.1 | 3.13 |" in header.read_text()
+    assert release_guard.main(arguments) == 2
+    assert header.read_bytes() == original_header
     assert len(cli.remote.queued) == len(keys)
 
 
