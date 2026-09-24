@@ -42,7 +42,7 @@ Traditional machine learning regression models optimize for **Mean Squared Error
 |---|---:|---|
 | Scala | 2.12.17 | Standalone build version; use the Scala 2.12 SynapseML artifact (`synapseml_2.12`) |
 | Spark | 3.5.0 | Standalone build version; use a compatible Spark 3.5 runtime |
-| SynapseML | 1.1.3 | Verify runtime supports this coordinate; managed runtimes may have different preinstalled versions |
+| SynapseML | `com.microsoft.azure:synapseml_2.12:1.1.3` | Verify runtime supports this coordinate; managed runtimes may have different preinstalled versions |
 | Hadoop connector (if using wasbs://) | org.apache.hadoop:hadoop-azure:3.3.4 | Required only for standalone clusters reading wasbs:// blobs |
 
 ---
@@ -506,7 +506,7 @@ For Databricks or Azure Synapse, use the platform's supported JAR submission mec
 ## Summary
 
 In this guide, you learned how to:
-1. Configure SynapseML LightGBM in Apache Spark Scala using current coordinates (`1.1.3`).
+1. Configure SynapseML LightGBM in Apache Spark Scala using current coordinates (`com.microsoft.azure:synapseml_2.12:1.1.3`).
 2. Translate PySpark syntax to idiomatic Scala using fluent setter methods (`.setParam()`).
 3. Model biological activity ($pIC_{50}$) with Quantile Regression to estimate uncertainty intervals ($q_{20}, q_{50}, q_{80}$).
 4. Calculate empirical coverage and evaluate prediction accuracy with Spark ML's `RegressionEvaluator`.
