@@ -66,20 +66,24 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      # Refuse to re-prepare a version that is already published. Without this
-      # the workflow would happily open a PR that "bumps" to a shipped version.
+      # An interrupted release can leave derivative tags without the primary tag.
       - name: Guard against an already-released version
         env:
           VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          if git show-ref --verify --quiet "refs/tags/v${VERSION}"; then
-            echo "::error::Tag v${VERSION} already exists. That version is already released."
+          EXISTING_TAGS=$(git ls-remote --tags origin \
+            "refs/tags/v${VERSION}" \
+            "refs/tags/v${VERSION}-spark*" \
+            "refs/tags/v${VERSION}-python*")
+          if [ -n "$EXISTING_TAGS" ]; then
+            echo "::error::Release tag family v${VERSION} already exists. Use reviewed recovery instead of new preparation."
             exit 1
           fi
-          if git ls-remote --exit-code --heads origin "release/prepare-v${VERSION}" >/dev/null 2>&1; then
+          EXISTING_BRANCH=$(git ls-remote --heads origin "refs/heads/release/prepare-v${VERSION}")
+          if [ -n "$EXISTING_BRANCH" ]; then
             echo "::error::Branch release/prepare-v${VERSION} already exists on origin. \
-          Delete it or finish the existing release PR first."
+          Finish or recover the existing release PR instead of starting another."
             exit 1
           fi
 
