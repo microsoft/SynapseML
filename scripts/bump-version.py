@@ -300,6 +300,20 @@ def analyze(fp, rel, content, old_v, bare_re, self_a, line_a, file_a):
     for m in bare_re.finditer(content):
         ln = content[: m.start()].count("\n") + 1
         lt = lines[ln - 1]
+        # Optional Spark 4.0 consumer examples retain their last published build.
+        if rel_str == "website/src/installArtifacts.js" and re.fullmatch(
+            r'const spark40Version = "[0-9]+\.[0-9]+\.[0-9]+";', lt.rstrip("\r")
+        ):
+            continue
+        if rel.suffix == ".md" and (
+            rel_str == "README.md" or rel_str.startswith(("docs/", "website/docs/"))
+        ):
+            spark40_coordinate = re.match(r"-spark4\.0(?![\w.])", content[m.end() :])
+            spark40_python = content[: m.start()].endswith("synapseml==") and (
+                "| [`spark4.0`]" in lt or '"pyspark>=4.0' in lt
+            )
+            if spark40_coordinate or spark40_python:
+                continue
         anchored = False
 
         # Self-anchored: check a window around the match
@@ -753,12 +767,17 @@ Examples:
                 print(f"  ERROR writing {r.rel}: {e}", file=sys.stderr)
                 fails.append(r.rel)
         if fails:
-            print(f"ERROR: {len(fails)} writes failed. Run 'git checkout .' to revert.")
+            print(
+                f"ERROR: {len(fails)} writes failed. Inspect partial changes; "
+                "preserve edits made before this bump."
+            )
             sys.exit(1)
 
         # Post-condition verification
         old_re = _bare_regex(old_v)
         new_re = _bare_regex(new_v)
+        existing_new_count = sum(len(list(new_re.finditer(r.content))) for r in changed)
+        expected_new_count = total + existing_new_count
         new_count = 0
         stale = []
         for r in changed:
@@ -766,7 +785,10 @@ Examples:
             if written is None:
                 stale.append((str(r.rel), "unreadable"))
                 continue
-            if old_re.search(written):
+            remaining = analyze(
+                r.path, r.rel, written, old_v, old_re, self_a, line_a, file_a
+            )
+            if remaining.matches or remaining.unanchored:
                 stale.append((str(r.rel), "old version still present"))
             new_count += len(list(new_re.finditer(written)))
         if stale:
@@ -775,19 +797,22 @@ Examples:
             print("!" * 70)
             for path, reason in stale:
                 print(f"  {path}: {reason}")
-            print("\nRun 'git checkout .' to revert.")
+            print("\nInspect the changed files; preserve edits made before this bump.")
             sys.exit(1)
-        if new_count != total:
+        if new_count != expected_new_count:
             print("\n" + "!" * 70)
             print(
-                f"Post-condition violated: expected {total} new-version occurrences, found {new_count}"
+                f"Post-condition violated: expected {expected_new_count} "
+                f"new-version occurrences, found {new_count}"
             )
             print("!" * 70)
-            print("\nRun 'git checkout .' to revert.")
+            print("\nInspect the changed files; preserve edits made before this bump.")
             sys.exit(1)
         print(
-            f"✓ Post-condition verified: 0 old version remaining, {total} replacements confirmed"
+            f"✓ Post-condition verified: 0 stale selected versions, {total} replacements confirmed"
         )
+        if existing_new_count:
+            print(f"  {existing_new_count} already-current references preserved.")
 
         # ── Broad sweep: warn about old version in ANY text file ───────────
         modified_set = {r.rel.as_posix() for r in changed}

@@ -25,3 +25,18 @@ was separately reviewed. Its source/archive audit excluded all 28 old feature
 commits and found no new confidentiality blocker. Review artifacts record
 current-head follow-ups and validation limits. Actual package contents and
 cross-runtime Python distribution remain release gates, not completed checks.
+
+## Default-target follow-up
+
+The `task-2628-default-targets-attempt-1-review-*` reports cover the follow-up
+to `2391aa166ab46238307de9edf9650102cbff950e`. It defaults new releases to
+`master` and `spark4.1`, keeps Spark 4.0 explicitly selectable, and preserves
+saved three-target plan identities. Consumer guidance retains the optional
+runtime's last published artifacts instead of advancing it automatically.
+
+The reports distinguish independent reviews from direct fallback reviews.
+The Gemini provider rejected the requested review before returning findings;
+no three-family coverage is claimed. Local checks and previous-head CI are
+not current-head hosted validation or production approval. The Python-wheel
+distribution gate remains unresolved, and no production tags or packages
+were created for this follow-up.

@@ -39,6 +39,91 @@ FileResult = bump.FileResult
 V = "1.1.0"
 
 
+@pytest.mark.parametrize("optional_updated", [False, True])
+def test_repeated_default_release_bumps_keep_optional_runtime_installations(
+    tmp_path, optional_updated
+):
+    root = Path(__file__).resolve().parents[1]
+    files = (
+        "README.md",
+        "docs/Get Started/Install SynapseML.md",
+        "website/src/installArtifacts.js",
+        "website/docusaurus.config.js",
+        "docs/Explore Algorithms/Deep Learning/Getting Started.md",
+        "docs/Explore Algorithms/Deep Learning/ONNX.md",
+        "docs/Reference/R Setup.md",
+    )
+    (tmp_path / ".git").mkdir()
+    for name in files:
+        destination = tmp_path / name
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_text(
+            (root / name).read_text(encoding="utf-8"), encoding="utf-8"
+        )
+    original = bump._detect_version(tmp_path)
+    next_major = int(original.split(".")[0]) + 1
+    optional = re.search(
+        r'const spark40Version = "([^"]+)";',
+        (tmp_path / "website/src/installArtifacts.js").read_text(),
+    ).group(1)
+    if optional_updated:
+        included_version = f"{next_major}.0.0"
+        for name in files:
+            path = tmp_path / name
+            lines = path.read_text(encoding="utf-8").splitlines(keepends=True)
+            updated = []
+            for line in lines:
+                if (
+                    "| [`spark4.0`]" in line
+                    or '"pyspark>=4.0' in line
+                    or line.startswith("const spark40Version = ")
+                ):
+                    line = line.replace(optional, included_version)
+                else:
+                    line = line.replace(
+                        optional + "-spark4.0", included_version + "-spark4.0"
+                    )
+                updated.append(line)
+            path.write_text("".join(updated), encoding="utf-8")
+        optional = included_version
+    for version in (f"{next_major}.0.0", f"{next_major}.1.0"):
+        command = [
+            sys.executable,
+            str(root / "scripts/bump-version.py"),
+            "--repo-root",
+            str(tmp_path),
+            "--to",
+            version,
+            "--skip-docs",
+        ]
+        before = {name: (tmp_path / name).read_bytes() for name in files}
+        preview = subprocess.run(
+            command + ["--dry-run"], capture_output=True, text=True
+        )
+        assert preview.returncode == 0, preview.stdout + preview.stderr
+        assert before == {name: (tmp_path / name).read_bytes() for name in files}
+        result = subprocess.run(command, capture_output=True, text=True)
+        assert result.returncode == 0, result.stdout + result.stderr
+        metadata = (tmp_path / "website/src/installArtifacts.js").read_text()
+        assert f'const version = "{version}";' in metadata
+        assert f'const spark40Version = "{optional}";' in metadata
+        for name in files[:2]:
+            guide = (tmp_path / name).read_text(encoding="utf-8")
+            assert f"synapseml_2.12:{version}" in guide
+            assert f"synapseml_2.13:{version}-spark4.1" in guide
+            assert f"synapseml_2.13:{optional}-spark4.0" in guide
+            assert f"/tree/v{optional}-spark4.0/docs" in guide
+            assert (f"synapseml_2.13:{version}-spark4.0" in guide) is (
+                version == optional
+            )
+            assert f'"synapseml=={optional}" "pyspark>=4.0.1,<4.1"' in guide
+            assert f'"synapseml=={version}" "pyspark>=4.1,<4.2"' in guide
+        for name in files[4:]:
+            guide = (tmp_path / name).read_text(encoding="utf-8")
+            assert f"{optional}-spark4.0" in guide
+            assert f"{version}-spark4.1" in guide
+
+
 def _build_anchors(old_v):
     bare_re = _bare_regex(old_v)
     self_a = [(t, _template_regex(t, old_v)) for t in SELF_ANCHORED]
@@ -1839,7 +1924,7 @@ class TestPostCondition:
         )
         assert result.returncode == 0
         assert "Post-condition verified" in result.stdout
-        assert "0 old version remaining" in result.stdout
+        assert "0 stale selected versions" in result.stdout
 
     def test_dry_run_skips_postcondition(self, fake_repo):
         result = subprocess.run(

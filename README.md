@@ -88,6 +88,10 @@ their corresponding branches.
 | [`spark4.0`](https://github.com/microsoft/SynapseML/tree/spark4.0) | Spark 4.0.1+ (`<4.1`) | 2.13 | Python 3.12 | [`v1.1.3-spark4.0`](https://github.com/microsoft/SynapseML/tree/v1.1.3-spark4.0) | `synapseml==1.1.3` | `com.microsoft.azure:synapseml_2.13:1.1.3-spark4.0` |
 | [`spark4.1`](https://github.com/microsoft/SynapseML/tree/spark4.1) | Spark 4.1.x | 2.13 | Python 3.13 | [`v1.1.3-spark4.1`](https://github.com/microsoft/SynapseML/tree/v1.1.3-spark4.1) | `synapseml==1.1.3` | `com.microsoft.azure:synapseml_2.13:1.1.3-spark4.1` |
 
+New releases update the `master` and `spark4.1` builds by default. Maintainers
+may also release Spark 4.0; its examples retain the last published version
+until then.
+
 Always configure
 `https://mmlspark.blob.core.windows.net/maven`, where the Spark 4 artifacts are
 published. See the [full installation guide] for platform-specific details.

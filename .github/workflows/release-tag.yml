@@ -2,12 +2,12 @@ name: Release Tag Orchestrator
 
 # Triggers when a primary version tag (v1.1.2) is pushed to master.
 # Creates the python3.11 and spark3.5 tags at the tagged commit, then opens a
-# rebase PR for each spark branch as a chain: spark4.0 onto the release commit,
-# then spark4.1 onto spark4.0.
-# Reruns recover missing derivative tags at recorded, reviewed port-merge commits.
+# release PR for spark4.1 onto the release commit. Explicit Spark 4.0 inclusion
+# processes that port first and chains newly created PRs. Existing PRs are never
+# restacked. Recovering Spark 4.0 tags requires include_spark40=true again.
+# Reruns recover selected derivative tags at recorded, reviewed port-merge commits.
 #
-# A full release includes every supported target. Legacy skip requests fail
-# before this workflow creates any tags.
+# A full release defaults to master and spark4.1. Spark 4.0 is opt-in.
 #
 # Part of the SynapseML Fabric Release Guide (Steps 1.4–1.5).
 # See also: release-tag-spark.yml (creates spark/python tags after PR merge).
@@ -39,7 +39,11 @@ on:
         type: string
         default: ''
       skip_spark40:
-        description: 'Legacy opt-out, rejected for full releases; use a recovery plan instead'
+        description: 'Legacy veto; conflicts only with a release selecting Spark 4.0'
+        type: boolean
+        default: false
+      include_spark40:
+        description: 'Also release Spark 4.0; bootstrap always follows its approved plan'
         type: boolean
         default: false
 
@@ -52,8 +56,9 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # Preserve the old inputs so a configured opt-out fails visibly rather than
-  # silently creating only part of the full release.
+  # Inclusion is explicit per dispatch, never inferred from mutable repository
+  # variables. Bootstrap uses only its approved plan's target selection.
+  INCLUDE_SPARK40: ${{ inputs.include_spark40 == true }}
   SKIP_SPARK40: ${{ inputs.skip_spark40 == true || vars.SKIP_SPARK40 == 'true' }}
 
 jobs:
@@ -144,7 +149,8 @@ jobs:
         run: |
           set -euo pipefail
           python3 scripts/release/release_guard.py full-release \
-            --version "$VERSION" --skip-spark40 "$SKIP_SPARK40" --repo . \
+            --version "$VERSION" --skip-spark40 "$SKIP_SPARK40" \
+            --include-spark40 "$INCLUDE_SPARK40" --repo . \
             > "$RUNNER_TEMP/release-draft.json"
 
       - name: Capture released commit
@@ -209,18 +215,11 @@ jobs:
         run: |
           set -euo pipefail
 
-          # spark4.0 first, and spark4.1 rebased onto it rather than onto master.
-          # spark4.1 is maintained as spark4.0 plus its own upgrade commit — every
-          # release so far satisfies `git merge-base --is-ancestor v<ver>-spark4.0
-          # v<ver>-spark4.1`, and origin/spark4.0 is an ancestor of origin/spark4.1
-          # today. Rebasing both onto master independently replays the Spark 4.0
-          # upgrade patch twice, producing two commits with the same tree and
-          # different SHAs, which breaks that ancestry for good: a later spark4.0-only
-          # fix would no longer reach spark4.1. Chaining them lets `git rebase` drop
-          # the patch-equivalent commit and keeps the branches a single line, which is
-          # also what the release guide's `git checkout spark4.1; git rebase
-          # upstream/spark4.0` produces.
-          TARGETS=(spark4.0 spark4.1)
+          case "$INCLUDE_SPARK40" in
+            false) TARGETS=(spark4.1) ;;
+            true) TARGETS=(spark4.0 spark4.1) ;;
+            *) echo "::error::include_spark40 must be true or false"; exit 1 ;;
+          esac
 
           # Each target is rebased onto the previous one's release branch, starting
           # from the master release commit.
@@ -442,6 +441,9 @@ jobs:
           echo "  ✅ v${VERSION}-spark3.5 tag verified at the tagged commit"
           echo "  📋 Spark release branches processed"
           echo ""
-          echo "  Next: merge the spark4.0 rebase PR first, then spark4.1."
-          echo "        spark4.1 is maintained on top of spark4.0."
+          if [ "$INCLUDE_SPARK40" = "true" ]; then
+            echo "  Next: review any open spark4.0 release PR before spark4.1."
+          else
+            echo "  Next: review any open spark4.1 release PR."
+          fi
           echo "═══════════════════════════════════════════════════"

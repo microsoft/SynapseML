@@ -10,10 +10,15 @@ advertised runtime. Port CI using different wrappers does not prove the primary
 wheel works there. Resolve the distribution strategy and approved outputs before
 requesting approval or running any tag-creating operation below.
 
-The public release contains Maven CDN and Maven Central artifacts for `master`,
-`spark4.0` and `spark4.1`, plus the primary public PyPI wheel. For `1.2.0`, the
-Maven versions are `1.2.0`, `1.2.0-spark4.0` and `1.2.0-spark4.1`; PyPI receives
+The default public release contains Maven CDN and Maven Central artifacts for
+`master` and `spark4.1`, plus the primary public PyPI wheel. For `1.2.0`, the
+Maven versions are `1.2.0` and `1.2.0-spark4.1`; PyPI receives
 `synapseml==1.2.0`.
+
+Spark 4.0 remains available as an explicit opt-in, not a prerequisite.
+The default plan, bootstrap, builds, evidence and notes do not require its
+branch, candidate PR, CI, tags or packages. Removing it does not resolve a
+Spark 4.1 Python-wheel compatibility gap; the consumer-wheel gate still applies.
 
 Merging the automation does not publish a release. Workflow dispatch, reviewed
 source, exact-plan approval and signing approvals are separate steps.
@@ -79,8 +84,91 @@ same-repository port release PR authorizes tagging its recorded merge SHA.
 Manual conflict-resolution PRs use the same boundary. Fork PRs do not authorize
 the callback. Tags alone do not approve package publication.
 
-Full releases require all supported targets. `SKIP_SPARK40` must not be enabled.
-Failure to read that policy is an error, not evidence that it is disabled.
+Full releases require `master` and `spark4.1`. By default, Spark 4.1's release
+PR starts from the primary release directly. A configured `SKIP_SPARK40` does
+not block these two targets. It remains a veto when Spark 4.0 is selected;
+in that case a failed policy read stops the operation.
+
+### Explicitly include Spark 4.0
+
+Normal preparation always selects the default pair. To include Spark 4.0,
+dispatch the tag orchestrator explicitly against the same primary tag after
+preparing its reviewed source:
+
+```bash
+gh workflow run release-tag.yml --repo github.com/microsoft/SynapseML \
+  --ref v1.2.0 -F include_spark40=true
+```
+
+This processes Spark 4.0 first. If neither port PR exists, newly created PRs
+form the chain `master -> spark4.0 -> spark4.1`. Normal preparation has already
+dispatched Spark 4.1, so its existing PR or merged result is preserved, not
+restacked. Finish any running default-pair workflow before the explicit
+dispatch; never rewrite reviewed branches or released sources.
+Include `--targets master,spark4.0,spark4.1` when generating the plan and supply
+all three reviewed commit bindings. For pre-merge bootstrap, that explicit
+plan is the selection; the workflow's `include_spark40` input never changes it.
+There is no repository-wide positive opt-in that can silently alter a plan.
+
+Every new dispatch that should check or repair Spark 4.0 tags needs
+`include_spark40=true`. A default dispatch does not check or recover them.
+
+Before preparing opt-in documentation, confirm that the canonical repository's
+`SKIP_SPARK40` policy is absent or false and that the Spark 4.0 source and
+consumer-validation prerequisites can be met. An unreadable policy is not an
+absent policy. Resolve a veto or a known runtime blocker before committing
+documentation that promises its new artifacts. The tag and publication guards
+still recheck policy later; this preliminary check does not replace them.
+
+For opt-in documentation, prepare with `skip_docs=true` or run the local bump
+with `--skip-docs`. On the resulting preparation/candidate branch, update
+Spark 4.0's retained coordinates, notebook tags and Python examples in all
+source guides, plus `spark40Version` in `website/src/installArtifacts.js`.
+This includes `README.md`, `docs/Get Started/Install SynapseML.md`,
+`docs/Explore Algorithms/Deep Learning/Getting Started.md`,
+`docs/Explore Algorithms/Deep Learning/ONNX.md` and `docs/Reference/R Setup.md`.
+Find additional references with:
+
+```bash
+git grep -n -E 'spark4[.]0|pyspark>=4[.]0|spark40Version' \
+  -- README.md docs website/src/installArtifacts.js
+```
+
+Then run the skipped documentation steps from that branch's configured build
+environment. Do not repeat the version bump or alter older snapshots:
+
+```bash
+sbt convertNotebooks
+(cd website && npm exec -- docusaurus docs:version 1.2.0)
+python scripts/bump-version.py --finalize-docs --to 1.2.0
+(cd website && SYNAPSEML_DOCS_PREVIEW=true npm test && npm run build)
+```
+
+Review and commit the completed source and snapshot before approving the
+candidate. `website/test/installDocs.test.js` checks the coupled guides against
+the runtime metadata. Update Spark 4.0's publication lock only after verifying
+its artifacts. Default version bumps retain its previous references; they do
+not promise an optional build. Existing saved three-target schema-2 plans
+retain their identity and selection; changing to two targets requires a new
+plan and approval.
+The serialized `base_branch` records historical port lineage, not an additional
+release target or a requirement to fetch that branch.
+
+If Spark 4.0 is dropped **before tags or submissions exist**, restore its source
+guides and `spark40Version` to the verified retained version recorded in
+`website/test/published-spark-ports.lock`. Correct only the new, unpublished
+snapshot if it has already been generated; leave older published snapshots
+unchanged. Preserve the new master and Spark 4.1 references, rerun website
+checks, regenerate a two-target plan and obtain new approval. Retain the
+abandoned plan and any ledger rather than overwriting them.
+
+If any tag or submission already exists, stop and follow recovery with the
+original records. Do not edit a tagged candidate, silently drop its target,
+move tags, or raise the lock to an unpublished version. A separately reviewed
+documentation correction can restore the retained Spark 4.0 references after
+the unchanged primary source is integrated. Release selection and any partial
+publication must be reconciled explicitly before proceeding. Until corrected,
+keep website deployment blocked rather than weakening its publication checks.
 
 ### Before the automation PR is merged
 
@@ -97,8 +185,9 @@ require an up-to-date head, or cannot be read, stop before tagging and resolve t
 release procedure with the maintainer. Do not change protection to bypass it.
 
 Use the explicit bootstrap mode of the already-registered tag workflow.
-Prepare same-repository branches named `release-candidate/v1.2.0-master`,
-`release-candidate/v1.2.0-spark4.0` and `release-candidate/v1.2.0-spark4.1`.
+Prepare same-repository branches named `release-candidate/v1.2.0-master`
+and `release-candidate/v1.2.0-spark4.1`. Only an explicitly selected Spark 4.0
+release also needs `release-candidate/v1.2.0-spark4.0`.
 Each must include the automation and version/docs changes on its own current
 target baseline. Open a PR to the corresponding target without merging it.
 Require successful current-head Azure validation and Compile & Style Check.
@@ -175,6 +264,10 @@ snapshots rather than rewriting old ones.
 The new versioned installation guide omits the moving master-snapshot command.
 Finalization preserves that example in the current source guide and does not
 rewrite older documentation snapshots.
+Spark 4.0 installation coordinates, notebook tags and Python examples keep
+their last published version across default bumps. Website publication checks
+that retained version against its lock while requiring the new Spark 4.1
+version to be published. Preview mode does not relax production deployment.
 
 If documentation generation fails after the source version has changed, follow
 the stage-specific recovery commands printed by the bump tool. For an existing,
@@ -200,14 +293,13 @@ the checksum in the same PR. Missing or mismatched checksums stop bootstrap.
 
 ## 2. Bind the final source
 
-Fetch the canonical tags from `microsoft/SynapseML`. Set `MASTER_SHA`,
-`SPARK40_SHA` and `SPARK41_SHA` to the peeled commits of `v1.2.0`,
-`v1.2.0-spark4.0` and `v1.2.0-spark4.1`.
+Fetch the canonical tags from `microsoft/SynapseML`. Set `MASTER_SHA`
+and `SPARK41_SHA` to the peeled commits of `v1.2.0` and `v1.2.0-spark4.1`.
 
 ```bash
 python scripts/release/release_matrix.py \
   --version 1.2.0 --repositories oss --families maven \
-  --oss-commit "master=$MASTER_SHA,spark4.0=$SPARK40_SHA,spark4.1=$SPARK41_SHA" \
+  --oss-commit "master=$MASTER_SHA,spark4.1=$SPARK41_SHA" \
   --output ../release-runs/v1.2.0/oss/plan.json
 ```
 
