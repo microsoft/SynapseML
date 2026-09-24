@@ -118,12 +118,29 @@ jobs:
           TAG: ${{ steps.v.outputs.tag }}
         run: |
           set -euo pipefail
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release $TAG already exists — leaving it untouched."
-            echo "found=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "found=false" >> "$GITHUB_OUTPUT"
+          if ! STATUS=$(curl --disable --silent --show-error \
+            --connect-timeout 15 --max-time 60 \
+            --output /dev/null --write-out '%{http_code}' \
+            --header "Accept: application/vnd.github+json" \
+            --header "Authorization: Bearer $GH_TOKEN" \
+            --header "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}"); then
+            echo "::error::GitHub release lookup did not complete; refusing publication."
+            exit 1
           fi
+          case "$STATUS" in
+            200)
+              echo "Release $TAG already exists. Leaving it untouched."
+              echo "found=true" >> "$GITHUB_OUTPUT"
+              ;;
+            404)
+              echo "found=false" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "::error::GitHub release lookup returned HTTP $STATUS; refusing publication."
+              exit 1
+              ;;
+          esac
 
       - name: Generate and publish release notes
         if: steps.exists.outputs.found == 'false'

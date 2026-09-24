@@ -40,3 +40,10 @@ no three-family coverage is claimed. Local checks and previous-head CI are
 not current-head hosted validation or production approval. The Python-wheel
 distribution gate remains unresolved, and no production tags or packages
 were created for this follow-up.
+
+## Release lookup follow-up
+
+The `task-2628-release-lookup-attempt-1-review-*` reports cover the confirmed
+release lookup error-handling finding. The small fix received six themed
+coordinator passes, not independent multi-model coverage. Its workflow
+regression demonstrates the original failure before checking the correction.
