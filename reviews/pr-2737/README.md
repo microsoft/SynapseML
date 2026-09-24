@@ -2,6 +2,9 @@
 
 PR: https://github.com/microsoft/SynapseML/pull/2737
 
+The [follow-up series](#follow-up-frozen-source-review) supersedes the initial
+source review below. Both series and their original feedback are retained.
+
 This series reviews the three PR-loop Markdown files, not product code.
 Target: `681bd96990c421de3b91d2b1bf8f8f470764199d`.
 The reviewed pending content was published as
@@ -68,3 +71,58 @@ needed for this documentation-only patch.
 
 This is pre-publication review evidence, not proof of remote CI, automated
 current-head review, or human approval. Those remain separate PR gates.
+
+## Follow-up frozen-source review
+
+The follow-up clarifies pre-commit fixes for red CI, recorded merge-base
+baselines, environment isolation, pinned push leases, reviewer independence,
+post-push thread resolution, and complete diff-to-manifest verification.
+It does not add an executable workflow engine or change any pipeline.
+
+Target and merge base remain `681bd96990c421de3b91d2b1bf8f8f470764199d`.
+Canonical source manifest SHA-256:
+`1b6aa6ad0b95822a677321b0e60d151f9c786fa39591b04bc3b06bcbffbfd1a6`.
+Verified diff SHA-256:
+`47478a273c9b2f31b1695c94307b884fe808076acb776d2574587da41aa63a08`.
+
+| Source path | Mode | Normalized Git blob |
+| --- | --- | --- |
+| `.github/skills/synapseml-pr-loop/SKILL.md` | `100644` | `979200e29afcb3d82e4ae9e219a5efe36f629527` |
+| `.github/skills/synapseml-pr-loop/references/loop-control.md` | `100644` | `c8a53ef0b6ef3701786c5a0717874361fe130505` |
+| `.github/skills/synapseml-pr-loop/references/readiness-gates.md` | `100644` | `3ff834fc6352f36c7aac17833ff50f40efa7ecf1` |
+
+| Round | Accepted report | Result |
+| --- | --- | --- |
+| 1 | [GPT completeness](task-pr-loop-attempt-12-review-1-gpt-6-astra.md) | CLEAN |
+| 2 | [Gemini consistency](task-pr-loop-attempt-12-review-2-gemini-3.8-flash.md) | CLEAN |
+| 3 | [Opus robustness](task-pr-loop-attempt-12-review-3-claude-opus-5.5.md) | CLEAN |
+| 4 | [GPT correctness](task-pr-loop-attempt-12-review-4-gpt-6-astra.md) | CLEAN |
+| 5 | [Gemini validation](task-pr-loop-attempt-12-review-5-gemini-3.8-flash.md) | CLEAN |
+| 6 | [Opus polish](task-pr-loop-attempt-12-review-6-claude-opus-5.5.md) | CLEAN |
+
+These six independent sequential rounds cover exactly the manifest above.
+GPT/Gemini ran through CLI; Opus ran through the agent runner after CLI returned
+empty output. Incomplete output never counts as a review. Earlier verdicts
+were excluded from all reviewer contexts and tool searches.
+
+Preserved follow-up history:
+
+| Attempt | Rounds | Disposition |
+| --- | --- | --- |
+| 8 | 1, 2; round 3 had no usable output | Superseded; empty round is excluded |
+| 9 | 3 | Pinned lease finding fixed; appended resolution retained |
+| 10 | 1, 2, 3 | Thread resolution now waits for a published fix; empty manifests cannot dispatch diffs |
+| 11 | 1, 2, 3 | Diff fidelity finding fixed with byte-preserving generation and disposable-index replay |
+| 12 | 1-6 | Accepted frozen-source pre-commit pass |
+
+Nine disposable Git protocol tests pass: add/modify/delete with CRLF
+normalization; canonical sorting; rejection of extra paths; omission of
+reverted paths; NUL-safe Unicode/space paths; divergent target versus merge
+base; empty-manifest handling; ignored gitlinks; and binary/space-path diff
+replay that rejects a partial handoff. The actual publication diff also
+round-tripped to the exact source manifest. Source links and whitespace passed.
+
+The earlier published head passed CI after one targeted coverage-publication
+retry. That result does not cover this follow-up commit. This is a mandatory
+pre-commit pass, not a claim of final CI-qualified readiness; current-head CI,
+review coverage, and human approval remain separate remote gates.
