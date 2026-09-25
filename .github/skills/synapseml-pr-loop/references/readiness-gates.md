@@ -70,6 +70,16 @@ by current-head evidence.
 
 ## Review and validation
 
+- The fast test/review/comment/CI loop passed before the final expensive review.
+- The installed `/review-code` direct contract completed a final CI-qualified
+  pass with all six rounds clean
+  on the same final patch, with actual models and versioned review artifacts.
+  A later fix invalidates earlier results as specified in
+  [loop control](loop-control.md#evidence-invalidation).
+- The checkpoint records remaining risks and the exact source/target pair.
+  Exhausted budgets and unavailable reviewers are blockers, not clean reviews.
+- The dedicated worktree is clean, and the normalized reviewed-file manifest
+  recomputed from the final HEAD matches the frozen review manifest.
 - These evidence gates do not authorize CI. `/azp run`, `-RunPipeline`,
   workflow approval, and manual queueing require explicit CI authorization
   and, for external PRs, a fresh trusted safety check of the exact head.
