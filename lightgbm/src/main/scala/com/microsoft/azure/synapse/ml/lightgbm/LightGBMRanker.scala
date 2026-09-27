@@ -97,20 +97,12 @@ class LightGBMRanker(override val uid: String)
         case None => dataset
         case Some(groupingCol) =>
           val numPartitions = dataset.rdd.getNumPartitions
+          val groupingPartitions = math.min(numPartitions, numTasks)
 
-          // in barrier mode, will use repartition in super.prepareDataframe,
-          // this will let repartition on groupingCol fail
-          // so repartition here, then super.prepareDataframe won't repartition
-          if (getUseBarrierExecutionMode) {
-            if (numPartitions > numTasks) {
-              dataset.repartition(numTasks, new Column(groupingCol))
-            } else {
-              dataset.repartition(numPartitions, new Column(groupingCol))
-            }
-          } else {
-            // if not in barrier mode, coalesce won't break repartition by groupingCol
-            dataset.repartition(new Column(groupingCol))
-          }
+          // Use an explicit partition count so adaptive execution preserves the
+          // grouping topology in both barrier and non-barrier modes. The call to
+          // super below will not reduce or expand this already-bounded partitioning.
+          dataset.repartition(groupingPartitions, new Column(groupingCol))
       }
 
       super.prepareDataframe(repartitionedDataset, numTasks)
