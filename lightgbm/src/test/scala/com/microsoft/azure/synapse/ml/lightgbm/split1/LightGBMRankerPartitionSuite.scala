@@ -34,13 +34,13 @@ class LightGBMRankerPartitionSuite extends LightGBMTestUtils {
       .select(queryCol, labelCol, featuresCol)
   }
 
-  private def ranker(numTasks: Int): LightGBMRanker = {
+  private def ranker(numTasks: Int, useBarrierExecutionMode: Boolean = false): LightGBMRanker = {
     new LightGBMRanker()
       .setFeaturesCol(featuresCol)
       .setLabelCol(labelCol)
       .setGroupCol(queryCol)
       .setRepartitionByGroupingColumn(true)
-      .setUseBarrierExecutionMode(false)
+      .setUseBarrierExecutionMode(useBarrierExecutionMode)
       .setNumTasks(numTasks)
       .setNumThreads(1)
       .setNumLeaves(3)
@@ -69,16 +69,30 @@ class LightGBMRankerPartitionSuite extends LightGBMTestUtils {
     assert(groupLocations.values.forall(_.size === 1))
   }
 
-  test("grouping repartition does not expand inputs with fewer partitions") {
+  test("barrier grouping repartition does not expand inputs with fewer partitions") {
     val data = rankerData(inputPartitions = 2)
-    val partitions = partitionGroups(ranker(numTasks = 4).prepareDataframe(data, numTasks = 4))
+    val estimator = ranker(numTasks = 4, useBarrierExecutionMode = true)
+    val partitions = partitionGroups(estimator.prepareDataframe(data, numTasks = 4))
 
     assert(partitions.length === 2)
   }
 
-  test("non-barrier ranker fits with grouping repartition and AQE") {
-    val data = rankerData(inputPartitions = 4)
-    val model = ranker(numTasks = 2).fit(data)
+  test("non-barrier grouping expands inputs to the requested task count") {
+    val requestedTasks = 4
+    val data = rankerData(inputPartitions = 2)
+    val partitions = partitionGroups(ranker(requestedTasks).prepareDataframe(data, requestedTasks))
+
+    assert(partitions.length === requestedTasks)
+  }
+
+  test("non-barrier ranker fits when requested tasks exceed input partitions") {
+    val requestedTasks = 4
+    val data = rankerData(inputPartitions = 2)
+    val estimator = ranker(requestedTasks)
+    val partitions = partitionGroups(estimator.prepareDataframe(data, requestedTasks))
+    assert(partitions.length === requestedTasks)
+
+    val model = estimator.fit(data)
 
     try {
       assert(model.transform(data).count() === data.count())

@@ -97,11 +97,16 @@ class LightGBMRanker(override val uid: String)
         case None => dataset
         case Some(groupingCol) =>
           val numPartitions = dataset.rdd.getNumPartitions
-          val groupingPartitions = math.min(numPartitions, numTasks)
+          val groupingPartitions = if (getUseBarrierExecutionMode) {
+            math.min(numPartitions, numTasks)
+          } else {
+            numTasks
+          }
 
           // Use an explicit partition count so adaptive execution preserves the
-          // grouping topology in both barrier and non-barrier modes. The call to
-          // super below will not reduce or expand this already-bounded partitioning.
+          // grouping topology. Barrier mode preserves its existing no-expansion
+          // behavior, while non-barrier mode must create the numTasks workers that
+          // NetworkManager waits for.
           dataset.repartition(groupingPartitions, new Column(groupingCol))
       }
 
