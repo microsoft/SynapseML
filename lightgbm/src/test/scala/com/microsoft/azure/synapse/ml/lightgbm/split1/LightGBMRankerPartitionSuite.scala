@@ -3,7 +3,8 @@
 
 package com.microsoft.azure.synapse.ml.lightgbm.split1
 
-import com.microsoft.azure.synapse.ml.lightgbm.LightGBMRanker
+import com.microsoft.azure.synapse.ml.lightgbm.{LightGBMConstants, LightGBMRanker}
+import org.apache.spark.TaskContext
 import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.{col, floor}
@@ -34,24 +35,54 @@ class LightGBMRankerPartitionSuite extends LightGBMTestUtils {
       .select(queryCol, labelCol, featuresCol)
   }
 
-  private def ranker(numTasks: Int, useBarrierExecutionMode: Boolean = false): LightGBMRanker = {
+  private def ranker(numTasks: Int,
+                     useBarrierExecutionMode: Boolean = false,
+                     transferMode: String = LightGBMConstants.StreamingDataTransferMode): LightGBMRanker = {
     new LightGBMRanker()
       .setFeaturesCol(featuresCol)
       .setLabelCol(labelCol)
       .setGroupCol(queryCol)
       .setRepartitionByGroupingColumn(true)
       .setUseBarrierExecutionMode(useBarrierExecutionMode)
+      .setDataTransferMode(transferMode)
       .setNumTasks(numTasks)
       .setNumThreads(1)
-      .setNumLeaves(3)
-      .setNumIterations(1)
+      .setNumLeaves(8)
+      .setNumIterations(10)
+      // Bound a worker-count mismatch so it fails the test instead of waiting for the 1200s default.
+      .setTimeout(120)
       .setDefaultListenPort(getAndIncrementPort())
   }
 
+  private def assertFitRanksBySignal(estimator: LightGBMRanker, data: DataFrame): Unit = {
+    val model = estimator.fit(data)
+    try {
+      val scored = model.transform(data).select(labelCol, predCol).collect()
+      assert(scored.length === 512)
+      val predictions = scored.map(_.getDouble(1))
+      assert(predictions.forall(p => !p.isNaN && !p.isInfinite))
+
+      // The signal feature equals the relevance label, so a ranker trained on correctly grouped
+      // queries must score each higher relevance level above the one below it.
+      val meanByLabel = scored.groupBy(_.getDouble(0)).map { case (label, rows) =>
+        label -> rows.map(_.getDouble(1)).sum / rows.length
+      }
+      assert(meanByLabel.keySet === Set(0.0, 1.0, 2.0, 3.0))
+      (0 until 3).foreach { label =>
+        assert(meanByLabel(label + 1.0) > meanByLabel(label.toDouble),
+          s"Mean score for label ${label + 1} should exceed label $label: $meanByLabel")
+      }
+    } finally {
+      model.getModel.freeNativeMemory()
+    }
+  }
+
   private def partitionGroups(df: DataFrame): Array[(Int, Set[Long])] = {
-    df.select(queryCol).rdd.mapPartitionsWithIndex { case (partitionIndex, rows) =>
-      Iterator(partitionIndex -> rows.map(_.getLong(0)).toSet)
-    }.collect()
+    import df.sparkSession.implicits._
+    // mapPartitions runs once per partition, so empty partitions are still counted.
+    df.select(queryCol).as[Long].mapPartitions { groups =>
+      Iterator(TaskContext.getPartitionId() -> groups.toSet.toSeq)
+    }.collect().map { case (partitionIndex, groups) => partitionIndex -> groups.toSet }
   }
 
   test("non-barrier ranker preserves grouping partitions under AQE") {
@@ -92,12 +123,14 @@ class LightGBMRankerPartitionSuite extends LightGBMTestUtils {
     val partitions = partitionGroups(estimator.prepareDataframe(data, requestedTasks))
     assert(partitions.length === requestedTasks)
 
-    val model = estimator.fit(data)
+    assertFitRanksBySignal(estimator, data)
+  }
 
-    try {
-      assert(model.transform(data).count() === data.count())
-    } finally {
-      model.getModel.freeNativeMemory()
+  Seq(LightGBMConstants.StreamingDataTransferMode, LightGBMConstants.BulkDataTransferMode).foreach { mode =>
+    test(s"non-barrier ranker fits when AQE would coalesce the grouping shuffle ($mode)") {
+      // More input partitions than tasks is the common default shape. Without an explicit grouping
+      // partition count, AQE coalesces this shuffle to one partition and training waits for the rest.
+      assertFitRanksBySignal(ranker(numTasks = 4, transferMode = mode), rankerData(inputPartitions = 16))
     }
   }
 }
