@@ -99,6 +99,7 @@ for (const guide of installGuides) {
     assert.match(markdown, /LightGBMClassifier does not exist in the JVM/);
     assert.match(markdown, /choose exactly one complete runtime variant/i);
     assert.ok(markdown.includes(installArtifacts.repository));
+    assert.match(markdown, /^#{2,3} AWS EMR and pre-provisioned clusters$/m);
 
     for (const artifact of artifacts) {
       assert.ok(markdown.includes(artifact.coordinate));
