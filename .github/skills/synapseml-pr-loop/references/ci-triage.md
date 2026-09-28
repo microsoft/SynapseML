@@ -8,6 +8,11 @@ which category the failure belongs to.
 Trigger CI only with explicit authorization. For external PRs, first recheck
 the exact head using trusted safety guidance. Otherwise report missing CI as a
 blocker and remain read-only.
+The external-contributor skill's
+[conditional CI delegation](../../synapseml-external-contributor-review/references/ci-delegation.md)
+counts as authorization only for its recorded request, cleared revisions, and
+resource scope. It permits the trigger without another confirmation, not fixes,
+general PR writes, or bypassing protected-workflow approvals.
 
 After an authorized `/azp run`, confirm that the current-head build queued. Record its build
 ID, PR head SHA, and the trigger comment's `created_at` as its kickoff time.

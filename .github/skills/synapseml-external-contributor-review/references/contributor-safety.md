@@ -78,9 +78,12 @@ Do not execute suspicious code to find out whether it steals credentials.
   security review; never print, copy, or publish actual secret values.
 - Run contributor code first in a disposable, secret-free environment without
   inherited CLI sessions, credential files, managed identity, or broad network access.
-  Secret-dependent CI needs a separate, explicit trusted-maintainer approval
-  for the reviewed head and scoped permissions after the concern is resolved.
-  Permission to review or edit is not permission to expose pipeline keys.
+  Secret-dependent CI needs trusted-maintainer authorization for the reviewed
+  revision and scoped permissions after concerns are resolved. The conditional
+  grant in [CI delegation](ci-delegation.md) can provide that authorization for
+  existing approved PR-validation access; otherwise obtain it separately.
+  That contract also governs PR-head races and protected-resource access.
+  Safety clearance or permission to edit alone is not permission to expose keys.
 - Recheck after any new commit or change to the target, dependencies, pipeline,
   or proposed execution permissions. Recheck the head immediately before
   triggering or approving CI. Do not bypass protections by copying contributor

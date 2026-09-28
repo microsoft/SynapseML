@@ -28,6 +28,18 @@ failure never means zero attempts were used.
 | Limits | Cycles consumed, failure fingerprints, gauntlet passes, build kickoff/deadline, user-specified caps |
 | Resume | Exact blocker and next action, in-flight job IDs, worktree owner |
 
+For external or unverified authors, also record the trusted contributor-skill
+source, classification evidence, review-only, validation-only, or authorized-follow-up mode,
+separate edit/discussion/rewrite/CI permissions, and safety-cleared head and
+execution scope. Share this checkpoint with the contributor workflow; its link
+back to this loop reuses validation, not a new invocation or renewed budget.
+For delegated CI, retain the qualifying request, the cleared source/target pair,
+protected-resource restrictions, and trigger/build IDs. A reference to the skill
+alone is not a grant. Validation-only mode never authorizes integration or fixes.
+Recheck permissions and safety when the head, target, or execution scope
+changes. Preserve contributor commits and discussions unless the specific
+action is authorized; record handoff and outstanding sign-off separately.
+
 On resume, fetch the target and read the live PR, local status, and remote head.
 Check for another writer before editing. Compare the effective patch and
 evidence identities; the checkpoint does not override current repository state.
@@ -189,6 +201,13 @@ links, referenced flags, and existing helper regressions when helpers change.
 | Existing PR has red CI and pre-commit policy | Review the locally validated fix before committing, then require new-head CI and a final CI-qualified pass |
 | Target moved but integration is not authorized | Review the merge-base diff with target context; target-only edits are not PR reversions |
 | Review-only external PR | Read-only triage; no edits, CI trigger, or workflow approval |
+| External review delegates CI and the named scope is cleared | Run the PR loop's validation-only stages without another trigger confirmation |
+| Delegated CI returns a product failure | Preserve the finding; do not enter the fix loop without edit authorization |
+| Author classification is unverified | Apply the full external-contributor skill, not just its safety checklist |
+| External follow-up permits edits but not rewriting history | Preserve contributor commits; block target integration needing rewrite permission |
+| External fix is validated but thread resolution was not requested | Report the addressed finding and remaining gate; do not resolve the thread |
+| Contributor workflow links back to this loop | Reuse the same checkpoint, budget, and validation stages; do not recurse |
+| Authorized external follow-up is complete | Provide the contributor handoff or an unposted draft; do not infer sign-off or merge permission |
 | No failures but no Azure build | Missing gate, not green; trigger only after authorization and safety checks |
 | Green review on an older SHA | Wait within the configured timeout for current-head coverage |
 | Zero threads, collapsed review finding | Read body and triage finding; remain in fast loop |

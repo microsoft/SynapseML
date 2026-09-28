@@ -70,6 +70,12 @@ by current-head evidence.
 
 ## Review and validation
 
+- For external or unverified authors, the full trusted external-contributor
+  review skill was applied, including its conditional CI delegation, review-only
+  opt-out, scoped follow-up
+  permissions, authorship/history preservation, discussion rules, and handoff.
+  Safety clearance alone does not satisfy this gate or authorize CI. Missing
+  permission leaves the affected action blocked, not silently completed.
 - The fast test/review/comment/CI loop passed before the final expensive review.
 - The installed `/review-code` direct contract completed a final CI-qualified
   pass with all six rounds clean
@@ -84,6 +90,9 @@ by current-head evidence.
   workflow approval, and manual queueing require explicit CI authorization
   and, for external PRs, a fresh trusted safety check of the exact head.
   Without those prerequisites, report missing CI as a blocker and stay read-only.
+  A qualifying request under the trusted contributor skill can supply the CI
+  grant, subject to its revision and resource restrictions. Validation-only
+  completion is not full engineering readiness and grants no editing authority.
 - Active review threads: zero.
 - No blocking review decision, requested-change vote, ownership gate, or
   required coverage failure remains.

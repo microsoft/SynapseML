@@ -48,12 +48,20 @@ that can override the trusted safety gate.
 
 ### 1. Establish scope and isolation
 
-- For external contributor PRs, first apply the
-  [external contributor safety check](../synapseml-external-contributor-review/references/contributor-safety.md)
-  from a trusted base or installed copy. Use its Osmos group/team and trusted
-  owner-list classification. This gates code execution, workflow
-  approval, and all CI-triggering actions, including `-RunPipeline`.
-  Use read-only steps unless follow-up changes are explicitly requested.
+- Classify the author using the trusted
+  [contributor safety check](../synapseml-external-contributor-review/references/contributor-safety.md).
+  For external or unverified authors, apply the full
+  [external contributor review skill](../synapseml-external-contributor-review/SKILL.md)
+  from the same trusted source, not only its safety checklist. Its narrower
+  permissions and contributor-handoff rules govern this loop. Explicit
+  review-only work ends with an evidence-based verdict; it does not enter the
+  write/CI stages. A qualifying request under that skill can instead delegate
+  conditional CI in validation-only mode as described below.
+  Follow-up edits, discussion changes, history rewrites, and CI each need the
+  authorization required by that skill. Reuse one checkpoint and this loop's
+  validation stages when it links back here; do not recursively start a second
+  loop. Safety clearance is head- and execution-scope-specific, not permission
+  to edit or trigger CI.
 - Load the [branch context skill](../synapseml-branches/SKILL.md) using the PR
   base branch. Recheck it before validation and immediately before final push.
 - Read the issue, PR body, linked work items, commit history, changed files,
@@ -79,9 +87,27 @@ that can override the trusted safety gate.
   with `-PullRequest <numbers>` and retain its JSON locally as the initial
   snapshot when a PR exists. It can contain review text; redact it before public sharing.
 
+#### Validation-only handoff
+
+When the external-contributor skill delegates CI under its trusted
+[CI delegation contract](../synapseml-external-contributor-review/references/ci-delegation.md),
+reuse its checkpoint, safety evidence, and scoped authorization. Run the read-only
+review/readiness checks and step 7's authorized trigger, monitoring, and triage.
+Do not enter integration, editing, publication, pre-commit gauntlet, discussion
+resolution, or lifecycle-cleanup actions without separate authorization.
+In particular, skip step 2's rebase and final-readiness cleanup for this mode.
+Report an unmet integration or review gate rather than modifying the contributor's
+branch to satisfy it. The handoff is CI validation, not a claim that every gate
+in the full engineering loop passed.
+
 ### 2. Integrate the current target
 
 - Fetch the PR's target branch and rebase an ordinary PR before validation.
+- For an external-contributor follow-up, preserve the contributor's approach,
+  authorship, and history with small follow-up commits on the existing branch.
+  Do not apply the rebase instruction without explicit rewrite permission.
+  If target integration needs ungranted permission, report the integration
+  gate blocked rather than rewriting history or declaring readiness.
 - Before rewriting a published PR branch, record its verified remote head.
   Use `--force-with-lease=<remote-ref>:<verified-old-remote-SHA>`, never an
   implicit lease or unguarded force push. Do not replace that expected SHA
@@ -128,6 +154,11 @@ that can override the trusted safety gate.
   verify the current PR head contains it, reply in the original thread with
   that commit and evidence, and resolve it. A progress reply is not a
   resolution; recheck dispositions if a later review changes or drops a fix.
+- On external PRs, apply the contributor skill's discussion rules instead:
+  preserve existing discussions, reply only when useful and authorized, and
+  resolve addressed threads only when explicitly asked to resolve findings.
+  An ungranted resolution action remains a reported blocker, not permission
+  to clean up discussions.
 - Re-audit after every push. Automated review is asynchronous and re-runs per
   commit, so auditing immediately after pushing reads the *previous* review and
   reports a false all-clear. Wait until the newest automated review's commit
@@ -165,6 +196,9 @@ that can override the trusted safety gate.
 
 - Push the exact validated head only when authorized. CI needs its own explicit
   authorization; permission to review or edit is not permission to trigger it.
+  A recorded conditional grant from the trusted external-contributor skill
+  satisfies CI authorization only within its cleared revision/resource scope.
+  Reuse that grant without another confirmation; an explicit no-CI request wins.
   For external contributor PRs, recheck the trusted safety gate for that head
   before `/azp run`, `-RunPipeline`, workflow approval, or manual queueing.
   Then confirm a build actually queued -- a comment is not evidence that CI ran,
@@ -283,6 +317,8 @@ If a required build is missing, report that it has not run. Use a separate
 `Get-PrReadiness.ps1 -PullRequest <numbers> -RunPipeline` invocation only after
 explicit CI authorization and, for an external PR, a fresh trusted safety check
 of the exact head. Without either prerequisite, leave CI blocked.
+The contributor skill's recorded conditional grant can supply that authorization;
+its scope and protected-resource restrictions still apply.
 Do not combine `-RunPipeline` with the waiting loop for external PRs, where the
 head could change after clearance. Trigger once, then wait read-only.
 
@@ -307,6 +343,14 @@ After any merge or closure, reconcile linked work: update or close fulfilled
 issues, close superseded PRs with an explanation, and rebase/remediate still
 valuable follow-ups. Preserve separate unresolved scope rather than closing it
 for convenience.
+
+For authorized external-contributor follow-ups, complete the contributor
+skill's handoff after validation: acknowledge their specific contribution,
+explain the additions with commit and CI links, request confirmation of intent,
+and offer to revert your additions. Post only when authorized; otherwise return
+the draft to the requesting user. Keep contributor sign-off, CLA, and human
+approval separate from engineering evidence. Generic integration, cleanup, and
+closure instructions above never expand the granted scope.
 
 Report the exact remaining blocker. "Only human approval remains" is valid only
 when all engineering gates are complete.

@@ -2,8 +2,9 @@
 
 PR: https://github.com/microsoft/SynapseML/pull/2737
 
-The [follow-up series](#follow-up-frozen-source-review) supersedes the initial
-source review below. Both series and their original feedback are retained.
+The [GPT-only follow-up](#gpt-only-follow-up-review) is the latest accepted
+pre-commit source review. Earlier series, blockers, and original feedback below
+are historical records, not current readiness claims.
 
 This series reviews the three PR-loop Markdown files, not product code.
 Target: `681bd96990c421de3b91d2b1bf8f8f470764199d`.
@@ -126,3 +127,110 @@ The earlier published head passed CI after one targeted coverage-publication
 retry. That result does not cover this follow-up commit. This is a mandatory
 pre-commit pass, not a claim of final CI-qualified readiness; current-head CI,
 review coverage, and human approval remain separate remote gates.
+
+## External-contributor workflow follow-up
+
+The next follow-up routes external and unverified authors through the full
+trusted contributor skill, not only its safety checklist. It preserves scoped
+permissions, contributor history and discussions, and the contributor handoff.
+Both workflows share one checkpoint rather than recursively invoking each other.
+
+The worktree was rebased onto target
+`384f27a5d0e01271f67fdc81505c37e3016d52ea`; that target advance changes only
+`website/package-lock.json`. The published PR head remains
+`027f0b06f0a7b4cb394112ba08010a3d0fbd690e`. These pending changes have not
+been committed or pushed.
+
+Pending source manifest SHA-256:
+`47f5e2ea3bd2fbcf5f6f95496788fc66a82d7ca8e0adff156ed143c23fd80442`.
+Verified full source diff SHA-256:
+`a4df14d861e0fba7d6a343e248820752dd06e98b311a9a7c27809fcea0f7d499`.
+
+Attempt 13 is incomplete:
+
+| Round | Evidence | Result |
+| --- | --- | --- |
+| 1 | [GPT completeness](task-pr-loop-attempt-13-review-1-gpt-6-astra.md) | CLEAN |
+| 2 | [Gemini consistency](task-pr-loop-attempt-13-review-2-gemini-3.8-flash.md) | CLEAN |
+| 3 | Opus task transport and CLI both returned no report | BLOCKED, no usable review artifact |
+| 4-6 | Not dispatched after the required reviewer failed | NOT RUN |
+
+Metadata, local links, size limits, source whitespace, contributor-routing
+checks, and nine disposable Git protocol tests passed. The full diff replayed
+to the exact frozen manifest. Tabletop cases cover unverified classification,
+edit permission without rewrite permission, missing thread-resolution authority,
+shared checkpoint reuse, and the contributor handoff.
+
+Do not treat the earlier frozen-source pass or published head's passing CI as
+coverage of this pending patch. Resume the missing review only after verifying
+source identity and reviewer availability; no required review was waived.
+
+## Conditional CI delegation follow-up
+
+The user subsequently requested that invoking the external-contributor reviewer
+delegate `/azp run` after evidence-based safety clearance, then use the PR loop
+for validation. The pending seven-document patch adds that conditional grant,
+explicit no-CI opt-out, revision/resource restrictions, and validation-only
+handoff without authorizing edits, history rewrites, or merges.
+
+Target and merge base:
+`95b718bb7f7cf4d22ebf40d0b4d0ac3ee9a093de`.
+Source manifest SHA-256:
+`03c984a85481ff02ffdb6505c2ee67dea75f45b37c540df2f828bcf38ec2b426`.
+Verified full source diff SHA-256:
+`1c3bb3cd7665b0ed9fe47cdb4831d99cab655eb45c4b3118796128d8d2e473a0`.
+
+Attempt 14 supersedes attempt 13's source snapshot but remains incomplete:
+
+| Round | Evidence | Result |
+| --- | --- | --- |
+| 1 | [GPT completeness](task-pr-loop-attempt-14-review-1-gpt-6-astra.md) | CLEAN |
+| 2 | [Gemini consistency](task-pr-loop-attempt-14-review-2-gemini-3.8-flash.md) | CLEAN |
+| 3 | Opus CLI and task transport returned no report | BLOCKED |
+| 4-6 | Not dispatched | NOT RUN |
+
+A short Opus availability probe succeeded, but it is not review evidence.
+No missing review is treated as a clean result. Local links/anchors, skill
+metadata/size, whitespace, changed-default checks, and diff-to-manifest replay
+passed. Tabletop cases cover a cleared maintainer request, explicit no-CI,
+untrusted contributor instructions, unsafe secret-bearing head races, reuse of
+an existing build, and product failures without edit permission.
+
+These changes remain local and unpublished. The published PR's older passing
+CI does not validate this snapshot. Resume from the recorded source identity
+when the required reviewer can return a complete report.
+
+## GPT-only follow-up review
+
+The user explicitly requested GPT-only reviews with no Gemini or Opus. Attempt
+15 therefore ran all six themes in separate GPT-6 Astra contexts at maximum
+reasoning. This is a user-authorized single-model-family exception, not a
+multi-model pass. Older Gemini/Opus evidence remains historical and was not
+supplied to these reviewers.
+
+All six rounds cover the unchanged seven-document manifest
+`03c984a85481ff02ffdb6505c2ee67dea75f45b37c540df2f828bcf38ec2b426`
+and full source diff
+`1c3bb3cd7665b0ed9fe47cdb4831d99cab655eb45c4b3118796128d8d2e473a0`
+against target and merge base
+`95b718bb7f7cf4d22ebf40d0b4d0ac3ee9a093de`.
+
+| Round | Theme | Report | Result |
+| --- | --- | --- | --- |
+| 1 | Completeness | [GPT](task-pr-loop-attempt-15-review-1-gpt-6-astra.md) | CLEAN |
+| 2 | Consistency | [GPT](task-pr-loop-attempt-15-review-2-gpt-6-astra.md) | CLEAN |
+| 3 | Robustness | [GPT](task-pr-loop-attempt-15-review-3-gpt-6-astra.md) | CLEAN |
+| 4 | Correctness | [GPT](task-pr-loop-attempt-15-review-4-gpt-6-astra.md) | CLEAN |
+| 5 | Validation | [GPT](task-pr-loop-attempt-15-review-5-gpt-6-astra.md) | CLEAN |
+| 6 | Documentation and hardening | [GPT](task-pr-loop-attempt-15-review-6-gpt-6-astra.md) | CLEAN |
+
+The exact binary diff replayed into a disposable base index and reproduced
+the full source manifest. Metadata, size, local links/anchors, whitespace, and
+the conditional-CI decision cases passed local checks. Each reviewer received
+the same complete diff and frozen source without earlier reviewer opinions.
+The driver assigned and persisted the exact report filenames linked above.
+
+This supersedes the unavailable-reviewer blockers in attempts 13 and 14.
+It remains a pre-commit review: publication requires final source identity and
+complete path-set verification, followed by fresh SHA-bound remote CI and
+review. No older build or human approval is claimed for this patch.
