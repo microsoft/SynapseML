@@ -116,9 +116,11 @@ class LightGBMRankerPartitionSuite extends LightGBMTestUtils {
     assert(partitions.length === requestedTasks)
   }
 
+  // Non-barrier training needs every task running at once, and CI agents have two cores,
+  // so the fit tests below request two tasks.
   test("non-barrier ranker fits when requested tasks exceed input partitions") {
-    val requestedTasks = 4
-    val data = rankerData(inputPartitions = 2)
+    val requestedTasks = 2
+    val data = rankerData(inputPartitions = 1)
     val estimator = ranker(requestedTasks)
     val partitions = partitionGroups(estimator.prepareDataframe(data, requestedTasks))
     assert(partitions.length === requestedTasks)
@@ -130,7 +132,7 @@ class LightGBMRankerPartitionSuite extends LightGBMTestUtils {
     test(s"non-barrier ranker fits when AQE would coalesce the grouping shuffle ($mode)") {
       // More input partitions than tasks is the common default shape. Without an explicit grouping
       // partition count, AQE coalesces this shuffle to one partition and training waits for the rest.
-      assertFitRanksBySignal(ranker(numTasks = 4, transferMode = mode), rankerData(inputPartitions = 16))
+      assertFitRanksBySignal(ranker(numTasks = 2, transferMode = mode), rankerData(inputPartitions = 16))
     }
   }
 }
