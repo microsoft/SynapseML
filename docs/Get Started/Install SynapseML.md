@@ -192,6 +192,43 @@ pyspark --repositories "https://mmlspark.blob.core.windows.net/maven" \
   --packages "com.microsoft.azure:synapseml_2.12:1.1.3"
 ```
 
+## AWS EMR and pre-provisioned clusters
+
+`--packages` is supported for production Spark jobs as well as notebooks. For
+example, use it with `spark-submit` on EMR rather than downloading a single
+JAR manually:
+
+```bash
+spark-submit \
+  --repositories "https://mmlspark.blob.core.windows.net/maven" \
+  --packages "com.microsoft.azure:synapseml_2.12:1.1.3" \
+  job.py
+```
+
+The top-level `synapseml_2.12` artifact is an aggregate artifact: its POM
+references the SynapseML module JARs and their runtime dependencies, but the
+artifact JAR itself does not contain implementation classes. In particular,
+`IsolationForest` is in `synapseml-core_2.12` and also requires the LinkedIn
+Isolation Forest dependency. Spark resolves this complete dependency closure
+when `--packages` or `spark.jars.packages` is used.
+
+If a cluster image or pre-installed environment must be manually provisioned,
+use a Maven-compatible dependency resolver during setup to install the complete
+runtime dependency closure for the selected coordinate, and verify that the JARs
+are added to both the driver and executor JVM classpaths (for example via
+`spark.driver.extraClassPath` and `spark.executor.extraClassPath` or standard
+cluster classpath configuration).
+
+Manual JAR placement is error-prone:
+- Merely having a JAR localized or added to Python/YARN/Livy search paths does
+  not ensure that its classes are loaded into the Spark driver's JVM classpath.
+- Copying only the aggregate artifact or omitting transitive dependencies will
+  cause `ClassNotFoundException` or `NoClassDefFoundError` (often surfaced via
+  Py4J as `<class> does not exist in the JVM`) even if the Python module imports
+  successfully.
+
+Always pin a single coordinate matching the cluster's Spark and Scala versions.
+
 A similar technique can be used in other Spark contexts too. For example, you can use SynapseML
 in [AZTK](https://github.com/Azure/aztk/) by [adding it to the
 `.aztk/spark-defaults.conf`
