@@ -22,6 +22,7 @@ import org.apache.spark.sql.types._
 import scala.collection.immutable.HashSet
 import scala.language.existentials
 import scala.math.min
+import scala.util.control.NonFatal
 import scala.util.matching.Regex
 
 // scalastyle:off file.size.limit
@@ -182,9 +183,35 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
         df
       }
     } else {
+      fitNonBarrierPartitions(df, numTasks)
+    }
+  }
+
+  /** Gives non-barrier training exactly numTasks partitions.
+    *
+    * Without barrier execution the driver waits for exactly numTasks workers, so fewer partitions leave
+    * it waiting for tasks that never start. coalesce can only merge partitions, so an explicit numTasks
+    * above the input partition count needs a shuffle. An automatic numTasks is already capped at the input
+    * partition count. The count is only read for an explicit numTasks because reading it can run the
+    * input's adaptive shuffle stages early.
+    */
+  private def fitNonBarrierPartitions(df: DataFrame, numTasks: Int): DataFrame = {
+    if (getNumTasks > 0) {
+      val numPartitions = df.rdd.getNumPartitions
+      if (numPartitions < numTasks) {
+        log.info(s"Repartitioning $numPartitions input partitions to numTasks=$numTasks, because training " +
+          "without barrier execution mode waits for exactly numTasks workers")
+        expandPartitions(df, numTasks)
+      } else {
+        df.coalesce(numTasks)
+      }
+    } else {
       df.coalesce(numTasks)
     }
   }
+
+  /** Splits the training data into numTasks partitions when the input has fewer. */
+  protected def expandPartitions(df: DataFrame, numTasks: Int): DataFrame = df.repartition(numTasks)
 
   protected def getTrainingCols: Array[(String, Seq[DataType])] = {
     val colsToCheck: Array[(Option[String], Seq[DataType])] = Array(
@@ -758,7 +785,17 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
 
     // Execute the Tasks on workers
     val lightGBMBooster = try {
-      val booster = executePartitionTasks(ctx, dataframe, measures)
+      val booster = try {
+        executePartitionTasks(ctx, dataframe, measures)
+      } catch {
+        case NonFatal(jobFailure) =>
+          // Tasks that lose the driver report a misleading connection error, so prefer the driver's
+          // own explanation when it stopped waiting for tasks that never started.
+          throw networkManager.missingTasksFailure(LightGBMMissingTasksException.MaxDriverWait).map { missingTasks =>
+            missingTasks.addSuppressed(jobFailure)
+            missingTasks
+          }.getOrElse(jobFailure)
+      }
 
       // Wait for network to complete (should be done by now)
       networkManager.waitForNetworkCommunicationsDone()

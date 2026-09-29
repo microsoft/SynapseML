@@ -3,7 +3,8 @@
 
 package com.microsoft.azure.synapse.ml.lightgbm.split1
 
-import com.microsoft.azure.synapse.ml.lightgbm.{LightGBMConstants, NetworkManager, TaskMessageInfo, WorkerMessage}
+import com.microsoft.azure.synapse.ml.lightgbm.{LightGBMConstants, LightGBMMissingTasksException, NetworkManager,
+  TaskMessageInfo, WorkerMessage}
 import org.scalatest.funsuite.AnyFunSuite
 
 import java.io.{BufferedReader, BufferedWriter, IOException, InputStreamReader, OutputStreamWriter}
@@ -11,6 +12,7 @@ import java.net.{ConnectException, InetSocketAddress, ServerSocket, Socket, Sock
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable.ListBuffer
+import scala.concurrent.duration.{Duration, SECONDS}
 
 /** Covers the driver topology socket lifecycle behind repeated
   * "java.net.ConnectException: Connection refused" failures in distributed LightGBM training.
@@ -402,6 +404,47 @@ class DriverSocketRetrySuite extends AnyFunSuite {
   test("A worker that disconnects before sending a message reports the disconnect, not a NullPointerException") {
     val failure = intercept[IOException](NetworkManager.parseWorkerMessage(null))  //scalastyle:ignore null
     assert(failure.getMessage.contains("closed the connection before sending a status message"))
+  }
+
+  test("Non-barrier topology names the missing partitions when the driver stops waiting") {
+    val serverSocket = new ServerSocket(0)
+    val port = serverSocket.getLocalPort
+    // The accept timeout ends the round quickly; the manager timeout only bounds the wait below.
+    serverSocket.setSoTimeout(500)
+    val manager = NetworkManager(3, serverSocket, host, port, timeout, useBarrierExecutionMode = false)
+    var task = Option.empty[FakeTask]
+    try {
+      task = Some(new FakeTask(host, port, partitionId = 1))
+      task.get.report()
+
+      val failure = intercept[LightGBMMissingTasksException] {
+        manager.waitForNetworkCommunicationsDone()
+      }
+      assert(failure.getMessage.contains("from 1 of 3 training tasks"))
+      assert(failure.getMessage.contains("Missing partitions: 0, 2."))
+      assert(failure.getMessage.contains("numTasks"))
+      assert(failure.getCause.isInstanceOf[SocketTimeoutException])
+      assert(task.get.isClosedByDriver, "The driver kept the reported task waiting after giving up")
+      assert(manager.missingTasksFailure(Duration(5, SECONDS)).contains(failure))
+    } finally {
+      manager.closeConnections()
+      closeTasks(task)
+    }
+  }
+
+  test("Other topology failures are not reported as missing tasks") {
+    val (manager, _, port) = newManager(numTasks = 2)
+    var task = Option.empty[FakeTask]
+    try {
+      task = Some(new FakeTask(host, port, partitionId = 0))
+      task.get.report()
+
+      // The training job failing first closes the driver socket, which is not a missing-task timeout.
+      assert(manager.missingTasksFailure(Duration(5, SECONDS)).isEmpty)
+    } finally {
+      manager.closeConnections()
+      closeTasks(task)
+    }
   }
 
   test("The driver server socket is released when a training job fails before the round completes") {
