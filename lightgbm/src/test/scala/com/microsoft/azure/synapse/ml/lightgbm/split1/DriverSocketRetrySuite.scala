@@ -3,10 +3,10 @@
 
 package com.microsoft.azure.synapse.ml.lightgbm.split1
 
+import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.lightgbm.{LightGBMConstants, NetworkManager, NetworkParams, TaskMessageInfo,
   WorkerMessage, WorkerTaskIdentity}
 import org.apache.spark.TaskContext
-import org.apache.spark.sql.SparkSession
 import org.scalatest.funsuite.AnyFunSuite
 import org.slf4j.LoggerFactory
 
@@ -388,13 +388,9 @@ class DriverSocketRetrySuite extends AnyFunSuite {
   }
 
   test("A real Spark task snapshots one self-consistent attempt identity") {
-    val spark = SparkSession.builder()
-      .appName("Worker attempt identity regression")
-      .master("local[1]")
-      .config("spark.driver.host", host)
-      .config("spark.ui.enabled", "false")
-      .getOrCreate()
+    TestBase.resetSparkSession(numCores = Some(1))
     try {
+      val spark = TestBase.spark
       val identity = spark.sparkContext.parallelize(Seq(1), 1).mapPartitions { _ =>
         val taskContext = TaskContext.get()
         Iterator(NetworkManager.currentWorkerTaskIdentity(taskContext.taskAttemptId()))
@@ -405,7 +401,7 @@ class DriverSocketRetrySuite extends AnyFunSuite {
       assert(identity.taskAttemptId.exists(_ >= 0))
       assert(identity.attemptNumber.contains(0))
     } finally {
-      spark.stop()
+      TestBase.resetSparkSession()
     }
   }
 
