@@ -788,6 +788,16 @@ def _required_rows(plan):
                             )
                     if repository == "oss" and target.key == "master":
                         add("pypi", target, "pypi/synapseml", plan.oss_version)
+                    if (
+                        repository == "oss"
+                        and plan.schema_version == matrix.PUBLIC_SCHEMA_VERSION
+                    ):
+                        add(
+                            "dbc",
+                            target,
+                            f"dbcs/{verify.public_dbc_name(version)}",
+                            version,
+                        )
                 else:
                     package = matrix.package_name(
                         plan.private_profile, repository, family
@@ -846,6 +856,8 @@ def _inventory(plan, remote):
                 "status",
                 "expected_commit",
                 "actual_commit",
+                "sha256",
+                "size",
             )
             if key in row
         }
@@ -858,7 +870,7 @@ def _dependency_plan(plan, repositories):
     # These are read-only inventories of existing Maven dependencies. In
     # particular an Internal patch does not start an OSS release.
     internal = "internal" in repositories
-    return matrix.build_plan(
+    dependency = matrix.build_plan(
         plan.oss_version,
         plan.internal_patch if internal else "0",
         [target.key for target in plan.targets],
@@ -872,6 +884,13 @@ def _dependency_plan(plan, repositories):
             else None
         ),
     )
+    if not internal:
+        # Dependency inventories must not impose new publication obligations.
+        document = matrix.plan_to_dict(dependency)
+        document["schema_version"] = matrix.LEGACY_PUBLIC_SCHEMA_VERSION
+        document["plan_id"] = matrix.plan_digest(document)
+        dependency = matrix.load_plan(document, require_bound=True)
+    return dependency
 
 
 def _probes(plan, remote):
@@ -1680,6 +1699,8 @@ def _artifact_rows(report, repository, target, family, plan):
         }
         if target == "master":
             expected.add(("pypi", "pypi/synapseml", plan["oss_version"]))
+        if plan["schema_version"] == matrix.PUBLIC_SCHEMA_VERSION:
+            expected.add(("dbc", f"dbcs/{verify.public_dbc_name(version)}", version))
     else:
         name = matrix.package_name(plan.get("private_profile"), repository, family)
         if family == "maven":
@@ -1688,7 +1709,7 @@ def _artifact_rows(report, repository, target, family, plan):
     rows = []
     for row in report["rows"]:
         if row["target"] != target or row["kind"] not in (
-            {"maven", "maven-central", "pypi"} if family == "maven" else {family}
+            {"maven", "maven-central", "pypi", "dbc"} if family == "maven" else {family}
         ):
             continue
         if (row["kind"], row["name"], row["identifier"]) in expected:
@@ -2107,6 +2128,7 @@ def _validate_manifests(
                     target.oss_maven_version,
                     target.scala,
                     plan.oss_version if target.key == "master" else None,
+                    require_dbc=plan.schema_version == matrix.PUBLIC_SCHEMA_VERSION,
                 )
             except ValueError as error:
                 raise ReleaseError(str(error)) from error
@@ -2122,6 +2144,29 @@ def _validate_manifests(
     if seen != wanted:
         raise ReleaseError("Release provenance omits a required family")
     return normalized
+
+
+def _validate_dbc_content(plan, action, documents, report):
+    if plan.schema_version != matrix.PUBLIC_SCHEMA_VERSION:
+        return
+    expected_path = f"dbcs/{verify.public_dbc_name(action['version'])}"
+    published = [
+        row
+        for row in report["rows"]
+        if row["kind"] == "dbc" and row["target"] == action["target"]
+    ]
+    artifacts = [
+        artifact
+        for document in documents
+        for artifact in document["artifacts"]
+        if artifact["path"] == expected_path
+    ]
+    if (
+        len(published) != 1
+        or len(artifacts) != 1
+        or any(published[0].get(key) != artifacts[0][key] for key in ("sha256", "size"))
+    ):
+        raise ReleaseError("Public DBC hash differs from producer evidence")
 
 
 def _refresh_group(plan, state, actions, remote):
@@ -2153,7 +2198,7 @@ def _refresh_group(plan, state, actions, remote):
             publisher_commit=outcome["source_commit"],
             destinations=state["destinations"],
         )
-        if plan.schema_version == matrix.PUBLIC_SCHEMA_VERSION:
+        if plan.schema_version in matrix.PUBLIC_SCHEMA_VERSIONS:
             jobs = _public_jobs(jobs, from_timeline=True)
         for action in actions:
             action["receipt"] = {
@@ -2172,6 +2217,7 @@ def _refresh_group(plan, state, actions, remote):
                 "provenance": copy.deepcopy(documents),
             }
             if _artifact_present(state, action):
+                _validate_dbc_content(plan, action, documents, state["inventory"])
                 action["status"] = "complete"
             else:
                 action["status"] = "pending"
@@ -2978,7 +3024,7 @@ def validate_producer_evidence(plan, report):
         outcome = _validate_build(
             plan, candidate, build, _RecordedDefinition(definition)
         )
-        if plan.schema_version == matrix.PUBLIC_SCHEMA_VERSION and (
+        if plan.schema_version in matrix.PUBLIC_SCHEMA_VERSIONS and (
             build["templateParameters"] != operation["parameters"]
             or build["parameters"] != canonical(operation["variables"]).decode("ascii")
         ):
@@ -2994,7 +3040,7 @@ def validate_producer_evidence(plan, report):
             for job in run["jobs"]
         ):
             raise ReleaseError("Producer evidence has invalid Azure job facts")
-        if plan.schema_version == matrix.PUBLIC_SCHEMA_VERSION:
+        if plan.schema_version in matrix.PUBLIC_SCHEMA_VERSIONS:
             _public_jobs(run["jobs"])
         else:
             _jobs({"records": [{**job, "type": "Job"} for job in run["jobs"]]})
@@ -3008,6 +3054,7 @@ def validate_producer_evidence(plan, report):
         )
         if documents != run["provenance"]:
             raise ReleaseError("Producer evidence contains unvalidated artifact fields")
+        _validate_dbc_content(plan, first, documents, report)
         seen_actions.update(ids)
         seen_builds.add(build["id"])
     if seen_actions != set(blueprints):

@@ -33,7 +33,9 @@ PATCH_RE = re.compile(r"^(0|[1-9][0-9]*)$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 PLAN_ID_RE = re.compile(r"^[0-9a-f]{64}$")
 SCHEMA_VERSION = 1
-PUBLIC_SCHEMA_VERSION = 2
+LEGACY_PUBLIC_SCHEMA_VERSION = 2
+PUBLIC_SCHEMA_VERSION = 4
+PUBLIC_SCHEMA_VERSIONS = (LEGACY_PUBLIC_SCHEMA_VERSION, PUBLIC_SCHEMA_VERSION)
 PRIVATE_SCHEMA_VERSION = 3
 PUBLIC_PLAN_FIELDS = (
     "schema_version",
@@ -268,7 +270,7 @@ def plan_digest(data: dict) -> str:
 
 def _plan_document(plan: ReleasePlan) -> dict:
     data = asdict(plan)
-    if plan.schema_version == PUBLIC_SCHEMA_VERSION:
+    if plan.schema_version in PUBLIC_SCHEMA_VERSIONS:
         data = {key: data[key] for key in PUBLIC_PLAN_FIELDS}
         data["targets"] = [
             {key: target[key] for key in PUBLIC_TARGET_FIELDS}
@@ -285,8 +287,8 @@ def plan_to_dict(plan: ReleasePlan) -> dict:
         raise ValueError(
             "plan changed after its plan_id was calculated; generate a new plan"
         )
-    if plan.schema_version == PUBLIC_SCHEMA_VERSION:
-        expected = build_plan(
+    if plan.schema_version in PUBLIC_SCHEMA_VERSIONS:
+        expected = _derive_plan(
             plan.oss_version,
             target_keys=[target.key for target in plan.targets],
             oss_commits={
@@ -294,6 +296,8 @@ def plan_to_dict(plan: ReleasePlan) -> dict:
                 for target in plan.targets
                 if target.oss_commit is not None
             },
+            schema_version=plan.schema_version,
+            configuration=None,
         )
         if asdict(expected) != asdict(plan):
             raise ValueError(
@@ -304,9 +308,9 @@ def plan_to_dict(plan: ReleasePlan) -> dict:
 
 def require_public_plan(plan: ReleasePlan) -> ReleasePlan:
     """Public exports require their own exact, reapproved schema, never a projection."""
-    if plan.schema_version != PUBLIC_SCHEMA_VERSION:
+    if plan.schema_version not in PUBLIC_SCHEMA_VERSIONS:
         raise ValueError(
-            "public-only Maven plans require schema 2; regenerate and reapprove the plan"
+            "public-only Maven plans require schema 2 or 4; regenerate and reapprove the plan"
         )
     return load_plan(plan_to_dict(plan), require_bound=True)
 
@@ -349,7 +353,7 @@ def build_plan(
     upack_feed: Optional[str] = None,
     repositories: Optional[List[str]] = None,
 ) -> ReleasePlan:
-    """Create a public schema-2 plan or an explicitly configured local schema-3 plan."""
+    """Create a public schema-4 plan or an explicitly configured local schema-3 plan."""
     selected_repositories = _selection(
         repositories,
         REPOSITORIES,
@@ -442,7 +446,7 @@ def _derive_plan(
         raise ValueError("internal-only plans may select only the internal repository")
     if mode not in RELEASE_MODES:
         raise ValueError(f"mode must be one of {RELEASE_MODES}")
-    public = schema_version == PUBLIC_SCHEMA_VERSION
+    public = schema_version in PUBLIC_SCHEMA_VERSIONS
     if configuration is not None and OSS_MAVEN_PIPELINE_ID in {
         configuration["internal_maven_pipeline_id"],
         configuration["publish_pipeline_id"],
@@ -646,16 +650,17 @@ def load_plan(data: dict, require_bound: bool = False) -> ReleasePlan:
         raise ValueError("release plan must be a JSON object")
     if type(data.get("schema_version")) is not int or data["schema_version"] not in {
         SCHEMA_VERSION,
+        LEGACY_PUBLIC_SCHEMA_VERSION,
         PUBLIC_SCHEMA_VERSION,
         PRIVATE_SCHEMA_VERSION,
     }:
-        raise ValueError("release plan schema_version must be 1, 2 or 3")
+        raise ValueError("release plan schema_version must be 1, 2, 3 or 4")
     plan_id = data.get("plan_id")
     if not isinstance(plan_id, str) or not PLAN_ID_RE.fullmatch(plan_id):
         raise ValueError("release plan has no valid plan_id")
     if not hmac.compare_digest(plan_id, plan_digest(data)):
         raise ValueError("release plan digest does not match plan_id")
-    if data["schema_version"] == PUBLIC_SCHEMA_VERSION:
+    if data["schema_version"] in PUBLIC_SCHEMA_VERSIONS:
         if (
             set(data) != set(PUBLIC_PLAN_FIELDS)
             or data.get("repositories") != ["oss"]
@@ -672,7 +677,7 @@ def load_plan(data: dict, require_bound: bool = False) -> ReleasePlan:
             raise ValueError(
                 "public release plan fields differ from the allowlisted contract"
             )
-        expected = build_plan(
+        expected = _derive_plan(
             data["oss_version"],
             target_keys=[target["key"] for target in data["targets"]],
             oss_commits={
@@ -680,6 +685,8 @@ def load_plan(data: dict, require_bound: bool = False) -> ReleasePlan:
                 for target in data["targets"]
                 if target["oss_commit"] is not None
             },
+            schema_version=data["schema_version"],
+            configuration=None,
         )
         if plan_to_dict(expected) != data:
             raise ValueError(
@@ -812,7 +819,7 @@ def render_text(plan: ReleasePlan) -> str:
     plan_to_dict(plan)
     out: List[str] = []
     heading = f"SynapseML release plan  OSS v{plan.oss_version}  scope={plan.scope}"
-    if plan.schema_version != PUBLIC_SCHEMA_VERSION:
+    if plan.schema_version not in PUBLIC_SCHEMA_VERSIONS:
         heading += f"  Internal v{plan.internal_version}"
     out.append(heading)
     out.append(f"Plan {plan.plan_id}  schema={plan.schema_version}  mode={plan.mode}")
@@ -833,7 +840,7 @@ def render_text(plan: ReleasePlan) -> str:
         )
         if "internal" in plan.repositories:
             out.append(f"      ado/internal (in scope) : {', '.join(tp.internal_tags)}")
-        elif plan.schema_version != PUBLIC_SCHEMA_VERSION:
+        elif plan.schema_version not in PUBLIC_SCHEMA_VERSIONS:
             out.append("      ado/internal: not selected")
         out.append(f"      reviewed OSS commit: {tp.oss_commit or 'UNBOUND'}")
         if "internal" in plan.repositories:
@@ -855,6 +862,11 @@ def render_text(plan: ReleasePlan) -> str:
                 f"      pipeline={plan.oss_maven_pipeline_id} "
                 f"tag=refs/tags/{tp.oss_maven_tag}"
             )
+            if plan.schema_version == PUBLIC_SCHEMA_VERSION:
+                out.append(
+                    "      notebook archive: https://mmlspark.blob.core.windows.net/"
+                    f"dbcs/SynapseMLExamplesv{tp.oss_maven_version}.dbc"
+                )
         if "internal" in plan.repositories:
             out.append(
                 f"  [{tp.key}] Internal com.microsoft.azure:{package_name(plan.private_profile, 'internal', 'maven')}_{tp.scala}:"

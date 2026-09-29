@@ -49,6 +49,9 @@ class AlwaysPresentChecker:
     def public_pypi(self, _version):
         return verify.OK
 
+    def public_dbc(self, _version, _commit):
+        return verify.OK, "f" * 64, 321
+
     def ado_tag(self, _tag):
         return verify.OK, "ado-commit"
 

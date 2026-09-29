@@ -88,7 +88,7 @@ def encoded(data):
 
 
 def assert_public_document(data):
-    assert data["schema_version"] == 2
+    assert data["schema_version"] == matrix.PUBLIC_SCHEMA_VERSION
     assert set(data) == PLAN_KEYS
     assert all(set(target) == TARGET_KEYS for target in data["targets"])
     assert data["repositories"] == ["oss"]
@@ -528,7 +528,7 @@ def test_public_text_contains_only_public_release_sections(cli, monkeypatch):
     headings = [line for line in text.splitlines() if line and not line.startswith(" ")]
     assert headings == [
         f"SynapseML release plan  OSS v{plan.oss_version}  scope=full",
-        f"Plan {plan.plan_id}  schema=2  mode=production",
+        f"Plan {plan.plan_id}  schema={matrix.PUBLIC_SCHEMA_VERSION}  mode=production",
         "Repositories: oss; families: maven",
         "GIT TAGS",
         "MAVEN TAG BUILDS",
@@ -666,6 +666,9 @@ def test_public_inventory_does_not_load_private_package_configuration(monkeypatc
     monkeypatch.setattr(BASE_CHECKER, "github_tag", lambda *_args: (verify.OK, SHA))
     monkeypatch.setattr(BASE_CHECKER, "_maven", lambda *_args, **_kwargs: verify.OK)
     monkeypatch.setattr(BASE_CHECKER, "public_pypi", lambda *_args: verify.OK)
+    monkeypatch.setattr(
+        BASE_CHECKER, "public_dbc", lambda *_args: (verify.OK, "f" * 64, 321)
+    )
     rows, complete = verify.run_plan(plan)
     assert complete and rows
     assert_public_document(matrix.plan_to_dict(plan))

@@ -212,7 +212,9 @@ Import the example notebooks from the release tag matching your runtime:
 - [Spark 4.0 notebooks](https://github.com/microsoft/SynapseML/tree/v1.1.3-spark4.0/docs)
 - [Spark 4.1 notebooks](https://github.com/microsoft/SynapseML/tree/v1.1.3-spark4.1/docs)
 
-Automated releases do not publish a version-specific DBC archive.
+New automated releases include runtime-matched Databricks archives linked in
+their release notes. You can also download individual `.ipynb` files from the
+source links above and use Databricks **Workspace > Import**.
 
 ### Python Standalone
 

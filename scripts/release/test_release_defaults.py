@@ -35,10 +35,13 @@ def test_default_public_plan_and_cli_select_only_master_and_spark41(capsys):
 
 def test_explicit_three_target_plan_keeps_its_preexisting_identity():
     plan = bound_plan(["master", "spark4.0", "spark4.1"])
-    assert plan.plan_id == (
+    document = matrix.plan_to_dict(plan)
+    document["schema_version"] = 2
+    document["plan_id"] = matrix.plan_digest(document)
+    assert document["plan_id"] == (
         "2872f6280e4022bb5c86cf46c0eaae88b1fd4b3c96f231d31ed7a6bdc8f14443"
     )
-    document = matrix.plan_to_dict(plan)
+    assert document["plan_id"] != plan.plan_id
     assert (
         matrix.plan_to_dict(matrix.load_plan(document, require_bound=True)) == document
     )

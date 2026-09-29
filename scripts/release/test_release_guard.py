@@ -317,6 +317,7 @@ def test_full_release_cli_checks_actual_source_branches(tmp_path, monkeypatch, m
         return f"{SHA}\t{ref}"
 
     monkeypatch.setattr(guard, "_git", check_ref)
+    monkeypatch.setattr("release_dbc.prepare_notebooks", lambda *_: {})
     result = guard.main(["full-release", "--version", "1.1.4", "--repo", str(tmp_path)])
     assert observed == [
         "refs/heads/master",
@@ -456,6 +457,7 @@ def test_push_tags_cli_preserves_objects_and_always_cleans_staging(
 
     monkeypatch.setattr(guard, "_git", run)
     monkeypatch.setattr(guard.uuid, "uuid4", lambda: SimpleNamespace(hex="c" * 32))
+    monkeypatch.setattr("release_dbc.prepare_notebooks", lambda *_: {})
     result = guard.main(
         [
             "push-tags",
@@ -607,9 +609,12 @@ def test_missing_maven_files_cannot_produce_a_success_receipt(tmp_path):
 
 @pytest.fixture
 def staged_maven(tmp_path, request):
+    from test_release_dbc import write_bundle
+
     key = getattr(request, "param", "master")
     plan = public_plan(target_keys=[key], oss_commits={key: SHA})
     target = plan.targets[0]
+    write_bundle(tmp_path / "dbc", plan, target)
     ivy, output = tmp_path / "ivy", tmp_path / "published"
     ivy_fixture(ivy, target.oss_maven_version, target.scala)
     staging.stage_release(ivy, output, target.oss_maven_version, target.scala)
@@ -665,6 +670,8 @@ def test_maven_receipt_cli_hashes_the_actual_esrp_output(
         str(output),
         "--receipt",
         str(destination),
+        "--dbc-directory",
+        str(output.parent / "dbc"),
     ]
     if wheel is not None:
         arguments.extend(["--pypi-wheel", str(wheel)])
@@ -680,6 +687,10 @@ def test_maven_receipt_cli_hashes_the_actual_esrp_output(
     }
     if wheel is not None:
         expected[f"pypi/{wheel.name}"] = wheel.read_bytes()
+    from verify_release import public_dbc_name
+
+    dbc_name = public_dbc_name(target.oss_maven_version)
+    expected[f"dbcs/{dbc_name}"] = (output.parent / "dbc" / dbc_name).read_bytes()
     assert {item["path"] for item in receipt["artifacts"]} == set(expected)
     for item in receipt["artifacts"]:
         assert item["sha256"] == hashlib.sha256(expected[item["path"]]).hexdigest()

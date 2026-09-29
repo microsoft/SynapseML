@@ -13,7 +13,9 @@ requesting approval or running any tag-creating operation below.
 The default public release contains Maven CDN and Maven Central artifacts for
 `master` and `spark4.1`, plus the primary public PyPI wheel. For `1.2.0`, the
 Maven versions are `1.2.0` and `1.2.0-spark4.1`; PyPI receives
-`synapseml==1.2.0`.
+`synapseml==1.2.0`. New schema-4 plans also require the public notebook archives
+`SynapseMLExamplesv1.2.0.dbc` and `SynapseMLExamplesv1.2.0-spark4.1.dbc`
+in `https://mmlspark.blob.core.windows.net/dbcs`.
 
 Spark 4.0 remains available as an explicit opt-in, not a prerequisite.
 The default plan, bootstrap, builds, evidence and notes do not require its
@@ -22,6 +24,69 @@ Spark 4.1 Python-wheel compatibility gap; the consumer-wheel gate still applies.
 
 Merging the automation does not publish a release. Workflow dispatch, reviewed
 source, exact-plan approval and signing approvals are separate steps.
+
+## Notebook archive publication
+
+New public plans use schema 4. Each selected runtime's existing Azure release
+build produces a DBC from its exact approved source commit, strips saved
+outputs and execution metadata, and uses the Databricks Workspace API to
+export and reimport every notebook. Cell contents must survive the round-trip.
+Unsupported notebook formats or languages fail the build rather than silently
+dropping examples. This archive check does not execute the examples; the
+runtime's normal CI and service prerequisites still apply.
+
+Before a release, authorize the **SynapseML Build** service connection identity
+to create and delete its own temporary folders in the configured build
+Databricks workspace. Grant it **Storage Blob Data Contributor** scoped to
+the `mmlspark` storage account's `dbcs` container. Azure CLI uses the service
+connection's login; the job neither reads storage keys nor assigns roles.
+Use workload identity federation for the service connection where supported.
+Missing access blocks publication.
+
+The build retains the validated archive and `dbc-provenance.json` as a pipeline
+artifact before publication. It uploads and verifies the archive before PyPI
+or ESRP publication, so missing blob access cannot strand published packages
+without a release receipt. Uploads forbid overwriting. The final release
+receipt includes the DBC hash and size, and the release verifier downloads the
+archive anonymously, checks its source binding and content hash, and matches
+it to producer evidence. Missing or mismatched archives block release
+completion and release-note publication. Only verified notes advertise the
+new archive links; source documentation retains notebook links as a fallback.
+
+If an upload succeeds but a later step fails, retain the build artifacts and
+ledger. A subsequent archive build can reuse a public archive only when it is
+bound to the same approved plan and source; it reimports and compares all cells
+again. A conflicting version is an error, not permission to overwrite it.
+Follow the existing interrupted-release recovery procedure rather than
+blindly rerunning Maven or PyPI publication.
+An archive may therefore exist for an incomplete release. Do not advertise it
+until release evidence is complete. Do not replace the approved plan or reuse
+the version for different sources.
+If upload reports that no public archive exists, check the service connection's
+blob write access and retry the failed Release job. No PyPI or ESRP publication
+has run at that point. A conflicting public archive requires investigation;
+never overwrite it.
+
+The `full-release --repo` and `push-tags` guards check notebook admissibility
+from Git before publishing any tags, including port tags. Before merging the
+release-prepare PR and each port release PR, check out its head in a clone
+whose `origin` is `microsoft/SynapseML` and run:
+
+```bash
+python scripts/release/release_guard.py full-release --version 1.2.0 --repo .
+```
+
+Use the intended release version and add `--include-spark40 true` when selecting
+that optional runtime. The command reads remote branch refs and local committed
+notebooks without creating tags or uploading anything. Release preparation and
+tag workflows also run these guards automatically. Native Databricks validation
+still runs in the release build; neither check proves notebook code execution.
+
+Saved schema-2 plans retain their exact identity and original artifact scope;
+they do not gain permission to upload DBCs. Generate and explicitly approve a
+new schema-4 plan to select archive publication. This is required for 1.2.0
+if its earlier draft predates this integration. Do not edit a saved plan or
+move existing tags to retrofit the new behavior.
 
 ## Safety and public information
 
@@ -308,7 +373,8 @@ Never hand-edit coordinates, source bindings or the digest. Changing any of
 them requires a regenerated plan and new approval. A legacy metadata-bearing
 document is not made safe by relabeling it as an OSS plan.
 
-Public plans use schema 2. Old schema-1 production plans keep their original
+New public plans use schema 4; saved schema-2 plans keep their original scope.
+Old schema-1 production plans keep their original
 identity when read locally, but cannot execute or enter public workflows.
 Regenerate them, obtain approval for the new ID and start a new ledger.
 Optional private operations require a separate plan, ledger and explicit local
@@ -350,9 +416,10 @@ artifact gates remain enabled. Disabled optional tests are not dependencies;
 enabled optional tests must succeed.
 
 Release mode publishes Maven CDN artifacts, prepares signed Maven output, and
-publishes the primary public PyPI wheel. It does not upload notebooks, generated
-docs, R packages, module wheels or badges. Ordinary snapshot CI keeps its
-existing behavior.
+publishes the primary public PyPI wheel. Schema-4 plans also publish the approved
+runtime-specific DBC archives; saved schema-2 plans do not upload notebooks.
+Release mode does not upload generated docs, R packages, module wheels or badges.
+Ordinary snapshot CI keeps its existing behavior.
 
 For monitoring without queueing:
 

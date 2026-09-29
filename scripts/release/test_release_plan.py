@@ -161,7 +161,7 @@ def test_changed_plan_requires_new_approval_identity():
         matrix.load_plan(first)
 
 
-@pytest.mark.parametrize("version", [None, True, 0, 4, "1"])
+@pytest.mark.parametrize("version", [None, True, 0, 5, "1"])
 def test_unknown_or_mistyped_schema_is_rejected(version):
     data = matrix.plan_to_dict(bound_plan())
     data["schema_version"] = version

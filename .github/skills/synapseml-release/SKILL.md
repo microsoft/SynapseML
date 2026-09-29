@@ -12,6 +12,8 @@ Load the branch skill and read runtime versions from the selected source.
 ## Rules
 
 - Public releases select OSS and Maven, including primary public PyPI.
+  New schema-4 plans also require a runtime-matched public DBC archive per
+  selected target; saved schema-2 plans retain their original scope.
   Private integrations and their deployment procedures are outside this guide.
 - Default targets are `master` and `spark4.1`. Spark 4.0 requires explicit
   selection in a newly approved plan; never change a saved plan's targets.

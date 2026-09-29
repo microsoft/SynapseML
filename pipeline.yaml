@@ -642,6 +642,41 @@ jobs:
         inputs:
           azureSubscription: 'SynapseML Build'
           keyVaultName: mmlspark-keys
+      - task: AzureCLI@2
+        displayName: 'Build and round-trip release notebook archive'
+        condition: and(succeeded(), eq(variables.releaseDbc, 'true'))
+        inputs:
+          azureSubscription: 'SynapseML Build'
+          scriptLocation: inlineScript
+          scriptType: bash
+          inlineScript: |
+            set -euo pipefail
+            python3 scripts/release/release_dbc.py build \
+              --directory "$(Build.ArtifactStagingDirectory)/dbc-release-$(System.JobAttempt)"
+        env:
+          RELEASE_PLAN_BASE64: ${{ parameters.release_plan_base64 }}
+          RELEASE_PLAN_ID: ${{ parameters.release_plan_id }}
+          MML_ADB_WORKSPACE_HOST: "adb-1885762835647850.10.azuredatabricks.net"
+      - task: PublishPipelineArtifact@1
+        displayName: 'Retain validated release notebook archive'
+        condition: and(succeeded(), eq(variables.releaseDbc, 'true'))
+        inputs:
+          targetPath: '$(Build.ArtifactStagingDirectory)/dbc-release-$(System.JobAttempt)'
+          artifact: 'release-dbc-$(System.JobAttempt)'
+      - task: AzureCLI@2
+        displayName: 'Publish and verify public release notebook archive'
+        condition: and(succeeded(), eq(variables.releaseDbc, 'true'))
+        inputs:
+          azureSubscription: 'SynapseML Build'
+          scriptLocation: inlineScript
+          scriptType: bash
+          inlineScript: |
+            set -euo pipefail
+            python3 scripts/release/release_dbc.py publish \
+              --directory "$(Build.ArtifactStagingDirectory)/dbc-release-$(System.JobAttempt)"
+        env:
+          RELEASE_PLAN_BASE64: ${{ parameters.release_plan_base64 }}
+          RELEASE_PLAN_ID: ${{ parameters.release_plan_id }}
       - bash: |
           set -e
           source activate synapseml
@@ -692,13 +727,17 @@ jobs:
       - bash: |
           set -euo pipefail
           PYPI_ARGS=()
+          DBC_ARGS=()
           if [ "$(isPrimaryRelease)" = "true" ]; then
             PYPI_ARGS=(--pypi-wheel "target/scala-$(releaseScala)/generated/package/python/$(releasePypiWheel)")
+          fi
+          if [ "$(releaseDbc)" = "true" ]; then
+            DBC_ARGS=(--dbc-directory "$(Build.ArtifactStagingDirectory)/dbc-release-$(System.JobAttempt)")
           fi
           python3 scripts/release/release_guard.py maven \
             --artifact-root "$(Build.ArtifactStagingDirectory)/maven-release-$(System.JobAttempt)" \
             --receipt "$(Build.ArtifactStagingDirectory)/release-provenance/release-provenance.json" \
-            "${PYPI_ARGS[@]}"
+            "${PYPI_ARGS[@]}" "${DBC_ARGS[@]}"
         displayName: 'Record published Maven source and artifact hashes'
         env:
           RELEASE_PLAN_BASE64: ${{ parameters.release_plan_base64 }}

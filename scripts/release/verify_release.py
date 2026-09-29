@@ -55,6 +55,7 @@ from release_matrix import (  # noqa: E402
     parse_iterations,
     read_plan,
     PUBLIC_SCHEMA_VERSION,
+    PUBLIC_SCHEMA_VERSIONS,
     parse_plan_json,
     require_public_plan,
 )
@@ -74,6 +75,7 @@ PUBLIC_MAVEN_MODULES = (
     "synapseml-vw",
 )
 PYPI_BASE = "https://pypi.org/pypi"
+DBC_BASE = "https://mmlspark.blob.core.windows.net/dbcs"
 SKIP_CHOICES = {"github", "ado", "upack", "pip", "internal", "public"}
 
 OK, MISSING, SKIPPED = "PRESENT", "MISSING", "SKIPPED"
@@ -83,6 +85,10 @@ MAX_GITHUB_EVIDENCE_CHARS = 48000
 
 def public_pypi_wheel_name(version):
     return f"synapseml-{version}-py2.py3-none-any.whl"
+
+
+def public_dbc_name(version):
+    return f"SynapseMLExamplesv{version}.dbc"
 
 
 def maven_artifact_filename(filename, module, version, allow_unversioned=False):
@@ -105,7 +111,9 @@ def maven_artifact_filename(filename, module, version, allow_unversioned=False):
     raise ValueError("Maven artifact filename differs from the approved coordinate")
 
 
-def validate_public_maven_inventory(artifacts, version, scala, pypi_version=None):
+def validate_public_maven_inventory(
+    artifacts, version, scala, pypi_version=None, require_dbc=False
+):
     modules = {f"{module}_{scala}" for module in PUBLIC_MAVEN_MODULES}
     required = {
         f"{module}/{module}-{version}{suffix}"
@@ -116,12 +124,15 @@ def validate_public_maven_inventory(artifacts, version, scala, pypi_version=None
     wheel = f"pypi/{public_pypi_wheel_name(pypi_version)}" if pypi_version else None
     if wheel:
         required.add(wheel)
+    dbc = f"dbcs/{public_dbc_name(version)}" if require_dbc else None
+    if dbc:
+        required.add(dbc)
     observed = set()
     for artifact in artifacts:
         path = artifact["path"]
         if artifact["size"] <= 0:
             raise ValueError("release artifact must not be empty")
-        if path != wheel:
+        if path not in (wheel, dbc):
             parts = path.split("/")
             if len(parts) != 2 or parts[0] not in modules:
                 raise ValueError("unexpected Maven artifact layout")
@@ -340,6 +351,17 @@ class Checker:
         data = _json_get(url, self._public_headers)
         published = data and data.get("info", {}).get("version") == version
         return OK if published else MISSING
+
+    def public_dbc(self, version, commit):
+        if "public" in self.skip:
+            return SKIPPED, None, None
+        from release_dbc import fetch_public_archive
+
+        published = fetch_public_archive(version, commit)
+        if published is None:
+            return MISSING, None, None
+        data, metadata = published
+        return OK, metadata["sha256"], len(data)
 
     def ado_tag(self, tag: str) -> Tuple[str, Optional[str]]:
         if "ado" in self.skip or "internal" in self.skip:
@@ -575,6 +597,17 @@ def _check_plan(plan, token, gh_token, skip, strict, checker=None):
                 tp.oss_commit,
             )
         if include_oss and "maven" in plan.families:
+            if plan.schema_version == PUBLIC_SCHEMA_VERSION:
+                status, digest, size = c.public_dbc(tp.oss_maven_version, tp.oss_commit)
+                add(
+                    "dbc",
+                    tp.key,
+                    f"dbcs/{public_dbc_name(tp.oss_maven_version)}",
+                    tp.oss_maven_version,
+                    status,
+                    sha256=digest,
+                    size=size,
+                )
             for module in PUBLIC_MAVEN_MODULES:
                 artifact = f"{module}_{tp.scala}"
                 add(
@@ -673,6 +706,9 @@ class _InventoryChecker:
     def _artifact(self, *_args, **_kwargs):
         return SKIPPED
 
+    def public_dbc(self, *_args):
+        return SKIPPED, None, None
+
     github_tag = ado_tag = _tag
     public_maven = (
         public_central_maven
@@ -709,7 +745,7 @@ def build_report(plan, rows, complete):
         "coverage": _coverage(rows),
         "rows": rows,
     }
-    if plan.schema_version == PUBLIC_SCHEMA_VERSION:
+    if plan.schema_version in PUBLIC_SCHEMA_VERSIONS:
         del report["internal_patch"]
     return report
 
@@ -728,7 +764,7 @@ def validate_inventory(plan, report, max_age_seconds=3600):
     ):
         if report.get(key) != getattr(validated, key):
             raise ValueError(f"release evidence {key} does not match the approved plan")
-    if validated.schema_version != PUBLIC_SCHEMA_VERSION:
+    if validated.schema_version not in PUBLIC_SCHEMA_VERSIONS:
         if report.get("internal_patch") != validated.internal_patch:
             raise ValueError(
                 "release evidence internal_patch does not match the approved plan"
@@ -780,7 +816,7 @@ def validate_inventory(plan, report, max_age_seconds=3600):
         if row_key in seen or row_key not in required:
             raise ValueError("release evidence has duplicate or out-of-scope rows")
         seen.add(row_key)
-        if validated.schema_version == PUBLIC_SCHEMA_VERSION and set(row) != set(
+        if validated.schema_version in PUBLIC_SCHEMA_VERSIONS and set(row) != set(
             required[row_key]
         ):
             raise ValueError("public release evidence has unapproved row fields")
@@ -788,6 +824,13 @@ def validate_inventory(plan, report, max_age_seconds=3600):
             raise ValueError(
                 "release evidence contains a missing or skipped required row"
             )
+        if row["kind"] == "dbc" and (
+            not isinstance(row.get("sha256"), str)
+            or not re.fullmatch(r"[0-9a-f]{64}", row["sha256"])
+            or type(row.get("size")) is not int
+            or row["size"] <= 0
+        ):
+            raise ValueError("DBC inventory requires the public content hash and size")
         if row["kind"] in {"git-tag", "tag-set"}:
             wanted = required[row_key]["expected_commit"]
             if (
@@ -824,12 +867,14 @@ def validate_public_evidence(report):
     """Admit only a rederived public plan and its strictly checked producer facts."""
     if (
         not isinstance(report, dict)
-        or report.get("schema_version") != PUBLIC_SCHEMA_VERSION
+        or report.get("schema_version") not in PUBLIC_SCHEMA_VERSIONS
         or not isinstance(report.get("producer_evidence"), dict)
         or not isinstance(report["producer_evidence"].get("runs"), list)
         or not report["producer_evidence"]["runs"]
     ):
-        raise ValueError("public evidence requires a schema-2 public producer report")
+        raise ValueError(
+            "public evidence requires a schema-2 or schema-4 producer report"
+        )
     run = report["producer_evidence"]["runs"][0]
     try:
         payload = run["operation"]["parameters"]["release_plan_base64"]
