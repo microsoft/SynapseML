@@ -3,8 +3,12 @@
 
 package com.microsoft.azure.synapse.ml.lightgbm.split1
 
-import com.microsoft.azure.synapse.ml.lightgbm.{LightGBMConstants, NetworkManager, TaskMessageInfo, WorkerMessage}
+import com.microsoft.azure.synapse.ml.lightgbm.{LightGBMConstants, NetworkManager, NetworkParams, TaskMessageInfo,
+  WorkerMessage, WorkerTaskIdentity}
+import org.apache.spark.TaskContext
+import org.apache.spark.sql.SparkSession
 import org.scalatest.funsuite.AnyFunSuite
+import org.slf4j.LoggerFactory
 
 import java.io.{BufferedReader, BufferedWriter, IOException, InputStreamReader, OutputStreamWriter}
 import java.net.{ConnectException, InetSocketAddress, ServerSocket, Socket, SocketException, SocketTimeoutException}
@@ -349,6 +353,60 @@ class DriverSocketRetrySuite extends AnyFunSuite {
     assert(constructorArities.contains(1))
     assert(constructorArities.contains(5))
     assert(!constructorArities.contains(6))
+  }
+
+  test("Worker diagnostics name every Spark attempt coordinate without relabeling fields") {
+    val previous = WorkerMessage(LightGBMConstants.EnabledTask, "10.0.0.4", 12400, 3, "executor-1", 7,
+      stageId = Some(41), taskAttemptId = Some(9876543210123L), attemptNumber = Some(1))
+    val replacement = previous.copy(taskAttemptId = Some(9876543210456L), attemptNumber = Some(2))
+    val expectedPrevious = "stageId=41, stageAttemptNumber=7, partitionId=3, " +
+      "taskAttemptId=9876543210123, attemptNumber=1"
+    val expectedReplacement = "stageId=41, stageAttemptNumber=7, partitionId=3, " +
+      "taskAttemptId=9876543210456, attemptNumber=2"
+
+    assert(NetworkManager.supersededWorkerDiagnostic(previous) ==
+      s"driver ignoring message from superseded stage attempt 7; $expectedPrevious")
+    assert(NetworkManager.duplicateWorkerDiagnostic(previous, replacement) ==
+      s"driver replacing duplicate report for partition 3; previous $expectedPrevious; " +
+        s"replacement $expectedReplacement")
+  }
+
+  test("An unreachable driver reports the same complete Spark attempt identity") {
+    val identity = WorkerTaskIdentity(Some(41), 7, Some(9876543210123L), Some(2))
+    val cause = new ConnectException("Connection refused")
+    val failure = NetworkManager.driverUnreachableException(
+      NetworkParams(12400, "127.0.0.1", 12401, barrierExecutionMode = false),
+      3,
+      identity,
+      LoggerFactory.getLogger(getClass),
+      cause)
+
+    assert(failure.getCause eq cause)
+    assert(failure.getMessage.contains(
+      "stageId=41, stageAttemptNumber=7, partitionId=3, taskAttemptId=9876543210123, attemptNumber=2"))
+    assert(failure.getMessage.contains("inspect the logs of the first failed attempt of partition 3"))
+  }
+
+  test("A real Spark task snapshots one self-consistent attempt identity") {
+    val spark = SparkSession.builder()
+      .appName("Worker attempt identity regression")
+      .master("local[1]")
+      .config("spark.driver.host", host)
+      .config("spark.ui.enabled", "false")
+      .getOrCreate()
+    try {
+      val identity = spark.sparkContext.parallelize(Seq(1), 1).mapPartitions { _ =>
+        val taskContext = TaskContext.get()
+        Iterator(NetworkManager.currentWorkerTaskIdentity(taskContext.taskAttemptId()))
+      }.collect().head
+
+      assert(identity.stageId.exists(_ >= 0))
+      assert(identity.stageAttemptNumber == 0)
+      assert(identity.taskAttemptId.exists(_ >= 0))
+      assert(identity.attemptNumber.contains(0))
+    } finally {
+      spark.stop()
+    }
   }
 
   test("Worker status parsing preserves IPv6 hosts in current and legacy messages") {
