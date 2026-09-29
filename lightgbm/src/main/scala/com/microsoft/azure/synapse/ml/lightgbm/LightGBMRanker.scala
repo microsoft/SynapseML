@@ -92,27 +92,27 @@ class LightGBMRanker(override val uid: String)
   override def copy(extra: ParamMap): LightGBMRanker = defaultCopy(extra)
 
   override def prepareDataframe(dataset: Dataset[_], numTasks: Int): DataFrame = {
-    if (getRepartitionByGroupingColumn) {
-      val repartitionedDataset = getOptGroupCol match {
-        case None => dataset
-        case Some(groupingCol) =>
-          val numPartitions = dataset.rdd.getNumPartitions
-          val groupingPartitions = if (getUseBarrierExecutionMode) {
-            math.min(numPartitions, numTasks)
-          } else {
-            numTasks
-          }
+    getOptGroupCol.filter(_ => getRepartitionByGroupingColumn) match {
+      case Some(groupingCol) if !getUseBarrierExecutionMode =>
+        // An explicit partition count keeps adaptive execution from coalescing the grouping shuffle,
+        // and gives NetworkManager the numTasks workers it waits for. The result already has exactly
+        // numTasks partitions, so the base class's partition fitting is skipped.
+        castColumns(dataset.repartition(numTasks, new Column(groupingCol)), getTrainingCols)
+      case Some(groupingCol) =>
+        // Barrier mode never expands the input, and waits only for the tasks the stage actually runs.
+        val numPartitions = dataset.rdd.getNumPartitions
+        super.prepareDataframe(
+          dataset.repartition(math.min(numPartitions, numTasks), new Column(groupingCol)), numTasks)
+      case None =>
+        super.prepareDataframe(dataset, numTasks)
+    }
+  }
 
-          // Use an explicit partition count so adaptive execution preserves the
-          // grouping topology. Barrier mode preserves its existing no-expansion
-          // behavior, while non-barrier mode must create the numTasks workers that
-          // NetworkManager waits for.
-          dataset.repartition(groupingPartitions, new Column(groupingCol))
-      }
-
-      super.prepareDataframe(repartitionedDataset, numTasks)
-    } else {
-      super.prepareDataframe(dataset, numTasks)
+  /** Expands by the grouping column, so every query group stays within one partition. */
+  override protected def expandPartitions(df: DataFrame, numTasks: Int): DataFrame = {
+    getOptGroupCol match {
+      case Some(groupingCol) => df.repartition(numTasks, new Column(groupingCol))
+      case None => super.expandPartitions(df, numTasks)
     }
   }
 }

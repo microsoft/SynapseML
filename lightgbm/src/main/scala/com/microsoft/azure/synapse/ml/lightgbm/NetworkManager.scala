@@ -14,7 +14,7 @@ import org.slf4j.Logger
 
 import java.io.{BufferedReader, BufferedWriter, IOException, InputStreamReader, OutputStreamWriter}
 import java.net.{ConnectException, ServerSocket, Socket, SocketException, SocketTimeoutException}
-import java.util.concurrent.{ExecutorService, Executors}
+import java.util.concurrent.{ExecutorService, Executors, TimeoutException}
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
@@ -150,8 +150,10 @@ object NetworkManager {
         "partial task retry."
     } else {
       s"LightGBM task ($identity) could not reach the driver network topology endpoint " +
-        s"$endpoint on its first attempt. Verify that executors are allowed to open connections to the driver " +
-        "on that port, and that the driver was not shut down before training started."
+        s"$endpoint on its first attempt. Either executors cannot open connections to the driver on that " +
+        "port, or the driver stopped waiting before this task reported, for example because numTasks is " +
+        "larger than the number of tasks Spark can run at once. Check the driver log for a LightGBM " +
+        "missing-tasks error."
     }
     log.error(message, cause)
     new Exception(message, cause)
@@ -600,7 +602,33 @@ case class NetworkManager(numTasks: Int,
         if (reportedTaskCount < numTasks) connectToWorkers()
       }
 
-      connectToWorkers()
+      try {
+        connectToWorkers()
+      } catch {
+        case acceptTimeout: SocketTimeoutException =>
+          // Tasks that already reported are disconnected next and fail with "could not reach the driver",
+          // which hides the fact that the driver gave up waiting for the rest.
+          val missing = synchronized((0 until numTasks).filterNot(taskConnectionsByPartition.contains))
+          val failure = LightGBMMissingTasksException(numTasks, missing, timeout, acceptTimeout)
+          log.error(failure.getMessage)
+          throw failure
+      }
+    }
+  }
+
+  /** Returns the driver's missing-task timeout, if that is what ended the topology round.
+    *
+    * Closing the connections first releases a driver still blocked in accept(), so the wait is short.
+    */
+  private[lightgbm] def missingTasksFailure(maxWait: Duration): Option[LightGBMMissingTasksException] = {
+    closeConnections()
+    try {
+      Await.ready(networkCommunicationThread, maxWait)
+    } catch {
+      case _: TimeoutException => ()
+    }
+    networkCommunicationThread.value.flatMap(_.failed.toOption).collect {
+      case failure: LightGBMMissingTasksException => failure
     }
   }
 

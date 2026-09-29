@@ -404,6 +404,20 @@ When this happens, the reported error explains that it's a retry that could not 
 names the partition to investigate. Look for the **first** failed attempt of that partition in the executor
 logs — that attempt holds the real cause.
 
+#### When numTasks is larger than the tasks Spark can run at once
+
+Without barrier execution mode, the driver waits for exactly *numTasks* training tasks to report, and they
+must all run at the same time. SynapseML repartitions the input when an explicit *numTasks* is larger than its
+partition count, but Spark can only run as many tasks at once as the cluster has task slots (each executor's
+cores divided by `spark.task.cpus`, summed across executors). If *numTasks* is larger than that, the tasks
+that started wait for tasks that can't start until they finish.
+
+After *timeout* seconds, the driver stops waiting and training fails with an error that lists how many tasks
+reported and which partitions are missing. Other tasks may then also report "could not reach the driver" or
+"Connection refused"; those errors are a result of the timeout. To fix it, lower *numTasks* to the number of
+task slots, or leave *numTasks* unset so SynapseML chooses it. Also check that no executor was lost or still
+starting when training began.
+
 ### IPv6 clusters
 
 Distributed training works on clusters whose executors only have IPv6 addresses.
