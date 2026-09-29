@@ -109,6 +109,16 @@ class InventoryChecker:
     def public_pypi(self, version):
         return self.remote.present("oss", "maven", version)
 
+    def public_dbc(self, version, commit):
+        status = self.remote.present("oss", "dbc", version)
+        path = f"dbcs/{verify.public_dbc_name(version)}"
+        for documents in self.remote.manifests.values():
+            for document in documents:
+                for artifact in document["artifacts"]:
+                    if artifact["path"] == path:
+                        return status, artifact["sha256"], artifact["size"]
+        return status, "f" * 64, 321
+
     def pip(self, package, version, internal=False):
         return self.remote.present("internal" if internal else "oss", "pip", version)
 
@@ -369,6 +379,17 @@ class FakeRemote:
                     "path": f"pypi/{verify.public_pypi_wheel_name(plan.oss_version)}",
                     "sha256": "e" * 64,
                     "size": 123,
+                }
+            )
+        if (
+            build["definition"]["id"] == matrix.OSS_MAVEN_PIPELINE_ID
+            and plan.schema_version == matrix.PUBLIC_SCHEMA_VERSION
+        ):
+            self.manifests[build_id][0]["artifacts"].append(
+                {
+                    "path": f"dbcs/{verify.public_dbc_name(tp.oss_maven_version)}",
+                    "sha256": "f" * 64,
+                    "size": 321,
                 }
             )
         if build["definition"]["id"] == PUBLISH_PIPELINE_ID:
@@ -2050,6 +2071,7 @@ def test_internal_maven_preserves_v_in_parameter_and_branch(cli, target):
 
 def produced_maven_receipt(plan, build_id, root, target_key="master"):
     from release_guard import maven_receipt
+    from test_release_dbc import write_bundle
 
     target = next(target for target in plan.targets if target.key == target_key)
     for module in verify.PUBLIC_MAVEN_MODULES:
@@ -2080,7 +2102,11 @@ def produced_maven_receipt(plan, build_id, root, target_key="master"):
                 f"synapseml-{plan.oss_version}.dist-info/METADATA",
                 f"Metadata-Version: 2.1\nName: synapseml\nVersion: {plan.oss_version}\n",
             )
-    return maven_receipt(plan, target, root, build_id, pypi_wheel=wheel)
+    directory = root.parent / "dbc"
+    write_bundle(directory, plan, target)
+    return maven_receipt(
+        plan, target, root, build_id, pypi_wheel=wheel, dbc_directory=directory
+    )
 
 
 @pytest.mark.parametrize("include_spark40", [False, True])
@@ -2179,10 +2205,14 @@ def test_public_maven_receipt_uses_the_actual_guard_producer(cli, tmp_path):
     assert report["complete"]
     receipt = action(saved(cli), "oss", "maven")["receipt"]["provenance"][0]
     assert receipt == produced
-    assert len(receipt["artifacts"]) == len(verify.PUBLIC_MAVEN_MODULES) * 2 + 2
+    assert len(receipt["artifacts"]) == len(verify.PUBLIC_MAVEN_MODULES) * 2 + 3
     for item in receipt["artifacts"]:
-        base = root.parent if item["path"].startswith("pypi/") else root
-        content = base.joinpath(*item["path"].split("/")).read_bytes()
+        if item["path"].startswith("dbcs/"):
+            path = root.parent / "dbc" / item["path"].split("/")[1]
+        else:
+            base = root.parent if item["path"].startswith("pypi/") else root
+            path = base.joinpath(*item["path"].split("/"))
+        content = path.read_bytes()
         assert item["sha256"] == hashlib.sha256(content).hexdigest()
         assert item["size"] == len(content)
 
@@ -3480,6 +3510,13 @@ def test_public_notes_export_fits_github_and_passes_the_real_guard(
     }
     assert len(json.dumps(payload)) < 65535
     monkeypatch.setenv("RELEASE_EVIDENCE_BASE64", encoded)
+    import release_dbc
+
+    monkeypatch.setattr(
+        release_dbc,
+        "fetch_public_archive",
+        lambda *_args: (b"x" * 321, {"sha256": "f" * 64}),
+    )
     header = tmp_path / "installation.md"
     arguments = [
         "notes",

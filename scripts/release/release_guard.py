@@ -101,7 +101,48 @@ def notes_installation(plan):
         f"`v{plan.oss_version}-spark{target.spark}` |"
         for target in plan.targets
     )
+    from release_matrix import PUBLIC_SCHEMA_VERSION
+
+    if plan.schema_version == PUBLIC_SCHEMA_VERSION:
+        from verify_release import DBC_BASE, public_dbc_name
+
+        rows.extend(["", "## Databricks example notebooks", ""])
+        rows.extend(
+            f"- [Spark {target.spark} notebook archive]"
+            f"({DBC_BASE}/{public_dbc_name(target.oss_maven_version)})"
+            for target in plan.targets
+        )
+        rows.extend(
+            [
+                "",
+                "Import the runtime-matched DBC using Databricks Workspace > Import.",
+                "Archive validation preserves notebook contents; individual examples "
+                "may require credentials, datasets or additional dependencies.",
+            ]
+        )
     return "\n".join(rows) + "\n"
+
+
+def verify_notebook_downloads(plan, report):
+    from release_dbc import fetch_public_archive
+    from release_matrix import PUBLIC_SCHEMA_VERSION
+
+    if plan.schema_version != PUBLIC_SCHEMA_VERSION:
+        return
+    for target in plan.targets:
+        expected = next(
+            row
+            for row in report["rows"]
+            if row["kind"] == "dbc" and row["target"] == target.key
+        )
+        current = fetch_public_archive(target.oss_maven_version, target.oss_commit)
+        if current is None or (current[1]["sha256"], len(current[0])) != (
+            expected["sha256"],
+            expected["size"],
+        ):
+            raise ValueError(
+                "Current public DBC download differs from producer evidence"
+            )
 
 
 def maven_plan(payload, approval, source_ref, commit):
@@ -401,7 +442,9 @@ def pypi_wheel_receipt(path, version):
     return {"path": f"pypi/{expected}", "sha256": digest.hexdigest(), "size": size}
 
 
-def maven_receipt(plan, target, artifact_root, build_id, pypi_wheel=None):
+def maven_receipt(
+    plan, target, artifact_root, build_id, pypi_wheel=None, dbc_directory=None
+):
     artifacts = []
     root = Path(artifact_root)
     expected = {f"{module}_{target.scala}" for module in PUBLIC_MAVEN_MODULES}
@@ -451,6 +494,17 @@ def maven_receipt(plan, target, artifact_root, build_id, pypi_wheel=None):
         artifacts.append(pypi_wheel_receipt(pypi_wheel, plan.oss_version))
     elif pypi_wheel is not None:
         raise ValueError("only the primary target publishes to public PyPI")
+    from release_matrix import PUBLIC_SCHEMA_VERSION
+
+    if plan.schema_version == PUBLIC_SCHEMA_VERSION:
+        from release_dbc import staged_archive
+
+        if dbc_directory is None:
+            raise ValueError("release approval requires its published DBC archive")
+        _, _, dbc = staged_archive(dbc_directory, plan, target)
+        artifacts.append({key: dbc[key] for key in ("path", "sha256", "size")})
+    elif dbc_directory is not None:
+        raise ValueError("legacy approved plans do not authorize DBC publication")
     return {
         "schema_version": 1,
         "plan_id": plan.plan_id,
@@ -474,7 +528,9 @@ def main(argv=None):
     full.add_argument("--skip-spark40", default="false", choices=("true", "false"))
     full.add_argument("--include-spark40", default="false", choices=("true", "false"))
     full.add_argument(
-        "--repo", type=Path, help="Also confirm every release branch exists on origin"
+        "--repo",
+        type=Path,
+        help="Also confirm release branches exist on origin and check notebook admissibility at HEAD",
     )
     notes = commands.add_parser("notes")
     notes.add_argument("--plan", required=True)
@@ -504,6 +560,7 @@ def main(argv=None):
     )
     maven.add_argument("--receipt", type=Path)
     maven.add_argument("--pypi-wheel", type=Path)
+    maven.add_argument("--dbc-directory", type=Path)
     args = parser.parse_args(argv)
     try:
         if args.command == "full-release":
@@ -513,6 +570,9 @@ def main(argv=None):
                     ref = f"refs/heads/{target.branch}"
                     if ref not in _remote_refs(args.repo, "--heads", (ref,)):
                         raise ValueError(f"required release branch is missing: {ref}")
+                from release_dbc import prepare_notebooks
+
+                prepare_notebooks(args.repo, "HEAD")
             print(json.dumps(plan_to_dict(plan), indent=2))
         elif args.command == "verify-tag":
             verify_remote_tag(args.repo, args.tag, args.commit)
@@ -525,6 +585,9 @@ def main(argv=None):
                 )
             )
         elif args.command == "push-tags":
+            from release_dbc import prepare_notebooks
+
+            prepare_notebooks(args.repo, args.commit)
             push_tags(args.repo, args.tag, args.commit)
             print(json.dumps({"pushed_tags": args.tag}))
         elif args.command == "notes":
@@ -536,6 +599,7 @@ def main(argv=None):
                 with Path(args.evidence).open(encoding="utf-8-sig") as stream:
                     report = parse_plan_json(stream.read())
             validate_evidence(plan, report)
+            verify_notebook_downloads(plan, report)
             if args.installation_output:
                 with args.installation_output.open("x", encoding="utf-8") as stream:
                     stream.write(notes_installation(plan))
@@ -559,12 +623,15 @@ def main(argv=None):
                     args.artifact_root,
                     int(os.environ.get("BUILD_BUILDID", "0")),
                     args.pypi_wheel,
+                    args.dbc_directory,
                 )
                 args.receipt.parent.mkdir(parents=True, exist_ok=True)
                 args.receipt.write_text(
                     json.dumps(receipt, indent=2) + "\n", encoding="utf-8"
                 )
             else:
+                from release_matrix import PUBLIC_SCHEMA_VERSION
+
                 for name, value in (
                     ("SYNAPSEML_RELEASE_TAG", target.oss_maven_tag),
                     ("SYNAPSEML_RELEASE_COMMIT", target.oss_commit),
@@ -573,6 +640,10 @@ def main(argv=None):
                     ("releaseScala", target.scala),
                     ("releasePypiWheel", public_pypi_wheel_name(plan.oss_version)),
                     ("isPrimaryRelease", str(target.key == "master").lower()),
+                    (
+                        "releaseDbc",
+                        str(plan.schema_version == PUBLIC_SCHEMA_VERSION).lower(),
+                    ),
                 ):
                     print(f"##vso[task.setvariable variable={name}]{value}")
     except (ValueError, OSError) as error:

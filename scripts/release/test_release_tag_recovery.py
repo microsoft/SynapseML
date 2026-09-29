@@ -396,9 +396,23 @@ def release_repo(tmp_path, request):
         "release_matrix.py",
         "verify_release.py",
         "release_config.py",
+        "release_dbc.py",
     ):
         shutil.copyfile(ROOT / "scripts" / "release" / name, tooling / name)
-    git(repo, "add", "scripts")
+    docs = repo / "docs"
+    docs.mkdir()
+    (docs / "Example.ipynb").write_text(
+        json.dumps(
+            {
+                "nbformat": 4,
+                "nbformat_minor": 4,
+                "metadata": {"kernelspec": {"language": "python"}},
+                "cells": [{"cell_type": "code", "source": "print(1)", "metadata": {}}],
+            }
+        ),
+        encoding="utf-8",
+    )
+    git(repo, "add", "scripts", "docs")
 
     def commit(name):
         (repo / name).write_text(name, encoding="utf-8")

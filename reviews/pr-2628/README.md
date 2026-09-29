@@ -47,3 +47,43 @@ The `task-2628-release-lookup-attempt-1-review-*` reports cover the confirmed
 release lookup error-handling finding. The small fix received six themed
 coordinator passes, not independent multi-model coverage. Its workflow
 regression demonstrates the original failure before checking the correction.
+
+## Automatic notebook archive publication
+
+The `task-2628-attempt-6-review-*` reports cover schema-4 public DBC publication.
+New plans require one archive per selected runtime, built from approved Git
+source and validated through native Databricks export and reimport. Uploads
+cannot overwrite, and release completion and notes require matching public
+bytes and producer evidence. Existing schema-2 approvals retain their exact
+identity and publication scope.
+
+The four available independent review rounds found 13 issues, all resolved
+with regression coverage and recorded resolution notes. Gemini rounds 2 and 5
+were skipped after dispatch failures, as the maintainer requested. There is
+no claim of six completed independent rounds or three-family coverage.
+Absolute local artifact paths were replaced with repository-relative paths
+before publication; findings and resolution history are preserved.
+
+The final rebase target is `bccec7e73d102bea655b527246e5575e81c983c9`;
+the prior PR tip became `47e945b22402eb117583a28057738b9c45bb4432`.
+`git range-diff` shows all four original PR commits unchanged by this rebase.
+The new upstream changes affect only LightGBM ranker code, not notebooks.
+
+Validation:
+
+- 954 Linux release-tooling tests passed. One live SBT check was intentionally
+  skipped. The one deselected current-checkout notebook check passed separately
+  using native Windows Git because WSL Git cannot resolve Windows worktree
+  pointers.
+- 12 website installation tests passed, and Black 22.3.0 checked the changed
+  Python. The earlier pipeline-only run passed 124 checks; the final release
+  suite also checks the new pipeline ordering and approval gates.
+- Real native Databricks export, reimport and content comparison passed for
+  all 56 notebooks and 1,108 nonempty commands from source commit
+  `ae45761b61ccffe06f4516b97a24042665212cd1`. Its notebook tree is unchanged by
+  the final rebase. The synthetic `0.0.0` archive is 304,258 bytes, SHA-256
+  `83b5d57d50b19881b6ef972fcc407974ec7d9a2aa18cf0c9beae448d8d642903`.
+
+The native check did not execute notebook code, upload a new public blob,
+or create production tags. Current-head hosted CI, human approval and the
+existing cross-runtime consumer-wheel gate remain separate requirements.

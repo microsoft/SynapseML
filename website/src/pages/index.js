@@ -422,8 +422,9 @@ pyspark --repositories "${repository}" --packages "${spark35.coordinate}"`}
                   </p>
                   <p>
                     Import example notebooks from the release tag matching your
-                    runtime. Automated releases do not publish a version-specific
-                    DBC archive.
+                    runtime. New automated releases include runtime-matched DBC
+                    archives linked in their release notes. You can also download
+                    individual .ipynb files and use Databricks Workspace &gt; Import.
                   </p>
                   <ul>
                     {[spark35, spark40, spark41].map((artifact) => (
