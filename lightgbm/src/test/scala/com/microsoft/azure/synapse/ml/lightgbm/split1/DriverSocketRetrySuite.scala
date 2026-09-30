@@ -4,8 +4,8 @@
 package com.microsoft.azure.synapse.ml.lightgbm.split1
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import com.microsoft.azure.synapse.ml.lightgbm.{LightGBMConstants, LightGBMMissingTasksException, NetworkManager,
-  NetworkParams, TaskMessageInfo, WorkerMessage, WorkerTaskIdentity}
+import com.microsoft.azure.synapse.ml.lightgbm.{DriverUnreachableFailure, LightGBMConstants,
+  LightGBMMissingTasksException, NetworkManager, NetworkParams, TaskMessageInfo, WorkerMessage, WorkerTaskIdentity}
 import org.apache.spark.TaskContext
 import org.scalatest.funsuite.AnyFunSuite
 import org.slf4j.LoggerFactory
@@ -383,7 +383,7 @@ class DriverSocketRetrySuite extends AnyFunSuite {
   test("An unreachable driver reports the same complete Spark attempt identity") {
     val identity = WorkerTaskIdentity(Some(41), 7, Some(9876543210123L), Some(2))
     val cause = new ConnectException("Connection refused")
-    val failure = NetworkManager.driverUnreachableException(
+    val failure = DriverUnreachableFailure(
       NetworkParams(12400, "127.0.0.1", 12401, barrierExecutionMode = false),
       3,
       identity,
