@@ -75,13 +75,21 @@ class DriverSocketRetrySuite extends AnyFunSuite {
     override def close(): Unit = socket.close()
   }
 
-  private class SignalSecondAcceptServerSocket extends ServerSocket(0) {
+  /** @param laterAcceptTimeoutMillis accept timeout from the second accept on. The driver accepts one
+    *                                 connection at a time, so this starts only after the first report
+    *                                 was recorded.
+    */
+  private class SignalSecondAcceptServerSocket(laterAcceptTimeoutMillis: Int = socketTimeoutMillis)
+    extends ServerSocket(0) {
     private val acceptCount = new AtomicInteger()
     private val secondAcceptStarted = new CountDownLatch(1)
     setSoTimeout(socketTimeoutMillis)
 
     override def accept(): Socket = {
-      if (acceptCount.incrementAndGet() == 2) secondAcceptStarted.countDown()
+      if (acceptCount.incrementAndGet() == 2) {
+        setSoTimeout(laterAcceptTimeoutMillis)
+        secondAcceptStarted.countDown()
+      }
       super.accept()
     }
 
@@ -460,15 +468,16 @@ class DriverSocketRetrySuite extends AnyFunSuite {
   }
 
   test("Non-barrier topology names the missing partitions when the driver stops waiting") {
-    val serverSocket = new ServerSocket(0)
+    // The short accept timeout ends the round quickly once the first report is recorded; the manager
+    // timeout only bounds the wait below.
+    val serverSocket = new SignalSecondAcceptServerSocket(laterAcceptTimeoutMillis = 500)
     val port = serverSocket.getLocalPort
-    // The accept timeout ends the round quickly; the manager timeout only bounds the wait below.
-    serverSocket.setSoTimeout(500)
     val manager = NetworkManager(3, serverSocket, host, port, timeout, useBarrierExecutionMode = false)
     var task = Option.empty[FakeTask]
     try {
       task = Some(new FakeTask(host, port, partitionId = 1))
       task.get.report()
+      serverSocket.awaitSecondAccept()
 
       val failure = intercept[LightGBMMissingTasksException] {
         manager.waitForNetworkCommunicationsDone()
