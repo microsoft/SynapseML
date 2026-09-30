@@ -199,8 +199,9 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     if (getNumTasks > 0) {
       val numPartitions = df.rdd.getNumPartitions
       if (numPartitions < numTasks) {
-        log.info(s"Repartitioning $numPartitions input partitions to numTasks=$numTasks, because training " +
-          "without barrier execution mode waits for exactly numTasks workers")
+        log.warn(s"Repartitioning $numPartitions input partitions to numTasks=$numTasks, because training " +
+          "without barrier execution mode waits for exactly numTasks workers. This adds a shuffle; give the " +
+          "input at least numTasks partitions to avoid it")
         expandPartitions(df, numTasks)
       } else {
         df.coalesce(numTasks)
