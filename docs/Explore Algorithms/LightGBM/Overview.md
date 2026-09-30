@@ -418,6 +418,12 @@ reported and which partitions are missing. Other tasks may then also report "cou
 task slots, or leave *numTasks* unset so SynapseML chooses it. Also check that no executor was lost or still
 starting when training began.
 
+To decide whether to repartition, SynapseML reads the input's partition count when *numTasks* is set. It
+already does this when *numTasks* is unset or barrier execution mode is on. If the input is an uncached
+DataFrame with a shuffle that hasn't run yet, such as a join or aggregation with adaptive query execution
+on, reading the count runs that shuffle one extra time. Training reads the input several times anyway, so
+if the input is expensive to compute, cache or persist it before calling `fit`.
+
 ### IPv6 clusters
 
 Distributed training works on clusters whose executors only have IPv6 addresses.
