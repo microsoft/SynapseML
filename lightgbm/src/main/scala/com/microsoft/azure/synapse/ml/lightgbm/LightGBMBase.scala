@@ -176,7 +176,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
      * barrier execution, which is unfortunate as repartition is more expensive than coalesce.
      */
     if (getUseBarrierExecutionMode) {
-      val numPartitions = df.rdd.getNumPartitions
+      val numPartitions = inputPartitionCount(df)
       if (numPartitions > numTasks) {
         df.repartition(numTasks)
       } else {
@@ -186,6 +186,12 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
       fitNonBarrierPartitions(df, numTasks)
     }
   }
+
+  /** Reads the partition count of the planned input. This only inspects the physical plan on the driver
+    * (Spark has no Dataset-level equivalent); it does not process data through the RDD API. Under adaptive
+    * execution it can run pending upstream shuffle stages early.
+    */
+  protected def inputPartitionCount(dataset: Dataset[_]): Int = dataset.rdd.getNumPartitions
 
   /** Gives non-barrier training exactly numTasks partitions.
     *
@@ -197,7 +203,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     */
   private def fitNonBarrierPartitions(df: DataFrame, numTasks: Int): DataFrame = {
     if (getNumTasks > 0) {
-      val numPartitions = df.rdd.getNumPartitions
+      val numPartitions = inputPartitionCount(df)
       if (numPartitions < numTasks) {
         log.warn(s"Repartitioning $numPartitions input partitions to numTasks=$numTasks, because training " +
           "without barrier execution mode waits for exactly numTasks workers. This adds a shuffle; give the " +
@@ -649,7 +655,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     if (configNumTasks > 0) configNumTasks
     else {
       val numExecutorTasks = ClusterUtil.getNumExecutorTasks(dataset.sparkSession, numTasksPerExecutor, log)
-      min(numExecutorTasks, dataset.rdd.getNumPartitions)
+      min(numExecutorTasks, inputPartitionCount(dataset))
     }
   }
 

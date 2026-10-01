@@ -100,7 +100,7 @@ class LightGBMRanker(override val uid: String)
         castColumns(dataset.repartition(numTasks, new Column(groupingCol)), getTrainingCols)
       case Some(groupingCol) =>
         // Barrier mode never expands the input, and waits only for the tasks the stage actually runs.
-        val numPartitions = dataset.rdd.getNumPartitions
+        val numPartitions = inputPartitionCount(dataset)
         super.prepareDataframe(
           dataset.repartition(math.min(numPartitions, numTasks), new Column(groupingCol)), numTasks)
       case None =>
