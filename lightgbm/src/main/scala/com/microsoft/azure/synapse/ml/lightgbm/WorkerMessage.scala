@@ -116,10 +116,19 @@ private[lightgbm] object WorkerMessage {
     // Validated bracketing keeps an IPv6 host unambiguous and keeps a host that carries a control
     // character or a delimiter out of the line protocol entirely.
     val endpoint = WorkerEndpoint.wireString(message.taskHost, message.localListenPort)
-    if (message.executorId.contains(":")) {
-      throw new IllegalArgumentException("Invalid LightGBM executor id: ':' is reserved by the wire protocol")
-    }
+    validateExecutorId(message.executorId)
     s"${message.status}:$endpoint:${message.partitionId}:${message.executorId}:" + stageAttemptNumber
+  }
+
+  /** The executor id is sent verbatim in this line protocol and in the driver's executor=partitions list. */
+  private def validateExecutorId(executorId: String): Unit = {
+    val problem =
+      if (executorId.isEmpty) Some("it is empty")
+      else if (executorId.contains(":")) Some("':' is reserved by the wire protocol")
+      else if (executorId.contains("=")) Some("'=' is reserved by the executor partition list")
+      else if (executorId.exists(Character.isISOControl)) Some("it contains a control character")
+      else None
+    problem.foreach(reason => throw new IllegalArgumentException(s"Invalid LightGBM executor id: $reason"))
   }
 
   def format(message: TaskMessageInfo, identity: WorkerTaskIdentity): String = {

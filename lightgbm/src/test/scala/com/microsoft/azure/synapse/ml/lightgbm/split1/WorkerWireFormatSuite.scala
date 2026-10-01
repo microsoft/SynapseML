@@ -164,6 +164,21 @@ class WorkerWireFormatSuite extends AnyFunSuite {
     assert(failure.getMessage.contains("':' is reserved by the wire protocol"))
   }
 
+  test("Empty, '=' and control-character executor ids are rejected before transmission") {
+    Seq(
+      "" -> "it is empty",
+      "executor=2" -> "'=' is reserved by the executor partition list",
+      "executor\n2" -> "it contains a control character",
+      "executor\r2" -> "it contains a control character"
+    ).foreach { case (executorId, reason) =>
+      val status = TaskMessageInfo(LightGBMConstants.EnabledTask, "10.0.0.4", 12400, 3, executorId)
+      val failure = intercept[IllegalArgumentException](WorkerMessage.format(status, 7))
+      assert(failure.getMessage == s"Invalid LightGBM executor id: $reason")
+    }
+    val commaId = TaskMessageInfo(LightGBMConstants.EnabledTask, "10.0.0.4", 12400, 3, "executor,2")
+    assert(WorkerMessage.parse(WorkerMessage.format(commaId, 7)).toTaskMessage == commaId)
+  }
+
   test("Malformed attempt metadata is rejected without changing endpoint parsing") {
     val failure = intercept[IllegalArgumentException] {
       WorkerMessage.parse("enabledTask:[2001:db8::1]:12400:3:executor-2:7:41:not-a-long:2")
