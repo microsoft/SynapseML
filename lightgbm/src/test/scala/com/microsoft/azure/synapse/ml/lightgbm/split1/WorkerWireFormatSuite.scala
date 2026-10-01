@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.lightgbm.split1
 
 import com.microsoft.azure.synapse.ml.lightgbm.{LightGBMConstants, NetworkManager, TaskMessageInfo,
-  WorkerEndpoint, WorkerMessage}
+  WorkerEndpoint, WorkerMessage, WorkerTaskIdentity}
 import org.scalatest.funsuite.AnyFunSuite
 
 import java.io.{BufferedReader, BufferedWriter, InputStreamReader, OutputStreamWriter}
@@ -95,6 +95,96 @@ class WorkerWireFormatSuite extends AnyFunSuite {
       assert(parsed.executorId == "executor-2")
       assert(parsed.stageAttemptNumber == 7)
     }
+  }
+
+  test("A current task message round trips every Spark attempt identifier") {
+    val taskAttemptId = 9876543210123L
+    Seq("10.0.0.4", "2001:db8::1", "fe80::1%eth0").foreach { host =>
+      val status = TaskMessageInfo(LightGBMConstants.EnabledTask, host, 12400, 3, "executor-2")
+      val identity = WorkerTaskIdentity(Some(41), 7, Some(taskAttemptId), Some(2))
+      val parsed = WorkerMessage.parse(WorkerMessage.format(status, identity))
+      assert(parsed.toTaskMessage == status)
+      assert(parsed.stageAttemptNumber == 7)
+      assert(parsed.stageId.contains(41))
+      assert(parsed.taskAttemptId.contains(taskAttemptId))
+      assert(parsed.attemptNumber.contains(2))
+    }
+  }
+
+  test("Every compatible task metadata suffix length is parsed without changing older fields") {
+    val prefix = "enabledTask:10.0.0.4:12400:3:executor-2"
+    val layouts = Seq(
+      prefix -> (0, None, None, None),
+      s"$prefix:7" -> (7, None, None, None),
+      s"$prefix:7:41" -> (7, Some(41), None, None),
+      s"$prefix:7:41:9876543210123" -> (7, Some(41), Some(9876543210123L), None),
+      s"$prefix:7:41:9876543210123:2" -> (7, Some(41), Some(9876543210123L), Some(2)))
+
+    layouts.foreach { case (wire, (stageAttempt, stageId, taskAttemptId, attemptNumber)) =>
+      val parsed = WorkerMessage.parse(wire)
+      assert(parsed.toTaskMessage ==
+        TaskMessageInfo(LightGBMConstants.EnabledTask, "10.0.0.4", 12400, 3, "executor-2"))
+      assert(parsed.stageAttemptNumber == stageAttempt)
+      assert(parsed.stageId == stageId)
+      assert(parsed.taskAttemptId == taskAttemptId)
+      assert(parsed.attemptNumber == attemptNumber)
+    }
+  }
+
+  test("An unbracketed legacy IPv6 message keeps the shortest valid layout") {
+    val parsed = WorkerMessage.parse("enabledTask:2001:db8::1:10:12400:3:7")
+    assert(parsed.toTaskMessage ==
+      TaskMessageInfo(LightGBMConstants.EnabledTask, "2001:db8::1:10", 12400, 3, "7"))
+    assert(parsed.stageAttemptNumber == 0)
+    assert(parsed.stageId.isEmpty)
+    assert(parsed.taskAttemptId.isEmpty)
+    assert(parsed.attemptNumber.isEmpty)
+  }
+
+  test("Legacy five-field task messages remain parseable before extending the wire format") {
+    Seq("10.0.0.4", "worker-1", "2001:db8::1", "fe80::1%eth0").foreach { host =>
+      val legacy = TaskMessageInfo(LightGBMConstants.EnabledTask, host, 12400, 3, "executor-2")
+      val parsed = WorkerMessage.parse(legacy.toString)
+      assert(parsed.toTaskMessage == legacy)
+      assert(parsed.stageAttemptNumber == 0)
+    }
+  }
+
+  test("The public five-field rendering and private wire rendering stay intentionally distinct") {
+    val status = TaskMessageInfo(LightGBMConstants.EnabledTask, "2001:db8::1", 12400, 3, "executor-2")
+    assert(status.toString == "enabledTask:2001:db8::1:12400:3:executor-2")
+    assert(WorkerMessage.format(status, 7) == "enabledTask:[2001:db8::1]:12400:3:executor-2:7")
+    assert(WorkerMessage.parse(status.toString).toTaskMessage == status)
+    assert(WorkerMessage.parse(WorkerMessage.format(status, 7)).toTaskMessage == status)
+  }
+
+  test("A delimiter-bearing executor id is rejected before it reaches the positional parser") {
+    val status = TaskMessageInfo(LightGBMConstants.EnabledTask, "10.0.0.4", 12400, 3, "executor:2")
+    val failure = intercept[IllegalArgumentException](WorkerMessage.format(status, 7))
+    assert(failure.getMessage.contains("':' is reserved by the wire protocol"))
+  }
+
+  test("Empty, '=' and control-character executor ids are rejected before transmission") {
+    Seq(
+      "" -> "it is empty",
+      "executor=2" -> "'=' is reserved by the executor partition list",
+      "executor\n2" -> "it contains a control character",
+      "executor\r2" -> "it contains a control character"
+    ).foreach { case (executorId, reason) =>
+      val status = TaskMessageInfo(LightGBMConstants.EnabledTask, "10.0.0.4", 12400, 3, executorId)
+      val failure = intercept[IllegalArgumentException](WorkerMessage.format(status, 7))
+      assert(failure.getMessage == s"Invalid LightGBM executor id: $reason")
+    }
+    val commaId = TaskMessageInfo(LightGBMConstants.EnabledTask, "10.0.0.4", 12400, 3, "executor,2")
+    assert(WorkerMessage.parse(WorkerMessage.format(commaId, 7)).toTaskMessage == commaId)
+  }
+
+  test("Malformed attempt metadata is rejected without changing endpoint parsing") {
+    val failure = intercept[IllegalArgumentException] {
+      WorkerMessage.parse("enabledTask:[2001:db8::1]:12400:3:executor-2:7:41:not-a-long:2")
+    }
+    assert(failure.getMessage.contains("Unexpected worker message"))
+    assert(failure.getMessage.contains("[2001:db8::1]:12400"))
   }
 
   test("A task message with a forged extra line is rejected before it is sent") {

@@ -14,7 +14,7 @@ import org.slf4j.Logger
 
 import java.io.{BufferedReader, BufferedWriter, IOException, InputStreamReader, OutputStreamWriter}
 import java.net.{ConnectException, ServerSocket, Socket, SocketException, SocketTimeoutException}
-import java.util.concurrent.{ExecutorService, Executors}
+import java.util.concurrent.{ExecutorService, Executors, TimeoutException}
 import scala.annotation.tailrec
 import scala.collection.mutable
 import scala.concurrent.{Await, ExecutionContext, ExecutionContextExecutor, Future}
@@ -99,6 +99,7 @@ object NetworkManager {
                            measures: TaskInstrumentationMeasures): NetworkTopologyInfo = {
     measures.markNetworkInitializationStart()
     val networkParams = ctx.networkParams
+    val taskIdentity = currentWorkerTaskIdentity(taskId)
     try {
       val reservation = findOpenPort(ctx, log)
       withPortReservation(reservation, shouldExecuteTraining) {
@@ -112,11 +113,12 @@ object NetworkManager {
                                                partitionId,
                                                localListenPort,
                                                log,
-                                               shouldExecuteTraining)
+                                               shouldExecuteTraining,
+                                               taskIdentity)
             }
           } catch {
             case connectFailure: ConnectException =>
-              throw driverUnreachableException(networkParams, taskId, partitionId, log, connectFailure)
+              throw DriverUnreachableFailure(networkParams, partitionId, taskIdentity, log, connectFailure)
           }
       }
     } finally {
@@ -124,42 +126,13 @@ object NetworkManager {
     }
   }
 
-  /** Explain why a task could not reach the driver's network topology endpoint.
-    *
-    * The driver serves the topology exchange exactly once per training round and then closes its
-    * server socket. A task that Spark retries after that point can therefore only ever see
-    * "connection refused", which silently replaces the failure that caused the retry in the first
-    * place. Naming that explicitly keeps the original failure discoverable.
-    */
-  private[lightgbm] def driverUnreachableException(networkParams: NetworkParams,
-                                                   taskId: Long,
-                                                   partitionId: Int,
-                                                   log: Logger,
-                                                   cause: ConnectException): Exception = {
-    val attemptNumber = Option(TaskContext.get()).map(_.attemptNumber()).getOrElse(0)
-    val endpoint = s"${networkParams.ipAddress}:${networkParams.port}"
-    val message = if (attemptNumber > 0) {
-      s"LightGBM task $taskId (partition $partitionId) could not reach the driver network topology endpoint " +
-        s"$endpoint on retry attempt $attemptNumber. The driver serves the topology exchange once per training " +
-        "round and has already closed it, so a retried task can never rejoin the LightGBM network. This error " +
-        s"is therefore a consequence of an earlier failure: inspect the logs of the first failed attempt of " +
-        s"partition $partitionId to find the real cause. Distributed LightGBM training cannot recover from a " +
-        "partial task retry."
-    } else {
-      s"LightGBM task $taskId (partition $partitionId) could not reach the driver network topology endpoint " +
-        s"$endpoint on its first attempt. Verify that executors are allowed to open connections to the driver " +
-        "on that port, and that the driver was not shut down before training started."
-    }
-    log.error(message, cause)
-    new Exception(message, cause)
-  }
-
   private def getNetworkTopologyInfoFromDriver(networkParams: NetworkParams,
                                                taskId: Long,
                                                partitionId: Int,
                                                localListenPort: Int,
                                                log: Logger,
-                                               shouldExecuteTraining: Boolean): NetworkTopologyInfo = {
+                                               shouldExecuteTraining: Boolean,
+                                               taskIdentity: WorkerTaskIdentity): NetworkTopologyInfo = {
     using(new Socket(networkParams.ipAddress, networkParams.port)) {
       driverSocket =>
         usingMany(Seq(new BufferedReader(new InputStreamReader(driverSocket.getInputStream)),
@@ -169,7 +142,6 @@ object NetworkManager {
             val driverOutput = io(1).asInstanceOf[BufferedWriter]
 
             // Get message to send to driver with info about this task
-            val stageAttemptNumber = Option(TaskContext.get()).map(_.stageAttemptNumber()).getOrElse(0)
             // A numeric IPv6 scope is an interface index that only means anything here, so it is
             // replaced with the interface name before any peer sees it.
             val taskStatus = TaskMessageInfo(
@@ -178,7 +150,7 @@ object NetworkManager {
               localListenPort,
               partitionId,
               LightGBMUtils.getExecutorId) // TODO can we use host for this?
-            val message = WorkerMessage.format(taskStatus, stageAttemptNumber)
+            val message = WorkerMessage.format(taskStatus, taskIdentity)
             log.info(s"task $taskId sending status message to driver: $message ")
             driverOutput.write(s"$message\n")
             driverOutput.flush()
@@ -188,7 +160,7 @@ object NetworkManager {
               val context = BarrierTaskContext.get()
               context.barrier()
               if (context.partitionId() == 0) {
-                 setFinishedStatus(networkParams, stageAttemptNumber, context.getTaskInfos().length, log)
+                 setFinishedStatus(networkParams, taskIdentity.stageAttemptNumber, context.getTaskInfos().length, log)
               }
             }
 
@@ -443,6 +415,25 @@ object NetworkManager {
   def parseWorkerMessage(message: String): TaskMessageInfo = {
     WorkerMessage.parse(message).toTaskMessage
   }
+
+  private[lightgbm] def currentWorkerTaskIdentity(taskAttemptId: Long): WorkerTaskIdentity = {
+    val taskContext = Option(TaskContext.get())
+    WorkerTaskIdentity(
+      taskContext.map(_.stageId()),
+      taskContext.map(_.stageAttemptNumber()).getOrElse(0),
+      Some(taskAttemptId),
+      taskContext.map(_.attemptNumber()))
+  }
+
+  private[lightgbm] def workerIdentitySummary(identity: WorkerTaskIdentity, partitionId: Int): String =
+    identity.summary(partitionId)
+
+  private[lightgbm] def supersededWorkerDiagnostic(message: WorkerMessage): String =
+    s"driver ignoring message from superseded stage attempt ${message.stageAttemptNumber}; ${message.identitySummary}"
+
+  private[lightgbm] def duplicateWorkerDiagnostic(previous: WorkerMessage, replacement: WorkerMessage): String =
+    s"driver replacing duplicate report for partition ${replacement.partitionId}; " +
+      s"previous ${previous.identitySummary}; replacement ${replacement.identitySummary}"
 }
 
 /**
@@ -578,7 +569,33 @@ case class NetworkManager(numTasks: Int,
         if (reportedTaskCount < numTasks) connectToWorkers()
       }
 
-      connectToWorkers()
+      try {
+        connectToWorkers()
+      } catch {
+        case acceptTimeout: SocketTimeoutException =>
+          // Tasks that already reported are disconnected next and fail with "could not reach the driver",
+          // which hides the fact that the driver gave up waiting for the rest.
+          val missing = synchronized((0 until numTasks).filterNot(taskConnectionsByPartition.contains))
+          val failure = LightGBMMissingTasksException(numTasks, missing, timeout, acceptTimeout)
+          log.error(failure.getMessage)
+          throw failure
+      }
+    }
+  }
+
+  /** Returns the driver's missing-task timeout, if that is what ended the topology round.
+    *
+    * Closing the connections first releases a driver still blocked in accept(), so the wait is short.
+    */
+  private[lightgbm] def missingTasksFailure(maxWait: Duration): Option[LightGBMMissingTasksException] = {
+    closeConnections()
+    try {
+      Await.ready(networkCommunicationThread, maxWait)
+    } catch {
+      case _: TimeoutException => ()
+    }
+    networkCommunicationThread.value.flatMap(_.failed.toOption).collect {
+      case failure: LightGBMMissingTasksException => failure
     }
   }
 
@@ -615,7 +632,7 @@ case class NetworkManager(numTasks: Int,
     } else if (message.stageAttemptNumber < currentStageAttempt) {
       // A straggler from a stage attempt that Spark has already abandoned. Recording it would put a
       // dead host:port into the topology that every surviving task then tries to connect to.
-      log.info(s"driver ignoring message from superseded stage attempt ${message.stageAttemptNumber}")
+      log.info(NetworkManager.supersededWorkerDiagnostic(message))
       closeAcceptedSocket(socket)
       false
     } else {
@@ -678,16 +695,16 @@ case class NetworkManager(numTasks: Int,
     val connection = new TaskConnection(socket, message)
     message match {
       case m if m.isForLoadOnly =>
-        log.info("driver received load-only status from task")
+        log.info(s"driver received load-only status from task; ${m.identitySummary}")
       case m if m.isForTraining =>
-        log.info(s"driver received socket from task: ${connection.networkInfoString}")
+        log.info(s"driver received socket from task: ${connection.networkInfoString}; ${m.identitySummary}")
       case _ => throw new Exception(s"Unknown message type: ${message.status}")
     }
 
     val previousConnection = taskConnectionsByPartition.put(message.partitionId, connection)
     acceptedSocket = None
     previousConnection.foreach { previous =>
-      log.info(s"driver replacing duplicate report for partition ${message.partitionId}")
+      log.info(NetworkManager.duplicateWorkerDiagnostic(previous.message, message))
       if (previous.socket ne socket) closeQuietly(previous.socket)
     }
   }

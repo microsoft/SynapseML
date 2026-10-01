@@ -3,14 +3,19 @@
 
 package com.microsoft.azure.synapse.ml.lightgbm.split1
 
-import com.microsoft.azure.synapse.ml.lightgbm.{LightGBMConstants, NetworkManager, TaskMessageInfo, WorkerMessage}
+import com.microsoft.azure.synapse.ml.core.test.base.TestBase
+import com.microsoft.azure.synapse.ml.lightgbm.{DriverUnreachableFailure, LightGBMConstants,
+  LightGBMMissingTasksException, NetworkManager, NetworkParams, TaskMessageInfo, WorkerMessage, WorkerTaskIdentity}
+import org.apache.spark.TaskContext
 import org.scalatest.funsuite.AnyFunSuite
+import org.slf4j.LoggerFactory
 
 import java.io.{BufferedReader, BufferedWriter, IOException, InputStreamReader, OutputStreamWriter}
 import java.net.{ConnectException, InetSocketAddress, ServerSocket, Socket, SocketException, SocketTimeoutException}
 import java.util.concurrent.{CountDownLatch, TimeUnit}
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.mutable.ListBuffer
+import scala.concurrent.duration.{Duration, SECONDS}
 
 /** Covers the driver topology socket lifecycle behind repeated
   * "java.net.ConnectException: Connection refused" failures in distributed LightGBM training.
@@ -70,13 +75,21 @@ class DriverSocketRetrySuite extends AnyFunSuite {
     override def close(): Unit = socket.close()
   }
 
-  private class SignalSecondAcceptServerSocket extends ServerSocket(0) {
+  /** @param laterAcceptTimeoutMillis accept timeout from the second accept on. The driver accepts one
+    *                                 connection at a time, so this starts only after the first report
+    *                                 was recorded.
+    */
+  private class SignalSecondAcceptServerSocket(laterAcceptTimeoutMillis: Int = socketTimeoutMillis)
+    extends ServerSocket(0) {
     private val acceptCount = new AtomicInteger()
     private val secondAcceptStarted = new CountDownLatch(1)
     setSoTimeout(socketTimeoutMillis)
 
     override def accept(): Socket = {
-      if (acceptCount.incrementAndGet() == 2) secondAcceptStarted.countDown()
+      if (acceptCount.incrementAndGet() == 2) {
+        setSoTimeout(laterAcceptTimeoutMillis)
+        secondAcceptStarted.countDown()
+      }
       super.accept()
     }
 
@@ -351,6 +364,56 @@ class DriverSocketRetrySuite extends AnyFunSuite {
     assert(!constructorArities.contains(6))
   }
 
+  test("Worker diagnostics name every Spark attempt coordinate without relabeling fields") {
+    val previous = WorkerMessage(LightGBMConstants.EnabledTask, "10.0.0.4", 12400, 3, "executor-1", 7,
+      stageId = Some(41), taskAttemptId = Some(9876543210123L), attemptNumber = Some(1))
+    val replacement = previous.copy(taskAttemptId = Some(9876543210456L), attemptNumber = Some(2))
+    val expectedPrevious = "stageId=41, stageAttemptNumber=7, partitionId=3, " +
+      "taskAttemptId=9876543210123, attemptNumber=1"
+    val expectedReplacement = "stageId=41, stageAttemptNumber=7, partitionId=3, " +
+      "taskAttemptId=9876543210456, attemptNumber=2"
+
+    assert(NetworkManager.supersededWorkerDiagnostic(previous) ==
+      s"driver ignoring message from superseded stage attempt 7; $expectedPrevious")
+    assert(NetworkManager.duplicateWorkerDiagnostic(previous, replacement) ==
+      s"driver replacing duplicate report for partition 3; previous $expectedPrevious; " +
+        s"replacement $expectedReplacement")
+  }
+
+  test("An unreachable driver reports the same complete Spark attempt identity") {
+    val identity = WorkerTaskIdentity(Some(41), 7, Some(9876543210123L), Some(2))
+    val cause = new ConnectException("Connection refused")
+    val failure = DriverUnreachableFailure(
+      NetworkParams(12400, "127.0.0.1", 12401, barrierExecutionMode = false),
+      3,
+      identity,
+      LoggerFactory.getLogger(getClass),
+      cause)
+
+    assert(failure.getCause eq cause)
+    assert(failure.getMessage.contains(
+      "stageId=41, stageAttemptNumber=7, partitionId=3, taskAttemptId=9876543210123, attemptNumber=2"))
+    assert(failure.getMessage.contains("inspect the logs of the first failed attempt of partition 3"))
+  }
+
+  test("A real Spark task snapshots one self-consistent attempt identity") {
+    TestBase.resetSparkSession(numCores = Some(1))
+    try {
+      val spark = TestBase.spark
+      val identity = spark.sparkContext.parallelize(Seq(1), 1).mapPartitions { _ =>
+        val taskContext = TaskContext.get()
+        Iterator(NetworkManager.currentWorkerTaskIdentity(taskContext.taskAttemptId()))
+      }.collect().head
+
+      assert(identity.stageId.exists(_ >= 0))
+      assert(identity.stageAttemptNumber == 0)
+      assert(identity.taskAttemptId.exists(_ >= 0))
+      assert(identity.attemptNumber.contains(0))
+    } finally {
+      TestBase.resetSparkSession()
+    }
+  }
+
   test("Worker status parsing preserves IPv6 hosts in current and legacy messages") {
     val hosts = Seq("2001:db8::1", "2001:db8:0:1:2:3:4:5", "fe80::a%3")
     hosts.foreach { taskHost =>
@@ -402,6 +465,48 @@ class DriverSocketRetrySuite extends AnyFunSuite {
   test("A worker that disconnects before sending a message reports the disconnect, not a NullPointerException") {
     val failure = intercept[IOException](NetworkManager.parseWorkerMessage(null))  //scalastyle:ignore null
     assert(failure.getMessage.contains("closed the connection before sending a status message"))
+  }
+
+  test("Non-barrier topology names the missing partitions when the driver stops waiting") {
+    // The short accept timeout ends the round quickly once the first report is recorded; the manager
+    // timeout only bounds the wait below.
+    val serverSocket = new SignalSecondAcceptServerSocket(laterAcceptTimeoutMillis = 500)
+    val port = serverSocket.getLocalPort
+    val manager = NetworkManager(3, serverSocket, host, port, timeout, useBarrierExecutionMode = false)
+    var task = Option.empty[FakeTask]
+    try {
+      task = Some(new FakeTask(host, port, partitionId = 1))
+      task.get.report()
+      serverSocket.awaitSecondAccept()
+
+      val failure = intercept[LightGBMMissingTasksException] {
+        manager.waitForNetworkCommunicationsDone()
+      }
+      assert(failure.getMessage.contains("from 1 of 3 training tasks"))
+      assert(failure.getMessage.contains("Missing partitions: 0, 2."))
+      assert(failure.getMessage.contains("numTasks"))
+      assert(failure.getCause.isInstanceOf[SocketTimeoutException])
+      assert(task.get.isClosedByDriver, "The driver kept the reported task waiting after giving up")
+      assert(manager.missingTasksFailure(Duration(5, SECONDS)).contains(failure))
+    } finally {
+      manager.closeConnections()
+      closeTasks(task)
+    }
+  }
+
+  test("Other topology failures are not reported as missing tasks") {
+    val (manager, _, port) = newManager(numTasks = 2)
+    var task = Option.empty[FakeTask]
+    try {
+      task = Some(new FakeTask(host, port, partitionId = 0))
+      task.get.report()
+
+      // The training job failing first closes the driver socket, which is not a missing-task timeout.
+      assert(manager.missingTasksFailure(Duration(5, SECONDS)).isEmpty)
+    } finally {
+      manager.closeConnections()
+      closeTasks(task)
+    }
   }
 
   test("The driver server socket is released when a training job fails before the round completes") {
