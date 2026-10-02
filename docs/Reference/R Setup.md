@@ -3,6 +3,7 @@ title: R setup
 hide_title: true
 sidebar_label: R setup
 description: R setup and example for SynapseML
+r_installation: source
 ---
 
 
@@ -21,29 +22,43 @@ On Windows, download
 and copy it into the `bin` directory of your Spark installation, for example,
 `C:\Users\user\AppData\Local\Spark\spark-3.5.0-bin-hadoop3\bin`.
 
-The R bindings are published as one archive per SynapseML module. A combined
-`synapseml-1.1.3.zip` archive is not published. Install `synapseml-core` and
-the modules needed by your application (the following installs all six):
+Automated public releases publish Maven artifacts and Python wrappers. They do
+not publish R ZIP archives. Build the R wrappers from the matching release tag;
+do not construct an R download URL by substituting the new release version.
 
-```R
-devtools::install_url("https://mmlspark.blob.core.windows.net/rrr/synapseml-core-1.1.3.zip")
-devtools::install_url("https://mmlspark.blob.core.windows.net/rrr/synapseml-cognitive-1.1.3.zip")
-devtools::install_url("https://mmlspark.blob.core.windows.net/rrr/synapseml-deep-learning-1.1.3.zip")
-devtools::install_url("https://mmlspark.blob.core.windows.net/rrr/synapseml-lightgbm-1.1.3.zip")
-devtools::install_url("https://mmlspark.blob.core.windows.net/rrr/synapseml-opencv-1.1.3.zip")
-devtools::install_url("https://mmlspark.blob.core.windows.net/rrr/synapseml-vw-1.1.3.zip")
+Select the tag for your runtime from the
+[installation matrix](../Get%20Started/Install%20SynapseML.md), check out that
+tag, and follow [Developer Setup](Developer%20Setup.md) for its toolchain.
+From the repository root, build the local R packages:
+
+```bash
+sbt packageR
 ```
 
-> **Published archive compatibility:** The component archives for this release
-> were generated before the artifact endpoint migration and embed the retired
-> Azure CDN Maven resolver in their sparklyr extension registration. Until the
-> archives are regenerated and published, provide the Blob resolver explicitly
-> and pass `extensions = character()` as shown below. Otherwise, loading an R
-> wrapper before connecting can reactivate the retired resolver.
+Then start R from the same repository root. Set `scala_binary` to `2.12` for a
+Spark 3.5 checkout or `2.13` for a Spark 4 checkout. The following installs the
+generated package directories, not unpublished downloads:
+
+```R
+scala_binary <- "2.12"
+modules <- c("core", "cognitive", "opencv", "deep-learning", "lightgbm", "vw")
+for (module in modules) {
+  package_dir <- file.path(
+    module, "target", paste0("scala-", scala_binary),
+    "generated", "src", "R", "synapseml"
+  )
+  stopifnot(file.exists(file.path(package_dir, "DESCRIPTION")))
+  devtools::install_local(package_dir, upgrade = "never")
+}
+```
+
+Provide the released Maven coordinate and Blob resolver explicitly, and pass
+`extensions = character()` as shown below. A local build's generated extension
+metadata can name a snapshot coordinate; it must not override the chosen release.
 
 ### Importing libraries and setting up a Spark context
 
-Installing all dependencies may be time-consuming. When complete, create the
+After installing the local wrappers, create the
 Spark context with an explicit package coordinate and repository. For local
 sparklyr connections, `sparklyr.shell.repositories` supplies the repository to
 `spark-submit`, while `extensions = character()` prevents the wrappers' embedded
@@ -52,8 +67,7 @@ registration from overriding it:
 > The examples below use Spark 3.5 / Scala 2.12 with
 > `com.microsoft.azure:synapseml_2.12:1.1.3`. For Spark 4.0 use
 > `com.microsoft.azure:synapseml_2.13:1.1.3-spark4.0`; for Spark 4.1 use
-> `com.microsoft.azure:synapseml_2.13:1.1.3-spark4.1`. The R component archive
-> version remains `1.1.3`.
+> `com.microsoft.azure:synapseml_2.13:1.1.3-spark4.1`.
 
 ```R
 library(sparklyr)
@@ -117,7 +131,7 @@ You should see output similar to:
 
 ## Azure Databricks
 
-Install the R component archives from the installation block above on the
+Install the locally built R packages from the installation block above on the
 cluster driver. SynapseML's JVM package must be available when the cluster
 starts; `spark_connect(method = "databricks")` connects to an existing Spark
 session and cannot add the JVM package afterward. Before starting or restarting
@@ -155,20 +169,8 @@ unfit_model <- ml_light_gbm_regressor(
 ml_train_regressor(faithful_df, labelCol = "eruptions", model = unfit_model)
 ```
 
-## Building from Source
+## Historical releases
 
-Our R bindings are built as part of the [normal build
-process](../Developer%20Setup). To get a quick build, start at the root
-of the SynapseML directory and find the generated files. For example, to find
-the R files for deep-learning, run:
-
-```bash
-sbt packageR
-ls ./deep-learning/target/scala-2.12/generated/src/R/synapseml/R
-```
-
-You can then run R in a terminal and install the files directly:
-
-```R
-devtools::install_local("./deep-learning/target/scala-2.12/generated/src/R/synapseml/R")
-```
+[Older versioned guides](https://github.com/microsoft/SynapseML/tree/master/website/versioned_docs)
+retain their original archive instructions. Those historical wrappers are not
+automatically compatible with a newer Maven release.

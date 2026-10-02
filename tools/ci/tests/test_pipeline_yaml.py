@@ -291,6 +291,11 @@ def test_prewarm_job_present():
     }
 
 
+def test_release_tags_require_explicit_maven_pipeline_queue():
+    data = yaml.safe_load(_pipeline_text())
+    assert "tags" not in data["trigger"]
+
+
 def test_databricks_e2e_uses_fail_open_pr_impact_detection():
     assert TEST_IMPACT.exists()
     data = yaml.safe_load(_pipeline_text())
@@ -331,6 +336,19 @@ def test_databricks_e2e_uses_fail_open_pr_impact_detection():
     steps = yaml.safe_load(DATABRICKS_STEPS_TPL.read_text())["steps"]
     assert any(step.get("displayName") == "E2E" for step in steps)
     assert any(step.get("displayName") == "Publish Test Results" for step in steps)
+
+
+def test_fabric_e2e_skips_untrusted_fork_builds():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
+    condition = jobs["FabricE2E"]["condition"]
+    fork_guard = (
+        r"ne\(\s*variables\[['\"]System\.PullRequest\.IsFork['\"]\],"
+        + r"\s*['\"]True['\"]\s*\)"
+    )
+    assert condition is False or (
+        isinstance(condition, str) and re.search(fork_guard, condition)
+    )
 
 
 def test_fabric_e2e_cleans_stale_artifacts_before_running_tests():
@@ -1862,8 +1880,6 @@ def test_publish_jobs_resolve_and_preserve_package_versions():
     assert "PACKAGE_VERSION" in release_version["bash"]
     release_guard_index = release_steps.index(release_version)
     side_effect_steps = [
-        next(step for step in release_steps if "git-chglog" in step.get("bash", "")),
-        next(step for step in release_steps if step.get("task") == "GitHubRelease@1"),
         next(step for step in release_steps if "publishPypi" in step.get("bash", "")),
         next(
             step
@@ -1879,6 +1895,180 @@ def test_publish_jobs_resolve_and_preserve_package_versions():
     assert all(
         release_guard_index < release_steps.index(step) for step in side_effect_steps
     )
+    assert not any(step.get("task") == "GitHubRelease@1" for step in release_steps)
+    assert "isMaster" not in str(release)
+    assert {"Style", "UnitTests", "PythonTests", "Publish"} <= set(release["dependsOn"])
+    plan_guard = next(
+        step
+        for step in release_steps
+        if step.get("displayName") == "Validate approved Maven release source"
+    )
+    assert release_steps.index(plan_guard) < release_guard_index
+    assert (
+        plan_guard["env"]["RELEASE_PLAN_BASE64"]
+        == "${{ parameters.release_plan_base64 }}"
+    )
+
+
+def test_maven_receipt_follows_esrp_publication_and_uses_its_actual_directory():
+    data = yaml.safe_load(_pipeline_text())
+    release = next(job for job in _jobs(data["jobs"]) if job["job"] == "Release")
+    steps = release["steps"]
+    esrp = next(step for step in steps if step.get("task") == "EsrpRelease@9")
+    receipt = next(
+        step
+        for step in steps
+        if step.get("displayName")
+        == "Record published Maven source and artifact hashes"
+    )
+    published_root = esrp["inputs"]["folderlocation"]
+    assert f'--artifact-root "{published_root}"' in receipt["bash"]
+    assert ".ivy2" not in receipt["bash"]
+    assert steps.index(esrp) < steps.index(receipt)
+    assert any(
+        "prepare_jar.py" in step.get("bash", "")
+        and f'--output "{published_root}"' in step["bash"]
+        for step in steps[: steps.index(esrp)]
+    )
+
+
+@pytest.mark.parametrize(
+    "release_requested", ["true", "True", "false", "False", "invalid"]
+)
+@pytest.mark.parametrize("failure", ["none", "activation", "sbt"])
+def test_publication_script_respects_the_approved_artifact_family(
+    tmp_path, release_requested, failure
+):
+    jobs = {job["job"]: job for job in _jobs(yaml.safe_load(_pipeline_text())["jobs"])}
+    task = next(
+        step
+        for step in jobs["Publish"]["steps"]
+        if step.get("displayName") == "Publish Artifacts"
+    )
+    script = task["inputs"]["inlineScript"].replace("$(packageVersion)", "1.2.0")
+    calls = tmp_path / "sbt-calls"
+    stub = """
+unset SYNAPSEML_TEST_PREVIOUS_ADDR2LINE
+sbt() {
+  case "$-" in *u*) ;; *) return 99 ;; esac
+  printf '%s\\n' "$*" >> "$SBT_CALLS"
+  if [ "$SIMULATED_FAILURE" = sbt ]; then return 31; fi
+}
+sudo() { :; }
+source() {
+  local previous="$SYNAPSEML_TEST_PREVIOUS_ADDR2LINE"
+  if [ "$SIMULATED_FAILURE" = activation ]; then return 23; fi
+}
+"""
+    result = subprocess.run(
+        ["bash", "-c", stub + script],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "SBT_CALLS": str(calls),
+            "RELEASE_REQUESTED": release_requested,
+            "SIMULATED_FAILURE": failure,
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    observed = calls.read_text().splitlines() if calls.exists() else []
+    if release_requested == "invalid":
+        assert result.returncode != 0
+        assert not observed
+        return
+    if failure == "activation":
+        assert result.returncode == 23, result.stderr
+        assert not observed
+        return
+    if failure == "sbt":
+        assert result.returncode == 31, result.stderr
+        assert len(observed) == 1
+        assert observed[0].startswith("packagePython")
+        return
+    assert result.returncode == 0, result.stderr
+    assert task["env"]["RELEASE_REQUESTED"] == "${{ parameters.publishRelease }}"
+    assert any("publishBlob" in command for command in observed)
+    assert any("publishLocalSigned" in command for command in observed)
+    non_maven = {"uploadNotebooks", "publishDocs", "publishR", "publishPython"}
+    published = {word for command in observed for word in command.split()}
+    if release_requested.lower() == "true":
+        assert not non_maven.intersection(published)
+    else:
+        assert non_maven <= published
+
+
+@pytest.mark.parametrize("test_r", [False, True])
+@pytest.mark.parametrize("test_databricks", [False, True])
+@pytest.mark.parametrize("test_fabric", [False, True])
+@pytest.mark.parametrize("test_website", [False, True])
+def test_release_publication_waits_only_for_enabled_optional_test_jobs(
+    test_r, test_databricks, test_fabric, test_website
+):
+    jobs = {job["job"]: job for job in _jobs(yaml.safe_load(_pipeline_text())["jobs"])}
+    publish = jobs["Publish"]
+    dependencies = publish["${{ if eq(parameters.publishRelease, true) }}"]["dependsOn"]
+    cases = {
+        "${{ if eq(parameters.testR, true) }}": (test_r, {"RTests"}),
+        "${{ if eq(parameters.testDatabricksE2E, true) }}": (
+            test_databricks,
+            {"DatabricksCPUE2E", "DatabricksGPUE2E"},
+        ),
+        "${{ if eq(parameters.testFabricE2E, true) }}": (test_fabric, {"FabricE2E"}),
+        "${{ if eq(parameters.testWebsiteSamples, true) }}": (
+            test_website,
+            {"WebsiteSamplesTests"},
+        ),
+    }
+    selected = set()
+    for entry in dependencies:
+        if isinstance(entry, str):
+            selected.add(entry)
+        else:
+            assert len(entry) == 1
+            condition, names = next(iter(entry.items()))
+            enabled, expected = cases[condition]
+            assert set(names) == expected
+            if enabled:
+                selected.update(names)
+    required = {"BuildAndCacheSbt", "Style", "UnitTests", "PythonTests", "BuildDocker"}
+    expected = required | {
+        name for enabled, names in cases.values() if enabled for name in names
+    }
+    assert selected == expected
+    assert "succeeded()" in publish["condition"]
+    assert "ReleaseBranchCompat" not in selected
+    assert "InternalCompat" not in selected
+
+
+@pytest.mark.parametrize("publish_release", [False, True])
+@pytest.mark.parametrize("publish_artifacts", [False, True])
+def test_release_job_dependencies_exist_for_every_publication_combination(
+    publish_release, publish_artifacts
+):
+    conditions = {
+        "${{ if eq(parameters.publishArtifacts, true) }}": publish_artifacts,
+        "${{ if eq(parameters.publishRelease, true) }}": publish_release,
+        "${{ if and(eq(parameters.publishRelease, true), eq(parameters.publishArtifacts, true)) }}": (
+            publish_release and publish_artifacts
+        ),
+    }
+    jobs = {}
+    for node in yaml.safe_load(_pipeline_text())["jobs"]:
+        if "job" in node:
+            jobs[node["job"]] = node
+        else:
+            assert len(node) == 1
+            condition, selected = next(iter(node.items()))
+            assert condition in conditions, f"Unhandled job condition: {condition}"
+            if conditions[condition]:
+                jobs.update((job["job"], job) for job in selected)
+    assert "BuildAndCacheSbt" in jobs
+    assert ("Publish" in jobs) == publish_artifacts
+    assert ("Release" in jobs) == (publish_release and publish_artifacts)
+    if "Release" in jobs:
+        assert set(jobs["Release"]["dependsOn"]) <= set(jobs)
 
 
 def test_style_does_not_restore_the_full_conda_environment():
@@ -1927,15 +2117,29 @@ def test_every_sbt_running_job_waits_for_the_prewarm_cache():
             if isinstance(s, dict) and s.get("template")
         ]
         uses_cache = "templates/sbt_cache.yml" in templates
-        depends_on = job.get("dependsOn", [])
-        if isinstance(depends_on, str):
-            depends_on = [depends_on]
+        dependency_cases = (
+            [job]
+            if "dependsOn" in job
+            else [
+                value
+                for key, value in job.items()
+                if key.startswith("${{") and isinstance(value, dict)
+            ]
+        )
+
+        def waits_for_cache(case):
+            dependencies = case.get("dependsOn", [])
+            if isinstance(dependencies, str):
+                dependencies = [dependencies]
+            return "BuildAndCacheSbt" in dependencies
+
+        waits_in_every_case = bool(dependency_cases) and all(
+            waits_for_cache(case) for case in dependency_cases
+        )
         condition = job.get("condition")
         gated_by_success = condition is None or "succeeded()" in condition
         if runs_sbt and (
-            not uses_cache
-            or "BuildAndCacheSbt" not in depends_on
-            or not gated_by_success
+            not uses_cache or not waits_in_every_case or not gated_by_success
         ):
             offenders.append(job.get("job"))
     assert not offenders, f"sbt jobs missing required cache gate: {offenders}"
