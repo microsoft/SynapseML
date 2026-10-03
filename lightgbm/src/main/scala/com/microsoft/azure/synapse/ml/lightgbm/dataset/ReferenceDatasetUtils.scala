@@ -121,7 +121,8 @@ object ReferenceDatasetUtils {
       val configuredMaxOmpThreads = ctx.trainingParams.executionParams.maxStreamingOMPThreads
       val maxOmpThreads = streamingOmpAllocationBound(
         configuredMaxOmpThreads,
-        ctx.trainingParams.executionParams.numThreads)
+        ctx.trainingParams.executionParams.numThreads,
+        ctx.executorPartitionCount)
       if (ctx.trainingParams.generalParams.verbosity > 1) {
         LoggerFactory.getLogger(getClass).info(
           s"Initializing streaming Dataset: executor=${LightGBMUtils.getExecutorId}, " +
@@ -144,29 +145,36 @@ object ReferenceDatasetUtils {
   }
 
   private[lightgbm] def streamingOmpAllocationBound(configuredMaxThreads: Int,
-                                                    configuredNumThreads: Int): Int = {
+                                                    configuredNumThreads: Int,
+                                                    externalThreads: Int): Int = {
     streamingOmpAllocationBound(
+      externalThreads,
       configuredMaxThreads,
       configuredNumThreads,
       Option(System.getenv("OMP_NUM_THREADS")),
       LightGBMUtils.linuxProcessAffinityCount(),
+      LightGBMUtils.osReportedProcessorCount(),
       Runtime.getRuntime.availableProcessors(),
       LightGBMUtils.nativeOmpThreadHighWaterMark,
       message => Logger.warn(message))
   }
 
-  private[lightgbm] def streamingOmpAllocationBound(configuredMaxThreads: Int,
+  private[lightgbm] def streamingOmpAllocationBound(externalThreads: Int,
+                                                    configuredMaxThreads: Int,
                                                     configuredNumThreads: Int,
                                                     ompNumThreads: Option[String],
                                                     affinityCount: Option[Int],
+                                                    osProcessorCount: Option[Int],
                                                     availableProcessors: Int,
                                                     registeredMaxThreads: Int,
                                                     warn: String => Unit): Int =
     LightGBMUtils.streamingOmpAllocationBound(
+      externalThreads,
       configuredMaxThreads,
       configuredNumThreads,
       ompNumThreads,
       affinityCount,
+      osProcessorCount,
       availableProcessors,
       registeredMaxThreads,
       warn)

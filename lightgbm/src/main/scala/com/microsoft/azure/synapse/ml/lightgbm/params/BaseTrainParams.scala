@@ -180,7 +180,8 @@ case class DartModeParams(dropRate: Double,
   * @param useSingleDatasetMode Whether to create only 1 LightGBM Dataset on each worker.
   * @param maxStreamingOMPThreads Streaming OpenMP allocation hint per Spark task thread; SynapseML raises
   *                               it to cover native teams observed from OMP_NUM_THREADS or Linux CPU affinity,
-  *                               falling back to the JVM processor count, and never treats it as a cap.
+  *                               uses native auto-sizing for one pushing thread, and otherwise falls back to
+  *                               best-effort OS/JVM processor counts without treating the value as a cap.
   */
 case class ExecutionParams(chunkSize: Int,
                            matrixType: String,

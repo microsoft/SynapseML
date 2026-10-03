@@ -16,6 +16,7 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 import java.util.function.IntBinaryOperator
 import scala.collection.JavaConverters._
+import scala.io.Source
 import scala.util.Try
 
 private[lightgbm] sealed trait NativeOmpCallSite {
@@ -156,26 +157,80 @@ object LightGBMUtils {
       .toOption
       .flatten
 
-  private[lightgbm] def streamingOmpAllocationBound(configuredMaxThreads: Int,
+  private def positiveProcessorCount(value: Option[String]): Option[Int] =
+    value.map(_.trim).filter(_.nonEmpty)
+      .flatMap(token => Try(token.toInt).toOption)
+      .filter(_ > 0)
+
+  private[lightgbm] def osReportedProcessorCount(osName: String,
+                                                  windowsProcessorCount: Option[String],
+                                                  macLogicalCpuCount: Option[String]): Option[Int] = {
+    val normalizedName = osName.toLowerCase(Locale.ROOT)
+    if (normalizedName.startsWith("windows")) {
+      positiveProcessorCount(windowsProcessorCount)
+    } else if (normalizedName.contains("mac") || normalizedName.contains("darwin")) {
+      positiveProcessorCount(macLogicalCpuCount)
+    } else {
+      None
+    }
+  }
+
+  private def firstCommandOutput(command: Seq[String]): Option[String] =
+    Try {
+      val process = new ProcessBuilder(command: _*).redirectErrorStream(true).start()
+      val output = Source.fromInputStream(process.getInputStream)
+      try {
+        val firstLine = output.getLines().take(1).toSeq.headOption
+        if (process.waitFor() == 0) firstLine else None
+      } finally {
+        output.close()
+      }
+    }.toOption.flatten
+
+  private[lightgbm] def osReportedProcessorCount(): Option[Int] = {
+    val osName = Option(System.getProperty("os.name")).getOrElse("")
+    val normalizedName = osName.toLowerCase(Locale.ROOT)
+    val macLogicalCpuCount = if (normalizedName.contains("mac") || normalizedName.contains("darwin")) {
+      val sysctl = if (Files.isExecutable(Paths.get("/usr/sbin/sysctl"))) "/usr/sbin/sysctl" else "sysctl"
+      firstCommandOutput(Seq(sysctl, "-n", "hw.logicalcpu"))
+    } else {
+      None
+    }
+    osReportedProcessorCount(
+      osName,
+      Option(System.getenv("NUMBER_OF_PROCESSORS")),
+      macLogicalCpuCount)
+  }
+
+  private[lightgbm] def streamingOmpAllocationBound(externalThreads: Int,
+                                                    configuredMaxThreads: Int,
                                                     configuredNumThreads: Int,
                                                     ompNumThreads: Option[String],
                                                     affinityCount: Option[Int],
+                                                    osProcessorCount: Option[Int],
                                                     availableProcessors: Int,
                                                     registeredMaxThreads: Int,
                                                     warn: String => Unit): Int = {
-    val defaultTeam = firstOmpTeamSize(ompNumThreads)
-      .orElse(affinityCount.filter(_ > 0))
-      .getOrElse {
-        warn("Unable to determine the process OpenMP team from OMP_NUM_THREADS or Linux CPU affinity; " +
-          "using the JVM-reported processor count with the conservative streaming floor.")
-        math.max(MinStreamingOmpThreads, availableProcessors)
-      }
-    Seq(
-      MinStreamingOmpThreads,
-      configuredMaxThreads,
-      configuredNumThreads,
-      defaultTeam,
-      registeredMaxThreads).filter(_ > 0).max
+    if (externalThreads == 1) {
+      // The initializing thread is also the only pushing thread, so LightGBM can measure its exact team.
+      -1
+    } else {
+      val defaultTeam = firstOmpTeamSize(ompNumThreads)
+        .orElse(affinityCount.filter(_ > 0))
+        .getOrElse {
+          warn("Unable to prove the native OpenMP team from OMP_NUM_THREADS or Linux CPU affinity; " +
+            "using the best-effort maximum of the OS-reported and JVM-reported processor counts " +
+            "with the conservative streaming floor.")
+          Seq(MinStreamingOmpThreads, osProcessorCount.getOrElse(0), availableProcessors)
+            .filter(_ > 0).max
+        }
+      Seq(
+        MinStreamingOmpThreads,
+        configuredMaxThreads,
+        configuredNumThreads,
+        defaultTeam,
+        registeredMaxThreads).filter(_ > 0).max
+    }
   }
 
   private[lightgbm] def isEnabledParameterValue(value: String): Boolean =

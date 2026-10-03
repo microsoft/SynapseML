@@ -88,29 +88,34 @@ class StreamingLayoutSuite extends LightGBMTestUtils {
 
   test("streaming OpenMP allocation covers the configured native thread team") {
     val warnings = scala.collection.mutable.ArrayBuffer.empty[String]
-    def bound(maxThreads: Int,
+    def bound(externalThreads: Int,
+              maxThreads: Int,
               numThreads: Int,
               ompThreads: Option[String],
               affinity: Option[Int],
+              osProcessors: Option[Int],
               availableProcessors: Int,
               registered: Int): Int =
       ReferenceDatasetUtils.streamingOmpAllocationBound(
+        externalThreads,
         maxThreads,
         numThreads,
         ompThreads,
         affinity,
+        osProcessors,
         availableProcessors,
         registered,
         warnings += _)
 
-    assert(bound(16, 32, Option("8"), Option(4), 64, 2) == 32)
-    assert(bound(32, 16, Option("8"), Option(4), 64, 2) == 32)
-    assert(bound(-1, 2, Option("32,8"), Option(4), 64, 0) == 32)
-    assert(bound(0, 2, Option("invalid,64"), Option(24), 64, 0) == 24)
-    assert(bound(0, 0, None, Option(8), 64, 40) == 40)
-    assert(bound(0, 0, None, None, 48, 0) == 48)
-    assert(bound(0, 0, None, None, 8, 0) == LightGBMUtils.MinStreamingOmpThreads)
-    assert(bound(0, 0, None, None, -1, 0) == LightGBMUtils.MinStreamingOmpThreads)
+    assert(bound(1, 16, 32, Option("8"), Option(4), Option(64), 64, 2) == -1)
+    assert(bound(4, 16, 32, Option("8"), Option(4), Option(64), 64, 2) == 32)
+    assert(bound(4, 32, 16, Option("8"), Option(4), Option(64), 64, 2) == 32)
+    assert(bound(4, -1, 2, Option("32,8"), Option(4), Option(64), 64, 0) == 32)
+    assert(bound(4, 0, 2, Option("invalid,64"), Option(24), Option(64), 64, 0) == 24)
+    assert(bound(4, 0, 0, None, Option(8), Option(64), 64, 40) == 40)
+    assert(bound(4, 0, 0, None, None, Option(32), 8, 0) == 32)
+    assert(bound(4, 0, 0, None, None, None, 8, 0) == LightGBMUtils.MinStreamingOmpThreads)
+    assert(bound(4, 0, 0, None, None, None, -1, 0) == LightGBMUtils.MinStreamingOmpThreads)
     assert(warnings.size == 3)
   }
 
@@ -122,6 +127,10 @@ class StreamingLayoutSuite extends LightGBMTestUtils {
     assert(LightGBMUtils.parseCpuAffinityList("7") == Option(1))
     assert(LightGBMUtils.parseCpuAffinityList("3-1").isEmpty)
     assert(LightGBMUtils.parseCpuAffinityList("0-3,bad").isEmpty)
+    assert(LightGBMUtils.osReportedProcessorCount("Windows 11", Option("32"), None) == Option(32))
+    assert(LightGBMUtils.osReportedProcessorCount("Mac OS X", None, Option("24")) == Option(24))
+    assert(LightGBMUtils.osReportedProcessorCount("Linux", Option("64"), Option("64")).isEmpty)
+    assert(LightGBMUtils.osReportedProcessorCount("Windows 11", Option("invalid"), None).isEmpty)
   }
 
   test("native OpenMP registry covers the six configured call sites monotonically") {

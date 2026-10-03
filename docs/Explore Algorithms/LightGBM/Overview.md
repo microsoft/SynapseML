@@ -175,12 +175,16 @@ Streaming allocation uses at least 16 OpenMP slots and is raised to cover a
 positive `maxStreamingOMPThreads` hint, a positive `numThreads`, the process
 OpenMP team derived from `OMP_NUM_THREADS` or, on Linux, process CPU affinity,
 and positive `num_threads` values that SynapseML previously passed to LightGBM
-in the same executor JVM. When neither team source is available, SynapseML uses
-the JVM-reported processor count with the 16-thread floor. A nonpositive hint
-does not disable this safety bound, and the value is not a cap on the OpenMP
-team. Native code outside SynapseML and a concurrent fit that increases a
-pooled task thread's team after allocation remain outside this mitigation;
-clamping the native push index is the complete fix.
+in the same executor JVM. When exactly one thread pushes rows, SynapseML asks
+LightGBM to measure that thread's native team directly. With several pushing
+threads and neither environment nor Linux-affinity source available, SynapseML
+uses the best-effort maximum of the OS-reported and JVM-reported processor
+counts with the 16-thread floor. On non-Linux hosts this fallback is not a
+proved upper bound on every native team. A nonpositive hint does not disable
+the multi-thread safety bound, and the value is not a cap on the OpenMP team.
+Native code outside SynapseML and a concurrent fit that increases a pooled task
+thread's team after allocation remain outside this mitigation; clamping the
+native push index is the complete fix.
 
 The additional empty-vector memory for sparse streaming data has an analytic
 upper bound of approximately `feature groups × executor partitions × allocation

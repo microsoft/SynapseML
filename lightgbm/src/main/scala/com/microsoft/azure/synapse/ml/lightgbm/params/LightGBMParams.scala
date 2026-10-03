@@ -171,9 +171,10 @@ trait LightGBMExecutionParams extends Wrappable {
     "Streaming OpenMP allocation hint per Spark task thread. Used only for thread-safe buffer allocation." +
       " SynapseML raises this value as needed to cover numThreads, the process OpenMP team from" +
       " OMP_NUM_THREADS or Linux CPU affinity, and positive num_threads values previously passed to" +
-      " LightGBM in the executor JVM. If neither team source is available, the JVM processor count is" +
-      " used with the 16-thread floor. Nonpositive values do not disable the safety bound or cap the" +
-      " OpenMP team.")
+      " LightGBM in the executor JVM. A single pushing thread uses native auto-sizing. With several" +
+      " pushing threads and neither team source available, best-effort OS/JVM processor counts are used" +
+      " with the 16-thread floor; on non-Linux hosts this is not a proved native-team bound. Nonpositive" +
+      " values do not disable the multi-thread safety bound or cap the OpenMP team.")
   setDefault(maxStreamingOMPThreads -> 16)
   def getMaxStreamingOMPThreads: Int = $(maxStreamingOMPThreads)
   def setMaxStreamingOMPThreads(value: Int): this.type = set(maxStreamingOMPThreads, value)
