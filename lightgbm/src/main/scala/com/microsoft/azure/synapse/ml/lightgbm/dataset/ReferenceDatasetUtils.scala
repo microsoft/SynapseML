@@ -11,6 +11,8 @@ import org.slf4j.{Logger, LoggerFactory}
 
 
 object ReferenceDatasetUtils {
+  private val Logger = LoggerFactory.getLogger(getClass)
+
   def createReferenceDatasetFromSample(datasetParams: String,
                                        featuresCol: String,
                                        numRows: Long,
@@ -52,6 +54,7 @@ object ReferenceDatasetUtils {
                                        datasetParams: String): SWIGTYPE_p_void = {
     val datasetVoidPtr = lightgbmlib.voidpp_handle()
     try {
+      LightGBMUtils.registerNativeOmpThreads(NativeOmpCallSite.SampledColumnDataset, datasetParams)
       LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromSampledColumn(
         sampledData.getSampleData,
         sampledData.getSampleIndices,
@@ -142,13 +145,31 @@ object ReferenceDatasetUtils {
 
   private[lightgbm] def streamingOmpAllocationBound(configuredMaxThreads: Int,
                                                     configuredNumThreads: Int): Int = {
-    if (configuredMaxThreads <= 0 || configuredNumThreads <= 0) {
-      // Let the native runtime use the same OpenMP team size for buffer allocation and indexing.
-      -1
-    } else {
-      math.max(configuredMaxThreads, configuredNumThreads)
-    }
+    streamingOmpAllocationBound(
+      configuredMaxThreads,
+      configuredNumThreads,
+      Option(System.getenv("OMP_NUM_THREADS")),
+      LightGBMUtils.linuxProcessAffinityCount(),
+      Runtime.getRuntime.availableProcessors(),
+      LightGBMUtils.nativeOmpThreadHighWaterMark,
+      message => Logger.warn(message))
   }
+
+  private[lightgbm] def streamingOmpAllocationBound(configuredMaxThreads: Int,
+                                                    configuredNumThreads: Int,
+                                                    ompNumThreads: Option[String],
+                                                    affinityCount: Option[Int],
+                                                    availableProcessors: Int,
+                                                    registeredMaxThreads: Int,
+                                                    warn: String => Unit): Int =
+    LightGBMUtils.streamingOmpAllocationBound(
+      configuredMaxThreads,
+      configuredNumThreads,
+      ompNumThreads,
+      affinityCount,
+      availableProcessors,
+      registeredMaxThreads,
+      warn)
 
   private[lightgbm] def initializeOwnedDataset(dataset: LightGBMDataset)
                                                 (initialization: => Unit): LightGBMDataset = {
@@ -188,6 +209,7 @@ object ReferenceDatasetUtils {
     try {
       val nativeByteArray = SwigUtils.byteArrayToNative(serializedDataset)
       try {
+        LightGBMUtils.registerNativeOmpThreads(NativeOmpCallSite.SerializedReferenceDataset, datasetParams)
         LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromSerializedReference( //scalastyle:ignore token
           lightgbmlib.byte_to_voidp_ptr(nativeByteArray),
           serializedDataset.length,

@@ -10,12 +10,77 @@ import org.apache.spark.ml.PipelineModel
 import org.apache.spark.sql.Dataset
 import org.apache.spark.{SparkEnv, TaskContext}
 
+import java.nio.file.{Files, Path, Paths}
 import java.util.Locale
+import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.function.IntBinaryOperator
+import scala.collection.JavaConverters._
+import scala.util.Try
+
+private[lightgbm] sealed trait NativeOmpCallSite {
+  def name: String
+}
+
+private[lightgbm] object NativeOmpCallSite {
+  case object SampledColumnDataset extends NativeOmpCallSite {
+    override val name: String = "LGBM_DatasetCreateFromSampledColumn"
+  }
+
+  case object SerializedReferenceDataset extends NativeOmpCallSite {
+    override val name: String = "LGBM_DatasetCreateFromSerializedReference"
+  }
+
+  case object BoosterCreate extends NativeOmpCallSite {
+    override val name: String = "LGBM_BoosterCreate"
+  }
+
+  case object BoosterResetParameter extends NativeOmpCallSite {
+    override val name: String = "LGBM_BoosterResetParameter"
+  }
+
+  case object DenseDataset extends NativeOmpCallSite {
+    override val name: String = "LGBM_DatasetCreateFromMat"
+  }
+
+  case object SparseDataset extends NativeOmpCallSite {
+    override val name: String = "LGBM_DatasetCreateFromCSR"
+  }
+
+  val Values: Seq[NativeOmpCallSite] = Seq(
+    SampledColumnDataset,
+    SerializedReferenceDataset,
+    BoosterCreate,
+    BoosterResetParameter,
+    DenseDataset,
+    SparseDataset)
+}
+
+private[lightgbm] final class NativeOmpThreadRegistry {
+  private val highWaterMark = new AtomicInteger(0)
+  private val siteHighWaterMarks = new ConcurrentHashMap[NativeOmpCallSite, AtomicInteger]()
+  private val maxValue = new IntBinaryOperator {
+    override def applyAsInt(left: Int, right: Int): Int = math.max(left, right)
+  }
+
+  def register(site: NativeOmpCallSite, parameters: String): Int = {
+    val requestedThreads = LightGBMUtils.positiveNumThreads(parameters).getOrElse(0)
+    siteHighWaterMarks.computeIfAbsent(site, _ => new AtomicInteger(0))
+      .accumulateAndGet(requestedThreads, maxValue)
+    highWaterMark.accumulateAndGet(requestedThreads, maxValue)
+  }
+
+  def current: Int = highWaterMark.get()
+
+  def current(site: NativeOmpCallSite): Int = Option(siteHighWaterMarks.get(site)).map(_.get()).getOrElse(0)
+}
 
 /** Helper utilities for LightGBM learners */
 object LightGBMUtils {
   private val DeviceParamNames = Set("device", "device_type")
   private val TrueValues = Set("1", "+1", "true", "yes", "on")
+  private val NativeOmpThreads = new NativeOmpThreadRegistry
+  private[lightgbm] val MinStreamingOmpThreads: Int = 16
 
   private def removeLightGBMQuotationSymbols(value: String): String = {
     def isQuote(char: Char): Boolean = char == '\'' || char == '"'
@@ -41,6 +106,77 @@ object LightGBMUtils {
 
   private[lightgbm] def parameterValues(parameters: String, names: Set[String]): Map[String, String] =
     parseLightGBMParams(parameters).filter { case (name, _) => names.contains(name) }
+
+  private[lightgbm] def positiveNumThreads(parameters: String): Option[Int] =
+    parseLightGBMParams(parameters).get("num_threads")
+      .flatMap(value => Try(value.toInt).toOption)
+      .filter(_ > 0)
+
+  private[lightgbm] def registerNativeOmpThreads(site: NativeOmpCallSite, parameters: String): Int =
+    NativeOmpThreads.register(site, parameters)
+
+  private[lightgbm] def nativeOmpThreadHighWaterMark: Int = NativeOmpThreads.current
+
+  private[lightgbm] def nativeOmpThreadHighWaterMark(site: NativeOmpCallSite): Int = NativeOmpThreads.current(site)
+
+  private[lightgbm] def firstOmpTeamSize(value: Option[String]): Option[Int] =
+    value.flatMap(_.split(",", -1).headOption)
+      .map(_.trim)
+      .filter(_.nonEmpty)
+      .flatMap(token => Try(token.toInt).toOption)
+      .filter(_ > 0)
+
+  private def parseCpuAffinityToken(token: String): Option[Long] = {
+    val bounds = token.split("-", -1).map(_.trim)
+    bounds.length match {
+      case 1 => Try(bounds(0).toInt).toOption.filter(_ >= 0).map(_ => 1L)
+      case 2 => for {
+        start <- Try(bounds(0).toInt).toOption
+        end <- Try(bounds(1).toInt).toOption
+        if start >= 0 && end >= start
+      } yield end.toLong - start.toLong + 1L
+      case _ => None
+    }
+  }
+
+  private[lightgbm] def parseCpuAffinityList(value: String): Option[Int] = {
+    val counts = value.split(",", -1).iterator.map(_.trim).map(parseCpuAffinityToken).toSeq
+    if (counts.nonEmpty && counts.forall(_.isDefined)) {
+      val total = counts.flatten.sum
+      if (total > 0 && total <= Int.MaxValue) Option(total.toInt) else None
+    } else {
+      None
+    }
+  }
+
+  private[lightgbm] def linuxProcessAffinityCount(statusPath: Path = Paths.get("/proc/self/status")): Option[Int] =
+    Try(Files.readAllLines(statusPath).asScala
+      .find(_.startsWith("Cpus_allowed_list:"))
+      .flatMap(line => parseCpuAffinityList(line.substring(line.indexOf(':') + 1).trim)))
+      .toOption
+      .flatten
+
+  private[lightgbm] def streamingOmpAllocationBound(configuredMaxThreads: Int,
+                                                    configuredNumThreads: Int,
+                                                    ompNumThreads: Option[String],
+                                                    affinityCount: Option[Int],
+                                                    availableProcessors: Int,
+                                                    registeredMaxThreads: Int,
+                                                    warn: String => Unit): Int = {
+    val defaultTeam = firstOmpTeamSize(ompNumThreads)
+      .orElse(affinityCount.filter(_ > 0))
+      .getOrElse {
+        warn("Unable to determine the process OpenMP team from OMP_NUM_THREADS or Linux CPU affinity; " +
+          "using the JVM-reported processor count with the conservative streaming floor.")
+        math.max(MinStreamingOmpThreads, availableProcessors)
+      }
+    Seq(
+      MinStreamingOmpThreads,
+      configuredMaxThreads,
+      configuredNumThreads,
+      defaultTeam,
+      registeredMaxThreads).filter(_ > 0).max
+  }
 
   private[lightgbm] def isEnabledParameterValue(value: String): Boolean =
     TrueValues.contains(value.toLowerCase(Locale.ROOT))

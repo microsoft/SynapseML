@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.lightgbm.booster
 
 import com.microsoft.azure.synapse.ml.lightgbm.dataset.LightGBMDataset
 import com.microsoft.azure.synapse.ml.lightgbm.swig.SwigUtils
-import com.microsoft.azure.synapse.ml.lightgbm.{LightGBMConstants, LightGBMUtils}
+import com.microsoft.azure.synapse.ml.lightgbm.{LightGBMConstants, LightGBMUtils, NativeOmpCallSite}
 import com.microsoft.ml.lightgbm._
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector, Vector}
 import org.apache.spark.sql.{SaveMode, SparkSession}
@@ -239,6 +239,7 @@ class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None,
     } else {
       val boosterOutPtr = lightgbmlib.voidpp_handle()
       val trainingParameters = parameters.get
+      LightGBMUtils.registerNativeOmpThreads(NativeOmpCallSite.BoosterCreate, trainingParameters)
       LightGBMUtils.validateBooster(lightgbmlib.LGBM_BoosterCreate(trainDataset.map(_.datasetPtr).get,
         trainingParameters, boosterOutPtr), trainingParameters)
       new BoosterHandler(lightgbmlib.voidpp_value(boosterOutPtr))
@@ -318,6 +319,7 @@ class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None,
     * @param newParameters The new parameters to set.
     */
   def resetParameter(newParameters: String): Unit = {
+    LightGBMUtils.registerNativeOmpThreads(NativeOmpCallSite.BoosterResetParameter, newParameters)
     LightGBMUtils.validate(lightgbmlib.LGBM_BoosterResetParameter(boosterHandler.boosterPtr,
       newParameters), "Booster Reset learning_rate Param")
   }

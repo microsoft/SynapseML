@@ -3,14 +3,28 @@
 
 package com.microsoft.azure.synapse.ml.lightgbm.split1
 
-import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.io.http.SharedSingleton
 import com.microsoft.azure.synapse.ml.lightgbm._
+import com.microsoft.azure.synapse.ml.lightgbm.booster.LightGBMBooster
 import com.microsoft.azure.synapse.ml.lightgbm.dataset.ReferenceDatasetUtils
-import org.apache.spark.ml.linalg.SQLDataTypes
+import com.microsoft.azure.synapse.ml.lightgbm.params.BaseTrainParams
+import org.apache.spark.ml.linalg.{SQLDataTypes, Vectors}
 import org.apache.spark.sql.types.{StructField, StructType}
+import org.slf4j.Logger
 
-class StreamingLayoutSuite extends TestBase {
+class NativeOmpResetDelegate(threadCount: Int) extends LightGBMDelegate {
+  override def beforeTrainIteration(batchIndex: Int,
+                                    partitionId: Int,
+                                    curIters: Int,
+                                    log: Logger,
+                                    trainParams: BaseTrainParams,
+                                    booster: LightGBMBooster,
+                                    hasValid: Boolean): Unit = {
+    if (curIters == 0) booster.resetParameter(s"num_threads=$threadCount")
+  }
+}
+
+class StreamingLayoutSuite extends LightGBMTestUtils {
   private def context(partitionId: Int, localPartitions: Array[Int], counts: Array[Long]): PartitionTaskContext = {
     val features = StructField("features", SQLDataTypes.VectorType)
     val params = new LightGBMRegressor().getTrainParams(counts.length, features, localPartitions.length)
@@ -73,10 +87,121 @@ class StreamingLayoutSuite extends TestBase {
   }
 
   test("streaming OpenMP allocation covers the configured native thread team") {
-    assert(ReferenceDatasetUtils.streamingOmpAllocationBound(16, 32) == 32)
-    assert(ReferenceDatasetUtils.streamingOmpAllocationBound(32, 16) == 32)
-    assert(ReferenceDatasetUtils.streamingOmpAllocationBound(-1, 32) == -1)
-    assert(ReferenceDatasetUtils.streamingOmpAllocationBound(0, 32) == -1)
-    assert(ReferenceDatasetUtils.streamingOmpAllocationBound(16, 0) == -1)
+    val warnings = scala.collection.mutable.ArrayBuffer.empty[String]
+    def bound(maxThreads: Int,
+              numThreads: Int,
+              ompThreads: Option[String],
+              affinity: Option[Int],
+              availableProcessors: Int,
+              registered: Int): Int =
+      ReferenceDatasetUtils.streamingOmpAllocationBound(
+        maxThreads,
+        numThreads,
+        ompThreads,
+        affinity,
+        availableProcessors,
+        registered,
+        warnings += _)
+
+    assert(bound(16, 32, Option("8"), Option(4), 64, 2) == 32)
+    assert(bound(32, 16, Option("8"), Option(4), 64, 2) == 32)
+    assert(bound(-1, 2, Option("32,8"), Option(4), 64, 0) == 32)
+    assert(bound(0, 2, Option("invalid,64"), Option(24), 64, 0) == 24)
+    assert(bound(0, 0, None, Option(8), 64, 40) == 40)
+    assert(bound(0, 0, None, None, 48, 0) == 48)
+    assert(bound(0, 0, None, None, 8, 0) == LightGBMUtils.MinStreamingOmpThreads)
+    assert(bound(0, 0, None, None, -1, 0) == LightGBMUtils.MinStreamingOmpThreads)
+    assert(warnings.size == 3)
+  }
+
+  test("streaming OpenMP helpers parse environment and affinity inputs") {
+    assert(LightGBMUtils.firstOmpTeamSize(Option("32,8,4")) == Option(32))
+    assert(LightGBMUtils.firstOmpTeamSize(Option("0,32")).isEmpty)
+    assert(LightGBMUtils.firstOmpTeamSize(Option("invalid,32")).isEmpty)
+    assert(LightGBMUtils.parseCpuAffinityList("0-3,8,10-11") == Option(7))
+    assert(LightGBMUtils.parseCpuAffinityList("7") == Option(1))
+    assert(LightGBMUtils.parseCpuAffinityList("3-1").isEmpty)
+    assert(LightGBMUtils.parseCpuAffinityList("0-3,bad").isEmpty)
+  }
+
+  test("native OpenMP registry covers the six configured call sites monotonically") {
+    val registry = new NativeOmpThreadRegistry
+    assert(NativeOmpCallSite.Values.map(_.name).distinct.size == 6)
+    NativeOmpCallSite.Values.zipWithIndex.foreach { case (site, index) =>
+      assert(registry.register(site, s"verbosity=1 num_threads=${index + 2}") == index + 2)
+    }
+    assert(registry.current == 7)
+    assert(registry.register(NativeOmpCallSite.BoosterCreate, "num_threads=3") == 7)
+    assert(registry.register(NativeOmpCallSite.DenseDataset, "num_threads=invalid") == 7)
+    assert(registry.register(NativeOmpCallSite.SparseDataset, "num_threads=-1") == 7)
+    NativeOmpCallSite.Values.zipWithIndex.foreach { case (site, index) =>
+      assert(registry.current(site) == index + 2)
+    }
+  }
+
+  test("production native call paths register their OpenMP thread counts") {
+    import spark.implicits._
+
+    def nextThreadCount(sites: NativeOmpCallSite*): Int =
+      math.max(2, sites.map(LightGBMUtils.nativeOmpThreadHighWaterMark).max + 1)
+
+    def fit(mode: String,
+            matrixType: String,
+            threadCount: Int,
+            delegate: Option[LightGBMDelegate] = None): Unit = {
+      val rows = (0 until 64).map { index =>
+        val label = (index % 2).toDouble
+        val features = if (matrixType == "sparse") {
+          Vectors.sparse(3, Array(0, 2), Array(index % 7, label))
+        } else {
+          Vectors.dense(index % 7, (index * 3) % 11, label)
+        }
+        (label, features)
+      }
+      val data = rows.toDF(labelCol, featuresCol).repartition(1).cache()
+      try {
+        val estimator = new LightGBMClassifier()
+          .setLabelCol(labelCol)
+          .setFeaturesCol(featuresCol)
+          .setDataTransferMode(mode)
+          .setMatrixType(matrixType)
+          .setUseSingleDatasetMode(true)
+          .setNumTasks(1)
+          .setNumThreads(threadCount)
+          .setNumLeaves(3)
+          .setNumIterations(1)
+          .setDefaultListenPort(getAndIncrementPort())
+        delegate.foreach(estimator.setDelegate)
+        val model = estimator.fit(data)
+        model.getModel.freeNativeMemory()
+      } finally {
+        data.unpersist()
+      }
+    }
+
+    val streamingSites = Seq(
+      NativeOmpCallSite.SampledColumnDataset,
+      NativeOmpCallSite.SerializedReferenceDataset,
+      NativeOmpCallSite.BoosterCreate)
+    val streamingThreads = nextThreadCount(streamingSites: _*)
+    fit(LightGBMConstants.StreamingDataTransferMode, "dense", streamingThreads)
+    streamingSites.foreach(site => assert(LightGBMUtils.nativeOmpThreadHighWaterMark(site) == streamingThreads))
+
+    val denseSites = Seq(
+      NativeOmpCallSite.DenseDataset,
+      NativeOmpCallSite.BoosterCreate,
+      NativeOmpCallSite.BoosterResetParameter)
+    val denseThreads = nextThreadCount(denseSites: _*)
+    fit(
+      LightGBMConstants.BulkDataTransferMode,
+      "dense",
+      denseThreads,
+      Option(new NativeOmpResetDelegate(denseThreads)))
+    denseSites.foreach(site => assert(LightGBMUtils.nativeOmpThreadHighWaterMark(site) == denseThreads))
+
+    val sparseThreads = nextThreadCount(NativeOmpCallSite.SparseDataset, NativeOmpCallSite.BoosterCreate)
+    fit(LightGBMConstants.BulkDataTransferMode, "sparse", sparseThreads)
+    assert(LightGBMUtils.nativeOmpThreadHighWaterMark(NativeOmpCallSite.SparseDataset) == sparseThreads)
+    assert(LightGBMUtils.nativeOmpThreadHighWaterMark(NativeOmpCallSite.BoosterCreate) == sparseThreads)
   }
 }

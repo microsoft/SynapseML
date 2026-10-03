@@ -170,11 +170,23 @@ Streaming ingestion allocates thread slots for partitions on each executor,
 including empty local partitions, rather than for every partition in the cluster.
 With `verbosity=2`, executor logs include the local partition IDs, row count, and
 external-thread count passed to native initialization. These ingestion threads
-are distinct from the native training threads controlled by `numThreads`. When
-`numThreads` and `maxStreamingOMPThreads` are positive, streaming allocation
-uses at least `numThreads` OpenMP slots. With automatic `numThreads` or a
-nonpositive `maxStreamingOMPThreads`, the LightGBM runtime allocates against
-its actual OpenMP team size instead of relying on a fixed configured limit.
+are distinct from the native training threads controlled by `numThreads`.
+Streaming allocation uses at least 16 OpenMP slots and is raised to cover a
+positive `maxStreamingOMPThreads` hint, a positive `numThreads`, the process
+OpenMP team derived from `OMP_NUM_THREADS` or, on Linux, process CPU affinity,
+and positive `num_threads` values that SynapseML previously passed to LightGBM
+in the same executor JVM. When neither team source is available, SynapseML uses
+the JVM-reported processor count with the 16-thread floor. A nonpositive hint
+does not disable this safety bound, and the value is not a cap on the OpenMP
+team. Native code outside SynapseML and a concurrent fit that increases a
+pooled task thread's team after allocation remain outside this mitigation;
+clamping the native push index is the complete fix.
+
+The additional empty-vector memory for sparse streaming data has an analytic
+upper bound of approximately `feature groups × executor partitions × allocation
+width × 24 bytes`, before allocator overhead and row payload. SynapseML does not
+apply a smaller memory cap because a bound below the actual OpenMP team can
+reintroduce out-of-range writes.
 
 #### GPU training with a custom OpenCL native library
 
