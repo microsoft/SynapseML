@@ -79,6 +79,7 @@ private[lightgbm] final class NativeOmpThreadRegistry {
 /** Helper utilities for LightGBM learners */
 object LightGBMUtils {
   private val DeviceParamNames = Set("device", "device_type")
+  private val NumThreadParamNames = Set("num_threads", "num_thread", "nthread", "nthreads", "n_jobs")
   private val TrueValues = Set("1", "+1", "true", "yes", "on")
   private val NativeOmpThreads = new NativeOmpThreadRegistry
   private[lightgbm] val MinStreamingOmpThreads: Int = 16
@@ -109,9 +110,12 @@ object LightGBMUtils {
     parseLightGBMParams(parameters).filter { case (name, _) => names.contains(name) }
 
   private[lightgbm] def positiveNumThreads(parameters: String): Option[Int] =
-    parseLightGBMParams(parameters).get("num_threads")
+    // This is a safety bound, not a reimplementation of LightGBM's alias precedence. Taking the
+    // maximum can over-allocate for conflicting keys, but cannot miss a larger native team.
+    parameterValues(parameters, NumThreadParamNames).values
       .flatMap(value => Try(value.toInt).toOption)
       .filter(_ > 0)
+      .reduceOption(math.max)
 
   private[lightgbm] def registerNativeOmpThreads(site: NativeOmpCallSite, parameters: String): Int =
     NativeOmpThreads.register(site, parameters)

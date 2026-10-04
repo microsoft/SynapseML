@@ -12,7 +12,8 @@ import org.apache.spark.ml.linalg.{SQLDataTypes, Vectors}
 import org.apache.spark.sql.types.{StructField, StructType}
 import org.slf4j.Logger
 
-class NativeOmpResetDelegate(threadCount: Int) extends LightGBMDelegate {
+class NativeOmpResetDelegate(threadCount: Int,
+                             parameterName: String = "num_threads") extends LightGBMDelegate {
   override def beforeTrainIteration(batchIndex: Int,
                                     partitionId: Int,
                                     curIters: Int,
@@ -20,7 +21,7 @@ class NativeOmpResetDelegate(threadCount: Int) extends LightGBMDelegate {
                                     trainParams: BaseTrainParams,
                                     booster: LightGBMBooster,
                                     hasValid: Boolean): Unit = {
-    if (curIters == 0) booster.resetParameter(s"num_threads=$threadCount")
+    if (curIters == 0) booster.resetParameter(s"$parameterName=$threadCount")
   }
 }
 
@@ -148,6 +149,36 @@ class StreamingLayoutSuite extends LightGBMTestUtils {
     }
   }
 
+  test("native OpenMP registry treats LightGBM thread aliases as safety bounds") {
+    val aliases = Seq("num_threads", "num_thread", "nthread", "nthreads", "n_jobs")
+    aliases.zipWithIndex.foreach { case (name, index) =>
+      val registry = new NativeOmpThreadRegistry
+      assert(registry.register(
+        NativeOmpCallSite.BoosterResetParameter,
+        s"$name=${index + 2}") == index + 2)
+    }
+
+    val canonicalAndAlias = new NativeOmpThreadRegistry
+    assert(canonicalAndAlias.register(
+      NativeOmpCallSite.BoosterResetParameter,
+      "num_threads=2 n_jobs=32") == 32)
+
+    val twoAliases = new NativeOmpThreadRegistry
+    assert(twoAliases.register(
+      NativeOmpCallSite.BoosterResetParameter,
+      "nthread=7 num_thread=19") == 19)
+
+    val repeatedKey = new NativeOmpThreadRegistry
+    assert(repeatedKey.register(
+      NativeOmpCallSite.BoosterResetParameter,
+      "n_jobs=11 n_jobs=29") == 11)
+
+    val ignoredValues = new NativeOmpThreadRegistry
+    assert(ignoredValues.register(
+      NativeOmpCallSite.BoosterResetParameter,
+      "num_threads=invalid n_jobs=0 nthread=-1") == 0)
+  }
+
   test("production native call paths register their OpenMP thread counts") {
     import spark.implicits._
 
@@ -205,7 +236,7 @@ class StreamingLayoutSuite extends LightGBMTestUtils {
       LightGBMConstants.BulkDataTransferMode,
       "dense",
       denseThreads,
-      Option(new NativeOmpResetDelegate(denseThreads)))
+      Option(new NativeOmpResetDelegate(denseThreads, "n_jobs")))
     denseSites.foreach(site => assert(LightGBMUtils.nativeOmpThreadHighWaterMark(site) == denseThreads))
 
     val sparseThreads = nextThreadCount(NativeOmpCallSite.SparseDataset, NativeOmpCallSite.BoosterCreate)

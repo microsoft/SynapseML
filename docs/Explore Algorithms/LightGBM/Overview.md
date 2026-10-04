@@ -174,9 +174,12 @@ are distinct from the native training threads controlled by `numThreads`.
 Streaming allocation uses at least 16 OpenMP slots and is raised to cover a
 positive `maxStreamingOMPThreads` hint, a positive `numThreads`, the process
 OpenMP team derived from `OMP_NUM_THREADS` or, on Linux, process CPU affinity,
-and positive `num_threads` values that SynapseML previously passed to LightGBM
-in the same executor JVM. When exactly one thread pushes rows, SynapseML asks
-LightGBM to measure that thread's native team directly. With several pushing
+and positive `num_threads` values or aliases (`num_thread`, `nthread`,
+`nthreads`, or `n_jobs`) that SynapseML previously passed to LightGBM in the
+same executor JVM. If conflicting thread keys are supplied, SynapseML registers
+their maximum as a conservative allocation bound even when LightGBM selects a
+smaller value by its precedence rules. When exactly one thread pushes rows,
+SynapseML asks LightGBM to measure that thread's native team directly. With several pushing
 threads and neither environment nor Linux-affinity source available, SynapseML
 uses the best-effort maximum of the OS-reported and JVM-reported processor
 counts with the 16-thread floor. On non-Linux hosts this fallback is not a
