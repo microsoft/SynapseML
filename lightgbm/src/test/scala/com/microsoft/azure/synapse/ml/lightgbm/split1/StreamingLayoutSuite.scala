@@ -188,6 +188,7 @@ class StreamingLayoutSuite extends LightGBMTestUtils {
     def fit(mode: String,
             matrixType: String,
             threadCount: Int,
+            numTasks: Int = 1,
             delegate: Option[LightGBMDelegate] = None): Unit = {
       val rows = (0 until 64).map { index =>
         val label = (index % 2).toDouble
@@ -198,7 +199,7 @@ class StreamingLayoutSuite extends LightGBMTestUtils {
         }
         (label, features)
       }
-      val data = rows.toDF(labelCol, featuresCol).repartition(1).cache()
+      val data = rows.toDF(labelCol, featuresCol).repartition(numTasks).cache()
       try {
         val estimator = new LightGBMClassifier()
           .setLabelCol(labelCol)
@@ -206,7 +207,7 @@ class StreamingLayoutSuite extends LightGBMTestUtils {
           .setDataTransferMode(mode)
           .setMatrixType(matrixType)
           .setUseSingleDatasetMode(true)
-          .setNumTasks(1)
+          .setNumTasks(numTasks)
           .setNumThreads(threadCount)
           .setNumLeaves(3)
           .setNumIterations(1)
@@ -223,8 +224,8 @@ class StreamingLayoutSuite extends LightGBMTestUtils {
       NativeOmpCallSite.SampledColumnDataset,
       NativeOmpCallSite.SerializedReferenceDataset,
       NativeOmpCallSite.BoosterCreate)
-    val streamingThreads = nextThreadCount(streamingSites: _*)
-    fit(LightGBMConstants.StreamingDataTransferMode, "dense", streamingThreads)
+    val streamingThreads = math.max(32, nextThreadCount(streamingSites: _*))
+    fit(LightGBMConstants.StreamingDataTransferMode, "dense", streamingThreads, numTasks = numPartitions)
     streamingSites.foreach(site => assert(LightGBMUtils.nativeOmpThreadHighWaterMark(site) == streamingThreads))
 
     val denseSites = Seq(
@@ -236,7 +237,7 @@ class StreamingLayoutSuite extends LightGBMTestUtils {
       LightGBMConstants.BulkDataTransferMode,
       "dense",
       denseThreads,
-      Option(new NativeOmpResetDelegate(denseThreads, "n_jobs")))
+      delegate = Option(new NativeOmpResetDelegate(denseThreads, "n_jobs")))
     denseSites.foreach(site => assert(LightGBMUtils.nativeOmpThreadHighWaterMark(site) == denseThreads))
 
     val sparseThreads = nextThreadCount(NativeOmpCallSite.SparseDataset, NativeOmpCallSite.BoosterCreate)
