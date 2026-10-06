@@ -10,7 +10,7 @@ import zipfile
 
 import pytest
 
-SCRIPT = Path(__file__).resolve().parents[1] / "prepare_native_package.py"
+SCRIPT = Path(__file__).resolve().parents[2] / "lightgbm" / "prepare_native_package.py"
 SPEC = importlib.util.spec_from_file_location("prepare_native_package", SCRIPT)
 PACKAGE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(PACKAGE)

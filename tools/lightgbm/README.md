@@ -86,9 +86,12 @@ Local Spark workers do not substitute for a multi-executor Fabric run.
 Package-tool tests:
 
 ```powershell
-python -m pytest tools\lightgbm\tests -q
-python -m black --check tools\lightgbm
+python -m pytest tools\ci\tests\test_prepare_native_package.py -q
+python -m black --check tools\lightgbm tools\ci\tests\test_prepare_native_package.py
 ```
+
+The existing `CIHelpers` job discovers these tests under `tools/ci/tests`.
+They use synthetic local archives and do not download or publish a package.
 
 ## Publisher handoff
 
