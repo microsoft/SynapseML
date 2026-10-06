@@ -1,0 +1,30 @@
+{
+  "version": "4.7.0",
+  "commit": "8f7036f03627054d5a54a6f965b13f4b9ff2cb63",
+  "java_platform": "linux",
+  "assets": {
+    "linux": {
+      "sha256": "388f40517265d3fff02e5ec66d92ea63a4eefce676cc799fc1a6cfdd20f4cc86",
+      "resources": [
+        "com/microsoft/ml/lightgbm/linux/x86_64/lib_lightgbm.so",
+        "com/microsoft/ml/lightgbm/linux/x86_64/lib_lightgbm_swig.so"
+      ]
+    },
+    "macos": {
+      "sha256": "fb04632427375522ab6ae5ab57d4d64225b402fadca86af0a7dd2062e69ecc68",
+      "resources": [
+        "com/microsoft/ml/lightgbm/osx/x86_64/lib_lightgbm.dylib",
+        "com/microsoft/ml/lightgbm/osx/x86_64/lib_lightgbm_swig.dylib"
+      ]
+    },
+    "win": {
+      "sha256": "a15b05fd7212ea3a1bca514d4bc24df8bee49c24c9a9014db6b76eab935c01c4",
+      "resources": [
+        "com/microsoft/ml/lightgbm/windows/x86_64/lib_lightgbm.dll",
+        "com/microsoft/ml/lightgbm/windows/x86_64/lib_lightgbm_swig.dll"
+      ]
+    }
+  },
+  "commit_file_sha256": "3b6011afc36550d5efa5c51929b16d0d44fb9cd0c9cefc64f4773577d3ebf24f",
+  "license_sha256": "ca70f15d841f7e76c8bbd284d25300cd4ae2ef1035e7e5252b13b73449464305"
+}
