@@ -20,8 +20,8 @@ Keep validation results and integrated commit IDs in PR descriptions, not here.
 
 - Spark 4 uses Scala 2.13 and Java 17-era tooling. Check every JDK entry point,
   including Docker, environment files, workflow jobs, and Java setup templates.
-  Do not restore removed CMS JVM flags. A replay job's `JAVA_VERSION` describes
-  its replay target, not necessarily the pipeline's owning branch.
+  Do not restore removed CMS JVM flags. Use the actual branch under validation
+  to select its toolchain, not a master PR's default runtime.
 - Preserve dependency constraints required by the branch's Python and native
   ABI. Check wheel availability and package metadata; PyArrow and MLflow bounds
   are coupled. Keep explanatory comments, but verify them against actual pins.

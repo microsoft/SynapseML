@@ -1,3 +1,0 @@
-# No outstanding prerequisites: the active ports contain the previous backports.
-# Add only dependencies absent from a release target, using full commit SHAs and
-# optional tab-separated paths. Remove entries once their backports are integrated.
