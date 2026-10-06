@@ -466,7 +466,7 @@ class VerifyLightGBMCommon extends TestBase with LightGBMTestUtils {
           .setNumTasks(1)
           .fit(deviceTrainingDF)
       }
-      assert(error.getMessage.contains("missing CUDA metadata"))
+      assert(error.getMessage.contains("CUDA Dataset compatibility has not been validated"))
     }
   }
 
@@ -497,7 +497,7 @@ class VerifyLightGBMCommon extends TestBase with LightGBMTestUtils {
           .setNumTasks(1)
           .fit(deviceTrainingDF)
       }
-      assert(error.getMessage.contains("missing CUDA metadata"))
+      assert(error.getMessage.contains("CUDA Dataset compatibility has not been validated"))
     }
   }
 
@@ -541,7 +541,7 @@ class VerifyLightGBMCommon extends TestBase with LightGBMTestUtils {
           .setNumTasks(1)
           .fit(deviceTrainingDF)
       }
-      assert(error.getMessage.contains("missing CUDA metadata"))
+      assert(error.getMessage.contains("CUDA Dataset compatibility has not been validated"))
     }
   }
 
@@ -630,7 +630,7 @@ class VerifyLightGBMCommon extends TestBase with LightGBMTestUtils {
     val cudaError = intercept[IllegalArgumentException] {
       new LightGBMClassifier().setDeviceType(LightGBMConstants.CUDADeviceType)
     }
-    assert(cudaError.getMessage.contains("can crash Spark executors"))
+    assert(cudaError.getMessage.contains("deviceType=cuda is not supported"))
     assertThrows[IllegalArgumentException](new LightGBMClassifier().setDeviceType("tpu"))
   }
 
@@ -712,6 +712,6 @@ class VerifyLightGBMCommon extends TestBase with LightGBMTestUtils {
     val error = intercept[IllegalArgumentException] {
       baseDeviceClassifier.setPassThroughArgs("device=cuda").fit(deviceTrainingDF)
     }
-    assert(error.getMessage.contains("missing CUDA metadata"))
+    assert(error.getMessage.contains("CUDA Dataset compatibility has not been validated"))
   }
 }

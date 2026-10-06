@@ -557,9 +557,9 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     val numTasks = determineNumTasks(dataset, getNumTasks, numTasksPerExecutor)
     if (getEffectiveDeviceType == LightGBMConstants.CUDADeviceType) {
       throw new IllegalArgumentException(
-        "deviceType=cuda is not supported by SynapseML's LightGBM 3.3.510 integration. " +
-          "The upstream CUDA objective dereferences missing CUDA metadata for SynapseML streaming Datasets and " +
-          "can crash the Spark executor. Use deviceType=gpu with an OpenCL-enabled custom native library.")
+        "deviceType=cuda is not supported by SynapseML's LightGBM integration. " +
+          "CUDA Dataset compatibility has not been validated, and the bundled native libraries are CPU-only. " +
+          "Use deviceType=gpu with an OpenCL-enabled custom native library.")
     }
     val df = prepareDataframe(dataset, numTasks)
 
