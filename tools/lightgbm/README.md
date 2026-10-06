@@ -40,7 +40,7 @@ The script:
   binaries from different releases are never mixed.
 - Produces a deterministic JAR, POM, and SHA-1/SHA-256/SHA-512 checksum files in
   a Maven-layout repository. The JAR embeds the source commit, input and entry
-  hashes, package script hash, and MIT license.
+  hashes, package script hash normalized to LF line endings, and MIT license.
 
 A bad cached hash, missing library, different Java/JNI declarations, or existing
 different output fails explicitly. The script does not overwrite an existing

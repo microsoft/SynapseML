@@ -195,7 +195,9 @@ def prepare(output, cache, javap):
     provenance = {
         **lock,
         "release_url": f"https://github.com/lightgbm-org/LightGBM/releases/tag/v{version}",
-        "packaging_script_sha256": digest(Path(__file__).read_bytes()),
+        "packaging_script_sha256": digest(
+            Path(__file__).read_text(encoding="utf-8").encode("utf-8")
+        ),
         "entries_sha256": {
             name: digest(data) for name, data in sorted(entries.items())
         },

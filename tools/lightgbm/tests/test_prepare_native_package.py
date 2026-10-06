@@ -152,13 +152,20 @@ def test_prepare_is_idempotent_and_rejects_overwrite(tmp_path, monkeypatch):
     lock_file = tmp_path / "lock.json"
     lock_file.write_text(json.dumps(lock))
     monkeypatch.setattr(PACKAGE, "LOCK_FILE", lock_file)
+    script_copy = tmp_path / "prepare_native_package.py"
+    script_copy.write_bytes(b"# packaging script\n# second line\n")
+    monkeypatch.setattr(PACKAGE, "__file__", str(script_copy))
     output = tmp_path / "repository"
     destination = PACKAGE.prepare(output, cache, sys.executable)
+    script_copy.write_bytes(b"# packaging script\r\n# second line\r\n")
     assert PACKAGE.prepare(output, cache, sys.executable) == destination
     jar = destination / "lightgbmlib-4.7.0.jar"
     with zipfile.ZipFile(jar) as archive:
         provenance = json.loads(archive.read("META-INF/lightgbm-build.json"))
         assert provenance["commit"] == commit
+        assert provenance["packaging_script_sha256"] == PACKAGE.digest(
+            b"# packaging script\n# second line\n"
+        )
         assert provenance["entries_sha256"][JNI] == PACKAGE.digest(CLASS_BYTES)
         assert archive.read("META-INF/LICENSE.LightGBM") == license_bytes
     for algorithm in ("sha1", "sha256", "sha512"):
