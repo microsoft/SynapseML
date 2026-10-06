@@ -283,6 +283,50 @@ def test_public_evidence_roundtrip_contains_only_public_plans(cli):
         assert_public_document(json.loads(base64.b64decode(payload)))
 
 
+@pytest.mark.parametrize("listed", [False, True])
+def test_missing_live_wheel_blocks_valid_retained_producer_receipts(
+    cli, monkeypatch, listed
+):
+    from test_release_ops import InventoryChecker
+
+    plan, previous = producer_report(cli)
+    verify.validate_evidence(plan, previous)
+    checker = BASE_CHECKER(None, None, ["ado", "internal"])
+    wheel = verify.public_pypi_wheel_name(plan.oss_version)
+    monkeypatch.setattr(
+        verify,
+        "_json_get",
+        lambda *_: {
+            "info": {"version": plan.oss_version},
+            "urls": [
+                {
+                    "filename": wheel,
+                    "packagetype": "bdist_wheel",
+                    "yanked": False,
+                    "url": f"https://files.pythonhosted.org/packages/example/{wheel}",
+                }
+            ]
+            if listed
+            else [],
+        },
+    )
+    monkeypatch.setattr(verify, "_url_exists", lambda *_: False)
+    monkeypatch.setattr(
+        InventoryChecker,
+        "public_pypi",
+        lambda _self, version, strict=False: checker.public_pypi(version, strict),
+    )
+
+    current = ops.verified_evidence(plan, cli.state, remote=cli.remote)
+    assert not current["complete"]
+    assert (
+        next(row for row in current["rows"] if row["kind"] == "pypi")["status"]
+        == verify.MISSING
+    )
+    with pytest.raises(ValueError):
+        verify.validate_evidence(plan, current)
+
+
 @pytest.mark.parametrize(
     "location",
     [

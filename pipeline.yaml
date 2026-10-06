@@ -255,6 +255,30 @@ jobs:
         displayName: 'Resolve package version'
         env:
           RELEASE_REQUESTED: ${{ parameters.publishRelease }}
+      - ${{ if eq(parameters.publishRelease, true) }}:
+        - task: AzureCLI@2
+          name: buildDbc
+          displayName: 'Build and round-trip release notebook archive'
+          condition: and(succeeded(), eq(variables.releaseDbc, 'true'))
+          inputs:
+            azureSubscription: 'SynapseML Build'
+            scriptLocation: inlineScript
+            scriptType: bash
+            inlineScript: |
+              set -euo pipefail
+              python3 scripts/release/release_dbc.py build \
+                --directory "$(Build.ArtifactStagingDirectory)/dbc-release-$(System.JobAttempt)"
+              echo "##vso[task.setvariable variable=artifactName;isOutput=true]release-dbc-$(System.JobAttempt)"
+          env:
+            RELEASE_PLAN_BASE64: ${{ parameters.release_plan_base64 }}
+            RELEASE_PLAN_ID: ${{ parameters.release_plan_id }}
+            MML_ADB_WORKSPACE_HOST: "adb-1885762835647850.10.azuredatabricks.net"
+        - task: PublishPipelineArtifact@1
+          displayName: 'Retain validated release notebook archive'
+          condition: and(succeeded(), eq(variables.releaseDbc, 'true'))
+          inputs:
+            targetPath: '$(Build.ArtifactStagingDirectory)/dbc-release-$(System.JobAttempt)'
+            artifact: '$(buildDbc.artifactName)'
       - task: MavenAuthenticate@0
         name: mavenAuthPublicPackages
         displayName: Authenticate SynapseML_PublicPackages
@@ -589,6 +613,8 @@ jobs:
   - job: Release
     dependsOn: [BuildAndCacheSbt, Style, UnitTests, PythonTests, Publish]
     condition: and(succeeded(), eq('${{ parameters.publishRelease }}', true))
+    variables:
+      releaseDbcArtifact: $[ dependencies.Publish.outputs['buildDbc.artifactName'] ]
     cancelTimeoutInMinutes: 0
     pool:
       vmImage: $(UBUNTU_VERSION)
@@ -642,27 +668,23 @@ jobs:
         inputs:
           azureSubscription: 'SynapseML Build'
           keyVaultName: mmlspark-keys
-      - task: AzureCLI@2
-        displayName: 'Build and round-trip release notebook archive'
+      - bash: |
+          set -euo pipefail
+          if [[ ! "$DBC_ARTIFACT" =~ ^release-dbc-[1-9][0-9]*$ ]]; then
+            echo "Expected the validated notebook artifact from Publish." >&2
+            exit 1
+          fi
+        displayName: 'Validate notebook artifact handoff'
         condition: and(succeeded(), eq(variables.releaseDbc, 'true'))
-        inputs:
-          azureSubscription: 'SynapseML Build'
-          scriptLocation: inlineScript
-          scriptType: bash
-          inlineScript: |
-            set -euo pipefail
-            python3 scripts/release/release_dbc.py build \
-              --directory "$(Build.ArtifactStagingDirectory)/dbc-release-$(System.JobAttempt)"
         env:
-          RELEASE_PLAN_BASE64: ${{ parameters.release_plan_base64 }}
-          RELEASE_PLAN_ID: ${{ parameters.release_plan_id }}
-          MML_ADB_WORKSPACE_HOST: "adb-1885762835647850.10.azuredatabricks.net"
-      - task: PublishPipelineArtifact@1
-        displayName: 'Retain validated release notebook archive'
+          DBC_ARTIFACT: $(releaseDbcArtifact)
+      - task: DownloadPipelineArtifact@2
+        displayName: 'Download validated release notebook archive'
         condition: and(succeeded(), eq(variables.releaseDbc, 'true'))
         inputs:
+          buildType: 'current'
+          artifactName: '$(releaseDbcArtifact)'
           targetPath: '$(Build.ArtifactStagingDirectory)/dbc-release-$(System.JobAttempt)'
-          artifact: 'release-dbc-$(System.JobAttempt)'
       - task: AzureCLI@2
         displayName: 'Publish and verify public release notebook archive'
         condition: and(succeeded(), eq(variables.releaseDbc, 'true'))

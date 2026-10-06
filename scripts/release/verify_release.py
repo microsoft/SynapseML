@@ -54,8 +54,10 @@ from release_matrix import (  # noqa: E402
     plan_to_dict,
     parse_iterations,
     read_plan,
+    LEGACY_PUBLIC_SCHEMA_VERSION,
     PUBLIC_SCHEMA_VERSION,
     PUBLIC_SCHEMA_VERSIONS,
+    plan_digest,
     parse_plan_json,
     require_public_plan,
 )
@@ -63,7 +65,7 @@ from release_matrix import (  # noqa: E402
 ADO_RESOURCE = "499b84ac-1321-427f-aa17-267ca6975798"
 ORG_SHORT = "msdata"
 GITHUB_REPO = "microsoft/SynapseML"
-MAVEN_BASE = "https://mmlspark.azureedge.net/maven"
+MAVEN_BASE = "https://mmlspark.blob.core.windows.net/maven"
 MAVEN_CENTRAL_BASE = "https://repo.maven.apache.org/maven2"
 PUBLIC_MAVEN_MODULES = (
     "synapseml",
@@ -344,13 +346,52 @@ class Checker:
             maven_base=MAVEN_CENTRAL_BASE,
         )
 
-    def public_pypi(self, version: str) -> str:
+    def public_pypi(self, version: str, strict: bool = False) -> str:
         if "public" in self.skip:
             return SKIPPED
         url = f"{PYPI_BASE}/synapseml/{urllib.parse.quote(version, safe='')}/json"
         data = _json_get(url, self._public_headers)
         published = data and data.get("info", {}).get("version") == version
-        return OK if published else MISSING
+        if not published:
+            return MISSING
+        if not strict:
+            return OK
+        files = data.get("urls", [])
+        if not isinstance(files, list) or any(
+            not isinstance(item, dict) for item in files
+        ):
+            raise RuntimeError("PyPI returned an invalid release file list")
+        expected = public_pypi_wheel_name(version)
+        wheels = [
+            item
+            for item in files
+            if item.get("filename") == expected
+            and item.get("packagetype") == "bdist_wheel"
+            and item.get("yanked") is False
+        ]
+        if len(wheels) != 1:
+            return MISSING
+        download = wheels[0].get("url")
+        if not isinstance(download, str):
+            raise RuntimeError("PyPI returned an invalid wheel download URL")
+        try:
+            parsed = urllib.parse.urlsplit(download)
+            supported = (
+                parsed.scheme == "https"
+                and parsed.hostname == "files.pythonhosted.org"
+                and parsed.port in (None, 443)
+                and parsed.username is None
+                and parsed.password is None
+                and not parsed.query
+                and not parsed.fragment
+                and parsed.path.startswith("/packages/")
+                and urllib.parse.unquote(parsed.path.rsplit("/", 1)[-1]) == expected
+            )
+        except ValueError:
+            supported = False
+        if not supported:
+            raise RuntimeError("PyPI returned an unsupported wheel download URL")
+        return OK if _url_exists(download, self._public_headers) else MISSING
 
     def public_dbc(self, version, commit):
         if "public" in self.skip:
@@ -483,6 +524,15 @@ def run(
     scope=None,
 ) -> Tuple[List[dict], bool]:
     scope = _resolve_scope(scope, internal_patch)
+    public_only = (
+        scope == "full"
+        and "internal" in skip
+        and ("ado" in skip or {"pip", "upack"} <= set(skip))
+    )
+    repositories = ["internal"] if scope == "internal-only" else ["oss", "internal"]
+    families = ["maven", "pip", "upack"]
+    if public_only:
+        repositories, families = ["oss"], ["maven"]
     plan = build_plan(
         version,
         internal_patch,
@@ -490,9 +540,15 @@ def run(
         upack_iteration,
         internal_upack_iteration,
         scope,
-        families=["maven", "pip", "upack"],
-        repositories=["internal"] if scope == "internal-only" else ["oss", "internal"],
+        families=families,
+        repositories=repositories,
     )
+    if public_only:
+        # Historical inventory has no approved source binding or DBC obligation.
+        document = plan_to_dict(plan)
+        document["schema_version"] = LEGACY_PUBLIC_SCHEMA_VERSION
+        document["plan_id"] = plan_digest(document)
+        plan = load_plan(document)
     return _check_plan(plan, token, gh_token, skip, strict=False)
 
 
@@ -639,7 +695,7 @@ def _check_plan(plan, token, gh_token, skip, strict, checker=None):
                 tp.key,
                 "pypi/synapseml",
                 plan.oss_version,
-                c.public_pypi(plan.oss_version),
+                c.public_pypi(plan.oss_version, strict),
             )
         if include_internal:
             add_tag_family(

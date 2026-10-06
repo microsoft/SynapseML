@@ -106,7 +106,7 @@ class InventoryChecker:
     def internal_maven(self, scala, version):
         return self.remote.present("internal", "maven", version)
 
-    def public_pypi(self, version):
+    def public_pypi(self, version, _strict=False):
         return self.remote.present("oss", "maven", version)
 
     def public_dbc(self, version, commit):

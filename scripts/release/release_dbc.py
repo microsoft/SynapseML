@@ -184,15 +184,18 @@ def validate_archive(data, version, notebooks=None):
             if archive.testzip() is not None:
                 raise ValueError("DBC archive failed CRC validation")
             for entry in entries:
-                if entry.is_dir() or entry.filename == "manifest.mf":
+                if entry.filename == "manifest.mf":
                     continue
-                if not entry.filename.startswith(
-                    expected_prefix
-                ) or not entry.filename.endswith(".python"):
+                if not entry.filename.startswith(expected_prefix):
                     raise ValueError("DBC contains an unexpected notebook path")
-                relative = entry.filename[len(expected_prefix) : -len(".python")]
+                relative = entry.filename[len(expected_prefix) :]
                 if "\\" in relative or ".." in PurePosixPath(relative).parts:
                     raise ValueError("DBC contains an unsafe notebook path")
+                if entry.is_dir():
+                    continue
+                if not relative.endswith(".python"):
+                    raise ValueError("DBC contains an unexpected notebook path")
+                relative = relative[: -len(".python")]
                 obj = strict_json(archive.read(entry))
                 if (
                     not isinstance(obj, dict)

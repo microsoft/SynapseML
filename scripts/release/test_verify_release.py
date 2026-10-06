@@ -46,7 +46,7 @@ class AlwaysPresentChecker:
     def internal_maven(self, _scala, _version):
         return verify.OK
 
-    def public_pypi(self, _version):
+    def public_pypi(self, _version, _strict=False):
         return verify.OK
 
     def public_dbc(self, _version, _commit):
@@ -425,6 +425,78 @@ def test_main_rejects_unknown_skip_without_network(capsys):
     assert "unknown --skip" in capsys.readouterr().err
 
 
+@pytest.mark.parametrize(
+    "skip", ["ado,internal", "internal,pip,upack", "ado,internal,pip,upack"]
+)
+@pytest.mark.parametrize("available", [True, False])
+def test_public_only_historical_check_needs_no_private_profile(
+    monkeypatch, capsys, skip, available
+):
+    import release_config as config
+    import release_dbc
+
+    monkeypatch.delenv(config.PROFILE_ENV)
+
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("Historical public checks must not use private services or DBCs")
+
+    def public_json(url, _headers):
+        if url.startswith("https://api.github.com/repos/microsoft/SynapseML/"):
+            return {"object": {"type": "commit", "sha": "a" * 40}}
+        if url == "https://pypi.org/pypi/synapseml/1.1.4/json":
+            return {"info": {"version": "1.1.4"}}
+        pytest.fail(f"Unexpected public lookup: {url}")
+
+    requested = []
+
+    def exists(url, _headers):
+        requested.append(url)
+        return available
+
+    monkeypatch.setattr(verify, "_get_ado_token", forbidden)
+    monkeypatch.setattr(verify.urllib.request, "urlopen", forbidden)
+    monkeypatch.setattr(release_dbc, "fetch_public_archive", forbidden)
+    monkeypatch.setattr(verify, "_json_get", public_json)
+    monkeypatch.setattr(verify, "_url_exists", exists)
+
+    assert verify.main(["--version", "1.1.4", "--skip", skip, "--json"]) == (
+        0 if available else 1
+    )
+    report = json.loads(capsys.readouterr().out)
+    assert report["complete"] is available
+    assert report["provenance"] == "unbound historical check; not approval evidence"
+    assert {row["target"] for row in report["rows"]} == {"master", "spark4.1"}
+    assert {row["kind"] for row in report["rows"]} == {
+        "git-tag",
+        "tag-set",
+        "maven",
+        "pypi",
+    }
+    assert requested
+    assert all(
+        url.startswith("https://mmlspark.blob.core.windows.net/maven/")
+        for url in requested
+    )
+
+
+@pytest.mark.parametrize("skip", ["internal", "ado", "internal,pip", "internal,upack"])
+def test_historical_check_still_requires_profile_for_enabled_private_checks(
+    monkeypatch, capsys, skip
+):
+    import release_config as config
+
+    monkeypatch.delenv(config.PROFILE_ENV)
+
+    def forbidden(*_args, **_kwargs):
+        pytest.fail("Missing private configuration must fail before network access")
+
+    monkeypatch.setattr(verify.urllib.request, "urlopen", forbidden)
+    monkeypatch.setattr(verify, "_get_ado_token", forbidden)
+
+    assert verify.main(["--version", "1.1.4", "--skip", skip]) == 2
+    assert "explicit local profile" in capsys.readouterr().err
+
+
 def test_main_passes_internal_only_scope_to_run(monkeypatch):
     captured = {}
 
@@ -546,6 +618,128 @@ def test_public_pypi_requires_the_requested_version(monkeypatch):
     assert checker.public_pypi("1.1.3") == verify.MISSING
 
 
+@pytest.mark.parametrize(
+    "state",
+    ["available", "empty", "wrong-name", "source-only", "yanked", "unavailable"],
+)
+def test_bound_inventory_requires_the_available_public_wheel(monkeypatch, state):
+    version = "1.2.0"
+    wheel_url = (
+        "https://files.pythonhosted.org/packages/example/"
+        + verify.public_pypi_wheel_name(version)
+    )
+    wheel = {
+        "filename": verify.public_pypi_wheel_name(version),
+        "packagetype": "bdist_wheel",
+        "yanked": False,
+        "url": wheel_url,
+    }
+    if state == "wrong-name":
+        wheel["filename"] = "another.whl"
+    elif state == "source-only":
+        wheel["packagetype"] = "sdist"
+    elif state == "yanked":
+        wheel["yanked"] = True
+    files = [] if state == "empty" else [wheel]
+    monkeypatch.setattr(
+        verify, "_json_get", lambda *_: {"info": {"version": version}, "urls": files}
+    )
+    monkeypatch.setattr(verify.Checker, "github_tag", lambda *_: (verify.OK, "a" * 40))
+    monkeypatch.setattr(verify.Checker, "public_maven", lambda *_: verify.OK)
+    monkeypatch.setattr(verify.Checker, "public_central_maven", lambda *_: verify.OK)
+    monkeypatch.setattr(
+        verify.Checker, "public_dbc", lambda *_: (verify.OK, "f" * 64, 321)
+    )
+    requested = []
+
+    def exists(url, headers):
+        requested.append(url)
+        assert headers == {"User-Agent": "synapseml-release-verify"}
+        return state != "unavailable"
+
+    monkeypatch.setattr(verify, "_url_exists", exists)
+    plan = verify.build_plan(
+        version, target_keys=["master"], oss_commits={"master": "a" * 40}
+    )
+    rows, complete = verify.run_plan(plan)
+    assert complete is (state == "available")
+    pypi = next(row for row in rows if row["kind"] == "pypi")
+    assert pypi["status"] == (verify.OK if state == "available" else verify.MISSING)
+    assert requested == ([wheel_url] if state in ("available", "unavailable") else [])
+
+
+def test_historical_pypi_check_keeps_its_metadata_only_scope(monkeypatch):
+    monkeypatch.setattr(
+        verify, "_json_get", lambda *_: {"info": {"version": "1.2.0"}, "urls": []}
+    )
+
+    def forbidden(*_):
+        pytest.fail("Historical inventory must not start strict wheel downloads")
+
+    monkeypatch.setattr(verify, "_url_exists", forbidden)
+    checker = verify.Checker(None, None, ["ado", "internal"])
+    assert checker.public_pypi("1.2.0") == verify.OK
+
+
+@pytest.mark.parametrize(
+    "download",
+    [
+        None,
+        "http://files.pythonhosted.org/packages/synapseml-1.2.0-py2.py3-none-any.whl",
+        "https://example.invalid/packages/synapseml-1.2.0-py2.py3-none-any.whl",
+        "https://user@files.pythonhosted.org/packages/synapseml-1.2.0-py2.py3-none-any.whl",
+        "https://files.pythonhosted.org:invalid/packages/synapseml-1.2.0-py2.py3-none-any.whl",
+        "https://files.pythonhosted.org/packages/another.whl",
+        "https://files.pythonhosted.org/other/synapseml-1.2.0-py2.py3-none-any.whl",
+        "https://files.pythonhosted.org/packages/synapseml-1.2.0-py2.py3-none-any.whl?other=1",
+        "https://files.pythonhosted.org/packages/synapseml-1.2.0-py2.py3-none-any.whl#other",
+    ],
+)
+def test_strict_pypi_rejects_untrusted_download_urls(monkeypatch, download):
+    monkeypatch.setattr(
+        verify,
+        "_json_get",
+        lambda *_: {
+            "info": {"version": "1.2.0"},
+            "urls": [
+                {
+                    "filename": verify.public_pypi_wheel_name("1.2.0"),
+                    "packagetype": "bdist_wheel",
+                    "yanked": False,
+                    "url": download,
+                }
+            ],
+        },
+    )
+
+    def forbidden(*_):
+        pytest.fail("An untrusted download URL must not be requested")
+
+    monkeypatch.setattr(verify, "_url_exists", forbidden)
+    checker = verify.Checker(None, None, ["ado", "internal"])
+    with pytest.raises(RuntimeError, match="wheel download URL"):
+        checker.public_pypi("1.2.0", True)
+
+
+@pytest.mark.parametrize("files", [None, {}, [None], ["invalid"]])
+def test_strict_pypi_rejects_malformed_file_lists(monkeypatch, files):
+    monkeypatch.setattr(
+        verify, "_json_get", lambda *_: {"info": {"version": "1.2.0"}, "urls": files}
+    )
+    checker = verify.Checker(None, None, ["ado", "internal"])
+    with pytest.raises(RuntimeError, match="invalid release file list"):
+        checker.public_pypi("1.2.0", True)
+
+
+def test_strict_pypi_respects_public_skip_before_lookup(monkeypatch):
+    def forbidden(*_):
+        pytest.fail("Skipped public verification must not query PyPI")
+
+    monkeypatch.setattr(verify, "_json_get", forbidden)
+    checker = verify.Checker(None, None, ["ado", "internal", "public"])
+    assert checker.public_pypi("1.2.0", True) == verify.SKIPPED
+
+
 def test_public_maven_uses_release_specific_coordinate(monkeypatch):
     requested = []
 
@@ -559,31 +753,31 @@ def test_public_maven_uses_release_specific_coordinate(monkeypatch):
     assert checker.public_maven("synapseml-core", "2.13", "1.1.3-spark4.0") == verify.OK
     assert requested == [
         (
-            "https://mmlspark.azureedge.net/maven/com/microsoft/azure/"
+            "https://mmlspark.blob.core.windows.net/maven/com/microsoft/azure/"
             "synapseml_2.13/1.1.3-spark4.0/"
             "synapseml_2.13-1.1.3-spark4.0.pom",
             {"User-Agent": "synapseml-release-verify"},
         ),
         (
-            "https://mmlspark.azureedge.net/maven/com/microsoft/azure/"
+            "https://mmlspark.blob.core.windows.net/maven/com/microsoft/azure/"
             "synapseml_2.13/1.1.3-spark4.0/"
             "synapseml_2.13-1.1.3-spark4.0.jar",
             {"User-Agent": "synapseml-release-verify"},
         ),
         (
-            "https://mmlspark.azureedge.net/maven/com/microsoft/azure/"
+            "https://mmlspark.blob.core.windows.net/maven/com/microsoft/azure/"
             "synapseml-core_2.13/1.1.3-spark4.0/"
             "synapseml-core_2.13-1.1.3-spark4.0.pom",
             {"User-Agent": "synapseml-release-verify"},
         ),
         (
-            "https://mmlspark.azureedge.net/maven/com/microsoft/azure/"
+            "https://mmlspark.blob.core.windows.net/maven/com/microsoft/azure/"
             "synapseml-core_2.13/1.1.3-spark4.0/"
             "synapseml-core_2.13-1.1.3-spark4.0.jar",
             {"User-Agent": "synapseml-release-verify"},
         ),
         (
-            "https://mmlspark.azureedge.net/maven/com/microsoft/azure/"
+            "https://mmlspark.blob.core.windows.net/maven/com/microsoft/azure/"
             "synapseml-core_2.13/1.1.3-spark4.0/"
             "synapseml-core_2.13-1.1.3-spark4.0-tests.jar",
             {"User-Agent": "synapseml-release-verify"},
@@ -604,13 +798,13 @@ def test_internal_maven_uses_release_specific_coordinate(monkeypatch):
     assert checker.internal_maven("2.13", "1.1.3.0-spark4.1") == verify.OK
     assert requested == [
         (
-            "https://mmlspark.azureedge.net/maven/com/microsoft/azure/"
+            "https://mmlspark.blob.core.windows.net/maven/com/microsoft/azure/"
             "synthetic-private-package_2.13/1.1.3.0-spark4.1/"
             "synthetic-private-package_2.13-1.1.3.0-spark4.1.pom",
             {"User-Agent": "synapseml-release-verify"},
         ),
         (
-            "https://mmlspark.azureedge.net/maven/com/microsoft/azure/"
+            "https://mmlspark.blob.core.windows.net/maven/com/microsoft/azure/"
             "synthetic-private-package_2.13/1.1.3.0-spark4.1/"
             "synthetic-private-package_2.13-1.1.3.0-spark4.1.jar",
             {"User-Agent": "synapseml-release-verify"},

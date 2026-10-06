@@ -34,6 +34,9 @@ export and reimport every notebook. Cell contents must survive the round-trip.
 Unsupported notebook formats or languages fail the build rather than silently
 dropping examples. This archive check does not execute the examples; the
 runtime's normal CI and service prerequisites still apply.
+Archive validation checks both notebook files and directory entries. Paths
+outside the versioned archive root, traversal components and backslash
+separators are rejected before Databricks import or publication.
 
 Before a release, authorize the **SynapseML Build** service connection identity
 to create and delete its own temporary folders in the configured build
@@ -43,10 +46,13 @@ connection's login; the job neither reads storage keys nor assigns roles.
 Use workload identity federation for the service connection where supported.
 Missing access blocks publication.
 
-The build retains the validated archive and `dbc-provenance.json` as a pipeline
-artifact before publication. It uploads and verifies the archive before PyPI
-or ESRP publication, so missing blob access cannot strand published packages
-without a release receipt. Uploads forbid overwriting. The final release
+The `Publish` job validates the archive and retains it with
+`dbc-provenance.json` before the first Maven upload. A native archive validation
+failure therefore stops package publication. The `Release` job downloads that
+exact producer-attempt artifact, checks its plan/source binding, and uploads
+and verifies it before PyPI or ESRP publication. A missing or invalid artifact
+handoff fails rather than downloading an unselected artifact or rebuilding.
+Uploads forbid overwriting. The final release
 receipt includes the DBC hash and size, and the release verifier downloads the
 archive anonymously, checks its source binding and content hash, and matches
 it to producer evidence. Missing or mismatched archives block release
@@ -54,7 +60,9 @@ completion and release-note publication. Only verified notes advertise the
 new archive links; source documentation retains notebook links as a fallback.
 
 If an upload succeeds but a later step fails, retain the build artifacts and
-ledger. A subsequent archive build can reuse a public archive only when it is
+ledger. Retrying `Release` reuses the validated archive from `Publish`, even when
+the two jobs have different attempt numbers; it does not export new ZIP bytes.
+A subsequent archive build can reuse a public archive only when it is
 bound to the same approved plan and source; it reimports and compares all cells
 again. A conflicting version is an error, not permission to overwrite it.
 Follow the existing interrupted-release recovery procedure rather than
@@ -63,9 +71,10 @@ An archive may therefore exist for an incomplete release. Do not advertise it
 until release evidence is complete. Do not replace the approved plan or reuse
 the version for different sources.
 If upload reports that no public archive exists, check the service connection's
-blob write access and retry the failed Release job. No PyPI or ESRP publication
-has run at that point. A conflicting public archive requires investigation;
-never overwrite it.
+blob write access and retry the failed `Release` job. Maven Blob publication
+has already succeeded, but no PyPI or ESRP publication has run at that point.
+Do not rerun the successful Maven publisher. A conflicting public archive
+requires investigation; never overwrite it.
 
 The `full-release --repo` and `push-tags` guards check notebook admissibility
 from Git before publishing any tags, including port tags. Before merging the
@@ -445,11 +454,22 @@ python scripts/release/verify_release.py \
 Evidence requires fresh tag/artifact visibility, successful authoritative
 producer runs, matching requests and source commits, and artifact-hash receipts.
 All public Maven modules need their JAR and POM; Core also needs its tests JAR.
+Verification checks the publisher's `https://mmlspark.blob.core.windows.net/maven`
+repository and Maven Central separately.
 The primary receipt includes the exact public PyPI wheel. Stale versions,
 unexpected classifiers, missing modules and wrong source bindings fail.
+Bound verification also requires that exact non-yanked wheel in PyPI's file
+list and checks its public download. Version metadata alone cannot complete a
+release after the wheel has been removed.
 
 Inventory-only reports cannot approve a release. Neither can skipped required
 jobs, old runs without receipts, stale evidence or user-supplied success claims.
+
+For a read-only check of an older public release, use
+`python scripts/release/verify_release.py --version 1.1.4 --skip ado,internal`.
+This needs no private profile and checks public tags, Maven artifacts and PyPI.
+It does not require historical DBCs or produce approval evidence. Use the bound
+plan and state above to verify a new release, including its required DBCs.
 
 After publication, merge the unchanged primary candidate before other
 automation changes. Never update a candidate's head after it has been tagged.

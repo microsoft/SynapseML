@@ -2,6 +2,9 @@
 # Licensed under the MIT License.
 
 import copy
+import shutil
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -125,7 +128,8 @@ def test_notes_cli_rechecks_live_download_against_producer(
     assert header.exists() is (change == "none")
 
 
-def test_native_dbc_publication_is_wired_before_release_receipt():
+@pytest.fixture
+def pipeline_jobs():
     root = Path(__file__).resolve().parents[2]
     data = yaml.safe_load((root / "pipeline.yaml").read_text())
 
@@ -139,17 +143,58 @@ def test_native_dbc_publication_is_wired_before_release_receipt():
             for value in node:
                 yield from jobs(value)
 
-    release = next(job for job in jobs(data) if job["job"] == "Release")
-    steps = release["steps"]
-    build = next(
-        i
-        for i, s in enumerate(steps)
-        if s.get("displayName") == "Build and round-trip release notebook archive"
+    return {job["job"]: job for job in jobs(data)}
+
+
+def publication_steps(job, release=True):
+    for step in job["steps"]:
+        conditional = "${{ if eq(parameters.publishRelease, true) }}"
+        if conditional in step:
+            if release:
+                yield from step[conditional]
+        else:
+            yield step
+
+
+def test_native_dbc_validation_precedes_public_maven_upload(pipeline_jobs):
+    steps = list(publication_steps(pipeline_jobs["Publish"]))
+    names = [step.get("displayName") for step in steps]
+    assert "Build and round-trip release notebook archive" in names
+    build = names.index("Build and round-trip release notebook archive")
+    retain = names.index("Retain validated release notebook archive")
+    publish = names.index("Publish Artifacts")
+    source = names.index("Validate approved release source before artifact publication")
+    assert source < build < retain < publish
+    assert "publishBlob" in steps[publish]["inputs"]["inlineScript"]
+    assert steps[publish].get("condition", "succeeded()") == "succeeded()"
+    assert steps[build]["name"] == "buildDbc"
+    assert steps[retain]["inputs"]["artifact"] == "$(buildDbc.artifactName)"
+    assert "System.JobAttempt" in steps[retain]["inputs"]["targetPath"]
+    for index in (build, retain, publish):
+        assert not steps[index].get("continueOnError", False)
+    ordinary = list(publication_steps(pipeline_jobs["Publish"], release=False))
+    assert all(
+        step.get("displayName")
+        not in {
+            "Build and round-trip release notebook archive",
+            "Retain validated release notebook archive",
+        }
+        for step in ordinary
     )
-    retain = next(
+
+
+def test_native_dbc_publication_reuses_the_validated_publish_artifact(pipeline_jobs):
+    release = pipeline_jobs["Release"]
+    steps = release["steps"]
+    validate = next(
         i
         for i, s in enumerate(steps)
-        if s.get("displayName") == "Retain validated release notebook archive"
+        if s.get("displayName") == "Validate notebook artifact handoff"
+    )
+    download = next(
+        i
+        for i, s in enumerate(steps)
+        if s.get("displayName") == "Download validated release notebook archive"
     )
     publish = next(
         i
@@ -157,13 +202,35 @@ def test_native_dbc_publication_is_wired_before_release_receipt():
         if s.get("displayName") == "Publish and verify public release notebook archive"
     )
     receipt = next(i for i, s in enumerate(steps) if "--receipt " in s.get("bash", ""))
-    assert build < retain < publish < receipt
+    assert "Publish" in release["dependsOn"]
+    assert release["variables"]["releaseDbcArtifact"] == (
+        "$[ dependencies.Publish.outputs['buildDbc.artifactName'] ]"
+    )
+    assert validate < download < publish < receipt
+    assert not any(
+        "release_dbc.py build" in str(step) for step in steps
+    ), "Release retries must reuse the already validated archive"
+    assert steps[download]["task"] == "DownloadPipelineArtifact@2"
+    assert steps[download]["inputs"] == {
+        "buildType": "current",
+        "artifactName": "$(releaseDbcArtifact)",
+        "targetPath": "$(Build.ArtifactStagingDirectory)/dbc-release-$(System.JobAttempt)",
+    }
+    assert steps[validate]["env"]["DBC_ARTIFACT"] == "$(releaseDbcArtifact)"
+    for index in (validate, download):
+        assert steps[index]["condition"] == (
+            "and(succeeded(), eq(variables.releaseDbc, 'true'))"
+        )
     for name in ("publish python package to pypi", "ESRP Publish Package"):
         assert publish < next(
             i for i, step in enumerate(steps) if step.get("displayName") == name
         )
-    for index in (build, publish):
-        step = steps[index]
+    build = next(
+        step
+        for step in publication_steps(pipeline_jobs["Publish"])
+        if step.get("displayName") == "Build and round-trip release notebook archive"
+    )
+    for step in (build, steps[publish]):
         assert step["task"] == "AzureCLI@2"
         assert step["inputs"]["azureSubscription"] == "SynapseML Build"
         assert step["condition"] == "and(succeeded(), eq(variables.releaseDbc, 'true'))"
@@ -173,4 +240,88 @@ def test_native_dbc_publication_is_wired_before_release_receipt():
             == "${{ parameters.release_plan_base64 }}"
         )
     assert "--dbc-directory" in steps[receipt]["bash"]
-    assert "System.JobAttempt" in steps[retain]["inputs"]["targetPath"]
+    directory = steps[download]["inputs"]["targetPath"]
+    assert f'--directory "{directory}"' in steps[publish]["inputs"]["inlineScript"]
+    assert f'--dbc-directory "{directory}"' in steps[receipt]["bash"]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Executes the Linux CI Bash step")
+@pytest.mark.parametrize("attempt", [1, 2])
+@pytest.mark.parametrize("native_exit", [0, 37])
+def test_publish_exports_only_successfully_validated_archive_attempts(
+    pipeline_jobs, tmp_path, attempt, native_exit
+):
+    step = next(
+        step
+        for step in publication_steps(pipeline_jobs["Publish"])
+        if step.get("displayName") == "Build and round-trip release notebook archive"
+    )
+    script = (
+        step["inputs"]["inlineScript"]
+        .replace("$(Build.ArtifactStagingDirectory)", str(tmp_path))
+        .replace("$(System.JobAttempt)", str(attempt))
+    )
+    capture = tmp_path / "arguments.txt"
+    result = subprocess.run(
+        [
+            shutil.which("bash") or "/bin/bash",
+            "-c",
+            'python3() { printf "%s\\n" "$@" > "$CAPTURE"; return "$NATIVE_EXIT"; }\n'
+            + script,
+        ],
+        cwd=tmp_path,
+        env={"CAPTURE": str(capture), "NATIVE_EXIT": str(native_exit)},
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    assert result.returncode == native_exit
+    assert capture.read_text().splitlines() == [
+        "scripts/release/release_dbc.py",
+        "build",
+        "--directory",
+        str(tmp_path / f"dbc-release-{attempt}"),
+    ]
+    marker = (
+        "##vso[task.setvariable variable=artifactName;isOutput=true]"
+        f"release-dbc-{attempt}"
+    )
+    assert (marker in result.stdout) is (native_exit == 0)
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="Executes the Linux CI Bash step")
+@pytest.mark.parametrize(
+    "artifact,valid",
+    [
+        ("release-dbc-1", True),
+        ("release-dbc-2", True),
+        ("release-dbc-12", True),
+        ("", False),
+        ("$(releaseDbcArtifact)", False),
+        ("release-dbc-0", False),
+        ("release-dbc-other", False),
+        ("other-1", False),
+        ("release-dbc-1\nother", False),
+    ],
+)
+def test_release_rejects_missing_or_invalid_archive_handoffs(
+    pipeline_jobs, tmp_path, artifact, valid
+):
+    step = next(
+        step
+        for step in pipeline_jobs["Release"]["steps"]
+        if step.get("displayName") == "Validate notebook artifact handoff"
+    )
+    result = subprocess.run(
+        [shutil.which("bash") or "/bin/bash", "-c", step["bash"]],
+        cwd=tmp_path,
+        env={"DBC_ARTIFACT": artifact},
+        capture_output=True,
+        text=True,
+        timeout=10,
+        check=False,
+    )
+    assert result.returncode == (0 if valid else 1)
+    if not valid:
+        assert "validated notebook artifact" in result.stderr

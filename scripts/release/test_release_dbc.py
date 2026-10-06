@@ -5,6 +5,7 @@ import copy
 import http.client
 import io
 import json
+import os
 import subprocess
 import urllib.error
 import urllib.request
@@ -36,11 +37,13 @@ def notebook():
     }
 
 
-def archive_bytes(version, notebooks=None):
+def archive_bytes(version, notebooks=None, directories=()):
     notebooks = notebooks or {"Example.ipynb": notebook()}
     output = io.BytesIO()
     with zipfile.ZipFile(output, "w", zipfile.ZIP_DEFLATED) as archive:
         archive.writestr("manifest.mf", '{"version":"Manifest"}')
+        for directory in directories:
+            archive.writestr(directory, b"")
         for path, value in notebooks.items():
             commands = [
                 {
@@ -61,6 +64,45 @@ def archive_bytes(version, notebooks=None):
                 ),
             )
     return output.getvalue()
+
+
+@pytest.mark.parametrize(
+    "directory",
+    [
+        "../outside/",
+        "outside/",
+        "/SynapseMLExamplesv1.2.0/outside/",
+        "SynapseMLExamplesv1.2.0/../outside/",
+        "SynapseMLExamplesv1.2.0/nested/../../outside/",
+        "SynapseMLExamplesv1.2.0-extra/",
+        "SynapseMLExamplesv1.2.0-spark4.1/",
+    ],
+)
+def test_archive_rejects_unsafe_directory_entries(directory):
+    data = archive_bytes("1.2.0", directories=[directory])
+    with pytest.raises(ValueError, match="unexpected|unsafe"):
+        dbc.validate_archive(data, "1.2.0")
+
+
+def test_backslash_directory_validation_matches_zip_normalization():
+    directory = "SynapseMLExamplesv1.2.0/nested\\outside/"
+    data = archive_bytes("1.2.0", directories=[directory])
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        assert archive.infolist()[1].filename == directory.replace(os.sep, "/")
+    # Windows zipfile normalizes the fixture into a valid nested directory.
+    if os.sep == "\\":
+        assert dbc.validate_archive(data, "1.2.0") == 1
+    else:
+        with pytest.raises(ValueError, match="unsafe"):
+            dbc.validate_archive(data, "1.2.0")
+
+
+@pytest.mark.parametrize("version", ["1.2.0", "1.2.0-spark4.0", "1.2.0-spark4.1"])
+def test_archive_accepts_root_and_nested_directory_entries(version):
+    root = f"SynapseMLExamplesv{version}/"
+    notebooks = {"nested/Example.ipynb": notebook()}
+    data = archive_bytes(version, notebooks, [root, root + "nested/"])
+    assert dbc.validate_archive(data, version, notebooks) == 1
 
 
 def write_bundle(directory, plan, target):
@@ -158,6 +200,22 @@ class FakeWorkspace:
         if self.corrupt:
             result["cells"][0]["source"] = "corrupted source"
         return json.dumps(result).encode()
+
+
+def test_unsafe_directory_is_rejected_before_databricks_import(monkeypatch):
+    workspace = FakeWorkspace()
+    data = archive_bytes("1.2.0", directories=["SynapseMLExamplesv1.2.0/../outside/"])
+
+    def forbidden_import(*_):
+        pytest.fail("An unsafe archive must not reach Databricks import")
+
+    monkeypatch.setattr(workspace, "import_content", forbidden_import)
+    with pytest.raises(ValueError, match="unsafe"):
+        dbc.roundtrip_archive(
+            workspace, "1.2.0", {"Example.ipynb": notebook()}, existing=data
+        )
+    assert workspace.calls[-1][0] == "delete"
+    assert workspace.calls[-1][1]["path"].startswith("/Shared/synapseml-dbc-release-")
 
 
 def test_every_notebook_roundtrips_and_temporary_folder_is_removed():
@@ -267,6 +325,19 @@ def test_publication_is_no_overwrite_and_checks_anonymous_download(staged, monke
     assert command[command.index("--auth-mode") + 1] == "login"
     assert "--account-key" not in command
     assert f"plan_id={plan.plan_id}" in command
+
+
+def test_unsafe_directory_is_rejected_before_publication(staged):
+    directory, plan, target, _, record = staged
+    data = archive_bytes(
+        target.oss_maven_version,
+        directories=[f"SynapseMLExamplesv{target.oss_maven_version}/../outside/"],
+    )
+    (directory / dbc.public_dbc_name(target.oss_maven_version)).write_bytes(data)
+    record.update(sha256=dbc.digest(data), size=len(data))
+    (directory / "dbc-provenance.json").write_text(json.dumps(record))
+    with pytest.raises(ValueError, match="unsafe"):
+        dbc.publish_archive(directory, plan, target)
 
 
 def test_existing_identical_archive_requires_no_second_upload(staged, monkeypatch):
