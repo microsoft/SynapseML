@@ -80,15 +80,14 @@ cannot reach it.
 `test_pipeline_yaml.py` verifies `pipeline.yaml` parses and that every
 sbt-running job is wired to the shared cache template + prewarm job.
 
-## Release compatibility replay
+## Spark port validation
 
-Replay excludes Markdown review records under `reviews/`, like other CI
-documentation. Executable files in that directory and mixed code/documentation
-changes still require replay. Conflicting patches remain errors.
-
-The prerequisite list is temporary dependency metadata, not a change history.
-Remove integrated backports after verifying the release targets contain them;
-reapplying an old patch onto a newer port can create a false conflict.
+Master PRs no longer replay their patches onto Spark 4.1. The advisory
+`ReleaseBranchCompat` job and its prerequisite list have been removed.
+Pipeline triggers for pushes and PRs targeting `spark4.1` remain enabled.
+Validate port changes and resolved syncs on the actual port branch; a green
+master build does not prove port compatibility. The separate
+SynapseML-Internal compatibility check retains its existing gates.
 
 ## External setup and coverage publication
 
@@ -114,7 +113,7 @@ Unit, Python, R, and website-sample tests remain unfiltered. This preserves all
 54 uploads expected by `codecov.yaml`, rather than silently losing coverage
 statuses/comments on selectively tested PRs. Generated tests and cross-module
 helpers also prevent a simple module-to-matrix mapping. Style, compilation/cache
-preparation, Docker builds, publishing, and compatibility keep their existing
+preparation, Docker builds, publishing, and Internal compatibility keep their existing
 gates. More aggressive matrix filtering needs a separate coverage design and
 verified dependency model first.
 
