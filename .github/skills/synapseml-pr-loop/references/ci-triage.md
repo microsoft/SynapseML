@@ -145,11 +145,10 @@ failing in the same way, which a green/red job summary will not reveal.
   Record the actual downstream checkout SHA and exact public artifact version.
   If the pipeline selects a target branch, an unmerged repair is not consumed.
   After the dependency merges, validate the new source/artifact pair.
-- For release replay, capture the target, patch baseline, and prerequisite
-  revisions. A missing baseline and a genuine port conflict need different
-  repairs; prerequisites can also be obsolete after a sync. Preserve conflict
-  rejection and compilation. Follow `AGENTS.md` approval rules before changing
-  release tooling rather than adding a blanket skip.
+- Validate resolved port syncs against their actual target and record the merge
+  baseline. Master PRs no longer replay patches onto Spark 4.1 automatically.
+  Preserve genuine port resolutions and run the affected compilation and tests
+  on the port. Follow `AGENTS.md` approval rules before changing release tooling.
 - Separate service/model failures from client lifecycle errors using comparable
   runs and targeted regressions. Keep the original fixtures and assertions.
   One passing rerun alone does not establish which change caused the recovery.
@@ -169,7 +168,7 @@ retroactively turn a failed, skipped, or missing validation gate into a pass.
 - A helper test passed while the transformer/request path remained broken.
 - Provider/device discovery succeeded without executing real kernels.
 - A custom native or local jar worked although the published artifact lacks it.
-- Aggregate CI is green while a required branch replay never ran.
+- Aggregate CI is green while required validation on an affected port never ran.
 - A CI/path-filter fix passed because its own diff bypassed the path it changed;
   no representative product patch exercised the workflow.
 - A test count increased but the requested edge case has no assertion.

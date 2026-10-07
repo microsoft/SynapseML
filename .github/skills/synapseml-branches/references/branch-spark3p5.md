@@ -20,12 +20,11 @@ historical release branch active; use the [active scope](../SKILL.md#active-bran
 
 ## Release validation
 
-- Master's own validation covers its primary runtime, so replay may omit a
-  duplicate leg. Verify the selected targets and affected suites actually ran;
-  a green matrix can omit a package or test class.
-- Replay uses the selected release target, not an unmerged sync proposal.
-  Recheck the target and prerequisite baseline when content has moved.
-- Preserve genuine port resolutions and conflict rejection. Validate resolved
-  syncs separately; do not weaken patch application or skip a required leg.
-- A replay covers only its selected branch and checks. It does not establish
-  full compatibility for every active port.
+- Master's own validation covers its primary runtime. Master PRs no longer
+  replay patches onto Spark 4.1 automatically.
+- Validate port changes and resolved syncs on the actual port branch, preserving
+  genuine version-driven resolutions. Pipeline triggers for Spark 4.1 pushes
+  and PRs remain enabled; verify the Azure definition also queues the build.
+- Verify the selected targets and affected suites actually ran. A green matrix
+  can omit a package or test class, and a green master build does not establish
+  compatibility with every active port.

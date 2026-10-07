@@ -182,8 +182,9 @@ smaller value by its precedence rules. When exactly one thread pushes rows,
 SynapseML asks LightGBM to measure that thread's native team directly. With several pushing
 threads and neither environment nor Linux-affinity source available, SynapseML
 uses the best-effort maximum of the OS-reported and JVM-reported processor
-counts with the 16-thread floor. On non-Linux hosts this fallback is not a
-proved upper bound on every native team. A nonpositive hint does not disable
+counts with the 16-thread floor. These detected counts are hints, not a proved
+upper bound on every native team. Linux process affinity can also differ from
+an OpenMP team's width after thread binding. A nonpositive hint does not disable
 the multi-thread safety bound, and the value is not a cap on the OpenMP team.
 Native code outside SynapseML and a concurrent fit that increases a pooled task
 thread's team after allocation remain outside this mitigation; clamping the
