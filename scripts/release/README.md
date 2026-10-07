@@ -95,6 +95,42 @@ The App token only reads and opens PRs. Review, current-head Azure validation,
 plan approval and signing remain human gates. App installation and credentials
 are external prerequisites; merging this code does not configure them.
 
+## Agent runbook and offline rehearsal
+
+Agents should load the
+[release skill](../../.github/skills/synapseml-release/SKILL.md) and follow its
+[checkpoint runbook](../../.github/skills/synapseml-release/references/agent-runbook.md).
+It uses the scripts below, with explicit preparation, exact-plan publication,
+signing, notes and merge boundaries. No new publication engine is required.
+
+Run the credential-free rehearsal from this checkout:
+
+```bash
+python scripts/release/release_dry_run.py --report ../release-rehearsal.json
+```
+
+The report path must be new and its parent must exist. Existing files, including
+ledgers, are never overwritten. Python needs the repository's pytest and PyYAML
+test dependencies; Git must be on PATH. Native Windows and Linux are supported.
+The runner exercises real plan, ledger, bootstrap, producer and verifier code
+with simulated services and disposable local Git repositories. Live sockets
+and non-Git child processes are blocked inside the rehearsal tests; Git may
+use only the local file protocol.
+
+The JSON report identifies an **offline rehearsal**, not release readiness.
+It always reports `live_services_validated: false` and
+`publication_authorized: false`. The script accepts no production plan or apply
+flag. Exit `0` requires executed tests with no failures or skips. Exit `1`
+means failed or incomplete test execution; exit `2` means a runner, dependency,
+timeout or report error. A missing tool is not an implicit skip.
+
+For a real release, offline success is followed by candidate qualification and
+the separate live preflight below. A bootstrap candidate has no canonical
+release tags yet, so use its guarded preview before approval, then run
+publication preflight after approved tag creation. Keep one authoritative
+ledger and one active operator across agent sessions. Rehearsal reports cannot
+be supplied as producer evidence or approval.
+
 ## Notebook archive publication
 
 New public plans use schema 4. Each selected runtime's existing Azure release
