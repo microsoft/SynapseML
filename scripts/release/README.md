@@ -25,6 +25,76 @@ Spark 4.1 Python-wheel compatibility gap; the consumer-wheel gate still applies.
 Merging the automation does not publish a release. Workflow dispatch, reviewed
 source, exact-plan approval and signing approvals are separate steps.
 
+## Qualify the primary wheel on each runtime
+
+Build the aggregate wheel from the reviewed primary candidate with
+`sbt packageSynapseML`. Before tags exist, use an explicit local SBT version
+override for the intended version, for example
+`sbt 'set ThisBuild / version := "1.2.0"' packageSynapseML`.
+This packages locally; it does not grant publication permission. Record the
+candidate commit, any pending patch and the wheel's SHA-256.
+
+Use that **same wheel file**, not a port-generated wheel, in separate
+environments matching each selected branch's `environment.yml`. Package and list
+the matching candidate's normal JVM artifacts with
+`sbt 'export opencv / Runtime / fullClasspathAsJars'`, using that branch's JDK
+and the corresponding local version override. A fat assembly is unnecessary.
+Do not reuse primary Scala JARs on a port runtime.
+
+For each environment, set absolute paths to the primary wheel and that
+runtime's OpenCV JAR. Set `SYNAPSEML_CONSUMER_JARS` to the comma-separated core,
+OpenCV and additional dependency JARs from the exported classpath. Omit JARs
+already supplied by that environment's PySpark installation, rather than
+adding Spark itself again. Then run:
+
+```bash
+export SYNAPSEML_CONSUMER_WHEEL=/absolute/path/to/synapseml-1.2.0-py2.py3-none-any.whl
+export SYNAPSEML_CONSUMER_JAR=/absolute/path/to/matching-synapseml-opencv.jar
+export PYSPARK_SUBMIT_ARGS="--jars \"${SYNAPSEML_CONSUMER_JARS}\" pyspark-shell"
+python -m pip install --no-deps --force-reinstall "$SYNAPSEML_CONSUMER_WHEEL"
+python -m pytest \
+  opencv/src/test/python/synapsemltest/opencv/test_image_conversion.py -q
+sha256sum "$SYNAPSEML_CONSUMER_WHEEL" "$SYNAPSEML_CONSUMER_JAR"
+```
+
+Run from the reviewed primary checkout, with no generated-source directory on
+`PYTHONPATH`. The artifact bindings check the installed Python files against
+the wheel and the loaded JVM class against the selected JAR. The tests cover
+bytes, bytearrays, array inputs, grayscale/RGB conversion, Spark `BinaryType`
+rows, JVM image transformation and save/load. Keep both runtime results and
+hashes with the release record. This is a focused image-compatibility gate,
+not a replacement for the selected candidates' full CI or service tests.
+
+## One-time GitHub App setup
+
+The preparation and tag workflows open PRs with an approved GitHub App, not
+`GITHUB_TOKEN`. This works when organization policy disables PR creation by
+`GITHUB_TOKEN`; it does not change that policy or bypass branch protection.
+An organization owner must approve and install the App on `microsoft/SynapseML`.
+Give it repository **Contents: read** and **Pull requests: write** permissions.
+GitHub supplies metadata read access automatically. No Actions or administration
+permission is requested. These workflows do not use the App to approve or merge
+PRs, sign artifacts or publish packages.
+
+Configure these repository settings through the approved secret-management
+process:
+
+- Actions variable `RELEASE_APP_CLIENT_ID`: the installed App's client ID.
+- Actions secret `RELEASE_APP_PRIVATE_KEY`: its PEM private key.
+
+Do not paste the key into a workflow input, PR, log or command argument. Do not
+reuse a personal token as an implicit fallback. Both workflows stop with a
+configuration error when either setting is missing. The pinned official
+`actions/create-github-app-token` action requests a short-lived token scoped
+only to this repository and those permissions, and revokes it when the job
+ends. Preparation mints it after docs generation but before pushing the branch;
+the tag workflow mints it before creating derivative tags.
+
+Branch/tag writes and explicit validation dispatches still use `GITHUB_TOKEN`.
+The App token only reads and opens PRs. Review, current-head Azure validation,
+plan approval and signing remain human gates. App installation and credentials
+are external prerequisites; merging this code does not configure them.
+
 ## Notebook archive publication
 
 New public plans use schema 4. Each selected runtime's existing Azure release
@@ -91,6 +161,12 @@ notebooks without creating tags or uploading anything. Release preparation and
 tag workflows also run these guards automatically. Native Databricks validation
 still runs in the release build; neither check proves notebook code execution.
 
+Notebook-only PRs run **Release Notebook Validation**, including the actual
+committed `docs/**/*.ipynb` inputs and the archive regression suite. This
+read-only job needs no service credentials, JVM build or Databricks access.
+Ordinary Markdown-only changes do not trigger it. The separate native archive
+round-trip remains mandatory during a release.
+
 Saved schema-2 plans retain their exact identity and original artifact scope;
 they do not gain permission to upload DBCs. Generate and explicitly approve a
 new schema-4 plan to select archive publication. This is required for 1.2.0
@@ -113,9 +189,54 @@ move existing tags to retrofit the new behavior.
 - Keep signing approvals and PR merges manual. Do not change repository
   permissions or bypass branch protection to release.
 
-Spark 4.1 PR compatibility replay is advisory. That does not waive validation of
-the actual Spark 4.1 release candidate. Every selected release target still
-requires its own successful build, tests and producer evidence.
+The old Spark 4.1 PR compatibility replay job has been removed. Every selected
+release target still requires its own build, tests and verified producer
+evidence. Removing that job does not qualify the primary wheel for Spark 4.1.
+
+## Recover a warning-only Azure release build
+
+Optional cache or Codecov outages can leave a fully published release marked
+`partiallySucceeded` in Azure. Do not rerun immutable publishers just to turn
+that status green. Run `release_ops.py status` or collect `verified_evidence`
+using the original approved plan and ledger. An older ledger that recorded
+that same build as failed can be reconciled without queueing another build.
+
+For public releases only, the driver checks the complete task timeline before
+accepting this result. Every failed or warning task must match the exact
+allowlisted cache/Codecov label, official Azure task ID and supported major
+version. Job and task retry counters are checked separately, and task execution
+times must fall within the current job attempt. Maven preparation, ESRP publication,
+provenance recording and provenance upload must all have succeeded. Missing,
+skipped, canceled, unexplained or unapproved publication failures remain
+blockers. All existing source, approval, artifact-hash, DBC and freshness checks
+still apply.
+
+The ledger and exported evidence retain Azure's actual `partiallySucceeded`
+result. Warning receipts and producer evidence use version 2. The local ledger
+retains every sanitized task record. Exported evidence carries per-job outcome
+counts, grouped advisory failures, successful publication checks and a SHA-256
+link per build to its complete retained job and task records. The one digest
+binds every job ID, attempt, execution window and task; it avoids exporting
+hundreds of separate high-entropy hashes. This keeps production-sized builds within
+GitHub's dispatch-input budget without skipping full timeline validation.
+The digest is an audit link, not an approval or a signature.
+Export permits up to 60,000 encoded characters and also checks the plan,
+approval and request envelope against GitHub's 65,535-character combined input
+budget. Production-sized regressions use distinct job/task execution windows
+and cover both the default two-runtime release and the optional three-runtime
+release, including widespread advisory outages. Keep the generated plan's formatting
+or use compact JSON when dispatching; unnecessary whitespace still consumes
+GitHub's input budget. Both encode and decode enforce these limits.
+Clean builds retain the existing version-1 format.
+Consumers of warning evidence must use this updated verifier. Private
+publication workflows still require strict success. If the proof is rejected,
+inspect the original build and follow interrupted-release recovery below.
+Never edit the ledger, forge success, discard the build ID or change the plan.
+
+On Windows, large evidence cannot fit in one environment variable. Decode it
+with `verify_release.decode_evidence`, save the resulting JSON outside the
+checkout, and use `release_guard.py notes --evidence <file>` for a local guard
+check. The GitHub workflow runs on Linux and uses the encoded environment input.
 
 ## 1. Preview and prepare source
 
@@ -550,6 +671,18 @@ not prove every signature, checksum or optional JAR is absent. Partial or bad
 publication requires a new patch version and newly approved plan. Tags and
 released packages cannot be reverted by this tooling. A source revert is not a
 package rollback; issue a corrected version and communicate the affected one.
+
+If a port merge event has no `merge_commit_sha`, do not infer the release commit
+from the current branch tip or push tags directly. Fetch the canonical target,
+independently verify the merged commit and its reviewed release contents, and
+check it out detached. Run `release_guard.py full-release --repo . --version
+<version>`, adding `--include-spark40 true` for that optional port. Create only
+missing local tags with `git tag <tag> <sha>`; verify that any existing tags
+match the same commit and never replace them. Run
+`release_guard.py push-tags --repo . --commit <sha>` with both
+`--tag v<version>-<target>` and `--tag v<version>-python<python-version>`.
+This revalidates the committed notebooks before atomically pushing the selected
+local tags, and rejects conflicting remote tags.
 
 Use `status --inspect-lock` for bounded local lock metadata without Azure reads
 or lock deletion. Confirm the original owner is gone, coordinate exclusive

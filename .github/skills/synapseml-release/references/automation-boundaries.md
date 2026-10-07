@@ -14,10 +14,21 @@
 Normal CI is snapshot-only. A tagged checkout alone does not authorize release
 coordinates. Producer admission checks source, plan and approval before uploads.
 
-The public Maven track includes CDN, Maven Central and primary PyPI. Unrelated
-notebook, documentation, R, module-wheel and badge uploads remain outside release
-mode. Disabled optional tests are not dependencies; mandatory and selected tests
-must succeed. Advisory compatibility replay does not waive target validation.
+The public Maven track includes CDN, Maven Central, primary PyPI and schema-4
+source-bound DBC archives. Unrelated documentation, R, module-wheel and badge
+uploads remain outside release mode. Mandatory and selected tests must succeed.
+Removing the old compatibility replay does not waive target validation or
+qualification of the actual primary wheel on every advertised runtime.
+
+Public warning-only producer builds require the task-level proof described in
+the [release guide](../../../../scripts/release/README.md#recover-a-warning-only-azure-release-build).
+An aggregate partial-success status is never sufficient. Unknown or failed
+publication tasks remain blockers, and raw Azure outcomes stay in the evidence.
+
+PR creation requires an approved, repository-scoped GitHub App. Follow the
+[one-time setup](../../../../scripts/release/README.md#one-time-github-app-setup);
+do not bypass organization policy with an unapproved personal token or infer
+that merging the automation configures its credentials.
 
 The normal primary-tag workflow requires containment in `master`. An explicit
 pre-merge release must use a separately reviewed bootstrap path and preserve

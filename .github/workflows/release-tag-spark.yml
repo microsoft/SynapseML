@@ -72,11 +72,17 @@ jobs:
           set -euo pipefail
           if [ -z "$MERGED_SHA" ]; then
             echo "::error::pull_request.merge_commit_sha is empty, so the commit that landed on \
-          $BASE_REF cannot be identified. Refusing to guess. This workflow normally creates both \
-          the spark tag and the matching python tag, so create both manually to avoid a \
-          partially tagged release: \
-          git tag v<version>-<target> <sha> && git tag v<version>-python<python-version> <sha> && \
-          git push --atomic origin v<version>-<target> v<version>-python<python-version>"
+          $BASE_REF cannot be identified. Refusing to guess. In a canonical clone, fetch the \
+          target branch and independently verify the commit that landed and its reviewed release \
+          contents. Run git checkout --detach <verified-sha>, then \
+          python3 scripts/release/release_guard.py full-release --repo . --version <version> \
+          (add --include-spark40 true for spark4.0). Create only missing local tags with \
+          git tag v<version>-<target> <verified-sha> and \
+          git tag v<version>-python<python-version> <verified-sha>; verify any existing tags \
+          match that commit and never replace them. Publish both through the notebook-preflight guard: \
+          python3 scripts/release/release_guard.py push-tags --repo . \
+          --commit <verified-sha> --tag v<version>-<target> \
+          --tag v<version>-python<python-version>. See scripts/release/README.md for recovery."
             exit 1
           fi
           echo "✅ Merged commit: $MERGED_SHA"

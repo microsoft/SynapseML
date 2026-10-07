@@ -17,7 +17,7 @@ fi
 primary_tags() {
   # macOS/BSD sort has no GNU -V mode, so use the release tooling's Python 3.
   git tag --list 'v[0-9]*.[0-9]*.[0-9]*' \
-    | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+    | awk '/^v[0-9]+\.[0-9]+\.[0-9]+$/' \
     | "$PYTHON_BIN" -c 'import sys
 tags = [line.strip() for line in sys.stdin if line.strip()]
 tags.sort(key=lambda tag: tuple(map(int, tag[1:].split("."))))

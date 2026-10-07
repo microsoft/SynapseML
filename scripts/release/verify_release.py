@@ -82,7 +82,8 @@ SKIP_CHOICES = {"github", "ado", "upack", "pip", "internal", "public"}
 
 OK, MISSING, SKIPPED = "PRESENT", "MISSING", "SKIPPED"
 MAX_EVIDENCE_BYTES = 2 * 1024 * 1024
-MAX_GITHUB_EVIDENCE_CHARS = 48000
+MAX_GITHUB_EVIDENCE_CHARS = 60000
+MAX_GITHUB_INPUT_CHARS = 65535
 
 
 def public_pypi_wheel_name(version):
@@ -944,6 +945,21 @@ def validate_public_evidence(report):
         raise ValueError("invalid public evidence plan payload") from error
     require_public_plan(plan)
     validate_evidence(plan, report)
+    return plan
+
+
+def _validate_github_input_size(plan, encoded):
+    # Reserve the real plan and approval, including JSON escaping and the envelope.
+    payload = {
+        "ref": f"v{plan.oss_version}",
+        "inputs": {
+            "plan_json": json.dumps(plan_to_dict(plan), indent=2) + "\n",
+            "approve_plan": plan.plan_id,
+            "evidence_base64": encoded,
+        },
+    }
+    if len(json.dumps(payload)) > MAX_GITHUB_INPUT_CHARS:
+        raise ValueError("release evidence exceeds the combined GitHub input budget")
 
 
 def encode_evidence(report):
@@ -956,10 +972,11 @@ def encode_evidence(report):
     ).encode("utf-8")
     if len(raw) > MAX_EVIDENCE_BYTES:
         raise ValueError("release evidence exceeds the supported size")
-    validate_public_evidence(report)
+    plan = validate_public_evidence(report)
     encoded = base64.b64encode(gzip.compress(raw, mtime=0)).decode("ascii")
     if len(encoded) > MAX_GITHUB_EVIDENCE_CHARS:
         raise ValueError("compressed release evidence exceeds the GitHub input budget")
+    _validate_github_input_size(plan, encoded)
     return encoded
 
 
@@ -988,7 +1005,8 @@ def decode_evidence(encoded):
         raise ValueError("invalid or oversized compressed release evidence") from error
     if not isinstance(report, dict):
         raise ValueError("release evidence must be an object")
-    validate_public_evidence(report)
+    plan = validate_public_evidence(report)
+    _validate_github_input_size(plan, encoded)
     return report
 
 

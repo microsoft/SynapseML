@@ -47,6 +47,7 @@ MAX_LOCK_BYTES = 16384
 MAX_RETRY_ATTEMPTS = 16
 MAX_CLAIM_CANDIDATES = 128
 MAX_PUBLIC_JOBS = 256
+MAX_PUBLIC_TASKS = 4096
 MAX_ABSENCE_PAGES = 100
 ABSENCE_PAGE_SIZE = 100
 SHA_RE = re.compile(r"[0-9a-f]{40}\Z")
@@ -66,6 +67,23 @@ STATES = {"planned", "existing", "unknown", "pending", "failed", "complete"}
 ADO_BASE = "https://dev.azure.com/msdata/A365/_apis"
 COUNTERS = ("SYNAPSEML_PATCH_VERSION", "SYNAPSEML_INTERNAL_PATCH_VERSION")
 FAMILY_ORDER = ("maven", "pip", "upack")
+ADVISORY_TASKS = {
+    "Cache sbt launcher boot": ("d53ccab4-555e-4494-9d06-11db043fb4a9", "2"),
+    "Cache sbt ivy dependencies": ("d53ccab4-555e-4494-9d06-11db043fb4a9", "2"),
+    "Cache Coursier dependencies": ("d53ccab4-555e-4494-9d06-11db043fb4a9", "2"),
+    "Use cached Anaconda environment": ("d53ccab4-555e-4494-9d06-11db043fb4a9", "2"),
+    "Load Codecov token": ("1e244d32-2dd4-4165-96fb-b7441ca9331e", "2"),
+    "Upload Coverage Report To Codecov.io": (
+        "6c731c3c-3c68-459a-a5c9-bde6e6595b5b",
+        "3",
+    ),
+}
+REQUIRED_RELEASE_TASKS = {
+    "publish jar package to maven central",
+    "ESRP Publish Package",
+    "Record published Maven source and artifact hashes",
+    "Publish Maven release provenance",
+}
 
 
 class ReleaseError(RuntimeError):
@@ -1262,16 +1280,23 @@ def _validate_state(data, plan):
             _time(outcome.get("checked_at"), "Azure outcome")
         if action["receipt"] is not None:
             receipt = action["receipt"]
+            partial = isinstance(receipt, dict) and receipt.get("schema_version") == 2
             if (
                 not isinstance(receipt, dict)
                 or type(receipt.get("schema_version")) is not int
-                or receipt["schema_version"] != 1
+                or receipt["schema_version"] not in {1, 2}
+                or (
+                    partial and plan.schema_version not in matrix.PUBLIC_SCHEMA_VERSIONS
+                )
                 or receipt.get("plan_id") != plan.plan_id
                 or receipt.get("build_id") != action["build_id"]
                 or receipt.get("pipeline_id") != action["pipeline_id"]
                 or receipt.get("source_commit") != action["source_commit"]
                 or receipt.get("source_tag") != action["source_tag"]
-                or receipt.get("result") != "succeeded"
+                or receipt.get("result")
+                != ("partiallySucceeded" if partial else "succeeded")
+                or action["outcome"] is None
+                or receipt["result"] != action["outcome"].get("result")
             ):
                 raise ReleaseError(
                     "Release state contains a mismatched provenance receipt"
@@ -1281,7 +1306,7 @@ def _validate_state(data, plan):
                 not isinstance(job, dict) for job in receipt["jobs"]
             ):
                 raise ReleaseError("Release state contains invalid Azure job evidence")
-            _jobs({"records": [{**job, "type": "Job"} for job in receipt["jobs"]]})
+            _checked_jobs(receipt["jobs"], allow_warnings=partial)
             _validate_manifests(
                 plan,
                 action,
@@ -1294,7 +1319,7 @@ def _validate_state(data, plan):
             action["receipt"] is None
             or action["outcome"] is None
             or action["outcome"]["status"] != "completed"
-            or action["outcome"].get("result") != "succeeded"
+            or action["outcome"].get("result") != action["receipt"]["result"]
         ):
             raise ReleaseError(
                 "Release state claims completion without a successful Azure receipt"
@@ -1918,43 +1943,363 @@ def _validate_build(plan, action, build, remote):
     }
 
 
-def _jobs(data):
-    if not isinstance(data, dict) or not isinstance(data.get("records"), list):
-        raise ReleaseError("Azure build timeline has no job records")
-    jobs = []
-    for record in data["records"]:
-        if not isinstance(record, dict):
-            raise ReleaseError("Azure build timeline contains an invalid record")
-        if record.get("type") != "Job":
-            continue
+def _advisory_task(name, task_id, version):
+    if not isinstance(name, str) or not isinstance(version, str):
+        return False
+    if name.startswith("Post-job: "):
+        name = name[len("Post-job: ") :]
+        if ADVISORY_TASKS.get(name, (None,))[0] != (
+            "d53ccab4-555e-4494-9d06-11db043fb4a9"
+        ):
+            return False
+    expected = ADVISORY_TASKS.get(name)
+    return expected is not None and (task_id, version.split(".")[0]) == expected
+
+
+def _execution_window(record, label, required):
+    start, finish = record["started_at"], record["finished_at"]
+    if start is None and finish is None and not required:
+        return None
+    start, finish = _time(start, label), _time(finish, label)
+    if finish < start:
+        raise ReleaseError("Warning proof contains reversed execution times")
+    return start, finish
+
+
+def _checked_tasks(jobs):
+    seen = set()
+    warned_jobs = 0
+    keys = {
+        "id",
+        "name",
+        "state",
+        "result",
+        "attempt",
+        "task_id",
+        "task_version",
+        "started_at",
+        "finished_at",
+    }
+    for job in jobs:
+        tasks = job["tasks"]
+        if not _positive_id(job["attempt"]) or not isinstance(tasks, list):
+            raise ReleaseError("Warning proof has invalid job/task attempts")
+        job_window = _execution_window(
+            job, "Azure job execution", job["result"] != "skipped"
+        )
+        warnings = 0
+        successful = False
+        publications = set()
+        for task in tasks:
+            if (
+                not isinstance(task, dict)
+                or set(task) != keys
+                or not isinstance(task["id"], str)
+                or not GUID_RE.fullmatch(task["id"])
+                or task["id"] != task["id"].lower()
+                or uuid.UUID(task["id"]).int == 0
+                or task["id"] in seen
+                or task["state"] != "completed"
+                or not isinstance(task["result"], str)
+                or task["result"]
+                not in {"succeeded", "skipped", "failed", "succeededWithIssues"}
+                or not _positive_id(task["attempt"])
+                or not isinstance(task["name"], str)
+                or ((task["task_id"] is None) != (task["task_version"] is None))
+                or (
+                    task["task_id"] is not None
+                    and (
+                        not isinstance(task["task_id"], str)
+                        or not GUID_RE.fullmatch(task["task_id"])
+                        or task["task_id"] != task["task_id"].lower()
+                        or uuid.UUID(task["task_id"]).int == 0
+                        or not isinstance(task["task_version"], str)
+                        or not re.fullmatch(
+                            r"[0-9]+\.[0-9]+\.[0-9]+", task["task_version"]
+                        )
+                    )
+                )
+            ):
+                raise ReleaseError("Warning proof contains invalid or incomplete tasks")
+            # Task retries have their own counter, independent of job attempts.
+            window = _execution_window(
+                task, "Azure task execution", task["result"] != "skipped"
+            )
+            if window is not None and (
+                job_window is None
+                or window[0] < job_window[0]
+                or window[1] > job_window[1]
+            ):
+                raise ReleaseError("Task evidence is outside its current job attempt")
+            seen.add(task["id"])
+            if len(seen) > MAX_PUBLIC_TASKS:
+                raise ReleaseError("Warning proof exceeds the public task limit")
+            advisory = _advisory_task(
+                task["name"], task["task_id"], task["task_version"]
+            )
+            publication = (
+                job["name"] == "Release" and task["name"] in REQUIRED_RELEASE_TASKS
+            )
+            if publication:
+                if (
+                    task["name"] in publications
+                    or task["result"] != "succeeded"
+                    or task["task_id"] is None
+                ):
+                    raise ReleaseError("Release publication task did not succeed")
+                publications.add(task["name"])
+            if not advisory and not publication and task["name"] != "Pipeline task":
+                raise ReleaseError("Warning proof contains an unapproved task name")
+            if task["result"] in {"failed", "succeededWithIssues"}:
+                if not advisory:
+                    raise ReleaseError("Azure build has an unapproved task failure")
+                warnings += 1
+            elif task["result"] == "succeeded" and not advisory:
+                successful = True
+            if job["result"] == "skipped" and task["result"] != "skipped":
+                raise ReleaseError("Skipped job contains executed task evidence")
+        if job["result"] != "skipped" and not successful:
+            raise ReleaseError("Warning proof omits successful pipeline task evidence")
+        if job["name"] == "Release" and publications != REQUIRED_RELEASE_TASKS:
+            raise ReleaseError("Warning proof omits required release publication tasks")
+        if bool(warnings) != (job["result"] == "succeededWithIssues"):
+            raise ReleaseError("Azure job warnings are not fully explained by tasks")
+        warned_jobs += bool(warnings)
+    if not warned_jobs:
+        raise ReleaseError("Partially successful build has no validated warning tasks")
+
+
+def _checked_task_summaries(jobs):
+    total = 0
+    warned = False
+    outcomes = {"succeeded", "skipped", "failed", "succeededWithIssues"}
+    for job in jobs:
+        if not _positive_id(job["attempt"]):
+            raise ReleaseError("Warning summary has an invalid job attempt")
+        _execution_window(job, "Azure job execution", job["result"] != "skipped")
+        summary = job["task_summary"]
         if (
-            not isinstance(record.get("id"), str)
+            not isinstance(summary, dict)
+            or set(summary)
+            != {
+                "results",
+                "non_advisory_succeeded",
+                "advisory_failures",
+                "publications",
+            }
+            or not isinstance(summary["results"], dict)
+            or set(summary["results"]) != outcomes
+            or any(type(n) is not int or n < 0 for n in summary["results"].values())
+            or type(summary["non_advisory_succeeded"]) is not int
+            or not 0
+            <= summary["non_advisory_succeeded"]
+            <= summary["results"]["succeeded"]
+            or not isinstance(summary["advisory_failures"], list)
+            or len(summary["advisory_failures"]) > 2 * len(ADVISORY_TASKS)
+        ):
+            raise ReleaseError("Warning evidence has an invalid task summary")
+        counts = summary["results"]
+        count = sum(counts.values())
+        total += count
+        if total > MAX_PUBLIC_TASKS:
+            raise ReleaseError("Warning proof exceeds the public task limit")
+        failures = {"failed": 0, "succeededWithIssues": 0}
+        seen = set()
+        for group in summary["advisory_failures"]:
+            if (
+                not isinstance(group, dict)
+                or set(group)
+                != {"name", "task_id", "task_major", "failed", "succeededWithIssues"}
+                or not isinstance(group["task_major"], str)
+                or not re.fullmatch(r"[1-9][0-9]*", group["task_major"])
+                or not _advisory_task(
+                    group["name"], group["task_id"], group["task_major"]
+                )
+                or group["name"] in seen
+                or any(
+                    type(group[key]) is not int or group[key] < 0 for key in failures
+                )
+                or group["failed"] + group["succeededWithIssues"] == 0
+            ):
+                raise ReleaseError("Warning summary contains an unapproved failure")
+            seen.add(group["name"])
+            for key in failures:
+                failures[key] += group[key]
+        if any(failures[key] != counts[key] for key in failures):
+            raise ReleaseError("Task summary contains unexplained failure counts")
+        has_warnings = sum(failures.values()) > 0
+        if has_warnings != (job["result"] == "succeededWithIssues"):
+            raise ReleaseError("Azure job warnings disagree with its task summary")
+        if job["result"] == "skipped":
+            if count != counts["skipped"]:
+                raise ReleaseError("Skipped job summary contains executed tasks")
+        elif summary["non_advisory_succeeded"] == 0:
+            raise ReleaseError(
+                "Warning summary omits successful pipeline task evidence"
+            )
+        publications = (
+            sorted(REQUIRED_RELEASE_TASKS) if job["name"] == "Release" else []
+        )
+        if (
+            summary["publications"] != publications
+            or len(publications) > summary["non_advisory_succeeded"]
+        ):
+            raise ReleaseError("Warning summary omits successful release publication")
+        warned |= has_warnings
+    if not warned:
+        raise ReleaseError("Partially successful build has no validated warning tasks")
+
+
+def _summarize_public_jobs(jobs):
+    """Compact fully validated task records; the ledger retains the complete proof."""
+    result = []
+    for job in jobs:
+        counts = dict.fromkeys(
+            ("succeeded", "skipped", "failed", "succeededWithIssues"), 0
+        )
+        failures = {}
+        successful = 0
+        publications = []
+        for task in job["tasks"]:
+            counts[task["result"]] += 1
+            advisory = _advisory_task(
+                task["name"], task["task_id"], task["task_version"]
+            )
+            if task["result"] in {"failed", "succeededWithIssues"}:
+                group = failures.setdefault(
+                    task["name"],
+                    {
+                        "name": task["name"],
+                        "task_id": task["task_id"],
+                        "task_major": task["task_version"].split(".")[0],
+                        "failed": 0,
+                        "succeededWithIssues": 0,
+                    },
+                )
+                group[task["result"]] += 1
+            elif task["result"] == "succeeded" and not advisory:
+                successful += 1
+                if job["name"] == "Release" and task["name"] in REQUIRED_RELEASE_TASKS:
+                    publications.append(task["name"])
+        result.append(
+            {
+                **{key: value for key, value in job.items() if key != "tasks"},
+                "task_summary": {
+                    "results": counts,
+                    "non_advisory_succeeded": successful,
+                    "advisory_failures": [failures[name] for name in sorted(failures)],
+                    "publications": sorted(publications),
+                },
+            }
+        )
+    return result
+
+
+def _checked_jobs(jobs, allow_warnings=False, task_summaries=False):
+    keys = {"id", "name", "state", "result"}
+    if allow_warnings:
+        keys |= {
+            "attempt",
+            "task_summary" if task_summaries else "tasks",
+            "started_at",
+            "finished_at",
+        }
+    if not isinstance(jobs, list) or not jobs:
+        raise ReleaseError("Azure build timeline has no job records")
+    results = {"succeeded", "skipped"}
+    if allow_warnings:
+        results.add("succeededWithIssues")
+    for record in jobs:
+        if (
+            not isinstance(record, dict)
+            or set(record) != keys
+            or not isinstance(record.get("id"), str)
             or not record["id"]
             or not isinstance(record.get("name"), str)
             or not record["name"]
             or record.get("state") != "completed"
             or not isinstance(record.get("result"), str)
-            or record.get("result") not in {"succeeded", "skipped"}
+            or record.get("result") not in results
         ):
             raise ReleaseError("Azure build has an incomplete or unsuccessful job")
-        jobs.append({key: record.get(key) for key in ("id", "name", "state", "result")})
-    if not any(job["result"] == "succeeded" for job in jobs):
+    if not any(job["result"] != "skipped" for job in jobs):
         raise ReleaseError("Azure build has no successful job evidence")
-    return jobs
+    if allow_warnings:
+        if task_summaries:
+            _checked_task_summaries(jobs)
+        else:
+            _checked_tasks(jobs)
+    return copy.deepcopy(jobs)
 
 
-def _public_jobs(jobs, from_timeline=False):
+def _jobs(data, allow_warnings=False):
+    if not isinstance(data, dict) or not isinstance(data.get("records"), list):
+        raise ReleaseError("Azure build timeline has no job records")
+    if any(not isinstance(record, dict) for record in data["records"]):
+        raise ReleaseError("Azure build timeline contains an invalid record")
+    jobs = []
+    for record in data["records"]:
+        if record.get("type") == "Job":
+            job = {key: record.get(key) for key in ("id", "name", "state", "result")}
+            if allow_warnings:
+                job.update(
+                    attempt=record.get("attempt"),
+                    tasks=[],
+                    started_at=record.get("startTime"),
+                    finished_at=record.get("finishTime"),
+                )
+            jobs.append(job)
+    if allow_warnings:
+        by_id = {}
+        for job in jobs:
+            if not isinstance(job["id"], str) or not job["id"] or job["id"] in by_id:
+                raise ReleaseError("Warning proof contains invalid job identities")
+            by_id[job["id"]] = job
+        for record in data["records"]:
+            if record.get("type") != "Task":
+                continue
+            parent = record.get("parentId")
+            if not isinstance(parent, str) or parent not in by_id:
+                raise ReleaseError("Warning proof contains an orphaned task")
+            reference = record.get("task")
+            if reference is not None and not isinstance(reference, dict):
+                raise ReleaseError("Warning proof contains an invalid task reference")
+            task_id = reference.get("id") if reference else None
+            if isinstance(task_id, str):
+                task_id = task_id.lower()
+            version = reference.get("version") if reference else None
+            name = record.get("name")
+            advisory = _advisory_task(name, task_id, version)
+            publication = (
+                by_id[parent]["name"] == "Release"
+                and isinstance(name, str)
+                and name in REQUIRED_RELEASE_TASKS
+            )
+            task = {
+                key: record.get(key) for key in ("id", "state", "result", "attempt")
+            }
+            if isinstance(task["id"], str):
+                task["id"] = task["id"].lower()
+            task.update(
+                name=name if advisory or publication else "Pipeline task",
+                task_id=task_id,
+                task_version=version,
+                started_at=record.get("startTime"),
+                finished_at=record.get("finishTime"),
+            )
+            by_id[parent]["tasks"].append(task)
+    return _checked_jobs(jobs, allow_warnings)
+
+
+def _public_jobs(jobs, from_timeline=False, allow_warnings=False, task_summaries=False):
     """Keep every job's typed ID/outcome, but export only public producer role names."""
     if (
         not isinstance(jobs, list)
         or not 0 < len(jobs) <= MAX_PUBLIC_JOBS
-        or any(
-            not isinstance(job, dict) or set(job) != {"id", "name", "state", "result"}
-            for job in jobs
-        )
+        or any(not isinstance(job, dict) for job in jobs)
     ):
         raise ReleaseError("Public producer evidence has invalid job coverage")
-    checked = _jobs({"records": [{**job, "type": "Job"} for job in jobs]})
+    checked = _checked_jobs(jobs, allow_warnings, task_summaries)
     seen = set()
     for job in checked:
         job_id = job["id"].lower()
@@ -1976,7 +2321,10 @@ def _public_jobs(jobs, from_timeline=False):
         elif job["name"] not in {"Release", "Maven pipeline job"}:
             raise ReleaseError("Public producer evidence has an unapproved job name")
     releases = [job for job in checked if job["name"] == "Release"]
-    if len(releases) != 1 or releases[0]["result"] != "succeeded":
+    successful = (
+        {"succeeded", "succeededWithIssues"} if allow_warnings else {"succeeded"}
+    )
+    if len(releases) != 1 or releases[0]["result"] not in successful:
         raise ReleaseError(
             "Public producer evidence requires one successful Release job"
         )
@@ -2182,14 +2530,18 @@ def _refresh_group(plan, state, actions, remote):
             for action in actions:
                 action["status"] = "pending"
             return
-        if outcome["result"] != "succeeded":
+        partial = (
+            outcome["result"] == "partiallySucceeded"
+            and plan.schema_version in matrix.PUBLIC_SCHEMA_VERSIONS
+        )
+        if outcome["result"] != "succeeded" and not partial:
             for action in actions:
                 action["status"] = "failed"
                 action[
                     "error"
                 ] = "Azure build did not succeed; automatic retry is forbidden."
             return
-        jobs = _jobs(remote.timeline(first["build_id"]))
+        jobs = _jobs(remote.timeline(first["build_id"]), allow_warnings=partial)
         documents = _validate_manifests(
             plan,
             first,
@@ -2199,10 +2551,10 @@ def _refresh_group(plan, state, actions, remote):
             destinations=state["destinations"],
         )
         if plan.schema_version in matrix.PUBLIC_SCHEMA_VERSIONS:
-            jobs = _public_jobs(jobs, from_timeline=True)
+            jobs = _public_jobs(jobs, from_timeline=True, allow_warnings=partial)
         for action in actions:
             action["receipt"] = {
-                "schema_version": 1,
+                "schema_version": 2 if partial else 1,
                 "plan_id": plan.plan_id,
                 "build_id": action["build_id"],
                 "pipeline_id": action["pipeline_id"],
@@ -2211,7 +2563,7 @@ def _refresh_group(plan, state, actions, remote):
                 "publisher_commit": (
                     outcome["source_commit"] if action["kind"] == "publisher" else None
                 ),
-                "result": "succeeded",
+                "result": outcome["result"],
                 "checked_at": now(),
                 "jobs": jobs,
                 "provenance": copy.deepcopy(documents),
@@ -2942,7 +3294,7 @@ def validate_producer_evidence(plan, report):
         or set(evidence)
         != {"schema_version", "plan_id", "checked_at", "destinations", "runs"}
         or type(evidence["schema_version"]) is not int
-        or evidence["schema_version"] != 1
+        or evidence["schema_version"] not in {1, 2}
         or evidence["plan_id"] != plan.plan_id
         or evidence["checked_at"] != report["checked_at"]
         or not isinstance(evidence["runs"], list)
@@ -2966,15 +3318,12 @@ def validate_producer_evidence(plan, report):
         "queueTime",
         "finishTime",
     }
+    run_keys = {"action_ids", "operation", "build", "definition", "jobs", "provenance"}
     for run in evidence["runs"]:
-        if not isinstance(run, dict) or set(run) != {
-            "action_ids",
-            "operation",
-            "build",
-            "definition",
-            "jobs",
-            "provenance",
-        }:
+        if not isinstance(run, dict) or set(run) not in (
+            run_keys,
+            run_keys | {"job_records_sha256"},
+        ):
             raise ReleaseError("Producer evidence contains an invalid run")
         ids = run["action_ids"]
         if (
@@ -3031,19 +3380,34 @@ def validate_producer_evidence(plan, report):
             raise ReleaseError(
                 "Public producer evidence contains unapproved parameters"
             )
-        if outcome["status"] != "completed" or outcome["result"] != "succeeded":
+        partial = (
+            evidence["schema_version"] == 2
+            and outcome["result"] == "partiallySucceeded"
+            and plan.schema_version in matrix.PUBLIC_SCHEMA_VERSIONS
+        )
+        if partial:
+            if not isinstance(
+                run.get("job_records_sha256"), str
+            ) or not HASH_RE.fullmatch(run["job_records_sha256"]):
+                raise ReleaseError("Warning evidence has an invalid job-record digest")
+        elif "job_records_sha256" in run:
             raise ReleaseError(
-                "Producer evidence does not describe a succeeded Azure build"
+                "Clean evidence contains a warning-only job-record digest"
+            )
+        if outcome["status"] != "completed" or (
+            outcome["result"] != "succeeded" and not partial
+        ):
+            raise ReleaseError(
+                "Producer evidence does not describe an approved completed Azure build"
             )
         if not isinstance(run["jobs"], list) or any(
-            not isinstance(job, dict) or set(job) != {"id", "name", "state", "result"}
-            for job in run["jobs"]
+            not isinstance(job, dict) for job in run["jobs"]
         ):
             raise ReleaseError("Producer evidence has invalid Azure job facts")
         if plan.schema_version in matrix.PUBLIC_SCHEMA_VERSIONS:
-            _public_jobs(run["jobs"])
+            _public_jobs(run["jobs"], allow_warnings=partial, task_summaries=partial)
         else:
-            _jobs({"records": [{**job, "type": "Job"} for job in run["jobs"]]})
+            _checked_jobs(run["jobs"])
         documents = _validate_manifests(
             plan,
             candidate,
@@ -3059,6 +3423,10 @@ def validate_producer_evidence(plan, report):
         seen_builds.add(build["id"])
     if seen_actions != set(blueprints):
         raise ReleaseError("Producer evidence omits required action coverage")
+    if (evidence["schema_version"] == 2) != any(
+        run["build"]["result"] == "partiallySucceeded" for run in evidence["runs"]
+    ):
+        raise ReleaseError("Producer evidence version disagrees with warning coverage")
 
 
 def verified_evidence(plan, state_path, remote=None):
@@ -3093,7 +3461,15 @@ def verified_evidence(plan, state_path, remote=None):
             first = actions[0]
             build = service.build(first["build_id"])
             outcome = _validate_build(plan, first, build, service)
-            if outcome["status"] != "completed" or outcome["result"] != "succeeded":
+            partial = (
+                outcome["result"] == "partiallySucceeded"
+                and plan.schema_version in matrix.PUBLIC_SCHEMA_VERSIONS
+            )
+            if (
+                outcome["status"] != "completed"
+                or (outcome["result"] != "succeeded" and not partial)
+                or outcome["result"] != first["outcome"]["result"]
+            ):
                 raise ReleaseError(
                     "Producer build changed while evidence was collected"
                 )
@@ -3101,6 +3477,11 @@ def verified_evidence(plan, state_path, remote=None):
                 raise ReleaseError(
                     "Producer source changed while evidence was collected"
                 )
+            jobs = _jobs(service.timeline(first["build_id"]), allow_warnings=partial)
+            if plan.schema_version in matrix.PUBLIC_SCHEMA_VERSIONS:
+                jobs = _public_jobs(jobs, from_timeline=True, allow_warnings=partial)
+            if jobs != first["receipt"]["jobs"]:
+                raise ReleaseError("Producer jobs changed while evidence was collected")
             runs.append(
                 {
                     "action_ids": [action["id"] for action in actions],
@@ -3109,7 +3490,16 @@ def verified_evidence(plan, state_path, remote=None):
                     "definition": _evidence_definition(
                         service.definition(first["pipeline_id"])
                     ),
-                    "jobs": copy.deepcopy(first["receipt"]["jobs"]),
+                    "jobs": _summarize_public_jobs(jobs) if partial else jobs,
+                    **(
+                        {
+                            "job_records_sha256": hashlib.sha256(
+                                canonical(jobs)
+                            ).hexdigest()
+                        }
+                        if partial
+                        else {}
+                    ),
                     "provenance": copy.deepcopy(first["receipt"]["provenance"]),
                 }
             )
@@ -3117,7 +3507,13 @@ def verified_evidence(plan, state_path, remote=None):
             complete=True,
             evidence_kind="producer-verified",
             producer_evidence={
-                "schema_version": 1,
+                "schema_version": (
+                    2
+                    if any(
+                        run["build"]["result"] == "partiallySucceeded" for run in runs
+                    )
+                    else 1
+                ),
                 "plan_id": plan.plan_id,
                 "checked_at": report["checked_at"],
                 "destinations": copy.deepcopy(destinations),

@@ -382,6 +382,41 @@ def test_public_evidence_rejects_duplicate_json_members(cli):
         verify.decode_evidence(payload)
 
 
+def test_public_evidence_checks_the_complete_dispatch_budget(cli, monkeypatch):
+    plan, report = producer_report(cli)
+    payload = verify.encode_evidence(report)
+    request = {
+        "ref": f"v{plan.oss_version}",
+        "inputs": {
+            "plan_json": json.dumps(matrix.plan_to_dict(plan), indent=2) + "\n",
+            "approve_plan": plan.plan_id,
+            "evidence_base64": payload,
+        },
+    }
+    size = len(json.dumps(request))
+    monkeypatch.setattr(verify, "MAX_GITHUB_INPUT_CHARS", size, raising=False)
+    assert verify.encode_evidence(report) == payload
+    assert verify.decode_evidence(payload) == report
+    monkeypatch.setattr(verify, "MAX_GITHUB_INPUT_CHARS", size - 1)
+    with pytest.raises(ValueError, match="combined GitHub input budget"):
+        verify.encode_evidence(report)
+    with pytest.raises(ValueError, match="combined GitHub input budget"):
+        verify.decode_evidence(payload)
+
+
+def test_public_evidence_preserves_the_encoded_size_limit(cli, monkeypatch):
+    _, report = producer_report(cli)
+    payload = verify.encode_evidence(report)
+    monkeypatch.setattr(verify, "MAX_GITHUB_EVIDENCE_CHARS", len(payload))
+    assert verify.encode_evidence(report) == payload
+    assert verify.decode_evidence(payload) == report
+    monkeypatch.setattr(verify, "MAX_GITHUB_EVIDENCE_CHARS", len(payload) - 1)
+    with pytest.raises(ValueError, match="GitHub input budget"):
+        verify.encode_evidence(report)
+    with pytest.raises(ValueError, match="absent or too large"):
+        verify.decode_evidence(payload)
+
+
 @pytest.mark.parametrize(
     "field,value",
     [

@@ -47,7 +47,7 @@ def test_rejects_non_numeric_internal_patch():
         build_plan("1.1.3", internal_patch="x")
 
 
-@pytest.mark.parametrize("patch", ["00", "01", "-1", "Ãƒâ€šÃ‚Â²"])
+@pytest.mark.parametrize("patch", ["00", "01", "-1", "\u00b2", "\u0662", "1\u0663"])
 def test_rejects_non_canonical_internal_patch(patch):
     with pytest.raises(ValueError):
         build_plan("1.1.3", internal_patch=patch)
@@ -348,7 +348,9 @@ def test_all_tag_helpers_are_unique_and_complete():
     "args",
     [
         ["--version", "1.1.4", "--upack-iteration", "spark4.0=0"],
-        ["--version", "1.1.4", "--upack-iteration", "spark4.0=Ãƒâ€šÃ‚Â²"],
+        ["--version", "1.1.4", "--upack-iteration", "spark4.0=\u00b2"],
+        ["--version", "1.1.4", "--upack-iteration", "spark4.0=\u0662"],
+        ["--version", "1.1.4", "--upack-iteration", "spark4.0=1\u0663"],
         [
             "--version",
             "1.1.4",

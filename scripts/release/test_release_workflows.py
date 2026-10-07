@@ -3,6 +3,7 @@
 
 from pathlib import Path
 
+import pytest
 import yaml
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -143,3 +144,96 @@ def test_prepared_release_pr_does_not_make_internal_a_public_release_prerequisit
     assert "Internal release PRs" not in public
     assert "Downstream private integrations" in optional
     assert "not prerequisites for OSS publication or release notes" in optional
+
+
+@pytest.mark.parametrize(
+    "filename,job_name,write_step,pr_step,preparation_step",
+    [
+        (
+            "release-prepare.yml",
+            "prepare",
+            "Commit and push",
+            "Open release PR",
+            "Verify the working tree actually changed",
+        ),
+        (
+            "release-tag.yml",
+            "release-tags",
+            "Create master release tags",
+            "Create spark rebase PRs",
+            "Capture released commit",
+        ),
+    ],
+)
+def test_release_prs_use_a_scoped_app_token_before_writing_remote_refs(
+    filename, job_name, write_step, pr_step, preparation_step
+):
+    workflow = yaml.safe_load(read_workflow(filename))
+    job = workflow["jobs"][job_name]
+    steps = job["steps"]
+    positions = {step["name"]: index for index, step in enumerate(steps)}
+    assert positions["Check release App configuration"] < positions["Checkout"]
+    assert positions[preparation_step] < positions["Create release PR token"]
+    assert positions["Create release PR token"] < positions[write_step]
+    assert positions[write_step] < positions[pr_step]
+    token = steps[positions["Create release PR token"]]
+    assert token["id"] == "release-app"
+    assert token["uses"] == (
+        "actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1"
+    )
+    assert token["with"] == {
+        "client-id": "${{ vars.RELEASE_APP_CLIENT_ID }}",
+        "private-key": "${{ secrets.RELEASE_APP_PRIVATE_KEY }}",
+        "owner": "${{ github.repository_owner }}",
+        "repositories": "${{ github.event.repository.name }}",
+        "permission-contents": "read",
+        "permission-pull-requests": "write",
+    }
+    assert steps[positions[pr_step]]["env"]["GH_TOKEN"] == (
+        "${{ steps.release-app.outputs.token }}"
+    )
+    assert steps[positions["Checkout"]]["with"]["token"] == (
+        "${{ secrets.GITHUB_TOKEN }}"
+    )
+    assert "pull-requests" not in job.get(
+        "permissions", workflow.get("permissions", {})
+    )
+    assert "pull_request_target" not in read_workflow(filename)
+    if job_name == "prepare":
+        assert job["if"] == "github.event_name == 'workflow_dispatch'"
+        assert steps[positions["Queue release PR validation"]]["env"]["GH_TOKEN"] == (
+            "${{ secrets.GITHUB_TOKEN }}"
+        )
+    else:
+        triggers = workflow.get("on", workflow.get(True))
+        assert set(triggers) == {"push", "workflow_dispatch"}
+        assert "inputs.bootstrap != true" in job["if"]
+        assert not any(
+            "create-github-app-token@" in step.get("uses", "")
+            for step in workflow["jobs"]["bootstrap"]["steps"]
+        )
+
+
+def test_notebook_only_prs_run_release_checks_without_scala_builds_or_secrets():
+    workflow = yaml.safe_load(read_workflow("release-notebook-validation.yml"))
+    triggers = workflow.get("on", workflow.get(True))
+    assert set(triggers) == {"pull_request", "workflow_dispatch"}
+    assert triggers["pull_request"] == {
+        "branches": ["master", "spark3.5", "spark4.0", "spark4.1"],
+        "paths": [
+            "docs/**/*.ipynb",
+            "scripts/release/**",
+            ".github/workflows/release-notebook-validation.yml",
+        ],
+    }
+    assert workflow["permissions"] == {"contents": "read"}
+    assert set(workflow["jobs"]) == {"notebook-validation"}
+    job = workflow["jobs"]["notebook-validation"]
+    assert "if" not in job
+    checkout = job["steps"][0]
+    assert checkout["with"] == {"persist-credentials": False}
+    assert "python -m pytest scripts/release/test_release_dbc.py -q" in (
+        job["steps"][-1]["run"]
+    )
+    assert "secrets." not in read_workflow("release-notebook-validation.yml")
+    assert "sbt " not in read_workflow("release-notebook-validation.yml")

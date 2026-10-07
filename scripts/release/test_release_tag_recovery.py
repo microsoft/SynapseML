@@ -36,6 +36,46 @@ def workflow_script(filename, step_name):
     )
 
 
+@pytest.mark.parametrize("workflow", ["release-prepare.yml", "release-tag.yml"])
+@pytest.mark.parametrize(
+    "client_id,private_key,accepted",
+    [
+        ("", "", False),
+        ("fixture-client-id", "", False),
+        ("", "fixture-not-a-private-key", False),
+        (" \t", "fixture-not-a-private-key", False),
+        ("fixture-client-id", " \n\t", False),
+        ("fixture-client-id", "fixture-not-a-private-key", True),
+    ],
+)
+def test_release_app_configuration_guard_fails_clearly_without_echoing_inputs(
+    workflow, client_id, private_key, accepted
+):
+    result = subprocess.run(
+        [
+            "bash",
+            "-c",
+            workflow_script(workflow, "Check release App configuration"),
+        ],
+        env={
+            **os.environ,
+            "RELEASE_APP_CLIENT_ID": client_id,
+            "RELEASE_APP_PRIVATE_KEY": private_key,
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    output = result.stdout + result.stderr
+    assert (result.returncode == 0) is accepted, output
+    assert "fixture-client-id" not in output
+    assert "fixture-not-a-private-key" not in output
+    if not accepted:
+        assert "RELEASE_APP_CLIENT_ID" in output
+        assert "RELEASE_APP_PRIVATE_KEY" in output
+        assert "scripts/release/README.md" in output
+
+
 @pytest.mark.parametrize(
     "existing_tag,annotated,branch_exists,remote_error,accepted",
     [
@@ -241,6 +281,60 @@ git() {
     else:
         assert result.returncode == 0, result.stderr
         assert output.read_text().strip() == f"prev={previous}"
+
+
+@pytest.mark.parametrize("tags,expected", [("", ""), ("v1.2.0-spark4.1", "")])
+def test_primary_tag_helper_accepts_an_empty_primary_list(tags, expected):
+    source = (ROOT / "scripts" / "release" / "test_prev_tag.sh").read_text()
+    definitions = source.split("\nfail=0", 1)[0]
+    result = subprocess.run(
+        [
+            "bash",
+            "-c",
+            'git() { printf "%s\\n" "$TEST_TAGS"; }\n'
+            + definitions
+            + '\nOLDEST=$(primary_tags)\nprintf "primary=%s\\n" "$OLDEST"\n',
+        ],
+        env={**os.environ, "TEST_TAGS": tags},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == 0, result.stderr
+    assert result.stdout.strip() == f"primary={expected}"
+
+
+@pytest.mark.parametrize("merged_sha", ["", "a" * 40])
+def test_unknown_port_merge_recovery_requires_guarded_tag_push(merged_sha):
+    result = subprocess.run(
+        [
+            "bash",
+            "-c",
+            workflow_script(
+                "release-tag-spark.yml", "Verify the merged commit is known"
+            ),
+        ],
+        env={**os.environ, "MERGED_SHA": merged_sha, "BASE_REF": "spark4.1"},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert result.returncode == (0 if merged_sha else 1)
+    if not merged_sha:
+        assert "independently verify" in result.stdout
+        assert "git checkout --detach <verified-sha>" in result.stdout
+        assert "release_guard.py push-tags" in result.stdout
+        assert "--tag v<version>-<target>" in result.stdout
+        assert "--tag v<version>-python<python-version>" in result.stdout
+        assert "--commit <verified-sha>" in result.stdout
+        assert "git push" not in result.stdout
+        assert result.stdout.index(
+            "release_guard.py full-release"
+        ) < result.stdout.index("git tag ")
+        assert result.stdout.index("git tag ") < result.stdout.index(
+            "release_guard.py push-tags"
+        )
+        assert "never replace" in result.stdout
 
 
 @pytest.mark.parametrize(

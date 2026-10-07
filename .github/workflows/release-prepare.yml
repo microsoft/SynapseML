@@ -35,7 +35,6 @@ jobs:
     permissions:
       actions: write
       contents: write
-      pull-requests: write
 
     steps:
       # A release must be cut from master. Running this from a feature branch
@@ -57,6 +56,18 @@ jobs:
           set -euo pipefail
           if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
             echo "::error::Public SynapseML version must be exactly X.Y.Z."
+            exit 1
+          fi
+
+      - name: Check release App configuration
+        env:
+          RELEASE_APP_CLIENT_ID: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${RELEASE_APP_CLIENT_ID//[[:space:]]/}" ] || \
+             [ -z "${RELEASE_APP_PRIVATE_KEY//[[:space:]]/}" ]; then
+            echo "::error::Configure the approved release App: RELEASE_APP_CLIENT_ID repository variable and RELEASE_APP_PRIVATE_KEY repository secret. See scripts/release/README.md."
             exit 1
           fi
 
@@ -176,6 +187,18 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
+      # Mint after docs generation, but before publishing the prepared branch.
+      - name: Create release PR token
+        id: release-app
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: read
+          permission-pull-requests: write
+
       - name: Commit and push
         env:
           VERSION: ${{ inputs.version }}
@@ -189,7 +212,7 @@ jobs:
 
       - name: Open release PR
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.release-app.outputs.token }}
           VERSION: ${{ inputs.version }}
           SKIP_DOCS: ${{ inputs.skip_docs }}
         run: |
@@ -222,8 +245,8 @@ jobs:
             --base master \
             --head "release/prepare-v${VERSION}"
 
-      # GITHUB_TOKEN-created PR events may wait for workflow approval. Keep the
-      # explicit branch-safe checks, and still require maintainer-approved Azure CI.
+      # Keep explicit branch validation even when App-created PR events require
+      # workflow approval. Azure CI still requires maintainer authorization.
       - name: Queue release PR validation
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

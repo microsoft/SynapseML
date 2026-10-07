@@ -49,7 +49,6 @@ on:
 
 permissions:
   contents: write
-  pull-requests: write
 
 concurrency:
   group: release-tags-${{ github.ref_name }}
@@ -131,6 +130,18 @@ jobs:
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
           echo "📦 Version: $VERSION"
 
+      - name: Check release App configuration
+        env:
+          RELEASE_APP_CLIENT_ID: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${RELEASE_APP_CLIENT_ID//[[:space:]]/}" ] || \
+             [ -z "${RELEASE_APP_PRIVATE_KEY//[[:space:]]/}" ]; then
+            echo "::error::Configure the approved release App: RELEASE_APP_CLIENT_ID repository variable and RELEASE_APP_PRIVATE_KEY repository secret. See scripts/release/README.md."
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -167,6 +178,17 @@ jobs:
           fi
           echo "RELEASE_COMMIT=$RELEASE_COMMIT" >> "$GITHUB_ENV"
           echo "✅ ${GITHUB_REF_NAME} points at master commit $RELEASE_COMMIT"
+
+      - name: Create release PR token
+        id: release-app
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.RELEASE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: ${{ github.event.repository.name }}
+          permission-contents: read
+          permission-pull-requests: write
 
       # ── Tags at the released master commit ────────────────
       - name: Create master release tags
@@ -211,7 +233,7 @@ jobs:
       - name: Create spark rebase PRs
         env:
           VERSION: ${{ steps.version.outputs.version }}
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ steps.release-app.outputs.token }}
         run: |
           set -euo pipefail
 

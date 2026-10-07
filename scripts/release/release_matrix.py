@@ -114,7 +114,7 @@ def parse_iterations(raw: str, flag: str) -> Dict[str, int]:
             )
         if key in out:
             raise ValueError(f"{flag} repeats target {key!r}")
-        if not re.fullmatch(r"[1-9]\d*", number):
+        if not re.fullmatch(r"[1-9][0-9]*", number):
             raise ValueError(
                 f"iteration for {key!r} must be a positive integer, got {number!r}"
             )
