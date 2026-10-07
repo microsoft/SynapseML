@@ -35,8 +35,13 @@ class StreamingOmpRegressionSuite extends TestBase {
       try {
         val log = new File(directory, "probe.log")
         val java = new File(System.getProperty("java.home"), "bin/java").getAbsolutePath
+        val disableCoreDumps = if (System.getProperty("java.specification.version") == "1.8") {
+          "-XX:-CreateMinidumpOnCrash"
+        } else {
+          "-XX:-CreateCoredumpOnCrash"
+        }
         val builder = new ProcessBuilder(
-          java, "-Xms256m", "-Xmx2g", "-XX:ActiveProcessorCount=8", "-XX:-CreateCoredumpOnCrash",
+          java, "-Xms256m", "-Xmx2g", "-XX:ActiveProcessorCount=8", disableCoreDumps,
           s"-Djava.io.tmpdir=${directory.getAbsolutePath}",
           s"-XX:ErrorFile=${new File(directory, "native-error.log").getAbsolutePath}",
           "-cp", runtimeClasspath, StreamingOmpRegressionProbe.getClass.getName.stripSuffix("$"), matrix)

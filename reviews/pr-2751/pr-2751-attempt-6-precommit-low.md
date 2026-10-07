@@ -128,3 +128,28 @@ Abandoned disk-full attempts were excluded. Raw logs, classpaths, crash reports
 and machine-specific runner files are not published with this contribution.
 The conclusion is a proven crash mitigation with a bounded allocation
 tradeoff and unresolved broad workload-level performance uncertainty.
+
+### Subsequent CI finding
+
+Azure build `239480595` exposed a compatibility defect in the added test:
+its LightGBM unit job uses Temurin Java 8, which rejects
+`-XX:-CreateCoredumpOnCrash`. Both child JVMs exited before running the fixture.
+Published test run `1155214323` records those two failures. This is a
+maintainer test-launch defect, not a newly observed production native crash.
+
+The original Low verdict and Java 11 results above are retained. They did not
+establish Java 8 compatibility. The follow-up selects Java 8's
+`-XX:-CreateMinidumpOnCrash` spelling and retains the newer spelling on newer
+JDKs. It does not alter the contributor's production code or benchmarked
+allocation behavior. The correction needs its own local runtime checks,
+pre-commit review and current-head CI before final review can proceed.
+
+### Correction validation
+
+The corrected launcher subsequently passed both public regression cases after
+a clean rebuild with the exact CI runtime, Temurin Java `1.8.0_504`.
+The same source passed Java 11 compilation, style and all 11 targeted tests.
+The third Low pre-commit review found no significant issues. Its original
+feedback and exact validation commands are preserved in
+`pr-2751-attempt-7-precommit-low.md`. Corrected-head CI and the final six-lens
+review remain separate outstanding gates.
