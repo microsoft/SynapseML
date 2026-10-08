@@ -69,3 +69,24 @@ PR-validation jobs on the inspected source and unchanged target.
 Raw logs, crash dumps, classpaths, credentials and machine paths are not
 included in this artifact. A new current-head pipeline and the final six-lens
 review are still required.
+
+### Later driver correction from the six-round review
+
+The earlier reviewer response and validation record above are preserved. Its
+statement that the compatibility change "retains disabled crash dumps" was too
+strong. Passing on Java 8 proved that the JVM accepted the legacy option, not
+that the option disabled Linux core dumps. Official
+[JDK-8074354](https://bugs.openjdk.org/browse/JDK-8074354) states that the old
+`CreateMinidumpOnCrash` control was used only on Windows.
+
+The cycle-4 correction launches the Linux child through a shell that sets zero
+soft and hard core limits before `exec` of Java. The child checks those limits.
+An actual Java 8 fail-before run of the new synthetic stacked-model regression
+reported core dumps disabled when it crashed. The cleared environment and
+synthetic data remain separate safeguards. Arbitrary host-configured piped
+crash handlers are not certified by that process-limit check.
+
+This issue and its disposition are preserved in the first six-round review,
+especially lenses 3 and 5. That review also reproduced a separate single-writer
+production defect on `0c453310`; the earlier Low test-launch review did not
+establish that the complete production patch was clean.

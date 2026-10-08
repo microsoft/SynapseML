@@ -169,30 +169,38 @@ arbitrary failures after native training starts.
 Streaming ingestion allocates thread slots for partitions on each executor,
 including empty local partitions, rather than for every partition in the cluster.
 With `verbosity=2`, executor logs include the local partition IDs, row count, and
-external-thread count passed to native initialization. These ingestion threads
+external-thread count and `allocationBound` passed to native initialization. These ingestion threads
 are distinct from the native training threads controlled by `numThreads`.
-Streaming allocation uses at least 16 OpenMP slots and is raised to cover a
+The fixed allocation bound uses at least 16 OpenMP slots and is raised to cover a
 positive `maxStreamingOMPThreads` hint, a positive `numThreads`, the process
 OpenMP team derived from `OMP_NUM_THREADS` or, on Linux, process CPU affinity,
 and positive `num_threads` values or aliases (`num_thread`, `nthread`,
 `nthreads`, or `n_jobs`) that SynapseML previously passed to LightGBM in the
 same executor JVM. If conflicting thread keys are supplied, SynapseML registers
 their maximum as a conservative allocation bound even when LightGBM selects a
-smaller value by its precedence rules. When exactly one thread pushes rows,
-SynapseML asks LightGBM to measure that thread's native team directly. With several pushing
-threads and neither environment nor Linux-affinity source available, SynapseML
+smaller value by its precedence rules. Native auto-sizing, logged as `allocationBound=-1`,
+is used only for one pushing thread when dataset initialization requests a nonpositive
+native thread count and `OMP_DYNAMIC` is disabled. A positive initialization count can
+narrow that thread's team before lazy upstream LightGBM prediction restores the process
+default; dynamic teams can also grow between pushes. Those cases retain the fixed bound.
+When a fixed bound is needed and neither environment nor Linux-affinity source is available, SynapseML
 uses the best-effort maximum of the OS-reported and JVM-reported processor
 counts with the 16-thread floor. These detected counts are hints, not a proved
 upper bound on every native team. Linux process affinity can also differ from
 an OpenMP team's width after thread binding. A nonpositive hint does not disable
-the multi-thread safety bound, and the value is not a cap on the OpenMP team.
+the fixed safety bound, and the value is not a cap on the OpenMP team.
+Numeric thread-count settings parsed for allocation must fit in a signed 32-bit
+integer. Larger values fail explicitly instead of relying on native integer truncation.
 Native code outside SynapseML and a concurrent fit that increases a pooled task
 thread's team after allocation remain outside this mitigation; clamping the
 native push index is the complete fix.
 
-The additional empty-vector memory for sparse streaming data has an analytic
-upper bound of approximately `feature groups × executor partitions × allocation
-width × 24 bytes`, before allocator overhead and row payload. SynapseML does not
+Sparse bins can occur with dense or sparse input. Their total empty-vector header
+footprint is approximately `sparse bins × executor partitions × allocation width × 24 bytes`
+on a typical 64-bit platform, before allocator overhead and row payload. The additional
+header cost uses the increase in allocation width, not the total width. Debug logs from
+`LightGBMUtils` include the thread-count hints and registered history used for a fixed bound.
+SynapseML does not
 apply a smaller memory cap because a bound below the actual OpenMP team can
 reintroduce out-of-range writes.
 

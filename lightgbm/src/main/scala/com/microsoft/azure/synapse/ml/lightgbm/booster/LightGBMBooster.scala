@@ -237,9 +237,9 @@ class LightGBMBooster(val trainDataset: Option[LightGBMDataset] = None,
     if (trainDataset.isEmpty) {
       new BoosterHandler(modelStr.get)
     } else {
-      val boosterOutPtr = lightgbmlib.voidpp_handle()
       val trainingParameters = parameters.get
       LightGBMUtils.registerNativeOmpThreads(NativeOmpCallSite.BoosterCreate, trainingParameters)
+      val boosterOutPtr = lightgbmlib.voidpp_handle()
       LightGBMUtils.validateBooster(lightgbmlib.LGBM_BoosterCreate(trainDataset.map(_.datasetPtr).get,
         trainingParameters, boosterOutPtr), trainingParameters)
       new BoosterHandler(lightgbmlib.voidpp_value(boosterOutPtr))

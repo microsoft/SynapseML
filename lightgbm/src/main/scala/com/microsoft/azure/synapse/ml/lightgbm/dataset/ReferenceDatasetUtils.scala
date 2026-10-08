@@ -11,7 +11,7 @@ import org.slf4j.{Logger, LoggerFactory}
 
 
 object ReferenceDatasetUtils {
-  private val Logger = LoggerFactory.getLogger(getClass)
+  private val Log = LoggerFactory.getLogger(getClass)
 
   def createReferenceDatasetFromSample(datasetParams: String,
                                        featuresCol: String,
@@ -120,11 +120,11 @@ object ReferenceDatasetUtils {
       // Initialize the dataset for streaming (allocates arrays mostly)
       val configuredMaxOmpThreads = ctx.trainingParams.executionParams.maxStreamingOMPThreads
       val maxOmpThreads = streamingOmpAllocationBound(
-        configuredMaxOmpThreads,
-        ctx.trainingParams.executionParams.numThreads,
-        ctx.executorPartitionCount)
+        configuredMaxThreads = configuredMaxOmpThreads,
+        configuredNumThreads = ctx.trainingParams.executionParams.numThreads,
+        externalThreads = ctx.executorPartitionCount)
       if (ctx.trainingParams.generalParams.verbosity > 1) {
-        LoggerFactory.getLogger(getClass).info(
+        Log.info(
           s"Initializing streaming Dataset: executor=${LightGBMUtils.getExecutorId}, " +
             s"partition=${ctx.partitionId}, task=${ctx.taskId}, rows=$count, " +
             s"localPartitions=${ctx.networkTopologyInfo.executorPartitionIdList.sorted.mkString(",")}, " +
@@ -147,16 +147,17 @@ object ReferenceDatasetUtils {
   private[lightgbm] def streamingOmpAllocationBound(configuredMaxThreads: Int,
                                                     configuredNumThreads: Int,
                                                     externalThreads: Int): Int = {
-    streamingOmpAllocationBound(
-      externalThreads,
-      configuredMaxThreads,
-      configuredNumThreads,
-      Option(System.getenv("OMP_NUM_THREADS")),
-      LightGBMUtils.linuxProcessAffinityCount(),
-      LightGBMUtils.osReportedProcessorCount(),
-      Runtime.getRuntime.availableProcessors(),
-      LightGBMUtils.nativeOmpThreadHighWaterMark,
-      message => Logger.warn(message))
+    LightGBMUtils.streamingOmpAllocationBound(
+      externalThreads = externalThreads,
+      configuredMaxThreads = configuredMaxThreads,
+      configuredNumThreads = configuredNumThreads,
+      ompNumThreads = Option(System.getenv("OMP_NUM_THREADS")),
+      affinityCount = LightGBMUtils.linuxProcessAffinityCount(),
+      osProcessorCount = LightGBMUtils.osReportedProcessorCount(),
+      availableProcessors = Runtime.getRuntime.availableProcessors(),
+      registeredMaxThreads = LightGBMUtils.nativeOmpThreadHighWaterMark,
+      warn = message => Log.warn(message),
+      dynamicThreads = Option(System.getenv("OMP_DYNAMIC")).exists(_.trim.equalsIgnoreCase("true")))
   }
 
   private[lightgbm] def streamingOmpAllocationBound(externalThreads: Int,

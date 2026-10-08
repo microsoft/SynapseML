@@ -172,10 +172,11 @@ trait LightGBMExecutionParams extends Wrappable {
       " SynapseML raises this value as needed to cover numThreads, the process OpenMP team from" +
       " OMP_NUM_THREADS or Linux CPU affinity, and positive num_threads values or aliases previously" +
       " passed to LightGBM in the executor JVM. Conflicting thread keys are registered at their maximum" +
-      " as a conservative allocation bound. A single pushing thread uses native auto-sizing. With several" +
-      " pushing threads and neither team source available, best-effort OS/JVM processor counts are used" +
-      " with the 16-thread floor; on non-Linux hosts this is not a proved native-team bound. Nonpositive" +
-      " values do not disable the multi-thread safety bound or cap the OpenMP team.")
+      " as a conservative allocation bound. Fixed bounds always have a 16-slot floor. A single pushing" +
+      " thread uses native auto-sizing only for a nonpositive effective native thread count with" +
+      " OMP_DYNAMIC disabled. Without either team source, best-effort OS/JVM processor counts are used;" +
+      " on non-Linux hosts this is not a proved native-team bound. Nonpositive values do not disable" +
+      " the fixed safety bound or cap the OpenMP team.")
   setDefault(maxStreamingOMPThreads -> 16)
   def getMaxStreamingOMPThreads: Int = $(maxStreamingOMPThreads)
   def setMaxStreamingOMPThreads(value: Int): this.type = set(maxStreamingOMPThreads, value)
