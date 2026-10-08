@@ -63,7 +63,25 @@ def main(argv=None):
             environment = {
                 key: value
                 for key, value in os.environ.items()
-                if key not in {"PYTEST_ADDOPTS", "PYTEST_PLUGINS"}
+                if key.upper()
+                in {
+                    "PATH",
+                    "SYSTEMROOT",
+                    "WINDIR",
+                    "COMSPEC",
+                    "PATHEXT",
+                    "HOME",
+                    "USERPROFILE",
+                    "LOCALAPPDATA",
+                    "APPDATA",
+                    "TEMP",
+                    "TMP",
+                    "TMPDIR",
+                    "LANG",
+                    "LC_ALL",
+                    "LC_CTYPE",
+                    "TZ",
+                }
             }
             environment.update(
                 PYTHONDONTWRITEBYTECODE="1", PYTEST_DISABLE_PLUGIN_AUTOLOAD="1"

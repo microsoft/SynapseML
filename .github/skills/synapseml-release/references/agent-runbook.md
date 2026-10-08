@@ -40,6 +40,8 @@ Use native path separators on Windows. The script needs Python with the
 repository's pytest and PyYAML test dependencies, and Git on PATH. It runs
 fixed tests with simulated services and disposable local Git repositories.
 It accepts no release plan, credentials, approval ID or production switch.
+Its subprocess inherits only basic process, path, temporary-directory and locale
+settings, not release credentials, production inputs or Python/pytest overrides.
 It never overwrites an existing report. Missing dependencies, timeout, no
 executed tests, failures or any skipped case are errors, not a successful run.
 

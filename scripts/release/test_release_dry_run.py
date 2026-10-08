@@ -113,3 +113,37 @@ def test_runner_has_no_production_or_plan_input_flags():
     with pytest.raises(SystemExit) as error:
         rehearsal.main(["--apply"])
     assert error.value.code == 2
+
+
+def test_runner_does_not_inherit_credentials_or_production_inputs(
+    runner, monkeypatch, capsys
+):
+    configure, calls = runner
+    configure("<testsuites><testsuite><testcase/></testsuite></testsuites>")
+    excluded = {
+        "RELEASE_APP_PRIVATE_KEY",
+        "ADO_TOKEN",
+        "GH_TOKEN",
+        "TWINE_PASSWORD",
+        "RELEASE_PLAN_BASE64",
+        "SYNAPSEML_RELEASE_PLAN_BASE64",
+        "AWS_SECRET_ACCESS_KEY",
+        "CUSTOM_FUTURE_TOKEN",
+        "PYTHONPATH",
+        "PYTEST_ADDOPTS",
+        "PYTEST_PLUGINS",
+    }
+    for name in excluded:
+        monkeypatch.setenv(name, "synthetic-rehearsal-test-value")
+    monkeypatch.setenv("LANG", "C.UTF-8")
+    assert rehearsal.main([]) == 0
+    environment = calls[0][1]["env"]
+    inherited = excluded.intersection(environment)
+    assert not inherited
+    assert environment["LANG"] == "C.UTF-8"
+    for name in ("PATH", "SYSTEMROOT", "HOME", "TEMP"):
+        if name in rehearsal.os.environ:
+            assert environment[name] == rehearsal.os.environ[name]
+    assert environment["PYTHONDONTWRITEBYTECODE"] == "1"
+    assert environment["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] == "1"
+    assert "synthetic-rehearsal-test-value" not in capsys.readouterr().out

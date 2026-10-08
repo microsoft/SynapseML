@@ -223,3 +223,27 @@ regressions are included in that count. Full pinned Black validation passed
 with 238 files unchanged. The existing current-head hosted checks must still be
 replaced by checks against the correction commit; the earlier build is not
 evidence for these fixes.
+
+## Current-head hosted review follow-up
+
+Copilot review `5463822043` covered correction commit `bc16fe349f` and raised
+two additional comments.
+
+- [Rehearsal environment](https://github.com/microsoft/SynapseML/pull/2628#discussion_r4224954240):
+  accepted. The child now inherits only an explicit allowlist of process, path,
+  temporary-directory and locale settings. Release/auth variables, production
+  plans, arbitrary future token names and Python/pytest overrides are excluded.
+  The new synthetic-credential regression failed before this correction.
+- [Homepage version identifier](https://github.com/microsoft/SynapseML/pull/2628#discussion_r4224954322):
+  rebutted. `version.` at `website/src/pages/index.js:252` is literal JSX text in
+  the sentence about the Scala binary version, not a JavaScript expression.
+  There is no remaining `version` identifier reference. The actual
+  [website build](https://github.com/microsoft/SynapseML/actions/runs/37855557257/job/113578741269)
+  succeeded for `bc16fe349f`; no unused destructuring was restored.
+
+The targeted command
+`python -m pytest scripts/release/test_release_dry_run.py scripts/release/test_release_rehearsal.py scripts/release/test_public_release_docs.py -q --tb=short -p no:cacheprovider`
+passed **76 tests on Windows and 76 on Linux**. Both actual sanitized runner
+invocations passed all 12 scenarios with new report files and no publication
+authority. A Windows-only test assertion was corrected to use the canonical
+`SYSTEMROOT` key; the environment allowlist itself was unchanged.
