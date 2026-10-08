@@ -122,6 +122,16 @@ def test_repeated_default_release_bumps_keep_optional_runtime_installations(
             guide = (tmp_path / name).read_text(encoding="utf-8")
             assert f"{optional}-spark4.0" in guide
             assert f"{version}-spark4.1" in guide
+        deep_learning = (tmp_path / files[4]).read_text(encoding="utf-8")
+        for wheel_version, pyspark_spec in (
+            (version, ">=3.5,<3.6"),
+            (optional, ">=4.0.1,<4.1"),
+            (version, ">=4.1,<4.2"),
+        ):
+            assert (
+                f'python -m pip install "synapseml=={wheel_version}" '
+                f'"pyspark{pyspark_spec}"'
+            ) in deep_learning
 
 
 def _build_anchors(old_v):

@@ -120,7 +120,11 @@ def test_agent_simulated_publication_resumes_and_verifies_receipts(
         cli.remote.succeed(build_id, plan, "oss", ["maven"], target=key)
         cli.remote.manifests[build_id] = [
             produced_maven_receipt(
-                plan, build_id, tmp_path / key / "maven", target_key=key
+                plan,
+                build_id,
+                tmp_path / key / "maven",
+                target_key=key,
+                remote=cli.remote,
             )
         ]
     code, report, error = cli("status", plan=plan)

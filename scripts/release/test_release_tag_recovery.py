@@ -545,10 +545,12 @@ def release_repo(tmp_path, request):
         "    sys.exit(0)\n"
         "assert args[:2] == ['pr', 'list'], args\n"
         "state = args[args.index('--state') + 1]\n"
-        "assert state in ('open', 'merged'), args\n"
+        "assert state in ('open', 'merged', 'closed'), args\n"
         "target = args[args.index('--base') + 1]\n"
         "assert args[args.index('--head') + 1] == 'release/v1.2.3-' + target\n"
         "if state == 'open' and target in json.loads(os.environ['TEST_OPEN_PRS']):\n"
+        "    print('42')\n"
+        "if state == 'closed' and target in json.loads(os.environ['TEST_CLOSED_PRS']):\n"
         "    print('42')\n"
         "if state == 'merged':\n"
         "    sha = json.loads(os.environ['TEST_MERGED_SHAS']).get(target)\n"
@@ -559,7 +561,13 @@ def release_repo(tmp_path, request):
     gh.chmod(0o755)
     script = workflow_script("release-tag.yml", "Create spark rebase PRs")
 
-    def run(merge_results=None, open_prs=(), allow_create=False, include_spark40=True):
+    def run(
+        merge_results=None,
+        open_prs=(),
+        allow_create=False,
+        include_spark40=True,
+        closed_prs=(),
+    ):
         return subprocess.run(
             ["bash", "-c", script],
             cwd=repo,
@@ -573,6 +581,7 @@ def release_repo(tmp_path, request):
                     merged if merge_results is None else merge_results
                 ),
                 "TEST_OPEN_PRS": json.dumps(open_prs),
+                "TEST_CLOSED_PRS": json.dumps(closed_prs),
                 "TEST_ALLOW_CREATE": "1" if allow_create else "0",
                 "TEST_CREATED_PRS": str(tmp_path / "created-prs.jsonl"),
             },
@@ -796,6 +805,53 @@ def test_open_release_prs_keep_their_reviewed_branches_and_do_not_mint_tags(
     result = run(open_prs=list(TARGETS))
     assert result.returncode == 0, result.stdout + result.stderr
     assert git(origin, "show-ref") == before
+
+
+@pytest.mark.parametrize("release_repo", [True], indirect=True)
+@pytest.mark.parametrize("closed_pr", [False, True], ids=["orphan", "closed-pr"])
+def test_recovery_preserves_existing_release_branch_without_active_pr(
+    release_repo, closed_pr
+):
+    repo, origin, _, _, run = release_repo
+    target = "spark4.0"
+    branch = "release/v1.2.3-" + target
+    git(repo, "checkout", "-b", branch, "refs/heads/" + target)
+    (repo / "reviewed-fix").write_text("Keep the reviewed resolution.\n")
+    git(repo, "add", "reviewed-fix")
+    git(repo, "commit", "-m", "reviewed release resolution")
+    git(repo, "push", "origin", f"refs/heads/{branch}:refs/heads/{branch}")
+    git(repo, "checkout", "master")
+    before = git(origin, "show-ref")
+    result = run({}, allow_create=True, closed_prs=[target] if closed_pr else [])
+    assert result.returncode != 0
+    assert "requires reviewed recovery" in result.stdout + result.stderr
+    assert git(origin, "show-ref") == before
+    assert not (repo.parent / "created-prs.jsonl").exists()
+
+
+@pytest.mark.parametrize("release_repo", [True], indirect=True)
+def test_new_release_branch_push_rejects_concurrent_ref_even_after_fetch(release_repo):
+    repo, origin, _, merged, run = release_repo
+    branch = "release/v1.2.3-spark4.1"
+    ref = "refs/heads/" + branch
+    preserved = merged["spark4.1"]
+    observed = repo.parent / "concurrent-ref-observed"
+    hook = repo / ".git" / "hooks" / "post-rewrite"
+    hook.write_text(
+        "#!/bin/sh\nset -eu\n"
+        f'git --git-dir="{origin}" update-ref "{ref}" "{preserved}"\n'
+        f'git fetch --no-tags origin "+{ref}:refs/remotes/origin/{branch}"\n'
+        f'printf "%s\\n" "{preserved}" > "{observed}"\n',
+        encoding="utf-8",
+    )
+    hook.chmod(0o755)
+    before = remote_tags(origin)
+    result = run({}, allow_create=True, include_spark40=False)
+    assert observed.read_text().strip() == preserved
+    assert result.returncode != 0
+    assert git(origin, "show-ref", "--hash", "--verify", ref) == preserved
+    assert remote_tags(origin) == before
+    assert not (repo.parent / "created-prs.jsonl").exists()
 
 
 def test_legacy_pair_must_agree_without_a_merged_pr(release_repo):

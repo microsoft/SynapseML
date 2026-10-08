@@ -12,7 +12,7 @@ import TabItem from "@theme/TabItem";
 import clsx from "clsx";
 import installArtifacts from "@site/src/installArtifacts";
 
-const { version, repository, spark35, spark40, spark41 } = installArtifacts;
+const { repository, spark35, spark40, spark41 } = installArtifacts;
 
 const snippets = [
   {
@@ -260,6 +260,7 @@ function Home() {
                     <th>Spark</th>
                     <th>Scala</th>
                     <th>Python baseline</th>
+                    <th>Python package</th>
                     <th>Release tag</th>
                     <th>Maven coordinate</th>
                   </tr>
@@ -270,6 +271,7 @@ function Home() {
                     <td>{spark35.sparkRuntime}</td>
                     <td>{spark35.scalaBinaryVersion}</td>
                     <td>{spark35.pythonBaseline}</td>
+                    <td><code>{spark35.pythonPackage}</code></td>
                     <td><code>{spark35.releaseTag}</code></td>
                     <td><code>{spark35.coordinate}</code></td>
                   </tr>
@@ -278,6 +280,7 @@ function Home() {
                     <td>{spark40.sparkRuntime}</td>
                     <td>{spark40.scalaBinaryVersion}</td>
                     <td>{spark40.pythonBaseline}</td>
+                    <td><code>{spark40.pythonPackage}</code></td>
                     <td><code>{spark40.releaseTag}</code></td>
                     <td><code>{spark40.coordinate}</code></td>
                   </tr>
@@ -286,14 +289,16 @@ function Home() {
                     <td>{spark41.sparkRuntime}</td>
                     <td>{spark41.scalaBinaryVersion}</td>
                     <td>{spark41.pythonBaseline}</td>
+                    <td><code>{spark41.pythonPackage}</code></td>
                     <td><code>{spark41.releaseTag}</code></td>
                     <td><code>{spark41.coordinate}</code></td>
                   </tr>
                 </tbody>
               </table>
               <p>
-                All released Python variants use{" "}
-                <code>synapseml=={version}</code>. To try the latest successful{" "}
+                Use the Python package and Maven coordinate from the same row.
+                Spark 4.0 retains its last published version until explicitly
+                included in a new release. To try the latest successful{" "}
                 <code>master</code> build instead of the release, use the
                 copy-ready snapshot command in the{" "}
                 <Link to={useBaseUrl("docs/next/Get%20Started/Install%20SynapseML#latest-master-snapshot")}>

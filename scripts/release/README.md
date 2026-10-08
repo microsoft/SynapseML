@@ -4,11 +4,12 @@ Prepare, approve, publish and recover public SynapseML releases with one
 source-bound plan and one durable ledger. Downstream private integrations are
 not prerequisites and their deployment procedures do not belong in this guide.
 
-**Consumer-wheel gate, before any production tag:** validate the planned Python
-wheel packaging and consumer behavior from the candidate sources on every
-advertised runtime. Port CI using different wrappers does not prove the primary
-wheel works there. Resolve the distribution strategy and approved outputs before
-requesting approval or running any tag-creating operation below.
+**Consumer-wheel gate, before any production tag:** the release owner must
+qualify a source/version-bound primary candidate wheel on every selected runtime.
+Port CI using different wrappers does not prove the primary wheel works there.
+Resolve the distribution strategy and approved outputs before requesting
+approval or running any tag-creating operation below. This is a human gate;
+the release scripts do not infer qualification from a plan or green producer CI.
 
 The default public release contains Maven CDN and Maven Central artifacts for
 `master` and `spark4.1`, plus the primary public PyPI wheel. For `1.2.0`, the
@@ -31,8 +32,11 @@ Build the aggregate wheel from the reviewed primary candidate with
 `sbt packageSynapseML`. Before tags exist, use an explicit local SBT version
 override for the intended version, for example
 `sbt 'set ThisBuild / version := "1.2.0"' packageSynapseML`.
-This packages locally; it does not grant publication permission. Record the
-candidate commit, any pending patch and the wheel's SHA-256.
+This packages locally; it does not grant publication permission. Retain the
+candidate wheel, its SHA-256, the exact reviewed source commit and the intended
+release version. A result from an uncommitted patch is provisional: commit and
+qualify the final candidate before tagging. Record each selected runtime's
+source commit, environment and matching JVM artifact hashes with its results.
 
 Use that **same wheel file**, not a port-generated wheel, in separate
 environments matching each selected branch's `environment.yml`. Package and list
@@ -61,9 +65,15 @@ Run from the reviewed primary checkout, with no generated-source directory on
 `PYTHONPATH`. The artifact bindings check the installed Python files against
 the wheel and the loaded JVM class against the selected JAR. The tests cover
 bytes, bytearrays, array inputs, grayscale/RGB conversion, Spark `BinaryType`
-rows, JVM image transformation and save/load. Keep both runtime results and
-hashes with the release record. This is a focused image-compatibility gate,
+rows, JVM image transformation and save/load. Keep all selected runtime results
+and hashes with the release record. This is a focused image-compatibility gate,
 not a replacement for the selected candidates' full CI or service tests.
+
+The production pipeline rebuilds the wheel. Before declaring readiness or
+publishing notes, the release owner must compare that published wheel with the
+retained qualified candidate, following [Python distribution readiness](#python-distribution-readiness).
+Producer receipts prove which bytes were published, not that they match the
+candidate's qualified payload.
 
 ## One-time GitHub App setup
 
@@ -248,9 +258,8 @@ blockers. All existing source, approval, artifact-hash, DBC and freshness checks
 still apply.
 
 The ledger and exported evidence retain Azure's actual `partiallySucceeded`
-result. Warning receipts and producer evidence use version 2. The local ledger
-retains every sanitized task record. Exported evidence carries per-job outcome
-counts, grouped advisory failures, successful publication checks and a SHA-256
+result. The local ledger retains every sanitized task record. Exported evidence
+carries per-job outcome counts, grouped advisory failures, successful publication checks and a SHA-256
 link per build to its complete retained job and task records. The one digest
 binds every job ID, attempt, execution window and task; it avoids exporting
 hundreds of separate high-entropy hashes. This keeps production-sized builds within
@@ -263,8 +272,8 @@ and cover both the default two-runtime release and the optional three-runtime
 release, including widespread advisory outages. Keep the generated plan's formatting
 or use compact JSON when dispatching; unnecessary whitespace still consumes
 GitHub's input budget. Both encode and decode enforce these limits.
-Clean builds retain the existing version-1 format.
-Consumers of warning evidence must use this updated verifier. Private
+Both clean and warning-only builds require the current destination-specific
+artifact proof. Consumers must use this updated verifier. Private
 publication workflows still require strict success. If the proof is rejected,
 inspect the original build and follow interrupted-release recovery below.
 Never edit the ledger, forge success, discard the build ID or change the plan.
@@ -584,8 +593,29 @@ enabled optional tests must succeed.
 Release mode publishes Maven CDN artifacts, prepares signed Maven output, and
 publishes the primary public PyPI wheel. Schema-4 plans also publish the approved
 runtime-specific DBC archives; saved schema-2 plans do not upload notebooks.
-Release mode does not upload generated docs, R packages, module wheels or badges.
-Ordinary snapshot CI keeps its existing behavior.
+The primary `Publish` job also generates and uploads versioned Python and Scala
+API documentation from its approved source. After `packagePython`, it installs
+graphviz/doxygen, runs `sbt -DskipCodegen=true publishDocs`, and runs
+`release_guard.py api-docs` **before `publishBlob`**. The guard revalidates the
+approved plan, primary target and clean source checkout; it does not accept an
+arbitrary documentation version.
+
+The API-doc guard anonymously downloads these paths under
+`https://mmlspark.blob.core.windows.net/docs/<approved-primary-version>/`:
+
+- `pyspark/index.html`
+- `scala/index.html`
+- `scala/com/microsoft/azure/synapse/ml/index.html`
+
+Each request has a 60-second network timeout and a 5 MiB page limit. Redirects,
+missing or empty pages, oversized responses and service errors stop the job
+before Maven upload. Port releases do not publish these primary API docs.
+API documentation remains mutable under the existing storage policy: producer
+success proves the guarded publication and availability checks ran, not an
+immutable API-doc content receipt. There is no separate API publication lock.
+
+Release mode does not publish R packages, module wheels, badges or the ordinary
+snapshot notebook upload. Ordinary snapshot CI keeps its existing behavior.
 
 For monitoring without queueing:
 
@@ -613,6 +643,27 @@ producer runs, matching requests and source commits, and artifact-hash receipts.
 All public Maven modules need their JAR and POM; Core also needs its tests JAR.
 Verification checks the publisher's `https://mmlspark.blob.core.windows.net/maven`
 repository and Maven Central separately.
+Public Maven provenance receipts use schema 2: `blob_artifacts` records the
+CDN publisher's bytes, while `artifacts` records ESRP output and the applicable
+PyPI wheel and DBC. These are receipt versions, not changes to an approved
+schema-2 or schema-4 plan.
+
+After the Blob upload, `Publish` hashes the required Maven-local JARs and POMs,
+including Core's tests JAR, and retains
+`release-maven-blob-<jobAttempt>/blob-provenance.json`. `Release` downloads the
+exact artifact selected by the successful producer output and checks its
+plan/source/build identity before incorporating it into the final receipt.
+Do not replace that handoff with a later rebuild or an arbitrarily selected
+artifact.
+
+The notes guard downloads the required CDN and Maven Central artifacts and
+the primary wheel, comparing their SHA-256 and size with each destination's
+own producer receipt. CDN bytes need not equal ESRP/Maven Central bytes;
+presence or cross-destination equality is not proof of correct publication.
+An older receipt without CDN producer hashes cannot authorize notes. Preserve
+the original records and escalate for recovery; this failure does not authorize
+republishing immutable coordinates or inventing missing provenance.
+
 The primary receipt includes the exact public PyPI wheel. Stale versions,
 unexpected classifiers, missing modules and wrong source bindings fail.
 Bound verification also requires that exact non-yanked wheel in PyPI's file
@@ -635,9 +686,10 @@ The notes guard requires either master ancestry or a merged canonical candidate
 PR whose final head is the tagged commit and whose merge result is on master.
 An open PR, a fork PR or an unmerged merge result cannot authorize notes.
 
-When the notes workflow is available, run its read-only integration check from
-a canonical checkout before dispatch. Regenerate public evidence immediately
-before dispatch; it expires after one hour.
+When the notes workflow is available, complete the human
+[final-wheel qualification gate](#python-distribution-readiness), then run its
+read-only integration check from a canonical checkout before dispatch.
+Regenerate public evidence immediately before dispatch; it expires after one hour.
 
 ```bash
 git fetch origin tag v1.2.0
@@ -673,14 +725,32 @@ Leaving the variable unset runs the strict production lock check.
 
 ### Python distribution readiness
 
-Before approving production tags, validate the planned wheel packaging and
-consumer behavior from the pinned candidates on every advertised runtime.
-Port CI using that branch's own generated wrappers does not prove compatibility
-of the primary PyPI wheel. If a port needs different Python code, resolve its
-distribution and include its artifacts in the approved inventory first.
-After the production build, verify the final wheel contents and hashes as well.
-Preinstalled wrappers or a source checkout are not proof that the published
-wheel supplies that code.
+This is an explicit human readiness gate, separate from automated plan, receipt
+and public-inventory verification. Before approving production tags, qualify the
+same source/version-bound primary candidate wheel on every selected runtime,
+using that runtime's matching JVM artifacts. Retain the wheel, source/version
+bindings and results. Port CI using its own generated wrappers is not this proof.
+If a port needs different Python code, resolve its distribution and approved
+artifact inventory before tagging.
+
+After production publication, download the exact receipt-bound PyPI wheel and
+compare it with the retained qualified candidate. The installable file paths
+and uncompressed payload bytes must match, as must relevant distribution
+metadata: package name/version, Python requirements, dependencies, wheel
+compatibility tags and entry points. Validate each wheel's `RECORD` against its
+own contents. Compare metadata semantically where serialization order differs.
+Keep both archive SHA-256 values and the comparison evidence; ZIP timestamps,
+member order and compression can change the archive hash without changing the
+payload. A hash difference alone is not a payload mismatch or proof of equivalence.
+
+Verify the published wheel's installation and consumer behavior on every
+selected runtime, and record the release owner's sign-off before notes or a
+readiness claim. A payload or relevant metadata mismatch, missing candidate
+evidence, or failed runtime check blocks readiness. Do not substitute successful
+producer CI, edit the evidence or waive the comparison. Investigate with the
+release owner; an incorrect immutable release needs a new version, qualification
+and approval, not an overwritten package. Preinstalled wrappers and a source
+checkout are not proof that the published wheel supplies the qualified code.
 
 ## Recovery and limits
 

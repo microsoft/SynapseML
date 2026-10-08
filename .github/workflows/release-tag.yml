@@ -6,6 +6,7 @@ name: Release Tag Orchestrator
 # processes that port first and chains newly created PRs. Existing PRs are never
 # restacked. Recovering Spark 4.0 tags requires include_spark40=true again.
 # Reruns recover selected derivative tags at recorded, reviewed port-merge commits.
+# Existing release branches without an open or merged PR require reviewed recovery.
 #
 # A full release defaults to master and spark4.1. Spark 4.0 is opt-in.
 #
@@ -364,6 +365,16 @@ jobs:
               continue
             fi
 
+            RELEASE_REF="refs/heads/$BRANCH"
+            REMOTE_HEAD=$(git ls-remote --heads origin "$RELEASE_REF")
+            REMOTE_HEAD=$(printf '%s\n' "$REMOTE_HEAD" | awk -v ref="$RELEASE_REF" '$2 == ref')
+            if [ -n "$REMOTE_HEAD" ]; then
+              echo "::error::$BRANCH exists without an open or merged release PR and requires reviewed recovery. \
+          Preserve its source; inspect the branch and create or reopen its PR instead of rebuilding it."
+              FAILED+=("$TARGET")
+              break
+            fi
+
             git checkout -B "$BRANCH" "$TARGET_COMMIT"
 
             if ! git rebase "$REBASE_ONTO"; then
@@ -373,7 +384,9 @@ jobs:
               break
             fi
 
-            git push --force-with-lease -u origin "$BRANCH"
+            # An explicit empty lease also protects against background fetches
+            # adopting a release branch created after the absence check.
+            git push --force-with-lease="$RELEASE_REF:" -u origin "refs/heads/$BRANCH:$RELEASE_REF"
             BASED_ON="$REBASE_ONTO"
             REBASE_ONTO="refs/heads/$BRANCH"
             DISPLAY_BASE="${BASED_ON#refs/heads/}"

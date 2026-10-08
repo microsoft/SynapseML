@@ -13,7 +13,13 @@ import uuid
 from pathlib import Path
 
 from release_config import strict_json
-from release_guard import _git, _remote_refs, notes_plan, verify_remote_tag
+from release_guard import (
+    _git,
+    _remote_refs,
+    notes_plan,
+    validate_runtime as check_runtime,
+    verify_remote_tag,
+)
 from release_matrix import load_plan, parse_plan_json, plan_to_dict, read_plan
 
 REPOSITORY = "microsoft/SynapseML"
@@ -169,23 +175,6 @@ def check_website_ci(commit):
         raise ValueError(
             "Primary candidate requires successful current-head website validation"
         )
-
-
-def check_runtime(repo, target):
-    build = _git(repo, "show", target.oss_commit + ":build.sbt")
-    environment = _git(repo, "show", target.oss_commit + ":environment.yml")
-    spark = re.findall(r'\bval sparkVersion\s*=\s*"([^"]+)"', build)
-    scala = re.findall(r'\bscalaVersion\s*:=\s*"([^"]+)"', build)
-    python = re.findall(r"(?m)^\s*-\s*python=([0-9.]+)\s*$", environment)
-    for actual, expected in (
-        (spark, target.spark),
-        (scala, target.scala),
-        (python, target.python),
-    ):
-        if len(actual) != 1 or not (
-            actual[0] == expected or actual[0].startswith(expected + ".")
-        ):
-            raise ValueError(f"{target.key} candidate has an unexpected runtime")
 
 
 def check_docs(repo, commit, version):

@@ -32,6 +32,8 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
 
       - name: Set up JDK 11
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
@@ -75,8 +77,8 @@ jobs:
         env:
           SYNAPSEML_TEST_RELEASE_SBT: "1"
         run: |
-          python -m pip install pytest pyyaml
-          python -m pytest scripts/release tools/ci/tests/test_pipeline_yaml.py -q
+          python -m pip install pytest pyyaml hypothesis
+          python -m pytest scripts/release scripts/test_bump_version.py tools/ci/tests/test_pipeline_yaml.py -q
 
       - name: Annotate scalastyle violations
         if: failure()

@@ -59,8 +59,11 @@ artifact publication evidence or permission to proceed.
 After authorization for preparation, follow the operator guide to create
 version/docs and selected port PRs. Do not skip versioned documentation or bump
 the published-artifact lock yet. Run current-head Azure and GitHub validation.
-Validate the same primary wheel against each selected candidate's own JVM
-packages, and retain the wheel/JAR hashes and actual test results.
+The release owner must qualify the same source/version-bound primary candidate
+wheel against each selected candidate's own JVM packages. Retain that wheel,
+the exact source commits and release version, environment details, wheel/JAR
+hashes and actual test results. This is a human qualification gate, not a result
+inferred from the plan, offline rehearsal or a port's own generated wrappers.
 
 For the first, pre-merge release, use the operator guide's exact candidate
 branch names and bootstrap procedure. Check classic protection and active
@@ -127,8 +130,16 @@ overwrite artifacts or retry immutable Maven coordinates.
 
 Run `verify_release.py --plan <plan> --state <ledger> --json` and retain fresh
 producer receipts, hashes and public download evidence. Verify the final wheel
-and installation on every advertised runtime. Offline rehearsal and candidate
-wheel tests do not replace this check.
+and installation on every selected runtime. The release owner must compare the
+rebuilt published wheel's installable payload and relevant distribution metadata
+with the retained qualified candidate, using the operator guide's
+[comparison requirements](../../../../scripts/release/README.md#python-distribution-readiness).
+ZIP timestamps, ordering or compression may change archive hashes without
+changing payload; retain both hashes and the comparison evidence rather than
+requiring identical ZIP bytes. A payload or relevant metadata mismatch, missing
+candidate evidence, or failed consumer check blocks readiness and notes.
+The verifier does not enforce this human qualification gate. Offline rehearsal,
+candidate tests and green producer CI do not replace final-wheel sign-off.
 
 Request the human merge of the unchanged primary candidate first. If it
 cannot merge, preserve tags/artifacts and stop for source reconciliation. Do
@@ -141,8 +152,12 @@ authorization using the operator guide. Keep private state out of its inputs.
 Evidence expires after one hour; regenerate it rather than editing timestamps.
 
 Prepare the reviewed published-artifact lock follow-up only after source
-integration and artifact verification. The maintainer merges it. Verify the
-actual website deployment, not only its build, before declaring docs updated.
+integration and artifact verification. The primary producer generates API docs
+from its approved source and checks their version-specific public entry points
+before Maven upload. Retain that producer result, but do not describe mutable
+API docs as an immutable package receipt. The maintainer merges the lock
+follow-up. Verify the actual website deployment, not only its build, before
+declaring docs updated.
 
 ## Handoff at every stop
 
@@ -151,6 +166,8 @@ checkpoint, unchanged candidate SHAs, exact build/run IDs, test/artifact
 evidence, outstanding approvals and the next permitted command. Distinguish
 offline rehearsal, live preflight, candidate qualification and published
 artifact verification. Do not label any of the first three "release complete".
+Include the retained candidate wheel, source/version bindings, final-wheel
+payload/metadata comparison and release owner's qualification sign-off.
 
 An agent resuming work must reread that record and the authoritative ledger,
 check for another operator, refresh service state and recheck the approval's

@@ -88,7 +88,9 @@ def test_release_notes_advertise_only_selected_archive_variants():
     assert ".dbc" not in guard.notes_installation(matrix.load_plan(old))
 
 
-@pytest.mark.parametrize("change", ["none", "missing", "hash", "size"])
+@pytest.mark.parametrize(
+    "change", ["none", "missing", "hash", "size", "maven", "maven-central", "pypi"]
+)
 def test_notes_cli_rechecks_live_download_against_producer(
     cli, tmp_path, monkeypatch, change
 ):
@@ -106,6 +108,19 @@ def test_notes_cli_rechecks_live_download_against_producer(
         current = (b"x" * 321, {"sha256": "0" * 64})
     elif change == "size":
         current = (b"x" * 322, {"sha256": "f" * 64})
+    public_prefixes = {
+        "maven": verify.MAVEN_BASE,
+        "maven-central": verify.MAVEN_CENTRAL_BASE,
+        "pypi": "https://files.pythonhosted.org",
+    }
+    if change in public_prefixes:
+        url = next(
+            url
+            for url in cli.remote.public_bytes
+            if url.startswith(public_prefixes[change])
+        )
+        original = cli.remote.public_bytes[url]
+        cli.remote.public_bytes[url] = bytes([original[0] ^ 1]) + original[1:]
     monkeypatch.setattr(release_dbc, "fetch_public_archive", lambda *_: current)
     result = guard.main(
         [

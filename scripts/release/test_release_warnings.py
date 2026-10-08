@@ -135,7 +135,7 @@ def test_verified_nonpublishing_warnings_complete_without_republication(
     assert receipt["schema_version"] == 2
     assert receipt["result"] == "partiallySucceeded"
     evidence = ops.verified_evidence(plan, cli.state, remote=cli.remote)
-    assert evidence["producer_evidence"]["schema_version"] == 2
+    assert evidence["producer_evidence"]["schema_version"] == 3
     assert evidence["complete"] and evidence["evidence_kind"] == "producer-verified"
     exported = verify.decode_evidence(verify.encode_evidence(evidence))
     ops.validate_producer_evidence(plan, exported)
@@ -357,7 +357,7 @@ def test_warning_task_bound_cannot_be_exceeded(cli, monkeypatch):
         ops.verified_evidence(plan, cli.state, remote=cli.remote)
 
 
-def test_clean_build_keeps_legacy_receipt_and_evidence_shapes(cli):
+def test_clean_build_keeps_legacy_receipt_with_content_evidence(cli):
     plan, records, task = partial_build(cli)
     cli.remote.builds[101]["result"] = "succeeded"
     for record in records:
@@ -365,7 +365,7 @@ def test_clean_build_keeps_legacy_receipt_and_evidence_shapes(cli):
             record["result"] = "succeeded"
     evidence = ops.verified_evidence(plan, cli.state, remote=cli.remote)
     assert evidence["complete"]
-    assert evidence["producer_evidence"]["schema_version"] == 1
+    assert evidence["producer_evidence"]["schema_version"] == 3
     receipt = json.loads(cli.state.read_text())["actions"][0]["receipt"]
     assert receipt["schema_version"] == 1
     assert all(set(job) == {"id", "name", "state", "result"} for job in receipt["jobs"])
@@ -387,7 +387,7 @@ def test_mixed_clean_and_warning_targets_keep_their_own_proof_formats(cli):
     evidence = ops.verified_evidence(plan, cli.state, remote=cli.remote)
     assert evidence["complete"]
     producer = evidence["producer_evidence"]
-    assert producer["schema_version"] == 2
+    assert producer["schema_version"] == 3
     runs = {run["build"]["id"]: run for run in producer["runs"]}
     assert runs[101]["build"]["result"] == "partiallySucceeded"
     assert all(
@@ -657,3 +657,44 @@ def test_pipeline_advisory_steps_and_publication_requirements_match_warning_poli
         "condition" not in step and not step.get("continueOnError")
         for step in required.values()
     )
+
+
+@pytest.mark.parametrize("position", ["before-build", "after-build"])
+def test_fleet_r5_warning_job_windows_must_belong_to_the_build(cli, position):
+    plan, records, _ = partial_build(cli)
+    build = cli.remote.builds[101]
+    if position == "before-build":
+        start = finish = datetime(2020, 1, 1, tzinfo=timezone.utc)
+    else:
+        start = finish = ops._time(build["finishTime"], "Build finish") + timedelta(
+            seconds=1
+        )
+    for record in records:
+        record.update(startTime=start.isoformat(), finishTime=finish.isoformat())
+    code, report, _ = cli("status", plan=plan)
+    assert code == 1 and not report["complete"]
+    assert "build" in report["actions"][0]["error"].lower()
+    assert not ops.verified_evidence(plan, cli.state, remote=cli.remote)["complete"]
+    assert len(cli.remote.queued) == 1
+
+
+@pytest.mark.parametrize("fault", ["before-build", "after-build", "reversed-build"])
+def test_fleet_r5_exported_warning_windows_are_checked_against_the_build(cli, fault):
+    plan, _, _ = partial_build(cli)
+    evidence = ops.verified_evidence(plan, cli.state, remote=cli.remote)
+    run = evidence["producer_evidence"]["runs"][0]
+    if fault == "reversed-build":
+        run["build"]["finishTime"] = "2020-01-01T00:00:00Z"
+    else:
+        stamp = (
+            "2020-01-01T00:00:00Z"
+            if fault == "before-build"
+            else (
+                ops._time(run["build"]["finishTime"], "Build finish")
+                + timedelta(seconds=1)
+            ).isoformat()
+        )
+        for job in run["jobs"]:
+            job.update(started_at=stamp, finished_at=stamp)
+    with pytest.raises((ValueError, ops.ReleaseError), match="build"):
+        verify.validate_evidence(plan, evidence)

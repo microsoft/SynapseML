@@ -283,6 +283,59 @@ def test_public_evidence_roundtrip_contains_only_public_plans(cli):
         assert_public_document(json.loads(base64.b64decode(payload)))
 
 
+@pytest.mark.parametrize("command", ["resume", "status", "export"])
+def test_public_content_is_downloaded_once_per_invocation(cli, monkeypatch, command):
+    plan, report = producer_report(cli)
+    expected = sum(
+        len(run["public_artifacts"]) for run in report["producer_evidence"]["runs"]
+    )
+    original = verify._download_public_artifact
+    downloads = []
+
+    def track_download(url, size):
+        downloads.append(url)
+        return original(url, size)
+
+    monkeypatch.setattr(verify, "_download_public_artifact", track_download)
+    for _ in range(2):
+        downloads.clear()
+        if command == "export":
+            current = ops.verified_evidence(plan, cli.state, remote=cli.remote)
+            assert current["complete"]
+        else:
+            code, current, error = cli(command, plan=plan, apply=command == "resume")
+            assert code == 0 and current["complete"], error
+        assert len(downloads) == len(set(downloads)) == expected
+
+
+def test_changed_receipt_cannot_redefine_published_fixture_bytes(cli):
+    plan, _ = producer_report(cli)
+    target = next(target for target in plan.targets if target.key == "master")
+    document = next(
+        document
+        for documents in cli.remote.manifests.values()
+        for document in documents
+        if document["target"] == target.key
+    )
+    document["blob_artifacts"][0]["sha256"] = "0" * 64
+    with pytest.raises(ValueError, match="differs"):
+        verify.collect_public_artifact_content(plan, target, document)
+
+
+@pytest.mark.parametrize("fault", ["old-manifest", "missing-cdn", "missing-downloads"])
+def test_public_evidence_without_destination_content_proof_fails_closed(cli, fault):
+    plan, report = producer_report(cli)
+    run = report["producer_evidence"]["runs"][0]
+    if fault == "missing-downloads":
+        del run["public_artifacts"]
+    else:
+        del run["provenance"][0]["blob_artifacts"]
+        if fault == "old-manifest":
+            run["provenance"][0]["schema_version"] = 1
+    with pytest.raises(ValueError):
+        verify.validate_evidence(plan, report)
+
+
 @pytest.mark.parametrize("listed", [False, True])
 def test_missing_live_wheel_blocks_valid_retained_producer_receipts(
     cli, monkeypatch, listed
@@ -611,10 +664,11 @@ def test_public_text_contains_only_public_release_sections(cli, monkeypatch):
         "Repositories: oss; families: maven",
         "GIT TAGS",
         "MAVEN TAG BUILDS",
+        "PUBLIC PYPI",
         "PRIVATE-FEED PUBLICATION: not selected",
         "GUARDED EXECUTION",
         "UPACK: not selected",
-        "PIP: not selected",
+        "PRIVATE PIP: not selected",
     ]
     _, report, error = cli("preflight", plan=plan, state=False)
     assert report, error

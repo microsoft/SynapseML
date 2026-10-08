@@ -536,6 +536,66 @@ def test_push_tags_rejects_changed_source_before_staging(tmp_path, monkeypatch):
     assert "update-ref" not in calls and "push" not in calls
 
 
+@pytest.mark.parametrize("target_key", [target.key for target in matrix.TARGETS])
+@pytest.mark.parametrize(
+    "runtime",
+    ["valid", "spark", "scala", "python", "missing-spark", "duplicate-scala"],
+)
+def test_maven_guard_validates_source_runtime_before_authorizing(
+    monkeypatch, capsys, target_key, runtime
+):
+    plan = public_plan()
+    target = next(target for target in plan.targets if target.key == target_key)
+    spark = "0.0.0" if runtime == "spark" else target.spark + ".0"
+    scala = "0.0.0" if runtime == "scala" else target.scala + ".17"
+    python = "0.0.0" if runtime == "python" else target.python + ".8"
+    build = f'val sparkVersion = "{spark}"\nThisBuild / scalaVersion := "{scala}"\n'
+    if runtime == "missing-spark":
+        build = f'ThisBuild / scalaVersion := "{scala}"\n'
+    elif runtime == "duplicate-scala":
+        build += f'ThisBuild / scalaVersion := "{scala}"\n'
+    sources = {
+        SHA + ":build.sbt": build,
+        SHA + ":environment.yml": f"dependencies:\n  - python={python}\n",
+    }
+    reads = []
+
+    def git(_repo, *args):
+        if args in (
+            ("rev-parse", "HEAD"),
+            ("show-ref", "--hash", "--verify", "refs/tags/" + target.oss_maven_tag),
+            ("rev-parse", SHA + "^{commit}"),
+        ):
+            return SHA
+        if args == ("status", "--porcelain", "--untracked-files=normal"):
+            return ""
+        if len(args) == 2 and args[0] == "show" and args[1] in sources:
+            reads.append(args[1])
+            return sources[args[1]]
+        pytest.fail(f"Unexpected Git operation: {args}")
+
+    monkeypatch.setattr(guard, "_git", git)
+    for name, value in {
+        "RELEASE_PLAN_BASE64": base64.b64encode(
+            json.dumps(matrix.plan_to_dict(plan)).encode()
+        ).decode(),
+        "RELEASE_PLAN_ID": plan.plan_id,
+        "BUILD_SOURCEBRANCH": "refs/tags/" + target.oss_maven_tag,
+        "BUILD_SOURCEVERSION": SHA,
+    }.items():
+        monkeypatch.setenv(name, value)
+    result = guard.main(["maven"])
+    output = capsys.readouterr()
+    if runtime == "valid":
+        assert result == 0, output.err
+        assert f"variable=releaseScala]{target.scala}" in output.out
+    else:
+        assert result == 2
+        assert "unexpected runtime" in output.err
+        assert "##vso[task.setvariable" not in output.out
+    assert set(reads) == set(sources)
+
+
 def test_notes_require_an_explicit_complete_public_plan():
     plan = public_plan()
     guard.notes_plan(plan, "v1.1.4", SHA, plan.plan_id)
@@ -618,6 +678,19 @@ def staged_maven(tmp_path, request):
     ivy, output = tmp_path / "ivy", tmp_path / "published"
     ivy_fixture(ivy, target.oss_maven_version, target.scala)
     staging.stage_release(ivy, output, target.oss_maven_version, target.scala)
+    from verify_release import required_public_maven_paths
+
+    blob_root = tmp_path / "m2"
+    for relative in required_public_maven_paths(target.oss_maven_version, target.scala):
+        module, filename = relative.split("/")
+        path = blob_root / module / target.oss_maven_version / filename
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes((output / module / filename).read_bytes())
+        if filename.endswith(".jar"):
+            with zipfile.ZipFile(path, "a") as archive:
+                archive.writestr("META-INF/blob-producer", "independent Blob build")
+    blob_receipt = guard.blob_maven_receipt(plan, target, blob_root, 123)
+    (tmp_path / "blob-provenance.json").write_text(json.dumps(blob_receipt))
     wheel = None
     if key == "master":
         wheel = tmp_path / guard.public_pypi_wheel_name(plan.oss_version)
@@ -672,6 +745,8 @@ def test_maven_receipt_cli_hashes_the_actual_esrp_output(
         str(destination),
         "--dbc-directory",
         str(output.parent / "dbc"),
+        "--blob-receipt",
+        str(output.parent / "blob-provenance.json"),
     ]
     if wheel is not None:
         arguments.extend(["--pypi-wheel", str(wheel)])
@@ -680,6 +755,16 @@ def test_maven_receipt_cli_hashes_the_actual_esrp_output(
     receipt = json.loads(destination.read_text())
     assert receipt["plan_id"] == plan.plan_id
     assert receipt["source_commit"] == SHA
+    assert receipt["schema_version"] == 2
+    expected_blob = json.loads((output.parent / "blob-provenance.json").read_text())
+    assert receipt["blob_artifacts"] == expected_blob["artifacts"]
+    central_jar = next(
+        item for item in receipt["artifacts"] if item["path"].endswith(jar.name)
+    )
+    blob_jar = next(
+        item for item in receipt["blob_artifacts"] if item["path"].endswith(jar.name)
+    )
+    assert central_jar["sha256"] != blob_jar["sha256"]
     expected = {
         path.relative_to(output).as_posix(): path.read_bytes()
         for path in output.rglob("*")
@@ -793,3 +878,59 @@ def test_pypi_upload_never_swallows_immutable_collision():
     assert "--skip-existing" not in publish
     assert "TWINE_PASSWORD" in publish
     assert '"--password"' not in publish
+
+
+@pytest.mark.parametrize(
+    "fault", ["missing", "source", "build", "target", "version", "extra"]
+)
+def test_maven_receipt_rejects_unbound_blob_handoff(staged_maven, fault):
+    plan, target, _, output, wheel = staged_maven
+    path = output.parent / "blob-provenance.json"
+    document = json.loads(path.read_text())
+    fields = {
+        "source": ("source_commit", "b" * 40),
+        "build": ("build_id", 124),
+        "target": ("target", "spark4.1"),
+        "version": ("version", "9.9.9"),
+        "extra": ("unapproved", True),
+    }
+    if fault in fields:
+        key, value = fields[fault]
+        document[key] = value
+        path.write_text(json.dumps(document))
+    with pytest.raises(ValueError, match="Blob producer receipt"):
+        guard.maven_receipt(
+            plan,
+            target,
+            output,
+            123,
+            wheel,
+            output.parent / "dbc",
+            None if fault == "missing" else path,
+        )
+
+
+@pytest.mark.parametrize("fault", ["missing", "empty", "linked"])
+def test_blob_receipt_requires_the_actual_published_files(
+    staged_maven, monkeypatch, fault
+):
+    plan, target, _, output, _ = staged_maven
+    root = output.parent / "m2"
+    module = f"synapseml_{target.scala}"
+    path = (
+        root
+        / module
+        / target.oss_maven_version
+        / f"{module}-{target.oss_maven_version}.jar"
+    )
+    if fault == "missing":
+        path.unlink()
+    elif fault == "empty":
+        path.write_bytes(b"")
+    else:
+        original = Path.is_symlink
+        monkeypatch.setattr(
+            Path, "is_symlink", lambda item: item == path or original(item)
+        )
+    with pytest.raises(ValueError, match="artifact"):
+        guard.blob_maven_receipt(plan, target, root, 123)

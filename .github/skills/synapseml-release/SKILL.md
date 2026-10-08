@@ -47,9 +47,10 @@ scripts rather than constructing a second publication engine.
 2. Preview the version change and matrix. Check existing coordinates, source
    refs and full-release policy. `skip_docs` is not a dry run.
 3. Prepare and review final source for every target. **Consumer-wheel gate:**
-   validate the planned wheel packaging and consumer behavior from these sources
-   on every advertised runtime before approval or any production tag. Port CI
-   using different wrappers is not that proof; resolve distribution first.
+   the release owner must qualify the same source/version-bound primary candidate
+   wheel on every selected runtime before approval or any production tag. Retain
+   the wheel and results. Port CI using different wrappers is not that proof;
+   resolve distribution first.
    Normal workflows require
    the primary commit on `master`; for pre-merge publication use the approved
    bootstrap entry point in the operator guide, not a disabled ancestry guard.
@@ -63,18 +64,26 @@ scripts rather than constructing a second publication engine.
 5. Run preflight, then resume without `--apply`. Both queue nothing.
 6. After exact-plan approval, resume with apply and retain the authoritative
    ledger. Complete required human signing gates.
-7. Revalidate producer runs, exact artifacts and hashes. Export public
-   evidence immediately before use; it expires after one hour. Publish primary
+7. Revalidate producer runs, exact artifacts and hashes. The release owner must
+   compare the rebuilt published wheel's payload and relevant metadata with the
+   qualified candidate and verify its installation on every selected runtime.
+   ZIP metadata can change archive hashes without changing payload; hash equality
+   is not the qualification rule. A mismatch or missing qualification evidence
+   blocks readiness and notes. This human gate is not inferred by the verifier.
+   Export public evidence immediately before use; it expires after one hour. Publish primary
    notes only after all selected targets complete and the unchanged primary candidate
    has merged first, before other automation changes. Run the read-only
    integration check before dispatch. Squash and rebase merges use canonical
    merged-PR provenance, not a moved tag. Resolve conflicts through a separate
    reconciliation PR on master; if proof is unavailable, keep notes unpublished
    and escalate to the release owner.
-8. Verify installation and consumer behavior for every released runtime.
+8. Retain the human qualification sign-off with the release record; automated
+   producer evidence alone does not establish consumer readiness.
 9. After the primary versioned documentation merges to master, land the reviewed
    `published-spark-ports.lock` follow-up using verified artifact versions.
    Keep the unselected Spark 4.0 entry at its retained published version.
+   Primary API docs are generated and publicly checked by the approved producer
+   before Maven upload; those mutable docs are not an immutable package receipt.
    Expect strict master Website Deploy to fail until that follow-up lands.
    Confirm successful deployment before reporting the website updated.
 
@@ -82,6 +91,6 @@ Read [preflight](references/preflight.md),
 [automation boundaries](references/automation-boundaries.md), and
 [recovery](references/recovery-and-rollout.md).
 
-Spark 4.1 PR replay is advisory, but required validation of an actual release
-candidate is not. Report concrete completed coordinates, source commits and
-remaining gates. Do not call previews or skipped tests production proof.
+The old Spark 4.1 PR replay is removed. Every selected release candidate still
+requires its own validation. Report concrete completed coordinates, source
+commits and remaining gates. Do not call previews or skipped tests production proof.

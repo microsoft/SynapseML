@@ -107,6 +107,24 @@ def test_full_release_policy_precedes_primary_and_derivative_tags():
     assert "outside the branch filters" not in tags
 
 
+def test_new_port_release_branches_require_absence_and_an_explicit_creation_lease():
+    workflow = yaml.safe_load(read_workflow("release-tag.yml"))
+    script = next(
+        step["run"]
+        for step in workflow["jobs"]["release-tags"]["steps"]
+        if step.get("name") == "Create spark rebase PRs"
+    )
+    assert script.index('gh pr list --head "$BRANCH"') < script.index(
+        'git ls-remote --heads origin "$RELEASE_REF"'
+    )
+    assert script.index('git ls-remote --heads origin "$RELEASE_REF"') < script.index(
+        'git checkout -B "$BRANCH"'
+    )
+    assert "requires reviewed recovery" in script
+    assert 'git push --force-with-lease="$RELEASE_REF:"' in script
+    assert '"refs/heads/$BRANCH:$RELEASE_REF"' in script
+
+
 def test_port_tag_authorization_uses_a_same_repository_merge_not_a_fork_or_tag_alone():
     workflow = read_workflow("release-tag-spark.yml")
     job = yaml.safe_load(workflow)["jobs"]["create-spark-tags"]

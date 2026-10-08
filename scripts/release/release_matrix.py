@@ -815,6 +815,10 @@ def read_plan(path: str, require_bound: bool = False) -> ReleasePlan:
     return load_plan(data, require_bound=require_bound)
 
 
+def public_pypi_wheel_name(version: str) -> str:
+    return f"synapseml-{version}-py2.py3-none-any.whl"
+
+
 def render_text(plan: ReleasePlan) -> str:
     plan_to_dict(plan)
     out: List[str] = []
@@ -877,6 +881,18 @@ def render_text(plan: ReleasePlan) -> str:
                 f"tag=refs/tags/{tp.internal_maven_tag}"
             )
     out.append("")
+    if (
+        "oss" in plan.repositories
+        and "maven" in plan.families
+        and any(target.key == "master" for target in plan.targets)
+    ):
+        out.append("PUBLIC PYPI")
+        out.append(f"  [master] synapseml=={plan.oss_version}")
+        out.append(f"      wheel: {public_pypi_wheel_name(plan.oss_version)}")
+        out.append("      Published by the primary Maven tag build.")
+    else:
+        out.append("PUBLIC PYPI: not selected")
+    out.append("")
     if {"pip", "upack"}.intersection(plan.families):
         out.append(
             f"ADO PUBLISH PIPELINE {plan.publish_pipeline_id} "
@@ -915,10 +931,9 @@ def render_text(plan: ReleasePlan) -> str:
         )
     out.append("")
     for family, feed in (("upack", plan.upack_feed), ("pip", plan.pip_feed)):
+        label = "PRIVATE PIP" if family == "pip" else family.upper()
         out.append(
-            f"{family.upper()} ({feed})"
-            if family in plan.families
-            else f"{family.upper()}: not selected"
+            f"{label} ({feed})" if family in plan.families else f"{label}: not selected"
         )
         for tp in plan.targets if family in plan.families else []:
             for repository in plan.repositories:

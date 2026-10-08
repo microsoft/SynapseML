@@ -136,6 +136,8 @@ class FakeRemote:
         self.builds = {}
         self.timelines = {}
         self.manifests = {}
+        self.public_bytes = {}
+        self.public_metadata = {}
         self.inventory_calls = []
         self.policy_calls = 0
         self.build_calls = []
@@ -157,12 +159,67 @@ class FakeRemote:
         for feed in self.feeds.values():
             feed["project"] = {"name": matrix.ADO_PROJECT, "id": PROJECT_ID}
         monkeypatch.setattr(verify, "Checker", lambda *_args: InventoryChecker(self))
+        monkeypatch.setattr(
+            verify, "_download_public_artifact", self.download_public_artifact
+        )
+        monkeypatch.setattr(verify, "_json_get", self.public_package_metadata)
+
+    def public_artifact_content(self, plan, target, document):
+        return verify.collect_public_artifact_content(plan, target, document)
+
+    def publish_artifact(self, destination, version, path, content):
+        module, filename = path.split("/", 1)
+        facts = {"sha256": hashlib.sha256(content).hexdigest(), "size": len(content)}
+        if destination == "pypi":
+            url = f"https://files.pythonhosted.org/packages/fixture/{filename}"
+            self.public_metadata[f"{verify.PYPI_BASE}/synapseml/{version}/json"] = {
+                "info": {"version": version},
+                "urls": [
+                    {
+                        "filename": filename,
+                        "packagetype": "bdist_wheel",
+                        "yanked": False,
+                        "url": url,
+                        "digests": {"sha256": facts["sha256"]},
+                        "size": facts["size"],
+                    }
+                ],
+            }
+        else:
+            base = {
+                "maven": verify.MAVEN_BASE,
+                "maven-central": verify.MAVEN_CENTRAL_BASE,
+            }[destination]
+            url = f"{base}/com/microsoft/azure/{module}/{version}/{filename}"
+        self.public_bytes[url] = content
+        return facts
+
+    def download_public_artifact(self, url, expected_size):
+        if url not in self.public_bytes:
+            raise AssertionError(
+                "Fixture has no published artifact for the requested URL"
+            )
+        content = self.public_bytes[url]
+        return {"sha256": hashlib.sha256(content).hexdigest(), "size": len(content)}
+
+    def public_package_metadata(self, url, _headers):
+        if url not in self.public_metadata:
+            raise AssertionError("Fixture has no PyPI metadata for the requested URL")
+        return copy.deepcopy(self.public_metadata[url])
 
     def present(self, repository, family, version):
         return (
             verify.MISSING
             if (repository, family) in self.missing
             or (repository, family, version) in self.missing
+            or (
+                repository == "oss"
+                and family in {"maven-central", "dbc"}
+                and (
+                    (repository, "maven") in self.missing
+                    or (repository, "maven", version) in self.missing
+                )
+            )
             else verify.OK
         )
 
@@ -285,6 +342,20 @@ class FakeRemote:
             return copy.deepcopy(self.queue_response)
         return copy.deepcopy(self.builds[build_id])
 
+    def maven_absence(self, plan, action):
+        rows, _ = self.inventory(plan)
+        report = verify.build_report(plan, rows, False)
+        selected = ops._artifact_rows(
+            report,
+            action["repository"],
+            action["target"],
+            "maven",
+            matrix.plan_to_dict(plan),
+        )
+        return bool(selected) and all(
+            row["status"] == verify.MISSING for row in selected
+        )
+
     def register(self, command, build_id):
         pipeline_id = int(command[command.index("--id") + 1])
         parameters = command_values(command, "--parameters")
@@ -354,6 +425,7 @@ class FakeRemote:
             for family in families
         ]
         if build["definition"]["id"] == matrix.OSS_MAVEN_PIPELINE_ID:
+            self.manifests[build_id][0]["schema_version"] = 2
             self.manifests[build_id][0]["artifacts"] = [
                 {
                     "path": (
@@ -370,6 +442,10 @@ class FakeRemote:
                     else [".pom", ".jar"]
                 )
             ]
+            self.manifests[build_id][0]["blob_artifacts"] = [
+                {**artifact, "sha256": "9" * 64}
+                for artifact in self.manifests[build_id][0]["artifacts"]
+            ]
         if (
             build["definition"]["id"] == matrix.OSS_MAVEN_PIPELINE_ID
             and target == "master"
@@ -381,6 +457,28 @@ class FakeRemote:
                     "size": 123,
                 }
             )
+        if build["definition"]["id"] == matrix.OSS_MAVEN_PIPELINE_ID:
+            document = self.manifests[build_id][0]
+            for destination in ("artifacts", "blob_artifacts"):
+                for artifact in document[destination]:
+                    content = f"{build_id}/{destination}/{artifact['path']}".encode()
+                    published_destination = (
+                        "maven"
+                        if destination == "blob_artifacts"
+                        else (
+                            "pypi"
+                            if artifact["path"].startswith("pypi/")
+                            else "maven-central"
+                        )
+                    )
+                    artifact.update(
+                        self.publish_artifact(
+                            published_destination,
+                            document["version"],
+                            artifact["path"],
+                            content,
+                        )
+                    )
         if (
             build["definition"]["id"] == matrix.OSS_MAVEN_PIPELINE_ID
             and plan.schema_version == matrix.PUBLIC_SCHEMA_VERSION
@@ -2069,8 +2167,8 @@ def test_internal_maven_preserves_v_in_parameter_and_branch(cli, target):
     assert command[command.index("--commit-id") + 1] == INTERNAL_SHA
 
 
-def produced_maven_receipt(plan, build_id, root, target_key="master"):
-    from release_guard import maven_receipt
+def produced_maven_receipt(plan, build_id, root, target_key="master", remote=None):
+    from release_guard import blob_maven_receipt, maven_receipt
     from test_release_dbc import write_bundle
 
     target = next(target for target in plan.targets if target.key == target_key)
@@ -2092,7 +2190,10 @@ def produced_maven_receipt(plan, build_id, root, target_key="master"):
                 )
             else:
                 with zipfile.ZipFile(path, "w") as archive:
-                    archive.writestr("META-INF/MANIFEST.MF", "Manifest-Version: 1.0\n")
+                    archive.writestr(
+                        "META-INF/MANIFEST.MF",
+                        f"Manifest-Version: 1.0\nFixture-Artifact: {path.name}\n",
+                    )
     wheel = None
     if target.key == "master":
         wheel = root.parent / "pypi" / verify.public_pypi_wheel_name(plan.oss_version)
@@ -2104,9 +2205,51 @@ def produced_maven_receipt(plan, build_id, root, target_key="master"):
             )
     directory = root.parent / "dbc"
     write_bundle(directory, plan, target)
-    return maven_receipt(
-        plan, target, root, build_id, pypi_wheel=wheel, dbc_directory=directory
+    blob_root = root.parent / "blob"
+    for relative in verify.required_public_maven_paths(
+        target.oss_maven_version, target.scala
+    ):
+        module, filename = relative.split("/")
+        destination = blob_root / module / target.oss_maven_version / filename
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.write_bytes((root / module / filename).read_bytes())
+        if destination.suffix == ".pom":
+            with destination.open("ab") as stream:
+                stream.write(b"\n<!-- Blob fixture -->\n")
+        else:
+            with zipfile.ZipFile(destination, "a") as archive:
+                archive.writestr("META-INF/BLOB-FIXTURE", relative)
+    blob_receipt = root.parent / "blob-receipt.json"
+    blob_receipt.write_text(
+        json.dumps(blob_maven_receipt(plan, target, blob_root, build_id)),
+        encoding="utf-8",
     )
+    receipt = maven_receipt(
+        plan,
+        target,
+        root,
+        build_id,
+        pypi_wheel=wheel,
+        dbc_directory=directory,
+        blob_receipt=blob_receipt,
+    )
+    if remote is not None:
+        for relative in verify.required_public_maven_paths(
+            target.oss_maven_version, target.scala
+        ):
+            module, filename = relative.split("/")
+            for destination, path in (
+                ("maven-central", root / module / filename),
+                ("maven", blob_root / module / target.oss_maven_version / filename),
+            ):
+                remote.publish_artifact(
+                    destination, target.oss_maven_version, relative, path.read_bytes()
+                )
+        if wheel is not None:
+            remote.publish_artifact(
+                "pypi", plan.oss_version, f"pypi/{wheel.name}", wheel.read_bytes()
+            )
+    return receipt
 
 
 @pytest.mark.parametrize("include_spark40", [False, True])
@@ -2137,7 +2280,11 @@ def test_public_release_completes_without_private_or_internal_calls(
         cli.remote.succeed(build_id, plan, "oss", ["maven"], target=item["target"])
         cli.remote.manifests[build_id] = [
             produced_maven_receipt(
-                plan, build_id, tmp_path / item["target"] / "maven", item["target"]
+                plan,
+                build_id,
+                tmp_path / item["target"] / "maven",
+                item["target"],
+                remote=cli.remote,
             )
         ]
     code, report, error = cli("status", plan=plan)
@@ -2165,7 +2312,7 @@ def test_public_maven_receipt_requires_exact_complete_artifact_inventory(
     cli.remote.missing = {("oss", "maven")}
     assert cli(plan=plan, apply=True)[0] == 1
     cli.remote.succeed(101, plan, "oss", ["maven"])
-    receipt = produced_maven_receipt(plan, 101, tmp_path / "maven")
+    receipt = produced_maven_receipt(plan, 101, tmp_path / "maven", remote=cli.remote)
     if corruption.startswith("missing-"):
         receipt["artifacts"] = [
             item
@@ -2198,13 +2345,17 @@ def test_public_maven_receipt_uses_the_actual_guard_producer(cli, tmp_path):
     assert cli(plan=plan, apply=True)[0] == 1
     cli.remote.succeed(101, plan, "oss", ["maven"])
     root = tmp_path / "maven-artifacts"
-    produced = produced_maven_receipt(plan, 101, root)
+    produced = produced_maven_receipt(plan, 101, root, remote=cli.remote)
     cli.remote.manifests[101] = [produced]
     code, report, error = cli("status", plan=plan)
     assert code == 0, error
     assert report["complete"]
     receipt = action(saved(cli), "oss", "maven")["receipt"]["provenance"][0]
     assert receipt == produced
+    central = {item["path"]: item["sha256"] for item in receipt["artifacts"]}
+    assert all(
+        item["sha256"] != central[item["path"]] for item in receipt["blob_artifacts"]
+    )
     assert len(receipt["artifacts"]) == len(verify.PUBLIC_MAVEN_MODULES) * 2 + 3
     for item in receipt["artifacts"]:
         if item["path"].startswith("dbcs/"):
@@ -2261,13 +2412,15 @@ def test_maven_receipt_rejects_wrong_identity_or_hashes(
     assert cli(plan=plan, apply=True)[0] == 1
     cli.remote.succeed(101, plan, repository, ["maven"])
     receipt = (
-        produced_maven_receipt(plan, 101, tmp_path / "maven-artifacts")
+        produced_maven_receipt(
+            plan, 101, tmp_path / "maven-artifacts", remote=cli.remote
+        )
         if repository == "oss"
         else copy.deepcopy(cli.remote.manifests[101][0])
     )
     cli.remote.manifests[101] = [receipt]
     invalid_fields = {
-        "schema": ("schema_version", 2),
+        "schema": ("schema_version", 3),
         "plan": ("plan_id", "e" * 64),
         "build": ("build_id", True),
         "pipeline": ("pipeline_id", 900002),
@@ -2344,7 +2497,7 @@ def test_public_maven_and_private_publisher_require_separate_approvals(cli):
 
 def test_public_maven_waits_for_required_central_coordinates(cli):
     plan = release_plan(families=["maven"], repositories=["oss"])
-    cli.remote.missing = {("oss", "maven-central")}
+    cli.remote.missing = {("oss", "maven"), ("oss", "maven-central")}
     assert cli(plan=plan, apply=True)[0] == 1
     assert len(cli.remote.queued) == 1
     cli.remote.succeed(101, plan, "oss", ["maven"])
@@ -3509,7 +3662,13 @@ def test_public_notes_export_fits_github_and_passes_the_real_guard(
         },
     }
     assert len(json.dumps(payload)) < 65535
-    monkeypatch.setenv("RELEASE_EVIDENCE_BASE64", encoded)
+    if os.name == "nt":
+        evidence_file = tmp_path / "evidence.json"
+        evidence_file.write_text(json.dumps(report), encoding="utf-8")
+        evidence_args = ["--evidence", str(evidence_file)]
+    else:
+        monkeypatch.setenv("RELEASE_EVIDENCE_BASE64", encoded)
+        evidence_args = ["--evidence-base64-env"]
     import release_dbc
 
     monkeypatch.setattr(
@@ -3522,7 +3681,7 @@ def test_public_notes_export_fits_github_and_passes_the_real_guard(
         "notes",
         "--plan",
         str(cli.plan),
-        "--evidence-base64-env",
+        *evidence_args,
         "--approve-plan",
         plan.plan_id,
         "--tag",
@@ -3748,3 +3907,242 @@ def test_pipeline_artifact_manifest_validation_fails_closed(monkeypatch, corrupt
     with pytest.raises(RuntimeError, match="manifest|artifact|provenance"):
         remote.provenance(712)
     assert len(calls) == 2
+
+
+@pytest.mark.parametrize("wait", [False, True])
+def test_fleet_r1_partial_maven_inventory_never_starts_a_new_submission(
+    cli, wait, wait_clock
+):
+    plan = release_plan(repositories=["oss"], families=["maven"])
+    cli.remote.missing = {("oss", "maven-central")}
+    code, report, _ = cli(
+        plan=plan,
+        apply=True,
+        extra=["--wait", "--timeout-seconds", "1"] if wait else [],
+    )
+    assert code == 1
+    assert not cli.remote.queued
+    assert report["actions"][0]["blocked"]
+    assert action(saved(cli), "oss", "maven")["operation"] is None
+
+
+def test_fleet_r1_aggregate_missing_does_not_prove_namespace_absence(cli, monkeypatch):
+    plan = release_plan(repositories=["oss"], families=["maven"])
+    cli.remote.missing = {("oss", "maven")}
+    monkeypatch.setattr(cli.remote, "maven_absence", lambda *_: False, raising=False)
+    code, report, _ = cli(plan=plan, apply=True)
+    assert code == 1 and not cli.remote.queued
+    assert report["actions"][0]["status"] == "existing"
+    assert report["actions"][0]["blocked"]
+    monkeypatch.setattr(cli.remote, "maven_absence", lambda *_: True)
+    assert cli(plan=plan, apply=True)[0] == 1
+    assert not cli.remote.queued
+
+
+@pytest.mark.parametrize(
+    "residue", [".jar", "-sources.jar.asc.sha256", "pypi", "dbc", None]
+)
+def test_fleet_r1_absence_checks_hidden_files_and_all_public_destinations(
+    cli, monkeypatch, residue
+):
+    plan = release_plan(repositories=["oss"], families=["maven"])
+    cli.remote.missing = {("oss", "maven")}
+    requests = []
+
+    def exists(url, _headers):
+        requests.append(url)
+        if residue == "pypi":
+            return url.startswith(verify.PYPI_BASE)
+        if residue == "dbc":
+            return url.startswith(verify.DBC_BASE)
+        return residue is not None and url.endswith(residue)
+
+    monkeypatch.setattr(verify, "_url_exists", exists)
+    transport = ops.AzureRemote()
+    monkeypatch.setattr(cli.remote, "maven_absence", transport.maven_absence)
+    code, _, error = cli(plan=plan, apply=True)
+    assert code == 1, error
+    assert len(cli.remote.queued) == (1 if residue is None else 0)
+    assert requests[0].endswith(".pom")
+    assert len(requests) == len(set(requests))
+    if residue is None:
+        assert len(requests) == len(verify.PUBLIC_MAVEN_MODULES) * 2 * 9 * 2 * 5 + 2
+        assert any(url.startswith(verify.MAVEN_CENTRAL_BASE) for url in requests)
+        assert any(url.endswith("-tests.jar.asc.sha512") for url in requests)
+
+
+def test_fleet_r1_absence_transport_failure_never_creates_intent(cli, monkeypatch):
+    plan = release_plan(repositories=["oss"], families=["maven"])
+    cli.remote.missing = {("oss", "maven")}
+
+    def unavailable(*_args):
+        raise RuntimeError("simulated unavailable namespace")
+
+    monkeypatch.setattr(cli.remote, "maven_absence", unavailable)
+    assert cli(plan=plan, apply=True)[0] == 2
+    assert not cli.remote.queued
+    assert action(saved(cli), "oss", "maven")["operation"] is None
+
+
+def test_fleet_r1_absence_check_is_bounded(cli, monkeypatch, wait_clock):
+    plan = release_plan(repositories=["oss"], families=["maven"])
+    cli.remote.missing = {("oss", "maven")}
+
+    def slow_read(*_args):
+        wait_clock.elapsed += 180
+        return False
+
+    monkeypatch.setattr(verify, "_url_exists", slow_read)
+    transport = ops.AzureRemote()
+    monkeypatch.setattr(cli.remote, "maven_absence", transport.maven_absence)
+    code, _, error = cli(plan=plan, apply=True)
+    assert code == 2 and "timed out" in error
+    assert not cli.remote.queued
+
+
+def test_fleet_r1_policy_is_rechecked_after_namespace_reads(cli, monkeypatch):
+    plan = release_plan(target="spark4.0", repositories=["oss"], families=["maven"])
+    cli.remote.missing = {("oss", "maven")}
+
+    def changed_policy(*_args):
+        cli.remote.variables = {
+            "total_count": 1,
+            "variables": [{"name": "SKIP_SPARK40", "value": "true"}],
+        }
+        return True
+
+    monkeypatch.setattr(cli.remote, "maven_absence", changed_policy)
+    code, _, error = cli(plan=plan, apply=True)
+    assert code == 2 and "SKIP_SPARK40" in error
+    assert not cli.remote.queued
+    assert action(saved(cli), "oss", "maven", "spark4.0")["operation"] is None
+
+
+def test_fleet_r1_stale_absence_restores_unsubmitted_intent(
+    cli, monkeypatch, controlled_clock
+):
+    plan = release_plan(repositories=["oss"], families=["maven"])
+    cli.remote.missing = {("oss", "maven")}
+    original = ops.StateStore.save
+
+    def delayed_save(store):
+        original(store)
+        if any(item["status"] == "unknown" for item in store.state["actions"]):
+            controlled_clock.advance(301)
+
+    monkeypatch.setattr(ops.StateStore, "save", delayed_save)
+    code, _, error = cli(plan=plan, apply=True)
+    assert code == 2 and "expired" in error
+    assert not cli.remote.queued
+    assert action(saved(cli), "oss", "maven")["operation"] is None
+
+
+def test_fleet_r2_old_run_cannot_retire_an_ambiguous_live_submission(cli):
+    plan = release_plan(repositories=["oss"], families=["upack"])
+    cli.remote.missing = {("oss", "upack")}
+    assert cli(plan=plan)[0] == 1
+    item = action(saved(cli), "oss", "upack")
+    cli.remote.register(item["command"], 90)
+    cli.remote.fail(90)
+    old = ops.datetime.now(ops.timezone.utc) - ops.timedelta(days=1)
+    cli.remote.builds[90].update(
+        queueTime=old.isoformat(),
+        finishTime=(old + ops.timedelta(minutes=1)).isoformat(),
+    )
+    original = cli.remote.queue
+
+    def accepted_but_disconnected(command):
+        original(command)
+        raise OSError("simulated lost response")
+
+    cli.remote.queue = accepted_but_disconnected
+    assert cli(plan=plan, apply=True)[0] == 1
+    before = cli.state.read_bytes()
+    code, _, error = cli(plan=plan, apply=True, extra=["--adopt", item["id"] + "=90"])
+    assert code == 2 and "intent" in error
+    assert cli.state.read_bytes() == before
+    assert cli.remote.builds[101]["status"] == "notStarted"
+    assert cli(plan=plan, apply=True, extra=["--retry", item["id"]])[0] == 2
+    assert len(cli.remote.queued) == 1
+    cli.remote.queue = original
+    assert cli(plan=plan, apply=True, extra=["--adopt", item["id"] + "=101"])[0] == 1
+    assert action(saved(cli), "oss", "upack")["build_id"] == 101
+
+
+def test_fleet_r2_historical_adoption_without_submission_intent_remains_valid(cli):
+    plan = release_plan(repositories=["oss"], families=["upack"])
+    assert cli(plan=plan)[0] == 1
+    item = action(saved(cli), "oss", "upack")
+    cli.remote.register(item["command"], 90)
+    cli.remote.succeed(90, plan, "oss", ["upack"])
+    old = ops.datetime.now(ops.timezone.utc) - ops.timedelta(days=1)
+    cli.remote.builds[90].update(
+        queueTime=old.isoformat(),
+        finishTime=(old + ops.timedelta(minutes=1)).isoformat(),
+    )
+    code, report, error = cli(
+        plan=plan, apply=True, extra=["--adopt", item["id"] + "=90"]
+    )
+    assert code == 0 and report["complete"], error
+    assert not cli.remote.queued
+
+
+@pytest.mark.parametrize("destination", ["state", "claim"])
+@pytest.mark.parametrize("after_replace", [False, True])
+def test_fleet_r3_initial_save_failure_is_recoverable_without_claim_deletion(
+    cli, monkeypatch, destination, after_replace
+):
+    plan = release_plan(repositories=["oss"], families=["maven"])
+    original = ops.StateStore._replace
+
+    def interrupted(store, path, body):
+        selected = store.path if destination == "state" else store.claim
+        if path == selected:
+            if after_replace:
+                original(store, path, body)
+            raise OSError("simulated initialization write failure")
+        original(store, path, body)
+
+    monkeypatch.setattr(ops.StateStore, "_replace", interrupted)
+    assert cli("preflight", plan=plan)[0] == 2
+    assert not cli.remote.queued
+    assert not list(cli.state.parent.glob("*.lock"))
+    monkeypatch.setattr(ops.StateStore, "_replace", original)
+    code, _, error = cli("preflight", plan=plan)
+    assert code == 0, error
+    assert cli.state.is_file()
+    claim = cli.state.parent / f".release-plan-{plan.plan_id}.json"
+    assert json.loads(claim.read_text())["initialized"] is True
+    assert not cli.remote.queued
+
+
+@pytest.mark.parametrize("phase", ["build", "timeline", "provenance", "definition"])
+@pytest.mark.parametrize("wait", [False, True])
+def test_fleet_r4_read_failure_stops_before_another_public_submission(cli, phase, wait):
+    plan = matrix.build_plan(
+        "1.2.0",
+        target_keys=["master", "spark4.1"],
+        oss_commits={"master": OSS_SHA, "spark4.1": OSS_SHA},
+    )
+    cli.remote.missing = {("oss", "maven")}
+    original = cli.remote.queue
+
+    def unavailable(*_args):
+        raise ops.ReleaseError("Azure read request failed with HTTP 503")
+
+    def queued(command):
+        returned = original(command)
+        if returned["id"] == 101:
+            if phase in {"timeline", "provenance"}:
+                cli.remote.succeed(101, plan, "oss", ["maven"])
+            setattr(cli.remote, phase, unavailable)
+        return returned
+
+    cli.remote.queue = queued
+    code, _, error = cli(plan=plan, apply=True, extra=["--wait"] if wait else [])
+    assert code == 2 and "503" in error
+    assert len(cli.remote.queued) == 1
+    state = saved(cli)
+    assert action(state, "oss", "maven")["build_id"] == 101
+    assert action(state, "oss", "maven")["status"] == "unknown"
+    assert action(state, "oss", "maven", "spark4.1")["operation"] is None

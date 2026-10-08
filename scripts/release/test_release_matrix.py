@@ -42,6 +42,34 @@ def test_rejects_bad_versions():
             build_plan(bad)
 
 
+@pytest.mark.parametrize(
+    "kwargs",
+    [
+        {},
+        {"target_keys": ["master"]},
+        {"target_keys": ["master", "spark4.0", "spark4.1"]},
+        {"target_keys": ["spark4.1"]},
+        {"target_keys": ["spark4.0"]},
+        {"families": ["pip"]},
+        {"repositories": ["internal"], "families": ["maven"]},
+    ],
+)
+def test_preview_discloses_exact_public_pypi_inventory(kwargs):
+    from release_ops import _required_rows
+    from verify_release import public_pypi_wheel_name
+
+    plan = build_plan("1.2.0", **kwargs)
+    text = render_text(plan)
+    selected = any(row[0] == "pypi" for row in _required_rows(plan))
+    assert ("PUBLIC PYPI\n" in text) == selected
+    assert ("synapseml==1.2.0" in text) == selected
+    assert (public_pypi_wheel_name("1.2.0") in text) == selected
+    if not selected:
+        assert "PUBLIC PYPI: not selected" in text
+    if "pip" not in plan.families:
+        assert "PRIVATE PIP: not selected" in text
+
+
 def test_rejects_non_numeric_internal_patch():
     with pytest.raises(ValueError):
         build_plan("1.1.3", internal_patch="x")

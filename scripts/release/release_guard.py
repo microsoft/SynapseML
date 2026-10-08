@@ -29,11 +29,15 @@ from release_matrix import (
 )
 from verify_release import (
     PUBLIC_MAVEN_MODULES,
+    collect_public_artifact_content,
     decode_evidence,
     maven_artifact_filename,
+    public_artifact_receipts,
     public_pypi_wheel_name,
+    required_public_maven_paths,
     validate_evidence,
     validate_public_maven_inventory,
+    verify_public_api_docs,
 )
 
 
@@ -145,6 +149,17 @@ def verify_notebook_downloads(plan, report):
             )
 
 
+def verify_public_downloads(plan, report):
+    cache = {}
+    targets = {target.key: target for target in plan.targets}
+    for run in report["producer_evidence"]["runs"]:
+        for document in run["provenance"]:
+            collect_public_artifact_content(
+                plan, targets[document["target"]], document, cache
+            )
+    verify_notebook_downloads(plan, report)
+
+
 def maven_plan(payload, approval, source_ref, commit):
     if not isinstance(payload, str) or not payload or len(payload) > 65536:
         raise ValueError("Maven publication requires a bounded release-plan payload")
@@ -194,6 +209,23 @@ def _git(repo, *arguments, input_text=None):
     return result.stdout.decode("utf-8").strip()
 
 
+def validate_runtime(repo, target):
+    build = _git(repo, "show", target.oss_commit + ":build.sbt")
+    environment = _git(repo, "show", target.oss_commit + ":environment.yml")
+    spark = re.findall(r'\bval sparkVersion\s*=\s*"([^"]+)"', build)
+    scala = re.findall(r'\bscalaVersion\s*:=\s*"([^"]+)"', build)
+    python = re.findall(r"(?m)^\s*-\s*python=([0-9.]+)\s*$", environment)
+    for actual, expected in (
+        (spark, target.spark),
+        (scala, target.scala),
+        (python, target.python),
+    ):
+        if len(actual) != 1 or not (
+            actual[0] == expected or actual[0].startswith(expected + ".")
+        ):
+            raise ValueError(f"{target.key} candidate has an unexpected runtime")
+
+
 def validate_checkout(repo, target):
     if _git(repo, "rev-parse", "HEAD") != target.oss_commit:
         raise ValueError("checkout HEAD does not match the approved commit")
@@ -204,6 +236,7 @@ def validate_checkout(repo, target):
         raise ValueError("local release tag does not match the approved commit")
     if _git(repo, "status", "--porcelain", "--untracked-files=normal"):
         raise ValueError("release checkout is dirty")
+    validate_runtime(repo, target)
 
 
 def _remote_refs(repo, kind, requested):
@@ -442,8 +475,102 @@ def pypi_wheel_receipt(path, version):
     return {"path": f"pypi/{expected}", "sha256": digest.hexdigest(), "size": size}
 
 
+def _maven_identity(plan, target, build_id):
+    if type(build_id) is not int or build_id < 1:
+        raise ValueError("Maven receipt requires an authoritative build ID")
+    return {
+        "schema_version": 1,
+        "plan_id": plan.plan_id,
+        "build_id": build_id,
+        "pipeline_id": plan.oss_maven_pipeline_id,
+        "repository": "oss",
+        "target": target.key,
+        "families": ["maven"],
+        "source_tag": target.oss_maven_tag,
+        "source_commit": target.oss_commit,
+        "version": target.oss_maven_version,
+    }
+
+
+def _file_identity(path, relative):
+    if path.is_symlink() or not path.is_file():
+        raise ValueError("release artifact must be a regular, non-linked file")
+    before = path.stat()
+    if before.st_size == 0:
+        raise ValueError("release artifact must not be empty")
+    digest = hashlib.sha256()
+    size = 0
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+            size += len(chunk)
+    after = path.stat()
+    if before.st_size != size or (
+        before.st_size,
+        before.st_mtime_ns,
+        before.st_ino,
+    ) != (after.st_size, after.st_mtime_ns, after.st_ino):
+        raise ValueError("Maven artifact changed while recording publication")
+    return {"path": relative, "sha256": digest.hexdigest(), "size": size}
+
+
+def blob_maven_receipt(plan, target, artifact_root, build_id):
+    root = Path(artifact_root)
+    if not root.is_dir() or root.is_symlink():
+        raise ValueError(
+            "Blob artifact root must be the published Maven-local directory"
+        )
+    artifacts = []
+    for relative in sorted(
+        required_public_maven_paths(target.oss_maven_version, target.scala)
+    ):
+        module, filename = relative.split("/")
+        directory = root / module / target.oss_maven_version
+        if (root / module).is_symlink() or directory.is_symlink():
+            raise ValueError("Blob artifact directories must not be symbolic links")
+        artifacts.append(_file_identity(directory / filename, relative))
+    validate_public_maven_inventory(artifacts, target.oss_maven_version, target.scala)
+    return {
+        **_maven_identity(plan, target, build_id),
+        "destination": "maven",
+        "artifacts": artifacts,
+    }
+
+
+def _read_blob_receipt(path, plan, target, build_id):
+    if path is None:
+        raise ValueError("Public Maven approval requires the Blob producer receipt")
+    path = Path(path)
+    if path.is_symlink():
+        raise ValueError("Blob producer receipt must not be a symbolic link")
+    with path.open("rb") as stream:
+        raw = stream.read(2 * 1024 * 1024 + 1)
+    if len(raw) > 2 * 1024 * 1024:
+        raise ValueError("Blob producer receipt exceeds the supported size")
+    document = parse_plan_json(raw)
+    expected = {**_maven_identity(plan, target, build_id), "destination": "maven"}
+    if (
+        not isinstance(document, dict)
+        or set(document) != set(expected) | {"artifacts"}
+        or any(document.get(key) != value for key, value in expected.items())
+        or type(document.get("build_id")) is not int
+        or type(document.get("pipeline_id")) is not int
+        or type(document.get("schema_version")) is not int
+    ):
+        raise ValueError(
+            "Blob producer receipt differs from the approved release identity"
+        )
+    return document["artifacts"]
+
+
 def maven_receipt(
-    plan, target, artifact_root, build_id, pypi_wheel=None, dbc_directory=None
+    plan,
+    target,
+    artifact_root,
+    build_id,
+    pypi_wheel=None,
+    dbc_directory=None,
+    blob_receipt=None,
 ):
     artifacts = []
     root = Path(artifact_root)
@@ -464,29 +591,7 @@ def maven_receipt(
         if module not in expected:
             raise ValueError("Maven artifact differs from the approved coordinate")
         maven_artifact_filename(path.name, module, target.oss_maven_version)
-        before = path.stat()
-        if before.st_size == 0:
-            raise ValueError("release artifact must not be empty")
-        digest = hashlib.sha256()
-        size = 0
-        with path.open("rb") as stream:
-            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-                digest.update(chunk)
-                size += len(chunk)
-        after = path.stat()
-        if before.st_size != size or (
-            before.st_size,
-            before.st_mtime_ns,
-            before.st_ino,
-        ) != (after.st_size, after.st_mtime_ns, after.st_ino):
-            raise ValueError("Maven artifact changed while recording publication")
-        artifacts.append(
-            {
-                "path": relative.as_posix(),
-                "sha256": digest.hexdigest(),
-                "size": size,
-            }
-        )
+        artifacts.append(_file_identity(path, relative.as_posix()))
     validate_public_maven_inventory(artifacts, target.oss_maven_version, target.scala)
     if type(build_id) is not int or build_id < 1:
         raise ValueError("Maven receipt requires an authoritative build ID")
@@ -505,19 +610,14 @@ def maven_receipt(
         artifacts.append({key: dbc[key] for key in ("path", "sha256", "size")})
     elif dbc_directory is not None:
         raise ValueError("legacy approved plans do not authorize DBC publication")
-    return {
-        "schema_version": 1,
-        "plan_id": plan.plan_id,
-        "build_id": build_id,
-        "pipeline_id": plan.oss_maven_pipeline_id,
-        "repository": "oss",
-        "target": target.key,
-        "families": ["maven"],
-        "source_tag": target.oss_maven_tag,
-        "source_commit": target.oss_commit,
-        "version": target.oss_maven_version,
+    document = {
+        **_maven_identity(plan, target, build_id),
+        "schema_version": 2,
         "artifacts": artifacts,
+        "blob_artifacts": _read_blob_receipt(blob_receipt, plan, target, build_id),
     }
+    public_artifact_receipts(plan, target, document)
+    return document
 
 
 def main(argv=None):
@@ -561,6 +661,13 @@ def main(argv=None):
     maven.add_argument("--receipt", type=Path)
     maven.add_argument("--pypi-wheel", type=Path)
     maven.add_argument("--dbc-directory", type=Path)
+    maven.add_argument("--blob-receipt", type=Path)
+    blob = commands.add_parser("blob-receipt")
+    blob.add_argument("--repo", type=Path, default=Path("."))
+    blob.add_argument("--artifact-root", type=Path, required=True)
+    blob.add_argument("--receipt", type=Path, required=True)
+    docs = commands.add_parser("api-docs")
+    docs.add_argument("--repo", type=Path, default=Path("."))
     args = parser.parse_args(argv)
     try:
         if args.command == "full-release":
@@ -599,7 +706,7 @@ def main(argv=None):
                 with Path(args.evidence).open(encoding="utf-8-sig") as stream:
                     report = parse_plan_json(stream.read())
             validate_evidence(plan, report)
-            verify_notebook_downloads(plan, report)
+            verify_public_downloads(plan, report)
             if args.installation_output:
                 with args.installation_output.open("x", encoding="utf-8") as stream:
                     stream.write(notes_installation(plan))
@@ -612,6 +719,25 @@ def main(argv=None):
                 os.environ.get("BUILD_SOURCEVERSION", ""),
             )
             validate_checkout(args.repo, target)
+            if args.command == "api-docs":
+                if target.key != "master":
+                    raise ValueError(
+                        "Only the primary target publishes API documentation"
+                    )
+                verify_public_api_docs(target.oss_maven_version)
+                print("Public API documentation is available for the approved source")
+                return 0
+            if args.command == "blob-receipt":
+                receipt = blob_maven_receipt(
+                    plan,
+                    target,
+                    args.artifact_root,
+                    int(os.environ.get("BUILD_BUILDID", "0")),
+                )
+                args.receipt.parent.mkdir(parents=True, exist_ok=True)
+                with args.receipt.open("x", encoding="utf-8") as stream:
+                    stream.write(json.dumps(receipt, indent=2) + "\n")
+                return 0
             if bool(args.receipt) != bool(args.artifact_root):
                 raise ValueError(
                     "--receipt and --artifact-root must be supplied together"
@@ -624,6 +750,7 @@ def main(argv=None):
                     int(os.environ.get("BUILD_BUILDID", "0")),
                     args.pypi_wheel,
                     args.dbc_directory,
+                    args.blob_receipt,
                 )
                 args.receipt.parent.mkdir(parents=True, exist_ok=True)
                 args.receipt.write_text(

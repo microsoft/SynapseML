@@ -85,6 +85,35 @@ function validateSpark40References(markdown, version) {
   }
 }
 
+function validatePythonInstallVariants(markdown, variants) {
+  for (const artifact of variants) {
+    assert.ok(
+      markdown.includes(
+        `python -m pip install "${artifact.pythonPackage}" "pyspark${artifact.pysparkSpec}"`,
+      ),
+      `missing runtime-matched Python command for ${artifact.branch}`,
+    );
+  }
+}
+
+test("Python install variants cannot use the primary pin for a retained runtime", () => {
+  const variants = artifacts.map((artifact) => ({
+    ...artifact,
+    pythonPackage: artifact.branch === "spark4.0"
+      ? "synapseml==1.0.0" : "synapseml==2.0.0",
+  }));
+  const commands = variants.map((artifact) =>
+    `python -m pip install "${artifact.pythonPackage}" "pyspark${artifact.pysparkSpec}"`,
+  ).join("\n");
+  validatePythonInstallVariants(commands, variants);
+  assert.throws(
+    () => validatePythonInstallVariants(
+      commands.replace("synapseml==1.0.0", "synapseml==2.0.0"), variants,
+    ),
+    /missing runtime-matched Python command for spark4.0/,
+  );
+});
+
 test("partial optional-runtime edits cannot pass beside matching references", () => {
   const readme = read("README.md");
   const next = "999.8.7";
@@ -274,6 +303,7 @@ for (const guide of installGuides) {
   test(`installation examples are concrete in ${relativePath}`, () => {
     const markdown = read(...guide.path);
     validateSpark40References(markdown, spark40Version);
+    validatePythonInstallVariants(markdown, artifacts);
 
     assert.match(markdown, /does \*\*not\*\* add the\s+JVM artifacts/);
     assert.match(markdown, /LightGBMClassifier does not exist in the JVM/);
@@ -326,7 +356,14 @@ test("website landing page exposes only maintained runtime installs", () => {
     ]) {
       assert.match(index, new RegExp(`${key}\\.${field}`));
     }
+    const row = index.match(new RegExp(
+      `<tr>\\s*<td><code>\\{${key}\\.branch\\}</code></td>([\\s\\S]*?)</tr>`,
+    ));
+    assert.ok(row, `missing installation row for ${key}`);
+    assert.match(row[1], new RegExp(`\\{${key}\\.pythonPackage\\}`));
   }
+  assert.doesNotMatch(index, /All released Python variants use/);
+  assert.doesNotMatch(index, /synapseml==\{version\}/);
   assert.match(index, /latest successful/);
   assert.match(
     index,
@@ -404,6 +441,12 @@ test("specialized install guides use concrete maintained coordinates", () => {
     assert.match(guide, /Python wheel supplies wrappers/);
     assert.ok(guide.includes(installArtifacts.spark40.coordinate));
     assert.ok(guide.includes(installArtifacts.spark41.coordinate));
+  }
+  validatePythonInstallVariants(deepLearning, artifacts);
+  // Published snapshots predate runtime-specific Python commands.
+  if (versionedDeepLearning.includes("Choose exactly one Python/PySpark runtime variant") ||
+      /^r_installation: source$/m.test(versionedRSetup)) {
+    validatePythonInstallVariants(versionedDeepLearning, artifacts);
   }
 
   for (const artifact of artifacts) {

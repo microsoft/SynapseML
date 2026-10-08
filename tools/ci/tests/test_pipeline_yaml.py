@@ -8,6 +8,7 @@ shared helper. Run with: ``python -m pytest tools/ci/tests/test_pipeline_yaml.py
 
 import os
 import re
+import shlex
 import subprocess
 from pathlib import Path
 
@@ -100,6 +101,38 @@ def test_pipeline_and_templates_parse():
     assert yaml.safe_load(CLEAN_ACR_PIPELINE.read_text()) is not None
     for tpl in (REPO_ROOT / "templates").glob("*.yml"):
         assert yaml.safe_load(tpl.read_text()) is not None, f"{tpl} failed to parse"
+
+
+def test_release_ci_includes_version_bump_regressions():
+    workflow = yaml.safe_load(
+        (REPO_ROOT / ".github" / "workflows" / "pr-validation.yml").read_text()
+    )
+    steps = workflow["jobs"]["compile-and-lint"]["steps"]
+    release_step = next(
+        step
+        for step in steps
+        if step.get("name") == "Exercise release tooling without publication"
+    )
+    commands = [shlex.split(line) for line in release_step["run"].splitlines()]
+    pytest_command = next(
+        command for command in commands if command[:3] == ["python", "-m", "pytest"]
+    )
+    assert {
+        "scripts/release",
+        "scripts/test_bump_version.py",
+        "tools/ci/tests/test_pipeline_yaml.py",
+    } <= set(pytest_command)
+    assert "-k" not in pytest_command
+    install = next(
+        command
+        for command in commands
+        if command[:4] == ["python", "-m", "pip", "install"]
+    )
+    assert {"pytest", "pyyaml", "hypothesis"} <= set(install)
+    checkout = next(
+        step for step in steps if step.get("uses", "").startswith("actions/checkout@")
+    )
+    assert checkout.get("with", {}).get("fetch-depth") == 0
 
 
 def test_pipeline_has_no_release_branch_replay():
@@ -882,6 +915,7 @@ def test_maven_receipt_follows_esrp_publication_and_uses_its_actual_directory():
     published_root = esrp["inputs"]["folderlocation"]
     assert f'--artifact-root "{published_root}"' in receipt["bash"]
     assert ".ivy2" not in receipt["bash"]
+    assert "--blob-receipt" in receipt["bash"]
     assert steps.index(esrp) < steps.index(receipt)
     assert any(
         "prepare_jar.py" in step.get("bash", "")
@@ -890,12 +924,98 @@ def test_maven_receipt_follows_esrp_publication_and_uses_its_actual_directory():
     )
 
 
+def test_blob_receipt_uses_publish_job_bytes_and_exact_attempt_handoff():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {job["job"]: job for job in _jobs(data["jobs"])}
+    publish = next(
+        step
+        for step in jobs["Publish"]["steps"]
+        if step.get("displayName") == "Publish Artifacts"
+    )
+    script = publish["inputs"]["inlineScript"]
+    assert (
+        script.index("sbt -DskipCodegen=true publishBlob")
+        < script.index("release_guard.py blob-receipt")
+        < script.index("sbt genBuildInfo")
+    )
+    assert '--artifact-root "$HOME/.m2/repository/com/microsoft/azure"' in script
+    assert "blob-provenance.json" in script
+    assert "release-provenance.json" not in script
+    assert (
+        publish["env"]["RELEASE_PLAN_BASE64"] == "${{ parameters.release_plan_base64 }}"
+    )
+    release = jobs["Release"]
+    assert release["variables"]["releaseBlobArtifact"] == (
+        "$[ dependencies.Publish.outputs['publishArtifacts.blobArtifactName'] ]"
+    )
+    steps = release["steps"]
+    download = next(
+        s
+        for s in steps
+        if s.get("displayName") == "Download published Blob Maven hashes"
+    )
+    handoff = next(
+        s
+        for s in steps
+        if s.get("displayName") == "Validate Blob Maven receipt handoff"
+    )
+    receipt = next(
+        s
+        for s in steps
+        if s.get("displayName") == "Record published Maven source and artifact hashes"
+    )
+    assert steps.index(handoff) < steps.index(download) < steps.index(receipt)
+    assert download["inputs"]["buildType"] == "current"
+    assert download["inputs"]["artifactName"] == "$(releaseBlobArtifact)"
+    directory = download["inputs"]["targetPath"]
+    assert f'--blob-receipt "{directory}/blob-provenance.json"' in receipt["bash"]
+
+
+def test_primary_api_docs_publication_is_source_bound_and_precedes_maven_upload():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {job["job"]: job for job in _jobs(data["jobs"])}
+    publish = jobs["Publish"]
+    task = next(
+        step
+        for step in publish["steps"]
+        if step.get("displayName") == "Publish Artifacts"
+    )
+    guarded = publish["steps"][0]["${{ if eq(parameters.publishRelease, true) }}"]
+    assert any("release_guard.py maven" in step.get("bash", "") for step in guarded)
+    script = task["inputs"]["inlineScript"]
+    primary = script.split('case "${PRIMARY_RELEASE,,}" in', 1)[1].split("esac", 1)[0]
+    assert "sudo apt-get install graphviz doxygen -y" in primary
+    assert "sbt -DskipCodegen=true publishDocs" in primary
+    assert "release_guard.py api-docs" in primary
+    assert "false) ;;" in primary
+    assert "Invalid primary release identity." in primary
+    assert (
+        script.index("sbt packagePython")
+        < script.index("sbt -DskipCodegen=true publishDocs")
+        < script.index("release_guard.py api-docs")
+        < script.index("sbt -DskipCodegen=true publishBlob")
+    )
+    assert not any(
+        name in primary for name in ("uploadNotebooks", "publishR", "publishPython")
+    )
+    assert task["env"]["PRIMARY_RELEASE"] == "$(isPrimaryRelease)"
+    assert task["env"]["RELEASE_PLAN_ID"] == "${{ parameters.release_plan_id }}"
+    assert task["env"]["RELEASE_PLAN_BASE64"] == "${{ parameters.release_plan_base64 }}"
+    assert task["env"]["SYNAPSEML_ENABLE_PUBLISH"] is True
+    assert "Publish" in jobs["Release"]["dependsOn"]
+    assert not any(
+        "publishDocs" in str(step) or "api-docs" in str(step)
+        for step in jobs["Release"]["steps"]
+    )
+
+
 @pytest.mark.parametrize(
     "release_requested", ["true", "True", "false", "False", "invalid"]
 )
 @pytest.mark.parametrize("failure", ["none", "activation", "sbt"])
+@pytest.mark.parametrize("primary", ["true", "false"])
 def test_publication_script_respects_the_approved_artifact_family(
-    tmp_path, release_requested, failure
+    tmp_path, release_requested, failure, primary
 ):
     jobs = {job["job"]: job for job in _jobs(yaml.safe_load(_pipeline_text())["jobs"])}
     task = next(
@@ -903,7 +1023,12 @@ def test_publication_script_respects_the_approved_artifact_family(
         for step in jobs["Publish"]["steps"]
         if step.get("displayName") == "Publish Artifacts"
     )
-    script = task["inputs"]["inlineScript"].replace("$(packageVersion)", "1.2.0")
+    script = (
+        task["inputs"]["inlineScript"]
+        .replace("$(packageVersion)", "1.2.0")
+        .replace("$(Build.ArtifactStagingDirectory)", str(tmp_path))
+        .replace("$(System.JobAttempt)", "1")
+    )
     calls = tmp_path / "sbt-calls"
     stub = """
 unset SYNAPSEML_TEST_PREVIOUS_ADDR2LINE
@@ -913,6 +1038,7 @@ sbt() {
   if [ "$SIMULATED_FAILURE" = sbt ]; then return 31; fi
 }
 sudo() { :; }
+python3() { :; }
 source() {
   local previous="$SYNAPSEML_TEST_PREVIOUS_ADDR2LINE"
   if [ "$SIMULATED_FAILURE" = activation ]; then return 23; fi
@@ -925,6 +1051,7 @@ source() {
             **os.environ,
             "SBT_CALLS": str(calls),
             "RELEASE_REQUESTED": release_requested,
+            "PRIMARY_RELEASE": primary,
             "SIMULATED_FAILURE": failure,
         },
         capture_output=True,
@@ -952,7 +1079,9 @@ source() {
     non_maven = {"uploadNotebooks", "publishDocs", "publishR", "publishPython"}
     published = {word for command in observed for word in command.split()}
     if release_requested.lower() == "true":
-        assert not non_maven.intersection(published)
+        assert non_maven.intersection(published) == (
+            {"publishDocs"} if primary == "true" else set()
+        )
     else:
         assert non_maven <= published
 

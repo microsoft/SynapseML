@@ -286,6 +286,7 @@ jobs:
           artifactsFeeds: SynapseML_PublicPackages
           mavenServiceConnections: SynapseML_PublicPackages-Feed-Connection
       - task: AzureCLI@2
+        name: publishArtifacts
         displayName: 'Publish Artifacts'
         inputs:
           azureSubscription: 'SynapseML Build'
@@ -305,7 +306,23 @@ jobs:
               true)
                 activate_synapseml
                 sbt packagePython
+                case "${PRIMARY_RELEASE,,}" in
+                  true)
+                    sudo apt-get install graphviz doxygen -y
+                    sbt -DskipCodegen=true publishDocs
+                    python3 scripts/release/release_guard.py api-docs
+                    ;;
+                  false) ;;
+                  *)
+                    echo "Invalid primary release identity." >&2
+                    exit 1
+                    ;;
+                esac
                 sbt -DskipCodegen=true publishBlob
+                python3 scripts/release/release_guard.py blob-receipt \
+                  --artifact-root "$HOME/.m2/repository/com/microsoft/azure" \
+                  --receipt "$(Build.ArtifactStagingDirectory)/blob-receipt-$(System.JobAttempt)/blob-provenance.json"
+                echo "##vso[task.setvariable variable=blobArtifactName;isOutput=true]release-maven-blob-$(System.JobAttempt)"
                 ;;
               false)
                 sudo apt-get install graphviz doxygen -y
@@ -329,6 +346,15 @@ jobs:
           PGP-PW: $(pgp-pw)
           SYNAPSEML_ENABLE_PUBLISH: true
           RELEASE_REQUESTED: ${{ parameters.publishRelease }}
+          PRIMARY_RELEASE: $(isPrimaryRelease)
+          RELEASE_PLAN_BASE64: ${{ parameters.release_plan_base64 }}
+          RELEASE_PLAN_ID: ${{ parameters.release_plan_id }}
+      - ${{ if eq(parameters.publishRelease, true) }}:
+        - task: PublishPipelineArtifact@1
+          displayName: 'Retain published Blob Maven hashes'
+          inputs:
+            targetPath: '$(Build.ArtifactStagingDirectory)/blob-receipt-$(System.JobAttempt)'
+            artifact: '$(publishArtifacts.blobArtifactName)'
       - task: AzureCLI@2
         inputs:
           azureSubscription: 'SynapseML Build'
@@ -615,6 +641,7 @@ jobs:
     condition: and(succeeded(), eq('${{ parameters.publishRelease }}', true))
     variables:
       releaseDbcArtifact: $[ dependencies.Publish.outputs['buildDbc.artifactName'] ]
+      releaseBlobArtifact: $[ dependencies.Publish.outputs['publishArtifacts.blobArtifactName'] ]
     cancelTimeoutInMinutes: 0
     pool:
       vmImage: $(UBUNTU_VERSION)
@@ -668,6 +695,21 @@ jobs:
         inputs:
           azureSubscription: 'SynapseML Build'
           keyVaultName: mmlspark-keys
+      - bash: |
+          set -euo pipefail
+          if [[ ! "$BLOB_ARTIFACT" =~ ^release-maven-blob-[1-9][0-9]*$ ]]; then
+            echo "Expected the Blob Maven receipt from Publish." >&2
+            exit 1
+          fi
+        displayName: 'Validate Blob Maven receipt handoff'
+        env:
+          BLOB_ARTIFACT: $(releaseBlobArtifact)
+      - task: DownloadPipelineArtifact@2
+        displayName: 'Download published Blob Maven hashes'
+        inputs:
+          buildType: 'current'
+          artifactName: '$(releaseBlobArtifact)'
+          targetPath: '$(Build.ArtifactStagingDirectory)/blob-receipt-$(System.JobAttempt)'
       - bash: |
           set -euo pipefail
           if [[ ! "$DBC_ARTIFACT" =~ ^release-dbc-[1-9][0-9]*$ ]]; then
@@ -759,6 +801,7 @@ jobs:
           python3 scripts/release/release_guard.py maven \
             --artifact-root "$(Build.ArtifactStagingDirectory)/maven-release-$(System.JobAttempt)" \
             --receipt "$(Build.ArtifactStagingDirectory)/release-provenance/release-provenance.json" \
+            --blob-receipt "$(Build.ArtifactStagingDirectory)/blob-receipt-$(System.JobAttempt)/blob-provenance.json" \
             "${PYPI_ARGS[@]}" "${DBC_ARGS[@]}"
         displayName: 'Record published Maven source and artifact hashes'
         env:

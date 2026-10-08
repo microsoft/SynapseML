@@ -311,6 +311,39 @@ def test_bootstrap_refuses_without_creating_any_tag(candidates, monkeypatch, fai
     assert git(origin, "show-ref") == before
 
 
+@pytest.mark.parametrize("target_key", ["master", "spark4.1"])
+@pytest.mark.parametrize("runtime", ["spark", "scala", "python"])
+def test_bootstrap_rejects_mismatched_runtime_before_tagging(
+    candidates, monkeypatch, target_key, runtime
+):
+    import release_guard as guard
+
+    bootstrap, repo, origin, plan, _, _ = candidates
+    target = next(target for target in plan.targets if target.key == target_key)
+    original = guard._git
+
+    def git(path, *args, **kwargs):
+        value = original(path, *args, **kwargs)
+        if args == ("show", target.oss_commit + ":build.sbt"):
+            if runtime == "spark":
+                value = value.replace(f'"{target.spark}.0"', '"0.0.0"')
+            elif runtime == "scala":
+                value = value.replace(f'"{target.scala}.17"', '"0.0.0"')
+        elif (
+            args == ("show", target.oss_commit + ":environment.yml")
+            and runtime == "python"
+        ):
+            value = value.replace(f"python={target.python}", "python=0.0")
+        return value
+
+    monkeypatch.setattr(guard, "_git", git)
+    monkeypatch.setattr(bootstrap, "_git", git)
+    before = git(origin, "show-ref")
+    with pytest.raises(ValueError, match="unexpected runtime"):
+        bootstrap.execute(repo, plan, plan.plan_id, apply=True)
+    assert git(origin, "show-ref") == before
+
+
 def test_atomic_server_rejection_preserves_all_remote_tags(candidates):
     bootstrap, repo, origin, plan, _, _ = candidates
     hook = origin / "hooks" / "pre-receive"

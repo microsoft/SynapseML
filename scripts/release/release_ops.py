@@ -90,6 +90,10 @@ class ReleaseError(RuntimeError):
     """A safe-to-display validation failure, without raw service diagnostics."""
 
 
+class ReleaseReadError(ReleaseError):
+    """An authoritative read failed; preserve state and stop further submissions."""
+
+
 def now():
     return datetime.now(timezone.utc).isoformat()
 
@@ -163,6 +167,13 @@ def _safe_error(error):
     if isinstance(error, ReleaseError):
         return str(error)
     return "Authoritative service query failed; no operation will be retried."
+
+
+def _remote_read(query, *args):
+    try:
+        return query(*args)
+    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+        raise ReleaseReadError(_safe_error(error)) from error
 
 
 class CommandRunner:
@@ -384,6 +395,9 @@ class AzureRemote:
             plan, token=self.token(), gh_token=os.environ.get("GH_TOKEN"), skip=None
         )
 
+    def public_artifact_content(self, plan, target, document):
+        return verify.collect_public_artifact_content(plan, target, document)
+
     def resolve_feed(self, name):
         encoded = urllib.parse.quote(name.rsplit("/", 1)[-1], safe="")
         return self._get(
@@ -528,6 +542,68 @@ class AzureRemote:
 
     def queue(self, command):
         return self.runner.json(command)
+
+    def maven_absence(self, plan, action):
+        target = _target(plan, action["target"])
+        repository, version = action["repository"], action["version"]
+        modules = (
+            verify.PUBLIC_MAVEN_MODULES
+            if repository == "oss"
+            else [matrix.package_name(plan.private_profile, repository, "maven")]
+        )
+        bases = [verify.MAVEN_BASE]
+        if repository == "oss":
+            bases.append(verify.MAVEN_CENTRAL_BASE)
+        headers = {"User-Agent": "synapseml-release-ops"}
+        deadline = monotonic() + 180
+
+        def present(url):
+            if monotonic() >= deadline:
+                raise ReleaseError("Maven namespace absence check timed out")
+            result = verify._url_exists(url, headers)
+            if monotonic() >= deadline:
+                raise ReleaseError("Maven namespace absence check timed out")
+            return result
+
+        suffixes = [".pom"] + [
+            classifier + ".jar"
+            for classifier in (
+                "",
+                "-sources",
+                "-javadoc",
+                "-tests",
+                "-test-sources",
+                "-test-javadoc",
+                "-tests-sources",
+                "-tests-javadoc",
+            )
+        ]
+        for module in modules:
+            artifact = f"{module}_{target.scala}"
+            for base in bases:
+                prefix = (
+                    f"{base}/com/microsoft/azure/{artifact}/{version}/"
+                    f"{artifact}-{version}"
+                )
+                for suffix in suffixes:
+                    for signature in ("", ".asc"):
+                        for checksum in ("", ".md5", ".sha1", ".sha256", ".sha512"):
+                            filename = (
+                                f"{artifact}-{version}{suffix}{signature}{checksum}"
+                            )
+                            verify.maven_artifact_filename(filename, artifact, version)
+                            if present(prefix + suffix + signature + checksum):
+                                return False
+        if repository == "oss":
+            if target.key == "master" and present(
+                f"{verify.PYPI_BASE}/synapseml/{plan.oss_version}/json"
+            ):
+                return False
+            if plan.schema_version == matrix.PUBLIC_SCHEMA_VERSION and present(
+                f"{verify.DBC_BASE}/{verify.public_dbc_name(version)}"
+            ):
+                return False
+        return True
 
     def absence(self, plan, actions, destinations):
         artifacts = _absence_descriptors(plan, actions, destinations)
@@ -1315,6 +1391,10 @@ def _validate_state(data, plan):
                 publisher_commit=receipt.get("publisher_commit"),
                 destinations=data["destinations"],
             )
+            if "public_artifacts" in receipt:
+                _validate_public_content(
+                    plan, action, receipt["provenance"], receipt["public_artifacts"]
+                )
         if action["status"] == "complete" and (
             action["receipt"] is None
             or action["outcome"] is None
@@ -1677,16 +1757,14 @@ class StateStore:
             raise ReleaseError(
                 "Release state would exceed its size limit; retain the recorded run IDs"
             )
-        if not self.claim_data["initialized"]:
-            self.claim_data["initialized"] = True
-            self.claim_data["claim_id"] = _digest(self.claim_data, "claim_id")
-            claim_body = canonical(self.claim_data) + b"\n"
-            self._replace(self.claim, claim_body)
-            self.claim_bytes = claim_body
         self._replace(self.path, body)
         self.fingerprint = hashlib.sha256(body).hexdigest()
         self.loaded_version = STATE_VERSION
-        if self.claim_data["state_version"] != STATE_VERSION:
+        if (
+            not self.claim_data["initialized"]
+            or self.claim_data["state_version"] != STATE_VERSION
+        ):
+            self.claim_data["initialized"] = True
             self.claim_data["state_version"] = STATE_VERSION
             self.claim_data["claim_id"] = _digest(self.claim_data, "claim_id")
             claim_body = canonical(self.claim_data) + b"\n"
@@ -1787,6 +1865,22 @@ def _observe(state):
                 action[
                     "error"
                 ] = "Artifacts already exist; adopt a matching Azure run for source provenance."
+            elif action["kind"] == "maven" and any(
+                row["status"] == verify.OK
+                for row in _artifact_rows(
+                    state["inventory"],
+                    action["repository"],
+                    action["target"],
+                    action["family"],
+                    state["plan"],
+                )
+            ):
+                action["status"] = "existing"
+                action["error"] = (
+                    "Maven artifacts are partially present; adopt the original producer "
+                    "or investigate before publication. Same-coordinate resubmission is forbidden."
+                )
+                action["blocked"].append(action["error"])
             elif action["status"] == "existing":
                 action["blocked"].append(
                     "Previously observed immutable artifacts disappeared; investigate before publication."
@@ -1843,7 +1937,7 @@ def _validate_build(plan, action, build, remote):
         raise ReleaseError(
             "Azure build ID or pipeline definition does not match the operation"
         )
-    definition = remote.definition(action["pipeline_id"])
+    definition = _remote_read(remote.definition, action["pipeline_id"])
     repository = build.get("repository")
     if (
         not isinstance(definition, dict)
@@ -1920,6 +2014,7 @@ def _validate_build(plan, action, build, remote):
         "completed",
     }:
         raise ReleaseError("Azure build returned an invalid status")
+    queued = _time(build.get("queueTime"), "Azure build queue")
     if status == "completed":
         if not isinstance(result, str) or result not in {
             "succeeded",
@@ -1928,10 +2023,10 @@ def _validate_build(plan, action, build, remote):
             "partiallySucceeded",
         }:
             raise ReleaseError("Azure completed build returned an invalid result")
-        _time(build.get("finishTime"), "Azure build finish")
+        if _time(build.get("finishTime"), "Azure build finish") < queued:
+            raise ReleaseError("Azure build finish precedes its queue time")
     elif result not in (None, "none"):
         raise ReleaseError("Azure pending build already has a conflicting result")
-    _time(build.get("queueTime"), "Azure build queue")
     return {
         "checked_at": now(),
         "build_id": build["id"],
@@ -1964,6 +2059,19 @@ def _execution_window(record, label, required):
     if finish < start:
         raise ReleaseError("Warning proof contains reversed execution times")
     return start, finish
+
+
+def _validate_job_windows(build, jobs):
+    queued = _time(build.get("queueTime"), "Azure build queue")
+    finished = _time(build.get("finishTime"), "Azure build finish")
+    if finished < queued:
+        raise ReleaseError("Azure build finish precedes its queue time")
+    for job in jobs:
+        window = _execution_window(
+            job, "Azure job execution", job["result"] != "skipped"
+        )
+        if window is not None and (window[0] < queued or window[1] > finished):
+            raise ReleaseError("Job evidence is outside its producer build window")
 
 
 def _checked_tasks(jobs):
@@ -2344,7 +2452,15 @@ def _validate_manifests(
         if (
             not isinstance(document, dict)
             or type(document.get("schema_version")) is not int
-            or document["schema_version"] != 1
+            or document["schema_version"] not in {1, 2}
+            or (
+                document["schema_version"] == 2
+                and not (
+                    action["repository"] == "oss"
+                    and action["family"] == "maven"
+                    and plan.schema_version in matrix.PUBLIC_SCHEMA_VERSIONS
+                )
+            )
             or document.get("plan_id") != plan.plan_id
             or type(document.get("build_id")) is not int
             or document["build_id"] != build_id
@@ -2478,6 +2594,9 @@ def _validate_manifests(
                     plan.oss_version if target.key == "master" else None,
                     require_dbc=plan.schema_version == matrix.PUBLIC_SCHEMA_VERSION,
                 )
+                if document["schema_version"] == 2:
+                    verify.public_artifact_receipts(plan, target, document)
+                    fields.add("blob_artifacts")
             except ValueError as error:
                 raise ReleaseError(str(error)) from error
         normalized.append(
@@ -2492,6 +2611,22 @@ def _validate_manifests(
     if seen != wanted:
         raise ReleaseError("Release provenance omits a required family")
     return normalized
+
+
+def _validate_public_content(plan, action, documents, observations):
+    if (
+        plan.schema_version not in matrix.PUBLIC_SCHEMA_VERSIONS
+        or action["repository"] != "oss"
+        or action["family"] != "maven"
+        or len(documents) != 1
+    ):
+        raise ReleaseError("Public artifact content has an invalid producer scope")
+    try:
+        verify.validate_public_artifact_content(
+            plan, _target(plan, action["target"]), documents[0], observations
+        )
+    except ValueError as error:
+        raise ReleaseError(str(error)) from error
 
 
 def _validate_dbc_content(plan, action, documents, report):
@@ -2520,7 +2655,7 @@ def _validate_dbc_content(plan, action, documents, report):
 def _refresh_group(plan, state, actions, remote):
     first = actions[0]
     try:
-        build = remote.build(first["build_id"])
+        build = _remote_read(remote.build, first["build_id"])
         outcome = _validate_build(plan, first, build, remote)
         for action in actions:
             action["outcome"] = copy.deepcopy(outcome)
@@ -2541,11 +2676,15 @@ def _refresh_group(plan, state, actions, remote):
                     "error"
                 ] = "Azure build did not succeed; automatic retry is forbidden."
             return
-        jobs = _jobs(remote.timeline(first["build_id"]), allow_warnings=partial)
+        jobs = _jobs(
+            _remote_read(remote.timeline, first["build_id"]), allow_warnings=partial
+        )
+        if partial:
+            _validate_job_windows(build, jobs)
         documents = _validate_manifests(
             plan,
             first,
-            remote.provenance(first["build_id"]),
+            _remote_read(remote.provenance, first["build_id"]),
             first["build_id"],
             publisher_commit=outcome["source_commit"],
             destinations=state["destinations"],
@@ -2570,6 +2709,15 @@ def _refresh_group(plan, state, actions, remote):
             }
             if _artifact_present(state, action):
                 _validate_dbc_content(plan, action, documents, state["inventory"])
+                if plan.schema_version in matrix.PUBLIC_SCHEMA_VERSIONS:
+                    observations = _remote_read(
+                        remote.public_artifact_content,
+                        plan,
+                        _target(plan, action["target"]),
+                        documents[0],
+                    )
+                    _validate_public_content(plan, action, documents, observations)
+                    action["receipt"]["public_artifacts"] = copy.deepcopy(observations)
                 action["status"] = "complete"
             else:
                 action["status"] = "pending"
@@ -2581,6 +2729,8 @@ def _refresh_group(plan, state, actions, remote):
             action["status"] = "unknown"
             action["receipt"] = None
             action["error"] = _safe_error(error)
+        if isinstance(error, ReleaseReadError):
+            raise
 
 
 def _refresh(plan, state, remote):
@@ -2650,6 +2800,14 @@ def _adopt(plan, state, specifications, remote):
             operation = _operation(plan, action, families)
         candidate = {**action, "operation": operation, "build_id": build_id}
         _validate_build(plan, candidate, build, remote)
+        if action["operation"] is not None and action["build_id"] is None:
+            earliest = _time(action["intent_at"], "Submission intent") - timedelta(
+                minutes=5
+            )
+            if _time(build["queueTime"], "Azure build queue") < earliest:
+                raise ReleaseError(
+                    "Adopted Azure build predates the unresolved submission intent"
+                )
         group = [
             value
             for value in state["actions"]
@@ -3007,9 +3165,28 @@ def _queue(plan, store, actions, remote, retry_snapshot=None, deadline=None):
     store.state["policy"] = _policy(plan, remote)
     if deadline is not None and monotonic() >= deadline:
         return
+    maven_checked_at = None
+    if actions[0]["kind"] == "maven":
+        maven_checked_at = now()
+        absent = _remote_read(remote.maven_absence, plan, actions[0])
+        if type(absent) is not bool:
+            raise ReleaseError("Maven namespace absence was not confirmed")
+        if not absent:
+            for action in actions:
+                action["status"] = "existing"
+                action["error"] = (
+                    "An immutable Maven publication output already exists; "
+                    "adopt its producer instead of submitting again."
+                )
+            _observe(store.state)
+            store.save()
+            return
+        store.state["policy"] = _policy(plan, remote)
+        if deadline is not None and monotonic() >= deadline:
+            return
     before_intent = (
         copy.deepcopy(retry_snapshot if retry_snapshot is not None else store.state)
-        if deadline is not None
+        if deadline is not None or maven_checked_at is not None
         else None
     )
     if retry_snapshot is not None:
@@ -3030,6 +3207,16 @@ def _queue(plan, store, actions, remote, retry_snapshot=None, deadline=None):
         )
     # This write must precede the request, including on the very first invocation.
     store.save()
+    if maven_checked_at is not None and not (
+        timedelta(0)
+        <= datetime.now(timezone.utc) - _time(maven_checked_at, "Maven absence")
+        <= timedelta(minutes=5)
+    ):
+        before_intent["revision"] = store.state["revision"]
+        store.state.clear()
+        store.state.update(before_intent)
+        store.save()
+        raise ReleaseError("Maven absence evidence expired before submission")
     if retry_snapshot is not None:
         try:
             _validate_absence(plan, actions, store.state["destinations"], absence)
@@ -3088,9 +3275,13 @@ def _queue(plan, store, actions, remote, retry_snapshot=None, deadline=None):
             for action in actions:
                 action["error"] = _safe_error(error)
             store.save()
+            if isinstance(error, ReleaseReadError):
+                raise
             return
-    _refresh_group(plan, store.state, actions, remote)
-    store.save()
+    try:
+        _refresh_group(plan, store.state, actions, remote)
+    finally:
+        store.save()
 
 
 def _execute(plan, store, remote, stop_on_blocker=False, deadline=None):
@@ -3098,6 +3289,8 @@ def _execute(plan, store, remote, stop_on_blocker=False, deadline=None):
     attempted = set()
     for action in state["actions"]:
         if deadline is not None and monotonic() >= deadline:
+            break
+        if any(item["status"] == "unknown" for item in state["actions"]):
             break
         if stop_on_blocker and any(
             item["status"] in {"failed", "unknown", "existing"}
@@ -3294,7 +3487,11 @@ def validate_producer_evidence(plan, report):
         or set(evidence)
         != {"schema_version", "plan_id", "checked_at", "destinations", "runs"}
         or type(evidence["schema_version"]) is not int
-        or evidence["schema_version"] not in {1, 2}
+        or evidence["schema_version"] not in {1, 2, 3}
+        or (
+            (evidence["schema_version"] == 3)
+            != (plan.schema_version in matrix.PUBLIC_SCHEMA_VERSIONS)
+        )
         or evidence["plan_id"] != plan.plan_id
         or evidence["checked_at"] != report["checked_at"]
         or not isinstance(evidence["runs"], list)
@@ -3319,6 +3516,8 @@ def validate_producer_evidence(plan, report):
         "finishTime",
     }
     run_keys = {"action_ids", "operation", "build", "definition", "jobs", "provenance"}
+    if plan.schema_version in matrix.PUBLIC_SCHEMA_VERSIONS:
+        run_keys.add("public_artifacts")
     for run in evidence["runs"]:
         if not isinstance(run, dict) or set(run) not in (
             run_keys,
@@ -3381,7 +3580,7 @@ def validate_producer_evidence(plan, report):
                 "Public producer evidence contains unapproved parameters"
             )
         partial = (
-            evidence["schema_version"] == 2
+            evidence["schema_version"] == 3
             and outcome["result"] == "partiallySucceeded"
             and plan.schema_version in matrix.PUBLIC_SCHEMA_VERSIONS
         )
@@ -3408,6 +3607,8 @@ def validate_producer_evidence(plan, report):
             _public_jobs(run["jobs"], allow_warnings=partial, task_summaries=partial)
         else:
             _checked_jobs(run["jobs"])
+        if partial:
+            _validate_job_windows(build, run["jobs"])
         documents = _validate_manifests(
             plan,
             candidate,
@@ -3419,12 +3620,17 @@ def validate_producer_evidence(plan, report):
         if documents != run["provenance"]:
             raise ReleaseError("Producer evidence contains unvalidated artifact fields")
         _validate_dbc_content(plan, first, documents, report)
+        if plan.schema_version in matrix.PUBLIC_SCHEMA_VERSIONS:
+            _validate_public_content(plan, first, documents, run["public_artifacts"])
         seen_actions.update(ids)
         seen_builds.add(build["id"])
     if seen_actions != set(blueprints):
         raise ReleaseError("Producer evidence omits required action coverage")
-    if (evidence["schema_version"] == 2) != any(
-        run["build"]["result"] == "partiallySucceeded" for run in evidence["runs"]
+    if evidence["schema_version"] != 3 and (
+        (evidence["schema_version"] == 2)
+        != any(
+            run["build"]["result"] == "partiallySucceeded" for run in evidence["runs"]
+        )
     ):
         raise ReleaseError("Producer evidence version disagrees with warning coverage")
 
@@ -3446,7 +3652,11 @@ def verified_evidence(plan, state_path, remote=None):
             dependency_inventory=dependencies,
         )
         _observe(state)
-        _refresh(plan, state, service)
+        try:
+            _refresh(plan, state, service)
+        except ReleaseReadError:
+            store.save()
+            raise
         store.save()
         report = copy.deepcopy(inventory)
         if not _report(state, False)["complete"]:
@@ -3478,6 +3688,8 @@ def verified_evidence(plan, state_path, remote=None):
                     "Producer source changed while evidence was collected"
                 )
             jobs = _jobs(service.timeline(first["build_id"]), allow_warnings=partial)
+            if partial:
+                _validate_job_windows(build, jobs)
             if plan.schema_version in matrix.PUBLIC_SCHEMA_VERSIONS:
                 jobs = _public_jobs(jobs, from_timeline=True, allow_warnings=partial)
             if jobs != first["receipt"]["jobs"]:
@@ -3501,6 +3713,15 @@ def verified_evidence(plan, state_path, remote=None):
                         else {}
                     ),
                     "provenance": copy.deepcopy(first["receipt"]["provenance"]),
+                    **(
+                        {
+                            "public_artifacts": copy.deepcopy(
+                                first["receipt"]["public_artifacts"]
+                            )
+                        }
+                        if plan.schema_version in matrix.PUBLIC_SCHEMA_VERSIONS
+                        else {}
+                    ),
                 }
             )
         report.update(
@@ -3508,11 +3729,7 @@ def verified_evidence(plan, state_path, remote=None):
             evidence_kind="producer-verified",
             producer_evidence={
                 "schema_version": (
-                    2
-                    if any(
-                        run["build"]["result"] == "partiallySucceeded" for run in runs
-                    )
-                    else 1
+                    3 if plan.schema_version in matrix.PUBLIC_SCHEMA_VERSIONS else 1
                 ),
                 "plan_id": plan.plan_id,
                 "checked_at": report["checked_at"],
@@ -3557,7 +3774,12 @@ def _reconcile(plan, args, service, must_exist=False, deadline=None):
             if adoptions:
                 _adopt(plan, state, adoptions, service)
                 store.save()
-            _refresh(plan, state, service)
+            try:
+                _refresh(plan, state, service)
+            except ReleaseReadError:
+                if store is not None:
+                    store.save()
+                raise
         if store is not None:
             store.save()
         if (

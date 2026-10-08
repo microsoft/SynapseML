@@ -30,6 +30,8 @@ import argparse
 import base64
 import binascii
 import gzip
+import hashlib
+import http.client
 import io
 import zlib
 import json
@@ -37,6 +39,7 @@ import os
 import re
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -59,6 +62,7 @@ from release_matrix import (  # noqa: E402
     PUBLIC_SCHEMA_VERSIONS,
     plan_digest,
     parse_plan_json,
+    public_pypi_wheel_name,
     require_public_plan,
 )
 
@@ -78,16 +82,14 @@ PUBLIC_MAVEN_MODULES = (
 )
 PYPI_BASE = "https://pypi.org/pypi"
 DBC_BASE = "https://mmlspark.blob.core.windows.net/dbcs"
+DOCS_BASE = "https://mmlspark.blob.core.windows.net/docs"
 SKIP_CHOICES = {"github", "ado", "upack", "pip", "internal", "public"}
 
 OK, MISSING, SKIPPED = "PRESENT", "MISSING", "SKIPPED"
 MAX_EVIDENCE_BYTES = 2 * 1024 * 1024
 MAX_GITHUB_EVIDENCE_CHARS = 60000
 MAX_GITHUB_INPUT_CHARS = 65535
-
-
-def public_pypi_wheel_name(version):
-    return f"synapseml-{version}-py2.py3-none-any.whl"
+MAX_PUBLIC_ARTIFACT_BYTES = 2 * 1024 * 1024 * 1024
 
 
 def public_dbc_name(version):
@@ -114,9 +116,7 @@ def maven_artifact_filename(filename, module, version, allow_unversioned=False):
     raise ValueError("Maven artifact filename differs from the approved coordinate")
 
 
-def validate_public_maven_inventory(
-    artifacts, version, scala, pypi_version=None, require_dbc=False
-):
+def required_public_maven_paths(version, scala):
     modules = {f"{module}_{scala}" for module in PUBLIC_MAVEN_MODULES}
     required = {
         f"{module}/{module}-{version}{suffix}"
@@ -124,6 +124,14 @@ def validate_public_maven_inventory(
         for suffix in (".jar", ".pom")
     }
     required.add(f"synapseml-core_{scala}/synapseml-core_{scala}-{version}-tests.jar")
+    return required
+
+
+def validate_public_maven_inventory(
+    artifacts, version, scala, pypi_version=None, require_dbc=False
+):
+    modules = {f"{module}_{scala}" for module in PUBLIC_MAVEN_MODULES}
+    required = required_public_maven_paths(version, scala)
     wheel = f"pypi/{public_pypi_wheel_name(pypi_version)}" if pypi_version else None
     if wheel:
         required.add(wheel)
@@ -145,6 +153,240 @@ def validate_public_maven_inventory(
         raise ValueError(
             "Maven artifact inventory is incomplete; no success receipt can be emitted"
         )
+
+
+def _artifact_identities(artifacts):
+    if not isinstance(artifacts, list):
+        raise ValueError("Public artifact receipt must contain artifact identities")
+    result = {}
+    for item in artifacts:
+        if (
+            not isinstance(item, dict)
+            or set(item) != {"path", "sha256", "size"}
+            or not isinstance(item["path"], str)
+            or item["path"] in result
+            or not isinstance(item["sha256"], str)
+            or not re.fullmatch(r"[0-9a-f]{64}", item["sha256"])
+            or type(item["size"]) is not int
+            or not 0 < item["size"] <= MAX_PUBLIC_ARTIFACT_BYTES
+        ):
+            raise ValueError(
+                "Public artifact receipt has invalid or duplicate identities"
+            )
+        result[item["path"]] = item
+    return result
+
+
+def public_artifact_receipts(plan, target, document):
+    if (
+        not isinstance(document, dict)
+        or type(document.get("schema_version")) is not int
+    ):
+        raise ValueError("Public Maven receipt has no versioned content proof")
+    if document["schema_version"] != 2:
+        raise ValueError(
+            "Public Maven receipt lacks CDN producer hashes; publication will not be retried"
+        )
+    central = _artifact_identities(document.get("artifacts"))
+    blob = _artifact_identities(document.get("blob_artifacts"))
+    required = required_public_maven_paths(target.oss_maven_version, target.scala)
+    if set(blob) != required or not required <= set(central):
+        raise ValueError(
+            "Public Maven content receipt omits required destination coverage"
+        )
+    expected = {
+        (destination, path): {"destination": destination, **items[path]}
+        for destination, items in (("maven", blob), ("maven-central", central))
+        for path in sorted(required)
+    }
+    if target.key == "master":
+        path = f"pypi/{public_pypi_wheel_name(plan.oss_version)}"
+        if path not in central:
+            raise ValueError("Public Maven content receipt omits the PyPI wheel")
+        expected[("pypi", path)] = {"destination": "pypi", **central[path]}
+    return expected
+
+
+def validate_public_artifact_content(plan, target, document, observations):
+    expected = public_artifact_receipts(plan, target, document)
+    if not isinstance(observations, list):
+        raise ValueError("Public artifact download observations are required")
+    seen = set()
+    for row in observations:
+        if (
+            not isinstance(row, dict)
+            or set(row) != {"destination", "path", "sha256", "size"}
+            or not isinstance(row["destination"], str)
+            or not isinstance(row["path"], str)
+        ):
+            raise ValueError("Invalid public artifact download observation")
+        key = (row["destination"], row["path"])
+        if key in seen or key not in expected or row != expected[key]:
+            raise ValueError(
+                "Public artifact content differs from its producer receipt"
+            )
+        if type(row["size"]) is not int:
+            raise ValueError("Public artifact content size must be an integer")
+        seen.add(key)
+    if seen != set(expected):
+        raise ValueError("Public artifact downloads omit required destination coverage")
+
+
+class PublicArtifactRedirects(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        raise ValueError("Public artifact downloads must not redirect")
+
+
+def _download_public_artifact(url, expected_size):
+    request = urllib.request.Request(
+        url, headers={"User-Agent": "synapseml-release-verify"}, method="GET"
+    )
+    digest, size = hashlib.sha256(), 0
+    deadline = time.monotonic() + 180
+    try:
+        with urllib.request.build_opener(PublicArtifactRedirects()).open(
+            request, timeout=60
+        ) as response:
+            while True:
+                if time.monotonic() > deadline:
+                    raise ValueError("Public artifact content download timed out")
+                chunk = response.read(min(1024 * 1024, expected_size + 1 - size))
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > expected_size:
+                    raise ValueError("Public artifact content exceeds its receipt size")
+                digest.update(chunk)
+    except urllib.error.HTTPError as error:
+        raise ValueError(
+            f"Public artifact content download failed: HTTP {error.code}"
+        ) from None
+    except (OSError, http.client.HTTPException) as error:
+        raise ValueError(
+            f"Public artifact content download failed: {type(error).__name__}"
+        ) from None
+    return {"sha256": digest.hexdigest(), "size": size}
+
+
+def verify_public_api_docs(version):
+    if not isinstance(version, str) or not re.fullmatch(
+        r"(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)", version
+    ):
+        raise ValueError("Public API documentation requires a primary release version")
+    pages = (
+        "pyspark/index.html",
+        "scala/index.html",
+        "scala/com/microsoft/azure/synapse/ml/index.html",
+    )
+    for page in pages:
+        request = urllib.request.Request(
+            f"{DOCS_BASE}/{version}/{page}",
+            headers={"User-Agent": "synapseml-release-verify"},
+            method="GET",
+        )
+        try:
+            with urllib.request.build_opener(PublicArtifactRedirects()).open(
+                request, timeout=60
+            ) as response:
+                body = response.read(5 * 1024 * 1024 + 1)
+        except urllib.error.HTTPError as error:
+            raise ValueError(
+                f"Public API documentation check failed: HTTP {error.code}"
+            ) from None
+        except (OSError, http.client.HTTPException) as error:
+            raise ValueError(
+                f"Public API documentation check failed: {type(error).__name__}"
+            ) from None
+        if not body.strip() or len(body) > 5 * 1024 * 1024:
+            raise ValueError(
+                "Public API documentation is empty or exceeds the size limit"
+            )
+
+
+def _pypi_release_wheel(version, data):
+    if data is None:
+        return None
+    if not isinstance(data, dict) or not isinstance(data.get("info"), dict):
+        raise RuntimeError("PyPI returned invalid release metadata")
+    if data["info"].get("version") != version:
+        return None
+    files = data.get("urls", [])
+    if not isinstance(files, list) or any(not isinstance(item, dict) for item in files):
+        raise RuntimeError("PyPI returned an invalid release file list")
+    expected = public_pypi_wheel_name(version)
+    wheels = [
+        item
+        for item in files
+        if item.get("filename") == expected
+        and item.get("packagetype") == "bdist_wheel"
+        and item.get("yanked") is False
+    ]
+    if len(wheels) != 1:
+        return None
+    download = wheels[0].get("url")
+    if not isinstance(download, str):
+        raise RuntimeError("PyPI returned an invalid wheel download URL")
+    try:
+        parsed = urllib.parse.urlsplit(download)
+        supported = (
+            parsed.scheme == "https"
+            and parsed.hostname == "files.pythonhosted.org"
+            and parsed.port in (None, 443)
+            and parsed.username is None
+            and parsed.password is None
+            and not parsed.query
+            and not parsed.fragment
+            and parsed.path.startswith("/packages/")
+            and urllib.parse.unquote(parsed.path.rsplit("/", 1)[-1]) == expected
+        )
+    except ValueError:
+        supported = False
+    if not supported:
+        raise RuntimeError("PyPI returned an unsupported wheel download URL")
+    return wheels[0]
+
+
+def collect_public_artifact_content(plan, target, document, cache=None):
+    expected = public_artifact_receipts(plan, target, document)
+    cache = {} if cache is None else cache
+    observations = []
+    for (destination, path), receipt in sorted(expected.items()):
+        if destination == "pypi":
+            metadata_url = f"{PYPI_BASE}/synapseml/{plan.oss_version}/json"
+            try:
+                if metadata_url not in cache:
+                    cache[metadata_url] = _json_get(
+                        metadata_url, {"User-Agent": "synapseml-release-verify"}
+                    )
+                wheel = _pypi_release_wheel(plan.oss_version, cache[metadata_url])
+            except RuntimeError as error:
+                raise ValueError("PyPI file metadata could not be verified") from error
+            if (
+                wheel is None
+                or not isinstance(wheel.get("digests"), dict)
+                or wheel["digests"].get("sha256") != receipt["sha256"]
+                or type(wheel.get("size")) is not int
+                or wheel["size"] != receipt["size"]
+            ):
+                raise ValueError("PyPI file metadata differs from its producer receipt")
+            url = wheel["url"]
+        else:
+            module, filename = path.split("/")
+            base = MAVEN_BASE if destination == "maven" else MAVEN_CENTRAL_BASE
+            url = (
+                f"{base}/com/microsoft/azure/{module}/"
+                f"{target.oss_maven_version}/{filename}"
+            )
+        if url not in cache:
+            cache[url] = _download_public_artifact(url, receipt["size"])
+        actual = cache[url]
+        if actual != {key: receipt[key] for key in ("sha256", "size")}:
+            raise ValueError(
+                f"Public artifact content differs from producer receipt: {destination}/{path}"
+            )
+        observations.append({"destination": destination, "path": path, **actual})
+    validate_public_artifact_content(plan, target, document, observations)
+    return observations
 
 
 def _get_ado_token(explicit: Optional[str]) -> str:
@@ -357,42 +599,10 @@ class Checker:
             return MISSING
         if not strict:
             return OK
-        files = data.get("urls", [])
-        if not isinstance(files, list) or any(
-            not isinstance(item, dict) for item in files
-        ):
-            raise RuntimeError("PyPI returned an invalid release file list")
-        expected = public_pypi_wheel_name(version)
-        wheels = [
-            item
-            for item in files
-            if item.get("filename") == expected
-            and item.get("packagetype") == "bdist_wheel"
-            and item.get("yanked") is False
-        ]
-        if len(wheels) != 1:
+        wheel = _pypi_release_wheel(version, data)
+        if wheel is None:
             return MISSING
-        download = wheels[0].get("url")
-        if not isinstance(download, str):
-            raise RuntimeError("PyPI returned an invalid wheel download URL")
-        try:
-            parsed = urllib.parse.urlsplit(download)
-            supported = (
-                parsed.scheme == "https"
-                and parsed.hostname == "files.pythonhosted.org"
-                and parsed.port in (None, 443)
-                and parsed.username is None
-                and parsed.password is None
-                and not parsed.query
-                and not parsed.fragment
-                and parsed.path.startswith("/packages/")
-                and urllib.parse.unquote(parsed.path.rsplit("/", 1)[-1]) == expected
-            )
-        except ValueError:
-            supported = False
-        if not supported:
-            raise RuntimeError("PyPI returned an unsupported wheel download URL")
-        return OK if _url_exists(download, self._public_headers) else MISSING
+        return OK if _url_exists(wheel["url"], self._public_headers) else MISSING
 
     def public_dbc(self, version, commit):
         if "public" in self.skip:
@@ -963,9 +1173,10 @@ def _validate_github_input_size(plan, encoded):
 
 
 def encode_evidence(report):
+    # Producer field order keeps repeated artifact identities close for gzip.
     raw = json.dumps(
         report,
-        sort_keys=True,
+        sort_keys=False,
         separators=(",", ":"),
         ensure_ascii=True,
         allow_nan=False,
