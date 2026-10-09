@@ -27,7 +27,7 @@ function rSetupGuides() {
 }
 
 for (const guide of rSetupGuides()) {
-  test(`R archive and resolver versions agree in ${path.relative(repoRoot, guide)}`, () => {
+  test(`R installation and Maven versions agree in ${path.relative(repoRoot, guide)}`, () => {
     const markdown = fs.readFileSync(guide, 'utf8');
     const coordinateVersions = [
       ...markdown.matchAll(/com\.microsoft\.azure:synapseml_2\.12:([0-9.]+)/g),
@@ -41,26 +41,38 @@ for (const guide of rSetupGuides()) {
       assert.equal(version, versionDirectory[1]);
     }
 
-    const escapedVersion = version.replaceAll('.', '\\.');
-    for (const component of componentNames) {
-      assert.match(
+    if (/^r_installation: source$/m.test(markdown)) {
+      assert.doesNotMatch(markdown, /blob\.core\.windows\.net\/rrr\//);
+      assert.doesNotMatch(markdown, /devtools::install_url/);
+      assert.match(markdown, /do\s+not publish R ZIP archives/);
+      assert.match(markdown, /sbt packageR/);
+      assert.match(markdown, /devtools::install_local\(package_dir/);
+      assert.match(markdown, /file\.path\(package_dir, "DESCRIPTION"\)/);
+      assert.match(markdown, /"generated", "src", "R", "synapseml"/);
+      for (const component of componentNames) {
+        assert.ok(markdown.includes(`"${component}"`));
+      }
+    } else {
+      const escapedVersion = version.replaceAll('.', '\\.');
+      for (const component of componentNames) {
+        assert.match(
+          markdown,
+          new RegExp(
+            `https://mmlspark\\.blob\\.core\\.windows\\.net/rrr/` +
+              `synapseml-${component}-${escapedVersion}\\.zip`,
+          ),
+        );
+      }
+      const archiveUrls = markdown.match(
+        /https:\/\/mmlspark\.blob\.core\.windows\.net\/rrr\/[^"\s)]+\.zip/g,
+      );
+      assert.equal(archiveUrls?.length, componentNames.length);
+      assert.doesNotMatch(
         markdown,
-        new RegExp(
-          `https://mmlspark\\.blob\\.core\\.windows\\.net/rrr/` +
-            `synapseml-${component}-${escapedVersion}\\.zip`,
-        ),
+        /mmlspark\.blob\.core\.windows\.net\/rrr\/synapseml-[0-9.]+\.zip/,
+        'combined R archives are not published',
       );
     }
-
-    const archiveUrls = markdown.match(
-      /https:\/\/mmlspark\.blob\.core\.windows\.net\/rrr\/[^"\s)]+\.zip/g,
-    );
-    assert.equal(archiveUrls?.length, componentNames.length);
-    assert.doesNotMatch(
-      markdown,
-      /mmlspark\.blob\.core\.windows\.net\/rrr\/synapseml-[0-9.]+\.zip/,
-      'combined R archives are not published',
-    );
     assert.match(markdown, /config\$sparklyr\.shell\.repositories/);
     assert.match(markdown, /extensions = character\(\)/);
     assert.doesNotMatch(markdown, /mmlspark\.azureedge\.net/);
