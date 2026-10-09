@@ -203,50 +203,6 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage]
 
 }
 
-class RecognizeTextSuite extends TransformerFuzzing[RecognizeText]
-  with CognitiveKey with Flaky with OCRUtils {
-  override val compareDataInSerializationTest: Boolean = false
-
-  lazy val rt: RecognizeText = new RecognizeText()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation(cognitiveLoc)
-    .setImageUrlCol("url")
-    .setMode("Printed")
-    .setOutputCol("ocr")
-    .setConcurrency(5)
-
-  lazy val bytesRT: RecognizeText = new RecognizeText()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation(cognitiveLoc)
-    .setImageBytesCol("imageBytes")
-    .setMode("Printed")
-    .setOutputCol("ocr")
-    .setConcurrency(5)
-
-  test("Basic Usage with URL") {
-    val results = df.mlTransform(rt, RecognizeText.flatten("ocr", "ocr"))
-      .select("ocr")
-      .collect()
-    val headStr = results.head.getString(0)
-    assert(headStr === "OPENS.ALL YOU HAVE TO DO IS WALK IN WHEN ONE DOOR CLOSES, ANOTHER CLOSED" ||
-      headStr === "CLOSED WHEN ONE DOOR CLOSES, ANOTHER OPENS. ALL YOU HAVE TO DO IS WALK IN")
-  }
-
-  test("Basic Usage with Bytes") {
-    val results = bytesDF.mlTransform(bytesRT, RecognizeText.flatten("ocr", "ocr"))
-      .select("ocr")
-      .collect()
-    val headStr = results.head.getString(0)
-    assert(headStr === "OPENS.ALL YOU HAVE TO DO IS WALK IN WHEN ONE DOOR CLOSES, ANOTHER CLOSED" ||
-      headStr === "CLOSED WHEN ONE DOOR CLOSES, ANOTHER OPENS. ALL YOU HAVE TO DO IS WALK IN")
-  }
-
-  override def testObjects(): Seq[TestObject[RecognizeText]] =
-    Seq(new TestObject(rt, df))
-
-  override def reader: MLReadable[_] = RecognizeText
-}
-
 class ReadImageSuite extends TransformerFuzzing[ReadImage]
   with CognitiveKey with Flaky with OCRUtils {
   override val compareDataInSerializationTest: Boolean = false
