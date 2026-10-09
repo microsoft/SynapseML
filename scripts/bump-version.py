@@ -6,6 +6,7 @@ Replaces SynapseML version strings ONLY when they appear within a known
 SynapseML-specific context. A bare version number like "1.1.0" is NEVER
 blindly replaced — every replacement must be anchored by surrounding text
 that proves it refers to SynapseML (e.g., "synapseml_2.12:1.1.0").
+R archive versions must belong to a complete SynapseML archive name.
 
 Designed for fully unattended automated releases. The script will FAIL
 rather than make an ambiguous replacement.
@@ -44,13 +45,6 @@ SELF_ANCHORED = [
     "synapseml-deep-learning_2.13:{V}-spark4.0",
     "synapseml-deep-learning_2.13:{V}-spark4.1",
     "synapseml=={V}",
-    "synapseml-{V}.zip",
-    "synapseml-core-{V}.zip",
-    "synapseml-cognitive-{V}.zip",
-    "synapseml-deep-learning-{V}.zip",
-    "synapseml-lightgbm-{V}.zip",
-    "synapseml-opencv-{V}.zip",
-    "synapseml-vw-{V}.zip",
     "synapseml:{V}",
     "SynapseMLExamplesv{V}.dbc",
     "SynapseML/v{V}",
@@ -79,9 +73,6 @@ LINE_ANCHORED = [
     ('% "{V}-spark4.1"', ["synapseml"]),
     ("{V} version for", ["spark", "Spark"]),
     ("`{V}` tag", ["mmlspark"]),
-    # Per-module R artifact zips, e.g. synapseml-core-1.1.3.zip. Kept generic so
-    # a newly added module does not silently break the bump.
-    ("-{V}.zip", ["synapseml"]),
 ]
 
 # FILE-ANCHORED: pattern only safe in specific files.
@@ -96,24 +87,8 @@ FILE_ANCHORED = [
             "website/docs/Explore Algorithms/Deep Learning/ONNX.md",
         ],
     ),
-    (
-        'version = "{V}",',
-        [
-            "core/src/test/scala/com/microsoft/azure/synapse/ml/codegen/VerifyRCodegen.scala"
-        ],
-    ),
-    (
-        'pythonizedVersion = "{V}",',
-        [
-            "core/src/test/scala/com/microsoft/azure/synapse/ml/codegen/VerifyRCodegen.scala"
-        ],
-    ),
-    (
-        'rVersion = "{V}",',
-        [
-            "core/src/test/scala/com/microsoft/azure/synapse/ml/codegen/VerifyRCodegen.scala"
-        ],
-    ),
+    ('pythonizedVersion = "{V}",', [VERIFY_R_CODEGEN]),
+    ('rVersion = "{V}",', [VERIFY_R_CODEGEN]),
     ("{V}-python3.12-", ["pipeline.yaml"]),
     ("{V}-python3.13-", ["pipeline.yaml"]),
 ]
@@ -142,14 +117,6 @@ DENYLIST_FILES = {
     "CHANGES.md",
     "bump-version.py",
     "test_bump_version.py",
-    "release_matrix.py",
-    "test_release_matrix.py",
-    "test_verify_release.py",
-    "test_bump_bbcvhd.py",
-    "test_release_workflows.py",
-    "verify_release.py",
-    "bump_bbcvhd.py",
-    "test_prev_tag.sh",
     "package.json",
     "package-lock.json",
     "yarn.lock",
@@ -296,10 +263,28 @@ def analyze(fp, rel, content, old_v, bare_re, self_a, line_a, file_a):
     res = FileResult(fp, rel, content)
     rel_str = rel.as_posix()
     lines = content.split("\n")
+    archive_versions = {
+        match.span(1)
+        for match in re.finditer(
+            r"(?<![\w.-])synapseml(?:-[a-z0-9]+)*-("
+            + re.escape(old_v)
+            + r")\.zip(?![\w-]|\.[\w-])",
+            content,
+        )
+    }
 
     for m in bare_re.finditer(content):
         ln = content[: m.start()].count("\n") + 1
         lt = lines[ln - 1]
+        # A nearby SynapseML reference must not anchor another archive's version.
+        if content.startswith(".zip", m.end()):
+            if m.span() in archive_versions:
+                res.matches.append(
+                    Match(ln, lt.strip(), "SynapseML archive", m.start(), m.end())
+                )
+            else:
+                res.unanchored.append((ln, lt.strip()))
+            continue
         # Optional Spark 4.0 consumer examples retain their last published build.
         if rel_str == "website/src/installArtifacts.js" and re.fullmatch(
             r'const spark40Version = "[0-9]+\.[0-9]+\.[0-9]+";', lt.rstrip("\r")

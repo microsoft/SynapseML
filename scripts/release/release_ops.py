@@ -37,6 +37,7 @@ from pathlib import Path
 from time import monotonic, sleep
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+from release_config import strict_json  # noqa: E402
 import release_matrix as matrix  # noqa: E402
 import verify_release as verify  # noqa: E402
 
@@ -110,26 +111,9 @@ def _digest(value, field):
     ).hexdigest()
 
 
-def _object_pairs(pairs):
-    result = {}
-    for key, value in pairs:
-        if key in result:
-            raise ValueError("duplicate JSON member")
-        result[key] = value
-    return result
-
-
-def _invalid_constant(_value):
-    raise ValueError("nonfinite JSON number")
-
-
 def _json(value, label):
     try:
-        return json.loads(
-            value,
-            object_pairs_hook=_object_pairs,
-            parse_constant=_invalid_constant,
-        )
+        return strict_json(value)
     except (TypeError, ValueError, UnicodeError) as error:
         raise ReleaseError(f"{label} contains invalid JSON") from error
 
@@ -844,60 +828,10 @@ def _row_key(row):
 
 
 def _required_rows(plan):
-    required = {}
-
-    def add(kind, target, name, identifier, commit=None):
-        required[(kind, target.key, name, identifier)] = commit
-
-    for target in plan.targets:
-        for repository in plan.repositories:
-            name = (
-                "github/microsoft/SynapseML" if repository == "oss" else "ado/internal"
-            )
-            tags = getattr(target, repository + "_tags")
-            commit = getattr(target, repository + "_commit")
-            for tag in tags:
-                add("git-tag", target, name, tag, commit)
-            add("tag-set", target, name + "/same-commit", ", ".join(tags), commit)
-            for family in plan.families:
-                version = getattr(target, f"{repository}_{family}_version")
-                if family == "maven":
-                    modules = (
-                        verify.PUBLIC_MAVEN_MODULES
-                        if repository == "oss"
-                        else [
-                            matrix.package_name(
-                                plan.private_profile, repository, family
-                            )
-                        ]
-                    )
-                    for module in modules:
-                        add("maven", target, f"{module}_{target.scala}", version)
-                        if repository == "oss":
-                            add(
-                                "maven-central",
-                                target,
-                                f"{module}_{target.scala}",
-                                version,
-                            )
-                    if repository == "oss" and target.key == "master":
-                        add("pypi", target, "pypi/synapseml", plan.oss_version)
-                    if (
-                        repository == "oss"
-                        and plan.schema_version == matrix.PUBLIC_SCHEMA_VERSION
-                    ):
-                        add(
-                            "dbc",
-                            target,
-                            f"dbcs/{verify.public_dbc_name(version)}",
-                            version,
-                        )
-                else:
-                    package = matrix.package_name(
-                        plan.private_profile, repository, family
-                    )
-                    add(family, target, package, version)
-    return required
+    rows, _ = verify._check_plan(
+        plan, None, None, [], strict=True, checker=verify._InventoryChecker()
+    )
+    return {_row_key(row): row.get("expected_commit") for row in rows}
 
 
 def _inventory(plan, remote):
@@ -1198,6 +1132,28 @@ def _new_state(plan):
     }
 
 
+def _validate_destination_bindings(plan, destinations, label):
+    families = {family for family in plan.families if family in {"pip", "upack"}}
+    if plan.mode == "rehearsal" and families:
+        families = {"pip", "upack"}
+    if not isinstance(destinations, dict) or set(destinations) != families:
+        raise ReleaseError(f"{label} has invalid destination bindings")
+    for family, feed in destinations.items():
+        if (
+            not isinstance(feed, dict)
+            or set(feed) != {"requested", "id", "name", "project", "project_id"}
+            or feed["requested"] != getattr(plan, family + "_feed")
+            or not isinstance(feed["id"], str)
+            or not GUID_RE.fullmatch(feed["id"])
+            or not isinstance(feed["name"], str)
+            or feed["name"].casefold()
+            != feed["requested"].rsplit("/", 1)[-1].casefold()
+            or feed["project"] != matrix.ADO_PROJECT
+            or feed["project_id"] != plan.private_profile["project_id"]
+        ):
+            raise ReleaseError(f"{label} has a conflicting feed destination")
+
+
 def _validate_state(data, plan):
     expected = _new_state(plan)
     if not isinstance(data, dict) or set(data) != set(expected):
@@ -1219,26 +1175,7 @@ def _validate_state(data, plan):
         raise ReleaseError("Release state checksum is corrupt")
     if type(data["revision"]) is not int or data["revision"] < 1:
         raise ReleaseError("Release state has an invalid revision")
-    families = {family for family in plan.families if family in {"pip", "upack"}}
-    if plan.mode == "rehearsal" and families:
-        families = {"pip", "upack"}
-    destinations = data["destinations"]
-    if not isinstance(destinations, dict) or set(destinations) != families:
-        raise ReleaseError("Release state has invalid destination bindings")
-    for family, feed in destinations.items():
-        if (
-            not isinstance(feed, dict)
-            or set(feed) != {"requested", "id", "name", "project", "project_id"}
-            or feed["requested"] != getattr(plan, family + "_feed")
-            or not isinstance(feed["id"], str)
-            or not GUID_RE.fullmatch(feed["id"])
-            or not isinstance(feed["name"], str)
-            or feed["name"].casefold()
-            != feed["requested"].rsplit("/", 1)[-1].casefold()
-            or feed["project"] != matrix.ADO_PROJECT
-            or feed["project_id"] != plan.private_profile["project_id"]
-        ):
-            raise ReleaseError("Release state has a conflicting feed destination")
+    _validate_destination_bindings(plan, data["destinations"], "Release state")
     if (
         not isinstance(data["policy"], dict)
         or type(data["policy"].get("required")) is not bool
@@ -1415,16 +1352,10 @@ def _validate_state(data, plan):
                 raise ReleaseError(
                     "Release state assigns one run to conflicting operations"
                 )
-        for member in actions:
+        for member in _operation_group(actions, action):
             if (
-                member["kind"] == action["kind"]
-                and member["repository"] == action["repository"]
-                and member["target"] == action["target"]
-                and member["family"] in operation["families"]
-                and (
-                    member["operation"] != operation
-                    or member["build_id"] != action["build_id"]
-                )
+                member["operation"] != operation
+                or member["build_id"] != action["build_id"]
             ):
                 raise ReleaseError(
                     "Release state lost part of a shared publisher submission"
@@ -1532,7 +1463,6 @@ class StateStore:
         self.must_exist = must_exist
         self.owner = uuid.uuid4().hex
         self.fingerprint = None
-        self.lock_bytes = None
         self.owned_locks = {}
         self.claim_bytes = None
         self.claim_data = None
@@ -1568,7 +1498,6 @@ class StateStore:
             stream.write(body)
             stream.flush()
             os.fsync(stream.fileno())
-        return body
 
     def _legacy_conflicts(self):
         total = 0
@@ -1684,7 +1613,7 @@ class StateStore:
                     "Release state, claim and locks must not be symbolic links"
                 )
             self._acquire(self.guard, "plan")
-            self.lock_bytes = self._acquire(self.lock, "state")
+            self._acquire(self.lock, "state")
             if self.path.exists():
                 body = self._read()
                 self.fingerprint = hashlib.sha256(body).hexdigest()
@@ -2808,14 +2737,7 @@ def _adopt(plan, state, specifications, remote):
                 raise ReleaseError(
                     "Adopted Azure build predates the unresolved submission intent"
                 )
-        group = [
-            value
-            for value in state["actions"]
-            if value["kind"] == action["kind"]
-            and value["repository"] == action["repository"]
-            and value["target"] == action["target"]
-            and value["family"] in operation["families"]
-        ]
+        group = _operation_group(state["actions"], candidate)
         for item in group:
             if item["build_id"] not in (None, build_id):
                 raise ReleaseError(
@@ -3432,25 +3354,8 @@ class _RecordedDefinition:
 
 
 def _validate_evidence_destinations(plan, destinations):
-    families = {family for family in plan.families if family in {"pip", "upack"}}
-    if plan.mode == "rehearsal" and families:
-        families = {"pip", "upack"}
-    if not isinstance(destinations, dict) or set(destinations) != families:
-        raise ReleaseError("Producer evidence omits approved destination bindings")
+    _validate_destination_bindings(plan, destinations, "Producer evidence")
     for family, feed in destinations.items():
-        if (
-            not isinstance(feed, dict)
-            or set(feed) != {"requested", "id", "name", "project", "project_id"}
-            or feed["requested"] != getattr(plan, family + "_feed")
-            or not isinstance(feed["id"], str)
-            or not GUID_RE.fullmatch(feed["id"])
-            or not isinstance(feed["name"], str)
-            or feed["name"].casefold()
-            != feed["requested"].rsplit("/", 1)[-1].casefold()
-            or feed["project"] != matrix.ADO_PROJECT
-            or feed["project_id"] != plan.private_profile["project_id"]
-        ):
-            raise ReleaseError("Producer evidence has an invalid destination")
         if plan.mode == "production":
             if feed["id"] != plan.private_profile[family + "_feed"]["id"]:
                 raise ReleaseError(
@@ -3487,7 +3392,7 @@ def validate_producer_evidence(plan, report):
         or set(evidence)
         != {"schema_version", "plan_id", "checked_at", "destinations", "runs"}
         or type(evidence["schema_version"]) is not int
-        or evidence["schema_version"] not in {1, 2, 3}
+        or evidence["schema_version"] not in {1, 3}
         or (
             (evidence["schema_version"] == 3)
             != (plan.schema_version in matrix.PUBLIC_SCHEMA_VERSIONS)
@@ -3580,8 +3485,7 @@ def validate_producer_evidence(plan, report):
                 "Public producer evidence contains unapproved parameters"
             )
         partial = (
-            evidence["schema_version"] == 3
-            and outcome["result"] == "partiallySucceeded"
+            outcome["result"] == "partiallySucceeded"
             and plan.schema_version in matrix.PUBLIC_SCHEMA_VERSIONS
         )
         if partial:
@@ -3626,13 +3530,6 @@ def validate_producer_evidence(plan, report):
         seen_builds.add(build["id"])
     if seen_actions != set(blueprints):
         raise ReleaseError("Producer evidence omits required action coverage")
-    if evidence["schema_version"] != 3 and (
-        (evidence["schema_version"] == 2)
-        != any(
-            run["build"]["result"] == "partiallySucceeded" for run in evidence["runs"]
-        )
-    ):
-        raise ReleaseError("Producer evidence version disagrees with warning coverage")
 
 
 def verified_evidence(plan, state_path, remote=None):

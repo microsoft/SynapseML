@@ -435,7 +435,8 @@ def test_public_evidence_rejects_duplicate_json_members(cli):
         verify.decode_evidence(payload)
 
 
-def test_public_evidence_checks_the_complete_dispatch_budget(cli, monkeypatch):
+@pytest.mark.parametrize("combined", [False, True])
+def test_public_evidence_preserves_transport_budgets(cli, monkeypatch, combined):
     plan, report = producer_report(cli)
     payload = verify.encode_evidence(report)
     request = {
@@ -446,27 +447,18 @@ def test_public_evidence_checks_the_complete_dispatch_budget(cli, monkeypatch):
             "evidence_base64": payload,
         },
     }
-    size = len(json.dumps(request))
-    monkeypatch.setattr(verify, "MAX_GITHUB_INPUT_CHARS", size, raising=False)
+    size = len(json.dumps(request)) if combined else len(payload)
+    setting = "MAX_GITHUB_INPUT_CHARS" if combined else "MAX_GITHUB_EVIDENCE_CHARS"
+    monkeypatch.setattr(verify, setting, size)
     assert verify.encode_evidence(report) == payload
     assert verify.decode_evidence(payload) == report
-    monkeypatch.setattr(verify, "MAX_GITHUB_INPUT_CHARS", size - 1)
-    with pytest.raises(ValueError, match="combined GitHub input budget"):
-        verify.encode_evidence(report)
-    with pytest.raises(ValueError, match="combined GitHub input budget"):
-        verify.decode_evidence(payload)
-
-
-def test_public_evidence_preserves_the_encoded_size_limit(cli, monkeypatch):
-    _, report = producer_report(cli)
-    payload = verify.encode_evidence(report)
-    monkeypatch.setattr(verify, "MAX_GITHUB_EVIDENCE_CHARS", len(payload))
-    assert verify.encode_evidence(report) == payload
-    assert verify.decode_evidence(payload) == report
-    monkeypatch.setattr(verify, "MAX_GITHUB_EVIDENCE_CHARS", len(payload) - 1)
+    monkeypatch.setattr(verify, setting, size - 1)
     with pytest.raises(ValueError, match="GitHub input budget"):
         verify.encode_evidence(report)
-    with pytest.raises(ValueError, match="absent or too large"):
+    with pytest.raises(
+        ValueError,
+        match="combined GitHub input budget" if combined else "absent or too large",
+    ):
         verify.decode_evidence(payload)
 
 
@@ -539,7 +531,8 @@ def test_public_job_contract_requires_unique_jobs_and_successful_release(cli, fa
 
 
 @pytest.mark.parametrize("result", ["failed", "canceled", "skipped"])
-def test_public_job_export_does_not_hide_unsuccessful_required_jobs(cli, result):
+@pytest.mark.parametrize("job", [0, 1], ids=["release", "secondary"])
+def test_public_job_outcomes_preserve_required_and_secondary_coverage(cli, result, job):
     plan, _ = producer_report(cli)
     records = cli.remote.timelines[101]["records"]
     records.append(
@@ -549,30 +542,10 @@ def test_public_job_export_does_not_hide_unsuccessful_required_jobs(cli, result)
             "name": "synthetic-nonpublic-marker",
         }
     )
-    records[0]["result"] = result
-    code, status, _ = cli("status", plan=plan)
-    assert code == 1 and not status["complete"]
-    report = ops.verified_evidence(plan, cli.state, remote=cli.remote)
-    assert not report["complete"]
-    with pytest.raises(ValueError):
-        verify.encode_evidence(report)
-
-
-@pytest.mark.parametrize("result", ["failed", "canceled", "skipped"])
-def test_public_secondary_job_outcomes_are_not_filtered_by_label(cli, result):
-    plan, _ = producer_report(cli)
-    cli.remote.timelines[101]["records"].append(
-        {
-            "id": "22222222-2222-4222-8222-222222222222",
-            "type": "Job",
-            "name": "synthetic-nonpublic-marker",
-            "state": "completed",
-            "result": result,
-        }
-    )
+    records[job]["result"] = result
     code, status, error = cli("status", plan=plan)
     report = ops.verified_evidence(plan, cli.state, remote=cli.remote)
-    if result == "skipped":
+    if job == 1 and result == "skipped":
         assert code == 0 and status["complete"], error
         exported = verify.decode_evidence(verify.encode_evidence(report))
         jobs = exported["producer_evidence"]["runs"][0]["jobs"]
@@ -604,7 +577,10 @@ def test_public_job_coverage_is_bounded_without_truncation(count):
             ops._public_jobs(jobs)
 
 
-@pytest.mark.parametrize("actual", [True, "true", "TRUE", "TrUe"])
+@pytest.mark.parametrize(
+    "actual",
+    [True, "true", "TRUE", "TrUe", 1, "false", " true", "synthetic-nonpublic-marker"],
+)
 def test_public_completed_boolean_representations_export_canonical_evidence(
     cli, actual
 ):
@@ -612,8 +588,15 @@ def test_public_completed_boolean_representations_export_canonical_evidence(
     cli.remote.builds[101]["templateParameters"]["publishRelease"] = actual
     queued = copy.deepcopy(cli.remote.queued)
     code, status, error = cli("status", plan=plan)
-    assert code == 0 and status["complete"], error
     report = ops.verified_evidence(plan, cli.state, remote=cli.remote)
+    assert cli.remote.queued == queued
+    if actual is not True and actual not in ("true", "TRUE", "TrUe"):
+        assert code == 1 and not status["complete"]
+        assert not report["complete"]
+        with pytest.raises(ValueError):
+            verify.encode_evidence(report)
+        return
+    assert code == 0 and status["complete"], error
     exported = verify.decode_evidence(verify.encode_evidence(report))
     verify.validate_evidence(plan, exported)
     for run in exported["producer_evidence"]["runs"]:
@@ -625,7 +608,6 @@ def test_public_completed_boolean_representations_export_canonical_evidence(
             "release_plan_base64",
             "release_plan_id",
         }
-    assert cli.remote.queued == queued
     assert matrix.plan_to_dict(plan)["plan_id"] == exported["plan_id"]
 
 
@@ -638,18 +620,6 @@ def test_public_wire_booleans_remain_canonical_and_keys_remain_allowlisted(cli):
     parameters["publishRelease"] = True
     parameters["unapproved"] = "synthetic-nonpublic-marker"
     with pytest.raises(ValueError, match="unapproved parameters"):
-        verify.encode_evidence(report)
-
-
-@pytest.mark.parametrize("actual", [1, "false", " true", "synthetic-nonpublic-marker"])
-def test_public_completed_boolean_parameter_still_rejects_wrong_values(cli, actual):
-    plan, _ = producer_report(cli)
-    cli.remote.builds[101]["templateParameters"]["publishRelease"] = actual
-    code, status, _ = cli("status", plan=plan)
-    assert code == 1 and not status["complete"]
-    report = ops.verified_evidence(plan, cli.state, remote=cli.remote)
-    assert not report["complete"]
-    with pytest.raises(ValueError):
         verify.encode_evidence(report)
 
 

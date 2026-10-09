@@ -321,19 +321,6 @@ def test_databricks_e2e_uses_fail_open_pr_impact_detection():
     assert any(step.get("displayName") == "Publish Test Results" for step in steps)
 
 
-def test_fabric_e2e_skips_untrusted_fork_builds():
-    data = yaml.safe_load(_pipeline_text())
-    jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
-    condition = jobs["FabricE2E"]["condition"]
-    fork_guard = (
-        r"ne\(\s*variables\[['\"]System\.PullRequest\.IsFork['\"]\],"
-        + r"\s*['\"]True['\"]\s*\)"
-    )
-    assert condition is False or (
-        isinstance(condition, str) and re.search(fork_guard, condition)
-    )
-
-
 def test_fabric_e2e_cleans_stale_artifacts_before_running_tests():
     data = yaml.safe_load(_pipeline_text())
     jobs = {j.get("job"): j for j in _jobs(data["jobs"])}
@@ -382,7 +369,11 @@ def test_fabric_e2e_keeps_key_vault_authentication_and_blocks_forks():
     assert "succeeded()" in condition
     assert "variables.runTests" in condition
     assert "parameters.testFabricE2E" in condition
-    assert "System.PullRequest.IsFork" in condition
+    assert re.search(
+        r"ne\(\s*variables\[['\"]System\.PullRequest\.IsFork['\"]\],"
+        r"\s*['\"]True['\"]\s*\)",
+        condition,
+    )
 
     template_steps = {
         step["template"]: step
@@ -1086,76 +1077,45 @@ source() {
         assert non_maven <= published
 
 
-@pytest.mark.parametrize("test_r", [False, True])
-@pytest.mark.parametrize("test_databricks", [False, True])
-@pytest.mark.parametrize("test_fabric", [False, True])
-@pytest.mark.parametrize("test_website", [False, True])
-def test_release_publication_waits_only_for_enabled_optional_test_jobs(
-    test_r, test_databricks, test_fabric, test_website
-):
+def test_release_publication_waits_only_for_enabled_optional_test_jobs():
     jobs = {job["job"]: job for job in _jobs(yaml.safe_load(_pipeline_text())["jobs"])}
     publish = jobs["Publish"]
     dependencies = publish["${{ if eq(parameters.publishRelease, true) }}"]["dependsOn"]
-    cases = {
-        "${{ if eq(parameters.testR, true) }}": (test_r, {"RTests"}),
-        "${{ if eq(parameters.testDatabricksE2E, true) }}": (
-            test_databricks,
-            {"DatabricksCPUE2E", "DatabricksGPUE2E"},
-        ),
-        "${{ if eq(parameters.testFabricE2E, true) }}": (test_fabric, {"FabricE2E"}),
-        "${{ if eq(parameters.testWebsiteSamples, true) }}": (
-            test_website,
-            {"WebsiteSamplesTests"},
-        ),
-    }
-    selected = set()
-    for entry in dependencies:
-        if isinstance(entry, str):
-            selected.add(entry)
-        else:
-            assert len(entry) == 1
-            condition, names = next(iter(entry.items()))
-            enabled, expected = cases[condition]
-            assert set(names) == expected
-            if enabled:
-                selected.update(names)
-    required = {"BuildAndCacheSbt", "Style", "UnitTests", "PythonTests", "BuildDocker"}
-    expected = required | {
-        name for enabled, names in cases.values() if enabled for name in names
-    }
-    assert selected == expected
+    assert dependencies == [
+        "BuildAndCacheSbt",
+        "Style",
+        "UnitTests",
+        "PythonTests",
+        "BuildDocker",
+        {"${{ if eq(parameters.testR, true) }}": ["RTests"]},
+        {
+            "${{ if eq(parameters.testDatabricksE2E, true) }}": [
+                "DatabricksCPUE2E",
+                "DatabricksGPUE2E",
+            ]
+        },
+        {"${{ if eq(parameters.testFabricE2E, true) }}": ["FabricE2E"]},
+        {"${{ if eq(parameters.testWebsiteSamples, true) }}": ["WebsiteSamplesTests"]},
+    ]
+    assert publish["${{ else }}"]["dependsOn"] == "BuildAndCacheSbt"
     assert "succeeded()" in publish["condition"]
-    assert "ReleaseBranchCompat" not in selected
-    assert "InternalCompat" not in selected
 
 
-@pytest.mark.parametrize("publish_release", [False, True])
-@pytest.mark.parametrize("publish_artifacts", [False, True])
-def test_release_job_dependencies_exist_for_every_publication_combination(
-    publish_release, publish_artifacts
-):
-    conditions = {
-        "${{ if eq(parameters.publishArtifacts, true) }}": publish_artifacts,
-        "${{ if eq(parameters.publishRelease, true) }}": publish_release,
-        "${{ if and(eq(parameters.publishRelease, true), eq(parameters.publishArtifacts, true)) }}": (
-            publish_release and publish_artifacts
-        ),
+def test_release_job_dependencies_exist_under_the_publication_guards():
+    nodes = yaml.safe_load(_pipeline_text())["jobs"]
+    assert {
+        condition: [job["job"] for job in selected]
+        for node in nodes
+        if "job" not in node
+        for condition, selected in node.items()
+    } == {
+        "${{ if eq(parameters.publishArtifacts, true) }}": ["Publish"],
+        "${{ if and(eq(parameters.publishRelease, true), eq(parameters.publishArtifacts, true)) }}": [
+            "Release"
+        ],
     }
-    jobs = {}
-    for node in yaml.safe_load(_pipeline_text())["jobs"]:
-        if "job" in node:
-            jobs[node["job"]] = node
-        else:
-            assert len(node) == 1
-            condition, selected = next(iter(node.items()))
-            assert condition in conditions, f"Unhandled job condition: {condition}"
-            if conditions[condition]:
-                jobs.update((job["job"], job) for job in selected)
-    assert "BuildAndCacheSbt" in jobs
-    assert ("Publish" in jobs) == publish_artifacts
-    assert ("Release" in jobs) == (publish_release and publish_artifacts)
-    if "Release" in jobs:
-        assert set(jobs["Release"]["dependsOn"]) <= set(jobs)
+    jobs = {job["job"]: job for job in _jobs(nodes)}
+    assert set(jobs["Release"]["dependsOn"]) <= set(jobs)
 
 
 def test_style_does_not_restore_the_full_conda_environment():

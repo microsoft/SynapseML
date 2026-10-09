@@ -312,7 +312,9 @@ def require_public_plan(plan: ReleasePlan) -> ReleasePlan:
         raise ValueError(
             "public-only Maven plans require schema 2 or 4; regenerate and reapprove the plan"
         )
-    return load_plan(plan_to_dict(plan), require_bound=True)
+    plan_to_dict(plan)
+    _require_bindings(plan)
+    return plan
 
 
 def require_execution_plan(plan: ReleasePlan) -> None:
@@ -529,7 +531,6 @@ def _derive_plan(
     internal_counter = next(iter(internal_upack_iteration.values()), None)
     build_oss = "oss" in repositories
     build_internal = "internal" in repositories
-    build_pip = "pip" in families
     build_upack = "upack" in families
     publish_variables = {}
     if oss_counter and build_oss and build_upack:
@@ -558,42 +559,22 @@ def _derive_plan(
         publish_parameters={
             "synapseml_version": oss_version,
             "internal_patch_version": internal_patch,
-            "build_synapseml_pip_py311": build_oss
-            and build_pip
-            and "master" in selected,
-            "build_synapseml_pip_py312": build_oss
-            and build_pip
-            and "spark4.0" in selected,
-            "build_synapseml_pip_py313": build_oss
-            and build_pip
-            and "spark4.1" in selected,
-            "build_synapseml_upack_default": build_oss
-            and build_upack
-            and "master" in selected,
-            "build_synapseml_upack_spark4": build_oss
-            and build_upack
-            and "spark4.0" in selected,
-            "build_synapseml_upack_spark41": build_oss
-            and build_upack
-            and "spark4.1" in selected,
-            "build_internal_pip_py311": build_internal
-            and build_pip
-            and "master" in selected,
-            "build_internal_pip_py312": build_internal
-            and build_pip
-            and "spark4.0" in selected,
-            "build_internal_pip_py313": build_internal
-            and build_pip
-            and "spark4.1" in selected,
-            "build_internal_upack_default": build_internal
-            and build_upack
-            and "master" in selected,
-            "build_internal_upack_spark4": build_internal
-            and build_upack
-            and "spark4.0" in selected,
-            "build_internal_upack_spark41": build_internal
-            and build_upack
-            and "spark4.1" in selected,
+            **{
+                f"build_{package}_{family}_{suffixes[family]}": repository
+                in repositories
+                and family in families
+                and key in selected
+                for repository, package in (
+                    ("oss", "synapseml"),
+                    ("internal", "internal"),
+                )
+                for family in ("pip", "upack")
+                for key, suffixes in (
+                    ("master", {"pip": "py311", "upack": "default"}),
+                    ("spark4.0", {"pip": "py312", "upack": "spark4"}),
+                    ("spark4.1", {"pip": "py313", "upack": "spark41"}),
+                )
+            },
         },
     )
 
@@ -688,7 +669,7 @@ def load_plan(data: dict, require_bound: bool = False) -> ReleasePlan:
             schema_version=data["schema_version"],
             configuration=None,
         )
-        if plan_to_dict(expected) != data:
+        if _plan_document(expected) != data:
             raise ValueError(
                 "public release plan fields differ from the derived contract"
             )
@@ -792,7 +773,7 @@ def load_plan(data: dict, require_bound: bool = False) -> ReleasePlan:
     )
     # Re-derive rather than trusting a rehashed plan to select arbitrary pipelines,
     # repositories, coordinates or unchecked publication flags.
-    if plan_to_dict(expected) != data:
+    if _plan_document(expected) != data:
         raise ValueError("release plan fields differ from the derived release contract")
     if require_bound:
         _require_bindings(expected)

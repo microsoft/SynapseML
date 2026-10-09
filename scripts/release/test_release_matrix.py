@@ -207,7 +207,8 @@ def test_internal_superpatch_flows_everywhere():
     ), "OSS artifacts must not move on an internal-only hotfix"
 
 
-def test_upack_rebuild_iteration_suffix():
+@pytest.mark.parametrize("repositories", [["oss"], ["oss", "internal"]])
+def test_upack_rebuild_iteration_suffix(repositories):
     "Rebuild counters distinguish immutable package versions."
     m = _by_key(
         build_plan(
@@ -215,6 +216,7 @@ def test_upack_rebuild_iteration_suffix():
             target_keys=["spark4.0"],
             upack_iteration={"spark4.0": 1},
             families=["upack"],
+            repositories=repositories,
         )
     )["spark4.0"]
     assert m.oss_upack_version == "1.1.1-spark4-0-1"
@@ -238,22 +240,6 @@ def test_internal_rebuild_iteration_is_independent():
     assert m.internal_upack_version == "1.1.1-0-spark4.0-2"
 
 
-def test_scoped_upack_counters_preserve_dependency_versions():
-    "Independent package counters preserve dependency versions."
-    m = _by_key(
-        build_plan(
-            "1.1.1",
-            internal_patch="0",
-            target_keys=["spark4.0"],
-            upack_iteration={"spark4.0": 1},
-            families=["upack"],
-            repositories=["oss", "internal"],
-        )
-    )["spark4.0"]
-    assert m.oss_upack_version == "1.1.1-spark4-0-1"
-    assert m.internal_upack_version == "1.1.1-0-spark4.0"
-
-
 def test_target_subset_is_respected():
     plan = build_plan("1.1.4", target_keys=["master", "spark4.0"])
     assert [tp.key for tp in plan.targets] == ["master", "spark4.0"]
@@ -264,16 +250,22 @@ def test_publish_parameters_enable_exact_selected_targets():
         "1.1.4", target_keys=["master", "spark4.1"], repositories=["oss", "internal"]
     )
     assert plan.publish_pipeline_id == 900002
-    assert plan.publish_parameters["synapseml_version"] == "1.1.4"
-    assert plan.publish_parameters["internal_patch_version"] == "0"
-    assert plan.publish_parameters["build_synapseml_pip_py311"] is True
-    assert plan.publish_parameters["build_synapseml_upack_default"] is True
-    assert plan.publish_parameters["build_synapseml_pip_py312"] is False
-    assert plan.publish_parameters["build_synapseml_upack_spark4"] is False
-    assert plan.publish_parameters["build_synapseml_pip_py313"] is True
-    assert plan.publish_parameters["build_synapseml_upack_spark41"] is True
-    assert plan.publish_parameters["build_internal_pip_py313"] is True
-    assert plan.publish_parameters["build_internal_upack_spark41"] is True
+    assert plan.publish_parameters == {
+        "synapseml_version": "1.1.4",
+        "internal_patch_version": "0",
+        "build_synapseml_pip_py311": True,
+        "build_synapseml_pip_py312": False,
+        "build_synapseml_pip_py313": True,
+        "build_synapseml_upack_default": True,
+        "build_synapseml_upack_spark4": False,
+        "build_synapseml_upack_spark41": True,
+        "build_internal_pip_py311": True,
+        "build_internal_pip_py312": False,
+        "build_internal_pip_py313": True,
+        "build_internal_upack_default": True,
+        "build_internal_upack_spark4": False,
+        "build_internal_upack_spark41": True,
+    }
 
 
 def test_internal_only_hotfix_never_republishes_oss():

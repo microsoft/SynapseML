@@ -1,13 +1,7 @@
 name: Release Prepare — Version Bump PR
 
-# Automates Release Guide Step 1.1-1.3: bump every version string in the repo,
-# regenerate the versioned docs snapshot, and open the release PR.
-#
-# Two recent version bumps (v1.1.0, v1.1.3) landed as unsigned direct pushes
-# to master with no PR and no review. This workflow provides a repeatable,
-# reviewed path and tags the exact merged commit.
-#
-# See also: release-tag.yml (creates derivative tags and Spark release PRs).
+# Open a reviewed version/docs bump PR, tag its exact merged commit, then
+# dispatch release-tag.yml for derivative tags and Spark release PRs.
 
 on:
   workflow_dispatch:
@@ -154,11 +148,6 @@ jobs:
         working-directory: website
         run: npm ci
 
-      # bump-version.py is context-anchored: it refuses to replace a bare version
-      # number that has no SynapseML-identifying text near it, and exits non-zero
-      # if a selected old-version reference survives. Optional Spark 4.0
-      # installation references retain their published version. Both
-      # behaviours are load-bearing here, so the exit code is not suppressed.
       - name: Bump version strings
         id: bump
         env:

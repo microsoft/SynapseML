@@ -340,29 +340,21 @@ def test_unsafe_directory_is_rejected_before_publication(staged):
         dbc.publish_archive(directory, plan, target)
 
 
-def test_existing_identical_archive_requires_no_second_upload(staged, monkeypatch):
+@pytest.mark.parametrize("changed", [False, True])
+def test_existing_archive_is_never_overwritten(staged, monkeypatch, changed):
     directory, plan, target, data, record = staged
-    monkeypatch.setattr(dbc, "fetch_public_archive", lambda *_: (data, record))
-    assert dbc.publish_archive(directory, plan, target)["sha256"] == record["sha256"]
-
-
-def test_existing_different_archive_is_never_overwritten(staged, monkeypatch):
-    directory, plan, target, data, record = staged
-    monkeypatch.setattr(dbc, "fetch_public_archive", lambda *_: (data + b"x", record))
-    with pytest.raises(ValueError, match="does not match"):
-        dbc.publish_archive(directory, plan, target)
-
-
-@pytest.mark.parametrize("status", [401, 403, 429, 500])
-def test_public_lookup_errors_are_not_treated_as_missing(monkeypatch, status):
-    def fail(*args, **kwargs):
-        raise urllib.error.HTTPError(
-            "https://example.invalid", status, "failure", {}, None
+    monkeypatch.setattr(
+        dbc,
+        "fetch_public_archive",
+        lambda *_: (data + (b"x" if changed else b""), record),
+    )
+    if changed:
+        with pytest.raises(ValueError, match="does not match"):
+            dbc.publish_archive(directory, plan, target)
+    else:
+        assert (
+            dbc.publish_archive(directory, plan, target)["sha256"] == record["sha256"]
         )
-
-    monkeypatch.setattr(urllib.request.OpenerDirector, "open", fail)
-    with pytest.raises(ValueError, match=f"HTTP {status}"):
-        dbc.fetch_public_archive("1.2.0", "a" * 40)
 
 
 def test_public_lookup_requires_source_binding_and_matching_bytes(monkeypatch):
@@ -385,37 +377,31 @@ def test_public_lookup_requires_source_binding_and_matching_bytes(monkeypatch):
         dbc.fetch_public_archive("1.2.0", "a" * 40)
 
 
-def test_build_reuses_existing_approved_bytes_only_after_roundtrip(
-    tmp_path, selected, monkeypatch
+@pytest.mark.parametrize("approved", [False, True])
+def test_build_reuses_existing_bytes_only_for_approved_plan_and_roundtrip(
+    tmp_path, selected, monkeypatch, approved
 ):
     plan, target = selected
     notebooks = {"Example.ipynb": notebook()}
     data = archive_bytes("1.2.0")
     metadata = {"plan_id": plan.plan_id, "source_digest": dbc.source_digest(notebooks)}
+    if not approved:
+        metadata["plan_id"] = "other"
     monkeypatch.setattr(dbc, "prepare_notebooks", lambda *_: notebooks)
     monkeypatch.setattr(dbc, "fetch_public_archive", lambda *_: (data, metadata))
     workspace = FakeWorkspace()
+    if not approved:
+        with pytest.raises(ValueError, match="different plan"):
+            dbc.build_archive(tmp_path, plan, target, tmp_path / "out", workspace)
+        assert not (tmp_path / "out").exists()
+        assert not workspace.calls
+        return
     record = dbc.build_archive(tmp_path, plan, target, tmp_path / "out", workspace)
     assert record["sha256"] == dbc.digest(data)
     assert [
         body["format"] for endpoint, body in workspace.calls if endpoint == "import"
     ] == ["DBC"]
     assert workspace.calls[-1][0] == "delete"
-
-
-def test_build_rejects_existing_archive_from_another_plan(
-    tmp_path, selected, monkeypatch
-):
-    plan, target = selected
-    monkeypatch.setattr(
-        dbc, "prepare_notebooks", lambda *_: {"Example.ipynb": notebook()}
-    )
-    monkeypatch.setattr(
-        dbc, "fetch_public_archive", lambda *_: (b"existing", {"plan_id": "other"})
-    )
-    with pytest.raises(ValueError, match="different plan"):
-        dbc.build_archive(tmp_path, plan, target, tmp_path / "out", FakeWorkspace())
-    assert not (tmp_path / "out").exists()
 
 
 def test_untrusted_workspace_host_is_rejected_before_authentication():
@@ -470,37 +456,23 @@ def test_upload_error_is_reconciled_only_with_identical_public_bytes(
             dbc.publish_archive(directory, plan, target)
 
 
+@pytest.mark.parametrize("operation", ["public", "DBC", "JUPYTER"])
 @pytest.mark.parametrize(
     "error",
     [
         urllib.error.URLError("private detail"),
         OSError("private detail"),
         http.client.IncompleteRead(b"private detail"),
-    ],
-)
-def test_network_errors_have_sanitized_dbc_diagnostics(monkeypatch, error):
-    def fail(*_, **__):
-        raise error
-
-    monkeypatch.setattr(urllib.request.OpenerDirector, "open", fail)
-    with pytest.raises(ValueError, match="Public DBC lookup failed") as raised:
-        dbc.fetch_public_archive("1.2.0", "a" * 40)
-    assert "private detail" not in str(raised.value)
-
-
-@pytest.mark.parametrize("fmt", ["DBC", "JUPYTER"])
-@pytest.mark.parametrize(
-    "error",
-    [
+    ]
+    + [
         urllib.error.HTTPError(
-            "https://example.invalid", 400, "private detail", {}, None
-        ),
-        urllib.error.URLError("private detail"),
-        http.client.IncompleteRead(b"private detail"),
+            "https://example.invalid", status, "private detail", {}, None
+        )
+        for status in (400, 401, 403, 429, 500)
     ],
 )
-def test_workspace_errors_name_operation_without_response_or_token(
-    monkeypatch, fmt, error
+def test_transport_errors_name_operation_without_response_or_token(
+    monkeypatch, operation, error
 ):
     workspace = dbc.Workspace.__new__(dbc.Workspace)
     workspace.host = "https://example.invalid"
@@ -510,10 +482,22 @@ def test_workspace_errors_name_operation_without_response_or_token(
         raise error
 
     monkeypatch.setattr(urllib.request.OpenerDirector, "open", fail)
-    with pytest.raises(ValueError, match=f"Databricks export {fmt}") as raised:
-        workspace.export("/Shared/Example.ipynb", fmt)
+    public = operation == "public"
+    with pytest.raises(
+        ValueError,
+        match="Public DBC lookup failed"
+        if public
+        else f"Databricks export {operation}",
+    ) as raised:
+        if public:
+            dbc.fetch_public_archive("1.2.0", "a" * 40)
+        else:
+            workspace.export("/Shared/Example.ipynb", operation)
     message = str(raised.value)
-    assert "/Shared/Example.ipynb" in message
+    if not public:
+        assert "/Shared/Example.ipynb" in message
+    if isinstance(error, urllib.error.HTTPError):
+        assert f"HTTP {error.code}" in message
     assert "private detail" not in message
     assert workspace.token not in message
 

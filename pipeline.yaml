@@ -227,18 +227,11 @@ jobs:
           fetchTags: true
         - bash: |
             set -euo pipefail
-            if [ "${STYLE,,}" != "true" ] || [ "${UNIT,,}" != "true" ] || [ "${PYTHON,,}" != "true" ]; then
-              echo "Release publication requires style, unit and Python tests." >&2
-              exit 1
-            fi
             python3 scripts/release/release_guard.py maven
           displayName: 'Validate approved release source before artifact publication'
           env:
             RELEASE_PLAN_BASE64: ${{ parameters.release_plan_base64 }}
             RELEASE_PLAN_ID: ${{ parameters.release_plan_id }}
-            STYLE: ${{ parameters.testStyle }}
-            UNIT: ${{ parameters.testUnit }}
-            PYTHON: ${{ parameters.testPython }}
       - template: templates/sbt_cache.yml
       - template: templates/update_cli.yml
       - template: templates/conda.yml

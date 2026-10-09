@@ -407,7 +407,7 @@ def test_push_tags_rejects_empty_or_duplicate_selection_before_git(
         guard.push_tags(tmp_path, tags, SHA)
 
 
-@pytest.mark.parametrize("failure", ["check-ref-format", "show-ref"])
+@pytest.mark.parametrize("failure", ["check-ref-format", "show-ref", "source"])
 def test_push_tags_validation_failure_precedes_staging(tmp_path, monkeypatch, failure):
     calls = []
 
@@ -415,10 +415,17 @@ def test_push_tags_validation_failure_precedes_staging(tmp_path, monkeypatch, fa
         calls.append(arguments[0])
         if arguments[0] == failure:
             raise ValueError("invalid or missing exact tag")
+        if arguments[0] == "show-ref":
+            return SHA
+        if arguments[0] == "rev-parse":
+            return "b" * 40
         return ""
 
     monkeypatch.setattr(guard, "_git", run)
-    with pytest.raises(ValueError, match="invalid or missing"):
+    with pytest.raises(
+        ValueError,
+        match="approved commit" if failure == "source" else "invalid or missing",
+    ):
         guard.push_tags(tmp_path, ["v1.1.4"], SHA)
     assert "update-ref" not in calls and "push" not in calls
 
@@ -517,23 +524,6 @@ def test_git_transactions_use_lf_bytes_without_echoing_stderr(tmp_path, monkeypa
     with pytest.raises(ValueError) as error:
         guard._git(tmp_path, "update-ref", "--stdin", input_text="start\n")
     assert "synthetic-do-not-echo" not in str(error.value)
-
-
-def test_push_tags_rejects_changed_source_before_staging(tmp_path, monkeypatch):
-    calls = []
-
-    def run(_repo, *arguments, **_kwargs):
-        calls.append(arguments[0])
-        if arguments[0] == "show-ref":
-            return SHA
-        if arguments[0] == "rev-parse":
-            return "b" * 40
-        return ""
-
-    monkeypatch.setattr(guard, "_git", run)
-    with pytest.raises(ValueError, match="approved commit"):
-        guard.push_tags(tmp_path, ["v1.1.4"], SHA)
-    assert "update-ref" not in calls and "push" not in calls
 
 
 @pytest.mark.parametrize("target_key", [target.key for target in matrix.TARGETS])

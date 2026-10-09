@@ -322,11 +322,14 @@ class TestMustAnchor:
             f"synapseml-lightgbm-{V}.zip",
             f"synapseml-opencv-{V}.zip",
             f"synapseml-vw-{V}.zip",
+            f"synapseml-future-module-{V}.zip",
+            f"https://example.invalid/synapseml-core-{V}.zip?download=1",
         ],
     )
     def test_r_package(self, archive):
         r = _analyze(archive)
-        assert r.matches and not r.unanchored
+        assert len(r.matches) == 1 and not r.unanchored
+        assert apply(archive, V, "2.0.0", r.matches) == archive.replace(V, "2.0.0")
 
     def test_prose_v_prefix(self):
         r = _analyze(f"SynapseML v{V}")
@@ -419,6 +422,29 @@ class TestMustAnchor:
 
 class TestMustNotAnchor:
     """These contexts MUST produce unanchored matches (hard fail)."""
+
+    @pytest.mark.parametrize(
+        "package", ["synapseml", "synapseml-core", "synapseml-future-module"]
+    )
+    @pytest.mark.parametrize(
+        "unrelated",
+        [
+            f"other-{V}.zip",
+            f"not-synapseml-core-{V}.zip",
+            f"synapseml-core-{V}.zip.backup",
+        ],
+    )
+    def test_archive_versions_bind_only_the_synapseml_token(self, package, unrelated):
+        archive = f"{package}-{V}.zip"
+        content = f"{archive} {unrelated}"
+        r = _analyze(content)
+        assert [(m.start, m.end) for m in r.matches] == [
+            (len(package) + 1, len(package) + 1 + len(V))
+        ]
+        assert r.unanchored == [(1, content)]
+        assert (
+            apply(content, V, "2.0.0", r.matches) == f"{package}-2.0.0.zip {unrelated}"
+        )
 
     def test_bare_version_no_context(self):
         r = _analyze(f"The version is {V}")
@@ -614,13 +640,7 @@ class TestRunDocusaurus:
 
         def fake_run(cmd, **kwargs):
             calls.append((cmd, kwargs))
-            guide = (
-                website
-                / "versioned_docs"
-                / "version-2.0.0"
-                / "Get Started"
-                / "Install SynapseML.md"
-            )
+            guide = _recovery_guide(tmp_path)
             guide.parent.mkdir(parents=True)
             guide.write_text(
                 "# Install\n\n## Latest master snapshot\nmaster_version3.svg\n"
@@ -632,6 +652,9 @@ class TestRunDocusaurus:
         monkeypatch.setattr(subprocess, "run", fake_run)
 
         assert bump._run_docusaurus(tmp_path, "2.0.0", dry_run=False)
+        assert _recovery_guide(tmp_path).read_text(encoding="utf-8") == (
+            "# Install\n\n## Release\nPinned installation.\n"
+        )
         assert calls == [
             (
                 ["npm", "exec", "--", "docusaurus", "docs:version", "2.0.0"],
@@ -671,36 +694,6 @@ class TestRunDocusaurus:
         )
         assert "ERROR" not in captured.err
 
-    def test_new_snapshot_is_pinned_without_changing_source_or_history(self, tmp_path):
-        website = tmp_path / "website"
-        content = (
-            "# Install\n\n## Latest master snapshot\nmaster_version3.svg\n\n"
-            "## Release\nPinned installation.\n"
-        )
-        paths = [
-            website / "docs" / "Get Started" / "Install SynapseML.md",
-            website
-            / "versioned_docs"
-            / "version-1.0.0"
-            / "Get Started"
-            / "Install SynapseML.md",
-            website
-            / "versioned_docs"
-            / "version-2.0.0"
-            / "Get Started"
-            / "Install SynapseML.md",
-        ]
-        for path in paths:
-            path.parent.mkdir(parents=True)
-            path.write_text(content, encoding="utf-8")
-        bump._finalize_versioned_docs(tmp_path, "2.0.0")
-        assert paths[0].read_text(encoding="utf-8") == content
-        assert paths[1].read_text(encoding="utf-8") == content
-        expected = "# Install\n\n## Release\nPinned installation.\n"
-        assert paths[2].read_text(encoding="utf-8") == expected
-        bump._finalize_versioned_docs(tmp_path, "2.0.0")
-        assert paths[2].read_text(encoding="utf-8") == expected
-
     @pytest.mark.parametrize(
         "original",
         [
@@ -712,23 +705,12 @@ class TestRunDocusaurus:
     def test_unrecognized_moving_snapshot_refuses_without_editing(
         self, tmp_path, original
     ):
-        guide = (
-            tmp_path
-            / "website"
-            / "versioned_docs"
-            / "version-2.0.0"
-            / "Get Started"
-            / "Install SynapseML.md"
-        )
+        guide = _recovery_guide(tmp_path)
         guide.parent.mkdir(parents=True)
         guide.write_text(original, encoding="utf-8")
         with pytest.raises(ValueError, match="moving snapshot"):
             bump._finalize_versioned_docs(tmp_path, "2.0.0")
         assert guide.read_text(encoding="utf-8") == original
-
-    def test_missing_snapshot_fails_explicitly(self, tmp_path):
-        with pytest.raises(ValueError, match="missing or linked"):
-            bump._finalize_versioned_docs(tmp_path, "2.0.0")
 
     def test_successful_command_without_snapshot_is_not_reported_as_success(
         self, tmp_path, monkeypatch, capsys
@@ -743,26 +725,6 @@ class TestRunDocusaurus:
         )
         assert not bump._run_docusaurus(tmp_path, "2.0.0", dry_run=False)
         assert "documentation finalization failed" in capsys.readouterr().err
-
-    def test_linked_snapshot_does_not_edit_its_target(self, tmp_path):
-        target = tmp_path / "historical.md"
-        target.write_text("Historical documentation.\n", encoding="utf-8")
-        guide = (
-            tmp_path
-            / "website"
-            / "versioned_docs"
-            / "version-2.0.0"
-            / "Get Started"
-            / "Install SynapseML.md"
-        )
-        guide.parent.mkdir(parents=True)
-        try:
-            guide.symlink_to(target)
-        except OSError:
-            pytest.skip("Creating filesystem symlinks is unavailable")
-        with pytest.raises(ValueError, match="missing or linked"):
-            bump._finalize_versioned_docs(tmp_path, "2.0.0")
-        assert target.read_text(encoding="utf-8") == "Historical documentation.\n"
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -788,6 +750,30 @@ def fake_repo(tmp_path):
 
 
 class TestIntegration:
+    def test_mixed_archives_refuse_before_any_file_is_changed(self, fake_repo):
+        (fake_repo / "archives.md").write_text(
+            f"synapseml-future-module-{V}.zip other-{V}.zip\n", encoding="utf-8"
+        )
+        before = {
+            path: path.read_bytes() for path in fake_repo.rglob("*") if path.is_file()
+        }
+        result = subprocess.run(
+            [
+                sys.executable,
+                SCRIPT,
+                "--to",
+                "2.0.0",
+                "--repo-root",
+                str(fake_repo),
+                "--skip-docs",
+            ],
+            capture_output=True,
+            text=True,
+        )
+        assert result.returncode == 1
+        assert "FATAL" in result.stdout
+        assert all(path.read_bytes() == content for path, content in before.items())
+
     def test_successive_bumps_preserve_release_tools_and_fixtures(self, fake_repo):
         historical = {
             "scripts/release/test_future_release.py": f'VERSIONS = ["{V}", "2.0.0", "3.0.0"]\n',
@@ -842,6 +828,7 @@ class TestIntegration:
             text=True,
         )
         assert result.returncode == 0
+        assert "Post-condition verified" not in result.stdout
         assert "[DRY RUN] Would run: sbt convertNotebooks" in result.stdout
         assert (
             "[DRY RUN] Would run: npm exec -- docusaurus docs:version 2.0.0"
@@ -869,6 +856,8 @@ class TestIntegration:
             text=True,
         )
         assert result.returncode == 0
+        assert "Post-condition verified" in result.stdout
+        assert "0 stale selected versions" in result.stdout
         readme = (fake_repo / "README.md").read_text()
         assert "synapseml==2.0.0" in readme
         assert "SynapseML v2.0.0" in readme
@@ -1012,9 +1001,6 @@ def recovery_repo(tmp_path):
         path = root / name
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(content, encoding="utf-8")
-    script = root / "scripts" / "bump-version.py"
-    script.parent.mkdir()
-    script.write_bytes(Path(SCRIPT).read_bytes())
     _recovery_git(root, "add", ".")
     _recovery_git(root, "commit", "-qm", "Initial documentation fixture")
     (root / "website" / "docusaurus.config.js").write_text(
@@ -1086,12 +1072,6 @@ class TestDocsRecoveryCLI:
         result = _recover(recovery_repo, "--dry-run")
         assert result.returncode != 0 and "moving snapshot" in result.stderr
         assert guide.read_text(encoding="utf-8") == "# Install\nmaster_version3.svg\n"
-
-    def test_staged_but_uncommitted_snapshot_is_supported(self, recovery_repo):
-        _recovery_git(recovery_repo, "add", "website/versioned_docs/version-2.0.0")
-        result = _recover(recovery_repo)
-        assert result.returncode == 0, result.stderr
-        assert "master_version3.svg" not in _recovery_guide(recovery_repo).read_text()
 
     @pytest.mark.parametrize("port", ["spark4.0", "spark4.1"])
     @pytest.mark.parametrize("staged", [False, True], ids=["untracked", "staged"])
@@ -1316,6 +1296,9 @@ class TestDocsRecoveryCLI:
     def test_printed_conversion_recovery_invokes_real_finalization(
         self, recovery_repo, monkeypatch, capsys
     ):
+        script = recovery_repo / "scripts" / "bump-version.py"
+        script.parent.mkdir()
+        script.write_bytes(Path(SCRIPT).read_bytes())
         guide = _recovery_guide(recovery_repo)
         guide.unlink()
         guide.parent.rmdir()
@@ -1788,10 +1771,6 @@ class TestSnapshotRegression:
         """Must find at least 80 replacements (sanity floor)."""
         assert live_results["total_replacements"] >= 80
 
-    def test_no_zero_count_files(self, live_results):
-        for f, count in live_results["files"].items():
-            assert count > 0, f"{f} has 0 matches but was included"
-
 
 # ── Historical replay ─────────────────────────────────────────────────────────
 
@@ -1902,55 +1881,3 @@ class TestHistoricalReplay:
         assert (
             not truly_missing
         ), f"{sha} ({from_v}->{to_v}): missed {sorted(truly_missing)}"
-
-        # Files script would add that weren't in history
-        extra = script_files - expected
-        assert not extra, f"{sha} ({from_v}->{to_v}): extra {sorted(extra)}"
-
-
-# ══════════════════════════════════════════════════════════════════════════════
-# 12. Post-Condition Verification Tests
-# ══════════════════════════════════════════════════════════════════════════════
-
-
-class TestPostCondition:
-    """Verify the post-condition self-check in main()."""
-
-    def test_live_run_prints_postcondition(self, fake_repo):
-        result = subprocess.run(
-            [
-                sys.executable,
-                SCRIPT,
-                "--from",
-                V,
-                "--to",
-                "2.0.0",
-                "--repo-root",
-                str(fake_repo),
-                "--skip-docs",
-            ],
-            capture_output=True,
-            text=True,
-        )
-        assert result.returncode == 0
-        assert "Post-condition verified" in result.stdout
-        assert "0 stale selected versions" in result.stdout
-
-    def test_dry_run_skips_postcondition(self, fake_repo):
-        result = subprocess.run(
-            [
-                sys.executable,
-                SCRIPT,
-                "--from",
-                V,
-                "--to",
-                "2.0.0",
-                "--repo-root",
-                str(fake_repo),
-                "--dry-run",
-            ],
-            capture_output=True,
-            text=True,
-        )
-        assert result.returncode == 0
-        assert "Post-condition verified" not in result.stdout

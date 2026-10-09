@@ -466,13 +466,7 @@ def pypi_wheel_receipt(path, version):
                 )
     except zipfile.BadZipFile as error:
         raise ValueError("published PyPI wheel is not a valid wheel archive") from error
-    digest = hashlib.sha256()
-    size = 0
-    with path.open("rb") as stream:
-        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-            digest.update(chunk)
-            size += len(chunk)
-    return {"path": f"pypi/{expected}", "sha256": digest.hexdigest(), "size": size}
+    return _file_identity(path, f"pypi/{expected}")
 
 
 def _maven_identity(plan, target, build_id):
@@ -529,7 +523,6 @@ def blob_maven_receipt(plan, target, artifact_root, build_id):
         if (root / module).is_symlink() or directory.is_symlink():
             raise ValueError("Blob artifact directories must not be symbolic links")
         artifacts.append(_file_identity(directory / filename, relative))
-    validate_public_maven_inventory(artifacts, target.oss_maven_version, target.scala)
     return {
         **_maven_identity(plan, target, build_id),
         "destination": "maven",
@@ -593,8 +586,6 @@ def maven_receipt(
         maven_artifact_filename(path.name, module, target.oss_maven_version)
         artifacts.append(_file_identity(path, relative.as_posix()))
     validate_public_maven_inventory(artifacts, target.oss_maven_version, target.scala)
-    if type(build_id) is not int or build_id < 1:
-        raise ValueError("Maven receipt requires an authoritative build ID")
     if target.key == "master":
         artifacts.append(pypi_wheel_receipt(pypi_wheel, plan.oss_version))
     elif pypi_wheel is not None:

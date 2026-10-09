@@ -4,7 +4,6 @@
 import copy
 import hashlib
 import json
-import os
 from pathlib import Path
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -17,6 +16,7 @@ import release_ops as ops
 import verify_release as verify
 from test_release_ops import cli, no_network  # noqa: F401
 from test_release_ops import private_profile, release_plan  # noqa: F401
+from test_release_ops import extra_maven_artifacts, notes_evidence_args
 
 CACHE_ID = "d53ccab4-555e-4494-9d06-11db043fb4a9"
 BASH_ID = "6c731c3c-3c68-459a-a5c9-bde6e6595b5b"
@@ -491,20 +491,8 @@ def test_production_sized_warning_evidence_fits_and_passes_notes_guard(
                         start + duration * (task_index + 1) / len(tasks)
                     ),
                 )
-        paths = (
-            f"{module}_{target.scala}/{module}_{target.scala}-"
-            f"{target.oss_maven_version}{classifier}{suffix}"
-            for module in verify.PUBLIC_MAVEN_MODULES
-            for classifier in ("", "-sources", "-javadoc", "-tests", "-tests-sources")
-            for suffix in (".jar.asc", ".jar.sha1", ".jar.sha256", ".jar.sha512")
-        )
         cli.remote.manifests[build_id][0]["artifacts"].extend(
-            {
-                "path": path,
-                "sha256": hashlib.sha256(f"{build_id}-{index}".encode()).hexdigest(),
-                "size": index + 1,
-            }
-            for index, path in enumerate(paths)
+            extra_maven_artifacts(build_id, target)
         )
     evidence = ops.verified_evidence(plan, cli.state, remote=cli.remote)
     assert evidence["complete"]
@@ -532,14 +520,7 @@ def test_production_sized_warning_evidence_fits_and_passes_notes_guard(
             run["job_records_sha256"]
             == hashlib.sha256(ops.canonical(action["receipt"]["jobs"])).hexdigest()
         )
-    if os.name == "nt":
-        # Windows limits a single environment variable to 32,767 characters.
-        evidence_file = tmp_path / "evidence.json"
-        evidence_file.write_text(json.dumps(decoded), encoding="utf-8")
-        evidence_args = ["--evidence", str(evidence_file)]
-    else:
-        monkeypatch.setenv("RELEASE_EVIDENCE_BASE64", encoded)
-        evidence_args = ["--evidence-base64-env"]
+    evidence_args = notes_evidence_args(encoded, tmp_path, monkeypatch)
     monkeypatch.setattr(
         release_dbc,
         "fetch_public_archive",

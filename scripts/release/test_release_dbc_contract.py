@@ -201,21 +201,10 @@ def test_native_dbc_validation_precedes_public_maven_upload(pipeline_jobs):
 def test_native_dbc_publication_reuses_the_validated_publish_artifact(pipeline_jobs):
     release = pipeline_jobs["Release"]
     steps = release["steps"]
-    validate = next(
-        i
-        for i, s in enumerate(steps)
-        if s.get("displayName") == "Validate notebook artifact handoff"
-    )
-    download = next(
-        i
-        for i, s in enumerate(steps)
-        if s.get("displayName") == "Download validated release notebook archive"
-    )
-    publish = next(
-        i
-        for i, s in enumerate(steps)
-        if s.get("displayName") == "Publish and verify public release notebook archive"
-    )
+    names = [step.get("displayName") for step in steps]
+    validate = names.index("Validate notebook artifact handoff")
+    download = names.index("Download validated release notebook archive")
+    publish = names.index("Publish and verify public release notebook archive")
     receipt = next(i for i, s in enumerate(steps) if "--receipt " in s.get("bash", ""))
     assert "Publish" in release["dependsOn"]
     assert release["variables"]["releaseDbcArtifact"] == (
@@ -237,9 +226,7 @@ def test_native_dbc_publication_reuses_the_validated_publish_artifact(pipeline_j
             "and(succeeded(), eq(variables.releaseDbc, 'true'))"
         )
     for name in ("publish python package to pypi", "ESRP Publish Package"):
-        assert publish < next(
-            i for i, step in enumerate(steps) if step.get("displayName") == name
-        )
+        assert publish < names.index(name)
     build = next(
         step
         for step in publication_steps(pipeline_jobs["Publish"])

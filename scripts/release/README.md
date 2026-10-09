@@ -1,291 +1,50 @@
 # Public SynapseML releases
 
-Prepare, approve, publish and recover public SynapseML releases with one
-source-bound plan and one durable ledger. Downstream private integrations are
-not prerequisites and their deployment procedures do not belong in this guide.
+This is the operator and agent runbook. Use the guarded scripts with one
+source-bound plan and one durable ledger, not a separate publisher.
 
 **Consumer-wheel gate, before any production tag:** the release owner must
-qualify a source/version-bound primary candidate wheel on every selected runtime.
-Port CI using different wrappers does not prove the primary wheel works there.
-Resolve the distribution strategy and approved outputs before requesting
-approval or running any tag-creating operation below. This is a human gate;
-the release scripts do not infer qualification from a plan or green producer CI.
+[qualify the same primary candidate wheel on every selected runtime](#qualify-the-primary-wheel-on-each-runtime).
+Resolve distribution and approved outputs before tag approval. Port CI with
+different wrappers and green producer CI do not establish this human gate.
 
-The default public release contains Maven CDN and Maven Central artifacts for
-`master` and `spark4.1`, plus the primary public PyPI wheel. For `1.2.0`, the
-Maven versions are `1.2.0` and `1.2.0-spark4.1`; PyPI receives
-`synapseml==1.2.0`. New schema-4 plans also require the public notebook archives
-`SynapseMLExamplesv1.2.0.dbc` and `SynapseMLExamplesv1.2.0-spark4.1.dbc`
-in `https://mmlspark.blob.core.windows.net/dbcs`.
+Default releases select `master` and `spark4.1`: Maven CDN and Maven Central
+artifacts, the primary PyPI wheel, and one source-bound DBC per runtime.
+For `1.2.0`, these are Maven `1.2.0`/`1.2.0-spark4.1`, `synapseml==1.2.0`,
+and `SynapseMLExamplesv1.2.0.dbc`/`SynapseMLExamplesv1.2.0-spark4.1.dbc`.
+[Spark 4.0 is opt-in](#explicitly-include-spark-40); default operations require
+none of its refs, CI or artifacts. Private integrations are separate.
 
-Spark 4.0 remains available as an explicit opt-in, not a prerequisite.
-The default plan, bootstrap, builds, evidence and notes do not require its
-branch, candidate PR, CI, tags or packages. Removing it does not resolve a
-Spark 4.1 Python-wheel compatibility gap; the consumer-wheel gate still applies.
+The commands below use Bash from the repository root. Python CLIs also run
+on Windows; use native path separators and shell syntax there.
 
-Merging the automation does not publish a release. Workflow dispatch, reviewed
-source, exact-plan approval and signing approvals are separate steps.
+## 1. Preview and prepare source
 
-## Qualify the primary wheel on each runtime
+Record the version, selected targets, normal or pre-merge procedure, release
+owner and signing approver. Read the [branch policy](../../.github/skills/synapseml-branches/SKILL.md)
+and each target's runtime versions. Obtain explicit authorization before
+creating branches/PRs or dispatching live validation. Permission to edit
+automation or rehearse offline does not authorize tags, packages, notes or merges.
+Confirm [App setup](#one-time-github-app-setup) and publisher, Databricks and
+storage access separately before live preparation. Read the
+[public-information rules](#safety-and-public-information).
 
-Build the aggregate wheel from the reviewed primary candidate with
-`sbt packageSynapseML`. Before tags exist, use an explicit local SBT version
-override for the intended version, for example
-`sbt 'set ThisBuild / version := "1.2.0"' packageSynapseML`.
-This packages locally; it does not grant publication permission. Retain the
-candidate wheel, its SHA-256, the exact reviewed source commit and the intended
-release version. A result from an uncommitted patch is provisional: commit and
-qualify the final candidate before tagging. Record each selected runtime's
-source commit, environment and matching JVM artifact hashes with its results.
+Choose one protected directory outside the checkout for plans, the ledger,
+its persistent claim and operator evidence. Keep one active operator and follow
+the [handoff rules](#handoff-at-every-stop) whenever work stops.
 
-Use that **same wheel file**, not a port-generated wheel, in separate
-environments matching each selected branch's `environment.yml`. Package and list
-the matching candidate's normal JVM artifacts with
-`sbt 'export opencv / Runtime / fullClasspathAsJars'`, using that branch's JDK
-and the corresponding local version override. A fat assembly is unnecessary.
-Do not reuse primary Scala JARs on a port runtime.
-
-For each environment, set absolute paths to the primary wheel and that
-runtime's OpenCV JAR. Set `SYNAPSEML_CONSUMER_JARS` to the comma-separated core,
-OpenCV and additional dependency JARs from the exported classpath. Omit JARs
-already supplied by that environment's PySpark installation, rather than
-adding Spark itself again. Then run:
-
-```bash
-export SYNAPSEML_CONSUMER_WHEEL=/absolute/path/to/synapseml-1.2.0-py2.py3-none-any.whl
-export SYNAPSEML_CONSUMER_JAR=/absolute/path/to/matching-synapseml-opencv.jar
-export PYSPARK_SUBMIT_ARGS="--jars \"${SYNAPSEML_CONSUMER_JARS}\" pyspark-shell"
-python -m pip install --no-deps --force-reinstall "$SYNAPSEML_CONSUMER_WHEEL"
-python -m pytest \
-  opencv/src/test/python/synapsemltest/opencv/test_image_conversion.py -q
-sha256sum "$SYNAPSEML_CONSUMER_WHEEL" "$SYNAPSEML_CONSUMER_JAR"
-```
-
-Run from the reviewed primary checkout, with no generated-source directory on
-`PYTHONPATH`. The artifact bindings check the installed Python files against
-the wheel and the loaded JVM class against the selected JAR. The tests cover
-bytes, bytearrays, array inputs, grayscale/RGB conversion, Spark `BinaryType`
-rows, JVM image transformation and save/load. Keep all selected runtime results
-and hashes with the release record. This is a focused image-compatibility gate,
-not a replacement for the selected candidates' full CI or service tests.
-
-The production pipeline rebuilds the wheel. Before declaring readiness or
-publishing notes, the release owner must compare that published wheel with the
-retained qualified candidate, following [Python distribution readiness](#python-distribution-readiness).
-Producer receipts prove which bytes were published, not that they match the
-candidate's qualified payload.
-
-## One-time GitHub App setup
-
-The preparation and tag workflows open PRs with an approved GitHub App, not
-`GITHUB_TOKEN`. This works when organization policy disables PR creation by
-`GITHUB_TOKEN`; it does not change that policy or bypass branch protection.
-An organization owner must approve and install the App on `microsoft/SynapseML`.
-Give it repository **Contents: read** and **Pull requests: write** permissions.
-GitHub supplies metadata read access automatically. No Actions or administration
-permission is requested. These workflows do not use the App to approve or merge
-PRs, sign artifacts or publish packages.
-
-Configure these repository settings through the approved secret-management
-process:
-
-- Actions variable `RELEASE_APP_CLIENT_ID`: the installed App's client ID.
-- Actions secret `RELEASE_APP_PRIVATE_KEY`: its PEM private key.
-
-Do not paste the key into a workflow input, PR, log or command argument. Do not
-reuse a personal token as an implicit fallback. Both workflows stop with a
-configuration error when either setting is missing. The pinned official
-`actions/create-github-app-token` action requests a short-lived token scoped
-only to this repository and those permissions, and revokes it when the job
-ends. Preparation mints it after docs generation but before pushing the branch;
-the tag workflow mints it before creating derivative tags.
-
-Branch/tag writes and explicit validation dispatches still use `GITHUB_TOKEN`.
-The App token only reads and opens PRs. Review, current-head Azure validation,
-plan approval and signing remain human gates. App installation and credentials
-are external prerequisites; merging this code does not configure them.
-
-## Agent runbook and offline rehearsal
-
-Agents should load the
-[release skill](../../.github/skills/synapseml-release/SKILL.md) and follow its
-[checkpoint runbook](../../.github/skills/synapseml-release/references/agent-runbook.md).
-It uses the scripts below, with explicit preparation, exact-plan publication,
-signing, notes and merge boundaries. No new publication engine is required.
-
-Run the credential-free rehearsal from this checkout:
+Run the credential-free rehearsal with Python, pytest, PyYAML and Git installed:
 
 ```bash
 python scripts/release/release_dry_run.py --report ../release-rehearsal.json
 ```
 
-The report path must be new and its parent must exist. Existing files, including
-ledgers, are never overwritten. Python needs the repository's pytest and PyYAML
-test dependencies; Git must be on PATH. Native Windows and Linux are supported.
-The runner exercises real plan, ledger, bootstrap, producer and verifier code
-with simulated services and disposable local Git repositories. Live sockets
-and non-Git child processes are blocked inside the rehearsal tests; Git may
-use only the local file protocol.
-
-The JSON report identifies an **offline rehearsal**, not release readiness.
-It always reports `live_services_validated: false` and
-`publication_authorized: false`. The script accepts no production plan or apply
-flag. Exit `0` requires executed tests with no failures or skips. Exit `1`
-means failed or incomplete test execution; exit `2` means a runner, dependency,
-timeout or report error. A missing tool is not an implicit skip.
-
-For a real release, offline success is followed by candidate qualification and
-the separate live preflight below. A bootstrap candidate has no canonical
-release tags yet, so use its guarded preview before approval, then run
-publication preflight after approved tag creation. Keep one authoritative
-ledger and one active operator across agent sessions. Rehearsal reports cannot
-be supplied as producer evidence or approval.
-
-## Notebook archive publication
-
-New public plans use schema 4. Each selected runtime's existing Azure release
-build produces a DBC from its exact approved source commit, strips saved
-outputs and execution metadata, and uses the Databricks Workspace API to
-export and reimport every notebook. Cell contents must survive the round-trip.
-Unsupported notebook formats or languages fail the build rather than silently
-dropping examples. This archive check does not execute the examples; the
-runtime's normal CI and service prerequisites still apply.
-Archive validation checks both notebook files and directory entries. Paths
-outside the versioned archive root, traversal components and backslash
-separators are rejected before Databricks import or publication.
-
-Before a release, authorize the **SynapseML Build** service connection identity
-to create and delete its own temporary folders in the configured build
-Databricks workspace. Grant it **Storage Blob Data Contributor** scoped to
-the `mmlspark` storage account's `dbcs` container. Azure CLI uses the service
-connection's login; the job neither reads storage keys nor assigns roles.
-Use workload identity federation for the service connection where supported.
-Missing access blocks publication.
-
-The `Publish` job validates the archive and retains it with
-`dbc-provenance.json` before the first Maven upload. A native archive validation
-failure therefore stops package publication. The `Release` job downloads that
-exact producer-attempt artifact, checks its plan/source binding, and uploads
-and verifies it before PyPI or ESRP publication. A missing or invalid artifact
-handoff fails rather than downloading an unselected artifact or rebuilding.
-Uploads forbid overwriting. The final release
-receipt includes the DBC hash and size, and the release verifier downloads the
-archive anonymously, checks its source binding and content hash, and matches
-it to producer evidence. Missing or mismatched archives block release
-completion and release-note publication. Only verified notes advertise the
-new archive links; source documentation retains notebook links as a fallback.
-
-If an upload succeeds but a later step fails, retain the build artifacts and
-ledger. Retrying `Release` reuses the validated archive from `Publish`, even when
-the two jobs have different attempt numbers; it does not export new ZIP bytes.
-A subsequent archive build can reuse a public archive only when it is
-bound to the same approved plan and source; it reimports and compares all cells
-again. A conflicting version is an error, not permission to overwrite it.
-Follow the existing interrupted-release recovery procedure rather than
-blindly rerunning Maven or PyPI publication.
-An archive may therefore exist for an incomplete release. Do not advertise it
-until release evidence is complete. Do not replace the approved plan or reuse
-the version for different sources.
-If upload reports that no public archive exists, check the service connection's
-blob write access and retry the failed `Release` job. Maven Blob publication
-has already succeeded, but no PyPI or ESRP publication has run at that point.
-Do not rerun the successful Maven publisher. A conflicting public archive
-requires investigation; never overwrite it.
-
-The `full-release --repo` and `push-tags` guards check notebook admissibility
-from Git before publishing any tags, including port tags. Before merging the
-release-prepare PR and each port release PR, check out its head in a clone
-whose `origin` is `microsoft/SynapseML` and run:
-
-```bash
-python scripts/release/release_guard.py full-release --version 1.2.0 --repo .
-```
-
-Use the intended release version and add `--include-spark40 true` when selecting
-that optional runtime. The command reads remote branch refs and local committed
-notebooks without creating tags or uploading anything. Release preparation and
-tag workflows also run these guards automatically. Native Databricks validation
-still runs in the release build; neither check proves notebook code execution.
-
-Notebook-only PRs run **Release Notebook Validation**, including the actual
-committed `docs/**/*.ipynb` inputs and the archive regression suite. This
-read-only job needs no service credentials, JVM build or Databricks access.
-Ordinary Markdown-only changes do not trigger it. The separate native archive
-round-trip remains mandatory during a release.
-
-Saved schema-2 plans retain their exact identity and original artifact scope;
-they do not gain permission to upload DBCs. Generate and explicitly approve a
-new schema-4 plan to select archive publication. This is required for 1.2.0
-if its earlier draft predates this integration. Do not edit a saved plan or
-move existing tags to retrofit the new behavior.
-
-## Safety and public information
-
-- Use the public OSS-only Maven plan for public workflow inputs and evidence.
-  Encoding or compressing a document does not redact it.
-- Keep credentials, private-source bindings, private destinations, operator
-  records and local configuration out of public source, workflow inputs,
-  comments, logs and release attachments.
-- Keep plans and state outside source checkouts. Builds require clean source.
-  Do not commit a release ledger or a local configuration profile.
-- A plan ID identifies a document; it is not permission to publish. A maintainer
-  must approve its exact source commits, version, targets and destinations.
-- Never move a published tag, overwrite a release artifact, discard unknown
-  submissions or change the plan under an existing approval.
-- Keep signing approvals and PR merges manual. Do not change repository
-  permissions or bypass branch protection to release.
-
-The old Spark 4.1 PR compatibility replay job has been removed. Every selected
-release target still requires its own build, tests and verified producer
-evidence. Removing that job does not qualify the primary wheel for Spark 4.1.
-
-## Recover a warning-only Azure release build
-
-Optional cache or Codecov outages can leave a fully published release marked
-`partiallySucceeded` in Azure. Do not rerun immutable publishers just to turn
-that status green. Run `release_ops.py status` or collect `verified_evidence`
-using the original approved plan and ledger. An older ledger that recorded
-that same build as failed can be reconciled without queueing another build.
-
-For public releases only, the driver checks the complete task timeline before
-accepting this result. Every failed or warning task must match the exact
-allowlisted cache/Codecov label, official Azure task ID and supported major
-version. Job and task retry counters are checked separately, and task execution
-times must fall within the current job attempt. Maven preparation, ESRP publication,
-provenance recording and provenance upload must all have succeeded. Missing,
-skipped, canceled, unexplained or unapproved publication failures remain
-blockers. All existing source, approval, artifact-hash, DBC and freshness checks
-still apply.
-
-The ledger and exported evidence retain Azure's actual `partiallySucceeded`
-result. The local ledger retains every sanitized task record. Exported evidence
-carries per-job outcome counts, grouped advisory failures, successful publication checks and a SHA-256
-link per build to its complete retained job and task records. The one digest
-binds every job ID, attempt, execution window and task; it avoids exporting
-hundreds of separate high-entropy hashes. This keeps production-sized builds within
-GitHub's dispatch-input budget without skipping full timeline validation.
-The digest is an audit link, not an approval or a signature.
-Export permits up to 60,000 encoded characters and also checks the plan,
-approval and request envelope against GitHub's 65,535-character combined input
-budget. Production-sized regressions use distinct job/task execution windows
-and cover both the default two-runtime release and the optional three-runtime
-release, including widespread advisory outages. Keep the generated plan's formatting
-or use compact JSON when dispatching; unnecessary whitespace still consumes
-GitHub's input budget. Both encode and decode enforce these limits.
-Both clean and warning-only builds require the current destination-specific
-artifact proof. Consumers must use this updated verifier. Private
-publication workflows still require strict success. If the proof is rejected,
-inspect the original build and follow interrupted-release recovery below.
-Never edit the ledger, forge success, discard the build ID or change the plan.
-
-On Windows, large evidence cannot fit in one environment variable. Decode it
-with `verify_release.decode_evidence`, save the resulting JSON outside the
-checkout, and use `release_guard.py notes --evidence <file>` for a local guard
-check. The GitHub workflow runs on Linux and uses the encoded environment input.
-
-## 1. Preview and prepare source
-
-The examples use Bash. Python CLIs also run on Windows.
+The parent directory must exist and the report path must be new. Require
+`status: passed`, nonzero test counts and zero failures/skips. Simulated services
+and local Git fixtures never validate live services or authorize publication;
+the report says `live_services_validated: false` and `publication_authorized: false`.
+Missing tools, timeout or incomplete execution are errors. Retain the source
+revision and any uncommitted diff with the result.
 
 ```bash
 mkdir -p ../release-runs/v1.2.0/oss
@@ -295,246 +54,39 @@ python scripts/release/release_matrix.py \
 python scripts/bump-version.py --to 1.2.0 --dry-run
 ```
 
-The draft has no approved commit bindings and cannot authorize publication.
-The version-bump dry run edits no files. `--output` refuses to replace an
-existing file. Inspect and keep a failed or partial output; generate to a new
-filename rather than overwriting a release record.
-
-For the normal post-merge workflow:
+The draft has no approved commit bindings; neither command authorizes publication.
+Keep failed/partial outputs and use new filenames rather than overwriting records.
+For publication before the automation merges, use the
+[bootstrap procedure](#before-the-automation-pr-is-merged) instead of normal preparation.
+Otherwise, after authorization:
 
 ```bash
 gh workflow run release-prepare.yml --repo github.com/microsoft/SynapseML \
   --ref master -f version=1.2.0 -F skip_docs=false
 ```
 
-Dispatch creates a version/docs PR, not a dry run. Review its changes and
-current-head validation before merging. `skip_docs` is a preparation aid, not
-permission to finalize a release without its versioned documentation.
-Preparation refuses any existing primary, Spark or Python tag for that version,
-including an interrupted family with no primary tag. Use reviewed recovery
-instead; missing remote access is an error, not proof that the tags are absent.
+This creates a version/docs PR, not a dry run. Preparation refuses existing
+primary, Spark or Python tags and an existing preparation branch; failed remote
+reads are not proof of absence. Use [recovery](#recovery-and-limits), not deletion.
+Review current-head validation and complete versioned docs before merging.
+`skip_docs` only defers generation; it does not waive docs. Do not bump the
+published-artifact lock during preparation.
 
-The primary release workflow checks that the release commit is on `master`,
-creates the primary derivative tags, and opens port release PRs. Review and
-merge the port PRs in order. Preserve the target's Spark, Scala, Python and JDK
-settings and resolve staging/pipeline differences together.
-
-Do not rebase or force-push a shared port branch. A maintainer merging an exact
-same-repository port release PR authorizes tagging its recorded merge SHA.
-Manual conflict-resolution PRs use the same boundary. Fork PRs do not authorize
-the callback. Tags alone do not approve package publication.
-
-Full releases require `master` and `spark4.1`. By default, Spark 4.1's release
-PR starts from the primary release directly. A configured `SKIP_SPARK40` does
-not block these two targets. It remains a veto when Spark 4.0 is selected;
-in that case a failed policy read stops the operation.
-
-### Explicitly include Spark 4.0
-
-Normal preparation always selects the default pair. To include Spark 4.0,
-dispatch the tag orchestrator explicitly against the same primary tag after
-preparing its reviewed source:
-
-```bash
-gh workflow run release-tag.yml --repo github.com/microsoft/SynapseML \
-  --ref v1.2.0 -F include_spark40=true
-```
-
-This processes Spark 4.0 first. If neither port PR exists, newly created PRs
-form the chain `master -> spark4.0 -> spark4.1`. Normal preparation has already
-dispatched Spark 4.1, so its existing PR or merged result is preserved, not
-restacked. Finish any running default-pair workflow before the explicit
-dispatch; never rewrite reviewed branches or released sources.
-Include `--targets master,spark4.0,spark4.1` when generating the plan and supply
-all three reviewed commit bindings. For pre-merge bootstrap, that explicit
-plan is the selection; the workflow's `include_spark40` input never changes it.
-There is no repository-wide positive opt-in that can silently alter a plan.
-
-Every new dispatch that should check or repair Spark 4.0 tags needs
-`include_spark40=true`. A default dispatch does not check or recover them.
-
-Before preparing opt-in documentation, confirm that the canonical repository's
-`SKIP_SPARK40` policy is absent or false and that the Spark 4.0 source and
-consumer-validation prerequisites can be met. An unreadable policy is not an
-absent policy. Resolve a veto or a known runtime blocker before committing
-documentation that promises its new artifacts. The tag and publication guards
-still recheck policy later; this preliminary check does not replace them.
-
-For opt-in documentation, prepare with `skip_docs=true` or run the local bump
-with `--skip-docs`. On the resulting preparation/candidate branch, update
-Spark 4.0's retained coordinates, notebook tags and Python examples in all
-source guides, plus `spark40Version` in `website/src/installArtifacts.js`.
-This includes `README.md`, `docs/Get Started/Install SynapseML.md`,
-`docs/Explore Algorithms/Deep Learning/Getting Started.md`,
-`docs/Explore Algorithms/Deep Learning/ONNX.md` and `docs/Reference/R Setup.md`.
-Find additional references with:
-
-```bash
-git grep -n -E 'spark4[.]0|pyspark>=4[.]0|spark40Version' \
-  -- README.md docs website/src/installArtifacts.js
-```
-
-Then run the skipped documentation steps from that branch's configured build
-environment. Do not repeat the version bump or alter older snapshots:
-
-```bash
-sbt convertNotebooks
-(cd website && npm exec -- docusaurus docs:version 1.2.0)
-python scripts/bump-version.py --finalize-docs --to 1.2.0
-(cd website && SYNAPSEML_DOCS_PREVIEW=true npm test && npm run build)
-```
-
-Review and commit the completed source and snapshot before approving the
-candidate. `website/test/installDocs.test.js` checks the coupled guides against
-the runtime metadata. Update Spark 4.0's publication lock only after verifying
-its artifacts. Default version bumps retain its previous references; they do
-not promise an optional build. Existing saved three-target schema-2 plans
-retain their identity and selection; changing to two targets requires a new
-plan and approval.
-The serialized `base_branch` records historical port lineage, not an additional
-release target or a requirement to fetch that branch.
-
-If Spark 4.0 is dropped **before tags or submissions exist**, restore its source
-guides and `spark40Version` to the verified retained version recorded in
-`website/test/published-spark-ports.lock`. Correct only the new, unpublished
-snapshot if it has already been generated; leave older published snapshots
-unchanged. Preserve the new master and Spark 4.1 references, rerun website
-checks, regenerate a two-target plan and obtain new approval. Retain the
-abandoned plan and any ledger rather than overwriting them.
-
-If any tag or submission already exists, stop and follow recovery with the
-original records. Do not edit a tagged candidate, silently drop its target,
-move tags, or raise the lock to an unpublished version. A separately reviewed
-documentation correction can restore the retained Spark 4.0 references after
-the unchanged primary source is integrated. Release selection and any partial
-publication must be reconciled explicitly before proceeding. Until corrected,
-keep website deployment blocked rather than weakening its publication checks.
-
-### Before the automation PR is merged
-
-The normal workflow deliberately requires a primary commit contained in
-`master`. New preparation and notes workflows must also exist on the default
-branch before GitHub accepts their dispatches. Do not remove these safeguards,
-create production tags experimentally, or pretend a fork workflow validated
-the production release.
-
-Before bootstrap, read master's classic protection and active rulesets. Confirm
-that a candidate can merge without updating its head when master advances.
-An absent classic-protection rule does not mean there are no rulesets. If rules
-require an up-to-date head, or cannot be read, stop before tagging and resolve the
-release procedure with the maintainer. Do not change protection to bypass it.
-
-Use the explicit bootstrap mode of the already-registered tag workflow.
-Prepare same-repository branches named `release-candidate/v1.2.0-master`
-and `release-candidate/v1.2.0-spark4.1`. Only an explicitly selected Spark 4.0
-release also needs `release-candidate/v1.2.0-spark4.0`.
-Each must include the automation and version/docs changes on its own current
-target baseline. Open a PR to the corresponding target without merging it.
-Require successful current-head Azure validation and Compile & Style Check.
-The primary candidate also needs a successful current-head Website Deploy build.
-That build validates the versioned documentation and sidebar references.
-PR and non-master website builds preview the prepared version without changing
-the last-published artifact lock. They cannot deploy Pages. The master deployment
-still requires the lock to match the version being published.
-
-Generate the public plan using those final candidate commits. From a clean
-checkout of the primary candidate whose `origin` is the canonical repository,
-preview the exact tag set:
-
-```bash
-python scripts/release/bootstrap_release.py \
-  --plan ../release-runs/v1.2.0/oss/plan.json
-```
-
-Run the same checks on GitHub without creating tags:
-
-```bash
-python scripts/release/bootstrap_release.py \
-  --plan ../release-runs/v1.2.0/oss/plan.json --dispatch-preview
-```
-
-Check that preview run before requesting approval. Manual workflow dispatch
-defaults to preview; creating tags requires `bootstrap_apply=true`.
-
-After a maintainer reviews the candidates and supplies `REVIEWED_PLAN_ID`:
-
-```bash
-python scripts/release/bootstrap_release.py \
-  --plan ../release-runs/v1.2.0/oss/plan.json \
-  --approve-plan "$REVIEWED_PLAN_ID" --dispatch
-```
-
-The dispatcher validates the public plan and candidates locally before sending
-the generated payload to GitHub. Do not submit raw private files as workflow
-inputs. Dispatch queues the bootstrap job; it is not proof that tags were created.
-Confirm the run completed and recheck the canonical refs.
-
-The job requires that exact primary branch and commit, the complete public
-plan, current candidate refs and PRs, successful current-head checks, expected
-runtimes and versioned docs. It pushes all missing tag-family members in one
-atomic operation and verifies them. Existing matching tags are preserved;
-conflicting tags stop the entire operation.
-
-The job uses `GITHUB_TOKEN`, whose tag writes do not trigger recursive push
-workflows. Bootstrap does not merge PRs, start the normal port-PR chain or queue
-package builds. The normal push workflow still enforces containment in `master`.
-After successful bootstrap, use the same plan and publication ledger below.
-Required tests run again on the exact tagged source before production uploads.
-
-After publication, merge the unchanged primary candidate first, promptly, before
-other automation changes. Tagged candidates are exempt from the usual PR-loop
-rebase and not-behind gates: never use **Update branch**, amend, rebase, force-push
-or add commits to them. If master changes conflict with a tagged candidate, the
-release owner must use a separate reconciliation PR on master that preserves
-the required changes and makes the unchanged candidate mergeable.
-
-The new notes workflow is not dispatchable until it is registered on the
-default branch. Retain the ledger locally. Merging the primary candidate also
-integrates its automation. Reconcile any remaining automation PR afterward,
-then regenerate fresh public evidence and publish notes. If integration cannot
-be proved, leave notes unpublished, preserve the tags and artifacts, and have
-the release owner resolve the source-integration issue. Do not move tags or
-republish a coordinate to make notes pass.
-
-### Version and launcher maintenance
-
-Version bumps leave release protocol code, historical fixtures and existing
-versioned documentation unchanged. New releases create new documentation
-snapshots rather than rewriting old ones.
-The new versioned installation guide omits the moving master-snapshot command.
-Finalization preserves that example in the current source guide and does not
-rewrite older documentation snapshots.
-Spark 4.0 installation coordinates, notebook tags and Python examples keep
-their last published version across default bumps. Website publication checks
-that retained version against its lock while requiring the new Spark 4.1
-version to be published. Preview mode does not relax production deployment.
-
-If documentation generation fails after the source version has changed, follow
-the stage-specific recovery commands printed by the bump tool. For an existing,
-newly generated snapshot, repair the reported problem and finalize it without
-repeating the version bump or `docs:version`:
-
-```bash
-python scripts/bump-version.py --finalize-docs --to 1.2.0 --dry-run
-python scripts/bump-version.py --finalize-docs --to 1.2.0
-```
-
-Recovery requires complete Git history, the current source version, and a
-snapshot not committed in the current candidate's ancestry. A sibling runtime's
-same-version snapshot does not make this candidate historical. The dry run
-validates without writing; finalization does not rerun notebook conversion or
-Docusaurus and cannot repair missing generated inputs.
-For a shallow canonical clone, run `git fetch --unshallow origin` before retrying.
-
-Release preparation and PR validation check the downloaded SBT launcher against
-`project/sbt-launch.sha256` before installing or running it. When changing the
-SBT version in `project/build.properties`, review the launcher bytes and update
-the checksum in the same PR. Missing or mismatched checksums stop bootstrap.
+Before any tag-creating merge, complete the consumer-wheel gate above and the
+[candidate notebook check](#notebook-archive-publication). The normal workflow
+requires primary source on `master`, creates derivative tags and opens port PRs.
+Review and merge those PRs in order, preserving each target's Spark, Scala,
+Python, JDK and staging/pipeline settings. Never rebase or force-push shared ports.
+A maintainer merging an exact same-repository port release PR authorizes tagging
+its recorded merge SHA, including a reviewed conflict-resolution PR. Fork PRs
+do not authorize callbacks. Tags do not authorize package publication.
 
 ## 2. Bind the final source
 
-Fetch the canonical tags from `microsoft/SynapseML`. Set `MASTER_SHA`
-and `SPARK41_SHA` to the peeled commits of `v1.2.0` and `v1.2.0-spark4.1`.
+Fetch canonical tags from `microsoft/SynapseML`. Set `MASTER_SHA` and `SPARK41_SHA`
+to the peeled commits of `v1.2.0` and `v1.2.0-spark4.1`. Bootstrap instead binds
+final reviewed candidate commits before tags exist; do not use feature SHAs
+that a later merge may rewrite.
 
 ```bash
 python scripts/release/release_matrix.py \
@@ -543,22 +95,22 @@ python scripts/release/release_matrix.py \
   --output ../release-runs/v1.2.0/oss/plan.json
 ```
 
-Use final reviewed commits, not feature SHAs that a later merge may rewrite.
-Never hand-edit coordinates, source bindings or the digest. Changing any of
-them requires a regenerated plan and new approval. A legacy metadata-bearing
-document is not made safe by relabeling it as an OSS plan.
+Present the owner with the plan ID, version, targets, exact commits, canonical
+tag set, destinations, candidate results and remaining service/signing gates.
+A digest is not approval; the agent cannot approve its own request.
+Changing source, coordinates or scope requires a new plan and fresh approval.
 
-New public plans use schema 4; saved schema-2 plans keep their original scope.
-Old schema-1 production plans keep their original
-identity when read locally, but cannot execute or enter public workflows.
-Regenerate them, obtain approval for the new ID and start a new ledger.
-Optional private operations require a separate plan, ledger and explicit local
-configuration outside the checkout. No private destination is selected by default.
+New public plans use schema 4. Saved schema-2 plans retain their identity and
+original scope without DBCs; never hand-edit them to add or drop targets.
+Schema-1 plans are local read-only records: regenerate and approve a new plan
+and ledger before execution. Relabeling private metadata as OSS does not make
+it safe. Private operations need separate plans, ledgers and explicit external
+configuration; no private destination is selected by default.
 
 ## 3. Preflight and publish
 
-Use the existing authorized CLI login. Never copy tokens into plans or shell
-commands recorded in public evidence.
+Use existing authorized CLI identities, never pasted credentials. Canonical tags
+must exist before publication preflight; bootstrap uses its preview first.
 
 ```bash
 python scripts/release/release_ops.py preflight \
@@ -569,12 +121,11 @@ python scripts/release/release_ops.py resume \
   --state ../release-runs/v1.2.0/oss/state.json
 ```
 
-Both commands queue nothing. Preflight reads source, policy, artifact inventory
-and destination state. Missing new artifacts are expected; mismatched tags,
-unknown source or failed service reads are not. Review the exact pending
-operations before approval.
-
-After a maintainer supplies `REVIEWED_PLAN_ID`:
+Both queue nothing but can save local state. Inspect source, policy, destination
+inventory and exact pending operations. Missing new artifacts are expected;
+mismatched tags, unknown source or failed service reads block progress.
+Only after the maintainer approves the exact plan and requested publication,
+and supplies `REVIEWED_PLAN_ID`, run:
 
 ```bash
 python scripts/release/release_ops.py resume \
@@ -584,39 +135,10 @@ python scripts/release/release_ops.py resume \
   --wait --poll-seconds 60 --timeout-seconds 3600
 ```
 
-The driver queues selected missing work against exact tags and commits. It
-records intent before submission, then records returned build IDs. Complete
-the normal signing approvals when requested. Required style, unit, Python and
-artifact gates remain enabled. Disabled optional tests are not dependencies;
-enabled optional tests must succeed.
-
-Release mode publishes Maven CDN artifacts, prepares signed Maven output, and
-publishes the primary public PyPI wheel. Schema-4 plans also publish the approved
-runtime-specific DBC archives; saved schema-2 plans do not upload notebooks.
-The primary `Publish` job also generates and uploads versioned Python and Scala
-API documentation from its approved source. After `packagePython`, it installs
-graphviz/doxygen, runs `sbt -DskipCodegen=true publishDocs`, and runs
-`release_guard.py api-docs` **before `publishBlob`**. The guard revalidates the
-approved plan, primary target and clean source checkout; it does not accept an
-arbitrary documentation version.
-
-The API-doc guard anonymously downloads these paths under
-`https://mmlspark.blob.core.windows.net/docs/<approved-primary-version>/`:
-
-- `pyspark/index.html`
-- `scala/index.html`
-- `scala/com/microsoft/azure/synapse/ml/index.html`
-
-Each request has a 60-second network timeout and a 5 MiB page limit. Redirects,
-missing or empty pages, oversized responses and service errors stop the job
-before Maven upload. Port releases do not publish these primary API docs.
-API documentation remains mutable under the existing storage policy: producer
-success proves the guarded publication and availability checks ran, not an
-immutable API-doc content receipt. There is no separate API publication lock.
-
-Release mode does not publish R packages, module wheels, badges or the ordinary
-snapshot notebook upload. Ordinary snapshot CI keeps its existing behavior.
-
+Retain returned build IDs and complete human signing approvals. The driver
+records intent before submitting selected missing work against exact source.
+Required style, unit, Python and artifact gates stay enabled; selected optional
+tests must pass. Do not substitute raw pipeline queue commands.
 For monitoring without queueing:
 
 ```bash
@@ -625,11 +147,12 @@ python scripts/release/release_ops.py status \
   --state ../release-runs/v1.2.0/oss/state.json --wait
 ```
 
-Timeout and interruption do not cancel builds or discard IDs. Continue from
-the original ledger. A read failure stops the command; restore service access
-and rerun without inventing a retry or adoption.
+Timeout/interruption does not cancel builds or discard IDs. Restore failed
+service access and continue with the original ledger, not a blind retry.
 
 ## 4. Evidence and release notes
+
+After all selected targets complete, collect fresh producer and public-byte proof:
 
 ```bash
 python scripts/release/verify_release.py \
@@ -638,58 +161,18 @@ python scripts/release/verify_release.py \
   > ../release-runs/v1.2.0/oss/evidence.json
 ```
 
-Evidence requires fresh tag/artifact visibility, successful authoritative
-producer runs, matching requests and source commits, and artifact-hash receipts.
-All public Maven modules need their JAR and POM; Core also needs its tests JAR.
-Verification checks the publisher's `https://mmlspark.blob.core.windows.net/maven`
-repository and Maven Central separately.
-Public Maven provenance receipts use schema 2: `blob_artifacts` records the
-CDN publisher's bytes, while `artifacts` records ESRP output and the applicable
-PyPI wheel and DBC. These are receipt versions, not changes to an approved
-schema-2 or schema-4 plan.
+Before notes or a readiness claim, the release owner must complete
+[final-wheel comparison and consumer qualification](#python-distribution-readiness).
+Automated evidence does not enforce this human sign-off.
+For bootstrap, request the human merge of the unchanged primary candidate
+first, before other automation changes; follow its reconciliation rules if blocked.
+Notes require the workflow on the default branch and either master ancestry
+or canonical merged-PR provenance binding the tagged head and a merge result on
+master. Squash/rebase merges are supported; open/fork PRs are not proof.
 
-After the Blob upload, `Publish` hashes the required Maven-local JARs and POMs,
-including Core's tests JAR, and retains
-`release-maven-blob-<jobAttempt>/blob-provenance.json`. `Release` downloads the
-exact artifact selected by the successful producer output and checks its
-plan/source/build identity before incorporating it into the final receipt.
-Do not replace that handoff with a later rebuild or an arbitrarily selected
-artifact.
-
-The notes guard downloads the required CDN and Maven Central artifacts and
-the primary wheel, comparing their SHA-256 and size with each destination's
-own producer receipt. CDN bytes need not equal ESRP/Maven Central bytes;
-presence or cross-destination equality is not proof of correct publication.
-An older receipt without CDN producer hashes cannot authorize notes. Preserve
-the original records and escalate for recovery; this failure does not authorize
-republishing immutable coordinates or inventing missing provenance.
-
-The primary receipt includes the exact public PyPI wheel. Stale versions,
-unexpected classifiers, missing modules and wrong source bindings fail.
-Bound verification also requires that exact non-yanked wheel in PyPI's file
-list and checks its public download. Version metadata alone cannot complete a
-release after the wheel has been removed.
-
-Inventory-only reports cannot approve a release. Neither can skipped required
-jobs, old runs without receipts, stale evidence or user-supplied success claims.
-
-For a read-only check of an older public release, use
-`python scripts/release/verify_release.py --version 1.1.4 --skip ado,internal`.
-This needs no private profile and checks public tags, Maven artifacts and PyPI.
-It does not require historical DBCs or produce approval evidence. Use the bound
-plan and state above to verify a new release, including its required DBCs.
-
-After publication, merge the unchanged primary candidate before other
-automation changes. Never update a candidate's head after it has been tagged.
-Repository squash and rebase merges are supported without moving the release tag.
-The notes guard requires either master ancestry or a merged canonical candidate
-PR whose final head is the tagged commit and whose merge result is on master.
-An open PR, a fork PR or an unmerged merge result cannot authorize notes.
-
-When the notes workflow is available, complete the human
-[final-wheel qualification gate](#python-distribution-readiness), then run its
-read-only integration check from a canonical checkout before dispatch.
-Regenerate public evidence immediately before dispatch; it expires after one hour.
+With explicit authorization for notes, run the read-only integration check and
+regenerate public evidence immediately before dispatch. Evidence expires after
+one hour; do not edit its timestamps.
 
 ```bash
 git fetch origin tag v1.2.0
@@ -705,61 +188,336 @@ gh workflow run release-notes.yml --repo github.com/microsoft/SynapseML --ref v1
   -f approve_plan="$REVIEWED_PLAN_ID"
 ```
 
-Only the public allowlisted plan and evidence may enter those inputs. The
-workflow repeats public checks and leaves an existing GitHub Release unchanged.
-Only a completed HTTP 404 lookup permits release creation. Authentication,
-rate-limit, server and transport errors stop the workflow without generating
-or publishing notes; retry after resolving the lookup failure.
+Only allowlisted public plans/evidence may enter these inputs. The workflow
+rechecks public artifacts and leaves an existing release unchanged. Only a
+completed HTTP 404 lookup permits creation; authentication, rate-limit, server
+and transport failures stop it without generating notes.
 
-Only after artifact and producer verification succeeds and the primary
-candidate's versioned documentation has merged to master, update
-`website/test/published-spark-ports.lock` to the verified Spark port versions in
-a reviewed documentation follow-up. Do not bump this publication lock during
-source preparation or open the lock follow-up against older master metadata.
-Until that follow-up lands, master Website Deploy fails its strict lock check
-and the existing public site stays in place. Verify the successful deployment
-after the follow-up, not just the package publication.
+After verified publication and primary versioned-doc integration on master,
+land a reviewed `website/test/published-spark-ports.lock` follow-up with verified
+port versions. Keep unselected Spark 4.0 at its retained published version.
+Do not open it against older master metadata. Until it lands, strict master
+Website Deploy fails and the existing public site remains. Confirm actual
+deployment before reporting the website updated. Candidate preview uses
+`SYNAPSEML_DOCS_PREVIEW=true npm test`; unset means strict production checks.
 
-Local candidate website checks use `SYNAPSEML_DOCS_PREVIEW=true npm test`.
-Leaving the variable unset runs the strict production lock check.
+## Qualify the primary wheel on each runtime
 
-### Python distribution readiness
+Build from the reviewed primary candidate with `sbt packageSynapseML`.
+Before tags exist, set the intended local version explicitly:
 
-This is an explicit human readiness gate, separate from automated plan, receipt
-and public-inventory verification. Before approving production tags, qualify the
-same source/version-bound primary candidate wheel on every selected runtime,
-using that runtime's matching JVM artifacts. Retain the wheel, source/version
-bindings and results. Port CI using its own generated wrappers is not this proof.
-If a port needs different Python code, resolve its distribution and approved
-artifact inventory before tagging.
+```bash
+sbt 'set ThisBuild / version := "1.2.0"' packageSynapseML
+```
 
-After production publication, download the exact receipt-bound PyPI wheel and
-compare it with the retained qualified candidate. The installable file paths
-and uncompressed payload bytes must match, as must relevant distribution
-metadata: package name/version, Python requirements, dependencies, wheel
-compatibility tags and entry points. Validate each wheel's `RECORD` against its
-own contents. Compare metadata semantically where serialization order differs.
-Keep both archive SHA-256 values and the comparison evidence; ZIP timestamps,
-member order and compression can change the archive hash without changing the
-payload. A hash difference alone is not a payload mismatch or proof of equivalence.
+Retain that wheel, its SHA-256, source commit and version. An uncommitted patch
+is provisional: qualify the final committed candidate before tagging.
+Use the **same wheel file** in environments matching every selected branch's
+`environment.yml`, with that runtime's own JVM packages and branch-selected JDK.
+Export its normal classpath with the corresponding local version override:
 
-Verify the published wheel's installation and consumer behavior on every
-selected runtime, and record the release owner's sign-off before notes or a
-readiness claim. A payload or relevant metadata mismatch, missing candidate
-evidence, or failed runtime check blocks readiness. Do not substitute successful
-producer CI, edit the evidence or waive the comparison. Investigate with the
-release owner; an incorrect immutable release needs a new version, qualification
-and approval, not an overwritten package. Preinstalled wrappers and a source
-checkout are not proof that the published wheel supplies the qualified code.
+```bash
+sbt 'set ThisBuild / version := "1.2.0"' \
+  'export opencv / Runtime / fullClasspathAsJars'
+```
+
+For ports, use their intended Maven version rather than `1.2.0`; never reuse
+primary Scala JARs. Set `SYNAPSEML_CONSUMER_JARS` to the comma-separated core,
+OpenCV and dependency JARs from that classpath, omitting JARs supplied by PySpark.
+Run from the reviewed primary checkout, without generated sources on `PYTHONPATH`:
+
+```bash
+export SYNAPSEML_CONSUMER_WHEEL=/absolute/path/to/synapseml-1.2.0-py2.py3-none-any.whl
+export SYNAPSEML_CONSUMER_JAR=/absolute/path/to/matching-synapseml-opencv.jar
+export PYSPARK_SUBMIT_ARGS="--jars \"${SYNAPSEML_CONSUMER_JARS}\" pyspark-shell"
+python -m pip install --no-deps --force-reinstall "$SYNAPSEML_CONSUMER_WHEEL"
+python -m pytest \
+  opencv/src/test/python/synapsemltest/opencv/test_image_conversion.py -q
+sha256sum "$SYNAPSEML_CONSUMER_WHEEL" "$SYNAPSEML_CONSUMER_JAR"
+```
+
+The tests bind installed Python files to the wheel and the loaded JVM class to
+the selected JAR, covering image conversion, transformation and save/load.
+Retain each runtime's commit, environment, JAR hashes and actual results.
+This focused image gate does not replace full candidate CI or service tests.
+If a port needs different Python code, resolve distribution and approved outputs
+before tagging. Production rebuilds the wheel, requiring the final comparison below.
+
+## Python distribution readiness
+
+Download the exact receipt-bound PyPI wheel and compare it with the retained
+qualified candidate. Installable paths and uncompressed payload bytes must match,
+as must package name/version, Python requirements, dependencies, compatibility
+tags and entry points. Validate each wheel's `RECORD` against its own contents;
+compare metadata semantically where serialization order differs.
+Retain both archive SHA-256 values and comparison evidence. ZIP timestamps,
+ordering and compression can change a hash without changing payload; a different
+hash alone proves neither a mismatch nor equivalence.
+
+Verify the published wheel's installation and consumer behavior on every selected
+runtime, and retain the release owner's sign-off before notes or readiness.
+Missing candidate evidence, payload/metadata mismatch or a failed runtime check
+blocks both. Producer CI, preinstalled wrappers and a source checkout are not
+substitutes. Investigate with the owner; an incorrect immutable release needs
+a new version, qualification and approval, not an overwritten package.
+
+## One-time GitHub App setup
+
+An organization owner must approve and install the App on `microsoft/SynapseML`
+with **Contents: read** and **Pull requests: write**. Preparation and tag workflows
+use it to open PRs, not approve/merge them or publish packages. Branch/tag writes
+and validation dispatches use `GITHUB_TOKEN`. This does not bypass protection or
+organization restrictions on `GITHUB_TOKEN` PR creation.
+
+Configure Actions variable `RELEASE_APP_CLIENT_ID` and secret
+`RELEASE_APP_PRIVATE_KEY` through approved secret management. Check presence,
+never print values. Unreadable settings mean unknown, not absent or configured.
+Missing settings block App preparation, not offline rehearsal. The pinned
+`actions/create-github-app-token` action creates a repository-scoped short-lived
+token and revokes it when the job ends; no personal-token fallback is allowed.
+An installed App grants no publisher, Databricks or storage access, and merging
+automation configures none of these external prerequisites.
+
+## Notebook archive publication
+
+Before release, authorize the **SynapseML Build** service connection to create
+and delete its temporary folders in the configured Databricks workspace.
+Grant **Storage Blob Data Contributor** on the `mmlspark` account's `dbcs`
+container. Prefer workload identity federation. Jobs use the existing login,
+not storage keys or automatic role assignment; missing access blocks publication.
+
+Before merging preparation and each port PR, check out its head with canonical
+`origin` and run this read-only check, adding `--include-spark40 true` if selected:
+
+```bash
+python scripts/release/release_guard.py full-release --version 1.2.0 --repo .
+```
+
+It reads remote refs and committed notebooks. Preparation and `push-tags`
+also enforce admissibility before tags. Notebook-only PRs run credential-free
+Release Notebook Validation; Markdown-only PRs do not. These checks and native
+Databricks round-trips do not execute notebook code.
+
+For schema 4, `Publish` builds each selected source's archive, strips saved
+outputs/metadata, validates paths and preserves cell content through native
+export/reimport. Unsupported content fails rather than dropping examples.
+It retains the archive and `dbc-provenance.json` before Maven upload.
+`Release` downloads that exact producer-attempt artifact, validates its binding
+and uploads without overwrite before PyPI/ESRP. Retries reuse it, not new ZIP
+bytes; different job-attempt numbers do not justify rebuilding.
+Verification binds public source/hash/size to the producer receipt. Missing or
+mismatched archives block completion and notes. Schema-2 plans authorize no DBCs.
+
+If upload fails with no public archive, check blob write access and retry only
+the failed `Release` job: Maven Blob is already published, PyPI/ESRP have not run.
+Do not rerun the successful Maven publisher. Conflicting public bytes require
+investigation, never overwrite. Preserve artifacts and the ledger after later
+failures. Same-plan/source archive reuse requires another content round-trip
+when building; an incomplete release's archive must remain unadvertised.
+
+## Publication and evidence contract
+
+Release mode publishes the selected Maven artifacts, primary PyPI and schema-4
+DBCs. It excludes R packages, module wheels, badges and ordinary snapshot
+notebook uploads; snapshot CI is unchanged.
+Primary `Publish` installs graphviz/doxygen after `packagePython`, then runs
+`sbt -DskipCodegen=true publishDocs` and `release_guard.py api-docs` before
+`publishBlob`. The guard revalidates plan/source/target and checks bounded,
+version-specific public Python/Scala entry points; see [the guard](release_guard.py).
+Ports skip this step. API docs are mutable, not an immutable receipt or separate lock.
+
+Evidence needs fresh tags, authoritative successful producer runs, matching
+requests/commits and destination-specific artifact hashes/sizes. CDN Maven and
+Maven Central are checked separately; their bytes need not match each other.
+Each module needs its JAR/POM and Core its tests JAR. Preserve the exact
+`release-maven-blob-<jobAttempt>/blob-provenance.json` handoff from `Publish`.
+Receipt schema 2 stores CDN bytes in `blob_artifacts` and ESRP/PyPI/DBC bytes
+in `artifacts`; receipt schemas do not change approved plan schemas.
+The exact non-yanked primary wheel must remain publicly downloadable.
+
+Inventory-only reports, skipped required jobs, stale evidence and old receipts
+without CDN hashes cannot approve completion. Preserve rejected records and
+use recovery; never invent provenance or republish to satisfy a missing receipt.
+Public evidence is limited to 60,000 encoded characters within GitHub's 65,535
+combined-input budget. Keep generated or compact plan JSON. On Windows, decode
+with `verify_release.decode_evidence` into an external JSON file and use
+`release_guard.py notes --evidence <file>`; the workflow's encoded input runs on Linux.
+For historical public inventory only:
+`python scripts/release/verify_release.py --version 1.1.4 --skip ado,internal`.
+It needs no private profile or historical DBCs and grants no approval.
+
+## Explicitly include Spark 4.0
+
+Before preparing opt-in docs, confirm canonical `SKIP_SPARK40` is absent/false
+and source/consumer prerequisites are achievable. Unreadable policy is not
+absence. Resolve vetoes/runtime blockers before promising new artifacts.
+The veto is checked again when selected; it does not block the default pair.
+
+Prepare with `skip_docs=true` or bump locally with `--skip-docs`. Then update
+Spark 4.0 coordinates, notebook tags and Python examples in `README.md`,
+`docs/Get Started/Install SynapseML.md`,
+`docs/Explore Algorithms/Deep Learning/Getting Started.md`,
+`docs/Explore Algorithms/Deep Learning/ONNX.md`, `docs/Reference/R Setup.md`
+and `spark40Version` in `website/src/installArtifacts.js`. Find additional references:
+
+```bash
+git grep -n -E 'spark4[.]0|pyspark>=4[.]0|spark40Version' \
+  -- README.md docs website/src/installArtifacts.js
+sbt convertNotebooks
+(cd website && npm exec -- docusaurus docs:version 1.2.0)
+python scripts/bump-version.py --finalize-docs --to 1.2.0
+(cd website && SYNAPSEML_DOCS_PREVIEW=true npm test && npm run build)
+```
+
+Run generation in the branch's configured build environment. Do not repeat
+the version bump or change old snapshots. Review and commit the new source/docs
+before candidate approval. Default bumps retain Spark 4.0's last published pins;
+its lock advances only after artifact verification.
+
+Normal preparation selects the default pair. After preparing reviewed optional
+source and finishing any running default workflow, dispatch against the same tag:
+
+```bash
+gh workflow run release-tag.yml --repo github.com/microsoft/SynapseML \
+  --ref v1.2.0 -F include_spark40=true
+```
+
+Spark 4.0 is processed first. New PRs form `master -> spark4.0 -> spark4.1`
+only if neither port PR exists. Existing Spark 4.1 PRs/results are preserved,
+not restacked. Every dispatch intended to check/repair Spark 4.0 tags needs
+`include_spark40=true`; a default rerun does not recover them.
+Generate the plan with `--targets master,spark4.0,spark4.1` and all three final
+commit bindings. Bootstrap uses that plan alone, not the workflow opt-in input.
+Saved three-target identities stay unchanged. Serialized `base_branch` is
+historical lineage, not another required target or ref.
+
+To drop Spark 4.0 **before tags or submissions exist**, restore its source
+guides and metadata to the verified retained version in the publication lock.
+Correct only the new unpublished snapshot, preserve new master/Spark 4.1 pins,
+rerun website checks, generate a two-target plan and obtain new approval.
+Retain abandoned records. If any tag/submission exists, stop and reconcile
+the original records through recovery; never edit tagged candidates, drop
+targets silently or move tags. A separately reviewed doc correction may restore
+retained pins after unchanged primary integration. Until reconciled, keep
+deployment blocked rather than weakening the lock.
+
+## Before the automation PR is merged
+
+Normal tagging requires primary source on master; new preparation/notes
+workflows must exist on the default branch to dispatch. Do not disable guards,
+experiment with production tags or treat a fork workflow as production proof.
+Use only the reviewed bootstrap mode of the already-registered tag workflow.
+
+Before bootstrap, read master's classic protection and active rulesets.
+The unchanged candidate must remain mergeable when master advances. Missing
+classic protection does not imply no rulesets. Unreadable rules or requirements
+to update the candidate head block tagging; resolve the procedure with the
+maintainer, not by changing protection.
+
+Prepare same-repository `release-candidate/v1.2.0-master` and
+`release-candidate/v1.2.0-spark4.1` branches, plus
+`release-candidate/v1.2.0-spark4.0` only if selected. Each needs automation and
+version/docs changes on its own current target baseline, with an open PR to that
+target. Require successful current-head Azure and Compile & Style Check;
+primary also requires Website Deploy to validate snapshots/sidebar references.
+PR/non-master website builds preview without advancing the publication lock
+and cannot deploy Pages. Complete the consumer-wheel gate before tag approval.
+
+Generate the source-bound plan as in step 2 with final candidate SHAs. From a
+clean primary-candidate checkout whose `origin` is canonical, preview locally:
+
+```bash
+python scripts/release/bootstrap_release.py \
+  --plan ../release-runs/v1.2.0/oss/plan.json
+```
+
+With authorization to dispatch validation, preview on GitHub without tags:
+
+```bash
+python scripts/release/bootstrap_release.py \
+  --plan ../release-runs/v1.2.0/oss/plan.json --dispatch-preview
+```
+
+Inspect the completed preview, then obtain exact-plan authorization for tagging.
+After the maintainer supplies `REVIEWED_PLAN_ID`:
+
+```bash
+python scripts/release/bootstrap_release.py \
+  --plan ../release-runs/v1.2.0/oss/plan.json \
+  --approve-plan "$REVIEWED_PLAN_ID" --dispatch
+```
+
+Manual dispatch defaults to preview; tag creation requires `bootstrap_apply=true`.
+The dispatcher generates public inputs after local validation; never pass raw
+private files. Verify the completed run and canonical refs, not just queueing.
+The job atomically pushes missing family tags, preserves matching tags and
+refuses conflicts. It merges no PRs, starts no port-PR chain and queues no packages.
+`GITHUB_TOKEN` tag writes do not trigger recursive push workflows.
+Return to step 3 with the same approved plan after canonical tags exist.
+Required tests rerun on tagged source before uploads.
+
+Freeze tagged candidates: never use **Update branch**, add commits, amend,
+rebase or force-push. Ordinary PR-loop rebase/not-behind gates no longer apply.
+After publication, merge the unchanged primary candidate first, promptly, before
+other automation changes. Resolve conflicts through a separate reconciliation
+PR on master that makes the unchanged candidate mergeable. Reconcile any remaining
+automation PR afterward; inclusion in a candidate does not prove it merged.
+Until integration is proved and notes workflow registration completes, keep
+notes unpublished and the ledger intact. Escalate to the owner; do not move
+tags or republish coordinates to make notes pass.
+
+## Version and launcher maintenance
+
+Bumps preserve release protocol code, fixtures and older versioned docs.
+Only the new snapshot loses the moving master command; source keeps it.
+After a generation failure, follow the stage-specific recovery output.
+For an existing new snapshot, repair the problem and finalize without repeating
+the bump or `docs:version`:
+
+```bash
+python scripts/bump-version.py --finalize-docs --to 1.2.0 --dry-run
+python scripts/bump-version.py --finalize-docs --to 1.2.0
+```
+
+Recovery needs full history, the current source version and a snapshot not
+committed in this candidate's ancestry. Sibling-runtime snapshots do not count.
+Use `git fetch --unshallow origin` for a shallow canonical clone. Dry run writes
+nothing; finalization cannot recreate missing conversion/Docusaurus inputs.
+When changing `project/build.properties`, review launcher bytes and update
+`project/sbt-launch.sha256` together. Missing/mismatched checksums stop bootstrap.
+
+## Safety and public information
+
+- Use only OSS/Maven allowlisted public plans and evidence in public workflows.
+  Encoding or compressing a document does not redact it.
+- Keep credentials, private bindings/destinations, profiles, raw ledgers and
+  operator records out of source, inputs, comments, logs and release attachments.
+  Keep state outside clean source checkouts.
+- Never move published tags, overwrite artifacts, discard ambiguous submissions
+  or change a plan under existing approval. Keep signing and PR merges manual;
+  do not change permissions or bypass branch protection.
+
+## Handoff at every stop
+
+Record locally the source revision/diff, plan ID, exact paths and host, last
+completed checkpoint, unchanged candidate SHAs, build/run IDs, test/artifact
+evidence, outstanding approvals and next permitted command. Retain the candidate
+wheel, source/version bindings, final payload/metadata comparison and owner sign-off.
+Distinguish offline rehearsal, live preflight, candidate qualification and
+published-artifact verification; the first three are not release completion.
+
+On resume, reread the handoff and authoritative ledger, check for another operator,
+refresh service state and recheck approval scope before acting.
+Conversation history alone is not the release ledger.
 
 ## Recovery and limits
 
-Keep one authoritative directory and state filename per approved plan.
-`.release-plan-<plan_id>.json` binds that filename. State and plan locks prevent
-local concurrent updates; they are not a global lock across copied directories
-or multiple machines. Back up the ledger and its claim in trusted storage.
-
-For an ambiguous submission, inspect Azure and explicitly adopt a matching run:
+Keep one directory and state filename per approved plan; `.release-plan-<plan_id>.json`
+claims that filename. Back up ledger and claim in trusted storage.
+Locks are local, not global across copied directories or machines.
+Inspect failed/canceled/skipped required jobs before choosing recovery.
+For an ambiguous submission, inspect Azure and obtain explicit approval to adopt
+an exact matching run; the agent cannot self-adopt:
 
 ```bash
 python scripts/release/release_ops.py resume \
@@ -769,35 +527,48 @@ python scripts/release/release_ops.py resume \
   --adopt "maven.oss.master=$KNOWN_BUILD_ID"
 ```
 
-Adoption validates source and request identity and queues no unrelated work.
-Never delete the ledger to manufacture a fresh attempt.
+Adoption checks source/request identity and queues no unrelated work.
+Never delete intent or ledger records to manufacture a new attempt.
+Same-coordinate Maven retries are unsupported. Missing required files do not
+prove absence of signatures, checksums or optional JARs. Partial/bad publication
+needs a new patch version and approval; a source revert cannot retract packages.
+Communicate the affected coordinates.
 
-Same-coordinate Maven retries are unsupported. Missing required artifacts do
-not prove every signature, checksum or optional JAR is absent. Partial or bad
-publication requires a new patch version and newly approved plan. Tags and
-released packages cannot be reverted by this tooling. A source revert is not a
-package rollback; issue a corrected version and communicate the affected one.
-
-If a port merge event has no `merge_commit_sha`, do not infer the release commit
-from the current branch tip or push tags directly. Fetch the canonical target,
-independently verify the merged commit and its reviewed release contents, and
-check it out detached. Run `release_guard.py full-release --repo . --version
-<version>`, adding `--include-spark40 true` for that optional port. Create only
-missing local tags with `git tag <tag> <sha>`; verify that any existing tags
-match the same commit and never replace them. Run
+For a port merge event without `merge_commit_sha`, fetch the canonical target,
+independently verify the reviewed merge commit and check it out detached.
+Do not substitute the current branch tip. Run
+`release_guard.py full-release --repo . --version <version>`, adding
+`--include-spark40 true` if selected. Create only missing local tags with
+`git tag <tag> <sha>`, confirming existing tags match, then run
 `release_guard.py push-tags --repo . --commit <sha>` with both
 `--tag v<version>-<target>` and `--tag v<version>-python<python-version>`.
-This revalidates the committed notebooks before atomically pushing the selected
-local tags, and rejects conflicting remote tags.
+The guard rechecks notebooks and atomically pushes, refusing conflicts.
 
-Use `status --inspect-lock` for bounded local lock metadata without Azure reads
-or lock deletion. Confirm the original owner is gone, coordinate exclusive
-recovery, inspect known submissions and preserve the records. Only then remove
-the exact unchanged dead locks. Never remove the ledger or persistent claim.
+Use `status --inspect-lock` for bounded metadata without remote reads/deletion.
+Confirm the owner is gone on the reported host; age or a missing local PID alone
+is insufficient. Coordinate exclusive recovery, inspect known/ambiguous
+submissions, preserve records and recheck locks before removing only exact,
+unchanged dead-owner locks. Never remove the persistent claim or replace a
+missing ledger with empty state; restore trusted backups and reconcile Azure.
 
-Exit `0` means the requested operation succeeded, not necessarily that a
-read-only inspection completed a release. Exit `1` means incomplete work;
-exit `2` means invalid approval, source, state, policy or transport data.
+Exit `0` means that operation succeeded, not necessarily release completion;
+`1` means incomplete work; `2` means invalid approval/source/state/policy or
+transport data. Inspect the result rather than blindly retrying.
+
+### Recover a warning-only Azure release build
+
+Cache/Codecov outages can leave a fully published public release
+`partiallySucceeded`. With the original plan/ledger, run `release_ops.py status`
+or collect verified evidence, never rerun immutable publishers merely to get green.
+The driver accepts warnings only with complete task-level proof of allowlisted
+cache/Codecov identities, retry counters and execution windows, plus successful
+publication/provenance tasks. Missing, skipped, canceled or unexplained failures
+remain blockers. Existing source, hash, DBC and freshness checks still apply.
+Raw Azure outcomes and sanitized task records stay in the ledger; exported
+evidence retains outcomes and a digest binding the complete records.
+This can reconcile an older failed classification without queueing a new build.
+It does not authorize edited ledgers or forged success. Private builds still
+require strict success. If proof fails, inspect the original build and recover.
 
 ## Validation
 
@@ -807,7 +578,6 @@ SYNAPSEML_TEST_RELEASE_SBT=1 python -m pytest \
   scripts/release/test_release_version.py -q
 ```
 
-Select the branch's JDK for SBT. Local regression tests and no-run pipeline
-previews do not prove production publication. Verify the actual released
-artifacts with consumers on each target runtime before calling the release
-complete.
+Select the branch's JDK for SBT. Local tests and no-run previews do not prove
+live permissions, signing or publication. Report completed coordinates/source
+commits and remaining gates, not skipped tests as proof.

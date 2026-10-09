@@ -33,15 +33,20 @@ def test_default_public_plan_and_cli_select_only_master_and_spark41(capsys):
     ] == ["master", "spark4.1"]
 
 
-def test_explicit_three_target_plan_keeps_its_preexisting_identity():
+@pytest.mark.parametrize(
+    "schema,identity",
+    [
+        (2, "2872f6280e4022bb5c86cf46c0eaae88b1fd4b3c96f231d31ed7a6bdc8f14443"),
+        (4, "2b182161c597847e458ddb0541dfbac81047a8dc615f3b51da7d80cfbdac4705"),
+    ],
+)
+def test_explicit_three_target_plan_keeps_its_preexisting_identity(schema, identity):
     plan = bound_plan(["master", "spark4.0", "spark4.1"])
     document = matrix.plan_to_dict(plan)
-    document["schema_version"] = 2
+    document["schema_version"] = schema
     document["plan_id"] = matrix.plan_digest(document)
-    assert document["plan_id"] == (
-        "2872f6280e4022bb5c86cf46c0eaae88b1fd4b3c96f231d31ed7a6bdc8f14443"
-    )
-    assert document["plan_id"] != plan.plan_id
+    assert document["plan_id"] == identity
+    assert (document["plan_id"] == plan.plan_id) == (schema == 4)
     assert (
         matrix.plan_to_dict(matrix.load_plan(document, require_bound=True)) == document
     )

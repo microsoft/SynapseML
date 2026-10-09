@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[2]
 
 def test_bootstrap_is_explicit_and_preserves_normal_master_guard():
     workflow = yaml.safe_load(
-        (ROOT / ".github" / "workflows" / "release-tag.yml").read_text()
+        (ROOT / ".github" / "workflows" / "release-tag.yml").read_text(encoding="utf-8")
     )
     inputs = workflow.get("on", workflow.get(True))["workflow_dispatch"]["inputs"]
     assert inputs["bootstrap"]["default"] is False
@@ -45,8 +45,9 @@ def test_bootstrap_is_explicit_and_preserves_normal_master_guard():
 
 
 def git(repo, *args):
+    location = "--git-dir" if repo.name == "origin.git" else "-C"
     return subprocess.run(
-        ["git", "-C", str(repo), *args],
+        ["git", location, str(repo), *args],
         check=True,
         capture_output=True,
         text=True,
@@ -54,7 +55,20 @@ def git(repo, *args):
 
 
 @pytest.fixture
-def candidates(tmp_path, monkeypatch):
+def website_run():
+    return {
+        "id": 1,
+        "head_sha": "a" * 40,
+        "path": ".github/workflows/website-deploy.yml",
+        "head_repository": {"full_name": "microsoft/SynapseML"},
+        "event": "pull_request",
+        "status": "completed",
+        "conclusion": "success",
+    }
+
+
+@pytest.fixture
+def candidates(tmp_path, monkeypatch, website_run):
     import bootstrap_release as bootstrap
     import release_matrix as matrix
 
@@ -103,6 +117,7 @@ def candidates(tmp_path, monkeypatch):
         git(repo, "push", "origin", "HEAD:refs/heads/" + branch)
     primary_branch = bootstrap.candidate_branch("1.2.0", "master")
     git(repo, "checkout", primary_branch)
+    website_run["head_sha"] = commits["master"]
     plan = matrix.build_plan("1.2.0", target_keys=list(commits), oss_commits=commits)
     monkeypatch.setattr(bootstrap, "check_origin", lambda _repo: None)
     checks = {
@@ -132,20 +147,7 @@ def candidates(tmp_path, monkeypatch):
         if "/actions/variables?" in path:
             return variables
         if "/actions/workflows/website-deploy.yml/runs?" in path:
-            return {
-                "total_count": 1,
-                "workflow_runs": [
-                    {
-                        "id": 1,
-                        "head_sha": commits["master"],
-                        "path": ".github/workflows/website-deploy.yml",
-                        "head_repository": {"full_name": bootstrap.REPOSITORY},
-                        "event": "pull_request",
-                        "status": "completed",
-                        "conclusion": "success",
-                    }
-                ],
-            }
+            return {"total_count": 1, "workflow_runs": [website_run]}
         for target in plan.targets:
             if f"/commits/{target.oss_commit}/pulls?" in path:
                 return [
@@ -256,13 +258,16 @@ def test_default_bootstrap_needs_no_spark40_branch_candidate_checks_or_policy(
         "missing-ci",
         "wrong-ci-provider",
         "latest-ci-failed",
+        "failed-website",
         "skip-target",
         "partial-policy",
         "missing-workflow-policy",
         "invalid-workflow-policy",
     ],
 )
-def test_bootstrap_refuses_without_creating_any_tag(candidates, monkeypatch, failure):
+def test_bootstrap_refuses_without_creating_any_tag(
+    candidates, monkeypatch, website_run, failure
+):
     bootstrap, repo, origin, plan, checks, variables = candidates
     approval = plan.plan_id
     if failure == "approval":
@@ -293,6 +298,8 @@ def test_bootstrap_refuses_without_creating_any_tag(candidates, monkeypatch, fai
         monkeypatch.delenv("BOOTSTRAP_POLICY_SKIP_SPARK40")
     elif failure == "invalid-workflow-policy":
         monkeypatch.setenv("BOOTSTRAP_POLICY_SKIP_SPARK40", "unexpected")
+    elif failure == "failed-website":
+        website_run["conclusion"] = "failure"
     else:
         selected = checks[plan.targets[1].oss_commit]
         if failure == "failed-ci":
@@ -649,38 +656,27 @@ def test_incomplete_release_docs_refuse_tagging(candidates, monkeypatch, path, c
         "partial",
     ],
 )
-def test_website_validation_is_required_before_any_tag(
-    candidates, monkeypatch, failure
-):
-    bootstrap, repo, origin, plan, _, _ = candidates
-    original = bootstrap.github
+def test_website_validation_rejects_invalid_evidence(monkeypatch, website_run, failure):
+    import bootstrap_release as bootstrap
 
-    def github(path):
-        data = original(path)
-        if "/actions/workflows/website-deploy.yml/runs?" not in path:
-            return data
-        run = data["workflow_runs"][0]
-        if failure == "missing":
-            data.update(total_count=0, workflow_runs=[])
-        elif failure == "partial":
-            data["total_count"] = 2
-        elif failure == "latest-failed":
-            data["workflow_runs"].append({**run, "id": 2, "conclusion": "failure"})
-            data["total_count"] = 2
-        elif failure == "failed":
-            run["conclusion"] = "failure"
-        elif failure == "pending":
-            run["status"] = "in_progress"
-        elif failure == "wrong-workflow":
-            run["path"] = ".github/workflows/unrelated.yml"
-        elif failure == "wrong-source":
-            run["head_sha"] = "b" * 40
-        elif failure == "fork":
-            run["head_repository"]["full_name"] = "example/SynapseML"
-        return data
-
-    monkeypatch.setattr(bootstrap, "github", github)
-    before = git(origin, "show-ref")
+    data = {"total_count": 1, "workflow_runs": [website_run]}
+    if failure == "missing":
+        data.update(total_count=0, workflow_runs=[])
+    elif failure == "partial":
+        data["total_count"] = 2
+    elif failure == "latest-failed":
+        data["workflow_runs"].append({**website_run, "id": 2, "conclusion": "failure"})
+        data["total_count"] = 2
+    elif failure == "failed":
+        website_run["conclusion"] = "failure"
+    elif failure == "pending":
+        website_run["status"] = "in_progress"
+    elif failure == "wrong-workflow":
+        website_run["path"] = ".github/workflows/unrelated.yml"
+    elif failure == "wrong-source":
+        website_run["head_sha"] = "b" * 40
+    elif failure == "fork":
+        website_run["head_repository"]["full_name"] = "example/SynapseML"
+    monkeypatch.setattr(bootstrap, "github", lambda _path: data)
     with pytest.raises(ValueError, match="website"):
-        bootstrap.execute(repo, plan, plan.plan_id, apply=True)
-    assert git(origin, "show-ref") == before
+        bootstrap.check_website_ci("a" * 40)

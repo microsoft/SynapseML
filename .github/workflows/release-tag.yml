@@ -248,7 +248,6 @@ jobs:
           # from the master release commit.
           REBASE_ONTO="$RELEASE_COMMIT"
 
-          FAILED=()
           reconcile_target_tags() {
             local TARGET="$1" EXPECTED="$2" TARGET_COMMIT="$3"
             local PYTHON_VER TAG TAG_OBJECT EXISTING
@@ -273,7 +272,7 @@ jobs:
               EXPECTED=$(git rev-parse "$TAG_OBJECT^{commit}")
             fi
             if ! git merge-base --is-ancestor "$EXPECTED" "$TARGET_COMMIT"; then
-              echo "::error::Release tags for $TARGET identify $EXPECTED, which is no longer on the target branch."
+              echo "::error::Release tags for $TARGET identify $EXPECTED, which is no longer on $TARGET."
               return 1
             fi
 
@@ -341,13 +340,7 @@ jobs:
               IFS=$'\t' read -r MERGED_PR MERGED_SHA <<< "$MERGED"
               if [ -z "$MERGED_SHA" ]; then
                 echo "::error::PR #$MERGED_PR was merged for $BRANCH but has no recorded merge commit"
-                FAILED+=("$TARGET")
-                break
-              fi
-              if ! git merge-base --is-ancestor "$MERGED_SHA" "$TARGET_COMMIT"; then
-                echo "::error::PR #$MERGED_PR merged at $MERGED_SHA, which is no longer on $TARGET"
-                FAILED+=("$TARGET")
-                break
+                exit 1
               fi
               reconcile_target_tags "$TARGET" "$MERGED_SHA" "$TARGET_COMMIT"
               echo "✅ PR #$MERGED_PR merged at $MERGED_SHA and both remote tags are verified"
@@ -371,8 +364,7 @@ jobs:
             if [ -n "$REMOTE_HEAD" ]; then
               echo "::error::$BRANCH exists without an open or merged release PR and requires reviewed recovery. \
           Preserve its source; inspect the branch and create or reopen its PR instead of rebuilding it."
-              FAILED+=("$TARGET")
-              break
+              exit 1
             fi
 
             git checkout -B "$BRANCH" "$TARGET_COMMIT"
@@ -380,8 +372,7 @@ jobs:
             if ! git rebase "$REBASE_ONTO"; then
               git rebase --abort
               echo "::error::Rebase of $TARGET onto $REBASE_ONTO conflicted — resolve manually"
-              FAILED+=("$TARGET")
-              break
+              exit 1
             fi
 
             # An explicit empty lease also protects against background fetches
@@ -446,18 +437,9 @@ jobs:
           4. Run plan preflight and approved resume through \`release_ops.py\`.
           5. Complete the required signing approvals" || {
                 echo "::error::Failed to open PR for $TARGET"
-                FAILED+=("$TARGET")
-                # Stop the chain, matching the rebase-conflict path above. The next
-                # target would be stacked on a pushed branch that has no PR, so it
-                # could never be merged in order.
-                break
+                exit 1
               }
           done
-
-          if [ ${#FAILED[@]} -gt 0 ]; then
-            echo "::error::Failed for: ${FAILED[*]}"
-            exit 1
-          fi
 
       # ── Summary ────────────────────────────────────────────
       - name: Summary

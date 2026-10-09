@@ -24,7 +24,6 @@ def collect_artifacts(root, version, scala):
         raise ValueError("unsupported Scala binary version")
     root = Path(root).resolve()
     artifacts = []
-    destinations = set()
     for name in PUBLIC_MAVEN_MODULES:
         module = f"{name}_{scala}"
         source = root / module / version
@@ -51,13 +50,12 @@ def collect_artifacts(root, version, scala):
                 path.name, module, version, allow_unversioned=True
             )
             destination = Path(module) / filename
-            if destination in destinations:
+            if filename in selected:
                 raise ValueError(
                     f"duplicate release artifact destination: {destination}"
                 )
             if path.stat().st_size == 0:
                 raise ValueError(f"empty release artifact: {destination}")
-            destinations.add(destination)
             selected[filename] = path
             artifacts.append((path, destination))
         expected = [f"{module}-{version}.pom", f"{module}-{version}.jar"]

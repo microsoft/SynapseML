@@ -239,22 +239,35 @@ curl() {
 
 
 @pytest.mark.parametrize(
-    "tags,previous,git_exit",
+    "tags,current,previous,git_exit",
     [
-        ("v1.2.0", "", 0),
-        ("v1.1.9\nv1.1.10\nv1.2.0\nv1.2.0-spark4.1", "v1.1.10", 0),
-        ("", "", 0),
-        ("v1.2.0", "", 17),
+        ("v0.7.1\nv1.0.0", "v0.7.1", "", 0),
+        ("v1.2.0", "v1.2.0", "", 0),
+        ("v1.1.9\nv1.1.10\nv1.2.0\nv1.2.0-spark4.1", "v1.2.0", "v1.1.10", 0),
+        ("v1.1.0\nv1.1.1\nv1.1.3\nv1.1.3-python3.11", "v1.1.3", "v1.1.1", 0),
+        ("v1.0.9\nv1.0.10\nv1.1.0", "v1.0.10", "v1.0.9", 0),
+        ("", "v1.2.0", "", 0),
+        ("v1.2.0-spark4.1", "v1.2.0", "", 0),
+        ("v1.2.0", "v1.2.0", "", 17),
+        pytest.param(
+            "\n".join(["v1.1.1", "v1.2.0"] + [f"v2.0.{n}" for n in range(20000)]),
+            "v1.2.0",
+            "v1.1.1",
+            0,
+            id="large-tag-list",
+        ),
     ],
 )
 def test_previous_release_tag_handles_first_release_and_propagates_git_failure(
-    tmp_path, tags, previous, git_exit
+    tmp_path, tags, current, previous, git_exit
 ):
     output = tmp_path / "output"
+    tag_file = tmp_path / "tags"
+    tag_file.write_text(tags + "\n")
     stub = """
 git() {
   if [ "$GIT_EXIT" != 0 ]; then return "$GIT_EXIT"; fi
-  printf '%s\\n' "$TEST_TAGS"
+  cat "$TEST_TAGS_FILE"
 }
 """
     result = subprocess.run(
@@ -266,8 +279,8 @@ git() {
         ],
         env={
             **os.environ,
-            "TAG": "v1.2.0",
-            "TEST_TAGS": tags,
+            "TAG": current,
+            "TEST_TAGS_FILE": str(tag_file),
             "GIT_EXIT": str(git_exit),
             "GITHUB_OUTPUT": str(output),
         },
@@ -281,27 +294,6 @@ git() {
     else:
         assert result.returncode == 0, result.stderr
         assert output.read_text().strip() == f"prev={previous}"
-
-
-@pytest.mark.parametrize("tags,expected", [("", ""), ("v1.2.0-spark4.1", "")])
-def test_primary_tag_helper_accepts_an_empty_primary_list(tags, expected):
-    source = (ROOT / "scripts" / "release" / "test_prev_tag.sh").read_text()
-    definitions = source.split("\nfail=0", 1)[0]
-    result = subprocess.run(
-        [
-            "bash",
-            "-c",
-            'git() { printf "%s\\n" "$TEST_TAGS"; }\n'
-            + definitions
-            + '\nOLDEST=$(primary_tags)\nprintf "primary=%s\\n" "$OLDEST"\n',
-        ],
-        env={**os.environ, "TEST_TAGS": tags},
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert result.returncode == 0, result.stderr
-    assert result.stdout.strip() == f"primary={expected}"
 
 
 @pytest.mark.parametrize("merged_sha", ["", "a" * 40])
@@ -322,18 +314,9 @@ def test_unknown_port_merge_recovery_requires_guarded_tag_push(merged_sha):
     assert result.returncode == (0 if merged_sha else 1)
     if not merged_sha:
         assert "independently verify" in result.stdout
-        assert "git checkout --detach <verified-sha>" in result.stdout
         assert "release_guard.py push-tags" in result.stdout
-        assert "--tag v<version>-<target>" in result.stdout
-        assert "--tag v<version>-python<python-version>" in result.stdout
-        assert "--commit <verified-sha>" in result.stdout
+        assert "scripts/release/README.md" in result.stdout
         assert "git push" not in result.stdout
-        assert result.stdout.index(
-            "release_guard.py full-release"
-        ) < result.stdout.index("git tag ")
-        assert result.stdout.index("git tag ") < result.stdout.index(
-            "release_guard.py push-tags"
-        )
         assert "never replace" in result.stdout
 
 

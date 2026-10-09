@@ -33,6 +33,11 @@ function read(...segments) {
   return fs.readFileSync(path.join(repoRoot, ...segments), "utf8");
 }
 
+const versionedRSetup = read(
+  "website", "versioned_docs", `version-${currentVersion}`, "Reference", "R Setup.md",
+);
+const sourceBuiltR = /^r_installation: source$/m.test(versionedRSetup);
+
 assert.match(
   currentVersion,
   /^\d+\.\d+\.\d+$/,
@@ -216,51 +221,6 @@ test("unpublished documentation can be previewed but cannot be deployed", () => 
   );
 });
 
-test("new release guidance only links artifacts produced by the public release", () => {
-  const sourceInstall = read("docs", "Get Started", "Install SynapseML.md");
-  const readme = read("README.md");
-  const index = read("website", "src", "pages", "index.js");
-  for (const guide of [readme, sourceInstall]) {
-    assert.doesNotMatch(guide, /SynapseMLExamplesv[0-9.]+\.dbc/);
-    for (const artifact of artifacts) {
-      assert.ok(
-        guide.includes(
-          `https://github.com/microsoft/SynapseML/tree/${artifact.releaseTag}/docs`,
-        ),
-      );
-    }
-  }
-  assert.doesNotMatch(index, /SynapseMLExamplesv[0-9.]+\.dbc/);
-  assert.ok(index.includes("${artifact.releaseTag}/docs"));
-  const sourceR = read("docs", "Reference", "R Setup.md");
-  assert.match(sourceR, /^r_installation: source$/m);
-  assert.doesNotMatch(sourceR, /blob\.core\.windows\.net\/rrr\//);
-  const versionedR = read(
-    "website",
-    "versioned_docs",
-    `version-${currentVersion}`,
-    "Reference",
-    "R Setup.md",
-  );
-  const sourceBuiltR = /^r_installation: source$/m.test(versionedR);
-  if (publishedPorts["spark4.0"] !== `${currentVersion}-spark4.0`) {
-    assert.ok(sourceBuiltR, "new releases must not invent R archive downloads");
-  }
-  if (sourceBuiltR) {
-    const versionedInstall = read(
-      "website",
-      "versioned_docs",
-      `version-${currentVersion}`,
-      "Get Started",
-      "Install SynapseML.md",
-    );
-    assert.doesNotMatch(versionedInstall, /SynapseMLExamplesv[0-9.]+\.dbc/);
-    for (const artifact of artifacts) {
-      assert.ok(versionedInstall.includes(`/tree/${artifact.releaseTag}/docs`));
-    }
-  }
-});
-
 test("runtime metadata identifies the maintained code lines", () => {
   assert.deepEqual(
     artifacts.map((artifact) => artifact.branch),
@@ -311,11 +271,19 @@ for (const guide of installGuides) {
     assert.ok(markdown.includes(installArtifacts.repository));
     assert.match(markdown, /^#{2,3} AWS EMR and pre-provisioned clusters$/m);
 
+    if (guide.hasMasterSnapshot || sourceBuiltR) {
+      assert.doesNotMatch(markdown, /SynapseMLExamplesv[0-9.]+\.dbc/);
+    }
     for (const artifact of artifacts) {
       assert.ok(markdown.includes(artifact.coordinate));
       assert.ok(markdown.includes(artifact.releaseTag));
       assert.ok(markdown.includes(artifact.pythonPackage));
       assert.ok(markdown.includes(`pyspark${artifact.pysparkSpec}`));
+      if (guide.hasMasterSnapshot || sourceBuiltR) {
+        assert.ok(markdown.includes(
+          `https://github.com/microsoft/SynapseML/tree/${artifact.releaseTag}/docs`,
+        ));
+      }
     }
 
     assert.doesNotMatch(markdown, /\$\{SYNAPSEML_VERSION\}/);
@@ -341,6 +309,8 @@ for (const guide of installGuides) {
 test("website landing page exposes only maintained runtime installs", () => {
   const index = read("website", "src", "pages", "index.js");
 
+  assert.doesNotMatch(index, /SynapseMLExamplesv[0-9.]+\.dbc/);
+  assert.ok(index.includes("${artifact.releaseTag}/docs"));
   assert.match(
     index,
     /import installArtifacts from "@site\/src\/installArtifacts"/,
@@ -410,13 +380,11 @@ test("specialized install guides use concrete maintained coordinates", () => {
     "ONNX.md",
   );
   const rSetup = read("docs", "Reference", "R Setup.md");
-  const versionedRSetup = read(
-    "website",
-    "versioned_docs",
-    `version-${currentVersion}`,
-    "Reference",
-    "R Setup.md",
-  );
+  assert.match(rSetup, /^r_installation: source$/m);
+  assert.doesNotMatch(rSetup, /blob\.core\.windows\.net\/rrr\//);
+  if (publishedPorts["spark4.0"] !== `${currentVersion}-spark4.0`) {
+    assert.ok(sourceBuiltR, "new releases must not invent R archive downloads");
+  }
   const isolationForest = read(
     "docs",
     "Explore Algorithms",
@@ -429,8 +397,7 @@ test("specialized install guides use concrete maintained coordinates", () => {
     validateSpark40References(guide, spark40Version);
   }
   // Older published ONNX snapshots predate the Spark 4.0 examples.
-  if (versionedOnnx.includes("-spark4.0") ||
-      /^r_installation: source$/m.test(versionedRSetup)) {
+  if (versionedOnnx.includes("-spark4.0") || sourceBuiltR) {
     validateSpark40References(versionedOnnx, spark40Version);
   }
 
@@ -445,7 +412,7 @@ test("specialized install guides use concrete maintained coordinates", () => {
   validatePythonInstallVariants(deepLearning, artifacts);
   // Published snapshots predate runtime-specific Python commands.
   if (versionedDeepLearning.includes("Choose exactly one Python/PySpark runtime variant") ||
-      /^r_installation: source$/m.test(versionedRSetup)) {
+      sourceBuiltR) {
     validatePythonInstallVariants(versionedDeepLearning, artifacts);
   }
 

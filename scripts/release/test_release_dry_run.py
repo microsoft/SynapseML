@@ -31,9 +31,7 @@ def test_runner_reports_offline_success_without_release_authority(
     runner, tmp_path, capsys
 ):
     configure, calls = runner
-    configure(
-        '<testsuites><testsuite><testcase name="checks"/></testsuite></testsuites>'
-    )
+    configure('<testsuite><testcase name="checks"/></testsuite>')
     report = tmp_path / "rehearsal.json"
     assert rehearsal.main(["--report", str(report)]) == 0
     value = json.loads(capsys.readouterr().out)
@@ -47,29 +45,20 @@ def test_runner_reports_offline_success_without_release_authority(
     assert any(value.endswith("test_release_rehearsal.py") for value in command)
     assert "--apply" not in command and "--approve-plan" not in command
     assert kwargs["env"]["PYTEST_DISABLE_PLUGIN_AUTOLOAD"] == "1"
-    assert kwargs["timeout"] > 0
+    assert kwargs["timeout"] == 300
     assert not kwargs.get("shell")
 
 
 @pytest.mark.parametrize(
     "xml,returncode",
     [
-        (
-            "<testsuites><testsuite><testcase><failure/></testcase></testsuite></testsuites>",
-            1,
-        ),
-        (
-            "<testsuites><testsuite><testcase><skipped/></testcase></testsuite></testsuites>",
-            0,
-        ),
-        (
-            "<testsuites><testsuite><testcase><error/></testcase></testsuite></testsuites>",
-            0,
-        ),
-        ("<testsuites><testsuite/></testsuites>", 0),
+        ("<testsuite><testcase><failure/></testcase></testsuite>", 1),
+        ("<testsuite><testcase><skipped/></testcase></testsuite>", 0),
+        ("<testsuite><testcase><error/></testcase></testsuite>", 0),
+        ("<testsuite/>", 0),
         ("not XML", 0),
         (None, 0),
-        ("<testsuites><testsuite><testcase/></testsuite></testsuites>", 5),
+        ("<testsuite><testcase/></testsuite>", 5),
     ],
 )
 def test_runner_never_turns_failed_empty_or_skipped_tests_into_success(

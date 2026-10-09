@@ -10,7 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from test_release_bootstrap import candidates  # noqa: F401
+from test_release_bootstrap import candidates, website_run  # noqa: F401
+from test_release_bootstrap import git as bare_git
 from test_release_ops import (  # noqa: F401
     OSS_SHA,
     cli,
@@ -54,15 +55,6 @@ def public_plan(include_spark40):
         target_keys=keys,
         oss_commits={key: OSS_SHA for key in keys or matrix.DEFAULT_TARGET_KEYS},
     )
-
-
-def bare_git(repo, *args):
-    return subprocess.run(
-        ["git", f"--git-dir={repo}", *args],
-        capture_output=True,
-        text=True,
-        check=True,
-    ).stdout.strip()
 
 
 @pytest.mark.parametrize("include_spark40", [False, True])

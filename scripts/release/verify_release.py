@@ -87,6 +87,7 @@ SKIP_CHOICES = {"github", "ado", "upack", "pip", "internal", "public"}
 
 OK, MISSING, SKIPPED = "PRESENT", "MISSING", "SKIPPED"
 MAX_EVIDENCE_BYTES = 2 * 1024 * 1024
+MAX_JSON_BYTES = 16 * 1024 * 1024
 MAX_GITHUB_EVIDENCE_CHARS = 60000
 MAX_GITHUB_INPUT_CHARS = 65535
 MAX_PUBLIC_ARTIFACT_BYTES = 2 * 1024 * 1024 * 1024
@@ -410,14 +411,16 @@ def _get_ado_token(explicit: Optional[str]) -> str:
             capture_output=True,
             text=True,
             shell=use_shell,
+            timeout=60,
         )
-    except OSError as e:
+    except (OSError, subprocess.TimeoutExpired):
         raise RuntimeError(
-            "could not run Azure CLI 'az'; install Azure CLI and sign in, "
-            f"or set ADO_TOKEN: {e}"
-        ) from e
+            "Azure CLI token request failed or timed out; sign in or set ADO_TOKEN"
+        ) from None
     if out.returncode != 0:
-        raise RuntimeError(f"could not get ADO token: {out.stderr.strip()}")
+        raise RuntimeError(
+            "Azure CLI could not get an ADO token; sign in or set ADO_TOKEN"
+        )
     token = out.stdout.strip()
     if not token:
         raise RuntimeError("Azure CLI returned an empty ADO token")
@@ -428,7 +431,9 @@ def _json_get_page(url: str, headers: Dict[str, str]) -> Tuple[Optional[dict], o
     req = urllib.request.Request(url, headers=headers)
     try:
         with urllib.request.urlopen(req, timeout=60) as r:
-            body = r.read()
+            body = r.read(MAX_JSON_BYTES + 1)
+            if len(body) > MAX_JSON_BYTES:
+                raise RuntimeError(f"JSON response exceeds the size limit for {url}")
             response_headers = r.headers
     except urllib.error.HTTPError as e:
         if e.code == 404:
@@ -594,11 +599,12 @@ class Checker:
             return SKIPPED
         url = f"{PYPI_BASE}/synapseml/{urllib.parse.quote(version, safe='')}/json"
         data = _json_get(url, self._public_headers)
-        published = data and data.get("info", {}).get("version") == version
-        if not published:
+        if data is None:
             return MISSING
+        if not isinstance(data, dict) or not isinstance(data.get("info"), dict):
+            raise RuntimeError("PyPI returned invalid release metadata")
         if not strict:
-            return OK
+            return OK if data["info"].get("version") == version else MISSING
         wheel = _pypi_release_wheel(version, data)
         if wheel is None:
             return MISSING
@@ -916,46 +922,22 @@ def _check_plan(plan, token, gh_token, skip, strict, checker=None):
                 c.ado_tag,
                 tp.internal_commit,
             )
-        if include_oss and "upack" in plan.families:
-            add(
-                "upack",
-                tp.key,
-                "synapseml",
-                tp.oss_upack_version,
-                c.upack("synapseml", tp.oss_upack_version),
-            )
-        if include_internal and "upack" in plan.families:
-            add(
-                "upack",
-                tp.key,
-                private_packages["upack"],
-                tp.internal_upack_version,
-                c.upack(
-                    private_packages["upack"],
-                    tp.internal_upack_version,
-                    internal=True,
-                ),
-            )
-        if include_oss and "pip" in plan.families:
-            add(
-                "pip",
-                tp.key,
-                "synapseml",
-                tp.oss_pip_version,
-                c.pip("synapseml", tp.oss_pip_version),
-            )
-        if include_internal and "pip" in plan.families:
-            add(
-                "pip",
-                tp.key,
-                private_packages["pip"],
-                tp.internal_pip_version,
-                c.pip(
-                    private_packages["pip"],
-                    tp.internal_pip_version,
-                    internal=True,
-                ),
-            )
+        for family in ("upack", "pip"):
+            if family not in plan.families:
+                continue
+            check = getattr(c, family)
+            for repository in ("oss", "internal"):
+                if repository not in plan.repositories:
+                    continue
+                internal = repository == "internal"
+                package = private_packages[family] if internal else "synapseml"
+                version = getattr(tp, f"{repository}_{family}_version")
+                status = (
+                    check(package, version, internal=True)
+                    if internal
+                    else check(package, version)
+                )
+                add(family, tp.key, package, version, status)
 
     ok = any(row["status"] == OK for row in rows) and not any(
         row["status"] == MISSING or (strict and row["status"] == SKIPPED)

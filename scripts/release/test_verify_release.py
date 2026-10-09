@@ -1,6 +1,7 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License.
 
+import io
 import json
 import os
 import sys
@@ -15,19 +16,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import verify_release as verify  # noqa: E402
 
 
-class FakeResponse:
+class FakeResponse(io.BytesIO):
     def __init__(self, body, headers=None):
-        self._body = body
+        super().__init__(body if isinstance(body, bytes) else json.dumps(body).encode())
         self.headers = headers or {}
-
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
-        return False
-
-    def read(self):
-        return json.dumps(self._body).encode("utf-8")
 
 
 class AlwaysPresentChecker:
@@ -37,29 +29,18 @@ class AlwaysPresentChecker:
     def github_tag(self, _tag):
         return verify.OK, "github-commit"
 
-    def public_maven(self, _module, _scala, _version):
+    def _artifact(self, *_args, **_kwargs):
         return verify.OK
 
-    def public_central_maven(self, _module, _scala, _version):
-        return verify.OK
-
-    def internal_maven(self, _scala, _version):
-        return verify.OK
-
-    def public_pypi(self, _version, _strict=False):
-        return verify.OK
+    public_maven = (
+        public_central_maven
+    ) = internal_maven = public_pypi = upack = pip = _artifact
 
     def public_dbc(self, _version, _commit):
         return verify.OK, "f" * 64, 321
 
     def ado_tag(self, _tag):
         return verify.OK, "ado-commit"
-
-    def upack(self, _package, _version, internal=False):
-        return verify.OK
-
-    def pip(self, _package, _version, internal=False):
-        return verify.OK
 
 
 @pytest.mark.parametrize(
@@ -85,133 +66,112 @@ def test_ado_token_uses_platform_appropriate_command(
     assert verify._get_ado_token(None) == "token"
     assert isinstance(captured["command"], command_type)
     assert captured["kwargs"]["shell"] is use_shell
+    assert captured["kwargs"]["timeout"] == 60
     if use_shell:
         assert "az account get-access-token" in captured["command"]
     else:
         assert captured["command"][:3] == ["az", "account", "get-access-token"]
 
 
-def test_ado_token_reports_missing_azure_cli(monkeypatch):
-    def missing_cli(*_args, **_kwargs):
-        raise FileNotFoundError("az not found")
+@pytest.mark.parametrize("failure", ["missing", "timeout", "failed", "empty"])
+def test_ado_token_errors_are_controlled_and_sanitized(monkeypatch, failure):
+    def run(command, **kwargs):
+        if failure == "missing":
+            raise FileNotFoundError("synthetic-private-detail")
+        if failure == "timeout":
+            raise verify.subprocess.TimeoutExpired(
+                command, 60, output="synthetic-private-detail"
+            )
+        return verify.subprocess.CompletedProcess(
+            command, int(failure == "failed"), "", "synthetic-private-detail"
+        )
 
-    monkeypatch.setattr(verify.subprocess, "run", missing_cli)
-
-    with pytest.raises(RuntimeError, match="set ADO_TOKEN"):
+    monkeypatch.setattr(verify.subprocess, "run", run)
+    assert verify._get_ado_token("provided-token") == "provided-token"
+    with pytest.raises(RuntimeError, match="Azure CLI|ADO token") as error:
         verify._get_ado_token(None)
-
-
-def test_json_get_parses_successful_response(monkeypatch):
-    monkeypatch.setattr(
-        verify.urllib.request,
-        "urlopen",
-        lambda *_args, **_kwargs: FakeResponse({"value": ["ok"]}),
-    )
-    assert verify._json_get("https://example", {}) == {"value": ["ok"]}
-
-
-@pytest.mark.parametrize("body", [b"<html>failure</html>", b'{"truncated":'])
-def test_json_get_reports_url_for_malformed_response(monkeypatch, body):
-    url = "https://example.invalid/feed"
-    response = FakeResponse(None)
-    response.read = lambda: body
-    monkeypatch.setattr(
-        verify.urllib.request,
-        "urlopen",
-        lambda *_args, **_kwargs: response,
-    )
-
-    with pytest.raises(RuntimeError) as exc:
-        verify._json_get(url, {})
-
-    assert "invalid JSON response" in str(exc.value)
-    assert url in str(exc.value)
-
-
-def test_json_get_returns_none_only_for_not_found(monkeypatch):
-    def not_found(*_args, **_kwargs):
-        raise urllib.error.HTTPError("https://example", 404, "missing", {}, None)
-
-    monkeypatch.setattr(verify.urllib.request, "urlopen", not_found)
-    assert verify._json_get("https://example", {}) is None
+    assert "synthetic-private-detail" not in str(error.value)
 
 
 @pytest.mark.parametrize(
-    "error",
-    [
-        urllib.error.HTTPError("https://example", 500, "failed", {}, None),
-        urllib.error.URLError("network unavailable"),
-    ],
+    "body", [b'{"value":["ok"]}', b"<html>failure</html>", b'{"truncated":']
 )
-def test_json_get_surfaces_service_and_network_failures(monkeypatch, error):
+def test_json_get_handles_valid_and_malformed_responses(monkeypatch, body):
+    url = "https://example.invalid/feed"
+    monkeypatch.setattr(
+        verify.urllib.request,
+        "urlopen",
+        lambda *_args, **_kwargs: FakeResponse(body),
+    )
+    if body.startswith(b'{"value"'):
+        assert verify._json_get(url, {}) == {"value": ["ok"]}
+    else:
+        with pytest.raises(RuntimeError, match="invalid JSON response") as error:
+            verify._json_get(url, {})
+        assert url in str(error.value)
+
+
+@pytest.mark.parametrize("extra", [0, 1])
+def test_json_get_enforces_the_exact_response_byte_limit(monkeypatch, extra):
+    limit = 16 * 1024 * 1024
+    reads = []
+
+    class Response(FakeResponse):
+        def read(self, size=-1):
+            reads.append(size)
+            return super().read(size)
+
+    response = Response(b"{}" + b" " * (limit - 2 + extra))
+    monkeypatch.setattr(verify.urllib.request, "urlopen", lambda *_a, **_k: response)
+    if extra:
+        with pytest.raises(RuntimeError, match="size limit"):
+            verify._json_get("https://example.invalid", {})
+    else:
+        assert verify._json_get("https://example.invalid", {}) == {}
+    assert reads == [limit + 1]
+    assert response.closed
+
+
+@pytest.mark.parametrize("status", [404, 401, 403, 429, 500, None])
+def test_json_get_returns_absence_only_for_404(monkeypatch, status):
     def fail(*_args, **_kwargs):
-        raise error
+        if status is None:
+            raise urllib.error.URLError("network unavailable")
+        raise urllib.error.HTTPError("https://example", status, "failed", {}, None)
 
     monkeypatch.setattr(verify.urllib.request, "urlopen", fail)
-    with pytest.raises(RuntimeError):
-        verify._json_get("https://example", {})
+    if status == 404:
+        assert verify._json_get("https://example", {}) is None
+    else:
+        with pytest.raises(RuntimeError):
+            verify._json_get("https://example", {})
 
 
-def test_url_exists_uses_head_without_downloading_body(monkeypatch):
-    methods = []
-
-    def open_url(request, **_kwargs):
-        methods.append(request.get_method())
-        return FakeResponse({})
-
-    monkeypatch.setattr(verify.urllib.request, "urlopen", open_url)
-
-    assert verify._url_exists("https://example/artifact.jar", {})
-    assert methods == ["HEAD"]
-
-
-@pytest.mark.parametrize("head_status", [405, 501])
-def test_url_exists_falls_back_to_get_when_head_is_unsupported(
-    monkeypatch, head_status
+@pytest.mark.parametrize(
+    "statuses,present",
+    [
+        ([200], True),
+        ([405, 200], True),
+        ([501, 200], True),
+        ([404], False),
+        ([405, 404], False),
+    ],
+)
+def test_url_exists_uses_head_and_only_falls_back_when_unsupported(
+    monkeypatch, statuses, present
 ):
     methods = []
 
     def open_url(request, **_kwargs):
-        method = request.get_method()
-        methods.append(method)
-        if method == "HEAD":
-            raise urllib.error.HTTPError(
-                request.full_url, head_status, "unsupported", {}, None
-            )
+        methods.append(request.get_method())
+        status = statuses[len(methods) - 1]
+        if status != 200:
+            raise urllib.error.HTTPError(request.full_url, status, "failed", {}, None)
         return FakeResponse({})
 
     monkeypatch.setattr(verify.urllib.request, "urlopen", open_url)
-
-    assert verify._url_exists("https://example/artifact.jar", {})
-    assert methods == ["HEAD", "GET"]
-
-
-def test_url_exists_returns_false_for_missing_head(monkeypatch):
-    methods = []
-
-    def not_found(request, **_kwargs):
-        methods.append(request.get_method())
-        raise urllib.error.HTTPError(request.full_url, 404, "missing", {}, None)
-
-    monkeypatch.setattr(verify.urllib.request, "urlopen", not_found)
-
-    assert not verify._url_exists("https://example/missing.jar", {})
-    assert methods == ["HEAD"]
-
-
-def test_url_exists_returns_false_when_fallback_get_is_missing(monkeypatch):
-    methods = []
-
-    def open_url(request, **_kwargs):
-        method = request.get_method()
-        methods.append(method)
-        status = 405 if method == "HEAD" else 404
-        raise urllib.error.HTTPError(request.full_url, status, "unavailable", {}, None)
-
-    monkeypatch.setattr(verify.urllib.request, "urlopen", open_url)
-
-    assert not verify._url_exists("https://example/missing.jar", {})
-    assert methods == ["HEAD", "GET"]
+    assert verify._url_exists("https://example/artifact.jar", {}) is present
+    assert methods == ["HEAD", "GET"][: len(statuses)]
 
 
 def test_checker_skips_ado_login_when_all_ado_checks_are_skipped(monkeypatch):
@@ -328,7 +288,8 @@ def test_run_applies_upack_rebuild_counters(monkeypatch):
     )
 
 
-def test_run_internal_only_scope_omits_all_oss_rows(monkeypatch):
+@pytest.mark.parametrize("scope", [None, "internal-only"])
+def test_run_internal_only_scope_omits_all_oss_rows(monkeypatch, scope):
     monkeypatch.setattr(verify, "Checker", AlwaysPresentChecker)
 
     rows, complete = verify.run(
@@ -338,7 +299,7 @@ def test_run_internal_only_scope_omits_all_oss_rows(monkeypatch):
         None,
         None,
         [],
-        scope="internal-only",
+        scope=scope,
     )
 
     assert complete
@@ -349,23 +310,6 @@ def test_run_internal_only_scope_omits_all_oss_rows(monkeypatch):
         or row["name"] in {"synthetic_private_package", "synthetic-private-package"}
         for row in rows
     )
-
-
-def test_run_infers_internal_only_scope_from_nonzero_patch(monkeypatch):
-    monkeypatch.setattr(verify, "Checker", AlwaysPresentChecker)
-
-    rows, complete = verify.run(
-        "1.1.3",
-        "1",
-        ["master"],
-        None,
-        None,
-        [],
-    )
-
-    assert complete
-    assert len(rows) == 7
-    assert all(not row["name"].startswith("github/") for row in rows)
 
 
 def test_internal_skip_omits_only_internal_ado_artifacts(monkeypatch):
@@ -497,33 +441,11 @@ def test_historical_check_still_requires_profile_for_enabled_private_checks(
     assert "explicit local profile" in capsys.readouterr().err
 
 
-def test_main_passes_internal_only_scope_to_run(monkeypatch):
-    captured = {}
-
-    def fake_run(*args, **kwargs):
-        captured["args"] = args
-        captured["kwargs"] = kwargs
-        return [], True
-
-    monkeypatch.setattr(verify, "run", fake_run)
-
-    assert (
-        verify.main(
-            [
-                "--version",
-                "1.1.3",
-                "--internal-patch",
-                "1",
-                "--scope",
-                "internal-only",
-            ]
-        )
-        == 0
-    )
-    assert captured["kwargs"]["scope"] == "internal-only"
-
-
-def test_main_infers_internal_only_scope_from_nonzero_patch(monkeypatch):
+@pytest.mark.parametrize("explicit_scope", [False, True])
+@pytest.mark.parametrize("json_output", [False, True])
+def test_main_reports_and_passes_resolved_scope(
+    monkeypatch, capsys, explicit_scope, json_output
+):
     captured = {}
 
     def fake_run(*args, **kwargs):
@@ -531,71 +453,38 @@ def test_main_infers_internal_only_scope_from_nonzero_patch(monkeypatch):
         return [], True
 
     monkeypatch.setattr(verify, "run", fake_run)
-
-    assert verify.main(["--version", "1.1.3", "--internal-patch", "1"]) == 0
+    arguments = ["--version", "1.1.3", "--internal-patch", "1"]
+    if explicit_scope:
+        arguments += ["--scope", "internal-only"]
+    if json_output:
+        arguments += ["--json"]
+    assert verify.main(arguments) == 0
     assert captured["scope"] == "internal-only"
-
-
-def test_main_json_reports_resolved_scope(monkeypatch, capsys):
-    monkeypatch.setattr(verify, "run", lambda *_args, **_kwargs: ([], True))
-
-    assert (
-        verify.main(
-            [
-                "--version",
-                "1.1.3",
-                "--internal-patch",
-                "1",
-                "--json",
-            ]
+    output = capsys.readouterr().out
+    if json_output:
+        report = json.loads(output)
+        assert (report["version"], report["internal_patch"], report["scope"]) == (
+            "1.1.3",
+            "1",
+            "internal-only",
         )
-        == 0
-    )
-    output = json.loads(capsys.readouterr().out)
-    assert output["version"] == "1.1.3"
-    assert output["internal_patch"] == "1"
-    assert output["scope"] == "internal-only"
+    else:
+        assert "scope=internal-only" in output
 
 
-def test_main_text_reports_resolved_scope(monkeypatch, capsys):
-    monkeypatch.setattr(verify, "run", lambda *_args, **_kwargs: ([], True))
-
-    assert verify.main(["--version", "1.1.3", "--internal-patch", "1"]) == 0
-    assert "scope=internal-only" in capsys.readouterr().out
-
-
-def test_internal_only_scope_requires_nonzero_patch(capsys):
+@pytest.mark.parametrize(
+    "patch,scope,message",
+    [
+        ("0", "internal-only", "requires a nonzero --internal-patch"),
+        ("1", "full", "use --scope internal-only"),
+    ],
+)
+def test_main_rejects_inconsistent_patch_scope(capsys, patch, scope, message):
     assert (
-        verify.main(
-            [
-                "--version",
-                "1.1.3",
-                "--internal-patch",
-                "0",
-                "--scope",
-                "internal-only",
-            ]
-        )
+        verify.main(["--version", "1.1.3", "--internal-patch", patch, "--scope", scope])
         == 2
     )
-    assert "requires a nonzero --internal-patch" in capsys.readouterr().err
-
-
-def test_full_scope_rejects_nonzero_patch(capsys):
-    assert (
-        verify.main(
-            [
-                "--version",
-                "1.1.3",
-                "--internal-patch",
-                "1",
-                "--scope",
-                "full",
-            ]
-        )
-        == 2
-    )
-    assert "use --scope internal-only" in capsys.readouterr().err
+    assert message in capsys.readouterr().err
 
 
 def test_skip_help_defines_internal_and_public_scopes(capsys):
@@ -616,6 +505,43 @@ def test_public_pypi_requires_the_requested_version(monkeypatch):
     )
     checker = verify.Checker(None, None, ["ado"])
     assert checker.public_pypi("1.1.3") == verify.MISSING
+
+
+@pytest.mark.parametrize("data", [{"info": None}, {"info": []}, {}, ["invalid"]])
+@pytest.mark.parametrize("strict", [False, True])
+def test_public_pypi_malformed_metadata_fails_with_controlled_error(
+    monkeypatch, data, strict
+):
+    monkeypatch.setattr(verify, "_json_get", lambda *_: data)
+
+    def forbidden(*_):
+        pytest.fail("Malformed metadata must not trigger a wheel lookup")
+
+    monkeypatch.setattr(verify, "_url_exists", forbidden)
+    checker = verify.Checker(None, None, ["ado", "internal"])
+    with pytest.raises(RuntimeError, match="invalid release metadata"):
+        checker.public_pypi("1.2.0", strict)
+
+
+@pytest.mark.parametrize("source", ["version", "plan"])
+def test_malformed_pypi_metadata_returns_cli_error(monkeypatch, capsys, source):
+    plan = verify.build_plan(
+        "1.2.0", target_keys=["master"], oss_commits={"master": "a" * 40}
+    )
+    monkeypatch.setattr(verify, "read_plan", lambda *_a, **_k: plan)
+    monkeypatch.setattr(verify.Checker, "github_tag", lambda *_: (verify.OK, "a" * 40))
+    monkeypatch.setattr(verify.Checker, "_maven", lambda *_a, **_k: verify.OK)
+    monkeypatch.setattr(
+        verify.Checker, "public_dbc", lambda *_: (verify.OK, "f" * 64, 321)
+    )
+    monkeypatch.setattr(verify, "_json_get", lambda *_: {"info": None})
+    args = (
+        ["--plan", "unused.json"]
+        if source == "plan"
+        else ["--version", "1.2.0", "--skip", "ado,internal"]
+    )
+    assert verify.main(args) == 2
+    assert "invalid release metadata" in capsys.readouterr().err
 
 
 @pytest.mark.parametrize(
@@ -740,7 +666,17 @@ def test_strict_pypi_respects_public_skip_before_lookup(monkeypatch):
     assert checker.public_pypi("1.2.0", True) == verify.SKIPPED
 
 
-def test_public_maven_uses_release_specific_coordinate(monkeypatch):
+@pytest.mark.parametrize(
+    "repository,module,version,suffixes",
+    [
+        ("public", "synapseml", "1.1.3-spark4.0", [".pom", ".jar"]),
+        ("public", "synapseml-core", "1.1.3-spark4.0", [".pom", ".jar", "-tests.jar"]),
+        ("internal", "synthetic-private-package", "1.1.3.0-spark4.1", [".pom", ".jar"]),
+    ],
+)
+def test_maven_uses_release_specific_coordinate(
+    monkeypatch, repository, module, version, suffixes
+):
     requested = []
 
     def exists(url, headers):
@@ -749,66 +685,19 @@ def test_public_maven_uses_release_specific_coordinate(monkeypatch):
 
     monkeypatch.setattr(verify, "_url_exists", exists)
     checker = verify.Checker(None, "github-token", ["ado"])
-    assert checker.public_maven("synapseml", "2.13", "1.1.3-spark4.0") == verify.OK
-    assert checker.public_maven("synapseml-core", "2.13", "1.1.3-spark4.0") == verify.OK
+    status = (
+        checker.public_maven(module, "2.13", version)
+        if repository == "public"
+        else checker.internal_maven("2.13", version)
+    )
+    assert status == verify.OK
     assert requested == [
         (
             "https://mmlspark.blob.core.windows.net/maven/com/microsoft/azure/"
-            "synapseml_2.13/1.1.3-spark4.0/"
-            "synapseml_2.13-1.1.3-spark4.0.pom",
+            f"{module}_2.13/{version}/{module}_2.13-{version}{suffix}",
             {"User-Agent": "synapseml-release-verify"},
-        ),
-        (
-            "https://mmlspark.blob.core.windows.net/maven/com/microsoft/azure/"
-            "synapseml_2.13/1.1.3-spark4.0/"
-            "synapseml_2.13-1.1.3-spark4.0.jar",
-            {"User-Agent": "synapseml-release-verify"},
-        ),
-        (
-            "https://mmlspark.blob.core.windows.net/maven/com/microsoft/azure/"
-            "synapseml-core_2.13/1.1.3-spark4.0/"
-            "synapseml-core_2.13-1.1.3-spark4.0.pom",
-            {"User-Agent": "synapseml-release-verify"},
-        ),
-        (
-            "https://mmlspark.blob.core.windows.net/maven/com/microsoft/azure/"
-            "synapseml-core_2.13/1.1.3-spark4.0/"
-            "synapseml-core_2.13-1.1.3-spark4.0.jar",
-            {"User-Agent": "synapseml-release-verify"},
-        ),
-        (
-            "https://mmlspark.blob.core.windows.net/maven/com/microsoft/azure/"
-            "synapseml-core_2.13/1.1.3-spark4.0/"
-            "synapseml-core_2.13-1.1.3-spark4.0-tests.jar",
-            {"User-Agent": "synapseml-release-verify"},
-        ),
-    ]
-
-
-def test_internal_maven_uses_release_specific_coordinate(monkeypatch):
-    requested = []
-
-    def exists(url, headers):
-        requested.append((url, headers))
-        return True
-
-    monkeypatch.setattr(verify, "_url_exists", exists)
-    checker = verify.Checker(None, None, ["ado"])
-
-    assert checker.internal_maven("2.13", "1.1.3.0-spark4.1") == verify.OK
-    assert requested == [
-        (
-            "https://mmlspark.blob.core.windows.net/maven/com/microsoft/azure/"
-            "synthetic-private-package_2.13/1.1.3.0-spark4.1/"
-            "synthetic-private-package_2.13-1.1.3.0-spark4.1.pom",
-            {"User-Agent": "synapseml-release-verify"},
-        ),
-        (
-            "https://mmlspark.blob.core.windows.net/maven/com/microsoft/azure/"
-            "synthetic-private-package_2.13/1.1.3.0-spark4.1/"
-            "synthetic-private-package_2.13-1.1.3.0-spark4.1.jar",
-            {"User-Agent": "synapseml-release-verify"},
-        ),
+        )
+        for suffix in suffixes
     ]
 
 

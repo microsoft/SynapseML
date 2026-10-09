@@ -107,7 +107,7 @@ class InventoryChecker:
         return self.remote.present("internal", "maven", version)
 
     def public_pypi(self, version, _strict=False):
-        return self.remote.present("oss", "maven", version)
+        return self.remote.present("oss", "pypi", version)
 
     def public_dbc(self, version, commit):
         status = self.remote.present("oss", "dbc", version)
@@ -214,7 +214,7 @@ class FakeRemote:
             or (repository, family, version) in self.missing
             or (
                 repository == "oss"
-                and family in {"maven-central", "dbc"}
+                and family in {"maven-central", "pypi", "dbc"}
                 and (
                     (repository, "maven") in self.missing
                     or (repository, "maven", version) in self.missing
@@ -425,16 +425,10 @@ class FakeRemote:
             for family in families
         ]
         if build["definition"]["id"] == matrix.OSS_MAVEN_PIPELINE_ID:
-            self.manifests[build_id][0]["schema_version"] = 2
-            self.manifests[build_id][0]["artifacts"] = [
-                {
-                    "path": (
-                        f"{module}_{tp.scala}/"
-                        f"{module}_{tp.scala}-{tp.oss_maven_version}{suffix}"
-                    ),
-                    "sha256": "d" * 64,
-                    "size": 17,
-                }
+            document = self.manifests[build_id][0]
+            document["schema_version"] = 2
+            paths = [
+                f"{module}_{tp.scala}/{module}_{tp.scala}-{tp.oss_maven_version}{suffix}"
                 for module in verify.PUBLIC_MAVEN_MODULES
                 for suffix in (
                     [".pom", ".jar", "-tests.jar"]
@@ -442,54 +436,35 @@ class FakeRemote:
                     else [".pom", ".jar"]
                 )
             ]
-            self.manifests[build_id][0]["blob_artifacts"] = [
-                {**artifact, "sha256": "9" * 64}
-                for artifact in self.manifests[build_id][0]["artifacts"]
-            ]
-        if (
-            build["definition"]["id"] == matrix.OSS_MAVEN_PIPELINE_ID
-            and target == "master"
-        ):
-            self.manifests[build_id][0]["artifacts"].append(
-                {
-                    "path": f"pypi/{verify.public_pypi_wheel_name(plan.oss_version)}",
-                    "sha256": "e" * 64,
-                    "size": 123,
-                }
-            )
-        if build["definition"]["id"] == matrix.OSS_MAVEN_PIPELINE_ID:
-            document = self.manifests[build_id][0]
-            for destination in ("artifacts", "blob_artifacts"):
-                for artifact in document[destination]:
-                    content = f"{build_id}/{destination}/{artifact['path']}".encode()
-                    published_destination = (
-                        "maven"
-                        if destination == "blob_artifacts"
-                        else (
-                            "pypi"
-                            if artifact["path"].startswith("pypi/")
-                            else "maven-central"
-                        )
-                    )
-                    artifact.update(
-                        self.publish_artifact(
-                            published_destination,
+            for field, destination in (
+                ("artifacts", "maven-central"),
+                ("blob_artifacts", "maven"),
+            ):
+                selected = paths + (
+                    [f"pypi/{verify.public_pypi_wheel_name(plan.oss_version)}"]
+                    if field == "artifacts" and target == "master"
+                    else []
+                )
+                document[field] = [
+                    {
+                        "path": path,
+                        **self.publish_artifact(
+                            "pypi" if path.startswith("pypi/") else destination,
                             document["version"],
-                            artifact["path"],
-                            content,
-                        )
-                    )
-        if (
-            build["definition"]["id"] == matrix.OSS_MAVEN_PIPELINE_ID
-            and plan.schema_version == matrix.PUBLIC_SCHEMA_VERSION
-        ):
-            self.manifests[build_id][0]["artifacts"].append(
-                {
-                    "path": f"dbcs/{verify.public_dbc_name(tp.oss_maven_version)}",
-                    "sha256": "f" * 64,
-                    "size": 321,
-                }
-            )
+                            path,
+                            f"{build_id}/{field}/{path}".encode(),
+                        ),
+                    }
+                    for path in selected
+                ]
+            if plan.schema_version == matrix.PUBLIC_SCHEMA_VERSION:
+                document["artifacts"].append(
+                    {
+                        "path": f"dbcs/{verify.public_dbc_name(tp.oss_maven_version)}",
+                        "sha256": "f" * 64,
+                        "size": 321,
+                    }
+                )
         if build["definition"]["id"] == PUBLISH_PIPELINE_ID:
             for receipt in self.manifests[build_id]:
                 family = receipt["families"][0]
@@ -1814,6 +1789,36 @@ def saved(cli):
     return json.loads(cli.state.read_text(encoding="utf-8"))
 
 
+def extra_maven_artifacts(build_id, target):
+    paths = (
+        f"{module}_{target.scala}/{module}_{target.scala}-"
+        f"{target.oss_maven_version}{classifier}{suffix}"
+        for module in verify.PUBLIC_MAVEN_MODULES
+        for classifier in ("", "-sources", "-javadoc", "-tests", "-tests-sources")
+        for suffix in (".jar.asc", ".jar.sha1", ".jar.sha256", ".jar.sha512")
+    )
+    return [
+        {
+            "path": path,
+            "sha256": hashlib.sha256(f"{build_id}-{index}".encode()).hexdigest(),
+            "size": index + 1,
+        }
+        for index, path in enumerate(paths)
+    ]
+
+
+def notes_evidence_args(encoded, tmp_path, monkeypatch):
+    if os.name == "nt":
+        # Windows limits a single environment variable to 32,767 characters.
+        evidence_file = tmp_path / "evidence.json"
+        evidence_file.write_text(
+            json.dumps(verify.decode_evidence(encoded)), encoding="utf-8"
+        )
+        return ["--evidence", str(evidence_file)]
+    monkeypatch.setenv("RELEASE_EVIDENCE_BASE64", encoded)
+    return ["--evidence-base64-env"]
+
+
 def test_dry_run_exercises_cli_and_never_queues(cli):
     cli.remote.missing = {("oss", "upack")}
     plan = release_plan(families=["upack"], repositories=["oss"])
@@ -2495,9 +2500,10 @@ def test_public_maven_and_private_publisher_require_separate_approvals(cli):
     assert ops.canonical(matrix.plan_to_dict(plan)) == sealed
 
 
-def test_public_maven_waits_for_required_central_coordinates(cli):
+@pytest.mark.parametrize("destination", ["maven-central", "pypi", "dbc"])
+def test_public_maven_waits_for_required_destination_coordinates(cli, destination):
     plan = release_plan(families=["maven"], repositories=["oss"])
-    cli.remote.missing = {("oss", "maven"), ("oss", "maven-central")}
+    cli.remote.missing = {("oss", "maven"), ("oss", destination)}
     assert cli(plan=plan, apply=True)[0] == 1
     assert len(cli.remote.queued) == 1
     cli.remote.succeed(101, plan, "oss", ["maven"])
@@ -2506,9 +2512,10 @@ def test_public_maven_waits_for_required_central_coordinates(cli):
     assert not report["complete"]
     assert action(saved(cli), "oss", "maven")["status"] == "pending"
     assert any(
-        row["kind"] == "maven-central" and row["status"] == verify.MISSING
+        row["kind"] == destination and row["status"] == verify.MISSING
         for row in report["inventory"]["rows"]
     )
+    assert not ops.verified_evidence(plan, cli.state, remote=cli.remote)["complete"]
     cli.remote.missing.clear()
     assert cli(plan=plan, apply=True)[0] == 0
     assert len(cli.remote.queued) == 1
@@ -2532,11 +2539,12 @@ def test_internal_base_requires_cdn_not_new_central_publication(cli, cdn_present
     code, report, error = cli(plan=plan, apply=True)
     assert code == 1, error
     assert all(item["repository"] == "internal" for item in report["actions"])
-    assert any(
-        row["kind"] == "maven-central" and row["status"] == verify.MISSING
-        for dependency in report["dependency_inventory"]
-        for row in dependency["rows"]
-    )
+    for destination in ("maven-central", "pypi"):
+        assert any(
+            row["kind"] == destination and row["status"] == verify.MISSING
+            for dependency in report["dependency_inventory"]
+            for row in dependency["rows"]
+        )
     if not cdn_present:
         assert not cli.remote.queued
         assert "maven.oss.master" in " ".join(report["actions"][0]["blocked"])
@@ -2932,6 +2940,17 @@ def test_state_bound_to_a_different_plan_is_not_overwritten(cli):
     assert not cli.remote.queued
 
 
+def test_saved_destination_shape_does_not_grant_evidence_authority(cli):
+    plan = release_plan(families=["upack"], repositories=["oss"])
+    assert cli(plan=plan)[0] == 1
+    state = saved(cli)
+    state["destinations"]["upack"]["id"] = TEST_UPACK_ID
+    state["state_id"] = ops._digest(state, "state_id")
+    assert ops._validate_state(state, plan) == state
+    with pytest.raises(ops.ReleaseError, match="production feed identity"):
+        ops._validate_evidence_destinations(plan, state["destinations"])
+
+
 @pytest.mark.parametrize(
     "corruption",
     [
@@ -3264,6 +3283,27 @@ def test_manifest_zip_is_read_without_extracting_files():
     assert ops.read_provenance_zip(stream.getvalue()) == [content]
     with pytest.raises(RuntimeError, match="artifact|ZIP"):
         ops.read_provenance_zip(b"this is not an artifact")
+
+
+@pytest.mark.parametrize(
+    "raw",
+    [
+        '{"fixture":1,"fixture":2}',
+        '{"fixture":NaN}',
+        '{"fixture":Infinity}',
+        '{"fixture"',
+        b"\xff",
+        None,
+        pytest.param(
+            '{"fixture":' + "[" * 20000 + "0" + "]" * 20000 + "}",
+            id="excessive-nesting",
+        ),
+    ],
+)
+def test_release_json_refusals_keep_labeled_sanitized_diagnostics(raw):
+    with pytest.raises(ops.ReleaseError) as error:
+        ops._json(raw, "Provenance fixture")
+    assert str(error.value) == "Provenance fixture contains invalid JSON"
 
 
 @pytest.mark.parametrize("body", [b"not json", b"{}", b'{"value": false}'])
@@ -3615,20 +3655,8 @@ def test_public_notes_export_fits_github_and_passes_the_real_guard(
         build_id = current["build_id"]
         cli.remote.succeed(build_id, plan, "oss", ["maven"], target=current["target"])
         target = next(t for t in plan.targets if t.key == current["target"])
-        paths = (
-            f"{module}_{target.scala}/{module}_{target.scala}-"
-            f"{target.oss_maven_version}{classifier}{suffix}"
-            for module in verify.PUBLIC_MAVEN_MODULES
-            for classifier in ("", "-sources", "-javadoc", "-tests", "-tests-sources")
-            for suffix in (".jar.asc", ".jar.sha1", ".jar.sha256", ".jar.sha512")
-        )
         cli.remote.manifests[build_id][0]["artifacts"].extend(
-            {
-                "path": path,
-                "sha256": hashlib.sha256(f"{build_id}-{index}".encode()).hexdigest(),
-                "size": index + 1,
-            }
-            for index, path in enumerate(paths)
+            extra_maven_artifacts(build_id, target)
         )
     monkeypatch.setattr(ops, "AzureRemote", lambda: cli.remote)
     assert (
@@ -3662,13 +3690,7 @@ def test_public_notes_export_fits_github_and_passes_the_real_guard(
         },
     }
     assert len(json.dumps(payload)) < 65535
-    if os.name == "nt":
-        evidence_file = tmp_path / "evidence.json"
-        evidence_file.write_text(json.dumps(report), encoding="utf-8")
-        evidence_args = ["--evidence", str(evidence_file)]
-    else:
-        monkeypatch.setenv("RELEASE_EVIDENCE_BASE64", encoded)
-        evidence_args = ["--evidence-base64-env"]
+    evidence_args = notes_evidence_args(encoded, tmp_path, monkeypatch)
     import release_dbc
 
     monkeypatch.setattr(
@@ -3753,6 +3775,7 @@ def test_export_does_not_copy_service_credentials_or_signed_urls(cli):
 @pytest.mark.parametrize(
     "corruption",
     [
+        "envelope",
         "coverage",
         "duplicate",
         "parameters",
@@ -3775,7 +3798,9 @@ def test_pure_producer_evidence_rejects_incomplete_or_forged_details(cli, corrup
     report = ops.verified_evidence(plan, cli.state, remote=cli.remote)
     evidence = report["producer_evidence"]
     run = evidence["runs"][0]
-    if corruption == "coverage":
+    if corruption == "envelope":
+        evidence["schema_version"] = 2
+    elif corruption == "coverage":
         evidence["runs"] = []
     elif corruption == "duplicate":
         evidence["runs"].append(copy.deepcopy(run))
