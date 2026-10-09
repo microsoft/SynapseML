@@ -33,7 +33,8 @@ class StreamingOmpRegressionSuite extends TestBase {
     (loaderPaths ++ systemPaths).map(_.getCanonicalPath).distinct.mkString(File.pathSeparator)
   }
 
-  Seq("dense", "sparse", "stacked", "limited").foreach { scenario =>
+  Seq("dense", "sparse", "stacked", "limited", "all", "all-invalid", "dynamic-all", "windows-limit")
+    .foreach { scenario =>
     test(s"streaming $scenario ingestion covers a wider ambient OpenMP team", TestBase.LinuxOnly) {
       assume(System.getProperty("os.name").startsWith("Linux"), "Requires the bundled Linux OpenMP runtime")
       val directory = Files.createTempDirectory("streaming-omp-").toFile
@@ -56,9 +57,19 @@ class StreamingOmpRegressionSuite extends TestBase {
         builder.environment().clear()
         builder.environment().put("HOME", directory.getAbsolutePath)
         builder.environment().put("SPARK_LOCAL_IP", "127.0.0.1")
-        builder.environment().put("OMP_NUM_THREADS", if (scenario == "stacked") "8" else "32")
-        builder.environment().put("OMP_THREAD_LIMIT", if (scenario == "limited") "16" else "32")
-        builder.environment().put("OMP_DYNAMIC", "FALSE")
+        if (scenario.startsWith("all")) {
+          builder.environment().put("OMP_NUM_THREADS_ALL", "32")
+          if (scenario == "all-invalid") builder.environment().put("OMP_NUM_THREADS", "\u00018")
+        } else {
+          builder.environment().put("OMP_NUM_THREADS", if (scenario == "stacked") "8" else "32")
+        }
+        val limit = if (scenario == "limited" || scenario == "windows-limit") "16" else "32"
+        builder.environment().put("OMP_THREAD_LIMIT", limit)
+        if (scenario == "dynamic-all") {
+          builder.environment().put("OMP_DYNAMIC_ALL", "TRUE")
+        } else {
+          builder.environment().put("OMP_DYNAMIC", "FALSE")
+        }
         builder.environment().put("OMP_PROC_BIND", "FALSE")
         val process = builder.start()
         val timeoutMinutes = 5L
@@ -75,10 +86,14 @@ class StreamingOmpRegressionSuite extends TestBase {
         val diagnostic = output.takeRight(diagnosticLimit)
         assert(completed, s"OpenMP regression timed out:\n$diagnostic")
         assert(process.exitValue() == 0, s"OpenMP regression exited ${process.exitValue()}:\n$diagnostic")
-        val writers = if (scenario == "stacked") 1 else 4
-        val width = if (scenario == "stacked" || scenario == "limited") 16 else 32
-        assert(output.contains(
-          s"externalThreads=$writers, configuredMaxStreamingOMPThreads=16, allocationBound=$width"), diagnostic)
+        if (scenario == "windows-limit") {
+          assert(output.contains("STREAMING_OMP_WINDOWS_BOUND=32"), diagnostic)
+        } else {
+          val writers = if (scenario == "stacked" || scenario == "dynamic-all") 1 else 4
+          val width = if (scenario == "stacked" || scenario == "limited") 16 else 32
+          assert(output.contains(
+            s"externalThreads=$writers, configuredMaxStreamingOMPThreads=16, allocationBound=$width"), diagnostic)
+        }
         assert(output.contains(s"STREAMING_OMP_OK scenario=$scenario"), diagnostic)
       } finally {
         FileUtils.deleteDirectory(directory)
@@ -116,8 +131,14 @@ object StreamingOmpRegressionProbe extends SparkSessionManagement {
         "enable_bundle=false min_data_in_bin=1 feature_pre_filter=false deterministic=true force_col_wise=true")
       .setDefaultListenPort(freePort())
 
-  private def predictions(data: DataFrame, mode: String, matrix: String, numTasks: Int): Array[Double] = {
-    val model = estimator(mode, matrix, numTasks).fit(data)
+  private def predictions(data: DataFrame,
+                          mode: String,
+                          matrix: String,
+                          numTasks: Int,
+                          defaultThreads: Boolean = false): Array[Double] = {
+    val trainer = estimator(mode, matrix, numTasks)
+    if (defaultThreads) trainer.setNumThreads(0).setUseSingleDatasetMode(false)
+    val model = trainer.fit(data)
     try {
       val output = model.transform(data).orderBy("id").select("prediction").collect().map(_.getDouble(0))
       assert(output.length == Rows)
@@ -166,17 +187,40 @@ object StreamingOmpRegressionProbe extends SparkSessionManagement {
     }
   }
 
-  def main(args: Array[String]): Unit = {
-    require(args.length == 1 && Set("dense", "sparse", "stacked", "limited").contains(args(0)))
-    val scenario = args(0)
+  private def verifyWindowsLimit(): Unit = {
+    val osName = System.getProperty("os.name")
+    try {
+      // Exercise platform policy in this isolated child; native Windows behavior has a separate runtime probe.
+      System.setProperty("os.name", "Windows 11")
+      val bound = ReferenceDatasetUtils.streamingOmpAllocationBound(16, 32, 1)
+      assert(bound == 32, s"Unsupported Windows thread limit narrowed allocationBound=$bound")
+      println(s"STREAMING_OMP_WINDOWS_BOUND=$bound")
+    } finally {
+      System.setProperty("os.name", osName)
+    }
+  }
+
+  private def verifyEnvironment(scenario: String, numTasks: Int, defaultThreads: Boolean): Unit = {
+    if (scenario.startsWith("all")) {
+      require(sys.env.get("OMP_NUM_THREADS_ALL").contains("32"))
+      val primary = if (scenario == "all-invalid") Some("\u00018") else None
+      require(sys.env.get("OMP_NUM_THREADS") == primary)
+    } else {
+      require(sys.env.get("OMP_NUM_THREADS").contains(if (scenario == "stacked") "8" else "32"))
+    }
+    if (defaultThreads) {
+      val allocation = ReferenceDatasetUtils.streamingOmpAllocationBound(16, 0, numTasks)
+      assert(allocation == 32, s"OpenMP environment was not covered: allocationBound=$allocation")
+    }
+  }
+
+  private def runSpark(scenario: String): Unit = {
     val stacked = scenario == "stacked"
     val limited = scenario == "limited"
+    val defaultThreads = scenario.startsWith("all") || scenario == "dynamic-all"
     val matrix = if (scenario == "sparse") "sparse" else "dense"
-    val numTasks = if (stacked) 1 else 4
-    require(sys.env.get("OMP_NUM_THREADS").contains(if (stacked) "8" else "32"))
-    val coreLimit = Files.readAllLines(Paths.get("/proc/self/limits")).asScala
-      .find(_.startsWith("Max core file size")).get.stripPrefix("Max core file size").trim.split("\\s+")
-    require(coreLimit.take(2).sameElements(Array("0", "0")), "Child must have zero soft and hard core limits")
+    val numTasks = if (stacked || scenario == "dynamic-all") 1 else 4
+    verifyEnvironment(scenario, numTasks, defaultThreads)
     resetSparkSession(numCores = Some(4))
     Configurator.setLevel(ReferenceDatasetUtils.getClass.getName, Level.INFO)
     try {
@@ -189,8 +233,8 @@ object StreamingOmpRegressionProbe extends SparkSessionManagement {
             .withColumn("label", col("prediction")).drop("prediction")).getOrElse(data)
           if (limited) retainOversizedRequest(input, matrix, numTasks)
           // In fresh scenarios, stream before bulk initialization can narrow the worker teams.
-          val streaming = predictions(input, "streaming", matrix, numTasks)
-          val bulk = predictions(input, "bulk", matrix, numTasks)
+          val streaming = predictions(input, "streaming", matrix, numTasks, defaultThreads)
+          val bulk = predictions(input, "bulk", matrix, numTasks, defaultThreads)
           val difference = streaming.zip(bulk).map { case (left, right) => math.abs(left - right) }.max
           assert(difference < PredictionTolerance, s"Streaming/bulk prediction difference: $difference")
           assert(streaming.distinct.length > 1, "Fixture must produce nonconstant predictions")
@@ -208,6 +252,20 @@ object StreamingOmpRegressionProbe extends SparkSessionManagement {
       }
     } finally {
       stopSparkSession()
+    }
+  }
+
+  def main(args: Array[String]): Unit = {
+    val scenarios = Set("dense", "sparse", "stacked", "limited", "all", "all-invalid", "dynamic-all", "windows-limit")
+    require(args.length == 1 && scenarios.contains(args(0)))
+    val coreLimit = Files.readAllLines(Paths.get("/proc/self/limits")).asScala
+      .find(_.startsWith("Max core file size")).get.stripPrefix("Max core file size").trim.split("\\s+")
+    require(coreLimit.take(2).sameElements(Array("0", "0")), "Child must have zero soft and hard core limits")
+    if (args(0) == "windows-limit") {
+      verifyWindowsLimit()
+      println("STREAMING_OMP_OK scenario=windows-limit")
+    } else {
+      runSpark(args(0))
     }
   }
 }

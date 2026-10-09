@@ -180,9 +180,17 @@ same executor JVM. If conflicting thread keys are supplied, SynapseML registers
 their maximum as a conservative allocation bound even when LightGBM selects a
 smaller value by its precedence rules. Native auto-sizing, logged as `allocationBound=-1`,
 is used only for one pushing thread when dataset initialization requests a nonpositive
-native thread count and `OMP_DYNAMIC` is disabled. A positive initialization count can
+native thread count and OpenMP dynamic teams are disabled. A positive initialization count can
 narrow that thread's team before lazy upstream LightGBM prediction restores the process
 default; dynamic teams can also grow between pushes. Those cases retain the fixed bound.
+`OMP_DYNAMIC_ALL` is considered when `OMP_DYNAMIC` is absent. A value other than
+`true` or `false`, ignoring case and standard whitespace, warns and selects fixed
+allocation conservatively. This also covers runtime-specific true spellings.
+The whole `OMP_NUM_THREADS` list must be valid before its first value is used.
+If it is absent or invalid, a valid `OMP_NUM_THREADS_ALL` can raise the affinity
+or processor-count fallback, but cannot lower it because older runtimes ignore
+`_ALL`. Control characters other than standard whitespace are not trimmed into
+valid numbers. A valid unsuffixed value takes precedence over `_ALL`.
 When a fixed bound is needed and neither environment nor Linux-affinity source is available, SynapseML
 uses the best-effort maximum of the OS-reported and JVM-reported processor
 counts with the 16-thread floor. These detected counts are hints, not a proved
@@ -191,13 +199,17 @@ an OpenMP team's width after thread binding. A nonpositive hint does not disable
 the fixed safety bound, and the value is not a cap on the OpenMP team.
 Numeric thread-count settings parsed for allocation must fit in a signed 32-bit
 integer. Larger values fail explicitly instead of relying on native integer truncation.
-When `OMP_THREAD_LIMIT` is a positive decimal integer within the signed 32-bit range,
-it limits the fixed allocation width above the 16-slot floor. The runtime cannot form
+On Linux with the published native library's GNU OpenMP runtime, when
+`OMP_THREAD_LIMIT` is a positive decimal integer within the signed 32-bit range,
+it limits the fixed allocation width above the 16-slot floor. That runtime cannot form
 a team wider than this limit, even if a previous fit requested more threads.
 The registered history is retained, but it cannot force a larger allocation while
 this limit applies. Unsupported limit syntax, including a leading `+`, is not used
 as a ceiling and produces a warning. This conservative parsing avoids imposing a
 small allocation ceiling for a value another OpenMP runtime might ignore.
+On other platforms the ceiling is ignored with a warning. In particular, the
+published Windows library uses MSVC's OpenMP runtime, which does not enforce
+`OMP_THREAD_LIMIT`; macOS enforcement has not been validated here.
 Native code outside SynapseML and a concurrent fit that increases a pooled task
 thread's team after allocation remain outside this mitigation; clamping the
 native push index is the complete fix.

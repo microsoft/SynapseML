@@ -136,8 +136,8 @@ object LightGBMUtils {
 
   private[lightgbm] def firstOmpTeamSize(value: Option[String]): Option[Int] =
     value.flatMap { text =>
-      val teams = text.split(",", -1).map(_.trim).map { token =>
-        if (token.matches("[+]?[0-9]+")) positiveNativeThreadCount(token) else None
+      val teams = text.split(",", -1).map { token =>
+        if (token.matches("\\s*[+]?[0-9]+\\s*")) positiveNativeThreadCount(token.trim) else None
       }
       if (teams.forall(_.isDefined)) teams.headOption.flatten else None
     }
@@ -150,6 +150,25 @@ object LightGBMUtils {
         "expected a positive decimal integer within the signed 32-bit range")
     }
     limit
+  }
+
+  private[lightgbm] def enforcedOmpThreadLimit(osName: String, value: Option[String]): Option[String] = {
+    if (osName.toLowerCase(Locale.ROOT).startsWith("linux")) {
+      value
+    } else {
+      if (value.isDefined) {
+        Log.warn("Not using OMP_THREAD_LIMIT as an allocation ceiling outside the supported Linux GNU runtime")
+      }
+      None
+    }
+  }
+
+  private[lightgbm] def ompDynamicEnabled(value: Option[String], allValue: Option[String]): Boolean = {
+    val setting = value.orElse(allValue)
+    if (setting.exists(text => !text.matches("(?i)\\s*(true|false)\\s*"))) {
+      Log.warn("Unrecognized OpenMP dynamic setting; using fixed streaming allocation for potentially dynamic teams")
+    }
+    setting.exists(text => !text.matches("(?i)\\s*false\\s*"))
   }
 
   private def parseCpuAffinityToken(token: String): Option[Long] = {
@@ -254,21 +273,24 @@ object LightGBMUtils {
                                                     registeredMaxThreads: Int,
                                                     warn: String => Unit,
                                                     dynamicThreads: Boolean = false,
-                                                    ompThreadLimit: Option[String] = None): Int = {
+                                                    ompThreadLimit: Option[String] = None,
+                                                    ompNumThreadsAll: Option[String] = None): Int = {
     require(externalThreads > 0, "Streaming ingestion requires at least one external writer")
     if (externalThreads == 1 && configuredNumThreads <= 0 && !dynamicThreads) {
       // Prediction restores the default team; auto-sizing is safe only if initialization also uses that team.
       -1
     } else {
-      val defaultTeam = firstOmpTeamSize(ompNumThreads)
-        .orElse(affinityCount.filter(_ > 0))
-        .getOrElse {
+      val defaultTeam = firstOmpTeamSize(ompNumThreads).getOrElse {
+        val fallback = affinityCount.filter(_ > 0).getOrElse {
           warn("Unable to prove the native OpenMP team from OMP_NUM_THREADS or Linux CPU affinity; " +
             "using the best-effort maximum of the OS-reported and JVM-reported processor counts " +
             "with the conservative streaming floor.")
           Seq(MinStreamingOmpThreads, osProcessorCount.getOrElse(0), availableProcessors)
             .filter(_ > 0).max
         }
+        // Older runtimes ignore _ALL, so it may widen but must not narrow the host fallback.
+        math.max(fallback, firstOmpTeamSize(ompNumThreadsAll).getOrElse(0))
+      }
       val requestedBound = Seq(
         MinStreamingOmpThreads,
         configuredMaxThreads,

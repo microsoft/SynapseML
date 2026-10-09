@@ -135,7 +135,8 @@ class StreamingLayoutSuite extends LightGBMTestUtils {
   test("streaming OpenMP helpers parse environment and affinity inputs") {
     assert(LightGBMUtils.firstOmpTeamSize(Option("32,8,4")) == Option(32))
     assert(LightGBMUtils.firstOmpTeamSize(Option(" +32, 8 ")) == Option(32))
-    Seq("", "8,", "8,0", "8,x", "8,-1", "8,,2").foreach { value =>
+    assert(LightGBMUtils.firstOmpTeamSize(Option(" \t32\r, 8\n")) == Option(32))
+    Seq("", "8,", "8,0", "8,x", "8,-1", "8,,2", "\u00018", "8\u0001", "8,\u00012").foreach { value =>
       assert(LightGBMUtils.firstOmpTeamSize(Option(value)).isEmpty)
     }
     assert(LightGBMUtils.firstOmpTeamSize(Option("0,32")).isEmpty)
@@ -180,6 +181,43 @@ class StreamingLayoutSuite extends LightGBMTestUtils {
     assert(LightGBMUtils.streamingOmpAllocationBound(
       1, 16, 0, Some("64"), None, None, 8, 64, _ => (), dynamicThreads = true,
       ompThreadLimit = Some("16")) == 16)
+  }
+
+  test("streaming allocation never trusts thread limits on unverified platforms") {
+    Seq("Windows 11", "Mac OS X", "unknown", "").foreach { osName =>
+      assert(LightGBMUtils.enforcedOmpThreadLimit(osName, Some("16")).isEmpty)
+      assert(LightGBMUtils.enforcedOmpThreadLimit(osName, None).isEmpty)
+    }
+    assert(LightGBMUtils.enforcedOmpThreadLimit("Linux", Some("16")).contains("16"))
+    assert(LightGBMUtils.enforcedOmpThreadLimit("Linux", None).isEmpty)
+  }
+
+  test("streaming allocation covers ALL defaults without narrowing older runtime fallbacks") {
+    def bound(primary: Option[String], all: Option[String], affinity: Int): Int =
+      LightGBMUtils.streamingOmpAllocationBound(
+        4, 16, 0, primary, Some(affinity), None, 8, 0, _ => (), ompNumThreadsAll = all)
+
+    assert(bound(None, Some("64"), 8) == 64)
+    assert(bound(None, Some("8"), 64) == 64)
+    assert(bound(Some("8"), Some("64"), 64) == 16)
+    Seq("", "invalid", "0", "8,", "\u00018").foreach { value =>
+      assert(bound(Some(value), Some("64"), 8) == 64)
+    }
+    assert(bound(None, Some("8,"), 48) == 48)
+    assert(bound(Some("8"), Some("4294967360"), 48) == 16)
+    assertThrows[IllegalArgumentException](bound(None, Some("4294967360"), 8))
+  }
+
+  test("streaming allocation conservatively detects dynamic environment settings") {
+    assert(!LightGBMUtils.ompDynamicEnabled(None, None))
+    assert(!LightGBMUtils.ompDynamicEnabled(Some(" \tFaLsE\r "), Some("true")))
+    assert(!LightGBMUtils.ompDynamicEnabled(None, Some("false")))
+    assert(LightGBMUtils.ompDynamicEnabled(None, Some("true")))
+    Seq("true", "1", "yes", "on", "", "invalid", "\u0001false", "0").foreach { value =>
+      assert(LightGBMUtils.ompDynamicEnabled(Some(value), None))
+      assert(LightGBMUtils.ompDynamicEnabled(Some(value), Some("true")))
+      assert(LightGBMUtils.ompDynamicEnabled(None, Some(value)))
+    }
   }
 
   test("Linux affinity reader handles valid, missing and malformed status files") {
