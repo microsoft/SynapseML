@@ -89,7 +89,7 @@ class AnalyzeImageV4LiveSuite extends TestBase with CognitiveKey with Flaky with
   import spark.implicits._
 
   private val objectsImage =
-    "https://learn.microsoft.com/azure/ai-services/computer-vision/images/objects.jpg"
+    "https://learn.microsoft.com/en-us/azure/ai-services/computer-vision/images/windows-kitchen.jpg"
 
   private def analyzer: AnalyzeImageV4 = new AnalyzeImageV4()
     .setSubscriptionKey(cognitiveKey).setLocation(cognitiveLoc).setFeatures(Seq("tags", "objects"))
