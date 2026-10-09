@@ -160,6 +160,28 @@ class StreamingLayoutSuite extends LightGBMTestUtils {
       1, 16, 0, Option("32"), unusedProbe, unusedProbe, 8, 0, _ => (), dynamicThreads = true) == 32)
   }
 
+  test("streaming allocation respects native thread limits without trusting unsupported syntax") {
+    def bound(limit: Option[String], registered: Int = 1000000): Int =
+      LightGBMUtils.streamingOmpAllocationBound(
+        4, 16, 1, Some("32"), None, None, 8, registered, _ => (), ompThreadLimit = limit)
+
+    assert(bound(Some("16")) == 16)
+    assert(bound(Some(" 32 \t")) == 32)
+    assert(bound(Some("8")) == LightGBMUtils.MinStreamingOmpThreads)
+    assert(bound(Some("16"), Int.MaxValue) == 16)
+    assert(bound(None) == 1000000)
+    Seq("", "+16", "16,8", "0", "-1", "2147483648", "\u000116", "16x").foreach { value =>
+      assert(LightGBMUtils.positiveOmpThreadLimit(Some(value)).isEmpty)
+      assert(bound(Some(value)) == 1000000)
+    }
+    assert(LightGBMUtils.positiveOmpThreadLimit(Some(Int.MaxValue.toString)).contains(Int.MaxValue))
+    assert(LightGBMUtils.streamingOmpAllocationBound(
+      1, 16, 32, Some("64"), None, None, 8, 64, _ => (), ompThreadLimit = Some("16")) == 16)
+    assert(LightGBMUtils.streamingOmpAllocationBound(
+      1, 16, 0, Some("64"), None, None, 8, 64, _ => (), dynamicThreads = true,
+      ompThreadLimit = Some("16")) == 16)
+  }
+
   test("Linux affinity reader handles valid, missing and malformed status files") {
     val directory = Files.createTempDirectory("streaming-affinity-")
     val status = directory.resolve("status")

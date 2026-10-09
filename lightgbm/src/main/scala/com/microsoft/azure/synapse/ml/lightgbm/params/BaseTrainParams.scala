@@ -178,9 +178,10 @@ case class DartModeParams(dropRate: Double,
   * @param samplingSetSize The size of the subset if sampling only a subset.
   * @param microBatchSize The number of elements in a streaming micro-batch.
   * @param useSingleDatasetMode Whether to create only 1 LightGBM Dataset on each worker.
-  * @param maxStreamingOMPThreads Streaming OpenMP allocation hint per Spark task thread; SynapseML raises
-  *                               fixed bounds have a 16-slot floor and cover numThreads, OMP_NUM_THREADS or
+  * @param maxStreamingOMPThreads Streaming OpenMP allocation hint per Spark task thread.
+  *                               Fixed bounds have a 16-slot floor and cover numThreads, OMP_NUM_THREADS or
   *                               affinity hints, and registered thread history, with best-effort OS/JVM fallback.
+  *                               A valid OMP_THREAD_LIMIT bounds requests above that floor.
   *                               One pushing thread uses native auto-sizing only for a nonpositive effective
   *                               native thread count with OMP_DYNAMIC disabled. The hint is not a thread cap.
   */

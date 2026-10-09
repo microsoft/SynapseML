@@ -157,7 +157,8 @@ object ReferenceDatasetUtils {
       availableProcessors = Runtime.getRuntime.availableProcessors(),
       registeredMaxThreads = LightGBMUtils.nativeOmpThreadHighWaterMark,
       warn = message => Log.warn(message),
-      dynamicThreads = Option(System.getenv("OMP_DYNAMIC")).exists(_.trim.equalsIgnoreCase("true")))
+      dynamicThreads = Option(System.getenv("OMP_DYNAMIC")).exists(_.trim.equalsIgnoreCase("true")),
+      ompThreadLimit = Option(System.getenv("OMP_THREAD_LIMIT")))
   }
 
   private[lightgbm] def streamingOmpAllocationBound(externalThreads: Int,

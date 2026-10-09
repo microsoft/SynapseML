@@ -142,6 +142,16 @@ object LightGBMUtils {
       if (teams.forall(_.isDefined)) teams.headOption.flatten else None
     }
 
+  private[lightgbm] def positiveOmpThreadLimit(value: Option[String]): Option[Int] = {
+    val limit = value.filter(_.matches("\\s*[0-9]+\\s*"))
+      .flatMap(text => Try(text.trim.toInt).toOption).filter(_ > 0)
+    if (value.isDefined && limit.isEmpty) {
+      Log.warn("Not using OMP_THREAD_LIMIT as an allocation ceiling: " +
+        "expected a positive decimal integer within the signed 32-bit range")
+    }
+    limit
+  }
+
   private def parseCpuAffinityToken(token: String): Option[Long] = {
     val bounds = token.split("-", -1).map(_.trim)
     bounds.length match {
@@ -243,7 +253,8 @@ object LightGBMUtils {
                                                     availableProcessors: Int,
                                                     registeredMaxThreads: Int,
                                                     warn: String => Unit,
-                                                    dynamicThreads: Boolean = false): Int = {
+                                                    dynamicThreads: Boolean = false,
+                                                    ompThreadLimit: Option[String] = None): Int = {
     require(externalThreads > 0, "Streaming ingestion requires at least one external writer")
     if (externalThreads == 1 && configuredNumThreads <= 0 && !dynamicThreads) {
       // Prediction restores the default team; auto-sizing is safe only if initialization also uses that team.
@@ -258,18 +269,22 @@ object LightGBMUtils {
           Seq(MinStreamingOmpThreads, osProcessorCount.getOrElse(0), availableProcessors)
             .filter(_ > 0).max
         }
-      val bound = Seq(
+      val requestedBound = Seq(
         MinStreamingOmpThreads,
         configuredMaxThreads,
         configuredNumThreads,
         defaultTeam,
         registeredMaxThreads).filter(_ > 0).max
+      val threadLimit = positiveOmpThreadLimit(ompThreadLimit)
+      val bound = math.max(MinStreamingOmpThreads,
+        threadLimit.map(limit => math.min(requestedBound, limit)).getOrElse(requestedBound))
       require(externalThreads.toLong * bound <= Int.MaxValue,
         s"Streaming OpenMP slot count exceeds the native integer range: $externalThreads writers * $bound slots")
       if (Log.isDebugEnabled) {
         Log.debug(s"Streaming OpenMP allocation: writers=$externalThreads, configuredHint=$configuredMaxThreads, " +
           s"nativeThreads=$configuredNumThreads, defaultTeamHint=$defaultTeam, " +
-          s"registeredThreads=$registeredMaxThreads, dynamicThreads=$dynamicThreads, allocationBound=$bound")
+          s"registeredThreads=$registeredMaxThreads, dynamicThreads=$dynamicThreads, " +
+          s"threadLimit=$threadLimit, allocationBound=$bound")
       }
       bound
     }

@@ -33,7 +33,7 @@ class StreamingOmpRegressionSuite extends TestBase {
     (loaderPaths ++ systemPaths).map(_.getCanonicalPath).distinct.mkString(File.pathSeparator)
   }
 
-  Seq("dense", "sparse", "stacked").foreach { scenario =>
+  Seq("dense", "sparse", "stacked", "limited").foreach { scenario =>
     test(s"streaming $scenario ingestion covers a wider ambient OpenMP team", TestBase.LinuxOnly) {
       assume(System.getProperty("os.name").startsWith("Linux"), "Requires the bundled Linux OpenMP runtime")
       val directory = Files.createTempDirectory("streaming-omp-").toFile
@@ -57,7 +57,7 @@ class StreamingOmpRegressionSuite extends TestBase {
         builder.environment().put("HOME", directory.getAbsolutePath)
         builder.environment().put("SPARK_LOCAL_IP", "127.0.0.1")
         builder.environment().put("OMP_NUM_THREADS", if (scenario == "stacked") "8" else "32")
-        builder.environment().put("OMP_THREAD_LIMIT", "32")
+        builder.environment().put("OMP_THREAD_LIMIT", if (scenario == "limited") "16" else "32")
         builder.environment().put("OMP_DYNAMIC", "FALSE")
         builder.environment().put("OMP_PROC_BIND", "FALSE")
         val process = builder.start()
@@ -76,7 +76,7 @@ class StreamingOmpRegressionSuite extends TestBase {
         assert(completed, s"OpenMP regression timed out:\n$diagnostic")
         assert(process.exitValue() == 0, s"OpenMP regression exited ${process.exitValue()}:\n$diagnostic")
         val writers = if (scenario == "stacked") 1 else 4
-        val width = if (scenario == "stacked") 16 else 32
+        val width = if (scenario == "stacked" || scenario == "limited") 16 else 32
         assert(output.contains(
           s"externalThreads=$writers, configuredMaxStreamingOMPThreads=16, allocationBound=$width"), diagnostic)
         assert(output.contains(s"STREAMING_OMP_OK scenario=$scenario"), diagnostic)
@@ -142,11 +142,36 @@ object StreamingOmpRegressionProbe extends SparkSessionManagement {
     }.toDF("id", "label", "features")
   }
 
+  private def retainOversizedRequest(data: DataFrame, matrix: String, numTasks: Int): Unit = {
+    val requestedThreads = 1000000
+    val trainer = estimator("bulk", matrix, numTasks)
+    val model = trainer.setPassThroughArgs(
+      s"${trainer.getPassThroughArgs} num_threads=1 n_jobs=$requestedThreads").fit(data)
+    try {
+      assert(LightGBMUtils.nativeOmpThreadHighWaterMark >= requestedThreads)
+    } finally {
+      model.getModel.freeNativeMemory()
+    }
+    // Fail before an unsafe allocation if the configured native thread limit is not respected.
+    val allocation = ReferenceDatasetUtils.streamingOmpAllocationBound(16, 1, 4)
+    assert(allocation == 16, s"Retained request exceeded the native thread limit: allocationBound=$allocation")
+  }
+
+  private def verifyHistory(scenario: String): Unit = {
+    if (scenario == "dense" || scenario == "sparse") {
+      assert(ReferenceDatasetUtils.streamingOmpAllocationBound(16, 1, 4) == 32)
+      assert(ReferenceDatasetUtils.streamingOmpAllocationBound(16, 0, 1) == -1)
+      LightGBMUtils.registerNativeOmpThreads(NativeOmpCallSite.BoosterResetParameter, "num_threads=40")
+      assert(ReferenceDatasetUtils.streamingOmpAllocationBound(16, 1, 4) == 32)
+    }
+  }
+
   def main(args: Array[String]): Unit = {
-    require(args.length == 1 && Set("dense", "sparse", "stacked").contains(args(0)))
+    require(args.length == 1 && Set("dense", "sparse", "stacked", "limited").contains(args(0)))
     val scenario = args(0)
     val stacked = scenario == "stacked"
-    val matrix = if (stacked) "dense" else scenario
+    val limited = scenario == "limited"
+    val matrix = if (scenario == "sparse") "sparse" else "dense"
     val numTasks = if (stacked) 1 else 4
     require(sys.env.get("OMP_NUM_THREADS").contains(if (stacked) "8" else "32"))
     val coreLimit = Files.readAllLines(Paths.get("/proc/self/limits")).asScala
@@ -162,17 +187,17 @@ object StreamingOmpRegressionProbe extends SparkSessionManagement {
           // Keep scoring lazy: prediction can widen the same thread after streaming initialization.
           val input = upstream.map(_.transform(data.coalesce(1))
             .withColumn("label", col("prediction")).drop("prediction")).getOrElse(data)
-          // Streaming goes first so bulk initialization cannot narrow the fresh worker teams.
+          if (limited) retainOversizedRequest(input, matrix, numTasks)
+          // In fresh scenarios, stream before bulk initialization can narrow the worker teams.
           val streaming = predictions(input, "streaming", matrix, numTasks)
           val bulk = predictions(input, "bulk", matrix, numTasks)
           val difference = streaming.zip(bulk).map { case (left, right) => math.abs(left - right) }.max
           assert(difference < PredictionTolerance, s"Streaming/bulk prediction difference: $difference")
           assert(streaming.distinct.length > 1, "Fixture must produce nonconstant predictions")
-          if (!stacked) {
-            assert(ReferenceDatasetUtils.streamingOmpAllocationBound(16, 1, 4) == 32)
-            assert(ReferenceDatasetUtils.streamingOmpAllocationBound(16, 0, 1) == -1)
-            LightGBMUtils.registerNativeOmpThreads(NativeOmpCallSite.BoosterResetParameter, "num_threads=40")
-            assert(ReferenceDatasetUtils.streamingOmpAllocationBound(16, 1, 4) == 40)
+          verifyHistory(scenario)
+          if (limited) {
+            val repeated = predictions(input, "streaming", matrix, numTasks)
+            assert(repeated.zip(bulk).forall { case (left, right) => math.abs(left - right) < PredictionTolerance })
           }
           println(s"STREAMING_OMP_OK scenario=$scenario rows=$Rows maxDifference=$difference")
         } finally {

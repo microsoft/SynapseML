@@ -191,6 +191,13 @@ an OpenMP team's width after thread binding. A nonpositive hint does not disable
 the fixed safety bound, and the value is not a cap on the OpenMP team.
 Numeric thread-count settings parsed for allocation must fit in a signed 32-bit
 integer. Larger values fail explicitly instead of relying on native integer truncation.
+When `OMP_THREAD_LIMIT` is a positive decimal integer within the signed 32-bit range,
+it limits the fixed allocation width above the 16-slot floor. The runtime cannot form
+a team wider than this limit, even if a previous fit requested more threads.
+The registered history is retained, but it cannot force a larger allocation while
+this limit applies. Unsupported limit syntax, including a leading `+`, is not used
+as a ceiling and produces a warning. This conservative parsing avoids imposing a
+small allocation ceiling for a value another OpenMP runtime might ignore.
 Native code outside SynapseML and a concurrent fit that increases a pooled task
 thread's team after allocation remain outside this mitigation; clamping the
 native push index is the complete fix.
@@ -200,9 +207,9 @@ footprint is approximately `sparse bins × executor partitions × allocation wid
 on a typical 64-bit platform, before allocator overhead and row payload. The additional
 header cost uses the increase in allocation width, not the total width. Debug logs from
 `LightGBMUtils` include the thread-count hints and registered history used for a fixed bound.
-SynapseML does not
-apply a smaller memory cap because a bound below the actual OpenMP team can
-reintroduce out-of-range writes.
+Without a usable `OMP_THREAD_LIMIT`, large valid requests can still cause large
+allocations. SynapseML does not impose an arbitrary memory cap because a bound below
+the actual OpenMP team can reintroduce out-of-range writes.
 
 #### GPU training with a custom OpenCL native library
 
