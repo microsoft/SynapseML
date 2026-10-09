@@ -221,13 +221,20 @@ class ReadImageSuite extends TransformerFuzzing[ReadImage]
     .setOutputCol("ocr")
     .setConcurrency(5)
 
+  private def assertQuote(text: String): Unit = {
+    // Read models can recognize additional text after the complete quote.
+    val quotes = Seq(
+      "OPENS.ALL YOU HAVE TO DO IS WALK IN WHEN ONE DOOR CLOSES, ANOTHER CLOSED",
+      "CLOSED WHEN ONE DOOR CLOSES, ANOTHER OPENS. ALL YOU HAVE TO DO IS WALK IN")
+    assert(quotes.exists(text.startsWith), text)
+  }
+
   test("Basic Usage with URL") {
     val results = df.mlTransform(readImage, ReadImage.flatten("ocr", "ocr"))
       .select("ocr")
       .collect()
     val headStr = results.head.getString(0)
-    assert(headStr === "OPENS.ALL YOU HAVE TO DO IS WALK IN WHEN ONE DOOR CLOSES, ANOTHER CLOSED" ||
-      headStr === "CLOSED WHEN ONE DOOR CLOSES, ANOTHER OPENS. ALL YOU HAVE TO DO IS WALK IN")
+    assertQuote(headStr)
   }
 
   test("Basic Usage with pdf") {
@@ -246,8 +253,7 @@ class ReadImageSuite extends TransformerFuzzing[ReadImage]
       .select("ocr")
       .collect()
     val headStr = results.head.getString(0)
-    assert(headStr === "OPENS.ALL YOU HAVE TO DO IS WALK IN WHEN ONE DOOR CLOSES, ANOTHER CLOSED" ||
-      headStr === "CLOSED WHEN ONE DOOR CLOSES, ANOTHER OPENS. ALL YOU HAVE TO DO IS WALK IN")
+    assertQuote(headStr)
   }
 
   override def testObjects(): Seq[TestObject[ReadImage]] =
@@ -381,14 +387,19 @@ class TagImageSuite extends TransformerFuzzing[TagImage] with CognitiveKey with 
     .setImageBytesCol("imageBytes")
     .setOutputCol("tags")
 
+  private def assertPersonTag(tags: Seq[Row]): Unit = {
+    // v3.2 can return the more specific "human face" tag before "person".
+    assert(tags.exists(tag =>
+      Set("person", "human face")(tag.getString(0)) && tag.getDouble(1) > .9), tags.toString)
+  }
+
   test("Basic Usage with URL") {
     val results = t.transform(df)
     val tagResponse = results.head()
       .getAs[Row]("tags")
       .getSeq[Row](0)
 
-    assert(tagResponse.map(_.getString(0)).toList.head === "person")
-    assert(tagResponse.map(_.getDouble(1)).toList.head > .9)
+    assertPersonTag(tagResponse)
   }
 
   test("Basic Usage with Bytes") {
@@ -397,8 +408,7 @@ class TagImageSuite extends TransformerFuzzing[TagImage] with CognitiveKey with 
       .getAs[Row]("tags")
       .getSeq[Row](0)
 
-    assert(tagResponse.map(_.getString(0)).toList.head === "person")
-    assert(tagResponse.map(_.getDouble(1)).toList.head > .9)
+    assertPersonTag(tagResponse)
   }
 
   override def testObjects(): Seq[TestObject[TagImage]] =
