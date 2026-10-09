@@ -139,5 +139,5 @@ def load_profile():
         if len(contents) > 8192:
             raise ValueError("local release profile exceeds the supported size")
         return validate_profile(strict_json(contents))
-    except (OSError, UnicodeError) as error:
+    except (OSError, UnicodeError, RuntimeError) as error:
         raise ValueError("cannot read the explicit local release profile") from error

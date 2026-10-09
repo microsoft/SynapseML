@@ -105,3 +105,11 @@ Six native bootstrap selectors passed: workflow parsing, preview/apply/idempoten
 Differential checks against the reviewed head passed for 343 complete outputs and ordered parameter maps, 14 public schema round trips and 273 read-only legacy round trips; public approval now derives once.
 Pinned Black 22.3.0 passed all five changed files; scoped `git diff --check` passed. No broad suite, live publication, commit, push or nested agent was used in this implementation.
 Recommendation 2 is deliberately deferred: the original stronger SBT fixture remains unchanged. No unresolved implementation failure remains; parent owns full validation and CI.
+
+## Cyclic-profile repair
+`release_config.py:142` now normalizes pathlib `RuntimeError` through the existing sanitized `ValueError` boundary; no outer CLI catch or new abstraction was added.
+Before repair on Linux Python 3.12: the four new cases produced two failures, including direct private matrix CLI exit 1 with traceback. After repair it exits 2 with sanitized stderr, empty stdout and no plan artifact; public-only generation still succeeds.
+WSL targeted command `pytest -p no:cacheprovider scripts/release/test_release_config.py scripts/release/test_release_matrix.py::test_default_plan_is_public_oss_without_internal_or_private_feed_work scripts/release/test_release_public.py::test_public_generation_and_transport_never_load_private_configuration scripts/release/test_release_public.py::test_public_inventory_does_not_load_private_package_configuration -q --tb=short` passed 33 tests.
+Native Python 3.14 passed all four cases from `test_profile_path_resolution_errors_are_sanitized` and `test_matrix_cli_with_cyclic_profile`, including injected RuntimeError coverage independent of pathlib version.
+Pinned Black 22.3.0 passed both changed Python files; scoped `git diff --check` passed. Regression changes are confined to `test_release_config.py`.
+This repair changes the tree reviewed at `5d0277fae1`; parent must refresh current-head validation/review. No full suite, commit, push, nested agent or production release authority was used.

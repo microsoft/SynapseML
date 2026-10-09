@@ -3,6 +3,8 @@
 
 import copy
 import json
+import subprocess
+import sys
 
 import pytest
 
@@ -53,6 +55,63 @@ def test_private_configuration_is_exact_and_local(private_profile, monkeypatch):
     monkeypatch.setenv(config.PROFILE_ENV, config.__file__)
     with pytest.raises(ValueError, match="outside checkout"):
         config.load_profile()
+
+
+@pytest.mark.parametrize("exception_type", [RuntimeError, OSError])
+def test_profile_path_resolution_errors_are_sanitized(monkeypatch, exception_type):
+    def fail_resolution(*_args, **_kwargs):
+        raise exception_type("synthetic-private-path")
+
+    with monkeypatch.context() as context:
+        context.setattr(config.Path, "resolve", fail_resolution)
+        with pytest.raises(
+            ValueError, match="^cannot read the explicit local release profile$"
+        ) as error:
+            config.load_profile()
+    assert isinstance(error.value.__cause__, exception_type)
+
+
+@pytest.mark.parametrize("public_only", [False, True], ids=["private", "public"])
+def test_matrix_cli_with_cyclic_profile(tmp_path, monkeypatch, public_only):
+    first, second = tmp_path / "loop-a", tmp_path / "loop-b"
+    try:
+        first.symlink_to(second.name)
+        second.symlink_to(first.name)
+    except OSError as error:
+        if sys.platform == "win32" and getattr(error, "winerror", None) == 1314:
+            pytest.skip("Creating symlinks requires Windows developer mode or WSL")
+        raise
+    monkeypatch.setenv(config.PROFILE_ENV, str(first))
+    output = tmp_path / "plan.json"
+    command = [
+        sys.executable,
+        "-B",
+        str(config.Path(__file__).with_name("release_matrix.py")),
+        "--version",
+        "1.2.0",
+        "--targets",
+        "master",
+        "--output",
+        str(output),
+        "--json",
+    ]
+    if not public_only:
+        command.extend(["--families", "pip"])
+    result = subprocess.run(command, capture_output=True, text=True, timeout=30)
+    if public_only:
+        assert result.returncode == 0, result.stderr
+        document = json.loads(result.stdout)
+        assert document == json.loads(output.read_text(encoding="utf-8"))
+        assert document["repositories"] == ["oss"] and document["families"] == ["maven"]
+    else:
+        assert result.returncode == 2
+        assert result.stdout == ""
+        assert (
+            result.stderr == "error: cannot read the explicit local release profile\n"
+        )
+        assert not output.exists()
+    assert "Traceback" not in result.stderr
+    assert str(first) not in result.stderr
 
 
 def test_profile_cannot_be_read_from_another_checkout(tmp_path, monkeypatch):
