@@ -84,6 +84,46 @@ class OCRSuite extends TransformerFuzzing[OCR] with CognitiveKey with Flaky with
   override def reader: MLReadable[_] = OCR
 }
 
+class AnalyzeImageV4LiveSuite extends TestBase with CognitiveKey with Flaky with ImageDownloadUtils {
+
+  import spark.implicits._
+
+  private val objectsImage =
+    "https://learn.microsoft.com/azure/ai-services/computer-vision/images/objects.jpg"
+
+  private def analyzer: AnalyzeImageV4 = new AnalyzeImageV4()
+    .setSubscriptionKey(cognitiveKey).setLocation(cognitiveLoc).setFeatures(Seq("tags", "objects"))
+    .setOutputCol("analysis").setErrorCol("error").setConcurrency(1)
+
+  private def assertObjects(row: Row): Unit = {
+    assert(row.getAs[Row]("error") == null, "Image Analysis 4.0 returned an HTTP error")
+    val result = ImageAnalysisV4Response.makeFromRowConverter(row.getAs[Row]("analysis"))
+    assert(result.modelVersion.nonEmpty)
+    assert(result.metadata.width > 0 && result.metadata.height > 0)
+    assert(result.tagsResult.exists(_.values.nonEmpty))
+    assert(result.objectsResult.exists(_.values.exists(_.tags.nonEmpty)))
+  }
+
+  test("GA Image Analysis 4.0 tags and objects with URL input") {
+    assertObjects(analyzer.setImageUrlCol("url").transform(Seq(objectsImage).toDF("url")).head())
+  }
+
+  test("GA Image Analysis 4.0 tags and objects with byte input") {
+    val data = Seq(downloadBytes(objectsImage)).toDF("image")
+    assertObjects(analyzer.setImageBytesCol("image").transform(data).head())
+  }
+
+  test("GA Image Analysis 4.0 reads image text synchronously") {
+    val image = "https://mmlspark.blob.core.windows.net/datasets/OCR/test1.jpg"
+    val row = analyzer.setFeatures(Seq("read")).setImageUrlCol("url")
+      .transform(Seq(image).toDF("url")).head()
+    assert(row.getAs[Row]("error") == null, "Image Analysis 4.0 returned an HTTP error")
+    val result = ImageAnalysisV4Response.makeFromRowConverter(row.getAs[Row]("analysis"))
+    assert(result.readResult.exists(_.blocks.exists(_.lines.exists(_.text.nonEmpty))))
+    assert(result.tagsResult.isEmpty && result.objectsResult.isEmpty)
+  }
+}
+
 class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage]
   with CognitiveKey with Flaky with GetterSetterFuzzing[AnalyzeImage] with ImageDownloadUtils {
   override val compareDataInSerializationTest: Boolean = false
