@@ -357,7 +357,7 @@ lazy val deepLearning = (project in file("deep-learning"))
 lazy val lightgbm = (project in file("lightgbm"))
   .dependsOn(core % "test->test;compile->compile")
   .settings(settings ++ Seq(
-    libraryDependencies += ("com.microsoft.ml.lightgbm" % "lightgbmlib" % "3.3.510"),
+    libraryDependencies += ("com.microsoft.ml.lightgbm" % "lightgbmlib" % "4.7.0"),
     name := "synapseml-lightgbm"
   ): _*)
 
