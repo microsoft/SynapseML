@@ -171,7 +171,8 @@ First build and install the Python package and publish its matching JVM artifact
 sbt installPipPackage
 ```
 
-Then start Spark through the helper installed with the Python package:
+Then, using Python from the `synapseml` conda environment where the package was
+installed, start Spark through the helper:
 
 ```python
 from synapse.ml.core.init_spark import init_spark
