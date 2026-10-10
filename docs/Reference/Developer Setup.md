@@ -163,6 +163,29 @@ Generates documentation for generated python code
 
 Installs generated python wheel into existing env
 
+### Run a local build from PySpark
+
+First build and install the Python package and publish its matching JVM artifacts:
+
+```bash
+sbt installPipPackage
+```
+
+Then start Spark through the helper installed with the Python package:
+
+```python
+from synapse.ml.core.init_spark import init_spark
+
+spark = init_spark()
+```
+
+The helper configures Spark with the versioned SynapseML package coordinate and
+the repository needed to resolve it. Spark finds the artifacts produced by
+`publishLocal` in the local Ivy repository and resolves their dependencies.
+Do not copy the built JARs into `pyspark/jars`: that bypasses dependency
+resolution and can leave required libraries, such as `spray-json`, off the JVM
+classpath.
+
 ### `testPython`
 
 Generates and runs python tests
@@ -187,7 +210,7 @@ Publishes Jar to SynapseML's Azure blob-based Maven repo. (Requires Keys)
 
 ### `publishLocal`
 
-Publishes library to the local Maven repo
+Publishes library to the local Ivy repository
 
 ### `publishDocs`
 
