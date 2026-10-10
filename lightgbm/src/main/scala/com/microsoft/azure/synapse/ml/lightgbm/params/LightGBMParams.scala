@@ -168,9 +168,18 @@ trait LightGBMExecutionParams extends Wrappable {
 
   val maxStreamingOMPThreads = new IntParam(this,
     "maxStreamingOMPThreads",
-    "Maximum number of OpenMP threads used by a LightGBM thread. Used only for thread-safe buffer allocation." +
-      " Positive values below a positive numThreads are raised to numThreads. Use a nonpositive value, or" +
-      " automatic numThreads, to allocate for the OpenMP runtime team size.")
+    "Streaming OpenMP allocation hint per Spark task thread. Used only for thread-safe buffer allocation." +
+      " SynapseML raises this value as needed to cover numThreads, the process OpenMP team from" +
+      " OMP_NUM_THREADS, OMP_NUM_THREADS_ALL or Linux CPU affinity, and positive num_threads values or aliases" +
+      " previously passed to LightGBM in the executor JVM. Conflicting thread keys are registered at their maximum" +
+      " as a conservative allocation bound. Fixed bounds always have a 16-slot floor; a positive decimal" +
+      " OMP_THREAD_LIMIT within signed 32-bit range bounds requests above that floor only on Linux." +
+      " Other platforms ignore this ceiling because runtime enforcement is not established. A single pushing" +
+      " thread uses native auto-sizing only for a nonpositive effective native thread count with" +
+      " OMP_DYNAMIC disabled. OMP_DYNAMIC_ALL is considered when OMP_DYNAMIC is absent; unrecognized" +
+      " dynamic settings retain fixed allocation. Without a team source, best-effort OS/JVM processor counts" +
+      " are used; on non-Linux hosts this is not a proved native-team bound. Nonpositive values do not disable" +
+      " the fixed safety bound or cap the OpenMP team.")
   setDefault(maxStreamingOMPThreads -> 16)
   def getMaxStreamingOMPThreads: Int = $(maxStreamingOMPThreads)
   def setMaxStreamingOMPThreads(value: Int): this.type = set(maxStreamingOMPThreads, value)

@@ -9,13 +9,84 @@ import com.microsoft.ml.lightgbm._
 import org.apache.spark.ml.PipelineModel
 import org.apache.spark.sql.Dataset
 import org.apache.spark.{SparkEnv, TaskContext}
+import org.slf4j.LoggerFactory
 
+import java.nio.file.{Files, Path, Paths}
 import java.util.Locale
+import java.util.concurrent.{ConcurrentHashMap, TimeUnit}
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.function.IntBinaryOperator
+import scala.collection.JavaConverters._
+import scala.io.Source
+import scala.util.Try
+import scala.util.control.NonFatal
+
+private[lightgbm] sealed trait NativeOmpCallSite {
+  def name: String
+}
+
+private[lightgbm] object NativeOmpCallSite {
+  case object SampledColumnDataset extends NativeOmpCallSite {
+    override val name: String = "LGBM_DatasetCreateFromSampledColumn"
+  }
+
+  case object SerializedReferenceDataset extends NativeOmpCallSite {
+    override val name: String = "LGBM_DatasetCreateFromSerializedReference"
+  }
+
+  case object BoosterCreate extends NativeOmpCallSite {
+    override val name: String = "LGBM_BoosterCreate"
+  }
+
+  case object BoosterResetParameter extends NativeOmpCallSite {
+    override val name: String = "LGBM_BoosterResetParameter"
+  }
+
+  case object DenseDataset extends NativeOmpCallSite {
+    override val name: String = "LGBM_DatasetCreateFromMat"
+  }
+
+  case object SparseDataset extends NativeOmpCallSite {
+    override val name: String = "LGBM_DatasetCreateFromCSR"
+  }
+
+  val Values: Seq[NativeOmpCallSite] = Seq(
+    SampledColumnDataset,
+    SerializedReferenceDataset,
+    BoosterCreate,
+    BoosterResetParameter,
+    DenseDataset,
+    SparseDataset)
+}
+
+private[lightgbm] final class NativeOmpThreadRegistry {
+  private val highWaterMark = new AtomicInteger(0)
+  private val siteHighWaterMarks = new ConcurrentHashMap[NativeOmpCallSite, AtomicInteger]()
+  private val maxValue = new IntBinaryOperator {
+    override def applyAsInt(left: Int, right: Int): Int = math.max(left, right)
+  }
+
+  def register(site: NativeOmpCallSite, parameters: String): Int = {
+    val requestedThreads = LightGBMUtils.positiveNumThreads(parameters).getOrElse(0)
+    siteHighWaterMarks.computeIfAbsent(site, _ => new AtomicInteger(0))
+      .accumulateAndGet(requestedThreads, maxValue)
+    highWaterMark.accumulateAndGet(requestedThreads, maxValue)
+  }
+
+  def current: Int = highWaterMark.get()
+
+  def current(site: NativeOmpCallSite): Int = Option(siteHighWaterMarks.get(site)).map(_.get()).getOrElse(0)
+}
 
 /** Helper utilities for LightGBM learners */
 object LightGBMUtils {
+  private val Log = LoggerFactory.getLogger(getClass)
+  private val ProcessorProbeTimeoutMillis = 5000L
   private val DeviceParamNames = Set("device", "device_type")
+  private val NumThreadParamNames = Set("num_threads", "num_thread", "nthread", "nthreads", "n_jobs")
   private val TrueValues = Set("1", "+1", "true", "yes", "on")
+  private val NativeOmpThreads = new NativeOmpThreadRegistry
+  private[lightgbm] val MinStreamingOmpThreads: Int = 16
 
   private def removeLightGBMQuotationSymbols(value: String): String = {
     def isQuote(char: Char): Boolean = char == '\'' || char == '"'
@@ -41,6 +112,205 @@ object LightGBMUtils {
 
   private[lightgbm] def parameterValues(parameters: String, names: Set[String]): Map[String, String] =
     parseLightGBMParams(parameters).filter { case (name, _) => names.contains(name) }
+
+  private def positiveNativeThreadCount(value: String): Option[Int] = {
+    val parsed = Try(value.toInt).toOption
+    require(parsed.isDefined || !value.matches("[+-]?[0-9]+"),
+      "LightGBM and OpenMP thread counts must fit in a signed 32-bit integer")
+    parsed.filter(_ > 0)
+  }
+
+  private[lightgbm] def positiveNumThreads(parameters: String): Option[Int] =
+    // Retain the largest valid positive count across aliases rather than reproduce native precedence.
+    // Conflicting keys can over-allocate; reject numeric overflow rather than rely on native truncation.
+    parameterValues(parameters, NumThreadParamNames).values
+      .flatMap(positiveNativeThreadCount)
+      .reduceOption(math.max)
+
+  private[lightgbm] def registerNativeOmpThreads(site: NativeOmpCallSite, parameters: String): Int =
+    NativeOmpThreads.register(site, parameters)
+
+  private[lightgbm] def nativeOmpThreadHighWaterMark: Int = NativeOmpThreads.current
+
+  private[lightgbm] def nativeOmpThreadHighWaterMark(site: NativeOmpCallSite): Int = NativeOmpThreads.current(site)
+
+  private[lightgbm] def firstOmpTeamSize(value: Option[String]): Option[Int] =
+    value.flatMap { text =>
+      val teams = text.split(",", -1).map { token =>
+        if (token.matches("\\s*[+]?[0-9]+\\s*")) positiveNativeThreadCount(token.trim) else None
+      }
+      if (teams.forall(_.isDefined)) teams.headOption.flatten else None
+    }
+
+  private[lightgbm] def positiveOmpThreadLimit(value: Option[String]): Option[Int] = {
+    val limit = value.filter(_.matches("\\s*[0-9]+\\s*"))
+      .flatMap(text => Try(text.trim.toInt).toOption).filter(_ > 0)
+    if (value.isDefined && limit.isEmpty) {
+      Log.warn("Not using OMP_THREAD_LIMIT as an allocation ceiling: " +
+        "expected a positive decimal integer within the signed 32-bit range")
+    }
+    limit
+  }
+
+  private[lightgbm] def enforcedOmpThreadLimit(osName: String, value: Option[String]): Option[String] = {
+    if (osName.toLowerCase(Locale.ROOT).startsWith("linux")) {
+      value
+    } else {
+      if (value.isDefined) {
+        Log.warn("Not using OMP_THREAD_LIMIT as an allocation ceiling outside the supported Linux GNU runtime")
+      }
+      None
+    }
+  }
+
+  private[lightgbm] def ompDynamicEnabled(value: Option[String], allValue: Option[String]): Boolean = {
+    val setting = value.orElse(allValue)
+    if (setting.exists(text => !text.matches("(?i)\\s*(true|false)\\s*"))) {
+      Log.warn("Unrecognized OpenMP dynamic setting; using fixed streaming allocation for potentially dynamic teams")
+    }
+    setting.exists(text => !text.matches("(?i)\\s*false\\s*"))
+  }
+
+  private def parseCpuAffinityToken(token: String): Option[Long] = {
+    val bounds = token.split("-", -1).map(_.trim)
+    bounds.length match {
+      case 1 => Try(bounds(0).toInt).toOption.filter(_ >= 0).map(_ => 1L)
+      case 2 => for {
+        start <- Try(bounds(0).toInt).toOption
+        end <- Try(bounds(1).toInt).toOption
+        if start >= 0 && end >= start
+      } yield end.toLong - start.toLong + 1L
+      case _ => None
+    }
+  }
+
+  private[lightgbm] def parseCpuAffinityList(value: String): Option[Int] = {
+    val counts = value.split(",", -1).iterator.map(_.trim).map(parseCpuAffinityToken).toSeq
+    if (counts.nonEmpty && counts.forall(_.isDefined)) {
+      val total = counts.flatten.sum
+      if (total > 0 && total <= Int.MaxValue) Option(total.toInt) else None
+    } else {
+      None
+    }
+  }
+
+  private[lightgbm] def linuxProcessAffinityCount(statusPath: Path = Paths.get("/proc/self/status")): Option[Int] =
+    Try(Files.readAllLines(statusPath).asScala
+      .find(_.startsWith("Cpus_allowed_list:"))
+      .flatMap(line => parseCpuAffinityList(line.substring(line.indexOf(':') + 1).trim)))
+      .toOption
+      .flatten
+
+  private def positiveProcessorCount(value: Option[String]): Option[Int] =
+    value.map(_.trim).filter(_.nonEmpty)
+      .flatMap(token => Try(token.toInt).toOption)
+      .filter(_ > 0)
+
+  private[lightgbm] def osReportedProcessorCount(osName: String,
+                                                  windowsProcessorCount: Option[String],
+                                                  macLogicalCpuCount: Option[String]): Option[Int] = {
+    val normalizedName = osName.toLowerCase(Locale.ROOT)
+    if (normalizedName.startsWith("windows")) {
+      positiveProcessorCount(windowsProcessorCount)
+    } else if (normalizedName.contains("mac") || normalizedName.contains("darwin")) {
+      positiveProcessorCount(macLogicalCpuCount)
+    } else {
+      None
+    }
+  }
+
+  private[lightgbm] def firstCommandOutput(command: Seq[String],
+                                         timeoutMillis: Long = ProcessorProbeTimeoutMillis): Option[String] =
+    Try {
+      val process = new ProcessBuilder(command: _*).redirectErrorStream(true).start()
+      try {
+        if (!process.waitFor(timeoutMillis, TimeUnit.MILLISECONDS)) {
+          Log.warn("Timed out reading the OS-reported processor count")
+          None
+        } else if (process.exitValue() != 0) {
+          Log.warn(s"OS processor-count probe exited with code ${process.exitValue()}")
+          None
+        } else {
+          val output = Source.fromInputStream(process.getInputStream)
+          try output.getLines().take(1).toSeq.headOption finally output.close()
+        }
+      } finally {
+        if (process.isAlive) process.destroyForcibly()
+        process.getInputStream.close()
+        process.getOutputStream.close()
+        process.getErrorStream.close()
+      }
+    }.recover {
+      case NonFatal(error) =>
+        Log.warn("Unable to read the OS-reported processor count", error)
+        None
+    }.get
+
+  private lazy val OsProcessorCount: Option[Int] = {
+    val osName = Option(System.getProperty("os.name")).getOrElse("")
+    val normalizedName = osName.toLowerCase(Locale.ROOT)
+    val macLogicalCpuCount = if (normalizedName.contains("mac") || normalizedName.contains("darwin")) {
+      val sysctl = if (Files.isExecutable(Paths.get("/usr/sbin/sysctl"))) "/usr/sbin/sysctl" else "sysctl"
+      firstCommandOutput(Seq(sysctl, "-n", "hw.logicalcpu"))
+    } else {
+      None
+    }
+    osReportedProcessorCount(
+      osName,
+      Option(System.getenv("NUMBER_OF_PROCESSORS")),
+      macLogicalCpuCount)
+  }
+
+  private[lightgbm] def osReportedProcessorCount(): Option[Int] = OsProcessorCount
+
+  private[lightgbm] def streamingOmpAllocationBound(externalThreads: Int,
+                                                    configuredMaxThreads: Int,
+                                                    configuredNumThreads: Int,
+                                                    ompNumThreads: Option[String],
+                                                    affinityCount: => Option[Int],
+                                                    osProcessorCount: => Option[Int],
+                                                    availableProcessors: Int,
+                                                    registeredMaxThreads: Int,
+                                                    warn: String => Unit,
+                                                    dynamicThreads: Boolean = false,
+                                                    ompThreadLimit: Option[String] = None,
+                                                    ompNumThreadsAll: Option[String] = None): Int = {
+    require(externalThreads > 0, "Streaming ingestion requires at least one external writer")
+    if (externalThreads == 1 && configuredNumThreads <= 0 && !dynamicThreads) {
+      // Prediction restores the default team; auto-sizing is safe only if initialization also uses that team.
+      -1
+    } else {
+      val defaultTeam = firstOmpTeamSize(ompNumThreads).getOrElse {
+        val fallback = affinityCount.filter(_ > 0).getOrElse {
+          warn("Unable to prove the native OpenMP team from OMP_NUM_THREADS or Linux CPU affinity; " +
+            "using the best-effort maximum of the OS-reported and JVM-reported processor counts " +
+            "with the conservative streaming floor.")
+          Seq(MinStreamingOmpThreads, osProcessorCount.getOrElse(0), availableProcessors)
+            .filter(_ > 0).max
+        }
+        // Older runtimes ignore _ALL, so it may widen but must not narrow the host fallback.
+        math.max(fallback, firstOmpTeamSize(ompNumThreadsAll).getOrElse(0))
+      }
+      val requestedBound = Seq(
+        MinStreamingOmpThreads,
+        configuredMaxThreads,
+        configuredNumThreads,
+        defaultTeam,
+        registeredMaxThreads).filter(_ > 0).max
+      val threadLimit = positiveOmpThreadLimit(ompThreadLimit)
+      val bound = math.max(MinStreamingOmpThreads,
+        threadLimit.map(limit => math.min(requestedBound, limit)).getOrElse(requestedBound))
+      require(externalThreads.toLong * bound <= Int.MaxValue,
+        s"Streaming OpenMP slot count exceeds the native integer range: $externalThreads writers * $bound slots")
+      if (Log.isDebugEnabled) {
+        Log.debug(s"Streaming OpenMP allocation: writers=$externalThreads, configuredHint=$configuredMaxThreads, " +
+          s"nativeThreads=$configuredNumThreads, defaultTeamHint=$defaultTeam, " +
+          s"registeredThreads=$registeredMaxThreads, dynamicThreads=$dynamicThreads, " +
+          s"threadLimit=$threadLimit, allocationBound=$bound")
+      }
+      bound
+    }
+  }
 
   private[lightgbm] def isEnabledParameterValue(value: String): Boolean =
     TrueValues.contains(value.toLowerCase(Locale.ROOT))
