@@ -84,6 +84,46 @@ class OCRSuite extends TransformerFuzzing[OCR] with CognitiveKey with Flaky with
   override def reader: MLReadable[_] = OCR
 }
 
+class AnalyzeImageV4LiveSuite extends TestBase with CognitiveKey with Flaky with ImageDownloadUtils {
+
+  import spark.implicits._
+
+  private val objectsImage =
+    "https://learn.microsoft.com/en-us/azure/ai-services/computer-vision/images/windows-kitchen.jpg"
+
+  private def analyzer: AnalyzeImageV4 = new AnalyzeImageV4()
+    .setSubscriptionKey(cognitiveKey).setLocation(cognitiveLoc).setFeatures(Seq("tags", "objects"))
+    .setOutputCol("analysis").setErrorCol("error").setConcurrency(1)
+
+  private def assertObjects(row: Row): Unit = {
+    assert(row.getAs[Row]("error") == null, "Image Analysis 4.0 returned an HTTP error")
+    val result = ImageAnalysisV4Response.makeFromRowConverter(row.getAs[Row]("analysis"))
+    assert(result.modelVersion.nonEmpty)
+    assert(result.metadata.width > 0 && result.metadata.height > 0)
+    assert(result.tagsResult.exists(_.values.nonEmpty))
+    assert(result.objectsResult.exists(_.values.exists(_.tags.nonEmpty)))
+  }
+
+  test("GA Image Analysis 4.0 tags and objects with URL input") {
+    assertObjects(analyzer.setImageUrlCol("url").transform(Seq(objectsImage).toDF("url")).head())
+  }
+
+  test("GA Image Analysis 4.0 tags and objects with byte input") {
+    val data = Seq(downloadBytes(objectsImage)).toDF("image")
+    assertObjects(analyzer.setImageBytesCol("image").transform(data).head())
+  }
+
+  test("GA Image Analysis 4.0 reads image text synchronously") {
+    val image = "https://mmlspark.blob.core.windows.net/datasets/OCR/test1.jpg"
+    val row = analyzer.setFeatures(Seq("read")).setImageUrlCol("url")
+      .transform(Seq(image).toDF("url")).head()
+    assert(row.getAs[Row]("error") == null, "Image Analysis 4.0 returned an HTTP error")
+    val result = ImageAnalysisV4Response.makeFromRowConverter(row.getAs[Row]("analysis"))
+    assert(result.readResult.exists(_.blocks.exists(_.lines.exists(_.text.nonEmpty))))
+    assert(result.tagsResult.isEmpty && result.objectsResult.isEmpty)
+  }
+}
+
 class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage]
   with CognitiveKey with Flaky with GetterSetterFuzzing[AnalyzeImage] with ImageDownloadUtils {
   override val compareDataInSerializationTest: Boolean = false
@@ -203,50 +243,6 @@ class AnalyzeImageSuite extends TransformerFuzzing[AnalyzeImage]
 
 }
 
-class RecognizeTextSuite extends TransformerFuzzing[RecognizeText]
-  with CognitiveKey with Flaky with OCRUtils {
-  override val compareDataInSerializationTest: Boolean = false
-
-  lazy val rt: RecognizeText = new RecognizeText()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation(cognitiveLoc)
-    .setImageUrlCol("url")
-    .setMode("Printed")
-    .setOutputCol("ocr")
-    .setConcurrency(5)
-
-  lazy val bytesRT: RecognizeText = new RecognizeText()
-    .setSubscriptionKey(cognitiveKey)
-    .setLocation(cognitiveLoc)
-    .setImageBytesCol("imageBytes")
-    .setMode("Printed")
-    .setOutputCol("ocr")
-    .setConcurrency(5)
-
-  test("Basic Usage with URL") {
-    val results = df.mlTransform(rt, RecognizeText.flatten("ocr", "ocr"))
-      .select("ocr")
-      .collect()
-    val headStr = results.head.getString(0)
-    assert(headStr === "OPENS.ALL YOU HAVE TO DO IS WALK IN WHEN ONE DOOR CLOSES, ANOTHER CLOSED" ||
-      headStr === "CLOSED WHEN ONE DOOR CLOSES, ANOTHER OPENS. ALL YOU HAVE TO DO IS WALK IN")
-  }
-
-  test("Basic Usage with Bytes") {
-    val results = bytesDF.mlTransform(bytesRT, RecognizeText.flatten("ocr", "ocr"))
-      .select("ocr")
-      .collect()
-    val headStr = results.head.getString(0)
-    assert(headStr === "OPENS.ALL YOU HAVE TO DO IS WALK IN WHEN ONE DOOR CLOSES, ANOTHER CLOSED" ||
-      headStr === "CLOSED WHEN ONE DOOR CLOSES, ANOTHER OPENS. ALL YOU HAVE TO DO IS WALK IN")
-  }
-
-  override def testObjects(): Seq[TestObject[RecognizeText]] =
-    Seq(new TestObject(rt, df))
-
-  override def reader: MLReadable[_] = RecognizeText
-}
-
 class ReadImageSuite extends TransformerFuzzing[ReadImage]
   with CognitiveKey with Flaky with OCRUtils {
   override val compareDataInSerializationTest: Boolean = false
@@ -265,13 +261,20 @@ class ReadImageSuite extends TransformerFuzzing[ReadImage]
     .setOutputCol("ocr")
     .setConcurrency(5)
 
+  private def assertQuote(text: String): Unit = {
+    // Read models can recognize additional text after the complete quote.
+    val quotes = Seq(
+      "OPENS.ALL YOU HAVE TO DO IS WALK IN WHEN ONE DOOR CLOSES, ANOTHER CLOSED",
+      "CLOSED WHEN ONE DOOR CLOSES, ANOTHER OPENS. ALL YOU HAVE TO DO IS WALK IN")
+    assert(quotes.exists(text.startsWith), text)
+  }
+
   test("Basic Usage with URL") {
     val results = df.mlTransform(readImage, ReadImage.flatten("ocr", "ocr"))
       .select("ocr")
       .collect()
     val headStr = results.head.getString(0)
-    assert(headStr === "OPENS.ALL YOU HAVE TO DO IS WALK IN WHEN ONE DOOR CLOSES, ANOTHER CLOSED" ||
-      headStr === "CLOSED WHEN ONE DOOR CLOSES, ANOTHER OPENS. ALL YOU HAVE TO DO IS WALK IN")
+    assertQuote(headStr)
   }
 
   test("Basic Usage with pdf") {
@@ -290,8 +293,7 @@ class ReadImageSuite extends TransformerFuzzing[ReadImage]
       .select("ocr")
       .collect()
     val headStr = results.head.getString(0)
-    assert(headStr === "OPENS.ALL YOU HAVE TO DO IS WALK IN WHEN ONE DOOR CLOSES, ANOTHER CLOSED" ||
-      headStr === "CLOSED WHEN ONE DOOR CLOSES, ANOTHER OPENS. ALL YOU HAVE TO DO IS WALK IN")
+    assertQuote(headStr)
   }
 
   override def testObjects(): Seq[TestObject[ReadImage]] =
@@ -425,14 +427,19 @@ class TagImageSuite extends TransformerFuzzing[TagImage] with CognitiveKey with 
     .setImageBytesCol("imageBytes")
     .setOutputCol("tags")
 
+  private def assertPersonTag(tags: Seq[Row]): Unit = {
+    // v3.2 can return the more specific "human face" tag before "person".
+    assert(tags.exists(tag =>
+      Set("person", "human face")(tag.getString(0)) && tag.getDouble(1) > .9), tags.toString)
+  }
+
   test("Basic Usage with URL") {
     val results = t.transform(df)
     val tagResponse = results.head()
       .getAs[Row]("tags")
       .getSeq[Row](0)
 
-    assert(tagResponse.map(_.getString(0)).toList.head === "person")
-    assert(tagResponse.map(_.getDouble(1)).toList.head > .9)
+    assertPersonTag(tagResponse)
   }
 
   test("Basic Usage with Bytes") {
@@ -441,8 +448,7 @@ class TagImageSuite extends TransformerFuzzing[TagImage] with CognitiveKey with 
       .getAs[Row]("tags")
       .getSeq[Row](0)
 
-    assert(tagResponse.map(_.getString(0)).toList.head === "person")
-    assert(tagResponse.map(_.getDouble(1)).toList.head > .9)
+    assertPersonTag(tagResponse)
   }
 
   override def testObjects(): Seq[TestObject[TagImage]] =
