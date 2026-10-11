@@ -7,24 +7,15 @@ import DocTable from "@theme/DocumentationTable";
 
 ## Computer Vision
 
-### API versions and migration
+### Service endpoints
 
 `AnalyzeImage`, `OCR`, `ReadImage`, `GenerateThumbnails`, `TagImage`,
 `DescribeImage`, and `RecognizeDomainSpecificContent` use Computer Vision v3.2
-when constructing endpoints. Microsoft retired Computer Vision v1.0, v2.0, v2.1,
-v3.0, and v3.1 on September 13, 2026. See the
-[retirement announcement](https://www.microsoft.com/releasecommunications/api/v2/azure/rss/computer-vision-api-retirements-13-9-2026).
-HTTP 410 `ApiVersionRetired` requires migration, not throttling retries.
+by default.
 
-The v3.2 migration keeps the existing transformer parameters and output schemas,
-including `AnalyzeImage`'s `description.tags` array of strings. It does not adopt
-the different Image Analysis v4.0 response format. Extra service response fields,
-such as `modelVersion`, are not added to the existing Spark schemas.
-
-Explicit `setUrl` values and URLs in saved models are preserved. Upgrade the
-library to get the new endpoint defaults. For an older library or a previously
-saved model, set the full operation URL after calling `setLocation`,
-`setEndpoint`, `setCustomServiceName`, or `setLinkedService`:
+To specify an endpoint explicitly, set the full operation URL with `setUrl`
+after calling `setLocation`, `setEndpoint`, `setCustomServiceName`, or
+`setLinkedService`:
 
 <!--pytest-codeblocks:cont-->
 
@@ -36,28 +27,10 @@ analyzer = (AnalyzeImage()
             .setUrl("https://eastus.api.cognitive.microsoft.com/vision/v3.2/analyze"))
 ```
 
-Use the endpoint for your own resource and keep your existing authentication,
-input, output, and visual-feature settings. `RecognizeDomainSpecificContent`
+Use the endpoint for your own resource and configure authentication, input,
+output, and visual features as shown below. `RecognizeDomainSpecificContent`
 instead takes the API root, ending in `/vision/v3.2`, and appends
 `/models/{model}/analyze`.
-
-`RecognizeText` is a legacy v2.0 operation without a matching v3.2 endpoint.
-Its public API remains available for compatibility, but its retired hosted
-endpoint no longer works. Migrate text extraction to `ReadImage`. Before using
-`ReadImage.flatten` in Scala or extracting text from `analyzeResult.readResults`
-in Python, require `status == "succeeded"` and a non-null `analyzeResult`.
-A terminal Read failure can return HTTP 200 with `status == "failed"` and no
-`analyzeResult`, so checking only the HTTP error column is insufficient.
-Keep failed rows for error handling rather than passing them to
-`ReadImage.flatten`, which does not handle a null `analyzeResult`.
-This is not a drop-in URL substitution: `RecognizeText`
-uses `mode` and `recognitionResult`, whereas `ReadImage` uses asynchronous Read
-results under `analyzeResult.readResults`. See the
-[Read v3.2 guide](https://learn.microsoft.com/en-us/azure/ai-services/computer-vision/how-to/call-read-api).
-
-Image Analysis v3.2 and v4.0 are both scheduled to retire on September 25, 2028.
-Review Microsoft's [migration options](https://learn.microsoft.com/en-us/azure/ai-services/computer-vision/migration-options)
-when planning beyond that date.
 
 ### OCR
 
@@ -197,22 +170,16 @@ csharp="classSynapse_1_1ML_1_1Cognitive_1_1AnalyzeImage.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/ComputerVision.scala" />
 
 
-### RecognizeText
-
-This legacy operation's hosted v2.0 endpoint has retired. Use [ReadImage](#readimage)
-for text extraction and update consumers of `recognitionResult` to use
-`analyzeResult.readResults`. The public API remains available for loading legacy
-models and using explicit compatible endpoints, but there is no working hosted
-service example for this operation.
-
-<DocTable className="RecognizeText"
-py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.RecognizeText"
-scala="com/microsoft/azure/synapse/ml/cognitive/RecognizeText.html"
-csharp="classSynapse_1_1ML_1_1Cognitive_1_1RecognizeText.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/ComputerVision.scala" />
-
-
 ### ReadImage
+
+`ReadImage` extracts text asynchronously and returns results under
+`analyzeResult.readResults`. Before using `ReadImage.flatten` in Scala or
+extracting text in Python, require `status == "succeeded"` and a non-null
+`analyzeResult`. A failed Read operation can return HTTP 200 with
+`status == "failed"` and no `analyzeResult`, so check the operation status as
+well as the HTTP error column. Keep failed rows for error handling rather than
+passing them to `ReadImage.flatten`, which requires a non-null `analyzeResult`.
+See the [Read v3.2 guide](https://learn.microsoft.com/en-us/azure/ai-services/computer-vision/how-to/call-read-api).
 
 <Tabs
 defaultValue="py"
