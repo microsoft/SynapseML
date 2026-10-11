@@ -925,6 +925,9 @@ class AccessAnomaly(Estimator):
         max_iter = self.max_iter
         distinct_tenants = df.select(tenant_col).distinct().cache()
         num_tenants = distinct_tenants.count()
+        if num_tenants == 0:
+            raise ValueError("AccessAnomaly requires non-empty training data.")
+
         separate_tenants = self.separate_tenants
         num_blocks = (
             self.num_blocks

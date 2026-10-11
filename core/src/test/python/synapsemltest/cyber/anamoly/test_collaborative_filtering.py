@@ -554,6 +554,22 @@ class TestAccessAnomalyExplain(ExplainTester):
 
 
 class TestAccessAnomaly(unittest.TestCase):
+    def test_empty_training_data(self):
+        empty_training = data_set.training.limit(0)
+
+        for separate_tenants in (False, True):
+            with self.subTest(separate_tenants=separate_tenants):
+                access_anomaly = AccessAnomaly(
+                    tenantCol=AccessAnomalyConfig.default_tenant_col,
+                    separateTenants=separate_tenants,
+                )
+
+                with self.assertRaisesRegex(
+                    ValueError,
+                    "AccessAnomaly requires non-empty training data.",
+                ):
+                    access_anomaly.fit(empty_training)
+
     def test_save_and_load(self):
         model = data_set.get_default_access_anomaly_model()
 
