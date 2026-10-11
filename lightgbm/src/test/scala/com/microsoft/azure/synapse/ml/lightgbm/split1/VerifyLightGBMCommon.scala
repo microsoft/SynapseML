@@ -674,6 +674,16 @@ class VerifyLightGBMCommon extends TestBase with LightGBMTestUtils {
     }
   }
 
+  test("Verify booster guidance omits random-forest advice when feature sampling is enabled") {
+    Seq(
+      "boosting_type=rf feature_fraction=0.8",
+      "boosting=rf colsample_bytree=0.8").foreach { parameters =>
+      assert(!LightGBMUtils.boosterFailureGuidance(parameters).contains("random-forest sampling requirement"))
+    }
+    assert(LightGBMUtils.boosterFailureGuidance("boosting=rf feature_fraction=1.0")
+      .contains("random-forest sampling requirement"))
+  }
+
   test("Verify booster guidance composes random-forest and device advice") {
     val guidance = LightGBMUtils.boosterFailureGuidance("boosting=rf device_type=gpu")
     assert(guidance.contains("Requested device_type=gpu"))

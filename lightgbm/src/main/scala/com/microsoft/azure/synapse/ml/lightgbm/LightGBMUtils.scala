@@ -87,6 +87,7 @@ object LightGBMUtils {
   private val BoostingAliases = Set("boosting_type", "boost")
   private val BaggingFractionAliases = Set("bagging", "subsample", "sub_row")
   private val BaggingFrequencyAliases = Set("subsample_freq")
+  private val FeatureFractionAliases = Set("sub_feature", "colsample_bytree")
   private val RandomForestValues = Set("rf", "random_forest")
   private val TrueValues = Set("1", "+1", "true", "yes", "on")
   private val NativeOmpThreads = new NativeOmpThreadRegistry
@@ -347,8 +348,15 @@ object LightGBMUtils {
     fraction.exists(value => value > 0.0 && value < 1.0) && frequency.exists(_ > 0)
   }
 
+  private def hasEnabledFeatureSampling(parameters: String): Boolean =
+    effectiveParameterValue(parameters, "feature_fraction", FeatureFractionAliases)
+      .flatMap(value => Try(value.toDouble).toOption)
+      .exists(value => value > 0.0 && value < 1.0)
+
   private def randomForestFailureGuidance(parameters: String): String =
-    if (hasRandomForestConfiguration(parameters) && !hasEnabledBagging(parameters)) {
+    if (hasRandomForestConfiguration(parameters) &&
+      !hasEnabledBagging(parameters) &&
+      !hasEnabledFeatureSampling(parameters)) {
       " If this failure is caused by LightGBM's random-forest sampling requirement, set SynapseML's " +
         "baggingFreq greater than 0 and baggingFraction strictly between 0 and 1, or set featureFraction " +
         "strictly between 0 and 1 where the bundled LightGBM version supports that configuration."
