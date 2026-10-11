@@ -43,9 +43,14 @@ instead takes the API root, ending in `/vision/v3.2`, and appends
 
 `RecognizeText` is a legacy v2.0 operation without a matching v3.2 endpoint.
 Its public API remains available for compatibility, but its retired hosted
-endpoint no longer works. Migrate text extraction to `ReadImage` and use
-`ReadImage.flatten` in Scala, or extract text from `analyzeResult.readResults`
-in Python. This is not a drop-in URL substitution: `RecognizeText`
+endpoint no longer works. Migrate text extraction to `ReadImage`. Before using
+`ReadImage.flatten` in Scala or extracting text from `analyzeResult.readResults`
+in Python, require `status == "succeeded"` and a non-null `analyzeResult`.
+A terminal Read failure can return HTTP 200 with `status == "failed"` and no
+`analyzeResult`, so checking only the HTTP error column is insufficient.
+Keep failed rows for error handling rather than passing them to
+`ReadImage.flatten`, which does not handle a null `analyzeResult`.
+This is not a drop-in URL substitution: `RecognizeText`
 uses `mode` and `recognitionResult`, whereas `ReadImage` uses asynchronous Read
 results under `analyzeResult.readResults`. See the
 [Read v3.2 guide](https://learn.microsoft.com/en-us/azure/ai-services/computer-vision/how-to/call-read-api).
