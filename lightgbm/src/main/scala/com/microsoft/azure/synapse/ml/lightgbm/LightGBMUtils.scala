@@ -351,7 +351,7 @@ object LightGBMUtils {
     if (hasRandomForestConfiguration(parameters) && !hasEnabledBagging(parameters)) {
       " If this failure is caused by LightGBM's random-forest sampling requirement, set SynapseML's " +
         "baggingFreq greater than 0 and baggingFraction strictly between 0 and 1, or set featureFraction " +
-        "below 1.0 where the bundled LightGBM version supports that configuration."
+        "strictly between 0 and 1 where the bundled LightGBM version supports that configuration."
     } else {
       ""
     }

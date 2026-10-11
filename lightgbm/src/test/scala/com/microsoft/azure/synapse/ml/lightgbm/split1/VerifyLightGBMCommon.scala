@@ -638,7 +638,7 @@ class VerifyLightGBMCommon extends TestBase with LightGBMTestUtils {
       assert(guidance.contains("greater than 0"))
       assert(guidance.contains("baggingFraction"))
       assert(guidance.contains("strictly between 0 and 1"))
-      assert(guidance.contains("featureFraction"))
+      assert(guidance.contains("featureFraction strictly between 0 and 1"))
     }
   }
 
