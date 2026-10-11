@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.lightgbm.dataset
 
 import com.microsoft.azure.synapse.ml.lightgbm.dataset.DatasetUtils.getRowAsDoubleArray
 import com.microsoft.azure.synapse.ml.lightgbm.swig._
-import com.microsoft.azure.synapse.ml.lightgbm.{ColumnParams, LightGBMUtils, PartitionTaskContext}
+import com.microsoft.azure.synapse.ml.lightgbm.{ColumnParams, LightGBMUtils, NativeOmpCallSite, PartitionTaskContext}
 import com.microsoft.ml.lightgbm.{SWIGTYPE_p_int, lightgbmlib, lightgbmlibConstants}
 import org.apache.spark.internal.Logging
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
@@ -410,6 +410,7 @@ private[lightgbm] abstract class BaseDenseAggregatedColumns(chunkSize: Int) exte
       logInfo(s"LightGBM task ${ctx.taskId} part ${ctx.partitionId} generating dense dataset" +
         s" with $numRows rows and $numCols columns")
       // Generate the dataset for features
+      LightGBMUtils.registerNativeOmpThreads(NativeOmpCallSite.DenseDataset, ctx.trainingCtx.datasetParams)
       LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromMat(
         lightgbmlib.double_to_voidp_ptr(features.array),
         lightgbmlibConstants.C_API_DTYPE_FLOAT64,
@@ -525,6 +526,7 @@ private[lightgbm] abstract class BaseSparseAggregatedColumns(chunkSize: Int)
     logInfo(s"LightGBM task ${ctx.taskId} part ${ctx.partitionId} generating dense dataset" +
       s" with $numRows rows and $numCols columns")
     // Generate the dataset for features
+    LightGBMUtils.registerNativeOmpThreads(NativeOmpCallSite.SparseDataset, ctx.trainingCtx.datasetParams)
     LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromCSR(
       lightgbmlib.int_to_voidp_ptr(indexPointers.array),
       lightgbmlibConstants.C_API_DTYPE_INT32,

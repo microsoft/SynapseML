@@ -11,6 +11,8 @@ import org.slf4j.{Logger, LoggerFactory}
 
 
 object ReferenceDatasetUtils {
+  private val Log = LoggerFactory.getLogger(getClass)
+
   def createReferenceDatasetFromSample(datasetParams: String,
                                        featuresCol: String,
                                        numRows: Long,
@@ -52,6 +54,7 @@ object ReferenceDatasetUtils {
                                        datasetParams: String): SWIGTYPE_p_void = {
     val datasetVoidPtr = lightgbmlib.voidpp_handle()
     try {
+      LightGBMUtils.registerNativeOmpThreads(NativeOmpCallSite.SampledColumnDataset, datasetParams)
       LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromSampledColumn(
         sampledData.getSampleData,
         sampledData.getSampleIndices,
@@ -117,10 +120,11 @@ object ReferenceDatasetUtils {
       // Initialize the dataset for streaming (allocates arrays mostly)
       val configuredMaxOmpThreads = ctx.trainingParams.executionParams.maxStreamingOMPThreads
       val maxOmpThreads = streamingOmpAllocationBound(
-        configuredMaxOmpThreads,
-        ctx.trainingParams.executionParams.numThreads)
+        configuredMaxThreads = configuredMaxOmpThreads,
+        configuredNumThreads = ctx.trainingParams.executionParams.numThreads,
+        externalThreads = ctx.executorPartitionCount)
       if (ctx.trainingParams.generalParams.verbosity > 1) {
-        LoggerFactory.getLogger(getClass).info(
+        Log.info(
           s"Initializing streaming Dataset: executor=${LightGBMUtils.getExecutorId}, " +
             s"partition=${ctx.partitionId}, task=${ctx.taskId}, rows=$count, " +
             s"localPartitions=${ctx.networkTopologyInfo.executorPartitionIdList.sorted.mkString(",")}, " +
@@ -141,14 +145,44 @@ object ReferenceDatasetUtils {
   }
 
   private[lightgbm] def streamingOmpAllocationBound(configuredMaxThreads: Int,
-                                                    configuredNumThreads: Int): Int = {
-    if (configuredMaxThreads <= 0 || configuredNumThreads <= 0) {
-      // Let the native runtime use the same OpenMP team size for buffer allocation and indexing.
-      -1
-    } else {
-      math.max(configuredMaxThreads, configuredNumThreads)
-    }
+                                                    configuredNumThreads: Int,
+                                                    externalThreads: Int): Int = {
+    LightGBMUtils.streamingOmpAllocationBound(
+      externalThreads = externalThreads,
+      configuredMaxThreads = configuredMaxThreads,
+      configuredNumThreads = configuredNumThreads,
+      ompNumThreads = Option(System.getenv("OMP_NUM_THREADS")),
+      affinityCount = LightGBMUtils.linuxProcessAffinityCount(),
+      osProcessorCount = LightGBMUtils.osReportedProcessorCount(),
+      availableProcessors = Runtime.getRuntime.availableProcessors(),
+      registeredMaxThreads = LightGBMUtils.nativeOmpThreadHighWaterMark,
+      warn = message => Log.warn(message),
+      dynamicThreads = LightGBMUtils.ompDynamicEnabled(
+        Option(System.getenv("OMP_DYNAMIC")), Option(System.getenv("OMP_DYNAMIC_ALL"))),
+      ompThreadLimit = LightGBMUtils.enforcedOmpThreadLimit(
+        Option(System.getProperty("os.name")).getOrElse(""), Option(System.getenv("OMP_THREAD_LIMIT"))),
+      ompNumThreadsAll = Option(System.getenv("OMP_NUM_THREADS_ALL")))
   }
+
+  private[lightgbm] def streamingOmpAllocationBound(externalThreads: Int,
+                                                    configuredMaxThreads: Int,
+                                                    configuredNumThreads: Int,
+                                                    ompNumThreads: Option[String],
+                                                    affinityCount: Option[Int],
+                                                    osProcessorCount: Option[Int],
+                                                    availableProcessors: Int,
+                                                    registeredMaxThreads: Int,
+                                                    warn: String => Unit): Int =
+    LightGBMUtils.streamingOmpAllocationBound(
+      externalThreads,
+      configuredMaxThreads,
+      configuredNumThreads,
+      ompNumThreads,
+      affinityCount,
+      osProcessorCount,
+      availableProcessors,
+      registeredMaxThreads,
+      warn)
 
   private[lightgbm] def initializeOwnedDataset(dataset: LightGBMDataset)
                                                 (initialization: => Unit): LightGBMDataset = {
@@ -188,6 +222,7 @@ object ReferenceDatasetUtils {
     try {
       val nativeByteArray = SwigUtils.byteArrayToNative(serializedDataset)
       try {
+        LightGBMUtils.registerNativeOmpThreads(NativeOmpCallSite.SerializedReferenceDataset, datasetParams)
         LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromSerializedReference( //scalastyle:ignore token
           lightgbmlib.byte_to_voidp_ptr(nativeByteArray),
           serializedDataset.length,
