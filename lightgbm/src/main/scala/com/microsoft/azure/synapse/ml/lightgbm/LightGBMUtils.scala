@@ -84,6 +84,10 @@ object LightGBMUtils {
   private val ProcessorProbeTimeoutMillis = 5000L
   private val DeviceParamNames = Set("device", "device_type")
   private val NumThreadParamNames = Set("num_threads", "num_thread", "nthread", "nthreads", "n_jobs")
+  private val BoostingAliases = Set("boosting_type", "boost")
+  private val BaggingFractionAliases = Set("bagging", "subsample", "sub_row")
+  private val BaggingFrequencyAliases = Set("subsample_freq")
+  private val RandomForestValues = Set("rf", "random_forest")
   private val TrueValues = Set("1", "+1", "true", "yes", "on")
   private val NativeOmpThreads = new NativeOmpThreadRegistry
   private[lightgbm] val MinStreamingOmpThreads: Int = 16
@@ -320,8 +324,40 @@ object LightGBMUtils {
     params.get("device_type").orElse(params.get("device")).map(_.toLowerCase(Locale.ROOT))
   }
 
+  private def effectiveParameterValues(parameters: String,
+                                       canonicalName: String,
+                                       aliases: Set[String]): Iterable[String] = {
+    val values = parseLightGBMParams(parameters)
+    // LightGBM gives the canonical name precedence when both it and an alias are present.
+    values.get(canonicalName).toSeq match {
+      case Seq() => aliases.flatMap(values.get)
+      case canonicalValue => canonicalValue
+    }
+  }
+
+  private def hasRandomForestConfiguration(parameters: String): Boolean =
+    effectiveParameterValues(parameters, "boosting", BoostingAliases)
+      .exists(value => RandomForestValues.contains(value.toLowerCase(Locale.ROOT)))
+
+  private def hasEnabledBagging(parameters: String): Boolean = {
+    val fractions = effectiveParameterValues(parameters, "bagging_fraction", BaggingFractionAliases)
+      .flatMap(value => Try(value.toDouble).toOption)
+    val frequencies = effectiveParameterValues(parameters, "bagging_freq", BaggingFrequencyAliases)
+      .flatMap(value => Try(value.toInt).toOption)
+    fractions.exists(fraction => fraction > 0.0 && fraction < 1.0) && frequencies.exists(_ > 0)
+  }
+
+  private def randomForestFailureGuidance(parameters: String): String =
+    if (hasRandomForestConfiguration(parameters) && !hasEnabledBagging(parameters)) {
+      " If this failure is caused by LightGBM's random-forest sampling requirement, set SynapseML's " +
+        "baggingFreq greater than 0 and baggingFraction strictly between 0 and 1, or set featureFraction " +
+        "below 1.0 where the bundled LightGBM version supports that configuration."
+    } else {
+      ""
+    }
+
   private[lightgbm] def boosterFailureGuidance(parameters: String): String = {
-    effectiveDeviceType(parameters)
+    val deviceGuidance = effectiveDeviceType(parameters)
       .filter(device => device == LightGBMConstants.GPUDeviceType || device == LightGBMConstants.CUDADeviceType)
       .map { device =>
         s" Requested device_type=$device. SynapseML's bundled LightGBM native libraries are CPU-only; " +
@@ -329,6 +365,7 @@ object LightGBMUtils {
           "java.library.path for every Spark driver and executor before LightGBM is initialized."
       }
       .getOrElse("")
+    deviceGuidance + randomForestFailureGuidance(parameters)
   }
 
   def validate(result: Int, component: String): Unit = {

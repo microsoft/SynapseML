@@ -626,6 +626,52 @@ class VerifyLightGBMCommon extends TestBase with LightGBMTestUtils {
     }
   }
 
+  test("Verify booster guidance explains invalid random-forest sampling configurations") {
+    Seq(
+      "boosting_type=rf",
+      "boosting_type=random_forest bagging_fraction=0.9",
+      "boosting=rf bagging_freq=0 bagging_fraction=0.9",
+      "boost=RF subsample_freq=1 subsample=1.0").foreach { parameters =>
+      val guidance = LightGBMUtils.boosterFailureGuidance(parameters)
+      assert(guidance.contains("random-forest sampling requirement"))
+      assert(guidance.contains("baggingFreq"))
+      assert(guidance.contains("greater than 0"))
+      assert(guidance.contains("baggingFraction"))
+      assert(guidance.contains("strictly between 0 and 1"))
+      assert(guidance.contains("featureFraction"))
+    }
+  }
+
+  test("Verify booster guidance respects canonical parameter precedence") {
+    assert(LightGBMUtils.boosterFailureGuidance("boosting=rf boosting_type=gbdt")
+      .contains("random-forest sampling requirement"))
+    assert(!LightGBMUtils.boosterFailureGuidance("boosting=gbdt boosting_type=rf")
+      .contains("random-forest sampling requirement"))
+    assert(LightGBMUtils.boosterFailureGuidance(
+      "boosting=rf subsample=0.9 bagging_fraction=1.0 bagging_freq=1")
+      .contains("random-forest sampling requirement"))
+  }
+
+  test("Verify booster guidance omits random-forest advice for gbdt") {
+    assert(!LightGBMUtils.boosterFailureGuidance("boosting_type=gbdt")
+      .contains("random-forest sampling requirement"))
+  }
+
+  test("Verify booster guidance omits random-forest advice when bagging is enabled") {
+    Seq(
+      "boosting_type=rf bagging_freq=1 bagging_fraction=0.9",
+      "boosting_type=random_forest subsample_freq=1 subsample=0.9",
+      "boosting=rf bagging_freq=2 bagging=0.8").foreach { parameters =>
+      assert(!LightGBMUtils.boosterFailureGuidance(parameters).contains("random-forest sampling requirement"))
+    }
+  }
+
+  test("Verify booster guidance composes random-forest and device advice") {
+    val guidance = LightGBMUtils.boosterFailureGuidance("boosting=rf device_type=gpu")
+    assert(guidance.contains("Requested device_type=gpu"))
+    assert(guidance.contains("random-forest sampling requirement"))
+  }
+
   test("Verify deviceType rejects an unsupported device") {
     val cudaError = intercept[IllegalArgumentException] {
       new LightGBMClassifier().setDeviceType(LightGBMConstants.CUDADeviceType)
