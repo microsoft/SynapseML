@@ -324,27 +324,27 @@ object LightGBMUtils {
     params.get("device_type").orElse(params.get("device")).map(_.toLowerCase(Locale.ROOT))
   }
 
-  private def effectiveParameterValues(parameters: String,
-                                       canonicalName: String,
-                                       aliases: Set[String]): Iterable[String] = {
+  private def effectiveParameterValue(parameters: String,
+                                      canonicalName: String,
+                                      aliases: Set[String]): Option[String] = {
     val values = parseLightGBMParams(parameters)
     // LightGBM gives the canonical name precedence when both it and an alias are present.
-    values.get(canonicalName).toSeq match {
-      case Seq() => aliases.flatMap(values.get)
-      case canonicalValue => canonicalValue
+    values.get(canonicalName).orElse {
+      // Native LightGBM resolves aliases by shortest name, then alphabetically for equal lengths.
+      aliases.toSeq.sortBy(alias => (alias.length, alias)).collectFirst(Function.unlift(values.get))
     }
   }
 
   private def hasRandomForestConfiguration(parameters: String): Boolean =
-    effectiveParameterValues(parameters, "boosting", BoostingAliases)
+    effectiveParameterValue(parameters, "boosting", BoostingAliases)
       .exists(value => RandomForestValues.contains(value.toLowerCase(Locale.ROOT)))
 
   private def hasEnabledBagging(parameters: String): Boolean = {
-    val fractions = effectiveParameterValues(parameters, "bagging_fraction", BaggingFractionAliases)
+    val fraction = effectiveParameterValue(parameters, "bagging_fraction", BaggingFractionAliases)
       .flatMap(value => Try(value.toDouble).toOption)
-    val frequencies = effectiveParameterValues(parameters, "bagging_freq", BaggingFrequencyAliases)
+    val frequency = effectiveParameterValue(parameters, "bagging_freq", BaggingFrequencyAliases)
       .flatMap(value => Try(value.toInt).toOption)
-    fractions.exists(fraction => fraction > 0.0 && fraction < 1.0) && frequencies.exists(_ > 0)
+    fraction.exists(value => value > 0.0 && value < 1.0) && frequency.exists(_ > 0)
   }
 
   private def randomForestFailureGuidance(parameters: String): String =

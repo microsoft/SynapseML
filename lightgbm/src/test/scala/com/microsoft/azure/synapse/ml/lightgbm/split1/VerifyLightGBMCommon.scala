@@ -652,6 +652,14 @@ class VerifyLightGBMCommon extends TestBase with LightGBMTestUtils {
       .contains("random-forest sampling requirement"))
   }
 
+  test("Verify booster guidance follows native precedence for conflicting aliases") {
+    assert(!LightGBMUtils.boosterFailureGuidance("boost=gbdt boosting_type=rf")
+      .contains("random-forest sampling requirement"))
+    assert(LightGBMUtils.boosterFailureGuidance(
+      "boost=rf bagging_freq=1 bagging=1.0 sub_row=0.9")
+      .contains("random-forest sampling requirement"))
+  }
+
   test("Verify booster guidance omits random-forest advice for gbdt") {
     assert(!LightGBMUtils.boosterFailureGuidance("boosting_type=gbdt")
       .contains("random-forest sampling requirement"))
@@ -670,6 +678,20 @@ class VerifyLightGBMCommon extends TestBase with LightGBMTestUtils {
     val guidance = LightGBMUtils.boosterFailureGuidance("boosting=rf device_type=gpu")
     assert(guidance.contains("Requested device_type=gpu"))
     assert(guidance.contains("random-forest sampling requirement"))
+  }
+
+  test("Verify an invalid random-forest fit surfaces actionable guidance") {
+    val failure = intercept[Exception] {
+      baseDeviceClassifier
+        .setBoostingType("rf")
+        .setDefaultListenPort(getAndIncrementPort())
+        .fit(deviceTrainingDF)
+    }
+    val message = rootCause(failure).getMessage
+    assert(message.contains("Booster call failed in LightGBM"))
+    assert(message.contains("random-forest sampling requirement"))
+    assert(message.contains("baggingFreq greater than 0"))
+    assert(message.contains("baggingFraction strictly between 0 and 1"))
   }
 
   test("Verify deviceType rejects an unsupported device") {
