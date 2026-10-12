@@ -29,7 +29,8 @@ description: Developer Setup
 1. Prepare your Python Environment
     - Install [Miniconda](https://docs.conda.io/en/latest/miniconda.html)
     - Note: if you want to run conda commands from IntelliJ, you may need to select the option to add conda to PATH during installation.
-    - Activate the `synapseml` conda environment by running `conda env create -f environment.yml` from the `synapseml` directory.
+    - Create the `synapseml` conda environment by running `conda env create -f environment.yml` from the repository root.
+    - Activate it with `conda activate synapseml`.
     :::note
     If you're using a Windows machine, remove
     `horovod` requirement in the environment.yml file, because horovod installation only
@@ -163,6 +164,50 @@ Generates documentation for generated python code
 
 Installs generated python wheel into existing env
 
+### Run a local build from PySpark
+
+After preparing the conda environment above, run these commands from the
+repository root to build and install the Python package, publish its matching
+JVM artifacts, and launch Python:
+
+```bash
+conda activate synapseml
+sbt installPipPackage
+python
+```
+
+Use a fresh Python process or notebook kernel, and call `init_spark()` before
+creating any other Spark session or context. If Spark has already started,
+restart the Python process or kernel first. Calling `spark.stop()` alone does
+not restart the JVM gateway or load missing JARs.
+
+Run this small check in that Python environment:
+
+```python
+from synapse.ml.core.init_spark import init_spark
+from synapse.ml.stages import SelectColumns
+
+spark = init_spark()
+try:
+    data = spark.createDataFrame([(1, "hello")], ["id", "text"])
+    SelectColumns().setCols(["text"]).transform(data).show()
+finally:
+    spark.stop()
+```
+
+The output should contain one `text` column with the value `hello`. This checks
+that a SynapseML transformer can run through its Python wrapper and JVM class,
+not just that the Python package can be imported.
+
+The helper starts local Spark and configures it with the versioned SynapseML
+package coordinate and the repository needed to resolve it. Run it as the same
+user that built the package so Spark can find the artifacts produced by
+`publishLocal` in the local Ivy repository. The first launch needs network
+access to download dependencies that are not already cached.
+Do not copy the built JARs into `pyspark/jars`: that bypasses dependency
+resolution and can leave required libraries, such as `spray-json`, off the JVM
+classpath.
+
 ### `testPython`
 
 Generates and runs python tests
@@ -187,7 +232,7 @@ Publishes Jar to SynapseML's Azure blob-based Maven repo. (Requires Keys)
 
 ### `publishLocal`
 
-Publishes library to the local Maven repo
+Publishes library to the local Ivy repository
 
 ### `publishDocs`
 
