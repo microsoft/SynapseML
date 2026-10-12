@@ -451,6 +451,28 @@ When this happens, the reported error explains that it's a retry that could not 
 names the partition to investigate. Look for the **first** failed attempt of that partition in the executor
 logs — that attempt holds the real cause.
 
+#### Random-forest sampling configuration
+
+Setting `boostingType="rf"` or `"random_forest"` does not enable sampling automatically. If the first
+failed attempt reports LightGBM's random-forest sampling check, enable bagging with `baggingFreq > 0`
+and `0 < baggingFraction < 1`. For example, configure either learner before calling `fit`:
+
+```python
+from synapse.ml.lightgbm import LightGBMClassifier, LightGBMRegressor
+
+classifier = LightGBMClassifier(boostingType="rf", baggingFreq=1, baggingFraction=0.8)
+regressor = LightGBMRegressor(boostingType="rf", baggingFreq=1, baggingFraction=0.8)
+```
+
+The bundled native library also accepts feature sampling with `0 < featureFraction < 1` as an
+alternative. Custom or older native libraries may require bagging instead. These are example
+settings, not recommendations for model quality.
+
+The sampling guidance appears with the original booster failure. After non-barrier Spark task
+retries, the final driver-unreachable exception still points to the first failed attempt's executor
+logs; it does not repeat the sampling guidance. A connection error alone does not establish that
+sampling is the cause. Check the original error before changing training parameters.
+
 #### When numTasks is larger than the tasks Spark can run at once
 
 Without barrier execution mode, the driver waits for exactly *numTasks* training tasks to report, and they
