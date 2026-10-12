@@ -195,7 +195,7 @@ class OCR(override val uid: String) extends CognitiveServicesBase(uid)
 
   def this() = this(Identifiable.randomUID("OCR"))
 
-  def urlPath: String = "/vision/v2.0/ocr"
+  def urlPath: String = "/vision/v3.2/ocr"
 
   override def responseDataType: DataType = OCRResponse.schema
 }
@@ -371,6 +371,10 @@ trait HasAsyncReply extends Params {
 }
 
 
+/**
+  * Legacy v2.0 text recognition. The hosted endpoint has retired.
+  * Migrate to ReadImage and its analyzeResult.readResults response rather than changing this operation's URL.
+  */
 class RecognizeText(override val uid: String)
   extends CognitiveServicesBaseNoHandler(uid)
     with BasicAsyncReply
@@ -442,7 +446,7 @@ class ReadImage(override val uid: String)
 
   def setLanguageCol(v: String): this.type = setVectorParam(language, v)
 
-  def urlPath: String = "/vision/v3.1/read/analyze"
+  def urlPath: String = "/vision/v3.2/read/analyze"
 
   override protected def responseDataType: DataType = ReadResponse.schema
 }
@@ -463,7 +467,7 @@ class GenerateThumbnails(override val uid: String)
     new CustomOutputParser().setUDF({ r: HTTPResponseData => r.entity.map(_.content).orNull })
   }
 
-  def urlPath: String = "/vision/v2.0/generateThumbnail"
+  def urlPath: String = "/vision/v3.2/generateThumbnail"
 }
 
 object AnalyzeImage extends ComplexParamsReadable[AnalyzeImage]
@@ -543,7 +547,7 @@ class AnalyzeImage(override val uid: String)
 
   override def responseDataType: DataType = AIResponse.schema
 
-  def urlPath: String = "/vision/v2.0/analyze"
+  def urlPath: String = "/vision/v3.2/analyze"
 }
 
 object RecognizeDomainSpecificContent
@@ -584,7 +588,7 @@ class RecognizeDomainSpecificContent(override val uid: String)
 
   override def responseDataType: DataType = DSIRResponse.schema
 
-  def urlPath: String = "/vision/v2.0"
+  def urlPath: String = "/vision/v3.2"
 
   override protected def prepareUrl: Row => String = { r => getUrl + s"/models/${getValue(r, model)}/analyze" }
 
@@ -600,7 +604,7 @@ class TagImage(override val uid: String)
 
   def this() = this(Identifiable.randomUID("TagImage"))
 
-  def urlPath: String = "/vision/v2.0/tag"
+  def urlPath: String = "/vision/v3.2/tag"
 
   override def responseDataType: DataType = TagImagesResponse.schema
 
@@ -630,7 +634,7 @@ class DescribeImage(override val uid: String)
 
   override def responseDataType: DataType = DescribeImageResponse.schema
 
-  def urlPath: String = "/vision/v2.0/describe"
+  def urlPath: String = "/vision/v3.2/describe"
 
   val maxCandidates = new ServiceParam[Int](this, "maxCandidates", "Maximum candidate descriptions to return",
     isURLParam = true

@@ -7,6 +7,31 @@ import DocTable from "@theme/DocumentationTable";
 
 ## Computer Vision
 
+### Service endpoints
+
+`AnalyzeImage`, `OCR`, `ReadImage`, `GenerateThumbnails`, `TagImage`,
+`DescribeImage`, and `RecognizeDomainSpecificContent` use Computer Vision v3.2
+by default.
+
+To specify an endpoint explicitly, set the full operation URL with `setUrl`
+after calling `setLocation`, `setEndpoint`, `setCustomServiceName`, or
+`setLinkedService`:
+
+<!--pytest-codeblocks:cont-->
+
+```python
+from synapse.ml.services import AnalyzeImage
+
+analyzer = (AnalyzeImage()
+            .setLocation("eastus")
+            .setUrl("https://eastus.api.cognitive.microsoft.com/vision/v3.2/analyze"))
+```
+
+Use the endpoint for your own resource and configure authentication, input,
+output, and visual features as shown below. `RecognizeDomainSpecificContent`
+instead takes the API root, ending in `/vision/v3.2`, and appends
+`/models/{model}/analyze`.
+
 ### OCR
 
 <Tabs
@@ -145,78 +170,16 @@ csharp="classSynapse_1_1ML_1_1Cognitive_1_1AnalyzeImage.html"
 sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/ComputerVision.scala" />
 
 
-### RecognizeText
-
-<Tabs
-defaultValue="py"
-values={[
-{label: `Python`, value: `py`},
-{label: `Scala`, value: `scala`},
-]}>
-<TabItem value="py">
-
-
-
-
-<!--pytest-codeblocks:cont-->
-
-```python
-from synapse.ml.services import *
-
-cognitiveKey = os.environ.get("COGNITIVE_API_KEY", getSecret("cognitive-api-key"))
-df = spark.createDataFrame([
-        ("https://mmlspark.blob.core.windows.net/datasets/OCR/test1.jpg", ),
-        ("https://mmlspark.blob.core.windows.net/datasets/OCR/test2.png", ),
-        ("https://mmlspark.blob.core.windows.net/datasets/OCR/test3.png", )
-    ], ["url", ])
-
-rt = (RecognizeText()
-        .setSubscriptionKey(cognitiveKey)
-        .setLocation("eastus")
-        .setImageUrlCol("url")
-        .setMode("Printed")
-        .setOutputCol("ocr")
-        .setConcurrency(5))
-
-rt.transform(df).show()
-```
-
-</TabItem>
-<TabItem value="scala">
-
-```scala
-import com.microsoft.azure.synapse.ml.services.vision.RecognizeText
-import spark.implicits._
-
-val cognitiveKey = sys.env.getOrElse("COGNITIVE_API_KEY", None)
-val df = Seq(
-  "https://mmlspark.blob.core.windows.net/datasets/OCR/test1.jpg",
-  "https://mmlspark.blob.core.windows.net/datasets/OCR/test2.png",
-  "https://mmlspark.blob.core.windows.net/datasets/OCR/test3.png"
-).toDF("url")
-
-val rt = (new RecognizeText()
-  .setSubscriptionKey(cognitiveKey)
-  .setLocation("eastus")
-  .setImageUrlCol("url")
-  .setMode("Printed")
-  .setOutputCol("ocr")
-  .setConcurrency(5))
-
-rt.transform(df).show()
-```
-
-</TabItem>
-</Tabs>
-
-<DocTable className="RecognizeText"
-py="synapse.ml.cognitive.html#module-synapse.ml.cognitive.RecognizeText"
-scala="com/microsoft/azure/synapse/ml/cognitive/RecognizeText.html"
-csharp="classSynapse_1_1ML_1_1Cognitive_1_1RecognizeText.html"
-sourceLink="https://github.com/microsoft/SynapseML/blob/master/cognitive/src/main/scala/com/microsoft/azure/synapse/ml/cognitive/ComputerVision.scala" />
-
-
 ### ReadImage
+
+`ReadImage` extracts text asynchronously and returns results under
+`analyzeResult.readResults`. Before using `ReadImage.flatten` in Scala or
+extracting text in Python, require `status == "succeeded"` and a non-null
+`analyzeResult`. A failed Read operation can return HTTP 200 with
+`status == "failed"` and no `analyzeResult`, so check the operation status as
+well as the HTTP error column. Keep failed rows for error handling rather than
+passing them to `ReadImage.flatten`, which requires a non-null `analyzeResult`.
+See the [Read v3.2 guide](https://learn.microsoft.com/en-us/azure/ai-services/computer-vision/how-to/call-read-api).
 
 <Tabs
 defaultValue="py"
