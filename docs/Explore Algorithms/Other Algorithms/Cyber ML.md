@@ -80,3 +80,22 @@ sidebar_label: CyberML
    anomaly scores with mean 0.0 and standard deviation of 1.0.
 4. [AccessAnomalyConfig](https://mmlspark.blob.core.windows.net/docs/1.1.3/pyspark/synapse.ml.cyber.anomaly.html#synapse.ml.cyber.anomaly.collaborative_filtering.AccessAnomalyConfig)
    contains the default values for AccessAnomaly.
+
+### Empty training data
+
+`AccessAnomaly.fit` requires non-empty training data. An empty training DataFrame
+raises `ValueError: AccessAnomaly requires non-empty training data.` before ALS
+block counts are configured. This applies to both shared and separate-tenant
+training, with either implicit or explicit feedback, including when `numBlocks`
+is set explicitly.
+
+Check the exact DataFrame passed to `fit`, after any filters or time-window
+selection. For example, `training.limit(1).count()` returns zero if `training`
+contains no rows. Check upstream data availability and filtering conditions
+before retrying training.
+
+Older versions may instead report `numItemBlocks given invalid value 0`,
+`No ratings available`, or an assertion failure for empty input. Setting
+`numBlocks=1` does not solve this problem: ALS still needs training rows.
+If the DataFrame is non-empty, investigate the reported error and configuration
+rather than assuming that empty input is the cause.

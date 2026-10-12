@@ -4,6 +4,8 @@
 import os
 import tempfile
 import unittest
+from itertools import product
+from math import isfinite
 from typing import Dict, Optional, Set, Type, Union
 from pandas.testing import assert_frame_equal
 from pyspark.sql import DataFrame, types as t, functions as f
@@ -557,18 +559,97 @@ class TestAccessAnomaly(unittest.TestCase):
     def test_empty_training_data(self):
         empty_training = data_set.training.limit(0)
 
-        for separate_tenants in (False, True):
-            with self.subTest(separate_tenants=separate_tenants):
+        for separate_tenants, implicit_feedback, num_blocks in product(
+            (False, True), (True, False), (None, 1, 0)
+        ):
+            with self.subTest(
+                separate_tenants=separate_tenants,
+                implicit_feedback=implicit_feedback,
+                num_blocks=num_blocks,
+            ):
                 access_anomaly = AccessAnomaly(
                     tenantCol=AccessAnomalyConfig.default_tenant_col,
                     separateTenants=separate_tenants,
+                    applyImplicitCf=implicit_feedback,
+                    numBlocks=num_blocks,
                 )
 
-                with self.assertRaisesRegex(
-                    ValueError,
-                    "AccessAnomaly requires non-empty training data.",
-                ):
-                    access_anomaly.fit(empty_training)
+                try:
+                    with self.assertRaisesRegex(
+                        ValueError,
+                        r"^AccessAnomaly requires non-empty training data\.$",
+                    ):
+                        access_anomaly.fit(empty_training)
+                finally:
+                    empty_training.unpersist()
+
+    def test_nonempty_training_data_in_both_feedback_and_tenant_modes(self):
+        config = AccessAnomalyConfig
+        columns = [
+            config.default_tenant_col,
+            config.default_user_col,
+            config.default_res_col,
+            config.default_likelihood_col,
+        ]
+        rows = [
+            (
+                f"t{tenant}",
+                f"u{user}",
+                f"r{resource}",
+                float(1 + (user * 7 + resource * 3) % 13),
+            )
+            for tenant, user, resource in product(range(2), range(4), range(4))
+            if (user + resource) % 4 != 0
+        ]
+        training = spark.createDataFrame(rows, columns)
+
+        for separate_tenants, implicit_feedback in product(
+            (False, True), (True, False)
+        ):
+            with self.subTest(
+                separate_tenants=separate_tenants,
+                implicit_feedback=implicit_feedback,
+            ):
+                model = None
+                try:
+                    model = AccessAnomaly(
+                        separateTenants=separate_tenants,
+                        applyImplicitCf=implicit_feedback,
+                        rankParam=2,
+                        maxIter=2,
+                        complementsetFactor=None if implicit_feedback else 2,
+                    ).fit(training)
+                    model.preserve_history = False
+                    scored = (
+                        model.transform(training)
+                        .select(*columns[:3], config.default_output_col)
+                        .collect()
+                    )
+
+                    self.assertEqual(len(scored), len(rows))
+                    self.assertEqual(
+                        {tuple(row[:3]) for row in scored},
+                        {row[:3] for row in rows},
+                    )
+                    for tenant in ("t0", "t1"):
+                        scores = [
+                            row[config.default_output_col]
+                            for row in scored
+                            if row[config.default_tenant_col] == tenant
+                        ]
+                        self.assertEqual(len(scores), 12)
+                        self.assertTrue(
+                            all(
+                                score is not None and isfinite(score)
+                                for score in scores
+                            )
+                        )
+                        self.assertLess(min(scores), max(scores))
+                finally:
+                    if model is not None:
+                        model.user_mapping_df.unpersist()
+                        model.res_mapping_df.unpersist()
+                    training.unpersist()
 
     def test_save_and_load(self):
         model = data_set.get_default_access_anomaly_model()
