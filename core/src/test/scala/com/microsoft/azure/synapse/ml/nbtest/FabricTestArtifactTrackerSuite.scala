@@ -17,7 +17,8 @@ import scala.collection.mutable.ArrayBuffer
 import scala.collection.JavaConverters._
 import scala.concurrent.duration.Duration
 
-class FabricTestArtifactTrackerSuite extends AnyFunSuite with FabricTestArtifactTrackerFailureTests {
+class FabricTestArtifactTrackerSuite extends AnyFunSuite with FabricTestArtifactTrackerFailureTests
+  with FabricArtifactCleanupRelationTests {
   private def executeSuite(suite: Suite): Vector[Event] = {
     val events = new ConcurrentLinkedQueue[Event]()
     val reporter = new Reporter {

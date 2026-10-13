@@ -20,6 +20,10 @@ private[ml] object FabricArtifactCleanup {
   private val Guid = "[0-9a-fA-F]{8}(?:-[0-9a-fA-F]{4}){3}-[0-9a-fA-F]{12}"
   private val UniqueStore = "(Lakehouse|Warehouse)[0-9]{14}[0-9a-fA-F]{32}".r
   private val RelationFields = Seq("artifactRelations", "datasetRelations", "dataflowRelations", "datamartRelations")
+  private val RelationMetadata = Map(
+    "settings" -> Set("None", "CascadeDelete", "WeakAssociation", "Datasource"),
+    "settingsList" -> Set("None", "CascadeDelete", "WeakAssociation"),
+    "usage" -> Set("None", "Datasource"))
   private val TerminalStates = Set("Completed", "Failed", "Cancelled", "Canceled", "Deduped")
 
   case class Item(id: String, name: String, kind: String, description: String,
@@ -44,9 +48,29 @@ private[ml] object FabricArtifactCleanup {
       Try(OffsetDateTime.parse(s).toInstant).getOrElse(LocalDateTime.parse(s).toInstant(ZoneOffset.UTC))
     }
 
+  private def referenceValues(value: JsObject, field: String): Iterable[JsValue] = {
+    val fields = value.fields
+    val metadata = if (field == "artifactRelations" && fields.contains("dependentArtifactObjectId")) {
+      fields.keySet.intersect(RelationMetadata.keySet)
+    } else {
+      Set.empty[String]
+    }
+    if (metadata.nonEmpty) {
+      require(text(value, "dependentArtifactObjectId").exists(_.matches(Guid)),
+        s"Invalid dependent artifact ID in $field")
+      metadata.foreach { name =>
+        require(fields(name) match {
+          case JsString(setting) => RelationMetadata(name)(setting)
+          case _ => false
+        }, s"Invalid or unknown $field relation metadata in $name")
+      }
+    }
+    (fields -- metadata).values
+  }
+
   private def references(value: JsValue, field: String): Set[String] = value match {
     case JsString(s) if s.matches(Guid) => Set(java.util.UUID.fromString(s).toString)
-    case JsObject(fields) if fields.nonEmpty => fields.values.flatMap(references(_, field)).toSet
+    case obj: JsObject if obj.fields.nonEmpty => referenceValues(obj, field).flatMap(references(_, field)).toSet
     case JsArray(values) if values.nonEmpty => values.flatMap(references(_, field)).toSet
     case _ => throw new IllegalArgumentException(s"Invalid or unknown $field relation metadata")
   }
