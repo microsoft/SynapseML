@@ -123,41 +123,42 @@ class VerifyLightGBMClassifierStream extends LightGBMClassifierTestData {
     estimator.clear(estimator.numIterations)
     val trainAndValid = pimaDF.withColumn(validationCol, monotonically_increasing_id() % 5 === 0)
     val model = estimator.fit(trainAndValid)
-    val nativeModel = LightGBMClassificationModel.loadNativeModelFromString(model.getNativeModel())
-      .setFeaturesCol(featuresCol)
-      .setProbabilityCol(probCol)
-
     try {
-      val bestIteration = model.getBoosterBestIteration()
-      assert(bestIteration >= 1)
-      assert(model.getBoosterNumTotalIterations() == bestIteration + 1)
-      assert(model.getNumIterations == -1)
-      val samples = pimaDF.select(featuresCol).collect().map(_.getAs[Vector](0))
+      val nativeModel = LightGBMClassificationModel.loadNativeModelFromString(model.getNativeModel())
+      try {
+        nativeModel.setFeaturesCol(featuresCol).setProbabilityCol(probCol)
+        val bestIteration = model.getBoosterBestIteration()
+        assert(bestIteration >= 1)
+        assert(model.getBoosterNumTotalIterations() == bestIteration + 1)
+        assert(model.getNumIterations == -1)
+        val samples = pimaDF.select(featuresCol).collect().map(_.getAs[Vector](0))
 
-      def assertDirectPredictions(): Unit = {
-        samples.foreach { sample =>
-          Seq(sample.toDense, sample.toSparse).foreach { features =>
-            assert(model.predictRaw(features) == nativeModel.predictRaw(features))
-            assert(model.predictProbability(features) == nativeModel.predictProbability(features))
-            assert(model.getFeatureShaps(features).sameElements(nativeModel.getFeatureShaps(features)))
+        def assertDirectPredictions(): Unit = {
+          samples.foreach { sample =>
+            Seq(sample.toDense, sample.toSparse).foreach { features =>
+              assert(model.predictRaw(features) == nativeModel.predictRaw(features))
+              assert(model.predictProbability(features) == nativeModel.predictProbability(features))
+              assert(model.getFeatureShaps(features).sameElements(nativeModel.getFeatureShaps(features)))
+            }
+            assert(model.getDenseFeatureShaps(sample.toArray)
+              .sameElements(nativeModel.getDenseFeatureShaps(sample.toArray)))
+            val sparse = sample.toSparse
+            assert(model.getSparseFeatureShaps(sparse.size, sparse.indices, sparse.values)
+              .sameElements(nativeModel.getSparseFeatureShaps(sparse.size, sparse.indices, sparse.values)))
           }
-          assert(model.getDenseFeatureShaps(sample.toArray)
-            .sameElements(nativeModel.getDenseFeatureShaps(sample.toArray)))
-          val sparse = sample.toSparse
-          assert(model.getSparseFeatureShaps(sparse.size, sparse.indices, sparse.values)
-            .sameElements(nativeModel.getSparseFeatureShaps(sparse.size, sparse.indices, sparse.values)))
         }
-      }
 
-      assertDirectPredictions()
-      val predictions = model.transform(pimaDF).select(probCol).collect()
-      val nativePredictions = nativeModel.transform(pimaDF).select(probCol).collect()
-      assert(predictions.sameElements(nativePredictions))
-      assertDirectPredictions()
-      assert(model.getBoosterBestIteration() == bestIteration)
+        assertDirectPredictions()
+        val predictions = model.transform(pimaDF).select(probCol).collect()
+        val nativePredictions = nativeModel.transform(pimaDF).select(probCol).collect()
+        assert(predictions.sameElements(nativePredictions))
+        assertDirectPredictions()
+        assert(model.getBoosterBestIteration() == bestIteration)
+      } finally {
+        nativeModel.getModel.freeNativeMemory()
+      }
     } finally {
       model.getModel.freeNativeMemory()
-      nativeModel.getModel.freeNativeMemory()
     }
   }
 
