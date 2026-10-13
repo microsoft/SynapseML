@@ -51,19 +51,17 @@ private[ml] object FabricArtifactCleanup {
   private def referenceValues(value: JsObject, field: String): Iterable[JsValue] = {
     val fields = value.fields
     val metadata = if (field == "artifactRelations" && fields.contains("dependentArtifactObjectId")) {
+      require(text(value, "dependentArtifactObjectId").exists(_.matches(Guid)),
+        s"Invalid dependent artifact ID in $field")
       fields.keySet.intersect(RelationMetadata.keySet)
     } else {
       Set.empty[String]
     }
-    if (metadata.nonEmpty) {
-      require(text(value, "dependentArtifactObjectId").exists(_.matches(Guid)),
-        s"Invalid dependent artifact ID in $field")
-      metadata.foreach { name =>
-        require(fields(name) match {
-          case JsString(setting) => RelationMetadata(name)(setting)
-          case _ => false
-        }, s"Invalid or unknown $field relation metadata in $name")
-      }
+    metadata.foreach { name =>
+      require(fields(name) match {
+        case JsString(setting) => RelationMetadata(name)(setting)
+        case _ => false
+      }, s"Invalid or unknown $field relation metadata in $name")
     }
     (fields -- metadata).values
   }

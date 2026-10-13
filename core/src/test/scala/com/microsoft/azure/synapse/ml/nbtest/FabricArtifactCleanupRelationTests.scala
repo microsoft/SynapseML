@@ -72,6 +72,15 @@ private[nbtest] trait FabricArtifactCleanupRelationTests extends AnyFunSuite {
     assert(client.deleted.isEmpty)
   }
 
+  test("Reject malformed dependent artifact IDs when optional relation metadata is absent") {
+    Seq(JsObject("reference" -> JsString(storeId)), JsArray(JsString(storeId))).foreach { invalid =>
+      val client = new CleanupClient(Vector(store, job(JsObject("dependentArtifactObjectId" -> invalid))))
+      val error = intercept[IllegalArgumentException](client.run())
+      assert(error.getMessage.contains("artifactRelations"))
+      assert(client.deleted.isEmpty)
+    }
+  }
+
   test("Reject malformed or unknown typed Fabric relation metadata before deleting any item") {
     val valid = relation("CascadeDelete", "CascadeDelete", "None")
     val invalidValues = Seq[JsValue](JsNull, JsNumber(1), JsBoolean(false), JsString("Unknown"),

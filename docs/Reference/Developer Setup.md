@@ -106,7 +106,8 @@ has no usable reference edges, rather than assuming that missing edges prove
 there are no consumers.
 Relation entries contain GUID references in nonempty objects or arrays.
 An `artifactRelations` record with a valid `dependentArtifactObjectId` can also
-contain the enum fields `settings`, `settingsList`, and `usage`. Cleanup recognizes
+contain the enum fields `settings`, `settingsList`, and `usage`. The dependent ID
+must be a GUID string even when all enum fields are omitted. Cleanup recognizes
 `None`, `CascadeDelete`, and `WeakAssociation` for both settings fields, plus
 `Datasource` for `settings`; `usage` supports `None` and `Datasource`.
 These enum values are metadata, not artifact IDs. Every reference edge is retained
