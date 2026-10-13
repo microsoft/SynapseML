@@ -34,6 +34,12 @@ class LightGBMClassifier(override val uid: String)
   // Set default objective to be binary classification
   setDefault(objective -> LightGBMConstants.BinaryObjective)
 
+  override def fit(dataset: Dataset[_]): LightGBMClassificationModel = {
+    // On estimators, numIterations controls training. On fitted models, it limits prediction.
+    // Predict with every tree that training produced unless the caller explicitly sets a limit afterward.
+    super.fit(dataset).setNumIterations(-1)
+  }
+
   val isUnbalance = new BooleanParam(this, "isUnbalance",
     "Set to true if training data is unbalanced in binary classification scenario")
   setDefault(isUnbalance -> false)

@@ -11,6 +11,7 @@ import com.microsoft.azure.synapse.ml.lightgbm.split1._
 import org.apache.spark.TaskContext
 import org.apache.spark.ml.feature.{LabeledPoint, VectorAssembler}
 import org.apache.spark.ml.linalg.{DenseVector, Vector, Vectors}
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, Row}
@@ -27,6 +28,79 @@ class VerifyLightGBMClassifierStream extends LightGBMClassifierTestData {
   test("Verify LightGBM Classifier with batch training" + executionModeSuffix) {
     val batches = Array(0, 2, 10)
     batches.foreach(nBatches => assertFitWithoutErrors(baseModel.setNumBatches(nBatches), pimaDF))
+  }
+
+  test("Verify fitted classifiers use all trained iterations" + executionModeSuffix) {
+    val firstModel = baseModel.setNumIterations(10).fit(pimaDF)
+    val continuedModel = baseModel
+      .setNumIterations(10)
+      .setModelString(firstModel.getModel.modelStr.get)
+      .fit(pimaDF)
+    val loadedModel = LightGBMClassificationModel
+      .loadNativeModelFromString(continuedModel.getModel.modelStr.get)
+      .setFeaturesCol(featuresCol)
+      .setProbabilityCol(probCol)
+
+    def probabilities(model: LightGBMClassificationModel): Array[Vector] = {
+      model.transform(pimaDF).select(probCol).collect().map(_.getAs[Vector](0))
+    }
+
+    assert(continuedModel.getLightGBMBooster.numTotalIterations == 20)
+    assert(continuedModel.getNumIterations == -1)
+    assert(probabilities(continuedModel).sameElements(probabilities(loadedModel)))
+
+    continuedModel.setNumIterations(10)
+    assert(!probabilities(continuedModel).sameElements(probabilities(loadedModel)))
+    assert(probabilities(continuedModel).sameElements(probabilities(firstModel)))
+
+    val batchedModel = baseModel.setModelString("").setNumIterations(10).setNumBatches(2).fit(pimaDF)
+    val loadedBatchedModel = LightGBMClassificationModel
+      .loadNativeModelFromString(batchedModel.getModel.modelStr.get)
+      .setFeaturesCol(featuresCol)
+      .setProbabilityCol(probCol)
+
+    assert(batchedModel.getLightGBMBooster.numTotalIterations == 20)
+    assert(batchedModel.getNumIterations == -1)
+    assert(probabilities(batchedModel).sameElements(probabilities(loadedBatchedModel)))
+
+    val paramMapEstimator = baseModel
+    val paramMapModel = paramMapEstimator.fit(pimaDF, ParamMap(paramMapEstimator.numIterations -> 7))
+    assert(paramMapModel.getLightGBMBooster.numTotalIterations == 7)
+    assert(paramMapModel.getNumIterations == -1)
+
+    val trainAndValid = pimaDF.withColumn(validationCol, monotonically_increasing_id() % 5 === 0)
+    val earlyStoppedModel = baseModel
+      .setNumIterations(100)
+      .setMetric("binary_logloss")
+      .setValidationIndicatorCol(validationCol)
+      .setEarlyStoppingRound(2)
+      .fit(trainAndValid)
+    val loadedEarlyStoppedModel = LightGBMClassificationModel
+      .loadNativeModelFromString(earlyStoppedModel.getModel.modelStr.get)
+      .setFeaturesCol(featuresCol)
+      .setProbabilityCol(probCol)
+
+    assert(earlyStoppedModel.getLightGBMBooster.numTotalIterations < 100)
+    assert(earlyStoppedModel.getBoosterBestIteration() >= 1)
+    assert(earlyStoppedModel.getNumIterations == -1)
+    assert(probabilities(earlyStoppedModel).sameElements(probabilities(loadedEarlyStoppedModel)))
+
+    val defaultIterationsEstimator = baseModel
+      .setMetric("binary_logloss")
+      .setValidationIndicatorCol(validationCol)
+      .setEarlyStoppingRound(2)
+    defaultIterationsEstimator.clear(defaultIterationsEstimator.numIterations)
+    val defaultEarlyStoppedModel = defaultIterationsEstimator.fit(trainAndValid)
+    val defaultBestIteration = defaultEarlyStoppedModel.getBoosterBestIteration()
+    val loadedDefaultEarlyStoppedModel = LightGBMClassificationModel
+      .loadNativeModelFromString(defaultEarlyStoppedModel.getModel.modelStr.get)
+      .setFeaturesCol(featuresCol)
+      .setProbabilityCol(probCol)
+
+    assert(defaultBestIteration >= 1)
+    assert(defaultEarlyStoppedModel.getLightGBMBooster.numTotalIterations == defaultBestIteration + 1)
+    assert(defaultEarlyStoppedModel.getNumIterations == -1)
+    assert(probabilities(defaultEarlyStoppedModel).sameElements(probabilities(loadedDefaultEarlyStoppedModel)))
   }
 
   test("Verify LightGBM Classifier continued training with initial score" + executionModeSuffix) {
