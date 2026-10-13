@@ -41,12 +41,6 @@ class LightGBMSerializationTests(unittest.TestCase):
             featuresCol="features", labelCol="label"
         ).fit(cls.df)
 
-    def test_fitted_model_uses_all_trained_iterations(self):
-        model = lgbm.LightGBMClassifier(
-            featuresCol="features", labelCol="label", numIterations=5
-        ).fit(self.df)
-        self.assertEqual(model.getNumIterations(), -1)
-
     def test_lightgbm_model_serialization(self):
         """
         Tests that a standalone LightGBM fitted model can be serialized and reloaded without errors.

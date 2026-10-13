@@ -37,7 +37,9 @@ class LightGBMClassifier(override val uid: String)
   override def fit(dataset: Dataset[_]): LightGBMClassificationModel = {
     // On estimators, numIterations controls training. On fitted models, it limits prediction.
     // Predict with every tree that training produced unless the caller explicitly sets a limit afterward.
-    super.fit(dataset).setNumIterations(-1)
+    val model = super.fit(dataset).setNumIterations(-1)
+    model.getLightGBMBooster.setNumIterations(-1)
+    model
   }
 
   val isUnbalance = new BooleanParam(this, "isUnbalance",

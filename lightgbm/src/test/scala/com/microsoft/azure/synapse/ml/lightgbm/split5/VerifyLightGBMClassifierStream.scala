@@ -103,6 +103,52 @@ class VerifyLightGBMClassifierStream extends LightGBMClassifierTestData {
     assert(probabilities(defaultEarlyStoppedModel).sameElements(probabilities(loadedDefaultEarlyStoppedModel)))
   }
 
+  test("Verify fitted classifiers score every stored tree before transform" + executionModeSuffix) {
+    val estimator = baseModel
+      .setMetric("binary_logloss")
+      .setValidationIndicatorCol(validationCol)
+      .setEarlyStoppingRound(2)
+    estimator.clear(estimator.numIterations)
+    val trainAndValid = pimaDF.withColumn(validationCol, monotonically_increasing_id() % 5 === 0)
+    val model = estimator.fit(trainAndValid)
+    val nativeModel = LightGBMClassificationModel.loadNativeModelFromString(model.getNativeModel())
+      .setFeaturesCol(featuresCol)
+      .setProbabilityCol(probCol)
+
+    try {
+      val bestIteration = model.getBoosterBestIteration()
+      assert(bestIteration >= 1)
+      assert(model.getBoosterNumTotalIterations() == bestIteration + 1)
+      assert(model.getNumIterations == -1)
+      val samples = pimaDF.select(featuresCol).collect().map(_.getAs[Vector](0))
+
+      def assertDirectPredictions(): Unit = {
+        samples.foreach { sample =>
+          Seq(sample.toDense, sample.toSparse).foreach { features =>
+            assert(model.predictRaw(features) == nativeModel.predictRaw(features))
+            assert(model.predictProbability(features) == nativeModel.predictProbability(features))
+            assert(model.getFeatureShaps(features).sameElements(nativeModel.getFeatureShaps(features)))
+          }
+          assert(model.getDenseFeatureShaps(sample.toArray)
+            .sameElements(nativeModel.getDenseFeatureShaps(sample.toArray)))
+          val sparse = sample.toSparse
+          assert(model.getSparseFeatureShaps(sparse.size, sparse.indices, sparse.values)
+            .sameElements(nativeModel.getSparseFeatureShaps(sparse.size, sparse.indices, sparse.values)))
+        }
+      }
+
+      assertDirectPredictions()
+      val predictions = model.transform(pimaDF).select(probCol).collect()
+      val nativePredictions = nativeModel.transform(pimaDF).select(probCol).collect()
+      assert(predictions.sameElements(nativePredictions))
+      assertDirectPredictions()
+      assert(model.getBoosterBestIteration() == bestIteration)
+    } finally {
+      model.getModel.freeNativeMemory()
+      nativeModel.getModel.freeNativeMemory()
+    }
+  }
+
   test("Verify LightGBM Classifier continued training with initial score" + executionModeSuffix) {
     // test each useSingleDatasetMode mode since the paths differ slightly
     Array(true, false).foreach(mode => {
