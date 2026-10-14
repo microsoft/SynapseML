@@ -3,14 +3,13 @@
 
 package com.microsoft.azure.synapse.ml.explainers
 
-import breeze.stats.distributions.RandBasis
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.logging.FeatureNames
-import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.ComplexParamsReadable
+import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param.shared.HasInputCols
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.sql.functions._
+import org.apache.spark.sql.functions.{col, struct}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row}
 
@@ -53,30 +52,35 @@ class TabularSHAP(override val uid: String)
     })
 
     val infWeightVal = this.getInfWeight
-    val samplesUdf = UDFUtils.oldUdf(
-      {
-        (instance: Row, background: Row) =>
-          val sampler = new KernelSHAPTabularSampler(instance, background, effectiveNumSamples, infWeightVal)
-          (1 to effectiveNumSamples) map {
-            _ =>
-              implicit val randBasis: RandBasis = RandBasis.mt0
-              sampler.sample
-          }
-      },
-      getSampleSchema(sampleType)
+    val pairs = instances.crossJoin(background)
+    val outputSchema = StructType(
+      Seq(df.schema(idCol)) ++
+        sampleType.fields.map(_.copy(nullable = true)) ++
+        Seq(
+          StructField(coalitionCol, VectorType),
+          StructField(weightCol, DoubleType),
+          df.schema(targetClassesCol)
+        )
     )
 
-    val samplesCol = DatasetExtensions.findUnusedColumnName("samples", df)
+    val sampleRows = pairs.rdd.mapPartitions {
+      rows =>
+        rows.flatMap {
+          row =>
+            val id = row.get(0)
+            val targetClasses = row.get(1)
+            val instance = row.getAs[Row](2)
+            val background = row.getAs[Row](3)
+            val sampler = new KernelSHAPTabularSampler(instance, background, effectiveNumSamples, infWeightVal)
 
-    instances.crossJoin(background)
-      .withColumn(samplesCol, explode(samplesUdf(col(instanceCol), col(backgroundCol))))
-      .select(
-        col(idCol),
-        expr(s"$samplesCol.$sampleField.*"),
-        col(samplesCol).getField(coalitionField).alias(coalitionCol),
-        col(samplesCol).getField(weightField).alias(weightCol),
-        col(targetClassesCol)
-      )
+            TabularSHAP.sampleIterator(effectiveNumSamples)(sampler.sample).map {
+              case (sample, coalition, weight) =>
+                Row.fromSeq(Seq(id) ++ sample.toSeq ++ Seq(coalition, weight, targetClasses))
+            }
+        }
+    }
+
+    df.sparkSession.createDataFrame(sampleRows, outputSchema)
   }
 
   override def validateSchema(schema: StructType): Unit = {
@@ -98,4 +102,8 @@ class TabularSHAP(override val uid: String)
   }
 }
 
-object TabularSHAP extends ComplexParamsReadable[TabularSHAP]
+object TabularSHAP extends ComplexParamsReadable[TabularSHAP] {
+  private[explainers] def sampleIterator[T](numSamples: Int)(sample: => T): Iterator[T] = {
+    Iterator.fill(numSamples)(()).map(_ => sample)
+  }
+}

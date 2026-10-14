@@ -9,7 +9,7 @@ import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._
 import com.microsoft.azure.synapse.ml.explainers.LocalExplainer.KernelSHAP
 import com.microsoft.azure.synapse.ml.explainers.TabularSHAP
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
-import org.apache.spark.ml.feature.{OneHotEncoder, StringIndexer, VectorAssembler}
+import org.apache.spark.ml.feature.{OneHotEncoder, SQLTransformer, StringIndexer, VectorAssembler}
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.ml.{Pipeline, PipelineModel}
@@ -86,6 +86,51 @@ class TabularSHAPExplainerSuite extends TestBase
 
     // R-squared of the underlying regression should be close to 1.
     assert(r2(0) === 1d)
+  }
+
+  test("Kernel SHAP samples are generated lazily") {
+    var generated = 0
+    val samples = TabularSHAP.sampleIterator(100000) {
+      generated += 1
+      generated
+    }
+
+    assert(generated === 0)
+    assert(samples.next() === 1)
+    assert(generated === 1)
+  }
+
+  test("TabularKernelSHAP accepts nullable background values") {
+    val instances = spark.range(3).selectExpr(
+      "cast(id as double) as x",
+      "cast(id * 2 as double) as y"
+    )
+    val background = Seq(
+      (Option.empty[Double], Option(1d)),
+      (Option(2d), Option.empty[Double])
+    ).toDF("x", "y")
+    val additiveModel = new SQLTransformer().setStatement(
+      "SELECT *, cast(coalesce(x, 10.0) + coalesce(y, 100.0) AS DOUBLE) AS score FROM __THIS__"
+    )
+
+    val results = KernelSHAP.tabular
+      .setInputCols(Array("x", "y"))
+      .setOutputCol("shapValues")
+      .setBackgroundData(background)
+      .setModel(additiveModel)
+      .setTargetCol("score")
+      .transform(instances)
+      .orderBy("x")
+      .select("shapValues")
+      .as[Seq[Vector]]
+      .collect()
+
+    results.zipWithIndex.foreach {
+      case (Seq(values), x) =>
+        assert(values(0) === 56.5)
+        assert(values(1) === x.toDouble - 6d)
+        assert(values(2) === 2d * x - 50.5)
+    }
   }
 
   override def testObjects(): Seq[TestObject[TabularSHAP]] = Seq(new TestObject(kernelShap, infer))
