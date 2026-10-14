@@ -11,10 +11,12 @@ import com.microsoft.azure.synapse.ml.lightgbm.split1._
 import org.apache.spark.TaskContext
 import org.apache.spark.ml.feature.{LabeledPoint, VectorAssembler}
 import org.apache.spark.ml.linalg.{DenseVector, Vector, Vectors}
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.{DataFrame, Row}
 
+import scala.collection.mutable.ArrayBuffer
 import scala.math.exp
 
 // scalastyle:off magic.number
@@ -27,6 +29,137 @@ class VerifyLightGBMClassifierStream extends LightGBMClassifierTestData {
   test("Verify LightGBM Classifier with batch training" + executionModeSuffix) {
     val batches = Array(0, 2, 10)
     batches.foreach(nBatches => assertFitWithoutErrors(baseModel.setNumBatches(nBatches), pimaDF))
+  }
+
+  test("Verify fitted classifiers use all trained iterations" + executionModeSuffix) {
+    val models = ArrayBuffer.empty[LightGBMClassificationModel]
+
+    def trackModel(model: LightGBMClassificationModel): LightGBMClassificationModel = {
+      models += model
+      model
+    }
+
+    def probabilities(model: LightGBMClassificationModel): Array[Vector] = {
+      model.transform(pimaDF).select(probCol).collect().map(_.getAs[Vector](0))
+    }
+
+    try {
+      val firstModel = trackModel(baseModel.setNumIterations(10).fit(pimaDF))
+      val continuedModel = trackModel(baseModel
+        .setNumIterations(10)
+        .setModelString(firstModel.getModel.modelStr.get)
+        .fit(pimaDF))
+      val loadedModel = trackModel(LightGBMClassificationModel
+        .loadNativeModelFromString(continuedModel.getModel.modelStr.get))
+        .setFeaturesCol(featuresCol)
+        .setProbabilityCol(probCol)
+
+      assert(continuedModel.getLightGBMBooster.numTotalIterations == 20)
+      assert(continuedModel.getNumIterations == -1)
+      assert(probabilities(continuedModel).sameElements(probabilities(loadedModel)))
+
+      continuedModel.setNumIterations(10)
+      assert(!probabilities(continuedModel).sameElements(probabilities(loadedModel)))
+      assert(probabilities(continuedModel).sameElements(probabilities(firstModel)))
+
+      val batchedModel = trackModel(baseModel.setModelString("").setNumIterations(10).setNumBatches(2).fit(pimaDF))
+      val loadedBatchedModel = trackModel(LightGBMClassificationModel
+        .loadNativeModelFromString(batchedModel.getModel.modelStr.get))
+        .setFeaturesCol(featuresCol)
+        .setProbabilityCol(probCol)
+
+      assert(batchedModel.getLightGBMBooster.numTotalIterations == 20)
+      assert(batchedModel.getNumIterations == -1)
+      assert(probabilities(batchedModel).sameElements(probabilities(loadedBatchedModel)))
+
+      val paramMapEstimator = baseModel
+      val paramMapModel = trackModel(paramMapEstimator.fit(pimaDF, ParamMap(paramMapEstimator.numIterations -> 7)))
+      assert(paramMapModel.getLightGBMBooster.numTotalIterations == 7)
+      assert(paramMapModel.getNumIterations == -1)
+
+      val trainAndValid = pimaDF.withColumn(validationCol, monotonically_increasing_id() % 5 === 0)
+      val earlyStoppedModel = trackModel(baseModel
+        .setNumIterations(100)
+        .setMetric("binary_logloss")
+        .setValidationIndicatorCol(validationCol)
+        .setEarlyStoppingRound(2)
+        .fit(trainAndValid))
+      val loadedEarlyStoppedModel = trackModel(LightGBMClassificationModel
+        .loadNativeModelFromString(earlyStoppedModel.getModel.modelStr.get))
+        .setFeaturesCol(featuresCol)
+        .setProbabilityCol(probCol)
+
+      assert(earlyStoppedModel.getLightGBMBooster.numTotalIterations < 100)
+      assert(earlyStoppedModel.getBoosterBestIteration() >= 1)
+      assert(earlyStoppedModel.getNumIterations == -1)
+      assert(probabilities(earlyStoppedModel).sameElements(probabilities(loadedEarlyStoppedModel)))
+
+      val defaultIterationsEstimator = baseModel
+        .setMetric("binary_logloss")
+        .setValidationIndicatorCol(validationCol)
+        .setEarlyStoppingRound(2)
+      defaultIterationsEstimator.clear(defaultIterationsEstimator.numIterations)
+      val defaultEarlyStoppedModel = trackModel(defaultIterationsEstimator.fit(trainAndValid))
+      val defaultBestIteration = defaultEarlyStoppedModel.getBoosterBestIteration()
+      val loadedDefaultEarlyStoppedModel = trackModel(LightGBMClassificationModel
+        .loadNativeModelFromString(defaultEarlyStoppedModel.getModel.modelStr.get))
+        .setFeaturesCol(featuresCol)
+        .setProbabilityCol(probCol)
+
+      assert(defaultBestIteration >= 1)
+      assert(defaultEarlyStoppedModel.getLightGBMBooster.numTotalIterations == defaultBestIteration + 1)
+      assert(defaultEarlyStoppedModel.getNumIterations == -1)
+      assert(probabilities(defaultEarlyStoppedModel).sameElements(probabilities(loadedDefaultEarlyStoppedModel)))
+    } finally {
+      models.map(_.getModel).distinct.foreach(_.freeNativeMemory())
+    }
+  }
+
+  test("Verify fitted classifiers score every stored tree before transform" + executionModeSuffix) {
+    val estimator = baseModel
+      .setMetric("binary_logloss")
+      .setValidationIndicatorCol(validationCol)
+      .setEarlyStoppingRound(2)
+    estimator.clear(estimator.numIterations)
+    val trainAndValid = pimaDF.withColumn(validationCol, monotonically_increasing_id() % 5 === 0)
+    val model = estimator.fit(trainAndValid)
+    try {
+      val nativeModel = LightGBMClassificationModel.loadNativeModelFromString(model.getNativeModel())
+      try {
+        nativeModel.setFeaturesCol(featuresCol).setProbabilityCol(probCol)
+        val bestIteration = model.getBoosterBestIteration()
+        assert(bestIteration >= 1)
+        assert(model.getBoosterNumTotalIterations() == bestIteration + 1)
+        assert(model.getNumIterations == -1)
+        val samples = pimaDF.select(featuresCol).collect().map(_.getAs[Vector](0))
+
+        def assertDirectPredictions(): Unit = {
+          samples.foreach { sample =>
+            Seq(sample.toDense, sample.toSparse).foreach { features =>
+              assert(model.predictRaw(features) == nativeModel.predictRaw(features))
+              assert(model.predictProbability(features) == nativeModel.predictProbability(features))
+              assert(model.getFeatureShaps(features).sameElements(nativeModel.getFeatureShaps(features)))
+            }
+            assert(model.getDenseFeatureShaps(sample.toArray)
+              .sameElements(nativeModel.getDenseFeatureShaps(sample.toArray)))
+            val sparse = sample.toSparse
+            assert(model.getSparseFeatureShaps(sparse.size, sparse.indices, sparse.values)
+              .sameElements(nativeModel.getSparseFeatureShaps(sparse.size, sparse.indices, sparse.values)))
+          }
+        }
+
+        assertDirectPredictions()
+        val predictions = model.transform(pimaDF).select(probCol).collect()
+        val nativePredictions = nativeModel.transform(pimaDF).select(probCol).collect()
+        assert(predictions.sameElements(nativePredictions))
+        assertDirectPredictions()
+        assert(model.getBoosterBestIteration() == bestIteration)
+      } finally {
+        nativeModel.getModel.freeNativeMemory()
+      }
+    } finally {
+      model.getModel.freeNativeMemory()
+    }
   }
 
   test("Verify LightGBM Classifier continued training with initial score" + executionModeSuffix) {

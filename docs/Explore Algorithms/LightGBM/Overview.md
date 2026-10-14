@@ -299,6 +299,20 @@ using `saveNativeModel()`. Additionally, they're fully compatible with [PMML](ht
 can be converted to PMML format through the
 [JPMML-SparkML-LightGBM](https://github.com/alipay/jpmml-sparkml-lightgbm) plugin.
 
+#### Classifier prediction iterations
+
+On `LightGBMClassifier`, `numIterations` controls training. A newly fitted
+`LightGBMClassificationModel` uses `numIterations=-1` to score every stored tree,
+including trees from continued or batched training. After early stopping, this
+includes the best iteration's tree. Direct predictions and SHAP values use the
+same default before and after `transform()`.
+
+To score fewer boosting iterations, call `model.setNumIterations(n)` before
+`model.transform(data)`. Spark model save/load preserves that setting; existing
+saved Spark models keep their stored limit. Native model export stores the trees,
+not the Spark prediction limit. Reapply any desired limit after
+`LightGBMClassificationModel.loadNativeModelFromString(...)`.
+
 #### Dynamic Allocation Limitations
 The native LightGBM library has a *distributed mode* that allows the algorithm to work over multiple *machines*. SynapseML
 uses this mode to call LightGBM from Spark. SynapseML first gathers all the Spark executor networking information, passes that to LightGBM, and then

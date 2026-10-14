@@ -4,6 +4,7 @@
 import os
 import tempfile
 import unittest
+from contextlib import ExitStack
 from pyspark.ml import PipelineModel
 from pyspark.ml.classification import OneVsRest, OneVsRestModel
 from pyspark.ml.feature import SQLTransformer
@@ -34,6 +35,48 @@ class LightGBMRawPredictionTests(unittest.TestCase):
         )
         # Fitting caches binning metadata, so keep the shared estimator unfitted.
         cls.model = cls.classifier.copy().fit(cls.df)
+
+    def test_fitted_model_uses_all_trained_iterations(self):
+        def predictions(fitted_model):
+            return (
+                fitted_model.transform(self.df)
+                .select("rawPrediction", "probability", "prediction")
+                .collect()
+            )
+
+        with ExitStack() as cleanup:
+            model = (
+                self.classifier.copy()
+                .setModelString(self.model.getNativeModel())
+                .fit(self.df)
+            )
+            cleanup.callback(model._java_obj.getLightGBMBooster().freeNativeMemory)
+            native_model = lgbm.LightGBMClassificationModel.loadNativeModelFromString(
+                model.getNativeModel()
+            )
+            cleanup.callback(
+                native_model._java_obj.getLightGBMBooster().freeNativeMemory
+            )
+
+            self.assertEqual(model.getNumIterations(), -1)
+            self.assertEqual(model.getBoosterNumTotalIterations(), 10)
+            self.assertEqual(predictions(model), predictions(native_model))
+            self.assertNotEqual(predictions(model), predictions(self.model))
+
+            limited_model = model.copy({model.numIterations: 5})
+            expected = predictions(self.model)
+            self.assertEqual(predictions(limited_model), expected)
+            with tempfile.TemporaryDirectory() as directory:
+                path = os.path.join(directory, "limited-model")
+                limited_model.save(path)
+                restored_model = lgbm.LightGBMClassificationModel.load(path)
+                cleanup.callback(
+                    restored_model._java_obj.getLightGBMBooster().freeNativeMemory
+                )
+                self.assertEqual(restored_model.getNumIterations(), 5)
+                self.assertEqual(predictions(restored_model), expected)
+            self.assertEqual(model.getNumIterations(), -1)
+            self.assertEqual(predictions(model), predictions(native_model))
 
     def test_lightgbm_model_serialization(self):
         with tempfile.TemporaryDirectory() as tmpdirname:
