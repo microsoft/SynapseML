@@ -7,13 +7,13 @@ import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
 import com.microsoft.azure.synapse.ml.core.utils.BreezeUtils._
 import com.microsoft.azure.synapse.ml.explainers.LocalExplainer.KernelSHAP
-import com.microsoft.azure.synapse.ml.explainers.TabularSHAP
+import com.microsoft.azure.synapse.ml.explainers.{KernelSHAPTabularSampler, TabularSHAP}
 import org.apache.spark.ml.classification.{LogisticRegression, LogisticRegressionModel}
 import org.apache.spark.ml.feature.{OneHotEncoder, SQLTransformer, StringIndexer, VectorAssembler}
 import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.ml.{Pipeline, PipelineModel}
-import org.apache.spark.sql.DataFrame
+import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.avg
 import org.scalactic.{Equality, TolerantNumerics}
 
@@ -88,16 +88,38 @@ class TabularSHAPExplainerSuite extends TestBase
     assert(r2(0) === 1d)
   }
 
-  test("Kernel SHAP samples are generated lazily") {
-    var generated = 0
-    val samples = TabularSHAP.sampleIterator(100000) {
-      generated += 1
-      generated
+  test("TabularSHAP sample expansion emits rows without buffering a pair's sample budget") {
+    val numFeatures = 14
+    val numSamples = 10000
+    var pairsPulled = 0
+    var samplesDrawn = 0
+    val instance = Row.fromSeq(Seq.fill(numFeatures)(1d))
+    val background = Row.fromSeq(Seq.fill(numFeatures)(0d))
+    val pairs = Iterator(0L, 1L).map {
+      id =>
+        pairsPulled += 1
+        Row(id, Seq(1), instance, background)
     }
 
-    assert(generated === 0)
-    assert(samples.next() === 1)
-    assert(generated === 1)
+    val rows = TabularSHAP.expandPairs(pairs, numSamples) {
+      (i, b) =>
+        new KernelSHAPTabularSampler(i, b, numSamples, 1E8) {
+          override def sample: (Row, Vector, Double) = {
+            samplesDrawn += 1
+            super.sample
+          }
+        }
+    }
+
+    assert(samplesDrawn === 0)
+    val first = rows.next()
+    assert(samplesDrawn === 1)
+    assert(pairsPulled === 1)
+    assert(first.length === numFeatures + 4)
+    assert(first.getLong(0) === 0L)
+    assert(rows.take(9).size === 9)
+    assert(samplesDrawn === 10)
+    assert(pairsPulled === 1)
   }
 
   test("TabularKernelSHAP accepts nullable background values") {

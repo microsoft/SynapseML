@@ -67,18 +67,9 @@ class TabularSHAP(override val uid: String)
 
     pairs.mapPartitions {
       rows =>
-        rows.flatMap {
-          row =>
-            val id = row.get(0)
-            val targetClasses = row.get(1)
-            val instance = row.getAs[Row](2)
-            val background = row.getAs[Row](3)
-            val sampler = new KernelSHAPTabularSampler(instance, background, effectiveNumSamples, infWeightVal)
-
-            TabularSHAP.sampleIterator(effectiveNumSamples)(sampler.sample).map {
-              case (sample, coalition, weight) =>
-                Row.fromSeq(Seq(id) ++ sample.toSeq ++ Seq(coalition, weight, targetClasses))
-            }
+        TabularSHAP.expandPairs(rows, effectiveNumSamples) {
+          (instance, background) =>
+            new KernelSHAPTabularSampler(instance, background, effectiveNumSamples, infWeightVal)
         }
     }
   }
@@ -105,5 +96,21 @@ class TabularSHAP(override val uid: String)
 object TabularSHAP extends ComplexParamsReadable[TabularSHAP] {
   private[explainers] def sampleIterator[T](numSamples: Int)(sample: => T): Iterator[T] = {
     Iterator.fill(numSamples)(()).map(_ => sample)
+  }
+
+  /** Expands (id, targetClasses, instance, background) pair rows into sample rows one at a time. */
+  private[explainers] def expandPairs(pairs: Iterator[Row], numSamples: Int)
+                                     (newSampler: (Row, Row) => KernelSHAPSampler[Row]): Iterator[Row] = {
+    pairs.flatMap {
+      row =>
+        val id = row.get(0)
+        val targetClasses = row.get(1)
+        val sampler = newSampler(row.getAs[Row](2), row.getAs[Row](3))
+
+        sampleIterator(numSamples)(sampler.sample).map {
+          case (sample, coalition, weight) =>
+            Row.fromSeq(Seq(id) ++ sample.toSeq ++ Seq(coalition, weight, targetClasses))
+        }
+    }
   }
 }
