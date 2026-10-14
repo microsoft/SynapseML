@@ -147,6 +147,7 @@ class TabularSHAPExplainerSuite extends TestBase
       .as[Seq[Vector]]
       .collect()
 
+    assert(results.length === 3)
     results.zipWithIndex.foreach {
       case (Seq(values), x) =>
         assert(values(0) === 56.5)
