@@ -9,6 +9,7 @@ import org.apache.spark.ml.ComplexParamsReadable
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.param.shared.HasInputCols
 import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 import org.apache.spark.sql.functions.{col, struct}
 import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Row}
@@ -62,8 +63,9 @@ class TabularSHAP(override val uid: String)
           df.schema(targetClassesCol)
         )
     )
+    implicit val outputEncoder: ExpressionEncoder[Row] = ExpressionEncoder(outputSchema)
 
-    val sampleRows = pairs.rdd.mapPartitions {
+    pairs.mapPartitions {
       rows =>
         rows.flatMap {
           row =>
@@ -79,8 +81,6 @@ class TabularSHAP(override val uid: String)
             }
         }
     }
-
-    df.sparkSession.createDataFrame(sampleRows, outputSchema)
   }
 
   override def validateSchema(schema: StructType): Unit = {
