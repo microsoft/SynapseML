@@ -526,19 +526,34 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
 
   protected def getDatasetCreationParams(categoricalIndexes: Array[Int], numThreads: Int): String = {
     val effectiveDeviceType = getEffectiveDeviceType
+    val maxBins = getMaxBinByFeature
     new ParamsStringBuilder(prefix = "", delimiter = "=")
       .appendParamValueIfNotThere("is_pre_partition", Option("True"))
       .appendParamValueIfNotThere("device_type",
         if (effectiveDeviceType == LightGBMConstants.CPUDeviceType) None else Option(effectiveDeviceType))
       .appendParamValueIfNotThere("max_bin", Option(getMaxBin))
+      .appendParamListIfNotThere("max_bin_by_feature", maxBins)
       .appendParamValueIfNotThere("bin_construct_sample_cnt", Option(getBinSampleCount))
+      .appendParamValueIfNotThere("min_data_in_bin", if (isSet(minDataPerBin)) get(minDataPerBin) else None)
       .appendParamValueIfNotThere("min_data_in_leaf", Option(getMinDataInLeaf))
+      .appendParamValueIfNotThere("is_enable_sparse", if (isSet(isEnableSparse)) get(isEnableSparse) else None)
+      .appendParamValueIfNotThere("use_missing", if (isSet(useMissing)) get(useMissing) else None)
+      .appendParamValueIfNotThere("zero_as_missing", if (isSet(zeroAsMissing)) get(zeroAsMissing) else None)
       .appendParamValueIfNotThere("num_threads", Option(numThreads))
       .appendParamListIfNotThere("categorical_feature", categoricalIndexes)
       .appendParamValueIfNotThere("data_random_seed", get(dataRandomSeed).orElse(get(seed)))
       .result()
+  }
 
-    // TODO do we need to add any of the new Dataset parameters here? (e.g. is_enable_sparse)
+  private def validateMaxBinByFeature(numCols: Int): Unit = {
+    val maxBins = getMaxBinByFeature
+    if (maxBins.nonEmpty && maxBins.length != numCols) {
+      throw new IllegalArgumentException(
+        s"maxBinByFeature must contain one value per feature: expected $numCols but found ${maxBins.length}.")
+    }
+    if (maxBins.exists(_ <= 1)) {
+      throw new IllegalArgumentException("Every maxBinByFeature value must be greater than 1.")
+    }
   }
 
   /**
@@ -568,6 +583,7 @@ trait LightGBMBase[TrainedModel <: Model[TrainedModel] with LightGBMModelParams]
     val preprocessedDF = preprocessData(trainingData)
 
     val (numCols, numInitScoreClasses) = calculateColumnStatistics(preprocessedDF, measures)
+    validateMaxBinByFeature(numCols)
 
     val featuresSchema = dataset.schema(getFeaturesCol)
     // Validate before any native LightGBM call that consumes feature names (e.g. reference
