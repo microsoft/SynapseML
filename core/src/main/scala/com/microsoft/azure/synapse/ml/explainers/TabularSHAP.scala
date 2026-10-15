@@ -56,7 +56,8 @@ class TabularSHAP(override val uid: String)
     val pairs = instances.crossJoin(background)
     val outputSchema = StructType(
       Seq(df.schema(idCol)) ++
-        sampleType.fields.map(_.copy(nullable = true)) ++
+        sampleType.fields.map(field => field.copy(
+          dataType = TabularSHAP.nullableType(field.dataType), nullable = true)) ++
         Seq(
           StructField(coalitionCol, VectorType),
           StructField(weightCol, DoubleType),
@@ -94,6 +95,15 @@ class TabularSHAP(override val uid: String)
 }
 
 object TabularSHAP extends ComplexParamsReadable[TabularSHAP] {
+  private def nullableType(dataType: DataType): DataType = dataType match {
+    case struct: StructType =>
+      StructType(struct.fields.map(field => field.copy(dataType = nullableType(field.dataType), nullable = true)))
+    case ArrayType(elementType, _) => ArrayType(nullableType(elementType), containsNull = true)
+    case MapType(keyType, valueType, _) =>
+      MapType(nullableType(keyType), nullableType(valueType), valueContainsNull = true)
+    case other => other
+  }
+
   private[explainers] def sampleIterator[T](numSamples: Int)(sample: => T): Iterator[T] = {
     Iterator.fill(numSamples)(()).map(_ => sample)
   }

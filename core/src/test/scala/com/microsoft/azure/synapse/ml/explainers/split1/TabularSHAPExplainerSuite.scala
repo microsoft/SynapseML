@@ -14,8 +14,11 @@ import org.apache.spark.ml.linalg.Vector
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.ml.{Pipeline, PipelineModel}
 import org.apache.spark.sql.{DataFrame, Row}
-import org.apache.spark.sql.functions.avg
+import org.apache.spark.sql.functions.{array, avg, broadcast, lit}
+import org.apache.spark.sql.types._
 import org.scalactic.{Equality, TolerantNumerics}
+
+import java.util.concurrent.atomic.AtomicLong
 
 class TabularSHAPExplainerSuite extends TestBase
   with TransformerFuzzing[TabularSHAP] {
@@ -156,7 +159,90 @@ class TabularSHAPExplainerSuite extends TestBase
     }
   }
 
+  test("TabularSHAP createSamples streams encoded rows before expanding the sample budget") {
+    import TabularSHAPExplainerSuite._
+    val numSamples = 10000
+    val features = (0 until 14).map(i => s"f$i").toArray
+    val schema = StructType(Seq(StructField(features.head, new CountedValueUDT)) ++
+      features.tail.map(StructField(_, DoubleType)))
+    val instance = Row.fromSeq(Seq(CountedValue(1)) ++ Seq.fill(13)(1d))
+    val backgroundRow = Row.fromSeq(Seq(CountedValue(0)) ++ Seq.fill(13)(0d))
+    val instances = spark.createDataFrame(java.util.Collections.singletonList(instance), schema)
+      .withColumn("id", lit(0L)).withColumn("targetClasses", array(lit(1)))
+    val background = spark.createDataFrame(java.util.Arrays.asList(backgroundRow, backgroundRow), schema)
+    val samples = new SampleAccess()
+      .setInputCols(features).setNumSamples(numSamples).setBackgroundData(broadcast(background))
+      .samples(instances)
+
+    Serialized.set(0)
+    val rows = samples.limit(1).collect()
+    assert(rows.length === 1)
+    assert(rows.head.getAs[CountedValue]("f0").value === 0)
+    assert(rows.head.getAs[Vector]("coalition").toArray.forall(_ == 0d))
+    assert(rows.head.getAs[Double]("weight") === 1E8)
+    assert(Serialized.get() > 0 && Serialized.get() < numSamples,
+      s"Encoded ${Serialized.get()} feature values before returning the first sample")
+  }
+
+  test("TabularKernelSHAP preserves nulls inside background features") {
+    val featureShapes = Seq(
+      ("named_struct('value', %s)", "x.value"),
+      ("array(%s)", "x[0]"),
+      ("map('value', %s)", "x['value']"),
+      ("map('outer', array(named_struct('value', %s)))", "x['outer'][0].value")
+    )
+    featureShapes.foreach {
+      case (shape, access) =>
+        val instances = spark.range(1, 2).selectExpr(
+          s"${shape.format("cast(id as double)")} as x", "cast(id * 2 as double) as y")
+        val background = spark.range(1).selectExpr(
+          s"${shape.format("cast(null as double)")} as x", "cast(id as double) as y")
+        val additiveModel = new SQLTransformer().setStatement(
+          s"SELECT *, cast(coalesce($access, 10.0) + y AS DOUBLE) AS score FROM __THIS__")
+
+        val results = KernelSHAP.tabular
+          .setInputCols(Array("x", "y"))
+          .setOutputCol("shapValues")
+          .setBackgroundData(background)
+          .setModel(additiveModel)
+          .setTargetCol("score")
+          .transform(instances)
+        try {
+          val values = results.select("shapValues").as[Seq[Vector]].collect()
+          assert(values.length === 1)
+          assert(values.head.length === 1)
+          assert(values.head.head(0) === 10d)
+          assert(values.head.head(1) === -9d)
+          assert(values.head.head(2) === 2d)
+        } finally {
+          spark.catalog.clearCache()
+        }
+    }
+  }
+
   override def testObjects(): Seq[TestObject[TabularSHAP]] = Seq(new TestObject(kernelShap, infer))
 
   override def reader: MLReadable[_] = TabularSHAP
+}
+
+object TabularSHAPExplainerSuite {
+  // The local Spark test counts encoding at the production sampling boundary, not just iterator calls.
+  private val Serialized = new AtomicLong()
+
+  @SQLUserDefinedType(udt = classOf[CountedValueUDT])
+  case class CountedValue(value: Int)
+
+  class CountedValueUDT extends UserDefinedType[CountedValue] {
+    override def sqlType: DataType = IntegerType
+    override def userClass: Class[CountedValue] = classOf[CountedValue]
+    override def serialize(value: CountedValue): Any = {
+      Serialized.incrementAndGet()
+      value.value
+    }
+    override def deserialize(value: Any): CountedValue = CountedValue(value.asInstanceOf[Int])
+  }
+
+  private class SampleAccess extends TabularSHAP {
+    def samples(df: DataFrame): DataFrame = createSamples(df, "id", "coalition", "weight", "targetClasses")
+  }
 }
