@@ -18,10 +18,25 @@ Restarting the cluster automatically installs horovod v0.25.0 with pytorch_light
 
 ## 2. Install SynapseML Deep Learning Component
 
-You could install the single synapseml-deep-learning wheel package to get the full functionality of deep vision classification.
-Run the following command:
+Choose exactly one Python/PySpark runtime variant matching your JVM artifact.
+The aggregate SynapseML wheel includes the deep-learning wrappers.
+
+Spark 3.5 / Python 3.11:
+
 ```powershell
-pip install synapseml==1.1.3
+python -m pip install "synapseml==1.1.3" "pyspark>=3.5,<3.6"
+```
+
+Spark 4.0 / Python 3.12, using its retained published release:
+
+```powershell
+python -m pip install "synapseml==1.1.3" "pyspark>=4.0.1,<4.1"
+```
+
+Spark 4.1 / Python 3.13:
+
+```powershell
+python -m pip install "synapseml==1.1.3" "pyspark>=4.1,<4.2"
 ```
 
 The Python wheel supplies wrappers but does not install the JVM package. The

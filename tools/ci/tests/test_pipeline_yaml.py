@@ -8,6 +8,7 @@ shared helper. Run with: ``python -m pytest tools/ci/tests/test_pipeline_yaml.py
 
 import os
 import re
+import shlex
 import subprocess
 from pathlib import Path
 
@@ -100,6 +101,38 @@ def test_pipeline_and_templates_parse():
     assert yaml.safe_load(CLEAN_ACR_PIPELINE.read_text()) is not None
     for tpl in (REPO_ROOT / "templates").glob("*.yml"):
         assert yaml.safe_load(tpl.read_text()) is not None, f"{tpl} failed to parse"
+
+
+def test_release_ci_includes_version_bump_regressions():
+    workflow = yaml.safe_load(
+        (REPO_ROOT / ".github" / "workflows" / "pr-validation.yml").read_text()
+    )
+    steps = workflow["jobs"]["compile-and-lint"]["steps"]
+    release_step = next(
+        step
+        for step in steps
+        if step.get("name") == "Exercise release tooling without publication"
+    )
+    commands = [shlex.split(line) for line in release_step["run"].splitlines()]
+    pytest_command = next(
+        command for command in commands if command[:3] == ["python", "-m", "pytest"]
+    )
+    assert {
+        "scripts/release",
+        "scripts/test_bump_version.py",
+        "tools/ci/tests/test_pipeline_yaml.py",
+    } <= set(pytest_command)
+    assert "-k" not in pytest_command
+    install = next(
+        command
+        for command in commands
+        if command[:4] == ["python", "-m", "pip", "install"]
+    )
+    assert {"pytest", "pyyaml", "hypothesis"} <= set(install)
+    checkout = next(
+        step for step in steps if step.get("uses", "").startswith("actions/checkout@")
+    )
+    assert checkout.get("with", {}).get("fetch-depth") == 0
 
 
 def test_pipeline_has_no_release_branch_replay():
@@ -241,6 +274,11 @@ def test_prewarm_job_present():
     }
 
 
+def test_release_tags_require_explicit_maven_pipeline_queue():
+    data = yaml.safe_load(_pipeline_text())
+    assert "tags" not in data["trigger"]
+
+
 def test_databricks_e2e_uses_fail_open_pr_impact_detection():
     assert TEST_IMPACT.exists()
     data = yaml.safe_load(_pipeline_text())
@@ -331,7 +369,11 @@ def test_fabric_e2e_keeps_key_vault_authentication_and_blocks_forks():
     assert "succeeded()" in condition
     assert "variables.runTests" in condition
     assert "parameters.testFabricE2E" in condition
-    assert "System.PullRequest.IsFork" in condition
+    assert re.search(
+        r"ne\(\s*variables\[['\"]System\.PullRequest\.IsFork['\"]\],"
+        r"\s*['\"]True['\"]\s*\)",
+        condition,
+    )
 
     template_steps = {
         step["template"]: step
@@ -820,8 +862,6 @@ def test_publish_jobs_resolve_and_preserve_package_versions():
     assert "PACKAGE_VERSION" in release_version["bash"]
     release_guard_index = release_steps.index(release_version)
     side_effect_steps = [
-        next(step for step in release_steps if "git-chglog" in step.get("bash", "")),
-        next(step for step in release_steps if step.get("task") == "GitHubRelease@1"),
         next(step for step in release_steps if "publishPypi" in step.get("bash", "")),
         next(
             step
@@ -837,6 +877,245 @@ def test_publish_jobs_resolve_and_preserve_package_versions():
     assert all(
         release_guard_index < release_steps.index(step) for step in side_effect_steps
     )
+    assert not any(step.get("task") == "GitHubRelease@1" for step in release_steps)
+    assert "isMaster" not in str(release)
+    assert {"Style", "UnitTests", "PythonTests", "Publish"} <= set(release["dependsOn"])
+    plan_guard = next(
+        step
+        for step in release_steps
+        if step.get("displayName") == "Validate approved Maven release source"
+    )
+    assert release_steps.index(plan_guard) < release_guard_index
+    assert (
+        plan_guard["env"]["RELEASE_PLAN_BASE64"]
+        == "${{ parameters.release_plan_base64 }}"
+    )
+
+
+def test_maven_receipt_follows_esrp_publication_and_uses_its_actual_directory():
+    data = yaml.safe_load(_pipeline_text())
+    release = next(job for job in _jobs(data["jobs"]) if job["job"] == "Release")
+    steps = release["steps"]
+    esrp = next(step for step in steps if step.get("task") == "EsrpRelease@9")
+    receipt = next(
+        step
+        for step in steps
+        if step.get("displayName")
+        == "Record published Maven source and artifact hashes"
+    )
+    published_root = esrp["inputs"]["folderlocation"]
+    assert f'--artifact-root "{published_root}"' in receipt["bash"]
+    assert ".ivy2" not in receipt["bash"]
+    assert "--blob-receipt" in receipt["bash"]
+    assert steps.index(esrp) < steps.index(receipt)
+    assert any(
+        "prepare_jar.py" in step.get("bash", "")
+        and f'--output "{published_root}"' in step["bash"]
+        for step in steps[: steps.index(esrp)]
+    )
+
+
+def test_blob_receipt_uses_publish_job_bytes_and_exact_attempt_handoff():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {job["job"]: job for job in _jobs(data["jobs"])}
+    publish = next(
+        step
+        for step in jobs["Publish"]["steps"]
+        if step.get("displayName") == "Publish Artifacts"
+    )
+    script = publish["inputs"]["inlineScript"]
+    assert (
+        script.index("sbt -DskipCodegen=true publishBlob")
+        < script.index("release_guard.py blob-receipt")
+        < script.index("sbt genBuildInfo")
+    )
+    assert '--artifact-root "$HOME/.m2/repository/com/microsoft/azure"' in script
+    assert "blob-provenance.json" in script
+    assert "release-provenance.json" not in script
+    assert (
+        publish["env"]["RELEASE_PLAN_BASE64"] == "${{ parameters.release_plan_base64 }}"
+    )
+    release = jobs["Release"]
+    assert release["variables"]["releaseBlobArtifact"] == (
+        "$[ dependencies.Publish.outputs['publishArtifacts.blobArtifactName'] ]"
+    )
+    steps = release["steps"]
+    download = next(
+        s
+        for s in steps
+        if s.get("displayName") == "Download published Blob Maven hashes"
+    )
+    handoff = next(
+        s
+        for s in steps
+        if s.get("displayName") == "Validate Blob Maven receipt handoff"
+    )
+    receipt = next(
+        s
+        for s in steps
+        if s.get("displayName") == "Record published Maven source and artifact hashes"
+    )
+    assert steps.index(handoff) < steps.index(download) < steps.index(receipt)
+    assert download["inputs"]["buildType"] == "current"
+    assert download["inputs"]["artifactName"] == "$(releaseBlobArtifact)"
+    directory = download["inputs"]["targetPath"]
+    assert f'--blob-receipt "{directory}/blob-provenance.json"' in receipt["bash"]
+
+
+def test_primary_api_docs_publication_is_source_bound_and_precedes_maven_upload():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {job["job"]: job for job in _jobs(data["jobs"])}
+    publish = jobs["Publish"]
+    task = next(
+        step
+        for step in publish["steps"]
+        if step.get("displayName") == "Publish Artifacts"
+    )
+    guarded = publish["steps"][0]["${{ if eq(parameters.publishRelease, true) }}"]
+    assert any("release_guard.py maven" in step.get("bash", "") for step in guarded)
+    script = task["inputs"]["inlineScript"]
+    primary = script.split('case "${PRIMARY_RELEASE,,}" in', 1)[1].split("esac", 1)[0]
+    assert "sudo apt-get install graphviz doxygen -y" in primary
+    assert "sbt -DskipCodegen=true publishDocs" in primary
+    assert "release_guard.py api-docs" in primary
+    assert "false) ;;" in primary
+    assert "Invalid primary release identity." in primary
+    assert (
+        script.index("sbt packagePython")
+        < script.index("sbt -DskipCodegen=true publishDocs")
+        < script.index("release_guard.py api-docs")
+        < script.index("sbt -DskipCodegen=true publishBlob")
+    )
+    assert not any(
+        name in primary for name in ("uploadNotebooks", "publishR", "publishPython")
+    )
+    assert task["env"]["PRIMARY_RELEASE"] == "$(isPrimaryRelease)"
+    assert task["env"]["RELEASE_PLAN_ID"] == "${{ parameters.release_plan_id }}"
+    assert task["env"]["RELEASE_PLAN_BASE64"] == "${{ parameters.release_plan_base64 }}"
+    assert task["env"]["SYNAPSEML_ENABLE_PUBLISH"] is True
+    assert "Publish" in jobs["Release"]["dependsOn"]
+    assert not any(
+        "publishDocs" in str(step) or "api-docs" in str(step)
+        for step in jobs["Release"]["steps"]
+    )
+
+
+@pytest.mark.parametrize(
+    "release_requested", ["true", "True", "false", "False", "invalid"]
+)
+@pytest.mark.parametrize("failure", ["none", "activation", "sbt"])
+@pytest.mark.parametrize("primary", ["true", "false"])
+def test_publication_script_respects_the_approved_artifact_family(
+    tmp_path, release_requested, failure, primary
+):
+    jobs = {job["job"]: job for job in _jobs(yaml.safe_load(_pipeline_text())["jobs"])}
+    task = next(
+        step
+        for step in jobs["Publish"]["steps"]
+        if step.get("displayName") == "Publish Artifacts"
+    )
+    script = (
+        task["inputs"]["inlineScript"]
+        .replace("$(packageVersion)", "1.2.0")
+        .replace("$(Build.ArtifactStagingDirectory)", str(tmp_path))
+        .replace("$(System.JobAttempt)", "1")
+    )
+    calls = tmp_path / "sbt-calls"
+    stub = """
+unset SYNAPSEML_TEST_PREVIOUS_ADDR2LINE
+sbt() {
+  case "$-" in *u*) ;; *) return 99 ;; esac
+  printf '%s\\n' "$*" >> "$SBT_CALLS"
+  if [ "$SIMULATED_FAILURE" = sbt ]; then return 31; fi
+}
+sudo() { :; }
+python3() { :; }
+source() {
+  local previous="$SYNAPSEML_TEST_PREVIOUS_ADDR2LINE"
+  if [ "$SIMULATED_FAILURE" = activation ]; then return 23; fi
+}
+"""
+    result = subprocess.run(
+        ["bash", "-c", stub + script],
+        cwd=tmp_path,
+        env={
+            **os.environ,
+            "SBT_CALLS": str(calls),
+            "RELEASE_REQUESTED": release_requested,
+            "PRIMARY_RELEASE": primary,
+            "SIMULATED_FAILURE": failure,
+        },
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    observed = calls.read_text().splitlines() if calls.exists() else []
+    if release_requested == "invalid":
+        assert result.returncode != 0
+        assert not observed
+        return
+    if failure == "activation":
+        assert result.returncode == 23, result.stderr
+        assert not observed
+        return
+    if failure == "sbt":
+        assert result.returncode == 31, result.stderr
+        assert len(observed) == 1
+        assert observed[0].startswith("packagePython")
+        return
+    assert result.returncode == 0, result.stderr
+    assert task["env"]["RELEASE_REQUESTED"] == "${{ parameters.publishRelease }}"
+    assert any("publishBlob" in command for command in observed)
+    assert any("publishLocalSigned" in command for command in observed)
+    non_maven = {"uploadNotebooks", "publishDocs", "publishR", "publishPython"}
+    published = {word for command in observed for word in command.split()}
+    if release_requested.lower() == "true":
+        assert non_maven.intersection(published) == (
+            {"publishDocs"} if primary == "true" else set()
+        )
+    else:
+        assert non_maven <= published
+
+
+def test_release_publication_waits_only_for_enabled_optional_test_jobs():
+    jobs = {job["job"]: job for job in _jobs(yaml.safe_load(_pipeline_text())["jobs"])}
+    publish = jobs["Publish"]
+    dependencies = publish["${{ if eq(parameters.publishRelease, true) }}"]["dependsOn"]
+    assert dependencies == [
+        "BuildAndCacheSbt",
+        "Style",
+        "UnitTests",
+        "PythonTests",
+        "BuildDocker",
+        {"${{ if eq(parameters.testR, true) }}": ["RTests"]},
+        {
+            "${{ if eq(parameters.testDatabricksE2E, true) }}": [
+                "DatabricksCPUE2E",
+                "DatabricksGPUE2E",
+            ]
+        },
+        {"${{ if eq(parameters.testFabricE2E, true) }}": ["FabricE2E"]},
+        {"${{ if eq(parameters.testWebsiteSamples, true) }}": ["WebsiteSamplesTests"]},
+    ]
+    assert publish["${{ else }}"]["dependsOn"] == "BuildAndCacheSbt"
+    assert "succeeded()" in publish["condition"]
+
+
+def test_release_job_dependencies_exist_under_the_publication_guards():
+    nodes = yaml.safe_load(_pipeline_text())["jobs"]
+    assert {
+        condition: [job["job"] for job in selected]
+        for node in nodes
+        if "job" not in node
+        for condition, selected in node.items()
+    } == {
+        "${{ if eq(parameters.publishArtifacts, true) }}": ["Publish"],
+        "${{ if and(eq(parameters.publishRelease, true), eq(parameters.publishArtifacts, true)) }}": [
+            "Release"
+        ],
+    }
+    jobs = {job["job"]: job for job in _jobs(nodes)}
+    assert set(jobs["Release"]["dependsOn"]) <= set(jobs)
 
 
 def test_style_does_not_restore_the_full_conda_environment():
@@ -885,15 +1164,29 @@ def test_every_sbt_running_job_waits_for_the_prewarm_cache():
             if isinstance(s, dict) and s.get("template")
         ]
         uses_cache = "templates/sbt_cache.yml" in templates
-        depends_on = job.get("dependsOn", [])
-        if isinstance(depends_on, str):
-            depends_on = [depends_on]
+        dependency_cases = (
+            [job]
+            if "dependsOn" in job
+            else [
+                value
+                for key, value in job.items()
+                if key.startswith("${{") and isinstance(value, dict)
+            ]
+        )
+
+        def waits_for_cache(case):
+            dependencies = case.get("dependsOn", [])
+            if isinstance(dependencies, str):
+                dependencies = [dependencies]
+            return "BuildAndCacheSbt" in dependencies
+
+        waits_in_every_case = bool(dependency_cases) and all(
+            waits_for_cache(case) for case in dependency_cases
+        )
         condition = job.get("condition")
         gated_by_success = condition is None or "succeeded()" in condition
         if runs_sbt and (
-            not uses_cache
-            or "BuildAndCacheSbt" not in depends_on
-            or not gated_by_success
+            not uses_cache or not waits_in_every_case or not gated_by_success
         ):
             offenders.append(job.get("job"))
     assert not offenders, f"sbt jobs missing required cache gate: {offenders}"
