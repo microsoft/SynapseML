@@ -21,7 +21,7 @@ the time an agent first notices the build. Then run
 [watch_azure_pipeline.py](../scripts/watch_azure_pipeline.py):
 
 ```text
-python <watcher-script> --repo microsoft/SynapseML --pull-request <number> --head-sha <full-sha> --build-id <id> --kickoff-at <ISO-8601-time>
+python -B <watcher-script> --repo microsoft/SynapseML --pull-request <number> --head-sha <full-sha> --build-id <id> --kickoff-at <ISO-8601-time>
 ```
 
 - Launch this command once through the terminal tool's attached
@@ -31,9 +31,24 @@ python <watcher-script> --repo microsoft/SynapseML --pull-request <number> --hea
   (600 seconds)**, with a deadline **120 minutes after that run's kickoff**.
   Late starts and watcher restarts only get the remaining time.
   `--timeout-minutes` may shorten that limit, not increase it.
-- It prints only startup and final JSON. Let the process sleep without model
+- It prints startup and final JSON, plus one `agent_loss` diagnostic per affected
+  job attempt in timeline mode. Let the process sleep without model
   calls, subagents, recurring prompts, or short polls of the job's output.
   Read its result when the terminal tool sends a completion notification.
+- With Azure access, add `--azure-timeline --base-sha <sha> --merge-sha <sha>`.
+  This reuses the same watcher and cadence, verifies the exact merge/build,
+  and includes attempt-aware timeline diagnostics. It can monitor an explicit
+  build even without the GitHub aggregate. An `agent_loss` event surfaces
+  hosted-agent loss while a job is still `inProgress`, then the watcher continues
+  waiting at the normal cadence until Azure completes or the deadline expires.
+  `azure_completed` reports a completed build whose GitHub gate is missing or
+  lagging; a GitHub/Azure disagreement returns `attention_required`. Both exit
+  nonzero and require
+  triage, not a readiness claim. See [CI evidence](ci-evidence.md).
+- Timeline monitoring stays bound to the queued build's immutable merge parents.
+  Target-tip movement does not cancel observation of that build or its retry.
+  Reassess current integration separately with `Get-PrReadiness.ps1` before
+  claiming readiness or triggering another build.
 - Exit zero means the named check succeeded. Failure, timeout, query errors,
   or a changed PR head are nonzero results.
 - The watcher queries only `microsoft/SynapseML`. The optional `--repo` flag
@@ -132,7 +147,8 @@ failing in the same way, which a green/red job summary will not reveal.
 ## Attempts, reviews, and dependency provenance
 
 - Check the producer's build timeline as well as the GitHub check. Agent loss
-  can leave a GitHub check showing `in_progress` after Azure has completed.
+  can appear in timeline issues while the job is still `inProgress`, or leave
+  a GitHub check showing `in_progress` after Azure has completed.
   Record the mismatch; a completed Azure build does not clear a pending required
   GitHub check.
 - After a retry, verify which jobs actually advanced to another attempt.
@@ -152,6 +168,32 @@ failing in the same way, which a green/red job summary will not reveal.
 - Separate service/model failures from client lifecycle errors using comparable
   runs and targeted regressions. Keep the original fixtures and assertions.
   One passing rerun alone does not establish which change caused the recovery.
+
+## Targeted infrastructure retry
+
+Use the existing [one-retry budget](loop-control.md#state-and-cost-discipline);
+diagnostics do not grant a retry or reset consumed attempts. After logs establish
+an infrastructure cause, preserve the original build ID, source/target/merge SHAs,
+kickoff/deadline, successful job IDs, failed job IDs, and attempts in the checkpoint.
+Record separately whether tests never started or passed before publication failed.
+
+Wait for the build to become terminal before retrying. Keep the same attached
+watcher and 600-second cadence while waiting; a diagnostic exit is not a reason
+to write a faster polling script. Once authorized, use Azure's failed-jobs retry,
+not a blind full requeue. The Build Update API's `retry=true` route retries failed
+jobs on the same build ID; use it only when its entire failed-job set is the
+reviewed, authorized infrastructure scope. If other failures would also retry,
+use a verified narrower platform route or report blocked.
+
+After retrying, compare the timeline: only the intended jobs should advance
+attempts; previously successful jobs and their published tests must remain.
+Consume the retry in the checkpoint before sending the request so a resume cannot
+duplicate it. A failed/uncertain request is not a fresh retry allowance.
+For the same build ID, resume the existing watcher with the **original kickoff**,
+even if the platform changes a retry timestamp. The original two-hour deadline
+still applies. Only a genuinely new, authorized build ID has a new kickoff window.
+
+Reference: [Azure Build Update API](https://learn.microsoft.com/en-us/rest/api/azure/devops/build/builds/update-build?view=azure-devops-rest-7.1).
 
 ## After a maintainer merges
 

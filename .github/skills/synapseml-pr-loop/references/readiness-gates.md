@@ -112,12 +112,14 @@ by current-head evidence.
   red. A missing build remains a blocker; request it only after the authorization
   and safety prerequisites above are satisfied.
 - Skips are expected and documented; a skipped required scenario is a blocker.
-- `Get-PrReadiness.ps1` reports these as `completeness.complete`, which is true
-  only when comment pagination was not truncated, an automated review covers the
-  head, and unresolved threads, suppressed-for-head items, missing required
-  checks, failed checks and pending checks are all zero. Treat a pending check as
-  unknown rather than passing. Trust the individual fields over the summary when
-  they disagree: that flag has been wrong before, in both directions.
+- Inspect workflow runs as well as check rollups: `action_required` may have no
+  visible job check. Effective rulesets/classic protection supply approval and
+  required-check gates. Missing permission to inspect rules is unknown, not clear.
+- Use the [separate readiness states](ci-evidence.md#github-snapshot) from
+  `Get-PrReadiness.ps1`. `completeness.complete` is only a compatibility alias
+  for remote engineering gates, not a decision on all gates above or merge
+  approval. Actual tests, local behavior, review dispositions, and issuer
+  identities still need evidence; human approval is reported independently.
 
 ## Honest confidence language
 
