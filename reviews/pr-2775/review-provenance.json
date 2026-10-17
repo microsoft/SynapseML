@@ -1,0 +1,753 @@
+{
+  "pullRequest": "microsoft/SynapseML#2775",
+  "sourceCommit": "66d08e29cc9baf9d74a71f69ce7f59c6b9f1d299",
+  "finalAttempt": 12,
+  "sourceTree": "95612ea53d850cad701ad4b8fd8b1c3d2629ace1",
+  "artifactOnlyFingerprintException": true,
+  "attempts": [
+    {
+      "attempt": 1,
+      "mode": "manual_prompt_fallback",
+      "requestedModel": "claude-opus-5.5",
+      "requestedReasoning": "max",
+      "observedCliReceipt": null,
+      "sourcePublicationCommit": "66d08e29cc9baf9d74a71f69ce7f59c6b9f1d299",
+      "targetSha": "0543bf7e5266c587207ae8c28c3b696deeed3ed1",
+      "mergeBaseSha": "0543bf7e5266c587207ae8c28c3b696deeed3ed1",
+      "manifestSha256": "952302faadae81bef4443a560a8957d06aad85f0e910af364302f5cbde247d97",
+      "diffSha256": "4768fd6e79e5cc1776c4a5caa95d7b3225ff8be90cd85cd116c0edd0239df86d",
+      "diffBytes": 116626,
+      "status": "superseded",
+      "artifacts": [
+        {
+          "file": "pr-validation-skills-attempt-01-review-1-claude-opus-5.5.md",
+          "sourceName": "round-1.md",
+          "kind": "review",
+          "round": 1,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "7ba26289aa88ed757442b9056bdb42fbf66fdd5682d1042f9d23bcbd1b6a9557",
+          "publishedSha256": "1bc015ceaeca71d4360b35b8fa8b630fe5067a85d511a96bcecc89d6011769e1",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        }
+      ],
+      "manifest": "pr-validation-skills-attempt-01-manifest.json"
+    },
+    {
+      "attempt": 2,
+      "mode": "manual_prompt_fallback",
+      "requestedModel": "claude-opus-5.5",
+      "requestedReasoning": "max",
+      "observedCliReceipt": null,
+      "sourcePublicationCommit": "66d08e29cc9baf9d74a71f69ce7f59c6b9f1d299",
+      "targetSha": "0543bf7e5266c587207ae8c28c3b696deeed3ed1",
+      "mergeBaseSha": "0543bf7e5266c587207ae8c28c3b696deeed3ed1",
+      "manifestSha256": "c96921717ffb059ab0ea36c98b1bfe4b26ca56c57a122f64f2aa1b8d5a9f883b",
+      "diffSha256": "70c7bd4cf64eb2525a3260b7295bf03b32ef3ece1d97d365d30896f7ec1fc2bf",
+      "diffBytes": 121954,
+      "status": "superseded",
+      "artifacts": [
+        {
+          "file": "pr-validation-skills-attempt-02-review-1-claude-opus-5.5.md",
+          "sourceName": "round-1.md",
+          "kind": "review",
+          "round": 1,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "14406d47f61cac81f43275e45324f837984ad86c79798310f7b121b8664df97f",
+          "publishedSha256": "a82690d3117b98dc03229291181da16314c838e6ac29bff1a04873d3d3b071b8",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        }
+      ],
+      "manifest": "pr-validation-skills-attempt-02-manifest.json"
+    },
+    {
+      "attempt": 3,
+      "mode": "manual_prompt_fallback",
+      "requestedModel": "claude-opus-5.5",
+      "requestedReasoning": "max",
+      "observedCliReceipt": null,
+      "sourcePublicationCommit": "66d08e29cc9baf9d74a71f69ce7f59c6b9f1d299",
+      "targetSha": "0543bf7e5266c587207ae8c28c3b696deeed3ed1",
+      "mergeBaseSha": "0543bf7e5266c587207ae8c28c3b696deeed3ed1",
+      "manifestSha256": "b6359aac92b8a71745a2758f0cd6870fb19feb1c7c03a4a3cc4e373ee5303d14",
+      "diffSha256": "59082d54b7791ef2373480a873086ce5de6684e29e60b5c5e95d5f14cba9989e",
+      "diffBytes": 124953,
+      "status": "superseded",
+      "artifacts": [
+        {
+          "file": "pr-validation-skills-attempt-03-review-1-claude-opus-5.5.md",
+          "sourceName": "round-1.md",
+          "kind": "review",
+          "round": 1,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "2a84956e9c92e8f2ef2eade57f06aee9ec0f54ff00266613423a11dd72e54796",
+          "publishedSha256": "4934bd203fdaad9e1d376b0f8d5a53fc1644d0797579bd00c8d09db06d1d7826",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        }
+      ],
+      "manifest": "pr-validation-skills-attempt-03-manifest.json"
+    },
+    {
+      "attempt": 4,
+      "mode": "manual_prompt_fallback",
+      "requestedModel": "claude-opus-5.5",
+      "requestedReasoning": "max",
+      "observedCliReceipt": null,
+      "sourcePublicationCommit": "66d08e29cc9baf9d74a71f69ce7f59c6b9f1d299",
+      "targetSha": "0543bf7e5266c587207ae8c28c3b696deeed3ed1",
+      "mergeBaseSha": "0543bf7e5266c587207ae8c28c3b696deeed3ed1",
+      "manifestSha256": "527547b5af175264709bba03f03145bfae021e039f613df109d0d13d2ae86f7b",
+      "diffSha256": "14102c81add05c6295cccda5975e4bb15ac4209e038fc67be734ef0cbf58f87c",
+      "diffBytes": 125750,
+      "status": "superseded",
+      "artifacts": [
+        {
+          "file": "pr-validation-skills-attempt-04-review-1-claude-opus-5.5-excluded.md",
+          "sourceName": "round-1.md",
+          "kind": "review",
+          "round": 1,
+          "publication": "excluded_private_original_retained",
+          "originalSha256": "3294fd5451c2b91c8e8cebaeb0556fc712da31302854c838f8aa7b75288e8c14",
+          "publishedSha256": "71783c22e2675d3b1a8fa794b676fce1176d559c07b673ecd30fea56b1ccdb23",
+          "publicationNormalization": []
+        }
+      ],
+      "manifest": "pr-validation-skills-attempt-04-manifest.json"
+    },
+    {
+      "attempt": 5,
+      "mode": "manual_prompt_fallback",
+      "requestedModel": "claude-opus-5.5",
+      "requestedReasoning": "max",
+      "observedCliReceipt": null,
+      "sourcePublicationCommit": "66d08e29cc9baf9d74a71f69ce7f59c6b9f1d299",
+      "targetSha": "0543bf7e5266c587207ae8c28c3b696deeed3ed1",
+      "mergeBaseSha": "0543bf7e5266c587207ae8c28c3b696deeed3ed1",
+      "manifestSha256": "9eed1eb6f8de016b647dc7abf89a1f9009ef96c556df3239d1d750c77418b36d",
+      "diffSha256": "1b3be1d647c14af4d5367f56ac0945c32beb8344d10de32ca7acbe016c97ab45",
+      "diffBytes": 128886,
+      "status": "superseded",
+      "artifacts": [
+        {
+          "file": "pr-validation-skills-attempt-05-review-1-claude-opus-5.5-excluded.md",
+          "sourceName": "round-1.md",
+          "kind": "review",
+          "round": 1,
+          "publication": "excluded_private_original_retained",
+          "originalSha256": "ec7aa7d1ffcf2fd01411b73ad0cccd8ca96ca422c41fb6572ab15af9b2cd06a9",
+          "publishedSha256": "011adf51daf0dc79aef8b9b1f3ba9112ee7a9c7953eaa3e5cec3ae387cc5e6fc",
+          "publicationNormalization": []
+        },
+        {
+          "file": "pr-validation-skills-attempt-05-review-2-claude-opus-5.5-excluded.md",
+          "sourceName": "round-2.md",
+          "kind": "review",
+          "round": 2,
+          "publication": "excluded_private_original_retained",
+          "originalSha256": "7bf6b117cd6d71fbde41bb6d22c510bdb16fca736b10f67e611a519da5b1a79a",
+          "publishedSha256": "6680a366494911e5e9ab98a3a3da5a55834ec6c4a07a0b5592f6583d8772e5dc",
+          "publicationNormalization": []
+        }
+      ],
+      "manifest": "pr-validation-skills-attempt-05-manifest.json"
+    },
+    {
+      "attempt": 6,
+      "mode": "manual_prompt_fallback",
+      "requestedModel": "claude-opus-5.5",
+      "requestedReasoning": "max",
+      "observedCliReceipt": null,
+      "sourcePublicationCommit": "66d08e29cc9baf9d74a71f69ce7f59c6b9f1d299",
+      "targetSha": "0543bf7e5266c587207ae8c28c3b696deeed3ed1",
+      "mergeBaseSha": "0543bf7e5266c587207ae8c28c3b696deeed3ed1",
+      "manifestSha256": "241b78cfe3bbbcc46dd8c4cd3ab8b5594d0521bc4bebc5745e2b6a3daa591e93",
+      "diffSha256": "4b588f9a9ecba2f7852b0db06b95571493c624cd40d6219f0142b386afc761a3",
+      "diffBytes": 132097,
+      "status": "superseded",
+      "artifacts": [
+        {
+          "file": "pr-validation-skills-attempt-06-review-1-claude-opus-5.5-excluded.md",
+          "sourceName": "round-1.md",
+          "kind": "review",
+          "round": 1,
+          "publication": "excluded_private_original_retained",
+          "originalSha256": "7ac3b8d520731edefd36a6302c65816759d65e2155f543f7436e784a10d283e3",
+          "publishedSha256": "841c6012b5b14d9bf12976d10ed80af7eccc29dc033054cb6e38c460dc374e22",
+          "publicationNormalization": []
+        },
+        {
+          "file": "pr-validation-skills-attempt-06-review-2-claude-opus-5.5.md",
+          "sourceName": "round-2.md",
+          "kind": "review",
+          "round": 2,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "85381b35f50504267a92845f536b7cb98e281a3a0d239e909f22daa76fb2d6c1",
+          "publishedSha256": "bea27774626b7eec4f61f4668fdff0c16b8eb2d1b3123badfd6c31f9bd420f30",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        },
+        {
+          "file": "pr-validation-skills-attempt-06-review-3-claude-opus-5.5.md",
+          "sourceName": "round-3.md",
+          "kind": "review",
+          "round": 3,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "b8615ef8522d198889526c6b7679af288d058ee7579ec6f0888a84208bac3c20",
+          "publishedSha256": "b98d72b89d18e1a8f048a2faef8f770355174ef955e2032fd8661f7b376903fc",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        }
+      ],
+      "manifest": "pr-validation-skills-attempt-06-manifest.json"
+    },
+    {
+      "attempt": 7,
+      "mode": "manual_prompt_fallback",
+      "requestedModel": "claude-opus-5.5",
+      "requestedReasoning": "max",
+      "observedCliReceipt": null,
+      "sourcePublicationCommit": "66d08e29cc9baf9d74a71f69ce7f59c6b9f1d299",
+      "targetSha": "0543bf7e5266c587207ae8c28c3b696deeed3ed1",
+      "mergeBaseSha": "0543bf7e5266c587207ae8c28c3b696deeed3ed1",
+      "manifestSha256": "349ad3ee8cf47b535b84bb506de98e758bac3bdcc344d787fbbee91d8cb2eb4e",
+      "diffSha256": "dc44095292caf8ac982bfcb6651df03af93c998f90367cfedbafe87330ff2866",
+      "diffBytes": 135710,
+      "status": "superseded",
+      "artifacts": [
+        {
+          "file": "pr-validation-skills-attempt-07-review-1-claude-opus-5.5.md",
+          "sourceName": "round-1.md",
+          "kind": "review",
+          "round": 1,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "e32835f682a3c669652434acc7f35155edbf2650f66d350e65345b979059caa0",
+          "publishedSha256": "3621eb4f2c46b4c399b07b4ff121f1b4c49450c1403604af6e9fb601ba7301f7",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF",
+            "Removed two spaces from one blank line"
+          ]
+        },
+        {
+          "file": "pr-validation-skills-attempt-07-review-2-claude-opus-5.5.md",
+          "sourceName": "round-2.md",
+          "kind": "review",
+          "round": 2,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "d95d28a6a90b4f745b01209f1a1145c70c92207b9399fad8fdbf07ee52a49fbc",
+          "publishedSha256": "0bfd931dec4001ee6cd5391b63ce796830d7c01fa110d70384ec466b6efe8341",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        },
+        {
+          "file": "pr-validation-skills-attempt-07-review-3-claude-opus-5.5.md",
+          "sourceName": "round-3.md",
+          "kind": "review",
+          "round": 3,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "780b1db77d8e2b4c08c5a8ef330cd4cf714abd15c41d519e2e9f3892134fc382",
+          "publishedSha256": "f8a63d8d63393d64fd4a9869cef75303bc0c3b10bd2509e6cecdd263ffbc46e0",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        }
+      ],
+      "manifest": "pr-validation-skills-attempt-07-manifest.json"
+    },
+    {
+      "attempt": 8,
+      "mode": "manual_prompt_fallback",
+      "requestedModel": "claude-opus-5.5",
+      "requestedReasoning": "max",
+      "observedCliReceipt": null,
+      "sourcePublicationCommit": "66d08e29cc9baf9d74a71f69ce7f59c6b9f1d299",
+      "targetSha": "0543bf7e5266c587207ae8c28c3b696deeed3ed1",
+      "mergeBaseSha": "0543bf7e5266c587207ae8c28c3b696deeed3ed1",
+      "manifestSha256": "f8da412a509c20a072221c3624759e6e4ce933838a5033c87df8d52324e6770a",
+      "diffSha256": "a12c517d8d7db7aba8aaf65ba29a57220351aa98f4460eea036b95ab72d47fbf",
+      "diffBytes": 136110,
+      "status": "superseded",
+      "artifacts": [
+        {
+          "file": "pr-validation-skills-attempt-08-review-1-claude-opus-5.5-excluded.md",
+          "sourceName": "round-1.md",
+          "kind": "review",
+          "round": 1,
+          "publication": "excluded_private_original_retained",
+          "originalSha256": "4a4b809cdae0ccdcffa489bd3f93da5fefe4b9eaf5a021a309f50524d5b10ea2",
+          "publishedSha256": "500d689b8cbfe89f358bbc16035953a079758ad35de2129215c77f38c27021fd",
+          "publicationNormalization": []
+        },
+        {
+          "file": "pr-validation-skills-attempt-08-review-2-claude-opus-5.5-excluded.md",
+          "sourceName": "round-2.md",
+          "kind": "review",
+          "round": 2,
+          "publication": "excluded_private_original_retained",
+          "originalSha256": "9242f727b5a4d05b815f5893cc0113fbad356e0ad4d2570bada7028daed7480e",
+          "publishedSha256": "414cf1c644b767371a9ddd6337415979985c02289e682b9b0d462b8b57d3cc1a",
+          "publicationNormalization": []
+        },
+        {
+          "file": "pr-validation-skills-attempt-08-review-3-claude-opus-5.5.md",
+          "sourceName": "round-3.md",
+          "kind": "review",
+          "round": 3,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "25b12138b6bada581e49acd1e57efc67d49fa13876cb87ad5e5105f4621adcb6",
+          "publishedSha256": "135b6d75a8b7610114efb9fe1cfdcc90794f0970958ea4d027e2cf97fcffd7ff",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        },
+        {
+          "file": "pr-validation-skills-attempt-08-review-4-claude-opus-5.5.md",
+          "sourceName": "round-4.md",
+          "kind": "review",
+          "round": 4,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "dcf3b141450226f516f3510595a39d25797a5b82c85498b88bf8dd652fbd9855",
+          "publishedSha256": "077872b1766e549cc064690c12a7eb0fb5046c9f041c1d454c51d0aeaab0b832",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        },
+        {
+          "file": "pr-validation-skills-attempt-08-review-5-claude-opus-5.5.md",
+          "sourceName": "round-5.md",
+          "kind": "review",
+          "round": 5,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "a0917fa32887d39ca6fea73f5d4cf08972078400ba0e5fa37a3fd00c8d30b9ba",
+          "publishedSha256": "f7198d8b7305949e6a43773997afe9151fc89a03c41f4e054a37c634a5434647",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        },
+        {
+          "file": "pr-validation-skills-attempt-08-review-6-claude-opus-5.5.md",
+          "sourceName": "round-6.md",
+          "kind": "review",
+          "round": 6,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "5978b14fe1ff173837c5deacb3a25dd1f594699d4b4c60ef03bb0875caa1cbff",
+          "publishedSha256": "4954360cf8edb659cf11298a1aa77a5ccfa98b7840820470820e0923392048af",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        }
+      ],
+      "manifest": "pr-validation-skills-attempt-08-manifest.json"
+    },
+    {
+      "attempt": 9,
+      "mode": "manual_prompt_fallback",
+      "requestedModel": "claude-opus-5.5",
+      "requestedReasoning": "max",
+      "observedCliReceipt": null,
+      "sourcePublicationCommit": "66d08e29cc9baf9d74a71f69ce7f59c6b9f1d299",
+      "targetSha": "0543bf7e5266c587207ae8c28c3b696deeed3ed1",
+      "mergeBaseSha": "0543bf7e5266c587207ae8c28c3b696deeed3ed1",
+      "manifestSha256": "e30c896294c0217401bfb9b79d1186d36e8373488d8a5a4db99c57a589109609",
+      "diffSha256": "152561506548ba7824135deea64a9854b5c4e04fc6f2756040b0647a48db6c13",
+      "diffBytes": 137671,
+      "status": "superseded",
+      "artifacts": [
+        {
+          "file": "pr-validation-skills-attempt-09-review-1-claude-opus-5.5.md",
+          "sourceName": "round-1.md",
+          "kind": "review",
+          "round": 1,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "9cd643cc2fd7a331c1c17db37e7e82f3efdcc307a9d46c5998053b9be0f4d95d",
+          "publishedSha256": "3cefb5810471b5a0894e17f9e32553238ccb33cf18d5504ab35c0cac04710a15",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        },
+        {
+          "file": "pr-validation-skills-attempt-09-review-2-claude-opus-5.5-excluded.md",
+          "sourceName": "round-2.md",
+          "kind": "review",
+          "round": 2,
+          "publication": "excluded_private_original_retained",
+          "originalSha256": "31784ffa637bb003059423e93b6de66e82354b4eca414123d74f83dacd049bcb",
+          "publishedSha256": "cf6fab42b4588eedb76022e8b75eb48b009e47be7b5247cc8145dbca3b70ee40",
+          "publicationNormalization": []
+        },
+        {
+          "file": "pr-validation-skills-attempt-09-review-3-claude-opus-5.5.md",
+          "sourceName": "round-3.md",
+          "kind": "review",
+          "round": 3,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "33c4539419b95d7e9eba38ff26b1a4aea9a735d955ddb34ec75f45ef3e3c8420",
+          "publishedSha256": "1d22da4468f6aa6f43b561a4b55b422479f265703782d3545cc5ae10d892e118",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        },
+        {
+          "file": "pr-validation-skills-attempt-09-review-4-claude-opus-5.5.md",
+          "sourceName": "round-4.md",
+          "kind": "review",
+          "round": 4,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "054af33e001d73bd0c39b7773d8fb3e8e7195c79c071d6c9dcd3247908773574",
+          "publishedSha256": "b5ba7a45e62edacf4bab2064cfba7af86229ab80e5cb0ab8eaffb758f58b6a81",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        },
+        {
+          "file": "pr-validation-skills-attempt-09-review-5-resolution.md",
+          "sourceName": "round-5-resolution.md",
+          "kind": "resolution",
+          "round": 5,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "490858881089349c9efcba796e21a2e6f90b4b0ff7f5a0be12a6c7f8cc4aca6e",
+          "publishedSha256": "8b6dff60457b6cfa601619ac5b68d39934d73edece5f333a21d934d166046cbc",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        },
+        {
+          "file": "pr-validation-skills-attempt-09-review-5-claude-opus-5.5.md",
+          "sourceName": "round-5.md",
+          "kind": "review",
+          "round": 5,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "9b56fee09e1276a1a5e10ffb535aef59287b8a3927a3e86de6e4d25f05db4b31",
+          "publishedSha256": "566c960dbf3a1720faca314b15e2d2b41f98ac0cc0d539c02f6934f392b1d9fb",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        },
+        {
+          "file": "pr-validation-skills-attempt-09-review-6-claude-opus-5.5.md",
+          "sourceName": "round-6.md",
+          "kind": "review",
+          "round": 6,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "7a170b130578dbeb1faf1c5838cfb730bd1c99b268ec6afd6683bbed52c20b0a",
+          "publishedSha256": "54e9d74957ea01cd5dd5b8746e36608b91a0be844f2b104489e1b6c36a938507",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        }
+      ],
+      "manifest": "pr-validation-skills-attempt-09-manifest.json"
+    },
+    {
+      "attempt": 10,
+      "mode": "manual_prompt_fallback",
+      "requestedModel": "claude-opus-5.5",
+      "requestedReasoning": "max",
+      "observedCliReceipt": null,
+      "sourcePublicationCommit": "66d08e29cc9baf9d74a71f69ce7f59c6b9f1d299",
+      "targetSha": "0543bf7e5266c587207ae8c28c3b696deeed3ed1",
+      "mergeBaseSha": "0543bf7e5266c587207ae8c28c3b696deeed3ed1",
+      "manifestSha256": "dd627e6928a8fca3712f03b636772fd1a86133df66dad20fa84456f479878d81",
+      "diffSha256": "e1ccbd8f666192d9a59f46862c4cf55988be271ccf0a9a3b894c64091916a980",
+      "diffBytes": 143945,
+      "status": "superseded",
+      "artifacts": [
+        {
+          "file": "pr-validation-skills-attempt-10-review-1-claude-opus-5.5.md",
+          "sourceName": "round-1.md",
+          "kind": "review",
+          "round": 1,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "7a5990d051e2a29fd8055e0187a7738908f20cc19d832ee2ce9a8830c03b35a1",
+          "publishedSha256": "98b428e644858c99beaf9808f0120f8510127c361b8c2f9490cdb94087a1bb77",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        },
+        {
+          "file": "pr-validation-skills-attempt-10-review-2-claude-opus-5.5.md",
+          "sourceName": "round-2.md",
+          "kind": "review",
+          "round": 2,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "30bcbad26ebdb6bc483f820a1e46c8b352bb233b7cfddaa4c5a4c86d8cc31d4c",
+          "publishedSha256": "31841775fbab31a1d39f1241699b05b295fd14532ab333d2b9c6364e2f79a53b",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        },
+        {
+          "file": "pr-validation-skills-attempt-10-review-3-claude-opus-5.5.md",
+          "sourceName": "round-3.md",
+          "kind": "review",
+          "round": 3,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "bfe006d9677673d6c72240842ad99c08251b5252d54001f80c0480e7f33b394b",
+          "publishedSha256": "649f98161d39bfdc0d136db6921ce74d6c3d9e69893aed6b3afc07d417dcd7a6",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        },
+        {
+          "file": "pr-validation-skills-attempt-10-review-4-claude-opus-5.5.md",
+          "sourceName": "round-4.md",
+          "kind": "review",
+          "round": 4,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "81066f65fca10c0f08143064439a01b354c65371a2ca509a862fb9b869ad0021",
+          "publishedSha256": "873da78cd7ecafa5809759b958547404278acc0f9f8e641473e68ea59759d598",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        },
+        {
+          "file": "pr-validation-skills-attempt-10-review-5-resolution.md",
+          "sourceName": "round-5-resolution.md",
+          "kind": "resolution",
+          "round": 5,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "73c0a697f3a7cf013fcf8feb91ecc873afa0e60cee95a90860f0aceec485c4c3",
+          "publishedSha256": "95b2c50695ea86621d24c48a1dbffbc9843df8fc1fde8cf3a888e5fc9c8873b6",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        },
+        {
+          "file": "pr-validation-skills-attempt-10-review-5-claude-opus-5.5.md",
+          "sourceName": "round-5.md",
+          "kind": "review",
+          "round": 5,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "1bb59df1358cf3fe793960769f3c8e5e05ce4078b06848f7403927a8f8b9243e",
+          "publishedSha256": "c3d07560ad5b1c9d0b968b8343f8c882acd9e50ea772f382ea90354af2fe77f2",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        },
+        {
+          "file": "pr-validation-skills-attempt-10-review-6-claude-opus-5.5.md",
+          "sourceName": "round-6.md",
+          "kind": "review",
+          "round": 6,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "627eabc6b207aafe32e2c21637688dd3a86f00dcbf2d7b95255dcdc6b78b4870",
+          "publishedSha256": "b02bd874ccd7d9ed6288adcb8c695a0333aa802c6596206dfa98d4b8b9f9a16d",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        }
+      ],
+      "manifest": "pr-validation-skills-attempt-10-manifest.json"
+    },
+    {
+      "attempt": 11,
+      "mode": "manual_prompt_fallback",
+      "requestedModel": "claude-opus-5.5",
+      "requestedReasoning": "max",
+      "observedCliReceipt": null,
+      "sourcePublicationCommit": "66d08e29cc9baf9d74a71f69ce7f59c6b9f1d299",
+      "targetSha": "0543bf7e5266c587207ae8c28c3b696deeed3ed1",
+      "mergeBaseSha": "0543bf7e5266c587207ae8c28c3b696deeed3ed1",
+      "manifestSha256": "4af6a3a53f6b1b6ba7a52f18e640eb6ef8f98717bee36ac8af18d70fea1852b5",
+      "diffSha256": "bffec5c72c2886366b0342d7b080da336e45895af8e222e4bc90b7ddf0d3aeb6",
+      "diffBytes": 146289,
+      "status": "superseded",
+      "artifacts": [
+        {
+          "file": "pr-validation-skills-attempt-11-review-1-claude-opus-5.5.md",
+          "sourceName": "round-1.md",
+          "kind": "review",
+          "round": 1,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "fc8687d904cb04d00ee6ee5cd60c7c4a9c0377575604275f4d0d91ef7a1d0d85",
+          "publishedSha256": "abd25f1e43ada55dcc4603f26d2caad554ca388861a0aa4c5a386fb9ee636951",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        },
+        {
+          "file": "pr-validation-skills-attempt-11-review-2-claude-opus-5.5.md",
+          "sourceName": "round-2.md",
+          "kind": "review",
+          "round": 2,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "e090ea46fd912d0a33789d3e2bbd2901f9634e868cd0b49a14600064c5022a48",
+          "publishedSha256": "a68e4834a6fa83cbbca5ad0408861647462ab63ef06515dee0246ce82b4000cb",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        },
+        {
+          "file": "pr-validation-skills-attempt-11-review-3-claude-opus-5.5.md",
+          "sourceName": "round-3.md",
+          "kind": "review",
+          "round": 3,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "cd8b12213a0bdbfe3dda44d1f8dfe6be442b045f1ab2c9e30dbc11601132b45e",
+          "publishedSha256": "c91f7f6ac53e03534c52864b04a6f8d16725189fd7d61b7a109e4f8599675897",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        },
+        {
+          "file": "pr-validation-skills-attempt-11-review-4-resolution.md",
+          "sourceName": "round-4-resolution.md",
+          "kind": "resolution",
+          "round": 4,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "29a6ff958c23617c62e38232e97ca0c82a7c0adc43f9cc4822481e08389c2db2",
+          "publishedSha256": "ed1421d6cff46a06d83da5e4c9ec0b048dc2c5f9899a64fbdd20b923ef292284",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        },
+        {
+          "file": "pr-validation-skills-attempt-11-review-4-claude-opus-5.5.md",
+          "sourceName": "round-4.md",
+          "kind": "review",
+          "round": 4,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "8919a8cd7bee27796ba252c85f03a8756dcdf88c3e59fb4684a3c5d86493d112",
+          "publishedSha256": "ebb7e201063e6aac7927f4d75949be2f65f3acc9cfeeba6b89d9f273cc6eb60a",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        },
+        {
+          "file": "pr-validation-skills-attempt-11-review-5-resolution.md",
+          "sourceName": "round-5-resolution.md",
+          "kind": "resolution",
+          "round": 5,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "6e96ae9fbb83c1e6efd4cf7438db066aaf369c2ff60855156a992ad6329c06d3",
+          "publishedSha256": "99b5dd648c9ee5ec9b657963a01fb1cab2f6f0512b3ea89dd7a2637d3c0f060a",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        },
+        {
+          "file": "pr-validation-skills-attempt-11-review-5-claude-opus-5.5.md",
+          "sourceName": "round-5.md",
+          "kind": "review",
+          "round": 5,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "fa82afa77125efb810d662f9038120560a868cf8e4e629653a79d9cbc1ed7f83",
+          "publishedSha256": "c326649cd39ddd8fd0dc9e690a35aeb4826dbbacc855efa6f1412624b1d24c22",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        },
+        {
+          "file": "pr-validation-skills-attempt-11-review-6-claude-opus-5.5.md",
+          "sourceName": "round-6.md",
+          "kind": "review",
+          "round": 6,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "ef1345f166acc45f2c81e2da40d9b11789b09bf218de249cf2d5240a8cfe57ce",
+          "publishedSha256": "a3c783f822b5a1fddc84bd5608e87b3493a76ef7cbfaa3f906463b78a1f96c84",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        }
+      ],
+      "manifest": "pr-validation-skills-attempt-11-manifest.json"
+    },
+    {
+      "attempt": 12,
+      "mode": "manual_prompt_fallback",
+      "requestedModel": "claude-opus-5.5",
+      "requestedReasoning": "max",
+      "observedCliReceipt": null,
+      "sourcePublicationCommit": "66d08e29cc9baf9d74a71f69ce7f59c6b9f1d299",
+      "targetSha": "0543bf7e5266c587207ae8c28c3b696deeed3ed1",
+      "mergeBaseSha": "0543bf7e5266c587207ae8c28c3b696deeed3ed1",
+      "manifestSha256": "1d7987ebe5de682ada6cfd4c0f66db85d028ebd8e1418f424f0f9b69d54d6636",
+      "diffSha256": "df7ac7c309f23bf644e55765296cb4a92594b70392e178c7040cf8616bf65733",
+      "diffBytes": 149387,
+      "status": "final_clean_precommit",
+      "artifacts": [
+        {
+          "file": "pr-validation-skills-attempt-12-review-1-claude-opus-5.5.md",
+          "sourceName": "round-1.md",
+          "kind": "review",
+          "round": 1,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "116b878e8c09f0665db2b93de8aaaa52ca948f6150169112456039ea74f40507",
+          "publishedSha256": "fd0a0d1bd0bba34f4801278323d0c304aad3d05e54dfe7f763d3f7d59518067d",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        },
+        {
+          "file": "pr-validation-skills-attempt-12-review-2-claude-opus-5.5.md",
+          "sourceName": "round-2.md",
+          "kind": "review",
+          "round": 2,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "1b1c3eaafd62993f62432e15b3cb5082dea95e7bbb54596e8895343846db15bd",
+          "publishedSha256": "7de7356ab606843a40048132d86288c6cae660aa92641e023290fd1075a9dd5a",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        },
+        {
+          "file": "pr-validation-skills-attempt-12-review-3-claude-opus-5.5.md",
+          "sourceName": "round-3.md",
+          "kind": "review",
+          "round": 3,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "1d2423ef38dae89cb07aefd1715da6f2c9b4329a045a0ace13e48e932a5eb353",
+          "publishedSha256": "3b9468b205edb2a933743faf1f2dc48630f0ac32cecfdd48e4f630506baa0907",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        },
+        {
+          "file": "pr-validation-skills-attempt-12-review-4-claude-opus-5.5.md",
+          "sourceName": "round-4.md",
+          "kind": "review",
+          "round": 4,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "6626a1ea76d8412e0a826b0557a79258e9e644ef3d5297c3e16ff8e36b844cd4",
+          "publishedSha256": "117761ed3b7d026c958f39ec65c7e18ec45b1d923dee61e5ef5a9825d95f9d48",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        },
+        {
+          "file": "pr-validation-skills-attempt-12-review-5-claude-opus-5.5.md",
+          "sourceName": "round-5.md",
+          "kind": "review",
+          "round": 5,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "5a08e3f0944cb83e803779ab6f0f213a8c1c3bd68186248d4174760a7648fbf7",
+          "publishedSha256": "4b1ab5ab7895c4c0413ac3851213a55a429f8878110911425091e1094f7a7433",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        },
+        {
+          "file": "pr-validation-skills-attempt-12-review-6-claude-opus-5.5.md",
+          "sourceName": "round-6.md",
+          "kind": "review",
+          "round": 6,
+          "publication": "original_with_appended_publication_record",
+          "originalSha256": "2ac87cec9e4c625aeb93f2bb085ee68b523e978b0206d5110d01ba22052bb2b8",
+          "publishedSha256": "3c1013f1ad3ceae9f4bc88be9e85eae2ead888e4842027994303ed899c1a6b91",
+          "publicationNormalization": [
+            "CRLF line endings normalized to LF"
+          ]
+        }
+      ],
+      "manifest": "pr-validation-skills-attempt-12-manifest.json"
+    }
+  ],
+  "publishedHashEncoding": "UTF-8 with LF line endings; original source hashes are unmodified"
+}
