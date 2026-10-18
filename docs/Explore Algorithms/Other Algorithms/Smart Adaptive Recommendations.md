@@ -7,9 +7,9 @@ sidebar_label: SAR Algorithm
 
 # Smart Adaptive Recommendations (SAR) Algorithm
 
-The following document is a subset of the implemented logic. The original can be found [here](https://github.com/Microsoft/Product-Recommendations/blob/master/doc/sar.md)
+This page describes the collaborative-filtering subset of SAR implemented in SynapseML. The [original algorithm description](https://github.com/Microsoft/Product-Recommendations/blob/master/doc/sar.md) also covers catalog-based recommendations, which are not implemented by SynapseML's SAR estimator.
 
-**SAR** is a fast scalable adaptive algorithm for personalized recommendations based on user transactions history and items description. It produces easily explainable / interpretable recommendations.
+**SAR** produces personalized recommendations from user-item interaction history. SynapseML computes item similarities and user affinities from those interactions; it does not use item descriptions or other catalog features.
 
 The overall architecture of SAR is shown in the following diagram:
 
@@ -17,16 +17,11 @@ The overall architecture of SAR is shown in the following diagram:
 
 ## Input
 
-The input to SAR consists of:
+Pass one Spark DataFrame of user-item interactions to `SAR.fit()`. Configure the user and item identifier columns with `userCol` and `itemCol`; both string and numeric identifiers are supported. There is no separate catalog DataFrame argument or parameter for item descriptions or other item features.
 
--   transaction (usage) data
--   catalog data
+Each row represents an interaction, also called a transaction. Columns matching the configured `ratingCol` and `timeCol` names (defaults: `rating` and `time`) are optional and are used whenever they are present in the DataFrame. A numeric rating scales the interaction's contribution to user-item affinity; without a rating column, each interaction has weight one before any time decay. If a time column is present, its values are parsed using `activityTimeFormat` (default: `yyyy/MM/dd'T'h:mm:ss`). Time decay is relative to `startTime`, or the current time when it is not set, with `timeDecayCoeff` specifying the half-life in days (default: 30).
 
-**Transaction data**, also called **usage data**, contains information on interactions between users and items and has the following schema:
-
-`<User Id>,<Item Id>,<Time>`
-
-Each row represents a single interaction between a user and an item, which we call a transaction. Here's an example of usage data (displayed as a table for readability, but note that it must be provided in comma-separated format):
+The following table illustrates interaction data with timestamps. CSV is not required; SAR consumes the DataFrame, regardless of how it was loaded:
 
 | User ID | Item ID | Time                |
 | ------- | ------- | ------------------- |
@@ -44,7 +39,7 @@ SAR is based on a simple yet powerful collaborative filtering approach. In the h
 -   Item-to-Item similarity matrix
 -   User-to-Item affinity matrix
 
-**Item-to-Item similarity matrix** contains for each pair of items a numerical value of similarity between these two items. A simple measure of item similarity is _co-occurrence_, which is the number of times two items appeared in a same transaction. Let's look at the following example:
+**Item-to-Item similarity matrix** contains for each pair of items a numerical value of similarity between these two items. In SynapseML, _co-occurrence_ counts the distinct users who interacted with both items; repeated interactions by the same user do not increase this count. Let's look at the following example:
 
 |            | Item 1 | Item 2 | Item 3 | Item 4 | Item 5 |
 | ---------- | :----: | :----: | :----: | :----: | :----: |
@@ -54,7 +49,7 @@ SAR is based on a simple yet powerful collaborative filtering approach. In the h
 | **Item 4** |    3   |    2   |    3   |    4   |    2   |
 | **Item 5** |    2   |    1   |    1   |    2   |    3   |
 
-Here, for example, _cooccur(Item 1, Item 2) = 3_, meaning that items 1 and 2 were together in a transaction three times. The Item-to-Item similarity matrix is symmetric. Diagonal elements, _occ(Item i)_, represent the number of occurrences of each item.
+Here, for example, _cooccur(Item 1, Item 2) = 3_, meaning that three distinct users interacted with both items 1 and 2. The Item-to-Item similarity matrix is symmetric. Diagonal elements, _occ(Item i)_, count the distinct users who interacted with each item.
 The advantage of co-occurrence is that it's easy to update. However, it favors predictability, and the most popular items will be recommended most of the time. To alleviate that, two more similarity measures are used: _lift_ and _Jaccard_. They can be thought of as normalized co-occurrences.
 
 _Lift_ measures how much the co-occurrence of two items is higher than it would be by chance, that is, what is the contribution of interaction of the two items. It is obtained as
@@ -63,16 +58,15 @@ _lift(Item i, Item j) = cooccur(Item i, Item j) / (occ(Item i) \* occ(Item j))_ 
 
 Lift favors serendipity / discoverability. For example, items 2 and 5 have the same co-occurrence with item 4, but item 5 in general occurs less frequently than item 2 and will be favored by lift.
 
-_Jaccard_ measure is defined as the number of transactions in which two items appear together divided by the number of transactions in which either of them appears:
+_Jaccard_ similarity divides the number of distinct users who interacted with both items by the number who interacted with either item:
 
 _Jaccard(Item 1, Item 2) = cooccur(Item1, Item 2) / (occ(Item 1) + occ(Item 2) - cooccur(Item 1, Item 2))_ .
 
 Jaccard measure is a tradeoff between co-occurrence and lift and is the default in SAR.
 
-An item is _cold_ if it has no transactions yet or the number of transactions is low, that is, below the SupportThreshold, which is configurable. If one or both items is cold, their item-to-item similarity cannot be estimated from the transactions data and item features must be used. A linear learner is trained using warm items, where the features of the model are (partial) matches on corresponding features of a pair of items. The target is the computed similarity, based on normalized co-occurrences of those items.
-The model is then used to predict similarities between cold and cold/warm items.
+SynapseML sets an item pair's similarity to zero when its co-occurrence count is below `supportThreshold` (default: 4 distinct users). This threshold also applies to self-pairs. It does not select a catalog-based fallback: the content-based cold-start learner described in the original SAR algorithm is not implemented here.
 
-**User-to-Item affinity matrix** contains for each user-item pair an affinity score of the user towards the item. Affinity score is computed as a weighted number of transactions in which the user and the item appear together, where newer transactions are weighted more than the older transactions. Also, weights are adjusted for the event type. For example, "Purchase" event may be valued four times more than the "Click" event. Therefore, affinity score takes into account frequency, recency and the event type of transactions in which the user appears with the item.
+**User-to-Item affinity matrix** contains for each user-item pair an affinity score of the user towards the item. Affinity score is computed as a weighted number of transactions in which the user and the item appear together, and, when a time column is present, newer transactions are weighted more than older ones. Event-type weighting can be represented by supplying numeric values in the configured `ratingCol`; SAR has no separate event-type parameter. For example, a caller can assign a purchase a rating four times that of a click. Affinity therefore reflects interaction frequency, optional time decay, and any supplied rating weights.
 
 <!---
 **User-to-Item affinity matrix** contains for each user-item pair an affinity score of the user towards the item. Affinity score takes into account frequency, recency and the event type of transactions in which the user appears with the item. Each transaction contributes to the affinity score with some weight. Newer transactions are weighted more than the older transactions. Also, weights are adjusted for the event type. For example, "Purchase" event may be valued 4 times more than the "Click" event.
