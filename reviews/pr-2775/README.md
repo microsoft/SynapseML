@@ -17,6 +17,7 @@ tool scopes were verified. This is pre-commit evidence, not CI-qualified clearan
 - [Source path/mode/blob manifest](attempt-70-source-manifest.json).
 - Manifest SHA-256: `2d5ec19330928f194238f764ed74c3a0bcbb8d32af3d9b628788c3a4268f6b13`.
 - Full binary source-diff SHA-256: `423e6347af8a31453a06041f5d750ca13cbed82b3c855bb5707d78fb03b39f76`.
+- [Published source and original review archive](https://github.com/microsoft/SynapseML/commit/2d4bf69fcf252c865fafeca5f1993bdc961e1d49).
 
 | Lens | Evidence |
 | --- | --- |
@@ -47,10 +48,10 @@ The [attempt-68 source commit](https://github.com/microsoft/SynapseML/commit/9da
 retains all attempt-68 feedback, attempt 67 and the format-invalid attempt-68
 invocation. Its hosted review blobs and reachability were verified before pruning.
 
-Attempt 69 is retained with this publication so its feedback can be verified in
-hosted history before cleanup: [round 3](task-unknown-attempt-69-stage-attempt-1-review-3-claude-opus-5.5.md),
-[round 5 and disposition](task-unknown-attempt-69-stage-attempt-1-review-5-claude-opus-5.5.md),
-and [round 6 and fixes](task-unknown-attempt-69-stage-attempt-1-review-6-claude-opus-5.5.md).
+Attempt 69 is retained in verified, reachable hosted history:
+[round 3](https://github.com/microsoft/SynapseML/blob/2d4bf69fcf252c865fafeca5f1993bdc961e1d49/reviews/pr-2775/task-unknown-attempt-69-stage-attempt-1-review-3-claude-opus-5.5.md),
+[round 5 and disposition](https://github.com/microsoft/SynapseML/blob/2d4bf69fcf252c865fafeca5f1993bdc961e1d49/reviews/pr-2775/task-unknown-attempt-69-stage-attempt-1-review-5-claude-opus-5.5.md),
+and [round 6 and fixes](https://github.com/microsoft/SynapseML/blob/2d4bf69fcf252c865fafeca5f1993bdc961e1d49/reviews/pr-2775/task-unknown-attempt-69-stage-attempt-1-review-6-claude-opus-5.5.md).
 It stopped after concrete findings; the fixes changed the source and required
 attempt 70. Its partial pass does not qualify the current patch.
 
