@@ -24,8 +24,9 @@ records its evidence and limitations; this is not CI-qualified clearance.
 | Polish and hardening | [Round 6](task-unknown-attempt-68-stage-attempt-1-review-6-claude-opus-5.5.md) |
 
 The first broad-sweep invocation failed the checklist format, not a code check.
-It remains failed and is retained with its disposition; only its stage-2 retry
-counts toward this pass. The source stayed frozen across all six clean lenses.
+It remains failed in the [verified archive with its disposition](https://github.com/microsoft/SynapseML/blob/9da85296332272173f10cda7432e71de127889ed/reviews/pr-2775/task-unknown-attempt-68-stage-attempt-1-review-1-claude-opus-5.5.md);
+only its stage-2 retry counts toward this pass. The source stayed frozen across
+all six clean lenses.
 
 Current-head Azure validation, the final CI-qualified review and human approval
 remain outstanding. Local results are reported in the PR description.
@@ -38,6 +39,10 @@ retain their original feedback and finding dispositions in immutable commits.
 Both commits were verified reachable through the published PR head, and hosted
 files were verified before pruning the superseded artifacts from the final diff.
 Earlier passes do not qualify the revised source.
+
+The [attempt-68 source commit](https://github.com/microsoft/SynapseML/commit/9da85296332272173f10cda7432e71de127889ed)
+also retains attempt 67 and the format-invalid attempt-68 invocation. Its hosted
+review blobs and reachability were verified before this artifact-only cleanup.
 
 Private excluded drafts remain private; their public exclusion records explain
 the disposition. Exclusions and incomplete passes do not count as clean reviews.
