@@ -8,13 +8,18 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
+import sys
 
 GUIDANCE_PATHS = [
     "AGENTS.md",
     "CONTRIBUTING.md",
     ".github/copilot-instructions.md",
     ".github/skills",
+    "CODEOWNERS",
+    "pipeline.yaml",
+    "templates",
 ]
 REQUIRED = [
     "AGENTS.md",
@@ -23,6 +28,8 @@ REQUIRED = [
     ".github/skills/synapseml-external-contributor-review/SKILL.md",
     ".github/skills/synapseml-external-contributor-review/references/contributor-safety.md",
     ".github/skills/synapseml-external-contributor-review/references/ci-delegation.md",
+    "CODEOWNERS",
+    "pipeline.yaml",
 ]
 
 
@@ -30,12 +37,52 @@ class GuidanceError(Exception):
     """The requested checkout is not the specified clean guidance snapshot."""
 
 
+def trusted_executable(name):
+    """Resolve host tools without Windows' implicit current-directory search."""
+    cwd = Path.cwd().resolve()
+    names = [name]
+    if sys.platform == "win32":
+        # Before Python 3.12, which() does not expand PATHEXT for absolute paths.
+        names = [
+            name + extension
+            for extension in os.environ.get("PATHEXT", ".COM;.EXE;.BAT;.CMD").split(";")
+            if extension
+        ]
+    for entry in os.get_exec_path():
+        directory = Path(entry)
+        if not directory.is_absolute():
+            continue
+        directory = directory.resolve()
+        if directory == cwd or cwd in directory.parents:
+            continue
+        for filename in names:
+            candidate = shutil.which(str(directory / filename))
+            if candidate:
+                executable = Path(candidate).resolve()
+                if executable != cwd and cwd not in executable.parents:
+                    # Preserve the launcher name for argv[0]-based dispatch.
+                    return candidate
+    raise GuidanceError(
+        f"Cannot resolve {name} from absolute PATH entries outside the current working "
+        "directory. Check PATH or run from a directory that does not contain host "
+        "tool installations."
+    )
+
+
 def git(checkout, *args):
     env = {
         key: value for key, value in os.environ.items() if not key.startswith("GIT_")
     }
     result = subprocess.run(
-        ["git", "--no-replace-objects", "-C", str(checkout), *args],
+        [
+            trusted_executable("git"),
+            "--no-replace-objects",
+            "-c",
+            "core.fsmonitor=false",
+            "-C",
+            str(checkout),
+            *args,
+        ],
         capture_output=True,
         timeout=30,
         env=env,
@@ -105,6 +152,7 @@ def verify(checkout, expected_sha):
         "source": str(checkout),
         "commit": head,
         "fileCount": len(tree),
+        "verifiedPaths": GUIDANCE_PATHS,
     }
 
 

@@ -13,15 +13,22 @@ The external-contributor skill's
 counts as authorization only for its recorded request, cleared revisions, and
 resource scope. It permits the trigger without another confirmation, not fixes,
 general PR writes, or bypassing protected-workflow approvals.
+Every comment trigger, including a requeue, must satisfy the
+[comment-trigger gate](ci-evidence.md#comment-trigger-gate).
 
 After an authorized `/azp run`, confirm that the current-head build queued. Record its build
 ID, PR head SHA, and the trigger comment's `created_at` as its kickoff time.
+The guarded helper returns the comment ID, URL, and timestamp in
+`completeness.pipelineRunComment`; retain that receipt rather than searching for
+the newest `/azp run` comment.
 For a manually queued run without that comment, use Azure's `queueTime`, not
-the time an agent first notices the build. Then run
+the time an agent first notices the build. Azure's fractional-second timestamps
+are accepted; precision finer than microseconds is truncated, never rounded up.
+Then run
 [watch_azure_pipeline.py](../scripts/watch_azure_pipeline.py):
 
 ```text
-python -B <watcher-script> --repo microsoft/SynapseML --pull-request <number> --head-sha <full-sha> --build-id <id> --kickoff-at <ISO-8601-time>
+python -E -s -B <watcher-script> --repo microsoft/SynapseML --pull-request <number> --head-sha <full-sha> --build-id <id> --kickoff-at <ISO-8601-time>
 ```
 
 - Launch this command once through the terminal tool's attached
@@ -36,21 +43,36 @@ python -B <watcher-script> --repo microsoft/SynapseML --pull-request <number> --
   calls, subagents, recurring prompts, or short polls of the job's output.
   Read its result when the terminal tool sends a completion notification.
 - With Azure access, add `--azure-timeline --base-sha <sha> --merge-sha <sha>`.
+  Obtain the build and revisions from the
+  [CI identity sources](ci-evidence.md#azure-merge-and-named-tests).
   This reuses the same watcher and cadence, verifies the exact merge/build,
   and includes attempt-aware timeline diagnostics. It can monitor an explicit
   build even without the GitHub aggregate. An `agent_loss` event surfaces
   hosted-agent loss while a job is still `inProgress`, then the watcher continues
   waiting at the normal cadence until Azure completes or the deadline expires.
+  A queued or running build whose timeline is not available yet also stays
+  pending at that cadence; an absent timeline never counts as passing jobs.
+  When Azure completes before its GitHub check catches up, the watcher allows
+  one more normal poll if it can start strictly before the original deadline.
+  Agreement ends the wait normally. A persistent mismatch, or insufficient
+  time to start that poll, returns the Azure evidence for triage:
   `azure_completed` reports a completed build whose GitHub gate is missing or
   lagging; a GitHub/Azure disagreement returns `attention_required`. Both exit
   nonzero and require
   triage, not a readiness claim. See [CI evidence](ci-evidence.md).
+  Requests still use the remaining budget. If a started confirmation poll
+  exhausts it, the watcher returns `timeout` (exit 124) with the last collected
+  Azure evidence, not a fresh GitHub classification.
 - Timeline monitoring stays bound to the queued build's immutable merge parents.
   Target-tip movement does not cancel observation of that build or its retry.
   Reassess current integration separately with `Get-PrReadiness.ps1` before
   claiming readiness or triggering another build.
 - Exit zero means the named check succeeded. Failure, timeout, query errors,
   or a changed PR head are nonzero results.
+  Timeline `jobGatesPassed` and `unresolvedJobs` are separate diagnostics, with
+  no skipped-job exemptions in the watcher. Assess intentional skips and actual
+  tests through the [collector](ci-evidence.md#azure-merge-and-named-tests);
+  watcher success does not establish those gates.
 - The watcher queries only `microsoft/SynapseML`. The optional `--repo` flag
   accepts that name case-insensitively; a different repository is rejected
   before any query, even if it could replay a real Azure build URL.
@@ -80,9 +102,15 @@ python -B <watcher-script> --repo microsoft/SynapseML --pull-request <number> --
   required checks to appear, not Azure pipeline completion. Keep that separate
   from the 10-minute pipeline-monitoring cadence.
 
-The watcher regressions live in `tools/ci/tests/test_watch_azure_pipeline.py`
-so the existing `CIHelpers` job runs them. For a focused local run, use
-`python -m pytest tools/ci/tests/test_watch_azure_pipeline.py -q`.
+The four helper suites run in the existing `CIHelpers` job. For local validation:
+
+```text
+python -B -m pytest tools/ci/tests/test_watch_azure_pipeline.py tools/ci/tests/test_collect_ci_evidence.py tools/ci/tests/test_get_pr_readiness.py tools/ci/tests/test_trusted_guidance.py -q -rs
+```
+
+The readiness suite requires PowerShell 7.2+ (`pwsh`) on PATH. Missing `pwsh`
+fails the suite in Azure Pipelines (`TF_BUILD`); local runs skip it instead.
+A local skip is not a pass; resolve the prerequisite before claiming coverage.
 
 ## Product defect
 

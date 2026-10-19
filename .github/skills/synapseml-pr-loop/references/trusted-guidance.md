@@ -15,18 +15,39 @@ checkout to decide whether that checkout's instructions are trustworthy.
    [verify_trusted_guidance.py](../scripts/verify_trusted_guidance.py):
 
    ```text
-   python -B <trusted-script> --checkout <trusted-worktree-root> --expected-sha <trusted-target-sha>
+   python -I -B <trusted-script> --checkout <trusted-worktree-root> --expected-sha <trusted-target-sha>
    ```
 
 4. Record the output's source, commit, and verification result before loading
    instructions or executing other helpers. Resolve every relative link from
    that source, including links to adjacent skills. Recheck on resume or source
-   movement. Run Python helpers with `-B` so bytecode does not dirty the snapshot.
+   movement. Bootstrap with `-I` to exclude the script directory, working
+   directory, user site, and `PYTHONPATH` from imports before verification.
+   `-B` alone does not prevent shadow imports. After verification, run Python
+   helpers with `-E -s -B` to ignore `PYTHON*` environment variables and user-site
+   packages and avoid bytecode writes. Unlike `-I`, these flags retain the
+   verified script directory for sibling imports.
 
 The verifier checks HEAD, index, working files, and untracked/ignored files in
-the guidance paths, and rejects missing safety resources and symlinked guidance.
+the guidance paths, including `CODEOWNERS`, `pipeline.yaml`, and `templates/`.
+Its JSON lists `verifiedPaths`; other source inputs must be read from the pinned
+commit (for example, `git show <sha>:<path>`), not assumed verified by proximity.
+It rejects missing safety resources and symlinked guidance.
 It runs no repository hooks or Git content filters. A mismatch is a blocker;
 do not reset someone else's checkout to make it pass.
+
+Use trusted host Python and CLI installations, separate from environments where
+PR packages are installed or tested. Python helpers resolve `git`, `gh`, and
+`az` to absolute paths from absolute `PATH` entries, excluding the current
+directory and its descendants. This prevents implicit Windows executable lookup
+from running a checkout-owned decoy. Relative `PATH` entries are not supported;
+the remaining host `PATH` entries must already be trusted.
+Do not run from a filesystem root or a directory containing host tool installs
+(including home directories with user-scoped installs): those tools are excluded.
+Symlink targets are checked against the same exclusion, but tools are invoked
+through their absolute launcher paths so name-based shims keep working.
+The PowerShell readiness helper uses normal PowerShell command discovery;
+run it in a trusted shell without checkout-owned aliases, functions, or `PATH` entries.
 
 The expected SHA must already be trusted. The verifier checks consistency, not
 the trustworthiness of a remote, a commit's contents, or the verifier itself.

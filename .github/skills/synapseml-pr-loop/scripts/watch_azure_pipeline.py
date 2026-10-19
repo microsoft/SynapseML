@@ -7,16 +7,20 @@ import argparse
 from datetime import datetime, timedelta, timezone
 import json
 import re
-import subprocess
 import sys
 import time
 from urllib.parse import parse_qs, urlparse
 
-# Helpers run from a verified clean guidance snapshot, including without -B.
-sys.dont_write_bytecode = True
+# Direct CLI runs must leave the verified guidance snapshot clean even without -B.
+if __name__ == "__main__":
+    sys.dont_write_bytecode = True
 from collect_ci_evidence import (
+    AZURE_PROJECT_ID,
+    MAX_BUILD_ID,
+    REPOSITORY,
     AzureClient,
     EvidenceError,
+    command_json,
     collect_build,
     github_json,
     verify_merge,
@@ -24,10 +28,7 @@ from collect_ci_evidence import (
 
 POLL_SECONDS = 600
 MAX_TIMEOUT_MINUTES = 120
-MAX_BUILD_ID = 2_147_483_647
 CHECK_NAME = "microsoft.SynapseML"
-REPOSITORY = "microsoft/SynapseML"
-AZURE_PROJECT_ID = "b9b2accc-2d1c-45b3-9d24-0eb5d78cc47f"
 AZURE_PROJECTS = (AZURE_PROJECT_ID, "a365")
 AZURE_BUILD_PATHS = {
     "dev.azure.com": {
@@ -86,26 +87,9 @@ def query_pr(args, timeout):
         "state,headRefOid,statusCheckRollup",
     ]
     try:
-        process = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            timeout=timeout,
-            check=False,
-        )
-    except subprocess.TimeoutExpired as error:
-        raise MonitorError("GitHub status query timed out.") from error
-    except OSError as error:
-        raise MonitorError(f"Could not run GitHub CLI: {error}") from error
-    except UnicodeError as error:
-        raise MonitorError("GitHub CLI output is not valid UTF-8.") from error
-    if process.returncode:
-        raise MonitorError(f"GitHub CLI failed: {process.stderr.strip()[:1000]}")
-    try:
-        snapshot = json.loads(process.stdout)
-    except json.JSONDecodeError as error:
-        raise MonitorError("GitHub CLI returned invalid JSON.") from error
+        snapshot = command_json(command, timeout)
+    except EvidenceError as error:
+        raise MonitorError(str(error)) from error
     if not isinstance(snapshot, dict):
         raise MonitorError("GitHub CLI did not return a PR object.")
     return snapshot
@@ -125,6 +109,16 @@ def monitor(args):
     }
     merge_verified = False
     reported_agent_losses = set()
+    waited_for_github = False
+
+    def wait_for_check_update():
+        nonlocal waited_for_github
+        if waited_for_github or deadline - time.monotonic() <= POLL_SECONDS:
+            return False
+        waited_for_github = True
+        time.sleep(POLL_SECONDS)
+        return True
+
     while True:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
@@ -168,27 +162,28 @@ def monitor(args):
             if time.monotonic() >= deadline:
                 return timeout_result
             timeout_result["azure"] = azure
-            if azure["attentionRequired"]:
-                for job in azure["jobs"]:
-                    identity = (job["identifier"], job["attempt"])
-                    if (
-                        job.get("agentLossDetected")
-                        and identity not in reported_agent_losses
-                    ):
-                        reported_agent_losses.add(identity)
-                        print(
-                            json.dumps(
-                                {
-                                    "event": "agent_loss",
-                                    "buildId": args.build_id,
-                                    "job": job["identifier"],
-                                    "attempt": job["attempt"],
-                                    "state": job["state"],
-                                    "url": azure["url"],
-                                }
-                            ),
-                            flush=True,
-                        )
+            if azure["status"] != "completed":
+                waited_for_github = False
+            for job in azure["jobs"]:
+                identity = (job["identifier"], job["attempt"])
+                if (
+                    job.get("agentLossDetected")
+                    and identity not in reported_agent_losses
+                ):
+                    reported_agent_losses.add(identity)
+                    print(
+                        json.dumps(
+                            {
+                                "event": "agent_loss",
+                                "buildId": args.build_id,
+                                "job": job["identifier"],
+                                "attempt": job["attempt"],
+                                "state": job["state"],
+                                "url": azure["url"],
+                            }
+                        ),
+                        flush=True,
+                    )
         checks = snapshot.get("statusCheckRollup")
         if not isinstance(checks, list) or not all(
             isinstance(check, dict) for check in checks
@@ -206,6 +201,8 @@ def monitor(args):
         if not matching or max(matching) < args.build_id:
             if azure:
                 if azure["status"] == "completed":
+                    if wait_for_check_update():
+                        continue
                     return {
                         "outcome": "azure_completed",
                         "azure": azure,
@@ -247,6 +244,8 @@ def monitor(args):
             "EXPECTED",
         ):
             if azure and azure["status"] == "completed":
+                if wait_for_check_update():
+                    continue
                 return {
                     "outcome": "azure_completed",
                     "azure": azure,
@@ -259,6 +258,8 @@ def monitor(args):
         else:
             raise MonitorError(f"Unknown Azure check state: {state!r}")
         if azure and (conclusion == "SUCCESS") != (azure["result"] == "succeeded"):
+            if wait_for_check_update():
+                continue
             return {
                 "outcome": "attention_required",
                 "azure": azure,
@@ -275,6 +276,12 @@ def monitor(args):
 
 def parse_kickoff(value):
     try:
+        # Python 3.10 accepts only three or six fractional-second digits.
+        value = re.sub(
+            r"^(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2})\.(\d+)",
+            lambda match: match[1] + "." + match[2][:6].ljust(6, "0"),
+            value,
+        )
         kickoff = datetime.fromisoformat(value.replace("Z", "+00:00"))
         if kickoff.tzinfo is None:
             raise argparse.ArgumentTypeError("Kickoff must include its time zone.")

@@ -6,7 +6,8 @@ description: >-
   synapseml-pr-loop. Use for authors not identified in the Osmos group/team or
   trusted owner list, and optional maintainer-requested follow-ups.
 compatibility: >-
-  SynapseML checkout with git, GitHub CLI, and GitHub/Azure Pipelines access.
+  SynapseML checkout with git, GitHub CLI, PowerShell 7.2+, Python, Azure CLI
+  (logged in), and GitHub/Azure Pipelines access.
 ---
 
 # SynapseML external-contributor review
@@ -86,12 +87,8 @@ probability or permission to ignore an unresolved concern.
    not a script. Do not merge the PR unless asked; contributor sign-off, CLA,
    or human approval may still be needed.
 
-A correct contribution can finish as **validated without maintainer changes**.
-Report the reviewed head, actual validation, and remaining human/merge gates.
-Do not manufacture an edit, review-artifact commit, or contributor sign-off
-request for additions you never made. Validation-only mode does not enter the
-full loop's commit/gauntlet publication stages; an empty change is not a failed
-contribution. Post a handoff comment only when separately authorized.
+For the no-change outcome and stage exclusions, follow the PR loop's
+[validation-only handoff](../synapseml-pr-loop/SKILL.md#validation-only-handoff).
 
 Preserve existing PR comments and discussions, including when following the PR
 loop. Do not delete, rewrite, hide, or resolve them as cleanup. Add a reply only

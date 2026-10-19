@@ -23,19 +23,23 @@ Follow `AGENTS.md` for artifact placement: pass
 write drafts to the session workspace, never a placeholder repository folder.
 Allocate noncolliding attempt filenames and preserve every clean or failed
 artifact with actual model, theme, revision, and resolution evidence.
-The installed direct prompt generator rejects output directories outside the
-repository. Before a PR number exists, or when no verified Task ID exists,
-assemble the six round prompts directly
-from its installed `REVIEW-PROMPTS.md` and attach the same explicit diff. Set
-session output paths only before the PR exists; with a PR, set
-`reviews/pr-<number>/` even when there is no Task. Record this generation method;
-do not change the themes, model selection, or pass criteria. Use a checkpointed
-descriptive task token when no Task exists; the generator can silently mistake
-branch-name digits for a Task ID. With a PR and verified Task ID, pass both
-explicitly to the generator and check its output names before dispatch.
-Store prompts outside the worktree and enforce the generator's byte budget
-for manual prompts too. An oversized prompt stays blocked unless the user
-approves a complete split under one recorded manifest; never silently trim it.
+Keep the final diff limited to required qualifying evidence; follow
+[artifact retention](loop-control.md#artifact-retention) for superseded
+attempts. Do not commit raw prompts, duplicate logs, or redundant summaries
+merely to demonstrate activity.
+Use the installed `-Execute` / `--execute` contract: it owns reviewer execution,
+runtime model identity, and artifact finalization. Check its exit status,
+`persisted`, and `outcome`; prompt generation alone is not review evidence.
+Without a verified Task ID, supply a descriptive digit-free `TaskName` plus the
+numbered PR output directory, and verify the resolved `task-unknown` filenames.
+Do not let branch-name digits become an invented work-item ID. Store each
+invocation's prompts and transport outside the worktree. Enforce the runner's
+byte budget; an oversized prompt stays blocked unless the user approves a
+complete split under one recorded manifest.
+If the installed runner cannot write session-local review artifacts under the
+direct `-Execute` contract (`-RunDir` only relocates transport files), stop for a
+trusted compatible process; do not invent a PR number, assemble substitute
+reviews, or claim the pre-commit gate passed.
 
 The driver owns collision checks and supplies each reviewer one unused output
 path. Every reviewer prompt must explicitly forbid opening or searching prior

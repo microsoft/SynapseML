@@ -19,6 +19,13 @@ by current-head evidence.
 
 ## User value and scope
 
+- Every changed file and hunk must support an acceptance criterion, fix a
+  demonstrated defect, or satisfy a repository requirement. Remove useless files,
+  unrelated cleanup, speculative abstractions, duplicate documentation, and filler.
+  Keep focused tests and necessary evidence; do not trade correctness or
+  traceability for a smaller line count. Prune superseded review artifacts only
+  under the [retention policy](loop-control.md#artifact-retention).
+  Record this full-diff scope audit in the checkpoint.
 - The title and opening description accurately explain the current change and
   user value to a human reader; deeper technical evidence follows afterward.
 - The opening makes the what and why clear without the diff. Visuals clarify
@@ -90,6 +97,8 @@ by current-head evidence.
   workflow approval, and manual queueing require explicit CI authorization
   and, for external PRs, a fresh trusted safety check of the exact head.
   Without those prerequisites, report missing CI as a blocker and stay read-only.
+  Every comment trigger must also satisfy the
+  [comment-trigger gate](ci-evidence.md#comment-trigger-gate).
   A qualifying request under the trusted contributor skill can supply the CI
   grant, subject to its revision and resource restrictions. Validation-only
   completion is not full engineering readiness and grants no editing authority.

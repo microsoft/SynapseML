@@ -7,8 +7,9 @@ description: >-
   rebase-and-test requests, resolving all review comments, or proving a feature
   ships without correctness, compatibility, performance, or Spark regressions.
 compatibility: >-
-  SynapseML repository with git, GitHub CLI, PowerShell, WSL/Linux, sbt, Python,
-  network access to GitHub/Azure Pipelines, and installed copilot-toolkit review-code.
+  SynapseML repository with git, GitHub CLI, PowerShell 7.2+, WSL/Linux, sbt, Python,
+  Azure CLI (logged in), network access to GitHub/Azure Pipelines, and installed
+  copilot-toolkit review-code.
 ---
 
 # SynapseML PR loop
@@ -146,6 +147,8 @@ artifact commits, or a sign-off request for additions that do not exist.
 ### 4. Review and implement
 
 - Apply the [code-review skill](../code-review/SKILL.md).
+- Apply the [no-bloat gate](references/readiness-gates.md#user-value-and-scope)
+  to the full PR diff, including its artifact-retention preconditions.
 - Use this as the fast review, not as a substitute for `/review-code`.
   Review the full merge-base-to-index patch including pending changes, not just the last
   commit. Validate each finding before changing code or replying.
@@ -207,7 +210,9 @@ artifact commits, or a sign-off request for additions that do not exist.
   satisfies CI authorization only within its cleared revision/resource scope.
   Reuse that grant without another confirmation; an explicit no-CI request wins.
   For external contributor PRs, recheck the trusted safety gate for that head
-  before `/azp run`, `-RunPipeline`, workflow approval, or manual queueing.
+  before any CI action. Every comment trigger, including requeues, must also
+  follow the [comment-trigger gate](references/ci-evidence.md#comment-trigger-gate).
+  Workflow approval and manual queueing retain their separate permission gates.
   Then confirm a build actually queued -- a comment is not evidence that CI ran,
   so cite the build
   ID. A trigger-driven build records `reason=pullRequest`; one you queued
@@ -219,8 +224,8 @@ artifact commits, or a sign-off request for additions that do not exist.
   and go green within a couple of minutes, which makes a head with no Azure
   Pipelines build on it look fully checked; an absent check is neither failed
   nor pending, so nothing reports it. Verify the build against the head SHA by
-  name. Only after the authorization and safety checks above may
-  `Get-PrReadiness.ps1 -RunPipeline` post the missing trigger automatically.
+  name. For an absent aggregate, use the guarded helper invocation specified
+  by the comment-trigger gate above.
 - Once the build is queued, launch
   [watch_azure_pipeline.py](scripts/watch_azure_pipeline.py) as one attached
   background terminal job. It checks every **10 minutes (600 seconds)** and
@@ -254,9 +259,6 @@ artifact commits, or a sign-off request for additions that do not exist.
 ### 8. Run the six-round gauntlet
 
 Follow the complete [six-round gauntlet contract](references/review-gauntlet.md).
-Preserve both mandatory locally validated pre-commit passes and the final
-CI-qualified pass, all six themes, frozen-patch identity, attempt budgets, and
-artifact publication rules. Extraction into a reference does not waive policy.
 Validation-only handoffs do not enter this stage.
 
 ### 9. Final readiness loop
@@ -271,8 +273,8 @@ explicit CI authorization and, for an external PR, a fresh trusted safety check
 of the exact head. Without either prerequisite, leave CI blocked.
 The contributor skill's recorded conditional grant can supply that authorization;
 its scope and protected-resource restrictions still apply.
-Do not combine `-RunPipeline` with the waiting loop for external PRs, where the
-head could change after clearance. Trigger once, then wait read-only.
+The helper refuses `-RunPipeline` with `-WaitForReview` or `-RequestReview` for every PR.
+Trigger once with the expected SHAs, then wait read-only.
 
 `-WaitForReview` waits for current-head automated review and required checks to
 appear. The separately authorized `-RunPipeline` requests missing CI. Neither
