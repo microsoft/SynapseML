@@ -38,9 +38,11 @@ access; it is not a request to make changes.
 
 Help the contributor without taking over their PR. After safety clearance,
 use [synapseml-pr-loop](../synapseml-pr-loop/SKILL.md) in validation-only mode
-to request missing `/azp run`, monitor the build, and triage results. Share one
-checkpoint and budget. Its change, publication, and discussion-resolution stages
-remain opt-in; a link back here is not another loop invocation.
+to request missing applicable CI, monitor the build, and triage results. Apply its
+[Azure scope exception](../synapseml-pr-loop/SKILL.md#7-run-and-triage-full-ci)
+before requiring `/azp run`. Share one checkpoint and budget. Its change,
+publication, and discussion-resolution stages remain opt-in; a link back here
+is not another loop invocation.
 
 ## Safety first
 

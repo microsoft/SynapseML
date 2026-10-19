@@ -3,20 +3,22 @@
 
 import contextlib
 from email.message import Message
-from http.client import BadStatusLine, IncompleteRead, LineTooLong
+from http.client import BadStatusLine, HTTPConnection, IncompleteRead, LineTooLong
 import importlib.util
 import io
 import json
 import os
 from pathlib import Path
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import unittest
 from unittest.mock import Mock, patch
-from urllib.error import HTTPError
+from urllib.error import HTTPError, URLError
 from urllib.request import HTTPRedirectHandler, Request
 
 SPEC = importlib.util.spec_from_file_location(
@@ -1082,6 +1084,89 @@ class CiEvidenceTests(unittest.TestCase):
                 evidence.AzureClient(deadline=99).get("build/builds/42")
         command.assert_not_called()
 
+    def test_streaming_response_stops_at_the_original_deadline(self):
+        for expire in (False, True):
+            with self.subTest(expire=expire):
+                reader, writer = socket.socketpair()
+                reader.settimeout(2)
+                writer.settimeout(2)
+                connection = HTTPConnection("dev.azure.com", timeout=2)
+                connection.sock = reader
+                response_started = threading.Event()
+                body_finished = threading.Event()
+                sender_errors = []
+                now = [99]
+                payload = b'{"value":[]}'
+                getresponse = connection.getresponse
+
+                def start_response():
+                    response = getresponse()
+                    response_started.set()
+                    return response
+
+                connection.getresponse = start_response
+
+                def send_response():
+                    try:
+                        request = b""
+                        while b"\r\n\r\n" not in request:
+                            chunk = writer.recv(4096)
+                            if not chunk:
+                                return
+                            request += chunk
+                        writer.sendall(
+                            b"HTTP/1.1 200 OK\r\nContent-Length: "
+                            + str(len(payload)).encode()
+                            + b"\r\nConnection: close\r\n\r\n"
+                        )
+                        if not response_started.wait(2):
+                            return
+                        for index, byte in enumerate(payload):
+                            if index == len(payload) - 1:
+                                body_finished.set()
+                            writer.sendall(bytes([byte]))
+                            time.sleep(0.02)
+                            if expire:
+                                now[0] = 101
+                    except OSError as error:
+                        sender_errors.append(error)
+                    finally:
+                        writer.close()
+
+                sender = threading.Thread(target=send_response, daemon=True)
+                sender.start()
+                try:
+                    with patch(
+                        "http.client.HTTPSConnection",
+                        return_value=connection,
+                        debuglevel=0,
+                    ), patch(
+                        "urllib.request.getproxies", return_value={}
+                    ), patch.object(
+                        evidence.time, "monotonic", side_effect=lambda: now[0]
+                    ):
+                        client = evidence.AzureClient(timeout=2, deadline=100)
+                        client.token = "fixture-token"
+                        if expire:
+                            with self.assertRaisesRegex(
+                                evidence.EvidenceError, "deadline expired"
+                            ):
+                                client.get("build/builds/42")
+                            self.assertFalse(body_finished.is_set())
+                        else:
+                            self.assertEqual(
+                                {"value": []}, client.get("build/builds/42")
+                            )
+                            self.assertTrue(body_finished.is_set())
+                        self.assertTrue(response_started.is_set())
+                        self.assertEqual(-1, reader.fileno())
+                finally:
+                    reader.close()
+                    sender.join(timeout=3)
+                self.assertFalse(sender.is_alive())
+                if not expire:
+                    self.assertEqual([], sender_errors)
+
     def test_client_requests_only_allowlisted_evidence_with_bounded_authentication(
         self,
     ):
@@ -1162,6 +1247,44 @@ class CiEvidenceTests(unittest.TestCase):
             with self.assertRaises(evidence.EvidenceError) as raised:
                 client.get("build/builds/42")
         self.assertNotIn("private status", str(raised.exception))
+
+    def test_http_timeout_errors_report_deadline_or_query_timeout(self):
+        for during_read in (False, True):
+            for expired in (False, True):
+                with self.subTest(during_read=during_read, expired=expired):
+                    now = [99]
+                    client = evidence.AzureClient(deadline=100)
+                    client.token = "fixture-token"
+                    response = Mock()
+                    error = TimeoutError("private response")
+                    if not during_read:
+                        error = URLError(error)
+
+                    def fail(*args, **kwargs):
+                        now[0] = 100 if expired else 99.5
+                        raise error
+
+                    response.read.side_effect = fail
+                    message = (
+                        "Azure evidence deadline expired."
+                        if expired
+                        else "Azure evidence query timed out."
+                    )
+                    with patch.object(
+                        evidence.time, "monotonic", side_effect=lambda: now[0]
+                    ), patch.object(
+                        client.opener,
+                        "open",
+                        return_value=contextlib.closing(response),
+                        side_effect=None if during_read else fail,
+                    ):
+                        with self.assertRaisesRegex(
+                            evidence.EvidenceError, message
+                        ) as raised:
+                            client.get("build/builds/42")
+                    self.assertNotIn("private response", str(raised.exception))
+                    if during_read:
+                        response.close.assert_called_once()
 
     def test_entry_point_reports_expected_test_evidence_not_merge_approval(self):
         for outcome, job_result, test_outcome, test_name in (

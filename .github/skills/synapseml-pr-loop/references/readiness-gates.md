@@ -96,7 +96,9 @@ by current-head evidence.
 - These evidence gates do not authorize CI. `/azp run`, `-RunPipeline`,
   workflow approval, and manual queueing require explicit CI authorization
   and, for external PRs, a fresh trusted safety check of the exact head.
-  Without those prerequisites, report missing CI as a blocker and stay read-only.
+  When CI is required, missing prerequisites leave it blocked; stay read-only.
+  Apply the [Azure scope exception](../SKILL.md#7-run-and-triage-full-ci)
+  before requiring a build or requesting a trigger.
   Every comment trigger must also satisfy the
   [comment-trigger gate](ci-evidence.md#comment-trigger-gate).
   A qualifying request under the trusted contributor skill can supply the CI
@@ -113,13 +115,26 @@ by current-head evidence.
   gates above, because it never saw that code.
 - Targeted tests, compile, test compile, style, Black, codegen, Python, and
   port-branch compatibility pass as applicable.
-- Full Azure Pipelines and required GitHub checks are complete with zero
+- Applicable Azure Pipelines and required GitHub checks are complete with zero
   unexplained failures or pending jobs.
-- The Azure Pipelines build is present on the current head. It does not queue
-  itself on a push here, and green GitHub Actions alone are not full CI.
+- When Azure validation is required, its build is present on the current head.
+  It does not queue itself on a push here, and green GitHub Actions alone are not full CI.
   Confirm the Azure build by name against the head SHA, not by the absence of
   red. A missing build remains a blocker; request it only after the authorization
   and safety prerequisites above are satisfied.
+- For an exempt diff, record Azure validation as not required, not passed.
+  Keep any conflicting enforced GitHub check visible as a merge-policy mismatch.
+  The helper always requires `microsoft.SynapseML`, even without a matching
+  GitHub rule, so an absent Azure run leaves its summary readiness states and
+  `completeness.complete` blocked/false. With complete policy evidence, classify
+  the missing aggregate as an enforced mismatch only when it appears in
+  `ruleRequiredChecks[].context` or `classicProtection.required_status_checks`;
+  otherwise it is only the helper's built-in requirement. Incomplete policy
+  evidence remains unknown, not exempt from inspection.
+  Assess all other gates from their own fields: other missing/unproven checks,
+  `failedChecks`, `pendingChecks`, workflow results and approvals, review threads,
+  `completeness.automatedReviewCoversHead`, `behindBy`, `mergeable`, and
+  `readiness.unassessedGates`. Never cite or rewrite the blocked summary as clear.
 - Skips are expected and documented; a skipped required scenario is a blocker.
 - Inspect workflow runs as well as check rollups: `action_required` may have no
   visible job check. Effective rulesets/classic protection supply approval and

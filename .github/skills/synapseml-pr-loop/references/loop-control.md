@@ -229,7 +229,8 @@ links, referenced flags, and existing helper regressions when helpers change.
 | External fix is validated but thread resolution was not requested | Report the addressed finding and remaining gate; do not resolve the thread |
 | Contributor workflow links back to this loop | Reuse the same checkpoint, budget, and validation stages; do not recurse |
 | Authorized external follow-up is complete | Provide the contributor handoff or an unposted draft; do not infer sign-off or merge permission |
-| No failures but no Azure build | Missing gate, not green; trigger only after authorization and safety checks |
+| Non-exempt diff: no failures but no Azure build | Missing gate, not green; trigger only after authorization and safety checks |
+| Diff limited to `.github/skills/` and `reviews/`, no Azure build | Azure not required, not passed; run applicable local checks and Actions, assess the helper's underlying gate fields, and report any actually enforced Azure requirement as a merge-policy mismatch; do not trigger just for this workflow |
 | Green review on an older SHA | Wait within the configured timeout for current-head coverage |
 | Zero threads, collapsed review finding | Read body and triage finding; remain in fast loop |
 | Round 5 needs a fix | Run tests and fast loop, then require six clean rounds on the frozen patch |

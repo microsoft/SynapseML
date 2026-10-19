@@ -93,6 +93,10 @@ does not clear those other gates or authorize CI.
 
 ### Comment-trigger gate
 
+Apply the [Azure scope exception](../SKILL.md#7-run-and-triage-full-ci) before
+requesting a run. A missing aggregate alone does not make an exempt diff require
+Azure validation.
+
 A separately authorized `-RunPipeline`
 requires one PR and both expected SHAs, refuses `-WaitForReview` and
 `-RequestReview`, and only requests an absent Azure aggregate (not a missing
@@ -186,8 +190,13 @@ whose reason is recorded in the checkpoint. It cannot exempt a named
 The scope is `expected_suites_and_tests_only`: unrelated tests sharing a run
 name do not become required unless that run name is an explicit expected suite.
 Collection has a ten-minute total deadline; expiry leaves evidence unresolved.
+Each blocking HTTP response read uses the remaining budget, so streaming bytes
+do not reset the deadline. Expiry closes the response and its socket reader.
 The original deadline is rechecked after the final collection; finishing at or
 after it is an error even when all collected jobs and tests passed.
+HTTP failures also recheck that deadline: expiry is reported as a deadline
+error, while a socket timeout with budget remaining is reported as a query
+timeout. Diagnostics never include the underlying response or error text.
 On Windows, timed-out CLI batch launchers are stopped with their process tree;
 cleanup can take up to fifteen additional seconds. A cleanup failure reports the
 process ID for inspection before retrying. CLI output, including access tokens,

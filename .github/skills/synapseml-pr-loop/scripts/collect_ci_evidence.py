@@ -5,7 +5,8 @@
 
 import argparse
 from collections import Counter
-from http.client import HTTPException
+from http import client as http_client
+import io
 import json
 import re
 import subprocess
@@ -13,7 +14,7 @@ import sys
 import time
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode
-from urllib.request import HTTPRedirectHandler, Request, build_opener
+from urllib.request import HTTPRedirectHandler, HTTPSHandler, Request, build_opener
 
 if __name__ == "__main__":
     sys.dont_write_bytecode = True
@@ -122,13 +123,58 @@ class NoRedirect(HTTPRedirectHandler):
         )
 
 
+class DeadlineReader(io.RawIOBase):
+    def __init__(self, sock, stream, remaining_timeout):
+        super().__init__()
+        self.socket = sock
+        self.stream = stream
+        self.remaining_timeout = remaining_timeout
+
+    def readable(self):
+        return True
+
+    def readinto(self, buffer):
+        self.socket.settimeout(self.remaining_timeout())
+        return self.stream.readinto(buffer)
+
+    def close(self):
+        try:
+            self.stream.close()
+        finally:
+            super().close()
+
+
+class DeadlineHTTPSHandler(HTTPSHandler):
+    def __init__(self, remaining_timeout):
+        super().__init__()
+        self.remaining_timeout = remaining_timeout
+
+    def https_open(self, request):
+        def response(sock, **options):
+            result = http_client.HTTPResponse(sock, **options)
+            # Bound each socket receive, including header and chunk framing reads.
+            result.fp = io.BufferedReader(
+                DeadlineReader(sock, result.fp.detach(), self.remaining_timeout)
+            )
+            return result
+
+        def connection(host, **options):
+            result = http_client.HTTPSConnection(host, **options)
+            result.response_class = response
+            return result
+
+        return self.do_open(connection, request, context=self._context)
+
+
 class AzureClient:
     """Use the existing Azure CLI login; never persist or print the bearer token."""
 
     def __init__(self, timeout=60, deadline=None):
         self.timeout = timeout
         self.deadline = deadline
-        self.opener = build_opener(NoRedirect())
+        self.opener = build_opener(
+            NoRedirect(), DeadlineHTTPSHandler(self.remaining_timeout)
+        )
         self.token = None
 
     def remaining_timeout(self):
@@ -180,7 +226,12 @@ class AzureClient:
             raise EvidenceError(
                 f"Azure evidence query failed (HTTP {error.code})."
             ) from error
-        except (URLError, OSError, ValueError, HTTPException) as error:
+        except (URLError, OSError, ValueError, http_client.HTTPException) as error:
+            self.remaining_timeout()
+            if isinstance(error, TimeoutError) or (
+                isinstance(error, URLError) and isinstance(error.reason, TimeoutError)
+            ):
+                raise EvidenceError("Azure evidence query timed out.") from error
             raise EvidenceError(
                 "Azure evidence query failed or returned invalid JSON."
             ) from error

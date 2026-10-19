@@ -204,6 +204,19 @@ artifact commits, or a sign-off request for additions that do not exist.
 
 ### 7. Run and triage full CI
 
+**Scope exception:** A PR whose complete diff is limited to `.github/skills/`
+and `reviews/` does not require Azure Pipelines or `/azp run`. This includes
+executable skill helpers, not only Markdown. Check additions, deletions, and both
+sides of renames. Any change under `tools/`, including tests, disqualifies this
+exception; other changed paths retain their normal CI requirements.
+Still run relevant local tests and applicable GitHub Actions.
+
+This exception does not change GitHub rules or authorize bypassing them. Report
+an enforced Azure check on an exempt PR as a merge-policy mismatch, separately
+from validation requirements; do not invent a passing run or trigger Azure just
+to satisfy this workflow. The Azure queueing and monitoring steps below apply
+when Azure validation is required.
+
 - Push the exact validated head only when authorized. CI needs its own explicit
   authorization; permission to review or edit is not permission to trigger it.
   A recorded conditional grant from the trusted external-contributor skill
@@ -263,7 +276,17 @@ Validation-only handoffs do not enter this stage.
 
 ### 9. Final readiness loop
 
-Start with the read-only command
+Apply the [Azure scope exception](#7-run-and-triage-full-ci) first. For an exempt
+diff, take a read-only `Get-PrReadiness.ps1` snapshot without `-WaitForReview` or
+`-RunPipeline`, and audit current-head automated review separately. This avoids
+waiting for an Azure run the workflow does not require while retaining the
+underlying GitHub evidence. The helper still includes its built-in Azure
+requirement, so its summary states remain blocked when that run is absent.
+Apply the [exempt-diff interpretation](references/readiness-gates.md#review-and-validation)
+to distinguish that built-in requirement from checks GitHub actually enforces;
+do not report the helper's summary as clear.
+
+For non-exempt diffs, start with the read-only command
 `Get-PrReadiness.ps1 -PullRequest <numbers> -WaitForReview` and confirm every gate
 in [references/readiness-gates.md](references/readiness-gates.md).
 If a required build is missing, report that it has not run. Use a separate
