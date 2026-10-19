@@ -32,7 +32,8 @@ The verifier checks HEAD, index, working files, and untracked/ignored files in
 the guidance paths, including `CODEOWNERS`, `pipeline.yaml`, and `templates/`.
 Its JSON lists `verifiedPaths`; other source inputs must be read from the pinned
 commit (for example, `git show <sha>:<path>`), not assumed verified by proximity.
-It rejects missing safety resources and symlinked guidance.
+It rejects missing safety resources, symlinked guidance, and non-regular working
+files (including named pipes) before reading their contents.
 It runs no repository hooks or Git content filters. A mismatch is a blocker;
 do not reset someone else's checkout to make it pass.
 

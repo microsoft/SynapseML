@@ -756,6 +756,7 @@ def main(argv=None):
             and evidence["collectionStable"]
         )
         evidence["mergeReady"] = False
+        client.remaining_timeout()
         print(json.dumps(evidence))
         return 0 if evidence["validationPassed"] else 1
     except EvidenceError as error:

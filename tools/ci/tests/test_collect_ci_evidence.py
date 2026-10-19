@@ -1238,6 +1238,63 @@ class CiEvidenceTests(unittest.TestCase):
             proof["message"],
         )
 
+    def test_final_collection_must_finish_before_the_original_deadline(self):
+        for completed_at in (699, 700, 701):
+            with self.subTest(completed_at=completed_at):
+                clock = [100]
+                timeline_reads = 0
+                client = evidence.AzureClient(deadline=700)
+                responses = {
+                    "build/builds/42": build(),
+                    "build/builds/42/timeline": {"records": [job()]},
+                    "test/runs": {"value": [run()]},
+                    "test/runs/1": run(),
+                    "test/runs/1/results": {"value": [result()]},
+                }
+
+                def respond(path, **_):
+                    nonlocal timeline_reads
+                    if path.endswith("/timeline"):
+                        timeline_reads += 1
+                        if timeline_reads == 2:
+                            clock[0] = completed_at
+                    return responses[path]
+
+                output = io.StringIO()
+                with patch.object(
+                    evidence.time, "monotonic", side_effect=lambda: clock[0]
+                ), patch.object(
+                    evidence,
+                    "command_json",
+                    return_value={
+                        "sha": MERGE,
+                        "parents": [{"sha": BASE}, {"sha": HEAD}],
+                    },
+                ), patch.object(
+                    evidence, "AzureClient", return_value=client
+                ) as factory, patch.object(
+                    client, "get", side_effect=respond
+                ):
+                    with contextlib.redirect_stdout(output):
+                        self.assertEqual(
+                            0 if completed_at < 700 else 1, evidence.main(ARGV)
+                        )
+                factory.assert_called_once_with(deadline=700)
+                self.assertEqual(2, timeline_reads)
+                proof = json.loads(output.getvalue())
+                if completed_at < 700:
+                    self.assertTrue(proof["validationPassed"])
+                    self.assertEqual(1, proof["tests"]["currentResultCount"])
+                else:
+                    self.assertEqual(
+                        {
+                            "outcome": "error",
+                            "buildId": 42,
+                            "message": "Azure evidence deadline expired.",
+                        },
+                        proof,
+                    )
+
     def test_retry_starting_during_collection_invalidates_success(self):
         initial = {
             "jobs": [job()],

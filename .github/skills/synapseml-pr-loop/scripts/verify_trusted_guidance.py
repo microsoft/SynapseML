@@ -138,6 +138,8 @@ def verify(checkout, expected_sha):
             if parent != checkout
         ):
             raise GuidanceError("Guidance paths must not traverse symlinks.")
+        if not path.is_file():
+            raise GuidanceError("Guidance paths must be regular files.")
         committed = git(checkout, "cat-file", "blob", blob)
         actual = path.read_bytes()
         # Windows checkouts may have CRLF; no Git filters or PR code are executed.

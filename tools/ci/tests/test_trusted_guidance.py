@@ -2,6 +2,7 @@
 # Licensed under the MIT License. See LICENSE in the project root for information.
 
 import importlib.util
+import json
 import os
 from pathlib import Path
 import re
@@ -176,6 +177,46 @@ class TrustedGuidanceTests(unittest.TestCase):
         sha = self.commit("Symlink snapshot")
         with self.assertRaisesRegex(guidance.GuidanceError, "regular files"):
             guidance.verify(self.root, sha)
+
+    def test_non_regular_working_guidance_is_rejected_before_reading(self):
+        kinds = ["directory"] + (["fifo"] if hasattr(os, "mkfifo") else [])
+        for kind in kinds:
+            with self.subTest(kind=kind):
+                path = self.root / "AGENTS.md"
+                path.unlink()
+                if kind == "fifo":
+                    os.mkfifo(path)
+                else:
+                    path.mkdir()
+                try:
+                    try:
+                        process = subprocess.run(
+                            [
+                                sys.executable,
+                                "-I",
+                                "-B",
+                                SPEC.origin,
+                                "--checkout",
+                                str(self.root),
+                                "--expected-sha",
+                                self.sha,
+                            ],
+                            capture_output=True,
+                            text=True,
+                            timeout=30,
+                        )
+                    except subprocess.TimeoutExpired:
+                        self.fail(f"Guidance verification blocked on a {kind}.")
+                    self.assertEqual(1, process.returncode, process.stderr)
+                    proof = json.loads(process.stdout)
+                    self.assertFalse(proof["verified"])
+                    self.assertIn("regular files", proof["error"])
+                finally:
+                    if kind == "directory":
+                        path.rmdir()
+                    else:
+                        path.unlink()
+                    path.write_text("Trusted guidance\n", encoding="utf-8")
 
     def test_documented_credential_helpers_ignore_untrusted_pythonpath(self):
         source = Path(SPEC.origin).parent
