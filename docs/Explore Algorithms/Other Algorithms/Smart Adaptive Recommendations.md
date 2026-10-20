@@ -7,28 +7,27 @@ sidebar_label: SAR Algorithm
 
 # Smart Adaptive Recommendations (SAR) Algorithm
 
-The following document is a subset of the implemented logic. The original can be found [here](https://github.com/Microsoft/Product-Recommendations/blob/master/doc/sar.md)
+This page describes the collaborative-filtering subset of SAR implemented in SynapseML. The [original algorithm description](https://github.com/Microsoft/Product-Recommendations/blob/master/doc/sar.md) also covers catalog-based recommendations, which are not implemented by SynapseML's SAR estimator.
 
-**SAR** is a fast scalable adaptive algorithm for personalized recommendations based on user transactions history and items description. It produces easily explainable / interpretable recommendations.
+**SAR** produces personalized recommendations from user-item interaction history. SynapseML computes item similarities and user affinities from those interactions; it does not use item descriptions or other catalog features.
 
-The overall architecture of SAR is shown in the following diagram:
+The following diagram shows the original SAR architecture. Its item-catalog and cold-item learner paths are not implemented in SynapseML; only the interaction-based collaborative-filtering path applies here:
 
 ![SAR Diagram](https://i.imgur.com/AMPShWl.jpg)
 
 ## Input
 
-The input to SAR consists of:
+Pass one Spark DataFrame of user-item interactions to `SAR.fit()`. Configure the user and item identifier columns with `userCol` and `itemCol`; both string and numeric identifiers are supported. There is no separate catalog DataFrame argument or parameter for item descriptions or other item features.
 
--   transaction (usage) data
--   catalog data
+Each row represents an interaction, also called a transaction. Columns matching the configured `ratingCol` and `timeCol` names (defaults: `rating` and `time`) are optional. SAR detects these columns by exact, case-sensitive name, even when Spark's column resolution is case-insensitive. If a configured name is absent or misspelled, SAR silently omits that column's rating weights or time decay. A matching rating column must be numeric; its values scale the interaction's contribution to user-item affinity. Without a matching rating column, each interaction has weight one before any time decay.
 
-**Transaction data**, also called **usage data**, contains information on interactions between users and items and has the following schema:
+If a time column is present, its values are converted to strings and parsed using `activityTimeFormat` (default: `yyyy/MM/dd'T'h:mm:ss`). For 24-hour times such as those below, set `activityTimeFormat` to `yyyy/MM/dd'T'HH:mm:ss`. The default uses the 12-hour `h` field without an AM/PM marker, so it reads `12:xx` as `00:xx`. Choose a pattern matching the time column's string representation; for a Spark timestamp column, use a pattern such as `yyyy-MM-dd HH:mm:ss`.
 
-`<User Id>,<Item Id>,<Time>`
+Time decay is relative to `startTime`, parsed with the separate `startTimeFormat` (default: `EEE MMM dd HH:mm:ss Z yyyy`). When specifying a reference time, make sure `startTime` matches `startTimeFormat`; leave both unset to use the current time. The `timeDecayCoeff` parameter specifies the half-life in days (default: 30). For historical or offline data, set `startTime` close to the most recent interaction time. Affinities are stored as 32-bit floats, so events many half-lives older than the reference time can lose precision or contribute zero weight.
 
-Each row represents a single interaction between a user and an item, which we call a transaction. Here's an example of usage data (displayed as a table for readability, but note that it must be provided in comma-separated format):
+The following table illustrates interaction data with timestamps. CSV is not required; SAR consumes the DataFrame, regardless of how it was loaded:
 
-| User ID | Item ID | Time                |
+| User ID | Item ID | time                |
 | ------- | ------- | ------------------- |
 | User 1  | Item 1  | 2015/06/20T10:00:00 |
 | User 1  | Item 1  | 2015/06/28T11:00:00 |
@@ -44,17 +43,17 @@ SAR is based on a simple yet powerful collaborative filtering approach. In the h
 -   Item-to-Item similarity matrix
 -   User-to-Item affinity matrix
 
-**Item-to-Item similarity matrix** contains for each pair of items a numerical value of similarity between these two items. A simple measure of item similarity is _co-occurrence_, which is the number of times two items appeared in a same transaction. Let's look at the following example:
+**Item-to-Item similarity matrix** contains for each pair of items a numerical value of similarity between these two items. In SynapseML, _co-occurrence_ counts the distinct users who interacted with both items; repeated interactions by the same user do not increase this count. The following co-occurrence matrix uses the seven users in the affinity table below, where each nonblank cell indicates that the user interacted with that item:
 
 |            | Item 1 | Item 2 | Item 3 | Item 4 | Item 5 |
 | ---------- | :----: | :----: | :----: | :----: | :----: |
-| **Item 1** |    5   |    3   |    4   |    3   |    2   |
+| **Item 1** |    5   |    3   |    4   |    4   |    2   |
 | **Item 2** |    3   |    4   |    3   |    2   |    1   |
 | **Item 3** |    4   |    3   |    4   |    3   |    1   |
-| **Item 4** |    3   |    2   |    3   |    4   |    2   |
+| **Item 4** |    4   |    2   |    3   |    4   |    2   |
 | **Item 5** |    2   |    1   |    1   |    2   |    3   |
 
-Here, for example, _cooccur(Item 1, Item 2) = 3_, meaning that items 1 and 2 were together in a transaction three times. The Item-to-Item similarity matrix is symmetric. Diagonal elements, _occ(Item i)_, represent the number of occurrences of each item.
+Here, for example, _cooccur(Item 1, Item 2) = 3_, meaning that three distinct users interacted with both items 1 and 2. The Item-to-Item similarity matrix is symmetric. Diagonal elements, _occ(Item i)_, count the distinct users who interacted with each item.
 The advantage of co-occurrence is that it's easy to update. However, it favors predictability, and the most popular items will be recommended most of the time. To alleviate that, two more similarity measures are used: _lift_ and _Jaccard_. They can be thought of as normalized co-occurrences.
 
 _Lift_ measures how much the co-occurrence of two items is higher than it would be by chance, that is, what is the contribution of interaction of the two items. It is obtained as
@@ -63,16 +62,17 @@ _lift(Item i, Item j) = cooccur(Item i, Item j) / (occ(Item i) \* occ(Item j))_ 
 
 Lift favors serendipity / discoverability. For example, items 2 and 5 have the same co-occurrence with item 4, but item 5 in general occurs less frequently than item 2 and will be favored by lift.
 
-_Jaccard_ measure is defined as the number of transactions in which two items appear together divided by the number of transactions in which either of them appears:
+_Jaccard_ similarity divides the number of distinct users who interacted with both items by the number who interacted with either item:
 
 _Jaccard(Item 1, Item 2) = cooccur(Item1, Item 2) / (occ(Item 1) + occ(Item 2) - cooccur(Item 1, Item 2))_ .
 
 Jaccard measure is a tradeoff between co-occurrence and lift and is the default in SAR.
 
-An item is _cold_ if it has no transactions yet or the number of transactions is low, that is, below the SupportThreshold, which is configurable. If one or both items is cold, their item-to-item similarity cannot be estimated from the transactions data and item features must be used. A linear learner is trained using warm items, where the features of the model are (partial) matches on corresponding features of a pair of items. The target is the computed similarity, based on normalized co-occurrences of those items.
-The model is then used to predict similarities between cold and cold/warm items.
+Set `similarityFunction` to `jaccard` (default), `lift`, or `cooc` for raw co-occurrence. Values are case-sensitive; the implementation also treats any other string as raw co-occurrence.
 
-**User-to-Item affinity matrix** contains for each user-item pair an affinity score of the user towards the item. Affinity score is computed as a weighted number of transactions in which the user and the item appear together, where newer transactions are weighted more than the older transactions. Also, weights are adjusted for the event type. For example, "Purchase" event may be valued four times more than the "Click" event. Therefore, affinity score takes into account frequency, recency and the event type of transactions in which the user appears with the item.
+SynapseML sets an item pair's similarity to zero when its co-occurrence count is below `supportThreshold` (default: 4 distinct users). This threshold also applies to self-pairs. It does not select a catalog-based fallback: the content-based cold-start learner described in the original SAR algorithm is not implemented here.
+
+**User-to-Item affinity matrix** contains for each user-item pair an affinity score of the user towards the item. Affinity score is computed as a weighted number of transactions in which the user and the item appear together, and, when a time column is present, newer transactions are weighted more than older ones. Event-type weighting can be represented by supplying numeric values in the configured `ratingCol`; SAR has no separate event-type parameter. For example, a caller can assign a purchase a rating four times that of a click. Affinity therefore reflects interaction frequency, optional time decay, and any supplied rating weights.
 
 <!---
 **User-to-Item affinity matrix** contains for each user-item pair an affinity score of the user towards the item. Affinity score takes into account frequency, recency and the event type of transactions in which the user appears with the item. Each transaction contributes to the affinity score with some weight. Newer transactions are weighted more than the older transactions. Also, weights are adjusted for the event type. For example, "Purchase" event may be valued 4 times more than the "Click" event.
@@ -94,9 +94,7 @@ Here, we can see that User 1 has the highest affinity to Item 1, followed by ite
 
 ## Making Recommendations
 
-SAR can produce two types of recommendations:
-
--   **User recommendations**, which recommend items to individual users based on their transaction history, and
+The following examples illustrate item recommendations for individual users based on their interaction history. They use `similarityFunction="cooc"` and `supportThreshold=1`, not the defaults `similarityFunction="jaccard"` and `supportThreshold=4`.
 
 ### User Recommendations
 
@@ -117,13 +115,14 @@ By pre-multiplying this vector with the Item-to-Item similarity matrix, User 1 r
 | **Item 1** |     44     |
 | **Item 2** |    34.5    |
 | **Item 3** |     39     |
-| **Item 4** |  **28.5**  |
+| **Item 4** |  **33.5**  |
 | **Item 5** |  **15.5**  |
 
-In this case, the recommendation score of an item is purely based on its similarity to Item 5. Assuming that a same item isn't
-recommended again, items 1 and 4 have the highest score and would be recommended before items 2 and 3.
+If the caller filters out items that User 1 has already interacted with (items 1, 2, and 3), Item 4 is recommended before Item 5. SAR does not automatically exclude previously seen items.
 
-Now, if this user adds Item 2 to the shopping cart, affinity vector (assuming weight 2 for this transaction) will be
+`recommendForAllUsers(numItems)` and `recommendForUserSubset(dataset, numItems)` return only the top `numItems` items, including seen items, before caller-side filtering. Request extra candidates, filter out seen items, then keep the desired number; otherwise the result can be short or empty. In this example, request all five candidates to retain both unseen items for User 1, since the top three are already seen.
+
+For another example, consider a user with a single interaction of weight 1 with Item 5:
 
 |            | New User aff |
 | ---------- | :----------: |
@@ -165,7 +164,7 @@ resulting in recommendation scores:
 | **Item 4** |     **6**    |
 | **Item 5** |       5      |
 
-Now, Item 1 has the highest score, followed by Item 3 and then Item 4. Note that the advantage of SAR is that the updated scores are obtained without any retraining, that is, without having to recompute Item-to-Item similarities.
+After excluding the already-interacted items 2 and 5, Item 1 has the highest score, followed by Item 3 and then Item 4. Mathematically, these updated scores reuse the same Item-to-Item similarity matrix. This illustrates the scoring calculation, not an incremental-update API: a fitted SynapseML `SARModel` does not automatically incorporate new interactions.
 
 #### Interpretability
 
@@ -177,7 +176,7 @@ _+ sim(Item 4, Item 2) \* aff(User 1, Item 2)_
 _+ sim(Item 4, Item 3) \* aff(User 1, Item 3)_
 _+ sim(Item 4, Item 4) \* aff(User 1, Item 4)_
 _+ sim(Item 4, Item 5) \* aff(User 1, Item 5)_
-_= **3 \* 5** + 2 \* 3 + 3 \* 2.5 + 4 \* 0 + 2 \* 0_
-\*= **15** + 6 + 7.5 + 0 + 0 = **28.5\***
+_= **4 \* 5** + 2 \* 3 + 3 \* 2.5 + 4 \* 0 + 2 \* 0_
+\*= **20** + 6 + 7.5 + 0 + 0 = **33.5\***
 
 Clearly, the first term (highlighted) has the highest contribution to the score. We can say that "The algorithm recommends Item 4 to User 1 because it's similar to Item 1, to which User 1 has high affinity". A message like this can be displayed automatically for each recommendation.

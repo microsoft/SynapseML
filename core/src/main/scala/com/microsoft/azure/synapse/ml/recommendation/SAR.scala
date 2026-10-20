@@ -35,8 +35,8 @@ import java.util.{Calendar, Date}
   *
   * https://aka.ms/reco-sar
   *
-  * SAR is a fast scalable adaptive algorithm for personalized recommendations based on user transactions history and
-  * items description. It produces easily explainable / interpretable recommendations.
+  * SAR is a fast scalable adaptive algorithm for personalized recommendations based on user-item interaction history.
+  * It produces easily explainable / interpretable recommendations.
   *
   * User and item identifiers can be strings or numeric values. SAR deterministically indexes the identifiers while
   * fitting and stores both reversible mappings in the resulting model. Caller-visible outputs use the original types.
@@ -401,7 +401,8 @@ trait SARParams extends Wrappable with RecommendationParams {
 
   def setSupportThreshold(value: Int): this.type = set(supportThreshold, value)
 
-  val supportThreshold = new IntParam(this, "supportThreshold", "Minimum number of ratings per item")
+  val supportThreshold = new IntParam(this, "supportThreshold",
+    "Minimum distinct-user co-occurrence count for nonzero item-pair similarity")
 
   def setStartTime(value: String): this.type = set(startTime, value)
 
