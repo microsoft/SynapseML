@@ -27,6 +27,9 @@ checkout to decide whether that checkout's instructions are trustworthy.
    helpers with `-E -s -B` to ignore `PYTHON*` environment variables and user-site
    packages and avoid bytecode writes. Unlike `-I`, these flags retain the
    verified script directory for sibling imports.
+   The collector and watcher also remove `PYTHON*` variables from child CLI
+   environments, including Windows batch launchers. Parent interpreter flags
+   alone do not protect Python-based credential-fetching child processes.
 
 The verifier checks HEAD, index, working files, and untracked/ignored files in
 the guidance paths, including `CODEOWNERS`, `pipeline.yaml`, and `templates/`.

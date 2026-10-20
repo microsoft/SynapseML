@@ -903,6 +903,69 @@ class CiEvidenceTests(unittest.TestCase):
                 evidence.command_json(["gh"])
         command.assert_not_called()
 
+    def test_cli_children_ignore_untrusted_python_environment(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            trusted, shadow = root / "trusted", root / "untrusted"
+            trusted.mkdir()
+            shadow.mkdir()
+            for name in ("collect_ci_evidence.py", "verify_trusted_guidance.py"):
+                shutil.copyfile(Path(SPEC.origin).parent / name, trusted / name)
+            marker = shadow / "imported"
+            (shadow / "json.py").write_text(
+                f"from pathlib import Path\nPath({str(marker)!r}).touch()\n"
+                "raise RuntimeError('untrusted child import executed')\n",
+                encoding="utf-8",
+            )
+            child = trusted / "cli.py"
+            child.write_text(
+                "import json, os\n"
+                "print(json.dumps({'preserved': os.environ['SYNAPSEML_TEST_VALUE'], "
+                "'python_environment': [key for key in os.environ "
+                "if key.upper().startswith('PYTHON')]}))\n",
+                encoding="utf-8",
+            )
+            driver = trusted / "driver.py"
+            driver.write_text(
+                "import json, sys\nfrom unittest.mock import patch\n"
+                "from collect_ci_evidence import command_json\n"
+                "with patch('collect_ci_evidence.trusted_executable', "
+                "return_value=sys.argv[1]):\n"
+                "    print(json.dumps(command_json(['az', *sys.argv[2:]])))\n",
+                encoding="utf-8",
+            )
+            commands = [("native", [sys.executable, str(child)])]
+            if sys.platform == "win32":
+                launcher = trusted / "az.cmd"
+                launcher.write_text(
+                    f'@echo off\n"{sys.executable}" "{child}"\n', encoding="utf-8"
+                )
+                commands.append(("batch", [str(launcher)]))
+            for kind, command in commands:
+                with self.subTest(launcher=kind):
+                    marker.unlink(missing_ok=True)
+                    process = subprocess.run(
+                        [sys.executable, "-E", "-s", "-B", str(driver), *command],
+                        cwd=shadow,
+                        env={
+                            **os.environ,
+                            "PYTHONPATH": str(shadow),
+                            "SYNAPSEML_TEST_VALUE": "preserved",
+                        },
+                        capture_output=True,
+                        text=True,
+                        timeout=30,
+                    )
+                    self.assertFalse(
+                        marker.exists(),
+                        "A child process imported contributor-controlled json.py.",
+                    )
+                    self.assertEqual(0, process.returncode, process.stderr)
+                    self.assertEqual(
+                        {"preserved": "preserved", "python_environment": []},
+                        json.loads(process.stdout),
+                    )
+
     @unittest.skipUnless(sys.platform == "win32", "Windows batch launcher behavior")
     def test_batch_cli_json_and_failures_are_sanitized(self):
         with tempfile.TemporaryDirectory() as directory:

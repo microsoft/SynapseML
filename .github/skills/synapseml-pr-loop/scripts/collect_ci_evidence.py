@@ -8,6 +8,7 @@ from collections import Counter
 from http import client as http_client
 import io
 import json
+import os
 import re
 import subprocess
 import sys
@@ -37,12 +38,13 @@ class EvidenceError(Exception):
     """Evidence is missing, inconsistent, or could not be read safely."""
 
 
-def run_windows_batch(command, timeout):
+def run_windows_batch(command, timeout, env):
     # Killing cmd.exe alone leaves its child holding the captured output pipe.
     process = subprocess.Popen(
         command,
         stdout=subprocess.PIPE,
         stderr=subprocess.DEVNULL,
+        env=env,
     )
     try:
         stdout, _ = process.communicate(timeout=timeout)
@@ -54,6 +56,7 @@ def run_windows_batch(command, timeout):
                 stderr=subprocess.DEVNULL,
                 timeout=5,
                 check=True,
+                env=env,
             )
             process.communicate(timeout=5)
         except (GuidanceError, OSError, subprocess.SubprocessError) as error:
@@ -83,8 +86,13 @@ def command_json(command, timeout=60):
         operation = "az account get-access-token"
     try:
         arguments = [trusted_executable(command[0]), *command[1:]]
+        env = {
+            key: value
+            for key, value in os.environ.items()
+            if not key.upper().startswith("PYTHON")
+        }
         if sys.platform == "win32" and arguments[0].lower().endswith((".cmd", ".bat")):
-            process = run_windows_batch(arguments, timeout)
+            process = run_windows_batch(arguments, timeout, env)
         else:
             process = subprocess.run(
                 arguments,
@@ -92,6 +100,7 @@ def command_json(command, timeout=60):
                 text=True,
                 encoding="utf-8",
                 timeout=timeout,
+                env=env,
             )
         if process.returncode:
             raise EvidenceError(
