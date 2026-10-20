@@ -147,7 +147,9 @@ class TuneHyperparameters(override val uid: String) extends Estimator[TuneHyperp
     */
   //scalastyle:off method.length
   override def fit(dataset: Dataset[_]): TuneHyperparametersModel = {  //scalastyle:ignore cyclomatic.complexity
-    logFit({
+    if (getModels.exists(_.isInstanceOf[Ranker[_, _, _]])) {
+      logFit({ RankingTuning.fit(this, dataset) }, dataset.columns.length)
+    } else logFit({
       val sparkSession = dataset.sparkSession
       val splits = MLUtils.kFold(dataset.toDF.rdd, getNumFolds, getSeed)
       val hyperParams = getParamSpace.paramMaps

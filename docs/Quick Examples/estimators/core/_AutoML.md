@@ -207,6 +207,59 @@ tuneHyperparameters.fit(dataset).show()
 </TabItem>
 </Tabs>
 
+#### Learning-to-rank tuning
+
+`TuneHyperparameters` also accepts rankers with `evaluationMetric="ndcg"` or
+`"ndcg@k"` (positive integer `k`). Whole query groups are assigned to folds;
+at least `numFolds` distinct, non-null string, integer or long groups are required.
+
+<Tabs groupId="code">
+<TabItem value="py" label="Python">
+
+<!--pytest-codeblocks:cont-->
+
+```python
+from pyspark.ml.linalg import Vectors
+from synapse.ml.automl import TuneHyperparameters
+from synapse.ml.automl.HyperparamBuilder import HyperparamBuilder, DiscreteHyperParam, RandomSpace
+from synapse.ml.lightgbm import LightGBMRanker
+
+ranking_data = spark.createDataFrame(
+    [(f"q{q}", float(label), Vectors.dense(float(label), float(q)))
+     for q in range(8) for label in range(3)],
+    ["query", "label", "features"],
+)
+ranker = LightGBMRanker(groupCol="query", numIterations=5, minDataInLeaf=1)
+search = HyperparamBuilder().addHyperparam(
+    ranker, ranker.numLeaves, DiscreteHyperParam([2, 3])
+).build()
+best = TuneHyperparameters(
+    models=[ranker], paramSpace=RandomSpace(search).space(), evaluationMetric="ndcg@5",
+    numFolds=2, numRuns=2, parallelism=1, seed=0,
+).fit(ranking_data)
+best.transform(ranking_data).show()
+```
+
+</TabItem>
+</Tabs>
+
+The metric averages query-level graded NDCG within each validation fold, then
+averages the fold scores. Labels must be integers from 0 through 30; gain is
+`2^label - 1` and discount is `1/log2(rank + 1)`. Prediction ties use label
+ascending (pessimistic), and all-zero queries score 1. This matches LightGBM's
+default gain and discount, but does not promise identical native evaluation
+output: tie ordering, query weighting, `evalAt` and `maxPosition` are not mirrored.
+Custom `labelGain` and `label_gain` via `passThroughArgs` are rejected.
+Previously fitted reference datasets are cleared on each fresh estimator copy. Group and label columns must agree across runs;
+the search space cannot vary group, label, features, prediction or gain settings.
+
+Distinct query groups are sorted by a seeded hash and dealt round-robin into
+folds. This keeps groups intact and folds non-empty and balanced, but the
+assignment window runs in one partition over the distinct query groups. Plan
+for that group-cardinality limit. Classification and regression tuning keep
+their existing behavior. `getBestModelInfo()` remains unsupported for rankers.
+This example does not cover additional data formats or external tuning libraries.
+
 <DocTable className="TuneHyperparameters"
 py="synapse.ml.automl.html#module-synapse.ml.automl.TuneHyperparameters"
 scala="com/microsoft/azure/synapse/ml/automl/TuneHyperparameters.html"
