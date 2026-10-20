@@ -1,48 +1,69 @@
 # Review evidence for microsoft/SynapseML#2775
 
-## Current pre-commit evidence
+## Current CI-qualified evidence
 
 The driving human requested lightweight reviews rather than further six-lens
-passes. [Attempt 78](task-unknown-attempt-78-review-0-harness.md) completed one
+passes. [Attempt 79](task-unknown-attempt-79-review-0-harness.md) completed one
 script-owned Low review with runtime model `gpt-6-astra`, high reasoning,
 `outcome: clean`, and zero findings. The runner confirmed valid transport,
-successful exit, actual model identity and persisted evidence. This is
-pre-commit evidence, not final CI-qualified clearance.
+successful exit, actual model identity and persisted evidence. This final
+CI-qualified review used the same complete source patch as the published head
+below, after its local and remote engineering gates completed.
 
+- Reviewed source head: `57f22136d7eacfc2e0d20d6722e3aae35938b87f`.
 - Source target/merge base: `d34f762a785ee8a7c7c624806f8c112256168833`.
-- Published predecessor: `bb032091980d44fb7042f84571af5ebf40907b92`.
-- Frozen index tree: `61a2ea83e40c7eb55929a4d7d6567c995cf415c0`.
-- [Complete source path/mode/blob manifest](attempt-78-source-manifest.json).
+- Verified PR merge: `5cbf7445453c3f2c0c42a7660bd33ef95d9de514`.
+- Frozen index tree: `bdfcd5ec995e3873dc9bb96f7908165019b52a6f`.
+- [Complete source path/mode/blob manifest](attempt-79-source-manifest.json).
 - Manifest SHA-256: `11aaf1ffda6ce9e088caeae3e7dc608dcd78e36f297997c04c296cc7db7a3ee5`.
 - Full binary source-diff SHA-256: `6214a751f6335039ffc0d85048dc978c6aa1d5d025c5666b1ce1a3a175aed944`.
 
-The follow-up fixes the current-head finding that isolated parent Python flags
-do not sanitize a credential-fetching child's environment. The collector and
-watcher now remove `PYTHON*` variables from native and Windows batch CLI
-environments while preserving other values. A real isolated-parent/Python-CLI
-regression failed before the fix and passes afterward; no real credentials or
-cloud operations are used. The complete collector/watcher suites passed:
-Windows 88 tests and 285 subtests with no skips; Linux Python 3.10, 86 tests and
-280 subtests with two Windows-only skips. Pinned Black 22.3.0 passed.
+[Azure build 241748094](https://dev.azure.com/msdata/b9b2accc-2d1c-45b3-9d24-0eb5d78cc47f/_build/results?buildId=241748094)
+succeeded on that verified PR merge: all 65 jobs completed successfully,
+including Databricks GPU E2E. Its 381 published product runs contain 3,751
+passed tests and 22 `NotExecuted` results, not 3,773 passes. Every nonpassed
+result was inspected; the run/test/outcome identities match predecessor
+build 241706733. The CIHelpers log reports 386 passed, two skipped and 438
+passed subtests. That job has no individual test-results publisher, so this
+is aggregate corroboration, not named hosted regression proof.
 
-Attempts 71-74 retain their original feedback and resolutions in the
-[published archive](https://github.com/microsoft/SynapseML/tree/2025a2155137a9a03d302abc788b02bf1a5ed305/reviews/pr-2775). Accepted
-documentation and regression findings are addressed; duplicate and nonblocking
-findings retain their reasoned dispositions. Attempts 75 and 76 failed transport
-validation and do not count as clean. Attempt 77 used the already installed
-CLI 1.0.98 through its supported process-local package selector; no global
-settings, redaction, runner or retained logs were changed.
+Named local collector/watcher suites passed on Windows with 88 tests and 285
+subtests, no skips; Linux Python 3.10 passed 86 tests and 280 subtests with two
+Windows-only skips. The real isolated-parent/Python-CLI regression failed
+before the child-environment fix and passed afterward. No real credentials
+or cloud operations are used by that fixture. Pinned Black 22.3.0 passed.
 
-Azure build 241745526 belongs to the published predecessor, not this follow-up.
-New-head CI, final lightweight review and human approval remain outstanding.
+Low-disk, missing-coverage-publication and Component Governance warning
+categories predate this patch. The Component Governance count of 24 matches
+the baseline, but that is not individual dependency-alert clearance.
+CodeQL Python and JavaScript analysis succeeded; its aggregate remains
+**neutral**, with the same missing default-branch API-upload configuration
+warning as the predecessor. Complete CodeQL coverage is not claimed.
+[Alert 86](https://github.com/microsoft/SynapseML/security/code-scanning/86)
+was dismissed as a false positive after its SARIF flow was verified to track
+synthetic temporary paths, not real secrets, into the test batch fixture.
+
+This artifact-only publication does not change the reviewed source. Any later
+publication head still requires its own CI and automated review; this record
+does not substitute for those checks or for human approval.
 
 ## Superseded evidence
+
+[Attempt 78](https://github.com/microsoft/SynapseML/tree/57f22136d7eacfc2e0d20d6722e3aae35938b87f/reviews/pr-2775)
+retains its original pre-commit response and child-environment fix evidence.
+All three hosted review file modes and blob IDs were verified against that
+published head before pruning. The original report is unchanged in history;
+the current report uses a repository-relative artifact path.
 
 [Attempts 70-77](https://github.com/microsoft/SynapseML/tree/2025a2155137a9a03d302abc788b02bf1a5ed305/reviews/pr-2775)
 retain original verdicts, failures and driver dispositions in the source
 publication commit. All 24 hosted review file modes and blob IDs were verified
 against that published PR head before pruning superseded files. Archived
 feedback does not qualify later source revisions; the current manifest is above.
+Attempts 75 and 76 failed transport validation and do not count as clean.
+Later successful runs used the existing CLI 1.0.98 package through its
+supported process-local selector, without changing global settings, redaction,
+the runner or retained logs.
 
 [Attempts 1-12](https://github.com/microsoft/SynapseML/tree/38685fad3d2e3ec93e6757adf36aa270cc3a24d1/reviews/pr-2775)
 and [attempts 13-67](https://github.com/microsoft/SynapseML/tree/0f8d7d011838c86a2a80b6392a9aab8880676119/reviews/pr-2775)
