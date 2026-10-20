@@ -24,7 +24,8 @@ subtests also passed on Linux; two Linux readiness tests skipped for absent
 PowerShell and were executed on Windows. Four isolated mutations failed the
 intended behavior assertions. Pinned Black 22.3.0 passed.
 
-Attempts 71-74 retain their original feedback and resolutions below. Accepted
+Attempts 71-74 retain their original feedback and resolutions in the
+[published archive](https://github.com/microsoft/SynapseML/tree/2025a2155137a9a03d302abc788b02bf1a5ed305/reviews/pr-2775). Accepted
 documentation and regression findings are addressed; duplicate and nonblocking
 findings retain their reasoned dispositions. Attempts 75 and 76 failed transport
 validation and do not count as clean. Attempt 77 used the already installed
@@ -34,42 +35,13 @@ settings, redaction, runner or retained logs were changed.
 Azure build 241706733 passed for the published predecessor, not this follow-up.
 New-head CI, final lightweight review and human approval remain outstanding.
 
-## Previous pre-commit evidence
-
-Attempt 70 completed all six independent, sequential lenses with
-`claude-opus-5.5` on one frozen source patch. Four reviewer verdicts are `CLEAN`;
-the architecture finding was rebutted against the complete workflow, and the
-testing suggestion was explicitly nonblocking. Both original `ISSUES_FOUND`
-verdicts and driver dispositions are preserved. No accepted unresolved finding
-remains. Runner receipts, complete input hashes, runtime identity and read-only
-tool scopes were verified. This is pre-commit evidence, not CI-qualified clearance.
-
-- Source target/merge base: `d34f762a785ee8a7c7c624806f8c112256168833`.
-- Review predecessor: `2893afbfdf5088327a998e329fccaaf9651f92df`,
-  plus the eight-file follow-up captured in the manifest.
-- Frozen pre-review index tree: `5950b3b821bc3ab7b6ba16189543965e5a56f5cd`.
-- [Source path/mode/blob manifest](attempt-70-source-manifest.json).
-- Manifest SHA-256: `2d5ec19330928f194238f764ed74c3a0bcbb8d32af3d9b628788c3a4268f6b13`.
-- Full binary source-diff SHA-256: `423e6347af8a31453a06041f5d750ca13cbed82b3c855bb5707d78fb03b39f76`.
-- [Published source and original review archive](https://github.com/microsoft/SynapseML/commit/2d4bf69fcf252c865fafeca5f1993bdc961e1d49).
-
-| Lens | Evidence |
-| --- | --- |
-| Broad sweep | [Round 1: clean](task-unknown-attempt-70-stage-attempt-1-review-1-claude-opus-5.5.md) |
-| Architecture and patterns | [Round 2: finding and rebuttal](task-unknown-attempt-70-stage-attempt-1-review-2-claude-opus-5.5.md) |
-| Edge cases and robustness | [Round 3: clean](task-unknown-attempt-70-stage-attempt-1-review-3-claude-opus-5.5.md) |
-| Detailed correctness | [Round 4: clean](task-unknown-attempt-70-stage-attempt-1-review-4-claude-opus-5.5.md) |
-| Testing and coverage | [Round 5: nonblocking suggestion and disposition](task-unknown-attempt-70-stage-attempt-1-review-5-claude-opus-5.5.md) |
-| Polish and hardening | [Round 6: clean](task-unknown-attempt-70-stage-attempt-1-review-6-claude-opus-5.5.md) |
-
-The source stayed frozen across all six lenses. Scoped test-directory globs and
-exact named-root-file discovery were distinguished from forbidden broad searches
-during the transport audit; no prior-review access occurred.
-
-Current-head Azure validation, the final CI-qualified review and human approval
-remain outstanding. Local results are reported in the PR description.
-
 ## Superseded evidence
+
+[Attempts 70-76](https://github.com/microsoft/SynapseML/tree/2025a2155137a9a03d302abc788b02bf1a5ed305/reviews/pr-2775)
+retain original verdicts, failures and driver dispositions in the source
+publication commit. All 24 hosted review file modes and blob IDs were verified
+against that published PR head before pruning superseded files. The current
+source manifest is unchanged by this artifact-only cleanup.
 
 [Attempts 1-12](https://github.com/microsoft/SynapseML/tree/38685fad3d2e3ec93e6757adf36aa270cc3a24d1/reviews/pr-2775)
 and [attempts 13-67](https://github.com/microsoft/SynapseML/tree/0f8d7d011838c86a2a80b6392a9aab8880676119/reviews/pr-2775)
