@@ -7,16 +7,28 @@ import argparse
 from datetime import datetime, timedelta, timezone
 import json
 import re
-import subprocess
+import sys
 import time
 from urllib.parse import parse_qs, urlparse
 
+# Direct CLI runs must leave the verified guidance snapshot clean even without -B.
+if __name__ == "__main__":
+    sys.dont_write_bytecode = True
+from collect_ci_evidence import (
+    AZURE_PROJECT_ID,
+    MAX_BUILD_ID,
+    REPOSITORY,
+    AzureClient,
+    EvidenceError,
+    command_json,
+    collect_build,
+    github_json,
+    verify_merge,
+)
+
 POLL_SECONDS = 600
 MAX_TIMEOUT_MINUTES = 120
-MAX_BUILD_ID = 2_147_483_647
 CHECK_NAME = "microsoft.SynapseML"
-REPOSITORY = "microsoft/SynapseML"
-AZURE_PROJECT_ID = "b9b2accc-2d1c-45b3-9d24-0eb5d78cc47f"
 AZURE_PROJECTS = (AZURE_PROJECT_ID, "a365")
 AZURE_BUILD_PATHS = {
     "dev.azure.com": {
@@ -75,26 +87,9 @@ def query_pr(args, timeout):
         "state,headRefOid,statusCheckRollup",
     ]
     try:
-        process = subprocess.run(
-            command,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            timeout=timeout,
-            check=False,
-        )
-    except subprocess.TimeoutExpired as error:
-        raise MonitorError("GitHub status query timed out.") from error
-    except OSError as error:
-        raise MonitorError(f"Could not run GitHub CLI: {error}") from error
-    except UnicodeError as error:
-        raise MonitorError("GitHub CLI output is not valid UTF-8.") from error
-    if process.returncode:
-        raise MonitorError(f"GitHub CLI failed: {process.stderr.strip()[:1000]}")
-    try:
-        snapshot = json.loads(process.stdout)
-    except json.JSONDecodeError as error:
-        raise MonitorError("GitHub CLI returned invalid JSON.") from error
+        snapshot = command_json(command, timeout)
+    except EvidenceError as error:
+        raise MonitorError(str(error)) from error
     if not isinstance(snapshot, dict):
         raise MonitorError("GitHub CLI did not return a PR object.")
     return snapshot
@@ -112,6 +107,18 @@ def monitor(args):
             f"/_build/results?buildId={args.build_id}"
         ),
     }
+    merge_verified = False
+    reported_agent_losses = set()
+    waited_for_github = False
+
+    def wait_for_check_update():
+        nonlocal waited_for_github
+        if waited_for_github or deadline - time.monotonic() <= POLL_SECONDS:
+            return False
+        waited_for_github = True
+        time.sleep(POLL_SECONDS)
+        return True
+
     while True:
         remaining = deadline - time.monotonic()
         if remaining <= 0:
@@ -135,6 +142,48 @@ def monitor(args):
                 "outcome": "superseded",
                 "message": "PR head or open state changed; recheck before monitoring.",
             }
+        azure = None
+        if args.azure_timeline:
+            try:
+                if not merge_verified:
+                    verify_merge(
+                        args,
+                        query=lambda endpoint: github_json(
+                            endpoint,
+                            timeout=min(60, max(0.001, deadline - time.monotonic())),
+                        ),
+                    )
+                    merge_verified = True
+                azure = collect_build(AzureClient(deadline=deadline), args)
+            except EvidenceError as error:
+                if time.monotonic() >= deadline:
+                    return timeout_result
+                raise MonitorError(str(error)) from error
+            if time.monotonic() >= deadline:
+                return timeout_result
+            timeout_result["azure"] = azure
+            if azure["status"] != "completed":
+                waited_for_github = False
+            for job in azure["jobs"]:
+                identity = (job["identifier"], job["attempt"])
+                if (
+                    job.get("agentLossDetected")
+                    and identity not in reported_agent_losses
+                ):
+                    reported_agent_losses.add(identity)
+                    print(
+                        json.dumps(
+                            {
+                                "event": "agent_loss",
+                                "buildId": args.build_id,
+                                "job": job["identifier"],
+                                "attempt": job["attempt"],
+                                "state": job["state"],
+                                "url": azure["url"],
+                            }
+                        ),
+                        flush=True,
+                    )
         checks = snapshot.get("statusCheckRollup")
         if not isinstance(checks, list) or not all(
             isinstance(check, dict) for check in checks
@@ -150,6 +199,19 @@ def monitor(args):
                 raise MonitorError("Azure check has duplicate results for one build.")
             matching[build_id] = (check, url)
         if not matching or max(matching) < args.build_id:
+            if azure:
+                if azure["status"] == "completed":
+                    if wait_for_check_update():
+                        continue
+                    return {
+                        "outcome": "azure_completed",
+                        "azure": azure,
+                        "url": azure["url"],
+                        "githubCheck": "missing_or_stale",
+                        "message": "Azure completed; the required GitHub aggregate remains unresolved.",
+                    }
+                time.sleep(min(POLL_SECONDS, max(0, deadline - time.monotonic())))
+                continue
             raise MonitorError(
                 "Expected Azure build is not registered. Verify its build ID."
             )
@@ -163,6 +225,9 @@ def monitor(args):
             }
         check, url = matching[args.build_id]
         timeout_result["url"] = url
+        if azure and azure["status"] != "completed":
+            time.sleep(min(POLL_SECONDS, max(0, deadline - time.monotonic())))
+            continue
         state = check.get("status") or check.get("state")
         if state == "COMPLETED":
             conclusion = check.get("conclusion")
@@ -178,19 +243,45 @@ def monitor(args):
             "REQUESTED",
             "EXPECTED",
         ):
+            if azure and azure["status"] == "completed":
+                if wait_for_check_update():
+                    continue
+                return {
+                    "outcome": "azure_completed",
+                    "azure": azure,
+                    "url": url,
+                    "githubCheck": "pending",
+                    "message": "Azure completed; the required GitHub aggregate is still pending.",
+                }
             time.sleep(min(POLL_SECONDS, max(0, deadline - time.monotonic())))
             continue
         else:
             raise MonitorError(f"Unknown Azure check state: {state!r}")
+        if azure and (conclusion == "SUCCESS") != (azure["result"] == "succeeded"):
+            if wait_for_check_update():
+                continue
+            return {
+                "outcome": "attention_required",
+                "azure": azure,
+                "url": url,
+                "message": "GitHub conclusion disagrees with Azure build evidence.",
+            }
         return {
             "outcome": "success" if conclusion == "SUCCESS" else "failed",
             "conclusion": conclusion,
             "url": url,
+            **({"azure": azure} if azure else {}),
         }
 
 
 def parse_kickoff(value):
     try:
+        # Python 3.10 accepts only three or six fractional-second digits.
+        value = re.sub(
+            r"^(\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2})\.(\d+)",
+            lambda match: match[1] + "." + match[2][:6].ljust(6, "0"),
+            value,
+        )
         kickoff = datetime.fromisoformat(value.replace("Z", "+00:00"))
         if kickoff.tzinfo is None:
             raise argparse.ArgumentTypeError("Kickoff must include its time zone.")
@@ -209,6 +300,13 @@ def parse_args(argv=None):
     parser.add_argument("--build-id", required=True, type=int)
     parser.add_argument("--kickoff-at", required=True, type=parse_kickoff)
     parser.add_argument("--timeout-minutes", type=int, default=MAX_TIMEOUT_MINUTES)
+    parser.add_argument(
+        "--azure-timeline",
+        action="store_true",
+        help="Read Azure jobs using the existing az login.",
+    )
+    parser.add_argument("--base-sha")
+    parser.add_argument("--merge-sha")
     args = parser.parse_args(argv)
     if args.pull_request <= 0 or args.build_id <= 0:
         parser.error("PR and build IDs must be positive.")
@@ -222,6 +320,16 @@ def parse_args(argv=None):
     if not re.fullmatch(r"[0-9a-fA-F]{40}", args.head_sha):
         parser.error("--head-sha must be a full 40-character commit SHA.")
     args.head_sha = args.head_sha.lower()
+    if args.azure_timeline:
+        for name in ("base_sha", "merge_sha"):
+            value = getattr(args, name)
+            if not value or not re.fullmatch(r"[0-9a-fA-F]{40}", value):
+                parser.error(
+                    "--azure-timeline requires full --base-sha and --merge-sha values."
+                )
+            setattr(args, name, value.lower())
+    elif args.base_sha or args.merge_sha:
+        parser.error("--base-sha and --merge-sha require --azure-timeline.")
     if not 1 <= args.timeout_minutes <= MAX_TIMEOUT_MINUTES:
         parser.error("--timeout-minutes must be between 1 and 120.")
     if args.kickoff_at.timestamp() > time.time():
@@ -240,6 +348,11 @@ def main(argv=None):
         "deadlineAt": (
             args.kickoff_at + timedelta(minutes=args.timeout_minutes)
         ).isoformat(),
+        **(
+            {"baseSha": args.base_sha, "mergeSha": args.merge_sha}
+            if args.azure_timeline
+            else {}
+        ),
     }
     print(
         json.dumps(
@@ -265,6 +378,8 @@ def main(argv=None):
         "error": 1,
         "superseded": 2,
         "replaced": 3,
+        "attention_required": 4,
+        "azure_completed": 4,
         "timeout": 124,
         "interrupted": 130,
     }[result["outcome"]]

@@ -3,13 +3,18 @@
 
 import contextlib
 from datetime import datetime
+from http.client import IncompleteRead
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
+import shutil
 import subprocess
+import sys
+import tempfile
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 SPEC = importlib.util.spec_from_file_location(
     "watch_azure_pipeline",
@@ -21,7 +26,13 @@ SPEC = importlib.util.spec_from_file_location(
     / "watch_azure_pipeline.py",
 )
 watcher = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(watcher)
+sys.path.insert(0, str(Path(SPEC.origin).parent))
+try:
+    with patch.object(sys, "dont_write_bytecode", True):
+        SPEC.loader.exec_module(watcher)
+        import collect_ci_evidence as evidence
+finally:
+    sys.path.pop(0)
 
 HEAD = "a" * 40
 KICKOFF = "2026-09-21T00:00:00+00:00"
@@ -98,6 +109,51 @@ class WatchAzurePipelineTests(unittest.TestCase):
         self.assertEqual(["started", "finished"], [event["event"] for event in events])
         self.assertEqual("success", events[-1]["outcome"])
         self.assertEqual(42, events[-1]["buildId"])
+
+    def test_timeline_mode_waits_from_empty_queue_to_completed_jobs(self):
+        client = Mock()
+        build = {
+            "id": 42,
+            "definition": {"id": 17563, "name": "microsoft.SynapseML"},
+            "repository": {"type": "GitHub", "id": "microsoft/SynapseML"},
+            "sourceBranch": "refs/pull/1/merge",
+            "sourceVersion": "c" * 40,
+            "reason": "pullRequest",
+            "queueTime": KICKOFF,
+        }
+        job = {
+            "id": "job-1",
+            "identifier": "UnitTests.scala",
+            "type": "Job",
+            "attempt": 1,
+        }
+        client.get.side_effect = [
+            {**build, "status": "notStarted"},
+            None,
+            {**build, "status": "inProgress"},
+            {"records": [{**job, "state": "inProgress"}]},
+            {**build, "status": "completed", "result": "succeeded"},
+            {"records": [{**job, "state": "completed", "result": "succeeded"}]},
+        ]
+        missing_check = {**snapshot("QUEUED"), "statusCheckRollup": []}
+        with patch.object(
+            watcher,
+            "query_pr",
+            side_effect=[missing_check, snapshot(), snapshot("COMPLETED", "SUCCESS")],
+        ), patch.object(watcher, "verify_merge"), patch.object(
+            watcher, "AzureClient", return_value=client
+        ):
+            proof = watcher.monitor(self.azure_args())
+        self.assertEqual("success", proof["outcome"])
+        self.assertIn("azure", proof)
+        self.assertEqual("succeeded", proof["azure"]["result"])
+        self.assertTrue(proof["azure"]["jobGatesPassed"])
+        self.assertEqual([], proof["azure"]["unresolvedJobs"])
+        self.assertEqual("UnitTests.scala", proof["azure"]["jobs"][0]["identifier"])
+        self.assertEqual(
+            [600, 600], [c.args[0] for c in self.sleep_mock.call_args_list]
+        )
+        self.assertEqual(1200, self.now)
 
     def test_stops_at_two_hours_without_an_extra_query(self):
         output = io.StringIO()
@@ -239,7 +295,11 @@ class WatchAzurePipelineTests(unittest.TestCase):
             ]
             responses.append(subprocess.CompletedProcess([], 0, json.dumps(data), ""))
         output = io.StringIO()
-        with patch.object(watcher.subprocess, "run", side_effect=responses) as run:
+        with patch.object(
+            evidence,
+            "trusted_executable",
+            return_value=str(Path(sys.executable).with_name("gh")),
+        ), patch.object(subprocess, "run", side_effect=responses) as run:
             with contextlib.redirect_stdout(output):
                 self.assertEqual(0, watcher.main(ARGV))
         self.assertEqual(3, run.call_count)
@@ -401,9 +461,16 @@ class WatchAzurePipelineTests(unittest.TestCase):
     def test_query_is_read_only_and_bounded(self):
         self.args.repo = "attacker/unrelated"
         response = subprocess.CompletedProcess([], 0, json.dumps(snapshot()), "")
-        with patch.object(watcher.subprocess, "run", return_value=response) as run:
+        with patch.object(
+            evidence,
+            "trusted_executable",
+            return_value=str(Path(sys.executable).with_name("gh")),
+        ), patch.object(subprocess, "run", return_value=response) as run:
             watcher.query_pr(self.args, timeout=17)
-        self.assertEqual(["gh", "pr", "view", "1"], run.call_args.args[0][:4])
+        executable = Path(run.call_args.args[0][0])
+        self.assertTrue(executable.is_absolute())
+        self.assertIn(executable.name.lower(), ("gh", "gh.exe"))
+        self.assertEqual(["pr", "view", "1"], run.call_args.args[0][1:4])
         self.assertEqual(["--repo", "microsoft/SynapseML"], run.call_args.args[0][4:6])
         self.assertEqual(17, run.call_args.kwargs["timeout"])
         self.assertEqual("utf-8", run.call_args.kwargs["encoding"])
@@ -425,23 +492,52 @@ class WatchAzurePipelineTests(unittest.TestCase):
 
     def test_cli_errors_are_not_success(self):
         failures = [
-            subprocess.TimeoutExpired("gh", 60),
-            OSError("gh is unavailable"),
-            UnicodeDecodeError("utf-8", b"\xff", 0, 1, "invalid byte"),
+            (
+                subprocess.TimeoutExpired("private command", 60),
+                "gh pr view timed out after 60 seconds.",
+            ),
+            (OSError("private diagnostic"), "Could not start gh pr view."),
+            (
+                UnicodeDecodeError("utf-8", b"\xff", 0, 1, "private diagnostic"),
+                "gh pr view returned invalid UTF-8.",
+            ),
         ]
-        for failure in failures:
+        for failure, message in failures:
             with self.subTest(failure=failure):
-                with patch.object(watcher.subprocess, "run", side_effect=failure):
-                    with contextlib.redirect_stdout(io.StringIO()):
+                with patch.object(
+                    evidence,
+                    "trusted_executable",
+                    return_value=str(Path(sys.executable).with_name("gh")),
+                ), patch.object(subprocess, "run", side_effect=failure):
+                    output = io.StringIO()
+                    with contextlib.redirect_stdout(output):
                         self.assertEqual(1, watcher.main(ARGV))
-        for response in (
-            subprocess.CompletedProcess([], 1, "", "authentication required"),
-            subprocess.CompletedProcess([], 0, "invalid json", ""),
-            subprocess.CompletedProcess([], 0, "[]", ""),
+                    result = json.loads(output.getvalue().splitlines()[-1])
+                    self.assertEqual("error", result["outcome"])
+                    self.assertEqual(message, result["message"])
+                    self.assertNotIn("private", output.getvalue())
+        for response, message in (
+            (
+                subprocess.CompletedProcess([], 1, "", "private diagnostic"),
+                "gh pr view query failed (exit 1).",
+            ),
+            (
+                subprocess.CompletedProcess([], 0, "private invalid json", ""),
+                "gh pr view returned invalid JSON.",
+            ),
+            (
+                subprocess.CompletedProcess([], 0, "[]", ""),
+                "GitHub CLI did not return a PR object.",
+            ),
         ):
-            with patch.object(watcher.subprocess, "run", return_value=response):
-                with self.assertRaises(watcher.MonitorError):
+            with patch.object(
+                evidence,
+                "trusted_executable",
+                return_value=str(Path(sys.executable).with_name("gh")),
+            ), patch.object(subprocess, "run", return_value=response):
+                with self.assertRaises(watcher.MonitorError) as raised:
                     watcher.query_pr(self.args, timeout=60)
+                self.assertEqual(message, str(raised.exception))
 
     def test_rejects_timeout_above_two_hours_and_invalid_identity(self):
         for extra in (
@@ -452,6 +548,10 @@ class WatchAzurePipelineTests(unittest.TestCase):
             ["--pull-request", "-1"],
             ["--repo", "invalid"],
             ["--head-sha", "short"],
+            ["--azure-timeline"],
+            ["--azure-timeline", "--base-sha", "b" * 40],
+            ["--azure-timeline", "--merge-sha", "c" * 40],
+            ["--base-sha", "b" * 40, "--merge-sha", "c" * 40],
             ["--kickoff-at", "not-a-time"],
             ["--kickoff-at", "2026-09-21T00:00:00"],
             ["--kickoff-at", "2026-09-22T00:00:00Z"],
@@ -466,11 +566,458 @@ class WatchAzurePipelineTests(unittest.TestCase):
         args = watcher.parse_args(ARGV + ["--kickoff-at", "2026-09-20T17:00:00-07:00"])
         self.assertEqual(self.args.kickoff_at, args.kickoff_at)
 
+    def test_azure_kickoff_fractions_preserve_microseconds_and_time_zone(self):
+        self.now = 1
+        for value, expected in (
+            (
+                "2026-09-21T00:00:00.1234567Z",
+                "2026-09-21T00:00:00.123456+00:00",
+            ),
+            ("2026-09-21T00:00:00.42Z", "2026-09-21T00:00:00.420000+00:00"),
+            ("2026-09-20T17:00:00.42-07:00", "2026-09-21T00:00:00.420000+00:00"),
+        ):
+            with self.subTest(value=value):
+                args = watcher.parse_args(ARGV + ["--kickoff-at", value])
+                self.assertEqual(expected, args.kickoff_at.isoformat())
+
     def test_interrupt_is_reported_without_cancelling_the_build(self):
         with patch.object(watcher, "query_pr", side_effect=KeyboardInterrupt):
             with contextlib.redirect_stdout(io.StringIO()):
                 self.assertEqual(130, watcher.main(ARGV))
         self.sleep_mock.assert_not_called()
+
+    def azure_args(self):
+        return watcher.parse_args(
+            ARGV + ["--azure-timeline", "--base-sha", "b" * 40, "--merge-sha", "c" * 40]
+        )
+
+    def test_truncated_azure_response_finishes_with_error_or_original_timeout(self):
+        for elapsed, expected_exit, outcome in (
+            (0, 1, "error"),
+            (7200, 124, "timeout"),
+        ):
+            with self.subTest(elapsed=elapsed):
+                self.now = 0
+                client = watcher.AzureClient(deadline=7200)
+                client.token = "fixture-token"
+                response = Mock()
+
+                def read():
+                    self.advance(elapsed)
+                    raise IncompleteRead(b"private partial response")
+
+                response.read.side_effect = read
+                output = io.StringIO()
+                with patch.object(
+                    client.opener, "open", return_value=contextlib.closing(response)
+                ), patch.object(
+                    watcher, "AzureClient", return_value=client
+                ), patch.object(
+                    watcher, "verify_merge"
+                ), patch.object(
+                    watcher, "query_pr", return_value=snapshot()
+                ), contextlib.redirect_stdout(
+                    output
+                ):
+                    self.assertEqual(
+                        expected_exit,
+                        watcher.main(
+                            ARGV
+                            + [
+                                "--azure-timeline",
+                                "--base-sha",
+                                "b" * 40,
+                                "--merge-sha",
+                                "c" * 40,
+                            ]
+                        ),
+                    )
+                events = [json.loads(line) for line in output.getvalue().splitlines()]
+                self.assertEqual(
+                    ["started", "finished"], [event["event"] for event in events]
+                )
+                self.assertEqual(outcome, events[-1]["outcome"])
+                self.assertNotIn("private partial response", output.getvalue())
+        self.sleep_mock.assert_not_called()
+
+    def test_successful_azure_collection_cannot_overrun_the_original_deadline(self):
+        azure = {
+            "status": "completed",
+            "result": "succeeded",
+            "url": URL,
+            "jobs": [],
+        }
+        for elapsed, code, outcome in (
+            (7199, 0, "success"),
+            (7200, 124, "timeout"),
+            (7201, 124, "timeout"),
+        ):
+            with self.subTest(elapsed=elapsed):
+                self.now = 0
+
+                def collect(*_):
+                    self.now = elapsed
+                    return azure
+
+                output = io.StringIO()
+                with patch.object(
+                    watcher, "query_pr", return_value=snapshot("COMPLETED", "SUCCESS")
+                ) as query, patch.object(watcher, "verify_merge"), patch.object(
+                    watcher, "collect_build", side_effect=collect
+                ) as collection, contextlib.redirect_stdout(
+                    output
+                ):
+                    self.assertEqual(
+                        code,
+                        watcher.main(
+                            ARGV
+                            + [
+                                "--azure-timeline",
+                                "--base-sha",
+                                "b" * 40,
+                                "--merge-sha",
+                                "c" * 40,
+                            ]
+                        ),
+                    )
+                result = json.loads(output.getvalue().splitlines()[-1])
+                self.assertEqual(outcome, result["outcome"])
+                if outcome == "timeout":
+                    self.assertNotIn("azure", result)
+                else:
+                    self.assertEqual(azure, result.get("azure"))
+                query.assert_called_once()
+                collection.assert_called_once()
+        self.sleep_mock.assert_not_called()
+
+    def test_agent_loss_surfaces_before_job_or_build_is_terminal(self):
+        data = snapshot()
+        azure = {
+            "status": "inProgress",
+            "url": URL,
+            "jobs": [
+                {
+                    "identifier": "PythonTests.hf",
+                    "attempt": 1,
+                    "state": "inProgress",
+                    "agentLossDetected": True,
+                }
+            ],
+        }
+        retry = {**azure, "jobs": [{**azure["jobs"][0], "attempt": 2}]}
+        output = io.StringIO()
+        with patch.object(watcher, "query_pr", return_value=data), patch.object(
+            watcher, "verify_merge"
+        ), patch.object(
+            watcher,
+            "collect_build",
+            side_effect=[
+                azure,
+                retry,
+                retry,
+                {**retry, "status": "completed", "result": "failed"},
+                {**retry, "status": "completed", "result": "failed"},
+            ],
+        ):
+            with contextlib.redirect_stdout(output):
+                result = watcher.monitor(self.azure_args())
+        self.assertEqual("azure_completed", result["outcome"])
+        self.assertEqual("pending", result.get("githubCheck"))
+        self.assertIn("azure", result)
+        self.assertEqual("failed", result["azure"]["result"])
+        self.assertEqual(2400, self.now)
+        events = [json.loads(line) for line in output.getvalue().splitlines()]
+        self.assertEqual([1, 2], [event["attempt"] for event in events])
+        for event in events:
+            self.assertEqual("agent_loss", event["event"])
+            self.assertEqual("inProgress", event["state"])
+        self.assertEqual(
+            [600] * 4, [call.args[0] for call in self.sleep_mock.call_args_list]
+        )
+
+    def test_absent_aggregate_can_be_observed_but_never_passes(self):
+        data = {**snapshot(), "statusCheckRollup": []}
+        azure = {
+            "status": "completed",
+            "result": "succeeded",
+            "url": URL,
+            "jobs": [],
+        }
+        with patch.object(
+            watcher, "query_pr", return_value=data
+        ) as query, patch.object(watcher, "verify_merge"), patch.object(
+            watcher, "collect_build", return_value=azure
+        ):
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                self.assertEqual(
+                    4,
+                    watcher.main(
+                        ARGV
+                        + [
+                            "--azure-timeline",
+                            "--base-sha",
+                            "b" * 40,
+                            "--merge-sha",
+                            "c" * 40,
+                        ]
+                    ),
+                )
+        result = json.loads(output.getvalue().splitlines()[-1])
+        self.assertEqual("finished", result["event"])
+        self.assertEqual("azure_completed", result["outcome"])
+        self.assertEqual("missing_or_stale", result["githubCheck"])
+        self.assertEqual(2, query.call_count)
+        self.sleep_mock.assert_called_once_with(600)
+
+    def test_timeline_completion_allows_one_check_update_before_the_deadline(self):
+        azure = {
+            "status": "completed",
+            "result": "succeeded",
+            "url": URL,
+            "jobs": [],
+        }
+        for label, initial, unresolved in (
+            ("pending", snapshot(), "azure_completed"),
+            ("missing", {**snapshot(), "statusCheckRollup": []}, "azure_completed"),
+            (
+                "stale_failure",
+                snapshot("COMPLETED", "FAILURE"),
+                "attention_required",
+            ),
+        ):
+            for start, retry, latency, expected_exit, polls in (
+                (0, False, None, 0, 2),
+                (6599, False, None, 0, 2),
+                (6600, False, None, 4, 1),
+                (0, True, None, 0, 4),
+                (6599, False, "query", 124, 2),
+                (6599, False, "collection", 124, 2),
+            ):
+                self.now = start
+                self.sleep_mock.reset_mock()
+                output = io.StringIO()
+                builds = (
+                    [
+                        azure,
+                        {**azure, "status": "inProgress", "result": None},
+                        azure,
+                        azure,
+                    ]
+                    if retry
+                    else [azure, azure]
+                )
+                builds = iter(builds)
+                checks = iter(
+                    [initial] * (3 if retry else 1) + [snapshot("COMPLETED", "SUCCESS")]
+                )
+
+                def respond(responses, operation):
+                    if latency == operation and self.now > start:
+                        self.advance(1)
+                    return next(responses)
+
+                with self.subTest(
+                    check=label, start=start, retry=retry, latency=latency
+                ), patch.object(
+                    watcher,
+                    "query_pr",
+                    side_effect=lambda *_args, **_kwargs: respond(checks, "query"),
+                ) as query, patch.object(
+                    watcher, "verify_merge"
+                ), patch.object(
+                    watcher,
+                    "collect_build",
+                    side_effect=lambda *_args: respond(builds, "collection"),
+                ) as collect, contextlib.redirect_stdout(
+                    output
+                ):
+                    self.assertEqual(
+                        expected_exit,
+                        watcher.main(
+                            ARGV
+                            + [
+                                "--azure-timeline",
+                                "--base-sha",
+                                "b" * 40,
+                                "--merge-sha",
+                                "c" * 40,
+                            ]
+                        ),
+                    )
+                    events = [
+                        json.loads(line) for line in output.getvalue().splitlines()
+                    ]
+                    self.assertEqual(
+                        ["started", "finished"], [event["event"] for event in events]
+                    )
+                    result = events[-1]
+                    self.assertEqual(
+                        {0: "success", 4: unresolved, 124: "timeout"}[expected_exit],
+                        result["outcome"],
+                    )
+                    self.assertEqual(azure, result["azure"])
+                    self.assertEqual(polls, query.call_count)
+                    self.assertEqual(polls - (latency == "query"), collect.call_count)
+                    self.assertEqual(
+                        [600] * (polls - 1),
+                        [c.args[0] for c in self.sleep_mock.call_args_list],
+                    )
+                    self.assertEqual(
+                        start + 600 * (polls - 1) + (latency is not None), self.now
+                    )
+
+    def test_same_build_retry_keeps_original_deadline_and_successful_jobs(self):
+        self.now = 7000
+        data = snapshot()
+        azure = {
+            "status": "inProgress",
+            "url": URL,
+            "jobs": [
+                {"identifier": "passed", "attempt": 1, "result": "succeeded"},
+                {"identifier": "retry", "attempt": 2, "result": None},
+            ],
+        }
+        with patch.object(watcher, "query_pr", return_value=data), patch.object(
+            watcher, "verify_merge"
+        ), patch.object(watcher, "collect_build", return_value=azure) as collect:
+            result = watcher.monitor(self.azure_args())
+        self.assertEqual("timeout", result["outcome"])
+        self.assertEqual(7200, self.now)
+        self.assertEqual(1, collect.call_count)
+        self.assertEqual(1, result["azure"]["jobs"][0]["attempt"])
+        self.assertEqual(2, result["azure"]["jobs"][1]["attempt"])
+
+    def test_azure_provenance_failure_does_not_pass(self):
+        data = snapshot("COMPLETED", "SUCCESS")
+        with patch.object(watcher, "query_pr", return_value=data), patch.object(
+            watcher,
+            "verify_merge",
+            side_effect=watcher.EvidenceError("Wrong merge parents."),
+        ):
+            with self.assertRaises(watcher.MonitorError):
+                watcher.monitor(self.azure_args())
+
+    def test_merge_verification_uses_pinned_revisions_once(self):
+        data = snapshot("COMPLETED", "SUCCESS")
+        azure = {
+            "status": "completed",
+            "result": "succeeded",
+            "url": URL,
+            "jobs": [],
+        }
+        for start, timeout, responses, finished in (
+            (0, 60, [{**azure, "status": "inProgress", "result": None}, azure], 600),
+            (7190, 10, [azure], 7190),
+        ):
+            with self.subTest(start=start):
+                self.now = start
+                with patch.object(watcher, "query_pr", return_value=data), patch.object(
+                    watcher,
+                    "github_json",
+                    return_value={
+                        "sha": "c" * 40,
+                        "parents": [{"sha": "b" * 40}, {"sha": HEAD}],
+                    },
+                ) as query, patch.object(
+                    watcher, "collect_build", side_effect=responses
+                ) as collect:
+                    self.assertEqual(
+                        "success", watcher.monitor(self.azure_args())["outcome"]
+                    )
+                self.assertEqual(finished, self.now)
+                query.assert_called_once_with(
+                    "git/commits/" + "c" * 40, timeout=timeout
+                )
+                self.assertEqual(
+                    [7200] * len(responses),
+                    [c.args[0].deadline for c in collect.call_args_list],
+                )
+
+    def test_timeline_results_wait_for_retry_and_distinguish_agreement(self):
+        azure = {
+            "status": "inProgress",
+            "result": None,
+            "url": URL,
+            "jobs": [],
+        }
+        for conclusion, azure_result, outcome, code in (
+            ("FAILURE", "succeeded", "attention_required", 4),
+            ("SUCCESS", "failed", "attention_required", 4),
+            ("SUCCESS", "partiallySucceeded", "attention_required", 4),
+            ("SUCCESS", "canceled", "attention_required", 4),
+            ("FAILURE", "failed", "failed", 1),
+            ("CANCELLED", "canceled", "failed", 1),
+            ("SUCCESS", "succeeded", "success", 0),
+        ):
+            self.now = 0
+            self.sleep_mock.reset_mock()
+            with self.subTest(conclusion=conclusion, azure=azure_result), patch.object(
+                watcher, "query_pr", return_value=snapshot("COMPLETED", conclusion)
+            ), patch.object(watcher, "verify_merge"), patch.object(
+                watcher,
+                "collect_build",
+                side_effect=[
+                    azure,
+                    {**azure, "status": "completed", "result": azure_result},
+                    {**azure, "status": "completed", "result": azure_result},
+                ],
+            ):
+                output = io.StringIO()
+                with contextlib.redirect_stdout(output):
+                    self.assertEqual(
+                        code,
+                        watcher.main(
+                            ARGV
+                            + [
+                                "--azure-timeline",
+                                "--base-sha",
+                                "b" * 40,
+                                "--merge-sha",
+                                "c" * 40,
+                            ]
+                        ),
+                    )
+                result = json.loads(output.getvalue().splitlines()[-1])
+                self.assertEqual("finished", result["event"])
+                waits = 2 if outcome == "attention_required" else 1
+                self.assertEqual(600 * waits, self.now)
+                self.assertEqual(outcome, result["outcome"])
+                if outcome != "attention_required":
+                    self.assertEqual(conclusion, result["conclusion"])
+                self.assertIn("azure", result)
+                self.assertEqual(azure_result, result["azure"]["result"])
+                self.assertEqual(
+                    [600] * waits,
+                    [c.args[0] for c in self.sleep_mock.call_args_list],
+                )
+
+    def test_normal_cli_invocation_does_not_dirty_the_guidance_snapshot(self):
+        with tempfile.TemporaryDirectory() as directory:
+            destination = Path(directory)
+            for name in (
+                "watch_azure_pipeline.py",
+                "collect_ci_evidence.py",
+                "verify_trusted_guidance.py",
+            ):
+                shutil.copyfile(Path(SPEC.origin).parent / name, destination / name)
+            process = subprocess.run(
+                [
+                    sys.executable,
+                    str(destination / "watch_azure_pipeline.py"),
+                    "--help",
+                ],
+                env={
+                    key: value
+                    for key, value in os.environ.items()
+                    if key != "PYTHONDONTWRITEBYTECODE"
+                },
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            self.assertEqual(0, process.returncode, process.stderr)
+            self.assertFalse((destination / "__pycache__").exists())
 
 
 if __name__ == "__main__":

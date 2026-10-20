@@ -1,3 +1,5 @@
+#Requires -Version 7.2
+
 <#
 .SYNOPSIS
     Captures GitHub merge-readiness evidence for one or more pull requests.
@@ -22,17 +24,27 @@
     premature all-clear and leaving a human to notice the comments later.
     Suppressed comments are reported too: they live inside the review body rather
     than as review threads, so a thread query alone never surfaces them.
+    Requesting a review is limited to one open PR with stable revision evidence,
+    but does not require unrelated policy/workflow evidence to be complete or
+    authorize CI.
 
     Checks are reported by absence as well as outcome. `failedChecks` and
     `pendingChecks` can only describe checks that exist, so a head whose build
     never started scores zero in both and reads as finished;
     `missingRequiredChecks` catches that and gates `complete`. The Azure DevOps
     build is the usual casualty because it does not queue itself on a push -- it
-    waits for an `/azp run` comment -- so `-RunPipeline` posts one.
+    waits for an `/azp run` comment. The guarded `-RunPipeline` posts one only
+    for a single open PR with matching expected head/base SHAs, complete evidence,
+    and an absent exact Azure aggregate. It does not authorize CI and cannot be
+    combined with `-WaitForReview` or `-RequestReview`.
 
-    It does not make the readiness decision; use the skill's evidence gates for
-    that judgment. Output can contain review content; keep it local or redact it
-    before sharing.
+    Workflow runs (including hidden approval gates), rulesets, and classic
+    branch protection are collected separately from the check rollup. The
+    readiness object separates evidence, remote engineering checks, human
+    approval, and merge readiness. Local behavior and review evidence still
+    require assessment; completeness.complete is a compatibility alias for
+    remoteEngineeringGatesClear, NOT merge approval.
+    Output can contain review content; keep it local or redact it before sharing.
 #>
 param(
     [Parameter(Mandatory)]
@@ -69,20 +81,34 @@ param(
     # the login the submitted review is attributed to.
     [string]$ReviewerHandle = "Copilot",
 
-    # Checks that must be PRESENT on the head commit, matched as a name prefix so
-    # one entry covers a pipeline's several legs. Absence is the point: the
-    # failed/pending sets can only describe checks that exist, so a head whose CI
-    # never started scores zero failures and zero pending and looks finished. The
-    # Azure DevOps build does not queue itself on every push here -- it needs an
-    # `/azp run` comment -- which is exactly the check most likely to be missing.
-    [string[]]$RequiredCheck = @("microsoft.SynapseML"),
+    # Additional required check prefixes, matched case-insensitively.
+    # The exact SynapseML Azure aggregate is always required.
+    [string[]]$RequiredCheck = @(),
 
-    # Post `/azp run` when a required check is missing from the head, instead of
-    # leaving a human to notice that full CI never started.
-    [switch]$RunPipeline
+    # Post `/azp run` only when the exact Azure aggregate is absent from the head.
+    # Expected revisions and the caller's trusted authorization gate are required.
+    [switch]$RunPipeline,
+
+    [ValidatePattern('^[0-9a-fA-F]{40}$')]
+    [string]$ExpectedHeadSha,
+
+    [ValidatePattern('^[0-9a-fA-F]{40}$')]
+    [string]$ExpectedBaseSha
 )
 
 $ErrorActionPreference = "Stop"
+$PSNativeCommandUseErrorActionPreference = $false
+$azureCheck = "microsoft.SynapseML"
+
+if (($ExpectedHeadSha -or $ExpectedBaseSha) -and $PullRequest.Count -ne 1) {
+    throw "Expected revision arguments apply to exactly one PR."
+}
+if ($RequestReview -and $PullRequest.Count -ne 1) {
+    throw "-RequestReview requires exactly one PR."
+}
+if ($RunPipeline -and ($WaitForReview -or $RequestReview -or -not $ExpectedHeadSha -or -not $ExpectedBaseSha)) {
+    throw "-RunPipeline requires expected head/base SHAs and cannot be combined with -WaitForReview or -RequestReview."
+}
 
 if (-not (Get-Command gh -ErrorAction SilentlyContinue)) {
     throw "GitHub CLI 'gh' is required."
@@ -106,9 +132,6 @@ if (-not $automatedLogins) {
 # Review requests are attempted at most once per PR per invocation; see the
 # -RequestReview block in Get-PrSnapshot.
 $script:reviewRequestOutcome = @{}
-
-# Likewise for `/azp run` comments; see the -RunPipeline block in Get-PrSnapshot.
-$script:pipelineRunOutcome = @{}
 
 $threadQuery = @'
 query($owner: String!, $name: String!, $number: Int!, $cursor: String) {
@@ -214,6 +237,63 @@ function Invoke-PagedQuery {
     [pscustomobject]@{ nodes = $nodes; pages = $pages }
 }
 
+function Get-RestEvidence {
+    param([string]$Endpoint, [switch]$Paged)
+
+    $ghArgs = @("api", $Endpoint)
+    if ($Paged) { $ghArgs += @("--paginate", "--jq", "tojson") }
+    $text = & gh @ghArgs 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        $script:collectionErrors.Add(
+            "Could not read $Endpoint (GitHub CLI exit $LASTEXITCODE); check authentication, permissions, and network access.")
+        if ($Endpoint -like "*/protection") {
+            $script:collectionErrors.Add(
+                "Reading classic branch protection requires repository Administration read permission.")
+        }
+        return $null
+    }
+    try {
+        $body = ($text -join "").Trim()
+        if ([string]::IsNullOrWhiteSpace($body) -or $body -eq "null") {
+            throw "Empty evidence."
+        }
+        if ($Paged) {
+            # One compact JSON page per line works without newer gh --slurp.
+            foreach ($page in $text) {
+                if ([string]::IsNullOrWhiteSpace($page) -or $page.Trim() -eq "null") {
+                    throw "Empty evidence page."
+                }
+                $page | ConvertFrom-Json
+            }
+        } else {
+            $text | ConvertFrom-Json
+        }
+    } catch {
+        $script:collectionErrors.Add("Invalid JSON from $Endpoint.")
+    }
+}
+
+function Get-VerifiedRunAssociations {
+    param($Run)
+
+    $Run.pull_requests | Where-Object {
+        $_.number -gt 0 -and $_.base.repo.url -eq "https://api.github.com/repos/$Repo" -and
+        $_.head.sha -eq $Run.head_sha
+    }
+}
+
+function Get-HeadRepositoryName {
+    param($PullRequest)
+
+    if ($PullRequest.headRepository.nameWithOwner) {
+        return $PullRequest.headRepository.nameWithOwner
+    }
+    if ($PullRequest.headRepositoryOwner.login -and $PullRequest.headRepository.name) {
+        return "$($PullRequest.headRepositoryOwner.login)/$($PullRequest.headRepository.name)"
+    }
+    return $null
+}
+
 function Get-PrSnapshot {
     param([int]$number)
 
@@ -222,8 +302,10 @@ function Get-PrSnapshot {
     # dot-sourcing cannot change the caller's session.
     Set-StrictMode -Off
 
+    $script:collectionErrors = [System.Collections.Generic.List[string]]::new()
     $jsonFields = "number,title,state,isDraft,mergeable,mergeStateStatus,reviewDecision," +
-        "headRefOid,baseRefName,statusCheckRollup,url"
+        "headRefOid,headRefName,headRepository,headRepositoryOwner,isCrossRepository," +
+        "baseRefOid,baseRefName,statusCheckRollup,url"
     $viewText = & gh pr view $number --repo $Repo --json $jsonFields
     if ($LASTEXITCODE -ne 0) {
         throw "gh pr view failed for PR #$number"
@@ -241,11 +323,121 @@ function Get-PrSnapshot {
     # Escape the base ref: branch names legitimately contain '/', which would
     # otherwise produce an invalid REST path.
     $baseRef = [uri]::EscapeDataString($view.baseRefName)
-    $compareText = & gh api "repos/$Repo/compare/$baseRef...$($view.headRefOid)"
-    if ($LASTEXITCODE -ne 0) {
-        throw "Target comparison failed for PR #$number"
+    $branch = Get-RestEvidence "repos/$Repo/branches/$baseRef"
+    $baseSha = $branch.commit.sha
+    if ($branch.protected -isnot [bool] -or $branch.commit.sha -notmatch '^[0-9a-fA-F]{40}$') {
+        $script:collectionErrors.Add("Branch protection metadata is incomplete.")
     }
-    $compare = $compareText | ConvertFrom-Json
+    $rulePages = @(Get-RestEvidence "repos/$Repo/rules/branches/$baseRef" -Paged)
+    $rules = @($rulePages | ForEach-Object { $_ } | Where-Object { $_ })
+    if (@($rules | Where-Object { -not $_.type }).Count -gt 0) {
+        $script:collectionErrors.Add("Effective branch rules are malformed.")
+    }
+    # Copilot automation is covered by the current-head review gate below.
+    # Deletion and history-rewrite restrictions do not gate an ordinary PR merge.
+    $unevaluatedRules = @($rules | Where-Object {
+        $_.type -and $_.type -notin @(
+            "required_status_checks", "pull_request", "copilot_code_review",
+            "deletion", "non_fast_forward")
+    })
+    $classic = $null
+    # protected=true also covers rulesets. enabled=false explicitly rules out
+    # classic protection; a 404 from /protection alone could be a permission error.
+    if ($branch -and $branch.protection.enabled -ne $false -and $branch.protected) {
+        $classic = Get-RestEvidence "repos/$Repo/branches/$baseRef/protection"
+    }
+    $unevaluatedClassic = @($classic.PSObject.Properties | Where-Object {
+        $_.Name -notin @(
+            "url", "required_status_checks", "required_pull_request_reviews",
+            "required_conversation_resolution", "enforce_admins",
+            "allow_force_pushes", "allow_deletions", "block_creations", "allow_fork_syncing") -and
+        $null -ne $_.Value -and $_.Value -ne $false -and $_.Value.enabled -ne $false
+    } | ForEach-Object { $_.Name })
+    $ruleChecks = @($rules | Where-Object { $_.type -eq "required_status_checks" } |
+        ForEach-Object { $_.parameters.required_status_checks } |
+        Where-Object { $_.context })
+    $exactRequiredChecks = @(@($azureCheck) +
+        @($ruleChecks | ForEach-Object { $_.context }) +
+        @($classic.required_status_checks.contexts) +
+        @($classic.required_status_checks.checks | ForEach-Object { $_.context }) |
+        Where-Object { $_ } | Sort-Object -CaseSensitive -Unique)
+    $approvalRules = @($rules | Where-Object { $_.type -eq "pull_request" } |
+        ForEach-Object { $_.parameters })
+    if ($classic.required_pull_request_reviews) {
+        $approvalRules += $classic.required_pull_request_reviews
+    }
+    $rulesComplete = $script:collectionErrors.Count -eq 0
+
+    $compare = $null
+    if ($baseSha -match '^[0-9a-fA-F]{40}$') {
+        # PR baseRefOid may lag the branch tip until the next head push.
+        $compare = Get-RestEvidence "repos/$Repo/compare/$baseSha...$($view.headRefOid)"
+    }
+    $workflowPages = @(Get-RestEvidence `
+        "repos/$Repo/actions/runs?head_sha=$($view.headRefOid)&per_page=100" -Paged)
+    $allWorkflows = @($workflowPages | ForEach-Object { $_.workflow_runs } | Where-Object { $_ })
+    $expectedWorkflowCount = ($workflowPages | Select-Object -First 1).total_count
+    if ($null -eq $expectedWorkflowCount -or $allWorkflows.Count -lt $expectedWorkflowCount) {
+        $script:collectionErrors.Add("Workflow run pagination is incomplete.")
+    }
+    if (@($allWorkflows | Where-Object {
+        $_.head_sha -ne $view.headRefOid -or -not $_.workflow_id -or -not $_.id -or -not $_.event
+    }).Count -gt 0) {
+        $script:collectionErrors.Add("Workflow identities do not match the requested head.")
+    }
+    $uniqueForkBranch = $false
+    $headRepo = Get-HeadRepositoryName $view
+    if ($view.isCrossRepository -and $headRepo -and $view.headRefName -and
+        @($allWorkflows | Where-Object {
+            $_.event -like "pull_request*" -and @(Get-VerifiedRunAssociations $_).Count -eq 0
+        }).Count -gt 0) {
+        $headFilter = [uri]::EscapeDataString("$($view.headRepositoryOwner.login):$($view.headRefName)")
+        $headPages = @(Get-RestEvidence "repos/$Repo/pulls?head=$headFilter&state=all&per_page=100" -Paged)
+        if (@($headPages | ForEach-Object { $_ } | Where-Object {
+            -not $_.number -or $_.head.sha -notmatch '^[0-9a-fA-F]{40}$' -or
+            -not $_.head.ref -or -not $_.head.repo.full_name -or -not $_.base.repo.full_name
+        }).Count -gt 0) {
+            $script:collectionErrors.Add("PR head association lookup returned incomplete identities.")
+        }
+        # A closed PR can have run this revision before its recorded head moved.
+        # Current head SHAs cannot disambiguate historical empty-association runs.
+        $headPulls = @($headPages | ForEach-Object { $_ } | Where-Object {
+            $_.head.ref -eq $view.headRefName -and
+            $_.head.repo.full_name -eq $headRepo -and $_.base.repo.full_name -eq $Repo
+        })
+        $uniqueForkBranch = $headPulls.Count -eq 1 -and $headPulls[0].number -eq $number -and
+            $headPulls[0].head.sha -eq $view.headRefOid
+    }
+    $scopedWorkflows = @($allWorkflows | Where-Object {
+        if ($_.head_sha -ne $view.headRefOid) { return $false }
+        if ($_.event -like "pull_request*") {
+            $associations = @(Get-VerifiedRunAssociations $_)
+            if ($associations.Count -eq 0 -and $uniqueForkBranch -and
+                $_.head_repository.full_name -eq $headRepo -and $_.head_branch -eq $view.headRefName) {
+                return $true
+            }
+            if ($associations.Count -ne 1 -or $associations[0].number -le 0) {
+                $script:collectionErrors.Add("Workflow run $($_.id) has no unambiguous PR association.")
+                return $false
+            }
+            return $associations[0].number -eq $number
+        }
+        return $true
+    })
+    # Scope PR-triggered runs before supersession: another PR can share this head.
+    $workflows = @($scopedWorkflows |
+        Group-Object workflow_id,event | ForEach-Object {
+            $_.Group | Sort-Object { [long]$_.id } -Descending | Select-Object -First 1
+        } | Select-Object id,workflow_id,name,event,head_sha,head_repository,head_branch,status,conclusion,run_attempt,html_url,pull_requests)
+    $workflowApprovalsRequired = @($workflows | Where-Object {
+        $_.conclusion -eq "action_required" -or $_.status -in @("action_required", "waiting")
+    })
+    $failedWorkflows = @($workflows | Where-Object {
+        $_.conclusion -in @("failure", "cancelled", "timed_out", "stale", "startup_failure")
+    })
+    $pendingWorkflows = @($workflows | Where-Object {
+        $_.status -ne "completed" -or -not $_.conclusion
+    })
 
     $failedChecks = @($view.statusCheckRollup | Where-Object {
         $_.conclusion -in @("FAILURE", "CANCELLED", "TIMED_OUT", "ACTION_REQUIRED", "STALE") -or
@@ -258,17 +450,28 @@ function Get-PrSnapshot {
     } | ForEach-Object { if ($_.name) { $_.name } else { $_.context } })
 
     # A check that never started cannot fail and cannot be pending, so it leaves
-    # no trace in either set above. Test presence separately, by prefix, so one
-    # required name covers every leg the pipeline reports.
+    # no trace in either set above. Require the exact Azure aggregate; other
+    # caller-supplied names retain legacy prefix matching.
     $checkNames = @($view.statusCheckRollup |
         ForEach-Object { if ($_.name) { $_.name } else { $_.context } } |
         Where-Object { $_ })
-    $missingRequiredChecks = @($RequiredCheck | Where-Object {
-        $required = $_
-        -not ($checkNames | Where-Object {
+    $missingRequiredChecks = @()
+    foreach ($required in $RequiredCheck) {
+        $matchingChecks = @($checkNames | Where-Object {
             $_.StartsWith($required, [StringComparison]::OrdinalIgnoreCase)
         })
-    })
+        $exactRequiredChecks += $matchingChecks
+        if ($matchingChecks.Count -eq 0) {
+            $missingRequiredChecks += $required
+        }
+    }
+    $missingRequiredChecks = @($missingRequiredChecks + @($exactRequiredChecks |
+        Where-Object { $_ -cnotin $checkNames }) | Sort-Object -CaseSensitive -Unique)
+    $unprovenRequiredChecks = @($view.statusCheckRollup | Where-Object {
+        $checkName = if ($_.name) { $_.name } else { $_.context }
+        $checkName -cin $exactRequiredChecks -and
+        $_.conclusion -ne "SUCCESS" -and $_.state -ne "SUCCESS"
+    } | ForEach-Object { if ($_.name) { $_.name } else { $_.context } })
 
     $threads = @($threadPage.nodes)
     $unresolved = @($threads | Where-Object { -not $_.isResolved })
@@ -314,6 +517,67 @@ function Get-PrSnapshot {
     $suppressedForHead = @($suppressed |
         Where-Object { $_.commit -eq $view.headRefOid })
 
+    $freshText = & gh pr view $number --repo $Repo `
+        --json "headRefOid,headRefName,headRepository,headRepositoryOwner,baseRefOid,baseRefName,state" 2>$null
+    $fresh = $null
+    $freshHeadRepo = $null
+    if ($LASTEXITCODE -ne 0) {
+        $script:collectionErrors.Add("Could not recheck PR revisions (GitHub CLI exit $LASTEXITCODE).")
+    } else {
+        try {
+            $fresh = $freshText | ConvertFrom-Json
+            $freshHeadRepo = Get-HeadRepositoryName $fresh
+            if (-not $fresh -or $fresh.headRefOid -notmatch '^[0-9a-fA-F]{40}$' -or
+                -not $fresh.headRefName -or -not $freshHeadRepo -or
+                -not $fresh.baseRefName -or $fresh.state -notin @("OPEN", "CLOSED", "MERGED")) {
+                throw "Incomplete PR revision evidence."
+            }
+        } catch {
+            $fresh = $null
+            $script:collectionErrors.Add("Invalid PR revision recheck evidence.")
+        }
+    }
+    $freshBranch = Get-RestEvidence "repos/$Repo/branches/$baseRef"
+    $revisionErrors = @(
+        if (-not $view.headRefOid -or -not $baseSha) { "Missing head/base SHA." }
+        if (-not $fresh) {
+            "Could not recheck PR revisions."
+        } elseif ($fresh.headRefOid -ne $view.headRefOid -or
+            $fresh.headRefName -ne $view.headRefName -or
+            $freshHeadRepo -ne $headRepo -or
+            $fresh.baseRefName -ne $view.baseRefName -or $fresh.state -ne $view.state) {
+            "PR head, base, or state changed during collection."
+        }
+        if ($freshBranch.commit.sha -notmatch '^[0-9a-fA-F]{40}$') {
+            "Could not recheck target branch."
+        } elseif ($baseSha -match '^[0-9a-fA-F]{40}$' -and $freshBranch.commit.sha -ne $baseSha) {
+            "Target branch moved during collection."
+        }
+        if ($ExpectedHeadSha -and $ExpectedHeadSha -ne $view.headRefOid) { "Expected head SHA does not match." }
+        if ($ExpectedBaseSha -and $ExpectedBaseSha -ne $baseSha) { "Expected base SHA does not match." }
+    )
+    $evidenceComplete = $revisionErrors.Count -eq 0 -and $script:collectionErrors.Count -eq 0 -and
+        $truncatedThreadComments.Count -eq 0
+    $remoteGatesClear = $evidenceComplete -and $automatedReviewCoversHead -and
+        $unevaluatedRules.Count -eq 0 -and $unevaluatedClassic.Count -eq 0 -and
+        $unresolved.Count -eq 0 -and $suppressedForHead.Count -eq 0 -and
+        $missingRequiredChecks.Count -eq 0 -and $unprovenRequiredChecks.Count -eq 0 -and
+        $failedChecks.Count -eq 0 -and $pendingChecks.Count -eq 0 -and
+        $workflowApprovalsRequired.Count -eq 0 -and $failedWorkflows.Count -eq 0 -and
+        $pendingWorkflows.Count -eq 0 -and $compare.behind_by -eq 0 -and
+        $view.reviewDecision -ne "CHANGES_REQUESTED" -and $view.mergeable -eq "MERGEABLE"
+    $humanApproval = if (-not $rulesComplete) { "unknown" }
+        elseif ($view.reviewDecision -eq "APPROVED") { "approved" }
+        elseif ($view.reviewDecision -in @("REVIEW_REQUIRED", "CHANGES_REQUESTED")) { "pending" }
+        elseif (@($approvalRules | Where-Object {
+            ($_.required_approving_review_count -isnot [long] -and
+                $_.required_approving_review_count -isnot [int]) -or
+            $_.required_approving_review_count -ne 0 -or
+            $_.require_code_owner_review -or $_.require_code_owner_reviews -or
+            $_.require_last_push_approval -or $_.required_reviewers
+        }).Count -eq 0) { "not_required" }
+        else { "unknown" }
+
     $reviewRequested = $false
     if ($script:reviewRequestOutcome.ContainsKey($number)) {
         $reviewRequested = $script:reviewRequestOutcome[$number]
@@ -324,6 +588,9 @@ function Get-PrSnapshot {
     # per PR per invocation and reuse the recorded outcome afterwards.
     if ($RequestReview -and -not $automatedReviewCoversHead -and
         -not $script:reviewRequestOutcome.ContainsKey($number)) {
+        if ($revisionErrors.Count -gt 0 -or $view.state -ne "OPEN") {
+            throw "PR #${number}: Review request blocked: PR must be open with complete, unchanged revision evidence."
+        }
         # Requesting by handle through the REST endpoint is the only path that works.
         # The GraphQL requestReviews mutation rejects the reviewer's Bot node id
         # ("Could not resolve to User node"), and `gh pr edit --add-reviewer` cannot
@@ -341,21 +608,42 @@ function Get-PrSnapshot {
     }
 
     $pipelineRunRequested = $false
-    if ($script:pipelineRunOutcome.ContainsKey($number)) {
-        $pipelineRunRequested = $script:pipelineRunOutcome[$number]
+    $pipelineRunComment = $null
+    # CI execution conservatively requires complete collection, unlike a review notification.
+    if ($RunPipeline -and -not $evidenceComplete) {
+        $gaps = @(
+            $revisionErrors
+            $script:collectionErrors
+            if ($truncatedThreadComments.Count -gt 0) { "Review-thread comments were truncated." }
+        )
+        throw "CI trigger blocked by incomplete or stale evidence: $($gaps -join ' ') Run without -RunPipeline for the diagnostic snapshot."
     }
-    # Same once-per-invocation guard as the review request above: under
-    # -WaitForReview this runs every poll, and each `/azp run` comment queues
-    # another build and notifies every subscriber.
-    if ($RunPipeline -and @($missingRequiredChecks).Count -gt 0 -and
-        -not $script:pipelineRunOutcome.ContainsKey($number)) {
+    if ($RunPipeline -and $view.state -ne "OPEN") {
+        throw "CI trigger requires an open PR."
+    }
+    # This revision check catches stale requests, not a trigger race. The caller
+    # must enforce the trusted CI delegation contract for secret-bearing jobs.
+    if ($RunPipeline -and $azureCheck -cnotin $checkNames) {
         # A comment is the only trigger the pipeline honours from here; queueing
         # through the ADO API needs credentials this script does not assume.
-        gh pr comment $number --repo $Repo --body "/azp run" *> $null
+        $commentText = gh api "repos/$owner/$name/issues/$number/comments" `
+            -X POST -f "body=/azp run" 2>$null
         $pipelineRunRequested = ($LASTEXITCODE -eq 0)
-        $script:pipelineRunOutcome[$number] = $pipelineRunRequested
         if (-not $pipelineRunRequested) {
-            Write-Warning "PR #${number}: could not comment '/azp run'."
+            Write-Warning "PR #${number}: could not confirm '/azp run' was posted. Inspect existing comments and builds before retrying."
+        } else {
+            # Receipt parsing must not turn a successful POST into a failed request.
+            $comment = $null
+            try {
+                $comment = ($commentText -join "`n") | ConvertFrom-Json
+            } catch [System.ArgumentException] {
+                $comment = $null
+            }
+            if ($comment.id -and $comment.html_url -and $comment.created_at) {
+                $pipelineRunComment = $comment | Select-Object id, html_url, created_at
+            } else {
+                Write-Warning "PR #${number}: '/azp run' was posted but its receipt is incomplete. Inspect existing comments and builds before retrying."
+            }
         }
     }
 
@@ -369,16 +657,45 @@ function Get-PrSnapshot {
         mergeState = $view.mergeStateStatus
         reviewDecision = $view.reviewDecision
         base = $view.baseRefName
+        baseSha = $baseSha
+        prBaseRefSha = $view.baseRefOid
         headSha = $view.headRefOid
+        revisionErrors = $revisionErrors
+        collectionErrors = @($script:collectionErrors.ToArray())
+        effectiveRules = $rules
+        unevaluatedRules = $unevaluatedRules
+        classicProtection = $classic
+        ruleRequiredChecks = $ruleChecks
+        workflows = $workflows
+        workflowApprovalsRequired = $workflowApprovalsRequired
+        failedWorkflows = $failedWorkflows
+        pendingWorkflows = $pendingWorkflows
         targetStatus = $compare.status
         aheadBy = $compare.ahead_by
         behindBy = $compare.behind_by
         failedChecks = $failedChecks
         pendingChecks = $pendingChecks
         missingRequiredChecks = $missingRequiredChecks
+        unprovenRequiredChecks = $unprovenRequiredChecks
         unresolvedThreads = $unresolved
         suppressedReviewBodies = $suppressed
         suppressedReviewBodiesForHead = $suppressedForHead
+        readiness = [pscustomobject]@{
+            evidenceComplete = $evidenceComplete
+            remoteEngineeringGatesClear = $remoteGatesClear
+            engineering = if ($remoteGatesClear) { "requires_manual_evidence" } else { "blocked" }
+            humanApproval = $humanApproval
+            merge = if (-not $remoteGatesClear -or $humanApproval -notin @("approved", "not_required") -or
+                $view.state -ne "OPEN" -or $view.isDraft -or $view.mergeStateStatus -ne "CLEAN") {
+                "blocked"
+            } else { "requires_engineering_evidence" }
+            unassessedGates = @("Public behavior and local validation", "Full review findings and gauntlet",
+                "Azure merge provenance, actual tests and skips", "Required check issuer identities",
+                "Workflow trigger provenance for shared branches or revisions") +
+                @($unevaluatedRules | ForEach-Object { $_.type } | Sort-Object -Unique |
+                    ForEach-Object { "Effective branch rule requires assessment: $_" }) +
+                @($unevaluatedClassic | ForEach-Object { "Classic protection requires assessment: $_" })
+        }
         completeness = [pscustomobject]@{
             reviewThreadPages = $threadPage.pages
             reviewThreadCount = $threads.Count
@@ -391,21 +708,9 @@ function Get-PrSnapshot {
             automatedReviewCoversHead = $automatedReviewCoversHead
             automatedReviewRequested = $reviewRequested
             pipelineRunRequested = $pipelineRunRequested
-            # Everything verifiable must be clear. This previously tested only
-            # $truncatedThreadComments, which counts comment-pagination truncation
-            # rather than unresolved review threads, so it reported complete=true
-            # with review feedback still outstanding. It also read a head whose
-            # required build had never queued as clean, because an absent check
-            # is neither failed nor pending.
-            complete = (
-                @($truncatedThreadComments).Count -eq 0 -and
-                $automatedReviewCoversHead -and
-                @($unresolved).Count -eq 0 -and
-                @($suppressedForHead).Count -eq 0 -and
-                @($missingRequiredChecks).Count -eq 0 -and
-                @($failedChecks).Count -eq 0 -and
-                @($pendingChecks).Count -eq 0
-            )
+            pipelineRunComment = $pipelineRunComment
+            # Backward-compatible remote-evidence alias, never merge approval.
+            complete = $remoteGatesClear
         }
     }
 }
@@ -429,16 +734,21 @@ $results = @(foreach ($number in $PullRequest) {
             $snapshot = Get-PrSnapshot -number $number
         }
         if (-not $snapshot.completeness.automatedReviewCoversHead) {
-            Write-Warning ("PR #{0}: no automated review covered {1} within {2} minute(s). " +
-                "Findings for this head may still be pending; do not read this as clean." -f
+            Write-Warning (("PR #{0}: no automated review covered {1} within {2} minute(s). " +
+                "Findings for this head may still be pending; do not read this as clean.") -f
                 $number, $snapshot.headSha, $TimeoutMinutes)
         }
         if (@($snapshot.missingRequiredChecks).Count -gt 0) {
-            Write-Warning ("PR #{0}: required check(s) '{1}' never appeared on {2} within " +
-                "{3} minute(s). Full CI has not run on this head; comment '/azp run' " +
-                "(or pass -RunPipeline)." -f
+            Write-Warning (("PR #{0}: required check(s) '{1}' never appeared on {2} within " +
+                "{3} minute(s). Inspect the owning checks and workflow approval gates; " +
+                "missing status alone does not prove that a build never ran.") -f
                 $number, ($snapshot.missingRequiredChecks -join ", "),
                 $snapshot.headSha, $TimeoutMinutes)
+            if ($azureCheck -cin $snapshot.missingRequiredChecks) {
+                Write-Warning (("PR #{0}: the Azure aggregate is absent. Inspect existing runs first; " +
+                    "only after the trusted authorization gate, use -RunPipeline with expected " +
+                    "head/base SHAs if a new run is needed.") -f $number)
+            }
         }
     }
 
