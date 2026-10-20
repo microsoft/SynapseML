@@ -251,7 +251,8 @@ links, referenced flags, and existing helper regressions when helpers change.
 | Azure matrix legs exist but the aggregate is absent | Required Azure gate is missing, even if named test evidence exists |
 | Agent loss appears before job completion | Preserve the issue and attempt evidence; wait at the normal cadence, no premature retry |
 | Same-build failed-job retry | Consume the one retry, preserve successful jobs, keep the original deadline |
-| Expected regression absent from published results | Block its evidence gate regardless of aggregate counts or green jobs |
+| Expected regression absent from a job configured to publish test results | Block its evidence gate regardless of aggregate counts or green jobs |
+| Job has no test-results publisher by design | Apply the [nonpublishing-job contract](ci-evidence.md#jobs-without-published-test-results): named local regression proof and separately verified aggregate CI evidence, never invented published results |
 | Dirty guidance or wrong trusted SHA | Stop before loading helpers; bootstrap the trusted snapshot |
 
 ## Primary sources

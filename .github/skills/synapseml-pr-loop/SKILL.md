@@ -261,8 +261,11 @@ when Azure validation is required.
   [references/ci-triage.md](references/ci-triage.md) to separate product
   defects, test defects, baseline failures, and infrastructure failures.
 - Use the [CI evidence collector](references/ci-evidence.md) to verify the build's
-  exact source/target merge and named regression results, including skips and
-  job attempts. Workflow approvals and human branch rules are separate gates.
+  exact source/target merge and published named regression results, including
+  skips and job attempts. For jobs with no test-results publisher by design,
+  use the [nonpublishing-job evidence contract](references/ci-evidence.md#jobs-without-published-test-results)
+  instead; publication failures do not qualify. Workflow approvals and human
+  branch rules are separate gates.
 - Fix product/test defects and rerun. Infrastructure classification requires
   logs proving tests did not exercise the change; "looks flaky" is not evidence.
 - If path filters or a CI-only diff bypass the behavior being repaired, validate

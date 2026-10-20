@@ -1085,8 +1085,8 @@ class CiEvidenceTests(unittest.TestCase):
         command.assert_not_called()
 
     def test_streaming_response_stops_at_the_original_deadline(self):
-        for expire in (False, True):
-            with self.subTest(expire=expire):
+        for behavior in ("complete", "expire", "stall"):
+            with self.subTest(behavior=behavior):
                 reader, writer = socket.socketpair()
                 reader.settimeout(2)
                 writer.settimeout(2)
@@ -1094,8 +1094,9 @@ class CiEvidenceTests(unittest.TestCase):
                 connection.sock = reader
                 response_started = threading.Event()
                 body_finished = threading.Event()
+                stop_sender = threading.Event()
                 sender_errors = []
-                now = [99]
+                now = [99.8 if behavior == "stall" else 99]
                 payload = b'{"value":[]}'
                 getresponse = connection.getresponse
 
@@ -1121,12 +1122,14 @@ class CiEvidenceTests(unittest.TestCase):
                         )
                         if not response_started.wait(2):
                             return
+                        if behavior == "stall" and stop_sender.wait(2):
+                            return
                         for index, byte in enumerate(payload):
                             if index == len(payload) - 1:
                                 body_finished.set()
                             writer.sendall(bytes([byte]))
                             time.sleep(0.02)
-                            if expire:
+                            if behavior == "expire":
                                 now[0] = 101
                     except OSError as error:
                         sender_errors.append(error)
@@ -1147,7 +1150,15 @@ class CiEvidenceTests(unittest.TestCase):
                     ):
                         client = evidence.AzureClient(timeout=2, deadline=100)
                         client.token = "fixture-token"
-                        if expire:
+                        if behavior == "stall":
+                            started = time.perf_counter()
+                            with self.assertRaisesRegex(
+                                evidence.EvidenceError, "query timed out"
+                            ):
+                                client.get("build/builds/42")
+                            self.assertLess(time.perf_counter() - started, 1.5)
+                            self.assertFalse(body_finished.is_set())
+                        elif behavior == "expire":
                             with self.assertRaisesRegex(
                                 evidence.EvidenceError, "deadline expired"
                             ):
@@ -1162,9 +1173,10 @@ class CiEvidenceTests(unittest.TestCase):
                         self.assertEqual(-1, reader.fileno())
                 finally:
                     reader.close()
+                    stop_sender.set()
                     sender.join(timeout=3)
                 self.assertFalse(sender.is_alive())
-                if not expire:
+                if behavior != "expire":
                     self.assertEqual([], sender_errors)
 
     def test_client_requests_only_allowlisted_evidence_with_bounded_authentication(

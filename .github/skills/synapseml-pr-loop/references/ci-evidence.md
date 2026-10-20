@@ -153,6 +153,9 @@ ones, to distinguish a selector typo from missing publication without rerunning 
 `--expected-test` checks only the named test;
 add `--expected-suite` to check every result in that run name. Name the new regression explicitly. An
 increased count alone cannot prove that regression was discovered.
+This published-result contract applies when the job is configured to publish
+test results. For jobs without a publisher by design, use the
+[separate evidence contract below](#jobs-without-published-test-results).
 
 The collector verifies the GitHub merge's ordered target/head parents and the
 Azure pipeline definition, repository, build ID, source branch, source version,
@@ -236,3 +239,30 @@ Authentication uses the existing Azure CLI login. Tokens stay in memory, request
 use only the fixed SynapseML Azure project, and redirects are refused. CLI stderr,
 API error bodies, and timeline issue messages are not echoed. Do not add tokens
 to arguments, evidence files, comments, or fixtures.
+
+## Jobs without published test results
+
+First inspect the effective pipeline to confirm the job has no test-results
+publisher by design, rather than a failed or missing publication step.
+`CIHelpers` currently runs `tools/ci/tests/` with aggregate log output only.
+For such jobs, keep these two evidence sources distinct:
+
+- Run the exact named regressions locally on the reviewed patch with names and
+  skip reasons visible, for example `pytest <test-node-ids> -v -rs`. Record the
+  revision/fingerprint, command, platform, outcomes and applicable red/green
+  baseline. Required regressions must pass on their supported platform; a local
+  skip is not a pass.
+- Independently verify the Azure build's ordered base/head merge, pipeline,
+  repository, source branch/version and queue reason through read-only APIs.
+  Inspect the current job attempt, effective test command and complete logs;
+  retain its aggregate result and disposition of warnings or conditional skips.
+  Failures, incomplete execution and unexplained skips remain blockers.
+
+This is named **local** regression proof plus current-merge **aggregate CI**
+corroboration, not named published CI evidence or proof of hosted skip identities.
+The collector requires a real published suite/test selector: do not invent one,
+select an unrelated suite to clear this gate, or relabel a failed collection as
+passing. Record the manual assessment separately. Jobs configured to publish
+results must still provide the expected named results; this fallback never
+waives missing publication or a requirement to exercise the regression on CI
+hardware or infrastructure that local validation cannot represent.

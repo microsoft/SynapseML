@@ -102,10 +102,13 @@ python -E -s -B <watcher-script> --repo microsoft/SynapseML --pull-request <numb
   required checks to appear, not Azure pipeline completion. Keep that separate
   from the 10-minute pipeline-monitoring cadence.
 
-The four helper suites run in the existing `CIHelpers` job. For local validation:
+The four helper suites run in the existing `CIHelpers` job, which currently
+publishes aggregate logs rather than named test results. Apply the
+[nonpublishing-job evidence contract](ci-evidence.md#jobs-without-published-test-results).
+For local validation:
 
 ```text
-python -B -m pytest tools/ci/tests/test_watch_azure_pipeline.py tools/ci/tests/test_collect_ci_evidence.py tools/ci/tests/test_get_pr_readiness.py tools/ci/tests/test_trusted_guidance.py -q -rs
+python -B -m pytest tools/ci/tests/test_watch_azure_pipeline.py tools/ci/tests/test_collect_ci_evidence.py tools/ci/tests/test_get_pr_readiness.py tools/ci/tests/test_trusted_guidance.py -v -rs
 ```
 
 The readiness suite requires PowerShell 7.2+ (`pwsh`) on PATH. Missing `pwsh`

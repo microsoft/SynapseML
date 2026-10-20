@@ -510,6 +510,62 @@ class PrReadinessTests(unittest.TestCase):
                 self.assertFalse(proof["readiness"]["remoteEngineeringGatesClear"])
                 self.assertFalse(proof["completeness"]["complete"])
 
+    def test_missing_azure_aggregate_exposes_enforced_policy_source(self):
+        name = "microsoft.SynapseML"
+        for policy in ("ruleset", "classic", "none"):
+            with self.subTest(policy=policy):
+                data = fixture()
+                data["view"]["statusCheckRollup"] = []
+                if policy == "ruleset":
+                    data["rules"] = required_checks(name)
+                elif policy == "classic":
+                    data["branch"]["protection"]["enabled"] = True
+                    data["protection"] = {
+                        "required_status_checks": {"checks": [{"context": name}]}
+                    }
+                proof = self.snapshot(data)
+                self.assertEqual(
+                    [{"context": name}] if policy == "ruleset" else [],
+                    proof["ruleRequiredChecks"],
+                )
+                self.assertEqual(data.get("protection"), proof["classicProtection"])
+                self.assertIn(name, proof["missingRequiredChecks"])
+                self.assertFalse(proof["readiness"]["remoteEngineeringGatesClear"])
+                self.assertFalse(proof["completeness"]["complete"])
+
+    def test_classic_checks_only_require_present_successful_checks(self):
+        name = "Classic check"
+        for conclusion in (None, "SUCCESS", "SKIPPED", "NEUTRAL"):
+            with self.subTest(conclusion=conclusion):
+                data = fixture()
+                data["branch"]["protection"]["enabled"] = True
+                data["protection"] = {
+                    "required_status_checks": {"checks": [{"context": name}]}
+                }
+                if conclusion:
+                    data["view"]["statusCheckRollup"].append(
+                        {
+                            "name": name,
+                            "status": "COMPLETED",
+                            "conclusion": conclusion,
+                        }
+                    )
+                proof = self.snapshot(data)
+                self.assertEqual(
+                    [] if conclusion else [name], proof["missingRequiredChecks"]
+                )
+                self.assertEqual(
+                    [name] if conclusion in ("SKIPPED", "NEUTRAL") else [],
+                    proof["unprovenRequiredChecks"],
+                )
+                self.assertEqual(
+                    conclusion == "SUCCESS",
+                    proof["readiness"]["remoteEngineeringGatesClear"],
+                )
+                self.assertEqual(
+                    conclusion == "SUCCESS", proof["completeness"]["complete"]
+                )
+
     def test_custom_required_prefix_needs_present_successful_checks(self):
         for conclusion in (None, "SUCCESS", "SKIPPED", "NEUTRAL"):
             with self.subTest(conclusion=conclusion):
