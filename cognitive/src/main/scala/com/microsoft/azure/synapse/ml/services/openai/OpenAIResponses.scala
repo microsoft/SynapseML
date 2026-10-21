@@ -110,6 +110,7 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams with HasOpenAIRes
     echo,
     stop,
     cacheLevel,
+    promptCacheOptions,
     presencePenalty,
     frequencyPenalty,
     bestOf,
