@@ -26,7 +26,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
   lazy val goodDf: DataFrame = Seq(
     Seq(
       OpenAIMessage("system", "You are an AI chatbot with red as your favorite color"),
-      OpenAIMessage("user", "Whats your favorite color")
+      OpenAIMessage("user", "What is your favorite color? Reply in a full sentence.")
     ),
     Seq(
       OpenAIMessage("system", "You are very excited"),
