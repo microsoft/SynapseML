@@ -265,6 +265,7 @@ class VerifyRankingTuning extends TestBase {
       assert(block.finishing.await(10, TimeUnit.SECONDS))
       assert(!returned.await(200, TimeUnit.MILLISECONDS))
     } finally {
+      caller.interrupt()
       block.release.countDown()
       caller.join(30000L)
       TestableTuningRanker.Block.set(None)
