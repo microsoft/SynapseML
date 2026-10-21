@@ -21,6 +21,8 @@ private[automl] object RankingTuning {
   private val StructuralParams = Set("groupCol", "labelCol", "featuresCol", "predictionCol", "labelGain")
   private val MaxRelevance = 30
 
+  private[automl] final class WorkerFailure(cause: Throwable) extends RuntimeException(cause)
+
   private def field(name: String): Column = col("`" + name.replace("`", "``") + "`")
 
   def cutoff(metric: String): Option[Int] = {
@@ -164,7 +166,11 @@ private[automl] object RankingTuning {
     try {
       val scores = Array.fill(plan.runs.length)(0.0)
       plan.runs.indices.foreach { _ =>
-        val (index, score) = completed.take().get()
+        val (index, score) = try {
+          completed.take().get()
+        } catch {
+          case wrapped: ExecutionException if wrapped.getCause != null => throw new WorkerFailure(wrapped.getCause)
+        }
         scores(index) = score
         releaseCompleted(pending)
       }
@@ -174,10 +180,7 @@ private[automl] object RankingTuning {
         jobGroups.foreach(context.cancelJobGroup)
         // Estimators must handle interruption in their own cleanup; tuner caches belong to the caller.
         futures.foreach(_.cancel(true))
-        error match {
-          case wrapped: ExecutionException => throw wrapped.getCause
-          case other => throw other
-        }
+        throw error
     }
   }
 
@@ -220,11 +223,15 @@ private[automl] object RankingTuning {
     try {
       body
     } catch {
+      case worker: WorkerFailure =>
+        failure = Some(worker.getCause)
+        throw worker.getCause
       case error: Throwable =>
+        if (error.isInstanceOf[InterruptedException]) Thread.currentThread().interrupt()
         failure = Some(error)
         throw error
     } finally {
-      var interrupted = Thread.interrupted() || failure.exists(_.isInstanceOf[InterruptedException])
+      var interrupted = Thread.interrupted()
       pool.shutdown()
       val joinInterrupt = awaitWorkers(pool, waitMillis)
       interrupted = Thread.interrupted() || interrupted || joinInterrupt.nonEmpty

@@ -8,12 +8,12 @@ import com.microsoft.azure.synapse.ml.param.ByteArrayParam
 import org.apache.spark.ml.{Estimator, Ranker, RankerModel}
 import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.linalg.{Vector, Vectors}
-import org.apache.spark.ml.param.{DoubleArrayParam, DoubleParam, LongParam, Param, ParamMap}
+import org.apache.spark.ml.param.{BooleanParam, DoubleArrayParam, DoubleParam, LongParam, Param, ParamMap}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.functions._
 
-import java.util.concurrent.{CountDownLatch, Executors, TimeUnit}
+import java.util.concurrent.{CountDownLatch, ExecutionException, Executors, TimeUnit}
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 
 class TestableTuningRanker(override val uid: String)
@@ -27,8 +27,22 @@ class TestableTuningRanker(override val uid: String)
   setDefault(direction -> 1.0)
   val trainDelayMs = new LongParam(this, "trainDelayMs", "Test training delay")
   setDefault(trainDelayMs -> 0L)
+  val interruptTraining = new BooleanParam(this, "interruptTraining", "Test worker-only interruption")
+  val blockTraining = new BooleanParam(this, "blockTraining", "Test interrupted worker cleanup")
+  setDefault(interruptTraining -> false, blockTraining -> false)
   override protected def train(dataset: Dataset[_]): TestableTuningRankerModel = {
     require($(referenceDataset).isEmpty, "stale reference dataset reached fit")
+    if ($(interruptTraining)) throw TestableTuningRanker.WorkerInterruption.get().get
+    if ($(blockTraining)) {
+      val block = TestableTuningRanker.Block.get().get
+      block.started.countDown()
+      try {
+        new CountDownLatch(1).await()
+      } finally {
+        block.finishing.countDown()
+        block.release.await()
+      }
+    }
     try {
       Thread.sleep($(trainDelayMs))
     } catch {
@@ -42,6 +56,9 @@ class TestableTuningRanker(override val uid: String)
 }
 object TestableTuningRanker extends DefaultParamsReadable[TestableTuningRanker] {
   val TrainingInterrupted = new AtomicBoolean(false)
+  val WorkerInterruption = new AtomicReference[Option[InterruptedException]](None)
+  case class TrainingBlock(started: CountDownLatch, finishing: CountDownLatch, release: CountDownLatch)
+  val Block = new AtomicReference[Option[TrainingBlock]](None)
 }
 
 class TestableTuningRankerModel(override val uid: String)
@@ -195,6 +212,95 @@ class VerifyRankingTuning extends TestBase {
     val error = intercept[IllegalArgumentException] { broken.fit(data) }
     assert(error.getMessage.contains("finite numbers"))
     assert(spark.sparkContext.getPersistentRDDs.keySet == before)
+  }
+
+  test("worker interruption preserves the cause without interrupting the tuner caller") {
+    assert(!Thread.currentThread().isInterrupted)
+    val original = new InterruptedException("worker-only ranking interruption")
+    TestableTuningRanker.WorkerInterruption.set(Some(original))
+    val model = learner
+    val before = spark.sparkContext.getPersistentRDDs.keySet
+    val broken = tuner(model).setNumRuns(1)
+      .setParamSpace(new GridSpace(Array(ParamMap(model.interruptTraining -> true))))
+    try {
+      val observed = intercept[InterruptedException] { broken.fit(data) }
+      assert(observed eq original)
+      assert(!Thread.currentThread().isInterrupted)
+      assert(new CountDownLatch(0).await(1, TimeUnit.SECONDS))
+      assert(spark.sparkContext.getPersistentRDDs.keySet == before)
+    } finally {
+      Thread.interrupted()
+      TestableTuningRanker.WorkerInterruption.set(None)
+    }
+  }
+
+  test("tuner caller interruption waits for worker cleanup and restores only the caller flag") {
+    val block = TestableTuningRanker.TrainingBlock(new CountDownLatch(1), new CountDownLatch(1),
+      new CountDownLatch(1))
+    TestableTuningRanker.Block.set(Some(block))
+    val frame = data
+    val before = spark.sparkContext.getPersistentRDDs.keySet
+    val model = learner
+    val broken = tuner(model).setNumRuns(1)
+      .setParamSpace(new GridSpace(Array(ParamMap(model.blockTraining -> true))))
+    val observed = new AtomicReference[Throwable]()
+    val restored = new AtomicBoolean(false)
+    val returned = new CountDownLatch(1)
+    val caller = new Thread(new Runnable {
+      override def run(): Unit = {
+        try {
+          broken.fit(frame)
+        } catch {
+          case error: Throwable => observed.set(error)
+        } finally {
+          restored.set(Thread.currentThread().isInterrupted)
+          returned.countDown()
+        }
+      }
+    })
+    try {
+      caller.start()
+      assert(block.started.await(30, TimeUnit.SECONDS))
+      caller.interrupt()
+      assert(block.finishing.await(10, TimeUnit.SECONDS))
+      assert(!returned.await(200, TimeUnit.MILLISECONDS))
+    } finally {
+      block.release.countDown()
+      caller.join(30000L)
+      TestableTuningRanker.Block.set(None)
+    }
+    assert(!caller.isAlive)
+    assert(observed.get().isInstanceOf[InterruptedException])
+    assert(restored.get())
+    assert(spark.sparkContext.getPersistentRDDs.keySet == before)
+  }
+
+  for (kind <- Seq("worker", "caller", "execution")) {
+    test(s"worker cleanup preserves interruption provenance for $kind failure") {
+      assert(!Thread.currentThread().isInterrupted)
+      val pool = Executors.newSingleThreadExecutor()
+      val cause = new InterruptedException("original interruption")
+      val original = if (kind == "execution") new ExecutionException(cause) else cause
+      val thrown = if (kind == "worker") new RankingTuning.WorkerFailure(cause) else original
+      val cleaned = new AtomicBoolean(false)
+      try {
+        val observed = intercept[Throwable] {
+          RankingTuning.withWorkerCleanup(pool) {
+            throw thrown
+          } {
+            assert(!Thread.currentThread().isInterrupted)
+            cleaned.set(true)
+          }
+        }
+        assert(observed eq original)
+        assert(Thread.currentThread().isInterrupted == (kind == "caller"))
+        assert(cleaned.get())
+        assert(pool.isTerminated)
+      } finally {
+        Thread.interrupted()
+        pool.shutdownNow()
+      }
+    }
   }
 
   for (interruptCaller <- Seq(false, true)) {
