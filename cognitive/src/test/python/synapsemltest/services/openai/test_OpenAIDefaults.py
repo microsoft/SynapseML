@@ -135,7 +135,7 @@ class TestOpenAIDefaults(unittest.TestCase):
         )
 
         defaults = OpenAIDefaults()
-        defaults.set_deployment_name("gpt-5-mini")
+        defaults.set_deployment_name("gpt-6-luna")
         defaults.set_subscription_key(openai_api_key)
         defaults.set_URL("https://synapseml-openai-3.openai.azure.com/")
 

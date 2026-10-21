@@ -25,7 +25,7 @@ object OpenAIResponsesMultimodalTestData extends Serializable {
       "id" -> JsString("resp_test"),
       "object" -> JsString("response"),
       "created_at" -> JsString("1"),
-      "model" -> JsString("gpt-5.1"),
+      "model" -> JsString("gpt-6-luna"),
       "output" -> JsArray(JsObject(
         "content" -> JsArray(JsObject(
           "type" -> JsString("output_text"),
@@ -122,7 +122,7 @@ class OpenAIResponsesMultimodalSuite extends TestBase {
 
   private def responses(): OpenAIResponses = new OpenAIResponses()
     .setUrl("https://example.services.ai.azure.com/openai/v1")
-    .setDeploymentName("gpt-5.1")
+    .setDeploymentName("gpt-6-luna")
     .setMessagesCol("messages")
     .setSubscriptionKey("unused")
     .setOutputCol("output")
@@ -145,7 +145,7 @@ class OpenAIResponsesMultimodalSuite extends TestBase {
         ),
         contentPart("input_file", fileId = Some("file-document"))
       ))),
-      Map("model" -> "gpt-5.1")
+      Map("model" -> "gpt-6-luna")
     )
 
     val payload = EntityUtils.toString(entity).parseJson.asJsObject
@@ -211,7 +211,7 @@ class OpenAIResponsesMultimodalSuite extends TestBase {
     val payload = response.output.last.content.head.text.parseJson.asJsObject
     assert(requestBodies.value.asScala.size == 1)
     assert(requestBodies.value.asScala.head.parseJson == payload)
-    assert(payload.fields.get("model").contains(JsString("gpt-5.1")))
+    assert(payload.fields.get("model").contains(JsString("gpt-6-luna")))
 
     val JsArray(messages) = payload.fields("input")
     val JsArray(parts) = messages.head.asJsObject.fields("content")

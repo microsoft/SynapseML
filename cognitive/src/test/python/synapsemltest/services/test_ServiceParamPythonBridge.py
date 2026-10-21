@@ -11,8 +11,10 @@ from py4j.protocol import Py4JError, Py4JJavaError
 from pyspark.errors.exceptions.captured import IllegalArgumentException
 
 from synapse.ml.core.init_spark import init_spark
+from synapse.ml.services.openai.OpenAIChatCompletion import OpenAIChatCompletion
 from synapse.ml.services.openai.OpenAIEmbedding import OpenAIEmbedding
 from synapse.ml.services.openai.OpenAIPrompt import OpenAIPrompt
+from synapse.ml.services.openai.OpenAIResponses import OpenAIResponses
 from synapse.ml.services.text.TextSentiment import TextSentiment
 from synapse.ml.stages.SelectColumns import SelectColumns
 
@@ -143,6 +145,57 @@ class TestServiceParamPythonBridge(unittest.TestCase):
             TypeError, "Service parameter 'textCol' cannot be None"
         ):
             OpenAIEmbedding().setParams(textCol=None)
+
+    def test_prompt_cache_options_dicts_reach_generated_wrappers(self):
+        for stage_type in (OpenAIChatCompletion, OpenAIResponses, OpenAIPrompt):
+            with self.subTest(stage=stage_type.__name__):
+                options = {"mode": "explicit", "ttl": "30m"}
+                stage = stage_type(promptCacheOptions=options)
+                self.assertEqual(stage.getPromptCacheOptions(), options)
+
+                stage.setParams(promptCacheOptions={"ttl": "30m"})
+                self.assertEqual(stage.getPromptCacheOptions(), {"ttl": "30m"})
+                stage.setPromptCacheOptions({})
+                self.assertEqual(stage.getPromptCacheOptions(), {})
+
+                for invalid in ({"mode": "other"}, {"ttl": "24h"}, {"mode": None}):
+                    with self.assertRaises(IllegalArgumentException):
+                        stage.setParams(promptCacheOptions=invalid)
+                    self.assertEqual(stage.getPromptCacheOptions(), {})
+
+    def test_prompt_cache_options_bindings_survive_copy_save_and_load(self):
+        options = {"mode": "explicit", "ttl": "30m"}
+        for stage_type in (OpenAIChatCompletion, OpenAIResponses, OpenAIPrompt):
+            for use_column in (False, True):
+                with self.subTest(stage=stage_type.__name__, column=use_column):
+                    stage = stage_type(promptCacheOptions=options)
+                    if use_column:
+                        stage.setParams(promptCacheOptionsCol="cache_options")
+                    copied = stage.copy()
+                    with tempfile.TemporaryDirectory() as temp_dir:
+                        path = os.path.join(temp_dir, "stage")
+                        copied.save(path)
+                        key = "spark.synapseml.legacy.allowUnsafeJavaDeserialization"
+                        previous = spark.conf.get(key, None)
+                        try:
+                            # Direct API stages persist their trusted HTTP handler UDF.
+                            spark.conf.set(key, "true")
+                            loaded = stage_type.load(path)
+                        finally:
+                            if previous is None:
+                                spark.conf.unset(key)
+                            else:
+                                spark.conf.set(key, previous)
+                        if use_column:
+                            self.assertEqual(
+                                loaded.getPromptCacheOptionsCol(), "cache_options"
+                            )
+                        else:
+                            self.assertEqual(loaded.getPromptCacheOptions(), options)
+                        loaded.setPromptCacheOptions({"mode": "implicit"})
+                        self.assertEqual(
+                            loaded.getPromptCacheOptions(), {"mode": "implicit"}
+                        )
 
     def test_getters_preserve_unset_and_wrong_binding_errors(self):
         with self.assertRaises(Py4JJavaError):

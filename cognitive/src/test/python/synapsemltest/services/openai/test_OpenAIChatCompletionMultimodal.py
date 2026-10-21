@@ -46,7 +46,7 @@ class TestOpenAIChatCompletionMultimodal(unittest.TestCase):
         transformer = (
             OpenAIChatCompletion()
             .setUrl("https://example.services.ai.azure.com/openai/v1")
-            .setDeploymentName("gpt-5.1")
+            .setDeploymentName("gpt-6-luna")
             .setMessagesCol("messages")
             .setSubscriptionKey("unused")
             .setOutputCol("output")
