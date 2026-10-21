@@ -282,7 +282,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
         |  "id":"resp_test",
         |  "object":"response",
         |  "created_at":"1",
-        |  "model":"gpt-5.1",
+        |  "model":"gpt-6-luna",
         |  "output":[
         |    {"type":"reasoning","status":"completed","content":null},
         |    {"type":"message","status":"completed","content":[{"type":"output_text","text":"{\"answer\":\"fruit\"}"}]}
@@ -311,7 +311,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
         |  "id":"resp_test",
         |  "object":"response",
         |  "created_at":"1",
-        |  "model":"gpt-5.1",
+        |  "model":"gpt-6-luna",
         |  "output":[
         |    {"type":"message","status":"completed","content":[{"type":"output_text","text":"{\"answer\":\"fruit\"}"}]}
         |  ],
@@ -339,7 +339,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
         |  "id":"resp_test",
         |  "object":"response",
         |  "created_at":"1",
-        |  "model":"gpt-5.1",
+        |  "model":"gpt-6-luna",
         |  "output":[
         |    {"type":"message","status":"completed","content":[{"type":"output_text","text":""}]}
         |  ],
@@ -366,7 +366,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
         |  "id":"resp_test",
         |  "object":"response",
         |  "created_at":"1",
-        |  "model":"gpt-5.1",
+        |  "model":"gpt-6-luna",
         |  "output":[
         |    {"type":"message","status":"completed","content":[{"type":"output_text","text":"{\"answer\":\"stale\"}"}]},
         |    {"type":"message","status":"completed","content":[{"type":"output_text","text":"{\"answer\":\"final\"}"}]}
@@ -394,7 +394,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
         |  "id":"resp_test",
         |  "object":"response",
         |  "created_at":"1",
-        |  "model":"gpt-5.1",
+        |  "model":"gpt-6-luna",
         |  "output":[
         |    {"type":"message","status":"content_filter","content":null}
         |  ],
@@ -416,7 +416,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
         |  "id":"resp_test",
         |  "object":"response",
         |  "created_at":"1",
-        |  "model":"gpt-5.1",
+        |  "model":"gpt-6-luna",
         |  "output":[
         |    {"type":"reasoning","status":"completed","content":null},
         |    {"type":"message","status":"content_filter","content":null}

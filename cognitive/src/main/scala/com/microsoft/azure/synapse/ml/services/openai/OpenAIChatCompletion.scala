@@ -85,6 +85,7 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams with HasOpenAIResp
     echo,
     stop,
     cacheLevel,
+    promptCacheOptions,
     presencePenalty,
     frequencyPenalty,
     bestOf,
