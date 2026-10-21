@@ -10,9 +10,11 @@ import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{DataType, IntegerType, LongType, StringType}
 
+import scala.annotation.tailrec
+
 import java.util.UUID
-import java.util.concurrent.{Callable, ExecutionException, ExecutorCompletionService, ExecutorService,
-  Executors, TimeUnit}
+import java.util.concurrent.{Callable, ConcurrentLinkedQueue, ExecutionException, ExecutorCompletionService,
+  ExecutorService, Executors, TimeUnit}
 
 /** The ranking-only route; shared classification/regression evaluation remains unchanged. */
 private[automl] object RankingTuning {
@@ -52,9 +54,15 @@ private[automl] object RankingTuning {
 
   def ndcg(data: DataFrame, group: String, label: String, prediction: String,
            k: Option[Int], checkLabels: Boolean = true): Double = {
+    ndcg(data, group, label, prediction, k, checkLabels, frame => { frame.unpersist(); () })
+  }
+
+  private def ndcg(data: DataFrame, group: String, label: String, prediction: String,
+                   k: Option[Int], checkLabels: Boolean, release: DataFrame => Unit): Double = {
     val scored = data.select(field(group).as("query"), field(label).cast("double").as("relevance"),
-      field(prediction).cast("double").as("score")).cache()
+      field(prediction).cast("double").as("score"))
     try {
+      scored.cache()
       if (checkLabels) validateLabels(scored, "relevance")
       val badScore = col("score").isNull || isnan(col("score")) ||
         (abs(col("score")) === lit(Double.PositiveInfinity))
@@ -74,7 +82,7 @@ private[automl] object RankingTuning {
       require(!result.isNullAt(0), "Ranking validation fold cannot be empty")
       result.getDouble(0)
     } finally {
-      scored.unpersist()
+      release(scored)
     }
   }
 
@@ -133,7 +141,8 @@ private[automl] object RankingTuning {
   }
 
   private def evaluateFold(plan: Plan, training: DataFrame, validation: DataFrame,
-                           pool: ExecutorService, jobPrefix: String): Seq[Double] = {
+                           pool: ExecutorService, jobPrefix: String,
+                           pending: ConcurrentLinkedQueue[DataFrame]): Seq[Double] = {
     val jobGroups = plan.runs.indices.map(index => s"$jobPrefix-$index")
     val context = training.sparkSession.sparkContext
     val completed = new ExecutorCompletionService[(Int, Double)](pool)
@@ -144,7 +153,7 @@ private[automl] object RankingTuning {
           try {
             val model = fitModel(ranker, training)
             val score = ndcg(model.transform(validation), plan.group, plan.label, model.getPredictionCol,
-              plan.cutoff, checkLabels = false)
+              plan.cutoff, checkLabels = false, frame => { pending.add(frame); () })
             (index, score)
           } finally {
             context.clearJobGroup()
@@ -157,16 +166,77 @@ private[automl] object RankingTuning {
       plan.runs.indices.foreach { _ =>
         val (index, score) = completed.take().get()
         scores(index) = score
+        releaseCompleted(pending)
       }
       scores.toSeq
     } catch {
       case error: Exception =>
         jobGroups.foreach(context.cancelJobGroup)
-        futures.foreach(_.cancel(false))
+        // Estimators must handle interruption in their own cleanup; tuner caches belong to the caller.
+        futures.foreach(_.cancel(true))
         error match {
           case wrapped: ExecutionException => throw wrapped.getCause
           case other => throw other
         }
+    }
+  }
+
+  private def releaseCompleted(pending: ConcurrentLinkedQueue[DataFrame]): Unit = {
+    Iterator.continually(Option(pending.poll())).takeWhile(_.nonEmpty).flatten.foreach(_.unpersist())
+  }
+
+  @tailrec
+  private def awaitWorkers(pool: ExecutorService, waitMillis: Long,
+                           interrupted: Option[InterruptedException] = None): Option[InterruptedException] = {
+    val result = try {
+      Right(pool.awaitTermination(waitMillis, TimeUnit.MILLISECONDS))
+    } catch {
+      case error: InterruptedException => Left(error)
+    }
+    result match {
+      case Right(true) => interrupted
+      case Right(false) => awaitWorkers(pool, waitMillis, interrupted)
+      case Left(error) => awaitWorkers(pool, waitMillis, interrupted.orElse(Some(error)))
+    }
+  }
+
+  private def preserveFailure(failure: Option[Throwable])(cleanup: => Unit): Unit = {
+    try {
+      cleanup
+    } catch {
+      case error: Throwable =>
+        if (error.isInstanceOf[InterruptedException]) Thread.currentThread().interrupt()
+        failure match {
+          case Some(original) => if (error ne original) original.addSuppressed(error)
+          case None => throw error
+        }
+    }
+  }
+
+  // A cancelled Future can be done before its worker's finally block has finished.
+  def withWorkerCleanup[T](pool: ExecutorService, waitMillis: Long = TimeUnit.MINUTES.toMillis(1))
+                          (body: => T)(cleanup: => Unit): T = {
+    var failure = Option.empty[Throwable]
+    try {
+      body
+    } catch {
+      case error: Throwable =>
+        failure = Some(error)
+        throw error
+    } finally {
+      var interrupted = Thread.interrupted() || failure.exists(_.isInstanceOf[InterruptedException])
+      pool.shutdown()
+      val joinInterrupt = awaitWorkers(pool, waitMillis)
+      interrupted = Thread.interrupted() || interrupted || joinInterrupt.nonEmpty
+      try {
+        preserveFailure(failure) {
+          cleanup
+          if (failure.isEmpty) joinInterrupt.foreach(error => throw error)
+        }
+      } finally {
+        interrupted = Thread.interrupted() || interrupted
+        if (interrupted) Thread.currentThread().interrupt()
+      }
     }
   }
 
@@ -176,21 +246,21 @@ private[automl] object RankingTuning {
     val foldCol = "rankingFold_" + UUID.randomUUID().toString.replace("-", "")
     val assigned = folds(dataset.toDF(), plan.group, tuner.getNumFolds, tuner.getSeed, foldCol).cache()
     val pool = Executors.newFixedThreadPool(math.min(tuner.getParallelism, plan.runs.length))
-    try {
+    val pending = new ConcurrentLinkedQueue[DataFrame]()
+    withWorkerCleanup(pool) {
       val totals = Array.fill(plan.runs.length)(0.0)
       for (fold <- 0 until tuner.getNumFolds) {
         val training = assigned.filter(field(foldCol) =!= fold).drop(foldCol)
         val validation = assigned.filter(field(foldCol) === fold).drop(foldCol)
-        val scores = evaluateFold(plan, training, validation, pool, s"${tuner.uid}-$foldCol-$fold")
+        val scores = evaluateFold(plan, training, validation, pool, s"${tuner.uid}-$foldCol-$fold", pending)
         scores.zipWithIndex.foreach { case (score, index) => totals(index) += score }
       }
       val best = totals.indices.maxBy(totals(_))
       val model = fitModel(plan.runs(best), dataset)
       new TuneHyperparametersModel(tuner.uid).setBestModel(model).setBestMetric(totals(best) / tuner.getNumFolds)
-    } finally {
-      pool.shutdown()
+    } {
       try {
-        if (!pool.awaitTermination(1, TimeUnit.MINUTES)) pool.shutdownNow()
+        releaseCompleted(pending)
       } finally {
         assigned.unpersist()
       }

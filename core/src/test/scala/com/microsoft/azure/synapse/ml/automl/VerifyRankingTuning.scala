@@ -13,7 +13,8 @@ import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, I
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.functions._
 
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.{CountDownLatch, Executors, TimeUnit}
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
 
 class TestableTuningRanker(override val uid: String)
   extends Ranker[Vector, TestableTuningRanker, TestableTuningRankerModel] with DefaultParamsWritable {
@@ -172,7 +173,7 @@ class VerifyRankingTuning extends TestBase {
     assert(fitted.getBestMetric >= 0.0 && fitted.getBestMetric <= 1.0)
   }
 
-  test("parallel failure waits for sibling training cleanup without driver interruption") {
+  test("parallel failure interrupts sibling training before releasing cached data") {
     val model = learner
     TestableTuningRanker.TrainingInterrupted.set(false)
     val before = spark.sparkContext.getPersistentRDDs.keySet
@@ -181,7 +182,7 @@ class VerifyRankingTuning extends TestBase {
         ParamMap(model.direction -> Double.NaN))))
     val error = intercept[IllegalArgumentException] { broken.fit(data) }
     assert(error.getMessage.contains("finite numbers"))
-    assert(!TestableTuningRanker.TrainingInterrupted.get())
+    assert(TestableTuningRanker.TrainingInterrupted.get())
     assert(spark.sparkContext.getPersistentRDDs.keySet == before)
   }
 
@@ -194,6 +195,69 @@ class VerifyRankingTuning extends TestBase {
     val error = intercept[IllegalArgumentException] { broken.fit(data) }
     assert(error.getMessage.contains("finite numbers"))
     assert(spark.sparkContext.getPersistentRDDs.keySet == before)
+  }
+
+  for (interruptCaller <- Seq(false, true)) {
+    test(s"worker cleanup waits beyond the timeout with caller interruption=$interruptCaller") {
+      val pool = Executors.newSingleThreadExecutor()
+      val started = new CountDownLatch(1)
+      val finishing = new CountDownLatch(1)
+      val release = new CountDownLatch(1)
+      val returned = new CountDownLatch(1)
+      val cleaned = new AtomicBoolean(false)
+      val restored = new AtomicBoolean(false)
+      val observed = new AtomicReference[Throwable]()
+      val original = new IllegalArgumentException("original ranking failure")
+      val worker = pool.submit(new Runnable {
+        override def run(): Unit = {
+          try {
+            started.countDown()
+            new CountDownLatch(1).await()
+          } catch {
+            case _: InterruptedException => ()
+          } finally {
+            finishing.countDown()
+            release.await()
+          }
+        }
+      })
+      val caller = new Thread(new Runnable {
+        override def run(): Unit = {
+          try {
+            RankingTuning.withWorkerCleanup(pool, 10L) {
+              worker.cancel(true)
+              throw original
+            } {
+              assert(!Thread.currentThread().isInterrupted)
+              cleaned.set(true)
+            }
+          } catch {
+            case error: Throwable => observed.set(error)
+          } finally {
+            restored.set(Thread.currentThread().isInterrupted)
+            returned.countDown()
+          }
+        }
+      })
+      try {
+        assert(started.await(10, TimeUnit.SECONDS))
+        caller.start()
+        assert(finishing.await(10, TimeUnit.SECONDS))
+        if (interruptCaller) caller.interrupt()
+        // Many 10ms termination intervals expire while the worker's finally remains blocked.
+        assert(!returned.await(200, TimeUnit.MILLISECONDS))
+        assert(!cleaned.get())
+      } finally {
+        release.countDown()
+        pool.shutdownNow()
+        caller.join(10000L)
+      }
+      assert(!caller.isAlive)
+      assert(cleaned.get())
+      assert(observed.get() eq original)
+      assert(restored.get() == interruptCaller)
+      assert(pool.isTerminated)
+    }
   }
 
 }

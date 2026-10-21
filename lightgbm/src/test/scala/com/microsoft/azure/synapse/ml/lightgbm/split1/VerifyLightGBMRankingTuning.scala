@@ -84,4 +84,22 @@ class VerifyLightGBMRankingTuning extends TestBase {
     }
   }
 
+  for (withValidation <- Seq(false, true)) {
+    test(s"failed native ranking training releases tuner caches with validation=$withValidation") {
+      val rows = (0 until 8).flatMap(q => (0 until 4).map(l =>
+        (s"q$q", l.toDouble, Vectors.dense(l.toDouble, q.toDouble), l == 3)))
+      val data = spark.createDataFrame(rows).toDF("query", "label", "features", "validation").coalesce(1)
+      val ranker = new LightGBMRanker().setGroupCol("query").setNumTasks(1).setNumThreads(1)
+        .setNumIterations(2).setMinDataInLeaf(1).setVerbosity(-1)
+      if (withValidation) ranker.setValidationIndicatorCol("validation").setDataTransferMode("bulk")
+      val before = spark.sparkContext.getPersistentRDDs.keySet
+      val tuning = new TuneHyperparameters().setModels(Array[Estimator[_]](ranker)).setNumFolds(2).setNumRuns(1)
+        .setParallelism(1).setParamSpace(new GridSpace(Array(ParamMap(ranker.numLeaves -> 1))))
+        .setEvaluationMetric("ndcg")
+      val error = intercept[Exception] { tuning.fit(data) }
+      assert(error.toString.contains("num_leaves"))
+      assert(spark.sparkContext.getPersistentRDDs.keySet == before)
+    }
+  }
+
 }
