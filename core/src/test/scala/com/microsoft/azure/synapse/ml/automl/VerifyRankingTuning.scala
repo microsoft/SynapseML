@@ -8,10 +8,12 @@ import com.microsoft.azure.synapse.ml.param.ByteArrayParam
 import org.apache.spark.ml.{Estimator, Ranker, RankerModel}
 import org.apache.spark.ml.classification.LogisticRegression
 import org.apache.spark.ml.linalg.{Vector, Vectors}
-import org.apache.spark.ml.param.{DoubleArrayParam, DoubleParam, Param, ParamMap}
+import org.apache.spark.ml.param.{DoubleArrayParam, DoubleParam, LongParam, Param, ParamMap}
 import org.apache.spark.ml.util.{DefaultParamsReadable, DefaultParamsWritable, Identifiable}
 import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.functions._
+
+import java.util.concurrent.atomic.AtomicBoolean
 
 class TestableTuningRanker(override val uid: String)
   extends Ranker[Vector, TestableTuningRanker, TestableTuningRankerModel] with DefaultParamsWritable {
@@ -22,13 +24,24 @@ class TestableTuningRanker(override val uid: String)
   setDefault(referenceDataset -> Array.empty[Byte])
   val direction = new DoubleParam(this, "direction", "Prediction multiplier for deterministic tuning fixtures")
   setDefault(direction -> 1.0)
+  val trainDelayMs = new LongParam(this, "trainDelayMs", "Test training delay")
+  setDefault(trainDelayMs -> 0L)
   override protected def train(dataset: Dataset[_]): TestableTuningRankerModel = {
     require($(referenceDataset).isEmpty, "stale reference dataset reached fit")
+    try {
+      Thread.sleep($(trainDelayMs))
+    } catch {
+      case error: InterruptedException =>
+        TestableTuningRanker.TrainingInterrupted.set(true)
+        throw error
+    }
     copyValues(new TestableTuningRankerModel(uid)).setParent(this)
   }
   override def copy(extra: ParamMap): TestableTuningRanker = defaultCopy(extra)
 }
-object TestableTuningRanker extends DefaultParamsReadable[TestableTuningRanker]
+object TestableTuningRanker extends DefaultParamsReadable[TestableTuningRanker] {
+  val TrainingInterrupted = new AtomicBoolean(false)
+}
 
 class TestableTuningRankerModel(override val uid: String)
   extends RankerModel[Vector, TestableTuningRankerModel] with DefaultParamsWritable {
@@ -136,6 +149,42 @@ class VerifyRankingTuning extends TestBase {
     assert(RankingTuning.cutoff("ndcg").isEmpty)
     assert(RankingTuning.cutoff("ndcg@5").contains(5))
   }
+  for (args <- Seq("\"label_gain\"=0,4", "'label_gain'=0,4", "=label_gain=0,4", "label_gain=");
+       sampled <- Seq(false, true)) {
+    test(s"ranker tuning rejects pass-through gains '$args' with sampled=$sampled") {
+      val model = learner
+      val tuning = tuner(model).setNumRuns(1)
+      if (sampled) {
+        tuning.setParamSpace(new GridSpace(Array(ParamMap(model.passThroughArgs -> args))))
+      } else {
+        model.set(model.passThroughArgs, args)
+      }
+      val error = intercept[IllegalArgumentException] { tuning.fit(data) }
+      assert(error.getMessage.contains("custom label_gain"))
+    }
+  }
+
+  test("ranker tuning accepts unrelated pass-through keys and quoted values") {
+    val model = learner
+    model.set(model.passThroughArgs,
+      "max_bin=63 label_gains=1 xlabel_gain=1 metric=\"label_gain\" objective=lambdarank")
+    val fitted = tuner(model).setNumRuns(1).fit(data)
+    assert(fitted.getBestMetric >= 0.0 && fitted.getBestMetric <= 1.0)
+  }
+
+  test("parallel failure waits for sibling training cleanup without driver interruption") {
+    val model = learner
+    TestableTuningRanker.TrainingInterrupted.set(false)
+    val before = spark.sparkContext.getPersistentRDDs.keySet
+    val broken = tuner(model).setNumRuns(2).setParallelism(2)
+      .setParamSpace(new GridSpace(Array(ParamMap(model.direction -> 1.0, model.trainDelayMs -> 30000L),
+        ParamMap(model.direction -> Double.NaN))))
+    val error = intercept[IllegalArgumentException] { broken.fit(data) }
+    assert(error.getMessage.contains("finite numbers"))
+    assert(!TestableTuningRanker.TrainingInterrupted.get())
+    assert(spark.sparkContext.getPersistentRDDs.keySet == before)
+  }
+
   test("ranker evaluation failures expose the cause and release cached data") {
     val model = learner
     val before = spark.sparkContext.getPersistentRDDs.keySet

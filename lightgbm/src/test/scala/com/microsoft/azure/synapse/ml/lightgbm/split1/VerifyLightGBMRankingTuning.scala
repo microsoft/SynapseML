@@ -5,7 +5,7 @@ package com.microsoft.azure.synapse.ml.lightgbm.split1
 
 import com.microsoft.azure.synapse.ml.automl.{GridSpace, TuneHyperparameters}
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import com.microsoft.azure.synapse.ml.lightgbm.{LightGBMRanker, LightGBMRankerModel}
+import com.microsoft.azure.synapse.ml.lightgbm.{LightGBMRanker, LightGBMRankerModel, LightGBMUtils}
 import org.apache.spark.ml.Estimator
 import org.apache.spark.ml.linalg.Vectors
 import org.apache.spark.ml.param.ParamMap
@@ -65,10 +65,23 @@ class VerifyLightGBMRankingTuning extends TestBase {
   test("TuneHyperparameters rejects pass-through label gains before training") {
     val data = spark.createDataFrame(Seq(("q", 1.0, Vectors.dense(1.0))))
       .toDF("query", "label", "features")
-    val ranker = new LightGBMRanker().setGroupCol("query").setPassThroughArgs("label_gain=0,4")
-    val tuner = new TuneHyperparameters().setModels(Array[Estimator[_]](ranker)).setNumFolds(2).setNumRuns(1)
-      .setParallelism(1).setParamSpace(new GridSpace(Array(ParamMap.empty))).setEvaluationMetric("ndcg")
-    assert(intercept[IllegalArgumentException] { tuner.fit(data) }.getMessage.contains("custom label_gain"))
+    val configurations = Seq("label_gain=0,4", "\"label_gain\"=0,4", "'label_gain'=0,4",
+      "label_gain=\"0,4\"", "=label_gain=0,4", "label_gain==0,4",
+      "max_bin=63\t'label_gain'=0,4", "max_bin=63\n\"label_gain\"=0,4", "max_bin=63 \"label_gain\"=0,4")
+    configurations.foreach { args =>
+      assert(LightGBMUtils.parseLightGBMParams(args).contains("label_gain"))
+      Seq(false, true).foreach { sampled =>
+        val ranker = new LightGBMRanker().setGroupCol("query")
+        val params = if (sampled) ParamMap(ranker.passThroughArgs -> args) else {
+          ranker.setPassThroughArgs(args)
+          ParamMap.empty
+        }
+        val tuner = new TuneHyperparameters().setModels(Array[Estimator[_]](ranker)).setNumFolds(2).setNumRuns(1)
+          .setParallelism(1).setParamSpace(new GridSpace(Array(params))).setEvaluationMetric("ndcg")
+        val error = intercept[IllegalArgumentException] { tuner.fit(data) }
+        assert(error.getMessage.contains("custom label_gain"), s"args=$args, sampled=$sampled")
+      }
+    }
   }
 
 }

@@ -78,6 +78,14 @@ private[automl] object RankingTuning {
     }
   }
 
+  private def isLabelGainArgument(token: String): Boolean = {
+    def isQuote(char: Char): Boolean = char == '\'' || char == '"'
+    // Match LightGBM's key normalization, conservatively rejecting malformed gain assignments too.
+    token.split("=", -1).filter(_.nonEmpty).headOption.exists { key =>
+      key.dropWhile(isQuote).reverse.dropWhile(isQuote).reverse == "label_gain"
+    }
+  }
+
   private def rejectCustomGains(ranker: Ranker[_, _, _]): Unit = {
     if (ranker.hasParam("labelGain")) {
       val param = ranker.getParam("labelGain").asInstanceOf[Param[Array[Double]]]
@@ -86,7 +94,7 @@ private[automl] object RankingTuning {
     }
     if (ranker.hasParam("passThroughArgs")) {
       val param = ranker.getParam("passThroughArgs").asInstanceOf[Param[String]]
-      require(!ranker.get(param).exists(_.split("\\s+").exists(_.startsWith("label_gain="))),
+      require(!ranker.get(param).exists(_.split("\\s+").exists(isLabelGainArgument)),
         "custom label_gain is not mirrored by the tuning metric")
     }
   }
@@ -154,7 +162,7 @@ private[automl] object RankingTuning {
     } catch {
       case error: Exception =>
         jobGroups.foreach(context.cancelJobGroup)
-        futures.foreach(_.cancel(true))
+        futures.foreach(_.cancel(false))
         error match {
           case wrapped: ExecutionException => throw wrapped.getCause
           case other => throw other
@@ -180,9 +188,9 @@ private[automl] object RankingTuning {
       val model = fitModel(plan.runs(best), dataset)
       new TuneHyperparametersModel(tuner.uid).setBestModel(model).setBestMetric(totals(best) / tuner.getNumFolds)
     } finally {
-      pool.shutdownNow()
+      pool.shutdown()
       try {
-        pool.awaitTermination(1, TimeUnit.MINUTES)
+        if (!pool.awaitTermination(1, TimeUnit.MINUTES)) pool.shutdownNow()
       } finally {
         assigned.unpersist()
       }
