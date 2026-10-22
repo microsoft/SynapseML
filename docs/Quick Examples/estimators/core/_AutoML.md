@@ -250,7 +250,8 @@ ascending (pessimistic), and all-zero queries score 1. This matches LightGBM's
 default gain and discount, but does not promise identical native evaluation
 output: tie ordering, query weighting, `evalAt` and `maxPosition` are not mirrored.
 Custom `labelGain` and `label_gain` via `passThroughArgs` are rejected.
-Previously fitted reference datasets are cleared on each fresh estimator copy. Group and label columns must agree across runs;
+Previously fitted reference datasets are cleared on each fresh estimator copy.
+Group, label and prediction columns must agree across all candidates and runs;
 the search space cannot vary group, label, features, prediction or gain settings.
 
 Distinct query groups are sorted by a seeded hash and dealt round-robin into

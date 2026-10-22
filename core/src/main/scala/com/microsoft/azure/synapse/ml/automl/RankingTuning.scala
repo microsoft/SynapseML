@@ -132,6 +132,9 @@ private[automl] object RankingTuning {
     val candidates = models.map(_.asInstanceOf[Ranker[_, _, _]]).toSeq ++ runs
     require(candidates.forall(ranker => ranker.getGroupCol == group && ranker.getLabelCol == label),
       "All ranking runs must use the same effective groupCol and labelCol")
+    val prediction = runs.head.getPredictionCol
+    require(candidates.forall(_.getPredictionCol == prediction),
+      "All ranking runs must use the same effective predictionCol")
     Plan(runs, group, label, k)
   }
 

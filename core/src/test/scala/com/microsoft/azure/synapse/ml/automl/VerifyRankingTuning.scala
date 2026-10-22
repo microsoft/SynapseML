@@ -14,7 +14,7 @@ import org.apache.spark.sql.{DataFrame, Dataset}
 import org.apache.spark.sql.functions._
 
 import java.util.concurrent.{CountDownLatch, ExecutionException, Executors, TimeUnit}
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicReference}
 
 class TestableTuningRanker(override val uid: String)
   extends Ranker[Vector, TestableTuningRanker, TestableTuningRankerModel] with DefaultParamsWritable {
@@ -31,6 +31,7 @@ class TestableTuningRanker(override val uid: String)
   val blockTraining = new BooleanParam(this, "blockTraining", "Test interrupted worker cleanup")
   setDefault(interruptTraining -> false, blockTraining -> false)
   override protected def train(dataset: Dataset[_]): TestableTuningRankerModel = {
+    TestableTuningRanker.TrainingCalls.incrementAndGet()
     require($(referenceDataset).isEmpty, "stale reference dataset reached fit")
     if ($(interruptTraining)) throw TestableTuningRanker.WorkerInterruption.get().get
     if ($(blockTraining)) {
@@ -55,6 +56,7 @@ class TestableTuningRanker(override val uid: String)
   override def copy(extra: ParamMap): TestableTuningRanker = defaultCopy(extra)
 }
 object TestableTuningRanker extends DefaultParamsReadable[TestableTuningRanker] {
+  val TrainingCalls = new AtomicInteger()
   val TrainingInterrupted = new AtomicBoolean(false)
   val WorkerInterruption = new AtomicReference[Option[InterruptedException]](None)
   case class TrainingBlock(started: CountDownLatch, finishing: CountDownLatch, release: CountDownLatch)
@@ -104,6 +106,36 @@ class VerifyRankingTuning extends TestBase {
     val fitted = tuner(model).fit(data)
     assert(math.abs(fitted.getBestMetric - 1.0) < 1e-12)
     assert(model.getOrDefault(model.referenceDataset).sameElements(Array[Byte](1, 2, 3)))
+  }
+
+  for (runs <- Seq(1, 2)) {
+    test(s"ranker tuning rejects inconsistent prediction columns before training with numRuns=$runs") {
+      val first = learner.setPredictionCol("firstPrediction")
+      first.set(first.direction, -1.0)
+      val second = learner.setPredictionCol("secondPrediction")
+      val tuning = tuner(first).setModels(Array[Estimator[_]](first, second)).setNumRuns(runs)
+        .setParamSpace(new GridSpace(Array.fill(runs)(ParamMap.empty)))
+      val before = TestableTuningRanker.TrainingCalls.get()
+      val error = intercept[IllegalArgumentException] { tuning.fit(data) }
+      assert(error.getMessage.contains("same effective predictionCol"))
+      assert(TestableTuningRanker.TrainingCalls.get() == before)
+    }
+  }
+
+  test("ranker tuning preserves its advertised prediction column when the second candidate wins") {
+    val first = learner.setPredictionCol("rankingScore")
+    first.set(first.direction, -1.0)
+    val second = learner.setPredictionCol("rankingScore")
+    val tuning = tuner(first).setModels(Array[Estimator[_]](first, second))
+      .setParamSpace(new GridSpace(Array(ParamMap.empty, ParamMap.empty)))
+    val frame = data
+    val fitted = tuning.fit(frame)
+    assert(fitted.getBestModel.uid == second.uid)
+    assert(math.abs(fitted.getBestMetric - 1.0) < 1e-12)
+    assert(fitted.transformSchema(frame.schema).map(f => (f.name, f.dataType, f.nullable)) ==
+      tuning.transformSchema(frame.schema).map(f => (f.name, f.dataType, f.nullable)))
+    assert(fitted.transform(frame).select("rankingScore", "label").collect()
+      .forall(row => row.getDouble(0) == row.getDouble(1)))
   }
 
   test("group folds are deterministic, balanced, nonempty and never split a query") {
