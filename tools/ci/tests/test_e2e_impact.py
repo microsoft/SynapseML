@@ -389,9 +389,18 @@ def test_pipeline_gates_only_audited_families_and_keeps_full_schedule():
     for job in set(jobs) - set(job_suites):
         assert "detectTestImpact" not in jobs[job].get("condition", "")
     prewarm = jobs["BuildAndCacheSbt"]["steps"]
-    assert prewarm[0]["fetchDepth"] >= 2
-    assert prewarm[1]["name"] == "detectTestImpact"
-    assert prewarm[1]["env"] == {"SYNAPSEML_FULL_TESTS": "${{ parameters.fullTests }}"}
+    checkout = prewarm[0]
+    assert checkout["checkout"] == "self"
+    assert checkout["${{ if eq(parameters.publishRelease, true) }}"] == {
+        "fetchDepth": 0,
+        "fetchTags": True,
+    }
+    assert checkout["${{ else }}"]["fetchDepth"] >= 2
+    impact_steps = [step for step in prewarm if step.get("name") == "detectTestImpact"]
+    assert len(impact_steps) == 1
+    assert impact_steps[0]["env"] == {
+        "SYNAPSEML_FULL_TESTS": "${{ parameters.fullTests }}"
+    }
     helpers = jobs["CIHelpers"]
     assert "dependsOn" not in helpers
     assert "condition" not in helpers
