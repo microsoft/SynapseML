@@ -1,7 +1,7 @@
 # Review evidence for PR #2781
 
 The six qualifying pre-commit reviews were moved without changing their bytes.
-Their original public locations remain in commit `6bb12ed7c45f914f40b6c7afc4b546c6ac9b051b`,
+Their original public locations remain in commit `e7f0a0d20ef7a590be3b4a053c5153f3a436b404`,
 an ancestor of this artifact-only update. The original PR head was verified
 against the canonical pull-request ref before migration.
 
@@ -55,3 +55,45 @@ with zero E2E skips. That partial evidence does not clear its red OpenAI job.
 This correction still requires fresh published-head CI and automated review,
 followed by the distinct final CI-qualified review. All earlier evidence remains
 retained; the migration hashes above still match the original six files.
+
+## Target rebase and historical CI reconciliation (October 23)
+
+The personal feature branch was explicitly authorized to rebase onto current
+`master`, `71346cf992d489007d133a1a9f83c325e7694373`. All 29 source/test/example
+blobs and the complete frozen source diff remain byte-identical to pass 3.
+The patch was independently applied to the new target and its full path, mode,
+and blob manifest matched. All twelve original review files are unchanged.
+Only this index is updated to repair archival links and record the new context.
+
+| Historical commit | Retained rebased commit |
+| --- | --- |
+| `6bb12ed7c45f914f40b6c7afc4b546c6ac9b051b` | `e7f0a0d20ef7a590be3b4a053c5153f3a436b404` |
+| `edadc4a04a6cf51f9956d1569cf57ff7fe345958` | `f8e06cf94a30cb0b1dadd913fa0d915ff44b3ac3` |
+| `32395b928c9e3ca354ea13a1bc2eb42fbe1bff96` | `7116b5df01bd4727262a19fdb9b4a23dbe18194e` |
+
+The first retained commit contains the original pre-PR review paths. The second
+retains their byte-preserving migration, and the third retains the fixture fix
+and six pass-3 reviews. No review originals were pruned.
+
+Azure build 242072049 tested the historical `32395b9` head:
+
+- OpenAI: 266 passed and two intentional `Custom EndPoint` ignores.
+- Databricks notebooks: 43 CPU and 4 GPU passed, with no notebook skips.
+  The changed Langchain, OpenAI, multimodal Responses, and Forms notebooks each
+  have a named passing result. Cache-option instructions in notebook markdown
+  are not evidence of service-side cache-hit or TTL behavior.
+- Cognitive Python: 167 passed using actual Python 3.11.8. This does not change
+  the historical local bridge's Python 3.12.3 limitation.
+- R deep-learning: all four published result records passed; their display
+  names contain three distinct names. Coverage publication then failed TLS
+  certificate-name verification. No failing R test or product defect was found,
+  and neither coverage requirements nor TLS checks were weakened.
+- Fabric E2E and InternalCompat were excluded by the pipeline's fork policy;
+  they were not executed and are not counted as passes.
+
+The required aggregate failed because coverage publication failed. These are
+historical results, not validation of the rebased head. Fresh current-head CI
+and automated review are required before the separate final CI-qualified
+six-lens review. Budgets remain three of six pre-commit passes and zero of two
+final passes. The unchanged r3 feature artifacts retain their earlier evidence;
+they are not newly built artifacts for the target's unrelated AutoML additions.
