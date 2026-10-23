@@ -80,7 +80,7 @@ def openai_server():
                     "id": response_id,
                     "object": object_type,
                     "created": 1,
-                    "model": "gpt-5.1",
+                    "model": "gpt-6-luna",
                     "choices": choices,
                     "usage": {
                         "prompt_tokens": 1,
@@ -137,7 +137,7 @@ class LangchainRunnableTest(unittest.TestCase):
     def test_transformer_applies_inline_settings_on_workers(self):
         with openai_server() as (port, requests):
             llm = ChatOpenAI(
-                model="gpt-5.1",
+                model="gpt-6-luna",
                 base_url="http://127.0.0.1:1/v1/",
                 api_key="old-key",
                 max_retries=0,
@@ -190,7 +190,7 @@ class LangchainRunnableTest(unittest.TestCase):
     def test_transformer_azure_key_override_disables_ad_token_auth(self):
         with openai_server() as (port, requests):
             llm = AzureOpenAI(
-                model="gpt-5.1",
+                model="gpt-6-luna",
                 azure_endpoint="http://127.0.0.1:1/",
                 azure_deployment="deployment",
                 api_version="old-version",
@@ -251,7 +251,7 @@ class LangchainRunnableTest(unittest.TestCase):
 
     def test_worker_reconstruction_preserves_direct_client(self):
         llm = ChatOpenAI(
-            model="gpt-5.1",
+            model="gpt-6-luna",
             base_url="https://proxy.example.com/custom/openai/",
             api_key="direct-key",
         )
@@ -272,12 +272,12 @@ class LangchainRunnableTest(unittest.TestCase):
 
     def test_worker_reconstruction_normalizes_azure_urls(self):
         chat_llm = ChatOpenAI(
-            model="gpt-5.1",
+            model="gpt-6-luna",
             base_url="https://old.openai.azure.com/openai/v1/",
             api_key="old-key",
         )
         azure_llm = AzureChatOpenAI(
-            model="gpt-5.1",
+            model="gpt-6-luna",
             azure_endpoint="https://old.openai.azure.com/",
             api_version="old-version",
             api_key="old-key",
@@ -324,8 +324,8 @@ class LangchainRunnableTest(unittest.TestCase):
                 loaded_azure.root_client.close()
 
     def test_worker_reconstruction_rejects_conflicting_direct_keys(self):
-        first = ChatOpenAI(model="gpt-5.1", api_key="first-key")
-        second = ChatOpenAI(model="gpt-5.1", api_key="second-key")
+        first = ChatOpenAI(model="gpt-6-luna", api_key="first-key")
+        second = ChatOpenAI(model="gpt-6-luna", api_key="second-key")
         try:
             chain = RunnableParallel(first=first, second=second)
             with self.assertRaisesRegex(ValueError, "conflicting values"):
@@ -336,7 +336,7 @@ class LangchainRunnableTest(unittest.TestCase):
 
     def test_worker_reconstruction_clears_azure_completion_token(self):
         llm = AzureOpenAI(
-            model="gpt-5.1",
+            model="gpt-6-luna",
             azure_endpoint="https://old.openai.azure.com/",
             azure_deployment="deployment",
             api_version="old-version",
@@ -371,7 +371,7 @@ class LangchainRunnableTest(unittest.TestCase):
 
     def test_worker_settings_override_nested_request_transport(self):
         llm = AzureChatOpenAI(
-            model="gpt-5.1",
+            model="gpt-6-luna",
             azure_endpoint="https://old.openai.azure.com/",
             api_version="old-version",
             api_key="old-key",
@@ -430,7 +430,7 @@ class LangchainRunnableTest(unittest.TestCase):
 
     def test_writer_sanitizes_transport_before_persisting(self):
         llm = AzureChatOpenAI(
-            model="gpt-5.1",
+            model="gpt-6-luna",
             azure_endpoint="https://artifact.openai.azure.com/",
             api_version="artifact-version",
             api_key="artifact-key",
@@ -461,7 +461,7 @@ class LangchainRunnableTest(unittest.TestCase):
 
     def test_transformer_saves_legacy_openai_chain_with_trusted_settings(self):
         llm = ChatOpenAI(
-            model="gpt-5.1",
+            model="gpt-6-luna",
             base_url="https://old.openai.azure.com/openai/v1/",
             api_key="old-key",
             default_headers={"X-Untrusted": "header"},
@@ -515,7 +515,7 @@ class LangchainRunnableTest(unittest.TestCase):
 
     def test_persisted_chain_strips_nested_transport_aliases(self):
         llm = ChatOpenAI(
-            model="gpt-5.1",
+            model="gpt-6-luna",
             base_url="https://old.openai.azure.com/openai/v1/",
             api_key="old-key",
         )
@@ -555,7 +555,7 @@ class LangchainRunnableTest(unittest.TestCase):
 
     def test_saved_azure_chain_preserves_chain_api_version(self):
         llm = AzureChatOpenAI(
-            model="gpt-5.1",
+            model="gpt-6-luna",
             azure_endpoint="https://old.openai.azure.com/",
             api_version="chain-version",
             api_key="old-key",
@@ -588,7 +588,7 @@ class LangchainRunnableTest(unittest.TestCase):
     def test_saved_chain_cannot_reference_trusted_openai_secret(self):
         prompt = PromptTemplate.from_template("{value}:{leak}")
         llm = ChatOpenAI(
-            model="gpt-5.1",
+            model="gpt-6-luna",
             base_url="https://old.openai.azure.com/openai/v1/",
             api_key="old-key",
         )
@@ -665,7 +665,7 @@ class LangchainRunnableTest(unittest.TestCase):
                 if global_url is not None:
                     defaults.set_URL(global_url)
                 llm = ChatOpenAI(
-                    model="gpt-5.1",
+                    model="gpt-6-luna",
                     base_url="https://artifact.example/v1/",
                     api_key="artifact-key",
                 )
@@ -706,7 +706,7 @@ class LangchainRunnableTest(unittest.TestCase):
 
     def test_saved_openai_chain_requires_key_and_url(self):
         llm = ChatOpenAI(
-            model="gpt-5.1",
+            model="gpt-6-luna",
             base_url="https://saved.openai.azure.com/openai/v1/",
             api_key="saved-key",
         )

@@ -75,7 +75,7 @@ class TestStructuredOutput(unittest.TestCase):
         )["value"]
         cls.url = "https://synapseml-openai-3.openai.azure.com/"
         cls.api_version = "2025-04-01-preview"
-        cls.deploymentName = "gpt-5-mini"
+        cls.deploymentName = "gpt-6-luna"
 
         cls.df = spark.createDataFrame([("Paris", "City")], ["text", "category"])
 

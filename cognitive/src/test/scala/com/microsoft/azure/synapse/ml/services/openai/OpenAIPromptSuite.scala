@@ -513,7 +513,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
   ignore("Custom EndPoint") {
     lazy val accessToken: String = sys.env.getOrElse("CUSTOM_ACCESS_TOKEN", "")
     lazy val customRootUrlValue: String = sys.env.getOrElse("CUSTOM_ROOT_URL", "")
-    lazy val customHeadersValues: Map[String, String] = Map("X-ModelType" -> "gpt-5.1-chat-completions")
+    lazy val customHeadersValues: Map[String, String] = Map("X-ModelType" -> "gpt-6-luna-chat-completions")
 
     lazy val customPrompt: OpenAIPrompt = new OpenAIPrompt()
       .setCustomUrlRoot(customRootUrlValue)
@@ -576,11 +576,11 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     assert(p.getPreviousResponseIdCol == "prev_id_column")
   }
 
-  test("responses payload maps model to model field and nests verbosity/reasoning for gpt-5-mini usage") {
+  test("responses payload maps model to model field and nests verbosity/reasoning for gpt-6-luna usage") {
     val p = new OpenAIPrompt()
       .setApiType("responses")
       .setMessagesCol("messages")
-      .setModel("gpt-5-mini")
+      .setModel("gpt-6-luna")
       .setVerbosity("low")
       .setReasoningEffort("low")
       .setStore(false)
@@ -597,7 +597,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
 
     assert(payloadJson.fields.contains("input"))
     assert(!payloadJson.fields.contains("messages"))
-    assert(payloadJson.fields.get("model").contains(JsString("gpt-5-mini")))
+    assert(payloadJson.fields.get("model").contains(JsString("gpt-6-luna")))
 
     val text = payloadJson.fields("text").asJsObject
     assert(text.fields.get("verbosity").contains(JsString("low")))

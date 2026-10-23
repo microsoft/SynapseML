@@ -29,7 +29,7 @@ class EchoOpenAIHandler(BaseHTTPRequestHandler):
                 "id": "resp_test",
                 "object": "response",
                 "created_at": "1",
-                "model": "gpt-5.1",
+                "model": "gpt-6-luna",
                 "output": [
                     {
                         "content": [{"type": "output_text", "text": request_body}],
@@ -44,7 +44,7 @@ class EchoOpenAIHandler(BaseHTTPRequestHandler):
                 "id": "chatcmpl_test",
                 "object": "chat.completion",
                 "created": "1",
-                "model": "gpt-5.1",
+                "model": "gpt-6-luna",
                 "choices": [
                     {
                         "message": {
@@ -189,7 +189,7 @@ class TestOpenAIMultimodalRequest(unittest.TestCase):
                 )
                 result = (
                     transformer.setUrl(self.base_url)
-                    .setDeploymentName("gpt-5.1")
+                    .setDeploymentName("gpt-6-luna")
                     .setMessagesCol("messages")
                     .setSubscriptionKey("unused")
                     .setOutputCol("output")
@@ -228,7 +228,7 @@ class TestOpenAIMultimodalRequest(unittest.TestCase):
                     OpenAIPrompt()
                     .setUrl(self.base_url)
                     .setApiType(api_type)
-                    .setDeploymentName("gpt-5.1")
+                    .setDeploymentName("gpt-6-luna")
                     .setSubscriptionKey("unused")
                     .setPromptTemplate("{prompt}")
                     .setColumnTypes({"image": "path"})

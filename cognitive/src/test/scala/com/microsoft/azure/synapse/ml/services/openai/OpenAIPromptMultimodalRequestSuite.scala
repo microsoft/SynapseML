@@ -3,14 +3,17 @@
 
 package com.microsoft.azure.synapse.ml.services.openai
 
+import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import com.microsoft.azure.synapse.ml.io.http.ErrorUtils
+import com.microsoft.azure.synapse.ml.io.http.{ErrorUtils, HasErrorCol}
+import com.microsoft.azure.synapse.ml.services.HasCognitiveServiceInput
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
 import org.apache.commons.io.FileUtils
 import org.apache.commons.io.IOUtils
 import org.apache.spark.ml.param.ParamMap
+import org.apache.spark.ml.Transformer
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.functions.{col, struct, to_json}
+import org.apache.spark.sql.functions.{array, col, lit, struct, to_json}
 import org.apache.spark.sql.types.{ArrayType, StringType, StructField, StructType}
 import spray.json._
 
@@ -40,7 +43,7 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
         "id" -> JsString("resp_test"),
         "object" -> JsString("response"),
         "created_at" -> JsString("1"),
-        "model" -> JsString("gpt-5.1"),
+        "model" -> JsString("gpt-6-luna"),
         "output" -> JsArray(JsObject(
           "content" -> JsArray(JsObject(
             "type" -> JsString("output_text"),
@@ -56,7 +59,7 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
         "id" -> JsString("chatcmpl_test"),
         "object" -> JsString("chat.completion"),
         "created" -> JsString("1"),
-        "model" -> JsString("gpt-5.1"),
+        "model" -> JsString("gpt-6-luna"),
         "choices" -> JsArray(JsObject(
           "message" -> JsObject(
             "role" -> JsString("assistant"),
@@ -73,7 +76,9 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
   }
 
   private def withEchoServer(
-      testCode: (String, ConcurrentLinkedQueue[String], ConcurrentLinkedQueue[String]) => Unit
+      testCode: (String, ConcurrentLinkedQueue[String], ConcurrentLinkedQueue[String]) => Unit,
+      statusCode: Int = 200,
+      responseBody: String => String = responseFor _
   ): Unit = {
     val bodies = new ConcurrentLinkedQueue[String]()
     val attachmentRequests = new ConcurrentLinkedQueue[String]()
@@ -82,9 +87,9 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
       override def handle(exchange: HttpExchange): Unit = {
         val body = new String(IOUtils.toByteArray(exchange.getRequestBody), StandardCharsets.UTF_8)
         bodies.add(body)
-        val response = responseFor(exchange.getRequestURI.getPath).getBytes(StandardCharsets.UTF_8)
+        val response = responseBody(exchange.getRequestURI.getPath).getBytes(StandardCharsets.UTF_8)
         exchange.getResponseHeaders.add("Content-Type", "application/json")
-        exchange.sendResponseHeaders(200, response.length)
+        exchange.sendResponseHeaders(statusCode, response.length)
         exchange.getResponseBody.write(response)
         exchange.close()
       }
@@ -130,12 +135,113 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
     new OpenAIPrompt()
       .setUrl(baseUrl)
       .setApiType(apiType)
-      .setDeploymentName("gpt-5.1")
+      .setDeploymentName("gpt-6-luna")
       .setSubscriptionKey("unused")
       .setPromptTemplate("{prompt}")
       .setColumnTypes(Map("image" -> "path"))
       .setOutputCol("output")
       .setErrorCol("error")
+  }
+
+  test("OpenAIPrompt sends scalar and per-row cache options through both APIs") {
+    withEchoServer { (baseUrl, bodies) =>
+      Seq("chat_completions", "responses").foreach { apiType =>
+        val transformer = prompt(baseUrl, apiType).setColumnTypes(Map.empty[String, String])
+          .setPromptCacheOptions(Map("mode" -> "implicit", "ttl" -> "30m"))
+        val scalar = transformer.transform(Seq("hello").toDF("prompt")).head()
+        assert(scalar.isNullAt(scalar.fieldIndex("error")))
+        assert(bodies.poll().parseJson.asJsObject.fields("prompt_cache_options") ==
+          JsObject("mode" -> JsString("implicit"), "ttl" -> JsString("30m")))
+
+        val rows = Seq(("hello", Map("mode" -> "explicit", "ttl" -> "12h"))).toDF("prompt", "cache_options")
+        val column = transformer.setPromptCacheOptionsCol("cache_options").transform(rows).head()
+        assert(column.isNullAt(column.fieldIndex("error")))
+        assert(bodies.poll().parseJson.asJsObject.fields("prompt_cache_options") ==
+          JsObject("mode" -> JsString("explicit"), "ttl" -> JsString("12h")))
+      }
+    }
+  }
+
+  test("provider cache errors retain their response rather than being rejected by client policy") {
+    val providerError =
+      """{"error":{"type":"invalid_request_error",
+        |"message":"Unsupported cache lifetime","param":"prompt_cache_options.ttl"}}""".stripMargin
+    withEchoServer(
+      (baseUrl, bodies, _) => {
+        Seq("chat_completions", "responses").foreach { apiType =>
+          val result = prompt(baseUrl, apiType).setColumnTypes(Map.empty[String, String])
+            .setPromptCacheOptions(Map("ttl" -> "not-a-cache-lifetime"))
+            .transform(Seq("hello").toDF("prompt")).head()
+          assert(bodies.poll().parseJson.asJsObject.fields("prompt_cache_options") ==
+            JsObject("ttl" -> JsString("not-a-cache-lifetime")))
+          val error = result.getAs[Row]("error")
+          assert(Option(error).isDefined)
+          assert(error.getAs[String]("response").contains("invalid_request_error"))
+          assert(error.getAs[String]("response").contains("Unsupported cache lifetime"))
+        }
+      },
+      statusCode = 400,
+      responseBody = _ => providerError
+    )
+  }
+
+  test("struct cache options preserve strings and booleans through Chat Responses and OpenAIPrompt") {
+    withEchoServer { (baseUrl, bodies) =>
+      val data = Seq(("hello", true), ("hello", false)).toDF("prompt", "prewarm")
+        .withColumn("cache_options", struct(lit("30m").as("ttl"), col("prewarm")))
+      type CacheTransformer = Transformer with HasOpenAITextParams with HasMessagesInput
+        with HasCognitiveServiceInput with HasOutputCol with HasErrorCol
+      val stages: Seq[CacheTransformer] = Seq(
+        new OpenAIChatCompletion(),
+        new OpenAIResponses(),
+        new OpenAIPrompt().setApiType("chat_completions").setPromptTemplate("{prompt}"),
+        new OpenAIPrompt().setApiType("responses").setPromptTemplate("{prompt}")
+      )
+      stages.foreach { stage =>
+        val input = stage match {
+          case _: OpenAIPrompt => data
+          case _ => data.withColumn("messages", array(struct(lit("user").as("role"), col("prompt").as("content"))))
+        }
+        val rows = stage.setUrl(baseUrl).setSubscriptionKey("unused").setDeploymentName("gpt-6-luna")
+          .setMessagesCol("messages").setPromptCacheOptionsCol("cache_options")
+          .setOutputCol("output").setErrorCol("error").transform(input).collect()
+        assert(rows.length == 2 && rows.forall(row => row.isNullAt(row.fieldIndex("error"))))
+        assert(bodies.size() == 2)
+        val options = Seq.fill(2)(bodies.poll().parseJson.asJsObject.fields("prompt_cache_options")).toSet
+        assert(options == Set(
+          JsObject("ttl" -> JsString("30m"), "prewarm" -> JsBoolean(true)),
+          JsObject("ttl" -> JsString("30m"), "prewarm" -> JsBoolean(false))
+        ))
+      }
+    }
+  }
+
+  test("Chat and Responses transforms retain input breakpoints only on marked content") {
+    withEchoServer { (baseUrl, bodies) =>
+      val stages: Seq[(String, OpenAIServicesBase with HasOpenAITextParams with HasMessagesInput)] = Seq(
+        "text" -> new OpenAIChatCompletion(),
+        "input_text" -> new OpenAIResponses()
+      )
+      stages.foreach { case (contentType, stage) =>
+        val json =
+          s"""{"messages":[
+             |{"role":"developer","content":[{"type":"$contentType","text":"Reusable reference",
+             |"prompt_cache_breakpoint":{"mode":"explicit"}}]},
+             |{"role":"user","content":[{"type":"$contentType","text":"A changing question"}]}]}""".stripMargin
+        val input = spark.read.json(Seq(json).toDS())
+        val result = stage.setUrl(baseUrl).setSubscriptionKey("unused").setDeploymentName("gpt-6-luna")
+          .setMessagesCol("messages").setOutputCol("output").setErrorCol("error")
+          .setPromptCacheOptions(Map("mode" -> "explicit", "ttl" -> "30m"))
+          .transform(input).head()
+        assert(result.isNullAt(result.fieldIndex("error")))
+        val field = if (contentType == "text") "messages" else "input"
+        val messages = bodies.poll().parseJson.asJsObject.fields(field).asInstanceOf[JsArray].elements
+        val prefix = messages.head.asJsObject.fields("content").asInstanceOf[JsArray].elements.head.asJsObject
+        val question = messages.last.asJsObject.fields("content").asInstanceOf[JsArray].elements.head.asJsObject
+        assert(prefix.fields("prompt_cache_breakpoint") == JsObject("mode" -> JsString("explicit")))
+        assert(!question.fields.contains("prompt_cache_breakpoint"))
+      }
+    }
   }
 
   private def requestPayload(
@@ -179,7 +285,7 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
       val result = new OpenAIPrompt()
         .setUrl(baseUrl)
         .setApiType("responses")
-        .setDeploymentName("gpt-5.1")
+        .setDeploymentName("gpt-6-luna")
         .setSubscriptionKey("unused")
         .setSystemPrompt("User input text is encoded in JSON\nIdentify the Pokemon and its master.")
         .setPromptTemplate(s"{$rowJsonCol}")
