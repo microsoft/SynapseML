@@ -1,9 +1,86 @@
 # Review evidence for PR #2781
 
-## Current narrowed scope and pre-commit pass 4
+## Current cache refinement and pre-commit pass 6
 
-Initial delivery is the Luna model migration only. All newly introduced cache
-controls, serializers, wrapper additions, documentation and tests are deferred.
+The current scope includes the Luna migration, optional request-level
+`prompt_cache_options`, and documented cache breakpoints inside input content.
+Scalar and row-bound options preserve JSON types, including mixed-type Spark
+structs. The provider, rather than a client model/mode/lifetime whitelist,
+validates cache policy. The notebook contains executable native SDK and
+SynapseML examples, explicit and implicit modes, omission behavior, actual
+usage fields, and the limitation that cache hits are not guaranteed.
+
+The complete 29-path source patch published in
+`51343aa337a5fdbabdf75ec30f6fd62d2203a0e3` has source manifest
+`0294032458aa55909c1208076e07a5594c374ba905d66e0efdbb2cde41920dd6`
+and full diff
+`b943496ae5dd8fc90860a9e261981d5adef0b5b41aa12ded119c46018eb4a292`,
+against target `acd6a8cc5f914a3d443d9666a8c4599d65f067da`.
+
+Pass 5 found a mixed-type Spark struct serialization defect after four clean
+lenses. Its [original finding and appended resolution](task-unknown-attempt-5-stage-attempt-1-review-5-gpt-6.1-sol.md)
+remain intact. All four public transformer routes failed before the fix;
+eight HTTP requests then preserved string and Boolean values after the fix.
+The partial pass was invalidated, not combined with later clean lenses.
+
+All six independent, sequential `gpt-6.1-sol/max` lenses in pass 6 are clean:
+
+1. [Broad sweep](task-unknown-attempt-6-stage-attempt-1-review-1-gpt-6.1-sol.md)
+2. [Architecture](task-unknown-attempt-6-stage-attempt-1-review-2-gpt-6.1-sol.md)
+3. [Robustness](task-unknown-attempt-6-stage-attempt-1-review-3-gpt-6.1-sol.md)
+4. [Correctness](task-unknown-attempt-6-stage-attempt-1-review-4-gpt-6.1-sol.md)
+5. [Testing](task-unknown-attempt-6-stage-attempt-1-review-5-gpt-6.1-sol.md)
+6. [Hardening, aggregate outcome, and driver provenance](task-unknown-attempt-6-stage-attempt-1-review-6-gpt-6.1-sol.md)
+
+Local compilation, Scala styles, selected Python Black checks, code generation,
+69 Scala tests, and 25 installed Python tests plus 12 subtests passed. All five executable cache
+tutorial cells passed with seven mock and seven live requests; the runnable
+PR snippets also produced equivalent native SDK and SynapseML request bodies.
+Local Python 3.12.3 and bundled Scala 2.12.18 differ from target Python 3.11.8
+and build Scala 2.12.17.
+
+This is **precommit qualification only**. Current-head Azure validation,
+required GitHub status, automated feedback disposition, the distinct final
+CI-qualified review, and final-SHA reconciliation remain required. The
+successful model-only predecessor build does not qualify the cache amendment.
+Budgets stand at six of six precommit passes and zero of two final passes.
+This index correction is allocated review evidence only; it does not change
+the frozen source fingerprint or erase any earlier finding.
+
+### Current source CI disposition
+
+SHA-pinned manual Azure build `242404552` completed **failed** on merge
+`def7be6822d7edd59321634ca4811361b3bb1ac4`, whose ordered parents are the target
+above and source `51343aa337a5fdbabdf75ec30f6fd62d2203a0e3`.
+
+- Published OpenAI results: 270 passed and two existing `Custom EndPoint`
+  ignores. Both cache suites, both new Python cache tests, and the mixed-type
+  public-transform regressions passed.
+- Cognitive Python: 167 passed. Databricks notebooks: 43 CPU and 4 GPU passed.
+  Website samples: 111 passed. These passes do not clear the failed build.
+- Python Style Check failed because Black requires line wrapping in two new
+  `OpenAI.ipynb` cells. This is an attributable notebook-formatting defect,
+  not an infrastructure failure; the selected local Python checks did not
+  cover notebook formatting.
+- All 54 coverage-publication tasks were skipped. The manual build reason
+  does not enable the pipeline's PR coverage condition; queue-time values
+  did not override that expression. Coverage is **not qualified**.
+- Foundry's optional dependency-cache restores reported TLS errors; its eight
+  tests still passed. These errors are retained separately, not used to
+  excuse the notebook failure or missing coverage.
+- The Azure Pipelines app posted a failed `microsoft.SynapseML` check on the
+  exact synthetic merge commit, not on the source-head rollup. This is real
+  merge-bound failure evidence, not a passing or missing-everywhere status.
+
+The formatting correction and its required new full source-review pass remain
+blocked by the exhausted six-pass precommit budget. No source was changed,
+no check was waived, and no final review was started. The artifact-only index
+correction addresses the automated review's stale-scope finding separately.
+
+## Historical narrowed scope and pre-commit pass 4
+
+At pass 4, initial delivery was the Luna model migration only. Newly introduced cache
+controls, serializers, wrapper additions, documentation and tests were deferred.
 The four cognitive production files and existing Python ServiceParam bridge
 are restored exactly to the target. Existing caching behavior is preserved.
 The retained production change is conditional advice on the existing Fabric
