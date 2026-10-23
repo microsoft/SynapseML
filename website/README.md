@@ -8,6 +8,23 @@ This website is built using [Docusaurus 3](https://docusaurus.io/), a modern sta
 npm ci
 ```
 
+### Dependency security
+
+Use `npm audit` to check the complete locked dependency tree. Security overrides
+in `package.json` keep transitive dependencies on patched releases without
+downgrading Docusaurus. Run `npm test` and `npm run build` after updating them;
+the tests cover shell quoting, math rendering, CSS optimization, and worker-pool
+compatibility. KaTeX's
+stylesheet is bundled from the same package as its renderer.
+
+`braces@3.0.3` remains affected by
+[GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm):
+deeply nested patterns can exhaust the stack. No patched release is published
+as of 2026-10-23. Docusaurus uses it through file watching and glob matching.
+Do not pass untrusted glob patterns to these build/development tools.
+`npm audit` therefore still exits nonzero for this advisory and its dependent
+packages; this is an unresolved upstream dependency, not a clean audit.
+
 ### Local Development
 
 ```bash
