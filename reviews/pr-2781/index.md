@@ -1,6 +1,72 @@
 # Review evidence for PR #2781
 
-## Current cache refinement and pre-commit pass 6
+## Current formatting and Boolean-test correction: pre-commit pass 8
+
+The complete current 29-path patch passed the explicitly authorized
+[Low-tier, single-reviewer harness pass](task-unknown-attempt-8-review-0-harness.md)
+using `gpt-6.1-sol/max`. This human-selected exception applies only to
+precommit attempt 8, not to the distinct final Medium six-lens review.
+The complete-input, runtime-model, independence and privacy audit passed.
+
+Source manifest:
+`2062293f76a534475c71421ecd28ed1348c5666e12b4baa72a59e6242b6c62be`.
+Full diff:
+`ce78a5da810b002bd8f336243447a7b4f558cc9edcc8cc17955ab64bf9a37585`.
+Target: `acd6a8cc5f914a3d443d9666a8c4599d65f067da`.
+
+- Notebook-aware Black 22.3.0 passes. Only four wraps in two notebook cells
+  changed; executable ASTs, other cells, metadata and clean outputs are
+  preserved. The exact formatted tutorial passed seven loopback requests.
+- Scalar Boolean assertions now distinguish `True` from integer `1` on
+  original, copied and restored values. The scalar persistence fixture
+  includes a Boolean. Two installed-wrapper tests and six subtests pass.
+- Independent integer-corruption probes fail as intended in nine cases:
+  four original wrappers, four copies and one restored scalar stage.
+  [Original finding and appended resolution](task-unknown-attempt-7-stage-attempt-1-review-5-gpt-6.1-sol.md)
+  are retained. No runtime change, artifact rebuild or new live call was needed.
+
+Precommit allowance is eight of eight consumed; final allowance remains
+zero of two. **Engineering readiness is not established.** Current-revision
+Azure validation and coverage remain pending. The authorized comment trigger
+is paused until its protected reviewed-revision resource guard is established;
+the coverage-disabled historical manual run is not a substitute. No branch,
+pipeline, permission or release policy was changed.
+
+## Historical pending formatting correction and pre-commit pass 7
+
+An explicitly approved additional pass covers the full 29-path source patch.
+Pinned notebook-aware Black 22.3.0 changed only four line wraps in code cells
+40 and 42 of `OpenAI.ipynb`. The affected executable ASTs, every other cell,
+notebook metadata, list-of-string sources and empty outputs were preserved.
+The exact five cache tutorial code cells passed seven loopback requests with
+native SDK/SynapseML wire parity. Unchanged production binaries and their
+earlier validation were reused; no new live requests were needed.
+
+The pending source manifest is
+`213d4b7178c74f5c7da2f7c67ba6112630e0a78b4c56e89a127f947685c9f022`;
+the complete diff is
+`83b4442d184f4e530d67d0abef9097f9de74d18fb0c324f8b7474e4de9cd8dfa`,
+against unchanged target `acd6a8cc5f914a3d443d9666a8c4599d65f067da`.
+
+1. [Broad sweep: clean](task-unknown-attempt-7-stage-attempt-1-review-1-gpt-6.1-sol.md)
+2. [Architecture: clean](task-unknown-attempt-7-stage-attempt-1-review-2-gpt-6.1-sol.md)
+3. [Robustness: clean](task-unknown-attempt-7-stage-attempt-1-review-3-gpt-6.1-sol.md)
+4. [Correctness: clean](task-unknown-attempt-7-stage-attempt-1-review-4-gpt-6.1-sol.md)
+5. [Testing: confirmed open assertion gap; driver provenance and disposition](task-unknown-attempt-7-stage-attempt-1-review-5-gpt-6.1-sol.md)
+
+The Boolean-preservation test accepts integer `1` wherever it expects `True`.
+A readback-only fault-injection experiment confirmed both existing cache
+test methods still pass. Baseline wrappers preserve actual Booleans; this is
+a test-sensitivity gap, not an observed runtime conversion bug. The proposed
+test correction needs a fresh complete source-review pass.
+
+**Blocked:** seven of seven authorized precommit passes are consumed.
+Lens 6 was not dispatched; no test fix, commit, push, CI trigger or final
+review followed the finding. Final allowance remains zero of two. Required
+PR coverage and current-revision CI remain pending. The following sections
+preserve historical evidence and do not describe current qualification.
+
+## Historical cache refinement and pre-commit pass 6
 
 The current scope includes the Luna migration, optional request-level
 `prompt_cache_options`, and documented cache breakpoints inside input content.
