@@ -37,19 +37,22 @@ class TestServiceParamPythonBridge(unittest.TestCase):
                 options = {"mode": "explicit", "ttl": "12h", "prewarm": True}
                 stage = stage_type().setParams(promptCacheOptions=options)
                 self.assertEqual(stage.getPromptCacheOptions(), options)
+                self.assertIs(stage.getPromptCacheOptions()["prewarm"], True)
                 copied = stage.copy()
                 self.assertEqual(copied.getPromptCacheOptions(), options)
+                self.assertIs(copied.getPromptCacheOptions()["prewarm"], True)
                 copied.setPromptCacheOptions({"ttl": "not-a-cache-lifetime"})
                 self.assertEqual(
                     copied.getPromptCacheOptions(), {"ttl": "not-a-cache-lifetime"}
                 )
                 self.assertEqual(stage.getPromptCacheOptions(), options)
+                self.assertIs(stage.getPromptCacheOptions()["prewarm"], True)
 
     def test_cache_option_bindings_survive_save_and_load(self):
         for column_binding in (False, True):
             with self.subTest(column_binding=column_binding):
                 stage = OpenAIPrompt().setPromptCacheOptions(
-                    {"mode": "explicit", "ttl": "30m"}
+                    {"mode": "explicit", "ttl": "30m", "prewarm": True}
                 )
                 if column_binding:
                     stage.setPromptCacheOptionsCol("cache_options")
@@ -64,8 +67,9 @@ class TestServiceParamPythonBridge(unittest.TestCase):
                     else:
                         self.assertEqual(
                             restored.getPromptCacheOptions(),
-                            {"mode": "explicit", "ttl": "30m"},
+                            {"mode": "explicit", "ttl": "30m", "prewarm": True},
                         )
+                        self.assertIs(restored.getPromptCacheOptions()["prewarm"], True)
 
     @contextmanager
     def assert_no_jvm_calls(self):
