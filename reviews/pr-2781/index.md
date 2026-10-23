@@ -27,11 +27,13 @@ and code generation passed. One intentional live `Custom EndPoint` ignore
 remains. Local Python 3.12.3 and PySpark's bundled Scala 2.12.18 do not exactly
 match target Python 3.11.8 and build Scala 2.12.17.
 
-The full source patch and canonical manifest independently match on newer
-website-only target `acd6a8cc5f914a3d443d9666a8c4599d65f067da`.
-Latest-target integration, fresh narrowed-head CI and automated review, and the
-separate final CI-qualified pass remain required. Four of six pre-commit passes
-and zero of two final passes have been consumed.
+The branch is rebased onto website-only target
+`acd6a8cc5f914a3d443d9666a8c4599d65f067da`. The complete source patch and all
+23 canonical path/mode/blob entries remain identical, as do all 18 earlier
+review artifacts. The reviewed source is retained in
+`7a8a7af559ab5a72b815d1d4f0b3e3f18ec0c1b5`. Fresh narrowed-head CI and
+automated review, and the separate final CI-qualified pass remain required.
+Four of six pre-commit passes and zero of two final passes have been consumed.
 
 The cache-inclusive implementation and exact earlier candidate binaries were
 preserved separately. Every earlier public review below remains unchanged.
@@ -41,7 +43,7 @@ the narrowed source.
 ## Earlier cache-inclusive review history
 
 The six qualifying pre-commit reviews were moved without changing their bytes.
-Their original public locations remain in commit `e7f0a0d20ef7a590be3b4a053c5153f3a436b404`,
+Their original public locations remain in commit `ed31f3148e6e75e90c6b3cd24792c073ea194aa4`,
 an ancestor of this artifact-only update. The original PR head was verified
 against the canonical pull-request ref before migration.
 
@@ -105,7 +107,7 @@ The patch was independently applied to the new target and its full path, mode,
 and blob manifest matched. All twelve original review files are unchanged.
 Only this index is updated to repair archival links and record the new context.
 
-| Historical commit | Retained rebased commit |
+| Historical commit | Intermediate rebased commit |
 | --- | --- |
 | `6bb12ed7c45f914f40b6c7afc4b546c6ac9b051b` | `e7f0a0d20ef7a590be3b4a053c5153f3a436b404` |
 | `edadc4a04a6cf51f9956d1569cf57ff7fe345958` | `f8e06cf94a30cb0b1dadd913fa0d915ff44b3ac3` |
@@ -137,3 +139,40 @@ and automated review are required before the separate final CI-qualified
 six-lens review. Budgets remain three of six pre-commit passes and zero of two
 final passes. The unchanged r3 feature artifacts retain their earlier evidence;
 they are not newly built artifacts for the target's unrelated AutoML additions.
+
+## Narrowed-source rebase and predecessor CI (October 23)
+
+The latest target changed five website files, not AI source, runtime build
+configuration, pipeline configuration, or trusted guidance. Rebase retained all
+five feature commits without squashing. The following mapping supersedes the
+intermediate mapping above; all right-hand commits are retained ancestors.
+
+| Before this rebase | Retained rebased commit |
+| --- | --- |
+| `e7f0a0d20ef7a590be3b4a053c5153f3a436b404` | `ed31f3148e6e75e90c6b3cd24792c073ea194aa4` |
+| `f8e06cf94a30cb0b1dadd913fa0d915ff44b3ac3` | `dc7cad8d84e1ba6024c089c3e50dfef2518796c3` |
+| `7116b5df01bd4727262a19fdb9b4a23dbe18194e` | `bcea926fbf4756ada4232e21a24c8508661f4bc0` |
+| `d68a73ad98398a4520cc41157e3a3f5f8de6bd9c` | `20b7665e0858c381c29f57e4dee6bb30b04b5db5` |
+| `26b51a0d481445089a070211cf2f2530b80989f2` | `7a8a7af559ab5a72b815d1d4f0b3e3f18ec0c1b5` |
+
+Azure build 242356862 tested the **earlier cache-inclusive** `d68a73a` head,
+not this narrowed source. Its distinct current-attempt results were:
+
+- OpenAI: 266 passed; two existing `Custom EndPoint` cases intentionally ignored.
+- Databricks: 43 CPU and 4 GPU notebook checks passed, with zero notebook skips.
+  Named results cover `Langchain.ipynb`, `OpenAI.ipynb`,
+  `Quickstart - Multimodal OpenAI Prompter with Responses API.ipynb`, and
+  `Quickstart - Understand and Search Forms.ipynb`.
+- Cognitive Python: 167 passed. R deep-learning: four result records passed.
+- Python deep-learning-nohf: four passed and three pre-existing explicit skips
+  (`test_bert_base_cased`, `test_lit_deep_text_model`, `test_mobilenet_v2`).
+  Its test execution and test-result publication succeeded, but coverage
+  publication failed TLS hostname validation (`RemoteCertificateNameMismatch`)
+  on all three automatic task executions. Those executions are not additional
+  unique tests. No product fix, test weakening, TLS bypass, or manual retry was
+  applied.
+- FabricE2E and InternalCompat were excluded by unchanged fork-policy
+  conditions, not executed or counted as passes.
+
+The aggregate remains failed. None of these historical results qualifies the
+narrowed source; fresh SHA-bound CI and final review remain required.
