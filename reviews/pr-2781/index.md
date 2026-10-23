@@ -1,5 +1,45 @@
 # Review evidence for PR #2781
 
+## Current narrowed scope and pre-commit pass 4
+
+Initial delivery is the Luna model migration only. All newly introduced cache
+controls, serializers, wrapper additions, documentation and tests are deferred.
+The four cognitive production files and existing Python ServiceParam bridge
+are restored exactly to the target. Existing caching behavior is preserved.
+The retained production change is conditional advice on the existing Fabric
+`ModelNotFound` error; active examples and live-test selections use Luna.
+
+The complete 23-path source patch has manifest
+`47226683d9630a89aca905d5ae482c76473a8b5b8b6b74699b56bd75c00c1ba9`
+and diff `0dbd7446354374743d4c3f9edbb673de486797e857a0bed28a011cff0ee99c0b`.
+All six sequential, independent `gpt-6.1-sol/max` lenses are clean:
+
+1. [Broad sweep](task-unknown-attempt-4-stage-attempt-1-review-1-gpt-6.1-sol.md)
+2. [Architecture](task-unknown-attempt-4-stage-attempt-1-review-2-gpt-6.1-sol.md)
+3. [Robustness](task-unknown-attempt-4-stage-attempt-1-review-3-gpt-6.1-sol.md)
+4. [Correctness](task-unknown-attempt-4-stage-attempt-1-review-4-gpt-6.1-sol.md)
+5. [Testing](task-unknown-attempt-4-stage-attempt-1-review-5-gpt-6.1-sol.md)
+6. [Hardening and driver provenance](task-unknown-attempt-4-stage-attempt-1-review-6-gpt-6.1-sol.md)
+
+Fresh local compilation, style, 60 offline Scala tests, 55 live Scala tests,
+23 installed Python bridge tests plus six subtests, notebook structure checks
+and code generation passed. One intentional live `Custom EndPoint` ignore
+remains. Local Python 3.12.3 and PySpark's bundled Scala 2.12.18 do not exactly
+match target Python 3.11.8 and build Scala 2.12.17.
+
+The full source patch and canonical manifest independently match on newer
+website-only target `acd6a8cc5f914a3d443d9666a8c4599d65f067da`.
+Latest-target integration, fresh narrowed-head CI and automated review, and the
+separate final CI-qualified pass remain required. Four of six pre-commit passes
+and zero of two final passes have been consumed.
+
+The cache-inclusive implementation and exact earlier candidate binaries were
+preserved separately. Every earlier public review below remains unchanged.
+Those earlier tests and reviews are historical evidence, not qualification of
+the narrowed source.
+
+## Earlier cache-inclusive review history
+
 The six qualifying pre-commit reviews were moved without changing their bytes.
 Their original public locations remain in commit `e7f0a0d20ef7a590be3b4a053c5153f3a436b404`,
 an ancestor of this artifact-only update. The original PR head was verified

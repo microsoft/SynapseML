@@ -169,37 +169,6 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
     assert(imageUrl == dataImage)
   }
 
-  test("Foundry OpenAIPrompt forwards scalar and column cache options") {
-    val input = Seq(("hello", Map("mode" -> "implicit"))).toDF("prompt", "cache_options")
-    withEchoServer { (baseUrl, bodies) =>
-      Seq(false, true).foreach { useColumn =>
-        val transformer = new OpenAIPrompt()
-          .setUrl("https://example.services.ai.azure.com")
-          .setCustomUrlRoot(baseUrl)
-          .setModel("gpt-6-luna")
-          .setPromptTemplate("{prompt}")
-          .setSubscriptionKey("unused")
-          .setOutputCol("output")
-          .setErrorCol("error")
-          .setPromptCacheOptions(Map("mode" -> "explicit", "ttl" -> "30m"))
-        if (useColumn) {
-          transformer.setPromptCacheOptionsCol("cache_options")
-        }
-        val result = transformer.transform(input).head()
-        assert(Option(result.getAs[Row]("error")).isEmpty)
-        val payload = bodies.asScala.last.parseJson.asJsObject
-        val expected = if (useColumn) {
-          JsObject("mode" -> JsString("implicit"))
-        } else {
-          JsObject("mode" -> JsString("explicit"), "ttl" -> JsString("30m"))
-        }
-        assert(payload.fields("prompt_cache_options") == expected)
-        assert(payload.fields("model") == JsString("gpt-6-luna"))
-      }
-      assert(bodies.size() == 2)
-    }
-  }
-
   test("Responses OpenAIPrompt preserves AI Functions row JSON and URL attachments") {
     withEchoServer { (baseUrl, bodies, attachmentRequests) =>
       val imageUrl = baseUrl.replace("/openai/v1", "/image")
