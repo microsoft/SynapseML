@@ -6,7 +6,6 @@ package com.microsoft.azure.synapse.ml.services.openai
 import com.microsoft.azure.synapse.ml.codegen.GenerationUtils
 import com.microsoft.azure.synapse.ml.fabric.{FabricClient, OpenAIFabricSetting}
 import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails
-import com.microsoft.azure.synapse.ml.param.AnyJsonFormat.anyFormat
 import com.microsoft.azure.synapse.ml.param.{GlobalKey, GlobalParams, ServiceParam}
 import com.microsoft.azure.synapse.ml.services._
 import org.apache.spark.ml.PipelineModel
@@ -313,36 +312,6 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
 
   def setCacheLevelCol(v: String): this.type = setVectorParam(cacheLevel, v)
 
-  private def validPromptCacheOptions(options: Map[String, Any]): Boolean =
-    Option(options).exists(_.forall {
-      case ("mode", value) => value == "implicit" || value == "explicit"
-      case ("ttl", value) => value == "30m"
-      case _ => false
-    })
-
-  val promptCacheOptions: ServiceParam[Map[String, Any]] = new ServiceParam[Map[String, Any]](
-    this, "promptCacheOptions",
-    "Optional prompt caching options for supported models in Chat Completions and Responses. " +
-      "Both fields are optional: mode is 'implicit' or 'explicit', and ttl is '30m'. " +
-      "Implicit mode lets the service choose cache breakpoints. Explicit mode without content " +
-      "breakpoints disables cache reads and writes. TTL is a minimum cache lifetime, not a maximum " +
-      "retention policy. Unset options preserve service defaults.",
-    isValid = {
-      case Left(options) => validPromptCacheOptions(options)
-      case Right(_) => true
-    },
-    isRequired = false) {
-    override val payloadName: String = "prompt_cache_options"
-  }
-
-  def getPromptCacheOptions: Map[String, Any] = getScalarParam(promptCacheOptions)
-
-  def setPromptCacheOptions(v: Map[String, Any]): this.type = setScalarParam(promptCacheOptions, v)
-
-  def getPromptCacheOptionsCol: String = getVectorParam(promptCacheOptions)
-
-  def setPromptCacheOptionsCol(v: String): this.type = setVectorParam(promptCacheOptions, v)
-
   val presencePenalty: ServiceParam[Double] = new ServiceParam[Double](
     this, "presencePenalty",
     "How much to penalize new tokens based on their existing frequency in the text so far." +
@@ -444,7 +413,6 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
     echo,
     stop,
     cacheLevel,
-    promptCacheOptions,
     presencePenalty,
     frequencyPenalty,
     bestOf,
@@ -455,10 +423,6 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
   )
 
   private[ml] def getOptionalParams(r: Row): Map[String, Any] = {
-    getValueOpt(r, promptCacheOptions).foreach { options =>
-      require(validPromptCacheOptions(options),
-        "promptCacheOptions supports only optional mode ('implicit' or 'explicit') and ttl ('30m').")
-    }
     sharedTextParams.flatMap { param =>
       getValueOpt(r, param).map { value => param.payloadName -> value }
     }.toMap
