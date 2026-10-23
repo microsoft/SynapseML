@@ -15,7 +15,7 @@ Usage:
     python scripts/bump-version.py --from 1.1.0 --to 1.1.1
 """
 
-import argparse, os, re, sys
+import argparse, os, re, stat, sys
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -201,21 +201,138 @@ def _skip_file(rel):
     return rel.suffix not in ALLOWED_EXTENSIONS and rel.name not in ALLOWED_NAMES
 
 
+def _is_within_root(root, path):
+    try:
+        path.resolve(strict=False).relative_to(root.resolve(strict=True))
+        return True
+    except (FileNotFoundError, OSError, RuntimeError, ValueError):
+        return False
+
+
+class UnsafeRootedPath(ValueError):
+    pass
+
+
+def _supports_safe_dir_fd():
+    return (
+        hasattr(os, "supports_dir_fd")
+        and os.open in os.supports_dir_fd
+        and hasattr(os, "O_NOFOLLOW")
+        and hasattr(os, "O_DIRECTORY")
+    )
+
+
+def _safe_open_relative(root, rel, flags, mode=0):
+    root = root.resolve(strict=True)
+    rel = Path(rel)
+    if rel.is_absolute() or any(part in ("", ".", "..") for part in rel.parts):
+        raise UnsafeRootedPath(f"Unsafe relative path: {rel}")
+
+    parts = rel.parts
+    if not parts:
+        raise UnsafeRootedPath("Empty relative path")
+
+    if not _supports_safe_dir_fd():
+        raise UnsafeRootedPath(
+            "Race-safe rooted file operations require dir_fd, O_DIRECTORY, "
+            "and O_NOFOLLOW support on this platform."
+        )
+
+    root_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    if hasattr(os, "O_CLOEXEC"):
+        root_flags |= os.O_CLOEXEC
+
+    current_fd = os.open(root, root_flags)
+    try:
+        for part in parts[:-1]:
+            try:
+                next_fd = os.open(
+                    part,
+                    root_flags,
+                    dir_fd=current_fd,
+                )
+            except OSError as e:
+                raise UnsafeRootedPath(
+                    f"Refusing unsafe parent path: {Path(*parts[:-1])}"
+                ) from e
+            os.close(current_fd)
+            current_fd = next_fd
+
+        final_flags = flags | os.O_NOFOLLOW
+        if hasattr(os, "O_CLOEXEC"):
+            final_flags |= os.O_CLOEXEC
+        try:
+            final_fd = os.open(
+                parts[-1],
+                final_flags,
+                mode,
+                dir_fd=current_fd,
+            )
+        except OSError as e:
+            raise UnsafeRootedPath(f"Refusing unsafe final path: {rel}") from e
+
+        st = os.fstat(final_fd)
+        if not stat.S_ISREG(st.st_mode):
+            os.close(final_fd)
+            raise UnsafeRootedPath(f"Refusing non-regular file: {rel}")
+        if flags & (os.O_WRONLY | os.O_RDWR) and st.st_nlink > 1:
+            os.close(final_fd)
+            raise UnsafeRootedPath(f"Refusing file with multiple hard links: {rel}")
+        return final_fd
+    finally:
+        os.close(current_fd)
+
+
+def _safe_read_bytes(root, rel):
+    fd = _safe_open_relative(root, rel, os.O_RDONLY)
+    with os.fdopen(fd, "rb") as f:
+        return f.read()
+
+
+def _safe_write_bytes(root, rel, data):
+    fd = _safe_open_relative(
+        root,
+        rel,
+        os.O_WRONLY,
+    )
+    try:
+        os.ftruncate(fd, 0)
+        with os.fdopen(fd, "wb", closefd=False) as f:
+            f.write(data)
+    finally:
+        os.close(fd)
+
+
 def _find_files(root):
     out = []
     for dp, dn, fn in os.walk(root):
         dn[:] = sorted(d for d in dn if not _skip_dir(d))
         for f in fn:
             fp = Path(dp) / f
-            if not _skip_file(fp.relative_to(root)):
+            if fp.is_symlink():
+                print(
+                    f"  WARNING: Skipping symlink: {fp.relative_to(root)}",
+                    file=sys.stderr,
+                )
+                continue
+            if _is_within_root(root, fp) and not _skip_file(fp.relative_to(root)):
                 out.append(fp)
     return sorted(out)
 
 
-def _read(path):
+def _read(path, root=None):
     try:
+        if root is not None:
+            rel = path.relative_to(root)
+            return _safe_read_bytes(root, rel).decode("utf-8")
         return path.read_bytes().decode("utf-8")
-    except (FileNotFoundError, UnicodeDecodeError, PermissionError) as e:
+    except (
+        FileNotFoundError,
+        UnicodeDecodeError,
+        PermissionError,
+        UnsafeRootedPath,
+        OSError,
+    ) as e:
         print(f"  WARNING: {type(e).__name__}: {path}", file=sys.stderr)
         return None
 
@@ -308,11 +425,12 @@ def apply(content, old_v, new_v, matches):
 def _detect_version(root):
     """Auto-detect current SynapseML version from docusaurus.config.js."""
     cfg = root / "website" / "docusaurus.config.js"
-    if not cfg.exists():
+    content = _read(cfg, root=root)
+    if content is None:
         sys.exit(
             "Error: cannot auto-detect version — website/docusaurus.config.js not found."
         )
-    m = re.search(r'let version\s*=\s*"([^"]+)"', cfg.read_text())
+    m = re.search(r'let version\s*=\s*"([^"]+)"', content)
     if not m:
         sys.exit("Error: cannot parse version from website/docusaurus.config.js.")
     return m.group(1)
@@ -475,7 +593,7 @@ Examples:
     all_unanchored = []
     for fp in files:
         rel = fp.relative_to(root)
-        content = _read(fp)
+        content = _read(fp, root=root)
         if content is None:
             continue
         r = analyze(fp, rel, content, old_v, bare_re, self_a, line_a, file_a)
@@ -543,8 +661,8 @@ Examples:
         for r in changed:
             new_content = apply(r.content, old_v, new_v, r.matches)
             try:
-                r.path.write_bytes(new_content.encode("utf-8"))
-            except OSError as e:
+                _safe_write_bytes(root, r.rel, new_content.encode("utf-8"))
+            except (OSError, UnsafeRootedPath, ValueError) as e:
                 print(f"  ERROR writing {r.rel}: {e}", file=sys.stderr)
                 fails.append(r.rel)
         if fails:
@@ -557,7 +675,7 @@ Examples:
         new_count = 0
         stale = []
         for r in changed:
-            written = _read(r.path)
+            written = _read(r.path, root=root)
             if written is None:
                 stale.append((str(r.rel), "unreadable"))
                 continue
@@ -592,14 +710,23 @@ Examples:
             for f in fn:
                 fp = Path(dp) / f
                 rel_str = str(fp.relative_to(root))
+                if fp.is_symlink() or not _is_within_root(root, fp):
+                    continue
                 if rel_str in modified_set or f in (
                     "bump-version.py",
                     "test_bump_version.py",
                 ):
                     continue
                 try:
-                    text = fp.read_bytes().decode("utf-8")
-                except (UnicodeDecodeError, PermissionError, FileNotFoundError):
+                    text = _read(fp, root=root)
+                    if text is None:
+                        continue
+                except (
+                    UnicodeDecodeError,
+                    PermissionError,
+                    FileNotFoundError,
+                    OSError,
+                ):
                     continue
                 hits = list(bare_re.finditer(text))
                 if hits:
