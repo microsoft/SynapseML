@@ -110,6 +110,7 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams with HasOpenAIRes
     echo,
     stop,
     cacheLevel,
+    promptCacheOptions,
     presencePenalty,
     frequencyPenalty,
     bestOf,
@@ -416,7 +417,7 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   }
 
   private def validateInputTextPart(part: Map[String, Any], location: String): Unit = {
-    requireOnlyFields(part, Set("type", "text"), location)
+    requireOnlyFields(part, Set("type", "text", "prompt_cache_breakpoint"), location)
     part.get("text") match {
       case Some(_: String) =>
       case _ => throw new IllegalArgumentException(s"$location requires a string 'text' field")
@@ -424,7 +425,7 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   }
 
   private def validateInputImagePart(part: Map[String, Any], location: String): Unit = {
-    requireOnlyFields(part, Set("type", "image_url", "file_id", "detail"), location)
+    requireOnlyFields(part, Set("type", "image_url", "file_id", "detail", "prompt_cache_breakpoint"), location)
     val imageUrlDefined = part.get("image_url").exists { value =>
       requireNonEmptyString(value, s"$location requires a non-empty string 'image_url' or 'file_id' field")
       true
@@ -442,7 +443,7 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   }
 
   private def validateInputFilePart(part: Map[String, Any], location: String): Unit = {
-    requireOnlyFields(part, Set("type", "file_data", "file_id", "filename"), location)
+    requireOnlyFields(part, Set("type", "file_data", "file_id", "filename", "prompt_cache_breakpoint"), location)
     val fileDataDefined = part.get("file_data").exists { value =>
       requireNonEmptyString(value, s"$location requires a non-empty string 'file_data' or 'file_id' field")
       true
