@@ -77,6 +77,7 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams with HasOpenAIResp
     echo,
     stop,
     cacheLevel,
+    promptCacheOptions,
     presencePenalty,
     frequencyPenalty,
     bestOf,
@@ -358,7 +359,7 @@ object OpenAIChatCompletion extends ComplexParamsReadable[OpenAIChatCompletion] 
   }
 
   private def validateTextPart(part: Map[String, Any], location: String): Unit = {
-    requireOnlyFields(part, Set("type", "text"), location)
+    requireOnlyFields(part, Set("type", "text", "prompt_cache_breakpoint"), location)
     part.get("text") match {
       case Some(_: String) =>
       case _ => throw new IllegalArgumentException(s"$location requires a string 'text' field")
@@ -366,7 +367,7 @@ object OpenAIChatCompletion extends ComplexParamsReadable[OpenAIChatCompletion] 
   }
 
   private def validateImageUrlPart(part: Map[String, Any], location: String): Unit = {
-    requireOnlyFields(part, Set("type", "image_url"), location)
+    requireOnlyFields(part, Set("type", "image_url", "prompt_cache_breakpoint"), location)
     part.get("image_url") match {
       case Some(rawImageUrl: Map[_, _]) =>
         val imageUrl = rawImageUrl.asInstanceOf[Map[String, Any]]
