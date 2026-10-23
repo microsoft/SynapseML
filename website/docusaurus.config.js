@@ -18,13 +18,6 @@ module.exports = async function createConfigAsync() {
     customFields: {
         version: "1.1.3",
     },
-    stylesheets: [
-        {
-            href: "https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css",
-            integrity: "sha384-5TcZemv2l/9On385z///+d7MSYlvIEw9FuZTIdZ14vJLqWphw7e7ZPuOiCHJcFCP",
-            crossorigin: "anonymous",
-        },
-    ],
     themeConfig: {
         prism: {
             theme: require('./src/plugins/prism_themes/github'),
@@ -145,7 +138,10 @@ module.exports = async function createConfigAsync() {
                     rehypePlugins: [(await import('rehype-katex')).default],
                 },
                 theme: {
-                    customCss: require.resolve('./src/css/custom.css'),
+                    customCss: [
+                        require.resolve('katex/dist/katex.min.css'),
+                        require.resolve('./src/css/custom.css'),
+                    ],
                 },
                 gtag: {
                     trackingID: 'G-RWPE0183E8',
