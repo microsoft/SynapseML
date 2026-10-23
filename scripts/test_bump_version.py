@@ -556,6 +556,121 @@ class TestIntegration:
         assert V in readme
         assert "2.0.0" not in readme
 
+    def test_does_not_follow_symlink_outside_repo(self, fake_repo, tmp_path_factory):
+        outside_dir = tmp_path_factory.mktemp("bump-version-outside")
+        outside = outside_dir / "outside.txt"
+        outside.write_text(f"SynapseML v{V}\n")
+        (fake_repo / "outside-link.txt").symlink_to(outside)
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                SCRIPT,
+                "--from",
+                V,
+                "--to",
+                "2.0.0",
+                "--repo-root",
+                str(fake_repo),
+                "--skip-docs",
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+        assert f"SynapseML v{V}" in outside.read_text()
+        assert "Skipping symlink" in result.stderr
+
+    def test_safe_write_rejects_existing_symlink(self, fake_repo, tmp_path_factory):
+        outside_dir = tmp_path_factory.mktemp("bump-version-existing-symlink")
+        outside = outside_dir / "outside.txt"
+        outside.write_text(f"SynapseML v{V}\n")
+        (fake_repo / "outside-link.txt").symlink_to(outside)
+
+        with pytest.raises(bump.UnsafeRootedPath):
+            bump._safe_write_bytes(fake_repo, Path("outside-link.txt"), b"changed")
+
+        assert outside.read_text() == f"SynapseML v{V}\n"
+
+    def test_safe_write_rejects_parent_symlink(self, fake_repo, tmp_path_factory):
+        outside_dir = tmp_path_factory.mktemp("bump-version-parent-symlink")
+        outside_file = outside_dir / "outside.txt"
+        outside_file.write_text(f"SynapseML v{V}\n")
+        (fake_repo / "linked-dir").symlink_to(outside_dir, target_is_directory=True)
+
+        with pytest.raises(bump.UnsafeRootedPath):
+            bump._safe_write_bytes(
+                fake_repo,
+                Path("linked-dir/outside.txt"),
+                b"changed",
+            )
+
+        assert outside_file.read_text() == f"SynapseML v{V}\n"
+
+    def test_safe_write_rejects_directory(self, fake_repo):
+        (fake_repo / "linked-dir").mkdir()
+
+        with pytest.raises(bump.UnsafeRootedPath):
+            bump._safe_write_bytes(
+                fake_repo,
+                Path("linked-dir"),
+                b"changed",
+            )
+
+    def test_safe_write_rejects_unsupported_platform(self, fake_repo, monkeypatch):
+        monkeypatch.setattr(bump, "_supports_safe_dir_fd", lambda: False)
+
+        with pytest.raises(bump.UnsafeRootedPath):
+            bump._safe_write_bytes(
+                fake_repo,
+                Path("README.md"),
+                b"changed",
+            )
+
+    def test_safe_write_rejects_hard_link(self, fake_repo, tmp_path_factory):
+        outside_dir = tmp_path_factory.mktemp("bump-version-hard-link")
+        outside_file = outside_dir / "outside.txt"
+        outside_file.write_text(f"SynapseML v{V}\n")
+        inside_file = fake_repo / "hard-link.txt"
+        os.link(outside_file, inside_file)
+
+        with pytest.raises(bump.UnsafeRootedPath):
+            bump._safe_write_bytes(
+                fake_repo,
+                Path("hard-link.txt"),
+                b"changed",
+            )
+
+        assert outside_file.read_text() == f"SynapseML v{V}\n"
+
+    def test_safe_write_rejects_symlink_swap(
+        self, fake_repo, tmp_path_factory, monkeypatch
+    ):
+        outside_dir = tmp_path_factory.mktemp("bump-version-symlink-swap")
+        outside = outside_dir / "outside.txt"
+        outside.write_text(f"SynapseML v{V}\n")
+        target = fake_repo / "README.md"
+        target.write_text(f"SynapseML v{V}\n")
+        real_open = os.open
+        armed = True
+
+        def swapping_open(path, flags, mode=0o777, *, dir_fd=None):
+            nonlocal armed
+            if armed and dir_fd is not None and path == "README.md":
+                armed = False
+                target.unlink()
+                target.symlink_to(outside)
+            return real_open(path, flags, mode, dir_fd=dir_fd)
+
+        monkeypatch.setattr(os, "open", swapping_open)
+        monkeypatch.setattr(bump, "_supports_safe_dir_fd", lambda: True)
+
+        with pytest.raises(bump.UnsafeRootedPath):
+            bump._safe_write_bytes(fake_repo, Path("README.md"), b"changed")
+
+        assert outside.read_text() == f"SynapseML v{V}\n"
+
     def test_live_run_modifies_files(self, fake_repo):
         result = subprocess.run(
             [
