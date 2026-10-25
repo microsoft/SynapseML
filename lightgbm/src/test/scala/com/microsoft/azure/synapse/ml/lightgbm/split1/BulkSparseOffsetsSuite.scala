@@ -70,7 +70,8 @@ class BulkSparseOffsetsSuite extends LightGBMTestUtils {
 
   Seq(false, true).foreach { singleDataset =>
     test(s"bulk sparse aggregation widens row counts with singleDataset=$singleDataset") {
-      val offsets = sc.parallelize(Seq(0), 1).mapPartitions { _ =>
+      import spark.implicits._
+      val offsets = spark.range(0L, 1L, 1L, 1).mapPartitions { _ =>
         LightGBMUtils.initializeNativeLibrary()
         val schema = StructType(Seq(StructField("label", DoubleType),
           StructField("features", SQLDataTypes.VectorType)))
