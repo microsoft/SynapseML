@@ -39,6 +39,12 @@ FileResult = bump.FileResult
 V = "1.1.0"
 
 
+@pytest.fixture
+def root_fd(tmp_path):
+    with bump._root_directory(tmp_path) as fd:
+        yield fd
+
+
 def _build_anchors(old_v):
     bare_re = _bare_regex(old_v)
     self_a = [(t, _template_regex(t, old_v)) for t in SELF_ANCHORED]
@@ -477,31 +483,60 @@ class TestSkipFile:
 # ══════════════════════════════════════════════════════════════════════════════
 
 
-class TestRunDocusaurus:
-    def test_uses_local_npm_binary(self, tmp_path, monkeypatch):
+class TestDocsCommands:
+    @pytest.mark.parametrize("tool", ["convert", "docusaurus"])
+    def test_reports_child_cwd_failure(
+        self, tmp_path, root_fd, monkeypatch, capsys, tool
+    ):
+        (tmp_path / "website" / "docs").mkdir(parents=True)
+        previous_cwd = Path.cwd()
+        real_run = subprocess.run
+
+        def failing_fchdir(fd):
+            raise PermissionError(13, os.strerror(13))
+
+        def harmless_run(cmd, **kwargs):
+            return real_run([sys.executable, "-c", "pass"], **kwargs)
+
+        monkeypatch.setattr(os, "fchdir", failing_fchdir)
+        monkeypatch.setattr(subprocess, "run", harmless_run)
+        if tool == "convert":
+            assert not bump._run_convert_notebooks(
+                tmp_path, dry_run=False, root_fd=root_fd
+            )
+        else:
+            assert not bump._run_docusaurus(
+                tmp_path, "2.0.0", dry_run=False, root_fd=root_fd
+            )
+
+        assert Path.cwd() == previous_cwd
+        assert os.strerror(13) in capsys.readouterr().err
+
+    def test_uses_local_npm_binary(self, tmp_path, root_fd, monkeypatch):
         website = tmp_path / "website"
         (website / "docs").mkdir(parents=True)
         calls = []
+        real_run = subprocess.run
 
         def fake_run(cmd, **kwargs):
-            calls.append((cmd, kwargs))
+            result = real_run(
+                [sys.executable, "-c", "import os; print(os.getcwd())"], **kwargs
+            )
+            assert result.returncode == 0
+            calls.append((cmd, Path(result.stdout.strip())))
             return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
 
         monkeypatch.setattr(subprocess, "run", fake_run)
 
-        assert bump._run_docusaurus(tmp_path, "2.0.0", dry_run=False)
+        assert bump._run_docusaurus(tmp_path, "2.0.0", dry_run=False, root_fd=root_fd)
         assert calls == [
             (
                 ["npm", "exec", "--", "docusaurus", "docs:version", "2.0.0"],
-                {
-                    "cwd": str(website),
-                    "capture_output": True,
-                    "text": True,
-                },
+                website,
             )
         ]
 
-    def test_requires_generated_docs(self, tmp_path, monkeypatch):
+    def test_requires_generated_docs(self, tmp_path, root_fd, monkeypatch):
         (tmp_path / "website").mkdir()
 
         def fail_if_called(*args, **kwargs):
@@ -509,7 +544,54 @@ class TestRunDocusaurus:
 
         monkeypatch.setattr(subprocess, "run", fail_if_called)
 
-        assert not bump._run_docusaurus(tmp_path, "2.0.0", dry_run=False)
+        assert not bump._run_docusaurus(
+            tmp_path, "2.0.0", dry_run=False, root_fd=root_fd
+        )
+
+    @pytest.mark.parametrize("linked_path", ["website", "website/docs"])
+    @pytest.mark.parametrize("tool", ["convert", "docusaurus"])
+    def test_rejects_symlinked_docs_directories(
+        self, tmp_path, root_fd, tmp_path_factory, monkeypatch, linked_path, tool
+    ):
+        outside = tmp_path_factory.mktemp("bump-version-docs-symlink")
+        (outside / "docs").mkdir()
+        link = tmp_path / linked_path
+        link.parent.mkdir(parents=True, exist_ok=True)
+        link.symlink_to(outside, target_is_directory=True)
+
+        def fail_if_called(*args, **kwargs):
+            raise AssertionError("subprocess should not run in symlinked directories")
+
+        monkeypatch.setattr(subprocess, "run", fail_if_called)
+
+        with pytest.raises(bump.UnsafeRootedPath, match=linked_path):
+            if tool == "convert":
+                bump._run_convert_notebooks(tmp_path, dry_run=False, root_fd=root_fd)
+            else:
+                bump._run_docusaurus(tmp_path, "2.0.0", dry_run=False, root_fd=root_fd)
+
+    @pytest.mark.parametrize("tool", ["convert", "docusaurus"])
+    def test_parent_cwd_unchanged_when_docs_subprocess_fails(
+        self, tmp_path, root_fd, monkeypatch, capsys, tool
+    ):
+        (tmp_path / "website" / "docs").mkdir(parents=True)
+        previous_cwd = Path.cwd()
+
+        def failing_run(*args, **kwargs):
+            raise OSError("test subprocess failure")
+
+        monkeypatch.setattr(subprocess, "run", failing_run)
+
+        if tool == "convert":
+            assert not bump._run_convert_notebooks(
+                tmp_path, dry_run=False, root_fd=root_fd
+            )
+        else:
+            assert not bump._run_docusaurus(
+                tmp_path, "2.0.0", dry_run=False, root_fd=root_fd
+            )
+        assert Path.cwd() == previous_cwd
+        assert "test subprocess failure" in capsys.readouterr().err
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -535,6 +617,270 @@ def fake_repo(tmp_path):
 
 
 class TestIntegration:
+    def test_cli_validates_the_pinned_repository(self, fake_repo, monkeypatch):
+        original_open_root = bump._open_root
+        moved_root = fake_repo.with_name(fake_repo.name + "-original")
+
+        def swapping_open_root(root):
+            fake_repo.rename(moved_root)
+            fake_repo.mkdir()
+            (fake_repo / "README.md").write_text(f"synapseml=={V}\n")
+            return original_open_root(root)
+
+        monkeypatch.setattr(bump, "_open_root", swapping_open_root)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                SCRIPT,
+                "--from",
+                V,
+                "--to",
+                "2.0.0",
+                "--repo-root",
+                str(fake_repo),
+                "--skip-docs",
+            ],
+        )
+        with pytest.raises(SystemExit, match="has no .git"):
+            bump.main()
+        assert (fake_repo / "README.md").read_text() == f"synapseml=={V}\n"
+        assert f"synapseml=={V}" in (moved_root / "README.md").read_text()
+
+    def test_cli_missing_website_is_not_a_safety_refusal(self, fake_repo, monkeypatch):
+        (fake_repo / "website/docusaurus.config.js").unlink()
+        (fake_repo / "website").rmdir()
+        original_readme = (fake_repo / "README.md").read_bytes()
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [SCRIPT, "--from", V, "--to", "2.0.0", "--repo-root", str(fake_repo)],
+        )
+        with pytest.raises(SystemExit) as exc:
+            bump.main()
+        assert "website" in str(exc.value)
+        assert "--skip-docs" in str(exc.value)
+        assert "unsafe" not in str(exc.value).lower()
+        assert (fake_repo / "README.md").read_bytes() == original_readme
+
+    def test_cli_help_documents_supported_platforms(self):
+        result = subprocess.run(
+            [sys.executable, SCRIPT, "--help"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        assert result.returncode == 0
+        assert "POSIX" in result.stdout
+        assert "WSL" in result.stdout
+
+    @pytest.mark.parametrize("linked_path", ["website", "website/docs"])
+    def test_cli_unsafe_docs_does_not_recommend_bypassing_checks(
+        self, fake_repo, tmp_path_factory, monkeypatch, capsys, linked_path
+    ):
+        outside = tmp_path_factory.mktemp("bump-version-unsafe-docs")
+        (outside / "sentinel.txt").write_text("unchanged")
+        link = fake_repo / linked_path
+        if linked_path == "website":
+            (link / "docusaurus.config.js").unlink()
+            link.rmdir()
+        link.symlink_to(outside, target_is_directory=True)
+        original_readme = (fake_repo / "README.md").read_bytes()
+
+        def fail_if_called(*args, **kwargs):
+            raise AssertionError("external docs tools must not run")
+
+        monkeypatch.setattr(subprocess, "run", fail_if_called)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                SCRIPT,
+                "--from",
+                V,
+                "--to",
+                "2.0.0",
+                "--repo-root",
+                str(fake_repo),
+            ],
+        )
+
+        with pytest.raises(SystemExit) as exc:
+            bump.main()
+
+        output = capsys.readouterr()
+        assert linked_path in str(exc.value)
+        assert "unsafe path" in str(exc.value)
+        assert "run manually" not in output.out
+        assert "All done!" not in output.out
+        assert (outside / "sentinel.txt").read_text() == "unchanged"
+        assert sorted(path.name for path in outside.iterdir()) == ["sentinel.txt"]
+        assert (fake_repo / "README.md").read_bytes() == original_readme
+
+    @pytest.mark.parametrize("dry_run", [False, True])
+    def test_cli_unsafe_docs_can_retry_auto_detect(
+        self, fake_repo, tmp_path_factory, monkeypatch, dry_run
+    ):
+        outside = tmp_path_factory.mktemp("bump-version-docs-retry")
+        link = fake_repo / "website" / "docs"
+        link.symlink_to(outside, target_is_directory=True)
+        inputs = [fake_repo / "README.md", fake_repo / "website/docusaurus.config.js"]
+        before = {path: path.read_bytes() for path in inputs}
+        calls = []
+
+        def fake_run(cmd, **kwargs):
+            calls.append(cmd)
+            if cmd[0] == "sbt":
+                link.mkdir()
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+        argv = [SCRIPT, "--to", "2.0.0", "--repo-root", str(fake_repo)]
+        if dry_run:
+            argv.append("--dry-run")
+        monkeypatch.setattr(sys, "argv", argv)
+
+        with pytest.raises(SystemExit, match="unsafe path"):
+            bump.main()
+        assert {path: path.read_bytes() for path in inputs} == before
+        assert calls == []
+
+        link.unlink()
+        if dry_run:
+            link.mkdir()
+        bump.main()
+        if dry_run:
+            assert {path: path.read_bytes() for path in inputs} == before
+        else:
+            assert "synapseml==2.0.0" in (fake_repo / "README.md").read_text()
+            assert len(calls) == 2
+        assert list(outside.iterdir()) == []
+
+    def test_cli_late_unsafe_docs_reports_partial_bump(
+        self, fake_repo, tmp_path_factory, monkeypatch, capsys
+    ):
+        outside = tmp_path_factory.mktemp("bump-version-late-docs")
+
+        def fake_convert(*args, **kwargs):
+            (fake_repo / "website" / "docs").symlink_to(
+                outside, target_is_directory=True
+            )
+            return True
+
+        monkeypatch.setattr(bump, "_run_convert_notebooks", fake_convert)
+        monkeypatch.setattr(
+            sys, "argv", [SCRIPT, "--to", "2.0.0", "--repo-root", str(fake_repo)]
+        )
+        with pytest.raises(SystemExit) as exc:
+            bump.main()
+
+        assert "Version strings were already updated" in str(exc.value)
+        assert f"--from {V} --to 2.0.0" in str(exc.value)
+        assert "synapseml==2.0.0" in (fake_repo / "README.md").read_text()
+        assert "All done!" not in capsys.readouterr().out
+        assert list(outside.iterdir()) == []
+
+    @pytest.mark.skipif(
+        not hasattr(os, "geteuid") or os.geteuid() == 0,
+        reason="non-root POSIX permissions required",
+    )
+    def test_cli_docs_from_unreadable_cwd(
+        self, fake_repo, tmp_path_factory, monkeypatch
+    ):
+        caller = tmp_path_factory.mktemp("bump-version-unreadable-cwd")
+        previous_cwd = Path.cwd()
+        real_run = subprocess.run
+        subprocess_dirs = []
+
+        def fake_run(cmd, **kwargs):
+            result = real_run(
+                [sys.executable, "-c", "import os; print(os.getcwd())"], **kwargs
+            )
+            assert result.returncode == 0
+            cwd = Path(result.stdout.strip())
+            assert cwd in (fake_repo, fake_repo / "website")
+            subprocess_dirs.append(cwd)
+            if cmd[0] == "sbt":
+                (cwd / "website" / "docs").mkdir()
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+        monkeypatch.setattr(subprocess, "run", fake_run)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [SCRIPT, "--to", "2.0.0", "--repo-root", str(fake_repo)],
+        )
+        monkeypatch.chdir(caller)
+        caller.chmod(0o311)
+        try:
+            bump.main()
+            assert Path.cwd() == caller
+            assert subprocess_dirs == [fake_repo, fake_repo / "website"]
+        finally:
+            caller.chmod(0o700)
+            os.chdir(previous_cwd)
+
+    def test_cli_rejects_root_swap_before_open(
+        self, fake_repo, tmp_path_factory, monkeypatch, capsys
+    ):
+        outside = tmp_path_factory.mktemp("bump-version-initial-root-swap")
+        outside_readme = outside / "README.md"
+        outside_readme.write_text(f"synapseml=={V}\n")
+        original_open_root = bump._open_root
+        moved_root = fake_repo.with_name(fake_repo.name + "-moved")
+
+        def swapping_open_root(root):
+            fake_repo.rename(moved_root)
+            fake_repo.symlink_to(outside, target_is_directory=True)
+            return original_open_root(root)
+
+        monkeypatch.setattr(bump, "_open_root", swapping_open_root)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                SCRIPT,
+                "--from",
+                V,
+                "--to",
+                "2.0.0",
+                "--repo-root",
+                str(fake_repo),
+                "--skip-docs",
+            ],
+        )
+
+        with pytest.raises(SystemExit, match="cannot open repository root"):
+            bump.main()
+
+        assert outside_readme.read_text() == f"synapseml=={V}\n"
+        assert "synapseml==" + V in (moved_root / "README.md").read_text()
+        assert "All done!" not in capsys.readouterr().out
+
+    def test_cli_reports_docs_launch_failure(self, fake_repo, monkeypatch, capsys):
+        previous_cwd = Path.cwd()
+
+        def failing_run(*args, **kwargs):
+            raise FileNotFoundError("test missing sbt")
+
+        monkeypatch.setattr(subprocess, "run", failing_run)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [SCRIPT, "--to", "2.0.0", "--repo-root", str(fake_repo)],
+        )
+
+        with pytest.raises(SystemExit) as exc:
+            bump.main()
+
+        assert exc.value.code == 1
+        output = capsys.readouterr()
+        assert "Version strings updated but convertNotebooks failed" in output.out
+        assert "test missing sbt" in output.err
+        assert "All done!" not in output.out
+        assert "synapseml==2.0.0" in (fake_repo / "README.md").read_text()
+        assert Path.cwd() == previous_cwd
+
     def test_dry_run_no_modification(self, fake_repo):
         result = subprocess.run(
             [
@@ -582,18 +928,52 @@ class TestIntegration:
         assert f"SynapseML v{V}" in outside.read_text()
         assert "Skipping symlink" in result.stderr
 
-    def test_safe_write_rejects_existing_symlink(self, fake_repo, tmp_path_factory):
+    def test_safe_write_rejects_existing_symlink(
+        self, fake_repo, root_fd, tmp_path_factory
+    ):
         outside_dir = tmp_path_factory.mktemp("bump-version-existing-symlink")
         outside = outside_dir / "outside.txt"
         outside.write_text(f"SynapseML v{V}\n")
         (fake_repo / "outside-link.txt").symlink_to(outside)
 
         with pytest.raises(bump.UnsafeRootedPath):
-            bump._safe_write_bytes(fake_repo, Path("outside-link.txt"), b"changed")
+            bump._safe_write_bytes(
+                fake_repo, Path("outside-link.txt"), b"changed", root_fd=root_fd
+            )
 
         assert outside.read_text() == f"SynapseML v{V}\n"
 
-    def test_safe_write_rejects_parent_symlink(self, fake_repo, tmp_path_factory):
+    def test_read_reports_open_failure_cause(self, fake_repo, root_fd, capsys):
+        missing = fake_repo / "missing.md"
+
+        assert bump._read(missing, root=fake_repo, root_fd=root_fd) is None
+
+        error = capsys.readouterr().err
+        assert os.strerror(2) in error
+        assert "UnsafeRootedPath" not in error
+
+    def test_safe_open_closes_file_when_fstat_fails(
+        self, fake_repo, root_fd, monkeypatch
+    ):
+        opened = []
+
+        def failing_fstat(fd):
+            opened.append(fd)
+            raise OSError(5, os.strerror(5))
+
+        with monkeypatch.context() as patch:
+            patch.setattr(os, "fstat", failing_fstat)
+            with pytest.raises(OSError, match=os.strerror(5)):
+                bump._safe_open_relative(
+                    fake_repo, "README.md", os.O_RDONLY, root_fd=root_fd
+                )
+        assert len(opened) == 1
+        with pytest.raises(OSError):
+            os.fstat(opened[0])
+
+    def test_safe_write_rejects_parent_symlink(
+        self, fake_repo, root_fd, tmp_path_factory
+    ):
         outside_dir = tmp_path_factory.mktemp("bump-version-parent-symlink")
         outside_file = outside_dir / "outside.txt"
         outside_file.write_text(f"SynapseML v{V}\n")
@@ -604,11 +984,12 @@ class TestIntegration:
                 fake_repo,
                 Path("linked-dir/outside.txt"),
                 b"changed",
+                root_fd=root_fd,
             )
 
         assert outside_file.read_text() == f"SynapseML v{V}\n"
 
-    def test_safe_write_rejects_directory(self, fake_repo):
+    def test_safe_write_rejects_directory(self, fake_repo, root_fd):
         (fake_repo / "linked-dir").mkdir()
 
         with pytest.raises(bump.UnsafeRootedPath):
@@ -616,19 +997,232 @@ class TestIntegration:
                 fake_repo,
                 Path("linked-dir"),
                 b"changed",
+                root_fd=root_fd,
             )
 
-    def test_safe_write_rejects_unsupported_platform(self, fake_repo, monkeypatch):
+    def test_safe_write_rejects_unsupported_platform(
+        self, fake_repo, root_fd, monkeypatch
+    ):
         monkeypatch.setattr(bump, "_supports_safe_dir_fd", lambda: False)
 
-        with pytest.raises(bump.UnsafeRootedPath):
+        with pytest.raises(bump.UnsupportedPlatformError):
             bump._safe_write_bytes(
                 fake_repo,
                 Path("README.md"),
                 b"changed",
+                root_fd=root_fd,
             )
 
-    def test_safe_write_rejects_hard_link(self, fake_repo, tmp_path_factory):
+    @pytest.mark.parametrize("auto_detect", [False, True])
+    def test_cli_rejects_unsupported_platform(
+        self, fake_repo, monkeypatch, capsys, auto_detect
+    ):
+        before = {
+            path: path.read_bytes() for path in fake_repo.rglob("*") if path.is_file()
+        }
+        argv = [
+            SCRIPT,
+            "--to",
+            "2.0.0",
+            "--repo-root",
+            str(fake_repo),
+            "--skip-docs",
+        ]
+        if not auto_detect:
+            argv.extend(["--from", V])
+        monkeypatch.setattr(sys, "argv", argv)
+        monkeypatch.setattr(bump, "_supports_safe_dir_fd", lambda: False)
+
+        with pytest.raises(SystemExit) as exc:
+            bump.main()
+
+        assert exc.value.code == 2
+        output = capsys.readouterr()
+        assert "require dir_fd" in output.err
+        assert "All done!" not in output.out
+        assert all(path.read_bytes() == data for path, data in before.items())
+
+    @pytest.mark.parametrize("swap_stage", ["open", "scan", "analysis", "write"])
+    @pytest.mark.parametrize("run_docs", [False, True])
+    def test_cli_keeps_original_root_after_swap(
+        self, fake_repo, tmp_path_factory, monkeypatch, capsys, swap_stage, run_docs
+    ):
+        outside = tmp_path_factory.mktemp("bump-version-root-swap")
+        (outside / "outside.txt").write_text(f"SynapseML v{V}\n")
+        (outside / "sweep.bin").write_text(f"SynapseML v{V}\n")
+        (fake_repo / "sweep.bin").write_text("no stale versions here")
+        if swap_stage != "scan":
+            (outside / "README.md").write_text(f"SynapseML v{V}\n")
+            (outside / "website").mkdir()
+            outside_version = "1.0.0" if swap_stage == "open" else V
+            (outside / "website" / "docusaurus.config.js").write_text(
+                f'let version = "{outside_version}";\n'
+            )
+        outside_before = {
+            path: path.read_bytes() for path in outside.rglob("*") if path.is_file()
+        }
+        moved_root = fake_repo.with_name(fake_repo.name + "-moved")
+        original_readme = (fake_repo / "README.md").read_text()
+        operation = {
+            "open": "_detect_version",
+            "scan": "_detect_version",
+            "analysis": "analyze",
+            "write": "apply",
+        }[swap_stage]
+        original = getattr(bump, operation)
+        open_root = bump._open_root
+        root_fds = []
+        swapped = False
+        subprocess_dirs = []
+        original_cwd = Path.cwd()
+        real_run = subprocess.run
+
+        def swap_root():
+            nonlocal swapped
+            fake_repo.rename(moved_root)
+            fake_repo.symlink_to(outside, target_is_directory=True)
+            swapped = True
+
+        def recording_open_root(root):
+            fd = open_root(root)
+            root_fds.append(fd)
+            if swap_stage == "open":
+                swap_root()
+            return fd
+
+        def swapping_operation(*args, **kwargs):
+            nonlocal swapped
+            result = original(*args, **kwargs)
+            if not swapped:
+                swap_root()
+            return result
+
+        def fake_run(cmd, **kwargs):
+            result = real_run(
+                [sys.executable, "-c", "import os; print(os.getcwd())"], **kwargs
+            )
+            assert result.returncode == 0
+            cwd = Path(result.stdout.strip())
+            assert cwd in (moved_root, moved_root / "website")
+            subprocess_dirs.append(cwd)
+            if cmd[0] == "sbt":
+                (cwd / "website" / "docs").mkdir(parents=True, exist_ok=True)
+            (cwd / "docs-output.txt").write_text("generated")
+            return subprocess.CompletedProcess(cmd, 0, stdout="", stderr="")
+
+        monkeypatch.setattr(bump, operation, swapping_operation)
+        monkeypatch.setattr(bump, "_open_root", recording_open_root)
+        monkeypatch.setattr(subprocess, "run", fake_run)
+        argv = [SCRIPT, "--to", "2.0.0", "--repo-root", str(fake_repo)]
+        if not run_docs:
+            argv.append("--skip-docs")
+        monkeypatch.setattr(sys, "argv", argv)
+
+        bump.main()
+
+        assert swapped
+        assert {
+            path: path.read_bytes() for path in outside.rglob("*") if path.is_file()
+        } == outside_before
+        assert (moved_root / "README.md").read_text() == original_readme.replace(
+            V, "2.0.0"
+        )
+        assert (
+            moved_root / "website" / "docusaurus.config.js"
+        ).read_text() == 'let version = "2.0.0";\n'
+        output = capsys.readouterr()
+        assert "3 replacements confirmed" in output.out
+        assert "SWEEP WARNING" not in output.out
+        assert "outside.txt" not in output.out + output.err
+        assert output.err == ""
+        assert subprocess_dirs == (
+            [moved_root, moved_root / "website"] if run_docs else []
+        )
+        assert Path.cwd() == original_cwd
+        assert len(root_fds) == 1
+        with pytest.raises(OSError):
+            os.fstat(root_fds[0])
+
+    @pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="POSIX FIFO required")
+    def test_cli_skips_fifo(self, fake_repo):
+        os.mkfifo(fake_repo / "pipe.txt")
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                SCRIPT,
+                "--from",
+                V,
+                "--to",
+                "2.0.0",
+                "--repo-root",
+                str(fake_repo),
+                "--skip-docs",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        assert result.returncode == 0
+        assert "synapseml==2.0.0" in (fake_repo / "README.md").read_text()
+        assert result.stderr.count("Refusing non-regular file") == 1
+
+    def test_sweep_skips_binary_files_quietly(self, fake_repo):
+        (fake_repo / "image.png").write_bytes(b"\xff\xfe")
+
+        result = subprocess.run(
+            [
+                sys.executable,
+                SCRIPT,
+                "--from",
+                V,
+                "--to",
+                "2.0.0",
+                "--repo-root",
+                str(fake_repo),
+                "--skip-docs",
+            ],
+            capture_output=True,
+            text=True,
+        )
+
+        assert result.returncode == 0
+        assert "image.png" not in result.stderr
+
+    def test_cli_closes_root_on_validation_error(self, fake_repo, monkeypatch):
+        open_root = bump._open_root
+        root_fds = []
+
+        def recording_open_root(root):
+            fd = open_root(root)
+            root_fds.append(fd)
+            return fd
+
+        monkeypatch.setattr(bump, "_open_root", recording_open_root)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                SCRIPT,
+                "--from",
+                V,
+                "--to",
+                V,
+                "--repo-root",
+                str(fake_repo),
+                "--skip-docs",
+            ],
+        )
+
+        with pytest.raises(SystemExit, match="already"):
+            bump.main()
+
+        assert len(root_fds) == 1
+        with pytest.raises(OSError):
+            os.fstat(root_fds[0])
+
+    def test_safe_write_rejects_hard_link(self, fake_repo, root_fd, tmp_path_factory):
         outside_dir = tmp_path_factory.mktemp("bump-version-hard-link")
         outside_file = outside_dir / "outside.txt"
         outside_file.write_text(f"SynapseML v{V}\n")
@@ -640,12 +1234,13 @@ class TestIntegration:
                 fake_repo,
                 Path("hard-link.txt"),
                 b"changed",
+                root_fd=root_fd,
             )
 
         assert outside_file.read_text() == f"SynapseML v{V}\n"
 
     def test_safe_write_rejects_symlink_swap(
-        self, fake_repo, tmp_path_factory, monkeypatch
+        self, fake_repo, root_fd, tmp_path_factory, monkeypatch
     ):
         outside_dir = tmp_path_factory.mktemp("bump-version-symlink-swap")
         outside = outside_dir / "outside.txt"
@@ -667,7 +1262,9 @@ class TestIntegration:
         monkeypatch.setattr(bump, "_supports_safe_dir_fd", lambda: True)
 
         with pytest.raises(bump.UnsafeRootedPath):
-            bump._safe_write_bytes(fake_repo, Path("README.md"), b"changed")
+            bump._safe_write_bytes(
+                fake_repo, Path("README.md"), b"changed", root_fd=root_fd
+            )
 
         assert outside.read_text() == f"SynapseML v{V}\n"
 
@@ -1110,19 +1707,20 @@ class TestSnapshotRegression:
         assert m, "Cannot detect version from docusaurus.config.js"
         old_v = m.group(1)
         bare_re, self_a, line_a, file_a = _build_anchors(old_v)
-        files = bump._find_files(REPO_ROOT)
         results = {}
         unanchored = {}
-        for fp in files:
-            rel = fp.relative_to(REPO_ROOT)
-            c = bump._read(fp)
-            if c is None:
-                continue
-            r = analyze(fp, rel, c, old_v, bare_re, self_a, line_a, file_a)
-            if r.matches:
-                results[str(rel)] = len(r.matches)
-            if r.unanchored:
-                unanchored[str(rel)] = r.unanchored
+        with bump._root_directory(REPO_ROOT) as root_fd:
+            files = bump._find_files(REPO_ROOT, root_fd=root_fd)
+            for fp in files:
+                rel = fp.relative_to(REPO_ROOT)
+                c = bump._read(fp, root=REPO_ROOT, root_fd=root_fd)
+                if c is None:
+                    continue
+                r = analyze(fp, rel, c, old_v, bare_re, self_a, line_a, file_a)
+                if r.matches:
+                    results[str(rel)] = len(r.matches)
+                if r.unanchored:
+                    unanchored[str(rel)] = r.unanchored
         return {
             "files": results,
             "total_files": len(results),
