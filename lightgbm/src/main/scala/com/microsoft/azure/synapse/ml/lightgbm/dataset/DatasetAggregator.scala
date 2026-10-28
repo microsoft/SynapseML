@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.lightgbm.dataset
 import com.microsoft.azure.synapse.ml.lightgbm.dataset.DatasetUtils.getRowAsDoubleArray
 import com.microsoft.azure.synapse.ml.lightgbm.swig._
 import com.microsoft.azure.synapse.ml.lightgbm.{ColumnParams, LightGBMUtils, NativeOmpCallSite, PartitionTaskContext}
-import com.microsoft.ml.lightgbm.{SWIGTYPE_p_int, lightgbmlib, lightgbmlibConstants}
+import com.microsoft.ml.lightgbm.{SWIGTYPE_p_long_long, lightgbmlib, lightgbmlibConstants}
 import org.apache.spark.internal.Logging
 import org.apache.spark.ml.linalg.SQLDataTypes.VectorType
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
@@ -39,6 +39,24 @@ private[lightgbm] object ChunkedArrayUtils {
     for (lastChunkIdx <- 0L until lastChunkCount) {
       mainArray.setItem(threadRowStartIndex + chunkCount * chunkSize + lastChunkIdx,
         chunkedArray.getItem(chunkCount, lastChunkIdx, defaultVal))
+    }
+  }
+
+  /** Widens per-row counts before they become cumulative CSR offsets. */
+  def copyIntChunkedArrayToLong(chunkedArray: IntChunkedArray,
+                                mainArray: LongSwigArray,
+                                startIndex: Long): Unit = {
+    val chunkSize = chunkedArray.getChunkSize
+    val fullChunks = chunkedArray.getChunksCount - 1
+    for (chunk <- 0L until fullChunks) {
+      for (index <- 0L until chunkSize) {
+        mainArray.setItem(startIndex + chunk * chunkSize + index,
+          chunkedArray.getItem(chunk, index, -1).toLong)
+      }
+    }
+    for (index <- 0L until chunkedArray.getLastChunkAddCount) {
+      mainArray.setItem(startIndex + fullChunks * chunkSize + index,
+        chunkedArray.getItem(fullChunks, index, -1).toLong)
     }
   }
 
@@ -461,7 +479,7 @@ private[lightgbm] abstract class BaseSparseAggregatedColumns(chunkSize: Int)
   extends BaseAggregatedColumns(chunkSize) {
   protected var indexes: IntSwigArray = _
   protected var values: DoubleSwigArray = _
-  protected var indexPointers: IntSwigArray = _
+  protected var indexPointers: LongSwigArray = _
 
   /**
     * Aggregated variables for knowing how large full array should be allocated to
@@ -489,7 +507,7 @@ private[lightgbm] abstract class BaseSparseAggregatedColumns(chunkSize: Int)
     val indptrCount = this.indptrCount.get()
     indexes = new IntSwigArray(indexesCount)
     values = new DoubleSwigArray(indexesCount)
-    indexPointers = new IntSwigArray(indptrCount)
+    indexPointers = new LongSwigArray(indptrCount)
     indexPointers.setItem(0, 0)
     updateConcurrentMapOffsets(pIdToIndexesCountOffset)
     updateConcurrentMapOffsets(pIdToIndptrCountOffset, 1L)
@@ -499,7 +517,7 @@ private[lightgbm] abstract class BaseSparseAggregatedColumns(chunkSize: Int)
 
   def getValues: DoubleSwigArray = values
 
-  def getIndexPointers: IntSwigArray = indexPointers
+  def getIndexPointers: LongSwigArray = indexPointers
 
   override def cleanup(): Unit = {
     Option(labels).foreach(_.delete())
@@ -510,12 +528,12 @@ private[lightgbm] abstract class BaseSparseAggregatedColumns(chunkSize: Int)
     Option(indexPointers).foreach(_.delete())
   }
 
-  private def indexPointerArrayIncrement(indptrArray: SWIGTYPE_p_int): Unit = {
+  private[lightgbm] def indexPointerArrayIncrement(indptrArray: SWIGTYPE_p_long_long): Unit = {
     // Update indptr array indexes in sparse matrix
     (1L until indptrCount.get()).foreach { index =>
-      val indptrPrevValue = lightgbmlib.intArray_getitem(indptrArray, index - 1)
-      val indptrCurrValue = lightgbmlib.intArray_getitem(indptrArray, index)
-      lightgbmlib.intArray_setitem(indptrArray, index, indptrPrevValue + indptrCurrValue)
+      val indptrPrevValue = lightgbmlib.longArray_getitem(indptrArray, index - 1)
+      val indptrCurrValue = lightgbmlib.longArray_getitem(indptrArray, index)
+      lightgbmlib.longArray_setitem(indptrArray, index, indptrPrevValue + indptrCurrValue)
     }
   }
 
@@ -523,13 +541,13 @@ private[lightgbm] abstract class BaseSparseAggregatedColumns(chunkSize: Int)
     indexPointerArrayIncrement(getIndexPointers.array)
     val pointer = lightgbmlib.voidpp_handle()
     val numRows = indptrCount.get() - 1
-    logInfo(s"LightGBM task ${ctx.taskId} part ${ctx.partitionId} generating dense dataset" +
+    logInfo(s"LightGBM task ${ctx.taskId} part ${ctx.partitionId} generating sparse dataset" +
       s" with $numRows rows and $numCols columns")
     // Generate the dataset for features
     LightGBMUtils.registerNativeOmpThreads(NativeOmpCallSite.SparseDataset, ctx.trainingCtx.datasetParams)
     LightGBMUtils.validate(lightgbmlib.LGBM_DatasetCreateFromCSR(
-      lightgbmlib.int_to_voidp_ptr(indexPointers.array),
-      lightgbmlibConstants.C_API_DTYPE_INT32,
+      lightgbmlib.int64_t_to_voidp_ptr(indexPointers.array),
+      lightgbmlibConstants.C_API_DTYPE_INT64,
       indexes.array,
       lightgbmlib.double_to_voidp_ptr(values.array),
       lightgbmlibConstants.C_API_DTYPE_FLOAT64,
@@ -558,7 +576,7 @@ private[lightgbm] final class SparseAggregatedColumns(chunkSize: Int)
     val sparseChunkedColumns = chunkedCols.asInstanceOf[SparseChunkedColumns]
     sparseChunkedColumns.indexes.coalesceTo(indexes)
     sparseChunkedColumns.values.coalesceTo(values)
-    sparseChunkedColumns.indexPointers.coalesceTo(indexPointers)
+    ChunkedArrayUtils.copyIntChunkedArrayToLong(sparseChunkedColumns.indexPointers, indexPointers, 0L)
   }
 }
 
@@ -585,7 +603,7 @@ private[lightgbm] final class SparseSyncAggregatedColumns(chunkSize: Int)
     val sparseChunkedCols = chunkedCols.asInstanceOf[SparseChunkedColumns]
     ChunkedArrayUtils.copyChunkedArray(sparseChunkedCols.indexes, indexes, featureIndexes.head)
     ChunkedArrayUtils.copyChunkedArray(sparseChunkedCols.values, values, featureIndexes.head)
-    ChunkedArrayUtils.copyChunkedArray(sparseChunkedCols.indexPointers, indexPointers, featureIndexes(1))
+    ChunkedArrayUtils.copyIntChunkedArrayToLong(sparseChunkedCols.indexPointers, indexPointers, featureIndexes(1))
   }
 
 }
