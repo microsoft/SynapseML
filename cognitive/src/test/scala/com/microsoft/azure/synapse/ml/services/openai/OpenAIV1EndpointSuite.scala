@@ -149,7 +149,7 @@ class OpenAIV1EndpointSuite extends TestBase {
 
   private def chatTransformer(): OpenAIChatCompletion = new OpenAIChatCompletion()
     .setUrl("https://example.services.ai.azure.com/openai/v1")
-    .setDeploymentName("gpt-5.1")
+    .setDeploymentName("gpt-6-luna")
     .setMessagesCol("messages")
     .setApiVersion("2025-04-01-preview")
 
@@ -223,14 +223,14 @@ class OpenAIV1EndpointSuite extends TestBase {
     OpenAIDefaults.setURL(versionedPath)
     try {
       val transformer = new OpenAIChatCompletion()
-        .setDeploymentName("gpt-5.1")
+        .setDeploymentName("gpt-6-luna")
         .setMessagesCol("messages")
       transformer.transferGlobalParamsToParamMap()
 
       assert(OpenAIDefaults.getURL.contains(versionedPath))
       assert(transformer.getUrl == versionedPath)
       assert(requestUrl(transformer, messagesRow) ==
-        versionedPath + "/openai/deployments/gpt-5.1/chat/completions?api-version=2025-04-01-preview")
+        versionedPath + "/openai/deployments/gpt-6-luna/chat/completions?api-version=2025-04-01-preview")
     } finally {
       OpenAIDefaults.resetURL()
     }
@@ -239,7 +239,7 @@ class OpenAIV1EndpointSuite extends TestBase {
   test("chat completions uses OpenAI v1 base URL without api-version and sends model") {
     val transformer = new OpenAIChatCompletion()
       .setUrl("https://example.services.ai.azure.com/openai/v1")
-      .setDeploymentName("gpt-5.1")
+      .setDeploymentName("gpt-6-luna")
       .setMessagesCol("messages")
       .setApiVersion("2025-04-01-preview")
 
@@ -247,7 +247,7 @@ class OpenAIV1EndpointSuite extends TestBase {
     assert(requestUrl(transformer, row) == "https://example.services.ai.azure.com/openai/v1/chat/completions")
 
     val payload = requestPayload(transformer, row)
-    assert(payload.fields.get("model").contains(JsString("gpt-5.1")))
+    assert(payload.fields.get("model").contains(JsString("gpt-6-luna")))
     assert(payload.fields.contains("messages"))
   }
 
@@ -264,7 +264,7 @@ class OpenAIV1EndpointSuite extends TestBase {
     ).foreach { case (baseUrl, expectedUrl) =>
         val transformer = new OpenAIChatCompletion()
           .setUrl(baseUrl)
-          .setDeploymentName("gpt-5.1")
+          .setDeploymentName("gpt-6-luna")
           .setMessagesCol("messages")
           .setApiVersion("2025-04-01-preview")
 
@@ -276,13 +276,13 @@ class OpenAIV1EndpointSuite extends TestBase {
     Seq("https://example.openai.azure.com", "https://example.openai.azure.com/").foreach { baseUrl =>
       val transformer = new OpenAIChatCompletion()
         .setUrl(baseUrl)
-        .setDeploymentName("gpt-5.1")
+        .setDeploymentName("gpt-6-luna")
         .setMessagesCol("messages")
         .setApiVersion("2025-04-01-preview")
 
       val row = messagesRow
       assert(requestUrl(transformer, row) ==
-        "https://example.openai.azure.com/openai/deployments/gpt-5.1/chat/completions" +
+        "https://example.openai.azure.com/openai/deployments/gpt-6-luna/chat/completions" +
           "?api-version=2025-04-01-preview")
       assert(!requestPayload(transformer, row).fields.contains("model"))
     }
@@ -292,12 +292,12 @@ class OpenAIV1EndpointSuite extends TestBase {
     Seq("https://example.services.ai.azure.com", "https://example.services.ai.azure.com/").foreach { baseUrl =>
       val transformer = new OpenAIChatCompletion()
         .setUrl(baseUrl)
-        .setDeploymentName("gpt-5.1")
+        .setDeploymentName("gpt-6-luna")
         .setMessagesCol("messages")
         .setApiVersion("2025-04-01-preview")
 
       assert(requestUrl(transformer, messagesRow) ==
-        "https://example.services.ai.azure.com/openai/deployments/gpt-5.1/chat/completions" +
+        "https://example.services.ai.azure.com/openai/deployments/gpt-6-luna/chat/completions" +
           "?api-version=2025-04-01-preview")
     }
   }
@@ -306,7 +306,7 @@ class OpenAIV1EndpointSuite extends TestBase {
     Seq("https://example.services.ai.azure.com", "https://example.services.ai.azure.com/").foreach { baseUrl =>
       val transformer = new AIFoundryChatCompletion()
         .setUrl(baseUrl)
-        .setModel("gpt-5.1")
+        .setModel("gpt-6-luna")
         .setMessagesCol("messages")
         .setApiVersion("2025-04-01-preview")
 
@@ -318,24 +318,24 @@ class OpenAIV1EndpointSuite extends TestBase {
   test("non-v1 URL paths remain permissive and use legacy request construction") {
     val transformer = new OpenAIChatCompletion()
       .setUrl("https://example.openai.azure.com/openai")
-      .setDeploymentName("gpt-5.1")
+      .setDeploymentName("gpt-6-luna")
       .setMessagesCol("messages")
       .setApiVersion("2025-04-01-preview")
 
     assert(requestUrl(transformer, messagesRow) ==
-      "https://example.openai.azure.com/openai/openai/deployments/gpt-5.1/chat/completions" +
+      "https://example.openai.azure.com/openai/openai/deployments/gpt-6-luna/chat/completions" +
         "?api-version=2025-04-01-preview")
   }
 
   test("custom non-Azure URL strings remain permissive") {
     val transformer = new OpenAIChatCompletion()
       .setUrl("https://proxy.contoso.com/openai")
-      .setDeploymentName("gpt-5.1")
+      .setDeploymentName("gpt-6-luna")
       .setMessagesCol("messages")
       .setApiVersion("2025-04-01-preview")
 
     assert(requestUrl(transformer, messagesRow) ==
-      "https://proxy.contoso.com/openai/openai/deployments/gpt-5.1/chat/completions" +
+      "https://proxy.contoso.com/openai/openai/deployments/gpt-6-luna/chat/completions" +
         "?api-version=2025-04-01-preview")
   }
 
@@ -343,12 +343,12 @@ class OpenAIV1EndpointSuite extends TestBase {
     OpenAIDefaults.setURL("https://example.openai.azure.com/openai")
     try {
       val transformer = new OpenAIChatCompletion()
-        .setDeploymentName("gpt-5.1")
+        .setDeploymentName("gpt-6-luna")
         .setMessagesCol("messages")
       transformer.transferGlobalParamsToParamMap()
 
       assert(requestUrl(transformer, messagesRow) ==
-        "https://example.openai.azure.com/openai/openai/deployments/gpt-5.1/chat/completions" +
+        "https://example.openai.azure.com/openai/openai/deployments/gpt-6-luna/chat/completions" +
           "?api-version=2025-04-01-preview")
     } finally {
       OpenAIDefaults.resetURL()
@@ -371,7 +371,7 @@ class OpenAIV1EndpointSuite extends TestBase {
     OpenAIDefaults.setApiVersion("2025-04-01-preview")
     try {
       val transformer = new OpenAIChatCompletion()
-        .setDeploymentName("gpt-5.1")
+        .setDeploymentName("gpt-6-luna")
         .setMessagesCol("messages")
       transformer.transferGlobalParamsToParamMap()
 
@@ -428,7 +428,7 @@ class OpenAIV1EndpointSuite extends TestBase {
 
     val expected =
       """{
-        |  "model": "gpt-5.1",
+        |  "model": "gpt-6-luna",
         |  "messages": [{"role": "user", "content": "Describe the image"}]
         |}""".stripMargin.parseJson.asJsObject
     assert(payload == expected)
@@ -446,7 +446,7 @@ class OpenAIV1EndpointSuite extends TestBase {
 
     val expected =
       """{
-        |  "model": "gpt-5.1",
+        |  "model": "gpt-6-luna",
         |  "messages": [{"role": "user", "content": "Line one\nLine two"}]
         |}""".stripMargin.parseJson.asJsObject
     assert(payload == expected)
@@ -463,7 +463,7 @@ class OpenAIV1EndpointSuite extends TestBase {
     val JsArray(contentParts) = messages.head.asJsObject.fields("content")
     val imageUrl = contentParts.head.asJsObject.fields("image_url").asJsObject
 
-    assert(payload.fields.get("model").contains(JsString("gpt-5.1")))
+    assert(payload.fields.get("model").contains(JsString("gpt-6-luna")))
     assert(imageUrl.fields.get("url").contains(JsString("https://example.com/triangle.png")))
     assert(imageUrl.fields.get("detail").contains(JsString("low")))
   }
@@ -482,7 +482,7 @@ class OpenAIV1EndpointSuite extends TestBase {
 
     val expected =
       """{
-        |  "model": "gpt-5.1",
+        |  "model": "gpt-6-luna",
         |  "messages": [{"role": "user", "content": [
         |    {"type": "text", "text": "What is shown?"},
         |    {"type": "image_url", "image_url": {"url": "data:image/png;base64,AAA"}}
@@ -722,7 +722,7 @@ class OpenAIV1EndpointSuite extends TestBase {
     ).foreach { case (baseUrl, expectedUrl) =>
         val transformer = new OpenAIResponses()
           .setUrl(baseUrl)
-          .setDeploymentName("gpt-5-mini")
+          .setDeploymentName("gpt-6-luna")
           .setMessagesCol("messages")
           .setApiVersion("2025-04-01-preview")
 
@@ -730,7 +730,7 @@ class OpenAIV1EndpointSuite extends TestBase {
         assert(requestUrl(transformer, row) == expectedUrl)
 
         val payload = requestPayload(transformer, row)
-        assert(payload.fields.get("model").contains(JsString("gpt-5-mini")))
+        assert(payload.fields.get("model").contains(JsString("gpt-6-luna")))
         assert(payload.fields.contains("input"))
       }
   }
@@ -749,7 +749,7 @@ class OpenAIV1EndpointSuite extends TestBase {
   test("responses keeps legacy Azure URL shape when URL is not an OpenAI v1 base") {
     val transformer = new OpenAIResponses()
       .setUrl("https://example.openai.azure.com/")
-      .setDeploymentName("gpt-5-mini")
+      .setDeploymentName("gpt-6-luna")
       .setMessagesCol("messages")
       .setApiVersion("2025-04-01-preview")
 
@@ -760,7 +760,7 @@ class OpenAIV1EndpointSuite extends TestBase {
   test("OpenAIPrompt treats services.ai.azure.com/openai/v1 as OpenAI v1, not models chat endpoint") {
     val prompt = new OpenAIPrompt()
       .setUrl("https://example.services.ai.azure.com/openai/v1")
-      .setModel("gpt-5.1")
+      .setModel("gpt-6-luna")
       .setMessagesCol("messages")
 
     val prepareEntity = classOf[OpenAIPrompt].getDeclaredMethod("prepareEntity")
@@ -768,7 +768,7 @@ class OpenAIV1EndpointSuite extends TestBase {
     val buildEntity = prepareEntity.invoke(prompt).asInstanceOf[Row => Option[AbstractHttpEntity]]
 
     val payload = EntityUtils.toString(buildEntity(messagesRow).get).parseJson.asJsObject
-    assert(payload.fields.get("model").contains(JsString("gpt-5.1")))
+    assert(payload.fields.get("model").contains(JsString("gpt-6-luna")))
     assert(payload.fields.contains("messages"))
   }
 }
