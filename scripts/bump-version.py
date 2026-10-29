@@ -240,7 +240,28 @@ def _root_open_flags():
 
 
 def _open_root(root):
-    return os.open(root, _root_open_flags())
+    root = Path(root)
+    flags = _root_open_flags()
+    if hasattr(os, "O_NOFOLLOW_ANY"):
+        return os.open(root, (flags & ~os.O_NOFOLLOW) | os.O_NOFOLLOW_ANY)
+
+    parts = root.parts[1:] if root.anchor else root.parts
+    parent_flags = flags | getattr(os, "O_PATH", 0)
+    current_fd = os.open(root.anchor or ".", parent_flags if parts else flags)
+    try:
+        # O_NOFOLLOW protects only the final component of each open.
+        for index, part in enumerate(parts):
+            next_fd = os.open(
+                part,
+                flags if index == len(parts) - 1 else parent_flags,
+                dir_fd=current_fd,
+            )
+            os.close(current_fd)
+            current_fd = next_fd
+        return current_fd
+    except BaseException:
+        os.close(current_fd)
+        raise
 
 
 @contextmanager

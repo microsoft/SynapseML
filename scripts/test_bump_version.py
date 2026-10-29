@@ -820,18 +820,35 @@ class TestIntegration:
             caller.chmod(0o700)
             os.chdir(previous_cwd)
 
+    @pytest.mark.parametrize("swap_ancestor", [False, True])
+    @pytest.mark.parametrize("component_walk", [False, True])
     def test_cli_rejects_root_swap_before_open(
-        self, fake_repo, tmp_path_factory, monkeypatch, capsys
+        self,
+        tmp_path,
+        tmp_path_factory,
+        monkeypatch,
+        capsys,
+        swap_ancestor,
+        component_walk,
     ):
+        if component_walk:
+            monkeypatch.delattr(os, "O_NOFOLLOW_ANY", raising=False)
+        fake_repo = tmp_path / "ancestor" / "repo"
+        (fake_repo / ".git").mkdir(parents=True)
+        (fake_repo / "README.md").write_text(f"synapseml=={V}\n")
         outside = tmp_path_factory.mktemp("bump-version-initial-root-swap")
-        outside_readme = outside / "README.md"
+        outside_repo = outside / "repo" if swap_ancestor else outside
+        (outside_repo / ".git").mkdir(parents=True)
+        outside_readme = outside_repo / "README.md"
         outside_readme.write_text(f"synapseml=={V}\n")
         original_open_root = bump._open_root
-        moved_root = fake_repo.with_name(fake_repo.name + "-moved")
+        swapped_path = fake_repo.parent if swap_ancestor else fake_repo
+        moved_path = swapped_path.with_name(swapped_path.name + "-moved")
+        moved_root = moved_path / "repo" if swap_ancestor else moved_path
 
         def swapping_open_root(root):
-            fake_repo.rename(moved_root)
-            fake_repo.symlink_to(outside, target_is_directory=True)
+            swapped_path.rename(moved_path)
+            swapped_path.symlink_to(outside, target_is_directory=True)
             return original_open_root(root)
 
         monkeypatch.setattr(bump, "_open_root", swapping_open_root)
@@ -856,6 +873,69 @@ class TestIntegration:
         assert outside_readme.read_text() == f"synapseml=={V}\n"
         assert "synapseml==" + V in (moved_root / "README.md").read_text()
         assert "All done!" not in capsys.readouterr().out
+
+    @pytest.mark.skipif(
+        not hasattr(os, "geteuid") or os.geteuid() == 0,
+        reason="non-root POSIX permissions required",
+    )
+    def test_cli_supports_search_only_ancestor(self, tmp_path, monkeypatch):
+        ancestor = tmp_path / "ancestor"
+        root = ancestor / "repo"
+        (root / ".git").mkdir(parents=True)
+        readme = root / "README.md"
+        readme.write_text(f"synapseml=={V}\n")
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [
+                SCRIPT,
+                "--from",
+                V,
+                "--to",
+                "2.0.0",
+                "--repo-root",
+                str(root),
+                "--skip-docs",
+            ],
+        )
+        ancestor.chmod(0o311)
+        try:
+            bump.main()
+            assert readme.read_text() == "synapseml==2.0.0\n"
+        finally:
+            ancestor.chmod(0o700)
+
+    @pytest.mark.parametrize("missing", [False, True])
+    def test_open_root_closes_intermediate_descriptors(
+        self, tmp_path, monkeypatch, missing
+    ):
+        monkeypatch.delattr(os, "O_NOFOLLOW_ANY", raising=False)
+        parent = tmp_path / "parent"
+        parent.mkdir()
+        root = parent / "repo"
+        if not missing:
+            root.mkdir()
+        real_open = os.open
+        opened = []
+
+        def recording_open(*args, **kwargs):
+            fd = real_open(*args, **kwargs)
+            opened.append(fd)
+            return fd
+
+        monkeypatch.setattr(os, "open", recording_open)
+        monkeypatch.setattr(bump, "_supports_safe_dir_fd", lambda: True)
+
+        if missing:
+            with pytest.raises(FileNotFoundError):
+                bump._open_root(root)
+        else:
+            with bump._root_directory(root) as fd:
+                assert os.fstat(fd).st_ino == root.stat().st_ino
+
+        for fd in opened:
+            with pytest.raises(OSError):
+                os.fstat(fd)
 
     def test_cli_reports_docs_launch_failure(self, fake_repo, monkeypatch, capsys):
         previous_cwd = Path.cwd()
@@ -1189,6 +1269,31 @@ class TestIntegration:
 
         assert result.returncode == 0
         assert "image.png" not in result.stderr
+
+    def test_sweep_reports_unscanned_files(
+        self, fake_repo, tmp_path_factory, monkeypatch, capsys
+    ):
+        unscanned = ["CHANGELOG.md", "notes.cfgx"]
+        for name in unscanned:
+            (fake_repo / name).write_text(f"SynapseML v{V}\n")
+        outside = tmp_path_factory.mktemp("bump-version-sweep") / "outside.txt"
+        outside.write_text(f"SynapseML v{V}\n")
+        (fake_repo / "outside-link.cfgx").symlink_to(outside)
+        monkeypatch.setattr(
+            sys,
+            "argv",
+            [SCRIPT, "--to", "2.0.0", "--repo-root", str(fake_repo), "--skip-docs"],
+        )
+
+        bump.main()
+
+        output = capsys.readouterr().out
+        assert "SWEEP WARNING" in output
+        for name in unscanned:
+            assert name in output
+            assert (fake_repo / name).read_text() == f"SynapseML v{V}\n"
+        assert "outside-link.cfgx" not in output
+        assert outside.read_text() == f"SynapseML v{V}\n"
 
     def test_cli_closes_root_on_validation_error(self, fake_repo, monkeypatch):
         open_root = bump._open_root
