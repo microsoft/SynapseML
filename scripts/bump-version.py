@@ -10,12 +10,15 @@ that proves it refers to SynapseML (e.g., "synapseml_2.12:1.1.0").
 Designed for fully unattended automated releases. The script will FAIL
 rather than make an ambiguous replacement.
 
+Requires POSIX descriptor APIs (Linux or macOS); use WSL on Windows.
+
 Usage:
     python scripts/bump-version.py --from 1.1.0 --to 1.1.1 --dry-run
     python scripts/bump-version.py --from 1.1.0 --to 1.1.1
 """
 
-import argparse, os, re, sys
+import argparse, errno, os, re, stat, sys
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import List, Optional, Tuple
@@ -201,22 +204,209 @@ def _skip_file(rel):
     return rel.suffix not in ALLOWED_EXTENSIONS and rel.name not in ALLOWED_NAMES
 
 
-def _find_files(root):
-    out = []
-    for dp, dn, fn in os.walk(root):
-        dn[:] = sorted(d for d in dn if not _skip_dir(d))
-        for f in fn:
-            fp = Path(dp) / f
-            if not _skip_file(fp.relative_to(root)):
-                out.append(fp)
-    return sorted(out)
+class UnsafeRootedPath(ValueError):
+    pass
 
 
-def _read(path):
+class UnsupportedPlatformError(RuntimeError):
+    pass
+
+
+SAFE_DIR_FD_ERROR = (
+    "Race-safe rooted file operations require dir_fd, fwalk, fchdir, "
+    "O_DIRECTORY, and O_NOFOLLOW support on this platform."
+)
+UNSAFE_OPEN_ERRNOS = {errno.ELOOP, errno.ENOTDIR, errno.EMLINK, errno.EISDIR}
+
+
+def _supports_safe_dir_fd():
+    return (
+        hasattr(os, "supports_dir_fd")
+        and os.open in os.supports_dir_fd
+        and hasattr(os, "fwalk")
+        and hasattr(os, "fchdir")
+        and hasattr(os, "O_NOFOLLOW")
+        and hasattr(os, "O_DIRECTORY")
+    )
+
+
+def _root_open_flags():
+    if not _supports_safe_dir_fd():
+        raise UnsupportedPlatformError(SAFE_DIR_FD_ERROR)
+    root_flags = os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW
+    if hasattr(os, "O_CLOEXEC"):
+        root_flags |= os.O_CLOEXEC
+    return root_flags
+
+
+def _open_root(root):
+    root = Path(root)
+    flags = _root_open_flags()
+    if hasattr(os, "O_NOFOLLOW_ANY"):
+        return os.open(root, (flags & ~os.O_NOFOLLOW) | os.O_NOFOLLOW_ANY)
+
+    parts = root.parts[1:] if root.anchor else root.parts
+    parent_flags = flags | getattr(os, "O_PATH", 0)
+    current_fd = os.open(root.anchor or ".", parent_flags if parts else flags)
     try:
-        return path.read_bytes().decode("utf-8")
-    except (FileNotFoundError, UnicodeDecodeError, PermissionError) as e:
-        print(f"  WARNING: {type(e).__name__}: {path}", file=sys.stderr)
+        # O_NOFOLLOW protects only the final component of each open.
+        for index, part in enumerate(parts):
+            next_fd = os.open(
+                part,
+                flags if index == len(parts) - 1 else parent_flags,
+                dir_fd=current_fd,
+            )
+            os.close(current_fd)
+            current_fd = next_fd
+        return current_fd
+    except BaseException:
+        os.close(current_fd)
+        raise
+
+
+@contextmanager
+def _root_directory(root, root_fd=None):
+    fd = _open_root(root) if root_fd is None else os.dup(root_fd)
+    try:
+        yield fd
+    finally:
+        os.close(fd)
+
+
+def _run_in_directory(cmd, fd):
+    """Set child cwd by descriptor; preexec_fn requires this CLI to be single-threaded."""
+    import subprocess
+
+    def enter_directory():
+        try:
+            os.fchdir(fd)
+            os.close(fd)
+        except OSError as e:
+            os.write(2, f"Cannot enter docs working directory: {e}\n".encode("utf-8"))
+            os._exit(126)
+
+    return subprocess.run(
+        cmd,
+        preexec_fn=enter_directory,
+        pass_fds=(fd,),
+        capture_output=True,
+        text=True,
+    )
+
+
+def _safe_open_relative(root, rel, flags, mode=0, *, root_fd):
+    rel = Path(rel)
+    if rel.is_absolute() or any(part in ("", ".", "..") for part in rel.parts):
+        raise UnsafeRootedPath(f"Unsafe relative path: {rel}")
+
+    parts = rel.parts
+    if not parts:
+        raise UnsafeRootedPath("Empty relative path")
+
+    root_flags = _root_open_flags()
+
+    current_fd = os.dup(root_fd)
+    try:
+        for part in parts[:-1]:
+            try:
+                next_fd = os.open(
+                    part,
+                    root_flags,
+                    dir_fd=current_fd,
+                )
+            except OSError as e:
+                if e.errno not in UNSAFE_OPEN_ERRNOS:
+                    raise
+                raise UnsafeRootedPath(
+                    f"Cannot open parent path: {Path(*parts[:-1])}: {e}"
+                ) from e
+            os.close(current_fd)
+            current_fd = next_fd
+
+        final_flags = flags | os.O_NOFOLLOW
+        if hasattr(os, "O_NONBLOCK"):
+            final_flags |= os.O_NONBLOCK
+        if hasattr(os, "O_CLOEXEC"):
+            final_flags |= os.O_CLOEXEC
+        try:
+            final_fd = os.open(
+                parts[-1],
+                final_flags,
+                mode,
+                dir_fd=current_fd,
+            )
+        except OSError as e:
+            if e.errno not in UNSAFE_OPEN_ERRNOS:
+                raise
+            raise UnsafeRootedPath(f"Cannot open final path: {rel}: {e}") from e
+
+        try:
+            st = os.fstat(final_fd)
+            if not stat.S_ISREG(st.st_mode):
+                raise UnsafeRootedPath(f"Refusing non-regular file: {rel}")
+            if flags & (os.O_WRONLY | os.O_RDWR) and st.st_nlink > 1:
+                raise UnsafeRootedPath(f"Refusing file with multiple hard links: {rel}")
+        except BaseException:
+            os.close(final_fd)
+            raise
+        return final_fd
+    finally:
+        os.close(current_fd)
+
+
+def _safe_read_bytes(root, rel, *, root_fd):
+    fd = _safe_open_relative(root, rel, os.O_RDONLY, root_fd=root_fd)
+    with os.fdopen(fd, "rb") as f:
+        return f.read()
+
+
+def _safe_write_bytes(root, rel, data, *, root_fd):
+    fd = _safe_open_relative(
+        root,
+        rel,
+        os.O_WRONLY,
+        root_fd=root_fd,
+    )
+    try:
+        os.ftruncate(fd, 0)
+        with os.fdopen(fd, "wb", closefd=False) as f:
+            f.write(data)
+    finally:
+        os.close(fd)
+
+
+def _walk_files(root_fd, *, warn_symlinks=True):
+    for dp, dn, fn, directory_fd in os.fwalk(".", dir_fd=root_fd):
+        dn[:] = sorted(d for d in dn if not _skip_dir(d))
+        for name in sorted(fn):
+            rel = Path(dp) / name
+            try:
+                st = os.stat(name, dir_fd=directory_fd, follow_symlinks=False)
+            except OSError as e:
+                print(f"  WARNING: Cannot inspect {rel}: {e}", file=sys.stderr)
+                continue
+            if stat.S_ISLNK(st.st_mode):
+                if warn_symlinks:
+                    print(f"  WARNING: Skipping symlink: {rel}", file=sys.stderr)
+                continue
+            yield rel
+
+
+def _find_files(root, *, root_fd):
+    with _root_directory(root, root_fd) as fd:
+        return sorted(root / rel for rel in _walk_files(fd) if not _skip_file(rel))
+
+
+def _read(path, root, *, root_fd, quiet_binary=False):
+    try:
+        rel = path.relative_to(root)
+        return _safe_read_bytes(root, rel, root_fd=root_fd).decode("utf-8")
+    except UnicodeDecodeError as e:
+        if not quiet_binary:
+            print(f"  WARNING: {type(e).__name__}: {path}: {e}", file=sys.stderr)
+        return None
+    except (UnsafeRootedPath, OSError) as e:
+        print(f"  WARNING: {type(e).__name__}: {path}: {e}", file=sys.stderr)
         return None
 
 
@@ -305,14 +495,16 @@ def apply(content, old_v, new_v, matches):
 # ── Main ───────────────────────────────────────────────────────────────────────
 
 
-def _detect_version(root):
+def _detect_version(root, *, root_fd):
     """Auto-detect current SynapseML version from docusaurus.config.js."""
     cfg = root / "website" / "docusaurus.config.js"
-    if not cfg.exists():
+    content = _read(cfg, root=root, root_fd=root_fd)
+    if content is None:
         sys.exit(
-            "Error: cannot auto-detect version — website/docusaurus.config.js not found."
+            "Error: cannot auto-detect version — website/docusaurus.config.js "
+            "not found or unreadable."
         )
-    m = re.search(r'let version\s*=\s*"([^"]+)"', cfg.read_text())
+    m = re.search(r'let version\s*=\s*"([^"]+)"', content)
     if not m:
         sys.exit("Error: cannot parse version from website/docusaurus.config.js.")
     return m.group(1)
@@ -337,7 +529,35 @@ def _validate_version_bump(old_v, new_v):
         sys.exit(f"Error: target version {new_v} is not greater than current {old_v}.")
 
 
-def _run_convert_notebooks(root, dry_run):
+def _open_docs_directory(parent_fd, name, *, parent=""):
+    try:
+        return os.open(name, _root_open_flags(), dir_fd=parent_fd)
+    except OSError as e:
+        if e.errno not in UNSAFE_OPEN_ERRNOS:
+            raise
+        raise UnsafeRootedPath(
+            f"Cannot safely open '{Path(parent) / name}' as a real docs directory "
+            f"(symlinks are refused): {e}"
+        ) from e
+
+
+def _open_website(root_fd, *, require_docs):
+    website_fd = _open_docs_directory(root_fd, "website")
+    try:
+        try:
+            docs_fd = _open_docs_directory(website_fd, "docs", parent="website")
+        except FileNotFoundError:
+            if require_docs:
+                raise
+        else:
+            os.close(docs_fd)
+    except BaseException:
+        os.close(website_fd)
+        raise
+    return website_fd
+
+
+def _run_convert_notebooks(root, dry_run, *, root_fd):
     """Run sbt convertNotebooks to generate website/docs/ from source notebooks."""
     import subprocess
 
@@ -346,7 +566,13 @@ def _run_convert_notebooks(root, dry_run):
         print(f"[DRY RUN] Would run: {' '.join(cmd)} (in {root})")
         return True
     print("Running sbt convertNotebooks (generates website/docs/ from source)...")
-    r = subprocess.run(cmd, cwd=str(root), capture_output=True, text=True)
+    with _root_directory(root, root_fd) as fd:
+        try:
+            os.close(_open_website(fd, require_docs=False))
+            r = _run_in_directory(cmd, fd)
+        except (OSError, subprocess.SubprocessError) as e:
+            print(f"ERROR: sbt convertNotebooks failed: {e}", file=sys.stderr)
+            return False
     if r.returncode != 0:
         print(
             f"ERROR: sbt convertNotebooks failed:\n{r.stderr[-2000:]}", file=sys.stderr
@@ -356,28 +582,34 @@ def _run_convert_notebooks(root, dry_run):
     return True
 
 
-def _run_docusaurus(root, new_v, dry_run):
+def _run_docusaurus(root, new_v, dry_run, *, root_fd):
     """Create versioned docs snapshot via docusaurus (requires website/docs/)."""
     import subprocess
 
     website = root / "website"
-    docs_dir = website / "docs"
-
-    if not docs_dir.exists():
-        print()
-        print(
-            "ERROR: website/docs/ does not exist after convertNotebooks.",
-            file=sys.stderr,
-        )
-        print("  Cannot create versioned docs snapshot.", file=sys.stderr)
-        return False
-
     cmd = ["npm", "exec", "--", "docusaurus", "docs:version", new_v]
-    if dry_run:
-        print(f"[DRY RUN] Would run: {' '.join(cmd)} (in {website})")
-        return True
-    print(f"Creating docs version snapshot: {new_v}...")
-    r = subprocess.run(cmd, cwd=str(website), capture_output=True, text=True)
+    with _root_directory(root, root_fd) as fd:
+        website_fd = None
+        try:
+            try:
+                website_fd = _open_website(fd, require_docs=True)
+            except FileNotFoundError as e:
+                print(
+                    f"ERROR: website/docs/ does not exist after convertNotebooks: {e}",
+                    file=sys.stderr,
+                )
+                return False
+            if dry_run:
+                print(f"[DRY RUN] Would run: {' '.join(cmd)} (in {website})")
+                return True
+            print(f"Creating docs version snapshot: {new_v}...")
+            r = _run_in_directory(cmd, website_fd)
+        except (OSError, subprocess.SubprocessError) as e:
+            print(f"ERROR: Cannot create versioned docs snapshot: {e}", file=sys.stderr)
+            return False
+        finally:
+            if website_fd is not None:
+                os.close(website_fd)
     if r.returncode != 0:
         print(f"ERROR: docusaurus docs:version failed:\n{r.stderr}", file=sys.stderr)
         return False
@@ -396,6 +628,7 @@ The script performs the full version bump pipeline:
   4. docusaurus docs:version (snapshots versioned docs)
 
 Steps 3-4 can be skipped with --skip-docs.
+Requires POSIX descriptor APIs (Linux or macOS); use WSL on Windows.
 
 Examples:
     # Preview bump (auto-detects current version):
@@ -438,20 +671,47 @@ Examples:
     ap.add_argument("--verbose", "-v", action="store_true")
     args = ap.parse_args()
 
+    if not _supports_safe_dir_fd():
+        ap.error(SAFE_DIR_FD_ERROR)
+
     root = Path(args.repo_root).resolve()
     if not root.is_dir():
         sys.exit(f"Error: '{root}' is not a directory.")
-    if not (root / ".git").exists():
-        sys.exit(f"Error: '{root}' has no .git — not a repo.")
+    try:
+        root_fd = _open_root(root)
+    except OSError as e:
+        sys.exit(f"Error: cannot open repository root '{root}' safely: {e}")
+    try:
+        try:
+            os.stat(".git", dir_fd=root_fd)
+        except FileNotFoundError:
+            sys.exit(f"Error: '{root}' has no .git — not a repo.")
+        _bump(args, root, root_fd)
+    except UnsafeRootedPath as e:
+        sys.exit(
+            f"Error: {e}\nCorrect the unsafe path and rerun this script "
+            "without bypassing its checks."
+        )
+    except OSError as e:
+        sys.exit(
+            f"Error accessing repository files or docs directories: {e}\n"
+            "If documentation generation is not needed, use --skip-docs."
+        )
+    finally:
+        os.close(root_fd)
 
+
+def _bump(args, root, root_fd):
     new_v = args.new_version.removeprefix("v")
     old_v = (
         args.old_version.removeprefix("v")
         if args.old_version
-        else _detect_version(root)
+        else _detect_version(root, root_fd=root_fd)
     )
 
     _validate_version_bump(old_v, new_v)
+    if not args.skip_docs:
+        os.close(_open_website(root_fd, require_docs=False))
 
     # Build regexes
     bare_re = _bare_regex(old_v)
@@ -468,14 +728,14 @@ Examples:
     print()
 
     # Scan
-    files = _find_files(root)
+    files = _find_files(root, root_fd=root_fd)
     print(f"Scanning {len(files)} files...")
 
     results = []
     all_unanchored = []
     for fp in files:
         rel = fp.relative_to(root)
-        content = _read(fp)
+        content = _read(fp, root=root, root_fd=root_fd)
         if content is None:
             continue
         r = analyze(fp, rel, content, old_v, bare_re, self_a, line_a, file_a)
@@ -504,8 +764,16 @@ Examples:
         print("WARNING: Expected files NOT updated:")
         print("!" * 70)
         for f in missing:
-            e = (root / f).exists()
-            print(f"  {f}  ({'exists, no version match' if e else 'FILE MISSING'})")
+            try:
+                fd = _safe_open_relative(root, f, os.O_RDONLY, root_fd=root_fd)
+            except FileNotFoundError:
+                status = "FILE MISSING"
+            except (OSError, UnsafeRootedPath) as e:
+                status = f"UNREADABLE OR REFUSED: {e}"
+            else:
+                os.close(fd)
+                status = "exists, no version match"
+            print(f"  {f}  ({status})")
         print()
 
     # Summary
@@ -536,15 +804,17 @@ Examples:
     if args.dry_run:
         print("No files modified. Run without --dry-run to apply.")
         if not args.skip_docs:
-            _run_convert_notebooks(root, dry_run=True)
-            _run_docusaurus(root, new_v, dry_run=True)
+            _run_convert_notebooks(root, dry_run=True, root_fd=root_fd)
+            _run_docusaurus(root, new_v, dry_run=True, root_fd=root_fd)
     else:
         fails = []
         for r in changed:
             new_content = apply(r.content, old_v, new_v, r.matches)
             try:
-                r.path.write_bytes(new_content.encode("utf-8"))
-            except OSError as e:
+                _safe_write_bytes(
+                    root, r.rel, new_content.encode("utf-8"), root_fd=root_fd
+                )
+            except (OSError, ValueError) as e:
                 print(f"  ERROR writing {r.rel}: {e}", file=sys.stderr)
                 fails.append(r.rel)
         if fails:
@@ -557,7 +827,7 @@ Examples:
         new_count = 0
         stale = []
         for r in changed:
-            written = _read(r.path)
+            written = _read(r.path, root=root, root_fd=root_fd)
             if written is None:
                 stale.append((str(r.rel), "unreadable"))
                 continue
@@ -585,25 +855,21 @@ Examples:
         )
 
         # ── Broad sweep: warn about old version in ANY text file ───────────
-        modified_set = {str(r.rel) for r in changed}
+        scanned_set = {fp.relative_to(root) for fp in files}
         sweep_hits = []
-        for dp, dn, fn in os.walk(root):
-            dn[:] = [d for d in dn if not _skip_dir(d)]
-            for f in fn:
-                fp = Path(dp) / f
-                rel_str = str(fp.relative_to(root))
-                if rel_str in modified_set or f in (
-                    "bump-version.py",
-                    "test_bump_version.py",
-                ):
-                    continue
-                try:
-                    text = fp.read_bytes().decode("utf-8")
-                except (UnicodeDecodeError, PermissionError, FileNotFoundError):
-                    continue
-                hits = list(bare_re.finditer(text))
-                if hits:
-                    sweep_hits.append((rel_str, len(hits)))
+        for rel in _walk_files(root_fd, warn_symlinks=False):
+            rel_str = str(rel)
+            if rel in scanned_set or rel.name in (
+                "bump-version.py",
+                "test_bump_version.py",
+            ):
+                continue
+            text = _read(root / rel, root=root, root_fd=root_fd, quiet_binary=True)
+            if text is None:
+                continue
+            hits = list(bare_re.finditer(text))
+            if hits:
+                sweep_hits.append((rel_str, len(hits)))
         if sweep_hits:
             print()
             print(
@@ -620,21 +886,30 @@ Examples:
         if not args.skip_docs:
             # Correct sequence: bump versions (done above) → convertNotebooks
             # (generates website/docs/ with new versions) → docusaurus snapshot
-            if not _run_convert_notebooks(root, dry_run=False):
-                print("Version strings updated but convertNotebooks failed.")
-                print("Fix the build issue, then run manually:")
-                print("  sbt convertNotebooks")
-                print("  npm --prefix website exec -- docusaurus docs:version " + new_v)
-                sys.exit(1)
-            if not _run_docusaurus(root, new_v, dry_run=False):
-                print(
-                    "Version strings updated and docs generated, but versioning failed."
-                )
-                print(
-                    "Run manually: npm --prefix website exec -- docusaurus docs:version "
-                    + new_v
-                )
-                sys.exit(1)
+            try:
+                if not _run_convert_notebooks(root, dry_run=False, root_fd=root_fd):
+                    print("Version strings updated but convertNotebooks failed.")
+                    print("Fix the build issue, then run manually:")
+                    print("  sbt convertNotebooks")
+                    print(
+                        "  npm --prefix website exec -- docusaurus docs:version "
+                        + new_v
+                    )
+                    sys.exit(1)
+                if not _run_docusaurus(root, new_v, dry_run=False, root_fd=root_fd):
+                    print(
+                        "Version strings updated and docs generated, but versioning failed."
+                    )
+                    print(
+                        "Run manually: npm --prefix website exec -- docusaurus docs:version "
+                        + new_v
+                    )
+                    sys.exit(1)
+            except UnsafeRootedPath as e:
+                raise UnsafeRootedPath(
+                    f"{e}\nVersion strings were already updated. After correcting the "
+                    f"path, rerun with --from {old_v} --to {new_v} and the same --repo-root."
+                ) from e
 
         print(f"\nAll done! Version bumped {old_v} → {new_v}.")
         print(f"\nNext steps:")
