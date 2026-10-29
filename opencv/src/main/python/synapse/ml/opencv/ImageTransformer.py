@@ -35,20 +35,24 @@ ImageSchema = StructType(
 
 def toNDArray(image):
     """
-    Converts an image to a 1-dimensional array
+    Converts an image row to a height-by-width-by-channel array.
 
     Args:
         image (object): The image to be converted
 
     Returns:
-        array: The image as a 1-dimensional array
+        array: Grayscale or RGB pixels as unsigned bytes.
     """
-    if image.nChannels == 1:
-        return np.asarray(image.data, dtype=np.uint8).reshape(
-            (image.height, image.width, 1)
-        )
+    data = image.data
+    if isinstance(data, (bytes, bytearray)):
+        arr = np.frombuffer(data, dtype=np.uint8)
+    else:
+        arr = np.asarray(data, dtype=np.uint8)
 
-    return np.asarray(image.data, dtype=np.uint8).reshape(
+    if image.nChannels == 1:
+        return arr.reshape((image.height, image.width, 1))
+
+    return arr.reshape(
         (image.height, image.width, 3),
     )[:, :, (2, 1, 0)]
 

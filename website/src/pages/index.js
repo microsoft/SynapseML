@@ -12,7 +12,7 @@ import TabItem from "@theme/TabItem";
 import clsx from "clsx";
 import installArtifacts from "@site/src/installArtifacts";
 
-const { version, repository, spark35, spark40, spark41 } = installArtifacts;
+const { repository, spark35, spark40, spark41 } = installArtifacts;
 
 const snippets = [
   {
@@ -260,6 +260,7 @@ function Home() {
                     <th>Spark</th>
                     <th>Scala</th>
                     <th>Python baseline</th>
+                    <th>Python package</th>
                     <th>Release tag</th>
                     <th>Maven coordinate</th>
                   </tr>
@@ -270,6 +271,7 @@ function Home() {
                     <td>{spark35.sparkRuntime}</td>
                     <td>{spark35.scalaBinaryVersion}</td>
                     <td>{spark35.pythonBaseline}</td>
+                    <td><code>{spark35.pythonPackage}</code></td>
                     <td><code>{spark35.releaseTag}</code></td>
                     <td><code>{spark35.coordinate}</code></td>
                   </tr>
@@ -278,6 +280,7 @@ function Home() {
                     <td>{spark40.sparkRuntime}</td>
                     <td>{spark40.scalaBinaryVersion}</td>
                     <td>{spark40.pythonBaseline}</td>
+                    <td><code>{spark40.pythonPackage}</code></td>
                     <td><code>{spark40.releaseTag}</code></td>
                     <td><code>{spark40.coordinate}</code></td>
                   </tr>
@@ -286,14 +289,16 @@ function Home() {
                     <td>{spark41.sparkRuntime}</td>
                     <td>{spark41.scalaBinaryVersion}</td>
                     <td>{spark41.pythonBaseline}</td>
+                    <td><code>{spark41.pythonPackage}</code></td>
                     <td><code>{spark41.releaseTag}</code></td>
                     <td><code>{spark41.coordinate}</code></td>
                   </tr>
                 </tbody>
               </table>
               <p>
-                All released Python variants use{" "}
-                <code>synapseml=={version}</code>. To try the latest successful{" "}
+                Use the Python package and Maven coordinate from the same row.
+                Spark 4.0 retains its last published version until explicitly
+                included in a new release. To try the latest successful{" "}
                 <code>master</code> build instead of the release, use the
                 copy-ready snapshot command in the{" "}
                 <Link to={useBaseUrl("docs/next/Get%20Started/Install%20SynapseML#latest-master-snapshot")}>
@@ -420,13 +425,23 @@ pyspark --repositories "${repository}" --packages "${spark35.coordinate}"`}
                     Restart the cluster after attaching the library so the JVM
                     artifact is available before importing <code>synapse.ml</code>.
                   </p>
-                  You can use SynapseML in both your Scala and PySpark
-                  notebooks. To get started with our example notebooks import
-                  the following databricks archive:
-                  <CodeSnippet
-                    snippet={`https://mmlspark.blob.core.windows.net/dbcs/SynapseMLExamplesv1.1.3.dbc`}
-                    lang="bash"
-                  ></CodeSnippet>
+                  <p>
+                    Import example notebooks from the release tag matching your
+                    runtime. New automated releases include runtime-matched DBC
+                    archives linked in their release notes. You can also download
+                    individual .ipynb files and use Databricks Workspace &gt; Import.
+                  </p>
+                  <ul>
+                    {[spark35, spark40, spark41].map((artifact) => (
+                      <li key={artifact.branch}>
+                        <a
+                          href={`https://github.com/microsoft/SynapseML/tree/${artifact.releaseTag}/docs`}
+                        >
+                          {artifact.sparkRuntime} notebooks
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
                 </TabItem>
                 <TabItem value="Docker">
                   The easiest way to evaluate SynapseML is via our pre-built
