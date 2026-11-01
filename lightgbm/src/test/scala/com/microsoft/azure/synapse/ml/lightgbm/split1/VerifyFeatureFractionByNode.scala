@@ -93,6 +93,8 @@ class VerifyFeatureFractionByNode extends TestBase {
         }
       stage.setPassThroughArgs(s"$nativeKey=$overrideFraction")
       assert(values(config(stage)) == Seq(overrideFraction.toString))
+      stage.setPassThroughArgs(s"'$nativeKey'='$overrideFraction'")
+      assert(values(config(stage)).isEmpty, "Quoted canonical key must not gain a generated duplicate")
     }
 
     test(s"$name preserves alias-only passThroughArgs without injecting a canonical default") {
@@ -103,14 +105,17 @@ class VerifyFeatureFractionByNode extends TestBase {
       }
     }
 
-    test(s"$name recognizes complete native alias names when overriding typed node sampling") {
+    test(s"$name recognizes complete native parameter names when overriding typed node sampling") {
       aliases.foreach { alias =>
         val stage = learner(name).setFeatureFractionByNode(fraction)
         Seq(s"$alias=$overrideFraction", s"\t'$alias'='$overrideFraction'\n").foreach { args =>
           stage.setPassThroughArgs(args)
           assert(values(config(stage)).isEmpty)
         }
-        stage.setPassThroughArgs(s"not_$alias=$overrideFraction")
+      }
+      (aliases :+ nativeKey).foreach { key =>
+        val stage = learner(name).setFeatureFractionByNode(fraction)
+          .setPassThroughArgs(s"not_$key=$overrideFraction")
         assert(values(config(stage)) == Seq(fraction.toString))
       }
     }
@@ -165,15 +170,20 @@ class VerifyFeatureFractionByNode extends TestBase {
         }
       }
     }
-    val cases = Seq("typed", "canonical", "canonical-with-aliases") ++ aliases ++ aliases.map(alias => s"typed-$alias")
+    val cases = Seq("typed", "canonical", "quoted-canonical", "canonical-with-aliases", "unrelated-name") ++
+      aliases ++ aliases.map(alias => s"typed-$alias")
     cases.foreach { setting =>
       test(s"$name $mode trains and persists native featureFractionByNode via $setting") {
         val stage = learner(name).setDataTransferMode(mode)
-        val expected = if (setting == "typed") fraction else overrideFraction
+        val expected = if (setting == "typed" || setting == "unrelated-name") fraction else overrideFraction
         if (setting == "typed") {
           stage.setFeatureFractionByNode(fraction)
         } else if (setting == "canonical") {
           stage.setFeatureFractionByNode(fraction).setPassThroughArgs(s"$nativeKey=$overrideFraction")
+        } else if (setting == "quoted-canonical") {
+          stage.setFeatureFractionByNode(fraction).setPassThroughArgs(s"'$nativeKey'='$overrideFraction'")
+        } else if (setting == "unrelated-name") {
+          stage.setFeatureFractionByNode(fraction).setPassThroughArgs(s"not_$nativeKey=$overrideFraction")
         } else if (setting == "canonical-with-aliases") {
           stage.setFeatureFractionByNode(fraction)
             .setPassThroughArgs(s"${aliases.head}=$fraction $nativeKey=$overrideFraction ${aliases.last}=$fraction")
