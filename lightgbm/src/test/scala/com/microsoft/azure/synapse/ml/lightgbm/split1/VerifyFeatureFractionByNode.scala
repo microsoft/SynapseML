@@ -30,7 +30,7 @@ class VerifyFeatureFractionByNode extends TestBase {
       case "ranker" => new LightGBMRanker().setGroupCol("group")
     }
     stage.setNumIterations(3).setNumLeaves(3).setMinDataInLeaf(1).setMinDataPerBin(1)
-      .setNumTasks(1).setNumThreads(1).setDefaultListenPort(port).setSeed(42)
+      .setNumTasks(1).setNumThreads(1).setDefaultListenPort(port).setSeed(42).setFeatureFractionSeed(42)
   }
 
   private def config(stage: LightGBMParams): String = {
@@ -102,6 +102,18 @@ class VerifyFeatureFractionByNode extends TestBase {
         assert(values(config(stage)).isEmpty)
       }
     }
+
+    test(s"$name recognizes complete native alias names when overriding typed node sampling") {
+      aliases.foreach { alias =>
+        val stage = learner(name).setFeatureFractionByNode(fraction)
+        Seq(s"$alias=$overrideFraction", s"\t'$alias'='$overrideFraction'\n").foreach { args =>
+          stage.setPassThroughArgs(args)
+          assert(values(config(stage)).isEmpty)
+        }
+        stage.setPassThroughArgs(s"not_$alias=$overrideFraction")
+        assert(values(config(stage)) == Seq(fraction.toString))
+      }
+    }
   }
 
   private lazy val trainingData: DataFrame = {
@@ -130,41 +142,45 @@ class VerifyFeatureFractionByNode extends TestBase {
 
   for (name <- names; mode <- modes) {
     aliases.foreach { alias =>
-      test(s"$name $mode preserves the existing reloaded-default alias precedence for $alias") {
+      test(s"$name $mode preserves node sampling across estimator persistence for $alias") {
         val stage = learner(name).setDataTransferMode(mode)
-          .setPassThroughArgs(s"$alias=$overrideFraction colsample_bytree=$overrideFraction")
+          .setPassThroughArgs(s"$alias=$overrideFraction")
         assert(values(config(stage)).isEmpty)
-        assert(values(config(stage), "feature_fraction").isEmpty)
-        val loaded = restore(name, stage, s"loaded-$mode-$alias")
-        assert(loaded.isSet(loaded.featureFractionByNode))
-        assert(loaded.isSet(loaded.featureFraction))
-        assert(values(config(loaded)) == Seq("1.0"))
-        assert(values(config(loaded), "feature_fraction") == Seq("1.0"))
-        val model = fit(loaded)
+        val model = fit(stage)
         try {
-          assert(math.abs(effectiveFraction(model) - 1.0) < 0.000001)
-          assert(math.abs(effectiveFraction(model, "feature_fraction") - 1.0) < 0.000001)
-          assert(model.transform(trainingData).count() == trainingData.count())
+          assert(math.abs(effectiveFraction(model) - overrideFraction) < 0.000001)
+          val expected = model.transform(trainingData).collect().toSeq
+          val loaded = restore(name, stage, s"loaded-$mode-$alias")
+          assert(loaded.isSet(loaded.featureFractionByNode))
+          val restoredModel = fit(loaded)
+          try {
+            assert(math.abs(effectiveFraction(restoredModel) - overrideFraction) < 0.000001)
+            assert(values(config(loaded)).isEmpty)
+            assert(restoredModel.transform(trainingData).collect().toSeq == expected)
+          } finally {
+            restoredModel.getLightGBMBooster.freeNativeMemory()
+          }
         } finally {
           model.getLightGBMBooster.freeNativeMemory()
         }
       }
     }
-    val cases = Seq("typed", "canonical") ++ aliases ++ aliases.map(alias => s"typed-$alias")
+    val cases = Seq("typed", "canonical", "canonical-with-aliases") ++ aliases ++ aliases.map(alias => s"typed-$alias")
     cases.foreach { setting =>
       test(s"$name $mode trains and persists native featureFractionByNode via $setting") {
         val stage = learner(name).setDataTransferMode(mode)
-        val expected = if (setting.startsWith("typed-")) None else {
-          Some(if (setting == "typed") fraction else overrideFraction)
-        }
+        val expected = if (setting == "typed") fraction else overrideFraction
         if (setting == "typed") {
           stage.setFeatureFractionByNode(fraction)
         } else if (setting == "canonical") {
           stage.setFeatureFractionByNode(fraction).setPassThroughArgs(s"$nativeKey=$overrideFraction")
+        } else if (setting == "canonical-with-aliases") {
+          stage.setFeatureFractionByNode(fraction)
+            .setPassThroughArgs(s"${aliases.head}=$fraction $nativeKey=$overrideFraction ${aliases.last}=$fraction")
         } else if (setting.startsWith("typed-")) {
           val alias = setting.stripPrefix("typed-")
           stage.setFeatureFractionByNode(fraction).setPassThroughArgs(s"$alias=$overrideFraction")
-          assert(values(config(stage)) == Seq(fraction.toString))
+          assert(values(config(stage)).isEmpty)
           assert(config(stage).contains(s"$alias=$overrideFraction"))
         } else {
           stage.setPassThroughArgs(s"$setting=$overrideFraction")
@@ -173,10 +189,7 @@ class VerifyFeatureFractionByNode extends TestBase {
         try {
           val observed = effectiveFraction(model)
           assert(!observed.isNaN && observed > 0 && observed <= 1)
-          expected.foreach(value => assert(math.abs(observed - value) < 0.000001))
-          if (expected.isEmpty) {
-            info(s"$name $mode $setting native effective fraction: $observed")
-          }
+          assert(math.abs(observed - expected) < 0.000001)
           assert(model.transform(trainingData).count() == trainingData.count())
           val path = tmpDir.resolve(s"model-$name-$mode-$setting").toString
           model.asInstanceOf[MLWritable].write.save(path)

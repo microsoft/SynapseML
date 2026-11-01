@@ -116,6 +116,44 @@ class FeatureFractionByNodeTests(unittest.TestCase):
                                 restored.transform(self.data).collect(), expected
                             )
 
+    def test_alias_sampling_survives_estimator_persistence(self):
+        for mode in ("bulk", "streaming"):
+            for alias in ("colsample_bynode", "sub_feature_bynode"):
+                with self.subTest(mode=mode, alias=alias):
+                    stage = LightGBMRegressor(
+                        numIterations=3,
+                        numLeaves=3,
+                        minDataInLeaf=1,
+                        minDataPerBin=1,
+                        numTasks=1,
+                        numThreads=1,
+                        seed=42,
+                        featureFractionSeed=42,
+                        dataTransferMode=mode,
+                        passThroughArgs=f"{alias}=0.7",
+                    )
+                    with ExitStack() as cleanup:
+                        model = stage.fit(self.data)
+                        cleanup.callback(
+                            model._java_obj.getLightGBMBooster().freeNativeMemory
+                        )
+                        self.assertAlmostEqual(self.effective_fraction(model), 0.7)
+                        expected = model.transform(self.data).collect()
+                        with tempfile.TemporaryDirectory() as directory:
+                            path = os.path.join(directory, "estimator")
+                            stage.save(path)
+                            restored = LightGBMRegressor.load(path)
+                            restored_model = restored.fit(self.data)
+                            cleanup.callback(
+                                restored_model._java_obj.getLightGBMBooster().freeNativeMemory
+                            )
+                            self.assertAlmostEqual(
+                                self.effective_fraction(restored_model), 0.7
+                            )
+                            self.assertEqual(
+                                restored_model.transform(self.data).collect(), expected
+                            )
+
     def effective_fraction(self, model):
         match = re.search(
             r"^\[feature_fraction_bynode: ([^\]]+)\]$",
