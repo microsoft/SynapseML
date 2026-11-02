@@ -353,7 +353,7 @@ trait LightGBMFractionParams extends Wrappable {
   def setFeatureFraction(value: Double): this.type = set(featureFraction, value)
 
   val featureFractionByNode = new DoubleParam(this, "featureFractionByNode", "Feature fraction by node")
-  setDefault(featureFraction->1)
+  setDefault(featureFractionByNode->1)
   def getFeatureFractionByNode: Double = $(featureFractionByNode)
   def setFeatureFractionByNode(value: Double): this.type = set(featureFractionByNode, value)
 }

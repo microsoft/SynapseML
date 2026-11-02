@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.lightgbm.params
 
 import com.microsoft.azure.synapse.ml.core.utils.{ParamGroup, ParamsStringBuilder}
-import com.microsoft.azure.synapse.ml.lightgbm.LightGBMDelegate
+import com.microsoft.azure.synapse.ml.lightgbm.{LightGBMDelegate, LightGBMUtils}
 
 /** Defines the common Booster parameters passed to the LightGBM learners.
   */
@@ -94,6 +94,9 @@ case class GeneralParams(parallelism: String,
                          featureNames: Array[String]) extends ParamGroup {
   def appendParams(sb: ParamsStringBuilder): ParamsStringBuilder =
   {
+    // Match complete pass-through names so reloaded defaults cannot shadow native aliases.
+    val nodeFraction = if (LightGBMUtils.parameterValues(sb.result(),
+      Set("feature_fraction_bynode", "colsample_bynode", "sub_feature_bynode")).isEmpty) featureFractionByNode else None
     sb.appendParamValueIfNotThere("is_pre_partition", Option("True"))
       .appendParamValueIfNotThere("boosting_type", Option(boostingType))
       .appendParamValueIfNotThere("tree_learner", Option(parallelism))
@@ -106,6 +109,7 @@ case class GeneralParams(parallelism: String,
       .appendParamValueIfNotThere("neg_bagging_fraction", negBaggingFraction)
       .appendParamValueIfNotThere("bagging_freq", baggingFreq)
       .appendParamValueIfNotThere("feature_fraction", featureFraction)
+      .append(nodeFraction.map(value => s"feature_fraction_bynode=$value").getOrElse(""))
       .appendParamValueIfNotThere("max_depth", maxDepth)
       .appendParamValueIfNotThere("min_sum_hessian_in_leaf", minSumHessianInLeaf)
       .appendParamValueIfNotThere("lambda_l1", lambdaL1)
