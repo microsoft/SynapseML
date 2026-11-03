@@ -246,6 +246,7 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK] with Spee
   }
 
   test("ffmpeg decodes the local HLS fixture into nonempty audio") {
+    FileUtils.forceMkdir(tmpDir.toFile)
     SpeechHlsFixture.withStream { uri =>
       val output = new File(tmpDir.toFile, "hls.mp3")
       SpeechHlsFixture.runFfmpeg(SpeechSDKBase.makeFfmpegCommand(uri, Seq("-t", "60")), output)
@@ -260,6 +261,7 @@ class SpeechToTextSDKSuite extends TransformerFuzzing[SpeechToTextSDK] with Spee
   }
 
   test("recording assertions reject ffmpeg output from an unavailable HLS playlist") {
+    FileUtils.forceMkdir(tmpDir.toFile)
     SpeechHlsFixture.withStream { uri =>
       val output = new File(tmpDir.toFile, "missing.mp3")
       intercept[IllegalArgumentException] {
