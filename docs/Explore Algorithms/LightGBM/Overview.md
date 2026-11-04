@@ -223,13 +223,28 @@ Without a usable `OMP_THREAD_LIMIT`, large valid requests can still cause large
 allocations. SynapseML does not impose an arbitrary memory cap because a bound below
 the actual OpenMP team can reintroduce out-of-range writes.
 
+#### Native LightGBM version
+
+This source branch targets the LightGBM 4.7.0 engine through
+`com.microsoft.ml.lightgbm:lightgbmlib:4.7.0`. This is a separate version from
+SynapseML. The native upgrade includes the distributed categorical split-buffer
+correction from [LightGBM#6738](https://github.com/lightgbm-org/LightGBM/pull/6738).
+Changing `maxCatThreshold` or reducing feature cardinality is not a replacement
+for the native fix.
+
+The upgrade requires publication of the supported matched Java/native package
+before a SynapseML release can deliver it. See the
+[native package preparation and publication gates](https://github.com/microsoft/SynapseML/blob/master/tools/lightgbm/README.md).
+An existing Fabric runtime or SynapseML installation may still load an older
+package. Installing Python `lightgbm` does not replace the libraries used by
+SynapseML's JVM integration.
+
 #### GPU training with a custom OpenCL native library
 
 SynapseML's published `lightgbmlib` artifact contains CPU-only native libraries. Only
 `deviceType="gpu"` selects an accelerator: it selects LightGBM's OpenCL learner and
-requires a compatible custom native library. All `cuda` requests are rejected before
-native training because LightGBM 3.3.510 CUDA is incompatible with SynapseML streaming
-Datasets.
+requires a compatible custom native library. All `cuda` requests remain rejected
+before native training. This native upgrade does not add CUDA support.
 
 Accelerator training is intended for users who provide their own compatible LightGBM
 native build. Put both `lib_lightgbm` and `lib_lightgbm_swig` on `java.library.path` for
@@ -241,11 +256,11 @@ The custom SWIG library must be ABI-compatible with the Java classes shipped by 
 SynapseML version in use; supplying only one library can accidentally mix incompatible
 custom and bundled binaries.
 
-SynapseML does not support `deviceType="cuda"` with `lightgbmlib` 3.3.510. Its CUDA
-objective expects CUDA metadata that is not created by the serialized streaming Dataset
-path and can segfault the Spark executor during booster creation. SynapseML rejects CUDA
-before native training. Use `deviceType="gpu"` with an OpenCL-enabled native build; this
-path supports classifier, regressor, and ranker training on NVIDIA GPUs such as T4.
+SynapseML does not support `deviceType="cuda"`. CUDA compatibility with the serialized
+streaming Dataset path has not been validated, and the bundled libraries remain CPU-only.
+SynapseML rejects CUDA before native training. Use `deviceType="gpu"` with an
+OpenCL-enabled native build; this path supports classifier, regressor, and ranker
+training on NVIDIA GPUs such as T4.
 
 `deviceType` exposes only the accelerator backends implemented by LightGBM:
 
@@ -253,7 +268,7 @@ path supports classifier, regressor, and ranker training on NVIDIA GPUs such as 
 | --- | --- | --- |
 | `cpu` | Native CPU learner | Supported by the bundled SynapseML native library |
 | `gpu` | OpenCL learner (`USE_GPU=1`) | AMD, Intel, or NVIDIA devices with a working OpenCL runtime |
-| `cuda` | Unsupported with SynapseML's LightGBM 3.3.510 streaming Dataset path | Do not use |
+| `cuda` | Unsupported by SynapseML | Do not use |
 
 Apple Metal Performance Shaders (`mps`) and Habana HPU are not LightGBM tree-learning
 backends and are therefore not accepted values. Apple Silicon can only be evaluated

@@ -146,7 +146,7 @@ trait LightGBMExecutionParams extends Wrappable {
   val deviceType = new Param[String](this, "deviceType",
     "Device for tree learning: cpu or gpu (OpenCL). Default is cpu. SynapseML's bundled native LightGBM library " +
       "is CPU-only; gpu requires compatible custom native libraries on java.library.path for every driver and " +
-      "executor. The LightGBM 3.3.510 CUDA backend is incompatible with SynapseML streaming Datasets.",
+      "executor. CUDA is not supported by SynapseML.",
     ParamValidators.inArray(Array(LightGBMConstants.CPUDeviceType,
                                   LightGBMConstants.GPUDeviceType)))
   setDefault(deviceType -> LightGBMConstants.CPUDeviceType)
@@ -154,8 +154,8 @@ trait LightGBMExecutionParams extends Wrappable {
   def setDeviceType(value: String): this.type = {
     if (value == LightGBMConstants.CUDADeviceType) {
       throw new IllegalArgumentException(
-        "deviceType=cuda is not supported by SynapseML's LightGBM 3.3.510 integration because it can crash " +
-          "Spark executors. Use deviceType=gpu with an OpenCL-enabled custom native library.")
+        "deviceType=cuda is not supported by SynapseML's LightGBM integration. " +
+          "Use deviceType=gpu with an OpenCL-enabled custom native library.")
     }
     set(deviceType, value)
   }
