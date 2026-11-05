@@ -250,6 +250,24 @@ private[codegen] object PyCodegenFixtures {
             |""".stripMargin
   }
 
+  class ClassStatementStringPythonStage(controlBlock: Boolean, methodName: String)
+    extends TypedPythonStage("classStatementStringPythonStage") {
+
+    override protected lazy val classNameHelper: String = "ClassStatementStringPythonStage"
+
+    override def pyAdditionalMethods: String = {
+      val prefix = if (controlBlock) "if True:\n    " else ""
+      super.pyAdditionalMethods +
+        s"""|${prefix}label = '''
+            |def notAHeader(
+            |'''
+            |
+            |def $methodName(self):
+            |    return None
+            |""".stripMargin
+    }
+  }
+
   class DecoratedPythonStage extends TypedPythonStage("decoratedPythonStage") {
 
     override protected lazy val classNameHelper: String = "DecoratedPythonStage"
