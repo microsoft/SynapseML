@@ -20,14 +20,16 @@ import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.{AnalysisException, Column, DataFrame, Dataset, Encoders, Row, SparkSession, functions => F}
 import org.apache.spark.sql.catalyst.analysis.UnresolvedAttribute
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
-import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
-import org.apache.spark.sql.catalyst.plans.logical.Project
+import org.apache.spark.sql.catalyst.expressions.{AesEncrypt, Attribute, EulerNumber, GenericRowWithSchema,
+  LeafExpression, Literal, NamedLambdaVariable, Pi, SubqueryExpression, UserDefinedExpression}
+import org.apache.spark.sql.catalyst.plans.logical.{Aggregate, Generate, Project, Window}
 import org.apache.spark.sql.types._
 import org.apache.spark.util.SerializableConfiguration
 import spray.json._
 
 import java.nio.ByteBuffer
 import java.nio.charset.{CharacterCodingException, CodingErrorAction, StandardCharsets}
+import java.util.Collections
 import java.util.concurrent.CancellationException
 import scala.language.existentials
 
@@ -106,10 +108,21 @@ object AIPrompt extends ExplicitComplexParamsReadable[AIPrompt] {
       }.foreach { case (name, value) => validateHeader(name, value) }
   }
 
+  private[ai] def hasConfiguredAuthentication(prompt: AIPrompt): Boolean = {
+    def scalar[T](param: ServiceParam[T]): Option[T] =
+      prompt.get(param).orElse(prompt.getDefault(param)).flatMap(_.left.toOption)
+    val resolved = ServiceAuthHeaders.resolve(scalar(prompt.subscriptionKey), prompt.subscriptionKeyHeaderName,
+      prompt.aadHeaderName, scalar(prompt.AADToken), scalar(prompt.CustomAuthHeader),
+      scalar(prompt.customHeaders), None, None, None)
+    resolved.headers.keys.exists(name => prompt.authenticationHeaderNames(name.toLowerCase(java.util.Locale.ROOT))) ||
+      (prompt.isDefined(prompt.url) && prompt.usingImplicitFabricEndpoint(prompt.getUrl.stripSuffix("/") + "/"))
+  }
+
   private val FirstRetryMs = 100
   private val SecondRetryMs = 500
   private val ThirdRetryMs = 1000
   private val RetryIntervals = Array(FirstRetryMs, SecondRetryMs, ThirdRetryMs)
+  private[ai] val DefaultHttpPolicy = "synapseml-bounded-http-v1:" + RetryIntervals.mkString(",")
   private[ai] val DefaultHandler = UDFUtils.oldUdf(HandlingUtils.bounded(RetryIntervals: _*) _, StringType)
   private[ai] def usesBoundedHandler(stage: AIPrompt): Boolean =
     !stage.isSet(stage.handler) && stage.getDefault(stage.handler).contains(DefaultHandler)
@@ -151,6 +164,19 @@ object AIPrompt extends ExplicitComplexParamsReadable[AIPrompt] {
           "into input columns")
     }
   }
+
+  def loadOutput(spark: SparkSession, outputPath: String): DataFrame =
+    AIPromptOutput.loadOutput(spark, outputPath)
+
+  def getOutputStatus(spark: SparkSession, outputPath: String): AIPromptOutputStatus =
+    AIPromptOutput.getOutputStatus(spark, outputPath)
+
+  def getOutputStatusJson(spark: SparkSession, outputPath: String): String =
+    getOutputStatus(spark, outputPath).toJson
+
+  def releaseOutputOwner(spark: SparkSession, outputPath: String,
+                         expectedOwnerToken: String, confirmStopped: Boolean): Unit =
+    AIPromptOutput.releaseOutputOwner(spark, outputPath, expectedOwnerToken, confirmStopped)
 }
 
 private[ai] trait HasAIResponseSchema extends HasOpenAIResponseSchema {
@@ -165,9 +191,10 @@ private[ai] trait HasAIResponseSchema extends HasOpenAIResponseSchema {
     "self._java_obj.responseFormat().jsonDecode(self._ai_json({'left': schema})).left().get()"
 }
 
-/** Distributed synchronous inference. Spark actions and recomputation may repeat paid requests. */
+/** Distributed synchronous inference. Uncommitted requests can repeat even with outputPath configured. */
 class AIPrompt(override val uid: String) extends OpenAIPrompt(uid)
-  with AIPromptParams with HasHandler with ExplicitComplexParamsWritable with HasAIResponseSchema {
+  with AIPromptParams with HasAIPromptRecovery with HasHandler
+  with ExplicitComplexParamsWritable with HasAIResponseSchema {
   def this() = this(Identifiable.randomUID("AIPrompt"))
 
   override protected def createResponseFormatParam(name: String): ServiceParam[Map[String, Any]] =
@@ -180,6 +207,9 @@ class AIPrompt(override val uid: String) extends OpenAIPrompt(uid)
     AIRequestAdapter.SupportedApis.toArray
 
   override protected val subscriptionKeyHeaderName: String = "api-key"
+
+  private[ai] lazy val authenticationHeaderNames: Set[String] =
+    Set(subscriptionKeyHeaderName, aadHeaderName).map(_.toLowerCase(java.util.Locale.ROOT))
 
   override protected def hasExplicitPostProcessing: Boolean = isSet(postProcessing)
 
@@ -290,15 +320,24 @@ class AIPrompt(override val uid: String) extends OpenAIPrompt(uid)
 
   override def transformSchema(schema: StructType): StructType = {
     val stage = effectiveCopy()
-    stage.inferenceSchema(schema)
+    val result = stage.inferenceSchema(schema)
+    if (stage.isDefined(outputPath)) {
+      AIPromptOutput.validateSettings(stage)
+      AIPromptOutput.storageSchema(schema)
+      stage.validateDurableInput(schema, SparkSession.active)
+      AIPromptOutput.storageSchema(result)
+    } else result
   }
 
   override def transform(dataset: Dataset[_]): DataFrame = AIPrompt.withSession(dataset.sparkSession) {
     logTransform({
       val stage = effectiveCopy()
       stage.inferenceSchema(dataset.schema)
-      stage.validateFabricModel(dataset.schema)
-      stage.infer(dataset)
+      if (stage.isDefined(outputPath)) AIPromptOutput.transformEffective(stage, dataset.toDF())
+      else {
+        stage.validateFabricModel(dataset.schema)
+        stage.infer(dataset)
+      }
     }, dataset.columns.length)
   }
 
@@ -372,10 +411,11 @@ class AIPrompt(override val uid: String) extends OpenAIPrompt(uid)
   private[ai] def validateFabricModel(schema: StructType): Unit =
     new AIRequestAdapter(this, schema).validateFabricModel()
 
-  private def preparePrompt(input: DataFrame, promptName: String): DataFrame = {
+  private def preparePrompt(input: DataFrame, promptName: String, hiddenColumns: Seq[String],
+                            interpolateFilenames: Boolean = true): DataFrame = {
     if (!isSet(promptTemplate)) input
     else {
-      val filenames = {
+      val filenames = if (!interpolateFilenames) Map.empty[String, Column] else {
         val filename = F.udf((path: String) => Option(path).map(_.trim).filter(_.nonEmpty).map { p =>
           try OpenAIAttachmentUtils.attachmentFilename(p)
           catch { case _: IllegalArgumentException => "attachment" }
@@ -385,8 +425,9 @@ class AIPrompt(override val uid: String) extends OpenAIPrompt(uid)
         }.toMap
       }
       val expression = AIPrompt.withSafeTemplate(templateWithFilenames(filenames))
+      val publicInput = if (hiddenColumns.isEmpty) input else input.drop(hiddenColumns: _*)
       // Bind against public columns without allowing the template to filter or expand rows.
-      val scoped = AIPrompt.bindTemplate(input, expression)
+      val scoped = AIPrompt.bindTemplate(publicInput, expression)
       AIPrompt.withSafeTemplate(input.withColumn(promptName, scoped))
     }
   }
@@ -521,18 +562,23 @@ class AIPrompt(override val uid: String) extends OpenAIPrompt(uid)
   }
 
   private[ai] def infer(dataset: Dataset[_], http: HTTPTransformer): DataFrame = {
+    infer(dataset, Seq.empty, http)
+  }
+
+  private[ai] def infer(dataset: Dataset[_], hiddenColumns: Seq[String], http: HTTPTransformer): DataFrame = {
     AIPrompt.withSession(dataset.sparkSession) {
       val original = dataset.toDF()
       val outputPlan = plan(original.schema, parsed = false)
       val retainedMessages = retainedMessagesName(original.schema)
       val finalSchema = inferenceOutputSchema(original.schema)
-      new AIRequestAdapter(this, original.schema).validate()
+      new AIRequestAdapter(this, original.drop(hiddenColumns: _*).schema).validate()
       val promptName = outputPlan.scratch(s"${uid}_prompt")
       val requestName = outputPlan.scratch(s"${uid}_request", promptName)
       val preparationName = outputPlan.scratch(s"${uid}_preparation", promptName, requestName)
       val messagesName = outputPlan.scratch(s"${uid}_generated_messages", promptName, requestName, preparationName)
       val responseName = outputPlan.scratch(s"${uid}_response", promptName, requestName, preparationName, messagesName)
-      val prepared = preparePrompt(original, promptName)
+      if (hiddenColumns.nonEmpty) validateDurableTemplate(original, promptName, hiddenColumns)
+      val prepared = preparePrompt(original, promptName, hiddenColumns)
       // Preserve SQL map-key identity while retained input traverses the inference Row encoders.
       val protectedInput = AIValueCodec.encodeMapKeys(prepared)
       val retainedSchema = StructType(original.schema.fields.map(field => protectedInput.schema(field.name)))
@@ -547,6 +593,51 @@ class AIPrompt(override val uid: String) extends OpenAIPrompt(uid)
       val processed = postprocess(rawResult, outputPlan)
       AIValueCodec.reconcileSchema(AIValueCodec.decodeMapKeys(processed, finalSchema), finalSchema)
     }
+  }
+
+  private[ai] def validateDurableInput(schema: StructType, session: => SparkSession): Unit = {
+    AIDurableInput.validate(this, schema)
+    if (isSet(promptTemplate)) {
+      val input = session.createDataFrame(Collections.emptyList[Row](), schema)
+      val outputPlan = plan(input.schema, parsed = false)
+      validateDurableTemplate(input, outputPlan.scratch(s"${uid}_prompt"), Seq.empty)
+    }
+  }
+
+  private def validateDurableTemplate(input: DataFrame, promptName: String,
+                                      hiddenColumns: Seq[String]): Unit = if (isSet(promptTemplate)) {
+    // Validate user expressions before inserting SynapseML's stable filename UDF.
+    val prepared = preparePrompt(input, promptName, hiddenColumns, interpolateFilenames = false)
+    val analyzed = AIPrompt.withSafeTemplate(prepared.queryExecution.analyzed)
+    require(!analyzed.exists {
+      case _: Window | _: Aggregate | _: Generate => true
+      case _ => false
+    }, "Durable prompt templates require row-local expressions; materialize windows, aggregates and generators " +
+      "into input columns")
+    // Input expressions are snapshotted once; inspect only the template projection for unstable functions.
+    val expressions = analyzed.expressions
+    require(!expressions.exists(SubqueryExpression.hasSubquery),
+      "Durable prompt templates cannot contain SQL subqueries; materialize external values into input columns")
+    val unstable = expressions.exists(_.exists {
+      // Spark's deterministic flag does not account for AES's generated initialization vector.
+      case _: UserDefinedExpression | _: AesEncrypt => true
+      case expression if !expression.deterministic => true
+      case _: Attribute | _: Literal | _: NamedLambdaVariable | _: Pi | _: EulerNumber => false
+      case _: LeafExpression => true
+      case _ => false
+    })
+    require(!unstable, "Durable prompt templates require stable built-in expressions over input columns; " +
+      "materialize UDFs, encryption and runtime-dependent values into input columns")
+  }
+
+  private[ai] def validateDurableRows(snapshot: DataFrame): Unit = {
+    if (isSet(promptTemplate)) {
+      val outputPlan = plan(snapshot.schema, parsed = false)
+      val promptName = outputPlan.scratch(s"${uid}_prompt")
+      validateDurableTemplate(snapshot, promptName, Seq.empty)
+      val prepared = preparePrompt(snapshot, promptName, Seq.empty)
+      AIDurableInput.validateRows(this, prepared, Some(promptName))
+    } else AIDurableInput.validateRows(this, snapshot)
   }
 
   override protected def pyParamSetter(p: Param[_]): String =
