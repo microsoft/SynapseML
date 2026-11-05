@@ -14,7 +14,8 @@ import org.apache.commons.io.FileUtils
 import org.apache.hadoop.fs.Path
 import org.apache.spark.ml.param.{Param, ParamMap, Params}
 import org.apache.spark.ml.util._
-import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, ObjectSerializer, Serializer, Transformer}
+import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, ExplicitComplexParamsWritable,
+  ObjectSerializer, Serializer, Transformer}
 import org.apache.spark.sql.types.StructType
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
@@ -136,6 +137,11 @@ object TestableSessionParamTest extends ComplexParamsReadable[TestableSessionPar
   val ConfigKey: String = "synapseml.test.persistence.session"
 }
 
+class TestableExplicitSessionParamTest(override val uid: String) extends TestableSessionParamTest(uid)
+  with ExplicitComplexParamsWritable {
+  override protected def validateForWrite(): Unit = ()
+}
+
 class ValidateComplexParamSerializer extends TestBase {
   val saveFile = new File(tmpDir.toFile, "m1.model").toString
   val saveFile2 = new File(tmpDir.toFile, "m2.model").toString
@@ -157,19 +163,22 @@ class ValidateComplexParamSerializer extends TestBase {
     }
   }
 
-  test("complex writers use their assigned Spark session") {
-    val stage = new TestableSessionParamTest("assigned-session")
-    val session = spark.newSession()
-    session.conf.set(TestableSessionParamTest.ConfigKey, stage.uid)
-    val previous = SparkSession.getActiveSession
-    SparkSession.setActiveSession(spark)
-    try {
-      val bytes = Array[Byte](1, 2, 3)
-      val path = tmpDir.resolve("assigned-session.model").toString
-      stage.set(stage.byteArray, bytes).write.session(session).save(path)
-      val restored = TestableSessionParamTest.read.session(session).load(path)
-      assert(restored.getOrDefault(restored.byteArray).sameElements(bytes))
-    } finally previous.fold(SparkSession.clearActiveSession())(SparkSession.setActiveSession)
+  Seq(false, true).foreach { explicit =>
+    test(s"complex writers use their assigned Spark session with explicit=$explicit") {
+      val stage = if (explicit) new TestableExplicitSessionParamTest("explicit-session")
+        else new TestableSessionParamTest("legacy-session")
+      val session = spark.newSession()
+      session.conf.set(TestableSessionParamTest.ConfigKey, stage.uid)
+      val previous = SparkSession.getActiveSession
+      SparkSession.setActiveSession(spark)
+      try {
+        val bytes = Array[Byte](1, 2, 3)
+        val path = tmpDir.resolve(s"session-$explicit.model").toString
+        stage.set(stage.byteArray, bytes).write.session(session).save(path)
+        val restored = TestableSessionParamTest.read.session(session).load(path)
+        assert(restored.getOrDefault(restored.byteArray).sameElements(bytes))
+      } finally previous.fold(SparkSession.clearActiveSession())(SparkSession.setActiveSession)
+    }
   }
 
   test("Complex Param serialization should work on all complex, all normal, or mixed") {

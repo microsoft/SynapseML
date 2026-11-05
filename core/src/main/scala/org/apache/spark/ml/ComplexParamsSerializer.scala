@@ -110,6 +110,14 @@ private[ml] object ComplexParamsWriter {
                         spark: SparkSession,
                         extraMetadata: Option[JObject] = None,
                         paramMap: Option[JValue] = None): String = {
+    getMetadataToSave(instance, spark, extraMetadata, paramMap, None)
+  }
+
+  def getMetadataToSave(instance: Params,
+                        spark: SparkSession,
+                        extraMetadata: Option[JObject],
+                        paramMap: Option[JValue],
+                        defaultParamMap: Option[JValue]): String = {
     val uid = instance.uid
     val cls = instance.getClass.getName
     val params = instance.extractParamMap().toSeq
@@ -119,9 +127,9 @@ private[ml] object ComplexParamsWriter {
     val jsonParams = paramMap.getOrElse(render(params.map { case ParamPair(p, v) =>
       p.name -> parse(p.jsonEncode(v))
     }.toList))
-    val jsonDefaultParams = render(defaultParams.map { case ParamPair(p, v) =>
+    val jsonDefaultParams = defaultParamMap.getOrElse(render(defaultParams.map { case ParamPair(p, v) =>
       p.name -> parse(p.jsonEncode(v))
-    }.toList)
+    }.toList))
     val basicMetadata = ("class" -> cls) ~
       ("timestamp" -> System.currentTimeMillis()) ~
       ("sparkVersion" -> spark.version) ~

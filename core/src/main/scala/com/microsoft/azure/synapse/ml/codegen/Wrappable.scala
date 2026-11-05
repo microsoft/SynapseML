@@ -17,7 +17,6 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.WeakHashMap
 
-
 trait BaseWrappable extends Params {
 
   protected val thisStage: Params = this
@@ -28,7 +27,6 @@ trait BaseWrappable extends Params {
         |""".stripMargin
 
   protected lazy val classNameHelper: String = thisStage.getClass.getName.split(".".toCharArray).last
-
 
   protected def companionModelClassName: String = {
     val symbol = scala.reflect.runtime.currentMirror.classSymbol(thisStage.getClass)
@@ -78,6 +76,8 @@ trait PythonWrappable extends BaseWrappable {
   private def getPythonTypeInfo(p: Param[_]): PythonTypeInfo =
     PythonStubCodegen.pythonTypeInfo(thisStage, p)
 
+  protected def pyParamInputType(p: Param[_]): Option[String] = None
+
   def pyAdditionalMethods: String = {
     ""
   }
@@ -126,7 +126,7 @@ trait PythonWrappable extends BaseWrappable {
   // TODO add default values
   protected lazy val pyClassDoc: String = {
     val argLines = thisStage.params.map { p =>
-      s"""${p.name} (${getPythonTypeInfo(p).pyType}): ${p.doc}"""
+      s"""${p.name} (${pyParamInputType(p).getOrElse(getPythonTypeInfo(p).pyType)}): ${p.doc}"""
     }.mkString("\n")
     s"""|"\""
         |Args:
@@ -344,7 +344,7 @@ trait PythonWrappable extends BaseWrappable {
   }
 
   private def pyStubParamArgs(p: Param[_]): Seq[String] = {
-    val pyiType = getPythonTypeInfo(p).pyiType
+    val pyiType = pyParamInputType(p).getOrElse(getPythonTypeInfo(p).pyiType)
     (p, safeGetDefault(p)) match {
       case (_: ServiceParam[_], _) =>
         Seq(
@@ -393,7 +393,7 @@ trait PythonWrappable extends BaseWrappable {
 
   private def pyStubParamSetter(p: Param[_]): String = {
     val capName = p.name.capitalize
-    val pyiType = getPythonTypeInfo(p).pyiType
+    val pyiType = pyParamInputType(p).getOrElse(getPythonTypeInfo(p).pyiType)
     p match {
       case _: ServiceParam[_] =>
         s"""|def set$capName(self: _T, value: $pyiType) -> _T: ...
@@ -612,7 +612,7 @@ trait PythonWrappable extends BaseWrappable {
     val paramGetters = thisStage.params.map(pyStubParamGetter).mkString("\n")
     s"""|$copyrightLines
         |
-        |from typing import Any, Dict, List, Optional, TypeVar
+        |from typing import Any, Dict, List, Optional, TypeVar, Union
         |
         |from pyspark.ml.evaluation import JavaEvaluator
         |from pyspark.ml.param import Param, ParamMap
