@@ -11,10 +11,25 @@ import org.apache.http.entity.BasicHttpEntity
 import org.apache.http.message.{BasicHttpResponse, BasicStatusLine}
 
 import java.io.{ByteArrayInputStream, IOException, InputStream}
-import java.util.concurrent.atomic.AtomicBoolean
+import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger}
 import scala.io.Source
 
 class VerifyResponseBodyInspection extends TestBase {
+
+  test("response conversion closes a failed body before propagating its read error") {
+    val closes = new AtomicInteger()
+    val failure = new IOException("Synthetic response conversion failure")
+    val entity = new BasicHttpEntity()
+    entity.setContent(new InputStream {
+      override def read(): Int = throw failure
+    })
+    val response = new BasicHttpResponse(HttpVersion.HTTP_1_1, 200, "OK") with CloseableHttpResponse {
+      override def close(): Unit = { closes.incrementAndGet(); () }
+    }
+    response.setEntity(entity)
+    assert(intercept[IOException](HandlingUtils.convertAndClose(response)) eq failure)
+    assert(closes.get() == 1)
+  }
 
   test("response inspection replays bytes after an input failure") {
     val content = """{"error":{"code":"RateLimitExceeded"}}""".getBytes("UTF-8")
