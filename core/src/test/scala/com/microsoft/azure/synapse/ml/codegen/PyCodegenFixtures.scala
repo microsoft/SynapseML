@@ -181,6 +181,81 @@ private[codegen] object PyCodegenFixtures {
            |""".stripMargin
   }
 
+  class MultilineStringPythonStage(quote: String) extends TypedPythonStage("multilineStringPythonStage") {
+
+    override protected lazy val classNameHelper: String = "MultilineStringPythonStage"
+
+    override def pyAdditionalMethods: String =
+      super.pyAdditionalMethods +
+        s"""|def describe(
+            |    self,
+            |    label=$quote(
+            |    ' " [ { # still inside the string
+            |# A string line can end its own literal: $quote,
+            |):
+            |    def getModelCol():
+            |        return label
+            |    return getModelCol()
+            |
+            |def afterScope(self):
+            |    return None
+            |""".stripMargin
+  }
+
+  class ConflictingMultilineStringAliasMethodStage(quote: String) extends MultilineStringPythonStage(quote) {
+
+    override protected lazy val classNameHelper: String = "ConflictingMultilineStringAliasMethodStage"
+
+    override def pyAdditionalMethods: String =
+      super.pyAdditionalMethods +
+        """|def getModelCol(self):
+           |    return "model"
+           |""".stripMargin
+  }
+
+  class DecoratedPythonStage extends TypedPythonStage("decoratedPythonStage") {
+
+    override protected lazy val classNameHelper: String = "DecoratedPythonStage"
+
+    override def pyAdditionalMethods: String =
+      super.pyAdditionalMethods +
+        """|def _with_label(label):
+           |    return lambda method: method
+           |
+           |@staticmethod  # no instance binding
+           |def commentedStatic(value):
+           |    return value
+           |
+           |@classmethod  # bind to the class
+           |def commentedClass(cls, value):
+           |    return cls()
+           |
+           |@staticmethod
+           |@_with_label(
+           |    {"labels": ["(", ")"]},  # )
+           |)
+           |def decoratedStatic(value):
+           |    return value
+           |
+           |@classmethod
+           |@_with_label(
+           |    '''(
+           |# still inside the label: ''',
+           |)
+           |def decoratedClass(cls, value):
+           |    return cls()
+           |
+           |@staticmethod
+           |@_with_label \
+           |    ("label")
+           |def continuedStatic(value):
+           |    return value
+           |
+           |def plainValue(self):
+           |    return None
+           |""".stripMargin
+  }
+
   class TypedPythonModel(override val uid: String = "typedPythonModel")
     extends Model[TypedPythonModel] with Wrappable {
 
