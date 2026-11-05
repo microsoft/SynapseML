@@ -267,6 +267,69 @@ class PyCodegenSuite extends AnyFunSuite {
     }
   }
 
+  Seq("'''", "\"\"\"").foreach { quote =>
+    test(s"multiline string headers retain subsequent class methods with $quote") {
+      withTempDir { root =>
+        val conf = codegenConfig(root)
+        new MultilineStringPythonStage(quote).makePyFile(conf)
+        val folder = packageDir(conf.pySrcDir, "/codegen")
+        val stubFile = new File(folder, "MultilineStringPythonStage.pyi")
+        assertPythonCompiles(new File(folder, "MultilineStringPythonStage.py"))
+        assertPythonCompiles(stubFile)
+        val stub = readUtf8(stubFile)
+        assert(stub.contains("def afterScope(self) -> Any: ..."))
+        assert(occurrences(stub, "def getModelCol(") == 1)
+      }
+    }
+
+    test(s"multiline string headers detect real accessor collisions with $quote") {
+      withTempDir { root =>
+        val stage = new ConflictingMultilineStringAliasMethodStage(quote)
+        val sourceFile = new File(root, "fixture.py")
+        writeUtf8(sourceFile, "class Fixture:\n" +
+          stage.pyAdditionalMethods.split("\n").map("    " + _).mkString("\n") + "\n")
+        assertPythonCompiles(sourceFile)
+        val error = intercept[IllegalArgumentException] {
+          stage.makePyFile(codegenConfig(root))
+        }
+        assert(error.getMessage.contains(
+          "Generated Python method getModelCol conflicts with a hand-written method"))
+      }
+    }
+  }
+
+  test("binding decorator inline comments preserve static and class method stubs") {
+    withTempDir { root =>
+      val conf = codegenConfig(root)
+      new DecoratedPythonStage().makePyFile(conf)
+      val folder = packageDir(conf.pySrcDir, "/codegen")
+      val stubFile = new File(folder, "DecoratedPythonStage.pyi")
+      assertPythonCompiles(new File(folder, "DecoratedPythonStage.py"))
+      assertPythonCompiles(stubFile)
+      val stub = readUtf8(stubFile)
+      assert(stub.contains("@staticmethod\n    def commentedStatic(value: Any) -> Any: ..."))
+      assert(stub.contains("@classmethod\n    def commentedClass(cls, value: Any) -> Any: ..."))
+    }
+  }
+
+  test("binding decorators survive multiline decorator expressions") {
+    withTempDir { root =>
+      val conf = codegenConfig(root)
+      new DecoratedPythonStage().makePyFile(conf)
+      val folder = packageDir(conf.pySrcDir, "/codegen")
+      val stubFile = new File(folder, "DecoratedPythonStage.pyi")
+      assertPythonCompiles(new File(folder, "DecoratedPythonStage.py"))
+      assertPythonCompiles(stubFile)
+      val stub = readUtf8(stubFile)
+      assert(stub.contains("@staticmethod\n    def decoratedStatic(value: Any) -> Any: ..."))
+      assert(stub.contains("@classmethod\n    def decoratedClass(cls, value: Any) -> Any: ..."))
+      assert(stub.contains("@staticmethod\n    def continuedStatic(value: Any) -> Any: ..."))
+      assert(stub.contains("def plainValue(self) -> Any: ..."))
+      assert(!stub.contains("@staticmethod\n    def plainValue"))
+      assert(!stub.contains("@classmethod\n    def plainValue"))
+    }
+  }
+
   test("generated wrappers without service parameters have empty service metadata") {
     withTempDir { root =>
       val conf = codegenConfig(root)
