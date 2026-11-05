@@ -7,11 +7,13 @@ import com.microsoft.azure.synapse.ml.core.contracts.HasInputCol
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.services.ai.AIJson.AnyFormat
 import com.microsoft.azure.synapse.ml.services.openai.HasOpenAIModelParams
-import org.apache.spark.ml.param.{Param, ParamValidators}
+import org.apache.spark.ml.param.{IntParam, Param, ParamValidators}
 import spray.json.DefaultJsonProtocol._
 import spray.json.{JsObject, JsValue}
 
 trait AIPromptParams extends HasOpenAIModelParams with HasInputCol {
+  private val maximumOutputBatchSize = 100000
+
   val extraBody: ServiceParam[Map[String, Any]] = new AIJson.ObjectParam(
     this, "extraBody",
     "Provider-owned JSON body extension; cannot override explicit typed options or request identity.", "extraBody") {
@@ -89,5 +91,16 @@ trait AIPromptParams extends HasOpenAIModelParams with HasInputCol {
   def setRawResponseCol(value: String): this.type = set(rawResponseCol, value)
   def getRawResponseCol: String = $(rawResponseCol)
 
-  setDefault(inputMode -> "text")
+  val outputPath: Param[String] = new Param[String](
+    this, "outputPath", "Fresh caller-owned Delta run directory; enables eager, resumable input and result storage.")
+  def setOutputPath(value: String): this.type = set(outputPath, value)
+  def getOutputPath: String = $(outputPath)
+
+  val outputBatchSize: IntParam = new IntParam(
+    this, "outputBatchSize", "Maximum rows per durable Delta batch.",
+    ParamValidators.inRange(1, maximumOutputBatchSize, lowerInclusive = true, upperInclusive = true))
+  def setOutputBatchSize(value: Int): this.type = set(outputBatchSize, value)
+  def getOutputBatchSize: Int = $(outputBatchSize)
+
+  setDefault(inputMode -> "text", outputBatchSize -> 1000)
 }
