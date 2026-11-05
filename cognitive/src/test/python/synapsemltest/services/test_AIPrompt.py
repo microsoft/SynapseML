@@ -909,7 +909,9 @@ class TestAIPrompt(unittest.TestCase):
                 java_class.getProtectionDomain.return_value.getCodeSource.return_value.getLocation.return_value
             )
             location.toString.return_value = "file:/jars/candidate%20build.jar"
-            probe = session._jvm.com.microsoft.azure.synapse.ml.services.ai.AIPromptFabricProbe
+            probe = (
+                session._jvm.com.microsoft.azure.synapse.ml.services.ai.AIPromptFabricProbe
+            )
             probe.verifyImplicitEndpoints.side_effect = RuntimeError("Probe failed")
             with self.assertRaisesRegex(RuntimeError, "Probe failed"):
                 scenario.main()
@@ -1508,6 +1510,7 @@ class TestAIPrompt(unittest.TestCase):
             self.assertEqual(row.vector.toArray().tolist(), [0.25, 0.5])
             self.assertEqual(requests[0][1]["user"], "hello")
             self.assertEqual(requests[0][1]["encoding_format"], "float")
+
 
 if __name__ == "__main__":
     unittest.main()

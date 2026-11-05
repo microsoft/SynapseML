@@ -44,7 +44,9 @@ def main():
         "basePrompt": source(
             "com.microsoft.azure.synapse.ml.services.openai.OpenAIPrompt"
         ),
-        "probe": source("com.microsoft.azure.synapse.ml.services.ai.AIPromptFabricProbe"),
+        "probe": source(
+            "com.microsoft.azure.synapse.ml.services.ai.AIPromptFabricProbe"
+        ),
     }
     for role, expected in (
         ("core", args.expected_core_jar),
