@@ -12,6 +12,7 @@ import com.microsoft.azure.synapse.ml.services._
 import com.microsoft.azure.synapse.ml.services.aifoundry.{AIFoundryChatCompletion, HasAIFoundryTextParamsExtended}
 import org.apache.hadoop.conf.Configuration
 import org.apache.http.entity.AbstractHttpEntity
+import org.apache.spark.TaskKilledException
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param.{BooleanParam, DoubleParam, Param, ParamMap, ParamValidators}
 import org.apache.spark.ml.util.{Identifiable, MLWriter}
@@ -493,6 +494,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
           )
         } match {
           case scala.util.Success(msgs) => (msgs, null) //scalastyle:ignore null
+          case scala.util.Failure(e: TaskKilledException) => throw e
           case scala.util.Failure(e) => (null, e.getMessage) //scalastyle:ignore null
         }
     }

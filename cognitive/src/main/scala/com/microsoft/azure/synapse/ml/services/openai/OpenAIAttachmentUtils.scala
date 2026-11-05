@@ -5,15 +5,39 @@ package com.microsoft.azure.synapse.ml.services.openai
 
 import com.microsoft.azure.synapse.ml.io.binary.BinaryFileReader
 import org.apache.hadoop.fs.{Path => HPath}
+import org.apache.spark.{TaskContext, TaskKilledException}
 
 import java.io.ByteArrayInputStream
 import java.net.{URI, URLConnection}
+import java.nio.channels.ClosedByInterruptException
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.CancellationException
 import java.util.{Base64, Locale}
 import scala.util.Try
 import scala.util.control.NonFatal
 
 private[openai] object OpenAIAttachmentUtils {
+
+  sealed class AttachmentReadException(fileName: String)
+    extends IllegalArgumentException(s"Unable to read attachment '$fileName'")
+
+  final class CancelledAttachmentReadException(fileName: String) extends AttachmentReadException(fileName)
+
+  private def interruptedRead(): Nothing = {
+    Thread.currentThread().interrupt()
+    throw new InterruptedException("Attachment read interrupted")
+  }
+
+  private[openai] def readAttachment(fileName: String)(read: => Array[Byte]): Array[Byte] = try {
+    read
+  } catch {
+    case _: InterruptedException | _: ClosedByInterruptException => interruptedRead()
+    case NonFatal(_) if Thread.currentThread().isInterrupted => interruptedRead()
+    case NonFatal(_) if Option(TaskContext.get()).exists(_.isInterrupted()) =>
+      throw new TaskKilledException("Attachment read canceled")
+    case _: CancellationException => throw new CancelledAttachmentReadException(fileName)
+    case NonFatal(_) => throw new AttachmentReadException(fileName)
+  }
 
   private case class DataUrlAttachment(
       fileName: String,
@@ -224,11 +248,8 @@ private[openai] object OpenAIAttachmentUtils {
         readDataUrl(filePathStr, sizeLimitMB)
       } else {
         val fileName = attachmentFilename(filePathStr)
-        val fileBytes = try {
+        val fileBytes = readAttachment(fileName) {
           BinaryFileReader.readSingleFileBytes(new HPath(filePathStr))
-        } catch {
-          case NonFatal(_) =>
-            throw new IllegalArgumentException(s"Unable to read attachment '$fileName'")
         }
         (fileName, fileBytes, None)
       }
