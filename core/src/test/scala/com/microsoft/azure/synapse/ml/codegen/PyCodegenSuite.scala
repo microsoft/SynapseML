@@ -105,6 +105,18 @@ class PyCodegenSuite extends AnyFunSuite {
     assert(process.waitFor() === 0, output)
   }
 
+  private def assertAliasConflict(root: File, stage: TypedPythonStage): Unit = {
+    val sourceFile = new File(root, "fixture.py")
+    writeUtf8(sourceFile, "class Fixture:\n" +
+      stage.pyAdditionalMethods.split("\n").map("    " + _).mkString("\n") + "\n")
+    assertPythonCompiles(sourceFile)
+    val error = intercept[IllegalArgumentException] {
+      stage.makePyFile(codegenConfig(root))
+    }
+    assert(error.getMessage.contains(
+      "Generated Python method getModelCol conflicts with a hand-written method"))
+  }
+
   private def wheelEntryContent(wheel: File, path: String): Option[String] = {
     val archive = new ZipFile(wheel)
     try {
@@ -284,16 +296,7 @@ class PyCodegenSuite extends AnyFunSuite {
 
     test(s"multiline string headers detect real accessor collisions with $quote") {
       withTempDir { root =>
-        val stage = new ConflictingMultilineStringAliasMethodStage(quote)
-        val sourceFile = new File(root, "fixture.py")
-        writeUtf8(sourceFile, "class Fixture:\n" +
-          stage.pyAdditionalMethods.split("\n").map("    " + _).mkString("\n") + "\n")
-        assertPythonCompiles(sourceFile)
-        val error = intercept[IllegalArgumentException] {
-          stage.makePyFile(codegenConfig(root))
-        }
-        assert(error.getMessage.contains(
-          "Generated Python method getModelCol conflicts with a hand-written method"))
+        assertAliasConflict(root, new ConflictingMultilineStringAliasMethodStage(quote))
       }
     }
   }
@@ -335,16 +338,29 @@ class PyCodegenSuite extends AnyFunSuite {
 
     test(s"body strings do not hide real accessor collisions after $scopeHeader") {
       withTempDir { root =>
-        val stage = new ConflictingBodyStringAliasMethodStage(scopeHeader)
-        val sourceFile = new File(root, "fixture.py")
-        writeUtf8(sourceFile, "class Fixture:\n" +
-          stage.pyAdditionalMethods.split("\n").map("    " + _).mkString("\n") + "\n")
-        assertPythonCompiles(sourceFile)
-        val error = intercept[IllegalArgumentException] {
-          stage.makePyFile(codegenConfig(root))
-        }
-        assert(error.getMessage.contains(
-          "Generated Python method getModelCol conflicts with a hand-written method"))
+        assertAliasConflict(root, new ConflictingBodyStringAliasMethodStage(scopeHeader))
+      }
+    }
+  }
+
+  Seq(false, true).foreach { controlBlock =>
+    test(s"class statement strings retain subsequent methods with control block $controlBlock") {
+      withTempDir { root =>
+        val conf = codegenConfig(root)
+        new ClassStatementStringPythonStage(controlBlock, "afterString").makePyFile(conf)
+        val folder = packageDir(conf.pySrcDir, "/codegen")
+        val stubFile = new File(folder, "ClassStatementStringPythonStage.pyi")
+        assertPythonCompiles(new File(folder, "ClassStatementStringPythonStage.py"))
+        assertPythonCompiles(stubFile)
+        val stub = readUtf8(stubFile)
+        assert(stub.contains("def afterString(self) -> Any: ..."))
+        assert(!stub.contains("def notAHeader("))
+      }
+    }
+
+    test(s"class statement strings preserve alias checks with control block $controlBlock") {
+      withTempDir { root =>
+        assertAliasConflict(root, new ClassStatementStringPythonStage(controlBlock, "getModelCol"))
       }
     }
   }
@@ -389,21 +405,13 @@ class PyCodegenSuite extends AnyFunSuite {
 
   test("service column accessors cannot shadow hand-written Python methods") {
     withTempDir { root =>
-      val error = intercept[IllegalArgumentException] {
-        new ConflictingServiceAliasMethodStage().makePyFile(codegenConfig(root))
-      }
-      assert(error.getMessage.contains(
-        "Generated Python method getModelCol conflicts with a hand-written method"))
+      assertAliasConflict(root, new ConflictingServiceAliasMethodStage())
     }
   }
 
   test("service column accessors cannot shadow methods in class-body control blocks") {
     withTempDir { root =>
-      val error = intercept[IllegalArgumentException] {
-        new ConflictingConditionalAliasMethodStage().makePyFile(codegenConfig(root))
-      }
-      assert(error.getMessage.contains(
-        "Generated Python method getModelCol conflicts with a hand-written method"))
+      assertAliasConflict(root, new ConflictingConditionalAliasMethodStage())
     }
   }
 
