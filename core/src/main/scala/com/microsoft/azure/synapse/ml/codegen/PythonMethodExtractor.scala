@@ -13,7 +13,7 @@ private[codegen] object PythonMethodExtractor {
 
   case class Method(name: String, signature: String, decorators: Seq[String])
 
-  // Headers, decorators, and skipped scope bodies can contain multiline expressions and strings.
+  // Class statements and nested scope bodies can contain multiline expressions and strings.
   private class ExpressionState {
     private var quote = ""
     private var delimiterDepth = 0
@@ -102,8 +102,8 @@ private[codegen] object PythonMethodExtractor {
           // Control blocks do not introduce a Python scope; functions and classes do.
           if (ScopePrefix.findFirstIn(statement).isDefined) {
             nestedScopeIndent = Some(indent)
-            expression.scan(line)
           }
+          expression.scan(line)
           method
         }
       }
