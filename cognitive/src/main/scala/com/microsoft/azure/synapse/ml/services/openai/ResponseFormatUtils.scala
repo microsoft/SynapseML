@@ -21,6 +21,15 @@ object ResponseFormatUtils {
     "null"
   )
 
+  private[services] def chat(value: Map[String, Any]): Map[String, Any] = {
+    val normalized = normalize(value)
+    if (normalized.get("type").contains("json_schema")) {
+      val schema = Map("name" -> normalized("name"), "schema" -> normalized("schema")) ++
+        normalized.get("strict").map("strict" -> _)
+      Map("type" -> "json_schema", "json_schema" -> schema)
+    } else normalized
+  }
+
   def normalize(value: Map[String, Any]): Map[String, Any] = {
     requireNonNull(value)
     val tOpt = rfType(value)

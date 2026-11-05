@@ -4,16 +4,46 @@
 package com.microsoft.azure.synapse.ml.services.openai
 
 import com.microsoft.azure.synapse.ml.io.binary.BinaryFileReader
+import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{Path => HPath}
+import org.apache.spark.{TaskContext, TaskKilledException}
 
-import java.io.ByteArrayInputStream
+import java.io.{ByteArrayInputStream, ByteArrayOutputStream}
 import java.net.{URI, URLConnection}
+import java.nio.channels.ClosedByInterruptException
 import java.nio.charset.StandardCharsets
+import java.util.concurrent.CancellationException
 import java.util.{Base64, Locale}
-import scala.util.Try
+import scala.annotation.tailrec
+import scala.util.{Try, Using}
 import scala.util.control.NonFatal
 
-private[openai] object OpenAIAttachmentUtils {
+private[services] object OpenAIAttachmentUtils {
+
+  sealed class AttachmentReadException(fileName: String)
+    extends IllegalArgumentException(s"Unable to read attachment '$fileName'")
+
+  // Preserve legacy row diagnostics without retaining storage-client cancellation details.
+  final class CancelledAttachmentReadException(fileName: String) extends AttachmentReadException(fileName)
+
+  private class AttachmentSizeException(message: String) extends IllegalArgumentException(message)
+
+  private def interruptedRead(): Nothing = {
+    Thread.currentThread().interrupt()
+    throw new InterruptedException("Attachment read interrupted")
+  }
+
+  private[openai] def readAttachment(fileName: String)(read: => Array[Byte]): Array[Byte] = try {
+    read
+  } catch {
+    case _: InterruptedException | _: ClosedByInterruptException => interruptedRead()
+    case NonFatal(_) if Thread.currentThread().isInterrupted => interruptedRead()
+    case NonFatal(_) if Option(TaskContext.get()).exists(_.isInterrupted()) =>
+      throw new TaskKilledException("Attachment read canceled")
+    case _: CancellationException => throw new CancelledAttachmentReadException(fileName)
+    case error: AttachmentSizeException => throw error
+    case NonFatal(_) => throw new AttachmentReadException(fileName)
+  }
 
   private case class DataUrlAttachment(
       fileName: String,
@@ -23,6 +53,7 @@ private[openai] object OpenAIAttachmentUtils {
       originalUrl: String)
 
   private val MimeSniffPrefixLength = 64
+  private val AttachmentBufferSize = 8192
   private val Utf8Bom = Base64.getDecoder.decode("77u/")
   private val XmlDeclarationPrefix = "<?xml"
 
@@ -84,7 +115,7 @@ private[openai] object OpenAIAttachmentUtils {
       val limitBytes = (limit * 1024 * 1024).toLong
       if (fileSizeBytes > limitBytes) {
         val fileSizeMB = fileSizeBytes / (1024.0 * 1024.0)
-        throw new IllegalArgumentException(
+        throw new AttachmentSizeException(
           f"$fileDescription size $fileSizeMB%.2f MB exceeds limit $limit%.2f MB")
       }
     }
@@ -96,7 +127,7 @@ private[openai] object OpenAIAttachmentUtils {
       char >= '0' && char <= '9' ||
       char == '+' || char == '/'
 
-  private def validateBase64Content(encodedContent: String): Unit = {
+  def validateBase64Content(encodedContent: String): Unit = {
     val padding = encodedContent.reverseIterator.takeWhile(_ == '=').length
     val dataLength = encodedContent.length - padding
     val remainder = dataLength % 4
@@ -217,6 +248,59 @@ private[openai] object OpenAIAttachmentUtils {
       imageExtensions: Set[String],
       audioExtensions: Set[String],
       textExtensions: Set[String]
+  ): (String, Array[Byte], String, String) =
+    prepareFile(filePathStr, sizeLimitMB, imageExtensions, audioExtensions, textExtensions, bounded = false)
+
+  private def readBoundedFile(path: HPath, limit: Double, conf: Configuration): Array[Byte] = {
+    val limitBytes = (limit * 1024 * 1024).toLong
+    if (limitBytes == Long.MaxValue) BinaryFileReader.readSingleFileBytes(path, conf)
+    else Using.resource(path.getFileSystem(conf).open(path)) { input =>
+      val output = new ByteArrayOutputStream()
+      val buffer = new Array[Byte](AttachmentBufferSize)
+      @tailrec
+      def fill(total: Long): Unit = {
+        val length = math.min(buffer.length.toLong, limitBytes - total + 1).toInt
+        val read = input.read(buffer, 0, length)
+        val count = if (read == 0) {
+          val next = input.read()
+          if (next < 0) -1 else {
+            buffer(0) = next.toByte
+            1
+          }
+        } else read
+        if (count >= 0) {
+          val nextTotal = total + count
+          if (nextTotal > limitBytes) {
+            throw new AttachmentSizeException(s"Attachment exceeds the $limitBytes-byte limit")
+          }
+          output.write(buffer, 0, count)
+          fill(nextTotal)
+        }
+      }
+      fill(0L)
+      output.toByteArray
+    }
+  }
+
+  def prepareFile(
+      filePathStr: String,
+      sizeLimitMB: Option[Double],
+      imageExtensions: Set[String],
+      audioExtensions: Set[String],
+      textExtensions: Set[String],
+      bounded: Boolean
+  ): (String, Array[Byte], String, String) =
+    prepareFile(filePathStr, sizeLimitMB, imageExtensions, audioExtensions, textExtensions,
+      bounded, new Configuration())
+
+  def prepareFile(
+      filePathStr: String,
+      sizeLimitMB: Option[Double],
+      imageExtensions: Set[String],
+      audioExtensions: Set[String],
+      textExtensions: Set[String],
+      bounded: Boolean,
+      conf: Configuration
   ): (String, Array[Byte], String, String) = {
     val isDataUrl = filePathStr.regionMatches(true, 0, "data:", 0, "data:".length)
     val (fileName, fileBytes, declaredMimeType) =
@@ -224,11 +308,10 @@ private[openai] object OpenAIAttachmentUtils {
         readDataUrl(filePathStr, sizeLimitMB)
       } else {
         val fileName = attachmentFilename(filePathStr)
-        val fileBytes = try {
-          BinaryFileReader.readSingleFileBytes(new HPath(filePathStr))
-        } catch {
-          case NonFatal(_) =>
-            throw new IllegalArgumentException(s"Unable to read attachment '$fileName'")
+        val fileBytes = readAttachment(fileName) {
+          val path = new HPath(filePathStr)
+          if (bounded && sizeLimitMB.isDefined) readBoundedFile(path, sizeLimitMB.get, conf)
+          else BinaryFileReader.readSingleFileBytes(path, conf)
         }
         (fileName, fileBytes, None)
       }

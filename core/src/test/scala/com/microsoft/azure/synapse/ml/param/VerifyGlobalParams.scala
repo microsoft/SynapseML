@@ -8,6 +8,64 @@ import org.apache.spark.ml.param.{Param, ParamMap, Params}
 import org.apache.spark.ml.util.Identifiable
 import org.scalatest.TestData
 
+import java.io.{File, FileOutputStream}
+import java.net.URLClassLoader
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+import java.util.concurrent.{Callable, CountDownLatch, Executors, TimeUnit}
+import java.util.jar.{Attributes, JarOutputStream, Manifest}
+import scala.util.Using
+
+object GlobalParamsConcurrencyProbe {
+  private val Workers = 8
+  private val Entries = 2000
+  private val Rounds = 4
+  private case object SharedKey extends GlobalKey[String]
+  private case class WorkerKey(value: Int) extends GlobalKey[Int]
+
+  def main(args: Array[String]): Unit = {
+    val executor = Executors.newFixedThreadPool(Workers)
+    GlobalParams.setGlobalParam(SharedKey, "shared")
+    try {
+      (0 until Rounds).foreach { round =>
+        val start = new CountDownLatch(1)
+        val work = (0 until Workers).map { worker =>
+          executor.submit(new Callable[Unit] {
+            override def call(): Unit = {
+              start.await()
+              val offset = (round * Workers + worker) * Entries
+              if (args.head == "registration") {
+                val params = (0 until Entries).map { index =>
+                  new Param[String](s"concurrent-${offset + index}", "value", "concurrent registration")
+                }
+                params.foreach(GlobalParams.registerParam(_, SharedKey))
+                params.foreach { param =>
+                  require(GlobalParams.getParam(param).contains("shared"), s"Lost registration: ${param.parent}")
+                }
+              } else {
+                val keys = (0 until Entries).map(index => WorkerKey(offset + index))
+                keys.foreach(key => GlobalParams.setGlobalParam(key, key.value))
+                keys.foreach { key =>
+                  require(GlobalParams.getGlobalParam(key).contains(key.value), s"Lost global value: ${key.value}")
+                }
+                keys.foreach { key =>
+                  GlobalParams.resetGlobalParam(key)
+                  require(GlobalParams.getGlobalParam(key).isEmpty, s"Reset failed: ${key.value}")
+                }
+              }
+            }
+          })
+        }
+        start.countDown()
+        work.foreach(_.get(30, TimeUnit.SECONDS))
+      }
+      println("GLOBAL_PARAMS_CONCURRENCY_OK")
+    } finally {
+      executor.shutdownNow()
+    }
+  }
+}
+
 class VerifyGlobalParams extends TestBase {
 
   // Test keys
@@ -97,5 +155,45 @@ class VerifyGlobalParams extends TestBase {
     val params = new TestParams(Identifiable.randomUID("test"))
     val result = GlobalParams.getParam(params.unregisteredParam)
     assert(result.isEmpty)
+  }
+
+  test("global values preserve a present null until reset") {
+    val value = Option.empty[String].orNull
+    GlobalParams.setGlobalParam(TestStringKey, value)
+    assert(GlobalParams.getGlobalParam(TestStringKey) == Some(value))
+    GlobalParams.resetGlobalParam(TestStringKey)
+    assert(GlobalParams.getGlobalParam(TestStringKey).isEmpty)
+  }
+
+  Seq("registration", "values").foreach { mode =>
+    test(s"concurrent global $mode completes without losing entries in an isolated JVM") {
+      val loaderPaths = Iterator.iterate(getClass.getClassLoader)(_.getParent)
+        .takeWhile(_ != null)
+        .collect { case loader: URLClassLoader => loader }
+        .flatMap(_.getURLs.iterator).filter(_.getProtocol == "file")
+        .map(url => new File(url.toURI)).toVector
+      val systemPaths = System.getProperty("java.class.path").split(File.pathSeparator).map(new File(_))
+      val paths = (loaderPaths ++ systemPaths).map(_.getCanonicalFile).distinct
+      val manifest = new Manifest()
+      manifest.getMainAttributes.put(Attributes.Name.MANIFEST_VERSION, "1.0")
+      manifest.getMainAttributes.put(Attributes.Name.CLASS_PATH, paths.map(_.toURI.toASCIIString).mkString(" "))
+      val classpath = tmpDir.resolve(s"global-$mode-classpath.jar").toFile
+      Using.resource(new JarOutputStream(new FileOutputStream(classpath), manifest))(_ => ())
+      val log = tmpDir.resolve(s"global-$mode.log")
+      val java = new File(System.getProperty("java.home"), "bin/java").getAbsolutePath
+      val probe = GlobalParamsConcurrencyProbe.getClass.getName.stripSuffix("$")
+      val process = new ProcessBuilder(java, "-cp", classpath.getAbsolutePath, probe, mode)
+        .redirectErrorStream(true).redirectOutput(log.toFile).start()
+      val completed = try process.waitFor(45, TimeUnit.SECONDS) finally {
+        if (process.isAlive) {
+          process.destroyForcibly()
+          assert(process.waitFor(10, TimeUnit.SECONDS), "GlobalParams probe did not terminate")
+        }
+      }
+      val output = new String(Files.readAllBytes(log), StandardCharsets.UTF_8)
+      assert(completed, s"GlobalParams concurrency probe timed out:\n$output")
+      assert(process.exitValue() == 0, output)
+      assert(output.contains("GLOBAL_PARAMS_CONCURRENCY_OK"), output)
+    }
   }
 }

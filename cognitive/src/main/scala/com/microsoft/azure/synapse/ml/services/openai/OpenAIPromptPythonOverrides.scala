@@ -3,8 +3,9 @@
 
 package com.microsoft.azure.synapse.ml.services.openai
 
-private[openai] object OpenAIPromptPythonOverrides {
-  private def replaceExactlyOnce(value: String, target: String, replacement: String, errorMessage: String): String = {
+private[services] object OpenAIPromptPythonOverrides {
+  private[services] def replaceExactlyOnce(value: String, target: String,
+                                           replacement: String, errorMessage: String): String = {
     require(value.sliding(target.length).count(_ == target) == 1, errorMessage)
     value.replace(target, replacement)
   }
@@ -46,7 +47,7 @@ private[openai] object OpenAIPromptPythonOverrides {
         |    )
         |    if (
         |        post_processing == ""
-        |        and not self._post_processing_explicitly_set
+        |        and not self._post_processing_is_explicit()
         |    ):
         |        post_processing = None
         |    inferred_post_processing = self._validate_post_processing_options(
@@ -117,7 +118,7 @@ private[openai] object OpenAIPromptPythonOverrides {
         |    if (
         |        post_processing == ""
         |        and not post_processing_explicit
-        |        and not self._post_processing_explicitly_set
+        |        and not self._post_processing_is_explicit()
         |    ):
         |        post_processing = None
         |    inferred_post_processing = self._validate_post_processing_options(
@@ -139,7 +140,32 @@ private[openai] object OpenAIPromptPythonOverrides {
     )
   }
 
-  val AdditionalMethods: String =
+  def additionalMethods(className: String, postProcessingIsExplicit: String): String =
+    AdditionalMethods + s"""
+      |def _post_processing_is_explicit(self):
+      |    return $postProcessingIsExplicit
+      |
+      |def clear(self, param):
+      |    if param == self.postProcessing:
+      |        self._post_processing_explicitly_set = False
+      |    return super($className, self).clear(param)
+      |
+      |def copy(self, extra=None):
+      |    if extra is None:
+      |        extra = {}
+      |    result = super($className, self).copy(extra)
+      |    result._post_processing_explicitly_set = (
+      |        self._post_processing_explicitly_set
+      |        or self.postProcessing in extra
+      |    )
+      |    if self.postProcessingOptions in extra:
+      |        result.setPostProcessingOptions(result.getPostProcessingOptions())
+      |    elif self.postProcessing in extra:
+      |        result._validate_post_processing(result.getPostProcessing())
+      |    return result
+      |""".stripMargin
+
+  private val AdditionalMethods: String =
     """
       |def _to_java_post_processing_options(self, value):
       |    value = self._normalize_post_processing_options(value)
@@ -257,24 +283,5 @@ private[openai] object OpenAIPromptPythonOverrides {
       |    if inferred_post_processing:
       |        self._set(postProcessing=inferred_post_processing)
       |    return self
-      |
-      |def clear(self, param):
-      |    if param == self.postProcessing:
-      |        self._post_processing_explicitly_set = False
-      |    return super(OpenAIPrompt, self).clear(param)
-      |
-      |def copy(self, extra=None):
-      |    if extra is None:
-      |        extra = {}
-      |    result = super(OpenAIPrompt, self).copy(extra)
-      |    result._post_processing_explicitly_set = (
-      |        self._post_processing_explicitly_set
-      |        or self.postProcessing in extra
-      |    )
-      |    if self.postProcessingOptions in extra:
-      |        result.setPostProcessingOptions(result.getPostProcessingOptions())
-      |    elif self.postProcessing in extra:
-      |        result._validate_post_processing(result.getPostProcessing())
-      |    return result
       |""".stripMargin
 }

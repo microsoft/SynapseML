@@ -12,6 +12,7 @@ import com.microsoft.azure.synapse.ml.services._
 import com.microsoft.azure.synapse.ml.services.aifoundry.{AIFoundryChatCompletion, HasAIFoundryTextParamsExtended}
 import org.apache.hadoop.conf.Configuration
 import org.apache.http.entity.AbstractHttpEntity
+import org.apache.spark.TaskKilledException
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
 import org.apache.spark.ml.param.{BooleanParam, DoubleParam, Param, ParamMap, ParamValidators}
 import org.apache.spark.ml.util.{Identifiable, MLWriter}
@@ -113,6 +114,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   private var postProcessingExplicitlySet: Boolean = false
 
+  protected def hasExplicitPostProcessing: Boolean = postProcessingExplicitlySet
+
   def setPostProcessing(value: String): this.type = {
     OpenAIPromptPostProcessing.inferMode(getPostProcessingOptions)
       .foreach(expectedMode => OpenAIPromptPostProcessing.validateModeValue(value, expectedMode))
@@ -129,7 +132,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   def setPostProcessingOptions(value: Map[String, String]): this.type = {
     def setOrValidatePostProcessing(expected: String): Unit = {
       if (isSet(postProcessing)) {
-        if (getPostProcessing.isEmpty && !postProcessingExplicitlySet) {
+        if (getPostProcessing.isEmpty && !hasExplicitPostProcessing) {
           set(postProcessing, expected)
         } else {
           OpenAIPromptPostProcessing.validateModeValue(getPostProcessing, expected)
@@ -165,8 +168,11 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   override protected def pySetParamsFunc: String =
     OpenAIPromptPythonOverrides.setParamsFunc(super.pySetParamsFunc)
 
+  protected def pyHasExplicitPostProcessing: String = "self._post_processing_explicitly_set"
+
   override def pyAdditionalMethods: String =
-    super.pyAdditionalMethods + OpenAIPromptPythonOverrides.AdditionalMethods
+    super.pyAdditionalMethods +
+      OpenAIPromptPythonOverrides.additionalMethods(pyClassName, pyHasExplicitPostProcessing)
 
   override def pyInitFunc(): String =
     OpenAIPromptPythonOverrides.initFunc(super.pyInitFunc())
@@ -185,9 +191,15 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   def setSystemPrompt(value: String): this.type = set(systemPrompt, value)
 
+  /** Called during superclass construction; overrides must not depend on subclass instance state. */
+  protected def supportedApiTypes: Array[String] = Array("chat_completions", "responses")
+
+  /** Called during superclass construction; overrides must not depend on subclass instance state. */
+  protected def defaultApiType: String = "chat_completions"
+
   val apiType = new Param[String](
-    this, "apiType", "The OpenAI API type to use: 'chat_completions' or 'responses'",
-    isValid = ParamValidators.inArray(Array("chat_completions", "responses")))
+    this, "apiType", s"The OpenAI API type to use: ${supportedApiTypes.map(t => s"'$t'").mkString(" or ")}",
+    isValid = ParamValidators.inArray(supportedApiTypes))
 
   GlobalParams.registerParam(apiType, OpenAIApiTypeKey)
 
@@ -274,7 +286,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     messagesCol -> (this.uid + "_messages"),
     dropPrompt -> true,
     systemPrompt -> defaultSystemPrompt,
-    apiType -> "chat_completions",
+    apiType -> defaultApiType,
     columnTypes -> Map.empty,
     timeout -> 360.0,
     store -> Left(false)
@@ -493,6 +505,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
           )
         } match {
           case scala.util.Success(msgs) => (msgs, null) //scalastyle:ignore null
+          case scala.util.Failure(e: TaskKilledException) => throw e
           case scala.util.Failure(e) => (null, e.getMessage) //scalastyle:ignore null
         }
     }
@@ -577,10 +590,17 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     )
   }
 
-  private[openai] def createMessagesForRow(
+  private[services] def createMessagesForRow(
     userMessage: String,
     attachmentMap: Map[String, String],
     attachmentOrder: Seq[String]
+  ): Seq[OpenAICompositeMessage] = createMessagesForRow(userMessage, attachmentMap, attachmentOrder, None)
+
+  private[services] def createMessagesForRow(
+    userMessage: String,
+    attachmentMap: Map[String, String],
+    attachmentOrder: Seq[String],
+    conf: Option[Configuration]
   ): Seq[OpenAICompositeMessage] = {
     // Filter to get only non-null, non-empty path values
     val orderedAttachments = attachmentOrder.flatMap { columnName =>
@@ -591,46 +611,22 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     if (attachmentOrder.nonEmpty && orderedAttachments.isEmpty) {
       null //scalastyle:ignore null
     } else {
-      val contentParts = buildContentParts(userMessage, orderedAttachments)
-      val messages = getPromptsForMessage(Left(contentParts))
-      messages
+      val contentParts = buildContentParts(userMessage, orderedAttachments, conf)
+      getPromptsForMessage(Left(contentParts))
     }
   }
 
-  private def buildContentParts(promptText: String, attachmentPaths: Seq[String]): Seq[Map[String, String]] = {
-    var parts = Seq(stringMessageWrapper(promptText))
-    if (!attachmentPaths.isEmpty) {
-      parts = parts ++ attachmentPaths.flatMap(wrapFileToMessagesList)
-    }
-    parts
-  }
+  private def buildContentParts(promptText: String, attachmentPaths: Seq[String],
+                                conf: Option[Configuration]): Seq[Map[String, String]] =
+    Seq(stringMessageWrapper(promptText)) ++ attachmentPaths.flatMap(path => wrapFileToMessagesList(path, conf))
 
-  private def prepareFile(filePathStr: String): (String, Array[Byte], String, String) = {
-    val limit = if (isSet(fileSizeLimitMB)) Some(getFileSizeLimitMB) else None
-    OpenAIAttachmentUtils.prepareFile(
-      filePathStr, limit, imageExtensions, audioExtensions, textExtensions)
-  }
+  private def attachmentSizeLimit: Option[Double] =
+    get(fileSizeLimitMB).orElse(if (useBoundedAttachments) getDefault(fileSizeLimitMB) else None)
 
-  private def makeResponsesFileMessage(
-    fileName: String,
-    fileBytes: Array[Byte],
-    fileType: String,
-    mimeType: String
-  ): Map[String, String] = {
-    OpenAIAttachmentUtils.responsesMessage(fileName, fileBytes, fileType, mimeType, stringMessageWrapper)
-  }
+  protected def useBoundedAttachments: Boolean = false
 
-  private def makeChatCompletionsFileMessage(
-    fileName: String,
-    fileBytes: Array[Byte],
-    fileType: String,
-    mimeType: String
-  ): Map[String, String] = {
-    OpenAIAttachmentUtils.chatCompletionsMessage(fileBytes, fileType, mimeType, stringMessageWrapper)
-  }
-
-  private def wrapFileToMessagesList(filePathStr: String): Seq[Map[String, String]] = {
-    val limit = if (isSet(fileSizeLimitMB)) Some(getFileSizeLimitMB) else None
+  private def wrapFileToMessagesList(filePathStr: String, conf: Option[Configuration]): Seq[Map[String, String]] = {
+    val limit = attachmentSizeLimit
     val fileMessage = if (OpenAIAttachmentUtils.isDataUrl(filePathStr)) {
       this.getApiType match {
         case "responses" =>
@@ -641,12 +637,14 @@ class OpenAIPrompt(override val uid: String) extends Transformer
             filePathStr, limit, imageExtensions, audioExtensions, textExtensions, stringMessageWrapper)
       }
     } else {
-      val (fileName, fileBytes, fileType, mimeType) = prepareFile(filePathStr)
+      val (fileName, fileBytes, fileType, mimeType) = OpenAIAttachmentUtils.prepareFile(
+        filePathStr, limit, imageExtensions, audioExtensions, textExtensions,
+        useBoundedAttachments, conf.getOrElse(new Configuration()))
       this.getApiType match {
         case "responses" =>
-          makeResponsesFileMessage(fileName, fileBytes, fileType, mimeType)
+          OpenAIAttachmentUtils.responsesMessage(fileName, fileBytes, fileType, mimeType, stringMessageWrapper)
         case "chat_completions" =>
-          makeChatCompletionsFileMessage(fileName, fileBytes, fileType, mimeType)
+          OpenAIAttachmentUtils.chatCompletionsMessage(fileBytes, fileType, mimeType, stringMessageWrapper)
       }
     }
     Seq(fileMessage)
@@ -710,7 +708,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       case Some(inferredMode) =>
         val configuredMode = get(postProcessing)
           .getOrElse(throw new IllegalArgumentException(s"postProcessing must be '$inferredMode'"))
-        if (configuredMode.isEmpty && postProcessingExplicitlySet) {
+        if (configuredMode.isEmpty && hasExplicitPostProcessing) {
           throw new IllegalArgumentException(s"postProcessing must be '$inferredMode'")
         }
         if (configuredMode.nonEmpty) {
@@ -723,7 +721,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     effectivePostProcessing
   }
 
-  private def getParser: OutputParser = {
+  private[services] def getParser: OutputParser = {
     val opts = getPostProcessingOptions
     val effectivePostProcessing = getEffectivePostProcessing
     effectivePostProcessing.toLowerCase match {
