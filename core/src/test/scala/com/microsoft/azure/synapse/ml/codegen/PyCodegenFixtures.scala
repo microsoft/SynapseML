@@ -213,6 +213,43 @@ private[codegen] object PyCodegenFixtures {
            |""".stripMargin
   }
 
+  class BodyStringPythonStage(scopeHeader: String) extends TypedPythonStage("bodyStringPythonStage") {
+
+    override protected lazy val classNameHelper: String = "BodyStringPythonStage"
+
+    override def pyAdditionalMethods: String =
+      super.pyAdditionalMethods +
+        s"""|$scopeHeader
+            |    label = '''
+            |This is string content, not a dedent.
+            |'''
+            |    def getModelCol():
+            |        return "nested"
+            |    def nestedOnly():
+            |        return None
+            |
+            |def afterScope(self):
+            |    return None
+            |""".stripMargin
+  }
+
+  class ConflictingBodyStringAliasMethodStage(scopeHeader: String)
+    extends TypedPythonStage("conflictingBodyStringAliasMethodStage") {
+
+    override protected lazy val classNameHelper: String = "ConflictingBodyStringAliasMethodStage"
+
+    override def pyAdditionalMethods: String =
+      super.pyAdditionalMethods +
+        s"""|$scopeHeader
+            |    label = '''
+            |def notAHeader(
+            |'''
+            |
+            |def getModelCol(self):
+            |    return "model"
+            |""".stripMargin
+  }
+
   class DecoratedPythonStage extends TypedPythonStage("decoratedPythonStage") {
 
     override protected lazy val classNameHelper: String = "DecoratedPythonStage"
