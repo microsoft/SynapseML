@@ -830,6 +830,9 @@ jobs:
       language:
         PACKAGE: "services.language"
         FLAKY: "true"
+      ai:
+        PACKAGE: "services.ai"
+        FLAKY: "true"
       openai:
         PACKAGE: "services.openai"
         FLAKY: "true"

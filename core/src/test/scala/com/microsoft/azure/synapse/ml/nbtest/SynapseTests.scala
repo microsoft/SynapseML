@@ -45,8 +45,8 @@ class SynapseTestCleanup extends TestBase {
 
 }
 
-class SynapseTests extends TestBase {
-  final val excludedNotebooks: Set[String] = Set(
+object SynapseTests {
+  private[nbtest] val ExcludedNotebooks: Set[String] = Set(
     "Finetune", // Excluded by design task 1829306
     "GPU",
     "PhiModel",
@@ -56,6 +56,9 @@ class SynapseTests extends TestBase {
     "DocumentQuestionandAnsweringwithPDFs", // Wait for Synapse fix
     "SetupCognitive", // No code to run
     "CreateaSparkCluster", // No code to run
+    // Opt-in model calls are qualified separately from automatic notebook jobs.
+    "ExploreAlgorithmsOpenAIAIPrompt",
+    "ExploreAlgorithmsOpenAIQuickstartDurableAIresults",
     "Deploying", // New issue
     "TuningHyperOpt", // New issue
     "IsolationForests", // New issue
@@ -64,13 +67,18 @@ class SynapseTests extends TestBase {
     "ExploreAlgorithmsDeepLearningQuickstartONNXModelInference" // ONNX package issues
   )
 
+  private[nbtest] def selectNotebooks(files: Array[File]): Array[File] =
+    files.filterNot(file => ExcludedNotebooks.exists(excluded => file.getAbsolutePath.contains(excluded)))
+      .sortBy(_.getAbsolutePath)
+}
+
+class SynapseTests extends TestBase {
+  final val excludedNotebooks: Set[String] = SynapseTests.ExcludedNotebooks
+
   val generatedNotebooks = SharedNotebookE2ETestUtilities.generateNotebooks()
   println(s"Found ${generatedNotebooks.length} notebooks in ${SharedNotebookE2ETestUtilities.NotebooksDir}")
 
-  val selectedPythonFiles: Array[File] = generatedNotebooks
-    .filterNot(file => excludedNotebooks.exists(excluded => file.getAbsolutePath.contains(excluded)))
-    // .filter(file => file.getName().contains("OnePlusOne"))
-    .sortBy(_.getAbsolutePath)
+  val selectedPythonFiles: Array[File] = SynapseTests.selectNotebooks(generatedNotebooks)
 
   val expectedPoolCount: Int = selectedPythonFiles.length
 

@@ -10,10 +10,27 @@ import org.scalatest.funsuite.AnyFunSuite
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
+import java.io.File
 import java.time.Instant
 import scala.collection.mutable
 
 class DatabricksUtilitiesSuite extends AnyFunSuite {
+
+  test("Exclude opt-in AIPrompt notebooks from automatic Databricks inference coverage") {
+    val names = Set("AIPrompt.ipynb", "Quickstart - Durable AI results.ipynb")
+    val examples = DatabricksUtilities.NotebookFiles.filter(file => names(file.getName))
+    assert(examples.map(_.getName).toSet == names)
+    assert(examples.forall(file => !DatabricksUtilities.CPUNotebooks.contains(file)))
+    assert(DatabricksUtilities.CPUNotebooks.nonEmpty)
+  }
+
+  test("Exclude opt-in AIPrompt notebooks without constructing a Synapse cloud runner") {
+    val examples = Array(
+      new File("ExploreAlgorithmsOpenAIAIPrompt.py"),
+      new File("ExploreAlgorithmsOpenAIQuickstartDurableAIresults.py"),
+      new File("OnePlusOne.py"))
+    assert(SynapseTests.selectNotebooks(examples).toSeq == Seq(examples.last))
+  }
 
   test("Accept only the trusted Databricks AAD workspace") {
     val environment = Map(

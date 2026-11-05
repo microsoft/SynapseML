@@ -144,7 +144,7 @@ class ComplexParamsMixin(MLReadable):
                 getattr(self, setter)(value)
         return self
 
-    def _transfer_params_from_java(self):
+    def _transfer_params_from_java(self, include_defaults=False):
         """
         Transforms the embedded com.microsoft.azure.synapse.ml.core.serialize.params from the companion Java object.
         """
@@ -160,6 +160,15 @@ class ComplexParamsMixin(MLReadable):
                     java_param.getClass(),
                 )
                 is_service_param = self._is_service_param(java_param)
+                if include_defaults and not is_service_param and not is_complex_param:
+                    default = self._java_obj.getDefault(java_param)
+                    if default.isDefined():
+                        value = _java2py(sc, default.get())
+                        if isinstance(value, JavaObject):
+                            value = json.loads(java_param.jsonEncode(default.get()))
+                        self._setDefault(**{param.name: value})
+                    else:
+                        self._defaultParamMap.pop(param, None)
                 if self._java_obj.isSet(java_param):
                     if is_complex_param:
                         value = self._java_obj.getOrDefault(java_param)

@@ -38,8 +38,8 @@ trait HasMessagesInput extends Params {
 case object OpenAIDeploymentNameKey extends GlobalKey[Either[String, String]]
 case object OpenAIEmbeddingDeploymentNameKey extends GlobalKey[Either[String, String]]
 
-private[openai] object OpenAIEndpointUtils {
-  private def stripTrailingSlashes(value: String): String = value.replaceAll("/+$", "")
+private[services] object OpenAIEndpointUtils {
+  def stripTrailingSlashes(value: String): String = value.replaceAll("/+$", "")
 
   private def withoutQueryOrFragment(value: String): String = {
     val stopAt = Seq(value.indexOf("?"), value.indexOf("#")).filter(_ >= 0) match {
@@ -555,8 +555,16 @@ abstract class OpenAIServicesBase(override val uid: String) extends CognitiveSer
   }
 }
 
-private[openai] object OpenAIFabricHeaders {
+private[services] object OpenAIFabricModelStatus extends OpenAIFabricSetting
+
+private[services] object OpenAIFabricHeaders {
   lazy val Values: Map[String, String] = build(PlatformDetails.FabricRuntime)
+
+  def merge(headers: Option[Map[String, String]]): Map[String, String] = {
+    val remaining = headers.map(ServiceAuthHeaders.sanitizeHeaderMap).getOrElse(Map.empty)
+      .filterNot { case (name, _) => Values.keys.exists(_.equalsIgnoreCase(name)) }
+    remaining ++ Values
+  }
 
   private[openai] def build(runtime: String): Map[String, String] = Map(
     "X-Taxonomy-TrafficType" -> "Background",
@@ -591,10 +599,7 @@ trait HasOpenAIFabricHeaders extends HasCognitiveServiceInput {
     val headers = super.getCustomHeaders(row)
     if (usingImplicitFabricEndpoint) {
       // SynapseML owns the complete workload classification on its implicit Fabric endpoint.
-      val fabricHeaders = OpenAIFabricHeaders.Values
-      val remainingHeaders = headers.map(ServiceAuthHeaders.sanitizeHeaderMap).getOrElse(Map.empty)
-        .filterNot { case (name, _) => fabricHeaders.keys.exists(_.equalsIgnoreCase(name)) }
-      Some(if (remainingHeaders.isEmpty) fabricHeaders else remainingHeaders ++ fabricHeaders)
+      Some(OpenAIFabricHeaders.merge(headers))
     } else {
       headers
     }

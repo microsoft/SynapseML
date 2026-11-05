@@ -4,139 +4,13 @@
 package com.microsoft.azure.synapse.ml.codegen
 
 import org.apache.commons.io.{FileUtils, IOUtils}
-import org.apache.spark.ml.classification.{ProbabilisticClassificationModel, ProbabilisticClassifier}
-import org.apache.spark.ml.linalg.{Vector, Vectors}
-import org.apache.spark.ml.{Estimator, Model, Transformer}
-import org.apache.spark.ml.param.{DoubleParam, Param, ParamMap, StringArrayParam}
-import org.apache.spark.sql.{DataFrame, Dataset}
-import org.apache.spark.sql.types.StructType
 import org.scalatest.funsuite.AnyFunSuite
-import spray.json.DefaultJsonProtocol._
 
 import java.io.File
 import java.lang.reflect.Modifier
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.zip.ZipFile
-
-// Nesting does not hide these JVM classes; discovery must exclude their test artifact.
-private[codegen] object PyCodegenFixtures {
-
-  class TypedPythonStage(override val uid: String = "typedPythonStage")
-    extends Transformer with Wrappable {
-
-    override protected lazy val classNameHelper: String = "TypedPythonStage"
-
-    val count = new DoubleParam(this, "count", "numeric value")
-    val labels = new StringArrayParam(this, "labels", "labels")
-    val model = new com.microsoft.azure.synapse.ml.param.ServiceParam[String](
-      this, "model", "model name")
-    val text = new Param[String](this, "text", "text value")
-
-    def getModel: String = ""
-    def setAlias(value: String): this.type = this
-
-    override def pyAdditionalMethods: String =
-      super.pyAdditionalMethods +
-        """|def setAlias(self, value):
-           |    return self
-           |
-           |def clear(self, param):
-           |    return None
-           |
-           |def copy(self, extra=None):
-           |    return self
-           |""".stripMargin
-
-    override def transform(dataset: Dataset[_]): DataFrame = dataset.toDF()
-
-    override def transformSchema(schema: StructType): StructType = schema
-
-    override def copy(extra: ParamMap): TypedPythonStage = defaultCopy(extra)
-  }
-
-  class ForeignParamPythonStage extends TypedPythonStage("foreignParamPythonStage") {
-
-    override protected lazy val classNameHelper: String = "ForeignParamPythonStage"
-
-    override val text = new Param[String]("otherStage", "text", "text value")
-  }
-
-  class ConflictingServiceAliasStage(override val uid: String = "conflictingServiceAliasStage")
-    extends TypedPythonStage(uid) {
-
-    override protected lazy val classNameHelper: String = "ConflictingServiceAliasStage"
-
-    val modelCol = new Param[String](this, "modelCol", "conflicting real parameter")
-  }
-
-  class ConflictingServiceAliasMethodStage(override val uid: String = "conflictingServiceAliasMethodStage")
-    extends TypedPythonStage(uid) {
-
-    override protected lazy val classNameHelper: String = "ConflictingServiceAliasMethodStage"
-
-    override def pyAdditionalMethods: String =
-      super.pyAdditionalMethods +
-        """|def getModelCol(self):
-           |    return "model"
-           |""".stripMargin
-  }
-
-  class TypedPythonModel(override val uid: String = "typedPythonModel")
-    extends Model[TypedPythonModel] with Wrappable {
-
-    override protected lazy val classNameHelper: String = "TypedPythonModel"
-
-    override def transform(dataset: Dataset[_]): DataFrame = dataset.toDF()
-
-    override def transformSchema(schema: StructType): StructType = schema
-
-    override def copy(extra: ParamMap): TypedPythonModel = defaultCopy(extra)
-  }
-
-  class TypedPythonEstimator(override val uid: String = "typedPythonEstimator")
-    extends Estimator[TypedPythonModel] with Wrappable {
-
-    override protected lazy val classNameHelper: String = "TypedPythonEstimator"
-
-    override protected def companionModelClassName: String =
-      "com.microsoft.azure.synapse.ml.codegen.TypedPythonModel"
-
-    override def fit(dataset: Dataset[_]): TypedPythonModel = new TypedPythonModel()
-
-    override def transformSchema(schema: StructType): StructType = schema
-
-    override def copy(extra: ParamMap): TypedPythonEstimator = defaultCopy(extra)
-  }
-
-  class TypedPythonClassificationModel(override val uid: String = "typedPythonClassificationModel")
-    extends ProbabilisticClassificationModel[Vector, TypedPythonClassificationModel] with Wrappable {
-
-    override protected lazy val classNameHelper: String = "TypedPythonClassificationModel"
-
-    override def numClasses: Int = 2
-
-    override def predictRaw(features: Vector): Vector = Vectors.dense(0.0, 1.0)
-
-    override protected def raw2probabilityInPlace(rawPrediction: Vector): Vector = rawPrediction
-
-    override def copy(extra: ParamMap): TypedPythonClassificationModel = defaultCopy(extra)
-  }
-
-  class TypedPythonClassifier(override val uid: String = "typedPythonClassifier")
-    extends ProbabilisticClassifier[Vector, TypedPythonClassifier, TypedPythonClassificationModel] with Wrappable {
-
-    override protected lazy val classNameHelper: String = "TypedPythonClassifier"
-
-    override protected def companionModelClassName: String =
-      "com.microsoft.azure.synapse.ml.codegen.TypedPythonClassificationModel"
-
-    override protected def train(dataset: Dataset[_]): TypedPythonClassificationModel =
-      new TypedPythonClassificationModel()
-
-    override def copy(extra: ParamMap): TypedPythonClassifier = defaultCopy(extra)
-  }
-}
 
 class PyCodegenSuite extends AnyFunSuite {
 
@@ -229,6 +103,18 @@ class PyCodegenSuite extends AnyFunSuite {
       stream.close()
     }
     assert(process.waitFor() === 0, output)
+  }
+
+  private def assertAliasConflict(root: File, stage: TypedPythonStage): Unit = {
+    val sourceFile = new File(root, "fixture.py")
+    writeUtf8(sourceFile, "class Fixture:\n" +
+      stage.pyAdditionalMethods.split("\n").map("    " + _).mkString("\n") + "\n")
+    assertPythonCompiles(sourceFile)
+    val error = intercept[IllegalArgumentException] {
+      stage.makePyFile(codegenConfig(root))
+    }
+    assert(error.getMessage.contains(
+      "Generated Python method getModelCol conflicts with a hand-written method"))
   }
 
   private def wheelEntryContent(wheel: File, path: String): Option[String] = {
@@ -339,6 +225,164 @@ class PyCodegenSuite extends AnyFunSuite {
     }
   }
 
+  test("generated additional method stubs retain binding across comments, blanks, and stacked decorators") {
+    withTempDir { root =>
+      val conf = codegenConfig(root)
+      new TypedPythonStage().makePyFile(conf)
+      val stubFile = new File(packageDir(conf.pySrcDir, "/codegen"), "TypedPythonStage.pyi")
+      val stub = readUtf8(stubFile)
+      assert(stub.contains("@staticmethod\n    def loadOutput(spark: Any, outputPath: Any) -> Any: ..."))
+      assert(stub.contains("@classmethod\n    def fromPath(cls, path: Any) -> Any: ..."))
+      assert(!stub.contains("@classmethod\n    def describe"))
+      assert(stub.contains("def describe(self) -> Any: ..."))
+      assert(!stub.contains("def check_keys("))
+      assert(!stub.contains("def _identity("))
+      assert(occurrences(stub, "def getModelCol(") == 1)
+      assertPythonCompiles(stubFile)
+    }
+  }
+
+  test("class-body control blocks expose methods but not nested function or class members") {
+    withTempDir { root =>
+      val conf = codegenConfig(root)
+      new ConditionalPythonStage().makePyFile(conf)
+      val folder = packageDir(conf.pySrcDir, "/codegen")
+      val stubFile = new File(folder, "ConditionalPythonStage.pyi")
+      val stub = readUtf8(stubFile)
+      assert(stub.contains("@staticmethod\n    def conditionalValue(value: Any) -> Any: ..."))
+      assert(stub.contains("def tryValue(self) -> Any: ..."))
+      assert(stub.contains("def fallbackValue(self) -> Any: ..."))
+      assert(!stub.contains("def hiddenConditional("))
+      assert(!stub.contains("def nestedOnly("))
+      assert(occurrences(stub, "def getModelCol(") == 1)
+      assertPythonCompiles(new File(folder, "ConditionalPythonStage.py"))
+      assertPythonCompiles(stubFile)
+    }
+  }
+
+  Seq(new MultilineFunctionPythonStage, new MultilineClassPythonStage).foreach { stage =>
+    val className = stage.getClass.getSimpleName
+    test(s"multiline scope headers exclude nested members from $className") {
+      withTempDir { root =>
+        val conf = codegenConfig(root)
+        stage.makePyFile(conf)
+        val folder = packageDir(conf.pySrcDir, "/codegen")
+        val stubFile = new File(folder, s"$className.pyi")
+        val stub = readUtf8(stubFile)
+        assert(stub.contains("def afterScope(self) -> Any: ..."))
+        assert(!stub.contains("def nestedOnly("))
+        assert(occurrences(stub, "def getModelCol(") == 1)
+        assert(occurrences(stub, "def setModelCol(") == 1)
+        assertPythonCompiles(new File(folder, s"$className.py"))
+        assertPythonCompiles(stubFile)
+      }
+    }
+  }
+
+  Seq("'''", "\"\"\"").foreach { quote =>
+    test(s"multiline string headers retain subsequent class methods with $quote") {
+      withTempDir { root =>
+        val conf = codegenConfig(root)
+        new MultilineStringPythonStage(quote).makePyFile(conf)
+        val folder = packageDir(conf.pySrcDir, "/codegen")
+        val stubFile = new File(folder, "MultilineStringPythonStage.pyi")
+        assertPythonCompiles(new File(folder, "MultilineStringPythonStage.py"))
+        assertPythonCompiles(stubFile)
+        val stub = readUtf8(stubFile)
+        assert(stub.contains("def afterScope(self) -> Any: ..."))
+        assert(occurrences(stub, "def getModelCol(") == 1)
+      }
+    }
+
+    test(s"multiline string headers detect real accessor collisions with $quote") {
+      withTempDir { root =>
+        assertAliasConflict(root, new ConflictingMultilineStringAliasMethodStage(quote))
+      }
+    }
+  }
+
+  test("binding decorator inline comments preserve static and class method stubs") {
+    withTempDir { root =>
+      val conf = codegenConfig(root)
+      new DecoratedPythonStage().makePyFile(conf)
+      val folder = packageDir(conf.pySrcDir, "/codegen")
+      val stubFile = new File(folder, "DecoratedPythonStage.pyi")
+      assertPythonCompiles(new File(folder, "DecoratedPythonStage.py"))
+      assertPythonCompiles(stubFile)
+      val stub = readUtf8(stubFile)
+      assert(stub.contains("@staticmethod\n    def commentedStatic(value: Any) -> Any: ..."))
+      assert(stub.contains("@classmethod\n    def commentedClass(cls, value: Any) -> Any: ..."))
+    }
+  }
+
+  Seq("def bodyString(self):", "class BodyString:").foreach { scopeHeader =>
+    test(s"body strings do not expose nested accessors in $scopeHeader") {
+      withTempDir { root =>
+        val conf = codegenConfig(root)
+        val stage = new BodyStringPythonStage(scopeHeader)
+        val sourceFile = new File(root, "fixture.py")
+        writeUtf8(sourceFile, "class Fixture:\n" +
+          stage.pyAdditionalMethods.split("\n").map("    " + _).mkString("\n") + "\n")
+        assertPythonCompiles(sourceFile)
+        stage.makePyFile(conf)
+        val folder = packageDir(conf.pySrcDir, "/codegen")
+        val stubFile = new File(folder, "BodyStringPythonStage.pyi")
+        val stub = readUtf8(stubFile)
+        assert(stub.contains("def afterScope(self) -> Any: ..."))
+        assert(!stub.contains("def nestedOnly("))
+        assert(occurrences(stub, "def getModelCol(") == 1)
+        assertPythonCompiles(new File(folder, "BodyStringPythonStage.py"))
+        assertPythonCompiles(stubFile)
+      }
+    }
+
+    test(s"body strings do not hide real accessor collisions after $scopeHeader") {
+      withTempDir { root =>
+        assertAliasConflict(root, new ConflictingBodyStringAliasMethodStage(scopeHeader))
+      }
+    }
+  }
+
+  Seq(false, true).foreach { controlBlock =>
+    test(s"class statement strings retain subsequent methods with control block $controlBlock") {
+      withTempDir { root =>
+        val conf = codegenConfig(root)
+        new ClassStatementStringPythonStage(controlBlock, "afterString").makePyFile(conf)
+        val folder = packageDir(conf.pySrcDir, "/codegen")
+        val stubFile = new File(folder, "ClassStatementStringPythonStage.pyi")
+        assertPythonCompiles(new File(folder, "ClassStatementStringPythonStage.py"))
+        assertPythonCompiles(stubFile)
+        val stub = readUtf8(stubFile)
+        assert(stub.contains("def afterString(self) -> Any: ..."))
+        assert(!stub.contains("def notAHeader("))
+      }
+    }
+
+    test(s"class statement strings preserve alias checks with control block $controlBlock") {
+      withTempDir { root =>
+        assertAliasConflict(root, new ClassStatementStringPythonStage(controlBlock, "getModelCol"))
+      }
+    }
+  }
+
+  test("binding decorators survive multiline decorator expressions") {
+    withTempDir { root =>
+      val conf = codegenConfig(root)
+      new DecoratedPythonStage().makePyFile(conf)
+      val folder = packageDir(conf.pySrcDir, "/codegen")
+      val stubFile = new File(folder, "DecoratedPythonStage.pyi")
+      assertPythonCompiles(new File(folder, "DecoratedPythonStage.py"))
+      assertPythonCompiles(stubFile)
+      val stub = readUtf8(stubFile)
+      assert(stub.contains("@staticmethod\n    def decoratedStatic(value: Any) -> Any: ..."))
+      assert(stub.contains("@classmethod\n    def decoratedClass(cls, value: Any) -> Any: ..."))
+      assert(stub.contains("@staticmethod\n    def continuedStatic(value: Any) -> Any: ..."))
+      assert(stub.contains("def plainValue(self) -> Any: ..."))
+      assert(!stub.contains("@staticmethod\n    def plainValue"))
+      assert(!stub.contains("@classmethod\n    def plainValue"))
+    }
+  }
+
   test("generated wrappers without service parameters have empty service metadata") {
     withTempDir { root =>
       val conf = codegenConfig(root)
@@ -361,11 +405,13 @@ class PyCodegenSuite extends AnyFunSuite {
 
   test("service column accessors cannot shadow hand-written Python methods") {
     withTempDir { root =>
-      val error = intercept[IllegalArgumentException] {
-        new ConflictingServiceAliasMethodStage().makePyFile(codegenConfig(root))
-      }
-      assert(error.getMessage.contains(
-        "Generated Python method getModelCol conflicts with a hand-written method"))
+      assertAliasConflict(root, new ConflictingServiceAliasMethodStage())
+    }
+  }
+
+  test("service column accessors cannot shadow methods in class-body control blocks") {
+    withTempDir { root =>
+      assertAliasConflict(root, new ConflictingConditionalAliasMethodStage())
     }
   }
 
