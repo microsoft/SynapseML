@@ -329,7 +329,9 @@ object URLEncodingUtils {
 }
 
 private[ml] object ServiceAuthHeaders {
-  private[ml] case class Resolution(headers: Map[String, String], usesFabricFallback: Boolean)
+  private[ml] case class Resolution(headers: Map[String, String],
+                                    usesFabricFallback: Boolean,
+                                    usesSubscriptionKey: Boolean)
 
   private[ml] def nonBlank(value: String): Boolean = value != null && value.trim.nonEmpty
 
@@ -377,20 +379,15 @@ private[ml] object ServiceAuthHeaders {
     def isAuthHeaderName(name: String): Boolean =
       name.equalsIgnoreCase(subscriptionKeyHeaderName) || name.equalsIgnoreCase(aadHeaderName)
 
-    // Resolve exactly one auth header across every credential source in a single, case-insensitive
-    // precedence step. Blank values are skipped so they cannot suppress a valid lower-priority
-    // credential, and the automatic Fabric fallback ranks below a credential embedded in
-    // customHeaders (matching how management-index requests, which have no fallback, resolve auth).
-    // fabricFallbackAuthHeader is by-name and lowest priority, so it is evaluated only when every
-    // higher-priority source above is absent. A fallback that acquires a token (and may throw) is
-    // therefore never run while a subscription key, AAD token, explicit custom-auth header, or an
-    // embedded customHeaders credential is present.
-    val explicitAuthHeader: Option[(String, String)] = subscriptionKey.filter(nonBlank)
-      .map(value => subscriptionKeyHeaderName -> value)
-      .orElse(aadToken.filter(nonBlank).map(value => aadHeaderName -> ("Bearer " + value)))
-      .orElse(customAuthHeader.filter(nonBlank).map(value => aadHeaderName -> value))
-      .orElse(embeddedCredential(providedCustomHeaders, subscriptionKeyHeaderName))
-      .orElse(embeddedCredential(providedCustomHeaders, aadHeaderName))
+    // Select one non-blank credential and retain its source even when the auth header names coincide.
+    // The by-name Fabric fallback is evaluated only when no explicit or embedded credential exists.
+    val explicitAuth: Option[((String, String), Boolean)] = subscriptionKey.filter(nonBlank)
+      .map(value => (subscriptionKeyHeaderName -> value) -> true)
+      .orElse(aadToken.filter(nonBlank).map(value => (aadHeaderName -> ("Bearer " + value)) -> false))
+      .orElse(customAuthHeader.filter(nonBlank).map(value => (aadHeaderName -> value) -> false))
+      .orElse(embeddedCredential(providedCustomHeaders, subscriptionKeyHeaderName).map(_ -> true))
+      .orElse(embeddedCredential(providedCustomHeaders, aadHeaderName).map(_ -> false))
+    val explicitAuthHeader = explicitAuth.map(_._1)
     val fabricAuthHeader = if (explicitAuthHeader.isDefined) {
       None
     } else {
@@ -421,7 +418,8 @@ private[ml] object ServiceAuthHeaders {
 
     Resolution(
       new scala.collection.immutable.TreeMap[String, String]() ++ headers,
-      usesFabricFallback = fabricAuthHeader.isDefined)
+      usesFabricFallback = fabricAuthHeader.isDefined,
+      usesSubscriptionKey = explicitAuth.exists(_._2))
   }
 
   def build(subscriptionKey: Option[String],

@@ -19,6 +19,7 @@ import org.apache.spark.ml.{
   ComplexParamsReadable,
   ComplexParamsTestHelper,
   ComplexParamsWritable,
+  ExplicitComplexParamsWritable,
   ObjectSerializer,
   PipelineStage,
   Serializer
@@ -120,6 +121,11 @@ class MixedParamTest(override val uid: String) extends TestEstimatorBase(uid)
 
 object MixedParamTest extends ComplexParamsReadable[MixedParamTest]
 
+class TestableExplicitSessionParamTest(override val uid: String) extends TestableSessionParamTest(uid)
+  with ExplicitComplexParamsWritable {
+  override protected def validateForWrite(): Unit = ()
+}
+
 class ValidateComplexParamSerializer extends TestBase {
   val saveFile = new File(tmpDir.toFile, "m1.model").toString
   val saveFile2 = new File(tmpDir.toFile, "m2.model").toString
@@ -141,16 +147,19 @@ class ValidateComplexParamSerializer extends TestBase {
     }
   }
 
-  test("complex writers use their assigned Spark session") {
-    val stage = new TestableSessionParamTest("assigned-session")
-    val session = spark.newSession()
-    session.conf.set(TestableSessionParamTest.ConfigKey, stage.uid)
-    withActiveSession(Some(spark)) {
-      val bytes = Array[Byte](1, 2, 3)
-      val path = tmpDir.resolve("assigned-session.model").toString
-      stage.set(stage.byteArray, bytes).write.session(session).save(path)
-      val restored = TestableSessionParamTest.read.session(session).load(path)
-      assert(restored.getOrDefault(restored.byteArray).sameElements(bytes))
+  Seq(false, true).foreach { explicit =>
+    test(s"complex writers use their assigned Spark session with explicit=$explicit") {
+      val stage = if (explicit) new TestableExplicitSessionParamTest("explicit-session")
+        else new TestableSessionParamTest("legacy-session")
+      val session = spark.newSession()
+      session.conf.set(TestableSessionParamTest.ConfigKey, stage.uid)
+      withActiveSession(Some(spark)) {
+        val bytes = Array[Byte](1, 2, 3)
+        val path = tmpDir.resolve(s"session-$explicit.model").toString
+        stage.set(stage.byteArray, bytes).write.session(session).save(path)
+        val restored = TestableSessionParamTest.read.session(session).load(path)
+        assert(restored.getOrDefault(restored.byteArray).sameElements(bytes))
+      }
     }
   }
 

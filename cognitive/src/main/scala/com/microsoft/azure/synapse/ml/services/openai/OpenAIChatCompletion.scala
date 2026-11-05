@@ -22,32 +22,24 @@ import scala.language.existentials
 
 
 trait HasOpenAITextParamsExtended extends HasOpenAITextParams with HasOpenAIResponseSchema {
-  val responseFormat: ServiceParam[Map[String, Any]] = new ServiceParam[Map[String, Any]](
-    this,
-    "responseFormat",
-    "Response format for the completion. One of 'text', 'json_object', or 'json_schema'.",
-    isRequired = false) {
-    override val payloadName: String = "response_format"
-  }
+  // The argument keeps this factory out of Spark's zero-argument Param discovery.
+  /** Called during trait initialization; overrides must not read uninitialized subclass fields. */
+  protected def createResponseFormatParam(name: String): ServiceParam[Map[String, Any]] =
+    new ServiceParam[Map[String, Any]](
+      this,
+      name,
+      "Response format for the completion. One of 'text', 'json_object', or 'json_schema'.",
+      isRequired = false) {
+      override val payloadName: String = "response_format"
+    }
+
+  // Initialize before sharedTextParams, including when a subclass supplies a specialized Param.
+  val responseFormat: ServiceParam[Map[String, Any]] = createResponseFormatParam("responseFormat")
 
   def getResponseFormat: Map[String, Any] = getScalarParam(responseFormat)
 
   def setResponseFormat(value: Map[String, Any]): this.type = {
-    val normalized = ResponseFormatUtils.normalize(value)
-    val payload =
-      if (normalized.get("type").exists(_.toString.equalsIgnoreCase("json_schema"))) {
-        Map(
-          "type" -> "json_schema",
-          "json_schema" -> {
-            val base = Map(
-              "name" -> normalized("name"),
-              "schema" -> normalized("schema")
-            )
-            normalized.get("strict").map(v => base ++ Map("strict" -> v)).getOrElse(base)
-          }
-        )
-      } else normalized
-    setScalarParam(responseFormat, payload)
+    setScalarParam(responseFormat, ResponseFormatUtils.chat(value))
   }
 
 
@@ -96,12 +88,12 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams with HasOpenAIResp
   )
 }
 
-object OpenAIChatCompletion extends ComplexParamsReadable[OpenAIChatCompletion]
-
 class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(uid)
   with HasOpenAITextParamsExtended with HasMessagesInput with HasCognitiveServiceInput
   with HasOpenAIFabricHeaders with HasInternalJsonOutputParser
   with SynapseMLLogging with HasRAIContentFilter with HasTextOutput {
+  import OpenAIChatCompletion._
+
   logClass(FeatureNames.AiServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAIChatCompletion"))
@@ -207,6 +199,38 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
     super.transformSchema(schema)
   }
 
+  private[openai] def getStringEntity(messages: Seq[Row], optionalParams: Map[String, Any]): StringEntity = {
+    getStringEntityCollectionSeq(messages, optionalParams)
+  }
+
+  private def getStringEntityCollectionSeq(
+      messages: CollectionSeq[Row],
+      optionalParams: Map[String, Any]
+  ): StringEntity = {
+    val mappedMessages = encodedMessageMaps(messages)
+    val fullPayload = optionalParams.updated("messages", mappedMessages)
+    val encoded = requestBody.encode(fullPayload, get(responseFormat).orElse(getDefault(responseFormat)))
+    new StringEntity(encoded, ContentType.APPLICATION_JSON)
+  }
+
+  override private[openai] def getOutputMessageText(outputColName: String): org.apache.spark.sql.Column = {
+    F.element_at(F.col(outputColName).getField("choices"), 1)
+      .getField("message").getField("content")
+  }
+
+  override private[openai] def isContentFiltered(outputRow: Row): Boolean = {
+    val result = ChatModelResponse.makeFromRowConverter(outputRow)
+    val firstChoice = result.choices.head
+    Option(firstChoice.message.content).isEmpty
+  }
+
+  override private[openai] def getFilterReason(outputRow: Row): String = {
+    val result = ChatModelResponse.makeFromRowConverter(outputRow)
+    result.choices.head.finish_reason
+  }
+}
+
+object OpenAIChatCompletion extends ComplexParamsReadable[OpenAIChatCompletion] {
   private def runtimeType(value: Any): String = {
     Option(value).map(_.getClass.getSimpleName).getOrElse("null")
   }
@@ -539,34 +563,25 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
     }
   }
 
-  private[openai] def getStringEntity(messages: Seq[Row], optionalParams: Map[String, Any]): StringEntity = {
-    getStringEntityCollectionSeq(messages, optionalParams)
-  }
-
-  private def getStringEntityCollectionSeq(
-      messages: CollectionSeq[Row],
-      optionalParams: Map[String, Any]
-  ): StringEntity = {
-    val mappedMessages = encodedMessageMaps(messages)
-    val fullPayload = optionalParams.updated("messages", mappedMessages)
-    val encoded = requestBody.encode(fullPayload, get(responseFormat).orElse(getDefault(responseFormat)))
-    new StringEntity(encoded, ContentType.APPLICATION_JSON)
-  }
-
-  override private[openai] def getOutputMessageText(outputColName: String): org.apache.spark.sql.Column = {
-    F.element_at(F.col(outputColName).getField("choices"), 1)
-      .getField("message").getField("content")
-  }
-
-  override private[openai] def isContentFiltered(outputRow: Row): Boolean = {
-    val result = ChatModelResponse.makeFromRowConverter(outputRow)
-    val firstChoice = result.choices.head
-    Option(firstChoice.message.content).isEmpty
-  }
-
-  override private[openai] def getFilterReason(outputRow: Row): String = {
-    val result = ChatModelResponse.makeFromRowConverter(outputRow)
-    result.choices.head.finish_reason
+  private[services] def strictRequestMessages(messages: Seq[Row]): Seq[Map[String, Any]] = {
+    validateMessages(messages)
+    messages.zipWithIndex.foreach { case (message, messageIndex) =>
+      val (fieldIndex, dataType) = contentField(message, messageIndex)
+      dataType match {
+        case ArrayType(_: MapType, _) =>
+          val parts = mapBackedContentParts(message.get(fieldIndex), messageIndex)
+          if (parts.isEmpty) {
+            throw new IllegalArgumentException(s"messages[$messageIndex].content must not be empty")
+          }
+          if (!parts.exists(_.get("type").contains("image_url"))) {
+            parts.zipWithIndex.foreach { case (part, partIndex) =>
+              validateContentPart(part, messageIndex, partIndex)
+            }
+          }
+        case _ =>
+      }
+    }
+    encodedMessageMaps(messages)
   }
 
 }
