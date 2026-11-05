@@ -13,7 +13,7 @@ private[codegen] object PythonMethodExtractor {
 
   case class Method(name: String, signature: String, decorators: Seq[String])
 
-  // Headers and decorator expressions can span lines, including inside string literals.
+  // Headers, decorators, and skipped scope bodies can contain multiline expressions and strings.
   private class ExpressionState {
     private var quote = ""
     private var delimiterDepth = 0
@@ -81,6 +81,7 @@ private[codegen] object PythonMethodExtractor {
       } else {
         nestedScopeIndent = nestedScopeIndent.filter(indent > _)
         if (nestedScopeIndent.isDefined) {
+          expression.scan(line)
           None
         } else if (statement.startsWith("@")) {
           if (!decoratorIndent.contains(indent)) decorators = Vector.empty

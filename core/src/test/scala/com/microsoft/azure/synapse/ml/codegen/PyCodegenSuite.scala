@@ -312,6 +312,43 @@ class PyCodegenSuite extends AnyFunSuite {
     }
   }
 
+  Seq("def bodyString(self):", "class BodyString:").foreach { scopeHeader =>
+    test(s"body strings do not expose nested accessors in $scopeHeader") {
+      withTempDir { root =>
+        val conf = codegenConfig(root)
+        val stage = new BodyStringPythonStage(scopeHeader)
+        val sourceFile = new File(root, "fixture.py")
+        writeUtf8(sourceFile, "class Fixture:\n" +
+          stage.pyAdditionalMethods.split("\n").map("    " + _).mkString("\n") + "\n")
+        assertPythonCompiles(sourceFile)
+        stage.makePyFile(conf)
+        val folder = packageDir(conf.pySrcDir, "/codegen")
+        val stubFile = new File(folder, "BodyStringPythonStage.pyi")
+        val stub = readUtf8(stubFile)
+        assert(stub.contains("def afterScope(self) -> Any: ..."))
+        assert(!stub.contains("def nestedOnly("))
+        assert(occurrences(stub, "def getModelCol(") == 1)
+        assertPythonCompiles(new File(folder, "BodyStringPythonStage.py"))
+        assertPythonCompiles(stubFile)
+      }
+    }
+
+    test(s"body strings do not hide real accessor collisions after $scopeHeader") {
+      withTempDir { root =>
+        val stage = new ConflictingBodyStringAliasMethodStage(scopeHeader)
+        val sourceFile = new File(root, "fixture.py")
+        writeUtf8(sourceFile, "class Fixture:\n" +
+          stage.pyAdditionalMethods.split("\n").map("    " + _).mkString("\n") + "\n")
+        assertPythonCompiles(sourceFile)
+        val error = intercept[IllegalArgumentException] {
+          stage.makePyFile(codegenConfig(root))
+        }
+        assert(error.getMessage.contains(
+          "Generated Python method getModelCol conflicts with a hand-written method"))
+      }
+    }
+  }
+
   test("binding decorators survive multiline decorator expressions") {
     withTempDir { root =>
       val conf = codegenConfig(root)
