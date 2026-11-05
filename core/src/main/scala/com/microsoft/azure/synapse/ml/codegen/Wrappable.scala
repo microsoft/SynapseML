@@ -56,10 +56,6 @@ trait BaseWrappable extends Params {
 }
 
 private[codegen] object PythonStubCodegen {
-  val PythonMethodPrefix = """^def\s+([A-Za-z_][A-Za-z0-9_]*)\s*\("""
-  val PythonMethodPattern =
-    (PythonMethodPrefix + """([^)]*)\)(?:\s*->\s*([^:]+))?:\s*$""").r
-
   private val TypeInfoByStage = new WeakHashMap[Params, Map[String, PythonTypeInfo]]()
 
   def pythonTypeInfo(stage: Params, param: Param[_]): PythonTypeInfo = synchronized {
@@ -77,7 +73,7 @@ private[codegen] object PythonStubCodegen {
 trait PythonWrappable extends BaseWrappable {
 
   import GenerationUtils._
-  import PythonStubCodegen.PythonMethodPattern
+  import PythonMethodExtractor.{Method, MethodPattern}
 
   private def getPythonTypeInfo(p: Param[_]): PythonTypeInfo =
     PythonStubCodegen.pythonTypeInfo(thisStage, p)
@@ -162,8 +158,7 @@ trait PythonWrappable extends BaseWrappable {
       method.getName == name && method.getParameterCount == parameterCount)
   private def validateServiceParamAliases(): Unit = {
     val paramNames = thisStage.params.map(_.name).toSet
-    val additionalMethods = ("(?m)" + PythonStubCodegen.PythonMethodPrefix).r
-      .findAllMatchIn(pyAdditionalMethods).map(_.group(1)).toSet
+    val additionalMethods = PythonMethodExtractor.extract(pyAdditionalMethods).map(_.name).toSet
     thisStage.params.collect { case p: ServiceParam[_] => p }.foreach { p =>
       val capName = p.name.capitalize
       val alias = s"${p.name}Col"
@@ -472,9 +467,8 @@ trait PythonWrappable extends BaseWrappable {
   }
 
   private def pyStubAdditionalMethods: String = {
-    val lines = pyAdditionalMethods.split("\n")
-    lines.zipWithIndex.flatMap {
-      case (PythonMethodPattern(methodName, args, returnType), index) if !methodName.startsWith("_") =>
+    PythonMethodExtractor.extract(pyAdditionalMethods).flatMap {
+      case Method(_, MethodPattern(methodName, args, returnType), decorators) if !methodName.startsWith("_") =>
         val fluent = isFluentStubMethod(methodName)
         val methodArgs = args.split(",").filter(_.trim.nonEmpty)
         val valueArgCount = methodArgs.count(arg => !Set("self", "cls").contains(arg.trim))
@@ -486,8 +480,7 @@ trait PythonWrappable extends BaseWrappable {
           pyStubAdditionalArgument(argument, fluent, inferredType)
         }.mkString(", ")
         val typedReturn = pyStubAdditionalReturnType(methodName, returnType, fluent)
-        val decorator = lines.lift(index - 1).map(_.trim).filter(Set("@staticmethod", "@classmethod"))
-        Some((decorator.toSeq :+ s"def $methodName($typedArgs) -> $typedReturn: ...").mkString("\n"))
+        Some((decorators :+ s"def $methodName($typedArgs) -> $typedReturn: ...").mkString("\n"))
       case _ =>
         None
     }.distinct.mkString("\n")
