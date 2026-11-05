@@ -37,7 +37,7 @@ private[ml] class ComplexParamsWriter(instance: Params) extends MLWriter {
     val complexParamLocs = ComplexParamsWriter.getComplexParamLocations(instance, path)
     val complexParamJson = ComplexParamsWriter.getComplexMetadata(complexParamLocs)
     ComplexParamsWriter.saveMetadata(instance, path, sparkSession, complexParamJson)
-    ComplexParamsWriter.saveComplexParams(path, complexParamLocs, shouldOverwrite)
+    ComplexParamsWriter.saveComplexParams(path, complexParamLocs, shouldOverwrite, sparkSession)
   }
 }
 
@@ -65,7 +65,11 @@ private[ml] object ComplexParamsWriter {
 
   def saveComplexParams(basePath: String, complexParamLocs: Map[ParamPair[_], Path],
                         shouldOverwrite: Boolean): Unit = {
-    val spark = SparkSession.builder().getOrCreate()
+    saveComplexParams(basePath, complexParamLocs, shouldOverwrite, SparkSession.builder().getOrCreate())
+  }
+
+  def saveComplexParams(basePath: String, complexParamLocs: Map[ParamPair[_], Path],
+                        shouldOverwrite: Boolean, spark: SparkSession): Unit = {
     complexParamLocs.foreach {
       case (ParamPair(p: ComplexParam[Any], v), loc) =>
         p.save(v, spark, new Path(basePath, loc), shouldOverwrite)
@@ -159,7 +163,7 @@ private[ml] class ComplexParamsReader[T] extends MLReader[T] {
     val instance =
       cls.getConstructor(classOf[String]).newInstance(metadata.uid).asInstanceOf[Params]
     metadata.getAndSetParams(instance)
-    ComplexParamsReader.getAndSetComplexParams(instance, metadata, path)
+    ComplexParamsReader.getAndSetComplexParams(instance, metadata, path, sparkSession)
     instance.asInstanceOf[T]
   }
 }
@@ -167,7 +171,11 @@ private[ml] class ComplexParamsReader[T] extends MLReader[T] {
 private[ml] object ComplexParamsReader {
 
   def getAndSetComplexParams(instance: Params, metadata: Metadata, basePath: String): Unit = {
-    val spark = SparkSession.builder().getOrCreate()
+    getAndSetComplexParams(instance, metadata, basePath, SparkSession.builder().getOrCreate())
+  }
+
+  def getAndSetComplexParams(instance: Params, metadata: Metadata,
+                             basePath: String, spark: SparkSession): Unit = {
     implicit val format: DefaultFormats.type = DefaultFormats
     val complexParamLocs = (metadata.metadata \ "complexParamLocs") match {
       case JNothing =>
