@@ -46,6 +46,21 @@ private[codegen] object PyCodegenFixtures {
            |
            |def copy(self, extra=None):
            |    return self
+           |
+           |@staticmethod
+           |def loadOutput(spark, outputPath):
+           |    return None
+           |
+           |@classmethod
+           |def fromPath(cls, path):
+           |    return cls()
+           |
+           |def describe(self):
+           |    def check_keys(item):
+           |        return item
+           |    def getModelCol():
+           |        return check_keys("")
+           |    return getModelCol()
            |""".stripMargin
 
     override def transform(dataset: Dataset[_]): DataFrame = dataset.toDF()
@@ -335,6 +350,22 @@ class PyCodegenSuite extends AnyFunSuite {
       assert(readUtf8(runtimeFile).contains("""_service_param_names = frozenset(["model"])"""))
       assert(readUtf8(stubFile).contains("text: Optional[str] = ..."))
       assertPythonCompiles(runtimeFile)
+      assertPythonCompiles(stubFile)
+    }
+  }
+
+  test("generated additional method stubs retain static and class binding") {
+    withTempDir { root =>
+      val conf = codegenConfig(root)
+      new TypedPythonStage().makePyFile(conf)
+      val stubFile = new File(packageDir(conf.pySrcDir, "/codegen"), "TypedPythonStage.pyi")
+      val stub = readUtf8(stubFile)
+      assert(stub.contains("@staticmethod\n    def loadOutput(spark: Any, outputPath: Any) -> Any: ..."))
+      assert(stub.contains("@classmethod\n    def fromPath(cls, path: Any) -> Any: ..."))
+      assert(!stub.contains("@classmethod\n    def describe"))
+      assert(stub.contains("def describe(self) -> Any: ..."))
+      assert(!stub.contains("def check_keys("))
+      assert(occurrences(stub, "def getModelCol(") == 1)
       assertPythonCompiles(stubFile)
     }
   }
