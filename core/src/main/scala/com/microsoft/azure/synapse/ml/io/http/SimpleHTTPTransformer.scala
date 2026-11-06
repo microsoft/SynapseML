@@ -114,10 +114,12 @@ class SimpleHTTPTransformer(val uid: String)
   def setOutputParser(value: HTTPOutputParser): this.type = set(outputParser, value)
 
   private def makePipeline(schema: StructType): PipelineModel = {
-    val colsToAvoid = schema.fieldNames.toSet ++ Set(getOutputCol)
+    val colsToAvoid = schema.fieldNames.toSet ++ Set(getOutputCol, getErrorCol)
 
-    val parsedInputCol = newCol("parsedInput")(colsToAvoid)
-    val unparsedOutputCol = newCol("unparsedOutput")(colsToAvoid)
+    // Schema-only planning can run under a different session from the input Dataset.
+    val resolver = (left: String, right: String) => left.equalsIgnoreCase(right)
+    val parsedInputCol = newCol("parsedInput", colsToAvoid, resolver)
+    val unparsedOutputCol = newCol("unparsedOutput", colsToAvoid, resolver)
 
     val mb = get(miniBatcher)
 

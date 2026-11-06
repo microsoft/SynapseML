@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.core.schema
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions._
+import org.apache.spark.sql.internal.SQLConf
 
 class VerifyDatasetExtensions extends TestBase {
 
@@ -22,6 +23,33 @@ class VerifyDatasetExtensions extends TestBase {
 
   test("findUnusedColumnName with empty set returns prefix") {
     assert(findUnusedColumnName("col")(Set.empty[String]) === "col")
+  }
+
+  test("findUnusedColumnName respects Spark's column resolver") {
+    val conf = SQLConf.get
+    val wasCaseSensitive = conf.caseSensitiveAnalysis
+    conf.setConf(SQLConf.CASE_SENSITIVE, false)
+    try {
+      assert(findUnusedColumnName("col")(Set("COL")) === "col_1")
+    } finally {
+      conf.setConf(SQLConf.CASE_SENSITIVE, wasCaseSensitive)
+    }
+  }
+
+  test("findUnusedColumnName with a Dataset uses that Dataset's resolver") {
+    val inputSession = spark.newSession()
+    inputSession.conf.set("spark.sql.caseSensitive", "true")
+    import inputSession.implicits._
+    val df = inputSession.range(1).toDF("COL")
+    val conf = SQLConf.get
+    val wasCaseSensitive = conf.caseSensitiveAnalysis
+    conf.setConf(SQLConf.CASE_SENSITIVE, false)
+    try {
+      assert(findUnusedColumnName("col", df) === "col")
+      assert(df.withDerivativeCol("col") === "col")
+    } finally {
+      conf.setConf(SQLConf.CASE_SENSITIVE, wasCaseSensitive)
+    }
   }
 
   test("getColAs retrieves column values from DataFrame") {

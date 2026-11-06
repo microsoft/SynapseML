@@ -8,6 +8,7 @@ import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 class VerifyFeatureNames extends TestBase {
 
   test("AiServices constants have expected values") {
+    assert(FeatureNames.AiServices.ContentUnderstanding === "aiservice-contentunderstanding")
     assert(FeatureNames.AiServices.Face === "aiservice-face")
     assert(FeatureNames.AiServices.Form === "aiservice-form")
     assert(FeatureNames.AiServices.Language === "aiservice-language")
@@ -44,6 +45,7 @@ class VerifyFeatureNames extends TestBase {
 
   test("All AiServices constants start with 'aiservice-' prefix") {
     val aiServices = Seq(
+      FeatureNames.AiServices.ContentUnderstanding,
       FeatureNames.AiServices.Face,
       FeatureNames.AiServices.Form,
       FeatureNames.AiServices.Language,
