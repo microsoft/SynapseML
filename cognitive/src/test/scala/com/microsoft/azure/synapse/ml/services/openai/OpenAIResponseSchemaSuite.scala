@@ -145,12 +145,28 @@ class OpenAIResponseSchemaSuite extends TestBase {
     intercept[IllegalArgumentException] {
       chat.setResponseSchema(schema, null) // scalastyle:ignore null
     }
-    Seq[Any](BigInt("9223372036854775808"), BigDecimal("0.12345678901234567890123456789")).foreach { value =>
+    Seq[Any](BigInt("9223372036854775808"), new Object()).foreach { value =>
       intercept[IllegalArgumentException] {
         chat.setResponseSchema(Map("maximum" -> value))
       }
     }
     assert(chat.getResponseFormat == Map("type" -> "json_object"))
+  }
+
+  test("schema-only setters preserve exact Scala and Java decimal limits") {
+    val decimal = BigDecimal("0.12345678901234567890123456789")
+    val expected = JsObject("type" -> JsString("number"), "maximum" -> JsNumber(decimal))
+    Seq[Any](decimal, decimal.bigDecimal).foreach { value =>
+      val decimalSchema = Map("type" -> "number", "maximum" -> value)
+      val formats = Seq(
+        chatFormat(new OpenAIChatCompletion().setResponseSchema(decimalSchema)).toJson.asJsObject,
+        new OpenAIResponses().setResponseSchema(decimalSchema).getResponseFormat.toJson.asJsObject
+          .fields("format").asJsObject,
+        new OpenAIPrompt().setResponseSchema(decimalSchema).getResponseFormat.toJson.asJsObject
+          .fields("json_schema").asJsObject
+      )
+      formats.foreach(format => assert(format.fields("schema") == expected))
+    }
   }
 
   test("all Scala stages can override strictness while keeping the default schema name") {

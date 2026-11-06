@@ -5,7 +5,7 @@ package org.apache.spark.ml
 
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import org.apache.hadoop.fs.Path
-import org.apache.spark.ml.param.{ParamPair, Params}
+import org.apache.spark.ml.param.{Param, ParamPair, Params}
 import org.apache.spark.ml.util.DefaultParamsReader.Metadata
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.SparkSession
@@ -16,6 +16,9 @@ import org.json4s.{JObject, _}
 
 trait ComplexParamsWritable extends MLWritable {
   self: Params =>
+
+  /** Opt-in defaults that must remain distinguishable from explicitly set values after loading. */
+  def paramsWithImplicitDefaults: Set[Param[_]] = Set.empty
 
   override def write: MLWriter = new ComplexParamsWriter(this)
 }
@@ -108,15 +111,21 @@ private[ml] object ComplexParamsWriter {
                         paramMap: Option[JValue] = None): String = {
     val uid = instance.uid
     val cls = instance.getClass.getName
+    val implicitDefaults = instance match {
+      case writable: ComplexParamsWritable => writable.paramsWithImplicitDefaults
+      case _ => Set.empty[Param[_]]
+    }
+    // Preserve legacy saved defaults except those explicitly opted into implicit persistence.
     val params = instance.extractParamMap().toSeq
+      .filter(p => !implicitDefaults.contains(p.param) || instance.isSet(p.param))
       .filter(!_.param.isInstanceOf[ComplexParam[_]]).asInstanceOf[Seq[ParamPair[Any]]]
     val defaultParams = instance.defaultParamMap.toSeq
       .filter(!_.param.isInstanceOf[ComplexParam[_]]).asInstanceOf[Seq[ParamPair[Any]]]
     val jsonParams = paramMap.getOrElse(render(params.map { case ParamPair(p, v) =>
-      p.name -> parse(p.jsonEncode(v))
+      p.name -> parse(p.jsonEncode(v), useBigDecimalForDouble = true)
     }.toList))
     val jsonDefaultParams = render(defaultParams.map { case ParamPair(p, v) =>
-      p.name -> parse(p.jsonEncode(v))
+      p.name -> parse(p.jsonEncode(v), useBigDecimalForDouble = true)
     }.toList)
     val basicMetadata = ("class" -> cls) ~
       ("timestamp" -> System.currentTimeMillis()) ~
@@ -154,7 +163,13 @@ private[ml] class ComplexParamsReader[T] extends MLReader[T] {
     // change above.
     val metadataPath = new Path(path, "metadata").toString
     val metadataStr = sparkSession.read.text(metadataPath).first().getString(0)
-    val metadata = DefaultParamsReader.parseMetadata(metadataStr)
+    // Spark's metadata parser narrows decimal JSON numbers to Double before param decoding.
+    val preciseMetadata = parse(metadataStr, useBigDecimalForDouble = true)
+    val metadata = DefaultParamsReader.parseMetadata(metadataStr).copy(
+      params = preciseMetadata \ "paramMap",
+      defaultParams = preciseMetadata \ "defaultParamMap",
+      metadata = preciseMetadata
+    )
     val cls = Utils.classForName(metadata.className)
     val instance =
       cls.getConstructor(classOf[String]).newInstance(metadata.uid).asInstanceOf[Params]

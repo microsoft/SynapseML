@@ -26,7 +26,7 @@ object OpenAIChatCompletionMultimodalTestData extends Serializable {
       "id" -> JsString("chatcmpl_test"),
       "object" -> JsString("chat.completion"),
       "created" -> JsString("1"),
-      "model" -> JsString("gpt-5.1"),
+      "model" -> JsString("gpt-6-luna"),
       "choices" -> JsArray(JsObject(
         "message" -> JsObject(
           "role" -> JsString("assistant"),
@@ -91,7 +91,7 @@ class OpenAIChatCompletionMultimodalSuite extends TestBase {
 
   private def chat(): OpenAIChatCompletion = new OpenAIChatCompletion()
     .setUrl("https://example.services.ai.azure.com/openai/v1")
-    .setDeploymentName("gpt-5.1")
+    .setDeploymentName("gpt-6-luna")
     .setMessagesCol("messages")
     .setSubscriptionKey("unused")
     .setOutputCol("output")
@@ -136,7 +136,7 @@ class OpenAIChatCompletionMultimodalSuite extends TestBase {
     assert(Option(valid.getAs[Row]("error")).isEmpty)
     val response = ChatModelResponse.makeFromRowConverter(valid.getAs[Row]("output"))
     val payload = response.choices.head.message.content.parseJson.asJsObject
-    assert(payload.fields.get("model").contains(JsString("gpt-5.1")))
+    assert(payload.fields.get("model").contains(JsString("gpt-6-luna")))
     assert(requestBodies.value.asScala.nonEmpty)
     assert(requestBodies.value.asScala.forall(_.parseJson == payload))
 
@@ -212,7 +212,7 @@ class OpenAIChatCompletionMultimodalSuite extends TestBase {
     )
     val transformer = new AIFoundryChatCompletion()
       .setUrl("https://example.services.ai.azure.com")
-      .setModel("gpt-5.1")
+      .setModel("gpt-6-luna")
       .setMessagesCol("messages")
       .setSubscriptionKey("unused")
       .setOutputCol("output")

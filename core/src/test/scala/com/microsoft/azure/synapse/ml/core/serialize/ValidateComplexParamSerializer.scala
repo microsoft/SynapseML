@@ -112,6 +112,8 @@ object ComplexParamTest extends ComplexParamsReadable[ComplexParamTest]
 class StandardParamTest(override val uid: String) extends TestEstimatorBase(uid)
   with HasStringParam with ComplexParamsWritable {
   def this() = this(Identifiable.randomUID("StandardParamTest"))
+
+  def setStringDefault(value: String): this.type = setDefault(stringParam -> value)
 }
 
 object StandardParamTest extends ComplexParamsReadable[StandardParamTest]
@@ -141,6 +143,21 @@ class ValidateComplexParamSerializer extends TestBase {
       action
     } finally {
       restoreConfig(config, previous)
+    }
+  }
+
+  test("Persisted ordinary defaults retain legacy explicit values") {
+    spark
+    Seq(None, Some("fallback"), Some("custom")).foreach { explicit =>
+      val original = new StandardParamTest().setStringDefault("fallback")
+      explicit.foreach(original.setStringParam)
+      original.write.overwrite().save(saveFile)
+      val restored = StandardParamTest.load(saveFile)
+      assert(restored.getStringParam == explicit.getOrElse("fallback"))
+      assert(restored.isSet(restored.stringParam))
+      assert(restored.getDefault(restored.stringParam).contains("fallback"))
+      restored.clear(restored.stringParam)
+      assert(restored.getStringParam == "fallback")
     }
   }
 

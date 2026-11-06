@@ -6,9 +6,10 @@ package com.microsoft.azure.synapse.ml.services.openai
 import com.microsoft.azure.synapse.ml.codegen.GenerationUtils
 import com.microsoft.azure.synapse.ml.fabric.{FabricClient, OpenAIFabricSetting}
 import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails
+import com.microsoft.azure.synapse.ml.param.AnyJsonFormat.anyFormat
 import com.microsoft.azure.synapse.ml.param.{GlobalKey, GlobalParams, ServiceParam}
 import com.microsoft.azure.synapse.ml.services._
-import org.apache.spark.ml.PipelineModel
+import org.apache.spark.ml.{ComplexParamsWritable, PipelineModel}
 import org.apache.spark.ml.param.{Param, Params}
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.internal.SQLConf
@@ -28,11 +29,21 @@ trait HasMessagesInput extends Params {
       "Responses structured parts match {\"type\":\"input_text\",\"text\":\"...\"}, " +
       "{\"type\":\"input_image\",\"image_url\":\"...\",\"detail\":\"...\"} (or use file_id), or " +
       "{\"type\":\"input_file\",\"file_data\":\"...\",\"filename\":\"...\"} (or use file_id instead of file_data); " +
-      "image detail and filename are optional.")
+      "image detail and filename are optional. " +
+      "Non-null prompt_cache_breakpoint values must be objects in a nested struct content schema.")
 
   def getMessagesCol: String = $(messagesCol)
 
   def setMessagesCol(v: String): this.type = set(messagesCol, v)
+
+  protected def validatePromptCacheBreakpoint(part: Map[String, Any], location: String): Unit = {
+    part.get("prompt_cache_breakpoint").foreach {
+      case _: scala.collection.Map[_, _] =>
+      case _ =>
+        throw new IllegalArgumentException(
+          s"$location.prompt_cache_breakpoint must be an object; use a nested struct content schema")
+    }
+  }
 }
 
 case object OpenAIDeploymentNameKey extends GlobalKey[Either[String, String]]
@@ -162,7 +173,9 @@ case object OpenAIReasoningEffortKey extends GlobalKey[Either[String, String]]
 case object OpenAIApiTypeKey extends GlobalKey[String]
 
 // scalastyle:off number.of.methods
-trait HasOpenAITextParams extends HasOpenAISharedParams {
+trait HasOpenAITextParams extends HasOpenAISharedParams with ComplexParamsWritable {
+  override def paramsWithImplicitDefaults: Set[Param[_]] = Set(deploymentName)
+
   @deprecated("Use maxCompletionTokens instead - max_tokens is rejected by reasoning models", "1.0.16")
   val maxTokens: ServiceParam[Int] = new ServiceParam[Int](
     this, "maxTokens",
@@ -312,6 +325,33 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
 
   def setCacheLevelCol(v: String): this.type = setVectorParam(cacheLevel, v)
 
+  val promptCacheOptions: ServiceParam[Map[String, Any]] = new ServiceParam[Map[String, Any]](
+    this, "promptCacheOptions",
+    "Optional prompt_cache_options request object. Values are forwarded to the service, which determines " +
+      "supported modes, lifetimes and model availability. Unset options preserve service defaults. " +
+      "Values must be JSON-compatible; dates, timestamps, binary and non-string object keys are not supported. " +
+      "Explicit mode requires prompt_cache_breakpoint markers in message content to use caching.",
+    isRequired = false) {
+    override val payloadName: String = "prompt_cache_options"
+  }
+
+  def getPromptCacheOptions: Map[String, Any] = getScalarParam(promptCacheOptions)
+
+  def setPromptCacheOptions(v: Map[String, Any]): this.type = setScalarParam(promptCacheOptions, v)
+
+  def getPromptCacheOptionsCol: String = getVectorParam(promptCacheOptions)
+
+  def setPromptCacheOptionsCol(v: String): this.type = setVectorParam(promptCacheOptions, v)
+
+  private def normalizeCacheOptionValue(value: Any): Any = value match {
+    case row: Row =>
+      row.schema.fieldNames.zip(row.toSeq.map(normalizeCacheOptionValue)).toMap
+    case values: scala.collection.Map[_, _] =>
+      values.iterator.map { case (key, entry) => key -> normalizeCacheOptionValue(entry) }.toMap
+    case values: scala.collection.Seq[_] => values.map(normalizeCacheOptionValue).toSeq
+    case other => other
+  }
+
   val presencePenalty: ServiceParam[Double] = new ServiceParam[Double](
     this, "presencePenalty",
     "How much to penalize new tokens based on their existing frequency in the text so far." +
@@ -413,6 +453,7 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
     echo,
     stop,
     cacheLevel,
+    promptCacheOptions,
     presencePenalty,
     frequencyPenalty,
     bestOf,
@@ -424,7 +465,9 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
 
   private[ml] def getOptionalParams(r: Row): Map[String, Any] = {
     sharedTextParams.flatMap { param =>
-      getValueOpt(r, param).map { value => param.payloadName -> value }
+      getValueOpt(r, param).map { value =>
+        param.payloadName -> (if (param == promptCacheOptions) normalizeCacheOptionValue(value) else value)
+      }
     }.toMap
   }
 

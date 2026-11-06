@@ -26,7 +26,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
   lazy val goodDf: DataFrame = Seq(
     Seq(
       OpenAIMessage("system", "You are an AI chatbot with red as your favorite color"),
-      OpenAIMessage("user", "Whats your favorite color")
+      OpenAIMessage("user", "What is your favorite color? Reply in a full sentence.")
     ),
     Seq(
       OpenAIMessage("system", "You are very excited"),
@@ -144,7 +144,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
 
   test("Reasoning model with maxCompletionTokens") {
     val reasoningCompletion = new OpenAIChatCompletion()
-      .setDeploymentName(deploymentNameMini)
+      .setDeploymentName(deploymentName)
       .setCustomServiceName(openAIServiceName)
       .setMaxCompletionTokens(500)
       .setOutputCol("out")
@@ -165,7 +165,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     // The library must remap max_tokens → max_completion_tokens on the wire,
     // otherwise reasoning models reject the request.
     val reasoningCompletion = new OpenAIChatCompletion()
-      .setDeploymentName(deploymentNameMini)
+      .setDeploymentName(deploymentName)
       .setCustomServiceName(openAIServiceName)
       .setMaxTokens(500)
       .setOutputCol("out")
@@ -248,10 +248,10 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     assert(!params.contains("reasoning_effort"))
   }
 
-  test("optional params for gpt-5-mini include reasoning controls only") {
+  test("optional params for gpt-6-luna include reasoning controls only") {
     // Simulated usage: verbosity / reasoning_effort only (no temperature/top_p/seed)
     val completion = new OpenAIChatCompletion()
-      .setDeploymentName(deploymentNameMini)
+      .setDeploymentName(deploymentName)
 
     val messages: Seq[Row] = Seq(
       OpenAIMessage("user", "Hello reasoning")
@@ -271,7 +271,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
 
   test("verbosity and reasoning_effort getters and setters") {
     val completion = new OpenAIChatCompletion()
-      .setDeploymentName(deploymentNameMini)
+      .setDeploymentName(deploymentName)
 
     // Test verbosity
     completion.setVerbosity("low")
@@ -487,13 +487,13 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
 
   test("reject bare json_schema string in setResponseFormat"){
     val completion = new OpenAIChatCompletion()
-      .setDeploymentName(deploymentNameMini)
+      .setDeploymentName(deploymentName)
     assertThrows[IllegalArgumentException] {
       completion.setResponseFormat("json_schema")
     }
   }
 
-  test("validate that gpt-5-mini accepts json_object response format") {
+  test("validate that gpt-6-luna accepts json_object response format") {
     val goodDf: DataFrame = Seq(
       Seq(
         OpenAIMessage("system", "Respond with JSON. You are an AI chatbot with red as your favorite color"),
@@ -523,7 +523,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
     testCompletion(completion, goodDf)
   }
 
-  test("validate that gpt-5-mini accepts text response format") {
+  test("validate that gpt-6-luna accepts text response format") {
     val completion = new OpenAIChatCompletion()
       .setDeploymentName(deploymentName)
       .setCustomServiceName(openAIServiceName)
@@ -542,7 +542,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
         |  "id":"chatcmpl_test",
         |  "object":"chat.completion",
         |  "created":"1",
-        |  "model":"gpt-5.1",
+        |  "model":"gpt-6-luna",
         |  "choices":[
         |    {
         |      "message":{"role":"assistant","content":null,"name":null},
@@ -567,7 +567,7 @@ class OpenAIChatCompletionSuite extends TransformerFuzzing[OpenAIChatCompletion]
   ignore("Custom EndPoint") {
     lazy val accessToken: String = sys.env.getOrElse("CUSTOM_ACCESS_TOKEN", "")
     lazy val customRootUrlValue: String = sys.env.getOrElse("CUSTOM_ROOT_URL", "")
-    lazy val customHeadersValues: Map[String, String] = Map("X-ModelType" -> "gpt-5.1-chat-completions")
+    lazy val customHeadersValues: Map[String, String] = Map("X-ModelType" -> "gpt-6-luna-chat-completions")
 
     val customEndpointCompletion = new OpenAIChatCompletion()
       .setCustomUrlRoot(customRootUrlValue)

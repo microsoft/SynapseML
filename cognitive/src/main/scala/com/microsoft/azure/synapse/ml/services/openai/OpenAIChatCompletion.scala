@@ -85,6 +85,7 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams with HasOpenAIResp
     echo,
     stop,
     cacheLevel,
+    promptCacheOptions,
     presencePenalty,
     frequencyPenalty,
     bestOf,
@@ -113,6 +114,9 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   override private[ml] def internalServiceType: String = "openai"
 
   setDefault(apiVersion -> Left("2025-04-01-preview"))
+  if (internalServiceType == "openai") {
+    setDefault(deploymentName -> Left(OpenAIDefaults.DefaultTextDeploymentName))
+  }
 
   override def setCustomServiceName(v: String): this.type = {
     setUrl(s"https://$v.openai.azure.com/" + urlPath.stripPrefix("/"))
@@ -302,6 +306,13 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
 
   private def encodedMapBackedContent(value: Any, messageIndex: Int): Any = {
     val parts = mapBackedContentParts(value, messageIndex)
+    parts.zipWithIndex.foreach { case (part, partIndex) =>
+      if (part.contains("prompt_cache_breakpoint")) {
+        throw new IllegalArgumentException(
+          s"messages[$messageIndex].content[$partIndex].prompt_cache_breakpoint " +
+            "requires a nested struct content schema")
+      }
+    }
     if (!parts.exists(_.get("type").contains("image_url"))) {
       collapseContentPartsToText(value)
     } else {
@@ -334,7 +345,7 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   }
 
   private def validateTextPart(part: Map[String, Any], location: String): Unit = {
-    requireOnlyFields(part, Set("type", "text"), location)
+    requireOnlyFields(part, Set("type", "text", "prompt_cache_breakpoint"), location)
     part.get("text") match {
       case Some(_: String) =>
       case _ => throw new IllegalArgumentException(s"$location requires a string 'text' field")
@@ -342,7 +353,7 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   }
 
   private def validateImageUrlPart(part: Map[String, Any], location: String): Unit = {
-    requireOnlyFields(part, Set("type", "image_url"), location)
+    requireOnlyFields(part, Set("type", "image_url", "prompt_cache_breakpoint"), location)
     part.get("image_url") match {
       case Some(rawImageUrl: Map[_, _]) =>
         val imageUrl = rawImageUrl.asInstanceOf[Map[String, Any]]
@@ -371,6 +382,7 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
       case _ => throw new IllegalArgumentException(s"$location must be an object")
     }
 
+    validatePromptCacheBreakpoint(fields, location)
     fields.get("type") match {
       case Some("text") => validateTextPart(fields, location)
       case Some("image_url") => validateImageUrlPart(fields, location)

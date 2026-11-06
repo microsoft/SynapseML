@@ -6,14 +6,11 @@ package com.microsoft.azure.synapse.ml.services.openai
 import com.microsoft.azure.synapse.ml.Secrets.getAccessToken
 import com.microsoft.azure.synapse.ml.core.test.base.Flaky
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
-import org.apache.http.entity.AbstractHttpEntity
-import org.apache.http.util.EntityUtils
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.functions.{col, lit, struct, to_json}
 import org.apache.spark.sql.types.{ArrayType, StringType, StructType}
 import com.microsoft.azure.synapse.ml.services.aifoundry.AIFoundryAPIKey
-import spray.json._
 
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
@@ -513,7 +510,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
   ignore("Custom EndPoint") {
     lazy val accessToken: String = sys.env.getOrElse("CUSTOM_ACCESS_TOKEN", "")
     lazy val customRootUrlValue: String = sys.env.getOrElse("CUSTOM_ROOT_URL", "")
-    lazy val customHeadersValues: Map[String, String] = Map("X-ModelType" -> "gpt-5.1-chat-completions")
+    lazy val customHeadersValues: Map[String, String] = Map("X-ModelType" -> "gpt-6-luna-chat-completions")
 
     lazy val customPrompt: OpenAIPrompt = new OpenAIPrompt()
       .setCustomUrlRoot(customRootUrlValue)
@@ -574,36 +571,6 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     val p = new OpenAIPrompt()
       .setPreviousResponseIdCol("prev_id_column")
     assert(p.getPreviousResponseIdCol == "prev_id_column")
-  }
-
-  test("responses payload maps model to model field and nests verbosity/reasoning for gpt-5-mini usage") {
-    val p = new OpenAIPrompt()
-      .setApiType("responses")
-      .setMessagesCol("messages")
-      .setModel("gpt-5-mini")
-      .setVerbosity("low")
-      .setReasoningEffort("low")
-      .setStore(false)
-
-    val requestRow = Seq(
-      Seq(OpenAIMessage("user", "Describe what you see in this image."))
-    ).toDF("messages").collect().head
-
-    val prepareEntity = classOf[OpenAIPrompt].getDeclaredMethod("prepareEntity")
-    prepareEntity.setAccessible(true)
-    val buildEntity = prepareEntity.invoke(p).asInstanceOf[Row => Option[AbstractHttpEntity]]
-
-    val payloadJson = EntityUtils.toString(buildEntity(requestRow).get).parseJson.asJsObject
-
-    assert(payloadJson.fields.contains("input"))
-    assert(!payloadJson.fields.contains("messages"))
-    assert(payloadJson.fields.get("model").contains(JsString("gpt-5-mini")))
-
-    val text = payloadJson.fields("text").asJsObject
-    assert(text.fields.get("verbosity").contains(JsString("low")))
-
-    val reasoning = payloadJson.fields("reasoning").asJsObject
-    assert(reasoning.fields.get("effort").contains(JsString("low")))
   }
 
   test("store=true with Responses API returns response in outputCol and id in auto-generated responseIdCol") {

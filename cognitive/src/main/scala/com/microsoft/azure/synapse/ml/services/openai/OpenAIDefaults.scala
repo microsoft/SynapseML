@@ -9,6 +9,8 @@ import com.microsoft.azure.synapse.ml.io.http.URLKey
 import com.microsoft.azure.synapse.ml.services.aifoundry.AIFoundryModel
 
 object OpenAIDefaults {
+  private[openai] val DefaultTextDeploymentName: String = "gpt-6-luna"
+
   def setDeploymentName(v: String): Unit = {
     GlobalParams.setGlobalParam(OpenAIDeploymentNameKey, Left(v))
   }

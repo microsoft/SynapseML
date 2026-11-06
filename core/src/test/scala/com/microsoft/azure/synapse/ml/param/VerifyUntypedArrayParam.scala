@@ -34,6 +34,17 @@ class VerifyUntypedArrayParam extends TestBase {
     assert(result.isInstanceOf[Double])
   }
 
+  test("AnyJsonFormat preserves exact Scala and Java decimals across JSON roundtrips") {
+    Seq("0.12345678901234567890123456789", "9223372036854775808", "18446744073709551616")
+      .map(BigDecimal(_)).foreach { decimal =>
+        Seq[Any](decimal, decimal.bigDecimal).foreach { value =>
+          val encoded = anyFormat.write(value)
+          assert(encoded == JsNumber(decimal))
+          assert(anyFormat.write(anyFormat.read(encoded)) == encoded)
+        }
+      }
+  }
+
   test("AnyJsonFormat roundtrip for String") {
     val original: Any = "hello"
     val json = original.toJson
@@ -148,8 +159,7 @@ class VerifyUntypedArrayParam extends TestBase {
 
   test("AnyJsonFormat throws on unsupported type") {
     class CustomClass
-    val values = Seq[Any](new CustomClass,
-      BigInt("9223372036854775808"), BigDecimal("0.12345678901234567890123456789"))
+    val values = Seq[Any](new CustomClass, BigInt("9223372036854775808"))
     values.foreach { unsupported =>
       assertThrows[IllegalArgumentException] {
         unsupported.toJson

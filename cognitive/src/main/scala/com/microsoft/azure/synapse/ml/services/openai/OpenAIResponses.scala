@@ -110,6 +110,7 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams with HasOpenAIRes
     echo,
     stop,
     cacheLevel,
+    promptCacheOptions,
     presencePenalty,
     frequencyPenalty,
     bestOf,
@@ -138,6 +139,7 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
 
   setDefault(
     apiVersion -> Left("2025-04-01-preview"),
+    deploymentName -> Left(OpenAIDefaults.DefaultTextDeploymentName),
     store -> Left(false)
   )
 
@@ -416,7 +418,7 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   }
 
   private def validateInputTextPart(part: Map[String, Any], location: String): Unit = {
-    requireOnlyFields(part, Set("type", "text"), location)
+    requireOnlyFields(part, Set("type", "text", "prompt_cache_breakpoint"), location)
     part.get("text") match {
       case Some(_: String) =>
       case _ => throw new IllegalArgumentException(s"$location requires a string 'text' field")
@@ -424,7 +426,7 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   }
 
   private def validateInputImagePart(part: Map[String, Any], location: String): Unit = {
-    requireOnlyFields(part, Set("type", "image_url", "file_id", "detail"), location)
+    requireOnlyFields(part, Set("type", "image_url", "file_id", "detail", "prompt_cache_breakpoint"), location)
     val imageUrlDefined = part.get("image_url").exists { value =>
       requireNonEmptyString(value, s"$location requires a non-empty string 'image_url' or 'file_id' field")
       true
@@ -442,7 +444,7 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   }
 
   private def validateInputFilePart(part: Map[String, Any], location: String): Unit = {
-    requireOnlyFields(part, Set("type", "file_data", "file_id", "filename"), location)
+    requireOnlyFields(part, Set("type", "file_data", "file_id", "filename", "prompt_cache_breakpoint"), location)
     val fileDataDefined = part.get("file_data").exists { value =>
       requireNonEmptyString(value, s"$location requires a non-empty string 'file_data' or 'file_id' field")
       true
@@ -467,6 +469,7 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
       case _ => throw new IllegalArgumentException(s"$location must be an object")
     }
 
+    validatePromptCacheBreakpoint(fields, location)
     fields.get("type") match {
       case Some("input_text") => validateInputTextPart(fields, location)
       case Some("input_image") => validateInputImagePart(fields, location)

@@ -275,6 +275,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     dropPrompt -> true,
     systemPrompt -> defaultSystemPrompt,
     apiType -> "chat_completions",
+    deploymentName -> Left(OpenAIDefaults.DefaultTextDeploymentName),
     columnTypes -> Map.empty,
     timeout -> 360.0,
     store -> Left(false)
@@ -684,9 +685,15 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       .foreach(p => completion.set(completion.getParam(p.param.name), p.value))
 
     if (this.isDefined(model) &&
-        get(deploymentName).orElse(getDefault(deploymentName)).isEmpty &&
-        (isOpenAIV1Endpoint || completion.isInstanceOf[OpenAIResponses])) {
-      completion.setDeploymentName(getModel)
+        !isSet(deploymentName) &&
+        !hasAIFoundryModel) {
+      if (isOpenAIV1Endpoint || completion.isInstanceOf[OpenAIResponses]) {
+        completion.setDeploymentName(getModel)
+      } else {
+        require(get(customUrlRoot).nonEmpty,
+          "model is not a deployment alias for legacy Chat endpoints. " +
+            "Use setDeploymentName(...) or an OpenAI v1 endpoint.")
+      }
     }
 
     completion
@@ -744,6 +751,12 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   }
 
   override def transformSchema(schema: StructType): StructType = {
+    val resolved = copy(ParamMap.empty).asInstanceOf[OpenAIPrompt]
+    resolved.transferGlobalParamsToParamMap()
+    resolved.transformSchemaWithResolvedParams(schema)
+  }
+
+  private def transformSchemaWithResolvedParams(schema: StructType): StructType = {
     validatePublicColumnNames()
     val outputDataType: DataType = getParser.outputSchema
     val service = getOpenAIChatService
