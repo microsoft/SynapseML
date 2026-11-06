@@ -313,7 +313,12 @@ original document or API-version columns. Handles must match the configured
 endpoint's scheme, host, port, and CU operation path. Redirects are not followed.
 Analyzer-creation management handles cannot be passed to this mode; use
 `getAnalyzer` or service tooling to inspect analyzer creation instead.
-HTTP 404/410 while polling produces `ResultUnavailable`, retaining the handle.
+HTTP 404/410 while polling analysis results produces `ResultUnavailable`,
+retaining the handle, when the response body can be read within the configured
+limit. Unreadable or oversized responses retain the prior operation state (or
+`Unknown` without prior state) and a diagnostic instead. A 404/410 from an
+analyzer-creation operation lookup does not prove creation failed: the accepted
+state is retained, with guidance to inspect the analyzer through `getAnalyzer`.
 Other non-transient GET errors retain the previous operation status (or use
 `Unknown` when polling a handle without prior state), include the poll error,
 and keep the handle for a later retry; they do not prove that the remote
@@ -324,6 +329,12 @@ failure or ambiguous submission may return `Unknown`; inspect the outcome before
 intentionally resubmitting. Only HTTP 200, 201, or 202 submissions are followed
 automatically; an `Operation-Location` on another status is not followed. Safe
 GET retries consume the polling budget.
+
+Cancelling the owning Spark task stops local polling and queued submissions,
+including concurrent workers, and attempts to abort in-flight HTTP requests.
+It does not cancel an operation already accepted by CU; retain any saved handles
+for recovery. Blocking native DNS work can finish in its bounded worker pool
+after the cancelled caller stops waiting.
 
 `Rejected` means the request was not accepted and no operation handle was
 returned: HTTP 429 throttling, HTTP 401/403 with scalar or per-row authentication

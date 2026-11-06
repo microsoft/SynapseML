@@ -7,8 +7,10 @@ import org.apache.http.conn.DnsResolver
 
 import java.io.InterruptedIOException
 import java.net.{InetAddress, UnknownHostException}
-import java.util.concurrent.{ArrayBlockingQueue, Callable, ExecutionException, RejectedExecutionException, Semaphore,
-  ThreadFactory, ThreadPoolExecutor, TimeUnit, TimeoutException}
+import java.util.ArrayDeque
+import java.util.concurrent.{ArrayBlockingQueue, Callable, ExecutionException, Future, RejectedExecutionException,
+  Semaphore, ThreadFactory, ThreadPoolExecutor, TimeUnit, TimeoutException}
+import scala.annotation.tailrec
 
 private[contentunderstanding] class OperationDeadlineExceeded
   extends UnknownHostException(ContentUnderstandingProtocol.timeoutError)
@@ -32,39 +34,59 @@ private[contentunderstanding] class BudgetedDnsResolver(remainingMs: () => Long,
       throw new OperationDeadlineExceeded
     }
     try {
-      if (!BudgetedDnsResolver.Capacity.tryAcquire(remaining, TimeUnit.MILLISECONDS)) {
-        throw new DnsCapacityExceeded(deadlineExpired = true)
-      }
+      BudgetedDnsResolver.acquire(remaining)
     } catch {
       case error: InterruptedException => throw interrupted(error)
     }
-    if (remainingMs() == 0) {
-      BudgetedDnsResolver.Capacity.release()
-      throw new OperationDeadlineExceeded
-    }
+    var submitted = false
     val resolution = try {
-      BudgetedDnsResolver.Executor.submit(new Callable[Array[InetAddress]] {
+      ContentUnderstandingProtocol.checkInterrupted()
+      if (remainingMs() == 0) throw new OperationDeadlineExceeded
+      val future = BudgetedDnsResolver.Executor.submit(new Callable[Array[InetAddress]] {
         override def call(): Array[InetAddress] =
           try {
             delegate.resolve(host)
           } finally {
-            BudgetedDnsResolver.Capacity.release()
+            BudgetedDnsResolver.release()
           }
       })
+      submitted = true
+      future
     } catch {
+      case error: InterruptedException => throw interrupted(error)
       case _: RejectedExecutionException =>
-        BudgetedDnsResolver.Capacity.release()
         throw new DnsCapacityExceeded()
+    } finally {
+      if (!submitted) BudgetedDnsResolver.release()
+    }
+    awaitResolution(resolution)
+  }
+
+  private def awaitResolution(resolution: Future[Array[InetAddress]]): Array[InetAddress] = {
+    val timeout = remainingMs()
+    val started = System.nanoTime()
+    @tailrec
+    def poll(): Array[InetAddress] = {
+      ContentUnderstandingProtocol.checkInterrupted()
+      val wait = BudgetedDnsResolver.waitRemaining(started, timeout)
+      if (wait == 0) throw new OperationDeadlineExceeded
+      val addresses = try {
+        Some(resolution.get(math.min(wait, ContentUnderstandingBudget.CancellationPollMs), TimeUnit.MILLISECONDS))
+      } catch {
+        case _: TimeoutException => None
+      }
+      addresses match {
+        case Some(value) => value
+        case None => poll()
+      }
     }
     try {
-      val addresses = resolution.get(remainingMs(), TimeUnit.MILLISECONDS)
+      val addresses = poll()
       if (remainingMs() == 0) {
         throw new OperationDeadlineExceeded
       }
       addresses
     } catch {
-      case _: TimeoutException =>
-        throw new OperationDeadlineExceeded
       case error: ExecutionException =>
         throw new DnsResolutionFailed(error.getCause)
       case error: InterruptedException =>
@@ -96,6 +118,45 @@ private[contentunderstanding] object BudgetedDnsResolver {
   private val IdleThreadKeepAliveSeconds = 60L
 
   private val Capacity = new Semaphore(MaxConcurrentLookups, true)
+  private val Waiters = new ArrayDeque[Object]()
+
+  private def waitRemaining(started: Long, timeout: Long): Long =
+    math.max(0L, timeout - TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - started))
+
+  private def acquire(timeout: Long): Unit = {
+    val started = System.nanoTime()
+    val waiter = new Object()
+    Waiters.synchronized { Waiters.addLast(waiter) }
+    @tailrec
+    def poll(): Unit = {
+      ContentUnderstandingProtocol.checkInterrupted()
+      val acquired = Waiters.synchronized {
+        val remaining = waitRemaining(started, timeout)
+        if (remaining == 0) throw new DnsCapacityExceeded(deadlineExpired = true)
+        if ((Waiters.peekFirst() eq waiter) && Capacity.tryAcquire(0L, TimeUnit.MILLISECONDS)) {
+          true
+        } else {
+          Waiters.wait(math.min(remaining, ContentUnderstandingBudget.CancellationPollMs))
+          false
+        }
+      }
+      if (!acquired) poll()
+    }
+    // Keep the queue position across cancellation checks, removing it on every exit path.
+    try {
+      poll()
+    } finally {
+      Waiters.synchronized {
+        Waiters.remove(waiter)
+        Waiters.notifyAll()
+      }
+    }
+  }
+
+  private def release(): Unit = Waiters.synchronized {
+    Capacity.release()
+    Waiters.notifyAll()
+  }
 
   private lazy val Executor = {
     val executor = new ThreadPoolExecutor(MaxConcurrentLookups, MaxConcurrentLookups, IdleThreadKeepAliveSeconds,
