@@ -81,9 +81,7 @@ trait PythonWrappable extends BaseWrappable {
   private def getPythonTypeInfo(p: Param[_]): PythonTypeInfo =
     PythonStubCodegen.pythonTypeInfo(thisStage, p)
 
-  def pyAdditionalMethods: String = {
-    ""
-  }
+  def pyAdditionalMethods: String = ""
 
   protected lazy val pyInternalWrapper = false
 
@@ -325,6 +323,8 @@ trait PythonWrappable extends BaseWrappable {
         s"""|
             |def get$capName(self):
             |${indent(docString, 1)}
+            |    if self.${sp.name} in self._paramMap:
+            |        return self._paramMap[self.${sp.name}]
             |    return self._service_param_scalar_to_python("${sp.name}", $scalarGetter)
             |
             |def get${capName}Col(self):
@@ -472,7 +472,8 @@ trait PythonWrappable extends BaseWrappable {
 
   private def pyStubAdditionalMethods: String = {
     pyAdditionalMethods.split("\n").flatMap {
-      case PythonMethodPattern(methodName, args, returnType) if !methodName.startsWith("_") =>
+      // The runtime override retains PySpark's inherited string-or-Param boolean signature.
+      case PythonMethodPattern(methodName, args, returnType) if !methodName.startsWith("_") && methodName != "isSet" =>
         val fluent = isFluentStubMethod(methodName)
         val methodArgs = args.split(",").filter(_.trim.nonEmpty)
         val valueArgCount = methodArgs.count(arg => !Set("self", "cls").contains(arg.trim))
