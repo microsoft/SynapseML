@@ -21,7 +21,7 @@ import org.apache.spark.sql.types.{MapType, StringType, StructType}
 import java.net.{InetAddress, UnknownHostException}
 import java.nio.file.Files
 import java.util.concurrent.{CountDownLatch, TimeUnit}
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import scala.collection.JavaConverters._
 
 class ContentUnderstandingAdmissionSuite extends TestBase {
@@ -102,6 +102,83 @@ class ContentUnderstandingAdmissionSuite extends TestBase {
         assert(result.operationLocation == (if (mode == "create") Some(server.endpoint + creationLocation) else None))
       }
     }
+  }
+
+  for (cancelOlder <- Seq(false, true)) test(s"DNS capacity preserves admission order, cancelOlder=$cancelOlder") {
+    val count = BudgetedDnsResolver.MaxConcurrentLookups
+    val entered = new CountDownLatch(count)
+    val finished = new CountDownLatch(count)
+    val releaseOne = new CountDownLatch(1)
+    val releaseAll = new CountDownLatch(1)
+    val admitted = new CountDownLatch(1)
+    val first = new AtomicReference[Option[String]](None)
+    val failure = new AtomicReference[Option[Throwable]](None)
+    val delegate = new DnsResolver {
+      override def resolve(host: String): Array[InetAddress] = {
+        val held = host.startsWith("held-")
+        try {
+          if (held) {
+            entered.countDown()
+            val release = if (host == "held-0") releaseOne else releaseAll
+            assert(release.await(30, TimeUnit.SECONDS))
+          } else {
+            first.compareAndSet(None, Some(host))
+            admitted.countDown()
+            assert(releaseAll.await(30, TimeUnit.SECONDS))
+          }
+          Array(InetAddress.getByAddress(Array[Byte](127, 0, 0, 1)))
+        } finally {
+          if (held) finished.countDown()
+        }
+      }
+    }
+    def waiter(host: String): Thread = new Thread(() => {
+      try {
+        new BudgetedDnsResolver(() => 10000L, delegate).resolve(host)
+      } catch {
+        case _: java.io.InterruptedIOException if cancelOlder && host == "older" => ()
+        case error: Throwable => failure.compareAndSet(None, Some(error))
+      }
+    })
+    def awaitWaiting(thread: Thread): Unit = {
+      assert((1 to 5000).exists { _ =>
+        if (thread.getState == Thread.State.TIMED_WAITING) true
+        else {
+          Thread.sleep(1)
+          false
+        }
+      }, "DNS caller did not enter its capacity wait.")
+    }
+    val older = waiter("older")
+    val newer = waiter("newer")
+    val holders = (0 until count).map(index => waiter(s"held-$index"))
+    try {
+      holders.foreach(_.start())
+      assert(entered.await(5, TimeUnit.SECONDS))
+      older.start()
+      awaitWaiting(older)
+      Thread.sleep(25)
+      newer.start()
+      awaitWaiting(newer)
+      Thread.sleep(35)
+      if (cancelOlder) {
+        older.interrupt()
+        older.join(5000)
+        assert(!older.isAlive, "Cancelled DNS capacity waiter did not exit.")
+      }
+      releaseOne.countDown()
+      assert(admitted.await(5, TimeUnit.SECONDS))
+      val expected = if (cancelOlder) "newer" else "older"
+      assert(first.get().contains(expected), s"Incorrect DNS admission order: ${first.get()}")
+    } finally {
+      releaseOne.countDown()
+      releaseAll.countDown()
+      older.join(11000)
+      newer.join(11000)
+      holders.foreach(_.join(11000))
+      assert(finished.await(5, TimeUnit.SECONDS))
+    }
+    failure.get().foreach(error => throw error)
   }
 
   for (mode <- Seq("poll", "analyze", "get", "create")) {

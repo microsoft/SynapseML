@@ -6,14 +6,17 @@ package com.microsoft.azure.synapse.ml.services.contentunderstanding
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.io.http.{HeaderData, HTTPRequestData}
 import org.apache.http.client.methods.HttpGet
+import org.apache.http.conn.DnsResolver
 import org.apache.spark.sql.{Dataset, Row}
 import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types.{MapType, StringType, StructType}
 
+import java.io.InterruptedIOException
+import java.net.InetAddress
 import java.time.{ZoneOffset, ZonedDateTime}
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.{CountDownLatch, TimeUnit}
-import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.{AtomicInteger, AtomicReference}
 import scala.collection.JavaConverters._
 import scala.collection.mutable.ArrayBuffer
 
@@ -35,6 +38,202 @@ class ContentUnderstandingSubmissionSuite extends TestBase {
 
   private def assertNoProvenanceHeader(server: ContentUnderstandingStub): Unit =
     assert(server.requests.forall(request => !request.headers.contains("x-synapseml-implicit-fabric-auth")))
+
+  test("nonstandard terminal submission statuses explain their discarded handles") {
+    val failures = Seq("""{"code":"TerminalDetail"}""", """"TerminalDetail"""", """[{"code":"TerminalDetail"}]""")
+      .map(error => s"""{"status":"Failed","error":$error}""")
+    for (status <- Seq(203, 206); body <- Seq(Succeeded, """{"status":"Failed"}""") ++ failures;
+         location <- Seq("$ROOT" + LocationPath, "https://other.invalid" + LocationPath)) {
+      withReplies(Seq(ContentUnderstandingStubReply(status, body,
+        Map("Operation-Location" -> location)))) { server =>
+        val result = stage(server).transform(spark.range(1).coalesce(1)).head()
+        val response = ContentUnderstandingResponse.makeFromRowConverter(result.getAs[Row]("result"))
+        assert(response.status == "Unknown")
+        assert(response.operationLocation.isEmpty)
+        val code = if (location.startsWith("$ROOT")) "UnacceptedOperationLocation" else "InvalidOperationLocation"
+        assert(response.error.exists(_.contains(code)))
+        if (body.contains("TerminalDetail")) assert(response.error.exists(_.contains("TerminalDetail")))
+        assert(Option(result.getAs[Row]("error")).isDefined)
+        assert(server.requests.map(_.method) == Seq("POST"))
+      }
+    }
+  }
+
+  test("discarded creation handles preserve uncertainty and recovery diagnostics") {
+    val path = "/contentunderstanding/analyzers/custom/operations/create-1?api-version=2025-11-01"
+    val detail = """{"code":"CreationDetail","details":[{"code":"PriorDetail"}]}"""
+    val bodies = Seq(Succeeded, """{"status":"creating"}""",
+      s"""{"status":"Failed","error":$detail}""", """{"status":"Failed","error":"CreationDetail"}""")
+    val locations = Seq(("$ROOT" + path, "UnacceptedOperationLocation"),
+      ("https://other.invalid" + path, "InvalidOperationLocation"),
+      ("$ROOT" + path.replace("/custom/", "/other/"), "InvalidOperationLocation"))
+    for (status <- Seq(200, 201, 202, 203, 206, 500); body <- bodies; (location, code) <- locations
+         if status > 202 || code == "InvalidOperationLocation") {
+      withClue(s"HTTP $status, body $body, location $location: ") {
+        withReplies(Seq(ContentUnderstandingStubReply(status, body,
+          Map("Operation-Location" -> location)))) { server =>
+          val error = intercept[ContentUnderstandingException] {
+            stage(server).setAnalyzerId("custom").createAnalyzer("{}", allowReplace = false)
+          }
+          val response = error.response
+          assert(response.status == "Unknown")
+          assert(response.httpStatus == status && response.rawResponse == body)
+          assert(response.operationLocation.isEmpty)
+          assert(response.error.exists(_.contains(code)))
+          assert(response.error.exists(_.contains(ContentUnderstandingTransport.ManagementRecovery)))
+          assert(!response.error.exists(_.contains("InvalidResponse")))
+          if (body.contains("CreationDetail")) assert(response.error.exists(_.contains("CreationDetail")))
+          if (body.contains("PriorDetail")) assert(response.error.exists(_.contains("PriorDetail")))
+          if (body.contains(detail)) {
+            assert(response.error.flatMap(ContentUnderstandingResponseParsing.asObject)
+              .flatMap(_.fields.get("code")).contains(spray.json.JsString("CreationDetail")))
+          } else if (status == 500 && !body.contains("CreationDetail")) {
+            assert(response.error.flatMap(ContentUnderstandingResponseParsing.asObject)
+              .flatMap(_.fields.get("code")).contains(spray.json.JsString("HttpError")))
+          }
+          assert(server.requests.map(_.method) == Seq("PUT"))
+        }
+      }
+    }
+  }
+
+  test("DNS interruption after admission preserves exception type and releases capacity") {
+    val failure = new AtomicReference[Throwable]()
+    val lookups = new AtomicInteger()
+    val loopback = InetAddress.getByAddress(Array[Byte](127, 0, 0, 1))
+    val delegate = new DnsResolver {
+      override def resolve(host: String): Array[InetAddress] = {
+        lookups.incrementAndGet()
+        Array(loopback)
+      }
+    }
+    val worker = new Thread("cu-dns-interruption-regression") {
+      private var checks = 0
+
+      override def isInterrupted: Boolean = {
+        // Interrupt at the post-admission check, without a timing-dependent race.
+        if (Thread.currentThread() eq this) {
+          checks += 1
+          if (checks == 2) super.interrupt()
+        }
+        super.isInterrupted
+      }
+
+      override def run(): Unit = {
+        try {
+          for (_ <- 0 to BudgetedDnsResolver.MaxConcurrentLookups) {
+            checks = 0
+            try {
+              val error = intercept[InterruptedIOException] {
+                new BudgetedDnsResolver(() => 5000L, delegate).resolve("interrupted-after-admission.test")
+              }
+              assert(error.getCause.isInstanceOf[InterruptedException])
+              assert(isInterrupted)
+            } finally {
+              Thread.interrupted()
+            }
+          }
+        } catch {
+          case error: Throwable => failure.set(error)
+        }
+      }
+    }
+    worker.setDaemon(true)
+    worker.start()
+    try {
+      worker.join(10000)
+      assert(!worker.isAlive, "Interrupted DNS admission did not terminate.")
+      Option(failure.get()).foreach(throw _)
+      assert(lookups.get() == 0, "An interrupted caller submitted DNS work.")
+      assert(new BudgetedDnsResolver(() => 5000L, delegate).resolve("after-interruption.test").toSeq == Seq(loopback))
+    } finally {
+      worker.interrupt()
+      worker.join(5000)
+    }
+  }
+
+  test("creation operation lookup errors retain accepted state and recovery guidance") {
+    val location = "/contentunderstanding/analyzers/custom/operations/create-1?api-version=2025-11-01"
+    val creating = """{"status":"creating"}"""
+    val details = Seq("""{"code":"NotFound"}""", """{"message":"NotFound detail"}""",
+      """"NotFound detail"""", """[{"code":"NotFound"}]""", "123", "true")
+    for (status <- Seq(404, 410); detail <- details) {
+      withReplies(Seq(ContentUnderstandingStubReply(201, creating,
+        Map("Operation-Location" -> ("$ROOT" + location))),
+        ContentUnderstandingStubReply(status, s"""{"error":$detail}"""))) { server =>
+        val transformer = stage(server).setAnalyzerId("custom")
+        val error = intercept[ContentUnderstandingException](transformer.createAnalyzer("{}", allowReplace = false))
+        assert(error.response.status == "Running")
+        assert(error.response.rawResponse == creating)
+        assert(error.response.httpStatus == status)
+        assert(error.getMessage.contains("OperationLookupFailed"))
+        assert(error.response.operationLocation.contains(server.endpoint + location))
+        assert(error.response.error.exists(_.contains("getAnalyzer")))
+        val expected = ContentUnderstandingResponseParsing.asObject(detail).getOrElse(spray.json.JsString(detail))
+        assert(error.response.error.flatMap(ContentUnderstandingResponseParsing.asObject)
+          .flatMap(_.fields.get("innererror")).contains(expected))
+        assert(server.requests.map(_.method) == Seq("PUT", "GET"))
+      }
+
+    }
+  }
+
+  test("creation lookup body failures retain their specific diagnostics") {
+    val location = "/contentunderstanding/analyzers/custom/operations/create-1?api-version=2025-11-01"
+    val creating = """{"status":"creating"}"""
+    for (status <- Seq(404, 410); truncated <- Seq(false, true)) {
+      val body = if (truncated) """{"error":{"code":"NotFound"}}""" else "x" * 512
+      withReplies(Seq(ContentUnderstandingStubReply(201, creating,
+        Map("Operation-Location" -> ("$ROOT" + location))),
+        ContentUnderstandingStubReply(status, body, truncate = truncated))) { server =>
+        val transformer = stage(server).setAnalyzerId("custom").setMaxPollAttempts(1).setMaxResponseBytes(256)
+        val error = intercept[ContentUnderstandingException](transformer.createAnalyzer("{}", allowReplace = false))
+        val code = if (truncated) "TransportError" else "ResponseTooLarge"
+        assert(error.response.status == "Running")
+        assert(error.response.rawResponse == creating)
+        assert(error.response.operationLocation.contains(server.endpoint + location))
+        assert(error.response.error.flatMap(ContentUnderstandingResponseParsing.asObject)
+          .flatMap(_.fields.get("code")).contains(spray.json.JsString(code)))
+        assert(server.requests.map(_.method) == Seq("PUT", "GET"))
+      }
+    }
+  }
+
+  test("unsuccessful submissions with discarded handles preserve service diagnostics") {
+    val error = """{"code":"ServiceDetail","innererror":{"code":"Nested"},"details":[{"code":"PriorDetail"}]}"""
+    val body = s"""{"status":"Failed","error":$error}"""
+    for (status <- Seq(302, 400, 401, 403, 429, 500);
+         location <- Seq("$ROOT" + LocationPath, "https://other.invalid" + LocationPath)) {
+      withReplies(Seq(ContentUnderstandingStubReply(status, body,
+        Map("Operation-Location" -> location)))) { server =>
+        val response = responses(stage(server), spark.range(1).coalesce(1)).head
+        assert(response.status == "Unknown")
+        assert(response.operationLocation.isEmpty)
+        assert(response.error.flatMap(ContentUnderstandingResponseParsing.asObject)
+          .flatMap(_.fields.get("code")).contains(spray.json.JsString("ServiceDetail")))
+        assert(response.error.exists(value => value.contains("Nested") && value.contains("PriorDetail")))
+        assert(!response.error.exists(_.contains("UnacceptedOperationLocation")))
+        assert(response.error.exists(_.contains("InvalidOperationLocation")) == !location.startsWith("$ROOT"))
+        assert(server.requests.map(_.method) == Seq("POST"))
+      }
+    }
+  }
+
+  test("unsafe handles retain nonobject service errors without following the handle") {
+    for (error <- Seq(""""service detail"""", """[{"code":"ServiceDetail"}]""")) {
+      val body = s"""{"status":"Failed","error":$error}"""
+      withReplies(Seq(ContentUnderstandingStubReply(500, body,
+        Map("Operation-Location" -> ("https://other.invalid" + LocationPath))))) { server =>
+        val response = responses(stage(server), spark.range(1).coalesce(1)).head
+        assert(response.status == "Unknown")
+        assert(response.operationLocation.isEmpty)
+        val diagnostic = response.error.flatMap(ContentUnderstandingResponseParsing.asObject)
+        assert(diagnostic.flatMap(_.fields.get("code")).contains(spray.json.JsString("InvalidOperationLocation")))
+        assert(diagnostic.flatMap(_.fields.get("innererror")).contains(spray.json.JsString(error)))
+        assert(server.requests.map(_.method) == Seq("POST"))
+      }
+    }
+  }
 
   test("management logs safe outcomes and timing without changing results or exceptions") {
     val ready = """{"analyzerId":"custom","status":"ready","description":"private-service-value"}"""
