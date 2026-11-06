@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from py4j.protocol import Py4JError, Py4JJavaError
 from pyspark.errors.exceptions.captured import IllegalArgumentException
+from pyspark.ml import PipelineModel
 
 from synapse.ml.core.init_spark import init_spark
 from synapse.ml.services.openai.OpenAIEmbedding import OpenAIEmbedding
@@ -20,6 +21,89 @@ spark = init_spark()
 
 
 class TestServiceParamPythonBridge(unittest.TestCase):
+    def test_text_deployment_defaults_and_bindings_survive_copy_and_load(self):
+        from synapse.ml.services.openai.OpenAIChatCompletion import OpenAIChatCompletion
+        from synapse.ml.services.openai.OpenAIResponses import OpenAIResponses
+
+        for stage_type in (OpenAIChatCompletion, OpenAIResponses, OpenAIPrompt):
+            for binding in ("default", "explicit-default", "scalar", "column"):
+                with self.subTest(stage=stage_type.__name__, binding=binding):
+                    stage = stage_type()
+                    if binding == "scalar":
+                        stage.setParams(deploymentName="custom-deployment")
+                    elif binding == "explicit-default":
+                        stage.setParams(deploymentName="gpt-6-luna")
+                    elif binding == "column":
+                        stage.setDeploymentNameCol("deployment")
+                    with tempfile.TemporaryDirectory() as directory:
+                        path = os.path.join(directory, "stage")
+                        stage.save(path)
+                        if stage_type is OpenAIPrompt:
+                            restored = stage_type.load(path)
+                        else:
+                            # Only Chat/Responses need this for their trusted fixtures.
+                            config = (
+                                "spark.synapseml.legacy.allowUnsafeJavaDeserialization"
+                            )
+                            previous = spark.conf.get(config, None)
+                            try:
+                                spark.conf.set(config, "true")
+                                restored = stage_type.load(path)
+                            finally:
+                                if previous is None:
+                                    spark.conf.unset(config)
+                                else:
+                                    spark.conf.set(config, previous)
+                        for candidate in (stage, stage.copy(), restored):
+                            candidate._transfer_params_to_java()
+                            if binding == "column":
+                                self.assertEqual(
+                                    candidate.getDeploymentNameCol(), "deployment"
+                                )
+                            else:
+                                self.assertEqual(
+                                    candidate.getDeploymentName(),
+                                    (
+                                        "gpt-6-luna"
+                                        if binding in ("default", "explicit-default")
+                                        else "custom-deployment"
+                                    ),
+                                )
+                            java_param = candidate._java_obj.getParam("deploymentName")
+                            self.assertEqual(
+                                candidate._java_obj.isSet(java_param),
+                                binding != "default",
+                            )
+
+    def test_scala_saved_default_columns_survive_python_pipeline_load(self):
+        java_stage = (
+            spark._jvm.com.microsoft.azure.synapse.ml.services.openai.OpenAIPrompt()
+            .setUrl("http://127.0.0.1:1/openai/v1/")
+            .setSubscriptionKey("unused")
+            .setPromptTemplate("{text}")
+        )
+        output_column = java_stage.getOutputCol()
+        error_column = java_stage.getErrorCol()
+        with tempfile.TemporaryDirectory() as directory:
+            stage_path = os.path.join(directory, "scala-stage")
+            java_stage.write().save(stage_path)
+            restored = OpenAIPrompt.load(stage_path)
+            for candidate in (restored, restored.copy({})):
+                self.assertEqual(candidate.getOutputCol(), output_column)
+                self.assertEqual(candidate.getErrorCol(), error_column)
+                candidate._transfer_params_to_java()
+                self.assertEqual(candidate._java_obj.getOutputCol(), output_column)
+                self.assertEqual(candidate._java_obj.getErrorCol(), error_column)
+            pipeline = PipelineModel(
+                stages=[restored, SelectColumns().setCols([output_column])]
+            )
+            pipeline_path = os.path.join(directory, "pipeline")
+            pipeline.save(pipeline_path)
+            loaded = PipelineModel.load(pipeline_path)
+            result = loaded.transform(spark.createDataFrame([], "text string"))
+            self.assertEqual(result.columns, [output_column])
+            self.assertEqual(result.collect(), [])
+
     def test_cache_options_preserve_provider_values_and_json_types(self):
         from synapse.ml.services.openai.OpenAIChatCompletion import OpenAIChatCompletion
         from synapse.ml.services.openai.OpenAIResponses import OpenAIResponses

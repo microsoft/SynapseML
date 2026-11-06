@@ -3,19 +3,21 @@
 
 package com.microsoft.azure.synapse.ml.services.openai
 
+import com.microsoft.azure.synapse.ml.core.test.base.TestBase
+import com.microsoft.azure.synapse.ml.io.http.HTTPRequestData
 import com.microsoft.azure.synapse.ml.param.AnyJsonFormat.anyFormat
 import com.microsoft.azure.synapse.ml.services.HasCognitiveServiceInput
 import com.microsoft.azure.synapse.ml.services.aifoundry.AIFoundryChatCompletion
 import org.apache.http.entity.AbstractHttpEntity
+import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.http.util.EntityUtils
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types.{ArrayType, BooleanType, MapType, StringType, StructType}
-import org.scalatest.funsuite.AnyFunSuite
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
-class OpenAIPromptCacheSuite extends AnyFunSuite {
+class OpenAIPromptCacheSuite extends TestBase {
 
   private type CacheStage = HasOpenAITextParams with HasCognitiveServiceInput
 
@@ -99,6 +101,39 @@ class OpenAIPromptCacheSuite extends AnyFunSuite {
     }
   }
 
+  test("SQL decimal options retain exact JSON numbers on all request routes") {
+    val decimal = "12345678901234567890.123456789012345678"
+    val options = spark.sql(
+      s"SELECT named_struct('future_number', CAST('$decimal' AS DECIMAL(38,18))) AS options")
+      .head().getStruct(0)
+    val schema = new StructType().add("messages", ArrayType(messageSchema)).add("cache_options", options.schema)
+    val message = new GenericRowWithSchema(Array[Any]("user", "hello"), messageSchema)
+    val row = new GenericRowWithSchema(Array[Any](Seq(message), options), schema)
+    val expected = JsObject("future_number" -> JsNumber(BigDecimal(decimal)))
+    stages.foreach { stage =>
+      assert(payload(stage.setPromptCacheOptionsCol("cache_options"), row).fields("prompt_cache_options") == expected)
+    }
+  }
+
+  test("scalar decimal cache options retain precision after save and load") {
+    Seq("12345678901234567890.123456789012345678", "9223372036854775808", "18446744073709551616")
+      .map(BigDecimal(_)).zipWithIndex.foreach { case (decimal, decimalIndex) =>
+        val expected = JsObject("future_number" -> JsNumber(decimal))
+        Seq[Any](decimal, decimal.bigDecimal).zipWithIndex.foreach { case (value, typeIndex) =>
+          val prompt = new OpenAIPrompt().setMessagesCol("messages").setApiType("responses")
+            .setPromptCacheOptions(Map("future_number" -> value))
+          assert(payload(prompt, requestRow()).fields("prompt_cache_options") == expected)
+          val path = tmpDir.resolve(s"decimal-cache-options-$decimalIndex-$typeIndex").toString
+          prompt.write.save(path)
+          val restored = OpenAIPrompt.load(path)
+          assert(payload(restored, requestRow()).fields("prompt_cache_options") == expected)
+          val resavedPath = tmpDir.resolve(s"resaved-decimal-cache-options-$decimalIndex-$typeIndex").toString
+          restored.write.save(resavedPath)
+          assert(payload(OpenAIPrompt.load(resavedPath), requestRow()).fields("prompt_cache_options") == expected)
+        }
+      }
+  }
+
   test("struct options retain nested JSON values without adding cache-policy validation") {
     val nestedSchema = new StructType().add("enabled", BooleanType)
     val optionsSchema = new StructType().add("ttl", StringType).add("prewarm", BooleanType)
@@ -135,6 +170,56 @@ class OpenAIPromptCacheSuite extends AnyFunSuite {
     assert(encodedParts.length == parts.length)
     encodedParts.foreach { part =>
       assert(part.asJsObject.fields("prompt_cache_breakpoint") == breakpoint.toJson)
+    }
+  }
+
+  for ((partType, valueField, value) <- Seq(
+    ("input_text", "text", "hello"),
+    ("input_image", "image_url", "https://example.org/image.png"),
+    ("input_file", "file_id", "file-example"),
+    ("text", "text", "hello"),
+    ("image_url", "image_url", "https://example.org/image.png")
+  )) {
+    test(s"$partType scalar breakpoints fail locally for struct and map content") {
+      for (mapBacked <- Seq(false, true)) {
+        val imageSchema = new StructType().add("url", StringType)
+        val nestedImage = partType == "image_url" && !mapBacked
+        val partSchema = new StructType().add("type", StringType)
+          .add(valueField, if (nestedImage) imageSchema else StringType)
+          .add("prompt_cache_breakpoint", StringType)
+        val contentType = if (mapBacked) MapType(StringType, StringType) else partSchema
+        val messagesSchema = new StructType().add("role", StringType).add("content", ArrayType(contentType))
+        val marker = """{"mode":"explicit"}"""
+        val part = if (mapBacked) {
+          Map("type" -> partType, valueField -> value, "prompt_cache_breakpoint" -> marker)
+        } else {
+          val encodedValue = if (nestedImage) new GenericRowWithSchema(Array[Any](value), imageSchema) else value
+          new GenericRowWithSchema(Array[Any](partType, encodedValue, marker), partSchema)
+        }
+        val message = new GenericRowWithSchema(Array[Any]("user", Seq(part)), messagesSchema)
+        val stage: OpenAIServicesBase with HasMessagesInput = if (partType.startsWith("input_")) {
+          new OpenAIResponses()
+        } else {
+          new OpenAIChatCompletion()
+        }
+        val calls = spark.sparkContext.longAccumulator
+        stage.setMessagesCol("messages").setUrl("https://example.openai.azure.com/openai/v1/")
+          .setSubscriptionKey("unused").setOutputCol("output").setErrorCol("error")
+          .setHandler { (_: CloseableHttpClient, _: HTTPRequestData) =>
+            calls.add(1L)
+            throw new AssertionError("Invalid breakpoint must not reach HTTP")
+          }
+        val input = spark.createDataFrame(
+          spark.sparkContext.parallelize(Seq(Row(Seq(message))), 1),
+          new StructType().add("messages", ArrayType(messagesSchema)))
+        val rows = stage.transform(input).select("output", "error").collect()
+        assert(rows.length == 1)
+        assert(rows.head.isNullAt(0))
+        val error = rows.head.getAs[Row]("error").getAs[String]("response")
+        assert(error.contains("prompt_cache_breakpoint"))
+        assert(error.contains("nested struct"))
+        assert(calls.value == 0L)
+      }
     }
   }
 }

@@ -452,6 +452,27 @@ class OpenAIV1EndpointSuite extends TestBase {
     assert(payload == expected)
   }
 
+  test("chat completions reject map-backed cache breakpoints without invoking HTTP") {
+    val text = Map("type" -> "text", "text" -> "hello")
+    val image = Map("type" -> "image_url", "image_url" -> "https://example.com/image.png")
+    val breakpoint = "prompt_cache_breakpoint" -> """{"mode":"explicit"}"""
+    val cases = Seq(Seq(text + breakpoint), Seq(image + breakpoint),
+      Seq(text + breakpoint, image), Seq(text, image + breakpoint))
+    cases.foreach { parts =>
+      val error = chatSerializationError(Seq(compositeMessageRow("user", parts)), compositeMessageSchema)
+      assert(error.getMessage.contains("prompt_cache_breakpoint requires a nested struct content schema"))
+    }
+    val (rows, handlerInvocations) = transformWithThrowingHandler(
+      cases.map(parts => Row(Seq(compositeMessageRow("user", parts)))), compositeMessageSchema)
+    assert(rows.length == cases.length)
+    assert(handlerInvocations.value == 0L)
+    rows.foreach { row =>
+      assert(row.isNullAt(row.fieldIndex("output")))
+      assert(row.getAs[Row]("error").getAs[String]("response")
+        .contains("prompt_cache_breakpoint requires a nested struct content schema"))
+    }
+  }
+
   test("chat completions preserve nested image_url content") {
     val imagePart: Row = structuredContentPartRow(
       "image_url",
@@ -735,11 +756,13 @@ class OpenAIV1EndpointSuite extends TestBase {
       }
   }
 
-  test("responses v1 endpoint requires deployment name as model") {
+  test("responses v1 endpoint defaults an unset deployment but rejects an explicitly empty name") {
     val transformer = new OpenAIResponses()
       .setUrl("https://example.services.ai.azure.com/openai/v1")
       .setMessagesCol("messages")
 
+    assert(requestPayload(transformer, messagesRow).fields("model") == JsString("gpt-6-luna"))
+    transformer.setDeploymentName("")
     val err = intercept[IllegalArgumentException] {
       requestPayload(transformer, messagesRow)
     }
@@ -760,7 +783,7 @@ class OpenAIV1EndpointSuite extends TestBase {
   test("OpenAIPrompt treats services.ai.azure.com/openai/v1 as OpenAI v1, not models chat endpoint") {
     val prompt = new OpenAIPrompt()
       .setUrl("https://example.services.ai.azure.com/openai/v1")
-      .setModel("gpt-6-luna")
+      .setModel("custom-model")
       .setMessagesCol("messages")
 
     val prepareEntity = classOf[OpenAIPrompt].getDeclaredMethod("prepareEntity")
@@ -768,7 +791,7 @@ class OpenAIV1EndpointSuite extends TestBase {
     val buildEntity = prepareEntity.invoke(prompt).asInstanceOf[Row => Option[AbstractHttpEntity]]
 
     val payload = EntityUtils.toString(buildEntity(messagesRow).get).parseJson.asJsObject
-    assert(payload.fields.get("model").contains(JsString("gpt-6-luna")))
+    assert(payload.fields.get("model").contains(JsString("custom-model")))
     assert(payload.fields.contains("messages"))
   }
 }
