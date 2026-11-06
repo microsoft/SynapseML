@@ -139,6 +139,7 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
 
   setDefault(
     apiVersion -> Left("2025-04-01-preview"),
+    deploymentName -> Left(OpenAIDefaults.DefaultTextDeploymentName),
     store -> Left(false)
   )
 
@@ -516,6 +517,7 @@ object OpenAIResponses extends ComplexParamsReadable[OpenAIResponses] {
       case _ => throw new IllegalArgumentException(s"$location must be an object")
     }
 
+    validatePromptCacheBreakpoint(fields, location)
     fields.get("type") match {
       case Some("input_text") => validateInputTextPart(fields, location)
       case Some("input_image") => validateInputImagePart(fields, location)

@@ -28,6 +28,8 @@ object AnyJsonFormat extends DefaultJsonProtocol {
         case v: Byte => v.toJson
         case v: Float => v.toJson
         case v: Double => v.toJson
+        case v: BigDecimal => JsNumber(v)
+        case v: java.math.BigDecimal => JsNumber(BigDecimal(v))
         case v: String => v.toJson
         case v: Boolean => v.toJson
         case v: Integer => v.toLong.toJson
@@ -50,7 +52,7 @@ object AnyJsonFormat extends DefaultJsonProtocol {
           num match {
             case _ if num.isValidInt => num.toInt
             case _ if num.isValidLong => num.toLong
-            case _ if num.isExactDouble || num.isBinaryDouble || num.isDecimalDouble => num.toDouble
+            case _ if num.isDecimalDouble => num.toDouble
             case _ => num
           }
         case v: JsString => v.value

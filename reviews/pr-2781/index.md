@@ -1,6 +1,46 @@
 # Review evidence for PR #2781
 
-## Current formatting and Boolean-test correction: pre-commit pass 8
+## Current amendment: publication with an explicit review-gate exception
+
+The owner requested publication of the validated amendment without further
+automated review rounds and explicitly approved that pre-commit exception.
+This is publication for human review, **not merge readiness**. Required
+current-head CI, coverage and the distinct final CI-qualified review remain
+incomplete; no CI protection or release policy was waived.
+
+The current 39-path product patch targets
+`d3f3af6bd3e4b7d191f51c9eb29f9aeffe788193`.
+Its source manifest is
+`f880b4febff5c0040c405e730a9f874643e405db1d04cddda7d3cbc75d6f46b3`
+and complete diff is
+`650dd8df5f9335e723470722cca8ca40d83e02ae8e167d7888614babcba6942d`.
+Review-output paths are excluded from those fingerprints.
+
+- [Pass 20, broad sweep](task-unknown-attempt-20-stage-attempt-1-review-1-claude-opus-5.5.md)
+  completed clean with `claude-opus-5.5/max`. The full-diff, runtime-model,
+  independence, privacy and unchanged-source audits passed.
+- Lens 2 was stopped at the owner's request; lenses 3-6 were not started.
+  This is not a completed six-lens pass, and historical clean lenses are not
+  combined with it.
+- The [three pass-18 findings](task-unknown-attempt-18-stage-attempt-1-review-1-claude-opus-5.5.md)
+  were corrected before pass 20: decimal-positive schema tests replace stale
+  rejection expectations; legacy custom-URL model configurations retain
+  their prior behavior; decimal decoding preserves exact JSON values even
+  when binary Double representability would otherwise lose decimal digits.
+  Earlier original review artifacts remain unchanged.
+- Current local validation passed: 36 core and 83 cognitive Scala tests,
+  compilation, four production/test style scopes, and rebuilt JAR packages.
+  Installed Python wrappers passed 27 tests, 24 subtests and seven loopback
+  HTTP transforms; response-schema tests passed 13 tests and 123 subtests.
+  The final Python formatting-only adjustment was verified AST-identical.
+- Local runtime: Python 3.11.8, Spark/PySpark 3.5.0, Scala 2.12.18 and Java 11.
+  Hosted-model and older remote CI results below are historical, not
+  qualification of this amendment.
+
+All following sections are retained historical records. Their references to
+"current", pending work and budgets describe their original revision only.
+
+## Historical formatting and Boolean-test correction: pre-commit pass 8
 
 The complete current 29-path patch passed the explicitly authorized
 [Low-tier, single-reviewer harness pass](task-unknown-attempt-8-review-0-harness.md)

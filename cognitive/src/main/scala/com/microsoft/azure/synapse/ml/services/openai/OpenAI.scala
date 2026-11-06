@@ -9,7 +9,7 @@ import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails
 import com.microsoft.azure.synapse.ml.param.AnyJsonFormat.anyFormat
 import com.microsoft.azure.synapse.ml.param.{GlobalKey, GlobalParams, ServiceParam}
 import com.microsoft.azure.synapse.ml.services._
-import org.apache.spark.ml.PipelineModel
+import org.apache.spark.ml.{ComplexParamsWritable, PipelineModel}
 import org.apache.spark.ml.param.{Param, Params}
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.internal.SQLConf
@@ -29,11 +29,21 @@ trait HasMessagesInput extends Params {
       "Responses structured parts match {\"type\":\"input_text\",\"text\":\"...\"}, " +
       "{\"type\":\"input_image\",\"image_url\":\"...\",\"detail\":\"...\"} (or use file_id), or " +
       "{\"type\":\"input_file\",\"file_data\":\"...\",\"filename\":\"...\"} (or use file_id instead of file_data); " +
-      "image detail and filename are optional.")
+      "image detail and filename are optional. " +
+      "Non-null prompt_cache_breakpoint values must be objects in a nested struct content schema.")
 
   def getMessagesCol: String = $(messagesCol)
 
   def setMessagesCol(v: String): this.type = set(messagesCol, v)
+
+  protected def validatePromptCacheBreakpoint(part: Map[String, Any], location: String): Unit = {
+    part.get("prompt_cache_breakpoint").foreach {
+      case _: scala.collection.Map[_, _] =>
+      case _ =>
+        throw new IllegalArgumentException(
+          s"$location.prompt_cache_breakpoint must be an object; use a nested struct content schema")
+    }
+  }
 }
 
 case object OpenAIDeploymentNameKey extends GlobalKey[Either[String, String]]
@@ -163,7 +173,9 @@ case object OpenAIReasoningEffortKey extends GlobalKey[Either[String, String]]
 case object OpenAIApiTypeKey extends GlobalKey[String]
 
 // scalastyle:off number.of.methods
-trait HasOpenAITextParams extends HasOpenAISharedParams {
+trait HasOpenAITextParams extends HasOpenAISharedParams with ComplexParamsWritable {
+  override def paramsWithImplicitDefaults: Set[Param[_]] = Set(deploymentName)
+
   @deprecated("Use maxCompletionTokens instead - max_tokens is rejected by reasoning models", "1.0.16")
   val maxTokens: ServiceParam[Int] = new ServiceParam[Int](
     this, "maxTokens",
@@ -317,6 +329,7 @@ trait HasOpenAITextParams extends HasOpenAISharedParams {
     this, "promptCacheOptions",
     "Optional prompt_cache_options request object. Values are forwarded to the service, which determines " +
       "supported modes, lifetimes and model availability. Unset options preserve service defaults. " +
+      "Values must be JSON-compatible; dates, timestamps, binary and non-string object keys are not supported. " +
       "Explicit mode requires prompt_cache_breakpoint markers in message content to use caching.",
     isRequired = false) {
     override val payloadName: String = "prompt_cache_options"
