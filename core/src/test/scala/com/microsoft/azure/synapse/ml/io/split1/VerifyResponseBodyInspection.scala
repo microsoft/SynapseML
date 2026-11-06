@@ -26,7 +26,45 @@ class VerifyResponseBodyInspection extends TestBase {
     val response = new BasicHttpResponse(HttpVersion.HTTP_1_1, 200, "OK") with CloseableHttpResponse {
       override def close(): Unit = { closes.incrementAndGet(); () }
     }
+    response.setLocale(java.util.Locale.ROOT)
     response.setEntity(entity)
+    assert(intercept[IOException](HandlingUtils.convertAndClose(response)) eq failure)
+    assert(closes.get() == 1)
+  }
+
+  test("response conversion preserves its read error when response cleanup also fails") {
+    Seq(false, true).foreach { sameFailure =>
+      val closes = new AtomicInteger()
+      val failure = new IOException("Synthetic response conversion failure")
+      val cleanupFailure = if (sameFailure) failure else new IOException("Synthetic response cleanup failure")
+      val entity = new BasicHttpEntity()
+      entity.setContent(new InputStream {
+        override def read(): Int = throw failure
+      })
+      val response = new BasicHttpResponse(HttpVersion.HTTP_1_1, 200, "OK") with CloseableHttpResponse {
+        override def close(): Unit = {
+          closes.incrementAndGet()
+          throw cleanupFailure
+        }
+      }
+      response.setLocale(java.util.Locale.ROOT)
+      response.setEntity(entity)
+      assert(intercept[IOException](HandlingUtils.convertAndClose(response)) eq failure)
+      assert(failure.getSuppressed.toSeq == (if (sameFailure) Seq.empty else Seq(cleanupFailure)))
+      assert(closes.get() == 1)
+    }
+  }
+
+  test("successful response conversion still propagates a response cleanup failure") {
+    val closes = new AtomicInteger()
+    val failure = new IOException("Synthetic response cleanup failure")
+    val response = new BasicHttpResponse(HttpVersion.HTTP_1_1, 200, "OK") with CloseableHttpResponse {
+      override def close(): Unit = {
+        closes.incrementAndGet()
+        throw failure
+      }
+    }
+    response.setLocale(java.util.Locale.ROOT)
     assert(intercept[IOException](HandlingUtils.convertAndClose(response)) eq failure)
     assert(closes.get() == 1)
   }
