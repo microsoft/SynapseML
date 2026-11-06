@@ -13,9 +13,11 @@ import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.sql.catalyst.analysis.{AnsiTypeCoercion, TypeCoercion}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{col, coalesce}
-import org.apache.spark.sql.types.{StringType, StructType}
+import org.apache.spark.sql.internal.SQLConf
+import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 object SimpleHTTPTransformer extends ComplexParamsReadable[SimpleHTTPTransformer]
@@ -113,6 +115,29 @@ class SimpleHTTPTransformer(val uid: String)
   /** @group setParam */
   def setOutputParser(value: HTTPOutputParser): this.type = set(outputParser, value)
 
+  private def errorSchema(input: StructType, responseColumn: String): StructType = {
+    val conf = SQLConf.get
+    require(input.fields.count(field => conf.resolver(field.name, getErrorCol)) <= 1,
+      s"Column $getErrorCol is ambiguous.")
+    // Runtime only coalesces an exact-name preparation error; withColumn replaces using Spark's resolver.
+    val existing = input.fields.find(_.name == getErrorCol)
+    val errorType = existing.map { field =>
+      val common = if (conf.ansiEnabled) {
+        AnsiTypeCoercion.findWiderTypeForTwo(field.dataType, ErrorUtils.ErrorSchema)
+      } else {
+        TypeCoercion.findWiderTypeForTwo(field.dataType, ErrorUtils.ErrorSchema)
+      }
+      common.getOrElse(throw new IllegalArgumentException(s"Column $getErrorCol has an incompatible error type."))
+    }.getOrElse(ErrorUtils.ErrorSchema)
+    val errorField = StructField(getErrorCol, errorType, nullable = existing.forall(_.nullable))
+    val fields = input.fields.map { field =>
+      if (conf.resolver(field.name, getErrorCol)) errorField
+      else if (field.name == responseColumn) field.copy(nullable = true)
+      else field
+    }
+    StructType(if (input.fieldNames.exists(conf.resolver(_, getErrorCol))) fields else fields :+ errorField)
+  }
+
   private def makePipeline(schema: StructType): PipelineModel = {
     val colsToAvoid = schema.fieldNames.toSet ++ Set(getOutputCol, getErrorCol)
 
@@ -145,7 +170,7 @@ class SimpleHTTPTransformer(val uid: String)
       }
       df.withColumn(getErrorCol, errorExpr)
         .withColumn(unparsedOutputCol, ErrorUtils.NullifyResponseUDF(col(getErrorCol), col(unparsedOutputCol)))
-    }))
+    }).setTransformSchema(input => errorSchema(input, unparsedOutputCol)))
 
     val outputParser =
       Some(getOutputParser

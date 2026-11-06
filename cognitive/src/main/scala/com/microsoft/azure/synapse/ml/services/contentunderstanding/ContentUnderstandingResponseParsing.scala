@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.services.contentunderstanding
 
 import org.apache.http.config.{ConnectionConfig, MessageConstraints}
+import org.apache.http.HttpStatus
 import spray.json.{JsArray, JsObject, JsString, JsValue, enrichString}
 
 import scala.annotation.tailrec
@@ -106,5 +107,68 @@ private[contentunderstanding] object ContentUnderstandingResponseParsing {
       case _ :: rest => collect(rest, codes)
     }
     collect(List(value), Set.empty)
+  }
+}
+
+private[contentunderstanding] object SubmissionLocation {
+  case class Assessment(error: Option[String], missing: Boolean)
+
+  def validate(endpoint: String, location: Option[String]): Option[Either[String, String]] =
+    location.map { value =>
+      try {
+        Right(ContentUnderstandingProtocol.validateOperationLocation(endpoint, value).toString)
+      } catch {
+        case _: IllegalArgumentException => Left(ContentUnderstandingProtocol.diagnostic("InvalidOperationLocation",
+          "The service returned an unsafe or malformed Operation-Location; it was not requested."))
+      }
+    }
+
+  def assess(httpStatus: Int,
+             successful: Boolean,
+             rawStatus: Option[String],
+             accepted: Boolean,
+             operationLocation: Option[String],
+             validated: Option[Either[String, String]]): Assessment = {
+    val status = rawStatus.map(_.toLowerCase(java.util.Locale.ROOT))
+    val terminal = status.exists(Set("succeeded", "failed", "canceled"))
+    val requiresLocation = successful && !terminal &&
+      (status.exists(Set("running", "notstarted")) || httpStatus == HttpStatus.SC_ACCEPTED)
+    val unacceptedSuccess = successful && !accepted
+    val error = if (requiresLocation || unacceptedSuccess) validated.flatMap(_.left.toOption) else None
+    val unaccepted = validated.filter(_ => unacceptedSuccess).flatMap(_.right.toOption).map { _ =>
+      ContentUnderstandingProtocol.diagnostic("UnacceptedOperationLocation",
+        s"The service returned Operation-Location with HTTP $httpStatus; the handle was not followed.")
+    }
+    Assessment(error.orElse(unaccepted), requiresLocation && operationLocation.isEmpty)
+  }
+
+  def rejectedCreation(response: ContentUnderstandingResponse, endpoint: String,
+                       location: String, analyzerId: String): ContentUnderstandingResponse = {
+    val code = try {
+      ContentUnderstandingProtocol.validateOperationLocation(endpoint, location, Some(analyzerId))
+      "UnacceptedOperationLocation"
+    } catch {
+      case _: IllegalArgumentException => "InvalidOperationLocation"
+    }
+    val extra = ContentUnderstandingProtocol.diagnostic(code,
+      s"The analyzer creation Operation-Location with HTTP ${response.httpStatus} was not followed. " +
+        ContentUnderstandingTransport.ManagementRecovery)
+    withDiagnostic(response.copy(status = "Unknown"), Some(extra))
+  }
+
+  def withDiagnostic(response: ContentUnderstandingResponse,
+                     extra: Option[String]): ContentUnderstandingResponse = {
+    extra.flatMap(ContentUnderstandingResponseParsing.asObject).map { diagnostic =>
+      val error = response.error.flatMap(ContentUnderstandingResponseParsing.asObject).map { original =>
+        val details = original.fields.get("details").map {
+          case JsArray(values) => values
+          case value => Vector(value)
+        }.getOrElse(Vector.empty)
+        JsObject(original.fields + ("details" -> JsArray(details :+ diagnostic)))
+      }.getOrElse {
+        JsObject(diagnostic.fields ++ response.error.map(value => "innererror" -> JsString(value)))
+      }
+      response.copy(error = ContentUnderstandingResponseParsing.compact(error).orElse(response.error))
+    }.getOrElse(response)
   }
 }

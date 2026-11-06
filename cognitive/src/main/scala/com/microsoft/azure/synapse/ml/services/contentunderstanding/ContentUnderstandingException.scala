@@ -14,8 +14,9 @@ private[contentunderstanding] object ContentUnderstandingException {
   private val DiagnosticCodes = Set(
     "AnalyzerNotReady", "AnalyzerRetrievalFailed", "DnsCapacityExceeded", "DnsResolutionFailed",
     "HttpError", "InvalidInput", "InvalidOperationLocation", "InvalidResponse", "MissingOperationLocation",
-    "OperationFailed", "OperationTimedOut", "PollAttemptsExhausted", "RequestNotSent", "ResponseBodyReadFailed",
-    "ResponseTooLarge", "SharedConfigurationFailure", "TransportError", "UnacceptedOperationLocation")
+    "OperationFailed", "OperationLookupFailed", "OperationTimedOut", "PollAttemptsExhausted", "RequestNotSent",
+    "ResponseBodyReadFailed", "ResponseTooLarge", "SharedConfigurationFailure", "TransportError",
+    "UnacceptedOperationLocation")
 
   private def message(response: ContentUnderstandingResponse): String = {
     val code = response.error.filter(_.length <= MaxDiagnosticCharacters)

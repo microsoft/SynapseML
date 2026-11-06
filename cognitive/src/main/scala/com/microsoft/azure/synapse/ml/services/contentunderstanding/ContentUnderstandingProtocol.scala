@@ -4,7 +4,8 @@
 package com.microsoft.azure.synapse.ml.services.contentunderstanding
 
 import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
-import com.microsoft.azure.synapse.ml.io.http.{HTTPRequestData, HTTPResponseData, HTTPSchema, RequestLineData}
+import com.microsoft.azure.synapse.ml.io.http.{AsyncClient, HTTPRequestData, HTTPResponseData, HTTPSchema,
+  RequestLineData}
 import com.microsoft.azure.synapse.ml.io.http.HandlingUtils.HandlerFunc
 import org.apache.http.HttpStatus
 import org.apache.http.client.config.RequestConfig
@@ -22,7 +23,8 @@ import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
-import java.util.concurrent.{ScheduledFuture, ScheduledThreadPoolExecutor, ThreadFactory, TimeUnit}
+import java.util.concurrent.{CancellationException, ScheduledFuture, ScheduledThreadPoolExecutor, ThreadFactory,
+  TimeUnit}
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.annotation.tailrec
 import scala.util.Try
@@ -38,38 +40,6 @@ case class ContentUnderstandingResponse(operationLocation: Option[String],
 object ContentUnderstandingResponse extends SparkBindings[ContentUnderstandingResponse] {
   implicit val JsonFormat: RootJsonFormat[ContentUnderstandingResponse] =
     jsonFormat6(ContentUnderstandingResponse.apply)
-}
-
-private[contentunderstanding] object SubmissionLocation {
-  case class Assessment(error: Option[String], missing: Boolean)
-
-  def validate(endpoint: String, location: Option[String]): Option[Either[String, String]] =
-    location.map { value =>
-      try {
-        Right(ContentUnderstandingProtocol.validateOperationLocation(endpoint, value).toString)
-      } catch {
-        case _: IllegalArgumentException => Left(ContentUnderstandingProtocol.diagnostic("InvalidOperationLocation",
-          "The service returned an unsafe or malformed Operation-Location; it was not requested."))
-      }
-    }
-
-  def assess(httpStatus: Int,
-             successful: Boolean,
-             rawStatus: Option[String],
-             accepted: Boolean,
-             operationLocation: Option[String],
-             validated: Option[Either[String, String]]): Assessment = {
-    val status = rawStatus.map(_.toLowerCase(java.util.Locale.ROOT))
-    val terminal = status.exists(Set("succeeded", "failed", "canceled"))
-    val requiresLocation = successful && !terminal &&
-      (status.exists(Set("running", "notstarted")) || httpStatus == HttpStatus.SC_ACCEPTED)
-    val error = if (!terminal && (requiresLocation || !accepted)) validated.flatMap(_.left.toOption) else None
-    val unaccepted = validated.filter(_ => requiresLocation && !accepted).flatMap(_.right.toOption).map { _ =>
-      ContentUnderstandingProtocol.diagnostic("UnacceptedOperationLocation",
-        s"The service returned Operation-Location with HTTP $httpStatus; the handle was not followed.")
-    }
-    Assessment(error.orElse(unaccepted), requiresLocation && operationLocation.isEmpty)
-  }
 }
 
 private[contentunderstanding] object ContentUnderstandingProtocol {
@@ -161,7 +131,8 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
   private class ResponseTooLarge extends RuntimeException
 
   private[contentunderstanding] object DeadlineControl {
-    case class Deadline(future: ScheduledFuture[_], fired: AtomicBoolean) {
+    case class Deadline(future: ScheduledFuture[_], fired: AtomicBoolean,
+                        cancellation: Option[ScheduledFuture[_]] = None) {
       def hasExpired(budget: ContentUnderstandingBudget): Boolean = fired.get() || budget.remainingMs == 0
     }
 
@@ -173,11 +144,21 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
           request.abort()
         }
       }, delayMs, TimeUnit.MILLISECONDS)
-      Deadline(future, fired)
+      val cancellation = AsyncClient.currentTaskContext.map { owner =>
+        DeadlineExecutor.scheduleWithFixedDelay(new Runnable {
+          override def run(): Unit = {
+            if ((owner.isInterrupted() || owner.isCompleted()) && fired.compareAndSet(false, true)) {
+              request.abort()
+            }
+          }
+        }, 0L, ContentUnderstandingBudget.CancellationPollMs, TimeUnit.MILLISECONDS)
+      }
+      Deadline(future, fired, cancellation)
     }
 
     def release(request: HttpRequestBase, deadline: Deadline): Unit = {
       deadline.future.cancel(false)
+      deadline.cancellation.foreach(_.cancel(false))
       // Requests are not reused; response/client cleanup owns a request already being aborted.
       if (!deadline.fired.get()) {
         request.releaseConnection()
@@ -287,6 +268,9 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
   }
 
   private[contentunderstanding] def checkInterrupted(): Unit = {
+    if (AsyncClient.isTaskCancelled) {
+      throw new CancellationException("The owning Spark task has ended.")
+    }
     if (Thread.currentThread().isInterrupted) {
       throw new InterruptedException("Content Understanding request interrupted.")
     }
@@ -324,6 +308,9 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
       new String(output.toByteArray, StandardCharsets.UTF_8)
     } catch {
       case error: InterruptedException =>
+        request.abort()
+        throw error
+      case error: CancellationException =>
         request.abort()
         throw error
       case error: IOException =>
@@ -394,12 +381,14 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
           "Response exceeded maxResponseBytes. Use explicit input ranges or increase the configured bound.")))
       case error: UnknownHostException =>
         request.abort()
+        checkInterrupted()
         val failure = BudgetedDnsResolver.diagnostic(error, deadline.hasExpired(budget))
         WireResponse(code, "", location, retryAfter, Some(failure), transportFailure = true, notSent = true,
           expiredBeforeDispatch = BudgetedDnsResolver.expiredBeforeDispatch(error))
       case error: InterruptedIOException if Thread.currentThread().isInterrupted => throw error
       case error: IOException =>
         request.abort()
+        checkInterrupted()
         val notSent = code == 0 && !ContentUnderstandingTransport.hasStartedWriting(context)
         val expired = deadline.hasExpired(budget)
         val failure = if (admissionRejected(data.requestLine.method, code, location)) {
@@ -555,9 +544,11 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
     val response = decodeSubmission(raw, location.flatMap(_.right.toOption))
     val assessment = SubmissionLocation.assess(raw.httpStatus, raw.successful,
       raw.json.flatMap(stringField(_, "status")), accepted, response.operationLocation, validatedLocation)
-    if (assessment.error.isDefined || assessment.missing) {
-      response.copy(status = "Unknown",
-        error = raw.diagnostic.orElse(assessment.error).orElse(Some(diagnostic("MissingOperationLocation",
+    if (!raw.successful) {
+      SubmissionLocation.withDiagnostic(response, validatedLocation.flatMap(_.left.toOption))
+    } else if (assessment.error.isDefined || assessment.missing) {
+      SubmissionLocation.withDiagnostic(response.copy(status = "Unknown"),
+        assessment.error.orElse(Some(diagnostic("MissingOperationLocation",
           "A successful ongoing operation did not include Operation-Location and cannot be resumed."))))
     } else {
       response
@@ -575,7 +566,14 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
                          analyzer: Option[String]): ContentUnderstandingResponse = {
     val unavailable = analyzer.isEmpty && !raw.transportFailure && UnavailableResults(raw.httpStatus)
     val response = decode(raw, Some(location))
-    if (unavailable) response.copy(status = "ResultUnavailable") else response
+    if (unavailable) response.copy(status = "ResultUnavailable")
+    else if (analyzer.isDefined && UnavailableResults(raw.httpStatus) &&
+      !raw.transportFailure && raw.diagnostic.isEmpty) {
+      val error = JsObject("code" -> JsString("OperationLookupFailed"),
+        "message" -> JsString(ContentUnderstandingTransport.ManagementRecovery),
+        "innererror" -> response.error.map(value => asObject(value).getOrElse(JsString(value))).getOrElse(JsObject()))
+      response.copy(error = ContentUnderstandingResponseParsing.compact(error).orElse(response.error))
+    } else response
   }
 
   private def retainPollState(raw: WireResponse,
@@ -583,7 +581,7 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
                               previous: Option[ContentUnderstandingResponse]): ContentUnderstandingResponse = {
     val missingStatus = raw.successful && raw.json.flatMap(stringField(_, "status"))
       .flatMap(status => StatusNames.get(status.toLowerCase(java.util.Locale.ROOT))).isEmpty
-    val nonTerminalHttpError = raw.httpStatus >= HttpStatus.SC_MULTIPLE_CHOICES && !UnavailableResults(raw.httpStatus)
+    val nonTerminalHttpError = raw.httpStatus >= HttpStatus.SC_MULTIPLE_CHOICES && parsed.status != "ResultUnavailable"
     if (raw.expiredBeforeDispatch && previous.isDefined) {
       val retained = previous.get
       retained.copy(error = retained.error.orElse(Some(timeoutError)))
@@ -759,7 +757,8 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
     withClient(settings, budgetOverride = budgetOverride) { (client, budget) =>
       val raw = exchange(client, settings, request, budget)
       if (raw.location.isDefined && !AcceptedSubmissionStatuses(raw.httpStatus)) {
-        throw new ContentUnderstandingException(decode(raw, None))
+        throw new ContentUnderstandingException(SubmissionLocation.rejectedCreation(
+          decode(raw, None, CreationStatusNames), settings.endpoint, raw.location.get, analyzerId))
       }
       raw.location match {
         case Some(location) =>
@@ -767,9 +766,8 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
             validateOperationLocation(settings.endpoint, location, Some(analyzerId))
           } catch {
             case _: IllegalArgumentException =>
-              throw new ContentUnderstandingException(decode(raw, None).copy(status = "Failed",
-                error = raw.diagnostic.orElse(Some(diagnostic("InvalidOperationLocation",
-                  "The analyzer creation operation URL was unsafe; it was not requested.")))))
+              throw new ContentUnderstandingException(SubmissionLocation.rejectedCreation(
+                decode(raw, None, CreationStatusNames), settings.endpoint, location, analyzerId))
           }
           val completed = pollWithClient(client, settings, request, location,
             Some(decode(raw, Some(location), CreationStatusNames)),

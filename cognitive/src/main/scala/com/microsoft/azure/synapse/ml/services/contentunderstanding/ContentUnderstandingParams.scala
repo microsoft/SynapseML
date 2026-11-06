@@ -206,10 +206,8 @@ private[contentunderstanding] trait ContentUnderstandingPython extends Wrappable
     """
       |def setParams(self, **kwargs):
       |    '''Set parameters using the same JVM setters as the constructor.'''
-      |    for name, value in kwargs.items():
-      |        if value is not None:
-      |            getattr(self, "set" + name[0].upper() + name[1:])(value)
-      |    return self
+      |    self._validate_service_param_arguments(kwargs)
+      |    return self._set_params_via_setters(kwargs, skip_none=True)
       |""".stripMargin
   }
 
@@ -226,10 +224,11 @@ private[contentunderstanding] trait ContentUnderstandingPython extends Wrappable
       |            java_param = self._java_obj.getParam(param.name)
       |            if self._java_obj.isSet(java_param):
       |                self._set(**{param.name: _java2py(sc, self._java_obj.getOrDefault(java_param))})
-      |    # Loading replaces the constructor UID; refresh defaults even for explicitly set columns.
-      |    for name in ("outputCol", "errorCol"):
-      |        java_param = self._java_obj.getParam(name)
-      |        self._setDefault(**{name: _java2py(sc, self._java_obj.getDefault(java_param).get())})
+      |            default = self._java_obj.getDefault(java_param)
+      |            if default.isDefined():
+      |                self._setDefault(**{param.name: _java2py(sc, default.get())})
+      |            else:
+      |                self._defaultParamMap.pop(param, None)
       |
       |def setEndpoint(self, value):
       |    self._java_obj = self._java_obj.setEndpoint(value)

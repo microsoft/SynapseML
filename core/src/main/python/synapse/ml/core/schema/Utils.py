@@ -174,6 +174,13 @@ class ComplexParamsMixin(MLReadable):
             return value
         sc = SparkContext._active_spark_context
         if isinstance(value, JavaObject):
+            seq_class = sc._jvm.scala.collection.Seq._java_lang_class
+            if seq_class.isAssignableFrom(value.getClass()):
+                result = []
+                entries = value.iterator()
+                while entries.hasNext():
+                    result.append(self._service_value_to_python(entries.next()))
+                return result
             map_class = sc._jvm.scala.collection.Map._java_lang_class
             if map_class.isAssignableFrom(value.getClass()):
                 result = {}

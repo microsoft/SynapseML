@@ -7,6 +7,7 @@ import os
 import pickle
 import tempfile
 import threading
+import time
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from unittest.mock import patch
@@ -158,12 +159,111 @@ class TestContentUnderstanding(unittest.TestCase):
             "documentId string, body binary",
         )
 
+    def test_job_cancellation_stops_async_polling_and_blocked_responses(self):
+        for blocked in (False, True):
+            for interrupt in (False, True):
+                with self.subTest(blocked=blocked, interrupt=interrupt):
+                    self.requests.clear()
+                    self.Handler.completed_body = {"status": "Running"}
+                    started = threading.Event()
+                    disconnected = threading.Event()
+                    original_get = self.Handler.do_GET
+                    requests = self.requests
+
+                    def get(
+                        handler,
+                        blocked=blocked,
+                        started=started,
+                        disconnected=disconnected,
+                        original_get=original_get,
+                        requests=requests,
+                    ):
+                        if blocked:
+                            requests.append(("GET", handler.path, None))
+                            handler.send_response(200)
+                            handler.send_header("Content-Length", "1")
+                            handler.end_headers()
+                            handler.connection.settimeout(10)
+                            started.set()
+                            try:
+                                if handler.rfile.read(1) == b"":
+                                    disconnected.set()
+                            except (ConnectionResetError, ConnectionAbortedError):
+                                disconnected.set()
+                            except OSError:
+                                pass
+                        else:
+                            original_get(handler)
+                            started.set()
+
+                    self.Handler.do_GET = get
+                    stage = (
+                        self.analyzer()
+                        .setConcurrency(2)
+                        .setPollingDelay(100)
+                        .setMaxPollAttempts(300)
+                        .setMaxOperationDuration(30000)
+                    )
+                    documents = self.documents()
+                    frame = stage.transform(
+                        documents.union(documents).union(documents).coalesce(1)
+                    )
+                    group = f"cu-cancellation-{blocked}-{interrupt}"
+                    errors = []
+
+                    def collect(
+                        frame=frame, group=group, interrupt=interrupt, errors=errors
+                    ):
+                        spark.sparkContext.setJobGroup(
+                            group,
+                            "CU cancellation regression",
+                            interruptOnCancel=interrupt,
+                        )
+                        try:
+                            frame.collect()
+                        except Exception as error:
+                            errors.append(error)
+                        finally:
+                            for name in (
+                                "spark.jobGroup.id",
+                                "spark.job.description",
+                                "spark.job.interruptOnCancel",
+                            ):
+                                spark.sparkContext.setLocalProperty(name, None)
+
+                    worker = threading.Thread(target=collect, daemon=True)
+                    worker.start()
+                    try:
+                        self.assertTrue(started.wait(30), "Polling never started")
+                        spark.sparkContext.cancelJobGroup(group)
+                        worker.join(timeout=10)
+                        self.assertFalse(worker.is_alive())
+                        self.assertTrue(
+                            errors, "Cancelled action unexpectedly succeeded"
+                        )
+                        self.assertIn("cancel", str(errors[0]).lower())
+                        if blocked:
+                            self.assertTrue(
+                                disconnected.wait(5),
+                                "In-flight response was not aborted",
+                            )
+                        time.sleep(0.5)
+                        count = len(self.requests)
+                        time.sleep(0.75)
+                        self.assertEqual(len(self.requests), count)
+                    finally:
+                        self.Handler.do_GET = original_get
+                        self.Handler.completed_body = {"status": "Succeeded"}
+                        spark.sparkContext.cancelJobGroup(group)
+                        worker.join(timeout=5)
+                    row = self.analyzer().setConcurrency(2).transform(documents).first()
+                    self.assertEqual(row.analysis.status, "Succeeded")
+
     def test_generated_wrapper_copy_and_persistence_preserve_request_options(self):
-        analyzer = (
-            self.analyzer()
-            .setModelDeployments({"completion": "my-deployment"})
-            .setStringEncoding("utf16")
-            .setRange("1")
+        analyzer = self.analyzer().setParams(
+            modelDeployments={"completion": "my-deployment"},
+            stringEncoding="utf16",
+            range="1",
         )
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "analyzer")
@@ -359,6 +459,52 @@ class TestContentUnderstanding(unittest.TestCase):
         for value in ("body", 10, True):
             with self.assertRaisesRegex(TypeError, "setDocumentBytesCol"):
                 ContentUnderstanding().setDocumentBytes(value)
+
+    def test_set_params_rejects_conflicting_bindings_without_mutation(self):
+        bindings = [("documentBytes", b"new-document"), ("documentBytesCol", "newBody")]
+        for arguments in (bindings, list(reversed(bindings))):
+            with self.subTest(arguments=arguments):
+                analyzer = self.analyzer()
+                analyzer.set(analyzer.documentBytes, bytearray(b"pending-document"))
+                pending = dict(analyzer._paramMap)
+                with self.assertRaisesRegex(ValueError, "Cannot set both"):
+                    analyzer.setParams(outputCol="changed", **dict(arguments))
+                self.assertEqual(analyzer._paramMap, pending)
+                self.assertEqual(analyzer._java_obj.getDocumentBytesCol(), "body")
+                self.assertEqual(analyzer.getOutputCol(), "analysis")
+
+    def test_set_params_rejects_service_none_without_mutation(self):
+        for argument in ("documentBytes", "documentBytesCol", "subscriptionKey"):
+            with self.subTest(argument=argument):
+                analyzer = self.analyzer().setDocumentBytes(b"old-document")
+                analyzer.set(analyzer.documentBytes, bytearray(b"pending-document"))
+                analyzer.set(analyzer.subscriptionKey, "pending-key")
+                pending = dict(analyzer._paramMap)
+                with self.assertRaisesRegex(
+                    TypeError, f"Service parameter '{argument}' cannot be None"
+                ):
+                    analyzer.setParams(documentName="changed", **{argument: None})
+                self.assertEqual(analyzer._paramMap, pending)
+                self.assertEqual(
+                    bytes(analyzer._java_obj.getDocumentBytes()), b"old-document"
+                )
+                self.assertEqual(
+                    analyzer._java_obj.getSubscriptionKey(), "synthetic-test-key"
+                )
+                self.assertEqual(analyzer._java_obj.getDocumentNameCol(), "documentId")
+
+    def test_set_params_preserves_ordinary_none_as_noop(self):
+        analyzer = self.analyzer().setPollingDelay(17).setMaxPollAttempts(3)
+        pending = dict(analyzer._paramMap)
+        self.assertIs(
+            analyzer.setParams(pollingDelay=None, maxPollAttempts=None, outputCol=None),
+            analyzer,
+        )
+        self.assertEqual(analyzer._paramMap, pending)
+        analyzer._transfer_params_to_java()
+        self.assertEqual(analyzer._java_obj.getPollingDelay(), 17)
+        self.assertEqual(analyzer._java_obj.getMaxPollAttempts(), 3)
+        self.assertEqual(analyzer._java_obj.getOutputCol(), "analysis")
 
     def test_explicit_service_setters_replace_pending_python_values(self):
         analyzer = self.analyzer()
@@ -660,8 +806,8 @@ class TestContentUnderstanding(unittest.TestCase):
         self.assertTrue(service.isSet(param))
         self.assertTrue(service.isDefined(param))
         self.assertFalse(service.hasDefault(param))
-        self.assertEqual(service.getOrDefault(param).size(), 1)
-        self.assertEqual(service.getOrDefault(param).apply(0), "synthetic text")
+        self.assertEqual(service.getOrDefault(param), ["synthetic text"])
+        self.assertEqual(service.extractParamMap()[param], ["synthetic text"])
         service.clear(param)
         for candidate in (service, service.copy({})):
             self.assertFalse(candidate.isSet(param))
@@ -671,6 +817,26 @@ class TestContentUnderstanding(unittest.TestCase):
             self.assertEqual(candidate._java_service_value(param).value(), "text")
             with self.assertRaises(KeyError):
                 candidate.getOrDefault(param)
+
+    def test_saved_ordinary_defaults_survive_python_load_and_transfer(self):
+        stage = ContentUnderstanding()._setDefault(
+            maxOperationDuration=1000, pollingDelay=17
+        )
+        stage.setPollingDelay(23)
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "stage")
+            stage.write().save(path)
+            for loaded in (
+                ContentUnderstanding.load(path),
+                ContentUnderstanding.load(path).copy({}),
+            ):
+                self.assertEqual(loaded.getMaxOperationDuration(), 1000)
+                self.assertEqual(loaded.getPollingDelay(), 23)
+                loaded.clear(loaded.pollingDelay)
+                self.assertEqual(loaded.getPollingDelay(), 17)
+                loaded._transfer_params_to_java()
+                self.assertEqual(loaded._java_obj.getMaxOperationDuration(), 1000)
+                self.assertEqual(loaded._java_obj.getPollingDelay(), 17)
 
     def test_service_parameter_inspection_preserves_scalar_and_column_state(self):
         for service in (ContentUnderstanding(), AnalyzeDocument()):
