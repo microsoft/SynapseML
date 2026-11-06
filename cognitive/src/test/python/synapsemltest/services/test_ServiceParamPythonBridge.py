@@ -445,9 +445,7 @@ class TestServiceParamPythonBridge(unittest.TestCase):
         embedding._java_obj = counting_java_obj
         embedding._transfer_params_to_java()
 
-        expected_default_transfers = sum(
-            embedding.hasDefault(param) for param in embedding.params
-        )
+        expected_default_transfers = len(embedding._defaultParamMap)
         self.assertEqual(counting_java_obj.get_param_calls, expected_default_transfers)
 
     def test_generated_accessors_support_scalar_and_column_values(self):
@@ -497,7 +495,8 @@ class TestServiceParamPythonBridge(unittest.TestCase):
         source = OpenAIEmbedding(text="original")
         restored = OpenAIEmbedding._from_java(source._java_obj)
 
-        self.assertFalse(restored.isSet(restored.text))
+        self.assertNotIn(restored.text, restored._paramMap)
+        self.assertTrue(restored.isSet(restored.text))
         restored.setText("updated")
         restored._transfer_params_to_java()
 
@@ -510,7 +509,8 @@ class TestServiceParamPythonBridge(unittest.TestCase):
 
         scalar_copy = column_source.copy({column_source.text: "updated"})
         self.assertEqual(scalar_copy.getText(), "updated")
-        self.assertFalse(scalar_copy.isSet(scalar_copy.text))
+        self.assertNotIn(scalar_copy.text, scalar_copy._paramMap)
+        self.assertTrue(scalar_copy.isSet(scalar_copy.text))
 
         restored = OpenAIEmbedding._from_java(column_source._java_obj)
         restored_copy = restored.copy()
@@ -531,7 +531,8 @@ class TestServiceParamPythonBridge(unittest.TestCase):
                 else:
                     embedding.setText("new")
 
-                self.assertFalse(embedding.isSet(embedding.text))
+                self.assertNotIn(embedding.text, embedding._paramMap)
+                self.assertEqual(embedding.isSet(embedding.text), not use_column)
                 embedding._transfer_params_to_java()
                 copied = embedding.copy()
                 for stage in (embedding, copied):
@@ -555,7 +556,8 @@ class TestServiceParamPythonBridge(unittest.TestCase):
         embedding._transfer_params_to_java()
 
         self.assertEqual(embedding.getText(), "new")
-        self.assertFalse(embedding.isSet(embedding.text))
+        self.assertNotIn(embedding.text, embedding._paramMap)
+        self.assertTrue(embedding.isSet(embedding.text))
 
     def test_failed_named_service_setter_preserves_pending_value(self):
         embedding = OpenAIEmbedding()
@@ -662,7 +664,8 @@ class TestServiceParamPythonBridge(unittest.TestCase):
             )
 
         self.assertIs(prompt._paramMap, original_param_map)
-        self.assertEqual(prompt.getTemperature(), 0.25)
+        self.assertEqual(prompt._java_obj.getTemperature(), 0.25)
+        self.assertEqual(prompt.getTemperature(), 0.5)
         self.assertEqual(prompt.getOrDefault(prompt.temperature), 0.5)
         prompt._transfer_params_to_java()
         self.assertEqual(prompt.getTemperature(), 0.5)
