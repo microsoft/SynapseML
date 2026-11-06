@@ -9,7 +9,7 @@ import com.microsoft.azure.synapse.ml.services.HasServiceParams
 import org.apache.spark.ml.param.{IntParam, Param, ParamValidators}
 import spray.json.DefaultJsonProtocol._
 
-trait ContentUnderstandingParams extends HasServiceParams {
+trait ContentUnderstandingParams extends HasServiceParams with ContentUnderstandingLimits {
 
   val analyzerId = new ServiceParam[String](this, "analyzerId",
     "Prebuilt or explicitly provisioned custom analyzer identifier.")
@@ -73,7 +73,7 @@ trait ContentUnderstandingParams extends HasServiceParams {
   def getModelDeploymentsCol: String = getVectorParam(modelDeployments)
 
   val stringEncoding = new ServiceParam[String](this, "stringEncoding",
-    "String offset encoding, for example codePoint, utf16, or utf8.", isURLParam = true)
+    "String offset encoding: one of codePoint, utf16, or utf8.", isURLParam = true)
 
   def setStringEncoding(value: String): this.type = setScalarParam(stringEncoding, value)
   def setStringEncodingCol(value: String): this.type = setVectorParam(stringEncoding, value)
@@ -81,7 +81,7 @@ trait ContentUnderstandingParams extends HasServiceParams {
   def getStringEncodingCol: String = getVectorParam(stringEncoding)
 
   val processingLocation = new ServiceParam[String](this, "processingLocation",
-    "Service processing location, for example geography, dataZone, or global.", isURLParam = true)
+    "Service processing location: one of geography, dataZone, or global.", isURLParam = true)
 
   def setProcessingLocation(value: String): this.type = setScalarParam(processingLocation, value)
   def setProcessingLocationCol(value: String): this.type = setVectorParam(processingLocation, value)
@@ -89,7 +89,7 @@ trait ContentUnderstandingParams extends HasServiceParams {
   def getProcessingLocationCol: String = getVectorParam(processingLocation)
 
   val operationLocation = new ServiceParam[String](this, "operationLocation",
-    "Previously accepted operation URL. Used only in poll mode and restricted to the configured endpoint.")
+    "Previously accepted analysis operation URL. Used only in poll mode and restricted to the configured endpoint.")
 
   def setOperationLocation(value: String): this.type = setScalarParam(operationLocation, value)
   def setOperationLocationCol(value: String): this.type = setVectorParam(operationLocation, value)
@@ -97,7 +97,7 @@ trait ContentUnderstandingParams extends HasServiceParams {
   def getOperationLocationCol: String = getVectorParam(operationLocation)
 
   val operationMode = new Param[String](this, "operationMode",
-    "analyze submits and polls; submit only submits; poll resumes an operation without document input.",
+    "analyze submits and polls; submit only submits; poll resumes an analysis operation without document input.",
     ParamValidators.inArray(Array("analyze", "submit", "poll")))
 
   def setOperationMode(value: String): this.type = set(operationMode, value)
@@ -111,7 +111,9 @@ trait ContentUnderstandingParams extends HasServiceParams {
   def getMaxPollAttempts: Int = $(maxPollAttempts)
 
   val pollingDelay = new IntParam(this, "pollingDelay",
-    "Milliseconds between polls when Retry-After is absent. Zero is useful for local testing.",
+    "Milliseconds between operation polls, before the first poll after analyze or createAnalyzer submission, " +
+      "and between management GET retries when Retry-After is absent or invalid. " +
+      "Poll mode sends its first GET immediately.",
     ParamValidators.gtEq(0))
 
   def setPollingDelay(value: Int): this.type = set(pollingDelay, value)
@@ -132,19 +134,67 @@ trait ContentUnderstandingParams extends HasServiceParams {
     maxResponseBytes -> 32 * 1024 * 1024)
 }
 
+trait ContentUnderstandingLimits extends HasServiceParams {
+  val maxDocumentBytes = new IntParam(this, "maxDocumentBytes",
+    "Maximum binary document bytes before base64 encoding. Does not limit service-fetched URLs.",
+    ParamValidators.gt(0))
+
+  def setMaxDocumentBytes(value: Int): this.type = set(maxDocumentBytes, value)
+  def getMaxDocumentBytes: Int = $(maxDocumentBytes)
+
+  val maxOperationDuration = new IntParam(this, "maxOperationDuration",
+    "Best-effort total milliseconds per analysis or management call, including HTTP requests and polling delays.",
+    ParamValidators.gt(0))
+
+  def setMaxOperationDuration(value: Int): this.type = set(maxOperationDuration, value)
+  def getMaxOperationDuration: Int = $(maxOperationDuration)
+
+  setDefault(
+    maxDocumentBytes -> 32 * 1024 * 1024,
+    maxOperationDuration -> 600000)
+}
+
 private[contentunderstanding] trait ContentUnderstandingPython extends Wrappable {
   this: ContentUnderstanding =>
+
+  override protected def pyParamArg[T](param: Param[T]): String = {
+    if (Set("outputCol", "errorCol")(param.name)) {
+      s"${param.name}=None"
+    } else {
+      super.pyParamArg(param)
+    }
+  }
+
+  override protected def pyParamDefault[T](param: Param[T]): Option[String] = {
+    if (Set("outputCol", "errorCol")(param.name)) {
+      val value = s"""self._java_obj.getDefault(self._java_obj.getParam("${param.name}")).get()"""
+      Some(s"self._setDefault(${param.name}=$value)")
+    } else {
+      super.pyParamDefault(param)
+    }
+  }
+
+  override def pyInitFunc(): String = super.pyInitFunc() +
+    """
+      |    if java_obj is not None:
+      |        self._resetUid(java_obj.uid())
+      |        self._transfer_params_from_java()
+      |""".stripMargin
 
   override protected def pyParamSetter(param: Param[_]): String = {
     if (param.name == "documentBytes") {
       """
         |def setDocumentBytes(self, value):
         |    '''Set bytes, bytearray, or a sequence of unsigned byte values.'''
+        |    if isinstance(value, (str, int)):
+        |        raise TypeError("documentBytes requires bytes; use setDocumentBytesCol to select a column.")
         |    self._java_obj = self._java_obj.setDocumentBytes(bytearray(value))
+        |    self._paramMap.pop(self.documentBytes, None)
         |    return self
         |
         |def setDocumentBytesCol(self, value):
         |    self._java_obj = self._java_obj.setDocumentBytesCol(value)
+        |    self._paramMap.pop(self.documentBytes, None)
         |    return self
         |""".stripMargin
     } else {
@@ -176,14 +226,29 @@ private[contentunderstanding] trait ContentUnderstandingPython extends Wrappable
       |            java_param = self._java_obj.getParam(param.name)
       |            if self._java_obj.isSet(java_param):
       |                self._set(**{param.name: _java2py(sc, self._java_obj.getOrDefault(java_param))})
+      |    # Loading replaces the constructor UID; refresh defaults even for explicitly set columns.
+      |    for name in ("outputCol", "errorCol"):
+      |        java_param = self._java_obj.getParam(name)
+      |        self._setDefault(**{name: _java2py(sc, self._java_obj.getDefault(java_param).get())})
+      |
+      |def setEndpoint(self, value):
+      |    self._java_obj = self._java_obj.setEndpoint(value)
+      |    self._set(url=self._java_obj.getUrl())
+      |    return self
+      |
+      |def setCustomServiceName(self, value):
+      |    self._java_obj = self._java_obj.setCustomServiceName(value)
+      |    self._set(url=self._java_obj.getUrl())
+      |    return self
       |
       |def _transfer_params_to_java(self):
       |    # Use the generated setters for ParamMap/copy values, including bytes and model maps.
       |    for param in list(self._paramMap):
       |        if param.doc.startswith("ServiceParam:"):
-      |            value = self._paramMap.pop(param)
-      |            if value is not None:
-      |                getattr(self, "set" + param.name[0].upper() + param.name[1:])(value)
+      |            value = self._paramMap[param]
+      |            if value is None:
+      |                raise TypeError(f"{param.name} cannot be None; use clear() to remove a setting.")
+      |            getattr(self, "set" + param.name[0].upper() + param.name[1:])(value)
       |    super()._transfer_params_to_java()
       |
       |def clear(self, param):

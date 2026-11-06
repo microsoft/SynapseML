@@ -240,6 +240,8 @@ class PyCodegenSuite extends AnyFunSuite {
       assert(stub.contains("def getText(self) -> str: ..."))
       assert(stub.contains("def setAlias(self: _T, value: str) -> _T: ..."))
       assert(stub.contains("def clear(self, param: Param) -> None: ..."))
+      assert(!stub.contains("def isSet("), "Keep PySpark's inherited string-or-Param boolean signature.")
+      assert(readUtf8(runtimeFile).contains("def isSet("))
       assert(stub.contains(
         "def copy(self: _T, extra: Optional[ParamMap] = ...) -> _T: ..."))
       assertPythonCompiles(stubFile)

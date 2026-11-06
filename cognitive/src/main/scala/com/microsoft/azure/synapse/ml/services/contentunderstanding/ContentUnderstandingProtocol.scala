@@ -4,21 +4,29 @@
 package com.microsoft.azure.synapse.ml.services.contentunderstanding
 
 import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
-import com.microsoft.azure.synapse.ml.io.http.{HTTPRequestData, RequestLineData}
+import com.microsoft.azure.synapse.ml.io.http.{HTTPRequestData, HTTPResponseData, HTTPSchema, RequestLineData}
+import com.microsoft.azure.synapse.ml.io.http.HandlingUtils.HandlerFunc
 import org.apache.http.HttpStatus
 import org.apache.http.client.config.RequestConfig
-import org.apache.http.client.methods.HttpRequestBase
+import org.apache.http.client.methods.{CloseableHttpResponse, HttpRequestBase}
+import org.apache.http.conn.DnsResolver
 import org.apache.http.impl.client.{CloseableHttpClient, HttpClients}
+import org.apache.http.impl.conn.SystemDefaultDnsResolver
+import org.apache.http.protocol.BasicHttpContext
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
 import java.io.{ByteArrayOutputStream, IOException, InputStream, InterruptedIOException}
-import java.net.{URI, URISyntaxException}
+import java.net.{URI, URISyntaxException, UnknownHostException}
 import java.nio.charset.StandardCharsets
+import java.security.MessageDigest
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.util.concurrent.{ScheduledFuture, ScheduledThreadPoolExecutor, ThreadFactory, TimeUnit}
+import java.util.concurrent.atomic.AtomicBoolean
 import scala.annotation.tailrec
 import scala.util.Try
+import scala.util.control.NonFatal
 
 case class ContentUnderstandingResponse(operationLocation: Option[String],
                                         id: Option[String],
@@ -32,18 +40,43 @@ object ContentUnderstandingResponse extends SparkBindings[ContentUnderstandingRe
     jsonFormat6(ContentUnderstandingResponse.apply)
 }
 
-/** The response retains the service error and operation handle, including provisioning timeouts. */
-class ContentUnderstandingException(val response: ContentUnderstandingResponse)
-  extends IllegalStateException(
-    s"Content Understanding returned ${response.status} (HTTP ${response.httpStatus}): " +
-      response.error.getOrElse("Polling budget exhausted; the operation may still be running."))
+private[contentunderstanding] object SubmissionLocation {
+  case class Assessment(error: Option[String], missing: Boolean)
+
+  def validate(endpoint: String, location: Option[String]): Option[Either[String, String]] =
+    location.map { value =>
+      try {
+        Right(ContentUnderstandingProtocol.validateOperationLocation(endpoint, value).toString)
+      } catch {
+        case _: IllegalArgumentException => Left(ContentUnderstandingProtocol.diagnostic("InvalidOperationLocation",
+          "The service returned an unsafe or malformed Operation-Location; it was not requested."))
+      }
+    }
+
+  def assess(httpStatus: Int,
+             successful: Boolean,
+             rawStatus: Option[String],
+             accepted: Boolean,
+             operationLocation: Option[String],
+             validated: Option[Either[String, String]]): Assessment = {
+    val status = rawStatus.map(_.toLowerCase(java.util.Locale.ROOT))
+    val terminal = status.exists(Set("succeeded", "failed", "canceled"))
+    val requiresLocation = successful && !terminal &&
+      (status.exists(Set("running", "notstarted")) || httpStatus == HttpStatus.SC_ACCEPTED)
+    val error = if (!terminal && (requiresLocation || !accepted)) validated.flatMap(_.left.toOption) else None
+    val unaccepted = validated.filter(_ => requiresLocation && !accepted).flatMap(_.right.toOption).map { _ =>
+      ContentUnderstandingProtocol.diagnostic("UnacceptedOperationLocation",
+        s"The service returned Operation-Location with HTTP $httpStatus; the handle was not followed.")
+    }
+    Assessment(error.orElse(unaccepted), requiresLocation && operationLocation.isEmpty)
+  }
+}
 
 private[contentunderstanding] object ContentUnderstandingProtocol {
   val AnalyzersPath = "/contentunderstanding/analyzers"
   val ResultsPath = "/contentunderstanding/analyzerResults/"
   val DefaultApiVersion = "2025-11-01"
   val MillisecondsPerSecond = 1000
-  val MaxRetryDelayMs = 60000L
   val TooManyRequests = 429
   private val BufferSize = 8192
   private val MaxPort = 65535
@@ -53,17 +86,56 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
   private val ManagementGetAttempts = 3
   private val StatusNames = Seq("NotStarted", "Running", "Succeeded", "Failed", "Canceled")
     .map(name => name.toLowerCase(java.util.Locale.ROOT) -> name).toMap
+  private val CreationStatusNames =
+    StatusNames ++ Map("creating" -> "Running", "ready" -> "Succeeded", "deleting" -> "Unknown")
   private val TransientStatuses = Set(HttpStatus.SC_REQUEST_TIMEOUT, TooManyRequests,
     HttpStatus.SC_INTERNAL_SERVER_ERROR, HttpStatus.SC_BAD_GATEWAY,
     HttpStatus.SC_SERVICE_UNAVAILABLE, HttpStatus.SC_GATEWAY_TIMEOUT)
   private val AdmissionRejections = Set(HttpStatus.SC_UNAUTHORIZED, HttpStatus.SC_FORBIDDEN, TooManyRequests)
+  private val AcceptedSubmissionStatuses =
+    Set(HttpStatus.SC_OK, HttpStatus.SC_CREATED, HttpStatus.SC_ACCEPTED)
   private val UnavailableResults = Set(HttpStatus.SC_NOT_FOUND, HttpStatus.SC_GONE)
+  private val MaxConcurrentDeadlineAborts = 4
+  private[contentunderstanding] val RowAuthColumnMarker = "content-understanding-row-auth"
+  private lazy val DeadlineExecutor = {
+    val executor = new ScheduledThreadPoolExecutor(MaxConcurrentDeadlineAborts, new ThreadFactory {
+      override def newThread(task: Runnable): Thread = {
+        val thread = new Thread(task, "synapseml-cu-deadline")
+        thread.setDaemon(true)
+        thread
+      }
+    })
+    executor.setRemoveOnCancelPolicy(true)
+    executor
+  }
+  private[contentunderstanding] object ClientLifecycle {
+    def closeQuietly(closeable: AutoCloseable, operation: String): Unit = {
+      try {
+        closeable.close()
+      } catch {
+        case NonFatal(error) => ContentUnderstandingLogging.cleanup(operation, error)
+      }
+    }
+
+    def withClient[T](client: CloseableHttpClient)(body: => T): T = {
+      try {
+        body
+      } finally {
+        closeQuietly(client, "HTTP client")
+      }
+    }
+  }
 
   case class Settings(endpoint: String,
                       timeoutMs: Int,
                       maxPollAttempts: Int,
                       pollingDelay: Int,
-                      maxResponseBytes: Int) {
+                      maxResponseBytes: Int,
+                      maxOperationDuration: Int,
+                      sharedAnalyzer: Boolean,
+                      sharedModels: Boolean,
+                      scalarAuthFingerprints: Set[String] = Set.empty,
+                      allAuthScalar: Boolean = false) {
     def requestConfig: RequestConfig = RequestConfig.custom()
       .setConnectTimeout(timeoutMs)
       .setConnectionRequestTimeout(timeoutMs)
@@ -77,13 +149,50 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
                                   location: Option[String],
                                   retryAfter: Option[String],
                                   diagnostic: Option[String] = None,
-                                  transportFailure: Boolean = false) {
+                                  transportFailure: Boolean = false,
+                                  notSent: Boolean = false,
+                                  expiredBeforeDispatch: Boolean = false) {
     def successful: Boolean = httpStatus >= HttpStatus.SC_OK && httpStatus < HttpStatus.SC_MULTIPLE_CHOICES
-    def retryable: Boolean = transportFailure || (diagnostic.isEmpty && TransientStatuses(httpStatus))
+    def retryable: Boolean =
+      !expiredBeforeDispatch && (transportFailure || (diagnostic.isEmpty && TransientStatuses(httpStatus)))
     lazy val json: Option[JsObject] = asObject(body)
   }
 
   private class ResponseTooLarge extends RuntimeException
+
+  private[contentunderstanding] object DeadlineControl {
+    case class Deadline(future: ScheduledFuture[_], fired: AtomicBoolean) {
+      def hasExpired(budget: ContentUnderstandingBudget): Boolean = fired.get() || budget.remainingMs == 0
+    }
+
+    def schedule(request: HttpRequestBase, delayMs: Long): Deadline = {
+      val fired = new AtomicBoolean(false)
+      val future = DeadlineExecutor.schedule(new Runnable {
+        override def run(): Unit = {
+          fired.set(true)
+          request.abort()
+        }
+      }, delayMs, TimeUnit.MILLISECONDS)
+      Deadline(future, fired)
+    }
+
+    def release(request: HttpRequestBase, deadline: Deadline): Unit = {
+      deadline.future.cancel(false)
+      // Requests are not reused; response/client cleanup owns a request already being aborted.
+      if (!deadline.fired.get()) {
+        request.releaseConnection()
+      }
+    }
+  }
+
+  private[contentunderstanding] def timeoutError: String =
+    diagnostic("OperationTimedOut", "The operation budget was exhausted.")
+
+  private def pollAttemptsError(management: Boolean): String = {
+    val recovery = if (management) ContentUnderstandingTransport.ManagementRecovery
+      else "Retain the handle and resume polling."
+    diagnostic("PollAttemptsExhausted", s"maxPollAttempts was reached before the operation finished. $recovery")
+  }
 
   def diagnostic(code: String, message: String): String =
     JsObject("code" -> JsString(code), "message" -> JsString(message)).compactPrint
@@ -177,32 +286,19 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
     case other => other.compactPrint
   }
 
-  private def checkInterrupted(): Unit = {
+  private[contentunderstanding] def checkInterrupted(): Unit = {
     if (Thread.currentThread().isInterrupted) {
       throw new InterruptedException("Content Understanding request interrupted.")
     }
   }
 
-  private def pause(delay: Long): Unit = {
-    checkInterrupted()
-    if (delay > 0) {
-      try {
-        Thread.sleep(delay)
-      } catch {
-        case error: InterruptedException =>
-          Thread.currentThread().interrupt()
-          throw error
-      }
-    }
-  }
-
   private[contentunderstanding] def retryDelay(value: Option[String], fallback: Int): Long = {
-    val seconds = value.flatMap(v => Try(v.trim.toLong).toOption).filter(_ >= 0)
-      .map(s => math.min(s, MaxRetryDelayMs / MillisecondsPerSecond) * MillisecondsPerSecond)
-    val date = value.flatMap(v => Try(
-      ZonedDateTime.parse(v, DateTimeFormatter.RFC_1123_DATE_TIME).toInstant.toEpochMilli).toOption)
-      .map(t => math.min(MaxRetryDelayMs, math.max(0L, t - System.currentTimeMillis())))
-    seconds.orElse(date).getOrElse(fallback.toLong)
+    val deltaMillis = value.flatMap(ContentUnderstandingResponseParsing.retryAfterDeltaMillis)
+    deltaMillis.orElse {
+      value.flatMap(v => Try(
+        ZonedDateTime.parse(v.trim, DateTimeFormatter.RFC_1123_DATE_TIME).toInstant.toEpochMilli).toOption)
+        .map(t => math.max(0L, t - System.currentTimeMillis()))
+    }.getOrElse(fallback.toLong)
   }
 
   private def readBounded(input: InputStream, limit: Int, request: HttpRequestBase): String = {
@@ -236,91 +332,119 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
     }
   }
 
-  private def exchange(client: CloseableHttpClient, settings: Settings, data: HTTPRequestData): WireResponse = {
+  private def readResponseBody(response: CloseableHttpResponse,
+                               settings: Settings,
+                               request: HttpRequestBase): String = {
+    Option(response.getEntity).map { entity =>
+      if (entity.getContentLength > settings.maxResponseBytes) {
+        request.abort()
+        throw new ResponseTooLarge
+      }
+      readBounded(entity.getContent, settings.maxResponseBytes, request)
+    }.getOrElse("")
+  }
+
+  private def admissionRejected(method: String, status: Int, location: Option[String]): Boolean =
+    method == "POST" && AdmissionRejections(status) && location.isEmpty
+
+  private def exchange(client: CloseableHttpClient,
+                       settings: Settings,
+                       data: HTTPRequestData,
+                       budget: ContentUnderstandingBudget,
+                       managementGet: Boolean = false): WireResponse = {
     checkInterrupted()
+    if (budget.remainingMs == 0) {
+      WireResponse(0, "", None, None, Some(timeoutError),
+        transportFailure = true, notSent = true, expiredBeforeDispatch = true)
+    } else {
+      exchangeBeforeDeadline(client, settings, data, budget, managementGet)
+    }
+  }
+
+  private def exchangeBeforeDeadline(client: CloseableHttpClient,
+                                     settings: Settings,
+                                     data: HTTPRequestData,
+                                     budget: ContentUnderstandingBudget,
+                                     managementGet: Boolean): WireResponse = {
     val request = data.toHTTPCore
-    request.setConfig(settings.requestConfig)
+    val remainingTimeout = math.max(1L, math.min(settings.timeoutMs.toLong, budget.remainingMs)).toInt
+    request.setConfig(RequestConfig.copy(settings.requestConfig)
+      .setConnectTimeout(remainingTimeout)
+      .setConnectionRequestTimeout(remainingTimeout)
+      .setSocketTimeout(remainingTimeout).build())
+    val deadline = DeadlineControl.schedule(request, budget.remainingMs)
+    val context = new BasicHttpContext()
     var code = 0
     var location = Option.empty[String]
     var retryAfter = Option.empty[String]
     try {
-      val response = client.execute(request)
+      val response = client.execute(request, context)
       try {
         code = response.getStatusLine.getStatusCode
         location = Option(response.getFirstHeader("Operation-Location")).map(_.getValue)
         retryAfter = Option(response.getFirstHeader("Retry-After")).map(_.getValue)
-        val body = Option(response.getEntity).map { entity =>
-          if (entity.getContentLength > settings.maxResponseBytes) {
-            request.abort()
-            throw new ResponseTooLarge
-          }
-          readBounded(entity.getContent, settings.maxResponseBytes, request)
-        }.getOrElse("")
+        val body = readResponseBody(response, settings, request)
         WireResponse(code, body, location, retryAfter)
       } finally {
-        response.close()
+        ClientLifecycle.closeQuietly(response, "HTTP response")
       }
     } catch {
       case _: ResponseTooLarge =>
         WireResponse(code, "", location, retryAfter, Some(diagnostic("ResponseTooLarge",
           "Response exceeded maxResponseBytes. Use explicit input ranges or increase the configured bound.")))
+      case error: UnknownHostException =>
+        request.abort()
+        val failure = BudgetedDnsResolver.diagnostic(error, deadline.hasExpired(budget))
+        WireResponse(code, "", location, retryAfter, Some(failure), transportFailure = true, notSent = true,
+          expiredBeforeDispatch = BudgetedDnsResolver.expiredBeforeDispatch(error))
       case error: InterruptedIOException if Thread.currentThread().isInterrupted => throw error
       case error: IOException =>
         request.abort()
-        val message = if (data.requestLine.method == "GET") {
-          "HTTP polling transport failed. Retain the operation handle and resume polling."
+        val notSent = code == 0 && !ContentUnderstandingTransport.hasStartedWriting(context)
+        val expired = deadline.hasExpired(budget)
+        val failure = if (admissionRejected(data.requestLine.method, code, location)) {
+          diagnostic("ResponseBodyReadFailed",
+            s"${error.getClass.getSimpleName}: HTTP $code rejected the submission, but its body could not be read.")
         } else {
-          "HTTP transport failed. A submitted request may have been accepted; it was not resubmitted."
+          ContentUnderstandingTransport.failure(error, data.requestLine.method, notSent, expired, managementGet)
         }
-        WireResponse(code, "", location, retryAfter,
-          Some(diagnostic("TransportError", s"${error.getClass.getSimpleName}: $message")),
-          transportFailure = true)
+        WireResponse(code, "", location, retryAfter, Some(failure), transportFailure = true, notSent = notSent,
+          expiredBeforeDispatch = notSent && expired)
     } finally {
-      request.releaseConnection()
+      DeadlineControl.release(request, deadline)
     }
   }
 
-  private def withClient[T](settings: Settings)(body: CloseableHttpClient => T): T = {
+  private def withClient[T](settings: Settings,
+                            dnsResolver: DnsResolver = SystemDefaultDnsResolver.INSTANCE,
+                            budgetOverride: Option[ContentUnderstandingBudget] = None)
+                           (body: (CloseableHttpClient, ContentUnderstandingBudget) => T): T = {
+    val budget = budgetOverride.getOrElse(new ContentUnderstandingBudget(settings.maxOperationDuration))
     val client = HttpClients.custom().disableAutomaticRetries().disableRedirectHandling()
-      .disableCookieManagement().setDefaultRequestConfig(settings.requestConfig).build()
-    try {
-      body(client)
-    } finally {
-      client.close()
+      .setDefaultConnectionConfig(ContentUnderstandingResponseParsing.HttpConnectionConfig)
+      .setRequestExecutor(ContentUnderstandingTransport.RequestExecutor)
+      .disableCookieManagement().setDefaultRequestConfig(settings.requestConfig)
+      .setDnsResolver(new BudgetedDnsResolver(() => budget.remainingMs, dnsResolver)).build()
+    ClientLifecycle.withClient(client) {
+      body(client, budget)
     }
   }
 
-  private def asObject(raw: String): Option[JsObject] = {
-    try {
-      raw.parseJson match {
-        case value: JsObject => Some(value)
-        case _ => None
-      }
-    } catch {
-      case _: JsonParser.ParsingException => None
-    }
-  }
+  private def asObject(raw: String): Option[JsObject] = ContentUnderstandingResponseParsing.asObject(raw)
 
   private def stringField(value: JsObject, field: String): Option[String] =
     value.fields.get(field).collect { case JsString(text) => text }
 
-  private def checkClientResponse(raw: WireResponse,
-                                  response: ContentUnderstandingResponse,
-                                  invalidStatus: Boolean,
-                                  failOnClientError: Boolean): Unit = {
-    if (failOnClientError && !raw.retryable && (!raw.successful || raw.diagnostic.isDefined || invalidStatus)) {
-      throw new ContentUnderstandingException(response)
-    }
-  }
-
   private def decode(raw: WireResponse,
                      location: Option[String],
-                     failOnClientError: Boolean = false): ContentUnderstandingResponse = {
+                     statusNames: Map[String, String] = StatusNames): ContentUnderstandingResponse = {
     val json = raw.json
     val id = json.flatMap(stringField(_, "id"))
-    val serviceError = json.flatMap(_.fields.get("error")).filterNot(_ == JsNull).map(_.compactPrint)
+    val serviceError = json.flatMap(_.fields.get("error")).filterNot(_ == JsNull)
+      .map(value => ContentUnderstandingResponseParsing.compact(value).getOrElse(
+        diagnostic("InvalidResponse", "The service error could not be decoded.")))
     val serviceStatus = json.flatMap(stringField(_, "status"))
-      .flatMap(s => StatusNames.get(s.toLowerCase(java.util.Locale.ROOT)))
+      .flatMap(s => statusNames.get(s.toLowerCase(java.util.Locale.ROOT)))
     val status = if (raw.transportFailure) {
       "Unknown"
     } else if (!raw.successful || raw.diagnostic.isDefined) {
@@ -343,26 +467,79 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
     } else {
       None
     }
-    val response = ContentUnderstandingResponse(location, id, status, raw.httpStatus, raw.body,
+    ContentUnderstandingResponse(location, id, status, raw.httpStatus, raw.body,
       raw.diagnostic.orElse(serviceError).orElse(httpError).orElse(missingStatusError).orElse(failedError))
-    checkClientResponse(raw, response, missingStatusError.isDefined, failOnClientError)
-    response
   }
 
   private def ongoing(response: ContentUnderstandingResponse): Boolean =
     Set("Running", "NotStarted")(response.status)
+
+  class SharedFailure(response: ContentUnderstandingResponse, val category: String)
+    extends ContentUnderstandingException(response)
+
+  private[contentunderstanding] object FailureClassifier {
+    def authHeaderFingerprint(name: String, value: String): String = {
+      val normalizedName = name.toLowerCase(java.util.Locale.ROOT)
+      val input = s"${normalizedName.length}:$normalizedName$value".getBytes(StandardCharsets.UTF_8)
+      MessageDigest.getInstance("SHA-256").digest(input).map(byte => f"${byte & 0xff}%02x").mkString
+    }
+
+    def errorCodes(value: JsValue): Set[String] = ContentUnderstandingResponseParsing.errorCodes(value)
+
+    private def scalarCredentialWasSent(settings: Settings, request: HTTPRequestData): Boolean =
+      request.headers.exists(header =>
+        settings.scalarAuthFingerprints(authHeaderFingerprint(header.name, header.value)))
+
+    // The Fabric-named header is a wire-stripped provenance channel; this value denotes CU row credentials.
+    private def rowCredentialWasSelected(request: HTTPRequestData): Boolean =
+      request.headers.exists(header =>
+        HTTPRequestData.isFabricAuthMarker(header.name) &&
+          Option(header.value).exists(_.equalsIgnoreCase(RowAuthColumnMarker)))
+
+    def isSharedAuthFailure(settings: Settings,
+                            request: HTTPRequestData,
+                            response: ContentUnderstandingResponse): Boolean =
+      Set(HttpStatus.SC_UNAUTHORIZED, HttpStatus.SC_FORBIDDEN)(response.httpStatus) &&
+        !rowCredentialWasSelected(request) && (scalarCredentialWasSent(settings, request) || settings.allAuthScalar)
+  }
+
+  private def checkSharedFailure(settings: Settings,
+                                 request: HTTPRequestData,
+                                 response: ContentUnderstandingResponse,
+                                 acceptedHandle: Boolean): Unit = {
+    if (!acceptedHandle && response.status != "Unknown") {
+      val codes = response.error.flatMap(asObject).map(FailureClassifier.errorCodes).getOrElse(Set.empty)
+      val category = if (FailureClassifier.isSharedAuthFailure(settings, request, response)) Some("authentication")
+        else if (settings.sharedAnalyzer &&
+          (codes("AnalyzerNotFound") || response.httpStatus == HttpStatus.SC_NOT_FOUND))
+          Some("analyzer")
+        else if (settings.sharedModels && codes.exists(Set("DefaultsNotSet", "DeploymentNotFound",
+          "ModelDeploymentNotFound"))) Some("deployment")
+        else None
+      category.foreach(value => throw new SharedFailure(response, value))
+    }
+  }
 
   private def uncertainSubmission(raw: WireResponse, response: ContentUnderstandingResponse): Boolean = {
     val unreadable = raw.diagnostic.isDefined || raw.json.flatMap(stringField(_, "status"))
       .flatMap(status => StatusNames.get(status.toLowerCase(java.util.Locale.ROOT))).isEmpty
     raw.transportFailure || raw.httpStatus == HttpStatus.SC_REQUEST_TIMEOUT ||
       raw.httpStatus >= HttpStatus.SC_INTERNAL_SERVER_ERROR ||
-      (raw.successful && unreadable) || (!raw.successful && response.operationLocation.isDefined)
+      (raw.httpStatus == HttpStatus.SC_NOT_FOUND && raw.diagnostic.isDefined) ||
+      (raw.successful && unreadable) ||
+      (!AcceptedSubmissionStatuses(raw.httpStatus) && raw.location.isDefined)
   }
 
   private def decodeSubmission(raw: WireResponse, location: Option[String]): ContentUnderstandingResponse = {
     val response = decode(raw, location)
-    if (response.operationLocation.isEmpty && AdmissionRejections(raw.httpStatus)) {
+    if (raw.notSent) {
+      val error = if (raw.diagnostic.contains(timeoutError)) {
+        Some(diagnostic("RequestNotSent", "The operation budget expired before the HTTP request was sent."))
+      } else {
+        response.error
+      }
+      response.copy(status = "Rejected", error = error)
+    } else if (response.operationLocation.isEmpty && admissionRejected("POST", raw.httpStatus, raw.location)) {
       response.copy(status = "Rejected")
     } else if (uncertainSubmission(raw, response)) {
       response.copy(status = "Unknown")
@@ -372,22 +549,16 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
   }
 
   private def safeSubmission(settings: Settings, raw: WireResponse): ContentUnderstandingResponse = {
-    val location = raw.location.map { value =>
-      try {
-        Right(validateOperationLocation(settings.endpoint, value).toString)
-      } catch {
-        case _: IllegalArgumentException => Left(diagnostic("InvalidOperationLocation",
-          "The service returned an unsafe or malformed Operation-Location; it was not requested."))
-      }
-    }
+    val accepted = AcceptedSubmissionStatuses(raw.httpStatus)
+    val validatedLocation = SubmissionLocation.validate(settings.endpoint, raw.location)
+    val location = if (accepted) validatedLocation else None
     val response = decodeSubmission(raw, location.flatMap(_.right.toOption))
-    val locationError = location.flatMap(_.left.toOption)
-    val missingLocation = raw.successful && (ongoing(response) || raw.httpStatus == HttpStatus.SC_ACCEPTED) &&
-      response.operationLocation.isEmpty
-    if (locationError.isDefined || missingLocation) {
-      response.copy(status = if (raw.successful) "Unknown" else response.status,
-        error = locationError.orElse(Some(diagnostic("MissingOperationLocation",
-          "An accepted operation did not include Operation-Location and cannot be resumed."))))
+    val assessment = SubmissionLocation.assess(raw.httpStatus, raw.successful,
+      raw.json.flatMap(stringField(_, "status")), accepted, response.operationLocation, validatedLocation)
+    if (assessment.error.isDefined || assessment.missing) {
+      response.copy(status = "Unknown",
+        error = raw.diagnostic.orElse(assessment.error).orElse(Some(diagnostic("MissingOperationLocation",
+          "A successful ongoing operation did not include Operation-Location and cannot be resumed."))))
     } else {
       response
     }
@@ -396,46 +567,64 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
   private def getRequest(source: HTTPRequestData, location: String): HTTPRequestData =
     source.copy(requestLine = RequestLineData("GET", location, None), entity = None,
       headers = source.headers.filterNot(h =>
-        Set("content-length", "transfer-encoding", "host")(h.name.toLowerCase(java.util.Locale.ROOT))))
+        Set("content-length", "content-type", "transfer-encoding", "host")
+          (h.name.toLowerCase(java.util.Locale.ROOT))))
 
   private def decodePoll(raw: WireResponse,
                          location: String,
-                         analyzer: Option[String],
-                         failOnClientError: Boolean): ContentUnderstandingResponse = {
+                         analyzer: Option[String]): ContentUnderstandingResponse = {
     val unavailable = analyzer.isEmpty && !raw.transportFailure && UnavailableResults(raw.httpStatus)
-    val response = decode(raw, Some(location), failOnClientError && !unavailable)
+    val response = decode(raw, Some(location))
     if (unavailable) response.copy(status = "ResultUnavailable") else response
   }
 
-  private def pollWithClient(client: CloseableHttpClient,
+  private def retainPollState(raw: WireResponse,
+                              parsed: ContentUnderstandingResponse,
+                              previous: Option[ContentUnderstandingResponse]): ContentUnderstandingResponse = {
+    val missingStatus = raw.successful && raw.json.flatMap(stringField(_, "status"))
+      .flatMap(status => StatusNames.get(status.toLowerCase(java.util.Locale.ROOT))).isEmpty
+    val nonTerminalHttpError = raw.httpStatus >= HttpStatus.SC_MULTIPLE_CHOICES && !UnavailableResults(raw.httpStatus)
+    if (raw.expiredBeforeDispatch && previous.isDefined) {
+      val retained = previous.get
+      retained.copy(error = retained.error.orElse(Some(timeoutError)))
+    } else if (raw.retryable || raw.diagnostic.isDefined || missingStatus || nonTerminalHttpError) {
+      previous.map(_.copy(httpStatus = parsed.httpStatus, error = parsed.error))
+        .getOrElse(parsed.copy(status = "Unknown"))
+    } else {
+      parsed
+    }
+  }
+
+  private[contentunderstanding] def pollWithClient(client: CloseableHttpClient,
                               settings: Settings,
                               source: HTTPRequestData,
                               location: String,
                               initial: Option[ContentUnderstandingResponse],
                               firstDelay: Long,
-                              analyzer: Option[String] = None,
-                              failOnClientError: Boolean = false): ContentUnderstandingResponse = {
+                              budget: ContentUnderstandingBudget,
+                              analyzer: Option[String] = None): ContentUnderstandingResponse = {
     validateOperationLocation(settings.endpoint, location, analyzer)
     val request = getRequest(source, location)
     @tailrec
     def loop(remaining: Int, previous: Option[ContentUnderstandingResponse], delay: Long)
     : ContentUnderstandingResponse = {
-      pause(delay)
-      val raw = exchange(client, settings, request)
-      val parsed = decodePoll(raw, location, analyzer, failOnClientError)
-      val current = if (raw.retryable) {
-        previous.map(_.copy(httpStatus = parsed.httpStatus, error = parsed.error))
-          .getOrElse(parsed.copy(status = "Unknown"))
+      checkInterrupted()
+      if (budget.remainingMs == 0 || delay >= budget.remainingMs) {
+        val retained = previous.getOrElse(ContentUnderstandingResponse(Some(location), None, "Unknown", 0, "", None))
+        retained.copy(error = retained.error.orElse(Some(timeoutError)))
       } else {
-        parsed
-      }
-      if (remaining == 1 || (!raw.retryable && !ongoing(current))) {
-        if (failOnClientError && raw.retryable) {
-          throw new ContentUnderstandingException(current)
+        budget.pause(delay)
+        val raw = exchange(client, settings, request, budget, managementGet = analyzer.isDefined)
+        val parsed = decodePoll(raw, location, analyzer)
+        checkSharedFailure(settings, request, parsed, acceptedHandle = true)
+        val current = retainPollState(raw, parsed, previous)
+        if (remaining == 1 && ongoing(current) && current.error.isEmpty) {
+          current.copy(error = Some(pollAttemptsError(analyzer.isDefined)))
+        } else if (remaining == 1 || (!raw.retryable && !ongoing(parsed))) {
+          current
+        } else {
+          loop(remaining - 1, Some(current), retryDelay(raw.retryAfter, settings.pollingDelay))
         }
-        current
-      } else {
-        loop(remaining - 1, Some(current), retryDelay(raw.retryAfter, settings.pollingDelay))
       }
     }
     loop(settings.maxPollAttempts, initial, firstDelay)
@@ -444,18 +633,25 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
   def execute(settings: Settings,
               request: HTTPRequestData,
               mode: String,
-              failOnClientError: Boolean = false): ContentUnderstandingResponse = {
-    withClient(settings) { client =>
+              dnsResolver: DnsResolver = SystemDefaultDnsResolver.INSTANCE,
+              budgetOverride: Option[ContentUnderstandingBudget] = None): ContentUnderstandingResponse = {
+    withClient(settings, dnsResolver, budgetOverride) { (client, budget) =>
       if (mode == "poll") {
-        pollWithClient(client, settings, request, request.requestLine.uri, None, 0L,
-          failOnClientError = failOnClientError)
+        pollWithClient(client, settings, request, request.requestLine.uri, None, 0L, budget)
       } else {
-        val raw = exchange(client, settings, request)
+        val raw = exchange(client, settings, request, budget)
         val submitted = safeSubmission(settings, raw)
+        checkSharedFailure(settings, request, submitted, acceptedHandle = submitted.operationLocation.isDefined)
         val resumable = ongoing(submitted) || (submitted.status == "Unknown" && submitted.operationLocation.isDefined)
         if (mode == "analyze" && resumable) {
-          pollWithClient(client, settings, request, submitted.operationLocation.get, Some(submitted),
-            retryDelay(raw.retryAfter, settings.pollingDelay), failOnClientError = failOnClientError)
+          submitted.operationLocation match {
+            case Some(location) =>
+              pollWithClient(client, settings, request, location, Some(submitted),
+                retryDelay(raw.retryAfter, settings.pollingDelay), budget)
+            case None =>
+              submitted.copy(status = "Unknown", error = Some(diagnostic("MissingOperationLocation",
+                "The ongoing operation did not include Operation-Location and cannot be resumed.")))
+          }
         } else {
           submitted
         }
@@ -463,41 +659,108 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
     }
   }
 
-  private def analyzerBody(raw: WireResponse): String = {
+  /** Row handler for settings validated once on the driver.
+    *
+    * The inherited client has automatic retries, so each operation uses its own no-retry client while
+    * still being scheduled by the shared HTTP pipeline. Service failures are returned as HTTP 200 so
+    * SimpleHTTPTransformer keeps them in the output rather than discarding the response.
+    */
+  def rowHandler(settings: Settings, mode: String): HandlerFunc = {
+    // The handler closure is deserialized per Spark task, not shared through an executor singleton.
+    val stopped = new AtomicBoolean(false)
+    val sharedError = diagnostic("SharedConfigurationFailure",
+      "A shared authentication, analyzer, or deployment failure stopped new submissions in this partition.")
+    (_, request) => {
+      val response = if (stopped.get() && mode != "poll") {
+        ContentUnderstandingResponse(None, None, "Rejected", 0, "", Some(sharedError))
+      } else {
+        try {
+          execute(settings, request, mode)
+        } catch {
+          case error: ContentUnderstandingException =>
+            if (stopped.compareAndSet(false, true)) ContentUnderstandingLogging.sharedStop(error)
+            // Read failures have no complete body. Do not copy arbitrary service messages into this diagnostic.
+            val cause = error.response.error.filter(_ => error.response.rawResponse.isEmpty).flatMap(asObject)
+              .filter(value => stringField(value, "code").exists(
+                Set("TransportError", "OperationTimedOut", "ResponseTooLarge", "ResponseBodyReadFailed")))
+            val detail = cause.map(value =>
+              JsObject(asObject(sharedError).get.fields + ("innererror" -> value)).compactPrint).getOrElse(sharedError)
+            error.response.copy(error = Some(detail))
+        }
+      }
+      HTTPSchema.stringToResponse(response.toJson.compactPrint, HttpStatus.SC_OK, "OK")
+    }
+  }
+
+  private def analyzerBody(raw: WireResponse, requireReady: Boolean = false): String = {
     val json = raw.json
     val hasError = json.exists(_.fields.get("error").exists(_ != JsNull))
     if (!raw.successful || raw.diagnostic.isDefined || json.isEmpty || hasError) {
       throw new ContentUnderstandingException(decode(raw, None))
     }
+    if (requireReady && !json.flatMap(stringField(_, "status")).exists(_.equalsIgnoreCase("ready"))) {
+      throw new ContentUnderstandingException(decode(raw, None).copy(status = "Failed",
+        error = Some(diagnostic("AnalyzerNotReady", "The retrieved analyzer is not ready for use."))))
+    }
     raw.body
   }
 
-  private def getAnalyzerWithClient(client: CloseableHttpClient,
-                                    settings: Settings,
-                                    request: HTTPRequestData): String = {
+  private def getAnalyzerResponse(client: CloseableHttpClient, settings: Settings,
+                                  request: HTTPRequestData, budget: ContentUnderstandingBudget): WireResponse = {
     @tailrec
-    def get(remaining: Int): WireResponse = {
-      val response = exchange(client, settings, request)
-      if (response.retryable && remaining > 1) {
-        pause(retryDelay(response.retryAfter, settings.pollingDelay))
-        get(remaining - 1)
+    def get(remaining: Int, previous: Option[WireResponse]): WireResponse = {
+      val response = exchange(client, settings, request, budget, managementGet = true)
+      if (response.expiredBeforeDispatch && previous.isDefined) {
+        previous.get
+      } else if (response.retryable && remaining > 1) {
+        val delay = retryDelay(response.retryAfter, settings.pollingDelay)
+        if (budget.remainingMs == 0 || delay >= budget.remainingMs) {
+          response
+        } else {
+          budget.pause(delay)
+          get(remaining - 1, Some(response))
+        }
       } else {
         response
       }
     }
-    analyzerBody(get(ManagementGetAttempts))
+    get(ManagementGetAttempts, None)
   }
 
-  def getAnalyzer(settings: Settings, request: HTTPRequestData): String =
-    withClient(settings)(getAnalyzerWithClient(_, settings, request))
+  def getAnalyzer(settings: Settings, request: HTTPRequestData,
+                  budgetOverride: Option[ContentUnderstandingBudget] = None): String =
+    withClient(settings, budgetOverride = budgetOverride) { (client, budget) =>
+      analyzerBody(getAnalyzerResponse(client, settings, request, budget))
+    }
+
+  private def finishCreation(client: CloseableHttpClient, settings: Settings,
+                              request: HTTPRequestData, budget: ContentUnderstandingBudget,
+                              completed: ContentUnderstandingResponse): String = {
+    val raw = getAnalyzerResponse(client, settings, request, budget)
+    if (raw.expiredBeforeDispatch) {
+      throw new ContentUnderstandingException(completed.copy(error = completed.error.orElse(Some(timeoutError))))
+    }
+    try {
+      analyzerBody(raw, requireReady = true)
+    } catch {
+      case error: ContentUnderstandingException =>
+        val retrieval = error.response
+        throw new ContentUnderstandingException(completed.copy(status = "Failed", httpStatus = retrieval.httpStatus,
+          rawResponse = retrieval.rawResponse, error = retrieval.error.orElse(Some(diagnostic("AnalyzerRetrievalFailed",
+            "Analyzer creation completed, but retrieving its definition failed.")))))
+    }
+  }
 
   def createAnalyzer(settings: Settings,
                      request: HTTPRequestData,
                      getRequestData: HTTPRequestData,
-                     analyzerId: String): String = {
-    withClient(settings) { client =>
-      val raw = exchange(client, settings, request)
-      analyzerBody(raw)
+                     analyzerId: String,
+                     budgetOverride: Option[ContentUnderstandingBudget] = None): String = {
+    withClient(settings, budgetOverride = budgetOverride) { (client, budget) =>
+      val raw = exchange(client, settings, request, budget)
+      if (raw.location.isDefined && !AcceptedSubmissionStatuses(raw.httpStatus)) {
+        throw new ContentUnderstandingException(decode(raw, None))
+      }
       raw.location match {
         case Some(location) =>
           try {
@@ -505,21 +768,24 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
           } catch {
             case _: IllegalArgumentException =>
               throw new ContentUnderstandingException(decode(raw, None).copy(status = "Failed",
-                error = Some(diagnostic("InvalidOperationLocation",
-                  "The analyzer creation operation URL was unsafe; it was not requested."))))
+                error = raw.diagnostic.orElse(Some(diagnostic("InvalidOperationLocation",
+                  "The analyzer creation operation URL was unsafe; it was not requested.")))))
           }
-          val completed = pollWithClient(client, settings, request, location, None,
-            retryDelay(raw.retryAfter, settings.pollingDelay), Some(analyzerId))
+          val completed = pollWithClient(client, settings, request, location,
+            Some(decode(raw, Some(location), CreationStatusNames)),
+            retryDelay(raw.retryAfter, settings.pollingDelay), budget, Some(analyzerId))
           if (completed.status != "Succeeded" || completed.error.isDefined) {
             throw new ContentUnderstandingException(completed)
           }
-          getAnalyzerWithClient(client, settings, getRequestData)
+          finishCreation(client, settings, getRequestData, budget, completed)
         case None =>
+          analyzerBody(raw)
           val status = raw.json.flatMap(stringField(_, "status"))
           if (!status.exists(_.equalsIgnoreCase("ready"))) {
-            throw new ContentUnderstandingException(decode(raw, None).copy(status = "Failed",
-              error = Some(diagnostic("MissingOperationLocation",
-                "Analyzer creation was not ready and supplied no management operation URL."))))
+            val response = decode(raw, None, CreationStatusNames)
+            throw new ContentUnderstandingException(response.copy(status = "Failed",
+              error = response.error.orElse(Some(diagnostic("MissingOperationLocation",
+                "Analyzer creation was not ready and supplied no management operation URL.")))))
           }
           raw.body
       }

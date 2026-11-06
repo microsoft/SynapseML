@@ -818,6 +818,8 @@ jobs:
       form:
         PACKAGE: "services.form"
         FLAKY: "true"
+      contentunderstanding:
+        PACKAGE: "services.contentunderstanding"
       language:
         PACKAGE: "services.language"
         FLAKY: "true"
