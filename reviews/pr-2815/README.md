@@ -1,6 +1,20 @@
 # Review evidence for PR #2815
 
-## Final source-review reports
+## Case-class parameter inspection correction
+
+The follow-up to commit `8ff7754af5425d393ef706cc1312cb10ab5f4580` makes
+`getOrDefault` and `extractParamMap` reuse the typed getter's parameter-aware
+conversion. Case-class sequences become JSON-serializable dictionaries while
+the existing raw-byte guard is preserved. The [focused correction review](task-5837660-attempt-7-review-0-harness.md)
+covers this small follow-up, not a repeat of the full connector review.
+
+The new regression failed before the fix for both APIs in configured and
+restored wrappers. After the fix, all 35 selected Python tests passed, including
+the complete ServiceParam bridge suite and affected CU scalar, map, sequence,
+column-binding and raw-byte paths. Core code generation and pinned formatting
+also passed. No live service was called for this local validation.
+
+## Earlier three-model source review
 
 The three retained reports are the final targeted detailed-correctness pass,
 following the six-stage High review and five targeted fix/review iterations.
@@ -21,7 +35,7 @@ The 14-path correction patch reviewed in the final pass has SHA-256
 The final input, runtime-identity and scoped-tool audits passed without
 warnings or violations. No confirmed finding remained open in that scope.
 
-Final-source local validation covered 174 offline CU Scala tests and four
+At that revision, local validation covered 174 offline CU Scala tests and four
 affected Python public paths, including cancellation, after affected style and
 compilation checks. Earlier full Python/shared-HTTP suites retain their original
 snapshot attribution. Live CU, full Azure pipeline execution, packaged-runtime
