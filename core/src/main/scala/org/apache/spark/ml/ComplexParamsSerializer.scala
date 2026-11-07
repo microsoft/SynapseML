@@ -5,7 +5,7 @@ package org.apache.spark.ml
 
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParam
 import org.apache.hadoop.fs.Path
-import org.apache.spark.ml.param.{ParamPair, Params}
+import org.apache.spark.ml.param.{ParamMap, ParamPair, Params}
 import org.apache.spark.ml.util.DefaultParamsReader.Metadata
 import org.apache.spark.ml.util._
 import org.apache.spark.sql.SparkSession
@@ -17,7 +17,10 @@ import org.json4s.{JObject, _}
 trait ComplexParamsWritable extends MLWritable {
   self: Params =>
 
-  override def write: MLWriter = new ComplexParamsWriter(this)
+  /** Retain legacy metadata by default; stages may keep non-complex defaults out of the explicit paramMap. */
+  protected def saveDefaultParamsAsExplicit: Boolean = true
+
+  override def write: MLWriter = new ComplexParamsWriter(this, saveDefaultParamsAsExplicit)
 }
 
 trait ComplexParamsReadable[T] extends MLReadable[T] {
@@ -31,17 +34,26 @@ trait ComplexParamsReadable[T] extends MLReadable[T] {
   *
   * @param instance object to save
   */
-private[ml] class ComplexParamsWriter(instance: Params) extends MLWriter {
+private[ml] class ComplexParamsWriter(instance: Params, saveDefaultParamsAsExplicit: Boolean) extends MLWriter {
+
+  def this(instance: Params) = this(instance, true)
 
   override protected def saveImpl(path: String): Unit = {
     val complexParamLocs = ComplexParamsWriter.getComplexParamLocations(instance, path)
     val complexParamJson = ComplexParamsWriter.getComplexMetadata(complexParamLocs)
-    ComplexParamsWriter.saveMetadata(instance, path, sparkSession, complexParamJson)
+    val explicitParams = if (saveDefaultParamsAsExplicit) None
+      else Some(ComplexParamsWriter.encodeParams(instance.paramMap))
+    ComplexParamsWriter.saveMetadata(instance, path, sparkSession, complexParamJson, explicitParams)
     ComplexParamsWriter.saveComplexParams(path, complexParamLocs, shouldOverwrite)
   }
 }
 
 private[ml] object ComplexParamsWriter {
+
+  private def encodeParams(params: ParamMap): JValue = {
+    val pairs = params.toSeq.filter(!_.param.isInstanceOf[ComplexParam[_]]).asInstanceOf[Seq[ParamPair[Any]]]
+    render(pairs.map { case ParamPair(p, v) => p.name -> parse(p.jsonEncode(v)) }.toList)
+  }
 
   def getComplexMetadata(complexParamLocs: Map[ParamPair[_], Path]): Option[JObject] = {
     if (complexParamLocs.nonEmpty) {
@@ -108,16 +120,8 @@ private[ml] object ComplexParamsWriter {
                         paramMap: Option[JValue] = None): String = {
     val uid = instance.uid
     val cls = instance.getClass.getName
-    val params = instance.extractParamMap().toSeq
-      .filter(!_.param.isInstanceOf[ComplexParam[_]]).asInstanceOf[Seq[ParamPair[Any]]]
-    val defaultParams = instance.defaultParamMap.toSeq
-      .filter(!_.param.isInstanceOf[ComplexParam[_]]).asInstanceOf[Seq[ParamPair[Any]]]
-    val jsonParams = paramMap.getOrElse(render(params.map { case ParamPair(p, v) =>
-      p.name -> parse(p.jsonEncode(v))
-    }.toList))
-    val jsonDefaultParams = render(defaultParams.map { case ParamPair(p, v) =>
-      p.name -> parse(p.jsonEncode(v))
-    }.toList)
+    val jsonParams = paramMap.getOrElse(encodeParams(instance.extractParamMap()))
+    val jsonDefaultParams = encodeParams(instance.defaultParamMap)
     val basicMetadata = ("class" -> cls) ~
       ("timestamp" -> System.currentTimeMillis()) ~
       ("sparkVersion" -> spark.version) ~

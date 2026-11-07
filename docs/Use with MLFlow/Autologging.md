@@ -9,6 +9,15 @@ description: SynapseML autologging
 [MLflow automatic logging](https://www.mlflow.org/docs/latest/tracking.html#automatic-logging) allows you to log metrics, parameters, and models without the need for explicit log statements.
 SynapseML supports autologging for every model in the library.
 
+**Service credentials:** Spark ML autologging collects scalar parameters from
+pipeline stages. For cognitive-service transformers, these can include API
+keys, tokens, custom headers, and signed URLs. Redaction in `explainParam` does
+not redact automatically logged parameters or saved model metadata. Disable
+autologging around credential-bearing pipelines, or avoid credentials in
+scalar parameters. Setting `log_models=False` alone does not disable parameter
+logging. JVM-backed column bindings are excluded from Python's generic scalar
+parameter view; this is not a general secret-redaction boundary.
+
 To enable autologging for SynapseML:
 1. Download this customized [log_model_allowlist file](https://mmlspark.blob.core.windows.net/publicwasb/log_model_allowlist.txt) and put it at a place that your code has access to.
 For example:

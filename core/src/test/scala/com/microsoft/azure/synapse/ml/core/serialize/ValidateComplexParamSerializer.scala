@@ -123,6 +123,16 @@ class MixedParamTest(override val uid: String) extends TestEstimatorBase(uid)
 
 object MixedParamTest extends ComplexParamsReadable[MixedParamTest]
 
+class TestableDefaultParamTest(override val uid: String) extends MixedParamTest(uid) {
+  setDefault(stringParam -> "default", byteArray -> Array[Byte](1, 2))
+}
+
+object TestableDefaultParamTest extends ComplexParamsReadable[TestableDefaultParamTest]
+
+class TestableExplicitParamTest(override val uid: String) extends TestableDefaultParamTest(uid) {
+  override protected def saveDefaultParamsAsExplicit: Boolean = false
+}
+
 class ValidateComplexParamSerializer extends TestBase {
   val saveFile = new File(tmpDir.toFile, "m1.model").toString
   val saveFile2 = new File(tmpDir.toFile, "m2.model").toString
@@ -180,6 +190,23 @@ class ValidateComplexParamSerializer extends TestBase {
     val mpt2 = MixedParamTest.load(saveFile2)
     assert(mpt1.getByteArray === mpt2.getByteArray)
     assert(mpt1.getStringParam === mpt2.getStringParam)
+  }
+
+  test("explicit parameter persistence preserves defaults and complex values without changing legacy writers") {
+    for (source <- Seq(new TestableDefaultParamTest("legacy"), new TestableExplicitParamTest("explicit"))) {
+      source.write.session(spark).overwrite().save(saveFile)
+      val loaded = TestableDefaultParamTest.load(saveFile)
+      assert(loaded.getStringParam == source.getStringParam)
+      assert(loaded.getByteArray.sameElements(source.getByteArray))
+      assert(loaded.getDefault(loaded.stringParam) == source.getDefault(source.stringParam))
+      assert(loaded.isSet(loaded.stringParam) == !source.isInstanceOf[TestableExplicitParamTest])
+      source.setStringParam(source.getStringParam)
+      source.write.session(spark).overwrite().save(saveFile)
+      val selected = TestableDefaultParamTest.load(saveFile)
+      assert(selected.isSet(selected.stringParam))
+      selected.clear(selected.stringParam)
+      assert(selected.getStringParam == source.getStringParam)
+    }
   }
 
   test("Complex Param serialization should read metadata written by the legacy SparkContext path") {
