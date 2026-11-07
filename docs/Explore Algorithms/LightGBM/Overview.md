@@ -80,6 +80,19 @@ predictions = model.transform(test)
 set `objective="multiclass"` or `objective="multiclassova"` on a single
 `LightGBMClassifier` instead.
 
+### Multiclass SHAP values
+
+For `objective="multiclass"` with more than two classes, `featuresShapCol` is one
+flat vector containing a block for each output class. Each block has one
+contribution per encoded feature followed by a bias value. Use the fitted
+model's `getBoosterNumClasses()` and `getBoosterNumFeatures()` to determine the
+shape; counting the original columns is insufficient after one-hot encoding.
+
+The [multiclass SHAP tutorial](./Multiclass%20SHAP%20values.md) demonstrates the
+layout, raw-score reconstruction, and per-class mean absolute contributions for
+numeric and one-hot encoded categorical features. These are explanations of
+model scores, not probabilities or causal effects.
+
 ### Arguments/Parameters
 
 SynapseML exposes getters/setters for many common LightGBM parameters.
