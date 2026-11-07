@@ -123,13 +123,13 @@ class MixedParamTest(override val uid: String) extends TestEstimatorBase(uid)
 
 object MixedParamTest extends ComplexParamsReadable[MixedParamTest]
 
-class DefaultParamTest(override val uid: String) extends MixedParamTest(uid) {
+class TestableDefaultParamTest(override val uid: String) extends MixedParamTest(uid) {
   setDefault(stringParam -> "default", byteArray -> Array[Byte](1, 2))
 }
 
-object DefaultParamTest extends ComplexParamsReadable[DefaultParamTest]
+object TestableDefaultParamTest extends ComplexParamsReadable[TestableDefaultParamTest]
 
-class ExplicitParamTest(override val uid: String) extends DefaultParamTest(uid) {
+class TestableExplicitParamTest(override val uid: String) extends TestableDefaultParamTest(uid) {
   override protected def saveDefaultParamsAsExplicit: Boolean = false
 }
 
@@ -193,16 +193,16 @@ class ValidateComplexParamSerializer extends TestBase {
   }
 
   test("explicit parameter persistence preserves defaults and complex values without changing legacy writers") {
-    for (source <- Seq(new DefaultParamTest("legacy"), new ExplicitParamTest("explicit"))) {
+    for (source <- Seq(new TestableDefaultParamTest("legacy"), new TestableExplicitParamTest("explicit"))) {
       source.write.session(spark).overwrite().save(saveFile)
-      val loaded = DefaultParamTest.load(saveFile)
+      val loaded = TestableDefaultParamTest.load(saveFile)
       assert(loaded.getStringParam == source.getStringParam)
       assert(loaded.getByteArray.sameElements(source.getByteArray))
       assert(loaded.getDefault(loaded.stringParam) == source.getDefault(source.stringParam))
-      assert(loaded.isSet(loaded.stringParam) == !source.isInstanceOf[ExplicitParamTest])
+      assert(loaded.isSet(loaded.stringParam) == !source.isInstanceOf[TestableExplicitParamTest])
       source.setStringParam(source.getStringParam)
       source.write.session(spark).overwrite().save(saveFile)
-      val selected = DefaultParamTest.load(saveFile)
+      val selected = TestableDefaultParamTest.load(saveFile)
       assert(selected.isSet(selected.stringParam))
       selected.clear(selected.stringParam)
       assert(selected.getStringParam == source.getStringParam)
