@@ -128,6 +128,7 @@ class ComplexParamsMixin(MLReadable):
         return value
 
     def _service_param_scalar_to_python(self, name, value):
+        # PySpark interprets raw bytes as a pickle rather than media content.
         if isinstance(value, (bytes, bytearray)):
             return value
         sc = SparkContext._active_spark_context
@@ -168,31 +169,6 @@ class ComplexParamsMixin(MLReadable):
             )
         return super().hasDefault(param)
 
-    def _service_value_to_python(self, value):
-        # PySpark interprets raw bytes as a pickle rather than media content.
-        if isinstance(value, (bytes, bytearray)):
-            return value
-        sc = SparkContext._active_spark_context
-        if isinstance(value, JavaObject):
-            seq_class = sc._jvm.scala.collection.Seq._java_lang_class
-            if seq_class.isAssignableFrom(value.getClass()):
-                result = []
-                entries = value.iterator()
-                while entries.hasNext():
-                    result.append(self._service_value_to_python(entries.next()))
-                return result
-            map_class = sc._jvm.scala.collection.Map._java_lang_class
-            if map_class.isAssignableFrom(value.getClass()):
-                result = {}
-                entries = value.iterator()
-                while entries.hasNext():
-                    entry = entries.next()
-                    result[
-                        self._service_value_to_python(entry._1())
-                    ] = self._service_value_to_python(entry._2())
-                return result
-        return _java2py(sc, value)
-
     def _java_service_value(self, param):
         java_param = self._java_obj.getParam(param.name)
         if self._java_obj.isDefined(java_param):
@@ -206,7 +182,7 @@ class ComplexParamsMixin(MLReadable):
             if value is not None:
                 if value.isRight():
                     raise KeyError(f"{param.name} is column-bound, not a scalar value")
-                return self._service_value_to_python(value.value())
+                return self._service_param_scalar_to_python(param.name, value.value())
         return super().getOrDefault(param)
 
     def extractParamMap(self, extra=None):
@@ -221,7 +197,9 @@ class ComplexParamsMixin(MLReadable):
                 value = self._java_service_value(param)
                 if value is not None:
                     if value.isLeft():
-                        result[param] = self._service_value_to_python(value.value())
+                        result[param] = self._service_param_scalar_to_python(
+                            param.name, value.value()
+                        )
                     else:
                         result.pop(param, None)
         return result

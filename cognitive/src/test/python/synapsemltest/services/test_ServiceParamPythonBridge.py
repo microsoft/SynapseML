@@ -1,6 +1,7 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 
+import json
 import os
 import tempfile
 import unittest
@@ -14,6 +15,7 @@ from synapse.ml.core.init_spark import init_spark
 from synapse.ml.services.openai.OpenAIEmbedding import OpenAIEmbedding
 from synapse.ml.services.openai.OpenAIPrompt import OpenAIPrompt
 from synapse.ml.services.text.TextSentiment import TextSentiment
+from synapse.ml.services.translate.DictionaryExamples import DictionaryExamples
 from synapse.ml.stages.SelectColumns import SelectColumns
 
 spark = init_spark()
@@ -120,6 +122,33 @@ class TestServiceParamPythonBridge(unittest.TestCase):
         headers = {"trace-id": "test"}
         embedding.setTelemHeaders(headers)
         self.assertEqual(embedding.getTelemHeaders(), headers)
+
+    def test_generic_inspection_decodes_case_class_sequences(self):
+        for expected in (
+            [],
+            [
+                {"text": "hello", "translation": "hola"},
+                {"text": "world", "translation": "mundo"},
+            ],
+        ):
+            stage = DictionaryExamples()
+            java_param = stage._java_obj.getParam("textAndTranslation")
+            stage._java_obj.set(
+                java_param, java_param.jsonDecode(json.dumps({"left": expected}))
+            )
+            for label, candidate in (
+                ("configured", stage),
+                ("restored", DictionaryExamples._from_java(stage._java_obj)),
+            ):
+                param = candidate.textAndTranslation
+                self.assertEqual(candidate.getTextAndTranslation(), expected)
+                for api, value in (
+                    ("getOrDefault", candidate.getOrDefault(param)),
+                    ("extractParamMap", candidate.extractParamMap()[param]),
+                ):
+                    with self.subTest(state=label, api=api, expected=expected):
+                        self.assertEqual(value, expected)
+                        self.assertEqual(json.loads(json.dumps(value)), expected)
 
     def test_set_params_dispatches_service_arguments_through_setters(self):
         embedding = OpenAIEmbedding().setParams(textCol="body")
