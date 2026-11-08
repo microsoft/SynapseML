@@ -116,7 +116,7 @@ class OpenAICoreOfflineSuite extends AnyFunSuite {
     assert(jsonSchema.contains("schema"))
   }
 
-  test("OpenAIResponses optional params merge text/reasoning and drop gpt-5 sampling") {
+  test("OpenAIResponses preserves explicit sampling while merging text and reasoning") {
     val responses = new OpenAIResponses()
       .setDeploymentName("gpt-5-mini")
       .setTemperature(0.3)
@@ -128,8 +128,8 @@ class OpenAICoreOfflineSuite extends AnyFunSuite {
     val params = responses.getOptionalParams(messageRow("user", "hello"))
 
     assert(params("model") == "gpt-5-mini")
-    assert(!params.contains("temperature"))
-    assert(!params.contains("top_p"))
+    assert(params("temperature") == 0.3)
+    assert(params("top_p") == 0.7)
     assert(!params.contains("reasoning_effort"))
 
     val text = params("text").asInstanceOf[Map[String, Any]]
@@ -180,7 +180,11 @@ class OpenAICoreOfflineSuite extends AnyFunSuite {
   }
 
   test("OpenAI chat and responses stages expose expected response schemas") {
-    assert(new OpenAIChatCompletion().responseDataType == ChatModelResponse.schema)
-    assert(new OpenAIResponses().responseDataType == ResponsesModelResponse.schema)
+    assert(new OpenAIChatCompletion().responseDataType == OpenAIResponseSchemas.Chat)
+    assert(new OpenAIResponses().responseDataType == OpenAIResponseSchemas.Responses)
+    assert(OpenAIResponseSchemas.Chat.fieldNames.take(ChatModelResponse.schema.length).toSeq ==
+      ChatModelResponse.schema.fieldNames.toSeq)
+    assert(OpenAIResponseSchemas.Responses.fieldNames.take(ResponsesModelResponse.schema.length).toSeq ==
+      ResponsesModelResponse.schema.fieldNames.toSeq)
   }
 }

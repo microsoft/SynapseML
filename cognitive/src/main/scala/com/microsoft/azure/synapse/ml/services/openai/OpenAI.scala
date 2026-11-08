@@ -284,7 +284,8 @@ trait HasOpenAITextParams extends HasOpenAISharedParams with ComplexParamsWritab
     "Include the log probabilities on the `logprobs` most likely tokens, as well the chosen tokens." +
       " So for example, if `logprobs` is 10, the API will return a list of the 10 most likely tokens." +
       " If `logprobs` is 0, only the chosen tokens will have logprobs returned." +
-      " Minimum of 0 and maximum of 100 allowed.",
+      " For Chat and Responses, this legacy count enables log probabilities and is sent as top_logprobs. " +
+      " Prefer logProbsEnabled and topLogProbs on those APIs. Model-specific limits are provider-validated.",
     isRequired = false) {
     override val payloadName: String = "logprobs"
   }
@@ -343,7 +344,7 @@ trait HasOpenAITextParams extends HasOpenAISharedParams with ComplexParamsWritab
 
   def setPromptCacheOptionsCol(v: String): this.type = setVectorParam(promptCacheOptions, v)
 
-  private def normalizeCacheOptionValue(value: Any): Any = value match {
+  protected def normalizeCacheOptionValue(value: Any): Any = value match {
     case row: Row =>
       row.schema.fieldNames.zip(row.toSeq.map(normalizeCacheOptionValue)).toMap
     case values: scala.collection.Map[_, _] =>

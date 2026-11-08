@@ -1,10 +1,14 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 
+import json
 import os
 import tempfile
 import unittest
 from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from queue import Queue
+from threading import Thread
 from unittest.mock import patch
 
 from py4j.protocol import Py4JError, Py4JJavaError
@@ -21,6 +25,193 @@ spark = init_spark()
 
 
 class TestServiceParamPythonBridge(unittest.TestCase):
+    def test_model_controls_reach_http_after_python_binding_and_prompt_reload(self):
+        from pyspark.sql import functions as F
+        from synapse.ml.services.openai.OpenAIChatCompletion import OpenAIChatCompletion
+        from synapse.ml.services.openai.OpenAIResponses import OpenAIResponses
+
+        requests = Queue()
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, *_):
+                pass
+
+            def do_POST(self):
+                body = json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+                requests.put(body)
+                if "input" in body:
+                    response = {
+                        "id": "resp_cache",
+                        "status": "completed",
+                        "output": [],
+                        "prompt_cache_diagnostics": {"type": "cache_hit"},
+                        "usage": {
+                            "input_tokens": 12,
+                            "output_tokens": 0,
+                            "total_tokens": 12,
+                            "input_tokens_details": {
+                                "cached_tokens": 4,
+                                "cache_write_tokens": 7,
+                                "cache_write_tokens_details": {
+                                    "ttl_30m_tokens": 3,
+                                    "ttl_12h_tokens": 4,
+                                },
+                            },
+                        },
+                    }
+                else:
+                    response = {
+                        "id": "chat_cache",
+                        "choices": [
+                            {
+                                "message": {"role": "assistant", "content": "ok"},
+                                "index": 0,
+                                "finish_reason": "stop",
+                            }
+                        ],
+                        "usage": {
+                            "prompt_tokens": 12,
+                            "completion_tokens": 1,
+                            "total_tokens": 13,
+                            "prompt_tokens_details": {
+                                "cached_tokens": 4,
+                                "cache_write_tokens": 7,
+                            },
+                        },
+                    }
+                encoded = json.dumps(response).encode()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(encoded)))
+                self.end_headers()
+                self.wfile.write(encoded)
+
+        server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = Thread(target=server.serve_forever)
+        thread.start()
+        try:
+            frame = spark.createDataFrame(
+                [
+                    (
+                        "hello",
+                        "row-key",
+                        {"context": "all_turns", "effort": "max"},
+                        2,
+                        {"job": "row"},
+                        True,
+                    )
+                ],
+                "text string, cache_key string, reasoning map<string,string>, "
+                "probability_count int, tags map<string,string>, persist boolean",
+            ).withColumn(
+                "messages",
+                F.array(
+                    F.struct(
+                        F.lit("user").alias("role"), F.col("text").alias("content")
+                    )
+                ),
+            )
+            cases = (
+                (OpenAIChatCompletion, "chat_completions"),
+                (OpenAIResponses, "responses"),
+                (OpenAIPrompt, "chat_completions"),
+                (OpenAIPrompt, "responses"),
+            )
+            for stage_type, api in cases:
+                with self.subTest(stage=stage_type.__name__, api=api):
+                    options = {
+                        "promptCacheKey": "scalar-key",
+                        "promptCacheRetention": "24h",
+                        "promptCacheOptions": {"ttl": "12h", "mode": "implicit"},
+                        "serviceTier": "priority",
+                        "safetyIdentifier": "opaque-id",
+                        "metadata": {"job": "scalar"},
+                        "topLogProbs": 2,
+                        "store": True,
+                    }
+                    if api == "responses":
+                        options.update(
+                            reasoning={"context": "all_turns", "effort": "max"},
+                            include=["reasoning.encrypted_content"],
+                            truncation="disabled",
+                        )
+                        options["promptCacheOptions"]["prewarm"] = True
+                    else:
+                        options.update(
+                            logProbsEnabled=True,
+                            logitBias={"42": -10},
+                            stopSequences=["END", "STOP"],
+                        )
+                    stage = stage_type(**options)
+                    if api == "responses":
+                        stage.setParams(
+                            promptCacheKeyCol="cache_key",
+                            reasoningCol="reasoning",
+                            metadataCol="tags",
+                            topLogProbsCol="probability_count",
+                            storeCol="persist",
+                        )
+                    stage.setUrl(
+                        f"http://127.0.0.1:{server.server_port}/openai/v1/"
+                    ).setSubscriptionKey("unused")
+                    stage.setMessagesCol("messages").setOutputCol("output").setErrorCol(
+                        "error"
+                    )
+                    if stage_type is OpenAIPrompt:
+                        stage.setApiType(api).setPromptTemplate("{text}").setUsageCol(
+                            "usage"
+                        ).setResponseIdCol("response_id")
+                        with tempfile.TemporaryDirectory() as directory:
+                            path = os.path.join(directory, "prompt")
+                            stage.copy().save(path)
+                            stage = OpenAIPrompt.load(path)
+                    row = stage.transform(frame).head()
+                    self.assertIsNone(row.error)
+                    body = requests.get(timeout=5)
+                    self.assertEqual(body["prompt_cache_retention"], "24h")
+                    self.assertEqual(body["service_tier"], "priority")
+                    self.assertEqual(body["safety_identifier"], "opaque-id")
+                    self.assertEqual(body["top_logprobs"], 2)
+                    self.assertIs(body["store"], True)
+                    self.assertEqual(
+                        body["prompt_cache_options"], options["promptCacheOptions"]
+                    )
+                    if api == "responses":
+                        self.assertEqual(body["prompt_cache_key"], "row-key")
+                        self.assertEqual(body["metadata"], {"job": "row"})
+                        self.assertEqual(body["reasoning"], options["reasoning"])
+                        self.assertEqual(body["truncation"], "disabled")
+                        self.assertEqual(
+                            body["include"],
+                            ["reasoning.encrypted_content", "output_text.logprobs"],
+                        )
+                        self.assertNotIn("logprobs", body)
+                        if stage_type is OpenAIPrompt:
+                            self.assertIsNone(row.output)
+                        else:
+                            self.assertEqual(
+                                row.output.prompt_cache_diagnostics.type, "cache_hit"
+                            )
+                    else:
+                        self.assertEqual(body["prompt_cache_key"], "scalar-key")
+                        self.assertEqual(body["metadata"], {"job": "scalar"})
+                        self.assertIs(body["logprobs"], True)
+                        self.assertEqual(body["logit_bias"], {"42": -10})
+                        self.assertEqual(body["stop"], ["END", "STOP"])
+                    if stage_type is OpenAIPrompt:
+                        self.assertEqual(
+                            row.usage.input_token_details["cached_tokens"], 4
+                        )
+                        self.assertEqual(
+                            row.usage.input_token_details["cache_write_tokens"], 7
+                        )
+                        self.assertTrue(row.response_id.endswith("_cache"))
+            self.assertTrue(requests.empty())
+        finally:
+            server.shutdown()
+            thread.join()
+            server.server_close()
+
     def test_text_deployment_defaults_and_bindings_survive_copy_and_load(self):
         from synapse.ml.services.openai.OpenAIChatCompletion import OpenAIChatCompletion
         from synapse.ml.services.openai.OpenAIResponses import OpenAIResponses

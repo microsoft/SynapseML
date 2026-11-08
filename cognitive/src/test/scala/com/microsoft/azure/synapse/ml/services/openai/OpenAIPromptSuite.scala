@@ -679,7 +679,7 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
     assert(!schema.fieldNames.contains(responseIdColName))
   }
 
-  test("store parameter throws error when apiType is not responses") {
+  test("store parameter is accepted for Chat Completions") {
     val promptWithStore = new OpenAIPrompt()
       .setSubscriptionKey(openAIAPIKey)
       .setDeploymentName(deploymentName)
@@ -689,10 +689,8 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
       .setPromptTemplate("What is {text}?")
       .setOutputCol("output")
 
-    val exception = intercept[IllegalArgumentException] {
-      promptWithStore.transform(df.limit(1))
-    }
-    assert(exception.getMessage.contains("store parameter requires apiType='responses'"))
+    val schema = promptWithStore.transformSchema(df.schema)
+    assert(schema(promptWithStore.getResponseIdCol).dataType == StringType)
   }
 
   test("previousResponseId parameter throws error when apiType is not responses") {

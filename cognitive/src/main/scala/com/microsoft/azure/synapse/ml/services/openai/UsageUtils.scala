@@ -46,6 +46,19 @@ object UsageUtils {
       outputDetails = Some("output_tokens_details" -> Seq("reasoning_tokens"))
     )
 
+    val ChatCompletionsDetailed: UsageFieldMapping = ChatCompletions.copy(
+      inputDetails = Some("prompt_tokens_details" ->
+        Seq("audio_tokens", "cached_tokens", "cache_write_tokens", "text_tokens", "image_tokens")),
+      outputDetails = Some("completion_tokens_details" ->
+        Seq("accepted_prediction_tokens", "audio_tokens", "reasoning_tokens",
+          "rejected_prediction_tokens", "text_tokens"))
+    )
+
+    val ResponsesDetailed: UsageFieldMapping = Responses.copy(
+      inputDetails = Some("input_tokens_details" -> Seq("cached_tokens", "cache_write_tokens",
+        "cache_write_tokens_details.ttl_30m_tokens", "cache_write_tokens_details.ttl_12h_tokens"))
+    )
+
     val Embeddings: UsageFieldMapping = UsageFieldMapping(
       inputTokens = Some("prompt_tokens"),
       outputTokens = None,
@@ -74,7 +87,7 @@ object UsageUtils {
       case Some((fieldName, keys)) if keys.nonEmpty =>
         val detailCol = usage.getField(fieldName)
         val keyColumns = keys.map(lit)
-        val valueColumns = keys.map(key => detailCol.getField(key).cast(LongType))
+        val valueColumns = keys.map(key => key.split("\\.").foldLeft(detailCol)(_.getField(_)).cast(LongType))
         map_from_arrays(array(keyColumns: _*), array(valueColumns: _*))
       case _ => EmptyDetailsMapColumn
     }

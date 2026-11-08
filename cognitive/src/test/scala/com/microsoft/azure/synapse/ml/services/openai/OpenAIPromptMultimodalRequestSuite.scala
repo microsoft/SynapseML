@@ -162,6 +162,70 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
       .setErrorCol("error")
   }
 
+  test("Responses prewarm keeps usage and response ID without a false content-filter error") {
+    val previousAnsi = spark.conf.get("spark.sql.ansi.enabled")
+    try {
+      Seq(false, true).foreach { ansi =>
+        spark.conf.set("spark.sql.ansi.enabled", ansi)
+        Seq("completed", "incomplete").foreach { status =>
+          val response = s"""{"id":"resp_prewarm","status":"$status","output":[],
+            |"incomplete_details":{"reason":"content_filter"},
+            |"usage":{"input_tokens":12000,"output_tokens":0,"total_tokens":12000,
+            |"input_tokens_details":{"cached_tokens":4000,"cache_write_tokens":7000,
+            |"cache_write_tokens_details":{"ttl_30m_tokens":3000,"ttl_12h_tokens":4000}},
+            |"output_tokens_details":{"reasoning_tokens":0}}}""".stripMargin
+          withEchoServer({ (baseUrl, bodies, _) =>
+            val stage = prompt(baseUrl, "responses").setColumnTypes(Map.empty[String, String])
+              .setStore(true).setResponseIdCol("response_id").setUsageCol("usage")
+              .setPromptCacheKey("warmup").setPromptCacheOptions(Map("prewarm" -> true, "ttl" -> "12h"))
+              .setReasoning(Map("context" -> "all_turns", "effort" -> "max"))
+              .setTruncation("disabled").setTopLogProbs(2)
+            val input = Seq("Reusable prefix").toDF("prompt")
+            val expectedSchema = stage.transformSchema(input.schema)
+            val result = stage.transform(input)
+            assert(result.schema == expectedSchema)
+            val row = result.head()
+            assert(row.isNullAt(row.fieldIndex("output")))
+            assert(row.getAs[String]("response_id") == "resp_prewarm")
+            val details = row.getAs[Row]("usage").getAs[Map[String, Long]]("input_token_details")
+            assert(details("cache_write_tokens") == 7000L)
+            assert(details("cache_write_tokens_details.ttl_12h_tokens") == 4000L)
+            if (status == "completed") {
+              assert(row.isNullAt(row.fieldIndex("error")))
+            } else {
+              assert(row.getAs[Row]("error").getAs[String]("response") == "content_filter")
+            }
+            val body = bodies.poll().parseJson.asJsObject.fields
+            assert(body("prompt_cache_key") == JsString("warmup"))
+            assert(body("prompt_cache_options").asJsObject.fields("prewarm") == JsTrue)
+            assert(body("reasoning").asJsObject.fields("context") == JsString("all_turns"))
+            assert(body("include") == JsArray(JsString("output_text.logprobs")))
+          }, responseBody = _ => response)
+        }
+      }
+    } finally {
+      spark.conf.set("spark.sql.ansi.enabled", previousAnsi)
+    }
+  }
+
+  test("Chat storage and per-row storage controls are forwarded with response IDs") {
+    withEchoServer { (baseUrl, bodies) =>
+      Seq("chat_completions", "responses").foreach { api =>
+        val stage = prompt(baseUrl, api).setColumnTypes(Map.empty[String, String])
+          .setStoreCol("persist").setResponseIdCol("response_id")
+        val input = Seq(("hello", true), ("hello", false)).toDF("prompt", "persist").coalesce(1)
+        val result = stage.transform(input)
+        assert(result.schema == stage.transformSchema(input.schema))
+        val rows = result.collect()
+        assert(rows.forall(row => row.isNullAt(row.fieldIndex("error"))))
+        assert(rows.find(_.getAs[Boolean]("persist")).get.getAs[String]("response_id").nonEmpty)
+        assert(rows.find(!_.getAs[Boolean]("persist")).get.isNullAt(result.schema.fieldIndex("response_id")))
+        val stored = Seq(bodies.poll(), bodies.poll()).map(_.parseJson.asJsObject.fields("store")).toSet
+        assert(stored == Set(JsBoolean(true), JsBoolean(false)))
+      }
+    }
+  }
+
   test("OpenAIPrompt sends scalar and per-row cache options through both APIs") {
     withEchoServer { (baseUrl, bodies) =>
       Seq("chat_completions", "responses").foreach { apiType =>

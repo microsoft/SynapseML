@@ -21,7 +21,7 @@ import scala.collection.{Seq => CollectionSeq}
 import scala.language.existentials
 
 
-trait HasOpenAITextParamsExtended extends HasOpenAITextParams with HasOpenAIResponseSchema {
+trait HasOpenAITextParamsExtended extends HasOpenAIModelParams with HasOpenAIResponseSchema {
   // The argument keeps this factory out of Spark's zero-argument Param discovery.
   /** Called during trait initialization; overrides must not read uninitialized subclass fields. */
   protected def createResponseFormatParam(name: String): ServiceParam[Map[String, Any]] =
@@ -99,6 +99,14 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
 
   def this() = this(Identifiable.randomUID("OpenAIChatCompletion"))
 
+  val store: ServiceParam[Boolean] = new ServiceParam[Boolean](
+    this, "store", "Whether the provider should store this Chat completion.", isRequired = false)
+
+  def getStore: Boolean = getScalarParam(store)
+  def setStore(v: Boolean): this.type = setScalarParam(store, v)
+  def getStoreCol: String = getVectorParam(store)
+  def setStoreCol(v: String): this.type = setVectorParam(store, v)
+
   @transient private lazy val requestBody = new OpenAIRequestBodyCache(OpenAIRequestBody.chat)
 
   def urlPath: String = ""
@@ -123,8 +131,14 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   }
 
   override private[ml] def getOptionalParams(r: Row): Map[String, Any] = {
-    val base = super.getOptionalParams(r)
-    resolveMaxTokens(base, "max_completion_tokens")
+    if (internalServiceType == "foundry") {
+      rejectUnsupportedParams(r, "AI Foundry model inference", store)
+    } else {
+      rejectUnsupportedParams(r, "Chat Completions", echo, cacheLevel, bestOf)
+    }
+    rejectUnsupportedParams(r, "Chat Completions", reasoning, include, truncation)
+    val base = super.getOptionalParams(r) ++ getValueOpt(r, store).map(value => "store" -> value)
+    resolveLogProbParams(resolveStopSequences(resolveMaxTokens(base, "max_completion_tokens")), responses = false)
   }
 
   override protected[openai] def prepareEntity: Row => Option[AbstractHttpEntity] = {
@@ -142,7 +156,7 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   override protected def getVectorParamMap: Map[String, String] = super.getVectorParamMap
     .updated("messages", getMessagesCol)
 
-  override def responseDataType: DataType = ChatModelResponse.schema
+  override def responseDataType: DataType = OpenAIResponseSchemas.Chat
 
   private def validatePublicColumnNames(): Unit =
     OpenAIColumnUtils.validateDistinctColumns(

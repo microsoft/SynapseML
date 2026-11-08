@@ -38,7 +38,7 @@ object OpenAIResponseFormat extends Enumeration {
   }
 }
 
-trait HasOpenAITextParamsResponses extends HasOpenAITextParams with HasOpenAIResponseSchema {
+trait HasOpenAITextParamsResponses extends HasOpenAIModelParams with HasOpenAIResponseSchema {
   val responseFormat: ServiceParam[Map[String, Any]] = new ServiceParam[Map[String, Any]](
     this,
     "responseFormat",
@@ -82,6 +82,10 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams with HasOpenAIRes
   def getStore: Boolean = getScalarParam(store)
 
   def setStore(v: Boolean): this.type = setScalarParam(store, v)
+
+  def getStoreCol: String = getVectorParam(store)
+
+  def setStoreCol(v: String): this.type = setVectorParam(store, v)
 
   val previousResponseId: ServiceParam[String] = new ServiceParam[String](
     this,
@@ -163,12 +167,13 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   }
 
   override private[ml] def getOptionalParams(r: Row): Map[String, Any] = {
+    rejectUnsupportedParams(r, "Responses", n, echo, stop, stopSequences, cacheLevel,
+      presencePenalty, frequencyPenalty, bestOf, seed, logitBias)
     val base = super.getOptionalParams(r) - "reasoning_effort"
     val withTokens = resolveMaxTokens(base, "max_output_tokens")
     val withModel = mergeModel(withTokens, r)
     val withText = mergeTextVerbosity(withModel, r)
-    val withReasoning = mergeReasoning(withText, r)
-    dropSamplingForGpt5(withReasoning)
+    resolveLogProbParams(mergeReasoning(withText, r), responses = true)
   }
 
   private def mergeModel(params: Map[String, Any], r: Row): Map[String, Any] = {
@@ -200,17 +205,11 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
         val existing = params.get("reasoning").collect {
           case m: Map[_, _] => m.asInstanceOf[Map[String, Any]]
         }.getOrElse(Map.empty)
+        require(existing.get("effort").flatMap(Option(_)).forall(_ == effort),
+          "reasoningEffort conflicts with reasoning.effort. Configure only one effort value.")
         params.updated("reasoning", existing.updated("effort", effort))
       case _ => params
     }
-  }
-
-  private def dropSamplingForGpt5(params: Map[String, Any]): Map[String, Any] = {
-    val isGpt5 = params.get("model").exists {
-      case s: String => s.toLowerCase.contains("gpt-5")
-      case _ => false
-    }
-    if (isGpt5) params - "temperature" - "top_p" - "seed" else params
   }
 
   override val subscriptionKeyHeaderName: String = "api-key"
@@ -221,7 +220,7 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   override protected def getVectorParamMap: Map[String, String] = super.getVectorParamMap
     .updated("input", getMessagesCol)
 
-  override def responseDataType: DataType = ResponsesModelResponse.schema
+  override def responseDataType: DataType = OpenAIResponseSchemas.Responses
 
   private def validatePublicColumnNames(): Unit =
     OpenAIColumnUtils.validateDistinctColumns(
@@ -289,10 +288,10 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
 
   override private[openai] def getOutputMessageText(outputColName: String): org.apache.spark.sql.Column = {
     val outputEntries = F.col(outputColName).getField("output")
-    val lastOutputEntry = F.element_at(outputEntries, -1)
+    val lastOutputEntry = F.when(F.size(outputEntries) > 0, F.element_at(outputEntries, -1))
     val textValues = F.transform(lastOutputEntry.getField("content"), part => part.getField("text"))
     val definedTextValues = F.filter(textValues, text => text.isNotNull)
-    F.element_at(definedTextValues, 1)
+    F.when(F.size(definedTextValues) > 0, F.element_at(definedTextValues, 1))
   }
 
   private def outputEntries(outputRow: Row): Seq[Row] = {
@@ -317,13 +316,23 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   }
 
   override private[openai] def isContentFiltered(outputRow: Row): Boolean = {
-    lastOutputText(outputRow).isEmpty
+    val completedEmpty = Option(outputRow).exists { row =>
+      row.schema.fieldNames.contains("status") &&
+        Option(row.getAs[String]("status")).contains("completed") &&
+        Option(row.getAs[Seq[Row]]("output")).exists(_.isEmpty)
+    }
+    !completedEmpty && lastOutputText(outputRow).isEmpty
   }
 
   override private[openai] def getFilterReason(outputRow: Row): String = {
-    lastOutputEntry(outputRow).iterator
+    val incompleteReason = if (outputRow.schema.fieldNames.contains("incomplete_details")) {
+      Option(outputRow.getAs[Row]("incomplete_details")).flatMap(row => Option(row.getAs[String]("reason")))
+    } else {
+      None
+    }
+    incompleteReason.orElse(lastOutputEntry(outputRow).iterator
       .flatMap(outputEntry => Option(outputEntry.getAs[String]("status")))
-      .find(_.nonEmpty)
+      .find(_.nonEmpty))
       .getOrElse("content_filtered_or_empty")
   }
 }
