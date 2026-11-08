@@ -41,7 +41,7 @@ input_sha256: "1cc3887ea511a584341041e74eb2ce0322ca522afb6555d3c3f6c405016ab08f"
   - it returns a `Try`;
   - it only catches `Exception`;
   - if `close()` throws in its `finally`, the close error hides the original failure.
-  
+
   The inline approach copies the nearby `responseBodyForInspection` style (an `Option.empty[...]` var, try/catch/finally, `addSuppressed`). It also uses no `null` sentinel, so it passes the `NullChecker` rule.
 - [x] **Fix is in the right place:** `HandlingUtils.advanced` and `basic` in `HTTPClients.scala` call `convertAndClose` directly. Fixing the shared helper therefore covers every caller.
   - No caller can reach the response after conversion throws, so closing it on that path breaks no existing behaviour.
