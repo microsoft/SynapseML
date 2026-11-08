@@ -31,7 +31,7 @@ input_sha256: "4fa62e063601110804eda34754e7bda8c1a530e868fc5f0ad6dd36279528daac"
   - `cognitive/src/main/scala/com/microsoft/azure/synapse/ml/services/CognitiveServiceBase.scala` line 139 calls `registerParam` from a trait initializer.
   - The same file calls `transferGlobalParamsToParamMap()` once per driver-side `transform` (lines 764–768).
   - `cognitive/src/main/scala/com/microsoft/azure/synapse/ml/services/openai/OpenAIDefaults.scala` (e.g. lines 12–22) only wraps set/get/reset.
-  
+
   Contention is negligible.
 - [x] **Behaviour and API are unchanged.**
   - Method signatures and return types are the same, the method descriptors stay binary-compatible, and serialized Params are untouched.

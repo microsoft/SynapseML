@@ -37,7 +37,7 @@ input_sha256: "75dd266dd319586ec30228eb43e6562361b3d38f6b43e2e698295d084eb45a18"
   - null-value test: lines 163–169
   - bad-argument test: lines 171–178
   - two child-JVM tests: lines 180–222
-  
+
   That makes 12 tests, matching the caller's 12/12.
 - [x] Probe ordering and setup are correct:
   - Argument checking (lines 27–28) runs before the thread pool is created (line 30) and before global state changes (line 31).
@@ -55,7 +55,7 @@ input_sha256: "75dd266dd319586ec30228eb43e6562361b3d38f6b43e2e698295d084eb45a18"
   - `build.sbt` uses Scala 2.12.17 and Spark 3.5.0.
   - The shared settings (lines 279–318) set `Test / parallelExecution := false`.
   - No `Test / fork` setting appears in what I read (`build.sbt` lines 1–420 and `project/CodegenPlugin.scala`).
-  
+
   Either way, all suites share one test JVM. `ParamToKeyMap` has no way to remove entries, so running the probe's 64,000 registrations in a separate JVM is correct. I also read `environment.yml`; the diff changes no dependencies.
 - [x] `scalastyle-test-config.xml` turns on `NullChecker`, which explains `Option.empty[String].orNull` (line 164). The new code fits the 120-column line limit and 50-line method limit.
 - [x] Production code mixes these operations:
