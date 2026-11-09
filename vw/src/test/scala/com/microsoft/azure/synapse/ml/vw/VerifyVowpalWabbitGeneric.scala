@@ -5,8 +5,10 @@ package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
+import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.{Benchmarks}
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
+import org.apache.spark.ml.feature.{IndexToString, StringIndexer}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.{functions => F, types => T}
@@ -284,6 +286,50 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
         intercept[IllegalArgumentException] { model.transform(conflicting) }
       }
     }
+  }
+
+  test("Generic model preserves nested field metadata and nullability") {
+    val metadata = new T.MetadataBuilder().putString("source", "nested-schema-test").build()
+    val examples = Seq("1 |a b c", "0 |d e f").toDF("value").coalesce(1)
+    val model = new VowpalWabbitGeneric().setUseBarrierExecutionMode(false).fit(examples)
+    using(model.vw) { _ =>
+      for (nullableChild <- Seq(false, true); nullableParent <- Seq(false, true)) {
+        val child = if (nullableChild) F.when($"value".startsWith("1"), F.lit(7)) else F.lit(7)
+        val nested = F.struct(child.as("child", metadata))
+        val nullStruct = F.when(F.lit(false), nested)
+        val payloads = Seq(
+          nested,
+          F.array(nested, nullStruct),
+          F.map(F.lit("key"), nested, F.lit("null"), nullStruct),
+          F.map(nested, nested))
+        for (payload <- payloads) {
+          val field = if (nullableParent) F.when($"value".startsWith("1"), payload) else payload
+          val input = examples.select($"value", field.as("payload", metadata))
+          val output = model.transform(input)
+          assert(output.schema == model.transformSchema(input.schema))
+          assert(output.schema.fields.take(input.columns.length).toSeq == input.schema.fields.toSeq)
+          assert(output.select("value", "payload").collect().toSeq == input.collect().toSeq)
+        }
+      }
+    }.get
+  }
+
+  test("Generic model preserves nested categorical metadata for downstream decoding") {
+    val examples = Seq(("1 |a b c", "red"), ("0 |d e f", "blue"))
+      .toDF("value", "category").coalesce(1)
+    val indexer = new StringIndexer().setInputCol("category").setOutputCol("indexed").fit(examples)
+    val input = indexer.transform(examples).select($"value", F.struct($"indexed").as("payload"))
+    val decoder = new IndexToString().setInputCol("indexed").setOutputCol("decoded")
+    val expected = decoder.transform(input.select("payload.indexed"))
+      .select("decoded").as[String].collect().toSeq
+    assert(expected == Seq("red", "blue"))
+    val model = new VowpalWabbitGeneric().setUseBarrierExecutionMode(false).fit(examples.select("value"))
+    using(model.vw) { _ =>
+      val output = model.transform(input)
+      val actual = decoder.transform(output.select("payload.indexed"))
+        .select("decoded").as[String].collect().toSeq
+      assert(actual == expected)
+    }.get
   }
 
   test("Generic prediction name collisions follow Spark case sensitivity") {

@@ -118,7 +118,8 @@ class VowpalWabbitGenericModel(override val uid: String)
   }
 
   /**
-    * Keeps all top-level input fields with their type, nullability and metadata, and appends flat predictions.
+    * Keeps all input fields with their type, nullability and metadata at every nesting level.
+    * Appends flat predictions.
     * The input example column must be a string. Conflicting names are rejected using
     * the dataset session's spark.sql.caseSensitive setting, including inputCol itself.
     */
@@ -145,7 +146,7 @@ class VowpalWabbitGenericModel(override val uid: String)
 
       val internalColumns = outputSchema.fields.indices.map(index => s"__vw_generic_out_$index")
       encoded.toDF(internalColumns: _*).select(outputSchema.fields.zip(internalColumns).map {
-        case (field, internalName) => F.col(internalName).as(field.name, field.metadata)
+        case (field, internalName) => F.col(internalName).cast(field.dataType).as(field.name, field.metadata)
       }: _*)
     }, dataset.columns.length)
   }
