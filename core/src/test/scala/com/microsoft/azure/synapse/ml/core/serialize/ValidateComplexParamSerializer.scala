@@ -177,7 +177,31 @@ class ValidateComplexParamSerializer extends TestBase {
         assert(SparkSession.getActiveSession == expectedActive)
         assert(SparkSession.getDefaultSession == previousDefault)
 
+        val nestedPath = new Path(tmpDir.resolve(s"nested-overwrite-$array-$hasActiveSession.model").toUri)
+        def saveNested(overwrite: Boolean): Unit = {
+          if (array) stage.stages.save(Array[PipelineStage](child), assigned, nestedPath, overwrite)
+          else stage.transformer.save(child, assigned, nestedPath, overwrite)
+        }
+        Seq(false, true).foreach { overwrite =>
+          val payload = if (overwrite) Array[Byte](4, 5, 6) else bytes
+          child.set(child.byteArray, payload)
+          saveNested(overwrite)
+          assert(SparkSession.getActiveSession == expectedActive)
+          assert(SparkSession.getDefaultSession == previousDefault)
+          val nested = (if (array) stage.stages.load(assigned, nestedPath).head
+            else stage.transformer.load(assigned, nestedPath)).asInstanceOf[TestableSessionParamTest]
+          assert(nested.getOrDefault(nested.byteArray).sameElements(payload))
+          assert(SparkSession.getActiveSession == expectedActive)
+          assert(SparkSession.getDefaultSession == previousDefault)
+        }
+
         assigned.conf.set(TestableSessionParamTest.ConfigKey, "wrong-session")
+        val overwriteError = intercept[IllegalArgumentException] {
+          saveNested(overwrite = true)
+        }
+        assert(overwriteError.getMessage.contains("Incorrect writer session"))
+        assert(SparkSession.getActiveSession == expectedActive)
+        assert(SparkSession.getDefaultSession == previousDefault)
         val error = intercept[IllegalArgumentException] {
           stage.write.session(assigned).save(tmpDir.resolve(s"nested-failure-$array-$hasActiveSession.model").toString)
         }
@@ -188,27 +212,47 @@ class ValidateComplexParamSerializer extends TestBase {
     }
   }
 
-  Seq(false, true).foreach { array =>
-    test(s"pipeline params with an unassigned session preserve the active session with array=$array") {
+  for {
+    array <- Seq(false, true)
+    hasActiveSession <- Seq(false, true)
+  } {
+    test(s"pipeline params with an unassigned session restore sessions with array=$array, active=$hasActiveSession") {
       val child = new TestableSessionParamTest(s"unassigned-session-$array")
-      val active = spark.newSession()
-      active.conf.set(TestableSessionParamTest.ConfigKey, child.uid)
+      val selected = spark.newSession()
+      selected.conf.set(TestableSessionParamTest.ConfigKey, child.uid)
       val previousDefault = SparkSession.getDefaultSession
-      withActiveSession(Some(active)) {
-        val bytes = Array[Byte](1, 2, 3)
-        child.set(child.byteArray, bytes)
-        val parent = new TestableNestedParamTest(s"unassigned-parent-$array")
-        val path = new Path(tmpDir.resolve(s"unassigned-session-$array.model").toUri)
-        val unassigned = Option.empty[SparkSession].orNull
-        if (array) parent.stages.save(Array[PipelineStage](child), unassigned, path, overwrite = false)
-        else parent.transformer.save(child, unassigned, path, overwrite = false)
-        assert(SparkSession.getActiveSession.contains(active))
-        assert(SparkSession.getDefaultSession == previousDefault)
-        val restored = (if (array) parent.stages.load(unassigned, path).head
-          else parent.transformer.load(unassigned, path)).asInstanceOf[TestableSessionParamTest]
-        assert(restored.getOrDefault(restored.byteArray).sameElements(bytes))
-        assert(SparkSession.getActiveSession.contains(active))
-        assert(SparkSession.getDefaultSession == previousDefault)
+      val expectedActive = if (hasActiveSession) Some(selected) else None
+      val expectedDefault = if (hasActiveSession) previousDefault else Some(selected)
+      try {
+        expectedDefault.fold(SparkSession.clearDefaultSession())(SparkSession.setDefaultSession)
+        withActiveSession(expectedActive) {
+          val bytes = Array[Byte](1, 2, 3)
+          child.set(child.byteArray, bytes)
+          val parent = new TestableNestedParamTest(s"unassigned-parent-$array")
+          val path = new Path(tmpDir.resolve(s"unassigned-session-$array-$hasActiveSession.model").toUri)
+          val unassigned = Option.empty[SparkSession].orNull
+          def saveNested(overwrite: Boolean): Unit = {
+            if (array) parent.stages.save(Array[PipelineStage](child), unassigned, path, overwrite)
+            else parent.transformer.save(child, unassigned, path, overwrite)
+          }
+          saveNested(overwrite = false)
+          assert(SparkSession.getActiveSession == expectedActive)
+          assert(SparkSession.getDefaultSession == expectedDefault)
+          val restored = (if (array) parent.stages.load(unassigned, path).head
+            else parent.transformer.load(unassigned, path)).asInstanceOf[TestableSessionParamTest]
+          assert(restored.getOrDefault(restored.byteArray).sameElements(bytes))
+          assert(SparkSession.getActiveSession == expectedActive)
+          assert(SparkSession.getDefaultSession == expectedDefault)
+          selected.conf.set(TestableSessionParamTest.ConfigKey, "wrong-session")
+          val error = intercept[IllegalArgumentException] {
+            saveNested(overwrite = true)
+          }
+          assert(error.getMessage.contains("Incorrect writer session"))
+          assert(SparkSession.getActiveSession == expectedActive)
+          assert(SparkSession.getDefaultSession == expectedDefault)
+        }
+      } finally {
+        previousDefault.fold(SparkSession.clearDefaultSession())(SparkSession.setDefaultSession)
       }
     }
   }
