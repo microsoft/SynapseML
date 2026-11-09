@@ -14,9 +14,16 @@ import org.apache.commons.io.FileUtils
 import org.apache.hadoop.fs.Path
 import org.apache.spark.ml.param.{Param, ParamMap, Params}
 import org.apache.spark.ml.util._
-import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, ObjectSerializer, Serializer, Transformer}
+import org.apache.spark.ml.{
+  ComplexParamsReadable,
+  ComplexParamsTestHelper,
+  ComplexParamsWritable,
+  ObjectSerializer,
+  Serializer,
+  Transformer
+}
 import org.apache.spark.sql.types.StructType
-import org.apache.spark.sql.{DataFrame, Dataset}
+import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
 import java.io.{
   ByteArrayInputStream,
@@ -123,6 +130,24 @@ class MixedParamTest(override val uid: String) extends TestEstimatorBase(uid)
 
 object MixedParamTest extends ComplexParamsReadable[MixedParamTest]
 
+class TestableSessionParamTest(override val uid: String) extends TestEstimatorBase(uid) with ComplexParamsWritable {
+  val byteArray = new ByteArrayParam(this, "byteArray", "session-dependent test payload") {
+    override def save(value: Array[Byte], session: SparkSession, path: Path, overwrite: Boolean): Unit = {
+      require(session.conf.getOption(TestableSessionParamTest.ConfigKey).contains(uid), "Incorrect writer session")
+      super.save(value, session, path, overwrite)
+    }
+
+    override def load(session: SparkSession, path: Path): Array[Byte] = {
+      require(session.conf.getOption(TestableSessionParamTest.ConfigKey).contains(uid), "Incorrect reader session")
+      super.load(session, path)
+    }
+  }
+}
+
+object TestableSessionParamTest extends ComplexParamsReadable[TestableSessionParamTest] {
+  val ConfigKey: String = "synapseml.test.persistence.session"
+}
+
 class ValidateComplexParamSerializer extends TestBase {
   val saveFile = new File(tmpDir.toFile, "m1.model").toString
   val saveFile2 = new File(tmpDir.toFile, "m2.model").toString
@@ -141,6 +166,50 @@ class ValidateComplexParamSerializer extends TestBase {
       action
     } finally {
       restoreConfig(config, previous)
+    }
+  }
+
+  test("complex writers use their assigned Spark session") {
+    val stage = new TestableSessionParamTest("assigned-session")
+    val session = spark.newSession()
+    session.conf.set(TestableSessionParamTest.ConfigKey, stage.uid)
+    val previous = SparkSession.getActiveSession
+    SparkSession.setActiveSession(spark)
+    try {
+      val bytes = Array[Byte](1, 2, 3)
+      val path = tmpDir.resolve("assigned-session.model").toString
+      stage.set(stage.byteArray, bytes).write.session(session).save(path)
+      val restored = TestableSessionParamTest.read.session(session).load(path)
+      assert(restored.getOrDefault(restored.byteArray).sameElements(bytes))
+    } finally previous.fold(SparkSession.clearActiveSession())(SparkSession.setActiveSession)
+  }
+
+  Seq("active", "default").foreach { selected =>
+    test(s"legacy complex parameter helpers use the $selected Spark session") {
+      val active = spark.newSession()
+      val default = spark.newSession()
+      active.conf.set(TestableSessionParamTest.ConfigKey, "active")
+      default.conf.set(TestableSessionParamTest.ConfigKey, "default")
+      val previousActive = SparkSession.getActiveSession
+      val previousDefault = SparkSession.getDefaultSession
+      try {
+        SparkSession.setDefaultSession(default)
+        if (selected == "active") {
+          SparkSession.setActiveSession(active)
+        } else {
+          SparkSession.clearActiveSession()
+        }
+        val bytes = Array[Byte](1, 2, 3)
+        val stage = new TestableSessionParamTest(selected)
+        stage.set(stage.byteArray, bytes)
+        val restored = new TestableSessionParamTest(selected)
+        val path = tmpDir.resolve(s"legacy-$selected.model").toString
+        ComplexParamsTestHelper.saveAndLoad(stage, restored, path, spark)
+        assert(restored.getOrDefault(restored.byteArray).sameElements(bytes))
+      } finally {
+        previousActive.fold(SparkSession.clearActiveSession())(SparkSession.setActiveSession)
+        previousDefault.fold(SparkSession.clearDefaultSession())(SparkSession.setDefaultSession)
+      }
     }
   }
 
