@@ -122,9 +122,10 @@ class ContentUnderstandingSuite extends TestBase {
       submit(transformer)
       submit(transformer.setAllowInputTruncation(true))
       submit(transformer.setAllowInputTruncation(false))
-      val schema = new StructType().add("truncate", BooleanType)
-      val frame = dataFrame(Seq(Row(true), Row(false), Row(None.orNull)), schema)
-      transformer.setAllowInputTruncationCol("truncate").setOperationMode("submit")
+      val schema = new StructType().add("truncate", BooleanType).add("version", StringType)
+      val frame = dataFrame(Seq(Row(true, "2026-06-01-preview"), Row(false, "2026-06-01-preview"),
+        Row(None.orNull, DefaultApiVersion)), schema)
+      transformer.setAllowInputTruncationCol("truncate").setApiVersionCol("version").setOperationMode("submit")
         .transform(frame).collect()
       val queries = server.requests.map(_.query)
       assert(queries.map(_.contains("allowInputTruncation=")) == Seq(false, true, true, true, true, false))
@@ -132,10 +133,45 @@ class ContentUnderstandingSuite extends TestBase {
       assert(queries(2).contains("allowInputTruncation=false"))
       assert(queries(3).contains("allowInputTruncation=true"))
       assert(queries(4).contains("allowInputTruncation=false"))
+      assert(queries(5).contains("api-version=" + DefaultApiVersion))
       intercept[IllegalArgumentException] {
         transformer.setAllowInputTruncationCol("id").transformSchema(input.schema)
       }
-      assert(server.requests.size == 6)
+      submit(transformer.setApiVersion("2027-01-01").setAllowInputTruncation(false))
+      assert(server.requests.last.query.contains("allowInputTruncation=false&api-version=2027-01-01"))
+      assert(server.requests.size == 7)
+    }
+  }
+
+  test("preview truncation rejects older scalar API versions before submission") {
+    withReplies(Seq(accepted)) { server =>
+      for (version <- Seq(DefaultApiVersion, "2026-05-01-preview"); value <- Seq(true, false)) {
+        val transformer = stage(server).setDocumentBytes(Array[Byte](1)).setApiVersion(version)
+          .setAllowInputTruncation(value)
+        val error = intercept[IllegalArgumentException](transformer.transformSchema(input.schema))
+        assert(error.getMessage.contains("allowInputTruncation requires apiVersion"))
+      }
+      assert(server.requests.isEmpty)
+    }
+  }
+
+  test("preview truncation validates effective row API versions before submission") {
+    withReplies(Seq(accepted)) { server =>
+      val schema = new StructType().add("version", StringType).add("truncate", BooleanType)
+      Seq(true, false).foreach { value =>
+        val frame = dataFrame(Seq(Row(DefaultApiVersion, value)), schema)
+        val base = stage(server).setDocumentBytes(Array[Byte](1)).setOperationMode("submit")
+        val invalid = Seq(
+          base.copy(ParamMap.empty).setApiVersionCol("version").setAllowInputTruncation(value),
+          base.copy(ParamMap.empty).setAllowInputTruncationCol("truncate"),
+          base.copy(ParamMap.empty).setApiVersionCol("version").setAllowInputTruncationCol("truncate"))
+        invalid.foreach { transformer =>
+          transformer.transformSchema(schema)
+          val error = intercept[Exception](transformer.transform(frame).collect())
+          assert(exceptionContains(error, "allowInputTruncation requires apiVersion"))
+        }
+      }
+      assert(server.requests.isEmpty)
     }
   }
 
@@ -473,7 +509,7 @@ class ContentUnderstandingSuite extends TestBase {
         .add("version", StringType)
       val frame = dataFrame(Seq(Row("document-1", Array[Byte](1), "1-2", version)), schema)
       val transformer = stage(server).setOperationMode("submit").setDocumentBytesCol("bytes").setRangeCol("pages")
-        .setApiVersionCol("version")
+        .setApiVersionCol("version").setAllowInputTruncation(false)
       val submitted = resultOf(transformer, frame)
       assert(submitted.status == "Running")
       val resumed = transformer.setOperationMode("poll").setOperationLocation(submitted.operationLocation.get)
@@ -653,17 +689,39 @@ class ContentUnderstandingSuite extends TestBase {
     }
   }
 
-  test("provisioning rejects analysis-result locations and column-based management configuration") {
-    withReplies(Seq(ContentUnderstandingStubReply(HttpStatus.SC_CREATED,
-      """{"analyzerId":"custom","status":"creating"}""",
-      Map("Operation-Location" -> ("$ROOT" + locationPath))))) { server =>
-      val transformer = stage(server).setAnalyzerId("custom")
-      val error = intercept[ContentUnderstandingException] {
-        transformer.createAnalyzer("{}", allowReplace = true)
+  test("provisioning errors retain validated management handles") {
+    val operation = AnalyzersPath + "/custom/operations/create-1?api-version=" + DefaultApiVersion
+    val errorBody = """{"error":{"code":"ServiceUnavailable"}}"""
+    val replies = Seq(HttpStatus.SC_REQUEST_TIMEOUT, HttpStatus.SC_INTERNAL_SERVER_ERROR, TooManyRequests)
+      .map(code => ContentUnderstandingStubReply(code, errorBody)) :+
+      ContentUnderstandingStubReply(HttpStatus.SC_CREATED, "{")
+    replies.foreach { reply =>
+      withReplies(Seq(reply.copy(headers = Map("Operation-Location" -> ("$ROOT" + operation))))) { server =>
+        val error = intercept[ContentUnderstandingException] {
+          stage(server).setAnalyzerId("custom").createAnalyzer("{}", allowReplace = false)
+        }
+        assert(error.response.operationLocation.contains(server.endpoint + operation))
+        assert(error.response.rawResponse == reply.body)
+        assert(error.response.httpStatus == reply.status)
+        assert(server.requests.map(_.method) == Seq("PUT"))
       }
-      assert(error.response.error.exists(_.contains("InvalidOperationLocation")))
-      assert(server.requests.size == 1)
-      intercept[IllegalArgumentException](transformer.setAnalyzerIdCol("analyzer").getAnalyzer())
+    }
+  }
+
+  test("provisioning rejects analysis-result locations and column-based management configuration") {
+    Seq(HttpStatus.SC_CREATED, TooManyRequests).foreach { code =>
+      withReplies(Seq(ContentUnderstandingStubReply(code,
+        """{"analyzerId":"custom","status":"creating"}""",
+        Map("Operation-Location" -> ("$ROOT" + locationPath))))) { server =>
+        val transformer = stage(server).setAnalyzerId("custom")
+        val error = intercept[ContentUnderstandingException] {
+          transformer.createAnalyzer("{}", allowReplace = true)
+        }
+        assert(error.response.error.exists(_.contains("InvalidOperationLocation")))
+        assert(error.response.operationLocation.isEmpty)
+        assert(server.requests.size == 1)
+        intercept[IllegalArgumentException](transformer.setAnalyzerIdCol("analyzer").getAnalyzer())
+      }
     }
   }
 }

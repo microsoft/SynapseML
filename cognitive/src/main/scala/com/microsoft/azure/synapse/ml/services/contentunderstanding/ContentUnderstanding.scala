@@ -77,6 +77,8 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
     super.getVectorParamMap.filter { case (name, _) => names(name) }
   }
 
+  private[contentunderstanding] def activeInputColumns: Seq[String] = getVectorParamMap.values.toSeq
+
   private def configured(param: ServiceParam[_]): Boolean = get(param).orElse(getDefault(param)).isDefined
 
   private def validateConfiguration(): Unit = {
@@ -193,6 +195,14 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
         "Configure exactly one of documentUrl and documentBytes, using a scalar value or a column.")
     }
     activeParams(poll).foreach(validateParamSchema(_, schema))
+    if (!poll && get(allowInputTruncation).exists(_.isLeft)) {
+      getOrDefault(apiVersion).left.foreach(validateTruncationVersion)
+    }
+  }
+
+  private def validateTruncationVersion(version: String): Unit = {
+    require(version.stripSuffix("-preview") >= "2026-06-01",
+      "allowInputTruncation requires apiVersion 2026-06-01-preview or newer.")
   }
 
   private def validateRow(row: Row, poll: Boolean): Unit = {
@@ -209,6 +219,9 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
         "The selected document input cannot be null.")
       require(getValueOpt(row, analyzerId).isDefined && getValueOpt(row, apiVersion).isDefined,
         "analyzerId and apiVersion cannot be null.")
+      if (getValueOpt(row, allowInputTruncation).isDefined) {
+        validateTruncationVersion(getValue(row, apiVersion))
+      }
     }
   }
 
