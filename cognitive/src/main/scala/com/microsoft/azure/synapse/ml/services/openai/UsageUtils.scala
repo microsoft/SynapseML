@@ -54,7 +54,7 @@ object UsageUtils {
           "rejected_prediction_tokens", "text_tokens"))
     )
 
-    val ResponsesDetailed: UsageFieldMapping = Responses.copy(
+    private[openai] val ResponsesDetailed: UsageFieldMapping = Responses.copy(
       inputDetails = Some("input_tokens_details" -> Seq("cached_tokens", "cache_write_tokens",
         "cache_write_tokens_details.ttl_30m_tokens", "cache_write_tokens_details.ttl_12h_tokens"))
     )
