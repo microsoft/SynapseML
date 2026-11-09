@@ -63,6 +63,7 @@ private[ml] object ComplexParamsWriter {
     }.toMap
   }
 
+  /** Uses the active or default session. Writers with an assigned session must pass it explicitly. */
   def saveComplexParams(basePath: String, complexParamLocs: Map[ParamPair[_], Path],
                         shouldOverwrite: Boolean): Unit = {
     saveComplexParams(basePath, complexParamLocs, shouldOverwrite, SparkSession.builder().getOrCreate())
@@ -170,6 +171,7 @@ private[ml] class ComplexParamsReader[T] extends MLReader[T] {
 
 private[ml] object ComplexParamsReader {
 
+  /** Uses the active or default session. Readers with an assigned session must pass it explicitly. */
   def getAndSetComplexParams(instance: Params, metadata: Metadata, basePath: String): Unit = {
     getAndSetComplexParams(instance, metadata, basePath, SparkSession.builder().getOrCreate())
   }

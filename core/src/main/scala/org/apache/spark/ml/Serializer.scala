@@ -56,8 +56,8 @@ object Serializer {
       tpe: Type,
       sparkSession: SparkSession,
       classFilter: Option[DeserializationClassFilter]): Serializer[T] = {
-    (if (tpe <:< typeOf[PipelineStage])              new PipelineSerializer()
-     else if (tpe <:< typeOf[Array[PipelineStage]])  new PipelineArraySerializer()
+    (if (tpe <:< typeOf[PipelineStage])              new PipelineSerializer(sparkSession)
+     else if (tpe <:< typeOf[Array[PipelineStage]])  new PipelineArraySerializer(sparkSession)
      else if (tpe <:< typeOf[Dataset[_]])            new DFSerializer(sparkSession)
      else classFilter match {
        case Some(filter) =>
@@ -68,6 +68,7 @@ object Serializer {
       .asInstanceOf[Serializer[T]]
   }
 
+  /** Uses the active or default session. */
   def writeMLWritable(stage: MLWritable, outputPath: Path, overwrite: Boolean): Unit = {
     val writer = if (overwrite) stage.write.overwrite()
                  else stage.write
@@ -254,24 +255,42 @@ class DFSerializer(spark: SparkSession) extends Serializer[DataFrame] {
   }
 }
 
-class PipelineSerializer extends Serializer[PipelineStage] {
-  def write(stage: PipelineStage, outputPath: Path, overwrite: Boolean): Unit = {
-    val pipe = new Pipeline().setStages(Array(stage))
-    Serializer.writeMLWritable(pipe, outputPath, overwrite)
-  }
+class PipelineSerializer private (spark: Option[SparkSession]) extends Serializer[PipelineStage] {
+  def this() = this(None)
 
-  def read(path: Path): PipelineStage = {
-    Pipeline.load(path.toString).getStages(0)
-  }
+  /** A null session falls back to the active or default session when reading or writing. */
+  def this(spark: SparkSession) = this(Option(spark))
+
+  private val delegate = spark.fold(new PipelineArraySerializer())(new PipelineArraySerializer(_))
+
+  def write(stage: PipelineStage, outputPath: Path, overwrite: Boolean): Unit =
+    delegate.write(Array(stage), outputPath, overwrite)
+
+  def read(path: Path): PipelineStage = delegate.read(path)(0)
 }
 
-class PipelineArraySerializer extends Serializer[Array[PipelineStage]] {
-  def write(stages: Array[PipelineStage], outputPath: Path, overwrite: Boolean): Unit = {
-    val pipe = new Pipeline().setStages(stages)
-    Serializer.writeMLWritable(pipe, outputPath, overwrite)
+class PipelineArraySerializer private (spark: Option[SparkSession]) extends Serializer[Array[PipelineStage]] {
+  def this() = this(None)
+
+  /** A null session falls back to the active or default session when reading or writing. */
+  def this(spark: SparkSession) = this(Option(spark))
+
+  private def withSession[T](action: SparkSession => T): T = {
+    val session = spark.getOrElse(SparkSession.builder().getOrCreate())
+    val previous = SparkSession.getActiveSession
+    // Spark's Pipeline does not forward its session to child readers and writers.
+    SparkSession.setActiveSession(session)
+    try action(session)
+    finally previous.fold(SparkSession.clearActiveSession())(SparkSession.setActiveSession)
   }
 
-  def read(path: Path): Array[PipelineStage] = {
-    Pipeline.load(path.toString).getStages
+  def write(stages: Array[PipelineStage], outputPath: Path, overwrite: Boolean): Unit = withSession { session =>
+    val writer = new Pipeline().setStages(stages).write.session(session)
+    if (overwrite) writer.overwrite()
+    writer.save(outputPath.toString)
+  }
+
+  def read(path: Path): Array[PipelineStage] = withSession { session =>
+    Pipeline.read.session(session).load(path.toString).getStages
   }
 }
