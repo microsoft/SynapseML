@@ -119,17 +119,23 @@ class TestContentUnderstanding(unittest.TestCase):
             .setModelDeployments({"completion": "my-deployment"})
             .setStringEncoding("utf16")
             .setRange("1")
+            .setApiVersion("2026-06-01-preview")
+            .setAllowInputTruncation(False)
+            .setRetryOnThrottling(False)
         )
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "analyzer")
             analyzer.copy({}).write().save(path)
             loaded = ContentUnderstanding.load(path)
+            self.assertFalse(loaded.getAllowInputTruncation())
+            self.assertFalse(loaded.getRetryOnThrottling())
             row = loaded.transform(self.documents()).collect()[0]
         self.assertEqual(row.analysis.status, "Succeeded")
         raw = json.loads(row.analysis.rawResponse)
         self.assertIn("future-model-input", raw["usage"]["tokens"])
         submitted = next(request for request in self.requests if request[0] == "POST")
         self.assertIn("stringEncoding=utf16", submitted[1])
+        self.assertIn("allowInputTruncation=false", submitted[1])
         self.assertEqual(
             submitted[2]["modelDeployments"], {"completion": "my-deployment"}
         )
@@ -140,6 +146,38 @@ class TestContentUnderstanding(unittest.TestCase):
             "Synthetic caf\u00e9 document",
         )
         self.assertNotIn("dataBase64", document)
+
+    def test_preview_boolean_supports_constructor_copy_clear_and_nullable_columns(self):
+        analyzer = (
+            ContentUnderstanding(allowInputTruncation=True)
+            .setEndpoint(f"http://127.0.0.1:{self.server.server_port}")
+            .setApiVersion("2026-06-01-preview")
+            .setDocumentBytesCol("body")
+            .setOperationMode("submit")
+        )
+        analyzer.transform(self.documents()).collect()
+        copied = analyzer.copy({analyzer.allowInputTruncation: False})
+        copied.transform(self.documents()).collect()
+        copied.clear(copied.allowInputTruncation)
+        copied.transform(self.documents()).collect()
+        queries = [request[1] for request in self.requests]
+        self.assertIn("allowInputTruncation=true", queries[0])
+        self.assertIn("allowInputTruncation=false", queries[1])
+        self.assertNotIn("allowInputTruncation", queries[2])
+
+        frame = spark.createDataFrame(
+            [
+                (bytearray(b"a"), True),
+                (bytearray(b"b"), False),
+                (bytearray(b"c"), None),
+            ],
+            "body binary, truncate boolean",
+        ).coalesce(1)
+        copied.setAllowInputTruncationCol("truncate").transform(frame).collect()
+        queries = [request[1] for request in self.requests[3:]]
+        self.assertIn("allowInputTruncation=true", queries[0])
+        self.assertIn("allowInputTruncation=false", queries[1])
+        self.assertNotIn("allowInputTruncation", queries[2])
 
     def test_generated_durable_path_helpers_resume_without_resubmission(self):
         analyzer = self.analyzer()
@@ -181,6 +219,7 @@ class TestContentUnderstanding(unittest.TestCase):
             .setOutputCol("analysis")
             .setOperationMode("submit")
         )
+        self.assertEqual(bytes(analyzer.getDocumentBytes()), payload)
         with tempfile.TemporaryDirectory() as directory:
             path = os.path.join(directory, "analyzer")
             analyzer.write().save(path)
@@ -189,6 +228,7 @@ class TestContentUnderstanding(unittest.TestCase):
             replacement = bytes([255, 128, 1, 0])
             copied = loaded.copy({loaded.documentBytes: replacement})
             copied.transform(self.documents()).collect()
+            self.assertEqual(bytes(copied.getDocumentBytes()), replacement)
             submitted = next(
                 request for request in self.requests if request[0] == "POST"
             )

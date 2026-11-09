@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.io.http
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 
+import java.util.concurrent.CancellationException
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
@@ -133,6 +134,20 @@ class VerifyClients extends TestBase {
     val responses = client.sendRequestsWithContext(requests).toList
     assert(responses.length === 1)
     assert(responses.head.response === None)
+  }
+
+  test("AsyncClient completes interrupted requests as failures rather than leaving promises pending") {
+    implicit val ec: ExecutionContext = ExecutionContext.global
+    val client = new TestAsyncClient(2, 5.seconds) {
+      override protected def sendRequestWithContext(request: RequestWithContext): ResponseWithContext = {
+        Thread.currentThread().interrupt()
+        throw new InterruptedException("Synthetic interrupted request")
+      }
+    }
+    val failure = intercept[CancellationException] {
+      client.sendRequestsWithContext(Iterator(client.RequestWithContext(Some("a"), None))).next()
+    }
+    assert(failure.getCause.isInstanceOf[InterruptedException])
   }
 
   test("AsyncClient respects concurrency parameter") {

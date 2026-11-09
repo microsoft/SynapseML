@@ -6,10 +6,31 @@ package com.microsoft.azure.synapse.ml.services.contentunderstanding
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.services.HasServiceParams
-import org.apache.spark.ml.param.{IntParam, Param, ParamValidators}
+import org.apache.spark.ml.param.{BooleanParam, IntParam, Param, ParamValidators}
 import spray.json.DefaultJsonProtocol._
 
-trait ContentUnderstandingParams extends HasServiceParams {
+trait ContentUnderstandingPreviewParams extends HasServiceParams {
+  val allowInputTruncation = new ServiceParam[Boolean](this, "allowInputTruncation",
+    "Optional preview input truncation policy. Omit to use the analyzer setting.", isURLParam = true)
+
+  def setAllowInputTruncation(value: Boolean): this.type = setScalarParam(allowInputTruncation, value)
+  def setAllowInputTruncationCol(value: String): this.type = setVectorParam(allowInputTruncation, value)
+  def getAllowInputTruncation: Boolean = getScalarParam(allowInputTruncation)
+  def getAllowInputTruncationCol: String = getVectorParam(allowInputTruncation)
+}
+
+trait ContentUnderstandingRetryParams extends HasServiceParams {
+  val retryOnThrottling = new BooleanParam(this, "retryOnThrottling",
+    "Retry definite HTTP 429 responses indefinitely, honoring Retry-After and execution cancellation.")
+
+  def setRetryOnThrottling(value: Boolean): this.type = set(retryOnThrottling, value)
+  def getRetryOnThrottling: Boolean = $(retryOnThrottling)
+
+  setDefault(retryOnThrottling -> true)
+}
+
+trait ContentUnderstandingParams extends HasServiceParams
+  with ContentUnderstandingPreviewParams with ContentUnderstandingRetryParams {
 
   val analyzerId = new ServiceParam[String](this, "analyzerId",
     "Prebuilt or explicitly provisioned custom analyzer identifier.")
@@ -104,7 +125,7 @@ trait ContentUnderstandingParams extends HasServiceParams {
   def getOperationMode: String = $(operationMode)
 
   val maxPollAttempts = new IntParam(this, "maxPollAttempts",
-    "Maximum GET attempts, including transient failures. Exhaustion preserves the last running operation.",
+    "Maximum GET attempts, excluding 429s when retryOnThrottling is enabled. Exhaustion retains the operation.",
     ParamValidators.gt(0))
 
   def setMaxPollAttempts(value: Int): this.type = set(maxPollAttempts, value)
@@ -149,6 +170,21 @@ private[contentunderstanding] trait ContentUnderstandingPython extends Wrappable
         |""".stripMargin
     } else {
       super.pyParamSetter(param)
+    }
+  }
+
+  override protected def pyParamGetter(param: Param[_]): String = {
+    if (param.name == "documentBytes") {
+      """
+        |def getDocumentBytes(self):
+        |    '''Return document bytes without treating their contents as a pickle.'''
+        |    return bytearray(self._java_obj.getDocumentBytes())
+        |
+        |def getDocumentBytesCol(self):
+        |    return self._java_obj.getDocumentBytesCol()
+        |""".stripMargin
+    } else {
+      super.pyParamGetter(param)
     }
   }
 

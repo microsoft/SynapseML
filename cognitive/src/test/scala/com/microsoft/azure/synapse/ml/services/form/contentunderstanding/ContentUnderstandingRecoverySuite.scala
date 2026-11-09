@@ -138,6 +138,7 @@ class ContentUnderstandingRecoverySuite extends TestBase {
     withReplies(Seq(accepted, throttled)) { server =>
       withJournal { path =>
         val transformer = stage(server).setDocumentBytes(Array[Byte](1)).setMaxPollAttempts(1)
+          .setRetryOnThrottling(false)
         val failure = intercept[ContentUnderstandingException] {
           transformer.writeToPath(input, "id", path, "parquet")
         }
@@ -146,6 +147,22 @@ class ContentUnderstandingRecoverySuite extends TestBase {
         assert(pending.getAs[String]("status") == "Running")
         assert(pending.getAs[String]("operationLocation") == server.endpoint + locationPath)
         assert(server.requests.map(_.method) == Seq("POST", "GET"))
+      }
+    }
+  }
+
+  test("writer retries throttling before admission and after saving the handle without resubmitting accepted work") {
+    val throttled = ContentUnderstandingStubReply(TooManyRequests, """{"error":{"code":"TooManyRequests"}}""",
+      Map("Retry-After" -> "0"))
+    val replies = Seq(throttled, accepted, throttled, ContentUnderstandingStubReply(HttpStatus.SC_OK, succeeded))
+    withReplies(replies) { server =>
+      withJournal { path =>
+        val transformer = stage(server).setDocumentBytes(Array[Byte](1)).setMaxPollAttempts(1)
+        assert(transformer.writeToPath(input, "id", path, "parquet").head().getAs[String]("status") == "Succeeded")
+        transformer.writeToPath(input, "id", path, "parquet")
+        assert(server.requests.map(_.method) == Seq("POST", "POST", "GET", "GET"))
+        assert(spark.read.parquet(path).orderBy("sequence").select("status").collect()
+          .map(_.getString(0)).toSeq == Seq("Running", "Succeeded"))
       }
     }
   }

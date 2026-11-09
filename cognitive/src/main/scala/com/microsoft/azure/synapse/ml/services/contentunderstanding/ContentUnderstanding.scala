@@ -19,7 +19,7 @@ import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel}
 import org.apache.spark.sql.functions.{coalesce, col, lit, struct, when}
-import org.apache.spark.sql.types.{BinaryType, DataType, MapType, StringType, StructType}
+import org.apache.spark.sql.types.{BinaryType, BooleanType, DataType, MapType, StringType, StructType}
 import org.apache.spark.sql.{DataFrame, Row}
 import spray.json._
 
@@ -67,7 +67,7 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
       Seq(operationLocation)
     } else {
       Seq(analyzerId, apiVersion, documentUrl, documentBytes, range, mimeType, documentName,
-        modelDeployments, stringEncoding, processingLocation)
+        modelDeployments, stringEncoding, processingLocation, allowInputTruncation)
     }
     authParams ++ inputParams
   }
@@ -97,12 +97,14 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
   private def settings: Settings = {
     validateConfiguration()
     Settings(getUrl, math.ceil(getTimeout * MillisecondsPerSecond).toInt,
-      getMaxPollAttempts, getPollingDelay, getMaxResponseBytes)
+      getMaxPollAttempts, getPollingDelay, getMaxResponseBytes, getRetryOnThrottling)
   }
 
   private def expectedType(param: ServiceParam[_]): DataType = {
     if (param == documentBytes) {
       BinaryType
+    } else if (param == allowInputTruncation) {
+      BooleanType
     } else if (Set(modelDeployments.name, customHeaders.name, telemHeaders.name)(param.name)) {
       MapType(StringType, StringType)
     } else {
@@ -119,6 +121,7 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
     require(Option(value).isDefined, s"${param.name} cannot be null.")
     val validType = (value, expectedType(param)) match {
       case (_: Array[Byte], BinaryType) => true
+      case (_: Boolean, BooleanType) => true
       case (values: Map[_, _], _: MapType) =>
         values.forall { case (key, item) => key.isInstanceOf[String] && item.isInstanceOf[String] }
       case (_: String, StringType) => true
@@ -230,7 +233,8 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
   private def analyzeUrl(row: Row): String = {
     val query = Seq("api-version" -> getValue(row, apiVersion)) ++
       Seq(stringEncoding, processingLocation).flatMap(param =>
-        getValueOpt(row, param).map(value => param.payloadName -> value))
+        getValueOpt(row, param).map(value => param.payloadName -> value)) ++
+      getValueOpt(row, allowInputTruncation).map(value => allowInputTruncation.payloadName -> value.toString)
     buildUrl(s"$AnalyzersPath/${getValue(row, analyzerId)}:analyze", query)
   }
 
@@ -256,7 +260,7 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
     row => Some(prepareRequest(row, getOperationMode == "poll"))
 
   override protected def handlingFunc(client: CloseableHttpClient, request: HTTPRequestData): HTTPResponseData = {
-    // The inherited client has automatic retries. Use a no-retry client, still scheduled by the shared HTTP pipeline.
+    // Keep retries admission-aware while using the shared HTTP pipeline's concurrency.
     val response = execute(settings, request, getOperationMode)
     // Keep service failures in the output rather than letting SimpleHTTPTransformer discard the response.
     HTTPSchema.stringToResponse(response.toJson.compactPrint, org.apache.http.HttpStatus.SC_OK, "OK")
