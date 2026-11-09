@@ -165,6 +165,9 @@ are not a DOCX pagination guarantee.
 
 Options backed by service parameters accept either a scalar setter or a column
 setter, such as `setRange("1-5")` and `setRangeCol("pageRange")`.
+Python `setParams` rejects scalar and column arguments for the same option in
+one call before changing any parameters. Separate calls can replace the prior
+binding. `None` arguments are ignored; use `clear` to remove an existing value.
 
 | Option | Purpose |
 | --- | --- |

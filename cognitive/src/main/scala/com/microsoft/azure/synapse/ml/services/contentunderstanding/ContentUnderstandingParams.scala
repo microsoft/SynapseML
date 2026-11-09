@@ -192,10 +192,7 @@ private[contentunderstanding] trait ContentUnderstandingPython extends Wrappable
     """
       |def setParams(self, **kwargs):
       |    '''Set parameters using the same JVM setters as the constructor.'''
-      |    for name, value in kwargs.items():
-      |        if value is not None:
-      |            getattr(self, "set" + name[0].upper() + name[1:])(value)
-      |    return self
+      |    return self._set_params_via_setters(kwargs, skip_none=True)
       |""".stripMargin
   }
 
