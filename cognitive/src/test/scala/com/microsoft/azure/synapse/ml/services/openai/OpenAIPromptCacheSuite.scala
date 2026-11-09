@@ -64,6 +64,37 @@ class OpenAIPromptCacheSuite extends TestBase {
     assert(payload(stage, requestRow()).fields.get("store").contains(JsBoolean(true)))
   }
 
+  test("Foundry Prompt preserves no-op storage through copy save and load") {
+    spark
+    Seq(false, true).foreach { explicitFalse =>
+      val stage = new OpenAIPrompt().setModel("foundry-model")
+        .setUrl("https://example.services.ai.azure.com").setMessagesCol("messages")
+      if (explicitFalse) stage.setStore(false)
+      val path = tmpDir.resolve(s"foundry-store-$explicitFalse").toString
+      stage.write.save(path)
+      Seq(stage, stage.copy(org.apache.spark.ml.param.ParamMap.empty).asInstanceOf[OpenAIPrompt],
+        OpenAIPrompt.load(path)).foreach { candidate =>
+        val body = payload(candidate, requestRow()).fields
+        assert(body("model") == JsString("foundry-model"))
+        assert(!body.contains("store"))
+      }
+    }
+    val row = spark.sql(
+      "SELECT array(named_struct('role', 'user', 'content', 'hello')) AS messages, true AS persist").head()
+    Seq(false, true).foreach { column =>
+      val stage = new OpenAIPrompt().setModel("foundry-model")
+        .setUrl("https://example.services.ai.azure.com").setMessagesCol("messages")
+      if (column) stage.setStoreCol("persist") else stage.setStore(true)
+      val path = tmpDir.resolve(s"foundry-unsupported-store-$column").toString
+      stage.write.save(path)
+      Seq(stage, OpenAIPrompt.load(path)).foreach { candidate =>
+        val error = intercept[IllegalArgumentException] { payload(candidate, row) }
+        assert(error.getMessage.contains("store"))
+        assert(error.getMessage.contains("Foundry"))
+      }
+    }
+  }
+
   test("Responses rejects unsupported inherited seed rather than silently dropping it") {
     val stage = new OpenAIResponses().setSeed(123)
     val error = intercept[IllegalArgumentException] {
@@ -92,8 +123,7 @@ class OpenAIPromptCacheSuite extends TestBase {
     }
     assert(!stage.isContentFiltered(output.head().getAs[Row]("response")))
     assert(stage.isContentFiltered(null)) // scalastyle:ignore null
-    val normalized = output.select(UsageUtils.normalize(col("response.usage"),
-      UsageUtils.UsageMappings.ResponsesDetailed).alias("usage"))
+    val normalized = output.select(UsageUtils.normalizeResponsesDetailed(col("response.usage")).alias("usage"))
     assert(normalized.schema("usage").dataType == UsageUtils.UsageStructType)
     val details = normalized.head().getStruct(0).getAs[Map[String, Long]]("input_token_details")
     assert(details == Map("cached_tokens" -> 4000L, "cache_write_tokens" -> 7000L,
@@ -113,7 +143,7 @@ class OpenAIPromptCacheSuite extends TestBase {
       assert(body("metadata") == JsObject("job" -> JsString("example")))
       assert(body("top_logprobs") == JsNumber(0))
       if (body.contains("input")) {
-        assert(body("include") == JsArray(JsString("output_text.logprobs")))
+        assert(body("include") == JsArray(JsString("message.output_text.logprobs")))
         assert(!body.contains("logprobs"))
       } else {
         assert(body("logprobs") == JsTrue)
@@ -145,7 +175,8 @@ class OpenAIPromptCacheSuite extends TestBase {
       if (body.contains("input")) {
         assert(body("reasoning") ==
           JsObject("context" -> JsString("all_turns"), "summary" -> JsString("auto"), "mode" -> JsString("standard")))
-        assert(body("include") == JsArray(JsString("reasoning.encrypted_content"), JsString("output_text.logprobs")))
+        assert(body("include") ==
+          JsArray(JsString("reasoning.encrypted_content"), JsString("message.output_text.logprobs")))
         assert(body("truncation") == JsString("disabled"))
       } else {
         assert(body("stop") == JsArray(JsString("END"), JsString("STOP")))
@@ -154,6 +185,18 @@ class OpenAIPromptCacheSuite extends TestBase {
       val values = columns.toSeq.updated(columns.fieldIndex("cache_key"), null) // scalastyle:ignore null
       val nullKey = new GenericRowWithSchema(values.toArray, columns.schema)
       assert(!payload(stage, nullKey).fields.contains("prompt_cache_key"))
+    }
+  }
+
+  test("Responses log probability switches preserve and deduplicate explicit include entries") {
+    Seq[CacheStage](
+      new OpenAIResponses().setMessagesCol("messages").setLogProbsEnabled(true),
+      new OpenAIResponses().setMessagesCol("messages").setLogProbs(2),
+      new OpenAIPrompt().setApiType("responses").setMessagesCol("messages").setTopLogProbs(2)
+    ).foreach { stage =>
+      stage.setInclude(Seq("reasoning.encrypted_content", "message.output_text.logprobs"))
+      assert(payload(stage, requestRow()).fields("include") ==
+        JsArray(JsString("reasoning.encrypted_content"), JsString("message.output_text.logprobs")))
     }
   }
 
@@ -184,7 +227,7 @@ class OpenAIPromptCacheSuite extends TestBase {
       new OpenAIChatCompletion().setInclude(Seq("reasoning.encrypted_content")) -> "Chat Completions",
       new OpenAIChatCompletion().setEcho(true) -> "echo",
       new OpenAIResponses().setStopSequences(Seq("STOP")) -> "Responses",
-      new OpenAIResponses().setLogProbsEnabled(false).setInclude(Seq("output_text.logprobs")) -> "include",
+      new OpenAIResponses().setLogProbsEnabled(false).setInclude(Seq("message.output_text.logprobs")) -> "include",
       new OpenAIResponses().setReasoning(Map("effort" -> "high")).setReasoningEffort("low") -> "reasoning.effort"
     )
     invalid.foreach { case (stage, expected) =>

@@ -79,7 +79,8 @@ trait HasOpenAIModelParams extends HasOpenAITextParams {
   def setReasoningCol(v: String): this.type = setVectorParam(reasoning, v)
 
   val include: ServiceParam[Seq[String]] = new ServiceParam[Seq[String]](
-    this, "include", "Additional Responses output data, such as output_text.logprobs or reasoning.encrypted_content.",
+    this, "include", "Additional Responses output data, such as message.output_text.logprobs " +
+      "or reasoning.encrypted_content.",
     isRequired = false)
 
   def getInclude: Seq[String] = getScalarParam(include)
@@ -119,7 +120,7 @@ trait HasOpenAIModelParams extends HasOpenAITextParams {
 
   val logProbsEnabled: ServiceParam[Boolean] = new ServiceParam[Boolean](
     this, "logProbsEnabled",
-    "Return output token log probabilities. Chat uses logprobs; Responses uses include=output_text.logprobs.",
+    "Return output token log probabilities. Chat uses logprobs; Responses uses include=message.output_text.logprobs.",
     isRequired = false) {
     override val payloadName: String = "log_probs_enabled"
   }
@@ -176,10 +177,10 @@ trait HasOpenAIModelParams extends HasOpenAITextParams {
         case values: Seq[_] => values
         case _ => throw new IllegalArgumentException("include must be an array")
       }
-      require(enabled.forall(identity) || !included.contains("output_text.logprobs"),
-        "logProbsEnabled=false conflicts with include=output_text.logprobs.")
+      require(enabled.forall(identity) || !included.contains("message.output_text.logprobs"),
+        "logProbsEnabled=false conflicts with include=message.output_text.logprobs.")
       if (enabled.contains(true)) {
-        withCount.updated("include", (included :+ "output_text.logprobs").distinct)
+        withCount.updated("include", (included :+ "message.output_text.logprobs").distinct)
       } else {
         withCount
       }

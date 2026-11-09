@@ -82,12 +82,15 @@ object UsageUtils {
   private def tokenValue(usage: Column, nameOpt: Option[String]): Column =
     nameOpt.map(name => usage.getField(name).cast(LongType)).getOrElse(NullLongColumn)
 
-  private def detailMap(usage: Column, detailsOpt: Option[(String, Seq[String])]): Column =
+  private def detailMap(usage: Column, detailsOpt: Option[(String, Seq[String])],
+                        nestedPaths: Map[String, Seq[String]]): Column =
     detailsOpt match {
       case Some((fieldName, keys)) if keys.nonEmpty =>
         val detailCol = usage.getField(fieldName)
         val keyColumns = keys.map(lit)
-        val valueColumns = keys.map(key => key.split("\\.").foldLeft(detailCol)(_.getField(_)).cast(LongType))
+        val valueColumns = keys.map { key =>
+          nestedPaths.getOrElse(key, Seq(key)).foldLeft(detailCol)(_.getField(_)).cast(LongType)
+        }
         map_from_arrays(array(keyColumns: _*), array(valueColumns: _*))
       case _ => EmptyDetailsMapColumn
     }
@@ -96,15 +99,25 @@ object UsageUtils {
    * Normalizes usage information from an OpenAI API response into a consistent schema.
    *
    * @param usage The usage column from the API response
-   * @param mapping The field mapping for the specific API type
+   * @param mapping The field mapping for the specific API type; detail keys are literal field names
    * @return A column with normalized usage struct
    */
-  def normalize(usage: Column, mapping: UsageFieldMapping): Column = {
+  def normalize(usage: Column, mapping: UsageFieldMapping): Column =
+    normalize(usage, mapping, Map.empty)
+
+  private[openai] def normalizeResponsesDetailed(usage: Column): Column =
+    normalize(usage, UsageMappings.ResponsesDetailed, Map(
+      "cache_write_tokens_details.ttl_30m_tokens" -> Seq("cache_write_tokens_details", "ttl_30m_tokens"),
+      "cache_write_tokens_details.ttl_12h_tokens" -> Seq("cache_write_tokens_details", "ttl_12h_tokens")
+    ))
+
+  private def normalize(usage: Column, mapping: UsageFieldMapping,
+                        inputDetailPaths: Map[String, Seq[String]]): Column = {
     val inputTokensCol = tokenValue(usage, mapping.inputTokens)
     val outputTokensCol = tokenValue(usage, mapping.outputTokens)
     val totalTokensCol = tokenValue(usage, mapping.totalTokens)
-    val inputDetailsCol = detailMap(usage, mapping.inputDetails)
-    val outputDetailsCol = detailMap(usage, mapping.outputDetails)
+    val inputDetailsCol = detailMap(usage, mapping.inputDetails, inputDetailPaths)
+    val outputDetailsCol = detailMap(usage, mapping.outputDetails, Map.empty)
 
     struct(
       inputTokensCol.alias("input_tokens"),

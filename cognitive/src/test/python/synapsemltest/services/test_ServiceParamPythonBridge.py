@@ -183,7 +183,10 @@ class TestServiceParamPythonBridge(unittest.TestCase):
                         self.assertEqual(body["truncation"], "disabled")
                         self.assertEqual(
                             body["include"],
-                            ["reasoning.encrypted_content", "output_text.logprobs"],
+                            [
+                                "reasoning.encrypted_content",
+                                "message.output_text.logprobs",
+                            ],
                         )
                         self.assertNotIn("logprobs", body)
                         if stage_type is OpenAIPrompt:

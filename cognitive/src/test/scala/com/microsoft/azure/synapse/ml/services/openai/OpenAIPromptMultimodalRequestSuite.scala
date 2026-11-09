@@ -82,7 +82,7 @@ class OpenAIPromptMultimodalRequestSuite extends OpenAIPromptHttpTestBase {
             assert(body("prompt_cache_key") == JsString("warmup"))
             assert(body("prompt_cache_options").asJsObject.fields("prewarm") == JsTrue)
             assert(body("reasoning").asJsObject.fields("context") == JsString("all_turns"))
-            assert(body("include") == JsArray(JsString("output_text.logprobs")))
+            assert(body("include") == JsArray(JsString("message.output_text.logprobs")))
           }, responseBody = _ => response)
         }
       }
@@ -105,6 +105,27 @@ class OpenAIPromptMultimodalRequestSuite extends OpenAIPromptHttpTestBase {
         assert(rows.find(!_.getAs[Boolean]("persist")).get.isNullAt(result.schema.fieldIndex("response_id")))
         val stored = Seq(bodies.poll(), bodies.poll()).map(_.parseJson.asJsObject.fields("store")).toSet
         assert(stored == Set(JsBoolean(true), JsBoolean(false)))
+      }
+    }
+  }
+
+  test("Storage columns may be replaced by output usage or response ID columns") {
+    withEchoServer { (baseUrl, bodies) =>
+      for (api <- Seq("chat_completions", "responses"); name <- Seq("output", "usage", "response_id")) {
+        val stage = prompt(baseUrl, api).setColumnTypes(Map.empty[String, String])
+          .setStoreCol(name).setUsageCol("usage").setResponseIdCol("response_id")
+        val input = Seq(("stored", Some(true)), ("not-stored", Some(false)), ("unset", None))
+          .toDF("prompt", name).coalesce(1)
+        val result = stage.transform(input)
+        val rows = result.collect()
+        assert(result.schema == stage.transformSchema(input.schema))
+        assert(result.columns.distinct.length == result.columns.length)
+        assert(rows.forall(row => row.getAs[String]("output") == "ok" && row.isNullAt(row.fieldIndex("error"))))
+        assert(rows.find(_.getAs[String]("prompt") == "stored").get.getAs[String]("response_id").nonEmpty)
+        assert(rows.filter(_.getAs[String]("prompt") != "stored")
+          .forall(_.isNullAt(result.schema.fieldIndex("response_id"))))
+        val stored = Seq.fill(3)(bodies.poll().parseJson.asJsObject.fields.get("store")).toSet
+        assert(stored == Set(Some(JsTrue), Some(JsFalse), None))
       }
     }
   }
