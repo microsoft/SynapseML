@@ -70,9 +70,22 @@ private[ml] trait HTTPClient extends BaseClient
 
 object HandlingUtils extends SparkLogging {
   private[ml] def convertAndClose(response: CloseableHttpResponse): HTTPResponseData = {
-    val rData = new HTTPResponseData(response)
-    response.close()
-    rData
+    var failure = Option.empty[Throwable]
+    try {
+      new HTTPResponseData(response)
+    } catch {
+      case error: Throwable =>
+        failure = Some(error)
+        throw error
+    } finally {
+      try response.close() catch {
+        case closeError: Throwable =>
+          failure match {
+            case Some(original) => if (closeError ne original) original.addSuppressed(closeError)
+            case None => throw closeError
+          }
+      }
+    }
   }
 
   type HandlerFunc = (CloseableHttpClient, HTTPRequestData) => HTTPResponseData
