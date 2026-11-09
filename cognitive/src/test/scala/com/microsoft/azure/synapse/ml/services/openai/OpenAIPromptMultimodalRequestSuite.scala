@@ -4,11 +4,9 @@
 package com.microsoft.azure.synapse.ml.services.openai
 
 import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
-import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.io.http.{ErrorUtils, HasErrorCol}
 import com.microsoft.azure.synapse.ml.services.HasCognitiveServiceInput
-import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
-import org.apache.commons.io.{FileUtils, IOUtils}
+import org.apache.commons.io.FileUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.FileSystem
 import org.apache.spark.TaskKilledException
@@ -23,7 +21,6 @@ import org.scalatest.time.{Seconds, Span}
 import spray.json._
 
 import java.io.{File, InterruptedIOException}
-import java.net.InetSocketAddress
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.concurrent.{Callable, ConcurrentLinkedQueue, ExecutionException, Executors, TimeUnit}
@@ -31,17 +28,9 @@ import java.util.{Locale, UUID}
 import scala.collection.JavaConverters._
 import scala.util.Using
 
-class OpenAIPromptMultimodalRequestSuite extends TestBase {
+class OpenAIPromptMultimodalRequestSuite extends OpenAIPromptHttpTestBase {
 
   import spark.implicits._
-
-  private val dataImage =
-    "data:image/png;base64," +
-      "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Zl1sAAAAASUVORK5CYII="
-  private val unpaddedDataImage = dataImage.stripSuffix("=")
-  private val dataJson = "data:application/json;base64,e30="
-  private val dataPdf = "data:application/pdf;base64,JVBERi0xLjQK"
-  private val imageBytes = java.util.Base64.getDecoder.decode(dataImage.split(",", 2)(1))
 
   private def withAttachmentFailureFileSystem(testCode: AttachmentReadFailureFileSystem => Unit): Unit = {
     val conf = new Configuration()
@@ -54,112 +43,6 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
         assert(fs.unexpected.isEmpty, s"Unknown attachment failure scenarios: ${fs.unexpected}")
       case _ => fail("Unexpected attachment failure filesystem")
     }
-  }
-
-  private def responseFor(path: String): String = {
-    if (path.endsWith("/responses")) {
-      JsObject(
-        "id" -> JsString("resp_test"),
-        "object" -> JsString("response"),
-        "created_at" -> JsString("1"),
-        "model" -> JsString("gpt-6-luna"),
-        "output" -> JsArray(JsObject(
-          "content" -> JsArray(JsObject(
-            "type" -> JsString("output_text"),
-            "text" -> JsString("ok")
-          )),
-          "status" -> JsString("completed")
-        )),
-        "system_fingerprint" -> JsNull,
-        "usage" -> JsNull
-      ).compactPrint
-    } else {
-      JsObject(
-        "id" -> JsString("chatcmpl_test"),
-        "object" -> JsString("chat.completion"),
-        "created" -> JsString("1"),
-        "model" -> JsString("gpt-6-luna"),
-        "choices" -> JsArray(JsObject(
-          "message" -> JsObject(
-            "role" -> JsString("assistant"),
-            "content" -> JsString("ok"),
-            "name" -> JsNull
-          ),
-          "index" -> JsNumber(0),
-          "finish_reason" -> JsString("stop")
-        )),
-        "system_fingerprint" -> JsNull,
-        "usage" -> JsNull
-      ).compactPrint
-    }
-  }
-
-  private def withEchoServer(
-      testCode: (String, ConcurrentLinkedQueue[String], ConcurrentLinkedQueue[String]) => Unit,
-      statusCode: Int = 200,
-      responseBody: String => String = responseFor _
-  ): Unit = {
-    val bodies = new ConcurrentLinkedQueue[String]()
-    val attachmentRequests = new ConcurrentLinkedQueue[String]()
-    val server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0)
-    server.createContext("/openai/v1", new HttpHandler {
-      override def handle(exchange: HttpExchange): Unit = {
-        val body = new String(IOUtils.toByteArray(exchange.getRequestBody), StandardCharsets.UTF_8)
-        bodies.add(body)
-        val response = responseBody(exchange.getRequestURI.getPath).getBytes(StandardCharsets.UTF_8)
-        exchange.getResponseHeaders.add("Content-Type", "application/json")
-        exchange.sendResponseHeaders(statusCode, response.length)
-        exchange.getResponseBody.write(response)
-        exchange.close()
-      }
-    })
-    def addAttachmentContext(path: String, contentType: String, content: Array[Byte]): Unit = {
-      server.createContext(path, new HttpHandler {
-        override def handle(exchange: HttpExchange): Unit = {
-          attachmentRequests.add(exchange.getRequestURI.getPath)
-          exchange.getResponseHeaders.add("Content-Type", contentType)
-          exchange.sendResponseHeaders(200, content.length)
-          exchange.getResponseBody.write(content)
-          exchange.close()
-        }
-      })
-    }
-    addAttachmentContext("/image.png", "image/png", imageBytes)
-    addAttachmentContext("/image", "image/png", imageBytes)
-    addAttachmentContext("/document-json", "application/octet-stream", "{}".getBytes(StandardCharsets.UTF_8))
-    addAttachmentContext(
-      "/document-xml",
-      "application/octet-stream",
-      "<?xml version=\"1.0\"?><root/>".getBytes(StandardCharsets.UTF_8)
-    )
-    server.start()
-    try {
-      testCode(
-        s"http://127.0.0.1:${server.getAddress.getPort}/openai/v1",
-        bodies,
-        attachmentRequests
-      )
-    } finally {
-      server.stop(0)
-    }
-  }
-
-  private def withEchoServer(testCode: (String, ConcurrentLinkedQueue[String]) => Unit): Unit = {
-    withEchoServer { (baseUrl, bodies, _) =>
-      testCode(baseUrl, bodies)
-    }
-  }
-
-  private def prompt(baseUrl: String, apiType: String): OpenAIPrompt = {
-    new OpenAIPrompt()
-      .setUrl(baseUrl)
-      .setApiType(apiType)
-      .setDeploymentName("gpt-6-luna")
-      .setSubscriptionKey("unused")
-      .setPromptTemplate("{prompt}")
-      .setColumnTypes(Map("image" -> "path"))
-      .setOutputCol("output")
-      .setErrorCol("error")
   }
 
   test("Responses prewarm keeps usage and response ID without a false content-filter error") {

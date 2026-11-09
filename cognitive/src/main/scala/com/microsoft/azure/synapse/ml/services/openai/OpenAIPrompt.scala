@@ -44,7 +44,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   logClass(FeatureNames.AiServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAIPrompt"))
-
   private[openai] def generatedPythonClass: String = pythonClass()
 
   override def copy(extra: ParamMap): Transformer = {
@@ -82,7 +81,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   }
 
   def urlPath: String = ""
-
   override private[ml] def internalServiceType: String = "openai"
 
   import UsageUtils.{UsageFieldMapping, UsageMappings, UsageStructType}
