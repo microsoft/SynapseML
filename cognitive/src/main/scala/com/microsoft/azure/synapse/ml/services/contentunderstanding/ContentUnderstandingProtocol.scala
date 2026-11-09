@@ -487,11 +487,11 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
     }
   }
 
-  private def analyzerBody(raw: WireResponse): String = {
+  private def analyzerBody(raw: WireResponse, location: Option[String] = None): String = {
     val json = raw.json
     val hasError = json.exists(_.fields.get("error").exists(_ != JsNull))
     if (!raw.successful || raw.diagnostic.isDefined || json.isEmpty || hasError) {
-      throw new ContentUnderstandingException(decode(raw, None))
+      throw new ContentUnderstandingException(decode(raw, location))
     }
     raw.body
   }
@@ -521,7 +521,6 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
                      analyzerId: String): String = {
     withClient(settings) { client =>
       val raw = exchangeWithThrottling(client, settings, request)
-      analyzerBody(raw)
       raw.location match {
         case Some(location) =>
           try {
@@ -532,6 +531,7 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
                 error = Some(diagnostic("InvalidOperationLocation",
                   "The analyzer creation operation URL was unsafe; it was not requested."))))
           }
+          analyzerBody(raw, Some(location))
           val completed = pollWithClient(client, settings, request, location, None,
             retryDelay(raw.retryAfter, settings.pollingDelay), Some(analyzerId))
           if (completed.status != "Succeeded" || completed.error.isDefined) {
@@ -539,6 +539,7 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
           }
           getAnalyzerWithClient(client, settings, getRequestData)
         case None =>
+          analyzerBody(raw)
           val status = raw.json.flatMap(stringField(_, "status"))
           if (!status.exists(_.equalsIgnoreCase("ready"))) {
             throw new ContentUnderstandingException(decode(raw, None).copy(status = "Failed",

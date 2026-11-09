@@ -243,9 +243,11 @@ previewAnalyzer = (
 )
 ```
 
-Configure `allowInputTruncation` only with a service API version that supports
-it, such as `2026-06-01-preview`. It is not sent by default, and leaving it unset
-is different from explicitly setting `False`.
+`allowInputTruncation` requires API version `2026-06-01-preview` or newer.
+The transformer rejects an explicit `True` or `False` on older versions before
+submitting that row. This also applies when either option comes from a column.
+It is not sent by default. A null truncation column leaves the option unset and
+works with the default GA version.
 
 ### Custom extraction and analyzer configuration
 

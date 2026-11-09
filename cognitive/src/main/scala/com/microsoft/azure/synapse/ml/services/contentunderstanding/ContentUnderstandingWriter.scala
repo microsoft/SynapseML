@@ -3,7 +3,6 @@
 
 package com.microsoft.azure.synapse.ml.services.contentunderstanding
 
-import com.microsoft.azure.synapse.ml.param.ServiceParam
 import org.apache.hadoop.fs.Path
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.functions.{col, lit, row_number}
@@ -93,12 +92,6 @@ object ContentUnderstandingWriter {
       "The destination must be a Content Understanding operation journal with the expected schema"
     )
   }
-
-  private def inputColumns(analyzer: ContentUnderstanding): Seq[String] =
-    analyzer.params.toSeq.flatMap {
-      case p: ServiceParam[_] if analyzer.isDefined(p) => analyzer.getOrDefault(p).right.toOption
-      case _ => None
-    }
 
   private def validateInput(dataset: Dataset[_], analyzer: ContentUnderstanding, idCol: String): Unit = {
     require(!dataset.isStreaming, "Use the writer inside foreachBatch for streaming input")
@@ -201,7 +194,7 @@ object ContentUnderstandingWriter {
     }
     // Check the destination and provider before issuing a billable request.
     journal.append(spark.createDataFrame(Seq.empty[Row].asJava, Schema))
-    val selected = (Seq(idCol) ++ inputColumns(analyzer)).distinct.map(quoted)
+    val selected = (Seq(idCol) ++ analyzer.activeInputColumns).distinct.map(quoted)
     val input = dataset.select(selected: _*)
     @tailrec
     def writeBatch(after: Option[String]): Unit = {

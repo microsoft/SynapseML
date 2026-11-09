@@ -115,6 +115,21 @@ class ContentUnderstandingWriterSuite extends TestBase {
   private def documents: DataFrame =
     Seq(("a", "https://example.test/a.pdf"), ("b", "https://example.test/b.pdf")).toDF("docId", "source")
 
+  test("writer ignores inactive poll-only columns") {
+    Seq("submit", "analyze").foreach { mode =>
+      withService { service =>
+        withOutput { path =>
+          val stage = analyzer(service).setOperationLocationCol("missingOperation").setOperationMode(mode)
+          val result = stage.writeToPath(documents, "docId", path, "parquet")
+          val status = if (mode == "submit") "Running" else "Succeeded"
+          assert(result.filter(col("status") === status).count() == 2)
+          stage.writeToPath(documents, "docId", path, "parquet")
+          assert(service.totalSubmissions == 2)
+        }
+      }
+    }
+  }
+
   test("committed results and operation handles survive a later polling failure and resume without POSTs") {
     withService { service =>
       withOutput { path =>
