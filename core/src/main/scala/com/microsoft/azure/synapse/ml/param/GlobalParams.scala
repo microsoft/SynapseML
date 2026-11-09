@@ -17,23 +17,23 @@ object GlobalParams {
     key.asInstanceOf[GlobalKey[Any]]
   }
 
-  def setGlobalParam[T](key: GlobalKey[T], value: T): Unit = {
+  def setGlobalParam[T](key: GlobalKey[T], value: T): Unit = synchronized {
     GlobalParams(untypedKey(key)) = value
   }
 
-  def getGlobalParam[T](key: GlobalKey[T]): Option[T] = {
+  def getGlobalParam[T](key: GlobalKey[T]): Option[T] = synchronized {
     GlobalParams.get(untypedKey(key)).map(_.asInstanceOf[T])
   }
 
-  def resetGlobalParam[T](key: GlobalKey[T]): Unit = {
+  def resetGlobalParam[T](key: GlobalKey[T]): Unit = synchronized {
     GlobalParams -= untypedKey(key)
   }
 
-  def getParam[T](p: Param[T]): Option[T] = {
+  def getParam[T](p: Param[T]): Option[T] = synchronized {
     ParamToKeyMap.get(p).flatMap(GlobalParams.get).map(_.asInstanceOf[T])
   }
 
-  def registerParam[T](p: Param[T], key: GlobalKey[T]): Unit = {
+  def registerParam[T](p: Param[T], key: GlobalKey[T]): Unit = synchronized {
     ParamToKeyMap(p) = untypedKey(key)
   }
 }
