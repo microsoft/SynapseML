@@ -87,19 +87,21 @@ class ContentUnderstandingSuite extends TestBase {
         .add("name", StringType).add("mime", StringType).add("pages", StringType)
         .add("models", MapType(StringType, StringType)).add("key", StringType)
         .add("version", StringType).add("encoding", StringType).add("processing", StringType)
+        .add("truncate", BooleanType)
       val models = Map("prebuilt-analyzer-embedding" -> "text-embedding-3-large",
         "prebuilt-analyzer-completion" -> "gpt-5.2")
       val frame = dataFrame(Seq(Row(bytes, "prebuilt-invoice", "invoice.pdf", "application/pdf", "319-320",
-        models, "test-key", "2026-06-01-preview", "utf16", "geography")), schema)
+        models, "test-key", "2026-06-01-preview", "utf16", "geography", false)), schema)
       val transformer = stage(server).setOperationMode("submit")
         .setDocumentBytesCol("source.bytes").setAnalyzerIdCol("analyzer").setDocumentNameCol("name")
         .setMimeTypeCol("mime").setRangeCol("pages").setModelDeploymentsCol("models")
         .setSubscriptionKeyCol("key").setApiVersionCol("version").setStringEncodingCol("encoding")
-        .setProcessingLocationCol("processing")
+        .setProcessingLocationCol("processing").setAllowInputTruncationCol("truncate")
       assert(response(transformer.transform(frame).collect().head).status == "Running")
       val sent = server.requests.head
       assert(sent.path.endsWith("/prebuilt-invoice:analyze"))
-      assert(sent.query == "api-version=2026-06-01-preview&processingLocation=geography&stringEncoding=utf16")
+      assert(sent.query == "allowInputTruncation=false&api-version=2026-06-01-preview" +
+        "&processingLocation=geography&stringEncoding=utf16")
       assert(sent.headers("ocp-apim-subscription-key") == "test-key")
       assert(!sent.headers.contains("authorization"))
       val json = sent.body.parseJson.asJsObject
@@ -111,6 +113,29 @@ class ContentUnderstandingSuite extends TestBase {
       assert(item.fields("mimeType") == JsString("application/pdf"))
       assert(item.fields("range") == JsString("319-320"))
       assert(json.fields("modelDeployments").convertTo[Map[String, String]] == models)
+    }
+  }
+
+  test("preview truncation distinguishes omitted, true, and false values and requires Boolean columns") {
+    withReplies(Seq(accepted)) { server =>
+      val transformer = stage(server).setDocumentBytes(Array[Byte](1)).setApiVersion("2026-06-01-preview")
+      submit(transformer)
+      submit(transformer.setAllowInputTruncation(true))
+      submit(transformer.setAllowInputTruncation(false))
+      val schema = new StructType().add("truncate", BooleanType)
+      val frame = dataFrame(Seq(Row(true), Row(false), Row(None.orNull)), schema)
+      transformer.setAllowInputTruncationCol("truncate").setOperationMode("submit")
+        .transform(frame).collect()
+      val queries = server.requests.map(_.query)
+      assert(queries.map(_.contains("allowInputTruncation=")) == Seq(false, true, true, true, true, false))
+      assert(queries(1).contains("allowInputTruncation=true"))
+      assert(queries(2).contains("allowInputTruncation=false"))
+      assert(queries(3).contains("allowInputTruncation=true"))
+      assert(queries(4).contains("allowInputTruncation=false"))
+      intercept[IllegalArgumentException] {
+        transformer.setAllowInputTruncationCol("id").transformSchema(input.schema)
+      }
+      assert(server.requests.size == 6)
     }
   }
 
@@ -170,13 +195,14 @@ class ContentUnderstandingSuite extends TestBase {
     }
   }
 
-  test("initial HTTP failures remain useful output and are never automatically resubmitted") {
+  test("initial HTTP failures remain useful output when throttling retries are disabled") {
     val body = """{"error":{"code":"InvalidPagesOutOfRange","message":"Out of range."}}"""
     val statuses = Seq(HttpStatus.SC_BAD_REQUEST -> "Failed",
       HttpStatus.SC_INTERNAL_SERVER_ERROR -> "Unknown", TooManyRequests -> "Rejected")
     statuses.foreach { case (code, status) =>
       withReplies(Seq(ContentUnderstandingStubReply(code, body, Map("Retry-After" -> "0")))) { server =>
-        val row = stage(server).setDocumentBytes(Array[Byte](1)).transform(input).collect().head
+        val row = stage(server).setDocumentBytes(Array[Byte](1)).setRetryOnThrottling(false)
+          .transform(input).collect().head
         val result = response(row)
         assert(result.status == status)
         assert(result.httpStatus == code)
@@ -273,11 +299,12 @@ class ContentUnderstandingSuite extends TestBase {
     }
   }
 
-  test("GET transient retries including 429 consume the poll budget") {
+  test("GET 429s consume the poll budget when throttling retries are disabled") {
     val throttled = ContentUnderstandingStubReply(TooManyRequests,
       """{"error":{"code":"TooManyRequests"}}""", Map("Retry-After" -> "0"))
     withReplies(Seq(accepted, throttled)) { server =>
       val result = response(stage(server).setDocumentBytes(Array[Byte](1)).setMaxPollAttempts(2)
+        .setRetryOnThrottling(false)
         .transform(input).collect().head)
       assert(server.requests.size == 3)
       assert(result.status == "Running")
@@ -292,6 +319,49 @@ class ContentUnderstandingSuite extends TestBase {
       assert(result.status == "Succeeded")
       assert(server.requests.size == 3)
       assert(server.requests.forall(_.method == "GET"))
+    }
+  }
+
+  test("throttling recovery retries rejected submissions without spending the poll budget") {
+    val throttled = ContentUnderstandingStubReply(TooManyRequests,
+      """{"error":{"code":"TooManyRequests"}}""", Map("Retry-After" -> "0"))
+    Seq(1, 2).foreach { concurrency =>
+      withReplies(Seq.fill(5)(throttled) ++ Seq(accepted) ++ Seq.fill(5)(throttled) ++
+        Seq(ContentUnderstandingStubReply(HttpStatus.SC_OK, succeeded))) { server =>
+        val result = resultOf(stage(server).setDocumentBytes(Array[Byte](1)).setMaxPollAttempts(1)
+          .setConcurrency(concurrency), input)
+        assert(result.status == "Succeeded")
+        assert(result.error.isEmpty)
+        assert(server.requests.map(_.method) == Seq.fill(6)("POST") ++ Seq.fill(6)("GET"))
+        assert(server.requests.filter(_.method == "POST").map(_.body).distinct.size == 1)
+      }
+    }
+  }
+
+  test("429 responses carrying an operation handle never replay the submission") {
+    Seq("$ROOT" + locationPath, "https://example.invalid" + locationPath).foreach { location =>
+      val throttled = ContentUnderstandingStubReply(TooManyRequests, "{}",
+        Map("Operation-Location" -> location, "Retry-After" -> "0"))
+      withReplies(Seq(throttled)) { server =>
+        val result = submit(stage(server).setDocumentBytes(Array[Byte](1)))
+        assert(result.status == "Unknown")
+        assert(result.operationLocation.isDefined == location.startsWith("$ROOT"))
+        assert(server.requests.map(_.method) == Seq("POST"))
+      }
+    }
+  }
+
+  test("throttling recovery also covers explicit analyzer management") {
+    val throttled = ContentUnderstandingStubReply(TooManyRequests,
+      """{"error":{"code":"TooManyRequests"}}""", Map("Retry-After" -> "0"))
+    val analyzer = """{"analyzerId":"custom","status":"ready"}"""
+    for (create <- Seq(false, true)) {
+      withReplies(Seq.fill(5)(throttled) :+ ContentUnderstandingStubReply(HttpStatus.SC_OK, analyzer)) { server =>
+        val transformer = stage(server).setAnalyzerId("custom")
+        val result = if (create) transformer.createAnalyzer("{}", allowReplace = false) else transformer.getAnalyzer()
+        assert(result == analyzer)
+        assert(server.requests.map(_.method) == Seq.fill(6)(if (create) "PUT" else "GET"))
+      }
     }
   }
 
@@ -498,10 +568,13 @@ class ContentUnderstandingSuite extends TestBase {
       .setDocumentBytes(Array[Byte](0, -1, -128, 127)).setAnalyzerId("custom.invoice")
       .setApiVersion("2026-06-01-preview").setModelDeployments(Map("prebuilt-analyzer-completion" -> "gpt-5.2"))
       .setOperationMode("submit").setPollingDelay(0).setOutputCol("result").setErrorCol("error")
+      .setAllowInputTruncation(false).setRetryOnThrottling(false)
     val copied = original.copy(ParamMap(original.outputCol -> "copied"))
     assert(copied.uid == original.uid)
     assert(copied.getOutputCol == "copied")
     assert(copied.getDocumentBytes.sameElements(original.getDocumentBytes))
+    assert(!copied.getAllowInputTruncation)
+    assert(!copied.getRetryOnThrottling)
     val destination = new File("cu-stage-test-" + UUID.randomUUID().toString)
     try {
       original.write.save(destination.getAbsolutePath)
@@ -514,6 +587,8 @@ class ContentUnderstandingSuite extends TestBase {
       assert(restored.getApiVersion == original.getApiVersion)
       assert(restored.getAnalyzerId == original.getAnalyzerId)
       assert(restored.getOperationMode == original.getOperationMode)
+      assert(!restored.getAllowInputTruncation)
+      assert(!restored.getRetryOnThrottling)
       val schema = restored.transformSchema(new StructType().add("id", StringType))
       assert(schema("result").dataType ==
         StructType(ContentUnderstandingResponse.schema.fields.map(_.copy(nullable = true))))
@@ -527,6 +602,7 @@ class ContentUnderstandingSuite extends TestBase {
     val transformer = new PythonSourceStage
     val source = transformer.pythonSource
     assert(source.contains("self._java_obj.setDocumentBytes(bytearray(value))"))
+    assert(source.contains("return bytearray(self._java_obj.getDocumentBytes())"))
     assert(source.contains("def setDocumentBytesCol(self, value)"))
     assert(source.contains("def setParams(self, **kwargs)"))
     assert(source.contains("def _transfer_params_from_java(self)"))

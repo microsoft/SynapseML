@@ -334,7 +334,7 @@ class ContentUnderstandingWriterSuite extends TestBase {
       val rejected = ContentUnderstandingStubReply(code, """{"error":{"code":"Rejected"}}""")
       ContentUnderstandingStub.withReplies(Seq(accepted, completed, rejected, accepted, completed)) { server =>
         withOutput { path =>
-          val stage = stubAnalyzer(server)
+          val stage = stubAnalyzer(server).setRetryOnThrottling(false)
           val failure = intercept[ContentUnderstandingException] {
             stage.writeToPath(documents, "docId", path, "parquet")
           }
@@ -349,6 +349,23 @@ class ContentUnderstandingWriterSuite extends TestBase {
           assert(resumed.filter(col("status") === "Succeeded").count() == 2)
           assert(server.requests.count(_.method == "POST") == 3)
         }
+      }
+    }
+  }
+
+  test("truncation changes the journal fingerprint but throttling policy does not") {
+    ContentUnderstandingStub.withReplies(Seq(accepted, completed)) { server =>
+      withOutput { path =>
+        val stage = stubAnalyzer(server).setApiVersion("2026-06-01-preview").setAllowInputTruncation(true)
+        val input = documents.filter(col("docId") === "a")
+        stage.writeToPath(input, "docId", path, "parquet")
+        stage.setAllowInputTruncation(false)
+        intercept[IllegalArgumentException](stage.writeToPath(input, "docId", path, "parquet"))
+        stage.clear(stage.allowInputTruncation)
+        intercept[IllegalArgumentException](stage.writeToPath(input, "docId", path, "parquet"))
+        stage.setAllowInputTruncation(true).setRetryOnThrottling(false)
+          .writeToPath(input, "docId", path, "parquet")
+        assert(server.requests.map(_.method) == Seq("POST", "GET"))
       }
     }
   }

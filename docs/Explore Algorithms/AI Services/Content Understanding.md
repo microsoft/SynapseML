@@ -18,6 +18,11 @@ when completed documents must survive a later failure. The durable methods save
 each accepted operation handle before polling, then commit each result separately.
 They do not wait for the entire input DataFrame to finish before writing results.
 
+For a complete example, open the
+[invoice extraction notebook](https://github.com/microsoft/SynapseML/blob/master/docs/Explore%20Algorithms/AI%20Services/Quickstart%20-%20Content%20Understanding.ipynb).
+It generates a synthetic PDF, extracts invoice fields with confidence and source
+information, and resumes saved operations without submitting the document again.
+
 ## API at a glance
 
 Import `ContentUnderstanding` from `synapse.ml.services.contentunderstanding`.
@@ -56,8 +61,12 @@ directly, without a Content Understanding Python SDK dependency:
 
 The analyze body contains one `inputs` entry with either `url` or base64 `data`,
 optional `name`, `mimeType`, and `range`, and an optional top-level
-`modelDeployments` map. `stringEncoding` and `processingLocation` are query
-parameters. Analyzer configuration is sent only by `createAnalyzer`.
+`modelDeployments` map. `stringEncoding`, `processingLocation`, and the preview
+`allowInputTruncation` option are query parameters. Analyzer configuration is
+sent only by `createAnalyzer`. See the
+[REST analyze reference](https://learn.microsoft.com/rest/api/contentunderstanding/content-analyzers/analyze?view=rest-contentunderstanding-2026-06-01-preview)
+and [Python SDK reference](https://learn.microsoft.com/python/api/azure-ai-contentunderstanding/azure.ai.contentunderstanding.contentunderstandingclient).
+The SDK is a reference, not a required dependency.
 
 ## Configure an analyzer
 
@@ -104,13 +113,22 @@ documents = spark.createDataFrame(
 )
 
 results = analyzer.transform(documents)
-results.selectExpr(
+resultPath = "Files/content-understanding/quickstart-results"
+results.write.mode("errorifexists").parquet(resultPath)
+savedResults = spark.read.parquet(resultPath)
+savedResults.selectExpr(
     "documentId",
     "analysis.status",
     "get_json_object(analysis.rawResponse, '$.result.contents[0].markdown') AS markdown",
     "requestError",
 ).show(truncate=False)
 ```
+
+`transform` is lazy. Repeating an action on `results` can repeat billable
+submissions; display and query `savedResults` instead. Use a new path only when
+you intend to analyze again. This ordinary Spark write does not checkpoint
+individual operations; use the durable writers below when partial recovery is
+required.
 
 A URL must be accessible to the Content Understanding service, not just the
 notebook. For private lakehouse files, use a Spark binary column instead:
@@ -157,6 +175,7 @@ setter, such as `setRange("1-5")` and `setRangeCol("pageRange")`.
 | `modelDeployments` | Map the analyzer's model names or aliases to deployments in your resource. |
 | `stringEncoding` | `codePoint`, `utf16`, or `utf8` for response offsets. |
 | `processingLocation` | Service-supported processing-location policy. |
+| `allowInputTruncation` | Optional preview Boolean. Omit to use the analyzer setting; `False` explicitly disables truncation. Supports `BooleanType` columns, where null means omitted. |
 | `apiVersion` | Defaults to `2025-11-01`; use `setApiVersion` to override. |
 | `operationMode` | `analyze`, `submit`, or `poll`. Defaults to `analyze`. |
 | `operationLocation` | Accepted operation URL used by poll-only mode. |
@@ -165,15 +184,35 @@ Polling and memory controls use ordinary scalar setters:
 
 | Setter | Default | Purpose |
 | --- | --- | --- |
-| `setMaxPollAttempts` | 120 | Bound GET attempts, including retries. |
+| `setMaxPollAttempts` | 120 | Bound GET attempts, excluding 429 responses when throttling retries are enabled. |
 | `setPollingDelay` | 1000 | Milliseconds between polls when `Retry-After` is absent. |
+| `setRetryOnThrottling` | `True` | Retry definite HTTP 429 responses until they clear or execution is cancelled. Applies to analysis, polling, and analyzer management. |
 | `setMaxResponseBytes` | 33554432 | Bound each response before parsing JSON. |
 | `setTimeout` | 60 | HTTP connection and read timeout in seconds. |
 | `setConcurrency` | 1 | Concurrent operations per Spark partition for `transform`. |
+| `setConcurrentTimeout` | Unset | Optional seconds to wait for each asynchronous result when concurrency is greater than 1. Expiration fails the Spark task, not the service operation. |
 
-The client honors `Retry-After`, capped at one minute per delay. A response-size
-failure includes `ResponseTooLarge`; increase the bound or choose smaller ranges
-rather than treating an unread response as an empty result.
+The client honors `Retry-After` seconds and HTTP dates, including waits longer
+than a minute. Retry waits stop when the owning Spark task is cancelled, including
+with concurrency greater than 1. A driver-side writer or management call stops
+on JVM thread interruption. A blocked HTTP read may wait for its socket timeout
+before observing cancellation. A notebook interrupt that only stops Python
+waiting does not necessarily interrupt a driver-side JVM call.
+Setting `retryOnThrottling=False` returns definite submission 429s as `Rejected` and makes
+polling 429s consume the normal attempt budget.
+
+`setConcurrency` is per partition, not a resource-wide rate limit. For example,
+four active partitions with concurrency two can run eight operations at once.
+The durable writer remains sequential.
+
+Polling runs while a Spark action or writer call is active; it is not a detached
+background worker. Use `submit` mode to save handles and return without polling,
+then resume them in another action or notebook session. `maxPollAttempts` is an
+attempt limit, `timeout` is an HTTP timeout, and neither is a total operation
+deadline. With throttling retries enabled, an operation can wait indefinitely.
+
+A response-size failure includes `ResponseTooLarge`; increase the bound or choose
+smaller ranges rather than treating an unread response as an empty result.
 
 For example, a prebuilt invoice analyzer can use request-level model aliases:
 
@@ -200,8 +239,13 @@ previewAnalyzer = (
     .setApiVersion("2026-06-01-preview")
     .setAnalyzerId("prebuilt-layout")
     .setStringEncoding("utf16")
+    .setAllowInputTruncation(False)
 )
 ```
+
+Configure `allowInputTruncation` only with a service API version that supports
+it, such as `2026-06-01-preview`. It is not sent by default, and leaving it unset
+is different from explicitly setting `False`.
 
 ### Custom extraction and analyzer configuration
 
@@ -333,10 +377,11 @@ the status and error columns before downstream processing. Terminal failures
 are retained rather than retried indefinitely. Correct the cause and use a new
 versioned ID for an intentional retry.
 
-Submission HTTP 401, 403, or 429 without an operation handle is a definite
-rejection. The writer stops with `Rejected` before recording that ID. Fix the
-credential or throttling condition and rerun against the same journal. Completed
-IDs remain untouched, and the rejected ID can be submitted again.
+Submission HTTP 401 or 403 without an operation handle is a definite rejection.
+The writer stops with `Rejected` before recording that ID. Fix the credential and
+rerun against the same journal. Completed IDs remain untouched. Definite HTTP
+429 rejections are retried automatically by default; with
+`retryOnThrottling=False`, they follow the same `Rejected` recovery path.
 
 A submission transport failure, HTTP 408, HTTP 5xx, or unreadable response can
 leave acceptance or completion uncertain. An accepted response with a missing
@@ -399,7 +444,7 @@ large manifests, call the writer from controlled input batches or a structured
 streaming `foreachBatch` callback using the same journal and globally stable
 IDs. Do not pass a streaming DataFrame directly.
 
-Polling has a finite attempt budget. Exhausting it leaves a pending record that
+Non-throttled polling has a finite attempt budget. Exhausting it leaves a pending record that
 can be resumed with a fresh credential or a larger budget. Transport errors and
 malformed responses fail the action instead of being reported as success.
 Already-committed handles and results remain available.
@@ -411,8 +456,10 @@ the exception contains the unsuccessful polling response.
 There is an unavoidable crash window between the service accepting a POST and
 the journal committing its handle. A crash in that window can cause another
 submission on retry. Neither the writer nor Spark task retries provide
-exactly-once external service calls. POST requests are never automatically
-retried within an invocation.
+exactly-once external service calls. Only definite HTTP 429 rejections without
+an operation handle are automatically resubmitted. Transport failures, unreadable
+responses, and responses carrying an operation handle are never replayed as a
+new submission.
 
 Service results are retained for
 [up to 24 hours](https://learn.microsoft.com/azure/foundry/responsible-ai/content-understanding/data-privacy).

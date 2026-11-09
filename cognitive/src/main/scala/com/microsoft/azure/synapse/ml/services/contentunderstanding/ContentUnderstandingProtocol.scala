@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.services.contentunderstanding
 
 import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
-import com.microsoft.azure.synapse.ml.io.http.{HTTPRequestData, RequestLineData}
+import com.microsoft.azure.synapse.ml.io.http.{AsyncClient, HTTPRequestData, RequestLineData}
 import org.apache.http.HttpStatus
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.HttpRequestBase
@@ -17,6 +17,7 @@ import java.net.{URI, URISyntaxException}
 import java.nio.charset.StandardCharsets
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
+import java.util.concurrent.CancellationException
 import scala.annotation.tailrec
 import scala.util.Try
 
@@ -43,7 +44,7 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
   val ResultsPath = "/contentunderstanding/analyzerResults/"
   val DefaultApiVersion = "2025-11-01"
   val MillisecondsPerSecond = 1000
-  val MaxRetryDelayMs = 60000L
+  private val CancellationPollMs = 100L
   val TooManyRequests = 429
   private val BufferSize = 8192
   private val MaxPort = 65535
@@ -63,7 +64,8 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
                       timeoutMs: Int,
                       maxPollAttempts: Int,
                       pollingDelay: Int,
-                      maxResponseBytes: Int) {
+                      maxResponseBytes: Int,
+                      retryOnThrottling: Boolean) {
     def requestConfig: RequestConfig = RequestConfig.custom()
       .setConnectTimeout(timeoutMs)
       .setConnectionRequestTimeout(timeoutMs)
@@ -178,30 +180,36 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
   }
 
   private def checkInterrupted(): Unit = {
+    if (AsyncClient.isTaskCancelled) {
+      throw new CancellationException("The owning Spark task has ended.")
+    }
     if (Thread.currentThread().isInterrupted) {
       throw new InterruptedException("Content Understanding request interrupted.")
     }
   }
 
+  @tailrec
   private def pause(delay: Long): Unit = {
     checkInterrupted()
     if (delay > 0) {
+      val interval = math.min(delay, CancellationPollMs)
       try {
-        Thread.sleep(delay)
+        Thread.sleep(interval)
       } catch {
         case error: InterruptedException =>
           Thread.currentThread().interrupt()
           throw error
       }
+      pause(delay - interval)
     }
   }
 
   private[contentunderstanding] def retryDelay(value: Option[String], fallback: Int): Long = {
     val seconds = value.flatMap(v => Try(v.trim.toLong).toOption).filter(_ >= 0)
-      .map(s => math.min(s, MaxRetryDelayMs / MillisecondsPerSecond) * MillisecondsPerSecond)
+      .map(s => math.min(s, Long.MaxValue / MillisecondsPerSecond) * MillisecondsPerSecond)
     val date = value.flatMap(v => Try(
       ZonedDateTime.parse(v, DateTimeFormatter.RFC_1123_DATE_TIME).toInstant.toEpochMilli).toOption)
-      .map(t => math.min(MaxRetryDelayMs, math.max(0L, t - System.currentTimeMillis())))
+      .map(t => math.max(0L, t - System.currentTimeMillis()))
     seconds.orElse(date).getOrElse(fallback.toLong)
   }
 
@@ -290,6 +298,21 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
     }
   }
 
+  @tailrec
+  private def exchangeWithThrottling(client: CloseableHttpClient,
+                                     settings: Settings,
+                                     request: HTTPRequestData): WireResponse = {
+    val response = exchange(client, settings, request)
+    val canReplay = request.requestLine.method == "GET" || response.location.isEmpty
+    if (settings.retryOnThrottling && response.httpStatus == TooManyRequests &&
+      response.diagnostic.isEmpty && !response.transportFailure && canReplay) {
+      pause(retryDelay(response.retryAfter, settings.pollingDelay))
+      exchangeWithThrottling(client, settings, request)
+    } else {
+      response
+    }
+  }
+
   private def asObject(raw: String): Option[JsObject] = {
     try {
       raw.parseJson match {
@@ -352,19 +375,20 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
   private def ongoing(response: ContentUnderstandingResponse): Boolean =
     Set("Running", "NotStarted")(response.status)
 
-  private def uncertainSubmission(raw: WireResponse, response: ContentUnderstandingResponse): Boolean = {
+  private def uncertainSubmission(raw: WireResponse): Boolean = {
     val unreadable = raw.diagnostic.isDefined || raw.json.flatMap(stringField(_, "status"))
       .flatMap(status => StatusNames.get(status.toLowerCase(java.util.Locale.ROOT))).isEmpty
     raw.transportFailure || raw.httpStatus == HttpStatus.SC_REQUEST_TIMEOUT ||
       raw.httpStatus >= HttpStatus.SC_INTERNAL_SERVER_ERROR ||
-      (raw.successful && unreadable) || (!raw.successful && response.operationLocation.isDefined)
+      (raw.successful && unreadable) || (!raw.successful && raw.location.isDefined)
   }
 
   private def decodeSubmission(raw: WireResponse, location: Option[String]): ContentUnderstandingResponse = {
     val response = decode(raw, location)
-    if (response.operationLocation.isEmpty && AdmissionRejections(raw.httpStatus)) {
+    if (raw.location.isEmpty && raw.diagnostic.isEmpty && !raw.transportFailure &&
+      AdmissionRejections(raw.httpStatus)) {
       response.copy(status = "Rejected")
-    } else if (uncertainSubmission(raw, response)) {
+    } else if (uncertainSubmission(raw)) {
       response.copy(status = "Unknown")
     } else {
       response
@@ -421,7 +445,7 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
     def loop(remaining: Int, previous: Option[ContentUnderstandingResponse], delay: Long)
     : ContentUnderstandingResponse = {
       pause(delay)
-      val raw = exchange(client, settings, request)
+      val raw = exchangeWithThrottling(client, settings, request)
       val parsed = decodePoll(raw, location, analyzer, failOnClientError)
       val current = if (raw.retryable) {
         previous.map(_.copy(httpStatus = parsed.httpStatus, error = parsed.error))
@@ -450,7 +474,7 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
         pollWithClient(client, settings, request, request.requestLine.uri, None, 0L,
           failOnClientError = failOnClientError)
       } else {
-        val raw = exchange(client, settings, request)
+        val raw = exchangeWithThrottling(client, settings, request)
         val submitted = safeSubmission(settings, raw)
         val resumable = ongoing(submitted) || (submitted.status == "Unknown" && submitted.operationLocation.isDefined)
         if (mode == "analyze" && resumable) {
@@ -477,7 +501,7 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
                                     request: HTTPRequestData): String = {
     @tailrec
     def get(remaining: Int): WireResponse = {
-      val response = exchange(client, settings, request)
+      val response = exchangeWithThrottling(client, settings, request)
       if (response.retryable && remaining > 1) {
         pause(retryDelay(response.retryAfter, settings.pollingDelay))
         get(remaining - 1)
@@ -496,7 +520,7 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
                      getRequestData: HTTPRequestData,
                      analyzerId: String): String = {
     withClient(settings) { client =>
-      val raw = exchange(client, settings, request)
+      val raw = exchangeWithThrottling(client, settings, request)
       analyzerBody(raw)
       raw.location match {
         case Some(location) =>
