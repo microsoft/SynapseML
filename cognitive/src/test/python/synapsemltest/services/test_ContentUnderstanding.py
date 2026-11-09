@@ -147,6 +147,42 @@ class TestContentUnderstanding(unittest.TestCase):
         )
         self.assertNotIn("dataBase64", document)
 
+    def test_set_params_rejects_conflicting_bindings_before_mutation(self):
+        cases = [
+            ("apiVersion", "2025-11-01", "version"),
+            ("documentBytes", b"document", "body"),
+            ("modelDeployments", {"completion": "deployment"}, "deployments"),
+            ("allowInputTruncation", False, "truncate"),
+        ]
+        for name, value, column in cases:
+            for column_first in (False, True):
+                with self.subTest(parameter=name, column_first=column_first):
+                    bindings = [(name, value), (name + "Col", column)]
+                    if column_first:
+                        bindings.reverse()
+                    analyzer = ContentUnderstanding().setOutputCol("original")
+                    with self.assertRaisesRegex(ValueError, "Cannot set both"):
+                        analyzer.setParams(outputCol="changed", **dict(bindings))
+                    self.assertEqual(analyzer.getOutputCol(), "original")
+
+    def test_set_params_preserves_none_and_separate_binding_changes(self):
+        analyzer = ContentUnderstanding(allowInputTruncation=True)
+        self.assertIs(
+            analyzer.setParams(
+                allowInputTruncation=False, allowInputTruncationCol=None
+            ),
+            analyzer,
+        )
+        self.assertFalse(analyzer.getAllowInputTruncation())
+        analyzer.setParams(
+            allowInputTruncation=None, allowInputTruncationCol="truncate"
+        )
+        self.assertEqual(analyzer.getAllowInputTruncationCol(), "truncate")
+        analyzer.setParams(allowInputTruncation=True)
+        self.assertTrue(analyzer.getAllowInputTruncation())
+        analyzer.setParams(documentBytes=b"document")
+        self.assertEqual(bytes(analyzer.getDocumentBytes()), b"document")
+
     def test_preview_boolean_supports_constructor_copy_clear_and_nullable_columns(self):
         analyzer = (
             ContentUnderstanding(allowInputTruncation=True)
