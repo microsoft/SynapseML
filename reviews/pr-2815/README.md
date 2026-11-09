@@ -44,15 +44,18 @@ approval.
 
 ## Historical findings and resolutions
 
-The [complete 53-report archive](https://github.com/BoraElkin/SynapseML/tree/1bab6fb4aef3d00b616f09b023a03062abc9695e/reviews/pr-2815)
-remains at the immutable published commit above, reachable through this branch's
-history. Its [driver record](https://github.com/BoraElkin/SynapseML/blob/1bab6fb4aef3d00b616f09b023a03062abc9695e/reviews/pr-2815/task-5837660-attempt-3-stage-attempt-2-review-1-gpt-6.1-sol.md)
+The [complete 53-report archive](https://github.com/BoraElkin/SynapseML/tree/bd7ed4d84fe85ea16379000d7100eede66945870/reviews/pr-2815)
+is retained byte-for-byte in the rebased branch's history. Its
+[driver record](https://github.com/BoraElkin/SynapseML/blob/bd7ed4d84fe85ea16379000d7100eede66945870/reviews/pr-2815/task-5837660-attempt-3-stage-attempt-2-review-1-gpt-6.1-sol.md)
 preserves the review decisions, original findings, dispositions, fix/regression
 history and final loop closure. Historical status statements describe their own
 checkpoints, not the current PR state.
 
-All 53 hosted paths, blob hashes and file modes were verified against that
-commit before pruning. The three retained source reports are unchanged.
+All 53 paths, blob hashes and file modes were verified against the original
+archive after rebasing onto `6c2699defcfb24d5bff5ba55f2252ba2d8cbea24`.
+The original review-revision attribution above is unchanged; historical reports
+do not establish review of the newly integrated master fixes.
+The three retained source reports are unchanged.
 Superseded, failed and scope-invalid results remain in the archive with their
 original verdicts; they are not counted as clean signoffs. This artifact-only
 cleanup changes no implementation, test, build or configuration file.
