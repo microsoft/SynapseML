@@ -73,7 +73,7 @@ private[codegen] object PythonStubCodegen {
 trait PythonWrappable extends BaseWrappable {
 
   import GenerationUtils._
-  import PythonMethodExtractor.{Method, MethodPattern}
+  import PythonMethodExtractor.{Method, MethodPattern, pythonIdentifier}
 
   private def getPythonTypeInfo(p: Param[_]): PythonTypeInfo =
     PythonStubCodegen.pythonTypeInfo(thisStage, p)
@@ -157,15 +157,15 @@ trait PythonWrappable extends BaseWrappable {
     thisStage.getClass.getMethods.exists(method =>
       method.getName == name && method.getParameterCount == parameterCount)
   private def validateServiceParamAliases(): Unit = {
-    val paramNames = thisStage.params.map(_.name).toSet
-    val additionalMethods = PythonMethodExtractor.extract(pyAdditionalMethods).map(_.name).toSet
+    val paramNames = thisStage.params.map(p => pythonIdentifier(p.name)).toSet
+    val additionalMethods = PythonMethodExtractor.extract(pyAdditionalMethods).map(m => pythonIdentifier(m.name)).toSet
     thisStage.params.collect { case p: ServiceParam[_] => p }.foreach { p =>
       val capName = p.name.capitalize
       val alias = s"${p.name}Col"
-      require(!paramNames.contains(alias),
+      require(!paramNames.contains(pythonIdentifier(alias)),
         s"Service parameter ${p.name} cannot use Python alias $alias because that Param already exists")
       Seq(s"get${capName}Col", s"set${capName}Col").foreach { methodName =>
-        require(!additionalMethods(methodName),
+        require(!additionalMethods(pythonIdentifier(methodName)),
           s"Generated Python method $methodName conflicts with a hand-written method")
       }
     }
@@ -467,8 +467,8 @@ trait PythonWrappable extends BaseWrappable {
   }
 
   private def pyStubAdditionalMethods: String = {
-    PythonMethodExtractor.extract(pyAdditionalMethods).flatMap {
-      case Method(_, MethodPattern(methodName, args, returnType), decorators) if !methodName.startsWith("_") =>
+    PythonMethodExtractor.effectiveMethods(pyAdditionalMethods).flatMap {
+      case Method(_, MethodPattern(methodName, args, returnType), decorators, _) if !methodName.startsWith("_") =>
         val fluent = isFluentStubMethod(methodName)
         val methodArgs = args.split(",").filter(_.trim.nonEmpty)
         val valueArgCount = methodArgs.count(arg => !Set("self", "cls").contains(arg.trim))

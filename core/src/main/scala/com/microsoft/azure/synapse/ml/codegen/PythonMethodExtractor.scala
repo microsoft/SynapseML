@@ -3,15 +3,40 @@
 
 package com.microsoft.azure.synapse.ml.codegen
 
+import java.text.Normalizer
 import scala.annotation.tailrec
 
 private[codegen] object PythonMethodExtractor {
   private val MethodPrefix = """^def\s+([A-Za-z_][A-Za-z0-9_]*)\s*\("""
-  private val MethodStart = MethodPrefix.r
+  // Alias validation retains full Unicode names; supported stub signatures remain ASCII-only.
+  private val MethodStart = """^(?:async\s+)?def\s+([^\s(]+)\s*\(""".r
   val MethodPattern = (MethodPrefix + """([^)]*)\)(?:\s*->\s*([^:]+))?:\s*$""").r
   private val ScopePrefix = """^(?:(?:async\s+)?def|class)\s+""".r
 
-  case class Method(name: String, signature: String, decorators: Seq[String])
+  case class Method(name: String, signature: String, decorators: Seq[String], unconditional: Boolean)
+
+  def pythonIdentifier(name: String): String = Normalizer.normalize(name, Normalizer.Form.NFKC)
+
+  def effectiveMethods(source: String): Seq[Method] = {
+    val methods = extract(source).zipWithIndex
+    val lastUnconditional = methods.collect {
+      case (method, index) if method.unconditional => pythonIdentifier(method.name) -> index
+    }.toMap
+    methods.collect {
+      case (method, index) if lastUnconditional.get(pythonIdentifier(method.name)).forall(_ <= index) => method
+    }
+  }
+
+  @tailrec
+  private def bindingDecorator(expression: String): Option[String] = {
+    if (Set("staticmethod", "classmethod").contains(expression)) {
+      Some(s"@$expression")
+    } else if (expression.startsWith("(") && expression.endsWith(")")) {
+      bindingDecorator(expression.substring(1, expression.length - 1).trim)
+    } else {
+      None
+    }
+  }
 
   // Class statements and nested scope bodies can contain multiline expressions and strings.
   private class ExpressionState {
@@ -20,6 +45,8 @@ private[codegen] object PythonMethodExtractor {
     private var explicitContinuation = false
 
     def continues: Boolean = quote.nonEmpty || delimiterDepth > 0 || explicitContinuation
+
+    def explicitlyContinues: Boolean = quote.isEmpty && explicitContinuation
 
     private def afterStringCharacter(line: String, index: Int): Int = {
       if (line.charAt(index) == '\\') {
@@ -64,17 +91,52 @@ private[codegen] object PythonMethodExtractor {
     }
   }
 
+  private def indentation(line: String): Int = {
+    // Measure the generated class body: Python expands tabs and resets indentation on form feeds.
+    GenerationUtils.indent(line, 1).takeWhile(" \t\f".contains(_)).foldLeft(0) {
+      case (column, '\t') => (column / 8 + 1) * 8
+      case (_, '\f') => 0
+      case (column, _) => column + 1
+    }
+  }
+
+  private def logicalLines(source: String): Seq[(String, Int)] = {
+    val expression = new ExpressionState
+    val prefix = new StringBuilder
+    var initialIndent: Option[Int] = None
+    source.split("\n").toSeq.flatMap { raw =>
+      val line = raw.stripSuffix("\r")
+      val indent = initialIndent.getOrElse(indentation(line))
+      expression.scan(line)
+      if (expression.explicitlyContinues) {
+        // Generated wrappers indent every physical line, separating tokens across continuations.
+        prefix.append(line.stripSuffix("\\")).append(" ")
+        initialIndent = Some(indent)
+        None
+      } else {
+        val statement = prefix.append(line).toString
+        prefix.clear()
+        initialIndent = None
+        Some(statement -> indent)
+      }
+    }
+  }
+
   def extract(source: String): Seq[Method] = {
     var nestedScopeIndent: Option[Int] = None
     val expression = new ExpressionState
     var decoratorIndent: Option[Int] = None
     var decorators = Vector.empty[String]
-    source.split("\n").toSeq.flatMap { line =>
+    // Explicit continuations keep the logical line's initial indentation, not the next physical line's.
+    logicalLines(source).flatMap { logicalLine =>
+      val (line, indent) = logicalLine
       val statement = line.trim
-      val indent = line.prefixLength(_.isWhitespace)
       if (expression.continues) {
         // A continuation can close at the declaration's indentation without ending its scope.
-        expression.scan(line)
+        val continuation = expression.scan(line)
+        if (decoratorIndent.isDefined) {
+          decorators = decorators.init :+ (decorators.last + "\n" + continuation)
+        }
         None
       } else if (statement.isEmpty || statement.startsWith("#")) {
         None
@@ -91,11 +153,13 @@ private[codegen] object PythonMethodExtractor {
         } else {
           val method = MethodStart.findFirstMatchIn(statement).map { matched =>
             val bindingDecorators = if (decoratorIndent.contains(indent)) {
-              decorators.filter(Set("@staticmethod", "@classmethod"))
+              decorators.flatMap { decorator =>
+                bindingDecorator(decorator.stripPrefix("@").replace("\\\n", "").trim)
+              }
             } else {
               Vector.empty
             }
-            Method(matched.group(1), statement, bindingDecorators)
+            Method(matched.group(1), statement, bindingDecorators, indent == indentation(""))
           }
           decorators = Vector.empty
           decoratorIndent = None
