@@ -5,8 +5,10 @@ package com.microsoft.azure.synapse.ml.vw
 
 import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.core.env.FileUtilities
+import com.microsoft.azure.synapse.ml.core.env.StreamUtilities.using
 import com.microsoft.azure.synapse.ml.core.test.benchmarks.{Benchmarks}
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
+import org.apache.spark.ml.feature.{IndexToString, StringIndexer}
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.expressions.Window
 import org.apache.spark.sql.{functions => F, types => T}
@@ -240,6 +242,133 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
     verifyResult(expected, actual)
   }
 
+  test("Generic model preserves complete input schemas for scalar and array predictions") {
+    val metadata = new T.MetadataBuilder().putString("source", "generic-schema-test").build()
+    val examples = Seq("1 |a b c", "2 |d e f").toDF("value").coalesce(1)
+    for (probabilities <- Seq(false, true)) {
+      val learner = new VowpalWabbitGeneric().setUseBarrierExecutionMode(false)
+      if (probabilities) learner.setPassThroughArgs("--oaa 2")
+      val model = learner.fit(examples)
+      if (probabilities) model.setTestArgs("--probabilities")
+      val control = model.transform(examples)
+      val predictionNames = control.columns.drop(1)
+      val input = examples.withColumn("id", F.length($"value"))
+        .withColumn("label", F.lit("retained"))
+        .withColumn("value", F.when($"value".isNotNull, $"value"))
+        .select($"id", $"value".as("value", metadata), $"label")
+      assert(input.schema("value").nullable)
+      for (columns <- Seq(Seq("value", "id", "label"), Seq("id", "value", "label"),
+        Seq("id", "label", "value"))) {
+        val arranged = input.select(columns.map(F.col): _*)
+        val transformed = model.transform(arranged)
+        assert(transformed.schema == model.transformSchema(arranged.schema))
+        assert(transformed.schema.fields.take(columns.length).toSeq == arranged.schema.fields.toSeq,
+          "GENERIC_INPUT_SCHEMA_PRESERVATION_REGRESSION")
+        assert(transformed.columns.drop(columns.length).toSeq == predictionNames.toSeq)
+        assertDFEq(arranged, transformed.select(columns.map(F.col): _*))
+        assertDFEq(control.orderBy("value").select(predictionNames.map(F.col): _*),
+          transformed.orderBy("value").select(predictionNames.map(F.col): _*))
+      }
+      val renamed = input.withColumnRenamed("value", "examples")
+      val custom = model.copy(org.apache.spark.ml.param.ParamMap.empty).setInputCol("examples")
+      assert(custom.transform(renamed).schema == custom.transformSchema(renamed.schema))
+      assertDFEq(model.transform(input).orderBy("value"),
+        custom.transform(renamed).withColumnRenamed("examples", "value").orderBy("value"))
+      intercept[IllegalArgumentException] { model.transformSchema(T.StructType(Seq.empty)) }
+      intercept[IllegalArgumentException] { model.transform(input.drop("value")) }
+      val nonString = input.withColumn("value", F.lit(1))
+      val typeError = intercept[IllegalArgumentException] { model.transformSchema(nonString.schema) }
+      assert(typeError.getMessage.contains("must have StringType"))
+      intercept[IllegalArgumentException] { model.transform(nonString) }
+      if (probabilities) {
+        val conflicting = input.withColumn("predictions", F.lit(1))
+        intercept[IllegalArgumentException] { model.transformSchema(conflicting.schema) }
+        intercept[IllegalArgumentException] { model.transform(conflicting) }
+      }
+    }
+  }
+
+  test("Generic model preserves nested field metadata and nullability") {
+    val metadata = new T.MetadataBuilder().putString("source", "nested-schema-test").build()
+    val examples = Seq("1 |a b c", "0 |d e f").toDF("value").coalesce(1)
+    val model = new VowpalWabbitGeneric().setUseBarrierExecutionMode(false).fit(examples)
+    using(model.vw) { _ =>
+      for (nullableChild <- Seq(false, true); nullableParent <- Seq(false, true)) {
+        val child = if (nullableChild) F.when($"value".startsWith("1"), F.lit(7)) else F.lit(7)
+        val nested = F.struct(child.as("child", metadata))
+        val nullStruct = F.when(F.lit(false), nested)
+        val payloads = Seq(
+          nested,
+          F.array(nested, nullStruct),
+          F.map(F.lit("key"), nested, F.lit("null"), nullStruct),
+          F.map(nested, nested))
+        for (payload <- payloads) {
+          val field = if (nullableParent) F.when($"value".startsWith("1"), payload) else payload
+          val input = examples.select($"value", field.as("payload", metadata))
+          val output = model.transform(input)
+          assert(output.schema == model.transformSchema(input.schema))
+          assert(output.schema.fields.take(input.columns.length).toSeq == input.schema.fields.toSeq)
+          assert(output.select("value", "payload").collect().toSeq == input.collect().toSeq)
+        }
+      }
+    }.get
+  }
+
+  test("Generic model preserves nested categorical metadata for downstream decoding") {
+    val examples = Seq(("1 |a b c", "red"), ("0 |d e f", "blue"))
+      .toDF("value", "category").coalesce(1)
+    val indexer = new StringIndexer().setInputCol("category").setOutputCol("indexed").fit(examples)
+    val input = indexer.transform(examples).select($"value", F.struct($"indexed").as("payload"))
+    val decoder = new IndexToString().setInputCol("indexed").setOutputCol("decoded")
+    val expected = decoder.transform(input.select("payload.indexed"))
+      .select("decoded").as[String].collect().toSeq
+    assert(expected == Seq("red", "blue"))
+    val model = new VowpalWabbitGeneric().setUseBarrierExecutionMode(false).fit(examples.select("value"))
+    using(model.vw) { _ =>
+      val output = model.transform(input)
+      val actual = decoder.transform(output.select("payload.indexed"))
+        .select("decoded").as[String].collect().toSeq
+      assert(actual == expected)
+    }.get
+  }
+
+  test("Generic prediction name collisions follow Spark case sensitivity") {
+    val examples = Seq("1 |a b c", "0 |d e f").toDF("value").coalesce(1)
+    val model = new VowpalWabbitGeneric().setUseBarrierExecutionMode(false).fit(examples)
+    val original = spark.conf.get("spark.sql.caseSensitive", "false")
+    try {
+      for (caseSensitive <- Seq(false, true)) {
+        spark.conf.set("spark.sql.caseSensitive", caseSensitive.toString)
+        for (name <- Seq("prediction", "confidence", "Prediction", "Confidence")) {
+          val input = examples.withColumn(name, F.lit(7))
+          val conflicts = !caseSensitive || name == name.toLowerCase(java.util.Locale.ROOT)
+          if (conflicts) {
+            val schemaError = intercept[IllegalArgumentException] { model.transformSchema(input.schema) }
+            assert(schemaError.getMessage.contains("Rename them before transforming"))
+            intercept[IllegalArgumentException] { model.transform(input) }
+          } else {
+            assert(model.transform(input).schema == model.transformSchema(input.schema))
+            assert(model.transform(input).collect().length == 2)
+          }
+        }
+        val nearMiss = examples.withColumn("prediction_input", F.lit(7))
+        assert(model.transform(nearMiss).schema == model.transformSchema(nearMiss.schema))
+        assert(model.transform(nearMiss).collect().length == 2)
+        val renamed = examples.withColumnRenamed("value", "Prediction")
+        val custom = model.copy(org.apache.spark.ml.param.ParamMap.empty).setInputCol("Prediction")
+        if (caseSensitive) {
+          assert(custom.transform(renamed).schema == custom.transformSchema(renamed.schema))
+          assert(custom.transform(renamed).collect().length == 2)
+        } else {
+          intercept[IllegalArgumentException] { custom.transformSchema(renamed.schema) }
+          intercept[IllegalArgumentException] { custom.transform(renamed) }
+        }
+      }
+    } finally {
+      spark.conf.set("spark.sql.caseSensitive", original)
+    }
+  }
+
   private def loadDSJSON = {
     val fileLocation = FileUtilities.join(BuildInfo.datasetDir,
       "VowpalWabbit", "Train", "dsjson_cb_part1.json").toString
@@ -254,6 +383,8 @@ class VerifyVowpalWabbitGeneric extends Benchmarks with EstimatorFuzzing[VowpalW
     val dataset = Seq("1 |a b c", "0 |d e f").toDF("value")
     Seq(new TestObject(
       new VowpalWabbitGeneric(),
-      dataset))
+      dataset),
+      new TestObject(new VowpalWabbitGeneric(),
+        dataset.withColumn("id", F.length($"value")).withColumn("note", F.lit("retained"))))
   }
 }
