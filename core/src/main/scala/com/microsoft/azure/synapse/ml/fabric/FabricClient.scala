@@ -14,6 +14,7 @@ import scala.util.control.NonFatal
 
 object FabricClient extends RESTUtils {
   private val WorkloadEndpointTypeML = "ML";
+  private val WorkloadEndpointTypeAI = "AI"
   private val WorkloadEndpointTypeLLMPlugin = "LlmPlugin"
   private val WorkloadEndpointTypeAutomatic = "Automatic"
   private val WorkloadEndpointTypeRegistry = "Registry"
@@ -34,6 +35,7 @@ object FabricClient extends RESTUtils {
 
   lazy val PbiSharedHost: Option[String] = getPbiSharedHost;
   lazy val MLWorkloadEndpointML: String = getMLWorkloadEndpoint(WorkloadEndpointTypeML);
+  lazy val MLWorkloadEndpointAI: String = getMLWorkloadEndpoint(WorkloadEndpointTypeAI)
   lazy val MLWorkloadEndpointLLMPlugin: String = getMLWorkloadEndpoint(WorkloadEndpointTypeLLMPlugin);
   lazy val MLWorkloadEndpointAutomatic: String = getMLWorkloadEndpoint(WorkloadEndpointTypeAutomatic);
   lazy val MLWorkloadEndpointRegistry: String = getMLWorkloadEndpoint(WorkloadEndpointTypeRegistry);
