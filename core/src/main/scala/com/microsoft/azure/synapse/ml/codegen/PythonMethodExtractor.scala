@@ -34,6 +34,24 @@ private[codegen] object PythonMethodExtractor {
   def declarationTokens(declaration: String): Seq[String] =
     DeclarationToken.findAllIn(declaration).toVector
 
+  def splitArgumentDefault(argument: String): Seq[String] = {
+    var delimiterDepth = 0
+    val separator = DeclarationToken.findAllMatchIn(argument).find { token =>
+      token.matched match {
+        case "(" | "[" | "{" =>
+          delimiterDepth += 1
+          false
+        case ")" | "]" | "}" =>
+          delimiterDepth -= 1
+          false
+        case "=" => delimiterDepth == 0
+        case _ => false
+      }
+    }
+    separator.map(token => Seq(argument.substring(0, token.start).trim, argument.substring(token.end).trim))
+      .getOrElse(Seq(argument.trim))
+  }
+
   case class Method(name: String, signature: String, decorators: Seq[String], unconditional: Boolean)
 
   // Python's Unicode tables can be newer than the JDK's. ASCII generation needs no interpreter.
@@ -62,6 +80,7 @@ private[codegen] object PythonMethodExtractor {
     }
   }
 
+  // Track def bindings only, not arbitrary assignment, import, class or del rebinding.
   def effectiveMethods(source: String): Seq[Method] = {
     val methods = extract(source).zipWithIndex
     val lastUnconditional = methods.collect {

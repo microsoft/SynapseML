@@ -1,0 +1,43 @@
+{
+  "pullRequest": 2819,
+  "base": "37948d7d03ef0fa7f1aa24c54c2dd4d8a29c8dc0",
+  "adoptedHead": "89bdd873b7b66bc41aab6b2d5b569d3175dcf8c1",
+  "reviewType": "direct maintainer follow-up; no additional agents",
+  "scopeAudit": {
+    "source": "All four codegen source/test files support effective def binding, supported signature rendering, or service alias collision regression coverage.",
+    "artifacts": "Preserved all 38 inherited review artifacts and their dispositions.",
+    "compatibility": "No dependency, workflow, pipeline, public JVM signature, serialized parameter, or runtime Spark behavior changes.",
+    "limits": "Def bindings only. Arbitrary assignments/imports/classes/del rebinding and unsupported signature grammar remain outside scope."
+  },
+  "finding": {
+    "severity": "P2",
+    "location": "PythonWrappable.pyStubAdditionalArgument",
+    "problem": "Splitting at the first raw equals sign corrupts quoted annotations in newly admitted continued signatures and can collapse distinct conditional annotations into the same invalid declaration.",
+    "priorDisposition": "Earlier reviews deferred quoted equals as a pre-existing single-line limitation. That does not cover the newly exposed continued-signature path.",
+    "resolution": "Reuse declaration tokens to locate an unquoted, unnested equals separator. Preserve required annotations and bracketed quoted annotations as well as ordinary defaults.",
+    "coverage": "Retain the existing literal-whitespace regression and add separate conditional quoted-equals coverage plus continued required/default annotations."
+  },
+  "failingBefore": {
+    "sourceHead": "89bdd873b7b66bc41aab6b2d5b569d3175dcf8c1",
+    "command": "core/testOnly com.microsoft.azure.synapse.ml.codegen.PyCodegenSuite",
+    "result": "95 passed; 2 failed; 0 skipped",
+    "failedTests": [
+      "class-body control blocks expose methods but not nested function or class members",
+      "multiline scope headers exclude nested members from ContinuedDefaultPythonStage (4)"
+    ]
+  },
+  "finalValidation": {
+    "toolchain": "JDK 11, Scala 2.12.17, Python 3.11.8; JVM maximum 3 GiB and 2 active processors",
+    "core/compile": "passed",
+    "core/Test/compile": "passed",
+    "core/scalastyle": "passed, zero errors and warnings",
+    "core/Test/scalastyle": "passed, zero errors and warnings",
+    "core/testOnly com.microsoft.azure.synapse.ml.codegen.PyCodegenSuite": "97 passed; zero failed, canceled, ignored or pending",
+    "black --check --extend-exclude 'docs/' .": "Black 22.3.0 passed; 216 files unchanged",
+    "isolatedMasterOverlay": "Compiled the target's extractor and Wrappable separately against the test classpath: the final-binding public regression fails as expected (0 passed, 1 failed).",
+    "isolatedPublishedOverlay": "Compiled adopted-head extractor and Wrappable separately against the final test classpath: both quoted-equals regressions fail as expected (0 passed, 2 failed).",
+    "scope": "These source checks cover this commit's source/test delta. Aggregate codegen, generated imports, exact-head automated review and Azure status are reported separately in the PR description; this artifact does not claim their success."
+  },
+  "reviewCoverage": "All inherited review bodies/dispositions and PR 2810's resolved threads read. Copilot review 5840076169 covered adopted head with no open source findings; it requested reproducible exact-head evidence. A new review is required after this fix.",
+  "mergeAuthorization": false
+}

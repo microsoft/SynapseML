@@ -246,7 +246,7 @@ class PyCodegenSuite extends AnyFunSuite {
         .foreach(signature => assert(stub.contains(s"def $signature -> Any: ...")))
       assert(stub.contains("""def annotated(self, value: list[str], quoted: "left right") -> dict[str,int]: ..."""))
       Seq("hiddenConditional", "nestedOnly", "relabel", "refresh", "maybe",
-        "conditionalAsync", "bindingChange", "literalChange", "keywordChange", "identifierBoundary")
+        "conditionalAsync", "bindingChange", "literalChange", "equalsChange", "keywordChange", "identifierBoundary")
         .foreach(n => assert(!stub.contains(s"def $n(")))
       Seq("getModelCol", "certain", "formatted", "annotated").foreach(n => assert(occurrences(stub, s"def $n(") == 1))
       assert(PythonMethodExtractor.declarationTokens("1.e1") != PythonMethodExtractor.declarationTokens("1 .e1"))

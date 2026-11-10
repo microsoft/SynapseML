@@ -170,6 +170,8 @@ private[codegen] object PyCodegenFixtures {
          |    return value
          |def literalChange(self, value:"left right"):
          |    return value
+         |def equalsChange(self, value:"left=right"):
+         |    return value
          |def keywordChange(self, value:int or str):
          |    return value
          |def identifierBoundary(self, value:not${"\u2118"}):
@@ -178,6 +180,8 @@ private[codegen] object PyCodegenFixtures {
          |    def annotated(self, value : list[ str ], quoted : "left right") -> dict[ str , int ]:
          |        return value
          |    def literalChange(self, value: "leftright"):
+         |        return value
+         |    def equalsChange(self, value: "left=other"):
          |        return value
          |    def keywordChange(self, value: intorstr):
          |        return value
@@ -256,17 +260,21 @@ private[codegen] object PyCodegenFixtures {
     """key: "Callable[[int], int]" = lambda value: value""" -> "\"Callable[[int], int]\"")
 
   val ContinuedDefaultStubs: Seq[String] =
-    Seq("def continuedDefault(self, labels: Any = ..., note: Any = ..., metadata: Any = ..., " +
-      "reference: Any = ...) -> Any: ...") ++ LambdaDefaultArguments.zipWithIndex.map { case ((_, annotation), i) =>
-      s"def lambdaDefault$i(self, key: $annotation = ...) -> Any: ..."
-    }
+    Seq("def continuedDefault(self, labels: Any = ..., note: \"left=right\" = ..., metadata: Any = ..., " +
+      "reference: Any = ...) -> Any: ...",
+      "def continuedQuoted(self, required: \"left=right\", values: list[\"a=b\"] = ...) -> Any: ...") ++
+      LambdaDefaultArguments.zipWithIndex.map { case ((_, annotation), i) =>
+        s"def lambdaDefault$i(self, key: $annotation = ...) -> Any: ..."
+      }
 
   class ContinuedDefaultPythonStage extends TypedPythonStage("continuedDefaultPythonStage") {
     override protected lazy val classNameHelper: String = "ContinuedDefaultPythonStage"
     override def pyAdditionalMethods: String = super.pyAdditionalMethods + s"lambda${"\u2118"} = None\n" +
-      "def continuedDefault(self, \\\n    labels=[\"left\", \"right\"], note=\"left,right\", " +
+      "def continuedDefault(self, \\\n    labels=[\"left\", \"right\"], note: \"left=right\"=\"left,right\", " +
       "metadata={\"left\": \"right,left\", \"right\": \"value\"}, " +
       s"reference=lambda${"\u2118"}):\n    return labels\n" +
+      "def continuedQuoted(self, \\\n    required: \"left=right\", values: list[\"a=b\"] = None):\n" +
+      "    return required\n" +
       "def unsupportedLambda(self, \\\n    handler=lambda left,right: right):\n    return handler\n" +
       LambdaDefaultArguments.zipWithIndex.map { case ((argument, _), i) =>
         s"def lambdaDefault$i(self, $argument):\n    return key\n"

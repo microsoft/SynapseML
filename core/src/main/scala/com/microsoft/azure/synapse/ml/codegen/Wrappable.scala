@@ -421,8 +421,8 @@ trait PythonWrappable extends BaseWrappable {
     } else if (Set("self", "cls", "*", "/").contains(trimmed)) {
       trimmed
     } else {
-      val hasDefault = trimmed.contains("=")
-      val argumentParts = trimmed.split("=", 2).map(_.trim)
+      val argumentParts = PythonMethodExtractor.splitArgumentDefault(trimmed)
+      val hasDefault = argumentParts.length > 1
       val withoutDefault = argumentParts.head
       val typedArgument = if (withoutDefault.contains(":")) {
         withoutDefault.split(":", 2).map(_.trim).mkString(": ")
