@@ -1,0 +1,35 @@
+{
+  "pullRequest": 2813,
+  "reviewedCommit": "daa4b1f06a9d5671f1920998a1a512638f88aac0",
+  "scope": "Prerequisite integration and accompanying qualification documentation",
+  "integratedSources": [
+    "4b8fa377951afd58deb74e8edbca8f6ea3c609c9",
+    "14f0793d7809fa6527950b971909aad84afe244c"
+  ],
+  "integrationReview": {
+    "extractorAndRegressionFixturesMatchPrerequisiteHead": true,
+    "recoveryPyParamInputTypeOverridesPreserved": true,
+    "cognitiveSourcesUnchangedFrom0eef1a46": true,
+    "persistenceSourcesUnchangedFrom0eef1a46": true,
+    "conflicts": []
+  },
+  "qualificationEvidence": {
+    "testedCommit": "0eef1a4646447e8a6d2ce57af0d956bf28d2fb56",
+    "sameApplication": "https://github.com/microsoft/SynapseML/pull/2813#issuecomment-6765779154",
+    "boundedScaling": "https://github.com/microsoft/SynapseML/pull/2813#issuecomment-6766867998",
+    "threeApplicationsAndPython311": "https://github.com/microsoft/SynapseML/pull/2813#issuecomment-6767060133",
+    "limitations": [
+      "Controlled post-commit interruption, not abrupt process loss or exactly-once billing",
+      "Single-run synthetic scaling measurements, not live-provider throughput",
+      "Older-head evidence is not represented as a new-head run"
+    ]
+  },
+  "documentationReview": {
+    "notebookCodeCellsUnchanged": true,
+    "executionFlagsDisabled": true,
+    "notebookOutputsEmpty": true,
+    "qualificationAndPerformanceClaimsBounded": true
+  },
+  "newHeadValidation": "Pending after the documentation source freeze; this review is not a readiness declaration.",
+  "findings": []
+}

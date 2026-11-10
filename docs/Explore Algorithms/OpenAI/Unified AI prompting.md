@@ -42,8 +42,9 @@ persisting a Spark result. Plan how your application will materialize outcomes;
 caching alone is not an exactly-once inference guarantee.
 
 The separate [durable-results guide](Durable%20AI%20results.md) describes opt-in
-Delta snapshots and explicit recovery. That draft follow-up remains unqualified;
-it does not promise exactly-once requests or managed Spark application-restart support.
+Delta snapshots and explicit recovery, including the bounded Fabric
+stopped-application checks and their runtime limits. It does not promise
+exactly-once requests or support for arbitrary managed Spark runtimes.
 
 See the [AIPrompt notebook](AIPrompt.md) for examples. Its runnable source is
 [AIPrompt.ipynb](https://github.com/microsoft/SynapseML/blob/master/docs/Explore%20Algorithms/OpenAI/AIPrompt.ipynb).

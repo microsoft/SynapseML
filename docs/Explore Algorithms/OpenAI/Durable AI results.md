@@ -7,10 +7,11 @@ description: Opt-in Delta snapshots, committed outcomes, and explicit recovery o
 
 # Durable AI results
 
-**Draft recovery follow-up:** this extracted implementation is not runtime-qualified.
-It builds on [the focused native APIs](Unified%20AI%20prompting.md); prerequisite
-test passes do not qualify recovery. Managed Spark application-restart recovery
-remains unqualified. See [issue #2800](https://github.com/microsoft/SynapseML/issues/2800).
+**Opt-in recovery, with bounded runtime qualification:** this builds on
+[the focused native APIs](Unified%20AI%20prompting.md). The checks below cover
+specific local and Fabric scenarios, including controlled recovery after stopping
+a Spark application; they do not establish arbitrary-runtime support or
+exactly-once inference. See [issue #2800](https://github.com/microsoft/SynapseML/issues/2800).
 
 The [opt-in recovery notebook](https://github.com/microsoft/SynapseML/blob/master/docs/Explore%20Algorithms/OpenAI/Quickstart%20-%20Durable%20AI%20results.ipynb) starts
 with all execution flags disabled. The examples below assume `spark`, an ordinary
@@ -76,8 +77,8 @@ Use the saved native stage's reader (or `AIPrompt.load`) for SparkML persistence
 loading new native artifacts through the legacy `OpenAIPrompt` reader is outside this feature.
 
 The caller must supply a Delta-capable runtime and a fresh run directory.
-The preserved local test setup used the following caller-provided JVM artifact.
-It is not a mandatory inference dependency or a qualification claim for this extracted revision:
+The local test profile uses the following caller-provided JVM artifact.
+It is not a mandatory inference dependency and does not qualify other runtime combinations:
 
 | Spark / Scala | Caller-provided Delta artifact |
 | --- | --- |
@@ -90,14 +91,24 @@ the `org.apache.spark.sql.delta.sources.DeltaDataSource` class,
 `spark.sql.catalog.spark_catalog`. The extension and catalog must be configured
 before the Spark session is created.
 
-The opt-in `aiprompt_fabric_recovery_e2e.py` probe is intended to check Fabric OneLake
-interruption, owner release and resume within the same managed Spark 3.5
-application using bundled Delta and synthetic HTTP responses. The extracted revision
-has not passed this probe; prior combined-tree evidence does not qualify it. Recovery after
-stopping and restarting a managed Spark application remains unqualified.
-It is not part of CI: run it against the exact SynapseML build and managed runtime
-before treating that combination as qualified. This storage check does not
-establish provider availability. Bundled Delta alone does not establish compatibility:
+The opt-in `aiprompt_fabric_recovery_e2e.py` probe
+[passed](https://github.com/microsoft/SynapseML/pull/2813#issuecomment-6765779154)
+Fabric OneLake interruption, owner release and resume within one managed Spark
+application, using bundled Delta and synthetic HTTP responses. A separate
+[three-application check](https://github.com/microsoft/SynapseML/pull/2813#issuecomment-6767060133)
+tested build `0eef1a46` on Fabric Spark `3.5.5.5.4.20260921.11` with OneLake
+and the implicit Fabric Responses endpoint. It interrupted after a committed
+batch, verified the writer's Spark context had stopped, released the exact owner
+from a second application, resumed pending rows, then reopened the completed
+results from a third application. Duplicate rows, raw responses, usage and the
+public schema were preserved, including one intentional terminal row error.
+This was a controlled post-commit interruption, not abrupt process loss or a
+guarantee against replaying uncommitted paid requests.
+
+These are opt-in checks, not continuous CI coverage. Requalify the exact build
+and runtime combination before deployment; neither check establishes general
+provider availability or compatibility with other Spark ports. Bundled Delta
+alone does not establish compatibility:
 runtimes with different provider packages or catalog/extension arrangements are
 not supported by these checks. Do not replace managed-runtime jars to bypass
 them. Accepted path schemes are `hdfs`, `abfs` and `abfss`, plus `file` only
@@ -443,6 +454,24 @@ single-driver S3 configurations, do not establish cross-driver ownership.
 
 ## Scaling responsibly
 
+
+Durability adds transaction and integrity-check overhead. A
+[single-run synthetic HTTP check](https://github.com/microsoft/SynapseML/pull/2813#issuecomment-6766867998)
+on the Fabric runtime above measured the following with batch size 1,000,
+eight input/shuffle partitions and per-partition concurrency eight:
+
+| Rows | Ordinary inference | Durable inference | Completed resume |
+| --- | ---: | ---: | ---: |
+| 1,000 | 2.46 s | 55.21 s | 3.58 s |
+| 10,000 | 8.64 s | 159.72 s | 3.22 s |
+
+Both modes sent one request per row; completed resumes sent none. Timings
+include result verification, with an HTTP-only warmup before measurement;
+durable execution also includes initialization and Delta commits. This
+fast-provider example exposes storage overhead, not live-model throughput or
+a statistically controlled performance guarantee. It does not qualify larger
+inputs or other batch sizes. Measure with your provider, payloads and runtime
+before choosing durability or increasing batch size.
 
 Before starting a run, tune partition count and `concurrency` to the deployment's rate limit.
 In lazy mode, repartition the input DataFrame deliberately. Durable mode reads a
