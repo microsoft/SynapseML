@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.services.ai
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import org.apache.spark.{TaskContext, TaskKilledException}
+import org.apache.spark.injections.TaskContextUtils
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.functions.{col, udf}
 import org.apache.spark.sql.types.StructType
@@ -104,7 +105,8 @@ class AIPromptCancellationSuite extends TestBase {
           assert(!gate.completionInterrupted.get(), "Task-only cancellation interrupted executor cleanup")
           val killed = Iterator.iterate(gate.failure.get())(_.getCause).takeWhile(_ != null)
             .collectFirst { case error: TaskKilledException => error }
-          assert(killed.exists(_.reason == "HTTP request task canceled"))
+          val reason = TaskContextUtils.getKillReason(gate.context.get())
+          assert(reason.nonEmpty && killed.exists(error => reason.contains(error.reason)))
         } finally {
           releaseResponse.countDown()
           gate.release.countDown()

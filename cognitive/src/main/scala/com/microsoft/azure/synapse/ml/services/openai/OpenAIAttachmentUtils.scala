@@ -7,6 +7,7 @@ import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{Path => HPath}
 import org.apache.spark.{TaskContext, TaskKilledException}
+import org.apache.spark.injections.TaskContextUtils
 
 import java.io.{ByteArrayInputStream, ByteArrayOutputStream, InterruptedIOException}
 import java.net.{URI, URLConnection}
@@ -35,7 +36,10 @@ private[services] object OpenAIAttachmentUtils {
 
   private def taskCancelled: Boolean = Option(TaskContext.get()).exists(_.isInterrupted())
 
-  private def taskKilled(): Nothing = throw new TaskKilledException("Attachment read canceled")
+  private def taskKilled(): Nothing = {
+    throw new TaskKilledException(
+      TaskContextUtils.getKillReason(TaskContext.get()).getOrElse("Attachment read canceled"))
+  }
 
   private def checkCancellation(): Unit = {
     if (Thread.currentThread().isInterrupted) interruptedRead()

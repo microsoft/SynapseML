@@ -548,8 +548,11 @@ builds the lazy plan. Configure filesystem access before calling `transform`;
 later configuration or credential rotation requires a new `transform` call.
 Legacy `OpenAIPrompt` continues using its executor-default Hadoop configuration.
 Null, empty or whitespace-only attachment paths contribute no attachment; their
-direct filename placeholders render as empty strings without discarding other
-usable inputs. Null non-path template values retain Spark's null behavior.
+direct filename placeholders render as empty strings. Other usable attachments
+and prompt text are preserved when at least one configured attachment is usable.
+If every configured attachment is absent, the row produces `missing_input` even
+when its prompt text is populated. Null non-path template values retain Spark's
+null behavior.
 
 **Token-limit compatibility:** Both `AIPrompt` and legacy `OpenAIPrompt` Chat
 send `maxTokens` as `max_completion_tokens`, not `max_tokens`;
@@ -777,6 +780,10 @@ Unlike earlier legacy handling of non-fatal read failures, they also stop when
 a read fails while the thread is interrupted or the Spark task is canceled.
 Actual thread interruption is preserved; a Spark task-only cancellation does not
 set the executor thread's interrupt flag, so cleanup honors `interruptOnCancel=false`.
+HTTP and attachment task-kill exceptions preserve Spark's recorded cancellation
+reason rather than replacing it with a generic message. The bounded handler also
+rechecks cancellation after a rejected worker submission and before reporting
+an expired result wait.
 Null entries in optional usage-detail maps are omitted without discarding other
 counters. When supplied, the main input, output and total token counters must still
 be non-negative integers; explicit null or invalid numeric values are parse errors.

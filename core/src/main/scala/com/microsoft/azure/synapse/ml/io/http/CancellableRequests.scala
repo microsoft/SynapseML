@@ -5,10 +5,11 @@ package com.microsoft.azure.synapse.ml.io.http
 
 import org.apache.http.client.methods.HttpRequestBase
 import org.apache.spark.{TaskContext, TaskKilledException}
+import org.apache.spark.injections.TaskContextUtils
 import org.apache.spark.internal.Logging
 
 import java.util.concurrent.{Callable, CancellationException, ConcurrentHashMap, ExecutionException, Executors, Future,
-  FutureTask, ScheduledFuture, ScheduledThreadPoolExecutor, TimeUnit, TimeoutException}
+  FutureTask, RejectedExecutionException, ScheduledFuture, ScheduledThreadPoolExecutor, TimeUnit, TimeoutException}
 import java.util.concurrent.atomic.AtomicBoolean
 import scala.annotation.tailrec
 import scala.collection.JavaConverters._
@@ -27,6 +28,7 @@ private[http] object CancellableRequests extends Logging {
       val thread = Executors.defaultThreadFactory().newThread(runnable)
       thread.setName("synapseml-http-cancellation-monitor")
       thread.setDaemon(true)
+      thread.setContextClassLoader(CancellableRequests.getClass.getClassLoader)
       thread
     })
     monitor.setRemoveOnCancelPolicy(true)
@@ -87,8 +89,10 @@ private[http] object CancellableRequests extends Logging {
 
     def checkTask(): Unit = {
       check()
-      if (context.exists(_.isInterrupted())) {
-        throw new TaskKilledException("HTTP request task canceled")
+      context.foreach { task =>
+        if (task.isInterrupted()) {
+          throw new TaskKilledException(TaskContextUtils.getKillReason(task).getOrElse("HTTP request task canceled"))
+        }
       }
       if (cancelled.get()) {
         throw new CancellationException("HTTP request canceled")
@@ -97,7 +101,7 @@ private[http] object CancellableRequests extends Logging {
 
     def submit[T](action: => T): Future[T] = {
       checkTask()
-      pool.submit(new Callable[T] {
+      try pool.submit(new Callable[T] {
         override def call(): T = {
           Active.set(Scope.this)
           try {
@@ -105,7 +109,11 @@ private[http] object CancellableRequests extends Logging {
             action
           } finally Active.remove()
         }
-      })
+      }) catch {
+        case error: RejectedExecutionException =>
+          checkTask()
+          throw error
+      }
     }
 
     @tailrec
@@ -114,7 +122,9 @@ private[http] object CancellableRequests extends Logging {
       val remaining = if (timeout.isFinite) timeout.toNanos - (System.nanoTime() - started) else Long.MaxValue
       val waitNanos = math.max(0L, math.min(remaining, PollNanos))
       val result = try Some(future.get(waitNanos, TimeUnit.NANOSECONDS)) catch {
-        case _: TimeoutException if remaining <= 0 => throw new TimeoutException("HTTP concurrent request timed out")
+        case _: TimeoutException if remaining <= 0 =>
+          checkTask()
+          throw new TimeoutException("HTTP concurrent request timed out")
         case _: TimeoutException => None
         case failure: ExecutionException =>
           checkTask()
@@ -146,6 +156,7 @@ private[http] object CancellableRequests extends Logging {
           val thread = new Thread(work)
           thread.setName("synapseml-http-abort-" + thread.getId)
           thread.setDaemon(true)
+          thread.setContextClassLoader(CancellableRequests.getClass.getClassLoader)
           thread.start()
         }
       }

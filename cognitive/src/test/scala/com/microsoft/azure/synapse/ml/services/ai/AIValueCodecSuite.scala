@@ -13,6 +13,17 @@ import java.util.Arrays
 import scala.util.Using
 
 class AIValueCodecSuite extends AIPromptTestBase {
+  test("schema reconciliation widens non-nullable expressions without changing values") {
+    val metadata = new MetadataBuilder().putString("source", "schema-reconciliation").build()
+    val input = spark.range(1).select(lit("hello").as("text", metadata),
+      struct(lit(1).as("value")).as("record"), array(lit(2)).as("items"))
+    assert(input.schema.fields.forall(!_.nullable))
+    val expected = StructType(input.schema.fields.map(_.copy(nullable = true)))
+    val output = AIValueCodec.reconcileSchema(input, expected)
+    assert(output.schema == expected)
+    assert(output.collect().toSeq == input.collect().toSeq)
+  }
+
   test("negative decimal scales remain valid at every nesting position") {
     val setting = "spark.sql.legacy.allowNegativeScaleOfDecimal"
     val previous = spark.conf.getOption(setting)

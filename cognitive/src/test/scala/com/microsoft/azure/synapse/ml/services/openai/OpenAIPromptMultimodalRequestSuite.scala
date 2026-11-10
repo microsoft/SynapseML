@@ -10,6 +10,7 @@ import org.apache.commons.io.{FileUtils, IOUtils}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.FileSystem
 import org.apache.spark.TaskKilledException
+import org.apache.spark.injections.TaskContextUtils
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.functions.{col, lit, struct, to_json}
@@ -407,7 +408,6 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
       assert(!error.contains(missingUrl))
     }
   }
-
   test("attachment file reads propagate cancellation without converting ordinary IO failures") {
     withAttachmentFailureFileSystem { fs =>
       def read(name: String): Unit = {
@@ -440,7 +440,6 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
       } finally Thread.interrupted()
     }
   }
-
   Seq(false, true).foreach { includeCauses =>
     test(s"attachment reads detect interruption in cyclic exception graphs (causes=$includeCauses)") {
       val (root, last) = AttachmentReadFailures.cyclicExceptionGraph(includeCauses)
@@ -544,8 +543,9 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
               })
             } else {
               assert(!gate.completionInterrupted.get())
-              assert(causes.exists {
-                case error: TaskKilledException => error.reason == "Attachment read canceled"
+              val reason = TaskContextUtils.getKillReason(gate.context.get())
+              assert(reason.nonEmpty && causes.exists {
+                case error: TaskKilledException => reason.contains(error.reason)
                 case _ => false
               })
             }

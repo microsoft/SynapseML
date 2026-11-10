@@ -7,6 +7,7 @@ import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.io.http.{HTTPRequestData, HTTPSchema, HTTPTransformer, HandlingUtils,
   SingleThreadedHTTPClient}
 import com.sun.net.httpserver.{HttpExchange, HttpServer}
+import org.apache.commons.io.IOUtils
 import org.apache.http.{Header, HttpEntity, HttpHost, HttpRequest, ProtocolVersion, StatusLine}
 import org.apache.http.client.methods.{CloseableHttpResponse, HttpPost}
 import org.apache.http.conn.ClientConnectionManager
@@ -518,7 +519,7 @@ class VerifyBoundedRequests extends TestBase {
       } { destination =>
         withServer { exchange =>
           sends.incrementAndGet()
-          Using.resource(exchange.getRequestBody)(_.readAllBytes())
+          Using.resource(exchange.getRequestBody)(IOUtils.toByteArray)
           exchange.getResponseHeaders.add("Location", destination)
           exchange.sendResponseHeaders(303, -1)
           exchange.close()

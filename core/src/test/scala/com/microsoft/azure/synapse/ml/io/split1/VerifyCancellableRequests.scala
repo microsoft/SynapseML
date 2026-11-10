@@ -11,6 +11,7 @@ import org.apache.spark.{TaskContextTestSupport, TaskKilledException}
 import org.scalatest.concurrent.Eventually._
 import org.scalatest.time.{Seconds, Span}
 
+import java.net.URLClassLoader
 import java.util.concurrent.{CancellationException, ConcurrentHashMap, CountDownLatch, ExecutionException, Semaphore,
   TimeUnit, TimeoutException}
 import java.util.concurrent.atomic.{AtomicBoolean, AtomicInteger, AtomicReference}
@@ -19,6 +20,175 @@ import scala.concurrent.duration._
 import scala.util.Using
 
 class VerifyCancellableRequests extends TestBase {
+  test("cancellation infrastructure does not retain the task classloader while request workers inherit it") {
+    val previousLoader = Thread.currentThread().getContextClassLoader
+    val libraryLoader = classOf[SingleThreadedHTTPClient].getClassLoader
+    Using.resource(new URLClassLoader(Array.empty, previousLoader)) { taskLoader =>
+      val monitorLoader = new AtomicReference[ClassLoader]()
+      val workerLoader = new AtomicReference[ClassLoader]()
+      val abortLoader = new AtomicReference[ClassLoader]()
+      val monitorChecked = new CountDownLatch(1)
+      val workerStarted = new CountDownLatch(1)
+      val release = new Semaphore(0)
+      val context = new TaskContextTestSupport.ControlledContext(() => {
+        monitorLoader.set(Thread.currentThread().getContextClassLoader)
+        monitorChecked.countDown()
+      })
+      val post = new HttpPost("http://example.invalid/test") {
+        override def abort(): Unit = {
+          abortLoader.set(Thread.currentThread().getContextClassLoader)
+          release.release()
+          super.abort()
+        }
+      }
+      Thread.currentThread().setContextClassLoader(taskLoader)
+      try {
+        Using.resource(VerifyBoundedRequests.client(() => {
+          workerLoader.set(Thread.currentThread().getContextClassLoader)
+          workerStarted.countDown()
+          release.acquireUninterruptibly()
+          VerifyBoundedRequests.response(200, new StringEntity("released"), () => ())
+        })) { http =>
+          val handler: HandlingUtils.HandlerFunc = (_, data) => HandlingUtils.bounded()(http, data)
+          Using.resource(new SingleThreadedHTTPClient(handler, 1000)) { production =>
+            val request = new HTTPRequestData(post) {
+              override def toHTTPCore: HttpPost = post
+            }
+            val results = TaskContextTestSupport.withContext(context) {
+              production.sendCancellableRequestsWithContext(
+                Iterator(production.RequestWithContext(Some(request), None)), 1, 30.seconds)
+            }
+            try {
+              assert(results.hasNext && workerStarted.await(5, TimeUnit.SECONDS))
+              assert(monitorChecked.await(5, TimeUnit.SECONDS))
+              results.close()
+              assert(monitorLoader.get() eq libraryLoader)
+              assert(abortLoader.get() eq libraryLoader)
+              assert(workerLoader.get() eq taskLoader)
+            } finally {
+              release.release()
+              try results.close() finally context.complete()
+            }
+          }
+        }
+      } finally Thread.currentThread().setContextClassLoader(previousLoader)
+    }
+  }
+
+  test("task cancellation during worker submission preserves the recorded kill reason") {
+    val cancellationObserved = new AtomicBoolean()
+    val poolShutdown = new CountDownLatch(1)
+    val sent = new AtomicInteger()
+    val context = new TaskContextTestSupport.ControlledContext(() => ()) {
+      override def isInterrupted(): Boolean = {
+        val interrupted = super.isInterrupted()
+        if (interrupted && Thread.currentThread().getName == "synapseml-http-cancellation-monitor") {
+          cancellationObserved.set(true)
+        }
+        interrupted
+      }
+    }
+    val observer = new TaskContextTestSupport.ControlledContext(() => {
+      if (cancellationObserved.get()) poolShutdown.countDown()
+    })
+    val cancelOnWorkerCreation = new InheritableThreadLocal[Boolean]() {
+      override def childValue(value: Boolean): Boolean = {
+        context.interrupt()
+        // The next monitor watch runs after this scope's shutdown, while submission is still in progress.
+        assert(poolShutdown.await(5, TimeUnit.SECONDS))
+        false
+      }
+    }
+    val handler: HandlingUtils.HandlerFunc = (_, _) => {
+      sent.incrementAndGet()
+      HTTPSchema.stringToResponse("unused", 200, "OK")
+    }
+    Using.resource(new SingleThreadedHTTPClient(handler, 1000)) { production =>
+      val request = new HTTPRequestData(new HttpPost("http://example.invalid/test"))
+      val results = TaskContextTestSupport.withContext(context) {
+        production.sendCancellableRequestsWithContext(
+          Iterator(production.RequestWithContext(Some(request), None)), 1, 30.seconds)
+      }
+      val observation = TaskContextTestSupport.withContext(observer) {
+        production.sendCancellableRequestsWithContext(Iterator.empty, 1, 30.seconds)
+      }
+      try {
+        cancelOnWorkerCreation.set(true)
+        val failure = intercept[TaskKilledException](results.hasNext)
+        assert(failure.reason == "Synthetic task cancellation")
+        assert(sent.get() == 0 && !Thread.currentThread().isInterrupted)
+      } finally {
+        cancelOnWorkerCreation.remove()
+        try results.close() finally {
+          try observation.close() finally {
+            try context.complete() finally observer.complete()
+          }
+        }
+      }
+    }
+  }
+
+  test("expired HTTP waits preserve a task kill that races with the initial cancellation check") {
+    val consumer = Thread.currentThread()
+    val blockMonitor = new AtomicBoolean()
+    val cancelAtAwait = new AtomicBoolean()
+    val monitorEntered = new CountDownLatch(1)
+    val monitorRelease = new CountDownLatch(1)
+    val started = new CountDownLatch(1)
+    val release = new CountDownLatch(1)
+    val worker = new AtomicReference[Thread]()
+    val context = new TaskContextTestSupport.ControlledContext(() => {
+      if (blockMonitor.get()) {
+        monitorEntered.countDown()
+        assert(monitorRelease.await(10, TimeUnit.SECONDS))
+      }
+    }) {
+      override def isInterrupted(): Boolean = {
+        val interrupted = super.isInterrupted()
+        if ((Thread.currentThread() eq consumer) && cancelAtAwait.get() &&
+          consumer.getStackTrace.exists(frame =>
+            frame.getClassName.endsWith("CancellableRequests$Scope") && frame.getMethodName == "await")) {
+          // Publish the kill after the initial read, returning the value observed before it.
+          if (cancelAtAwait.compareAndSet(true, false)) interrupt()
+        }
+        interrupted
+      }
+    }
+    val handler: HandlingUtils.HandlerFunc = (_, _) => {
+      worker.set(Thread.currentThread())
+      started.countDown()
+      release.await()
+      HTTPSchema.stringToResponse("released", 200, "OK")
+    }
+    Using.resource(new SingleThreadedHTTPClient(handler, 1000)) { production =>
+      val request = new HTTPRequestData(new HttpPost("http://example.invalid/test"))
+      val results = TaskContextTestSupport.withContext(context) {
+        production.sendCancellableRequestsWithContext(
+          Iterator(production.RequestWithContext(Some(request), None)), 1, 1.nanosecond)
+      }
+      try {
+        assert(results.hasNext && started.await(5, TimeUnit.SECONDS))
+        blockMonitor.set(true)
+        assert(monitorEntered.await(5, TimeUnit.SECONDS))
+        cancelAtAwait.set(true)
+        val failure = intercept[TaskKilledException](results.next())
+        assert(failure.reason == "Synthetic task cancellation")
+        assert(!cancelAtAwait.get() && !Thread.currentThread().isInterrupted)
+      } finally {
+        monitorRelease.countDown()
+        release.countDown()
+        try results.close() finally {
+          try context.complete() finally {
+            Option(worker.get()).foreach { thread =>
+              thread.join(5000)
+              assert(!thread.isAlive)
+            }
+          }
+        }
+      }
+    }
+  }
+
   test("driver response iterators can close before submitting requests") {
     val sent = new AtomicInteger()
     val handler: HandlingUtils.HandlerFunc = (_, _) => {
@@ -74,6 +244,7 @@ class VerifyCancellableRequests extends TestBase {
           results.close()
           results.close()
           assert(!results.hasNext && aborts.get() == 1)
+          workers.asScala.foreach(_.join(5000))
           assert(workers.size() == 2 && workers.asScala.forall(!_.isAlive))
           abortWorker.get().join(5000)
           assert(!abortWorker.get().isAlive)
@@ -372,7 +543,10 @@ class VerifyCancellableRequests extends TestBase {
               }
             }
           }
-          assert(!consumer.isAlive && failure.get().isInstanceOf[TaskKilledException])
+          assert(!consumer.isAlive)
+          assert(Option(failure.get()).collect {
+            case error: TaskKilledException => error.reason
+          }.contains("Synthetic task cancellation"))
         }
       }
     }
@@ -455,7 +629,10 @@ class VerifyCancellableRequests extends TestBase {
             }
           }
         }
-        assert(!consumer.isAlive && failure.get().isInstanceOf[TaskKilledException])
+        assert(!consumer.isAlive)
+        assert(Option(failure.get()).collect {
+          case error: TaskKilledException => error.reason
+        }.contains("Synthetic task cancellation"))
       }
     }
   }

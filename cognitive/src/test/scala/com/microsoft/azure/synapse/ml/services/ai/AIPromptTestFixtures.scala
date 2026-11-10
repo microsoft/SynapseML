@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.services.ai
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.TransformerFuzzing
 import com.microsoft.azure.synapse.ml.param.RPrinter
 import com.sun.net.httpserver.{HttpExchange, HttpServer}
+import org.apache.commons.io.IOUtils
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.types.{ArrayType, MapType, StringType, StructType}
 import spray.json._
@@ -28,7 +29,9 @@ private[ai] final class AIRecordingServer(reply: (Int, String) => (Int, String),
   val headers = new ConcurrentLinkedQueue[Map[String, String]]()
   server.setExecutor(pool)
   server.createContext("/", (exchange: HttpExchange) => {
-    val body = Using.resource(exchange.getRequestBody)(in => new String(in.readAllBytes(), StandardCharsets.UTF_8))
+    val body = Using.resource(exchange.getRequestBody) { in =>
+      new String(IOUtils.toByteArray(in), StandardCharsets.UTF_8)
+    }
     requests.add(exchange.getRequestURI.toString -> body)
     headers.add(exchange.getRequestHeaders.asScala.map { case (name, values) =>
       name.toLowerCase(java.util.Locale.ROOT) -> values.asScala.mkString(",")

@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.services.ai
 import com.microsoft.azure.synapse.ml.io.http.{HTTPTransformer, HandlingUtils}
 import com.microsoft.azure.synapse.ml.services.openai.{OpenAIChatCompletion, OpenAIDecisions, OpenAIResponses}
 import com.sun.net.httpserver.{HttpExchange, HttpServer}
+import org.apache.commons.io.IOUtils
 import org.apache.logging.log4j.{Level, LogManager}
 import org.apache.logging.log4j.core.{Filter, LogEvent, LoggerContext}
 import org.apache.logging.log4j.core.appender.AbstractAppender
@@ -175,7 +176,7 @@ class AIPromptLoggingSuite extends AIPromptTestBase {
         val received = new ConcurrentLinkedQueue[String]()
         source.createContext("/", (exchange: HttpExchange) => {
           received.add(exchange.getRequestMethod)
-          Using.resource(exchange.getRequestBody)(_.readAllBytes())
+          Using.resource(exchange.getRequestBody)(IOUtils.toByteArray)
           exchange.getResponseHeaders.add("Location", target.url + "/v1/chat/completions")
           exchange.sendResponseHeaders(303, if (truncated) 100 else -1)
           if (truncated) exchange.getResponseBody.write('{'.toInt)
@@ -211,7 +212,7 @@ class AIPromptLoggingSuite extends AIPromptTestBase {
         val received = new ConcurrentLinkedQueue[String]()
         source.createContext("/", (exchange: HttpExchange) => {
           received.add(exchange.getRequestMethod)
-          Using.resource(exchange.getRequestBody)(_.readAllBytes())
+          Using.resource(exchange.getRequestBody)(IOUtils.toByteArray)
           exchange.getResponseHeaders.add("Location", target.url + "/v1/chat/completions")
           exchange.sendResponseHeaders(303, -1)
           exchange.close()

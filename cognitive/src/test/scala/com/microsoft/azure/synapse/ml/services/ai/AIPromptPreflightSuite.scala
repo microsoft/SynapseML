@@ -637,14 +637,13 @@ class AIPromptPreflightSuite extends TestBase {
 
   test("invalid concurrent timeout defaults fail before HTTP") {
     Using.resource(new AIRecordingServer((_, _) => 200 -> chatReply)) { server =>
-      val saved = tmpDir.resolve("invalid-timeout-output")
       Seq(0.0, -1.0, 1e-10, Double.NaN, Double.PositiveInfinity).foreach { timeout =>
           val stage = new TestableAIDefaultTimeoutPrompt("invalid-default-timeout").setConcurrentTimeoutDefault(timeout)
             .setUrl(server.url + "/v1").setModel("model").setInputCol("text")
           assert(intercept[IllegalArgumentException](stage.transformSchema(input.schema))
             .getMessage.contains("concurrentTimeout"))
           assert(intercept[IllegalArgumentException](stage.transform(input)).getMessage.contains("concurrentTimeout"))
-          assert(server.requests.isEmpty && !Files.exists(saved))
+          assert(server.requests.isEmpty)
       }
     }
   }

@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.services.ai
 import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.linalg.{DenseVector, SQLDataTypes, SparseVector, Vector, Vectors}
 import org.apache.spark.sql.{Column, DataFrame, Row}
-import org.apache.spark.sql.catalyst.expressions.{GetStructField, KnownNotNull}
+import org.apache.spark.sql.catalyst.expressions.{GetStructField, KnownNotNull, KnownNullable}
 import org.apache.spark.sql.functions.{lit, struct, transform, transform_keys, transform_values, when}
 import org.apache.spark.sql.types._
 
@@ -47,7 +47,9 @@ private[ai] object AIValueCodec {
       val column = AIColumnPlan.column(field.name)
       // Struct casts preserve ordinal fields; Dataset.to resolves nested names and can introduce ambiguity.
       val converted = if (source.dataType == field.dataType) column else column.cast(field.dataType)
-      val widened = if (field.nullable && !source.nullable) when(lit(true), converted) else converted
+      val widened = if (field.nullable && !source.nullable) {
+        new Column(KnownNullable(converted.expr))
+      } else converted
       widened.as(field.name, field.metadata)
     }
     val result = frame.select(columns: _*)
