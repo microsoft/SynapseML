@@ -22,7 +22,7 @@ private[openai] object OpenAIAttachmentUtils {
   sealed class AttachmentReadException(fileName: String)
     extends IllegalArgumentException(s"Unable to read attachment '$fileName'")
 
-  /** Storage cancellation, not task interruption; legacy APIs keep this sanitized error row-local. */
+  /** Storage CancellationException, not task interruption; OpenAIPrompt keeps this sanitized error row-local. */
   final class CancelledAttachmentReadException(fileName: String) extends AttachmentReadException(fileName)
 
   private def interruptedRead(): Nothing = {
@@ -39,20 +39,32 @@ private[openai] object OpenAIAttachmentUtils {
     if (taskCancelled) taskKilled()
   }
 
-  private def isTimeout(error: Throwable): Boolean = error match {
-    case io: InterruptedIOException =>
-      // Storage SDKs relocate HTTP timeout classes, including their subclasses.
-      @scala.annotation.tailrec
-      def timeoutClass(clazz: Class[_]): Boolean =
-        clazz != null && (clazz.getName.endsWith("TimeoutException") || timeoutClass(clazz.getSuperclass))
-      timeoutClass(io.getClass)
+  private def isTimeout(error: Throwable): Boolean = {
+    // Storage SDKs relocate timeout classes; not all timeout types extend InterruptedIOException.
+    @scala.annotation.tailrec
+    def timeoutClass(clazz: Class[_]): Boolean =
+      clazz != null && (clazz.getName.endsWith("TimeoutException") || timeoutClass(clazz.getSuperclass))
+    timeoutClass(error.getClass)
+  }
+  // Plain InterruptedIOException signals interruption in Spark too; typed causes disambiguate storage timeouts.
+  private def isInterruption(error: Throwable): Boolean = error match {
+    case _: InterruptedException | _: ClosedByInterruptException => true
+    case io: InterruptedIOException => !isTimeoutFailure(io)
     case _ => false
   }
 
-  private def isInterruption(error: Throwable): Boolean = error match {
-    case _: InterruptedException | _: ClosedByInterruptException => true
-    case io: InterruptedIOException => !isTimeout(io)
-    case _ => false
+  private def isTimeoutFailure(error: Throwable): Boolean = {
+    // Connectors can translate a timeout into plain InterruptedIOException while retaining its cause.
+    val visited = Collections.newSetFromMap(new IdentityHashMap[Throwable, java.lang.Boolean]())
+    @scala.annotation.tailrec
+    def inspect(current: Throwable): Boolean = {
+      if (current == null || !visited.add(current)) false
+      else current match {
+        case _: InterruptedException | _: ClosedByInterruptException => false
+        case _ => isTimeout(current) || inspect(current.getCause)
+      }
+    }
+    inspect(error)
   }
 
   private def isInterruptedRead(error: Throwable): Boolean = {
@@ -60,19 +72,21 @@ private[openai] object OpenAIAttachmentUtils {
     else {
       // Storage wrappers and resource cleanup can hide interruption beneath an ordinary read failure.
       val visited = Collections.newSetFromMap(new IdentityHashMap[Throwable, java.lang.Boolean]())
+      val timeoutCauses = Collections.newSetFromMap(new IdentityHashMap[Throwable, java.lang.Boolean]())
       @scala.annotation.tailrec
-      def inspect(pending: List[Throwable]): Boolean = pending match {
+      def inspect(pending: List[(Throwable, Boolean)]): Boolean = pending match {
         case Nil => false
-        case current :: remaining =>
-          if (!visited.add(current)) inspect(remaining)
-          else if (isInterruption(current)) true
+        case (current, classify) :: remaining =>
+          val seen = if (classify) visited else timeoutCauses
+          if (!seen.add(current)) inspect(remaining)
+          else if (classify && isInterruption(current)) true
           else {
-            // A timeout owns its cause classification; cleanup can still add a separate interruption.
-            val causes = if (isTimeout(current)) Nil else Option(current.getCause).toList
-            inspect(causes ::: current.getSuppressed.toList ::: remaining)
+            // Timeout-owned causes still expose independent suppressed cleanup failures.
+            val causes = Option(current.getCause).map(_ -> (classify && !isTimeout(current))).toList
+            inspect(causes ::: current.getSuppressed.toList.map(_ -> true) ::: remaining)
           }
       }
-      inspect(List(error))
+      inspect(List(error -> true))
     }
   }
 
@@ -300,6 +314,7 @@ private[openai] object OpenAIAttachmentUtils {
         val fileName = attachmentFilename(filePathStr)
         val fileBytes = readAttachment(fileName) {
           val path = new HPath(filePathStr)
+          // Using retains both read and cleanup failures for interruption classification.
           Using.resource(path.getFileSystem(new Configuration()).open(path))(IOUtils.toByteArray)
         }
         (fileName, fileBytes, None)

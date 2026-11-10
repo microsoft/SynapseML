@@ -45,7 +45,9 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
       classOf[AttachmentReadFailureFileSystem], classOf[FileSystem])
     // Production uses a fresh Configuration, so inject the fixture through Hadoop's shared filesystem cache.
     Using.resource(FileSystem.get(AttachmentReadFailures.Location, conf)) {
-      case fs: AttachmentReadFailureFileSystem => testCode(fs)
+      case fs: AttachmentReadFailureFileSystem =>
+        testCode(fs)
+        assert(fs.unexpected.isEmpty, s"Unknown attachment failure scenarios: ${fs.unexpected}")
       case _ => fail("Unexpected attachment failure filesystem")
     }
   }
@@ -413,9 +415,7 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
           None, Set("png"), Set.empty, Set.empty)
       }
       assert(!Thread.currentThread().isInterrupted)
-      val interruptedNames = Seq("interrupted.png", "plain-interrupted.png", "interrupted-io.png",
-        "flagged.png", "read-close.png", "close-interrupted-io.png", "wrapped-interrupted.png",
-        "wrapped-interrupted-io.png", "wrapped-closed-interrupt.png", "timeout-close-interrupted.png")
+      val interruptedNames = AttachmentReadFailures.InterruptedNames
       interruptedNames.foreach { name =>
         try {
           val error = intercept[InterruptedException](read(name))
@@ -450,7 +450,7 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
         }
         assert(ordinary.getMessage == "Unable to read attachment 'image.png'" && ordinary.getCause == null)
         assert(!Thread.currentThread().isInterrupted)
-        val interruption = new InterruptedIOException("Synthetic private interruption")
+        val interruption = AttachmentReadFailures.cyclicInterruption()
         if (includeCauses) last.initCause(interruption) else last.addSuppressed(interruption)
         val error = intercept[InterruptedException] {
           OpenAIAttachmentUtils.readAttachment("image.png")(throw root)
@@ -495,16 +495,21 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
 
   for {
     api <- Seq("chat_completions", "responses")
-    (interrupt, successfulRead) <- Seq((false, false), (false, true), (true, false))
+    (interrupt, successfulRead, beforeRead) <- Seq(
+      (false, false, false), (false, true, false), (true, false, false), (false, false, true))
   } {
-    test(s"legacy $api attachment task cancellation escapes the UDF (interrupt=$interrupt, read=$successfulRead)") {
+    val timing = if (beforeRead) " before IO" else ""
+    test(s"legacy $api attachment task cancellation escapes the UDF " +
+      s"(interrupt=$interrupt, read=$successfulRead)$timing") {
       val context = spark.sparkContext
       val group = UUID.randomUUID().toString
       val gate = new AttachmentReadFailures.Gate(if (successfulRead) Some(imageBytes) else None)
       AttachmentReadFailures.Active.put(group, gate)
-      try withAttachmentFailureFileSystem { _ =>
+      try withAttachmentFailureFileSystem { fs =>
         withEchoServer { (baseUrl, bodies) =>
-          val data = spark.range(1).select(lit("Describe this image.").as("prompt"),
+          val data = if (beforeRead) spark.range(0L, 1L, 1L, 1).mapPartitions { _ =>
+            AttachmentReadFailures.pathAfterCancellation(group)
+          }.toDF("prompt", "image") else spark.range(1).select(lit("Describe this image.").as("prompt"),
             lit(AttachmentReadFailures.Location.resolve(group).toString).as("image"))
           val result = prompt(baseUrl, api).transform(data)
           val executor = Executors.newSingleThreadExecutor()
@@ -544,6 +549,7 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
                 case _ => false
               })
             }
+            if (beforeRead) assert(fs.opened.isEmpty, "Pre-cancelled task entered attachment IO")
             assert(bodies.isEmpty)
           }
         }
@@ -573,8 +579,7 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
 
   for {
     api <- Seq("chat_completions", "responses")
-    name <- Seq("interrupted-io.png", "close-interrupted-io.png", "wrapped-interrupted.png",
-      "wrapped-interrupted-io.png", "wrapped-closed-interrupt.png", "timeout-close-interrupted.png")
+    name <- AttachmentReadFailures.ClearedInterruptNames
   } {
     test(s"legacy $api propagates interrupted IO from $name when storage clears the thread flag") {
       withAttachmentFailureFileSystem { fs =>
