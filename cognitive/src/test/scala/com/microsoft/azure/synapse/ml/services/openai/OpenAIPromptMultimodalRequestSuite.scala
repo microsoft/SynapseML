@@ -6,11 +6,10 @@ package com.microsoft.azure.synapse.ml.services.openai
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.io.http.ErrorUtils
 import com.sun.net.httpserver.{HttpExchange, HttpHandler, HttpServer}
-import org.apache.commons.io.FileUtils
-import org.apache.commons.io.IOUtils
+import org.apache.commons.io.{FileUtils, IOUtils}
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FSDataInputStream, FileSystem, Path, RawLocalFileSystem}
-import org.apache.spark.{TaskContext, TaskKilledException}
+import org.apache.hadoop.fs.FileSystem
+import org.apache.spark.TaskKilledException
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.functions.{col, lit, struct, to_json}
@@ -19,52 +18,14 @@ import org.scalatest.concurrent.Eventually._
 import org.scalatest.time.{Seconds, Span}
 import spray.json._
 
-import java.io.{File, IOException}
-import java.net.{InetSocketAddress, URI}
-import java.nio.channels.ClosedByInterruptException
+import java.io.{File, InterruptedIOException}
+import java.net.InetSocketAddress
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
-import java.util.concurrent.{Callable, ConcurrentHashMap, ConcurrentLinkedQueue, CountDownLatch,
-  ExecutionException, Executors, TimeUnit}
-import java.util.concurrent.atomic.{AtomicBoolean, AtomicReference}
+import java.util.concurrent.{Callable, ConcurrentLinkedQueue, ExecutionException, Executors, TimeUnit}
 import java.util.{Locale, UUID}
 import scala.collection.JavaConverters._
 import scala.util.Using
-
-private[openai] object AttachmentReadFailures {
-  class Gate {
-    val entered = new CountDownLatch(1)
-    val release = new CountDownLatch(1)
-    val completed = new CountDownLatch(1)
-    val context = new AtomicReference[TaskContext]()
-    val taskFailure = new AtomicReference[Throwable]()
-    val completionInterrupted = new AtomicBoolean()
-  }
-
-  val Active = new ConcurrentHashMap[String, Gate]()
-
-  def fail(id: String): Nothing = {
-    Option(Active.get(id)).foreach { gate =>
-      val context = TaskContext.get()
-      gate.context.set(context)
-      context.addTaskFailureListener((_: TaskContext, error: Throwable) => gate.taskFailure.set(error))
-      context.addTaskCompletionListener[Unit] { _ =>
-        gate.completionInterrupted.set(Thread.currentThread().isInterrupted)
-        gate.completed.countDown()
-      }
-      gate.entered.countDown()
-      require(gate.release.await(30, TimeUnit.SECONDS), "Attachment cancellation test gate timed out")
-    }
-    if (id == "interrupted.png") throw new ClosedByInterruptException()
-    throw new IOException("Synthetic attachment read failure")
-  }
-}
-
-class AttachmentReadFailureFileSystem extends RawLocalFileSystem {
-  override def getUri: URI = URI.create("attachmentfailure:///")
-
-  override def open(path: Path, bufferSize: Int): FSDataInputStream = AttachmentReadFailures.fail(path.getName)
-}
 
 class OpenAIPromptMultimodalRequestSuite extends TestBase {
 
@@ -77,6 +38,19 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
   private val dataJson = "data:application/json;base64,e30="
   private val dataPdf = "data:application/pdf;base64,JVBERi0xLjQK"
   private val imageBytes = java.util.Base64.getDecoder.decode(dataImage.split(",", 2)(1))
+
+  private def withAttachmentFailureFileSystem(testCode: AttachmentReadFailureFileSystem => Unit): Unit = {
+    val conf = new Configuration()
+    conf.setClass(s"fs.${AttachmentReadFailures.Location.getScheme}.impl",
+      classOf[AttachmentReadFailureFileSystem], classOf[FileSystem])
+    // Production uses a fresh Configuration, so inject the fixture through Hadoop's shared filesystem cache.
+    Using.resource(FileSystem.get(AttachmentReadFailures.Location, conf)) {
+      case fs: AttachmentReadFailureFileSystem =>
+        testCode(fs)
+        assert(fs.unexpected.isEmpty, s"Unknown attachment failure scenarios: ${fs.unexpected}")
+      case _ => fail("Unexpected attachment failure filesystem")
+    }
+  }
 
   private def responseFor(path: String): String = {
     if (path.endsWith("/responses")) {
@@ -435,71 +409,190 @@ class OpenAIPromptMultimodalRequestSuite extends TestBase {
   }
 
   test("attachment file reads propagate cancellation without converting ordinary IO failures") {
-    val location = URI.create("attachmentfailure:///")
-    val conf = new Configuration()
-    conf.setClass("fs.attachmentfailure.impl", classOf[AttachmentReadFailureFileSystem], classOf[FileSystem])
-    Using.resource(FileSystem.get(location, conf)) { _ =>
+    withAttachmentFailureFileSystem { fs =>
       def read(name: String): Unit = {
-        OpenAIAttachmentUtils.prepareFile(location.resolve(name).toString,
+        OpenAIAttachmentUtils.prepareFile(AttachmentReadFailures.Location.resolve(name).toString,
           None, Set("png"), Set.empty, Set.empty)
-        ()
       }
       assert(!Thread.currentThread().isInterrupted)
+      val interruptedNames = AttachmentReadFailures.InterruptedNames
+      interruptedNames.foreach { name =>
+        try {
+          val error = intercept[InterruptedException](read(name))
+          assert(Thread.currentThread().isInterrupted)
+          assert(error.getMessage == "Attachment read interrupted" && error.getCause == null)
+        } finally Thread.interrupted()
+      }
+      val ordinaryNames = "ordinary.png" +: AttachmentReadFailures.TimeoutNames
+      ordinaryNames.foreach { name =>
+        try {
+          val error = intercept[OpenAIAttachmentUtils.AttachmentReadException](read(name))
+          assert(!error.isInstanceOf[OpenAIAttachmentUtils.CancelledAttachmentReadException])
+          assert(error.getMessage == s"Unable to read attachment '$name'" && error.getCause == null)
+          assert(!Thread.currentThread().isInterrupted)
+        } finally Thread.interrupted()
+      }
       try {
-        val error = intercept[InterruptedException](read("interrupted.png"))
-        assert(Thread.currentThread().isInterrupted)
-        assert(error.getMessage == "Attachment read interrupted" && error.getCause == null)
+        val cancelled = intercept[OpenAIAttachmentUtils.CancelledAttachmentReadException](read("cancelled.png"))
+        assert(cancelled.getMessage == "Unable to read attachment 'cancelled.png'" && cancelled.getCause == null)
+        assert(!Thread.currentThread().isInterrupted)
+        assert(fs.opened.asScala.toSet == (interruptedNames ++ ordinaryNames :+ "cancelled.png").toSet)
       } finally Thread.interrupted()
-      val error = intercept[IllegalArgumentException](read("ordinary.png"))
-      assert(error.getMessage == "Unable to read attachment 'ordinary.png'" && error.getCause == null)
-      assert(!Thread.currentThread().isInterrupted)
     }
   }
 
-  Seq("chat_completions", "responses").foreach { api =>
-    test(s"legacy $api attachment task cancellation escapes the UDF without interrupting cleanup") {
+  Seq(false, true).foreach { includeCauses =>
+    test(s"attachment reads detect interruption in cyclic exception graphs (causes=$includeCauses)") {
+      val (root, last) = AttachmentReadFailures.cyclicExceptionGraph(includeCauses)
+      try {
+        val ordinary = intercept[OpenAIAttachmentUtils.AttachmentReadException] {
+          OpenAIAttachmentUtils.readAttachment("image.png")(throw root)
+        }
+        assert(ordinary.getMessage == "Unable to read attachment 'image.png'" && ordinary.getCause == null)
+        assert(!Thread.currentThread().isInterrupted)
+        val interruption = AttachmentReadFailures.cyclicInterruption()
+        if (includeCauses) last.initCause(interruption) else last.addSuppressed(interruption)
+        val error = intercept[InterruptedException] {
+          OpenAIAttachmentUtils.readAttachment("image.png")(throw root)
+        }
+        assert(Thread.currentThread().isInterrupted)
+        assert(error.getMessage == "Attachment read interrupted" && error.getCause == null)
+      } finally Thread.interrupted()
+    }
+  }
+
+  test("fatal attachment failures are not replaced by nested interruption") {
+    val fatal = new LinkageError("Synthetic fatal failure")
+    fatal.addSuppressed(new InterruptedIOException("Synthetic private interruption"))
+    fatal.initCause(new InterruptedException("Synthetic private cause"))
+    try {
+      assert(intercept[LinkageError] {
+        OpenAIAttachmentUtils.readAttachment("image.png")(throw fatal)
+      } eq fatal)
+      assert(!Thread.currentThread().isInterrupted)
+    } finally Thread.interrupted()
+  }
+
+  test("attachment reads check interruption before IO and after successful IO") {
+    Seq(false, true).foreach { interruptBefore =>
+      var read = false
+      assert(!Thread.currentThread().isInterrupted)
+      try {
+        if (interruptBefore) Thread.currentThread().interrupt()
+        val error = intercept[InterruptedException] {
+          OpenAIAttachmentUtils.readAttachment("image.png") {
+            read = true
+            Thread.currentThread().interrupt()
+            imageBytes
+          }
+        }
+        assert(read != interruptBefore)
+        assert(Thread.currentThread().isInterrupted)
+        assert(error.getMessage == "Attachment read interrupted" && error.getCause == null)
+      } finally Thread.interrupted()
+    }
+  }
+
+  for {
+    api <- Seq("chat_completions", "responses")
+    (interrupt, successfulRead, beforeRead) <- Seq(
+      (false, false, false), (false, true, false), (true, false, false), (false, false, true))
+  } {
+    val timing = if (beforeRead) " before IO" else ""
+    test(s"legacy $api attachment task cancellation escapes the UDF " +
+      s"(interrupt=$interrupt, read=$successfulRead)$timing") {
       val context = spark.sparkContext
       val group = UUID.randomUUID().toString
-      val gate = new AttachmentReadFailures.Gate()
-      val location = URI.create(s"attachmentfailure:///$group")
-      val conf = new Configuration()
-      conf.setClass("fs.attachmentfailure.impl", classOf[AttachmentReadFailureFileSystem], classOf[FileSystem])
+      val gate = new AttachmentReadFailures.Gate(if (successfulRead) Some(imageBytes) else None)
       AttachmentReadFailures.Active.put(group, gate)
-      Using.resource(FileSystem.get(location, conf)) { _ =>
+      try withAttachmentFailureFileSystem { fs =>
         withEchoServer { (baseUrl, bodies) =>
-          val data = spark.range(1).select(lit("Describe this image.").as("prompt"),
-            lit(location.toString).as("image"))
+          val data = if (beforeRead) spark.range(0L, 1L, 1L, 1).mapPartitions { _ =>
+            AttachmentReadFailures.pathAfterCancellation(group)
+          }.toDF("prompt", "image") else spark.range(1).select(lit("Describe this image.").as("prompt"),
+            lit(AttachmentReadFailures.Location.resolve(group).toString).as("image"))
           val result = prompt(baseUrl, api).transform(data)
           val executor = Executors.newSingleThreadExecutor()
-          val job = executor.submit(new Callable[Unit] {
-            override def call(): Unit = {
-              context.setJobGroup(group, "Legacy attachment task cancellation", interruptOnCancel = false)
-              try result.collect() finally context.clearJobGroup()
+          Using.resource(new AutoCloseable {
+            override def close(): Unit = {
+              gate.release.countDown()
+              try context.cancelJobGroup(group) finally {
+                executor.shutdownNow()
+                assert(executor.awaitTermination(15, TimeUnit.SECONDS), "Attachment job did not terminate")
+              }
             }
-          })
-          try {
+          }) { _ =>
+            val job = executor.submit(new Callable[Unit] {
+              override def call(): Unit = {
+                context.setJobGroup(group, "Legacy attachment task cancellation", interruptOnCancel = interrupt)
+                try result.collect() finally context.clearJobGroup()
+              }
+            })
             assert(gate.entered.await(30, TimeUnit.SECONDS))
             context.cancelJobGroup(group)
             eventually(timeout(Span(10, Seconds))) {
               assert(gate.context.get().isInterrupted())
             }
-            gate.release.countDown()
+            if (!interrupt) gate.release.countDown()
             assert(gate.completed.await(10, TimeUnit.SECONDS))
             intercept[ExecutionException](job.get(10, TimeUnit.SECONDS))
-            assert(!gate.completionInterrupted.get())
-            val killed = Iterator.iterate(gate.taskFailure.get())(_.getCause).takeWhile(_ != null)
-              .collectFirst { case error: TaskKilledException => error }
-            assert(killed.exists(_.reason == "Attachment read canceled"))
+            val causes = Iterator.iterate(gate.taskFailure.get())(_.getCause).takeWhile(_ != null).toVector
+            if (interrupt) {
+              assert(causes.exists {
+                case error: InterruptedException => error.getMessage == "Attachment read interrupted"
+                case _ => false
+              })
+            } else {
+              assert(!gate.completionInterrupted.get())
+              assert(causes.exists {
+                case error: TaskKilledException => error.reason == "Attachment read canceled"
+                case _ => false
+              })
+            }
+            if (beforeRead) assert(fs.opened.isEmpty, "Pre-cancelled task entered attachment IO")
             assert(bodies.isEmpty)
-          } finally {
-            gate.release.countDown()
-            context.cancelJobGroup(group)
-            job.cancel(true)
-            executor.shutdownNow()
-            assert(executor.awaitTermination(15, TimeUnit.SECONDS))
-            AttachmentReadFailures.Active.remove(group)
           }
         }
+      } finally AttachmentReadFailures.Active.remove(group)
+    }
+  }
+
+  for {
+    api <- Seq("chat_completions", "responses")
+    name <- "cancelled.png" +: AttachmentReadFailures.TimeoutNames
+  } {
+    test(s"legacy $api storage failure $name without task cancellation stays sanitized and row-local") {
+      val location = AttachmentReadFailures.Location
+      withAttachmentFailureFileSystem { fs =>
+        withEchoServer { (baseUrl, bodies) =>
+          val result = prompt(baseUrl, api)
+            .transform(Seq(("Describe.", location.resolve(name).toString)).toDF("prompt", "image"))
+            .head()
+          assert(bodies.isEmpty)
+          assert(Option(result.getAs[Row]("output")).isEmpty)
+          assert(result.getAs[Row]("error").getAs[String]("response") == s"Unable to read attachment '$name'")
+          assert(fs.opened.asScala.toVector == Vector(name))
+        }
+      }
+    }
+  }
+
+  for {
+    api <- Seq("chat_completions", "responses")
+    name <- AttachmentReadFailures.ClearedInterruptNames
+  } {
+    test(s"legacy $api propagates interrupted IO from $name when storage clears the thread flag") {
+      withAttachmentFailureFileSystem { fs =>
+        assert(!Thread.currentThread().isInterrupted)
+        try {
+          val error = intercept[InterruptedException] {
+            new OpenAIPrompt().setApiType(api).createMessagesForRow("Describe.",
+              Map("file" -> AttachmentReadFailures.Location.resolve(name).toString), Seq("file"))
+          }
+          assert(Thread.currentThread().isInterrupted)
+          assert(error.getMessage == "Attachment read interrupted" && error.getCause == null)
+          assert(fs.opened.asScala.toVector == Vector(name))
+        } finally Thread.interrupted()
       }
     }
   }

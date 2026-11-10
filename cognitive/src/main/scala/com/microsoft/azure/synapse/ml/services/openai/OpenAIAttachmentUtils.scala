@@ -3,17 +3,18 @@
 
 package com.microsoft.azure.synapse.ml.services.openai
 
-import com.microsoft.azure.synapse.ml.io.binary.BinaryFileReader
+import org.apache.commons.io.IOUtils
+import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{Path => HPath}
 import org.apache.spark.{TaskContext, TaskKilledException}
 
-import java.io.ByteArrayInputStream
+import java.io.{ByteArrayInputStream, InterruptedIOException}
 import java.net.{URI, URLConnection}
 import java.nio.channels.ClosedByInterruptException
 import java.nio.charset.StandardCharsets
 import java.util.concurrent.CancellationException
-import java.util.{Base64, Locale}
-import scala.util.Try
+import java.util.{Base64, Collections, IdentityHashMap, Locale}
+import scala.util.{Try, Using}
 import scala.util.control.NonFatal
 
 private[openai] object OpenAIAttachmentUtils {
@@ -21,6 +22,7 @@ private[openai] object OpenAIAttachmentUtils {
   sealed class AttachmentReadException(fileName: String)
     extends IllegalArgumentException(s"Unable to read attachment '$fileName'")
 
+  /** Storage CancellationException, not task interruption; OpenAIPrompt keeps this sanitized error row-local. */
   final class CancelledAttachmentReadException(fileName: String) extends AttachmentReadException(fileName)
 
   private def interruptedRead(): Nothing = {
@@ -28,15 +30,77 @@ private[openai] object OpenAIAttachmentUtils {
     throw new InterruptedException("Attachment read interrupted")
   }
 
-  private[openai] def readAttachment(fileName: String)(read: => Array[Byte]): Array[Byte] = try {
-    read
-  } catch {
-    case _: InterruptedException | _: ClosedByInterruptException => interruptedRead()
-    case NonFatal(_) if Thread.currentThread().isInterrupted => interruptedRead()
-    case NonFatal(_) if Option(TaskContext.get()).exists(_.isInterrupted()) =>
-      throw new TaskKilledException("Attachment read canceled")
-    case _: CancellationException => throw new CancelledAttachmentReadException(fileName)
-    case NonFatal(_) => throw new AttachmentReadException(fileName)
+  private def taskCancelled: Boolean = Option(TaskContext.get()).exists(_.isInterrupted())
+
+  private def taskKilled(): Nothing = throw new TaskKilledException("Attachment read canceled")
+
+  private def checkCancellation(): Unit = {
+    if (Thread.currentThread().isInterrupted) interruptedRead()
+    if (taskCancelled) taskKilled()
+  }
+
+  private def isTimeout(error: Throwable): Boolean = {
+    // Storage SDKs relocate timeout classes; not all timeout types extend InterruptedIOException.
+    @scala.annotation.tailrec
+    def timeoutClass(clazz: Class[_]): Boolean =
+      clazz != null && (clazz.getName.endsWith("TimeoutException") || timeoutClass(clazz.getSuperclass))
+    timeoutClass(error.getClass)
+  }
+  // Plain InterruptedIOException signals interruption in Spark too; typed causes disambiguate storage timeouts.
+  private def isInterruption(error: Throwable): Boolean = error match {
+    case _: InterruptedException | _: ClosedByInterruptException => true
+    case io: InterruptedIOException => !isTimeoutFailure(io)
+    case _ => false
+  }
+
+  private def isTimeoutFailure(error: Throwable): Boolean = {
+    // Connectors can translate a timeout into plain InterruptedIOException while retaining its cause.
+    val visited = Collections.newSetFromMap(new IdentityHashMap[Throwable, java.lang.Boolean]())
+    @scala.annotation.tailrec
+    def inspect(current: Throwable): Boolean = {
+      if (current == null || !visited.add(current)) false
+      else current match {
+        case _: InterruptedException | _: ClosedByInterruptException => false
+        case _ => isTimeout(current) || inspect(current.getCause)
+      }
+    }
+    inspect(error)
+  }
+
+  private def isInterruptedRead(error: Throwable): Boolean = {
+    if (!NonFatal(error)) isInterruption(error)
+    else {
+      // Storage wrappers and resource cleanup can hide interruption beneath an ordinary read failure.
+      val visited = Collections.newSetFromMap(new IdentityHashMap[Throwable, java.lang.Boolean]())
+      val timeoutCauses = Collections.newSetFromMap(new IdentityHashMap[Throwable, java.lang.Boolean]())
+      @scala.annotation.tailrec
+      def inspect(pending: List[(Throwable, Boolean)]): Boolean = pending match {
+        case Nil => false
+        case (current, classify) :: remaining =>
+          val seen = if (classify) visited else timeoutCauses
+          if (!seen.add(current)) inspect(remaining)
+          else if (classify && isInterruption(current)) true
+          else {
+            // Timeout-owned causes still expose independent suppressed cleanup failures.
+            val causes = Option(current.getCause).map(_ -> (classify && !isTimeout(current))).toList
+            inspect(causes ::: current.getSuppressed.toList.map(_ -> true) ::: remaining)
+          }
+      }
+      inspect(List(error -> true))
+    }
+  }
+
+  private[openai] def readAttachment(fileName: String)(read: => Array[Byte]): Array[Byte] = {
+    checkCancellation()
+    val content = try read catch {
+      case error if isInterruptedRead(error) => interruptedRead()
+      case NonFatal(_) if Thread.currentThread().isInterrupted => interruptedRead()
+      case NonFatal(_) if taskCancelled => taskKilled()
+      case _: CancellationException => throw new CancelledAttachmentReadException(fileName)
+      case NonFatal(_) => throw new AttachmentReadException(fileName)
+    }
+    checkCancellation()
+    content
   }
 
   private case class DataUrlAttachment(
@@ -249,7 +313,9 @@ private[openai] object OpenAIAttachmentUtils {
       } else {
         val fileName = attachmentFilename(filePathStr)
         val fileBytes = readAttachment(fileName) {
-          BinaryFileReader.readSingleFileBytes(new HPath(filePathStr))
+          val path = new HPath(filePathStr)
+          // Using retains both read and cleanup failures for interruption classification.
+          Using.resource(path.getFileSystem(new Configuration()).open(path))(IOUtils.toByteArray)
         }
         (fileName, fileBytes, None)
       }
