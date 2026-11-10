@@ -3,8 +3,12 @@
 
 package com.microsoft.azure.synapse.ml.codegen
 
-import java.text.Normalizer
+import java.nio.charset.StandardCharsets
+import java.util.Base64
 import scala.annotation.tailrec
+import scala.sys.process.Process
+import scala.util.control.NonFatal
+import spray.json.{JsString, JsonParser}
 
 private[codegen] object PythonMethodExtractor {
   private val MethodPrefix = """^def\s+([A-Za-z_][A-Za-z0-9_]*)\s*\("""
@@ -13,9 +17,50 @@ private[codegen] object PythonMethodExtractor {
   val MethodPattern = (MethodPrefix + """([^)]*)\)(?:\s*->\s*([^:]+))?:\s*$""").r
   private val ScopePrefix = """^(?:(?:async\s+)?def|class)\s+""".r
 
+  private val StringToken = Seq("'''", "\"\"\"", "'", "\"").map { quote =>
+    val delimiter = java.util.regex.Pattern.quote(quote)
+    s"$delimiter(?:\\\\.|(?!$delimiter)[^\\\\])*$delimiter"
+  }.mkString("|")
+  private val NumberToken =
+    """(?:0[xX][0-9a-fA-F_]+|0[bB][01_]+|0[oO][0-7_]+|""" +
+      """(?:[0-9][0-9_]*(?:\.[0-9_]*)?|\.[0-9][0-9_]*)(?:[eE][+-]?[0-9][0-9_]*)?[jJ]?)"""
+  // Keep non-ASCII identifier runs intact even when the JDK's Unicode tables differ from Python's.
+  private val IdentifierToken = """(?:[A-Za-z_]|[^\x00-\x7f])(?:[A-Za-z_0-9]|[^\x00-\x7f])*"""
+  private val DeclarationToken = (
+    s"(?s)$StringToken|$NumberToken|$IdentifierToken|" +
+      """\*\*=|//=|<<=|>>=|\.\.\.|->|:=|==|!=|<=|>=|<<|>>|\*\*|//|[-+*/%&|^]=|\S"""
+    ).r
+
+  def declarationTokens(declaration: String): Seq[String] =
+    DeclarationToken.findAllIn(declaration).toVector
+
   case class Method(name: String, signature: String, decorators: Seq[String], unconditional: Boolean)
 
-  def pythonIdentifier(name: String): String = Normalizer.normalize(name, Normalizer.Form.NFKC)
+  // Python's Unicode tables can be newer than the JDK's. ASCII generation needs no interpreter.
+  def pythonIdentifier(name: String): String = {
+    if (name.forall(_ <= '\u007f')) {
+      name
+    } else {
+      val executable = if (System.getProperty("os.name").startsWith("Windows")) "python" else "python3"
+      // Process arguments use the platform charset; transport Unicode as ASCII instead.
+      val encoded = Base64.getEncoder.encodeToString(name.getBytes(StandardCharsets.UTF_8))
+      val script = "import base64, json, sys, unicodedata; " +
+        "name = base64.b64decode(sys.argv[1]).decode('utf-8')\n" +
+        "if not name.isidentifier():\n" +
+        "    raise ValueError('Identifier is invalid in Unicode ' + unicodedata.unidata_version)\n" +
+        "print(json.dumps(unicodedata.normalize('NFKC', name), ensure_ascii=True))"
+      try {
+        JsonParser(Process(Seq(executable, "-I", "-c", script, encoded)).!!) match {
+          case JsString(identifier) => identifier
+          case _ => throw new IllegalStateException("Python identifier normalization did not return a JSON string")
+        }
+      } catch {
+        case NonFatal(error) =>
+          throw new IllegalStateException(
+            s"Python identifier normalization failed for '$name' using $executable", error)
+      }
+    }
+  }
 
   def effectiveMethods(source: String): Seq[Method] = {
     val methods = extract(source).zipWithIndex
@@ -89,6 +134,38 @@ private[codegen] object PythonMethodExtractor {
       explicitContinuation = statement.endsWith("\\")
       statement
     }
+  }
+
+  private def hasUnfinishedLambda(argument: String): Boolean = {
+    var delimiterDepth = 0
+    var lambdaHeaders = 0
+    declarationTokens(new ExpressionState().scan(argument)).foreach {
+      case "(" | "[" | "{" => delimiterDepth += 1
+      case ")" | "]" | "}" => delimiterDepth -= 1
+      case "lambda" if delimiterDepth == 0 => lambdaHeaders += 1
+      case ":" if delimiterDepth == 0 && lambdaHeaders > 0 => lambdaHeaders -= 1
+      case _ =>
+    }
+    lambdaHeaders > 0
+  }
+
+  def splitArguments(args: String): Option[Seq[String]] = {
+    val expression = new ExpressionState
+    val current = new StringBuilder
+    val arguments = Vector.newBuilder[String]
+    args.split(",", -1).foreach { part =>
+      if (current.nonEmpty) current.append(",")
+      current.append(part)
+      expression.scan(part)
+      if (!expression.continues) {
+        val argument = current.toString.trim
+        if (argument.nonEmpty) arguments += argument
+        current.clear()
+      }
+    }
+    val result = arguments.result()
+    // A top-level lambda parameter comma must not be mistaken for a signature argument separator.
+    if (expression.continues || result.exists(hasUnfinishedLambda)) None else Some(result)
   }
 
   private def indentation(line: String): Int = {

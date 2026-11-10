@@ -13,7 +13,6 @@ import java.nio.file.Files
 import java.util.zip.ZipFile
 
 class PyCodegenSuite extends AnyFunSuite {
-
   import PyCodegenFixtures._
 
   private def pythonExecutable: String =
@@ -25,14 +24,8 @@ class PyCodegenSuite extends AnyFunSuite {
   }
 
   private def codegenConfig(root: File): CodegenConfig = CodegenConfig(
-    "test-module",
-    None,
-    root.getAbsolutePath,
-    new File(root, "target").getAbsolutePath,
-    "1.0.0",
-    "1.0.0",
-    "1.0.0",
-    "synapseml-test")
+    "test-module", None, root.getAbsolutePath, new File(root, "target").getAbsolutePath,
+    "1.0.0", "1.0.0", "1.0.0", "synapseml-test")
 
   private def packageDir(base: File, packageFolder: String): File = {
     val namespaceRoot = new File(new File(base, "synapse"), "ml")
@@ -172,7 +165,7 @@ class PyCodegenSuite extends AnyFunSuite {
       val stub = readUtf8(stubFile)
 
       assert(runtimeFile.isFile)
-      assert(stubFile.isFile)
+      assertPythonCompiles(stubFile)
       assert(runtime.contains("""_service_param_names = frozenset(["model"])"""))
       assert(stub.contains("class TypedPythonStage("))
       assert(stub.contains("count: Param"))
@@ -185,7 +178,8 @@ class PyCodegenSuite extends AnyFunSuite {
       assert(stub.contains("""_T = TypeVar("_T", bound="TypedPythonStage")"""))
       assert(stub.contains("def setCount(self: _T, value: float) -> _T: ..."))
       assert(stub.contains("def getText(self) -> str: ..."))
-      assert(stub.contains("def setAlias(self: _T, value: str) -> _T: ..."))
+      assert(stub.contains("def setAlias(self: _T, *, value: str) -> _T: ..."))
+      assert(stub.contains("def setPositionalAlias(self: _T, value: str, /) -> _T: ..."))
       assert(stub.contains("def clear(self, param: Param) -> None: ..."))
       assert(stub.contains(
         "def copy(self: _T, extra: Optional[ParamMap] = ...) -> _T: ..."))
@@ -202,7 +196,7 @@ class PyCodegenSuite extends AnyFunSuite {
         "self._service_param_scalar_to_python(\"model\", self._java_obj.getModel())"))
       assert(runtime.contains("return self._java_obj.getVectorParam(\"model\")"))
       assert(runtime.contains("return self._set_params_via_setters(kwargs)"))
-      assertPythonCompiles(stubFile)
+      assertPythonCompiles(runtimeFile)
     }
   }
 
@@ -236,33 +230,32 @@ class PyCodegenSuite extends AnyFunSuite {
       assert(!stub.contains("@classmethod\n    def describe") && !stub.contains("@staticmethod\n    def describe"))
       assert(stub.contains("def describe(self) -> Any: ..."))
       Seq("loadOutput", "fromPath", "describe").foreach(name => assert(occurrences(stub, s"def $name(") == 1))
-      assert(!stub.contains("def check_keys("))
-      assert(!stub.contains("def _identity("))
+      Seq("check_keys", "_identity").foreach(name => assert(!stub.contains(s"def $name(")))
       assert(occurrences(stub, "def getModelCol(") == 1)
       assertPythonCompiles(stubFile)
     }
   }
-
   test("class-body control blocks expose methods but not nested function or class members") {
     withTempDir { root =>
       val conf = codegenConfig(root)
       new ConditionalPythonStage().makePyFile(conf)
-      val folder = packageDir(conf.pySrcDir, "/codegen")
-      val stubFile = new File(folder, "ConditionalPythonStage.pyi")
+      val stubFile = new File(packageDir(conf.pySrcDir, "/codegen"), "ConditionalPythonStage.pyi")
       val stub = readUtf8(stubFile)
       assert(stub.contains("@staticmethod\n    def conditionalValue(value: Any) -> Any: ..."))
-      assert(stub.contains("def tryValue(self) -> Any: ..."))
-      assert(stub.contains("def fallbackValue(self) -> Any: ..."))
-      assert(!stub.contains("def hiddenConditional("))
-      assert(!stub.contains("def nestedOnly("))
-      assert(occurrences(stub, "def getModelCol(") == 1)
-      assertPythonCompiles(new File(folder, "ConditionalPythonStage.py"))
+      Seq("tryValue(self)", "fallbackValue(self)", "certain(self)", "formatted(self, value: Any)")
+        .foreach(signature => assert(stub.contains(s"def $signature -> Any: ...")))
+      assert(stub.contains("""def annotated(self, value: list[str], quoted: "left right") -> dict[str,int]: ..."""))
+      Seq("hiddenConditional", "nestedOnly", "relabel", "refresh", "maybe",
+        "conditionalAsync", "bindingChange", "literalChange", "keywordChange", "identifierBoundary")
+        .foreach(n => assert(!stub.contains(s"def $n(")))
+      Seq("getModelCol", "certain", "formatted", "annotated").foreach(n => assert(occurrences(stub, s"def $n(") == 1))
+      assert(PythonMethodExtractor.declarationTokens("1.e1") != PythonMethodExtractor.declarationTokens("1 .e1"))
+      assertPythonCompiles(new File(stubFile.getParentFile, "ConditionalPythonStage.py"))
       assertPythonCompiles(stubFile)
     }
   }
-
   Seq(new MultilineFunctionPythonStage, new MultilineClassPythonStage,
-    new ContinuedScopePythonStage, new ContinuedScopePythonStage(tight = true)
+    new ContinuedScopePythonStage, new ContinuedScopePythonStage(tight = true), new ContinuedDefaultPythonStage
   ).zipWithIndex.foreach { case (stage, i) =>
     val className = stage.getClass.getSimpleName
     test(s"multiline scope headers exclude nested members from $className ($i)") {
@@ -273,15 +266,16 @@ class PyCodegenSuite extends AnyFunSuite {
         val stubFile = new File(folder, s"$className.pyi")
         val stub = readUtf8(stubFile)
         assert(stub.contains("def afterScope(self) -> Any: ..."))
-        assert(!stub.contains("def nestedOnly("))
-        assert(occurrences(stub, "def getModelCol(") == 1)
-        assert(occurrences(stub, "def setModelCol(") == 1)
+        assert(!stub.contains("def nestedOnly(") && !stub.contains("def unsupportedLambda("))
+        if (stage.isInstanceOf[MultilineFunctionPythonStage]) assert(!stub.contains("def describe("))
+        if (stage.isInstanceOf[ContinuedDefaultPythonStage])
+          ContinuedDefaultStubs.foreach(signature => assert(occurrences(stub, signature) == 1))
+        Seq("get", "set").foreach(accessor => assert(occurrences(stub, s"def ${accessor}ModelCol(") == 1))
         assertPythonCompiles(new File(folder, s"$className.py"))
         assertPythonCompiles(stubFile)
       }
     }
   }
-
   Seq("'''", "\"\"\"").foreach { quote =>
     test(s"multiline string headers retain subsequent class methods with $quote") {
       withTempDir { root =>
@@ -292,7 +286,7 @@ class PyCodegenSuite extends AnyFunSuite {
         assertPythonCompiles(new File(folder, "MultilineStringPythonStage.py"))
         assertPythonCompiles(stubFile)
         val stub = readUtf8(stubFile)
-        assert(stub.contains("def afterScope(self) -> Any: ..."))
+        assert(stub.contains("def afterScope(self) -> Any: ...") && !stub.contains("def describe("))
         assert(occurrences(stub, "def getModelCol(") == 1)
       }
     }
@@ -401,7 +395,7 @@ class PyCodegenSuite extends AnyFunSuite {
     }
   }
 
-  Seq("model" -> "modelCol", "caf\u00e9" -> "cafe\u0301Col", "mo\u212adel" -> "moKdelCol").foreach {
+  conflictingAliasNames.foreach {
     case (paramName, aliasName) => test(s"service column alias $aliasName cannot shadow real parameters") {
       withTempDir { root =>
         val stage = new ConflictingServiceAliasStage(paramName = paramName, aliasName = aliasName)
@@ -418,13 +412,22 @@ class PyCodegenSuite extends AnyFunSuite {
     }
   }
 
+  test("Unicode method names unsupported by the codegen interpreter fail explicitly") {
+    withTempDir { root =>
+      val stage = new TypedPythonStage() {
+        override def pyAdditionalMethods: String = "def unknown\u0378(self):\n    return None\n"
+      }
+      val error = intercept[IllegalStateException](stage.makePyFile(codegenConfig(root)))
+      assert(error.getMessage.contains("unknown\u0378") && error.getMessage.contains("python"))
+      assert(error.getCause != null)
+    }
+  }
+
   test("generated estimator stubs preserve companion model return types") {
     withTempDir { root =>
       val conf = codegenConfig(root)
-
       new TypedPythonModel().makePyFile(conf)
       new TypedPythonEstimator().makePyFile(conf)
-
       val stubFile = new File(packageDir(conf.pySrcDir, "/codegen"), "TypedPythonEstimator.pyi")
       val stub = readUtf8(stubFile)
       assert(stub.contains(
@@ -440,11 +443,9 @@ class PyCodegenSuite extends AnyFunSuite {
   test("generated probabilistic classifier wrappers implement the raw prediction contract") {
     withTempDir { root =>
       val conf = codegenConfig(root)
-
       new TypedPythonClassificationModel().makePyFile(conf)
       new TypedPythonClassifier().makePyFile(conf)
       new TypedPythonEstimator().makePyFile(conf)
-
       val folder = packageDir(conf.pySrcDir, "/codegen")
       val estimator = readUtf8(new File(folder, "TypedPythonClassifier.py"))
       val estimatorStub = readUtf8(new File(folder, "TypedPythonClassifier.pyi"))

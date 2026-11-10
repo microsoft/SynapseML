@@ -27,10 +27,16 @@ private[codegen] object PyCodegenFixtures {
 
     def getModel: String = ""
     def setAlias(value: String): this.type = this
+    def setPositionalAlias(value: String): this.type = this
 
     override def pyAdditionalMethods: String =
       super.pyAdditionalMethods +
-        """|def setAlias(self, value):
+        """|def setAlias(self, \
+           |    *, value):
+           |    return self
+           |
+           |def setPositionalAlias(self, \
+           |    value, /):
            |    return self
            |
            |def clear(self, param):
@@ -89,6 +95,10 @@ private[codegen] object PyCodegenFixtures {
     override val text = new Param[String]("otherStage", "text", "text value")
   }
 
+  def conflictingAliasNames: Seq[(String, String)] = Seq(
+    "model" -> "modelCol", "caf\u00e9" -> "cafe\u0301Col",
+    "mo\u212adel" -> "moKdelCol", "model" -> "model\uA7F2ol")
+
   class ConflictingServiceAliasStage(
       override val uid: String = "conflictingServiceAliasStage",
       paramName: String = "model", aliasName: String = "modelCol")
@@ -141,16 +151,66 @@ private[codegen] object PyCodegenFixtures {
         accessor = accessor, methodParamName = Some(methodParamName))
       (s"normalized Unicode ${stage.conflictingMethod}", stage, stage.conflictingMethod)
     }
-    ascii ++ unicode ++ normalized
+    val unicode14 = new ConflictingServiceAliasMethodStage() {
+      override def pyAdditionalMethods: String =
+        "def getModel\uA7F2ol(self):\n    return None\n"
+    }
+    ascii ++ unicode ++ normalized :+ ("Unicode 14", unicode14, "getModelCol")
   }
 
   class ConditionalPythonStage extends TypedPythonStage("conditionalPythonStage") {
 
     override protected lazy val classNameHelper: String = "ConditionalPythonStage"
 
+    private val conditionalAlternatives =
+      s"""|intorstr = str
+         |${"\u2118"} = int
+         |not${"\u2118"} = str
+         |def annotated(self, value:list[str], quoted:"left right") -> dict[str,int]:
+         |    return value
+         |def literalChange(self, value:"left right"):
+         |    return value
+         |def keywordChange(self, value:int or str):
+         |    return value
+         |def identifierBoundary(self, value:not${"\u2118"}):
+         |    return value
+         |if True:
+         |    def annotated(self, value : list[ str ], quoted : "left right") -> dict[ str , int ]:
+         |        return value
+         |    def literalChange(self, value: "leftright"):
+         |        return value
+         |    def keywordChange(self, value: intorstr):
+         |        return value
+         |    def identifierBoundary(self, value:not ${"\u2118"}):
+         |        return value
+         |    def certain(self):
+         |        return None
+         |    async def conditionalAsync(self, value):
+         |        return value
+         |    @staticmethod
+         |    def bindingChange(value):
+         |        return value
+         |    def formatted(self,value):
+         |        return value
+         |else:
+         |    def conditionalAsync(self):
+         |        return None
+         |    def bindingChange(self, value):
+         |        return value
+         |    def formatted(self, value):
+         |        return value
+         |""".stripMargin
+
     override def pyAdditionalMethods: String =
       super.pyAdditionalMethods +
-        """|if True:
+        s"""|def maybe(self):
+           |    return None
+           |
+           |if True:
+           |    def maybe(self, value):
+           |        return value
+           |    def certain(self, value):
+           |        return value
            |    @staticmethod
            |    # A conditional method is still a member of the generated class.
            |    def conditionalValue(value):
@@ -164,13 +224,54 @@ private[codegen] object PyCodegenFixtures {
            |        def nestedOnly(self):
            |            return None
            |
+           |def certain(self):
+           |    return None
+           |
            |try:
            |    def tryValue(self):
            |        return None
            |except RuntimeError:
            |    def fallbackValue(self):
            |        return None
-           |""".stripMargin
+           |
+           |def relabel(self):
+           |    return None
+           |
+           |def ${"\uFF52"}elabel(self, value):
+           |    return value
+           |
+           |def refresh(self):
+           |    return None
+           |
+           |async def refresh(self, value):
+           |    return value
+           |""".stripMargin + conditionalAlternatives
+  }
+
+  private val LambdaDefaultArguments = Seq(
+    "key=lambda value: value" -> "Any",
+    "key=lambda: None" -> "Any",
+    "key=[lambda left,right: left]" -> "Any",
+    "key=lambda value=lambda: None: value" -> "Any",
+    """key: "Callable[[int], int]" = lambda value: value""" -> "\"Callable[[int], int]\"")
+
+  val ContinuedDefaultStubs: Seq[String] =
+    Seq("def continuedDefault(self, labels: Any = ..., note: Any = ..., metadata: Any = ..., " +
+      "reference: Any = ...) -> Any: ...") ++ LambdaDefaultArguments.zipWithIndex.map { case ((_, annotation), i) =>
+      s"def lambdaDefault$i(self, key: $annotation = ...) -> Any: ..."
+    }
+
+  class ContinuedDefaultPythonStage extends TypedPythonStage("continuedDefaultPythonStage") {
+    override protected lazy val classNameHelper: String = "ContinuedDefaultPythonStage"
+    override def pyAdditionalMethods: String = super.pyAdditionalMethods + s"lambda${"\u2118"} = None\n" +
+      "def continuedDefault(self, \\\n    labels=[\"left\", \"right\"], note=\"left,right\", " +
+      "metadata={\"left\": \"right,left\", \"right\": \"value\"}, " +
+      s"reference=lambda${"\u2118"}):\n    return labels\n" +
+      "def unsupportedLambda(self, \\\n    handler=lambda left,right: right):\n    return handler\n" +
+      LambdaDefaultArguments.zipWithIndex.map { case ((argument, _), i) =>
+        s"def lambdaDefault$i(self, $argument):\n    return key\n"
+      }.mkString +
+      "def afterScope(self):\n    return None\n"
   }
 
   class ConflictingConditionalAliasMethodStage extends TypedPythonStage("conflictingConditionalAliasMethodStage") {
