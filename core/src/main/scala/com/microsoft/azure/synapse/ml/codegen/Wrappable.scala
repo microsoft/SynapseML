@@ -32,14 +32,12 @@ trait BaseWrappable extends Params {
 
   protected def companionModelClassName: String = {
     val symbol = scala.reflect.runtime.currentMirror.classSymbol(thisStage.getClass)
-
     val superClassSymbol = symbol.baseClasses
       .find(s => Set("Estimator", "ProbabilisticClassifier", "Predictor", "BaseRegressor", "Ranker")
         .contains(s.name.toString))
       .getOrElse(throw new NoSuchElementException("Matching superclass was not found: " + symbol.baseClasses))
 
     val typeArgs = symbol.toType.baseType(superClassSymbol).typeArgs
-
     val modelTypeArg = superClassSymbol.name.toString match {
       case "Estimator" => typeArgs.head
       case _ => typeArgs.last
@@ -52,7 +50,6 @@ trait BaseWrappable extends Params {
   def getParamInfo(p: Param[_]): ParamInfo[_] = {
     DefaultParamInfo.defaultGetParamInfo(thisStage, p)
   }
-
 }
 
 private[codegen] object PythonStubCodegen {
@@ -73,7 +70,7 @@ private[codegen] object PythonStubCodegen {
 trait PythonWrappable extends BaseWrappable {
 
   import GenerationUtils._
-  import PythonMethodExtractor.{Method, MethodPattern}
+  import PythonMethodExtractor.{Method, MethodPattern, pythonIdentifier}
 
   private def getPythonTypeInfo(p: Param[_]): PythonTypeInfo =
     PythonStubCodegen.pythonTypeInfo(thisStage, p)
@@ -157,15 +154,15 @@ trait PythonWrappable extends BaseWrappable {
     thisStage.getClass.getMethods.exists(method =>
       method.getName == name && method.getParameterCount == parameterCount)
   private def validateServiceParamAliases(): Unit = {
-    val paramNames = thisStage.params.map(_.name).toSet
-    val additionalMethods = PythonMethodExtractor.extract(pyAdditionalMethods).map(_.name).toSet
+    val paramNames = thisStage.params.map(p => pythonIdentifier(p.name)).toSet
+    val additionalMethods = PythonMethodExtractor.extract(pyAdditionalMethods).map(m => pythonIdentifier(m.name)).toSet
     thisStage.params.collect { case p: ServiceParam[_] => p }.foreach { p =>
       val capName = p.name.capitalize
       val alias = s"${p.name}Col"
-      require(!paramNames.contains(alias),
+      require(!paramNames.contains(pythonIdentifier(alias)),
         s"Service parameter ${p.name} cannot use Python alias $alias because that Param already exists")
       Seq(s"get${capName}Col", s"set${capName}Col").foreach { methodName =>
-        require(!additionalMethods(methodName),
+        require(!additionalMethods(pythonIdentifier(methodName)),
           s"Generated Python method $methodName conflicts with a hand-written method")
       }
     }
@@ -421,14 +418,14 @@ trait PythonWrappable extends BaseWrappable {
     val trimmed = argument.trim
     if (trimmed == "self" && fluent) {
       "self: _T"
-    } else if (trimmed == "self" || trimmed == "cls") {
+    } else if (Set("self", "cls", "*", "/").contains(trimmed)) {
       trimmed
     } else {
-      val hasDefault = trimmed.contains("=")
-      val argumentParts = trimmed.split("=", 2).map(_.trim)
+      val argumentParts = PythonMethodExtractor.splitArgumentDefault(trimmed)
+      val hasDefault = argumentParts.length > 1
       val withoutDefault = argumentParts.head
       val typedArgument = if (withoutDefault.contains(":")) {
-        withoutDefault
+        withoutDefault.split(":", 2).map(_.trim).mkString(": ")
       } else {
         val argumentType = inferredType.getOrElse("Any")
         val optionalType =
@@ -466,24 +463,34 @@ trait PythonWrappable extends BaseWrappable {
     }
   }
 
-  private def pyStubAdditionalMethods: String = {
-    PythonMethodExtractor.extract(pyAdditionalMethods).flatMap {
-      case Method(_, MethodPattern(methodName, args, returnType), decorators) if !methodName.startsWith("_") =>
+  private def pyStubAdditionalMethod(method: Method): Option[String] = method match {
+    case Method(_, MethodPattern(methodName, args, returnType), decorators, _) if !methodName.startsWith("_") =>
+      PythonMethodExtractor.splitArguments(args).map { methodArgs =>
         val fluent = isFluentStubMethod(methodName)
-        val methodArgs = args.split(",").filter(_.trim.nonEmpty)
-        val valueArgCount = methodArgs.count(arg => !Set("self", "cls").contains(arg.trim))
+        val valueArgCount = methodArgs.count(arg => !Set("self", "cls", "*", "/").contains(arg.trim))
         val inferredTypes = pyStubAdditionalArgumentTypes(methodName, valueArgCount).iterator
         val typedArgs = methodArgs.map { argument =>
           val inferredType =
-            if (Set("self", "cls").contains(argument.trim)) None
+            if (Set("self", "cls", "*", "/").contains(argument.trim)) None
             else Some(inferredTypes.next())
           pyStubAdditionalArgument(argument, fluent, inferredType)
         }.mkString(", ")
         val typedReturn = pyStubAdditionalReturnType(methodName, returnType, fluent)
-        Some((decorators :+ s"def $methodName($typedArgs) -> $typedReturn: ...").mkString("\n"))
-      case _ =>
-        None
-    }.distinct.mkString("\n")
+        (decorators :+ s"def $methodName($typedArgs) -> $typedReturn: ...").mkString("\n")
+      }
+    case _ =>
+      None
+  }
+
+  private def pyStubAdditionalMethods: String = {
+    val declarations = PythonMethodExtractor.effectiveMethods(pyAdditionalMethods).map { method =>
+      PythonMethodExtractor.pythonIdentifier(method.name) -> pyStubAdditionalMethod(method)
+    }
+    val alternatives = declarations.groupBy(_._1)
+    declarations.map(_._1).distinct.flatMap { name =>
+      val rendered = alternatives(name).map(_._2)
+      if (rendered.map(_.map(PythonMethodExtractor.declarationTokens)).distinct.size == 1) rendered.head else None
+    }.mkString("\n")
   }
 
   private def pyStubExtraEstimatorMethods: String = {

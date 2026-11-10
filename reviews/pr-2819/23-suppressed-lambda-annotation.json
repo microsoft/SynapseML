@@ -1,0 +1,18 @@
+{
+  "pullRequest": 2819,
+  "review": "https://github.com/microsoft/SynapseML/pull/2819#pullrequestreview-5840699599",
+  "reviewedHead": "4b8fa377951afd58deb74e8edbca8f6ea3c609c9",
+  "base": "37948d7d03ef0fa7f1aa24c54c2dd4d8a29c8dc0",
+  "finding": "Suppressed, previously missed: an equals sign in a lambda annotation header was mistaken for a method parameter default.",
+  "disposition": "Valid and fixed. Reuse hasUnfinishedLambda when selecting the default separator; do not introduce another parser.",
+  "regression": {
+    "publicPath": "ContinuedDefaultPythonStage.makePyFile",
+    "coverage": "Backslash-continued required lambda annotation and lambda annotation with a real method parameter default.",
+    "before": "Compiled the new fixture alone in an isolated classpath overlay over 4b8fa377 production classes: the public ContinuedDefaultPythonStage test fails (0 passed, 1 failed).",
+    "after": "Compiled the final extractor and fixture in an isolated classpath overlay with Scala 2.12.17/JDK 11, then ran the entire PyCodegenSuite: 97 passed; zero failures, canceled, ignored or pending.",
+    "runtime": "Python 3.11.8; isolated JVM limited to 1 GiB and two active processors."
+  },
+  "scope": "Only default-separator selection and the directly related public fixture change. Full SBT/codegen, generated-runtime verification, and new-head CI/review status are tracked in the PR description rather than inferred from earlier-head evidence.",
+  "threads": "The finding was in the review body, not an open thread. A zero-thread query did not clear it.",
+  "mergeAuthorization": false
+}
