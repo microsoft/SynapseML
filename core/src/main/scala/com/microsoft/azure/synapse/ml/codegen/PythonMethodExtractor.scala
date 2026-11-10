@@ -44,7 +44,7 @@ private[codegen] object PythonMethodExtractor {
         case ")" | "]" | "}" =>
           delimiterDepth -= 1
           false
-        case "=" => delimiterDepth == 0
+        case "=" => delimiterDepth == 0 && !hasUnfinishedLambda(argument.substring(0, token.start))
         case _ => false
       }
     }

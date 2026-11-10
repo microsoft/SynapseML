@@ -262,7 +262,9 @@ private[codegen] object PyCodegenFixtures {
   val ContinuedDefaultStubs: Seq[String] =
     Seq("def continuedDefault(self, labels: Any = ..., note: \"left=right\" = ..., metadata: Any = ..., " +
       "reference: Any = ...) -> Any: ...",
-      "def continuedQuoted(self, required: \"left=right\", values: list[\"a=b\"] = ...) -> Any: ...") ++
+      "def continuedQuoted(self, required: \"left=right\", values: list[\"a=b\"] = ...) -> Any: ...",
+      "def continuedLambda(self, value: lambda item=1: item, " +
+        "fallback: lambda item=1: item = ...) -> Any: ...") ++
       LambdaDefaultArguments.zipWithIndex.map { case ((_, annotation), i) =>
         s"def lambdaDefault$i(self, key: $annotation = ...) -> Any: ..."
       }
@@ -275,6 +277,8 @@ private[codegen] object PyCodegenFixtures {
       s"reference=lambda${"\u2118"}):\n    return labels\n" +
       "def continuedQuoted(self, \\\n    required: \"left=right\", values: list[\"a=b\"] = None):\n" +
       "    return required\n" +
+      "def continuedLambda(self, \\\n    value: lambda item=1: item, " +
+      "fallback: lambda item=1: item = None):\n    return value\n" +
       "def unsupportedLambda(self, \\\n    handler=lambda left,right: right):\n    return handler\n" +
       LambdaDefaultArguments.zipWithIndex.map { case ((argument, _), i) =>
         s"def lambdaDefault$i(self, $argument):\n    return key\n"
