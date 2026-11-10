@@ -30,6 +30,7 @@ import java.io.{
   ByteArrayOutputStream,
   File,
   InvalidClassException,
+  IOException,
   ObjectInputStream,
   StreamCorruptedException
 }
@@ -194,6 +195,17 @@ class ValidateComplexParamSerializer extends TestBase {
           assert(SparkSession.getActiveSession == expectedActive)
           assert(SparkSession.getDefaultSession == previousDefault)
         }
+
+        child.set(child.byteArray, Array[Byte](7, 8, 9))
+        val existingPathError = intercept[IOException](saveNested(overwrite = false))
+        assert(existingPathError.getMessage.contains("already exists"))
+        assert(SparkSession.getActiveSession == expectedActive)
+        assert(SparkSession.getDefaultSession == previousDefault)
+        val preserved = (if (array) stage.stages.load(assigned, nestedPath).head
+          else stage.transformer.load(assigned, nestedPath)).asInstanceOf[TestableSessionParamTest]
+        assert(preserved.getOrDefault(preserved.byteArray).sameElements(Array[Byte](4, 5, 6)))
+        assert(SparkSession.getActiveSession == expectedActive)
+        assert(SparkSession.getDefaultSession == previousDefault)
 
         assigned.conf.set(TestableSessionParamTest.ConfigKey, "wrong-session")
         val overwriteError = intercept[IllegalArgumentException] {
