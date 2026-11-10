@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.services.contentunderstanding
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.services.HasServiceParams
+import com.microsoft.azure.synapse.ml.services.contentunderstanding.ContentUnderstandingProtocol.MillisecondsPerSecond
 import org.apache.spark.ml.param.{BooleanParam, IntParam, Param, ParamValidators}
 import spray.json.DefaultJsonProtocol._
 
@@ -29,8 +30,21 @@ trait ContentUnderstandingRetryParams extends HasServiceParams {
   setDefault(retryOnThrottling -> true)
 }
 
+trait ContentUnderstandingPollingInterval {
+  this: ContentUnderstandingParams =>
+
+  def setPollingIntervalSeconds(value: Double): this.type = {
+    require(java.lang.Double.isFinite(value) && value >= 0 &&
+      value <= Int.MaxValue.toDouble / MillisecondsPerSecond,
+      "pollingIntervalSeconds must be nonnegative, finite, and representable in milliseconds.")
+    setPollingDelay(math.ceil(value * MillisecondsPerSecond).toInt)
+  }
+
+  def getPollingIntervalSeconds: Double = getPollingDelay.toDouble / MillisecondsPerSecond
+}
+
 trait ContentUnderstandingParams extends HasServiceParams
-  with ContentUnderstandingPreviewParams with ContentUnderstandingRetryParams {
+  with ContentUnderstandingPreviewParams with ContentUnderstandingRetryParams with ContentUnderstandingPollingInterval {
 
   val analyzerId = new ServiceParam[String](this, "analyzerId",
     "Prebuilt or explicitly provisioned custom analyzer identifier.")
@@ -132,7 +146,7 @@ trait ContentUnderstandingParams extends HasServiceParams
   def getMaxPollAttempts: Int = $(maxPollAttempts)
 
   val pollingDelay = new IntParam(this, "pollingDelay",
-    "Milliseconds between polls when Retry-After is absent. Zero is useful for local testing.",
+    "Milliseconds between polls when Retry-After is absent. Use setPollingIntervalSeconds for seconds.",
     ParamValidators.gtEq(0))
 
   def setPollingDelay(value: Int): this.type = set(pollingDelay, value)
@@ -149,7 +163,7 @@ trait ContentUnderstandingParams extends HasServiceParams
     analyzerId -> Left("prebuilt-read"),
     operationMode -> "analyze",
     maxPollAttempts -> 120,
-    pollingDelay -> 1000,
+    pollingDelay -> 6000,
     maxResponseBytes -> 32 * 1024 * 1024)
 }
 
@@ -198,6 +212,15 @@ private[contentunderstanding] trait ContentUnderstandingPython extends Wrappable
 
   override def pyAdditionalMethods: String = super.pyAdditionalMethods + {
     """
+      |def setPollingIntervalSeconds(self, value: float):
+      |    '''Set the polling interval in seconds; defaults to 6 and honors Retry-After.'''
+      |    self._java_obj = self._java_obj.setPollingIntervalSeconds(float(value))
+      |    return self._set(pollingDelay=self._java_obj.getPollingDelay())
+      |
+      |def getPollingIntervalSeconds(self) -> float:
+      |    '''Return the polling interval in seconds.'''
+      |    return self.getPollingDelay() / 1000.0
+      |
       |def _transfer_params_from_java(self):
       |    from pyspark.ml.common import _java2py
       |    sc = SparkContext._active_spark_context

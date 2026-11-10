@@ -104,7 +104,7 @@ class TestContentUnderstanding(unittest.TestCase):
             .setDocumentNameCol("documentId")
             .setOutputCol("analysis")
             .setMaxPollAttempts(2)
-            .setPollingDelay(0)
+            .setPollingIntervalSeconds(0)
         )
 
     def documents(self):
@@ -112,6 +112,32 @@ class TestContentUnderstanding(unittest.TestCase):
             [("one", bytearray("Synthetic caf\u00e9 document".encode("utf-8")))],
             "documentId string, body binary",
         )
+
+    def test_polling_seconds_share_legacy_parameter_and_survive_persistence(self):
+        defaults = ContentUnderstanding()
+        self.assertEqual(defaults.getPollingIntervalSeconds(), 6.0)
+        self.assertEqual(defaults.getPollingDelay(), 6000)
+        analyzer = self.analyzer().setParams(pollingIntervalSeconds=0.125)
+        self.assertEqual(analyzer.getPollingDelay(), 125)
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "polling-interval")
+            analyzer.copy({}).write().save(path)
+            loaded = ContentUnderstanding.load(path)
+            self.assertEqual(loaded.getPollingIntervalSeconds(), 0.125)
+            self.assertEqual(
+                loaded.transform(self.documents()).first().analysis.status,
+                "Succeeded",
+            )
+        loaded.setPollingDelay(250)
+        self.assertEqual(loaded.getPollingIntervalSeconds(), 0.25)
+        loaded.setPollingIntervalSeconds(0)
+        self.assertEqual(loaded.getPollingDelay(), 0)
+        self.assertEqual(
+            loaded.copy({loaded.pollingDelay: 500}).getPollingIntervalSeconds(), 0.5
+        )
+        loaded.clear(loaded.pollingDelay)
+        self.assertEqual(loaded.getPollingIntervalSeconds(), 6.0)
+        self.assertEqual(loaded.copy({}).getPollingIntervalSeconds(), 6.0)
 
     def test_generated_wrapper_copy_and_persistence_preserve_request_options(self):
         analyzer = (
