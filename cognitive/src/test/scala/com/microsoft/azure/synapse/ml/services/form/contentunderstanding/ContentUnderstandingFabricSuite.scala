@@ -4,7 +4,8 @@
 package com.microsoft.azure.synapse.ml.services.form.contentunderstanding
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
-import com.microsoft.azure.synapse.ml.services.contentunderstanding.{ContentUnderstanding, ContentUnderstandingResponse}
+import com.microsoft.azure.synapse.ml.services.contentunderstanding.{
+  ContentUnderstanding, ContentUnderstandingException, ContentUnderstandingResponse}
 import org.apache.commons.io.FileUtils
 import org.apache.http.HttpStatus
 import org.apache.spark.sql.{DataFrame, Row}
@@ -123,8 +124,15 @@ class ContentUnderstandingFabricSuite extends TestBase {
         val transformer = new FabricContentUnderstandingTestStage(server.endpoint + fabricRootPath,
           rejectTokenRefresh = true).setDocumentBytes(Array[Byte](1)).setPollingDelay(0)
           .setOutputCol("result").setErrorCol("error")
-        val pending = transformer.writeToPath(input, "id", destination.getAbsolutePath, "parquet", 1)
-        assert(pending.select("status").head().getString(0) == "Unknown")
+        val failure = intercept[ContentUnderstandingException] {
+          transformer.writeToPath(input, "id", destination.getAbsolutePath, "parquet", 1)
+        }
+        assert(failure.response.status == "Unknown")
+        assert(failure.response.error.exists(_.contains("FabricAuthenticationError")))
+        assert(failure.response.operationLocation.contains(server.endpoint + fabricGateway + locationPath))
+        val pending = transformer.readPath(spark, destination.getAbsolutePath, "parquet").head()
+        assert(pending.getAs[String]("status") == "Running")
+        assert(pending.getAs[String]("operationLocation") == server.endpoint + fabricGateway + locationPath)
         val saved = fabricStage(server).writeToPath(input, "id", destination.getAbsolutePath, "parquet", 1)
         assert(saved.select("status").head().getString(0) == "Succeeded")
         assert(server.requests.map(_.method) == Seq("POST", "GET", "GET"))
