@@ -229,16 +229,25 @@ Polling and memory controls use ordinary scalar setters:
 | Setter | Default | Purpose |
 | --- | --- | --- |
 | `setMaxPollAttempts` | 120 | Bound GET attempts, excluding 429 responses when throttling retries are enabled. |
-| `setPollingDelay` | 1000 | Milliseconds between polls when `Retry-After` is absent. |
+| `setPollingIntervalSeconds` | 6 | Seconds between polls when `Retry-After` is absent. Accepts fractional seconds. |
+| `setPollingDelay` | 6000 | The same polling setting in milliseconds, retained for compatibility. |
 | `setRetryOnThrottling` | `True` | Retry definite HTTP 429 responses until they clear or execution is cancelled. Applies to analysis, polling, and analyzer management. |
 | `setMaxResponseBytes` | 33554432 | Bound each response before parsing JSON. |
 | `setTimeout` | 60 | HTTP connection and read timeout in seconds. |
 | `setConcurrency` | 1 | Concurrent operations per Spark partition for `transform`. |
 | `setConcurrentTimeout` | Unset | Optional seconds to wait for each asynchronous result when concurrency is greater than 1. Expiration fails the Spark task, not the service operation. |
 
-The client honors `Retry-After` seconds and HTTP dates, including waits longer
-than a minute. Retry waits stop when the owning Spark task is cancelled, including
-with concurrency greater than 1. A driver-side writer or management call stops
+Use `analyzer.setPollingIntervalSeconds(6)` in Python or Scala to configure the
+interval. Python also accepts `analyzer.setParams(pollingIntervalSeconds=6)`.
+Both interval setters update the existing `pollingDelay` parameter, so the last
+setter wins and saved stages retain their configured interval. Values must be
+finite and nonnegative; fractional milliseconds round up to the next millisecond.
+Zero is useful for local tests.
+
+The client honors `Retry-After` seconds and HTTP dates instead of the configured
+interval, including waits longer than a minute. Retry waits stop when the owning
+Spark task is cancelled, including with concurrency greater than 1.
+A driver-side writer or management call stops
 on JVM thread interruption. A blocked HTTP read may wait for its socket timeout
 before observing cancellation. A notebook interrupt that only stops Python
 waiting does not necessarily interrupt a driver-side JVM call.
@@ -247,6 +256,8 @@ polling 429s consume the normal attempt budget.
 
 `setConcurrency` is per partition, not a resource-wide rate limit. For example,
 four active partitions with concurrency two can run eight operations at once.
+In analyze mode, each slot covers submission and polling until the operation
+finishes or the polling attempt limit is reached, not just the initial POST.
 The durable writer remains sequential.
 
 Polling runs while a Spark action or writer call is active; it is not a detached
@@ -526,6 +537,8 @@ def readTable(spark: SparkSession, tableName: String): DataFrame
 def readPath(spark: SparkSession, path: String, format: String = "delta"): DataFrame
 def createAnalyzer(definitionJson: String, allowReplace: Boolean): String
 def getAnalyzer(): String
+def setPollingIntervalSeconds(value: Double): this.type
+def getPollingIntervalSeconds: Double
 ```
 
 ```scala

@@ -26,7 +26,7 @@ class ContentUnderstandingSuite extends TestBase {
 
   private def stage(server: ContentUnderstandingStub): ContentUnderstanding =
     new ContentUnderstanding().setEndpoint(server.endpoint).setOutputCol("result").setErrorCol("error")
-      .setPollingDelay(0).setMaxPollAttempts(3)
+      .setPollingIntervalSeconds(0).setMaxPollAttempts(3)
 
   private def dataFrame(rows: Seq[Row], schema: StructType): DataFrame =
     spark.createDataFrame(rows.asJava, schema).coalesce(1)
@@ -572,6 +572,31 @@ class ContentUnderstandingSuite extends TestBase {
     intercept[IllegalArgumentException](base.setOperationMode("invalid"))
   }
 
+  test("polling seconds and legacy milliseconds configure the same persisted interval") {
+    val transformer = new ContentUnderstanding()
+    assert(transformer.getPollingIntervalSeconds == 6.0)
+    assert(transformer.getPollingDelay == 6000)
+    transformer.setPollingIntervalSeconds(0.125)
+    assert(transformer.getPollingDelay == 125)
+    transformer.setPollingDelay(250)
+    assert(transformer.getPollingIntervalSeconds == 0.25)
+    transformer.setPollingIntervalSeconds(0.0001)
+    assert(transformer.getPollingDelay == 1)
+    transformer.setPollingIntervalSeconds(0)
+    assert(transformer.getPollingDelay == 0)
+  }
+
+  test("invalid polling seconds do not change the previous interval") {
+    val transformer = new ContentUnderstanding().setPollingIntervalSeconds(0.125)
+    Seq(-1.0, Double.NaN, Double.PositiveInfinity, Double.NegativeInfinity,
+      Int.MaxValue.toDouble / 1000 + 1).foreach { value =>
+      intercept[IllegalArgumentException](transformer.setPollingIntervalSeconds(value))
+      assert(transformer.getPollingDelay == 125)
+    }
+    transformer.setPollingIntervalSeconds(Int.MaxValue.toDouble / 1000)
+    assert(transformer.getPollingDelay == Int.MaxValue)
+  }
+
   test("null configured row inputs fail explicitly rather than being silently skipped") {
     val schema = new StructType().add("document", BinaryType)
     val frame = dataFrame(Seq(Row(None.orNull)), schema)
@@ -605,7 +630,7 @@ class ContentUnderstandingSuite extends TestBase {
     val original = new ContentUnderstanding("saved-cu").setEndpoint("https://example.invalid")
       .setDocumentBytes(Array[Byte](0, -1, -128, 127)).setAnalyzerId("custom.invoice")
       .setApiVersion("2026-06-01-preview").setModelDeployments(Map("prebuilt-analyzer-completion" -> "gpt-5.2"))
-      .setOperationMode("submit").setPollingDelay(0).setOutputCol("result").setErrorCol("error")
+      .setOperationMode("submit").setPollingIntervalSeconds(0.125).setOutputCol("result").setErrorCol("error")
       .setAllowInputTruncation(false).setRetryOnThrottling(false)
     val copied = original.copy(ParamMap(original.outputCol -> "copied"))
     assert(copied.uid == original.uid)
@@ -613,6 +638,7 @@ class ContentUnderstandingSuite extends TestBase {
     assert(copied.getDocumentBytes.sameElements(original.getDocumentBytes))
     assert(!copied.getAllowInputTruncation)
     assert(!copied.getRetryOnThrottling)
+    assert(copied.getPollingIntervalSeconds == 0.125)
     val destination = new File("cu-stage-test-" + UUID.randomUUID().toString)
     try {
       original.write.save(destination.getAbsolutePath)
@@ -627,6 +653,7 @@ class ContentUnderstandingSuite extends TestBase {
       assert(restored.getOperationMode == original.getOperationMode)
       assert(!restored.getAllowInputTruncation)
       assert(!restored.getRetryOnThrottling)
+      assert(restored.getPollingIntervalSeconds == 0.125)
       val schema = restored.transformSchema(new StructType().add("id", StringType))
       assert(schema("result").dataType ==
         StructType(ContentUnderstandingResponse.schema.fields.map(_.copy(nullable = true))))
