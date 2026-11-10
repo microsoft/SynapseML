@@ -112,23 +112,20 @@ class AIPromptDurableSchemaSuite extends AIPromptOutputTestBase {
     }
   }
 
-  test("lazy and durable templates preserve precomputed window columns and null input rows") {
+  test("durable templates preserve precomputed window columns and null input rows") {
     delta()
     val data = spark.range(2).selectExpr("id", "row_number() over (order by id) AS ordinal",
       "CASE WHEN id = 0 THEN CAST('2020-01-01 00:00:00' AS TIMESTAMP) END AS ts")
     withServer { server =>
-      Seq(true).foreach { durable =>
-        val stage = prompt(path(), server)
-          .setPromptTemplate("{coalesce(cast(ts as string), 'missing')}:{cast(ordinal as string)}")
-        if (!durable) stage.clear(stage.outputPath)
-        val output = stage.transform(data)
-        assert(output.schema == stage.transformSchema(data.schema))
-        val rows = output.collect().sortBy(_.getAs[Long]("id"))
-        assert(rows.map(_.getAs[Int]("ordinal")).toSeq == Seq(1, 2))
-        assert(rows(1).isNullAt(rows(1).fieldIndex("ts")))
-        assert(rows.forall(row => row.getAs[String]("answer") == "answer" && row.getAs[Row]("error") == null))
-      }
-      assert(server.requests.get() == 4)
+      val stage = prompt(path(), server)
+        .setPromptTemplate("{coalesce(cast(ts as string), 'missing')}:{cast(ordinal as string)}")
+      val output = stage.transform(data)
+      assert(output.schema == stage.transformSchema(data.schema))
+      val rows = output.collect().sortBy(_.getAs[Long]("id"))
+      assert(rows.map(_.getAs[Int]("ordinal")).toSeq == Seq(1, 2))
+      assert(rows(1).isNullAt(rows(1).fieldIndex("ts")))
+      assert(rows.forall(row => row.getAs[String]("answer") == "answer" && row.getAs[Row]("error") == null))
+      assert(server.requests.get() == 2)
     }
   }
 
@@ -155,7 +152,8 @@ class AIPromptDurableSchemaSuite extends AIPromptOutputTestBase {
         assert(rows(0L).getAs[String]("answer") == "answer" && rows(0L).getAs[Row]("error") == null)
         assert(rows(1L).getAs[Row]("error").getString(0).contains("invalid_request"))
         rows.foreach { case (id, row) =>
-          assert(row.getAs[Seq[Row]]("messages") == expected(id).getAs[Seq[Row]]("messages"))
+          assert(row.getSeq[Row](row.fieldIndex("messages")) ==
+            expected(id).getSeq[Row](expected(id).fieldIndex("messages")))
         }
         assert(server.requests.size() == 1)
         val body = AIJson.objectString(server.requests.remove()._2)
@@ -204,36 +202,32 @@ class AIPromptDurableSchemaSuite extends AIPromptOutputTestBase {
         val stage = new AIPrompt().setApiType(api).setUrl(server.url + "/v1").setModel("model")
           .setInputCol("text").setOutputCol("answer").setErrorCol("error").setUsageCol("usage")
           .setResponseIdCol("response_id").setRawResponseCol("raw")
-        Seq(true).foreach { durable =>
-          if (durable) stage.setOutputPath(path())
-          val output = stage.transform(input)
-          assert(output.schema == stage.transformSchema(input.schema))
-          val rows = output.collect()
-          assert(rows.length == projections.size)
-          rows.foreach { row =>
-            val name = row.getAs[String]("text")
-            val expected = if (name == "MIXED_CASE" || (api == "responses" && name == "FIRST_BAD_CASE")) {
-              if (api == "chat_completions") "partial" else "partial tail"
-            } else None.orNull
-            assert(row.getAs[String]("answer") == expected)
-            assert(row.getAs[String]("response_id") == "failed-id" && row.getAs[Row]("usage").getLong(2) == 7L)
-            val error = row.getAs[Row]("error")
-            assert(error != null && error.getString(0).contains("provider_error"))
-            assert(!error.getString(0).contains("private provider detail"))
-            assert(row.getAs[String]("raw").contains("private provider detail"))
-          }
-          assert(server.requests.size() == (if (durable) 8 else 4))
-          if (durable) {
-            val status = AIPrompt.getOutputStatus(spark, stage.getOutputPath)
-            assert(status.isComplete && !status.allSucceeded && status.rowErrorCount == 4)
-            assert(stage.resume(spark).collect().toSet == rows.toSet && server.requests.size() == 8)
-          }
+        stage.setOutputPath(path())
+        val output = stage.transform(input)
+        assert(output.schema == stage.transformSchema(input.schema))
+        val rows = output.collect()
+        assert(rows.length == projections.size)
+        rows.foreach { row =>
+          val name = row.getAs[String]("text")
+          val expected = if (name == "MIXED_CASE" || (api == "responses" && name == "FIRST_BAD_CASE")) {
+            if (api == "chat_completions") "partial" else "partial tail"
+          } else None.orNull
+          assert(row.getAs[String]("answer") == expected)
+          assert(row.getAs[String]("response_id") == "failed-id" && row.getAs[Row]("usage").getLong(2) == 7L)
+          val error = row.getAs[Row]("error")
+          assert(error != null && error.getString(0).contains("provider_error"))
+          assert(!error.getString(0).contains("private provider detail"))
+          assert(row.getAs[String]("raw").contains("private provider detail"))
         }
+        assert(server.requests.size() == 4)
+        val status = AIPrompt.getOutputStatus(spark, stage.getOutputPath)
+        assert(status.isComplete && !status.allSucceeded && status.rowErrorCount == 4)
+        assert(stage.resume(spark).collect().toSet == rows.toSet && server.requests.size() == 4)
       }
     }
   }
 
-  test("nullable embedding object tags preserve lazy and durable vectors without replay") {
+  test("nullable embedding object tags preserve durable vectors without replay") {
     delta()
     import spark.implicits._
     val input = Seq("hello").toDF("text")
@@ -243,20 +237,16 @@ class AIPromptDurableSchemaSuite extends AIPromptOutputTestBase {
       val stage = new AIPrompt().setApiType("embeddings").setUrl(server.url + "/v1").setModel("model")
         .setInputCol("text").setOutputCol("answer").setErrorCol("error").setUsageCol("usage")
         .setResponseIdCol("response_id").setRawResponseCol("raw")
-      Seq(true).foreach { durable =>
-        if (durable) stage.setOutputPath(path())
-        val output = stage.transform(input)
-        assert(output.schema == stage.transformSchema(input.schema))
-        val row = output.head()
-        assert(row.getAs[org.apache.spark.ml.linalg.Vector]("answer") == Vectors.dense(0.25, -0.5))
-        assert(row.getAs[Row]("error") == null && row.getAs[Row]("usage").getLong(2) == 2L)
-        assert(row.getAs[String]("response_id") == "embedding-id" && row.getAs[String]("raw") == reply)
-        assert(server.requests.size() == (if (durable) 2 else 1))
-        if (durable) {
-          assert(AIPrompt.getOutputStatus(spark, stage.getOutputPath).allSucceeded)
-          assert(stage.resume(spark).head() == row && server.requests.size() == 2)
-        }
-      }
+      stage.setOutputPath(path())
+      val output = stage.transform(input)
+      assert(output.schema == stage.transformSchema(input.schema))
+      val row = output.head()
+      assert(row.getAs[org.apache.spark.ml.linalg.Vector]("answer") == Vectors.dense(0.25, -0.5))
+      assert(row.getAs[Row]("error") == null && row.getAs[Row]("usage").getLong(2) == 2L)
+      assert(row.getAs[String]("response_id") == "embedding-id" && row.getAs[String]("raw") == reply)
+      assert(server.requests.size() == 1)
+      assert(AIPrompt.getOutputStatus(spark, stage.getOutputPath).allSucceeded)
+      assert(stage.resume(spark).head() == row && server.requests.size() == 1)
     }
   }
 
@@ -273,24 +263,20 @@ class AIPromptDurableSchemaSuite extends AIPromptOutputTestBase {
       val stage = new AIPrompt().setApiType("responses").setUrl(server.url + "/v1").setModel("model")
         .setInputCol("text").setOutputCol("answer").setErrorCol("error").setUsageCol("usage")
         .setResponseIdCol("response_id").setRawResponseCol("raw")
-      Seq(true).foreach { durable =>
-        if (durable) stage.setOutputPath(path())
-        val output = stage.transform(input)
-        assert(output.schema == stage.transformSchema(input.schema))
-        val rows = output.collect()
-        assert(rows.length == 2)
-        rows.foreach { row =>
-          assert(row.getAs[String]("answer") == "partial" && row.getAs[String]("response_id") == "partial-id")
-          assert(row.getAs[Row]("usage").getLong(2) == 3L && row.getAs[String]("raw").contains("in_progress"))
-          assert(Option(row.getAs[Row]("error")).exists(_.getString(0).contains("incomplete")))
-        }
-        assert(server.requests.size() == (if (durable) 4 else 2))
-        if (durable) {
-          val status = AIPrompt.getOutputStatus(spark, stage.getOutputPath)
-          assert(status.isComplete && !status.allSucceeded && status.rowErrorCount == 2)
-          assert(stage.resume(spark).collect().toSet == rows.toSet && server.requests.size() == 4)
-        }
+      stage.setOutputPath(path())
+      val output = stage.transform(input)
+      assert(output.schema == stage.transformSchema(input.schema))
+      val rows = output.collect()
+      assert(rows.length == 2)
+      rows.foreach { row =>
+        assert(row.getAs[String]("answer") == "partial" && row.getAs[String]("response_id") == "partial-id")
+        assert(row.getAs[Row]("usage").getLong(2) == 3L && row.getAs[String]("raw").contains("in_progress"))
+        assert(Option(row.getAs[Row]("error")).exists(_.getString(0).contains("incomplete")))
       }
+      assert(server.requests.size() == 2)
+      val status = AIPrompt.getOutputStatus(spark, stage.getOutputPath)
+      assert(status.isComplete && !status.allSucceeded && status.rowErrorCount == 2)
+      assert(stage.resume(spark).collect().toSet == rows.toSet && server.requests.size() == 2)
     }
   }
 
@@ -396,8 +382,8 @@ class AIPromptDurableSchemaSuite extends AIPromptOutputTestBase {
           assert(rows(name).getAs[Row]("error").getString(0).contains("parse_error"))
         }
         Seq("valid", "singleton").foreach(name => assert(rows(name).getAs[Row]("error") == null))
-        assert(rows("valid").getAs[Seq[Row]]("answer").head.isNullAt(0))
-        assert(rows("singleton").getAs[Seq[Row]]("answer") == Seq(Row(1)))
+        assert(rows("valid").getSeq[Row](rows("valid").fieldIndex("answer")).head.isNullAt(0))
+        assert(rows("singleton").getSeq[Row](rows("singleton").fieldIndex("answer")) == Seq(Row(1)))
         val status = AIPrompt.getOutputStatus(spark, root)
         assert(status.rowErrorCount == 2 && !status.allSucceeded && status.pendingCount == 0)
         val resumed = stage.resume(spark).collect().map(row => row.getAs[String]("text") -> row).toMap
@@ -406,7 +392,7 @@ class AIPromptDurableSchemaSuite extends AIPromptOutputTestBase {
     }
   }
 
-  test("Decisions null image options normalize through lazy and durable direct and facade stages") {
+  test("Decisions null image options normalize through durable direct and facade stages") {
     delta()
     import spark.implicits._
     Seq(new AIPrompt().setApiType("decisions"), new OpenAIDecisions()).foreach { stage =>
@@ -421,27 +407,22 @@ class AIPromptDurableSchemaSuite extends AIPromptOutputTestBase {
         }.toDF("text")
         stage.setUrl(server.url + "/v1").setModel("model").setInputCol("text").setInputMode("json")
           .setQuestions(NativeRequestFixtures.DecisionQuestions).setOutputCol("answer").setErrorCol("error")
-        Seq(true).foreach { durable =>
-          if (durable) stage.setOutputPath(path()).setOutputBatchSize(3)
-          val output = stage.transform(data)
-          assert(output.schema == stage.transformSchema(data.schema))
-          val rows = output.collect()
-          assert(rows.length == 3 && rows.forall(_.getAs[Row]("error") == null))
-          assert(rows.forall(_.getAs[Row]("answer") != null))
-          val sends = if (durable) 6 else 3
-          assert(server.requests.size() == sends)
-          server.requests.asScala.foreach { case (_, body) =>
-            val message = AIJson.objectString(body).fields("input").asInstanceOf[JsArray].elements.head.asJsObject
-            val part = message.fields("content").asInstanceOf[JsArray].elements.head.asJsObject
-            assert(!part.fields.contains("file_id") && !part.fields.contains("detail"))
-            assert(part.fields("provider_extension") == JsNull)
-          }
-          if (durable) {
-            val status = AIPrompt.getOutputStatus(spark, stage.getOutputPath)
-            assert(status.allSucceeded && status.ownerToken.isEmpty)
-            assert(stage.resume(spark).count() == 3 && server.requests.size() == sends)
-          }
+        stage.setOutputPath(path()).setOutputBatchSize(3)
+        val output = stage.transform(data)
+        assert(output.schema == stage.transformSchema(data.schema))
+        val rows = output.collect()
+        assert(rows.length == 3 && rows.forall(_.getAs[Row]("error") == null))
+        assert(rows.forall(_.getAs[Row]("answer") != null))
+        assert(server.requests.size() == 3)
+        server.requests.asScala.foreach { case (_, body) =>
+          val message = AIJson.objectString(body).fields("input").asInstanceOf[JsArray].elements.head.asJsObject
+          val part = message.fields("content").asInstanceOf[JsArray].elements.head.asJsObject
+          assert(!part.fields.contains("file_id") && !part.fields.contains("detail"))
+          assert(part.fields("provider_extension") == JsNull)
         }
+        val status = AIPrompt.getOutputStatus(spark, stage.getOutputPath)
+        assert(status.allSucceeded && status.ownerToken.isEmpty)
+        assert(stage.resume(spark).count() == 3 && server.requests.size() == 3)
       }
     }
   }

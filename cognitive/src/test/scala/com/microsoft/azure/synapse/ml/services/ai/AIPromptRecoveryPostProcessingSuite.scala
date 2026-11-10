@@ -27,7 +27,7 @@ class AIPromptRecoveryPostProcessingSuite extends AIPromptOutputTestBase {
           assert(output.schema == stage.transformSchema(input.schema))
           val rows = output.collect()
           val answered = rows.find(_.getAs[String]("text") == "hello").get
-          if (mode == "csv") assert(answered.getAs[Seq[String]]("answer") == Seq("a", "swer"))
+          if (mode == "csv") assert(answered.getSeq[String](answered.fieldIndex("answer")) == Seq("a", "swer"))
           else assert(answered.getAs[String]("answer") == "nswer")
           assert(answered.getAs[Row]("error") == null)
           val failed = rows.find(_.getAs[String]("text") == "ROW_ERROR").get

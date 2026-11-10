@@ -95,7 +95,7 @@ private[ai] class TestableAIPromptAfterResponsePause(marker: String, pause: Bool
   }
 }
 
-/** Opt-in because this suite starts and forcibly terminates multiple real Spark driver JVMs. */
+/** Opt-in process tests require Java 9+ and forcibly terminate their own real Spark driver JVMs. */
 class AIPromptStorageProcessSuite extends AIPromptOutputTestBase {
   private val driverWaitMinutes = 10
   private val processes = scala.collection.mutable.ArrayBuffer.empty[Process]
@@ -103,6 +103,8 @@ class AIPromptStorageProcessSuite extends AIPromptOutputTestBase {
   private def enabled(): Unit = {
     assume(sys.env.get("AIPROMPT_RUN_PROCESS_TESTS").contains("true"),
       "Set AIPROMPT_RUN_PROCESS_TESTS=true to run real driver kill and acquisition race tests.")
+    assert(classOf[Process].getMethods.exists(_.getName == "toHandle"),
+      "Process integration tests require Java 9+ for argument files and descendant process cleanup.")
     delta()
   }
 
@@ -166,12 +168,18 @@ class AIPromptStorageProcessSuite extends AIPromptOutputTestBase {
     waitUntilReady()
   }
 
-  private def stop(process: Process): Unit = {
+  private def stop(process: Process): Unit = cleanup(Seq(() => {
     if (process.isAlive) {
-      val descendants = process.toHandle.descendants()
-      try descendants.iterator().asScala.foreach(_.destroyForcibly()) finally descendants.close()
-      process.destroyForcibly()
+      // Resolve the opt-in process API at runtime so the test sources still compile on Java 8.
+      val handleClass = Class.forName("java.lang.ProcessHandle")
+      val handle = classOf[Process].getMethod("toHandle").invoke(process)
+      val descendants = handleClass.getMethod("descendants").invoke(handle)
+        .asInstanceOf[java.util.stream.Stream[Object]]
+      val destroy = handleClass.getMethod("destroyForcibly")
+      try descendants.iterator().asScala.foreach(child => destroy.invoke(child)) finally descendants.close()
     }
+  })) {
+    if (process.isAlive) process.destroyForcibly()
     assert(process.waitFor(30, TimeUnit.SECONDS), "Test driver did not stop.")
   }
 

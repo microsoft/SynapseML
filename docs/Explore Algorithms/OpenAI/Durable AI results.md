@@ -12,7 +12,7 @@ It builds on [the focused native APIs](Unified%20AI%20prompting.md); prerequisit
 test passes do not qualify recovery. Managed Spark application-restart recovery
 remains unqualified. See [issue #2800](https://github.com/microsoft/SynapseML/issues/2800).
 
-The [opt-in recovery notebook](Quickstart%20-%20Durable%20AI%20results.ipynb) starts
+The [opt-in recovery notebook](https://github.com/microsoft/SynapseML/blob/master/docs/Explore%20Algorithms/OpenAI/Quickstart%20-%20Durable%20AI%20results.ipynb) starts
 with all execution flags disabled. The examples below assume `spark`, an ordinary
 configured `prompt`, its input DataFrame `tickets`, and the `AIPrompt` import from
 the native guide. Storage and model operations require explicit caller authorization.

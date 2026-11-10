@@ -5,7 +5,6 @@ package com.microsoft.azure.synapse.ml.services.ai
 
 import org.apache.spark.ml.linalg.SQLDataTypes
 import org.apache.spark.sql.DataFrame
-import org.apache.spark.sql.functions.{lit, when}
 import org.apache.spark.sql.types._
 import spray.json._
 
@@ -113,9 +112,7 @@ private[ai] object AIPromptStorageCodec {
       val converted = if (AIValueCodec.containsVector(field.dataType)) {
         AIValueCodec.convertColumn(column, field.dataType, field.nullable, encode)
       } else if (sourceField.dataType == resultType) column else column.cast(resultType)
-      // Widen nullability without a row encoder; Catalyst removes the always-true branch.
-      val widened = if (resultField.nullable && !sourceField.nullable) when(lit(true), converted) else converted
-      widened.as(field.name, field.metadata)
+      converted.as(field.name, field.metadata)
     }
     AIValueCodec.reconcileSchema(frame.select(columns: _*), target)
   }
