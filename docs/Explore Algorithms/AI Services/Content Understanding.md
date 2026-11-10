@@ -22,6 +22,8 @@ For a complete example, open the
 [invoice extraction notebook](https://github.com/microsoft/SynapseML/blob/master/docs/Explore%20Algorithms/AI%20Services/Quickstart%20-%20Content%20Understanding.ipynb).
 It generates a synthetic PDF, extracts invoice fields with confidence and source
 information, and resumes saved operations without submitting the document again.
+For managed OCR without an Azure resource key, use the
+[Fabric notebook](https://github.com/microsoft/SynapseML/blob/master/docs/Explore%20Algorithms/AI%20Services/Quickstart%20-%20Content%20Understanding%20in%20Fabric.ipynb).
 
 ## API at a glance
 
@@ -75,7 +77,41 @@ class. Fabric's preinstalled SynapseML version may not include a newly released
 class. Follow the [installation guide](../../Get%20Started/Install%20SynapseML.md)
 for your runtime rather than mixing Python and JVM versions.
 
-In a Fabric notebook, retrieve the key from Key Vault at runtime:
+### Fabric-managed analysis
+
+Where Fabric-managed Content Understanding is enabled, omit the endpoint and
+credentials. SynapseML derives the AI workload endpoint from the current Fabric
+runtime and uses its MWC token, including for result polling and durable writers:
+
+```python
+from synapse.ml.services.contentunderstanding import ContentUnderstanding
+
+analyzer = (
+    ContentUnderstanding()
+    .setAnalyzerId("prebuilt-read")
+    .setDocumentUrlCol("documentUrl")
+    .setConcurrency(4)
+    .setOutputCol("analysis")
+    .setErrorCol("requestError")
+)
+```
+
+`concurrency` controls requests within each `transform` partition; durable
+writers remain sequential. Implicit Fabric tokens are reacquired for requests
+and refreshed once after a handle-free HTTP 401. Explicit credentials are never
+refreshed or replaced by this fallback.
+
+The managed route supports analysis and result polling, not `createAnalyzer`
+or `getAnalyzer`. Analyzer and model availability depend on the Fabric service,
+capacity, and region. Client-side wiring does not enable a managed service or
+make Foundry LLM deployments available through Fabric. Use your own Foundry
+resource for the LLM-backed invoice notebook, custom analyzer management, or
+capabilities unavailable on your managed endpoint.
+
+### Bring your own Foundry resource
+
+Set an explicit resource endpoint and its credentials, both inside and outside
+Fabric. For example, in a Fabric notebook retrieve the key from Key Vault:
 
 ```python
 import notebookutils
@@ -87,7 +123,7 @@ key = notebookutils.credentials.getSecret(
 
 analyzer = (
     ContentUnderstanding()
-    .setEndpoint("https://<your-resource>.cognitiveservices.azure.com")
+    .setEndpoint("https://<your-resource>.services.ai.azure.com")
     .setSubscriptionKey(key)
     .setAnalyzerId("prebuilt-read")
     .setDocumentUrlCol("documentUrl")
@@ -100,7 +136,12 @@ Outside Fabric, obtain the key from your secret manager. Microsoft Entra ID
 authentication is also supported through `setAADToken` or `setAADTokenCol`.
 Acquire a token for `https://cognitiveservices.azure.com/.default` using an
 identity authorized on your Content Understanding resource. Refresh it for
-long-running work. No implicit Fabric service endpoint or identity is used.
+long-running work. Explicit BYO endpoints do not inherit Fabric credentials.
+OpenAI global configuration does not configure this transformer.
+
+Operation handles must remain on the configured endpoint and result path. For
+Fabric this also binds the handle to the same capacity and workspace gateway;
+SynapseML does not follow a backend-resource URL or a cross-workspace redirect.
 
 Do not put credentials in notebook arguments, Spark configuration, source code,
 or displayed output. SparkML persistence includes configured scalar parameters:

@@ -4,8 +4,10 @@
 package com.microsoft.azure.synapse.ml.services.contentunderstanding
 
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
+import com.microsoft.azure.synapse.ml.fabric.FabricClient
 import com.microsoft.azure.synapse.ml.io.http.{HTTPRequestData, HTTPResponseData, HTTPSchema, SimpleHTTPTransformer}
 import com.microsoft.azure.synapse.ml.logging.FeatureNames
+import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.services.{
   CognitiveServicesBaseNoHandler, HasAPIVersion, HasCognitiveServiceInput, HasInternalJsonOutputParser}
@@ -42,6 +44,9 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
 
   logClass(FeatureNames.AiServices.Form)
   setDefault(apiVersion -> Left(DefaultApiVersion))
+  if (PlatformDetails.runningOnFabric()) {
+    setDefaultInternalEndpoint(FabricClient.MLWorkloadEndpointAI)
+  }
 
   def this() = this(Identifiable.randomUID("ContentUnderstanding"))
 
@@ -49,12 +54,30 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
 
   override def setEndpoint(value: String): this.type = setUrl(endpointUrl(value))
 
+  override private[ml] def internalServiceType: String = "contentunderstanding"
+
+  override def setDefaultInternalEndpoint(value: String): this.type =
+    setDefault(url, fabricEndpointUrl(value))
+
   override def copy(extra: ParamMap): ContentUnderstanding = defaultCopy(extra)
 
-  // OpenAI global URL/version/key settings and Fabric MWC tokens are not credentials for this resource.
+  // OpenAI global endpoint, API version, and credentials do not configure Content Understanding.
   override private[ml] def transferGlobalParamsToParamMap(): Unit = ()
 
-  override protected def getFabricFallbackAuthHeader(row: Row): Option[String] = None
+  protected def fabricEndpoint: Option[String] =
+    if (PlatformDetails.runningOnFabric()) Some(fabricEndpointUrl(FabricClient.MLWorkloadEndpointAI)) else None
+
+  protected def currentFabricAuthHeader: String = FabricClient.getCognitiveMWCTokenAuthHeader
+
+  protected def refreshFabricAuthHeader(rejectedHeader: String): String =
+    FabricClient.refreshCognitiveMWCTokenAuthHeader(rejectedHeader)
+
+  private def usesFabricEndpoint: Boolean = isDefined(url) && fabricEndpoint.contains(getUrl)
+
+  override protected def getFabricFallbackAuthHeader(row: Row): Option[String] =
+    if (usesFabricEndpoint && lacksExplicitAuthCredential(row)) Some(currentFabricAuthHeader) else None
+
+  override protected def supportsImplicitFabricAuthRetry: Boolean = true
 
   override protected def responseDataType: DataType =
     StructType(ContentUnderstandingResponse.schema.fields.map(_.copy(nullable = true)))
@@ -82,7 +105,7 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
   private def configured(param: ServiceParam[_]): Boolean = get(param).orElse(getDefault(param)).isDefined
 
   private def validateConfiguration(): Unit = {
-    require(isSet(url), "Content Understanding requires an explicit endpoint. Call setEndpoint(resourceRoot).")
+    require(isDefined(url), "Outside Fabric, call setEndpoint with your Content Understanding resource root.")
     validateEndpoint(getUrl)
     require(!isSet(customUrlRoot), "customUrlRoot is not supported; use setEndpoint.")
     require(getConcurrency > 0, "concurrency must be positive.")
@@ -99,7 +122,8 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
   private def settings: Settings = {
     validateConfiguration()
     Settings(getUrl, math.ceil(getTimeout * MillisecondsPerSecond).toInt,
-      getMaxPollAttempts, getPollingDelay, getMaxResponseBytes, getRetryOnThrottling)
+      getMaxPollAttempts, getPollingDelay, getMaxResponseBytes, getRetryOnThrottling,
+      if (usesFabricEndpoint) Some(FabricAuth(() => currentFabricAuthHeader, refreshFabricAuthHeader _)) else None)
   }
 
   private def expectedType(param: ServiceParam[_]): DataType = {
@@ -238,7 +262,8 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
   }
 
   private def buildUrl(path: String, query: Seq[(String, String)]): String = {
-    val builder = new URIBuilder(getUrl).setPath(path)
+    val prefix = validateEndpoint(getUrl).getRawPath.stripSuffix(AnalyzersPath)
+    val builder = new URIBuilder(getUrl).setPath(prefix + path)
     query.sortBy(_._1).foreach { case (name, value) => builder.setParameter(name, value) }
     builder.build().toString
   }
@@ -339,6 +364,9 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
   private def validateManagement(): Unit = {
     require(Option(TaskContext.get()).isEmpty, "Analyzer management is driver-only.")
     validateConfiguration()
+    require(!usesFabricEndpoint,
+      "Fabric-managed Content Understanding supports analysis and polling, not analyzer management. " +
+        "Use setEndpoint with your own Content Understanding resource for createAnalyzer or getAnalyzer.")
     (authParams ++ Seq(analyzerId, apiVersion)).foreach { param =>
       require(get(param).orElse(getDefault(param)).forall(_.isLeft),
         s"Analyzer management requires scalar ${param.name}, not a column.")

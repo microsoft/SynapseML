@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.services.contentunderstanding
 
 import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
-import com.microsoft.azure.synapse.ml.io.http.{AsyncClient, HTTPRequestData, RequestLineData}
+import com.microsoft.azure.synapse.ml.io.http.{AsyncClient, HeaderData, HTTPRequestData, RequestLineData}
 import org.apache.http.HttpStatus
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.HttpRequestBase
@@ -20,6 +20,7 @@ import java.time.format.DateTimeFormatter
 import java.util.concurrent.CancellationException
 import scala.annotation.tailrec
 import scala.util.Try
+import scala.util.control.NonFatal
 
 case class ContentUnderstandingResponse(operationLocation: Option[String],
                                         id: Option[String],
@@ -60,12 +61,15 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
   private val AdmissionRejections = Set(HttpStatus.SC_UNAUTHORIZED, HttpStatus.SC_FORBIDDEN, TooManyRequests)
   private val UnavailableResults = Set(HttpStatus.SC_NOT_FOUND, HttpStatus.SC_GONE)
 
+  case class FabricAuth(current: () => String, refresh: String => String)
+
   case class Settings(endpoint: String,
                       timeoutMs: Int,
                       maxPollAttempts: Int,
                       pollingDelay: Int,
                       maxResponseBytes: Int,
-                      retryOnThrottling: Boolean) {
+                      retryOnThrottling: Boolean,
+                      fabricAuth: Option[FabricAuth] = None) {
     def requestConfig: RequestConfig = RequestConfig.custom()
       .setConnectTimeout(timeoutMs)
       .setConnectionRequestTimeout(timeoutMs)
@@ -79,7 +83,8 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
                                   location: Option[String],
                                   retryAfter: Option[String],
                                   diagnostic: Option[String] = None,
-                                  transportFailure: Boolean = false) {
+                                  transportFailure: Boolean = false,
+                                  authenticationFailure: Boolean = false) {
     def successful: Boolean = httpStatus >= HttpStatus.SC_OK && httpStatus < HttpStatus.SC_MULTIPLE_CHOICES
     def retryable: Boolean = transportFailure || (diagnostic.isEmpty && TransientStatuses(httpStatus))
     lazy val json: Option[JsObject] = asObject(body)
@@ -133,16 +138,22 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
     validateAuthority(uri)
     require(Option(uri.getRawQuery).isEmpty, "endpoint cannot contain a query.")
     val path = Option(uri.getRawPath).getOrElse("").reverse.dropWhile(_ == '/').reverse
-    require(path.isEmpty || path == AnalyzersPath,
-      "endpoint must be the resource root or its contentunderstanding/analyzers URL.")
-    new URI(uri.getScheme, uri.getRawAuthority, AnalyzersPath, None.orNull, None.orNull).toString
+    val result = new URI(uri.getScheme, uri.getRawAuthority,
+      if (path.isEmpty) AnalyzersPath else path, None.orNull, None.orNull).toString
+    validateEndpoint(result)
+    result
   }
+
+  def fabricEndpointUrl(root: String): String = root.stripSuffix("/") + "/cognitive" + AnalyzersPath
 
   def validateEndpoint(value: String): URI = {
     val uri = parseUri(value, "url")
     validateAuthority(uri)
-    require(uri.getRawPath == AnalyzersPath && Option(uri.getRawQuery).isEmpty,
-      "url must end with /contentunderstanding/analyzers and have no query. Use setEndpoint(resourceRoot).")
+    val path = uri.getRawPath
+    val fabricPath = path.endsWith("/cognitive" + AnalyzersPath) &&
+      path.stripPrefix("/").split("/", -1).forall(safeSegment)
+    require((path == AnalyzersPath || fabricPath) && Option(uri.getRawQuery).isEmpty,
+      "Use the resource's /contentunderstanding/analyzers URL or its Fabric cognitive gateway URL without a query.")
     uri
   }
 
@@ -160,7 +171,8 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
     val uri = parseUri(location, "operationLocation")
     validateAuthority(uri)
     require(sameOrigin(root, uri), "operationLocation must use the configured endpoint's scheme, host, and port.")
-    val prefix = analyzer.map(id => s"$AnalyzersPath/$id/operations/").getOrElse(ResultsPath)
+    val gateway = root.getRawPath.stripSuffix(AnalyzersPath)
+    val prefix = gateway + analyzer.map(id => s"$AnalyzersPath/$id/operations/").getOrElse(ResultsPath)
     val path = uri.getRawPath
     require(path.startsWith(prefix) && safeSegment(path.substring(prefix.length)),
       "operationLocation must identify one operation in the expected Content Understanding result path.")
@@ -298,11 +310,48 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
     }
   }
 
+  private def withAuthHeader(request: HTTPRequestData, value: String): HTTPRequestData =
+    request.copy(headers = request.headers.filterNot(_.name.equalsIgnoreCase("Authorization")) :+
+      HeaderData("Authorization", value))
+
+  private def resolveFabricAuth(value: => String): Either[WireResponse, String] = {
+    try {
+      Right(value)
+    } catch {
+      case error: CancellationException => throw error
+      case NonFatal(_) =>
+        val error = diagnostic("FabricAuthenticationError",
+          "Could not acquire a Fabric workload token. Retain any operation handle and resume polling.")
+        Left(WireResponse(HttpStatus.SC_UNAUTHORIZED, s"""{"error":$error}""", None, None,
+          authenticationFailure = true))
+    }
+  }
+
+  private def exchangeWithAuth(client: CloseableHttpClient,
+                               settings: Settings,
+                               request: HTTPRequestData): WireResponse = {
+    settings.fabricAuth.filter(_ => request.usesFabricAuth) match {
+      case Some(auth) =>
+        resolveFabricAuth(auth.current()).fold(identity, header => {
+          val response = exchange(client, settings, withAuthHeader(request, header))
+          // Never replay a submission carrying an operation handle, even after an authentication error.
+          if (response.httpStatus == HttpStatus.SC_UNAUTHORIZED && response.location.isEmpty &&
+            response.diagnostic.isEmpty && !response.transportFailure) {
+            resolveFabricAuth(auth.refresh(header)).fold(identity, value =>
+              exchange(client, settings, withAuthHeader(request, value)))
+          } else {
+            response
+          }
+        })
+      case None => exchange(client, settings, request)
+    }
+  }
+
   @tailrec
   private def exchangeWithThrottling(client: CloseableHttpClient,
                                      settings: Settings,
                                      request: HTTPRequestData): WireResponse = {
-    val response = exchange(client, settings, request)
+    val response = exchangeWithAuth(client, settings, request)
     val canReplay = request.requestLine.method == "GET" || response.location.isEmpty
     if (settings.retryOnThrottling && response.httpStatus == TooManyRequests &&
       response.diagnostic.isEmpty && !response.transportFailure && canReplay) {
@@ -344,7 +393,7 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
     val serviceError = json.flatMap(_.fields.get("error")).filterNot(_ == JsNull).map(_.compactPrint)
     val serviceStatus = json.flatMap(stringField(_, "status"))
       .flatMap(s => StatusNames.get(s.toLowerCase(java.util.Locale.ROOT)))
-    val status = if (raw.transportFailure) {
+    val status = if (raw.transportFailure || raw.authenticationFailure) {
       "Unknown"
     } else if (!raw.successful || raw.diagnostic.isDefined) {
       "Failed"

@@ -583,10 +583,12 @@ class ContentUnderstandingSuite extends TestBase {
     intercept[IllegalArgumentException](scalar.transformSchema(schema))
   }
 
-  test("endpoint joining requires explicit configuration and rejects insecure or ambiguous authorities") {
+  test("endpoint joining supports configured defaults and rejects insecure or ambiguous authorities") {
     val unset = new ContentUnderstanding().setDocumentBytes(Array[Byte](1))
-      .setDefaultInternalEndpoint("https://fabric.invalid")
     intercept[IllegalArgumentException](unset.transformSchema(StructType(Nil)))
+    unset.setDefaultInternalEndpoint("https://fabric.invalid")
+    unset.transformSchema(StructType(Nil))
+    assert(unset.getUrl == "https://fabric.invalid/cognitive" + AnalyzersPath)
     val base = new ContentUnderstanding().setEndpoint("https://example.invalid")
     assert(base.getUrl == "https://example.invalid" + AnalyzersPath)
     assert(base.setEndpoint("https://example.invalid/").getUrl == "https://example.invalid" + AnalyzersPath)
