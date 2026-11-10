@@ -3,6 +3,8 @@
 
 package com.microsoft.azure.synapse.ml.stages
 
+import com.microsoft.azure.synapse.ml.core.serialize.ComplexParamTestFixtures.withActiveSession
+import com.microsoft.azure.synapse.ml.core.serialize.TestableNestedParamTest
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import org.apache.spark.ml.Serializer
 import org.apache.spark.sql.SparkSession
@@ -26,9 +28,7 @@ class VerifyUDFTransformerPersistence extends TestBase {
       active.conf.set(config, (!allowed).toString)
       val readerSession = spark.newSession()
       readerSession.conf.set(config, allowed.toString)
-      val previous = SparkSession.getActiveSession
-      SparkSession.setActiveSession(active)
-      try {
+      withActiveSession(Some(active)) {
         val path = tmpDir.resolve(s"reader-session-$allowed.model").toString
         new UDFTransformer().setUDF(UDFPersistenceTestHelpers.StringToIntegerUDF)
           .setInputCol("words").setOutputCol("out").write.session(readerSession).save(path)
@@ -39,7 +39,47 @@ class VerifyUDFTransformerPersistence extends TestBase {
           val error = intercept[SecurityException](UDFTransformer.read.session(readerSession).load(path))
           assert(error.getMessage.contains(config))
         }
-      } finally previous.fold(SparkSession.clearActiveSession())(SparkSession.setActiveSession)
+      }
+    }
+  }
+
+  for {
+    allowed <- Seq(false, true)
+    array <- Seq(false, true)
+    hasActiveSession <- Seq(false, true)
+  } {
+    test(s"nested complex readers use their assigned Spark session policy with " +
+      s"allowed=$allowed, array=$array, active=$hasActiveSession") {
+      import spark.implicits._
+
+      val input = Seq("safe").toDF("words")
+      val config = Serializer.LegacyObjectDeserializationConfig
+      val active = spark.newSession()
+      active.conf.set(config, (!allowed).toString)
+      val assigned = spark.newSession()
+      assigned.conf.set(config, allowed.toString)
+      val previousDefault = SparkSession.getDefaultSession
+      val expectedActive = if (hasActiveSession) Some(active) else None
+      withActiveSession(expectedActive) {
+        val path = tmpDir.resolve(s"nested-reader-$allowed-$array-$hasActiveSession.model").toString
+        val child = new UDFTransformer().setUDF(UDFPersistenceTestHelpers.StringToIntegerUDF)
+          .setInputCol("words").setOutputCol("out")
+        new TestableNestedParamTest(s"parent-$allowed-$array").setNested(child, array)
+          .write.session(assigned).save(path)
+        assert(SparkSession.getActiveSession == expectedActive)
+        assert(SparkSession.getDefaultSession == previousDefault)
+        if (allowed) {
+          val loaded = TestableNestedParamTest.read.session(assigned).load(path).getNested(array)
+            .asInstanceOf[UDFTransformer]
+          assert(SparkSession.getActiveSession == expectedActive)
+          assert(loaded.transform(input).select("out").as[Int].collect().sameElements(Array(1)))
+        } else {
+          val error = intercept[SecurityException](TestableNestedParamTest.read.session(assigned).load(path))
+          assert(error.getMessage.contains(config))
+        }
+        assert(SparkSession.getActiveSession == expectedActive)
+        assert(SparkSession.getDefaultSession == previousDefault)
+      }
     }
   }
 
