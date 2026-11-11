@@ -14,6 +14,14 @@ with their existing contracts. Migrating to `AIPrompt` is not a drop-in replacem
 for example, Responses forwards configured sampling options even for GPT-5-named
 deployments instead of applying the legacy name-based suppression described below.
 
+![AIPrompt routes a Spark DataFrame through five explicit API contracts, with shared controls, distinct outputs and compatibility limits.](https://github.com/user-attachments/assets/bfcb52f9-b019-455b-9e23-598a44fae229)
+
+The diagram summarizes routing, not universal provider support. Inherited setters
+are validated against the selected API; a model can impose further restrictions.
+Foundry Microsoft Decision-1 uses SystemOne, not the public OpenAI Decisions beta.
+Decisions is rejected for Azure OpenAI/Foundry hosts and has not been live-qualified
+here.
+
 | `apiType` | Input | Output |
 | --- | --- | --- |
 | `chat_completions` (default) | Prompt template, text column, or messages | First choice's text, or configured Spark postprocessing type |
