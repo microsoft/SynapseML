@@ -1,7 +1,7 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 
-"""Opt-in native inference with synthetic data and environment-only credentials."""
+"""Opt-in inference with synthetic data and environment-only credentials."""
 
 import json
 import os
@@ -61,6 +61,74 @@ DECISION_QUESTIONS = [
 
 
 class TestAIPromptLive(unittest.TestCase):
+    def _run_generative(self, api):
+        prefix = "SYNAPSEML_GENERATIVE"
+        endpoint = os.environ.get(prefix + "_ENDPOINT", "").strip()
+        deployment = os.environ.get(prefix + "_DEPLOYMENT", "").strip()
+        token = os.environ.get(prefix + "_TOKEN", "").strip()
+        key = os.environ.get(prefix + "_KEY", "").strip()
+        if not (endpoint and deployment and (token or key)):
+            self.skipTest(
+                "Live generative endpoint, deployment and credentials are not configured"
+            )
+        spark = SparkSession.getActiveSession() or init_spark()
+        dataset = spark.createDataFrame(
+            [("France", 0.0, 100)], "country STRING, temperature DOUBLE, tokens INT"
+        )
+        stage = (
+            AIPrompt()
+            .setApiType(api)
+            .setUrl(endpoint)
+            .setDeploymentName(deployment)
+            .setSystemPrompt("Return the country's capital as a JSON object.")
+            .setPromptTemplate("What is the capital of {country}?")
+            .setTemperatureCol("temperature")
+            .setMaxTokensCol("tokens")
+            .setResponseSchema(
+                {
+                    "type": "object",
+                    "properties": {"capital": {"type": "string"}},
+                    "required": ["capital"],
+                    "additionalProperties": False,
+                }
+            )
+            .setOutputCol("answer")
+            .setErrorCol("error")
+            .setUsageCol("usage")
+            .setRawResponseCol("raw")
+            .setConcurrency(1)
+            .setTimeout(120)
+        )
+        if api == "responses":
+            stage.setStore(False)
+        if token:
+            stage.setAADToken(token)
+        else:
+            stage.setSubscriptionKey(key)
+        result = stage.transform(dataset)
+        expected = stage._java_obj.transformSchema(dataset._jdf.schema()).json()
+        self.assertEqual(json.loads(result.schema.json()), json.loads(expected))
+        row = result.head()
+        self.assertIsNone(row.error, "Live generative inference returned an error")
+        self.assertEqual(json.loads(row.answer)["capital"], "Paris")
+        self.assertIsNotNone(row.usage)
+        raw = json.loads(row.raw)
+        self.assertTrue(raw["model"])
+        if api == "chat_completions":
+            self.assertEqual(
+                json.loads(raw["choices"][0]["message"]["content"]),
+                json.loads(row.answer),
+            )
+        else:
+            self.assertEqual(raw["status"], "completed")
+            self.assertFalse(raw["store"])
+
+    def test_live_chat_default_v1_structured_output(self):
+        self._run_generative("chat_completions")
+
+    def test_live_responses_default_v1_structured_output(self):
+        self._run_generative("responses")
+
     def _run_native(self, api, direct, prefix, model_setting, questions):
         def configured(name):
             return os.environ.get(prefix + name, "").strip()
@@ -90,6 +158,7 @@ class TestAIPromptLive(unittest.TestCase):
                 stage.setUrl(endpoint).setModel(model).setQuestions(questions)
                 stage.setOutputCol("decision").setErrorCol("error")
                 stage.setUsageCol("usage").setRawResponseCol("raw").setConcurrency(2)
+                stage.setTimeout(120)
                 if api == "systemone":
                     stage.setStateCol("ticket")
                 else:

@@ -282,11 +282,12 @@ class AIPromptSuite extends AIPromptFuzzing[AIPrompt] {
       new AISystemOne().setUrl("https://API.OPENAI.COM").setDeploymentName("model")
         .setStateCol("text").setQuestions(NativeRequestFixtures.SystemQuestions).transformSchema(input.schema)
     }
-    intercept[IllegalArgumentException] {
-      new com.microsoft.azure.synapse.ml.services.openai.OpenAIDecisions().setUrl(root)
-        .setModel("model").setInputCol("text").setQuestions(NativeRequestFixtures.DecisionQuestions)
-        .transformSchema(input.schema)
-    }
+    val decisions = new com.microsoft.azure.synapse.ml.services.openai.OpenAIDecisions().setUrl(root)
+      .setModel("model").setInputCol("text").setQuestions(NativeRequestFixtures.DecisionQuestions)
+    decisions.transformSchema(input.schema)
+    val (decisionsUrl, _) = new AIRequestAdapter(decisions.effectiveCopy(), input.schema)
+      .request(Row("hello"), None, None)
+    assert(decisionsUrl == root + "/openai/v1/decisions")
   }
 
   test("implicit Fabric credentials follow the effective destination and never a non-Fabric global URL") {

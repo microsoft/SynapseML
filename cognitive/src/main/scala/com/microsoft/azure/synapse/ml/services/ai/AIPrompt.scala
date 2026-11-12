@@ -60,8 +60,9 @@ object AIPrompt extends ExplicitComplexParamsReadable[AIPrompt] {
     val headers = if (prompt.usingImplicitFabricEndpoint(address)) {
       OpenAIFabricHeaders.merge(Some(resolution.headers))
     } else resolution.headers
-    val bearerKey = prompt.getApiType == "decisions" ||
-      AIRequestAdapter.isOpenAIHost(AIRequestAdapter.normalizedHost(new java.net.URI(address)))
+    val host = AIRequestAdapter.normalizedHost(new java.net.URI(address))
+    val bearerKey = AIRequestAdapter.isOpenAIHost(host) ||
+      (prompt.getApiType == "decisions" && !AIRequestAdapter.isAzureHost(host))
     val outgoing = headers.toSeq.filterNot { case (name, _) => HTTPRequestData.isFabricAuthMarker(name) }
       .filterNot(_._1.equalsIgnoreCase("Content-Type"))
       .map { case (name, value) =>

@@ -59,7 +59,7 @@ private[ai] object AIRequestAdapter {
   def isOpenAIHost(host: String): Boolean =
     host == "api.openai.com" || host.endsWith(".api.openai.com")
 
-  private def isAzureHost(host: String): Boolean = AzureHostSuffixes.exists(host.endsWith)
+  def isAzureHost(host: String): Boolean = AzureHostSuffixes.exists(host.endsWith)
 
   private def routePath(uri: URI): String =
     OpenAIEndpointUtils.stripTrailingSlashes(Option(uri.getRawPath).getOrElse("")).toLowerCase(Locale.ROOT)
@@ -413,13 +413,17 @@ private[ai] final class AIRequestAdapter(stage: AIPrompt, schema: StructType) ex
         require(basePath.isEmpty || basePath.endsWith("/providers/microsoft/v1/systemone"),
           "systemone requires a Foundry resource endpoint or its complete System One route")
         "providers/microsoft/v1/systemone"
-      case "decisions" =>
-        require(!AIRequestAdapter.isAzureHost(host),
-          "decisions requires a qualified OpenAI endpoint, not a Foundry endpoint")
-        require(basePath.isEmpty || v1 || basePath.endsWith("/v1/decisions"),
-          "decisions requires a /v1 endpoint")
-        if (v1) "decisions" else "v1/decisions"
+      case "decisions" => decisionsRoute
       case _ => throw new IllegalArgumentException("apiType does not select a native route")
+  }
+
+  private def decisionsRoute: String = {
+    val azure = AIRequestAdapter.isAzureHost(host)
+    require(basePath.isEmpty || v1 || (azure && basePath == "/openai"),
+      "decisions requires a resource endpoint or a /v1 endpoint")
+    if (v1) "decisions"
+    else if (azure && basePath.isEmpty) "openai/v1/decisions"
+    else "v1/decisions"
   }
 
   private def generativeRoute(modelName: String): String = api match {
@@ -478,8 +482,6 @@ private[ai] final class AIRequestAdapter(stage: AIPrompt, schema: StructType) ex
   }
 
   private def endpoint(modelName: String, version: Option[String], validateModel: Boolean = true): String = {
-    if (api == "decisions") require(!AIRequestAdapter.isAzureHost(host),
-      "decisions requires a qualified OpenAI endpoint, not a Foundry endpoint")
     require(api != "systemone" || !AIRequestAdapter.isOpenAIHost(host),
       "systemone requires a qualified Foundry endpoint, not an OpenAI endpoint")
     validateDeploymentBase()

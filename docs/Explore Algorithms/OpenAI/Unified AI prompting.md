@@ -14,13 +14,13 @@ with their existing contracts. Migrating to `AIPrompt` is not a drop-in replacem
 for example, Responses forwards configured sampling options even for GPT-5-named
 deployments instead of applying the legacy name-based suppression described below.
 
-![AIPrompt routes a Spark DataFrame through five explicit API contracts, with shared controls, distinct outputs and compatibility limits.](https://github.com/user-attachments/assets/bfcb52f9-b019-455b-9e23-598a44fae229)
+![AIPrompt routes a Spark DataFrame through five explicit API contracts, with shared controls, distinct outputs and compatibility limits.](https://github.com/user-attachments/assets/37cd9d44-fea4-4c0a-9610-9cf0ff14265b)
 
 The diagram summarizes routing, not universal provider support. Inherited setters
 are validated against the selected API; a model can impose further restrictions.
-Foundry Microsoft Decision-1 uses SystemOne, not the public OpenAI Decisions beta.
-Decisions is rejected for Azure OpenAI/Foundry hosts and has not been live-qualified
-here.
+Foundry Microsoft Decision-1 uses SystemOne. Foundry also exposes the separate
+Decisions API for supported `gpt-6-luna` deployments; these are distinct protocols,
+not interchangeable model names. Check the provider's model and region availability.
 
 | `apiType` | Input | Output |
 | --- | --- | --- |
@@ -189,7 +189,7 @@ quoted JSON; objects, booleans, arrays and nulls remain lossless. This does not
 assert an undocumented provider answer schema. Decode values according to your
 application's schema, or retain them with the raw response.
 
-Decisions uses the public OpenAI beta contract and an ordered question array:
+Decisions uses an ordered question array. For a supported Foundry deployment:
 
 ```python
 decision_questions = [
@@ -211,9 +211,9 @@ decision_questions = [
 ]
 decisions = (
     OpenAIDecisions()
-    .setUrl("https://api.openai.com/v1")
-    .setModel(os.environ["DECISIONS_MODEL"])
-    .setSubscriptionKey(os.environ["OPENAI_API_KEY"])
+    .setUrl(os.environ["FOUNDRY_ENDPOINT"])
+    .setDeploymentName(os.environ["DECISIONS_DEPLOYMENT"])
+    .setAADToken(os.environ["FOUNDRY_TOKEN"])
     .setInputCol("ticket")
     .setQuestions(decision_questions)
     .setOutputCol("decision")
@@ -221,12 +221,16 @@ decisions = (
 )
 ```
 
-This is **not** a Foundry endpoint. An available System One deployment does not
-establish Decisions availability. Decisions preflight rejects Azure resource
-hosts in the public and sovereign clouds (`*.azure.com`, `*.azure.us` and
-`*.azure.cn`), including complete URL overrides. Live Decisions qualification is tracked in
-[microsoft/SynapseML#2760](https://github.com/microsoft/SynapseML/issues/2760);
-local protocol fixtures do not establish live availability.
+For Azure resource roots, the route is `/openai/v1/decisions`, with no dated
+API-version query by default. An `/openai` or `/openai/v1` base and a complete
+`/openai/v1/decisions` URL are also accepted. Use the **deployment name**, not
+necessarily the underlying model name. The [Foundry Decisions documentation](https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/decisions)
+lists `gpt-6-luna` support and region restrictions, including the East US 2
+exclusion. Routing support is not a guarantee of availability in every Azure cloud
+or region. An available System One deployment does not establish Decisions support.
+For a separately authorized public OpenAI deployment, use
+`setUrl("https://api.openai.com/v1")`, `setModel(...)` and
+`setSubscriptionKey(...)`; its route is `/v1/decisions`.
 Choice values use a tagged Spark struct
 (`type`, `stringValue`, `booleanValue`); `true` and `"true"` remain distinct.
 Score probability entries preserve numeric index and label. Scores must be
@@ -290,19 +294,24 @@ val decisions = new OpenAIDecisions()
 val decisionResults = decisions.transform(tickets)
 ```
 
-### Validate a native deployment
+### Validate live deployments
 
-The opt-in live suites use synthetic support tickets and exercise both the
-protocol-specific stage and `AIPrompt`. Configure credentials only in the test
-process environment, never in a notebook checked into source control.
+The opt-in live suites use synthetic inputs. Native tests exercise both the
+protocol-specific stage and `AIPrompt`; generative tests exercise Chat and
+Responses through `AIPrompt` with the default v1 route and structured JSON output.
+Configure credentials only in the test process environment, never in a notebook
+checked into source control.
 
 | API | Required environment variables | Authentication |
 | --- | --- | --- |
+| Chat and Responses | `SYNAPSEML_GENERATIVE_ENDPOINT`, `SYNAPSEML_GENERATIVE_DEPLOYMENT` | `SYNAPSEML_GENERATIVE_TOKEN` or `SYNAPSEML_GENERATIVE_KEY` |
 | System One | `SYNAPSEML_SYSTEMONE_ENDPOINT`, `SYNAPSEML_SYSTEMONE_DEPLOYMENT` | `SYNAPSEML_SYSTEMONE_TOKEN` or `SYNAPSEML_SYSTEMONE_KEY` |
 | Decisions | `SYNAPSEML_DECISIONS_ENDPOINT`, `SYNAPSEML_DECISIONS_MODEL` | `SYNAPSEML_DECISIONS_TOKEN` or `SYNAPSEML_DECISIONS_KEY` |
 
-Use an endpoint that exposes the selected native API and a model authorized for
-it. Model discovery or a successful chat request does not prove native API
+Use an endpoint that exposes the selected API and a model authorized for
+it. The generative deployment must support structured output and temperature,
+such as `gpt-4.1-mini`; use an Azure resource root to exercise default v1 routing.
+Model discovery or a successful chat request does not prove native API
 availability. Configure the native endpoint and its authentication on the stage;
 native APIs do not inherit process-wide OpenAI URL or API-key defaults, and the
 facade does not infer an implicit Fabric native route.
@@ -347,8 +356,9 @@ Valid supplementary characters and U+FFFD remain supported;
 an unused `url` does not override or invalidate an explicit `customUrlRoot`.
 On OpenAI-hosted endpoints (`api.openai.com` and `*.api.openai.com`, including
 regional endpoints), subscription keys use the `Authorization: Bearer` header
-for Chat Completions, Responses and embeddings. Decisions uses bearer keys on
-every supported endpoint. Pass the raw API key to `setSubscriptionKey`, without
+for Chat Completions, Responses and embeddings. Decisions uses `api-key` for
+Azure hosts and bearer keys for non-Azure endpoints. Entra authentication through
+`setAADToken` uses `Authorization: Bearer`. Pass the raw API key to `setSubscriptionKey`, without
 an `Authorization` scheme prefix. Use custom authentication headers when supplying
 a complete header value. Host comparisons ignore case and one DNS trailing dot;
 the supplied URL itself is retained. These rules do not classify lookalike domains

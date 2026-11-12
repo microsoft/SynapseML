@@ -363,9 +363,7 @@ class AIPromptEndpointSuite extends TestBase {
     val endpoints = Seq(
       "systemone" -> "https://API.OPENAI.COM.",
       "systemone" -> "https://eu.api.openai.com",
-      "systemone" -> "https://EU.API.OPENAI.COM.",
-      "decisions" -> "https://resource.openai.azure.com./v1",
-      "decisions" -> "https://resource.services.ai.azure.com./v1")
+      "systemone" -> "https://EU.API.OPENAI.COM.")
     endpoints.foreach { case (api, endpoint) =>
       val stage = new AIPrompt().setApiType(api).setUrl(endpoint).setModel("model").setInputCol("text")
         .setQuestions(if (api == "systemone") NativeRequestFixtures.SystemQuestions
@@ -380,29 +378,66 @@ class AIPromptEndpointSuite extends TestBase {
   }
 
   Seq("azure.com", "azure.us", "azure.cn").foreach { cloud =>
-    test(s"Decisions rejects $cloud endpoints before execution") {
+    test(s"Decisions routes $cloud endpoints with Azure key and Entra authentication") {
       val input = spark.createDataFrame(Seq(Row("hello")).asJava, inputSchema)
+      val endpoints = Seq(
+        (s"resource.openai.$cloud", ""),
+        (s"resource.services.ai.$cloud".toUpperCase(Locale.ROOT) + ".", "/openai"),
+        (s"resource.cognitiveservices.$cloud", "/openai/v1"),
+        (s"resource.openai.$cloud", "/openai/v1/decisions"))
       for {
-        prefix <- Seq("resource.openai", "resource.services.ai", "resource.cognitiveservices")
-        host <- Seq(s"$prefix.$cloud", s"$prefix.$cloud".toUpperCase(Locale.ROOT) + ".")
-        route <- Seq("", "/v1", "/v1/decisions")
-        stage <- Seq(new AIPrompt().setApiType("decisions"), new OpenAIDecisions())
-        custom <- Seq(false, true)
+        (host, route) <- endpoints
+        (stage, token) <- Seq(new AIPrompt().setApiType("decisions") -> true, new OpenAIDecisions() -> false)
       } {
         stage.setModel("model").setInputCol("text").setQuestions(NativeRequestFixtures.DecisionQuestions)
-        val endpoint = s"https://$host$route"
-        stage.clear(stage.customUrlRoot)
-        if (custom) stage.setCustomUrlRoot(endpoint) else stage.setUrl(endpoint)
-        Seq[() => Any](() => stage.transformSchema(inputSchema), () => stage.transform(input)).foreach { call =>
-          val error = intercept[IllegalArgumentException](call())
-          assert(error.getMessage.contains("not a Foundry endpoint") && error.getCause == null)
-          assert(!error.getMessage.contains(host))
+          .setUrl(s"https://$host$route").setOutputCol("answer").setErrorCol("error")
+        if (token) stage.setAADToken("synthetic-token") else stage.setSubscriptionKey("synthetic-key")
+        stage.setHandler { (_, request) =>
+          assert(request.requestLine.uri == s"https://$host/openai/v1/decisions")
+          val headers = request.headers.map(h => h.name.toLowerCase(Locale.ROOT) -> h.value).toMap
+          if (token) {
+            assert(headers.get("authorization").contains("Bearer synthetic-token") && !headers.contains("api-key"))
+          } else {
+            assert(headers.get("api-key").contains("synthetic-key") && !headers.contains("authorization"))
+          }
+          HTTPSchema.stringToResponse(NativeRequestFixtures.DecisionResponse, 200, "OK")
         }
+        val result = stage.transform(input)
+        assert(result.schema == stage.transformSchema(inputSchema))
+        val row = result.head()
+        assert(row.getAs[Row]("error") == null && row.getAs[Row]("answer") != null)
       }
     }
   }
 
-  test("Decisions Azure host guards preserve explicit non-Azure proxy endpoints") {
+  test("Decisions Azure versions and complete URL overrides preserve their routing contracts") {
+    val input = spark.createDataFrame(Seq(Row("preview")).asJava, inputSchema)
+    Seq(new AIPrompt().setApiType("decisions"), new OpenAIDecisions()).foreach { stage =>
+      stage.setUrl("https://resource.openai.azure.com").setModel("model").setInputCol("text")
+        .setQuestions(NativeRequestFixtures.DecisionQuestions).setErrorCol("error")
+      Seq("v1", "preview").foreach { version =>
+        stage.setApiVersion(version).setHandler { (_, request) =>
+          val query = if (version == "v1") "" else "?api-version=preview"
+          assert(request.requestLine.uri == "https://resource.openai.azure.com/openai/v1/decisions" + query)
+          HTTPSchema.stringToResponse(NativeRequestFixtures.DecisionResponse, 200, "OK")
+        }
+        assert(stage.transform(input).head().getAs[Row]("error") == null)
+      }
+      stage.setApiVersionCol("text")
+      assert(stage.transform(input).head().getAs[Row]("error") == null)
+      stage.clear(stage.apiVersion)
+      val complete = "https://resource.openai.azure.com/openai/v1/decisions///?marker=A%2Fb"
+      stage.setCustomUrlRoot(complete).setHandler { (_, request) =>
+        assert(request.requestLine.uri == complete)
+        HTTPSchema.stringToResponse(NativeRequestFixtures.DecisionResponse, 200, "OK")
+      }
+      assert(stage.transform(input).head().getAs[Row]("error") == null)
+      stage.setApiVersion("v1")
+      intercept[IllegalArgumentException](stage.transformSchema(inputSchema))
+    }
+  }
+
+  test("Decisions preserves explicit non-Azure proxy endpoints") {
     Seq("gateway.azure.us.example.invalid", "gateway.azure.cn.example.invalid", "notazure.us").foreach { host =>
       val stage = new AIPrompt().setApiType("decisions").setUrl(s"https://$host/v1")
         .setModel("model").setInputCol("text").setQuestions(NativeRequestFixtures.DecisionQuestions)
