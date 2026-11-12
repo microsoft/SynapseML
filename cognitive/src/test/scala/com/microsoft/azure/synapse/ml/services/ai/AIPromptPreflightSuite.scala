@@ -360,13 +360,20 @@ class AIPromptPreflightSuite extends TestBase {
             }
             Seq(stage.copy(ParamMap.empty).setApiVersion("explicit"),
               stage.copy(ParamMap.empty).setApiVersionCol("text")).foreach { explicit =>
-              val error = intercept[IllegalArgumentException](explicit.transformSchema(data.schema))
-              assert(error.getMessage.contains("apiVersion is not supported"))
-              if (route == "custom") assert(error.getMessage.contains("customUrlRoot"))
-              val transformError = intercept[IllegalArgumentException](explicit.transform(data))
-              assert(transformError.getMessage == error.getMessage)
+              if (Set("systemone", "embeddings", "custom")(route)) {
+                val error = intercept[IllegalArgumentException](explicit.transformSchema(data.schema))
+                assert(error.getMessage.contains("apiVersion is not supported"))
+                if (route == "custom") assert(error.getMessage.contains("customUrlRoot"))
+                val transformError = intercept[IllegalArgumentException](explicit.transform(data))
+                assert(transformError.getMessage == error.getMessage)
+              } else {
+                assert(explicit.transformSchema(data.schema) == expectedSchema)
+                assert(explicit.transform(data).head().getAs[Row]("error") == null)
+                val version = if (explicit.get(explicit.apiVersion).exists(_.isRight)) "hello" else "explicit"
+                assert(server.requests.asScala.last._1 == expectedRequest._1 + s"?api-version=$version")
+              }
             }
-            assert(server.requests.size() == 5)
+            assert(server.requests.size() == (if (Set("systemone", "embeddings", "custom")(route)) 5 else 7))
           }
         } finally {
           previous match {

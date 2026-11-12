@@ -15,6 +15,8 @@ object OpenAIDecisions extends ExplicitComplexParamsReadable[OpenAIDecisions] {
 class OpenAIDecisions(override val uid: String) extends AIPrompt(uid) {
   def this() = this(Identifiable.randomUID("OpenAIDecisions"))
 
+  setDefault(apiVersion -> Left("v1"))
+
   override protected def supportedApiTypes: Array[String] = Array("decisions")
   override protected def defaultApiType: String = "decisions"
 }

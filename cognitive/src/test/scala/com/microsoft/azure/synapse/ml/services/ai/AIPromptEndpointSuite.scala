@@ -437,10 +437,12 @@ class AIPromptEndpointSuite extends TestBase {
             assert(result.schema == schema && stage.getUrl == endpoint)
             val row = result.head()
             assert(row.getAs[Row]("error") == null && row.getAs[Any]("answer") != null)
-            stage.setApiVersion("explicit-version")
-            intercept[IllegalArgumentException](stage.transformSchema(inputSchema))
-            stage.setApiVersionCol("text")
-            intercept[IllegalArgumentException](stage.transform(input))
+            if (api == "embeddings") {
+              stage.setApiVersion("explicit-version")
+              intercept[IllegalArgumentException](stage.transformSchema(inputSchema))
+              stage.setApiVersionCol("text")
+              intercept[IllegalArgumentException](stage.transform(input))
+            }
           }
       } finally {
         previousVersion match {
@@ -559,10 +561,14 @@ class AIPromptEndpointSuite extends TestBase {
             assert(address == s"$base/$route")
             assert(AIJson.objectString(body).fields("model") == JsString("model"))
             stage.setApiVersion("unused")
-            intercept[IllegalArgumentException](stage.transformSchema(inputSchema))
+            if (api == "embeddings") intercept[IllegalArgumentException](stage.transformSchema(inputSchema))
+            else {
+              assert(stage.transform(input).head().getAs[Row]("error") == null)
+              assert(server.requests.asScala.last._1 == s"$base/$route?api-version=unused")
+            }
           }
         }
-        assert(server.requests.size() == 6)
+        assert(server.requests.size() == (if (api == "embeddings") 6 else 12))
       }
     }
   }
@@ -581,7 +587,7 @@ class AIPromptEndpointSuite extends TestBase {
     }
   }
 
-  test("complete mixed-case v1 URLs preserve their destination and reject dated versions") {
+  test("complete mixed-case v1 URLs preserve their destination with explicit query versions") {
     val input = spark.createDataFrame(Seq(Row("hello")).asJava, inputSchema)
     cases.foreach { case (api, route, reply) =>
       Using.resource(new AIRecordingServer((_, _) => 200 -> reply)) { server =>
@@ -593,11 +599,18 @@ class AIPromptEndpointSuite extends TestBase {
           assert(stage.transform(input).head().getAs[Row]("error") == null)
           assert(server.requests.asScala.last._1 == suffix)
           stage.setApiVersion("unused")
-          intercept[IllegalArgumentException](stage.transformSchema(inputSchema))
-          stage.setApiVersionCol("text")
-          intercept[IllegalArgumentException](stage.transformSchema(inputSchema))
+          if (api == "embeddings") {
+            intercept[IllegalArgumentException](stage.transformSchema(inputSchema))
+            stage.setApiVersionCol("text")
+            intercept[IllegalArgumentException](stage.transformSchema(inputSchema))
+          } else {
+            assert(stage.transform(input).head().getAs[Row]("error") == null)
+            assert(server.requests.asScala.last._1 == suffix + "?api-version=unused")
+            assert(stage.setApiVersionCol("text").transform(input).head().getAs[Row]("error") == null)
+            assert(server.requests.asScala.last._1 == suffix + "?api-version=hello")
+          }
         }
-        assert(server.requests.size() == 2)
+        assert(server.requests.size() == (if (api == "embeddings") 2 else 6))
       }
     }
   }

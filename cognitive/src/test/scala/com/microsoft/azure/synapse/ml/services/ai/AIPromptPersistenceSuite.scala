@@ -90,7 +90,7 @@ class AIPromptPersistenceSuite extends AIPromptTestBase {
     }
   }
 
-  test("dated fallback is an effective default while original and v1 native stages remain unmodified") {
+  test("dated fallback and Decisions v1 are effective defaults without changing unrelated stages") {
     val previous = GlobalParams.getGlobalParam(OpenAIApiVersion)
     try {
       GlobalParams.resetGlobalParam(OpenAIApiVersion)
@@ -99,9 +99,11 @@ class AIPromptPersistenceSuite extends AIPromptTestBase {
       assert(!dated.isDefined(dated.apiVersion) && !effective.isSet(effective.apiVersion))
       assert(effective.getDefault(effective.apiVersion).contains(Left("2025-04-01-preview")))
       Seq(new AIPrompt().setUrl("https://example.invalid/v1"),
-        new AISystemOne().setUrl("https://example.invalid"),
-        new OpenAIDecisions().setUrl("https://example.invalid/v1")).foreach { stage =>
+        new AISystemOne().setUrl("https://example.invalid")).foreach { stage =>
         assert(!stage.effectiveCopy().isDefined(stage.apiVersion))
+      }
+      Seq(new AIPrompt().setApiType("decisions"), new OpenAIDecisions()).foreach { stage =>
+        assert(stage.effectiveCopy().getApiVersion == "v1" && !stage.isSet(stage.apiVersion))
       }
     } finally {
       previous match {

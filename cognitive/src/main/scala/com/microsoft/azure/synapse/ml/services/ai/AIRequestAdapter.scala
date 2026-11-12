@@ -21,6 +21,7 @@ private[ai] object AIRequestAdapter {
   val SupportedApis: Vector[String] = Vector("chat_completions", "responses", "systemone", "decisions", "embeddings")
   val GenerativeApis: Set[String] = Set("chat_completions", "responses")
   val NativeApis: Set[String] = Set("systemone", "decisions")
+  val VersionSelectableApis: Set[String] = GenerativeApis + "decisions"
   val ImplicitFabricApis: Set[String] = GenerativeApis + "embeddings"
   val DefaultDatedApiVersion: String = "2025-04-01-preview"
 
@@ -74,7 +75,9 @@ private[ai] object AIRequestAdapter {
     !NativeApis(stage.getApiType) && !stage.isSet(stage.customUrlRoot) && !isV1(endpointUri(stage))
 
   def defaultApiVersion(stage: AIPrompt): Option[Either[String, String]] =
-    if (!stage.isSet(stage.apiVersion) && stage.isDefined(stage.url) && usesDatedApiVersion(stage)) {
+    if (!stage.isSet(stage.apiVersion) && stage.getApiType == "decisions") {
+      stage.getDefault(stage.apiVersion).orElse(Some(Left("v1")))
+    } else if (!stage.isSet(stage.apiVersion) && stage.isDefined(stage.url) && usesDatedApiVersion(stage)) {
       GlobalParams.getParam(stage.apiVersion).orElse(stage.getDefault(stage.apiVersion))
         .orElse(Some(Left(DefaultDatedApiVersion)))
     } else None
@@ -143,6 +146,7 @@ private[ai] final class AIRequestAdapter(stage: AIPrompt, schema: StructType) ex
   private val api = stage.getApiType
   private val generative = AIRequestAdapter.GenerativeApis(api)
   private val native = AIRequestAdapter.NativeApis(api)
+  private val versionSelectable = AIRequestAdapter.VersionSelectableApis(api)
   private val bodyOptions = AIRequestAdapter.bodyOptions(stage)
   private val allowed = AIRequestAdapter.allowedOptions(api)
 
@@ -247,9 +251,13 @@ private[ai] final class AIRequestAdapter(stage: AIPrompt, schema: StructType) ex
     validateNativeBindings()
     require(api == "embeddings" || !stage.isDefined(stage.text), "text/textCol requires apiType='embeddings'")
     require(api == "systemone" || !stage.isDefined(stage.stateCol), "stateCol requires apiType='systemone'")
+    validateVersionBinding()
+  }
+
+  private def validateVersionBinding(): Unit = {
     require(!(stage.isSet(stage.apiVersion) && stage.isSet(stage.customUrlRoot)),
       "apiVersion is not supported with customUrlRoot; include the version in the complete URL query instead")
-    if (stage.isSet(stage.apiVersion) && (native || v1)) {
+    if (stage.isSet(stage.apiVersion) && (native || v1) && !versionSelectable) {
       throw new IllegalArgumentException(s"apiVersion is not supported for '$api' on this endpoint")
     }
   }
@@ -355,10 +363,11 @@ private[ai] final class AIRequestAdapter(stage: AIPrompt, schema: StructType) ex
       scalar(p).foreach(v => require(v.isInstanceOf[String] && v.asInstanceOf[String].trim.nonEmpty,
         "Model/deployment must be a non-empty string"))
     }
+    val scalarModel = if (versionColumn) None else scalar(selectedModelParam).map(_.asInstanceOf[String])
     AIPrompt.validateScalarHeaders(stage, endpoint(
-      scalar(selectedModelParam).map(_.asInstanceOf[String]).getOrElse("validation-model"),
+      scalarModel.getOrElse("validation-model"),
       scalar(stage.apiVersion).map(_.toString),
-      validateModel = scalar(selectedModelParam).isDefined))
+      validateModel = scalarModel.isDefined))
   }
 
   private def checkStringColumn(param: Param[String]): Unit =
@@ -370,10 +379,14 @@ private[ai] final class AIRequestAdapter(stage: AIPrompt, schema: StructType) ex
     else if (stage.isSet(stage.model)) stage.model
     else if (stage.isDefined(stage.deploymentName)) stage.deploymentName else stage.model
 
+  private def versionColumn: Boolean = versionSelectable && binding(stage.apiVersion).exists(_.isRight)
+
   def validateFabricModel(): Unit = {
     scalar(selectedModelParam).foreach { value =>
       val modelName = value.asInstanceOf[String]
-      if (stage.usingImplicitFabricEndpoint(endpoint(modelName, None))) {
+      val address = endpoint(if (versionColumn) "validation-model" else modelName,
+        scalar(stage.apiVersion).map(_.toString), validateModel = !versionColumn)
+      if (stage.usingImplicitFabricEndpoint(address)) {
         stage.assertFabricModelStatus(modelName)
       }
     }
@@ -391,6 +404,8 @@ private[ai] final class AIRequestAdapter(stage: AIPrompt, schema: StructType) ex
   private val host = AIRequestAdapter.normalizedHost(uri)
   private val basePath = AIRequestAdapter.routePath(uri)
   private val v1 = AIRequestAdapter.isV1(uri)
+  private val completeRoutes = Map("/providers/microsoft/v1/systemone" -> "systemone", "/v1/decisions" -> "decisions",
+    "/chat/completions" -> "chat_completions", "/responses" -> "responses", "/embeddings" -> "embeddings")
 
   private def nativeRoute: String = api match {
       case "systemone" =>
@@ -448,27 +463,50 @@ private[ai] final class AIRequestAdapter(stage: AIPrompt, schema: StructType) ex
       "Configure setUrl with a resource endpoint or a complete API route, not an incomplete deployment path")
   }
 
+  private def v1Endpoint: String = {
+    val rawPath = OpenAIEndpointUtils.stripTrailingSlashes(Option(uri.getRawPath).getOrElse(""))
+    val prefix = basePath match {
+      case AIRequestAdapter.DeploymentRoute(_) => rawPath.take(basePath.lastIndexOf("/openai/deployments/"))
+      case _ =>
+        Seq("/models/chat/completions", "/openai/responses", "/chat/completions", "/responses")
+          .find(basePath.endsWith).map(suffix => rawPath.dropRight(suffix.length)).getOrElse(rawPath)
+    }
+    val root = if (prefix.toLowerCase(Locale.ROOT).endsWith("/openai")) prefix else prefix + "/openai"
+    val operation = if (api == "responses") "responses" else "chat/completions"
+    base.dropRight(rawPath.length) + root + "/v1/" + operation
+  }
+
   private def endpoint(modelName: String, version: Option[String], validateModel: Boolean = true): String = {
     if (api == "decisions") require(!AIRequestAdapter.isAzureHost(host),
       "decisions requires a qualified OpenAI endpoint, not a Foundry endpoint")
     require(api != "systemone" || !AIRequestAdapter.isOpenAIHost(host),
       "systemone requires a qualified Foundry endpoint, not an OpenAI endpoint")
     validateDeploymentBase()
-    val completeRoutes = Map("/providers/microsoft/v1/systemone" -> "systemone", "/v1/decisions" -> "decisions",
-      "/chat/completions" -> "chat_completions", "/responses" -> "responses", "/embeddings" -> "embeddings")
     completeRoutes.foreach { case (suffix, expected) =>
       require(!basePath.endsWith(suffix) || api == expected, "Endpoint route does not match apiType")
     }
     validateCompleteDeployment(modelName, validateModel)
     if (stage.isSet(stage.customUrlRoot)) base else {
       require(Option(uri.getQuery).isEmpty, "Use customUrlRoot for a complete URL with query parameters")
-      val result = if (completeRoutes.keys.exists(basePath.endsWith)) base
-        else base + "/" + (if (native) nativeRoute else generativeRoute(modelName))
-      if (native || v1) result
-      else result + "?api-version=" + URLEncoder.encode(AIJson.validatedText(version.getOrElse(
-        AIRequestAdapter.DefaultDatedApiVersion), stage.apiVersion.name), "UTF-8")
+      versionedEndpoint(modelName, version)
     }
   }
+
+  private def versionedEndpoint(modelName: String, version: Option[String]): String = {
+    val selectedVersion = if (stage.isSet(stage.apiVersion) || (!native && !v1)) version else None
+    val selectV1 = versionSelectable && selectedVersion.exists(_.equalsIgnoreCase("v1"))
+    val result = operationEndpoint(modelName, selectV1)
+    val queryVersion = if (selectV1) None else selectedVersion.orElse {
+      if (native || v1) None else Some(AIRequestAdapter.DefaultDatedApiVersion)
+    }
+    queryVersion.map(value => result + "?api-version=" +
+      URLEncoder.encode(AIJson.validatedText(value, stage.apiVersion.name), "UTF-8")).getOrElse(result)
+  }
+
+  private def operationEndpoint(modelName: String, selectV1: Boolean): String =
+    if (selectV1 && generative && !v1) v1Endpoint
+    else if (completeRoutes.keys.exists(basePath.endsWith)) base
+    else base + "/" + (if (native) nativeRoute else generativeRoute(modelName))
 
   private def input(row: Row, preparedText: Option[String]): JsValue = {
     val text = preparedText.orElse(inputIndex.flatMap(index => Option(row.getString(index))))
@@ -531,12 +569,19 @@ private[ai] final class AIRequestAdapter(stage: AIPrompt, schema: StructType) ex
     Map("questions" -> questions, (if (api == "systemone") "state" else "input") -> validated)
   }
 
-  def request(row: Row, preparedText: Option[String], messages: Option[Seq[Row]]): (String, String) = {
-    val modelName = selectedModel(row)
+  private def requestVersion(row: Row): Option[String] = {
     val version = value(row, stage.apiVersion).map(_.toString)
-    if (AIRequestAdapter.usesDatedApiVersion(stage) && binding(stage.apiVersion).isDefined && version.isEmpty) {
+    val requiresVersion = AIRequestAdapter.usesDatedApiVersion(stage) ||
+      (versionSelectable && stage.isSet(stage.apiVersion))
+    if (requiresVersion && binding(stage.apiVersion).isDefined && version.isEmpty) {
       throw new AIMissingInputException("apiVersion is null")
     }
+    version
+  }
+
+  def request(row: Row, preparedText: Option[String], messages: Option[Seq[Row]]): (String, String) = {
+    val modelName = selectedModel(row)
+    val version = requestVersion(row)
     val body = if (staticBody) None else Some(mergedOptions(row))
     val envelope = api match {
       case "chat_completions" =>

@@ -479,7 +479,7 @@ class AIPromptSuite extends AIPromptFuzzing[AIPrompt] {
         prompt(server).setStateCol("text"),
         prompt(server, "embeddings").setSystemPrompt("unsupported"),
         prompt(server, "embeddings").setDimensions(-1),
-        prompt(server, "responses").setApiVersion("unsupported-on-v1"),
+        prompt(server, "responses").setApiVersionCol("wrong_type"),
         prompt(server).setPromptTemplate("{text}"))
       invalid.foreach(stage => intercept[IllegalArgumentException](stage.transformSchema(data.schema)))
       assert(server.requests.isEmpty)

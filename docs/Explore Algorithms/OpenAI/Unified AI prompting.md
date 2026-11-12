@@ -357,9 +357,59 @@ For these OpenAI hosts, a bare `setUrl` root (with or without trailing slashes)
 automatically uses `/v1` for Chat Completions, Responses, embeddings and Decisions.
 For example, `setUrl("https://api.openai.com")` routes Responses requests to
 `https://api.openai.com/v1/responses`. Dated API-version defaults are ignored and
-explicit `apiVersion` settings are rejected, just as with an explicit `/v1` URL.
-Existing non-root paths, complete `customUrlRoot` overrides and other hosts are
-not rewritten. The saved URL parameter is unchanged.
+explicit Chat, Responses and Decisions versions follow the rules below.
+The saved URL parameter is unchanged.
+
+### API versions
+
+For Chat Completions and Responses, use `setApiVersion("v1")` to select the
+OpenAI-compatible v1 route from an Azure resource endpoint. Other strings,
+including `"preview"`, `"2025-04-01"` and future version names, are forwarded
+as the URL-encoded `api-version` query value. There is no version allowlist or
+date-format check; the service decides whether a version is available.
+
+| Configuration with an Azure resource root | Request route |
+| --- | --- |
+| Chat with `setApiVersion("v1")` | `/openai/v1/chat/completions` |
+| Chat with `setApiVersion("2025-04-01")` | `/openai/deployments/<deployment>/chat/completions?api-version=2025-04-01` |
+| Responses with `setApiVersion("v1")` | `/openai/v1/responses` |
+| Responses with `setApiVersion("preview")` | `/openai/responses?api-version=preview` |
+
+```python
+prompt = (
+    AIPrompt()
+    .setApiType("responses")  # Or "chat_completions".
+    .setUrl(os.environ["AZURE_OPENAI_ENDPOINT"])  # Resource root.
+    .setApiVersion("v1")
+    .setDeploymentName(os.environ["MODEL_DEPLOYMENT"])
+    .setAADToken(os.environ["MODEL_TOKEN"])
+    .setPromptTemplate("Summarize: {text}")
+    .setOutputCol("answer")
+)
+```
+
+`setApiVersionCol("version")` selects the version per row, including a mixture
+of v1 and query-versioned requests. Scalar/column bindings follow last-setter-wins
+and survive copying and save/load. `v1` is recognized without regard to case;
+other version strings retain their value.
+
+An existing v1 base or complete v1 URL keeps its path. Explicitly choosing
+`"preview"` or another non-v1 value on that URL appends `?api-version=<value>`;
+choosing `"v1"` adds no version query. On non-v1 URLs, choosing `"v1"` converts
+recognized Chat/Responses operation routes to the corresponding v1 route,
+preserving a proxy prefix and checking any supplied deployment identity.
+Without an explicit version, existing endpoint-based defaults remain unchanged:
+resource-root Azure calls use the dated default, while v1 URLs omit the query.
+
+`OpenAIDecisions` defaults to `"v1"` and calls `/v1/decisions` without a version
+query. The facade's `apiType="decisions"` uses the same effective default.
+Other explicit scalar or column versions are forwarded on that native route
+as `api-version`; they are not rejected by a hard-coded v1-only check.
+This does not claim that a future version is supported by the service.
+SystemOne and embeddings retain their existing version behavior.
+
+### Request headers and defaults
+
 All new stages send one `Content-Type: application/json` header, replacing
 caller or telemetry content-type headers regardless of casing. Other header
 values retain their existing precedence; legacy stages are unchanged.
@@ -393,8 +443,8 @@ overrides. Dated routes still use their scalar or column-bound version defaults.
 An unused global URL is also ignored when `customUrlRoot` supplies the endpoint.
 A null cell in a bound API-version column produces `missing_input` without HTTP;
 it does not fall back to the built-in version.
-Explicit `apiVersion` and `apiVersionCol` bindings are unsupported on native and
-`/v1` routes and with complete `customUrlRoot` overrides. For a complete override,
+Explicit `apiVersion` and `apiVersionCol` bindings remain unsupported for
+SystemOne, v1 embeddings URLs and complete `customUrlRoot` overrides. For a complete override,
 include any required version directly in the URL query instead. Explicit
 unsupported body options still fail validation.
 Deployment names used in Azure URL paths are encoded as one path segment. They
@@ -407,11 +457,13 @@ As with legacy OpenAI stages, v1-base detection ignores case.
 AIPrompt also recognizes complete API routes without regard to case, using the raw
 path: percent-encoded separators such as `%2F` remain data, not route boundaries.
 Classic Azure deployment routes remain dated even when the deployment is named
-`v1`. For Azure, supply the resource endpoint plus `deploymentName`, or the
+`v1`, unless Chat explicitly selects v1 through its API-version binding.
+For Azure, supply the resource endpoint plus `deploymentName`, or the
 complete operation URL. An incomplete `/openai/deployments/<name>` base passed
 to `setUrl` is rejected rather than interpreted as an operation.
-`setUrl` removes trailing slashes before adding a route, but preserves path casing;
-the endpoint must accept the supplied path. Complete API URLs never receive another route suffix. A
+`setUrl` removes trailing slashes before adding a route. Existing v1 paths and
+non-rewritten paths preserve their casing; the endpoint must accept the supplied path.
+Complete API URLs never receive a duplicate route suffix. A
 deployment in a complete Azure URL must match the effective deployment: scalar
 contradictions fail preflight, and column-value contradictions produce row errors
 without HTTP. A complete `/models/chat/completions` URL uses `model`, not
