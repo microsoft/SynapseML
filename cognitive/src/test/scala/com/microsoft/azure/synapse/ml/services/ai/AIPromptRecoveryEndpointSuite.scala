@@ -46,7 +46,7 @@ class AIPromptRecoveryEndpointSuite extends AIPromptOutputTestBase {
                durable <- Seq(true)) {
             keys.foreach(GlobalParams.resetGlobalParam)
             val stage = new TestableAIMutableJsonDefaultPrompt("deployment-unicode")
-              .setApiType(api).setUrl(server.url).setInputCol("text")
+              .setApiType(api).setUrl(server.url).setApiVersion("preview").setInputCol("text")
             binding match {
               case "deployment" => stage.setDeploymentName(malformed)
               case "model" => stage.setModel(malformed)
@@ -251,8 +251,7 @@ class AIPromptRecoveryEndpointSuite extends AIPromptOutputTestBase {
     }
   }
   Seq("azure.com", "azure.us", "azure.cn").foreach { cloud =>
-    test(s"Decisions rejects $cloud endpoints before lazy or durable execution") {
-      val input = spark.createDataFrame(Seq(Row("hello")).asJava, inputSchema)
+    test(s"Decisions accepts $cloud endpoints during durable preflight without creating storage") {
       val parent = Files.createTempDirectory("aiprompt-azure-preflight-")
       val root = parent.resolve("run")
       try {
@@ -262,18 +261,16 @@ class AIPromptRecoveryEndpointSuite extends AIPromptOutputTestBase {
           route <- Seq("", "/v1", "/v1/decisions")
           stage <- Seq(new AIPrompt().setApiType("decisions"), new OpenAIDecisions())
           custom <- Seq(false, true)
-          durable <- Seq(true)
         } {
           stage.setModel("model").setInputCol("text").setQuestions(NativeRequestFixtures.DecisionQuestions)
           val endpoint = s"https://$host$route"
           stage.clear(stage.customUrlRoot)
+          stage.clear(stage.outputPath)
           if (custom) stage.setCustomUrlRoot(endpoint) else stage.setUrl(endpoint)
-          if (durable) stage.setOutputPath(root.toString) else stage.clear(stage.outputPath)
-          Seq[() => Any](() => stage.transformSchema(inputSchema), () => stage.transform(input)).foreach { call =>
-            val error = intercept[IllegalArgumentException](call())
-            assert(error.getMessage.contains("not a Foundry endpoint") && error.getCause == null)
-            assert(!error.getMessage.contains(host) && !Files.exists(root))
-          }
+          val schema = stage.transformSchema(inputSchema)
+          stage.setOutputPath(root.toString)
+          assert(stage.transformSchema(inputSchema) == AIPromptOutput.storageSchema(schema))
+          assert(!Files.exists(root))
         }
       } finally {
         org.apache.commons.io.FileUtils.deleteDirectory(parent.toFile)
@@ -311,10 +308,16 @@ class AIPromptRecoveryEndpointSuite extends AIPromptOutputTestBase {
             assert(result.schema == schema && stage.getUrl == endpoint)
             val row = result.head()
             assert(row.getAs[Row]("error") == null && row.getAs[Any]("answer") != null)
-            stage.setApiVersion("explicit-version")
-            intercept[IllegalArgumentException](stage.transformSchema(inputSchema))
-            stage.setApiVersionCol("text")
-            intercept[IllegalArgumentException](stage.transform(input))
+            if (api == "embeddings") {
+              stage.setApiVersion("explicit-version")
+              intercept[IllegalArgumentException](stage.transformSchema(inputSchema))
+              stage.setApiVersionCol("text")
+              intercept[IllegalArgumentException](stage.transform(input))
+            } else {
+              durable.setApiVersion("explicit-version")
+              assert(durable.transformSchema(inputSchema) == AIPromptOutput.storageSchema(schema))
+              assert(!Files.exists(output))
+            }
           }
       } finally {
         previousVersion match {
