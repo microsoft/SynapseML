@@ -32,6 +32,14 @@ class TestServiceParamPythonBridge(unittest.TestCase):
 
         requests = Queue()
 
+        @contextmanager
+        def isolated_requests():
+            try:
+                yield
+            finally:
+                for _ in range(requests.qsize()):
+                    requests.get_nowait()
+
         class Handler(BaseHTTPRequestHandler):
             def log_message(self, *_):
                 pass
@@ -95,10 +103,10 @@ class TestServiceParamPythonBridge(unittest.TestCase):
                     (
                         "hello",
                         "row-key",
-                        {"context": "all_turns", "effort": "max"},
-                        2,
+                        {"effort": "low", "summary": "auto"},
+                        4,
                         {"job": "row"},
-                        True,
+                        False,
                     )
                 ],
                 "text string, cache_key string, reasoning map<string,string>, "
@@ -118,7 +126,9 @@ class TestServiceParamPythonBridge(unittest.TestCase):
                 (OpenAIPrompt, "responses"),
             )
             for stage_type, api in cases:
-                with self.subTest(stage=stage_type.__name__, api=api):
+                with self.subTest(
+                    stage=stage_type.__name__, api=api
+                ), isolated_requests():
                     options = {
                         "promptCacheKey": "scalar-key",
                         "promptCacheRetention": "24h",
@@ -166,20 +176,25 @@ class TestServiceParamPythonBridge(unittest.TestCase):
                             stage.copy().save(path)
                             stage = OpenAIPrompt.load(path)
                     row = stage.transform(frame).head()
-                    self.assertIsNone(row.error)
                     body = requests.get(timeout=5)
+                    self.assertTrue(requests.empty(), "Unexpected extra HTTP requests")
+                    self.assertIsNone(row.error)
                     self.assertEqual(body["prompt_cache_retention"], "24h")
                     self.assertEqual(body["service_tier"], "priority")
                     self.assertEqual(body["safety_identifier"], "opaque-id")
-                    self.assertEqual(body["top_logprobs"], 2)
-                    self.assertIs(body["store"], True)
+                    self.assertEqual(
+                        body["top_logprobs"], 4 if api == "responses" else 2
+                    )
+                    self.assertIs(body["store"], api != "responses")
                     self.assertEqual(
                         body["prompt_cache_options"], options["promptCacheOptions"]
                     )
                     if api == "responses":
                         self.assertEqual(body["prompt_cache_key"], "row-key")
                         self.assertEqual(body["metadata"], {"job": "row"})
-                        self.assertEqual(body["reasoning"], options["reasoning"])
+                        self.assertEqual(
+                            body["reasoning"], {"effort": "low", "summary": "auto"}
+                        )
                         self.assertEqual(body["truncation"], "disabled")
                         self.assertEqual(
                             body["include"],
@@ -208,7 +223,10 @@ class TestServiceParamPythonBridge(unittest.TestCase):
                         self.assertEqual(
                             row.usage.input_token_details["cache_write_tokens"], 7
                         )
-                        self.assertTrue(row.response_id.endswith("_cache"))
+                        if api == "responses":
+                            self.assertIsNone(row.response_id)
+                        else:
+                            self.assertTrue(row.response_id.endswith("_cache"))
             self.assertTrue(requests.empty())
         finally:
             server.shutdown()
@@ -232,22 +250,16 @@ class TestServiceParamPythonBridge(unittest.TestCase):
                     with tempfile.TemporaryDirectory() as directory:
                         path = os.path.join(directory, "stage")
                         stage.save(path)
-                        if stage_type is OpenAIPrompt:
+                        config = "spark.synapseml.legacy.allowUnsafeJavaDeserialization"
+                        previous = spark.conf.get(config, None)
+                        try:
+                            spark.conf.set(config, "false")
                             restored = stage_type.load(path)
-                        else:
-                            # Only Chat/Responses need this for their trusted fixtures.
-                            config = (
-                                "spark.synapseml.legacy.allowUnsafeJavaDeserialization"
-                            )
-                            previous = spark.conf.get(config, None)
-                            try:
-                                spark.conf.set(config, "true")
-                                restored = stage_type.load(path)
-                            finally:
-                                if previous is None:
-                                    spark.conf.unset(config)
-                                else:
-                                    spark.conf.set(config, previous)
+                        finally:
+                            if previous is None:
+                                spark.conf.unset(config)
+                            else:
+                                spark.conf.set(config, previous)
                         for candidate in (stage, stage.copy(), restored):
                             candidate._transfer_params_to_java()
                             if binding == "column":

@@ -60,6 +60,9 @@ object OpenAIDefaults {
     GlobalParams.resetGlobalParam(URLKey)
   }
 
+  /** Sets a global Chat/Completions seed. Responses rejects this inherited setting;
+    * call resetSeed() before using Responses in the same session.
+    */
   def setSeed(v: Int): Unit = {
     GlobalParams.setGlobalParam(OpenAISeedKey, Left(v))
   }

@@ -18,6 +18,7 @@ import spray.json.DefaultJsonProtocol._
 import spray.json._
 
 import java.util.Locale
+import scala.collection.immutable.ListMap
 import scala.language.existentials
 
 trait HasMessagesInput extends Params {
@@ -30,7 +31,10 @@ trait HasMessagesInput extends Params {
       "{\"type\":\"input_image\",\"image_url\":\"...\",\"detail\":\"...\"} (or use file_id), or " +
       "{\"type\":\"input_file\",\"file_data\":\"...\",\"filename\":\"...\"} (or use file_id instead of file_data); " +
       "image detail and filename are optional. " +
-      "Non-null prompt_cache_breakpoint values must be objects in a nested struct content schema.")
+      "Non-null prompt_cache_breakpoint values must be objects in a nested struct content schema. " +
+      "Breakpoint contents must be JSON-compatible: numbers must be finite, and dates, timestamps " +
+      "and binary values are unsupported. Invalid breakpoint contents produce local per-row errors " +
+      "without sending HTTP requests.")
 
   def getMessagesCol: String = $(messagesCol)
 
@@ -38,11 +42,37 @@ trait HasMessagesInput extends Params {
 
   protected def validatePromptCacheBreakpoint(part: Map[String, Any], location: String): Unit = {
     part.get("prompt_cache_breakpoint").foreach {
-      case _: scala.collection.Map[_, _] =>
+      case marker: scala.collection.Map[_, _] =>
+        val markerLocation = s"$location.prompt_cache_breakpoint"
+        val normalized = OpenAIJsonUtils.normalizeValue(marker, markerLocation)
+        try {
+          anyFormat.write(normalized)
+        } catch {
+          case e: IllegalArgumentException =>
+            throw new IllegalArgumentException(
+              s"$markerLocation must contain only JSON-compatible values: ${e.getMessage}", e)
+        }
       case _ =>
         throw new IllegalArgumentException(
           s"$location.prompt_cache_breakpoint must be an object; use a nested struct content schema")
     }
+  }
+}
+
+private[openai] object OpenAIJsonUtils {
+  def normalizeValue(value: Any, paramName: String): Any = value match {
+    case number: Double =>
+      require(java.lang.Double.isFinite(number), s"$paramName numbers must be finite.")
+      number
+    case number: Float =>
+      require(java.lang.Float.isFinite(number), s"$paramName numbers must be finite.")
+      number
+    case row: Row =>
+      ListMap(row.schema.fieldNames.zip(row.toSeq.map(normalizeValue(_, paramName))): _*)
+    case values: scala.collection.Map[_, _] =>
+      ListMap(values.iterator.map { case (key, entry) => key -> normalizeValue(entry, paramName) }.toSeq: _*)
+    case values: scala.collection.Seq[_] => values.map(normalizeValue(_, paramName)).toSeq
+    case other => other
   }
 }
 
@@ -174,7 +204,7 @@ case object OpenAIApiTypeKey extends GlobalKey[String]
 
 // scalastyle:off number.of.methods
 trait HasOpenAITextParams extends HasOpenAISharedParams with ComplexParamsWritable {
-  override def paramsWithImplicitDefaults: Set[Param[_]] = Set(deploymentName)
+  override def paramsWithImplicitDefaults: Set[Param[_]] = super.paramsWithImplicitDefaults + deploymentName
 
   @deprecated("Use maxCompletionTokens instead - max_tokens is rejected by reasoning models", "1.0.16")
   val maxTokens: ServiceParam[Int] = new ServiceParam[Int](
@@ -284,7 +314,7 @@ trait HasOpenAITextParams extends HasOpenAISharedParams with ComplexParamsWritab
     "Include the log probabilities on the `logprobs` most likely tokens, as well the chosen tokens." +
       " So for example, if `logprobs` is 10, the API will return a list of the 10 most likely tokens." +
       " If `logprobs` is 0, only the chosen tokens will have logprobs returned." +
-      " For Chat and Responses, this legacy count enables log probabilities and is sent as top_logprobs. " +
+      " For Chat and Responses, this legacy count enables log probabilities and is sent as top_logprobs." +
       " Prefer logProbsEnabled and topLogProbs on those APIs. Model-specific limits are provider-validated.",
     isRequired = false) {
     override val payloadName: String = "logprobs"
@@ -330,8 +360,13 @@ trait HasOpenAITextParams extends HasOpenAISharedParams with ComplexParamsWritab
     this, "promptCacheOptions",
     "Optional prompt_cache_options request object. Values are forwarded to the service, which determines " +
       "supported modes, lifetimes and model availability. Unset options preserve service defaults. " +
-      "Values must be JSON-compatible; dates, timestamps, binary and non-string object keys are not supported. " +
+      "Values must be JSON-compatible; non-finite numbers, dates, timestamps, binary and non-string " +
+      "object keys are not supported. " +
       "Explicit mode requires prompt_cache_breakpoint markers in message content to use caching.",
+    isValid = {
+      case Left(value) => normalizeCacheOptionValue(value); true
+      case Right(_) => true
+    },
     isRequired = false) {
     override val payloadName: String = "prompt_cache_options"
   }
@@ -344,14 +379,11 @@ trait HasOpenAITextParams extends HasOpenAISharedParams with ComplexParamsWritab
 
   def setPromptCacheOptionsCol(v: String): this.type = setVectorParam(promptCacheOptions, v)
 
-  protected def normalizeCacheOptionValue(value: Any): Any = value match {
-    case row: Row =>
-      row.schema.fieldNames.zip(row.toSeq.map(normalizeCacheOptionValue)).toMap
-    case values: scala.collection.Map[_, _] =>
-      values.iterator.map { case (key, entry) => key -> normalizeCacheOptionValue(entry) }.toMap
-    case values: scala.collection.Seq[_] => values.map(normalizeCacheOptionValue).toSeq
-    case other => other
-  }
+  protected def normalizeCacheOptionValue(value: Any): Any =
+    normalizeCacheOptionValue(value, "promptCacheOptions")
+
+  protected def normalizeCacheOptionValue(value: Any, paramName: String): Any =
+    OpenAIJsonUtils.normalizeValue(value, paramName)
 
   val presencePenalty: ServiceParam[Double] = new ServiceParam[Double](
     this, "presencePenalty",
@@ -550,6 +582,8 @@ trait HasTextOutput {
 
 abstract class OpenAIServicesBase(override val uid: String) extends CognitiveServicesBase(uid: String)
   with HasOpenAISharedParams with OpenAIFabricSetting {
+  override def paramsWithImplicitDefaults: Set[Param[_]] = super.paramsWithImplicitDefaults + handler
+
   setDefault(timeout -> 360.0)
 
   override def setUrl(value: String): this.type = set(url, value)

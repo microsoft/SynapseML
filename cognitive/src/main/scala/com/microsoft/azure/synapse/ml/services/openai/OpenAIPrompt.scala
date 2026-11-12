@@ -207,7 +207,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   val store: ServiceParam[Boolean] = new ServiceParam[Boolean](
     this,
     "store",
-    "Whether to store the generated Chat or Responses result for later retrieval via API.",
+    "Store Chat/Responses results for retrieval. Null Responses storage-column values default to false.",
     isRequired = false)
 
   def getStore: Boolean = getScalarParam(store)
@@ -667,8 +667,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   private[openai] def hasAIFoundryModel: Boolean =
     this.isDefined(model) && isAIFoundryEndpoint && !isOpenAIV1Endpoint
 
-  private def skipNoOpFoundryStore(param: Param[_]): Boolean =
-    hasAIFoundryModel && param.name == store.name && !mayStoreResponses
+  private def skipNoOpStore(param: Param[_]): Boolean =
+    param.name == store.name && !mayStoreResponses && (getApiType == "chat_completions" || hasAIFoundryModel)
 
   //deployment name can be set by user, it doesn't have to match with model name
   private def getOpenAIChatService: OpenAIServicesBase with HasTextOutput = {
@@ -685,7 +685,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
     extractParamMap().toSeq
       .filter(p => !localParamNames.contains(p.param.name) && completion.hasParam(p.param.name))
-      .filterNot(p => skipNoOpFoundryStore(p.param))
+      .filterNot(p => skipNoOpStore(p.param))
       .foreach(p => completion.set(completion.getParam(p.param.name), p.value))
 
     if (this.isDefined(model) &&

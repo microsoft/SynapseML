@@ -71,6 +71,10 @@ trait HasOpenAIModelParams extends HasOpenAITextParams {
     this, "reasoning",
     "Responses reasoning configuration, including effort, context, mode and summary. " +
       "If reasoningEffort is also configured, its value must agree with reasoning.effort.",
+    isValid = {
+      case Left(value) => normalizeCacheOptionValue(value, "reasoning"); true
+      case Right(_) => true
+    },
     isRequired = false)
 
   def getReasoning: Map[String, Any] = getScalarParam(reasoning)
@@ -145,7 +149,7 @@ trait HasOpenAIModelParams extends HasOpenAITextParams {
     val modelParams = Seq(promptCacheKey, promptCacheRetention, safetyIdentifier, serviceTier, metadata,
       reasoning, include, truncation, logitBias, stopSequences, logProbsEnabled, topLogProbs)
     super.getOptionalParams(r) ++ modelParams.flatMap { param =>
-      getValueOpt(r, param).map(value => param.payloadName -> normalizeCacheOptionValue(value))
+      getValueOpt(r, param).map(value => param.payloadName -> normalizeCacheOptionValue(value, param.name))
     }.toMap
   }
 

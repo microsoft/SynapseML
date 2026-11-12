@@ -235,8 +235,7 @@ class TestOpenAIResponseSchema(unittest.TestCase):
                     key = "spark.synapseml.legacy.allowUnsafeJavaDeserialization"
                     previous = spark.conf.get(key, None)
                     try:
-                        # Only load the trusted model created by this test.
-                        spark.conf.set(key, "true")
+                        spark.conf.set(key, "false")
                         restored = stage_type.load(path)
                     finally:
                         if previous is None:

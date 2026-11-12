@@ -46,7 +46,7 @@ object UsageUtils {
       outputDetails = Some("output_tokens_details" -> Seq("reasoning_tokens"))
     )
 
-    val ChatCompletionsDetailed: UsageFieldMapping = ChatCompletions.copy(
+    private[openai] val ChatCompletionsDetailed: UsageFieldMapping = ChatCompletions.copy(
       inputDetails = Some("prompt_tokens_details" ->
         Seq("audio_tokens", "cached_tokens", "cache_write_tokens", "text_tokens", "image_tokens")),
       outputDetails = Some("completion_tokens_details" ->

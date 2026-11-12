@@ -13,7 +13,7 @@ import com.microsoft.azure.synapse.ml.core.utils.{
 import com.microsoft.azure.synapse.ml.param.ByteArrayParam
 import org.apache.commons.io.FileUtils
 import org.apache.hadoop.fs.Path
-import org.apache.spark.ml.param.{Param, ParamMap, Params}
+import org.apache.spark.ml.param.{DoubleArrayParam, DoubleParam, FloatParam, Param, ParamMap, Params}
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{
   ComplexParamsReadable,
@@ -25,6 +25,8 @@ import org.apache.spark.ml.{
   Serializer
 }
 import org.apache.spark.sql.SparkSession
+import org.json4s.{JNothing, JString}
+import org.json4s.jackson.JsonMethods.parse
 
 import java.io.{
   ByteArrayInputStream,
@@ -115,6 +117,27 @@ class StandardParamTest(override val uid: String) extends TestEstimatorBase(uid)
 }
 
 object StandardParamTest extends ComplexParamsReadable[StandardParamTest]
+
+class ImplicitDefaultParamTest(override val uid: String) extends StandardParamTest(uid) {
+  def this() = this(Identifiable.randomUID("ImplicitDefaultParamTest"))
+
+  setStringDefault("constructor-default")
+
+  override def paramsWithImplicitDefaults: Set[Param[_]] = super.paramsWithImplicitDefaults + stringParam
+}
+
+object ImplicitDefaultParamTest extends ComplexParamsReadable[ImplicitDefaultParamTest]
+
+class FloatingPointParamTest(override val uid: String) extends TestEstimatorBase(uid) with ComplexParamsWritable {
+  def this() = this(Identifiable.randomUID("FloatingPointParamTest"))
+
+  val doubleValue = new DoubleParam(this, "doubleValue", "double value")
+  val floatValue = new FloatParam(this, "floatValue", "float value")
+  val doubleValues = new DoubleArrayParam(this, "doubleValues", "double array")
+  setDefault(doubleValue -> -0.0d, floatValue -> -0.0f, doubleValues -> Array(-0.0d, 0.0d))
+}
+
+object FloatingPointParamTest extends ComplexParamsReadable[FloatingPointParamTest]
 
 class MixedParamTest(override val uid: String) extends TestEstimatorBase(uid)
   with HasStringParam with HasByteArrayParam with ComplexParamsWritable {
@@ -322,6 +345,70 @@ class ValidateComplexParamSerializer extends TestBase {
       restored.clear(restored.stringParam)
       assert(restored.getStringParam == "fallback")
     }
+  }
+
+  test("Unset constructor-recreated defaults are omitted from both metadata maps") {
+    spark
+    val path = tmpDir.resolve("constructor-recreated.model").toString
+    val resavePath = tmpDir.resolve("constructor-recreated-resaved.model").toString
+    Seq(None, Some("saved-default"), Some("custom")).foreach { explicit =>
+      val original = new ImplicitDefaultParamTest().setStringDefault("saved-default")
+      explicit.foreach(original.setStringParam)
+      original.write.overwrite().save(path)
+      val metadata = parse(spark.read.text(new File(path, "metadata").toString).first().getString(0))
+      assert((metadata \ "paramMap" \ "stringParam") == explicit.map(JString(_)).getOrElse(JNothing))
+      assert((metadata \ "defaultParamMap" \ "stringParam") ==
+        explicit.map(_ => JString("saved-default")).getOrElse(JNothing))
+      val restored = ImplicitDefaultParamTest.load(path)
+      assert(restored.isSet(restored.stringParam) == explicit.isDefined)
+      assert(restored.getStringParam == explicit.getOrElse("constructor-default"))
+      assert(restored.getDefault(restored.stringParam).contains(
+        if (explicit.isDefined) "saved-default" else "constructor-default"))
+      restored.write.overwrite().save(resavePath)
+      val resaved = ImplicitDefaultParamTest.load(resavePath)
+      assert(resaved.isSet(resaved.stringParam) == explicit.isDefined)
+      assert(resaved.getStringParam == restored.getStringParam)
+    }
+  }
+
+  private def assertSignedZeros(stage: FloatingPointParamTest): Unit = {
+    val negativeDoubleBits = java.lang.Double.doubleToRawLongBits(-0.0d)
+    val negativeFloatBits = java.lang.Float.floatToRawIntBits(-0.0f)
+    assert(java.lang.Double.doubleToRawLongBits(stage.getOrDefault(stage.doubleValue)) == negativeDoubleBits)
+    assert(java.lang.Float.floatToRawIntBits(stage.getOrDefault(stage.floatValue)) == negativeFloatBits)
+    assert(stage.getOrDefault(stage.doubleValues).map(java.lang.Double.doubleToRawLongBits)
+      .sameElements(Array(negativeDoubleBits, 0L)))
+    assert(java.lang.Double.doubleToRawLongBits(stage.getDefault(stage.doubleValue).get) == negativeDoubleBits)
+    assert(java.lang.Float.floatToRawIntBits(stage.getDefault(stage.floatValue).get) == negativeFloatBits)
+    assert(stage.getDefault(stage.doubleValues).get.map(java.lang.Double.doubleToRawLongBits)
+      .sameElements(Array(negativeDoubleBits, 0L)))
+  }
+
+  test("Floating-point parameters retain signed-zero through save load and resave") {
+    spark
+    Seq(false, true).foreach { explicit =>
+      val stage = new FloatingPointParamTest()
+      if (explicit) {
+        stage.set(stage.doubleValue, -0.0d).set(stage.floatValue, -0.0f)
+          .set(stage.doubleValues, Array(-0.0d, 0.0d))
+      }
+      val path = tmpDir.resolve(s"signed-zero-$explicit.model").toString
+      stage.write.save(path)
+      val restored = FloatingPointParamTest.load(path)
+      assertSignedZeros(restored)
+      val resavePath = tmpDir.resolve(s"signed-zero-resaved-$explicit.model").toString
+      restored.write.save(resavePath)
+      assertSignedZeros(FloatingPointParamTest.load(resavePath))
+    }
+  }
+
+  test("Previously saved signed-zero metadata retains numeric parameter signs") {
+    val path = tmpDir.resolve("legacy-signed-zero.model").toString
+    val values = """{"doubleValue":-0.0,"floatValue":-0.0,"doubleValues":[-0.0,0.0]}"""
+    val metadata = s"""{"class":"${classOf[FloatingPointParamTest].getName}","uid":"legacy-signed-zero",""" +
+      s""""timestamp":0,"sparkVersion":"${spark.version}","paramMap":$values,"defaultParamMap":$values}"""
+    spark.createDataFrame(Seq(Tuple1(metadata))).toDF("value").write.text(new File(path, "metadata").toString)
+    assertSignedZeros(FloatingPointParamTest.load(path))
   }
 
   test("Complex Param serialization should work on all complex, all normal, or mixed") {

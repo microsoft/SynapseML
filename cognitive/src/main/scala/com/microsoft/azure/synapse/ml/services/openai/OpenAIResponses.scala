@@ -76,7 +76,8 @@ trait HasOpenAITextParamsResponses extends HasOpenAIModelParams with HasOpenAIRe
   val store: ServiceParam[Boolean] = new ServiceParam[Boolean](
     this,
     "store",
-    "Whether to store the generated model response for later retrieval via API.",
+    "Whether to store the generated model response for later retrieval via API. " +
+      "Unset values and null storage-column values default to false.",
     isRequired = false)
 
   def getStore: Boolean = getScalarParam(store)
@@ -169,7 +170,7 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   override private[ml] def getOptionalParams(r: Row): Map[String, Any] = {
     rejectUnsupportedParams(r, "Responses", n, echo, stop, stopSequences, cacheLevel,
       presencePenalty, frequencyPenalty, bestOf, seed, logitBias)
-    val base = super.getOptionalParams(r) - "reasoning_effort"
+    val base = (Map("store" -> false) ++ super.getOptionalParams(r)) - "reasoning_effort"
     val withTokens = resolveMaxTokens(base, "max_output_tokens")
     val withModel = mergeModel(withTokens, r)
     val withText = mergeTextVerbosity(withModel, r)
@@ -200,11 +201,13 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   }
 
   private def mergeReasoning(params: Map[String, Any], r: Row): Map[String, Any] = {
+    val existing = params.get("reasoning") match {
+      case Some(value: Map[_, _]) => value.asInstanceOf[Map[String, Any]]
+      case Some(_) => throw new IllegalArgumentException("reasoning must be an object.")
+      case None => Map.empty[String, Any]
+    }
     getValueOpt(r, reasoningEffort) match {
       case Some(effort) =>
-        val existing = params.get("reasoning").collect {
-          case m: Map[_, _] => m.asInstanceOf[Map[String, Any]]
-        }.getOrElse(Map.empty)
         require(existing.get("effort").flatMap(Option(_)).forall(_ == effort),
           "reasoningEffort conflicts with reasoning.effort. Configure only one effort value.")
         params.updated("reasoning", existing.updated("effort", effort))

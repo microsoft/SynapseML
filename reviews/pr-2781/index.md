@@ -1,6 +1,103 @@
 # Review evidence for PR #2781
 
-## Current amendment: publication with an explicit review-gate exception
+## Current bounded closeout: publication with an explicit pre-commit exception
+
+The patch is based on master
+`80191a61e743b8ba462b692d2ffa2e95ac2df91d`. The owner explicitly authorized:
+"Authorize bounded closeout; waive further full pre-commit passes."
+This supersedes the earlier requirement to finish another full pre-commit
+pass. It does not waive current-head CI, the distinct final CI-qualified
+review or human approval, and is not a claim of merge readiness.
+
+Pass 30 completed the broad-sweep lens across all 49 assigned source paths:
+[partition 1](attempt-30-part-1/task-unknown-attempt-30-stage-attempt-1-review-1-claude-opus-5.5.md)
+(20 paths, no findings),
+[partition 2](attempt-30-part-2/task-unknown-attempt-30-stage-attempt-1-review-1-claude-opus-5.5.md)
+(15 paths, two low-severity findings) and
+[partition 3](attempt-30-part-3/task-unknown-attempt-30-stage-attempt-1-review-1-claude-opus-5.5.md)
+(14 paths, three low-severity findings). Original review bodies and outcomes
+are retained; appended driver notes record each resolution. Lenses 2-6 were
+not dispatched. No complete six-lens pre-commit qualification is claimed.
+
+All five findings were fixed in one bounded batch: an unused test import was
+removed, four loopback assertions now require exact request counts, and the
+notebook's seed-reset import, global reasoning isolation and per-row
+breakpoint-error wording were corrected. Production code is unchanged by
+this closeout batch.
+
+The broader repaired source passed 315 distinct Scala tests, production/test
+compilation, four style scopes, packaging and wrapper generation. Installed
+Python tests passed 41 test functions and 151 subtests, with seven opt-in live
+cache tests skipped; seven additional loopback HTTP checks passed. The
+closeout's 11 request-options tests passed again and overlap that Scala total,
+rather than increasing it. The corrected notebook import, global isolation,
+source format and Python formatting were checked locally without hosted
+requests. Earlier hosted-model and cache-performance evidence remains
+historical, not qualification of this revision.
+
+The latest rebase changed only the target's semantic-PR action pin and
+preserved the product patch. Publication, current-head CI, fresh bot feedback,
+the final review and human approval remain pending at this recorded closeout.
+
+All following sections are historical records. Their references to "current",
+pending work, budgets and publication conditions describe their original
+revision only and do not override the explicit exception above.
+
+## Historical pending amendment: persistence repairs and replacement review
+
+The pending patch targets master
+`37948d7d03ef0fa7f1aa24c54c2dd4d8a29c8dc0`, integrated without rewriting
+published history. It is not yet published or merge-ready.
+
+The [pass-27 broad sweep and appended resolutions](task-unknown-attempt-27-stage-attempt-1-review-1-claude-opus-5.5.md)
+retain the original `issues_found` result and incomplete-coverage disclosure.
+Its remaining lenses were not started; it does not qualify the patch.
+The owner authorized exactly one replacement complete split pass: six
+independent lenses, each assessing all three whole-file partitions under one
+frozen manifest, with a total 60-minute bound per lens. There is no review
+waiver, automatic retry or change to the distinct final CI-qualified gate.
+
+Replacement pass 28 stopped on lens 1, partition 1: the 20-minute invocation
+limit expired during artifact finalization. A raw response assessed its 20
+assigned paths and reported one low-severity API-scope concern, but the runner
+did not persist the required review artifact or return a finalized result.
+The remaining 17 invocations were not started. No complete lens or pre-commit
+qualification is claimed; the authorized review allowance is exhausted.
+
+After the scoped repair below was validated, the owner authorized exactly one
+replacement complete pass 29, with three 40-minute partitions per lens
+(120 minutes total per lens, including finalization). This renews only that
+single pre-commit pass; it does not waive review or authorize automatic retries.
+
+The repair excludes unset constructor-recreated defaults from both metadata
+maps as well as complex-parameter locations, without changing explicit values,
+ordinary defaults or Java-deserialization restrictions. The notebook clarifies
+future-default behavior and local Foundry storage failures. The reported generic
+Responses content-encoding diagnostic is pre-existing target behavior, not a
+demonstrated regression.
+
+The low-severity API-scope observation is also repaired: the new
+`ChatCompletionsDetailed` helper is now `private[openai]`, matching the detailed
+Responses helper. Its extra fields require the internal extended wire schema;
+the established public mappings and internal Prompt behavior are unchanged.
+Production/test compilation, both cognitive style checks and all four
+`UsageUtilsSuite` tests pass after this one-line change.
+
+The preceding metadata repair passed 18 core and 61 cognitive Scala tests,
+28 Python tests plus 28 subtests, and seven loopback HTTP checks. The core
+source and JAR are unchanged, so the 18 core tests remain applicable.
+The cognitive/Python checks preceded the visibility-only repair and are not
+claimed as freshly rerun on its repackaged JAR. Only `UsageUtils.class` differs
+inside that JAR. The new metadata regression failed before its repair and
+passes through unset/explicit/custom values, load and resave. Earlier broader,
+hosted-cache and performance evidence remains historical.
+
+Publication remains conditional on complete same-patch pre-commit qualification.
+Current-head CI, warning disposition, the final review and human approval remain
+separate gates. The historical publication exception below applies only to its
+original amendment, not to this pending patch.
+
+## Historical amendment: publication with an explicit review-gate exception
 
 The owner requested publication of the validated amendment without further
 automated review rounds and explicitly approved that pre-commit exception.

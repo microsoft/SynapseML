@@ -290,19 +290,23 @@ object OpenAIChatCompletion extends ComplexParamsReadable[OpenAIChatCompletion] 
   }
 
   private def encodeStructuredValue(value: Any, dataType: DataType): Any = {
-    dataType match {
-      case structType: StructType =>
-        value match {
-          case nestedRow: Row => encodeStruct(nestedRow, structType)
-          case other =>
-            throw new IllegalArgumentException(
-              s"Expected struct content part but found ${runtimeType(other)}")
-        }
-      case ArrayType(elementType, _) => encodeStructuredArray(value, elementType)
-      case MapType(StringType, valueType, _) => encodeStructuredMap(value, valueType)
-      case _: MapType =>
-        throw new IllegalArgumentException("Content part map keys must have string type")
-      case _ => value
+    if (value == null) {
+      null // scalastyle:ignore null
+    } else {
+      dataType match {
+        case structType: StructType =>
+          value match {
+            case nestedRow: Row => encodeStruct(nestedRow, structType)
+            case other =>
+              throw new IllegalArgumentException(
+                s"Expected struct content part but found ${runtimeType(other)}")
+          }
+        case ArrayType(elementType, _) => encodeStructuredArray(value, elementType)
+        case MapType(StringType, valueType, _) => encodeStructuredMap(value, valueType)
+        case _: MapType =>
+          throw new IllegalArgumentException("Content part map keys must have string type")
+        case _ => value
+      }
     }
   }
 

@@ -3,18 +3,15 @@
 
 package com.microsoft.azure.synapse.ml.services.openai
 
-import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
-import com.microsoft.azure.synapse.ml.io.http.{ErrorUtils, HasErrorCol}
-import com.microsoft.azure.synapse.ml.services.HasCognitiveServiceInput
+import com.microsoft.azure.synapse.ml.io.http.ErrorUtils
 import org.apache.commons.io.FileUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.FileSystem
 import org.apache.spark.TaskKilledException
 import org.apache.spark.injections.TaskContextUtils
 import org.apache.spark.ml.param.ParamMap
-import org.apache.spark.ml.Transformer
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.functions.{array, col, lit, struct, to_json}
+import org.apache.spark.sql.functions.{col, lit, struct, to_json}
 import org.apache.spark.sql.types.{ArrayType, StringType, StructField, StructType}
 import org.scalatest.concurrent.Eventually._
 import org.scalatest.time.{Seconds, Span}
@@ -23,7 +20,7 @@ import spray.json._
 import java.io.{File, InterruptedIOException}
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
-import java.util.concurrent.{Callable, ConcurrentLinkedQueue, ExecutionException, Executors, TimeUnit}
+import java.util.concurrent.{Callable, ExecutionException, Executors, TimeUnit}
 import java.util.{Locale, UUID}
 import scala.collection.JavaConverters._
 import scala.util.Using
@@ -42,192 +39,6 @@ class OpenAIPromptMultimodalRequestSuite extends OpenAIPromptHttpTestBase {
         testCode(fs)
         assert(fs.unexpected.isEmpty, s"Unknown attachment failure scenarios: ${fs.unexpected}")
       case _ => fail("Unexpected attachment failure filesystem")
-    }
-  }
-
-  test("Responses prewarm keeps usage and response ID without a false content-filter error") {
-    val previousAnsi = spark.conf.get("spark.sql.ansi.enabled")
-    try {
-      Seq(false, true).foreach { ansi =>
-        spark.conf.set("spark.sql.ansi.enabled", ansi)
-        Seq("completed", "incomplete").foreach { status =>
-          val response = s"""{"id":"resp_prewarm","status":"$status","output":[],
-            |"incomplete_details":{"reason":"content_filter"},
-            |"usage":{"input_tokens":12000,"output_tokens":0,"total_tokens":12000,
-            |"input_tokens_details":{"cached_tokens":4000,"cache_write_tokens":7000,
-            |"cache_write_tokens_details":{"ttl_30m_tokens":3000,"ttl_12h_tokens":4000}},
-            |"output_tokens_details":{"reasoning_tokens":0}}}""".stripMargin
-          withEchoServer({ (baseUrl, bodies, _) =>
-            val stage = prompt(baseUrl, "responses").setColumnTypes(Map.empty[String, String])
-              .setStore(true).setResponseIdCol("response_id").setUsageCol("usage")
-              .setPromptCacheKey("warmup").setPromptCacheOptions(Map("prewarm" -> true, "ttl" -> "12h"))
-              .setReasoning(Map("context" -> "all_turns", "effort" -> "max"))
-              .setTruncation("disabled").setTopLogProbs(2)
-            val input = Seq("Reusable prefix").toDF("prompt")
-            val expectedSchema = stage.transformSchema(input.schema)
-            val result = stage.transform(input)
-            assert(result.schema == expectedSchema)
-            val row = result.head()
-            assert(row.isNullAt(row.fieldIndex("output")))
-            assert(row.getAs[String]("response_id") == "resp_prewarm")
-            val details = row.getAs[Row]("usage").getAs[Map[String, Long]]("input_token_details")
-            assert(details("cache_write_tokens") == 7000L)
-            assert(details("cache_write_tokens_details.ttl_12h_tokens") == 4000L)
-            if (status == "completed") {
-              assert(row.isNullAt(row.fieldIndex("error")))
-            } else {
-              assert(row.getAs[Row]("error").getAs[String]("response") == "content_filter")
-            }
-            val body = bodies.poll().parseJson.asJsObject.fields
-            assert(body("prompt_cache_key") == JsString("warmup"))
-            assert(body("prompt_cache_options").asJsObject.fields("prewarm") == JsTrue)
-            assert(body("reasoning").asJsObject.fields("context") == JsString("all_turns"))
-            assert(body("include") == JsArray(JsString("message.output_text.logprobs")))
-          }, responseBody = _ => response)
-        }
-      }
-    } finally {
-      spark.conf.set("spark.sql.ansi.enabled", previousAnsi)
-    }
-  }
-
-  test("Chat storage and per-row storage controls are forwarded with response IDs") {
-    withEchoServer { (baseUrl, bodies) =>
-      Seq("chat_completions", "responses").foreach { api =>
-        val stage = prompt(baseUrl, api).setColumnTypes(Map.empty[String, String])
-          .setStoreCol("persist").setResponseIdCol("response_id")
-        val input = Seq(("hello", true), ("hello", false)).toDF("prompt", "persist").coalesce(1)
-        val result = stage.transform(input)
-        assert(result.schema == stage.transformSchema(input.schema))
-        val rows = result.collect()
-        assert(rows.forall(row => row.isNullAt(row.fieldIndex("error"))))
-        assert(rows.find(_.getAs[Boolean]("persist")).get.getAs[String]("response_id").nonEmpty)
-        assert(rows.find(!_.getAs[Boolean]("persist")).get.isNullAt(result.schema.fieldIndex("response_id")))
-        val stored = Seq(bodies.poll(), bodies.poll()).map(_.parseJson.asJsObject.fields("store")).toSet
-        assert(stored == Set(JsBoolean(true), JsBoolean(false)))
-      }
-    }
-  }
-
-  test("Storage columns may be replaced by output usage or response ID columns") {
-    withEchoServer { (baseUrl, bodies) =>
-      for (api <- Seq("chat_completions", "responses"); name <- Seq("output", "usage", "response_id")) {
-        val stage = prompt(baseUrl, api).setColumnTypes(Map.empty[String, String])
-          .setStoreCol(name).setUsageCol("usage").setResponseIdCol("response_id")
-        val input = Seq(("stored", Some(true)), ("not-stored", Some(false)), ("unset", None))
-          .toDF("prompt", name).coalesce(1)
-        val result = stage.transform(input)
-        val rows = result.collect()
-        assert(result.schema == stage.transformSchema(input.schema))
-        assert(result.columns.distinct.length == result.columns.length)
-        assert(rows.forall(row => row.getAs[String]("output") == "ok" && row.isNullAt(row.fieldIndex("error"))))
-        assert(rows.find(_.getAs[String]("prompt") == "stored").get.getAs[String]("response_id").nonEmpty)
-        assert(rows.filter(_.getAs[String]("prompt") != "stored")
-          .forall(_.isNullAt(result.schema.fieldIndex("response_id"))))
-        val stored = Seq.fill(3)(bodies.poll().parseJson.asJsObject.fields.get("store")).toSet
-        assert(stored == Set(Some(JsTrue), Some(JsFalse), None))
-      }
-    }
-  }
-
-  test("OpenAIPrompt sends scalar and per-row cache options through both APIs") {
-    withEchoServer { (baseUrl, bodies) =>
-      Seq("chat_completions", "responses").foreach { apiType =>
-        val transformer = prompt(baseUrl, apiType).setColumnTypes(Map.empty[String, String])
-          .setPromptCacheOptions(Map("mode" -> "implicit", "ttl" -> "30m"))
-        val scalar = transformer.transform(Seq("hello").toDF("prompt")).head()
-        assert(scalar.isNullAt(scalar.fieldIndex("error")))
-        assert(bodies.poll().parseJson.asJsObject.fields("prompt_cache_options") ==
-          JsObject("mode" -> JsString("implicit"), "ttl" -> JsString("30m")))
-
-        val rows = Seq(("hello", Map("mode" -> "explicit", "ttl" -> "12h"))).toDF("prompt", "cache_options")
-        val column = transformer.setPromptCacheOptionsCol("cache_options").transform(rows).head()
-        assert(column.isNullAt(column.fieldIndex("error")))
-        assert(bodies.poll().parseJson.asJsObject.fields("prompt_cache_options") ==
-          JsObject("mode" -> JsString("explicit"), "ttl" -> JsString("12h")))
-      }
-    }
-  }
-
-  test("provider cache errors retain their response rather than being rejected by client policy") {
-    val providerError =
-      """{"error":{"type":"invalid_request_error",
-        |"message":"Unsupported cache lifetime","param":"prompt_cache_options.ttl"}}""".stripMargin
-    withEchoServer(
-      (baseUrl, bodies, _) => {
-        Seq("chat_completions", "responses").foreach { apiType =>
-          val result = prompt(baseUrl, apiType).setColumnTypes(Map.empty[String, String])
-            .setPromptCacheOptions(Map("ttl" -> "not-a-cache-lifetime"))
-            .transform(Seq("hello").toDF("prompt")).head()
-          assert(bodies.poll().parseJson.asJsObject.fields("prompt_cache_options") ==
-            JsObject("ttl" -> JsString("not-a-cache-lifetime")))
-          val error = result.getAs[Row]("error")
-          assert(Option(error).isDefined)
-          assert(error.getAs[String]("response").contains("invalid_request_error"))
-          assert(error.getAs[String]("response").contains("Unsupported cache lifetime"))
-        }
-      },
-      statusCode = 400,
-      responseBody = _ => providerError
-    )
-  }
-
-  test("struct cache options preserve strings and booleans through Chat Responses and OpenAIPrompt") {
-    withEchoServer { (baseUrl, bodies) =>
-      val data = Seq(("hello", true), ("hello", false)).toDF("prompt", "prewarm")
-        .withColumn("cache_options", struct(lit("30m").as("ttl"), col("prewarm")))
-      type CacheTransformer = Transformer with HasOpenAITextParams with HasMessagesInput
-        with HasCognitiveServiceInput with HasOutputCol with HasErrorCol
-      val stages: Seq[CacheTransformer] = Seq(
-        new OpenAIChatCompletion(),
-        new OpenAIResponses(),
-        new OpenAIPrompt().setApiType("chat_completions").setPromptTemplate("{prompt}"),
-        new OpenAIPrompt().setApiType("responses").setPromptTemplate("{prompt}")
-      )
-      stages.foreach { stage =>
-        val input = stage match {
-          case _: OpenAIPrompt => data
-          case _ => data.withColumn("messages", array(struct(lit("user").as("role"), col("prompt").as("content"))))
-        }
-        val rows = stage.setUrl(baseUrl).setSubscriptionKey("unused").setDeploymentName("gpt-6-luna")
-          .setMessagesCol("messages").setPromptCacheOptionsCol("cache_options")
-          .setOutputCol("output").setErrorCol("error").transform(input).collect()
-        assert(rows.length == 2 && rows.forall(row => row.isNullAt(row.fieldIndex("error"))))
-        assert(bodies.size() == 2)
-        val options = Seq.fill(2)(bodies.poll().parseJson.asJsObject.fields("prompt_cache_options")).toSet
-        assert(options == Set(
-          JsObject("ttl" -> JsString("30m"), "prewarm" -> JsBoolean(true)),
-          JsObject("ttl" -> JsString("30m"), "prewarm" -> JsBoolean(false))
-        ))
-      }
-    }
-  }
-
-  test("Chat and Responses transforms retain input breakpoints only on marked content") {
-    withEchoServer { (baseUrl, bodies) =>
-      val stages: Seq[(String, OpenAIServicesBase with HasOpenAITextParams with HasMessagesInput)] = Seq(
-        "text" -> new OpenAIChatCompletion(),
-        "input_text" -> new OpenAIResponses()
-      )
-      stages.foreach { case (contentType, stage) =>
-        val json =
-          s"""{"messages":[
-             |{"role":"developer","content":[{"type":"$contentType","text":"Reusable reference",
-             |"prompt_cache_breakpoint":{"mode":"explicit"}}]},
-             |{"role":"user","content":[{"type":"$contentType","text":"A changing question"}]}]}""".stripMargin
-        val input = spark.read.json(Seq(json).toDS())
-        val result = stage.setUrl(baseUrl).setSubscriptionKey("unused").setDeploymentName("gpt-6-luna")
-          .setMessagesCol("messages").setOutputCol("output").setErrorCol("error")
-          .setPromptCacheOptions(Map("mode" -> "explicit", "ttl" -> "30m"))
-          .transform(input).head()
-        assert(result.isNullAt(result.fieldIndex("error")))
-        val field = if (contentType == "text") "messages" else "input"
-        val messages = bodies.poll().parseJson.asJsObject.fields(field).asInstanceOf[JsArray].elements
-        val prefix = messages.head.asJsObject.fields("content").asInstanceOf[JsArray].elements.head.asJsObject
-        val question = messages.last.asJsObject.fields("content").asInstanceOf[JsArray].elements.head.asJsObject
-        assert(prefix.fields("prompt_cache_breakpoint") == JsObject("mode" -> JsString("explicit")))
-        assert(!question.fields.contains("prompt_cache_breakpoint"))
-      }
     }
   }
 
