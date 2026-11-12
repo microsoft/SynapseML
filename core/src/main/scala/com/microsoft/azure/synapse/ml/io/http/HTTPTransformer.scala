@@ -19,7 +19,7 @@ import org.apache.spark.sql.types._
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 import scala.concurrent.ExecutionContext
-import scala.concurrent.duration.Duration
+import scala.concurrent.duration.{Duration, SECONDS}
 
 trait HasHandler extends Params {
   val handler: UDFParam = new UDFParam(
@@ -104,13 +104,14 @@ class HTTPTransformer(val uid: String)
 
   def this() = this(Identifiable.randomUID("HTTPTransformer"))
 
+  private def concurrentWait: Duration = get(concurrentTimeout)
+    .map(ct => Duration.fromNanos((ct * SECONDS.toNanos(1)).toLong)).getOrElse(Duration.Inf)
+
   val clientHolder = SharedVariable {
     getConcurrency match {
       case 1 => new SingleThreadedHTTPClient(getHandler, (getTimeout * 1000).toInt)
       case n if n > 1 =>
-        val dur = get(concurrentTimeout)
-          .map(ct => Duration.fromNanos((ct * math.pow(10, 9)).toLong)) //scalastyle:ignore magic.number
-          .getOrElse(Duration.Inf)
+        val dur = concurrentWait
         val ec = ExecutionContext.global
         new AsyncHTTPClient(getHandler, n, dur, (getTimeout * 1000).toInt)(ec)
     }
@@ -119,21 +120,31 @@ class HTTPTransformer(val uid: String)
   /** @param dataset - The input dataset, to be transformed
     * @return The DataFrame that results from column selection
     */
-  override def transform(dataset: Dataset[_]): DataFrame = {
+  override def transform(dataset: Dataset[_]): DataFrame = transformRequests(dataset, cancellable = false)
+
+  private[ml] def transformCancellable(dataset: Dataset[_]): DataFrame =
+    transformRequests(dataset, cancellable = true)
+
+  private def transformRequests(dataset: Dataset[_], cancellable: Boolean): DataFrame = {
     logTransform[DataFrame]({
       val df = dataset.toDF()
       val enc = ExpressionEncoder(transformSchema(df.schema))
       val colIndex = df.schema.fieldNames.indexOf(getInputCol)
       val fromRow = HTTPRequestData.makeFromRowConverter
       val toRow = HTTPResponseData.makeToRowConverter
+      val concurrency = getConcurrency
+      val wait = if (cancellable) concurrentWait else Duration.Inf
       df.mapPartitions { it =>
         if (!it.hasNext) {
           Iterator()
         } else {
           val c = clientHolder.get
-          val responsesWithContext = c.sendRequestsWithContext(it.map { row =>
+          val requests = it.map { row =>
             c.RequestWithContext(Option(row.getStruct(colIndex)).map(fromRow), Some(row))
-          })
+          }
+          val responsesWithContext = if (cancellable) {
+            c.sendCancellableRequestsWithContext(requests, concurrency, wait)
+          } else c.sendRequestsWithContext(requests)
           responsesWithContext.map { rwc =>
             Row.fromSeq(rwc.context.get.asInstanceOf[Row].toSeq :+ rwc.response.flatMap(Option.apply).map(toRow).orNull)
           }

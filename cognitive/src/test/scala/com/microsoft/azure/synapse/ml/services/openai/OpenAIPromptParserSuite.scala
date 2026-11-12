@@ -65,6 +65,53 @@ class OpenAIPromptParserSuite extends TestBase {
     assert(parser.outputSchema == StringType)
   }
 
+  test("JSON postprocessing diagnostics share explicit read options and nesting limits") {
+    val data = Seq("{'value':1.0}", """{"value":NaN}""", """{"value":2.0,"ignored":[[0]]}""").toDF("text")
+    Seq(true, false).foreach { enabled =>
+      val parser = new JsonParser("value DOUBLE", Map(
+        "allowSINGLEQuotes" -> enabled.toString, "allowNonNumericNumbers" -> enabled.toString,
+        "maxNestingDepth" -> "3"))
+      val rows = data.select(parser.parse(col("text")).as("answer"),
+        parser.hasParseError(col("text")).as("invalid")).collect()
+      assert(rows.take(2).forall(_.getAs[Boolean]("invalid") == !enabled))
+      assert(!rows.last.getAs[Boolean]("invalid"))
+      assert(rows.last.getAs[Row]("answer").getDouble(0) == 2.0)
+    }
+  }
+
+  test("JSON postprocessing preserves trailing line comments when comments are enabled") {
+    val data = Seq(
+      """{"value":1} // trailing comment""",
+      """{"value":"wrong"} // trailing comment""",
+      "{\"value\":1} // trailing comment\n{\"value\":2}").toDF("text")
+    Seq(true, false).foreach { enabled =>
+      val parser = new JsonParser("value INT", Map("allowComments" -> enabled.toString))
+      val rows = data.select(parser.parse(col("text")).as("answer"),
+        parser.hasParseError(col("text")).as("invalid")).collect()
+      assert(rows.head.getAs[Row]("answer").getInt(0) == 1)
+      assert(rows.head.getAs[Boolean]("invalid") == !enabled)
+      assert(rows.tail.forall(_.getAs[Boolean]("invalid")))
+    }
+  }
+
+  test("JSON postprocessing diagnoses escaped surrogates in nested and ignored tokens without changing syntax") {
+    val high = "\\" + "ud800"
+    val low = "\\" + "udc00"
+    val pair = "\\" + "ud83d" + "\\" + "ude00"
+    val data = Seq(
+      s"""{"value":"$high"}""", s"""{"value":"$low"}""",
+      s"""{"value":"ordinary","ignored":[{"$high":"other"}]}""",
+      s"""{"value":"ordinary","ignored":[["$low"]]}""",
+      s"""{value:'$pair',ignored:['$pair']} // permitted""").toDF("text")
+    val parser = new JsonParser("value STRING", Map("allowUnquotedFieldNames" -> "true",
+      "allowSingleQuotes" -> "true", "allowComments" -> "true"))
+    val rows = data.select(parser.parse(col("text")).as("answer"),
+      parser.hasParseError(col("text")).as("invalid")).collect()
+    assert(rows.take(4).forall(_.getAs[Boolean]("invalid")))
+    assert(!rows.last.getAs[Boolean]("invalid"))
+    assert(rows.last.getAs[Row]("answer").getString(0) == "\uD83D\uDE00")
+  }
+
   test("stringMessageWrapper changes text type for responses API") {
     val prompt = new OpenAIPrompt()
     assert(prompt.stringMessageWrapper("hello") == Map("type" -> "text", "text" -> "hello"))
