@@ -7,6 +7,8 @@ import org.apache.http.config.{ConnectionConfig, MessageConstraints}
 import org.apache.http.HttpStatus
 import spray.json.{JsArray, JsObject, JsString, JsValue, enrichString}
 
+import java.time.ZonedDateTime
+import java.time.format.DateTimeFormatter
 import scala.annotation.tailrec
 import scala.util.control.NonFatal
 
@@ -17,7 +19,6 @@ private[contentunderstanding] object ContentUnderstandingResponseParsing {
   private val MillisecondsPerSecond = 1000
   private val MaxHeaderLineLength = 65536
   private val MaxHeaderCount = 200
-
   val HttpConnectionConfig: ConnectionConfig = ConnectionConfig.custom().setMessageConstraints(
     MessageConstraints.custom().setMaxLineLength(MaxHeaderLineLength).setMaxHeaderCount(MaxHeaderCount).build()).build()
 
@@ -94,6 +95,13 @@ private[contentunderstanding] object ContentUnderstandingResponseParsing {
       None
     }
   }
+
+  def retryAfterMillis(value: Option[String]): Option[Long] =
+    value.flatMap(retryAfterDeltaMillis).orElse {
+      value.flatMap(v => safely(
+        ZonedDateTime.parse(v.trim, DateTimeFormatter.RFC_1123_DATE_TIME).toInstant.toEpochMilli))
+        .map(t => math.max(0L, t - System.currentTimeMillis()))
+    }
 
   def errorCodes(value: JsValue): Set[String] = {
     @tailrec

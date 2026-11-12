@@ -104,7 +104,8 @@ class TestOpenAIResponseSchema(unittest.TestCase):
                 stage._transfer_params_to_java()
 
                 self.assertEqual(self.response_format(stage)["schema"], self.schema)
-                self.assertTrue(stage.isSet(stage.responseFormat))
+                self.assertFalse(stage.isSet(stage.responseFormat))
+                self.assertTrue(stage._java_obj.isSet(stage._java_obj.responseFormat()))
 
     def test_generated_stubs_do_not_expose_nested_conversion_helpers(self):
         for stage_type in self.stage_types:

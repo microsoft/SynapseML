@@ -766,10 +766,6 @@ class ContentUnderstandingRecoverySuite extends TestBase {
           response
         }
       }
-      val exchange = protocolClass.getDeclaredMethod("exchange", classOf[CloseableHttpClient],
-        classOf[ContentUnderstandingProtocol.Settings], classOf[HTTPRequestData], classOf[ContentUnderstandingBudget],
-        java.lang.Boolean.TYPE)
-      exchange.setAccessible(true)
       val settings = ContentUnderstandingProtocol.Settings("https://example.invalid" + AnalyzersPath, 1000, 1, 0,
         16, 10000, sharedAnalyzer = false, sharedModels = false)
       val request = new HTTPRequestData(new HttpGet("https://example.invalid" + locationPath))
@@ -777,9 +773,9 @@ class ContentUnderstandingRecoverySuite extends TestBase {
         .withClient(new CloseFailingClient(""))("completed")
       assert(closeSafeResult == "completed")
       def wire(body: String): Seq[Any] = {
-        val result = exchange.invoke(protocol, new CloseFailingClient(body), settings, request,
-          new ContentUnderstandingBudget(10000), Boolean.box(false))
-        Seq("httpStatus", "body", "diagnostic").map(name => result.getClass.getMethod(name).invoke(result))
+        val result = ContentUnderstandingProtocol.exchange(new CloseFailingClient(body), settings, request,
+          new ContentUnderstandingBudget(10000), analysis = true, context = new ContentUnderstandingThrottling.Context)
+        Seq(result.httpStatus, result.body, result.diagnostic)
       }
       assert(wire("""{"ok":1}""") == Seq(HttpStatus.SC_OK, """{"ok":1}""", None))
       val limited = wire("x" * 64)

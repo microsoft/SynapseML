@@ -147,62 +147,11 @@ class ComplexParamsMixin(MLReadable):
                 getattr(self, setter)(value)
         return self
 
-    def isSet(self, param):
-        param = self._resolveParam(param)
-        if param.doc.startswith("ServiceParam:"):
-            return super().isSet(param) or (
-                self._java_obj.isSet(self._java_obj.getParam(param.name))
-                and self._java_service_value(param).isLeft()
-            )
-        return super().isSet(param)
-
-    def hasDefault(self, param):
-        param = self._resolveParam(param)
-        if param.doc.startswith("ServiceParam:"):
-            if param not in self._paramMap:
-                value = self._java_service_value(param)
-                if value is not None and value.isRight():
-                    return False
-            default = self._java_obj.getDefault(self._java_obj.getParam(param.name))
-            return super().hasDefault(param) or (
-                default.isDefined() and default.get().isLeft()
-            )
-        return super().hasDefault(param)
-
     def _java_service_value(self, param):
         java_param = self._java_obj.getParam(param.name)
         if self._java_obj.isDefined(java_param):
             return self._java_obj.getOrDefault(java_param)
         return None
-
-    def getOrDefault(self, param):
-        param = self._resolveParam(param)
-        if param.doc.startswith("ServiceParam:") and param not in self._paramMap:
-            value = self._java_service_value(param)
-            if value is not None:
-                if value.isRight():
-                    raise KeyError(f"{param.name} is column-bound, not a scalar value")
-                return self._service_param_scalar_to_python(param.name, value.value())
-        return super().getOrDefault(param)
-
-    def extractParamMap(self, extra=None):
-        """Include JVM scalars; column bindings remain on the JVM during copy/save."""
-        result = super().extractParamMap(extra)
-        for param in self.params:
-            if (
-                param.doc.startswith("ServiceParam:")
-                and param not in self._paramMap
-                and param not in (extra or {})
-            ):
-                value = self._java_service_value(param)
-                if value is not None:
-                    if value.isLeft():
-                        result[param] = self._service_param_scalar_to_python(
-                            param.name, value.value()
-                        )
-                    else:
-                        result.pop(param, None)
-        return result
 
     def explainParam(self, param):
         param = self._resolveParam(param)

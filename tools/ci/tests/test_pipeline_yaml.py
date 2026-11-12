@@ -102,6 +102,44 @@ def test_pipeline_and_templates_parse():
         assert yaml.safe_load(tpl.read_text()) is not None, f"{tpl} failed to parse"
 
 
+def test_cu_live_validation_reuses_shared_foundry_and_existing_pr_approval():
+    data = yaml.safe_load(_pipeline_text())
+    job = next(job for job in _jobs(data["jobs"]) if job["job"] == "PythonTests")
+    steps = job["steps"]
+    credentials = next(
+        step
+        for step in steps
+        if step.get("displayName") == "Fetch shared Foundry key for CU"
+    )
+    live = next(
+        step
+        for step in steps
+        if step.get("displayName") == "Test Content Understanding live"
+    )
+    ordinary = next(
+        step for step in steps if step.get("displayName") == "Test Python Code"
+    )
+    assert steps.index(ordinary) < steps.index(credentials) < steps.index(live)
+    assert credentials["inputs"] == {
+        "azureSubscription": "SynapseML Build",
+        "keyVaultName": "mmlspark-build-keys",
+        "SecretsFilter": "openai-api-key-3",
+    }
+    for step in (credentials, live):
+        condition = step["condition"]
+        assert "succeeded()" in condition
+        assert "eq(variables['PACKAGE'], 'cognitive')" in condition
+        assert "System.PullRequest.IsFork" not in condition
+        assert not step.get("continueOnError", False)
+    assert live["env"]["CONTENT_UNDERSTANDING_API_KEY"] == "$(openai-api-key-3)"
+    assert live["env"]["CONTENT_UNDERSTANDING_ENDPOINT"] == (
+        "https://synapseml-openai-3.services.ai.azure.com"
+    )
+    assert "python tools/ci/run_content_understanding_e2e.py" in live["bash"]
+    assert "retryCountOnTaskFailure" not in live
+    assert "CONTENT_UNDERSTANDING_API_KEY" not in ordinary.get("env", {})
+
+
 def test_pipeline_has_no_release_branch_replay():
     text = _pipeline_text()
     data = yaml.safe_load(text)

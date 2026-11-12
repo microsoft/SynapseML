@@ -342,11 +342,8 @@ class ContentUnderstandingSubmissionSuite extends TestBase {
           val message = logs().head.getMessage.getFormattedMessage
           assert(message.contains(s"category=$category"))
           assert(message.contains(s"HTTP $status"))
-          if (concurrency == 1) {
-            assert(message.contains("partitionId=0") && message.contains("stageId="))
-          } else {
-            assert(message.contains("taskContext=unavailable") || message.contains("partitionId=0"))
-          }
+          assert(message.contains("partitionId=0") && message.contains("stageId="))
+          assert(message.contains("taskAttemptId=") && !message.contains("taskContext=unavailable"))
           assert(!message.contains("private-service-value") && !message.contains("synthetic-key"))
           assert(logs().head.getThrown == null)
         }

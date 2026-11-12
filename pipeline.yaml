@@ -683,6 +683,22 @@ jobs:
           (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython) || \
           (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython) || \
           (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython)
+    - task: AzureKeyVault@2
+      displayName: 'Fetch shared Foundry key for CU'
+      condition: and(succeeded(), eq(variables['PACKAGE'], 'cognitive'))
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        keyVaultName: mmlspark-build-keys
+        SecretsFilter: openai-api-key-3
+    - bash: |
+        set -e
+        source activate synapseml
+        python tools/ci/run_content_understanding_e2e.py
+      displayName: 'Test Content Understanding live'
+      condition: and(succeeded(), eq(variables['PACKAGE'], 'cognitive'))
+      env:
+        CONTENT_UNDERSTANDING_ENDPOINT: https://synapseml-openai-3.services.ai.azure.com
+        CONTENT_UNDERSTANDING_API_KEY: $(openai-api-key-3)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:

@@ -463,7 +463,7 @@ class TestServiceParamPythonBridge(unittest.TestCase):
         embedding.setTelemHeaders(headers)
         self.assertEqual(embedding.getTelemHeaders(), headers)
 
-    def test_generic_inspection_decodes_case_class_sequences(self):
+    def test_typed_getters_decode_case_class_sequences(self):
         for expected in (
             [],
             [
@@ -480,15 +480,10 @@ class TestServiceParamPythonBridge(unittest.TestCase):
                 ("configured", stage),
                 ("restored", DictionaryExamples._from_java(stage._java_obj)),
             ):
-                param = candidate.textAndTranslation
-                self.assertEqual(candidate.getTextAndTranslation(), expected)
-                for api, value in (
-                    ("getOrDefault", candidate.getOrDefault(param)),
-                    ("extractParamMap", candidate.extractParamMap()[param]),
-                ):
-                    with self.subTest(state=label, api=api, expected=expected):
-                        self.assertEqual(value, expected)
-                        self.assertEqual(json.loads(json.dumps(value)), expected)
+                with self.subTest(state=label, expected=expected):
+                    value = candidate.getTextAndTranslation()
+                    self.assertEqual(value, expected)
+                    self.assertEqual(json.loads(json.dumps(value)), expected)
 
     def test_set_params_dispatches_service_arguments_through_setters(self):
         embedding = OpenAIEmbedding().setParams(textCol="body")
@@ -524,7 +519,7 @@ class TestServiceParamPythonBridge(unittest.TestCase):
         restored = OpenAIEmbedding._from_java(source._java_obj)
 
         self.assertNotIn(restored.text, restored._paramMap)
-        self.assertTrue(restored.isSet(restored.text))
+        self.assertFalse(restored.isSet(restored.text))
         restored.setText("updated")
         restored._transfer_params_to_java()
 
@@ -538,7 +533,7 @@ class TestServiceParamPythonBridge(unittest.TestCase):
         scalar_copy = column_source.copy({column_source.text: "updated"})
         self.assertEqual(scalar_copy.getText(), "updated")
         self.assertNotIn(scalar_copy.text, scalar_copy._paramMap)
-        self.assertTrue(scalar_copy.isSet(scalar_copy.text))
+        self.assertFalse(scalar_copy.isSet(scalar_copy.text))
 
         restored = OpenAIEmbedding._from_java(column_source._java_obj)
         restored_copy = restored.copy()
@@ -560,7 +555,7 @@ class TestServiceParamPythonBridge(unittest.TestCase):
                     embedding.setText("new")
 
                 self.assertNotIn(embedding.text, embedding._paramMap)
-                self.assertEqual(embedding.isSet(embedding.text), not use_column)
+                self.assertFalse(embedding.isSet(embedding.text))
                 embedding._transfer_params_to_java()
                 copied = embedding.copy()
                 for stage in (embedding, copied):
@@ -585,7 +580,7 @@ class TestServiceParamPythonBridge(unittest.TestCase):
 
         self.assertEqual(embedding.getText(), "new")
         self.assertNotIn(embedding.text, embedding._paramMap)
-        self.assertTrue(embedding.isSet(embedding.text))
+        self.assertFalse(embedding.isSet(embedding.text))
 
     def test_failed_named_service_setter_preserves_pending_value(self):
         embedding = OpenAIEmbedding()

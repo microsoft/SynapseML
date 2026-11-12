@@ -17,6 +17,7 @@ class ContentUnderstandingFuzzingSuite extends TransformerFuzzing[ContentUnderst
     val stage = new ContentUnderstanding().setEndpoint(endpoint).setDocumentUrlCol("documentUrl")
       .setDocumentName("synthetic.pdf").setMimeType("application/pdf").setRange("1")
       .setOutputCol("analysis").setErrorCol("error").setMaxPollAttempts(1).setPollingDelay(0)
+      .setAllowInputTruncation(false).setRetryThrottledRequests(true)
     val input = Seq("https://example.invalid/synthetic.pdf").toDF("documentUrl")
     Seq(new TestObject(stage, input))
   }

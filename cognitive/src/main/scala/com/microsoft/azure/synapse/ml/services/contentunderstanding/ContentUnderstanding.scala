@@ -86,7 +86,7 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
       Seq(operationLocation)
     } else {
       Seq(analyzerId, apiVersion, documentUrl, documentBytes, range, mimeType, documentName,
-        modelDeployments, stringEncoding, processingLocation)
+        modelDeployments, stringEncoding, processingLocation, allowInputTruncation)
     }
     authParams ++ inputParams
   }
@@ -112,7 +112,8 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
       "timeout must be positive, finite, and representable in milliseconds.")
     // A shared async wait starts before queued operations run, so it cannot preserve per-operation handles.
     require(get(concurrentTimeout).isEmpty,
-      "concurrentTimeout is not supported; maxOperationDuration bounds each operation.")
+      "concurrentTimeout is not supported; maxOperationDuration bounds each operation, " +
+        "excluding opted-in analysis 429 retries.")
     require(Option(getOutputCol).exists(_.nonEmpty) && Option(getErrorCol).exists(_.nonEmpty) &&
       !sameColumnName(getOutputCol, getErrorCol, resolver),
       "outputCol and errorCol must be nonempty and distinct.")
@@ -143,7 +144,8 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
       scalarAuthFingerprints = scalarAuthHeaders.map { case (name, value) =>
         FailureClassifier.authHeaderFingerprint(name, value)
       }.toSet,
-      allAuthScalar = authParams.forall(isScalar))
+      allAuthScalar = authParams.forall(isScalar),
+      retryThrottledRequests = getRetryThrottledRequests)
   }
 
   private def isScalar(param: ServiceParam[_]): Boolean =
@@ -167,6 +169,8 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
   private def expectedType(param: ServiceParam[_]): DataType = {
     if (param == documentBytes) {
       BinaryType
+    } else if (param == allowInputTruncation) {
+      BooleanType
     } else if (Set(modelDeployments.name, customHeaders.name, telemHeaders.name)(param.name)) {
       MapType(StringType, StringType)
     } else {
@@ -183,6 +187,7 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
     require(Option(value).isDefined, s"${param.name} cannot be null.")
     val validType = (value, expectedType(param)) match {
       case (_: Array[Byte], BinaryType) => true
+      case (_: Boolean, BooleanType) => true
       case (values: Map[_, _], _: MapType) =>
         values.forall { case (key, item) => key.isInstanceOf[String] && item.isInstanceOf[String] }
       case (_: String, StringType) => true
@@ -313,7 +318,9 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
   private def analyzeUrl(row: Row): String = {
     val query = Seq("api-version" -> getValue(row, apiVersion)) ++
       Seq(stringEncoding, processingLocation).flatMap(param =>
-        getValueOpt(row, param).map(value => param.payloadName -> value))
+        getValueOpt(row, param).map(value => param.payloadName -> value)) ++
+      getValueOpt(row, allowInputTruncation)
+        .map(value => allowInputTruncation.payloadName -> allowInputTruncation.toValueString(value))
     buildUrl(s"$AnalyzersPath/${getValue(row, analyzerId)}:analyze", query)
   }
 

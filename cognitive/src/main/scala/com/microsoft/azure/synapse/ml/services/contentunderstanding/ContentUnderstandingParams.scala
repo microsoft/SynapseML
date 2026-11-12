@@ -6,10 +6,11 @@ package com.microsoft.azure.synapse.ml.services.contentunderstanding
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.services.HasServiceParams
-import org.apache.spark.ml.param.{IntParam, Param, ParamValidators}
+import org.apache.spark.ml.param.{BooleanParam, IntParam, Param, ParamValidators}
 import spray.json.DefaultJsonProtocol._
 
-trait ContentUnderstandingParams extends HasServiceParams with ContentUnderstandingLimits {
+trait ContentUnderstandingParams extends HasServiceParams with ContentUnderstandingLimits
+  with HasAllowInputTruncation with HasRetryThrottledRequests {
 
   val analyzerId = new ServiceParam[String](this, "analyzerId",
     "Prebuilt or explicitly provisioned custom analyzer identifier.")
@@ -104,7 +105,8 @@ trait ContentUnderstandingParams extends HasServiceParams with ContentUnderstand
   def getOperationMode: String = $(operationMode)
 
   val maxPollAttempts = new IntParam(this, "maxPollAttempts",
-    "Maximum GET attempts, including transient failures. Exhaustion preserves the last running operation.",
+    "Maximum GET attempts, including transient-failure retries but excluding opted-in analysis 429 retries. " +
+      "Exhaustion preserves the last running operation.",
     ParamValidators.gt(0))
 
   def setMaxPollAttempts(value: Int): this.type = set(maxPollAttempts, value)
@@ -113,6 +115,9 @@ trait ContentUnderstandingParams extends HasServiceParams with ContentUnderstand
   val pollingDelay = new IntParam(this, "pollingDelay",
     "Milliseconds between operation polls, before the first poll after analyze or createAnalyzer submission, " +
       "and between management GET retries when Retry-After is absent or invalid. " +
+      "Seeds opted-in analysis 429 fallback backoff with a 1000 ms floor when Retry-After is unusable. " +
+      "Downward jitter applies above the starting delay; the first fallback is exact. " +
+      "A pollingDelay of at least 60000 gives a constant, unjittered fallback. " +
       "Poll mode sends its first GET immediately.",
     ParamValidators.gtEq(0))
 
@@ -134,6 +139,29 @@ trait ContentUnderstandingParams extends HasServiceParams with ContentUnderstand
     maxResponseBytes -> 32 * 1024 * 1024)
 }
 
+trait HasAllowInputTruncation extends HasServiceParams {
+  val allowInputTruncation = new ServiceParam[Boolean](this, "allowInputTruncation",
+    "Optional preview Analyze query option. Unset preserves the analyzer's truncation setting.",
+    isURLParam = true)
+
+  def setAllowInputTruncation(value: Boolean): this.type = setScalarParam(allowInputTruncation, value)
+  def setAllowInputTruncationCol(value: String): this.type = setVectorParam(allowInputTruncation, value)
+  def getAllowInputTruncation: Boolean = getScalarParam(allowInputTruncation)
+  def getAllowInputTruncationCol: String = getVectorParam(allowInputTruncation)
+}
+
+trait HasRetryThrottledRequests extends HasServiceParams {
+  val retryThrottledRequests = new BooleanParam(this, "retryThrottledRequests",
+    "Opt in to unlimited cancellable analysis POST/GET 429 retries, honoring Retry-After. " +
+      "Throttled attempts and waits do not consume polling or operation-duration budgets. " +
+      "Submissions with uncertain acceptance are never replayed. Does not affect analyzer management.")
+
+  def setRetryThrottledRequests(value: Boolean): this.type = set(retryThrottledRequests, value)
+  def getRetryThrottledRequests: Boolean = $(retryThrottledRequests)
+
+  setDefault(retryThrottledRequests -> false)
+}
+
 trait ContentUnderstandingLimits extends HasServiceParams {
   val maxDocumentBytes = new IntParam(this, "maxDocumentBytes",
     "Maximum binary document bytes before base64 encoding. Does not limit service-fetched URLs.",
@@ -143,7 +171,8 @@ trait ContentUnderstandingLimits extends HasServiceParams {
   def getMaxDocumentBytes: Int = $(maxDocumentBytes)
 
   val maxOperationDuration = new IntParam(this, "maxOperationDuration",
-    "Best-effort total milliseconds per analysis or management call, including HTTP requests and polling delays.",
+    "Best-effort milliseconds per analysis or management call, including requests and waits, " +
+      "but excluding opted-in analysis 429 attempts and their retry waits.",
     ParamValidators.gt(0))
 
   def setMaxOperationDuration(value: Int): this.type = set(maxOperationDuration, value)
