@@ -3,14 +3,39 @@
 
 package com.microsoft.azure.synapse.ml.services.contentunderstanding
 
-import org.apache.http.{HttpClientConnection, HttpRequest, HttpResponse}
+import org.apache.http.{HttpClientConnection, HttpRequest, HttpResponse, HttpStatus}
 import org.apache.http.protocol.{HttpContext, HttpRequestExecutor}
+import spray.json.JsObject
 
 import java.io.IOException
 
 private[contentunderstanding] object ContentUnderstandingTransport {
   private val RequestWriteStarted = "synapseml.cu.request-write-started"
+  private val TooManyRequests = 429
+  private val TransientStatuses = Set(HttpStatus.SC_REQUEST_TIMEOUT, TooManyRequests,
+    HttpStatus.SC_INTERNAL_SERVER_ERROR, HttpStatus.SC_BAD_GATEWAY,
+    HttpStatus.SC_SERVICE_UNAVAILABLE, HttpStatus.SC_GATEWAY_TIMEOUT)
+  private val AdmissionRejections = Set(HttpStatus.SC_UNAUTHORIZED, HttpStatus.SC_FORBIDDEN, TooManyRequests)
   val ManagementRecovery = "Use getAnalyzer to inspect the analyzer; do not repeat creation."
+
+  def admissionRejected(method: String, status: Int, location: Option[String]): Boolean =
+    method == "POST" && AdmissionRejections(status) && location.isEmpty
+
+  case class WireResponse(httpStatus: Int,
+                          body: String,
+                          location: Option[String],
+                          retryAfter: Option[String],
+                          diagnostic: Option[String] = None,
+                          transportFailure: Boolean = false,
+                          notSent: Boolean = false,
+                          expiredBeforeDispatch: Boolean = false) {
+    def successful: Boolean = httpStatus >= HttpStatus.SC_OK && httpStatus < HttpStatus.SC_MULTIPLE_CHOICES
+    def retryable: Boolean =
+      !expiredBeforeDispatch && (transportFailure || (diagnostic.isEmpty && TransientStatuses(httpStatus)))
+    def throttled(method: String): Boolean = httpStatus == TooManyRequests &&
+      (method == "GET" || admissionRejected(method, httpStatus, location))
+    lazy val json: Option[JsObject] = ContentUnderstandingResponseParsing.asObject(body)
+  }
 
   val RequestExecutor: HttpRequestExecutor = new HttpRequestExecutor {
     override protected def doSendRequest(request: HttpRequest,

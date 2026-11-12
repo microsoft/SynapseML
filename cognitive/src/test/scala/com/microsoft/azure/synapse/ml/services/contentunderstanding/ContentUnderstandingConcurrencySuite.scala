@@ -195,7 +195,7 @@ class ContentUnderstandingConcurrencySuite extends TestBase {
       ContentUnderstandingStubReply(503, """{"error":{"code":"Unavailable"}}""") -> "Unavailable",
       ContentUnderstandingStubReply(429, """{"error":{"code":"Throttled"}}""") -> "Throttled",
       ContentUnderstandingStubReply(200, "", disconnect = true) -> "TransportError")
-    for ((failure, code) <- failures; create <- Seq(false, true)) {
+    for ((failure, code) <- failures; create <- Seq(false, true); retry <- Seq(false, true)) {
       val operation = "/contentunderstanding/analyzers/custom/operations/create-1?api-version=2025-11-01"
       val prefix = if (create) Seq(
         ContentUnderstandingStubReply(202, "{}",
@@ -203,7 +203,7 @@ class ContentUnderstandingConcurrencySuite extends TestBase {
         ContentUnderstandingStubReply(200, """{"status":"Succeeded"}""")) else Seq.empty
       ContentUnderstandingStub.withReplies(prefix :+ failure) { server =>
         val stage = new ContentUnderstanding().setEndpoint(server.endpoint).setAnalyzerId("custom")
-          .setMaxOperationDuration(5000).setPollingDelay(10000)
+          .setMaxOperationDuration(5000).setPollingDelay(10000).setRetryThrottledRequests(retry)
         val error = intercept[ContentUnderstandingException] {
           if (create) stage.createAnalyzer("""{"baseAnalyzerId":"prebuilt-document"}""", allowReplace = false)
           else stage.getAnalyzer()

@@ -565,7 +565,8 @@ class ContentUnderstandingAdmissionSuite extends TestBase {
       val location = "https://example.invalid" + ContentUnderstandingFixtures.LocationPath
       try {
         val result = ContentUnderstandingProtocol.pollWithClient(client, settings,
-          new HTTPRequestData(new HttpGet(location)), location, None, 0L, budget)
+          new HTTPRequestData(new HttpGet(location)), location, None, 0L, budget, None,
+          context = new ContentUnderstandingThrottling.Context)
         assert(result.error.exists(_.contains(code)))
         assert(result.httpStatus == httpStatus)
         assert(result.rawResponse == body)

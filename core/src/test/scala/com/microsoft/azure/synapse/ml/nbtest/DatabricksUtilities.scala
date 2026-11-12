@@ -254,6 +254,8 @@ object DatabricksUtilities {
   val ParallelizableNotebooks: Seq[File] = NotebookFiles.filterNot(_.isDirectory)
 
   val CPUNotebooks: Seq[File] = ParallelizableNotebooks
+    // Requires user-supplied CU resource/storage; covered by the loopback notebook test.
+    .filterNot(_.getAbsolutePath.contains("Semantic Extraction with Content Understanding"))
     .filterNot(_.getAbsolutePath.contains("Fine-tune"))
     .filterNot(_.getAbsolutePath.contains("GPU"))
     .filterNot(_.getAbsolutePath.contains("Phi Model"))

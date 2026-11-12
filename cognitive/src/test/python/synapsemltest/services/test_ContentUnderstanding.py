@@ -5,17 +5,22 @@ import base64
 import json
 import os
 import pickle
+import re
 import tempfile
 import threading
 import time
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from types import CodeType
 from unittest.mock import patch
 from urllib.parse import urlsplit
 
+import mlflow
+import mlflow.pyspark.ml
 from py4j.protocol import Py4JJavaError
 from pyspark.ml import Pipeline, PipelineModel
-from pyspark.sql.utils import IllegalArgumentException
+from pyspark.sql.utils import AnalysisException, IllegalArgumentException
 from synapse.ml.core.init_spark import init_spark
 from synapse.ml.services.contentunderstanding import ContentUnderstanding
 from synapse.ml.services.form import AnalyzeDocument
@@ -39,6 +44,8 @@ class TestContentUnderstanding(unittest.TestCase):
         requests = self.requests
         self.request_ports = []
         request_ports = self.request_ports
+        self.request_headers = []
+        request_headers = self.request_headers
 
         class Handler(BaseHTTPRequestHandler):
             completed_body = {
@@ -95,6 +102,9 @@ class TestContentUnderstanding(unittest.TestCase):
             def do_POST(self):
                 requests.append(("POST", self.path, self.read_body()))
                 request_ports.append(self.server.server_port)
+                request_headers.append(
+                    {name.lower(): value for name, value in self.headers.items()}
+                )
                 operation = "123e4567-e89b-12d3-a456-426614174000"
                 location = (
                     f"http://127.0.0.1:{self.server.server_port}"
@@ -159,10 +169,149 @@ class TestContentUnderstanding(unittest.TestCase):
             "documentId string, body binary",
         )
 
+    def test_preview_truncation_and_retry_options_survive_copy_save_load(self):
+        stage = self.analyzer().setApiVersion("2026-06-01-preview")
+        self.assertFalse(stage.getRetryThrottledRequests())
+        stage.setRetryThrottledRequests(True).setAllowInputTruncation(False)
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "stage")
+            stage.write().save(path)
+            for candidate in (stage, stage.copy({}), ContentUnderstanding.load(path)):
+                self.assertTrue(candidate.getRetryThrottledRequests())
+                self.assertIs(candidate.getAllowInputTruncation(), False)
+                self.requests.clear()
+                candidate.transform(self.documents()).collect()
+                post = next(
+                    request for request in self.requests if request[0] == "POST"
+                )
+                self.assertIn("allowInputTruncation=false", post[1])
+                self.assertNotIn("allowInputTruncation", json.dumps(post[2]))
+                candidate.clear(candidate.allowInputTruncation)
+                self.requests.clear()
+                candidate.transform(self.documents()).collect()
+                post = next(
+                    request for request in self.requests if request[0] == "POST"
+                )
+                self.assertNotIn("allowInputTruncation", post[1])
+
+        self.requests.clear()
+        stage.setAllowInputTruncationCol("truncate")
+        documents = spark.createDataFrame(
+            [
+                ("one", bytearray(b"document"), True),
+                ("two", bytearray(b"document"), False),
+                ("three", bytearray(b"document"), None),
+            ],
+            "documentId string, body binary, truncate boolean",
+        ).coalesce(1)
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "column-stage")
+            stage.write().save(path)
+            for candidate in (stage, stage.copy({}), ContentUnderstanding.load(path)):
+                self.assertEqual(candidate.getAllowInputTruncationCol(), "truncate")
+                self.assertTrue(candidate.getRetryThrottledRequests())
+                self.requests.clear()
+                candidate.transform(documents).collect()
+                queries = [
+                    urlsplit(request[1]).query
+                    for request in self.requests
+                    if request[0] == "POST"
+                ]
+                self.assertEqual(
+                    queries,
+                    [
+                        "allowInputTruncation=true&api-version=2026-06-01-preview",
+                        "allowInputTruncation=false&api-version=2026-06-01-preview",
+                        "api-version=2026-06-01-preview",
+                    ],
+                )
+
+    def test_pipeline_autologging_omits_credentials_and_preserves_execution(self):
+        tracking_uri = mlflow.get_tracking_uri()
+        try:
+            with tempfile.TemporaryDirectory() as directory:
+                mlflow.set_tracking_uri((Path(directory) / "mlruns").as_uri())
+                experiment_id = mlflow.create_experiment("service-credentials")
+                mlflow.pyspark.ml.autolog(log_models=False)
+                for stage_type in (ContentUnderstanding, AnalyzeDocument):
+                    stage = (
+                        self.analyzer()
+                        if stage_type is ContentUnderstanding
+                        else AnalyzeDocument()
+                        .setUrl(f"http://127.0.0.1:{self.server.server_port}")
+                        .setPrebuiltModelId("prebuilt-read")
+                        .setImageUrl("https://example.invalid/synthetic-document")
+                        .setOutputCol("analysis")
+                        .setPollingDelay(0)
+                    )
+                    stage.setSubscriptionKey("synthetic-key")
+                    stage.setAADToken("synthetic-token")
+                    stage.setConcurrency(1)
+                    path = os.path.join(directory, stage_type.__name__)
+                    stage.write().save(path)
+                    copied = stage.copy(
+                        {
+                            stage.subscriptionKey: "synthetic-copy-key",
+                            stage.AADToken: "synthetic-copy-token",
+                        }
+                    )
+                    for state, candidate, key, token in (
+                        ("configured", stage, "synthetic-key", "synthetic-token"),
+                        (
+                            "copied",
+                            copied,
+                            "synthetic-copy-key",
+                            "synthetic-copy-token",
+                        ),
+                        (
+                            "loaded",
+                            stage_type.load(path),
+                            "synthetic-key",
+                            "synthetic-token",
+                        ),
+                    ):
+                        with self.subTest(stage=stage_type.__name__, state=state):
+                            with mlflow.start_run(experiment_id=experiment_id) as run:
+                                model = Pipeline(stages=[candidate]).fit(
+                                    self.documents()
+                                )
+                                self.assertEqual(candidate.getSubscriptionKey(), key)
+                                self.assertEqual(candidate.getAADToken(), token)
+                                self.request_headers.clear()
+                                model.transform(self.documents()).collect()
+                                self.assertEqual(len(self.request_headers), 1)
+                                self.assertEqual(
+                                    self.request_headers[-1][
+                                        "ocp-apim-subscription-key"
+                                    ],
+                                    key,
+                                )
+                                candidate.clear(candidate.subscriptionKey)
+                                self.request_headers.clear()
+                                model.transform(self.documents()).collect()
+                                self.assertEqual(len(self.request_headers), 1)
+                                self.assertEqual(
+                                    self.request_headers[-1]["authorization"],
+                                    "Bearer " + token,
+                                )
+                            params = mlflow.get_run(run.info.run_id).data.params
+                            self.assertEqual(
+                                params[stage_type.__name__ + ".concurrency"], "1"
+                            )
+                            for name in ("subscriptionKey", "AADToken"):
+                                self.assertNotIn(
+                                    stage_type.__name__ + "." + name, params
+                                )
+                            for secret in (key, token):
+                                self.assertNotIn(secret, json.dumps(params))
+        finally:
+            mlflow.pyspark.ml.autolog(disable=True)
+            mlflow.set_tracking_uri(tracking_uri)
+
     def test_job_cancellation_stops_async_polling_and_blocked_responses(self):
-        for blocked in (False, True):
+        for scenario in ("polling", "blocked", "throttled"):
             for interrupt in (False, True):
-                with self.subTest(blocked=blocked, interrupt=interrupt):
+                with self.subTest(scenario=scenario, interrupt=interrupt):
                     self.requests.clear()
                     self.Handler.completed_body = {"status": "Running"}
                     started = threading.Event()
@@ -172,13 +321,17 @@ class TestContentUnderstanding(unittest.TestCase):
 
                     def get(
                         handler,
-                        blocked=blocked,
+                        scenario=scenario,
                         started=started,
                         disconnected=disconnected,
                         original_get=original_get,
                         requests=requests,
                     ):
-                        if blocked:
+                        if scenario == "throttled":
+                            requests.append(("GET", handler.path, None))
+                            handler.send_json(429, {}, retry_after="60")
+                            started.set()
+                        elif scenario == "blocked":
                             requests.append(("GET", handler.path, None))
                             handler.send_response(200)
                             handler.send_header("Content-Length", "1")
@@ -200,6 +353,7 @@ class TestContentUnderstanding(unittest.TestCase):
                     stage = (
                         self.analyzer()
                         .setConcurrency(2)
+                        .setRetryThrottledRequests(scenario == "throttled")
                         .setPollingDelay(100)
                         .setMaxPollAttempts(300)
                         .setMaxOperationDuration(30000)
@@ -208,7 +362,7 @@ class TestContentUnderstanding(unittest.TestCase):
                     frame = stage.transform(
                         documents.union(documents).union(documents).coalesce(1)
                     )
-                    group = f"cu-cancellation-{blocked}-{interrupt}"
+                    group = f"cu-cancellation-{scenario}-{interrupt}"
                     errors = []
 
                     def collect(
@@ -235,14 +389,39 @@ class TestContentUnderstanding(unittest.TestCase):
                     worker.start()
                     try:
                         self.assertTrue(started.wait(30), "Polling never started")
+                        tracker = spark.sparkContext.statusTracker()
+                        stage_ids = {
+                            stage_id
+                            for job_id in tracker.getJobIdsForGroup(group)
+                            for stage_id in tracker.getJobInfo(job_id).stageIds
+                        }
+                        self.assertTrue(stage_ids)
+                        cancellation_deadline = time.monotonic() + 10
                         spark.sparkContext.cancelJobGroup(group)
-                        worker.join(timeout=10)
+                        worker.join(
+                            timeout=max(0, cancellation_deadline - time.monotonic())
+                        )
                         self.assertFalse(worker.is_alive())
                         self.assertTrue(
                             errors, "Cancelled action unexpectedly succeeded"
                         )
                         self.assertIn("cancel", str(errors[0]).lower())
-                        if blocked:
+                        while (
+                            any(
+                                tracker.getStageInfo(stage_id).numActiveTasks
+                                for stage_id in stage_ids
+                            )
+                            and time.monotonic() < cancellation_deadline
+                        ):
+                            time.sleep(0.05)
+                        self.assertTrue(
+                            all(
+                                tracker.getStageInfo(stage_id).numActiveTasks == 0
+                                for stage_id in stage_ids
+                            ),
+                            "Cancelled executor tasks are still active",
+                        )
+                        if scenario == "blocked":
                             self.assertTrue(
                                 disconnected.wait(5),
                                 "In-flight response was not aborted",
@@ -309,6 +488,453 @@ class TestContentUnderstanding(unittest.TestCase):
         self.assertEqual(row[output_col].status, "Succeeded")
         self.assertIn(error_col, row.asDict())
         self.assertEqual(loaded.getOutputCol(), output_col)
+
+    def guide_blocks(self) -> list[str]:
+        repository = next(
+            parent
+            for parent in Path(__file__).resolve().parents
+            if (parent / "build.sbt").is_file()
+        )
+        guide = (
+            repository
+            / "docs"
+            / "Explore Algorithms"
+            / "AI Services"
+            / "Content Understanding.md"
+        ).read_text(encoding="utf-8")
+        return re.findall(r"```python\n(.*?)\n```", guide, re.DOTALL)
+
+    def test_saved_analysis_results_can_be_read_without_resubmission(self):
+        blocks = self.guide_blocks()
+        examples = {
+            "url": next(block for block in blocks if block.startswith("from synapse")),
+            "binary": next(block for block in blocks if block.startswith("files = ")),
+        }
+        projection = next(block for block in blocks if block.startswith("completed = "))
+        for source, example in examples.items():
+            with self.subTest(
+                source=source
+            ), tempfile.TemporaryDirectory() as directory:
+                self.requests.clear()
+                namespace = {
+                    "spark": spark,
+                    "ContentUnderstanding": ContentUnderstanding,
+                    "endpoint": f"http://127.0.0.1:{self.server.server_port}",
+                    "key": "synthetic-test-key",
+                    "output_path": os.path.join(directory, "results"),
+                    "binary_output_path": os.path.join(directory, "binary-results"),
+                }
+                if source == "url":
+                    namespace["documents"] = spark.createDataFrame(
+                        [
+                            ("https://example.invalid/one.txt",),
+                            ("https://example.invalid/two.txt",),
+                        ],
+                        "documentUrl string",
+                    )
+                else:
+                    input_path = Path(directory) / "input"
+                    input_path.mkdir()
+                    for name in ("one", "two"):
+                        (input_path / (name + ".txt")).write_bytes(
+                            b"Synthetic document"
+                        )
+                    namespace["input_path"] = str(input_path)
+
+                exec(example, namespace)
+                self.assertEqual(
+                    sum(request[0] == "POST" for request in self.requests), 2
+                )
+                requests_after_write = list(self.requests)
+
+                exec(projection, namespace)
+                markdown = namespace["markdown"]
+                self.assertEqual(
+                    [row.markdown for row in markdown.collect()],
+                    ["synthetic result", "synthetic result"],
+                )
+                markdown.show(truncate=False)
+                self.assertEqual(self.requests, requests_after_write)
+                with self.assertRaises(AnalysisException):
+                    exec(example, namespace)
+                self.assertEqual(self.requests, requests_after_write)
+
+    def test_guide_submit_poll_and_custom_results_are_persisted(self) -> None:
+        blocks = self.guide_blocks()
+        examples = (
+            ("submitted = ", "polled_results", "polledAnalysis"),
+            ("custom = ", "custom_results", "analysis"),
+        )
+        for prefix, result_name, column in examples:
+            with self.subTest(
+                example=prefix
+            ), tempfile.TemporaryDirectory() as directory:
+                self.requests.clear()
+                example = next(block for block in blocks if block.startswith(prefix))
+                namespace = {
+                    "spark": spark,
+                    "ContentUnderstanding": ContentUnderstanding,
+                    "analyzer": self.analyzer().setErrorCol("requestError"),
+                    "documents": self.documents(),
+                    "endpoint": f"http://127.0.0.1:{self.server.server_port}",
+                    "key": "synthetic-test-key",
+                    "handles_path": os.path.join(directory, "handles"),
+                    "results_path": os.path.join(directory, "results"),
+                    "custom_output_path": os.path.join(directory, "custom"),
+                }
+                exec(example, namespace)
+                methods = [request[0] for request in self.requests]
+                self.assertEqual(methods.count("POST"), 1)
+                self.assertEqual(methods.count("GET"), 1)
+                self.assertEqual(methods.count("PUT"), int(prefix == "custom = "))
+                requests_after_write = list(self.requests)
+                results = namespace[result_name]
+                self.assertEqual(results.first()[column].status, "Succeeded")
+                results.show(truncate=False)
+                self.assertEqual(self.requests, requests_after_write)
+                # Creation is eager; repeat only the custom example's persistence portion.
+                repeated = (
+                    example[example.index("custom.transform(documents)") :]
+                    if prefix == "custom = "
+                    else example
+                )
+                with self.assertRaises(AnalysisException):
+                    exec(repeated, namespace)
+                self.assertEqual(self.requests, requests_after_write)
+
+    def test_guide_retries_only_saved_definite_failures_without_handles(self) -> None:
+        example = next(
+            block
+            for block in self.guide_blocks()
+            if block.startswith("saved = spark.read.parquet(output_path)")
+        )
+        shared = json.dumps({"code": "SharedConfigurationFailure"})
+        handle = (
+            f"http://127.0.0.1:{self.server.server_port}"
+            "/contentunderstanding/analyzerResults/123e4567-e89b-12d3-a456-426614174000"
+            "?api-version=2025-11-01"
+        )
+        cases = (
+            ("rejected", None, "Rejected", None),
+            ("shared", None, "Failed", shared),
+            ("other", None, "Failed", json.dumps({"code": "OtherFailure"})),
+            ("unknown", None, "Unknown", None),
+            ("running", handle, "Running", None),
+            ("accepted-rejection", handle, "Rejected", None),
+            ("accepted-failure", handle, "Failed", shared),
+            ("completed", handle, "Succeeded", None),
+        )
+        saved = spark.createDataFrame(
+            [
+                (name, bytearray(b"document"), (location, status, error), None)
+                for name, location, status, error in cases
+            ],
+            "documentId string, body binary, "
+            "analysis struct<operationLocation:string,status:string,error:string>, "
+            "requestError string",
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            namespace = {
+                "spark": spark,
+                "analyzer": self.analyzer().setErrorCol("requestError"),
+                "output_path": os.path.join(directory, "saved"),
+                "retry_output_path": os.path.join(directory, "retried"),
+            }
+            saved.write.parquet(namespace["output_path"])
+            self.assertEqual(self.requests, [])
+            exec(example, namespace)
+            methods = [request[0] for request in self.requests]
+            self.assertEqual(methods.count("POST"), 2)
+            self.assertEqual(methods.count("GET"), 2)
+            self.assertNotIn("PUT", methods)
+            requests_after_write = list(self.requests)
+            results = spark.read.parquet(namespace["retry_output_path"])
+            self.assertEqual(
+                sorted(row.documentId for row in results.collect()),
+                ["rejected", "shared"],
+            )
+            results.show(truncate=False)
+            self.assertEqual(self.requests, requests_after_write)
+            with self.assertRaises(AnalysisException):
+                exec(example, namespace)
+            self.assertEqual(self.requests, requests_after_write)
+
+    def notebook_cells(self) -> dict[str, CodeType]:
+        """Cell IDs and recovery globals are the notebook's offline test contract."""
+        repository = next(
+            parent
+            for parent in Path(__file__).resolve().parents
+            if (parent / "build.sbt").is_file()
+        )
+        notebook_path = (
+            repository
+            / "docs"
+            / "Explore Algorithms"
+            / "AI Services"
+            / "Quickstart - Semantic Extraction with Content Understanding.ipynb"
+        )
+        notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
+        cells = {
+            cell["id"]: compile(
+                "".join(cell["source"]), f"{notebook_path}#{cell['id']}", "exec"
+            )
+            for cell in notebook["cells"]
+            if cell["cell_type"] == "code"
+        }
+        self.assertEqual(
+            list(cells),
+            [
+                "configuration",
+                "sample-input",
+                "create-analyzer",
+                "submit-and-save",
+                "recovery-paths",
+                "poll-and-save",
+                "display-fields",
+            ],
+            "The notebook cell contract changed; update the actual-cell recovery test.",
+        )
+        return cells
+
+    def test_semantic_notebook_rejects_invalid_configuration_before_service_calls(self):
+        cells = self.notebook_cells()
+        with tempfile.TemporaryDirectory() as directory, patch.dict(
+            os.environ,
+            {
+                "CONTENT_UNDERSTANDING_ENDPOINT": (
+                    f"http://127.0.0.1:{self.server.server_port}"
+                ),
+                "CONTENT_UNDERSTANDING_API_KEY": "synthetic-test-key",
+                "CONTENT_UNDERSTANDING_OUTPUT_PATH": directory,
+                "CONTENT_UNDERSTANDING_RUN_ID": "configuration-check",
+                "CONTENT_UNDERSTANDING_MODEL_DEPLOYMENTS": "{}",
+            },
+        ):
+            for endpoint in (
+                "https://user@example.invalid",
+                "ftp://example.invalid",
+                "https:///missing-host",
+                "https://example.invalid:bad",
+                "https://example.invalid:65536",
+            ):
+                with self.subTest(endpoint=endpoint), patch.dict(
+                    os.environ, {"CONTENT_UNDERSTANDING_ENDPOINT": endpoint}
+                ):
+                    with self.assertRaises(ValueError):
+                        exec(cells["configuration"], {})
+            configured = {}
+            exec(cells["configuration"], configured)
+            origin = configured["resource_origin"]
+            for implicit, explicit in (
+                ("https://EXAMPLE.invalid", "https://example.invalid:443/operation"),
+                ("http://example.invalid", "http://example.invalid:80/operation"),
+            ):
+                with self.subTest(origin=implicit):
+                    self.assertEqual(origin(implicit), origin(explicit))
+            for run_id in ("../escape", "a/b", "a" * 40, "-bad"):
+                with self.subTest(run_id=run_id), patch.dict(
+                    os.environ, {"CONTENT_UNDERSTANDING_RUN_ID": run_id}
+                ):
+                    with self.assertRaisesRegex(ValueError, "Run ID must be"):
+                        exec(cells["configuration"], {})
+            for mapping in (
+                "[1]",
+                "null",
+                "true",
+                '"name"',
+                '{"m": 1}',
+                '{"": "x"}',
+                "{",
+            ):
+                with self.subTest(mapping=mapping), patch.dict(
+                    os.environ, {"CONTENT_UNDERSTANDING_MODEL_DEPLOYMENTS": mapping}
+                ):
+                    configured = {}
+                    exec(cells["configuration"], configured)
+                    with self.assertRaisesRegex(ValueError, "Model deployments must"):
+                        exec(cells["create-analyzer"], configured)
+            self.assertEqual(self.requests, [])
+            for mapping in ("", "   ", "{}", '{"model": "deployment"}'):
+                with self.subTest(mapping=mapping), patch.dict(
+                    os.environ, {"CONTENT_UNDERSTANDING_MODEL_DEPLOYMENTS": mapping}
+                ):
+                    configured = {}
+                    exec(cells["configuration"], configured)
+                    exec(cells["create-analyzer"], configured)
+            self.assertEqual([request[0] for request in self.requests], ["PUT"] * 4)
+            configured = {}
+            exec(cells["configuration"], configured)
+            with patch.object(
+                ContentUnderstanding,
+                "createAnalyzer",
+                return_value='{"status":"creating"}',
+            ), self.assertRaisesRegex(RuntimeError, "not ready"):
+                exec(cells["create-analyzer"], configured)
+            self.assertEqual([request[0] for request in self.requests], ["PUT"] * 4)
+
+    def test_semantic_notebook_executes_and_recovers_saved_handles(self):
+        self.assert_semantic_notebook_run({})
+
+    def test_semantic_notebook_sends_deployments_only_with_analysis(self):
+        self.assert_semantic_notebook_run({"model": "deployment"})
+
+    def assert_semantic_notebook_run(self, deployments: dict[str, str]) -> None:
+        cells = self.notebook_cells()
+        supplier = "Contoso Office Supplies"
+        prefix = "\U0001f4e6 "
+        source = "D(1,1,1,2,1,2,2,1,2)"
+        self.Handler.completed_body["result"]["contents"] = [
+            {
+                "markdown": prefix + supplier + "\nTotal: 125.00 USD",
+                "fields": {
+                    "Supplier": {
+                        "type": "string",
+                        "valueString": supplier,
+                        "confidence": 0.94,
+                        "source": source,
+                        "spans": [{"offset": len(prefix), "length": len(supplier)}],
+                    },
+                    "TotalAmount": {"type": "number", "valueNumber": 125.0},
+                    "RequestedDeliveryDate": {
+                        "type": "date",
+                        "valueDate": "2026-02-01",
+                    },
+                    "OrderSummary": {
+                        "type": "string",
+                        "valueString": "A synthetic office-supply purchase.",
+                    },
+                },
+            },
+            {"markdown": "", "fields": {"Optional": {"type": "string"}}},
+        ]
+        original_get = self.Handler.do_GET
+        poll_count = 0
+
+        def get(handler):
+            nonlocal poll_count
+            if "/analyzerResults/" in handler.path:
+                poll_count += 1
+                if poll_count == 1:
+                    self.requests.append(("GET", handler.path, None))
+                    self.request_ports.append(handler.server.server_port)
+                    handler.send_json(200, {"status": "Running"})
+                    return
+            original_get(handler)
+
+        self.Handler.do_GET = get
+        with tempfile.TemporaryDirectory() as directory, patch.dict(
+            os.environ,
+            {
+                "CONTENT_UNDERSTANDING_ENDPOINT": (
+                    f"http://127.0.0.1:{self.server.server_port}"
+                ),
+                "CONTENT_UNDERSTANDING_API_KEY": "synthetic-test-key",
+                "CONTENT_UNDERSTANDING_OUTPUT_PATH": directory,
+                "CONTENT_UNDERSTANDING_RUN_ID": "loopback-notebook",
+                "CONTENT_UNDERSTANDING_MODEL_DEPLOYMENTS": json.dumps(deployments),
+            },
+        ):
+            initial = {}
+            for name, code in cells.items():
+                exec(code, initial)
+                if name == "configuration":
+                    self.assertTrue(
+                        {
+                            "max_poll_attempts",
+                            "polling_delay_ms",
+                            "run_root",
+                            "endpoint_origin",
+                        }.issubset(initial),
+                        "Notebook configuration globals used by recovery changed.",
+                    )
+                    initial["max_poll_attempts"] = 1
+                    initial["polling_delay_ms"] = 0
+            self.assertEqual(initial["results"].first().analysis.status, "Running")
+            self.assertEqual(poll_count, 1)
+
+            requests_before_rerun = list(self.requests)
+            for name in ("submit-and-save", "poll-and-save"):
+                with self.assertRaises(AnalysisException):
+                    exec(cells[name], initial)
+                self.assertEqual(self.requests, requests_before_rerun)
+                self.assertEqual(poll_count, 1)
+
+            os.environ["CONTENT_UNDERSTANDING_MODEL_DEPLOYMENTS"] = "invalid-but-unused"
+            requests_before_recovery = list(self.requests)
+            with patch.dict(
+                os.environ,
+                {
+                    "CONTENT_UNDERSTANDING_ENDPOINT": "http://127.0.0.1:1",
+                },
+            ):
+                wrong_resource = {}
+                exec(cells["configuration"], wrong_resource)
+                wrong_resource["recovery_input_path"] = initial["recovery_output_path"]
+                wrong_resource["recovery_output_path"] = (
+                    wrong_resource["run_root"] + "/wrong-resource"
+                )
+                with self.assertRaisesRegex(ValueError, "do not match"):
+                    exec(cells["poll-and-save"], wrong_resource)
+                self.assertFalse(Path(wrong_resource["recovery_output_path"]).exists())
+                self.assertEqual(self.requests, requests_before_recovery)
+
+            resumed = {}
+            exec(cells["configuration"], resumed)
+            resumed["max_poll_attempts"] = 1
+            resumed["polling_delay_ms"] = 0
+            resumed["recovery_input_path"] = initial["recovery_output_path"]
+            resumed["recovery_output_path"] = resumed["run_root"] + "/poll-002"
+            exec(cells["poll-and-save"], resumed)
+            exec(cells["display-fields"], resumed)
+            self.assertEqual(resumed["results"].first().analysis.status, "Succeeded")
+            self.assertEqual(poll_count, 2)
+            requests_after_poll = list(self.requests)
+            recovery_requests = requests_after_poll[len(requests_before_recovery) :]
+            self.assertTrue(recovery_requests)
+            self.assertTrue(
+                all(
+                    method == "GET" and "/analyzerResults/" in path
+                    for method, path, _ in recovery_requests
+                )
+            )
+            fields = {row.fieldName: row for row in resumed["extracted"].collect()}
+            self.assertEqual(fields["Supplier"].value, supplier)
+            self.assertEqual(fields["Supplier"].confidence, 0.94)
+            self.assertEqual(fields["Supplier"].source, source)
+            self.assertEqual(fields["Supplier"].supportingText, [supplier])
+            self.assertEqual(fields["TotalAmount"].value, "125.0")
+            self.assertEqual(fields["RequestedDeliveryDate"].value, "2026-02-01")
+            self.assertIsNone(fields["OrderSummary"].confidence)
+            self.assertIsNone(fields["OrderSummary"].source)
+            self.assertIsNone(fields["OrderSummary"].supportingText)
+            self.assertIsNone(fields["Optional"].value)
+            self.assertEqual(fields["Optional"].contentIndex, 1)
+
+            resumed["recovery_input_path"] = resumed["recovery_output_path"]
+            resumed["recovery_output_path"] = resumed["run_root"] + "/poll-003"
+            exec(cells["poll-and-save"], resumed)
+            self.assertEqual(resumed["results"].first().analysis.status, "Succeeded")
+            self.assertEqual(self.requests, requests_after_poll)
+
+        submissions = [request for request in self.requests if request[0] == "POST"]
+        self.assertEqual(len(submissions), 1)
+        self.assertIn("stringEncoding=codePoint", submissions[0][1])
+        if deployments:
+            self.assertEqual(submissions[0][2]["modelDeployments"], deployments)
+        else:
+            self.assertNotIn("modelDeployments", submissions[0][2])
+        document = submissions[0][2]["inputs"][0]
+        self.assertTrue(base64.b64decode(document["data"]).startswith(b"%PDF-1.4"))
+        self.assertEqual(document["mimeType"], "application/pdf")
+        creations = [request[2] for request in self.requests if request[0] == "PUT"]
+        self.assertEqual(len(creations), 1)
+        creation = creations[0]
+        self.assertNotIn("modelDeployments", creation)
+        self.assertEqual(creation["baseAnalyzerId"], "prebuilt-document")
+        self.assertTrue(creation["config"]["estimateFieldSourceAndConfidence"])
+        self.assertEqual(
+            creation["fieldSchema"]["fields"]["OrderSummary"]["method"], "generate"
+        )
 
     def test_saved_submit_handles_can_be_polled_without_resubmission(self):
         analyzer = self.analyzer().setOperationMode("submit")
@@ -510,14 +1136,14 @@ class TestContentUnderstanding(unittest.TestCase):
         analyzer = self.analyzer()
         analyzer.set(analyzer.subscriptionKey, "stale-key")
         analyzer.setSubscriptionKey("current-key")
-        self.assertTrue(analyzer.isSet(analyzer.subscriptionKey))
+        self.assertFalse(analyzer.isSet(analyzer.subscriptionKey))
         analyzer.set(analyzer.documentBytes, bytearray([1]))
         analyzer.setDocumentBytesCol("body")
         analyzer._transfer_params_to_java()
         self.assertEqual(analyzer._java_obj.getSubscriptionKey(), "current-key")
         self.assertEqual(analyzer._java_obj.getDocumentBytesCol(), "body")
         copied = analyzer.copy({})
-        self.assertTrue(copied.isSet(copied.subscriptionKey))
+        self.assertFalse(copied.isSet(copied.subscriptionKey))
         self.assertEqual(copied.getSubscriptionKey(), "current-key")
 
     def test_invalid_pending_service_values_block_retries_until_corrected(self):
@@ -553,30 +1179,36 @@ class TestContentUnderstanding(unittest.TestCase):
                         b"corrected-document",
                     )
 
-    def test_service_introspection_reads_each_scalar_once(self):
+    def test_generic_inspection_does_not_read_jvm_service_scalars(self):
         for stage in (ContentUnderstanding(), AnalyzeDocument()):
             with self.subTest(stage=type(stage).__name__):
                 stage.setSubscriptionKey("synthetic-key")
+                stage.setAADToken("synthetic-token")
                 with patch.object(
                     stage, "_java_service_value", wraps=stage._java_service_value
                 ) as lookup:
                     values = stage.extractParamMap()
-                    self.assertEqual(values[stage.subscriptionKey], "synthetic-key")
-                    key_lookups = [
-                        call
-                        for call in lookup.call_args_list
-                        if call.args[0] == stage.subscriptionKey
-                    ]
-                    self.assertEqual(len(key_lookups), 1)
+                    for param in (stage.subscriptionKey, stage.AADToken):
+                        self.assertFalse(stage.isSet(param))
+                        self.assertFalse(stage.hasDefault(param))
+                        self.assertFalse(stage.isDefined(param))
+                        self.assertNotIn(param, values)
+                        with self.assertRaises(KeyError):
+                            stage.getOrDefault(param)
+                    lookup.assert_not_called()
 
-    def test_pending_service_default_does_not_fetch_effective_value(self):
+    def test_pending_service_scalar_does_not_import_jvm_default(self):
         for stage in (ContentUnderstanding(), AnalyzeDocument()):
             with self.subTest(stage=type(stage).__name__):
                 stage.set(stage.apiVersion, "pending-version")
                 with patch.object(
                     stage, "_java_service_value", wraps=stage._java_service_value
                 ) as lookup:
-                    self.assertTrue(stage.hasDefault(stage.apiVersion))
+                    self.assertTrue(stage.isSet(stage.apiVersion))
+                    self.assertFalse(stage.hasDefault(stage.apiVersion))
+                    self.assertEqual(
+                        stage.getOrDefault(stage.apiVersion), "pending-version"
+                    )
                     lookup.assert_not_called()
 
     def test_custom_headers_column_setter_and_getter_reach_the_jvm(self):
@@ -587,22 +1219,24 @@ class TestContentUnderstanding(unittest.TestCase):
     def test_existing_service_wrapper_preserves_jvm_and_pending_python_parameters(self):
         service = AnalyzeDocument().setSubscriptionKey("synthetic-key")
         service._transfer_params_to_java()
-        self.assertTrue(service.isSet(service.subscriptionKey))
+        self.assertFalse(service.isSet(service.subscriptionKey))
         copied = service.copy({})
         self.assertEqual(copied.getSubscriptionKey(), "synthetic-key")
-        pending = AnalyzeDocument().setParams(subscriptionKey="pending-key")
+        pending = AnalyzeDocument()
+        pending.set(pending.subscriptionKey, "pending-key")
         self.assertTrue(pending.isSet(pending.subscriptionKey))
         self.assertEqual(pending.getOrDefault(pending.subscriptionKey), "pending-key")
         self.assertEqual(pending.getSubscriptionKey(), "pending-key")
         self.assertEqual(
             pending.extractParamMap()[pending.subscriptionKey], "pending-key"
         )
+        self.assertEqual(pending.copy({}).getSubscriptionKey(), "pending-key")
         pending._transfer_params_to_java()
         self.assertEqual(pending.getSubscriptionKey(), "pending-key")
-        self.assertEqual(pending.getOrDefault(pending.subscriptionKey), "pending-key")
-        self.assertEqual(
-            pending.extractParamMap()[pending.subscriptionKey], "pending-key"
-        )
+        self.assertFalse(pending.isDefined(pending.subscriptionKey))
+        with self.assertRaises(KeyError):
+            pending.getOrDefault(pending.subscriptionKey)
+        self.assertNotIn(pending.subscriptionKey, pending.extractParamMap())
         self.assertEqual(
             pending.extractParamMap({pending.subscriptionKey: "export-override"})[
                 pending.subscriptionKey
@@ -657,7 +1291,12 @@ class TestContentUnderstanding(unittest.TestCase):
                     self.assertNotIn("synthetic-telemetry", stage.explainParam(param))
                     self.assertNotIn("synthetic-telemetry", stage.explainParams())
                     self.assertIn("[redacted]", stage.explainParam(param))
-                    self.assertEqual(stage.getOrDefault(param), value)
+                    self.assertEqual(stage.getTelemHeaders(), value)
+                    if pending:
+                        self.assertEqual(stage.getOrDefault(param), value)
+                    else:
+                        with self.assertRaises(KeyError):
+                            stage.getOrDefault(param)
             stage._transfer_params_to_java()
             stage._java_obj.setVectorParam(
                 stage._java_obj.getParam("telemHeaders"), "telemetry-input"
@@ -689,14 +1328,17 @@ class TestContentUnderstanding(unittest.TestCase):
         self.assertIn(first.getErrorCol(), schema.fieldNames())
         self.assertIn(second.getErrorCol(), schema.fieldNames())
 
-    def test_jvm_service_defaults_remain_defined_across_copy_load_and_clear(self):
+    def test_jvm_service_defaults_survive_copy_load_and_clear(self):
         for stage_type in (ContentUnderstanding, AnalyzeDocument):
             with self.subTest(stage=stage_type.__name__):
                 service = stage_type()
                 names = ["apiVersion"]
                 if stage_type is ContentUnderstanding:
                     names.append("analyzerId")
-                defaults = {name: service.getOrDefault(name) for name in names}
+                defaults = {
+                    name: getattr(service, "get" + name[0].upper() + name[1:])()
+                    for name in names
+                }
                 for name in names:
                     self.assertFalse(service.isSet(name))
                 with tempfile.TemporaryDirectory() as directory:
@@ -704,35 +1346,36 @@ class TestContentUnderstanding(unittest.TestCase):
                     for candidate in (service, stage_type.load(directory + "/stage")):
                         for name, value in defaults.items():
                             param = candidate.getParam(name)
-                            self.assertTrue(candidate.hasDefault(param))
-                            self.assertTrue(candidate.isDefined(param))
+                            suffix = name[0].upper() + name[1:]
+                            self.assertFalse(candidate.hasDefault(param))
+                            self.assertFalse(candidate.isDefined(param))
                             self.assertEqual(
-                                candidate.isSet(param),
-                                candidate._java_obj.isSet(
-                                    candidate._java_obj.getParam(name)
-                                ),
+                                getattr(candidate, "get" + suffix)(), value
                             )
-                            self.assertEqual(candidate.extractParamMap()[param], value)
-                            setter = "set" + name[0].upper() + name[1:]
+                            self.assertNotIn(param, candidate.extractParamMap())
+                            setter = "set" + suffix
                             getattr(candidate, setter)("custom-value")
-                            self.assertTrue(candidate.isSet(param))
-                            self.assertTrue(candidate.hasDefault(param))
                             self.assertEqual(
-                                candidate.getOrDefault(param), "custom-value"
+                                getattr(candidate, "get" + suffix)(), "custom-value"
                             )
                             getattr(candidate, setter + "Col")("input")
                             copied = candidate.copy({})
+                            self.assertEqual(
+                                getattr(copied, "get" + suffix + "Col")(), "input"
+                            )
                             self.assertFalse(copied.hasDefault(param))
                             self.assertFalse(copied.isDefined(param))
                             with self.assertRaises(KeyError):
                                 copied.getOrDefault(param)
                             copied.clear(param)
                             self.assertFalse(copied.isSet(param))
-                            self.assertTrue(copied.isDefined(param))
-                            self.assertEqual(copied.getOrDefault(param), value)
+                            self.assertFalse(copied.isDefined(param))
+                            self.assertEqual(getattr(copied, "get" + suffix)(), value)
                             candidate.clear(param)
                             candidate._transfer_params_to_java()
-                            self.assertEqual(candidate.getOrDefault(param), value)
+                            self.assertEqual(
+                                getattr(candidate, "get" + suffix)(), value
+                            )
 
     def test_map_service_parameters_round_trip_as_python_dictionaries(self):
         for stage_type in (ContentUnderstanding, AnalyzeDocument):
@@ -757,20 +1400,15 @@ class TestContentUnderstanding(unittest.TestCase):
                             )
                             for candidate in candidates:
                                 param = candidate.getParam(name)
-                                values = [
-                                    candidate.getOrDefault(param),
-                                    candidate.extractParamMap()[param],
-                                ]
-                                if name != "telemHeaders":
-                                    values.append(getattr(candidate, "get" + suffix)())
-                                for value in values:
-                                    self.assertIsInstance(value, dict)
-                                    self.assertEqual(value, expected)
-                                    self.assertEqual(
-                                        json.loads(json.dumps(value)), expected
-                                    )
+                                value = getattr(candidate, "get" + suffix)()
+                                self.assertIsInstance(value, dict)
+                                self.assertEqual(value, expected)
+                                self.assertEqual(
+                                    json.loads(json.dumps(value)), expected
+                                )
+                                self.assertNotIn(param, candidate.extractParamMap())
 
-    def test_generic_enumeration_is_a_consistent_scalar_view(self):
+    def test_generic_enumeration_excludes_jvm_service_settings(self):
         for service in (
             TextSentiment(),
             self.analyzer().setApiVersionCol("version"),
@@ -786,15 +1424,11 @@ class TestContentUnderstanding(unittest.TestCase):
                 }
                 for param in service.params:
                     if param.doc.startswith("ServiceParam:"):
+                        self.assertNotIn(param.name, values)
+                        self.assertNotIn(param, service.extractParamMap())
                         value = service._java_service_value(param)
                         if value is not None and value.isRight():
-                            self.assertNotIn(param.name, values)
-                            self.assertNotIn(param, service.extractParamMap())
                             self.assertIn(value.value(), service.explainParam(param))
-                if service.isDefined("subscriptionKey"):
-                    self.assertEqual(
-                        values["subscriptionKey"], service.getSubscriptionKey()
-                    )
 
     def test_default_column_binding_scalar_override_and_clear(self):
         service = TextSentiment()
@@ -803,11 +1437,11 @@ class TestContentUnderstanding(unittest.TestCase):
         self.assertFalse(service.isDefined(param))
         self.assertIn("text", service.explainParam(param))
         service.setText(["synthetic text"])
-        self.assertTrue(service.isSet(param))
-        self.assertTrue(service.isDefined(param))
+        self.assertFalse(service.isSet(param))
+        self.assertFalse(service.isDefined(param))
         self.assertFalse(service.hasDefault(param))
-        self.assertEqual(service.getOrDefault(param), ["synthetic text"])
-        self.assertEqual(service.extractParamMap()[param], ["synthetic text"])
+        self.assertEqual(service.getText(), ["synthetic text"])
+        self.assertNotIn(param, service.extractParamMap())
         service.clear(param)
         for candidate in (service, service.copy({})):
             self.assertFalse(candidate.isSet(param))
@@ -853,12 +1487,8 @@ class TestContentUnderstanding(unittest.TestCase):
             self.assertIn("[redacted]", service.explainParam("subscriptionKey"))
             service._transfer_params_to_java()
             self.assertNotIn("pending-key", service.explainParams())
-            self.assertEqual(
-                service.getOrDefault(service.subscriptionKey), "pending-key"
-            )
-            self.assertEqual(
-                service.extractParamMap()[service.subscriptionKey], "pending-key"
-            )
+            self.assertEqual(service.getSubscriptionKey(), "pending-key")
+            self.assertNotIn(service.subscriptionKey, service.extractParamMap())
             service.setAADToken("synthetic-token")
             service.setCustomAuthHeader("synthetic-auth")
             service.setCustomHeaders({"Authorization": "synthetic-header"})
@@ -887,10 +1517,7 @@ class TestContentUnderstanding(unittest.TestCase):
                 service.write().save(path)
                 loaded = AnalyzeDocument.load(path).copy({})
                 self.assertEqual(bytes(loaded.getImageBytes()), payload)
-                self.assertEqual(bytes(loaded.getOrDefault(loaded.imageBytes)), payload)
-                self.assertEqual(
-                    bytes(loaded.extractParamMap()[loaded.imageBytes]), payload
-                )
+                self.assertNotIn(loaded.imageBytes, loaded.extractParamMap())
                 loaded._transfer_params_to_java()
                 self.assertEqual(bytes(loaded.getImageBytes()), payload)
 
@@ -1013,7 +1640,11 @@ class TestContentUnderstanding(unittest.TestCase):
                             IllegalArgumentException, "explicit analyzerId"
                         ):
                             candidate.createAnalyzer({}, allowReplace=replace)
-                    self.assertFalse(candidate.isSet("analyzerId"))
+                    self.assertFalse(
+                        candidate._java_obj.isSet(
+                            candidate._java_obj.getParam("analyzerId")
+                        )
+                    )
                     self.assertEqual(candidate.getAnalyzerId(), "prebuilt-read")
                     self.assertEqual(
                         json.loads(candidate.getAnalyzer())["analyzerId"],
@@ -1078,7 +1709,9 @@ class TestContentUnderstanding(unittest.TestCase):
                     json.loads(loaded.createAnalyzer({}, replace))["analyzerId"],
                     "prebuilt-read",
                 )
-            self.assertTrue(loaded.isSet("analyzerId"))
+            self.assertTrue(
+                loaded._java_obj.isSet(loaded._java_obj.getParam("analyzerId"))
+            )
             loaded.clear(loaded.analyzerId)
             with self.assertRaisesRegex(
                 IllegalArgumentException, "explicit analyzerId"

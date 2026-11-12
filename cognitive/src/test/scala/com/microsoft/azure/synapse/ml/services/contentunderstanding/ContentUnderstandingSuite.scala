@@ -639,7 +639,7 @@ class ContentUnderstandingSuite extends TestBase {
     assert(source.contains("def setDocumentBytesCol(self, value)"))
     assert(source.contains("def setParams(self, **kwargs)"))
     assert(source.contains("def _transfer_params_from_java(self)"))
-    assert(!source.contains("def isSet("), "Use the shared mixin rather than duplicate overrides.")
+    assert(!source.contains("def isSet("), "Keep generic inspection on PySpark's Python parameter maps.")
     assert(source.contains("self._paramMap.pop(param, None)"))
     assert(source.contains("self._paramMap.pop(self.documentBytes, None)"))
     assert(source.contains("""self._java_obj.getDefault(self._java_obj.getParam("outputCol")).get()"""))

@@ -464,8 +464,7 @@ trait PythonWrappable extends BaseWrappable {
   }
 
   private def pyStubAdditionalMethod(method: Method): Option[String] = method match {
-    case Method(_, MethodPattern(methodName, args, returnType), decorators, _)
-      if !methodName.startsWith("_") && methodName != "isSet" =>
+    case Method(_, MethodPattern(methodName, args, returnType), decorators, _) if !methodName.startsWith("_") =>
       PythonMethodExtractor.splitArguments(args).map { methodArgs =>
         val fluent = isFluentStubMethod(methodName)
         val valueArgCount = methodArgs.count(arg => !Set("self", "cls", "*", "/").contains(arg.trim))
