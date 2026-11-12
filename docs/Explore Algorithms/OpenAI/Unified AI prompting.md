@@ -362,17 +362,18 @@ The saved URL parameter is unchanged.
 
 ### API versions
 
-For Chat Completions and Responses, use `setApiVersion("v1")` to select the
-OpenAI-compatible v1 route from an Azure resource endpoint. Other strings,
+Chat Completions and Responses default to `"v1"`, selecting the OpenAI-compatible
+v1 route from an Azure resource endpoint without an `api-version` query.
+You can also select it explicitly with `setApiVersion("v1")`. Other strings,
 including `"preview"`, `"2025-04-01"` and future version names, are forwarded
 as the URL-encoded `api-version` query value. There is no version allowlist or
 date-format check; the service decides whether a version is available.
 
 | Configuration with an Azure resource root | Request route |
 | --- | --- |
-| Chat with `setApiVersion("v1")` | `/openai/v1/chat/completions` |
+| Chat with no version override, or `setApiVersion("v1")` | `/openai/v1/chat/completions` |
 | Chat with `setApiVersion("2025-04-01")` | `/openai/deployments/<deployment>/chat/completions?api-version=2025-04-01` |
-| Responses with `setApiVersion("v1")` | `/openai/v1/responses` |
+| Responses with no version override, or `setApiVersion("v1")` | `/openai/v1/responses` |
 | Responses with `setApiVersion("preview")` | `/openai/responses?api-version=preview` |
 
 ```python
@@ -380,7 +381,6 @@ prompt = (
     AIPrompt()
     .setApiType("responses")  # Or "chat_completions".
     .setUrl(os.environ["AZURE_OPENAI_ENDPOINT"])  # Resource root.
-    .setApiVersion("v1")
     .setDeploymentName(os.environ["MODEL_DEPLOYMENT"])
     .setAADToken(os.environ["MODEL_TOKEN"])
     .setPromptTemplate("Summarize: {text}")
@@ -398,8 +398,10 @@ An existing v1 base or complete v1 URL keeps its path. Explicitly choosing
 choosing `"v1"` adds no version query. On non-v1 URLs, choosing `"v1"` converts
 recognized Chat/Responses operation routes to the corresponding v1 route,
 preserving a proxy prefix and checking any supplied deployment identity.
-Without an explicit version, existing endpoint-based defaults remain unchanged:
-resource-root Azure calls use the dated default, while v1 URLs omit the query.
+Without a configured version override, Chat and Responses use v1 even when
+`setUrl` supplies a legacy operation route. Existing scalar or column-bound
+global/parameter version defaults still override this fallback on non-v1 URLs.
+Existing v1 URLs omit the query unless a non-v1 version is explicitly set.
 
 `OpenAIDecisions` defaults to `"v1"` and calls `/v1/decisions` without a version
 query. The facade's `apiType="decisions"` uses the same effective default.
@@ -439,7 +441,8 @@ errors without sending requests.
 Global body-option defaults that do not apply to the selected API are ignored,
 including their column bindings. Global API-version defaults
 are likewise ignored for native APIs, `/v1` routes and complete `customUrlRoot`
-overrides. Dated routes still use their scalar or column-bound version defaults.
+overrides. On non-v1 URLs, configured scalar or column-bound version defaults
+override the built-in fallback.
 An unused global URL is also ignored when `customUrlRoot` supplies the endpoint.
 A null cell in a bound API-version column produces `missing_input` without HTTP;
 it does not fall back to the built-in version.
@@ -456,8 +459,8 @@ bodies are not subject to this path restriction.
 As with legacy OpenAI stages, v1-base detection ignores case.
 AIPrompt also recognizes complete API routes without regard to case, using the raw
 path: percent-encoded separators such as `%2F` remain data, not route boundaries.
-Classic Azure deployment routes remain dated even when the deployment is named
-`v1`, unless Chat explicitly selects v1 through its API-version binding.
+A deployment named `v1` does not itself select a v1 route. Chat uses its
+configured API version or the v1 fallback; embeddings retains its dated default.
 For Azure, supply the resource endpoint plus `deploymentName`, or the
 complete operation URL. An incomplete `/openai/deployments/<name>` base passed
 to `setUrl` is rejected rather than interpreted as an operation.

@@ -183,8 +183,7 @@ class AIPromptSuite extends AIPromptFuzzing[AIPrompt] {
     Using.resource(new AIRecordingServer((_, _) => 200 -> chatReply)) { server =>
       val address = server.url + "/openai/deployments/explicit-model/chat/completions"
       prompt(server).setUrl(address).transform(input.limit(1)).collect()
-      assert(server.requests.peek()._1.startsWith("/openai/deployments/explicit-model/chat/completions?"))
-      assert(server.requests.peek()._1.count(_ == '/') == 5)
+      assert(server.requests.peek()._1 == "/openai/v1/chat/completions")
       intercept[IllegalArgumentException] {
         prompt(server).setUrl(address).setDeploymentName("different").transformSchema(input.schema)
       }
@@ -197,7 +196,7 @@ class AIPromptSuite extends AIPromptFuzzing[AIPrompt] {
       val models = prompt(server).setUrl(server.url + "/models/chat/completions")
       models.clear(models.deploymentName)
       models.setModel("model").transform(input.limit(1)).collect()
-      assert(server.requests.asScala.last._1.startsWith("/models/chat/completions?"))
+      assert(server.requests.asScala.last._1 == "/openai/v1/chat/completions")
       assert(server.requests.size() == 2)
     }
   }
@@ -267,18 +266,18 @@ class AIPromptSuite extends AIPromptFuzzing[AIPrompt] {
     val root = "https://RESOURCE.SERVICES.AI.AZURE.COM"
     val stage = new AIPrompt().setUrl(root).setModel("model").setInputCol("text")
     stage.transformSchema(input.schema)
-    val chat = new AIRequestAdapter(stage, input.schema)
+    val chat = new AIRequestAdapter(stage.effectiveCopy(), input.schema)
     val (chatUrl, _) = chat.request(Row("hello"), None,
       Some(Seq(new org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema(
         Array[Any]("user", "hello"), new StructType().add("role", StringType).add("content", StringType)))))
-    assert(chatUrl == root + "/models/chat/completions?api-version=2025-04-01-preview")
+    assert(chatUrl == root + "/openai/v1/chat/completions")
     stage.setApiType("responses")
     stage.transformSchema(input.schema)
-    val responses = new AIRequestAdapter(stage, input.schema)
+    val responses = new AIRequestAdapter(stage.effectiveCopy(), input.schema)
     val (responsesUrl, _) = responses.request(Row("hello"), None,
       Some(Seq(new org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema(
         Array[Any]("user", "hello"), new StructType().add("role", StringType).add("content", StringType)))))
-    assert(responsesUrl == root + "/openai/responses?api-version=2025-04-01-preview")
+    assert(responsesUrl == root + "/openai/v1/responses")
     intercept[IllegalArgumentException] {
       new AISystemOne().setUrl("https://API.OPENAI.COM").setDeploymentName("model")
         .setStateCol("text").setQuestions(NativeRequestFixtures.SystemQuestions).transformSchema(input.schema)

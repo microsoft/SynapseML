@@ -90,14 +90,18 @@ class AIPromptPersistenceSuite extends AIPromptTestBase {
     }
   }
 
-  test("dated fallback and Decisions v1 are effective defaults without changing unrelated stages") {
+  test("generative v1 and embedding dated fallbacks are effective defaults without changing unrelated stages") {
     val previous = GlobalParams.getGlobalParam(OpenAIApiVersion)
     try {
       GlobalParams.resetGlobalParam(OpenAIApiVersion)
-      val dated = new AIPrompt().setUrl("https://example.invalid").setDeploymentName("model").setInputCol("text")
-      val effective = dated.effectiveCopy()
-      assert(!dated.isDefined(dated.apiVersion) && !effective.isSet(effective.apiVersion))
-      assert(effective.getDefault(effective.apiVersion).contains(Left("2025-04-01-preview")))
+      Seq("chat_completions", "responses", "embeddings").foreach { api =>
+        val stage = new AIPrompt().setApiType(api).setUrl("https://example.invalid")
+          .setDeploymentName("model").setInputCol("text")
+        val effective = stage.effectiveCopy()
+        assert(!stage.isDefined(stage.apiVersion) && !effective.isSet(effective.apiVersion))
+        val expected = if (api == "embeddings") "2025-04-01-preview" else "v1"
+        assert(effective.getDefault(effective.apiVersion).contains(Left(expected)))
+      }
       Seq(new AIPrompt().setUrl("https://example.invalid/v1"),
         new AISystemOne().setUrl("https://example.invalid")).foreach { stage =>
         assert(!stage.effectiveCopy().isDefined(stage.apiVersion))

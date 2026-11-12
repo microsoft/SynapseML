@@ -167,8 +167,9 @@ class AIPromptPreflightSuite extends TestBase {
     }
   }
 
-  test("Foundry routes use the same implicit model binding as the request body") {
+  test("dated Foundry routes use the same implicit model binding as the request body") {
     val stage = new AIPrompt().setUrl("https://example.services.ai.azure.com").setInputCol("text")
+      .setApiVersion("preview")
     val previousModel = GlobalParams.getGlobalParam(AIFoundryModel)
     val previousDeployment = GlobalParams.getGlobalParam(OpenAIDeploymentNameKey)
     def route(candidate: AIPrompt, expectedPath: String, expectedModel: String): Unit = {

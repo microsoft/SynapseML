@@ -42,7 +42,7 @@ class AIPromptEndpointSuite extends TestBase {
           for (malformed <- Seq("private-\uD800", "private-\uDC00"); binding <- bindings) {
             keys.foreach(GlobalParams.resetGlobalParam)
             val stage = new TestableAIMutableJsonDefaultPrompt("deployment-unicode")
-              .setApiType(api).setUrl(server.url).setInputCol("text")
+              .setApiType(api).setUrl(server.url).setApiVersion("preview").setInputCol("text")
             binding match {
               case "deployment" => stage.setDeploymentName(malformed)
               case "model" => stage.setModel(malformed)
@@ -80,7 +80,7 @@ class AIPromptEndpointSuite extends TestBase {
          deployment <- Seq(false, true)) {
       Using.resource(new AIRecordingServer((_, _) => 200 -> reply)) { server =>
         val stage = new AIPrompt().setApiType(api).setUrl(server.url).setInputCol("text")
-          .setOutputCol("answer").setErrorCol("error")
+          .setApiVersion("preview").setOutputCol("answer").setErrorCol("error")
         if (deployment) stage.setDeploymentNameCol("target") else stage.setModelCol("target")
         stage.transformSchema(schema)
         val rows = stage.transform(input).collect()
@@ -124,7 +124,7 @@ class AIPromptEndpointSuite extends TestBase {
          deployment <- Seq(false, true)) {
       Using.resource(new AIRecordingServer((_, _) => 200 -> reply)) { server =>
         val stage = new TestableAIMutableJsonDefaultPrompt("ignored-deployment")
-          .setApiType(api).setUrl(server.url).setInputCol("text").setErrorCol("error")
+          .setApiType(api).setUrl(server.url).setApiVersion("preview").setInputCol("text").setErrorCol("error")
         if (deployment) {
           stage.setDeploymentName("selected")
           stage.replaceJsonDefault(stage.model, Left("\uD800"))
@@ -623,10 +623,11 @@ class AIPromptEndpointSuite extends TestBase {
         val stage = new AIPrompt().setApiType(api).setUrl(server.url + base)
           .setModel("Model").setInputCol("text").setOutputCol("answer").setErrorCol("error")
         assert(stage.transform(input).head().getAs[Row]("error") == null)
-        val suffix = if (api == "responses") "/openai/responses"
-          else s"/openai/deployments/Model/$route"
+        val suffix = if (api == "embeddings") {
+          s"/openai/deployments/Model/$route?api-version=2025-04-01-preview"
+        } else s"/openai/v1/$route"
         assert(server.requests.size() == 1)
-        assert(server.requests.peek()._1 == base + suffix + "?api-version=2025-04-01-preview")
+        assert(server.requests.peek()._1 == base + suffix)
       }
     }
     Using.resource(new AIRecordingServer((_, _) => 200 -> "{}")) { server =>
@@ -645,7 +646,7 @@ class AIPromptEndpointSuite extends TestBase {
     Using.resource(new AIRecordingServer((_, _) => 200 -> cases.head._3)) { server =>
       val suffix = "/OPENAI/DEPLOYMENTS/Model/CHAT/COMPLETIONS"
       val stage = new AIPrompt().setUrl(server.url + suffix).setDeploymentName("Model").setInputCol("text")
-        .setOutputCol("answer").setErrorCol("error")
+        .setApiVersion("2025-04-01-preview").setOutputCol("answer").setErrorCol("error")
       assert(stage.transform(input).head().getAs[Row]("error") == null)
       assert(server.requests.peek()._1 == suffix + "?api-version=2025-04-01-preview")
       stage.setDeploymentName("model")

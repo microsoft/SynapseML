@@ -78,8 +78,9 @@ private[ai] object AIRequestAdapter {
     if (!stage.isSet(stage.apiVersion) && stage.getApiType == "decisions") {
       stage.getDefault(stage.apiVersion).orElse(Some(Left("v1")))
     } else if (!stage.isSet(stage.apiVersion) && stage.isDefined(stage.url) && usesDatedApiVersion(stage)) {
+      val fallback = if (GenerativeApis(stage.getApiType)) "v1" else DefaultDatedApiVersion
       GlobalParams.getParam(stage.apiVersion).orElse(stage.getDefault(stage.apiVersion))
-        .orElse(Some(Left(DefaultDatedApiVersion)))
+        .orElse(Some(Left(fallback)))
     } else None
 
   def bodyOptions(stage: AIPrompt): Seq[ServiceParam[_]] = Seq(

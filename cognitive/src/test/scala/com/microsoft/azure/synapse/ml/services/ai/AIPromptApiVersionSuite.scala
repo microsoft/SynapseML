@@ -27,6 +27,35 @@ class AIPromptApiVersionSuite extends AIPromptTestBase {
     if (api == "responses") "/openai/responses" else s"/openai/deployments/model/$route"
 
   cases.foreach { case (api, route, reply) =>
+    test(s"$api defaults to v1 through copy save load and clearing an override") {
+      val previous = GlobalParams.getGlobalParam(OpenAIApiVersion)
+      val data = spark.createDataFrame(Seq(Row("hello")).asJava, inputSchema)
+      try {
+        GlobalParams.resetGlobalParam(OpenAIApiVersion)
+        Using.resource(new AIRecordingServer((_, _) => 200 -> reply)) { server =>
+          val stage = new AIPrompt().setApiType(api).setUrl(server.url).setDeploymentName("model")
+            .setInputCol("text").setOutputCol("answer").setErrorCol("error")
+          val saved = path()
+          stage.write.session(spark).save(saved)
+          Seq(stage, stage.copy(ParamMap.empty), AIPrompt.load(saved)).foreach { candidate =>
+            val row = candidate.transform(data).head()
+            assert(row.getAs[String]("answer") == "answer" && row.getAs[Row]("error") == null)
+            assert(server.requests.asScala.last._1 == s"/openai/v1/$route")
+            candidate.setApiVersion("preview")
+            candidate.clear(candidate.apiVersion)
+            assert(candidate.transform(data).head().getAs[Row]("error") == null)
+            assert(server.requests.asScala.last._1 == s"/openai/v1/$route")
+            assert(!candidate.isSet(candidate.apiVersion))
+          }
+        }
+      } finally {
+        previous match {
+          case Some(value) => GlobalParams.setGlobalParam(OpenAIApiVersion, value)
+          case None => GlobalParams.resetGlobalParam(OpenAIApiVersion)
+        }
+      }
+    }
+
     test(s"$api API version selects v1 or forwards arbitrary query versions") {
       val data = spark.createDataFrame(Seq(Row("hello")).asJava, inputSchema)
       Using.resource(new AIRecordingServer((_, _) => 200 -> reply)) { server =>
@@ -47,7 +76,7 @@ class AIPromptApiVersionSuite extends AIPromptTestBase {
       }
     }
 
-    test(s"$api v1 version normalizes known endpoint forms without changing stored URLs") {
+    test(s"$api default v1 version normalizes known endpoint forms without changing stored URLs") {
       val data = spark.createDataFrame(Seq(Row("hello")).asJava, inputSchema)
       val endpoints = Seq(
         "" -> s"/openai/v1/$route",
@@ -61,7 +90,7 @@ class AIPromptApiVersionSuite extends AIPromptTestBase {
       endpoints.foreach { case (suffix, expected) =>
         val endpoint = "https://resource.openai.azure.com" + suffix + "///"
         val stage = new AIPrompt().setApiType(api).setUrl(endpoint).setDeploymentName("model")
-          .setApiVersion("v1").setInputCol("text").setOutputCol("answer").setErrorCol("error")
+          .setInputCol("text").setOutputCol("answer").setErrorCol("error")
           .setHandler { (_, request) =>
             assert(request.requestLine.uri == "https://resource.openai.azure.com" + expected)
             HTTPSchema.stringToResponse(reply, 200, "OK")
@@ -112,17 +141,19 @@ class AIPromptApiVersionSuite extends AIPromptTestBase {
     }
   }
 
-  test("v1 global versions select the v1 route without mutating stage parameters") {
+  test("global versions override the fallback without mutating stage parameters") {
     val previous = GlobalParams.getGlobalParam(OpenAIApiVersion)
     val data = spark.createDataFrame(Seq(Row("hello")).asJava, inputSchema)
     try {
-      GlobalParams.setGlobalParam(OpenAIApiVersion, Left("v1"))
-      cases.foreach { case (api, route, reply) =>
+      for (version <- Seq("v1", "preview"); (api, route, reply) <- cases) {
+        GlobalParams.setGlobalParam(OpenAIApiVersion, Left(version))
         Using.resource(new AIRecordingServer((_, _) => 200 -> reply)) { server =>
           val stage = new AIPrompt().setApiType(api).setUrl(server.url).setDeploymentName("model")
             .setInputCol("text").setErrorCol("error")
           assert(stage.transform(data).head().getAs[Row]("error") == null)
-          assert(server.requests.peek()._1 == s"/openai/v1/$route")
+          val expected = if (version == "v1") s"/openai/v1/$route"
+            else datedRoute(api, route) + "?api-version=preview"
+          assert(server.requests.peek()._1 == expected)
           assert(!stage.isSet(stage.apiVersion))
         }
       }
