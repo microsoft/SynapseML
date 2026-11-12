@@ -1,6 +1,48 @@
 # Review evidence for PR #2815
 
-## Case-class parameter inspection correction
+## Current Rana follow-up and mainline integration
+
+The current follow-up removes the generic JVM-backed `isSet`, `hasDefault`,
+`getOrDefault`, and `extractParamMap` overrides to prevent automatic credential
+logging. Explicit typed getters, execution, copying, and persistence remain
+supported. The earlier case-class inspection correction below is historical,
+not the current generic-inspection contract.
+
+The follow-up also adds opt-in cancellable analysis throttling recovery,
+optional input truncation, saved-result examples, and the semantic extraction
+notebook. The [stage-11 driver record](task-5837660-attempt-6-stage-attempt-11-review-1-claude-opus-5.5.md)
+retains the six-lens outcomes and subsequent explicitly approved test-only
+interrupt-wait fix. Earlier findings, failed transports, and their resolutions
+remain in the numbered reports; they are not additional clean signoffs.
+
+Before publication, the complete change set was rebased onto master
+`33200c265adf16d10272e6abcac00f6aa9dccb32`. Conflict resolutions preserve
+upstream method binding, parameter-default handling, assigned Spark sessions,
+and notebook-selection coverage alongside the CU changes. The two distinct
+persistence-test fixtures now have distinct names, and the codegen test remains
+within the existing file-length limit. CU implementation and CU Scala test
+contents are unchanged by this integration.
+
+Local validation of the rebased tree on 2026-11-12:
+
+- Core and cognitive compilation, test compilation, Scala style, and regenerated
+  core/OpenCV/cognitive Python bindings passed.
+- All 146 selected shared-core Scala tests and 208 CU Scala tests passed.
+- The affected generated-Python, credential, and notebook-cell regressions
+  passed 81 tests and 213 subtests.
+- CI runner and pipeline wiring checks passed 34 tests with 9 platform skips.
+- Changed Python formatting, sidebar syntax, and whitespace checks passed.
+
+No new automated review was launched after the user cancelled the next round.
+These results do not turn historical reviews into review of the rebased tree.
+
+The cognitive Python CI lane now runs the live CU suite separately using
+`synapseml-openai-3` and `mmlspark-build-keys/openai-api-key-3`, under the existing
+approved-fork build policy. No shared defaults or model deployments were changed.
+Live CU endpoint/analyzer readiness, packaged live behavior, and the complete
+Azure pipeline remain unverified until the requested build runs.
+
+## Historical case-class parameter inspection correction
 
 The follow-up to commit `8ff7754af5425d393ef706cc1312cb10ab5f4580` makes
 `getOrDefault` and `extractParamMap` reuse the typed getter's parameter-aware
