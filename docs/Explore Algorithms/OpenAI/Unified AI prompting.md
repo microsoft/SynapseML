@@ -296,21 +296,28 @@ val decisionResults = decisions.transform(tickets)
 
 ### Validate live deployments
 
-The opt-in live suites use synthetic inputs. Native tests exercise both the
-protocol-specific stage and `AIPrompt`; generative tests exercise Chat and
-Responses through `AIPrompt` with the default v1 route and structured JSON output.
+The opt-in live suites use synthetic inputs. The Python matrix exercises all five
+APIs through both their individual classes and `AIPrompt`. Chat and Responses
+check structured JSON output; embeddings check vector dimensions and values;
+native APIs check their distinct answer contracts.
 Configure credentials only in the test process environment, never in a notebook
 checked into source control.
 
 | API | Required environment variables | Authentication |
 | --- | --- | --- |
-| Chat and Responses | `SYNAPSEML_GENERATIVE_ENDPOINT`, `SYNAPSEML_GENERATIVE_DEPLOYMENT` | `SYNAPSEML_GENERATIVE_TOKEN` or `SYNAPSEML_GENERATIVE_KEY` |
+| Chat and Responses | `SYNAPSEML_GENERATIVE_ENDPOINT`, `SYNAPSEML_GENERATIVE_V1_ENDPOINT`, `SYNAPSEML_GENERATIVE_DEPLOYMENT` | `SYNAPSEML_GENERATIVE_TOKEN` or `SYNAPSEML_GENERATIVE_KEY` |
+| Embeddings | `SYNAPSEML_EMBEDDING_ENDPOINT`, `SYNAPSEML_EMBEDDING_DEPLOYMENT` | `SYNAPSEML_EMBEDDING_TOKEN` or `SYNAPSEML_EMBEDDING_KEY` |
 | System One | `SYNAPSEML_SYSTEMONE_ENDPOINT`, `SYNAPSEML_SYSTEMONE_DEPLOYMENT` | `SYNAPSEML_SYSTEMONE_TOKEN` or `SYNAPSEML_SYSTEMONE_KEY` |
 | Decisions | `SYNAPSEML_DECISIONS_ENDPOINT`, `SYNAPSEML_DECISIONS_MODEL` | `SYNAPSEML_DECISIONS_TOKEN` or `SYNAPSEML_DECISIONS_KEY` |
 
 Use an endpoint that exposes the selected API and a model authorized for
 it. The generative deployment must support structured output and temperature,
-such as `gpt-4.1-mini`; use an Azure resource root to exercise default v1 routing.
+such as `gpt-4.1-mini`. Use an Azure resource root for
+`SYNAPSEML_GENERATIVE_ENDPOINT` to exercise the facade's default v1 routing.
+Set `SYNAPSEML_GENERATIVE_V1_ENDPOINT` to the explicit v1 base (for example,
+`https://<resource>.openai.azure.com/openai/v1`) for the standalone classes.
+The embedding endpoint must also be an explicit v1 base, with a deployment
+supporting `dimensions=32`, such as `text-embedding-3-small`.
 Model discovery or a successful chat request does not prove native API
 availability. Configure the native endpoint and its authentication on the stage;
 native APIs do not inherit process-wide OpenAI URL or API-key defaults, and the
