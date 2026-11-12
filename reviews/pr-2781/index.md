@@ -1,6 +1,33 @@
 # Review evidence for PR #2781
 
-## Current bounded closeout: publication with an explicit pre-commit exception
+## Focused CI follow-up: serializer fixture discovery
+
+CI on `969f36cc946ba1ac12762cff8400b8deb168375e` identified two
+test-only serializer fixtures as product pipeline stages. This caused five
+fitting, serialization, Python, R and logging discovery checks to fail.
+Both fixtures now use the existing `Testable` naming convention, including
+their companions and references. No production code, test assertions,
+discovery rules, pipeline settings or timeouts changed.
+
+Focused validation passed all 24 serializer tests and all 10 active
+`FuzzingTest` checks, including the five previously failing checks.
+The existing ignored getters/setters analysis is unchanged from master.
+Test compilation and test Scala style also passed.
+
+The separate HyperOpt failure remains a required CI gate. Its exported run
+completed initial training in about four minutes and eight tuning trials in
+about fourteen minutes before final retraining was cancelled. MLflow logged
+repeated dependency-inference delays and fallback warnings; the underlying
+inference error was not exposed. This is not an infrastructure-only
+classification or a reason to increase timeouts or skip the notebook.
+
+The owner authorized this focused repair and one new exact-head CI run,
+retaining the earlier pre-commit exception. At this recorded follow-up,
+publication, current-head CI and automated feedback, the distinct final
+CI-qualified review, and human approval remain pending. No new full
+pre-commit pass or merge-readiness claim is made.
+
+## Historical bounded closeout: publication with an explicit pre-commit exception
 
 The patch is based on master
 `80191a61e743b8ba462b692d2ffa2e95ac2df91d`. The owner explicitly authorized:
