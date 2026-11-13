@@ -194,3 +194,119 @@ def test_accepted_request_with_failed_cleanup_is_not_success(tmp_path, monkeypat
     report = json.loads((tmp_path / "evidence.json").read_text())
     assert report["requestAccepted"] is True
     assert report["cleanup"]["httpStatus"] == 503
+
+
+@pytest.mark.parametrize(
+    "scenario",
+    [
+        "unset",
+        "merge",
+        "unchanged",
+        "conflict",
+        "disabled",
+        "unsupported",
+        "defaults-forbidden",
+        "patch-rejected",
+        "readback-mismatch",
+    ],
+)
+def test_defaults_setup_preserves_existing_mappings_and_fails_closed(
+    tmp_path, monkeypatch, scenario
+):
+    models = {"completion": ["gpt-4.1"], "embedding": ["text-embedding-3-large"]}
+    expected = {
+        "gpt-4.1": "gpt-4.1",
+        "prebuilt-analyzer-completion": "gpt-4.1",
+        "text-embedding-3-large": "text-embedding-3-large",
+        "prebuilt-analyzer-embedding": "text-embedding-3-large",
+    }
+    deployments = [
+        {"deployment": model, "model": {"name": model}, "state": "Succeeded"}
+        for model in ("gpt-4.1", "text-embedding-3-large")
+    ]
+    before = (
+        {}
+        if scenario == "unset"
+        else {"unrelated-model": "keep-this-deployment", "gpt-4.1": "gpt-4.1"}
+    )
+    if scenario == "unchanged":
+        before.update(expected)
+    if scenario == "conflict":
+        before["prebuilt-analyzer-completion"] = "someone-elses-deployment"
+    if scenario == "disabled":
+        deployments[0]["state"] = "Disabled"
+    if scenario == "unsupported":
+        models["completion"] = []
+    (tmp_path / "deployments.json").write_text(json.dumps(deployments))
+    state = before.copy()
+    requests = []
+    patched = False
+
+    def open_request(request, timeout):
+        nonlocal patched
+        assert timeout == 60
+        requests.append(request)
+        status = 200
+        if request.get_method() == "PATCH":
+            assert request.headers["Content-type"] == "application/merge-patch+json"
+            changes = json.loads(request.data)["modelDeployments"]
+            assert changes == {
+                name: value for name, value in expected.items() if name not in before
+            }
+            if scenario == "patch-rejected":
+                status, body = 400, {"error": {"code": "InvalidRequest"}}
+            else:
+                state.update(changes)
+                patched = True
+                body = {"modelDeployments": state}
+        elif "/defaults?" in request.full_url:
+            if scenario == "defaults-forbidden":
+                status, body = 403, {"error": {"code": "Forbidden"}}
+            elif not state:
+                status, body = 400, {
+                    "error": {"innererror": {"code": "DefaultsNotSet"}}
+                }
+            else:
+                body = {"modelDeployments": state}
+                if patched and scenario == "readback-mismatch":
+                    body = {
+                        "modelDeployments": {
+                            name: value
+                            for name, value in state.items()
+                            if name != "unrelated-model"
+                        }
+                    }
+        else:
+            body = {"supportedModels": models}
+        response = io.BytesIO(json.dumps(body).encode())
+        response.code = status
+        response.headers = {"apim-request-id": "setup-request"}
+        if status != 200:
+            raise HTTPError(
+                request.full_url, status, "Rejected", response.headers, response
+            )
+        return response
+
+    monkeypatch.setattr(
+        diagnostic, "build_opener", lambda *args: Mock(open=open_request)
+    )
+    result = diagnostic.configure_defaults(
+        diagnostic.ROOT, tmp_path, "https://example.invalid", "synthetic-key"
+    )
+    report = json.loads((tmp_path / "defaults.json").read_text())
+    success = scenario in ("unset", "merge", "unchanged")
+    assert result == (0 if success else 1)
+    assert (report["status"] != "failed") == success
+    methods = [request.get_method() for request in requests]
+    if scenario in ("unset", "merge", "readback-mismatch"):
+        assert methods == ["GET", "GET", "PATCH", "GET"]
+    elif scenario == "patch-rejected":
+        assert methods == ["GET", "GET", "PATCH"]
+        assert report["serviceError"]["code"] == "InvalidRequest"
+    elif scenario == "unchanged":
+        assert methods == ["GET", "GET", "GET"]
+    else:
+        assert methods == ["GET", "GET"]
+    if success:
+        assert report["after"] == {**before, **expected}
+    assert "synthetic-key" not in (tmp_path / "defaults.json").read_text()

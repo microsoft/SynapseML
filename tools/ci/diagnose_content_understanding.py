@@ -130,12 +130,124 @@ def inspect_models(root: Path, output: Path, endpoint: str, key: str) -> int:
     return 0
 
 
+def configure_defaults(root: Path, output: Path, endpoint: str, key: str) -> int:
+    report = {
+        "phase": "configure-defaults",
+        "status": "failed",
+        "sourceCommit": os.environ.get("BUILD_SOURCEVERSION"),
+    }
+
+    def send(request):
+        try:
+            response = build_opener(NoRedirect()).open(
+                request, timeout=HTTP_TIMEOUT_SECONDS
+            )
+        except HTTPError as error:
+            response = error
+        with response:
+            body = json.loads(response.read())
+            report["httpStatus"] = response.code
+            report["requestId"] = response.headers.get(
+                "apim-request-id"
+            ) or response.headers.get("x-ms-request-id")
+            if response.code != 200:
+                report["serviceError"] = body.get("error")
+                raise RuntimeError("Defaults request was rejected")
+            return body["modelDeployments"]
+
+    try:
+        inspect_models(root, output, endpoint, key)
+        metadata = json.loads((output / "models.json").read_text(encoding="utf-8"))
+        deployments = json.loads(
+            (output / "deployments.json").read_text(encoding="utf-8")
+        )
+        base = metadata["baseAnalyzer"]
+        if base["httpStatus"] != 200:
+            raise RuntimeError("Could not read the base analyzer's supported models")
+        selected = {
+            "completion": "gpt-4.1",
+            "embedding": "text-embedding-3-large",
+        }
+        mappings = {}
+        for role, model in selected.items():
+            if model not in base["supportedModels"][role] or not any(
+                item["deployment"] == model
+                and item["model"]["name"] == model
+                and item["state"] == "Succeeded"
+                for item in deployments
+            ):
+                raise RuntimeError(f"No compatible existing deployment for {role}")
+            mappings[model] = model
+            mappings[f"prebuilt-analyzer-{role}"] = model
+        defaults = metadata["defaults"]
+        if defaults["httpStatus"] == 200:
+            before = defaults["modelDeployments"]
+        elif (
+            defaults["httpStatus"] == 400
+            and defaults.get("error", {}).get("innererror", {}).get("code")
+            == "DefaultsNotSet"
+        ):
+            before = {}
+        else:
+            raise RuntimeError("Could not read existing CU defaults")
+        report["before"] = before
+        if any(
+            name in before and before[name] != value for name, value in mappings.items()
+        ):
+            raise RuntimeError("Refusing to overwrite an existing CU model mapping")
+        missing = {
+            name: value for name, value in mappings.items() if name not in before
+        }
+        report["patch"] = {"modelDeployments": missing}
+        api_version, _, _ = notebook_request(root / NOTEBOOK, "configuration")
+        url = (
+            endpoint.rstrip("/")
+            + f"/contentunderstanding/defaults?api-version={api_version}"
+        )
+        headers = {"Ocp-Apim-Subscription-Key": key}
+        if missing:
+            send(
+                Request(
+                    url,
+                    data=json.dumps(report["patch"]).encode(),
+                    headers={**headers, "Content-Type": "application/merge-patch+json"},
+                    method="PATCH",
+                )
+            )
+            report["patchRequestId"] = report["requestId"]
+        after = send(Request(url, headers=headers))
+        report["after"] = after
+        if any(
+            after.get(name) != value for name, value in {**before, **mappings}.items()
+        ):
+            raise RuntimeError(
+                "CU defaults readback did not preserve the expected mappings"
+            )
+        report["status"] = "configured" if missing else "unchanged"
+    except Exception as error:
+        report["configurationError"] = f"{type(error).__name__}: {error}"
+    output.mkdir(parents=True, exist_ok=True)
+    text = redact(json.dumps(report, indent=2), key)
+    (output / "defaults.json").write_text(text + "\n", encoding="utf-8")
+    print(text)
+    return 1 if report["status"] == "failed" else 0
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--inspect-models", action="store_true")
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument("--inspect-models", action="store_true")
+    mode.add_argument("--configure-defaults", action="store_true")
     arguments = parser.parse_args()
+    run = (
+        configure_defaults
+        if arguments.configure_defaults
+        else inspect_models
+        if arguments.inspect_models
+        else diagnose
+    )
     raise SystemExit(
-        (inspect_models if arguments.inspect_models else diagnose)(
+        run(
             ROOT,
             ROOT / "target" / "cu-analyzer-diagnostic",
             os.environ.get("CONTENT_UNDERSTANDING_ENDPOINT", ""),
