@@ -1,48 +1,23 @@
 """Reproduce the notebook's analyzer-creation request without building Spark."""
 
 import argparse
-import ast
 import json
 import os
 import uuid
 from pathlib import Path
 from urllib.error import HTTPError
-from urllib.request import HTTPRedirectHandler, Request, build_opener
+from urllib.request import Request, build_opener
 
-from tools.ci.run_content_understanding_notebook import NOTEBOOK, ROOT, redact, sha256
-
-
-class NoRedirect(HTTPRedirectHandler):
-    def redirect_request(self, req, fp, code, msg, headers, newurl):
-        return None
-
-
-def notebook_request(notebook: Path, run_id: str) -> tuple:
-    cells = {
-        cell["id"]: "".join(cell["source"])
-        for cell in json.loads(notebook.read_text(encoding="utf-8"))["cells"]
-        if cell["cell_type"] == "code"
-    }
-    assignments = {}
-    for cell_id in ("configuration", "create-analyzer"):
-        for node in ast.parse(cells[cell_id]).body:
-            if (
-                isinstance(node, ast.Assign)
-                and len(node.targets) == 1
-                and isinstance(node.targets[0], ast.Name)
-            ):
-                assignments[node.targets[0].id] = node.value
-    # Reuse notebook naming logic without executing its Spark configuration.
-    analyzer_id = eval(
-        compile(ast.Expression(assignments["analyzer_id"]), str(notebook), "eval"),
-        {"__builtins__": {}},
-        {"run_id": run_id},
-    )
-    return (
-        ast.literal_eval(assignments["api_version"]),
-        analyzer_id,
-        ast.literal_eval(assignments["definition"]),
-    )
+from tools.ci.run_content_understanding_notebook import (
+    HTTP_TIMEOUT_SECONDS,
+    NOTEBOOK,
+    ROOT,
+    NoRedirect,
+    cleanup_analyzer,
+    notebook_request,
+    redact,
+    sha256,
+)
 
 
 def diagnose(root: Path, output: Path, endpoint: str, key: str) -> int:
@@ -51,6 +26,7 @@ def diagnose(root: Path, output: Path, endpoint: str, key: str) -> int:
         "phase": "create-analyzer",
         "requestAccepted": False,
     }
+    cleanup_id = None
     try:
         if not endpoint or not key or "$(" in key:
             raise ValueError("Missing CU endpoint or resource key")
@@ -74,12 +50,17 @@ def diagnose(root: Path, output: Path, endpoint: str, key: str) -> int:
             },
             method="PUT",
         )
+        cleanup_id = analyzer_id
         try:
-            response = build_opener(NoRedirect()).open(request)
+            response = build_opener(NoRedirect()).open(
+                request, timeout=HTTP_TIMEOUT_SECONDS
+            )
         except HTTPError as error:
             response = error
         with response:
             report["httpStatus"] = response.code
+            if 300 <= response.code < 500 and response.code != 408:
+                cleanup_id = None
             report["requestId"] = response.headers.get(
                 "apim-request-id"
             ) or response.headers.get("x-ms-request-id")
@@ -94,11 +75,19 @@ def diagnose(root: Path, output: Path, endpoint: str, key: str) -> int:
     except Exception as error:
         report["diagnosticError"] = type(error).__name__
         report["requestAccepted"] = False
+    finally:
+        if cleanup_id is not None:
+            report["cleanup"] = cleanup_analyzer(endpoint, key, api_version, cleanup_id)
     output.mkdir(parents=True, exist_ok=True)
     text = redact(json.dumps(report, indent=2), key)
     (output / "evidence.json").write_text(text + "\n", encoding="utf-8")
     print(text)
-    return 0 if report["requestAccepted"] else 1
+    return (
+        0
+        if report["requestAccepted"]
+        and report.get("cleanup", {}).get("status") != "failed"
+        else 1
+    )
 
 
 def inspect_models(root: Path, output: Path, endpoint: str, key: str) -> int:
@@ -114,7 +103,9 @@ def inspect_models(root: Path, output: Path, endpoint: str, key: str) -> int:
             headers={"Ocp-Apim-Subscription-Key": key},
         )
         try:
-            response = build_opener(NoRedirect()).open(request)
+            response = build_opener(NoRedirect()).open(
+                request, timeout=HTTP_TIMEOUT_SECONDS
+            )
         except HTTPError as error:
             response = error
         with response:
