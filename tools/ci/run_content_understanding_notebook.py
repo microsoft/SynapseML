@@ -61,9 +61,11 @@ def verify_wheel(root, module, anchor):
     )
     anchor_path = anchor.replace(".", "/") + ".py"
     loaded = Path(importlib.import_module(anchor).__file__).resolve()
-    if loaded != Path(distribution.locate_file(anchor_path)).resolve():
+    expected = Path(distribution.locate_file(anchor_path)).resolve()
+    if loaded != expected:
         raise RuntimeError(
-            f"The imported {module} module is not installed from the wheel"
+            f"The imported {module} module is not installed from the wheel: "
+            f"expected {expected}, loaded {loaded}"
         )
     with zipfile.ZipFile(wheel) as archive:
         members = [
@@ -248,6 +250,11 @@ def execute(root, report_path):
     report = {"status": "failed", "phase": "packaged-artifact-preflight"}
     spark = None
     try:
+        # Bind the Python API to the wheel before Spark puts embedded JAR Python
+        # ahead of site-packages on sys.path.
+        importlib.import_module(
+            "synapse.ml.services.contentunderstanding.ContentUnderstanding"
+        )
         spark = init_spark()
         report["runtime"] = runtime_evidence(root, spark)
         execute_notebook(root / NOTEBOOK, report)

@@ -111,6 +111,11 @@ def test_execution_failure_persists_redacted_evidence(configured, monkeypatch):
         "synapse.ml.core.init_spark",
         SimpleNamespace(init_spark=lambda: spark),
     )
+    monkeypatch.setitem(
+        sys.modules,
+        "synapse.ml.services.contentunderstanding.ContentUnderstanding",
+        SimpleNamespace(),
+    )
     monkeypatch.setattr(
         runner, "runtime_evidence", lambda *args: {"sourceCommit": "build"}
     )
@@ -126,6 +131,80 @@ def test_execution_failure_persists_redacted_evidence(configured, monkeypatch):
     assert report["runtime"]["sourceCommit"] == "build"
     assert report["error"] == "ValueError: rejected [REDACTED]"
     spark.stop.assert_called_once()
+
+
+@pytest.mark.parametrize("modified_install", [False, True])
+def test_bootstrap_uses_installed_wheel_before_spark_adds_embedded_python(
+    configured, modified_install
+):
+    installed = configured / "site-packages"
+    anchor = "synapse.ml.services.contentunderstanding.ContentUnderstanding"
+    member = anchor.replace(".", "/") + ".py"
+    members = {
+        "synapse/ml/services/__init__.py": "",
+        "synapse/ml/services/contentunderstanding/__init__.py": "",
+        member: "class ContentUnderstanding:\n    pass\n",
+    }
+    for name, source in members.items():
+        path = installed / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(source)
+    metadata = installed / "synapseml_cognitive-1.0.dist-info"
+    metadata.mkdir()
+    (metadata / "METADATA").write_text("Name: synapseml-cognitive\nVersion: 1.0\n")
+    package = configured / "cognitive/target/scala-2.12/generated/package/python"
+    package.mkdir(parents=True)
+    wheel = package / "synapseml_cognitive-1.0-py3-none-any.whl"
+    jar = configured / "embedded-python.jar"
+    for archive_path in (wheel, jar):
+        with zipfile.ZipFile(archive_path, "w") as archive:
+            for name in ("synapse/", "synapse/ml/"):
+                archive.writestr(name, "")
+            for name in members:
+                archive.write(installed / name, name)
+    if modified_install:
+        (installed / member).write_text(
+            "class ContentUnderstanding:\n    changed = True\n"
+        )
+    core = installed / "synapse/ml/core"
+    core.mkdir()
+    (core / "__init__.py").write_text("")
+    (core / "init_spark.py").write_text(
+        "import sys\n"
+        "class Session:\n"
+        "    def stop(self):\n"
+        "        pass\n"
+        "def init_spark():\n"
+        f"    sys.path.insert(1, {str(jar)!r})\n"
+        "    return Session()\n"
+    )
+    report_path = configured / "evidence.json"
+    program = (
+        "import runpy, sys\n"
+        "from pathlib import Path\n"
+        f"sys.path.insert(1, {str(installed)!r})\n"
+        f"runner = runpy.run_path({runner.__file__!r})\n"
+        "execute = runner['execute']\n"
+        "execute.__globals__['runtime_evidence'] = lambda root, spark: "
+        f"runner['verify_wheel'](root, 'cognitive', {anchor!r})\n"
+        "execute.__globals__['execute_notebook'] = lambda *args: None\n"
+        f"sys.exit(execute(Path({str(configured)!r}), Path({str(report_path)!r})))\n"
+    )
+    completed = subprocess.run(
+        [sys.executable, "-c", program],
+        cwd=configured,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    assert completed.returncode == (1 if modified_install else 0), (
+        completed.stdout + completed.stderr
+    )
+    report = json.loads(report_path.read_text())
+    if modified_install:
+        assert "Installed Python code differs" in report["error"]
+    else:
+        assert report["runtime"]["sha256"] == runner.sha256(wheel)
 
 
 def test_wheel_verification_rejects_modified_installed_code(tmp_path, monkeypatch):
