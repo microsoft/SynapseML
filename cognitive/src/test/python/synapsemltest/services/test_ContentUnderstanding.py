@@ -588,6 +588,17 @@ class TestContentUnderstanding(unittest.TestCase):
                 self.assertEqual(methods.count("POST"), 1)
                 self.assertEqual(methods.count("GET"), 1)
                 self.assertEqual(methods.count("PUT"), int(prefix == "custom = "))
+                if prefix == "custom = ":
+                    creation = next(
+                        request for request in self.requests if request[0] == "PUT"
+                    )
+                    self.assertEqual(
+                        creation[2]["models"],
+                        {
+                            "completion": "gpt-4.1",
+                            "embedding": "text-embedding-3-large",
+                        },
+                    )
                 requests_after_write = list(self.requests)
                 results = namespace[result_name]
                 self.assertEqual(results.first()[column].status, "Succeeded")

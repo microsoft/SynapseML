@@ -181,7 +181,7 @@ URLs, and CU result content also require appropriate access controls.
 ## Native request options
 
 Service parameters support scalar and column setters, for example
-`setAnalyzerId("custom-invoice-v1")` or `setAnalyzerIdCol("analyzer")`.
+`setAnalyzerId("custom_invoice_v1")` or `setAnalyzerIdCol("analyzer")`.
 
 | Parameter | Meaning |
 | --- | --- |
@@ -202,7 +202,7 @@ Custom headers cannot override connector-managed framing headers or
 ```python
 custom_requests = (
     analyzer.copy({})
-    .setAnalyzerId("custom-invoice-v1")
+    .setAnalyzerId("custom_invoice_v1")
     .setRangeCol("pageRange")
     .setModelDeployments({"prebuilt-analyzer-completion": "<deployment-name>"})
 )
@@ -633,10 +633,14 @@ polls. Unknown or missing statuses and malformed bodies retain their
 `InvalidResponse` diagnostic rather than being assumed to be running.
 
 ```python
-custom = analyzer.copy({}).setAnalyzerId("purchase-order-v1")
+custom = analyzer.copy({}).setAnalyzerId("purchase_order_v1")
 definition = {
     "baseAnalyzerId": "prebuilt-document",
     "description": "Extract the supplier from a purchase order.",
+    "models": {
+        "completion": "gpt-4.1",
+        "embedding": "text-embedding-3-large",
+    },
     "config": {
         "returnDetails": True,
         "estimateFieldSourceAndConfidence": True,
@@ -662,6 +666,9 @@ custom_results.where("analysis.status = 'Succeeded'").selectExpr(
 ).show(truncate=False)
 ```
 
+The `models` roles select the completion and embedding models for this custom
+analyzer; the resource needs compatible deployments and CU default mappings.
+These roles are distinct from analysis-time `modelDeployments` overrides.
 The complete definition is forwarded to CU. `createAnalyzer` waits for its
 management operation within the budget; failure/exhaustion raises an exception
 carrying the response. `getAnalyzer` can inspect the analyzer afterward.
@@ -735,9 +742,10 @@ A second step executes the semantic notebook's actual code cells with the same
 resource and credential, then repeats saved-handle recovery in a fresh Python
 namespace without recreating the input or submitting again. It requires
 `prebuilt-document`, its model defaults, and permission to create the notebook's
-uniquely named custom analyzer. Like the interactive notebook, it leaves that
-analyzer available for inspection; the evidence records its ID for subsequent
-resource-management cleanup. It does not alter shared model defaults.
+uniquely named custom analyzer. Unlike the interactive notebook, the CI runner
+deletes its CI-owned analyzer after execution and recovery, including on failure.
+The evidence records the cleanup outcome, and failed cleanup fails the step.
+It does not alter shared model defaults.
 
 `tools/ci/run_content_understanding_notebook.py` starts local Spark on the CI
 worker, so the saved Parquet snapshots use that worker's temporary directory.
