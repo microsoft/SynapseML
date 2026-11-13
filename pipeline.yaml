@@ -51,6 +51,18 @@ schedules:
         - master
 
 parameters:
+  - name: diagnoseContentUnderstanding
+    displayName: Only diagnose CU analyzer creation (no build or tests)
+    type: boolean
+    default: false
+  - name: inspectContentUnderstandingDeployments
+    displayName: Inspect existing CU model deployments instead of creating an analyzer
+    type: boolean
+    default: false
+  - name: configureContentUnderstandingDefaults
+    displayName: Configure missing CU defaults using existing compatible deployments
+    type: boolean
+    default: false
   - name: fullTests
     displayName: Force all PR test families
     type: boolean
@@ -109,8 +121,67 @@ variables:
   runCoverage: $[or(eq(variables['Build.Reason'], 'PullRequest'), eq(variables['Build.SourceBranch'], 'refs/heads/master'), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))]
 
 jobs:
+- job: ContentUnderstandingDiagnostic
+  displayName: 'Diagnose CU analyzer creation'
+  condition: eq('${{ parameters.diagnoseContentUnderstanding }}', true)
+  pool:
+    vmImage: $(UBUNTU_VERSION)
+  steps:
+    - checkout: self
+      fetchDepth: 1
+    - task: AzureKeyVault@2
+      displayName: 'Fetch shared Foundry key for CU'
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        keyVaultName: mmlspark-build-keys
+        SecretsFilter: openai-api-key-3
+    - task: AzureCLI@2
+      displayName: 'Inspect existing CU model deployments'
+      condition: and(succeeded(), or(eq('${{ parameters.inspectContentUnderstandingDeployments }}', true), eq('${{ parameters.configureContentUnderstandingDefaults }}', true)))
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          set -euo pipefail
+          mkdir -p target/cu-analyzer-diagnostic
+          account=$(az cognitiveservices account list \
+            --query "[?properties.customSubDomainName=='synapseml-openai-3'].[name,resourceGroup]" -o tsv)
+          read -r account_name resource_group <<< "$account"
+          test -n "$account_name" && test -n "$resource_group"
+          az cognitiveservices account deployment list \
+            --name "$account_name" --resource-group "$resource_group" \
+            --query "[].{deployment:name,model:properties.model,state:properties.provisioningState}" \
+            -o json > target/cu-analyzer-diagnostic/deployments.json
+          cat target/cu-analyzer-diagnostic/deployments.json
+    - bash: python3 -m tools.ci.diagnose_content_understanding --configure-defaults
+      displayName: 'Configure and verify missing CU model defaults'
+      condition: and(succeeded(), eq('${{ parameters.configureContentUnderstandingDefaults }}', true), ne('${{ parameters.inspectContentUnderstandingDeployments }}', true))
+      env:
+        CONTENT_UNDERSTANDING_ENDPOINT: https://synapseml-openai-3.services.ai.azure.com
+        CONTENT_UNDERSTANDING_API_KEY: $(openai-api-key-3)
+    - bash: python3 -m tools.ci.diagnose_content_understanding
+      displayName: 'Send notebook analyzer request and retain redacted diagnostics'
+      condition: and(succeeded(), ne('${{ parameters.inspectContentUnderstandingDeployments }}', true))
+      env:
+        CONTENT_UNDERSTANDING_ENDPOINT: https://synapseml-openai-3.services.ai.azure.com
+        CONTENT_UNDERSTANDING_API_KEY: $(openai-api-key-3)
+    - bash: python3 -m tools.ci.diagnose_content_understanding --inspect-models
+      displayName: 'Read CU defaults and supported analyzer models'
+      condition: and(succeeded(), eq('${{ parameters.inspectContentUnderstandingDeployments }}', true))
+      env:
+        CONTENT_UNDERSTANDING_ENDPOINT: https://synapseml-openai-3.services.ai.azure.com
+        CONTENT_UNDERSTANDING_API_KEY: $(openai-api-key-3)
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish CU analyzer diagnostic'
+      condition: succeededOrFailed()
+      inputs:
+        targetPath: '$(Build.SourcesDirectory)/target/cu-analyzer-diagnostic'
+        artifact: 'cu-analyzer-diagnostic'
+
 - job: CIHelpers
   displayName: 'Test CI helpers'
+  condition: ne('${{ parameters.diagnoseContentUnderstanding }}', true)
   timeoutInMinutes: 15
   pool:
     vmImage: $(UBUNTU_VERSION)
@@ -127,6 +198,7 @@ jobs:
 
 - job: BuildAndCacheSbt
   displayName: 'Prewarm sbt bootstrap cache'
+  condition: ne('${{ parameters.diagnoseContentUnderstanding }}', true)
   cancelTimeoutInMinutes: 0
   pool:
     vmImage: $(UBUNTU_VERSION)
@@ -654,6 +726,12 @@ jobs:
         sbt publishM2
       displayName: 'Install and package deps'
       timeoutInMinutes: 40
+    - bash: |
+        set -e
+        source activate synapseml
+        python tools/ci/run_content_understanding_notebook.py --snapshot-jars
+      displayName: 'Record CU packaged JARs before coverage rebuild'
+      condition: and(succeeded(), eq(variables['PACKAGE'], 'cognitive'))
     - task: AzureCLI@2
       displayName: 'Test Python Code'
       retryCountOnTaskFailure: 1
@@ -683,6 +761,38 @@ jobs:
           (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython) || \
           (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython) || \
           (sbt $IGNORE_TEST_PATH_FLAG $TEST_SUB_PATH_FLAG "project $(PACKAGE)" coverage testPython)
+    - task: AzureKeyVault@2
+      displayName: 'Fetch shared Foundry key for CU'
+      condition: and(succeeded(), eq(variables['PACKAGE'], 'cognitive'))
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        keyVaultName: mmlspark-build-keys
+        SecretsFilter: openai-api-key-3
+    - bash: |
+        set -e
+        source activate synapseml
+        python tools/ci/run_content_understanding_e2e.py
+      displayName: 'Test Content Understanding live'
+      condition: and(succeeded(), eq(variables['PACKAGE'], 'cognitive'))
+      env:
+        CONTENT_UNDERSTANDING_ENDPOINT: https://synapseml-openai-3.services.ai.azure.com
+        CONTENT_UNDERSTANDING_API_KEY: $(openai-api-key-3)
+    - bash: |
+        set -e
+        source activate synapseml
+        python tools/ci/run_content_understanding_notebook.py
+      displayName: 'Test Content Understanding semantic notebook live'
+      condition: and(succeeded(), eq(variables['PACKAGE'], 'cognitive'))
+      env:
+        CONTENT_UNDERSTANDING_ENDPOINT: https://synapseml-openai-3.services.ai.azure.com
+        CONTENT_UNDERSTANDING_API_KEY: $(openai-api-key-3)
+        CONTENT_UNDERSTANDING_OUTPUT_PATH: $(Agent.TempDirectory)/cu-semantic-notebook
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish Content Understanding notebook evidence'
+      condition: and(succeededOrFailed(), eq(variables['PACKAGE'], 'cognitive'), eq(variables['cuNotebookEvidenceReady'], 'true'))
+      inputs:
+        targetPath: $(Build.SourcesDirectory)/target/cu-semantic-notebook
+        artifact: cu-semantic-notebook-$(System.JobAttempt)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
@@ -827,6 +937,8 @@ jobs:
       form:
         PACKAGE: "services.form"
         FLAKY: "true"
+      contentunderstanding:
+        PACKAGE: "services.contentunderstanding"
       language:
         PACKAGE: "services.language"
         FLAKY: "true"

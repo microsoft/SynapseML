@@ -86,6 +86,10 @@ object SharedNotebookE2ETestUtilities {
     }
   }
 
+  private[nbtest] def generatedNotebookName(docsDir: File, notebook: File): String =
+    docsDir.toURI.relativize(notebook.toURI).getPath
+      .replace("/", "").replace(" ", "").replace("-", "").replace(",", "")
+
   def generateNotebooks(): Array[File] = {
     println("Cleaning up generated notebooks directory...")
     cleanUpGeneratedNotebooksDir()
@@ -95,12 +99,7 @@ object SharedNotebookE2ETestUtilities {
     val newFiles = FileUtilities.recursiveListFiles(docsDir)
       .filter(_.getName.endsWith(".ipynb"))
       .map { f =>
-        val relative = docsDir.toURI.relativize(f.toURI).getPath
-        val newName = relative
-          .replace("/", "")
-          .replace(" ", "")
-          .replace("-", "")
-          .replace(",", "")
+        val newName = generatedNotebookName(docsDir, f)
         FileUtilities.copyAndRenameFile(f, NotebooksDir, newName, true)
         new File(NotebooksDir, newName)
       } :+ {

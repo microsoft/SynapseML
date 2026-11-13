@@ -47,6 +47,7 @@ class SynapseTestCleanup extends TestBase {
 
 object SynapseTests {
   private[nbtest] val ExcludedNotebooks: Set[String] = Set(
+    "SemanticExtractionwithContentUnderstanding", // Requires user-supplied CU resource/storage
     "Finetune", // Excluded by design task 1829306
     "GPU",
     "PhiModel",
@@ -66,8 +67,11 @@ object SynapseTests {
     "ExploreAlgorithmsDeepLearningQuickstartONNXModelInference" // ONNX package issues
   )
 
+  def includeNotebook(file: File): Boolean =
+    !ExcludedNotebooks.exists(excluded => file.getAbsolutePath.contains(excluded))
+
   private[nbtest] def selectNotebooks(files: Array[File]): Array[File] =
-    files.filterNot(file => ExcludedNotebooks.exists(excluded => file.getAbsolutePath.contains(excluded)))
+    files.filter(includeNotebook)
       .sortBy(_.getAbsolutePath)
 }
 

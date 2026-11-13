@@ -102,6 +102,161 @@ def test_pipeline_and_templates_parse():
         assert yaml.safe_load(tpl.read_text()) is not None, f"{tpl} failed to parse"
 
 
+def test_cu_diagnostic_mode_skips_every_normal_job():
+    data = yaml.safe_load(_pipeline_text())
+    parameter = next(
+        p for p in data["parameters"] if p["name"] == "diagnoseContentUnderstanding"
+    )
+    assert parameter["default"] is False
+    jobs = {job["job"]: job for job in _jobs(data["jobs"])}
+    diagnostic = jobs["ContentUnderstandingDiagnostic"]
+    assert diagnostic["condition"] == (
+        "eq('${{ parameters.diagnoseContentUnderstanding }}', true)"
+    )
+    for name, job in jobs.items():
+        if name == "ContentUnderstandingDiagnostic":
+            continue
+        if name in ("CIHelpers", "BuildAndCacheSbt"):
+            assert job["condition"] == (
+                "ne('${{ parameters.diagnoseContentUnderstanding }}', true)"
+            )
+        else:
+            assert job["dependsOn"] == "BuildAndCacheSbt"
+            assert "succeeded()" in job.get("condition", "succeeded()")
+    credentials = next(
+        step for step in diagnostic["steps"] if step.get("task") == "AzureKeyVault@2"
+    )
+    original = next(
+        step
+        for step in jobs["PythonTests"]["steps"]
+        if step.get("displayName") == "Fetch shared Foundry key for CU"
+    )
+    assert credentials["inputs"] == original["inputs"]
+    assert not any("template" in step for step in diagnostic["steps"])
+    request = next(
+        step
+        for step in diagnostic["steps"]
+        if step.get("bash") == "python3 -m tools.ci.diagnose_content_understanding"
+    )
+    assert request["bash"] == "python3 -m tools.ci.diagnose_content_understanding"
+    assert request["env"]["CONTENT_UNDERSTANDING_API_KEY"] == "$(openai-api-key-3)"
+    inspection = next(
+        step for step in diagnostic["steps"] if step.get("task") == "AzureCLI@2"
+    )
+    assert (
+        "parameters.inspectContentUnderstandingDeployments" in inspection["condition"]
+    )
+    assert "account deployment list" in inspection["inputs"]["inlineScript"]
+    assert "create" not in inspection["inputs"]["inlineScript"]
+    assert "ne('${{ parameters.inspectContentUnderstandingDeployments }}', true)" in (
+        request["condition"]
+    )
+    setup = next(
+        step
+        for step in diagnostic["steps"]
+        if step.get("displayName") == "Configure and verify missing CU model defaults"
+    )
+    assert (
+        next(
+            p
+            for p in data["parameters"]
+            if p["name"] == "configureContentUnderstandingDefaults"
+        )["default"]
+        is False
+    )
+    assert setup["condition"] == (
+        "and(succeeded(), eq('${{ parameters.configureContentUnderstandingDefaults }}', true), "
+        "ne('${{ parameters.inspectContentUnderstandingDeployments }}', true))"
+    )
+    assert diagnostic["steps"].index(inspection) < diagnostic["steps"].index(setup)
+    assert diagnostic["steps"].index(setup) < diagnostic["steps"].index(request)
+    assert "parameters.configureContentUnderstandingDefaults" in inspection["condition"]
+
+
+def test_cu_live_validation_reuses_shared_foundry_and_existing_pr_approval():
+    data = yaml.safe_load(_pipeline_text())
+    job = next(job for job in _jobs(data["jobs"]) if job["job"] == "PythonTests")
+    steps = job["steps"]
+    credentials = next(
+        step
+        for step in steps
+        if step.get("displayName") == "Fetch shared Foundry key for CU"
+    )
+    live = next(
+        step
+        for step in steps
+        if step.get("displayName") == "Test Content Understanding live"
+    )
+    ordinary = next(
+        step for step in steps if step.get("displayName") == "Test Python Code"
+    )
+    packaging = next(
+        step for step in steps if step.get("displayName") == "Install and package deps"
+    )
+    snapshot = next(
+        step
+        for step in steps
+        if step.get("displayName") == "Record CU packaged JARs before coverage rebuild"
+    )
+    notebook = next(
+        step
+        for step in steps
+        if step.get("displayName")
+        == "Test Content Understanding semantic notebook live"
+    )
+    evidence = next(
+        step
+        for step in steps
+        if step.get("displayName") == "Publish Content Understanding notebook evidence"
+    )
+    assert steps.index(packaging) < steps.index(snapshot) < steps.index(ordinary)
+    assert "sbt publishM2" in packaging["bash"]
+    assert (
+        "python tools/ci/run_content_understanding_notebook.py --snapshot-jars"
+        in snapshot["bash"]
+    )
+    assert steps.index(ordinary) < steps.index(credentials) < steps.index(live)
+    assert steps.index(live) < steps.index(notebook) < steps.index(evidence)
+    assert credentials["inputs"] == {
+        "azureSubscription": "SynapseML Build",
+        "keyVaultName": "mmlspark-build-keys",
+        "SecretsFilter": "openai-api-key-3",
+    }
+    for step in (snapshot, credentials, live, notebook):
+        condition = step["condition"]
+        assert "succeeded()" in condition
+        assert "eq(variables['PACKAGE'], 'cognitive')" in condition
+        assert "System.PullRequest.IsFork" not in condition
+        assert not step.get("continueOnError", False)
+    assert live["env"]["CONTENT_UNDERSTANDING_API_KEY"] == "$(openai-api-key-3)"
+    assert live["env"]["CONTENT_UNDERSTANDING_ENDPOINT"] == (
+        "https://synapseml-openai-3.services.ai.azure.com"
+    )
+    assert "python tools/ci/run_content_understanding_e2e.py" in live["bash"]
+    assert "retryCountOnTaskFailure" not in live
+    assert "retryCountOnTaskFailure" not in notebook
+    assert "python tools/ci/run_content_understanding_notebook.py" in notebook["bash"]
+    assert (
+        notebook["env"]["CONTENT_UNDERSTANDING_API_KEY"]
+        == live["env"]["CONTENT_UNDERSTANDING_API_KEY"]
+    )
+    assert (
+        notebook["env"]["CONTENT_UNDERSTANDING_ENDPOINT"]
+        == live["env"]["CONTENT_UNDERSTANDING_ENDPOINT"]
+    )
+    assert notebook["env"]["CONTENT_UNDERSTANDING_OUTPUT_PATH"] == (
+        "$(Agent.TempDirectory)/cu-semantic-notebook"
+    )
+    assert evidence["task"] == "PublishPipelineArtifact@1"
+    assert "succeededOrFailed()" in evidence["condition"]
+    assert "eq(variables['PACKAGE'], 'cognitive')" in evidence["condition"]
+    assert "eq(variables['cuNotebookEvidenceReady'], 'true')" in evidence["condition"]
+    assert evidence["inputs"]["targetPath"] == (
+        "$(Build.SourcesDirectory)/target/cu-semantic-notebook"
+    )
+    assert "CONTENT_UNDERSTANDING_API_KEY" not in ordinary.get("env", {})
+
+
 def test_pipeline_has_no_release_branch_replay():
     text = _pipeline_text()
     data = yaml.safe_load(text)
@@ -227,7 +382,9 @@ def test_prewarm_job_present():
     assert "BuildAndCacheSbt" in jobs
     assert "BuildAndCacheCondaEnv" not in jobs
     prewarm = jobs["BuildAndCacheSbt"]
-    assert "condition" not in prewarm, "prewarm must run whenever sbt jobs can run"
+    assert prewarm["condition"] == (
+        "ne('${{ parameters.diagnoseContentUnderstanding }}', true)"
+    ), "prewarm must run except in the build-free diagnostic mode"
     cache_steps = [
         step
         for step in prewarm["steps"]

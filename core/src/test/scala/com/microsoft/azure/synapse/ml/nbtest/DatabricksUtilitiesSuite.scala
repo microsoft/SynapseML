@@ -4,6 +4,7 @@
 package com.microsoft.azure.synapse.ml.nbtest
 
 import com.microsoft.azure.synapse.ml.Secrets.ExpiringAccessToken
+import com.microsoft.azure.synapse.ml.build.BuildInfo
 import com.microsoft.azure.synapse.ml.io.http.RESTHelpers
 import org.apache.http.client.methods.HttpGet
 import org.scalatest.funsuite.AnyFunSuite
@@ -28,6 +29,20 @@ class DatabricksUtilitiesSuite extends AnyFunSuite {
       new File("ExploreAlgorithmsOpenAIAIPrompt.py"),
       new File("OnePlusOne.py"))
     assert(SynapseTests.selectNotebooks(examples).toSeq == Seq(examples.last))
+  }
+
+  test("Exclude the interactive Content Understanding notebook from unattended CPU and Synapse runs") {
+    val notebookName = "Quickstart - Semantic Extraction with Content Understanding.ipynb"
+    val notebook = DatabricksUtilities.NotebookFiles.find(_.getName == notebookName).get
+    assert(!DatabricksUtilities.CPUNotebooks.exists(_.getName == notebookName))
+    assert((0 until DatabricksUtilities.NumCPUPartitions).forall { index =>
+      !DatabricksUtilities.cpuNotebookPartition(index).exists(_.getName == notebookName)
+    })
+    val docsDir = new File(BuildInfo.baseDirectory.getParent, "docs").getCanonicalFile
+    val generated = SharedNotebookE2ETestUtilities.generatedNotebookName(docsDir, notebook)
+      .replace(".ipynb", ".py")
+    assert(!SynapseTests.includeNotebook(new File(generated)))
+    assert(SynapseTests.includeNotebook(new File("RegularNotebook.py")))
   }
 
   test("Accept only the trusted Databricks AAD workspace") {

@@ -394,7 +394,9 @@ def test_pipeline_gates_only_audited_families_and_keeps_full_schedule():
     assert prewarm[1]["env"] == {"SYNAPSEML_FULL_TESTS": "${{ parameters.fullTests }}"}
     helpers = jobs["CIHelpers"]
     assert "dependsOn" not in helpers
-    assert "condition" not in helpers
+    assert helpers["condition"] == (
+        "ne('${{ parameters.diagnoseContentUnderstanding }}', true)"
+    )
     assert helpers["steps"][0]["retryCountOnTaskFailure"] == 2
     assert "python3 -m pytest tools/ci/tests/ -q" in helpers["steps"][1]["bash"]
     assert pipeline["schedules"] == [
@@ -406,6 +408,7 @@ def test_pipeline_gates_only_audited_families_and_keeps_full_schedule():
         }
     ]
     parameters = {parameter["name"]: parameter for parameter in pipeline["parameters"]}
+    assert parameters["diagnoseContentUnderstanding"]["default"] is False
     assert parameters["fullTests"]["default"] is False
     for name in (
         "testUnit",

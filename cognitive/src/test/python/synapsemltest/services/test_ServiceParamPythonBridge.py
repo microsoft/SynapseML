@@ -19,6 +19,7 @@ from synapse.ml.core.init_spark import init_spark
 from synapse.ml.services.openai.OpenAIEmbedding import OpenAIEmbedding
 from synapse.ml.services.openai.OpenAIPrompt import OpenAIPrompt
 from synapse.ml.services.text.TextSentiment import TextSentiment
+from synapse.ml.services.translate.DictionaryExamples import DictionaryExamples
 from synapse.ml.stages.SelectColumns import SelectColumns
 
 spark = init_spark()
@@ -445,9 +446,7 @@ class TestServiceParamPythonBridge(unittest.TestCase):
         embedding._java_obj = counting_java_obj
         embedding._transfer_params_to_java()
 
-        expected_default_transfers = sum(
-            embedding.hasDefault(param) for param in embedding.params
-        )
+        expected_default_transfers = len(embedding._defaultParamMap)
         self.assertEqual(counting_java_obj.get_param_calls, expected_default_transfers)
 
     def test_generated_accessors_support_scalar_and_column_values(self):
@@ -463,6 +462,28 @@ class TestServiceParamPythonBridge(unittest.TestCase):
         headers = {"trace-id": "test"}
         embedding.setTelemHeaders(headers)
         self.assertEqual(embedding.getTelemHeaders(), headers)
+
+    def test_typed_getters_decode_case_class_sequences(self):
+        for expected in (
+            [],
+            [
+                {"text": "hello", "translation": "hola"},
+                {"text": "world", "translation": "mundo"},
+            ],
+        ):
+            stage = DictionaryExamples()
+            java_param = stage._java_obj.getParam("textAndTranslation")
+            stage._java_obj.set(
+                java_param, java_param.jsonDecode(json.dumps({"left": expected}))
+            )
+            for label, candidate in (
+                ("configured", stage),
+                ("restored", DictionaryExamples._from_java(stage._java_obj)),
+            ):
+                with self.subTest(state=label, expected=expected):
+                    value = candidate.getTextAndTranslation()
+                    self.assertEqual(value, expected)
+                    self.assertEqual(json.loads(json.dumps(value)), expected)
 
     def test_set_params_dispatches_service_arguments_through_setters(self):
         embedding = OpenAIEmbedding().setParams(textCol="body")
@@ -497,6 +518,7 @@ class TestServiceParamPythonBridge(unittest.TestCase):
         source = OpenAIEmbedding(text="original")
         restored = OpenAIEmbedding._from_java(source._java_obj)
 
+        self.assertNotIn(restored.text, restored._paramMap)
         self.assertFalse(restored.isSet(restored.text))
         restored.setText("updated")
         restored._transfer_params_to_java()
@@ -510,6 +532,7 @@ class TestServiceParamPythonBridge(unittest.TestCase):
 
         scalar_copy = column_source.copy({column_source.text: "updated"})
         self.assertEqual(scalar_copy.getText(), "updated")
+        self.assertNotIn(scalar_copy.text, scalar_copy._paramMap)
         self.assertFalse(scalar_copy.isSet(scalar_copy.text))
 
         restored = OpenAIEmbedding._from_java(column_source._java_obj)
@@ -531,6 +554,7 @@ class TestServiceParamPythonBridge(unittest.TestCase):
                 else:
                     embedding.setText("new")
 
+                self.assertNotIn(embedding.text, embedding._paramMap)
                 self.assertFalse(embedding.isSet(embedding.text))
                 embedding._transfer_params_to_java()
                 copied = embedding.copy()
@@ -555,6 +579,7 @@ class TestServiceParamPythonBridge(unittest.TestCase):
         embedding._transfer_params_to_java()
 
         self.assertEqual(embedding.getText(), "new")
+        self.assertNotIn(embedding.text, embedding._paramMap)
         self.assertFalse(embedding.isSet(embedding.text))
 
     def test_failed_named_service_setter_preserves_pending_value(self):
@@ -662,7 +687,8 @@ class TestServiceParamPythonBridge(unittest.TestCase):
             )
 
         self.assertIs(prompt._paramMap, original_param_map)
-        self.assertEqual(prompt.getTemperature(), 0.25)
+        self.assertEqual(prompt._java_obj.getTemperature(), 0.25)
+        self.assertEqual(prompt.getTemperature(), 0.5)
         self.assertEqual(prompt.getOrDefault(prompt.temperature), 0.5)
         prompt._transfer_params_to_java()
         self.assertEqual(prompt.getTemperature(), 0.5)
