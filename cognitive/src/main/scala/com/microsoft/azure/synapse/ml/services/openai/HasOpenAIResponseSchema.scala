@@ -10,6 +10,13 @@ trait HasOpenAIResponseSchema extends Wrappable {
 
   def setResponseFormat(value: Map[String, Any]): this.type
 
+  protected def validateResponseSchemaValues(schema: Map[String, Any]): Unit = {
+    AnyJsonFormat.anyFormat.write(schema)
+  }
+
+  protected def pyResponseSchemaToJava: String =
+    "jvm.com.microsoft.azure.synapse.ml.param.ServiceParam.toMap(_convert(schema))"
+
   /** Request strict structured output from an inner JSON Schema, without its response-format envelope. */
   def setResponseSchema(schema: Map[String, Any]): this.type =
     setResponseSchema(schema, "response_schema", strict = true)
@@ -23,6 +30,7 @@ trait HasOpenAIResponseSchema extends Wrappable {
   /**
     * Wrap an inner JSON Schema for the stage's API. The schema is preserved without inferring
     * required fields, changing additionalProperties, or converting Spark data types.
+    * Scala and Java BigDecimal schema values are supported as exact JSON numbers.
     * Use scala.collection.immutable.ListMap for objects whose key order matters;
     * a plain Map does not guarantee insertion order.
     */
@@ -31,7 +39,7 @@ trait HasOpenAIResponseSchema extends Wrappable {
     require(name != null && name.matches("[A-Za-z0-9_-]{1,64}"),
       "schema name must contain 1 to 64 letters, digits, underscores, or hyphens")
     // Reject unsupported nested values before changing the stage's parameters.
-    AnyJsonFormat.anyFormat.write(schema)
+    validateResponseSchemaValues(schema)
     setResponseFormat(Map(
       "type" -> "json_schema",
       "name" -> name,
@@ -50,6 +58,7 @@ trait HasOpenAIResponseSchema extends Wrappable {
       |    The response-format envelope is added automatically for this stage's API.
       |    The schema itself is not modified. For strict output, supply a schema
       |    supported by the model, including required and additionalProperties.
+      |    Numeric values may include decimal.Decimal and retain their decimal precision.
       |
       |    Args:
       |        schema (dict): Inner JSON Schema, without response-format metadata.
@@ -77,7 +86,7 @@ trait HasOpenAIResponseSchema extends Wrappable {
       |            return result
       |        return value
       |
-      |    java_schema = jvm.com.microsoft.azure.synapse.ml.param.ServiceParam.toMap(_convert(schema))
+      |    java_schema = $pyResponseSchemaToJava
       |    self._java_obj = self._java_obj.setResponseSchema(java_schema, name, strict)
       |    self._paramMap.pop(self.responseFormat, None)
       |    return self

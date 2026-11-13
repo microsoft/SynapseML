@@ -3,9 +3,9 @@ codecov:
     require_ci_to_pass: no
     # Wait for expected number of coverage uploads before sending notifications
     # This prevents premature comments with incomplete data.
-    # 54 = UnitTests 40 + PythonTests 7 + RTests 6 + WebsiteSamplesTests 1
+    # 55 = UnitTests 41 + PythonTests 7 + RTests 6 + WebsiteSamplesTests 1
     # (every leg of those jobs runs templates/codecov.yml on succeededOrFailed).
-    after_n_builds: 54
+    after_n_builds: 55
 
 comment:
   layout: "reach,diff,flags,files"
@@ -14,7 +14,7 @@ comment:
   require_base: false
   require_head: true
   # Wait for all expected uploads before commenting (see note above)
-  after_n_builds: 54
+  after_n_builds: 55
 
 coverage:
   precision: 2

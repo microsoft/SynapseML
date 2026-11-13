@@ -4,6 +4,7 @@
 package org.apache.spark.ml
 
 import org.apache.spark.ml.image.ImageSchema
+import org.apache.spark.ml.param.{Param, Params}
 import org.apache.spark.ml.param.shared.HasParallelism
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.Row
@@ -27,6 +28,10 @@ object ImageInjections {
 }
 
 object ParamInjections {
+  def clearDefault[T](params: Params, param: Param[T]): Unit = {
+    params.defaultParamMap.remove(param)
+  }
+
   trait HasParallelismInjected extends HasParallelism {
 
     def getExecutionContextProxy: ExecutionContext = {

@@ -3,6 +3,7 @@
 
 import ast
 import copy
+from decimal import Decimal
 import inspect
 import json
 import os
@@ -70,6 +71,22 @@ class TestOpenAIResponseSchema(unittest.TestCase):
                 self.assertEqual(actual["name"], "sentiment-v2")
                 self.assertFalse(actual["strict"])
                 self.assertEqual(actual["schema"], self.schema)
+
+    def test_decimal_schema_limits_remain_exact(self):
+        for stage_type in self.stage_types:
+            for value in (
+                Decimal("0.12345678901234567890123456789"),
+                Decimal("9223372036854775808"),
+            ):
+                with self.subTest(stage=stage_type.__name__, value=value):
+                    stage = stage_type().setResponseSchema(
+                        {"type": "number", "maximum": value}
+                    )
+                    param = stage._java_obj.responseFormat()
+                    encoded = param.jsonEncode(stage._java_obj.getOrDefault(param))
+                    payload = json.loads(encoded, parse_float=Decimal)["left"]
+                    actual = payload.get("format", payload.get("json_schema", payload))
+                    self.assertEqual(actual["schema"]["maximum"], value)
 
     def test_schema_setter_replaces_pending_response_format_only_on_success(self):
         for stage_type in self.stage_types:
@@ -218,8 +235,7 @@ class TestOpenAIResponseSchema(unittest.TestCase):
                     key = "spark.synapseml.legacy.allowUnsafeJavaDeserialization"
                     previous = spark.conf.get(key, None)
                     try:
-                        # Only load the trusted model created by this test.
-                        spark.conf.set(key, "true")
+                        spark.conf.set(key, "false")
                         restored = stage_type.load(path)
                     finally:
                         if previous is None:

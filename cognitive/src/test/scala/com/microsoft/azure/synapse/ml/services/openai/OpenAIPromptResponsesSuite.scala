@@ -30,6 +30,8 @@ class OpenAIPromptResponsesSuite extends Flaky with OpenAIAPIKey {
       .setCustomServiceName(openAIServiceName)
       .setApiType("responses")
       .setApiVersion("2025-04-01-preview")
+      .setReasoningEffort("low")
+      .setVerbosity("low")
       .setOutputCol(outputCol)
   }
 
@@ -39,11 +41,6 @@ class OpenAIPromptResponsesSuite extends Flaky with OpenAIAPIKey {
       expectedToken: String): Unit = {
     val prompt = responsesPrompt(outputCol, deployment)
       .setPromptTemplate(s"Return exactly the word $expectedToken for {text}.")
-
-    if (deployment.toLowerCase.contains("gpt-5")) {
-      prompt.setReasoningEffort("low")
-      prompt.setVerbosity("low")
-    }
 
     val output = prompt.transform(df.limit(1))
       .select(outputCol)
@@ -55,17 +52,10 @@ class OpenAIPromptResponsesSuite extends Flaky with OpenAIAPIKey {
     assert(output.toLowerCase.contains(expectedToken.toLowerCase))
   }
 
-  test("Responses API OpenAIPrompt returns text for gpt-5-mini outputs") {
+  test("Responses API OpenAIPrompt returns text for gpt-6-luna outputs") {
     assertResponsesOutputForDeployment(
-      deploymentNameMini,
-      "responses_gpt5mini_output",
-      "fruit")
-  }
-
-  test("Responses API OpenAIPrompt returns text for gpt-5.1 outputs") {
-    assertResponsesOutputForDeployment(
-      deploymentName5p1,
-      "responses_gpt51_output",
+      deploymentName,
+      "responses_luna_output",
       "fruit")
   }
 }

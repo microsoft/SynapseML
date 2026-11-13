@@ -13,17 +13,20 @@ import com.microsoft.azure.synapse.ml.core.utils.{
 import com.microsoft.azure.synapse.ml.param.ByteArrayParam
 import org.apache.commons.io.FileUtils
 import org.apache.hadoop.fs.Path
-import org.apache.spark.ml.param.{Param, ParamMap, Params}
+import org.apache.spark.ml.param.{DoubleArrayParam, DoubleParam, FloatParam, Param, ParamMap, Params}
 import org.apache.spark.ml.util._
 import org.apache.spark.ml.{
   ComplexParamsReadable,
   ComplexParamsTestHelper,
   ComplexParamsWritable,
+  ExplicitComplexParamsWritable,
   ObjectSerializer,
   PipelineStage,
   Serializer
 }
 import org.apache.spark.sql.SparkSession
+import org.json4s.{JNothing, JString}
+import org.json4s.jackson.JsonMethods.parse
 
 import java.io.{
   ByteArrayInputStream,
@@ -109,9 +112,33 @@ object ComplexParamTest extends ComplexParamsReadable[ComplexParamTest]
 class StandardParamTest(override val uid: String) extends TestEstimatorBase(uid)
   with HasStringParam with ComplexParamsWritable {
   def this() = this(Identifiable.randomUID("StandardParamTest"))
+
+  def setStringDefault(value: String): this.type = setDefault(stringParam -> value)
 }
 
 object StandardParamTest extends ComplexParamsReadable[StandardParamTest]
+
+class TestableImplicitDefaultParamTest(override val uid: String) extends StandardParamTest(uid) {
+  def this() = this(Identifiable.randomUID("TestableImplicitDefaultParamTest"))
+
+  setStringDefault("constructor-default")
+
+  override def paramsWithImplicitDefaults: Set[Param[_]] = super.paramsWithImplicitDefaults + stringParam
+}
+
+object TestableImplicitDefaultParamTest extends ComplexParamsReadable[TestableImplicitDefaultParamTest]
+
+class TestableFloatingPointParamTest(override val uid: String)
+  extends TestEstimatorBase(uid) with ComplexParamsWritable {
+  def this() = this(Identifiable.randomUID("TestableFloatingPointParamTest"))
+
+  val doubleValue = new DoubleParam(this, "doubleValue", "double value")
+  val floatValue = new FloatParam(this, "floatValue", "float value")
+  val doubleValues = new DoubleArrayParam(this, "doubleValues", "double array")
+  setDefault(doubleValue -> -0.0d, floatValue -> -0.0f, doubleValues -> Array(-0.0d, 0.0d))
+}
+
+object TestableFloatingPointParamTest extends ComplexParamsReadable[TestableFloatingPointParamTest]
 
 class MixedParamTest(override val uid: String) extends TestEstimatorBase(uid)
   with HasStringParam with HasByteArrayParam with ComplexParamsWritable {
@@ -119,6 +146,11 @@ class MixedParamTest(override val uid: String) extends TestEstimatorBase(uid)
 }
 
 object MixedParamTest extends ComplexParamsReadable[MixedParamTest]
+
+class TestableExplicitSessionParamTest(override val uid: String) extends TestableSessionParamTest(uid)
+  with ExplicitComplexParamsWritable {
+  override protected def validateForWrite(): Unit = ()
+}
 
 class ValidateComplexParamSerializer extends TestBase {
   val saveFile = new File(tmpDir.toFile, "m1.model").toString
@@ -141,16 +173,19 @@ class ValidateComplexParamSerializer extends TestBase {
     }
   }
 
-  test("complex writers use their assigned Spark session") {
-    val stage = new TestableSessionParamTest("assigned-session")
-    val session = spark.newSession()
-    session.conf.set(TestableSessionParamTest.ConfigKey, stage.uid)
-    withActiveSession(Some(spark)) {
-      val bytes = Array[Byte](1, 2, 3)
-      val path = tmpDir.resolve("assigned-session.model").toString
-      stage.set(stage.byteArray, bytes).write.session(session).save(path)
-      val restored = TestableSessionParamTest.read.session(session).load(path)
-      assert(restored.getOrDefault(restored.byteArray).sameElements(bytes))
+  Seq(false, true).foreach { explicit =>
+    test(s"complex writers use their assigned Spark session with explicit=$explicit") {
+      val stage = if (explicit) new TestableExplicitSessionParamTest("explicit-session")
+        else new TestableSessionParamTest("legacy-session")
+      val session = spark.newSession()
+      session.conf.set(TestableSessionParamTest.ConfigKey, stage.uid)
+      withActiveSession(Some(spark)) {
+        val bytes = Array[Byte](1, 2, 3)
+        val path = tmpDir.resolve(s"session-$explicit.model").toString
+        stage.set(stage.byteArray, bytes).write.session(session).save(path)
+        val restored = TestableSessionParamTest.read.session(session).load(path)
+        assert(restored.getOrDefault(restored.byteArray).sameElements(bytes))
+      }
     }
   }
 
@@ -296,6 +331,85 @@ class ValidateComplexParamSerializer extends TestBase {
         previousDefault.fold(SparkSession.clearDefaultSession())(SparkSession.setDefaultSession)
       }
     }
+  }
+
+  test("Persisted ordinary defaults retain legacy explicit values") {
+    spark
+    Seq(None, Some("fallback"), Some("custom")).foreach { explicit =>
+      val original = new StandardParamTest().setStringDefault("fallback")
+      explicit.foreach(original.setStringParam)
+      original.write.overwrite().save(saveFile)
+      val restored = StandardParamTest.load(saveFile)
+      assert(restored.getStringParam == explicit.getOrElse("fallback"))
+      assert(restored.isSet(restored.stringParam))
+      assert(restored.getDefault(restored.stringParam).contains("fallback"))
+      restored.clear(restored.stringParam)
+      assert(restored.getStringParam == "fallback")
+    }
+  }
+
+  test("Unset constructor-recreated defaults are omitted from both metadata maps") {
+    spark
+    val path = tmpDir.resolve("constructor-recreated.model").toString
+    val resavePath = tmpDir.resolve("constructor-recreated-resaved.model").toString
+    Seq(None, Some("saved-default"), Some("custom")).foreach { explicit =>
+      val original = new TestableImplicitDefaultParamTest().setStringDefault("saved-default")
+      explicit.foreach(original.setStringParam)
+      original.write.overwrite().save(path)
+      val metadata = parse(spark.read.text(new File(path, "metadata").toString).first().getString(0))
+      assert((metadata \ "paramMap" \ "stringParam") == explicit.map(JString(_)).getOrElse(JNothing))
+      assert((metadata \ "defaultParamMap" \ "stringParam") ==
+        explicit.map(_ => JString("saved-default")).getOrElse(JNothing))
+      val restored = TestableImplicitDefaultParamTest.load(path)
+      assert(restored.isSet(restored.stringParam) == explicit.isDefined)
+      assert(restored.getStringParam == explicit.getOrElse("constructor-default"))
+      assert(restored.getDefault(restored.stringParam).contains(
+        if (explicit.isDefined) "saved-default" else "constructor-default"))
+      restored.write.overwrite().save(resavePath)
+      val resaved = TestableImplicitDefaultParamTest.load(resavePath)
+      assert(resaved.isSet(resaved.stringParam) == explicit.isDefined)
+      assert(resaved.getStringParam == restored.getStringParam)
+    }
+  }
+
+  private def assertSignedZeros(stage: TestableFloatingPointParamTest): Unit = {
+    val negativeDoubleBits = java.lang.Double.doubleToRawLongBits(-0.0d)
+    val negativeFloatBits = java.lang.Float.floatToRawIntBits(-0.0f)
+    assert(java.lang.Double.doubleToRawLongBits(stage.getOrDefault(stage.doubleValue)) == negativeDoubleBits)
+    assert(java.lang.Float.floatToRawIntBits(stage.getOrDefault(stage.floatValue)) == negativeFloatBits)
+    assert(stage.getOrDefault(stage.doubleValues).map(java.lang.Double.doubleToRawLongBits)
+      .sameElements(Array(negativeDoubleBits, 0L)))
+    assert(java.lang.Double.doubleToRawLongBits(stage.getDefault(stage.doubleValue).get) == negativeDoubleBits)
+    assert(java.lang.Float.floatToRawIntBits(stage.getDefault(stage.floatValue).get) == negativeFloatBits)
+    assert(stage.getDefault(stage.doubleValues).get.map(java.lang.Double.doubleToRawLongBits)
+      .sameElements(Array(negativeDoubleBits, 0L)))
+  }
+
+  test("Floating-point parameters retain signed-zero through save load and resave") {
+    spark
+    Seq(false, true).foreach { explicit =>
+      val stage = new TestableFloatingPointParamTest()
+      if (explicit) {
+        stage.set(stage.doubleValue, -0.0d).set(stage.floatValue, -0.0f)
+          .set(stage.doubleValues, Array(-0.0d, 0.0d))
+      }
+      val path = tmpDir.resolve(s"signed-zero-$explicit.model").toString
+      stage.write.save(path)
+      val restored = TestableFloatingPointParamTest.load(path)
+      assertSignedZeros(restored)
+      val resavePath = tmpDir.resolve(s"signed-zero-resaved-$explicit.model").toString
+      restored.write.save(resavePath)
+      assertSignedZeros(TestableFloatingPointParamTest.load(resavePath))
+    }
+  }
+
+  test("Previously saved signed-zero metadata retains numeric parameter signs") {
+    val path = tmpDir.resolve("legacy-signed-zero.model").toString
+    val values = """{"doubleValue":-0.0,"floatValue":-0.0,"doubleValues":[-0.0,0.0]}"""
+    val metadata = s"""{"class":"${classOf[TestableFloatingPointParamTest].getName}","uid":"legacy-signed-zero",""" +
+      s""""timestamp":0,"sparkVersion":"${spark.version}","paramMap":$values,"defaultParamMap":$values}"""
+    spark.createDataFrame(Seq(Tuple1(metadata))).toDF("value").write.text(new File(path, "metadata").toString)
+    assertSignedZeros(TestableFloatingPointParamTest.load(path))
   }
 
   test("Complex Param serialization should work on all complex, all normal, or mixed") {

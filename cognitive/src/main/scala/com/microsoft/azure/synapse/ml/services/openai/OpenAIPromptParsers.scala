@@ -3,7 +3,10 @@
 
 package com.microsoft.azure.synapse.ml.services.openai
 
+import com.fasterxml.jackson.core.{JsonProcessingException, JsonToken}
+import com.microsoft.azure.synapse.ml.services.ai.AIJson
 import org.apache.spark.sql.{Column, functions => F, types => T}
+import org.apache.spark.sql.internal.SQLConfInjections
 import org.apache.spark.sql.types.DataType
 
 trait OutputParser {
@@ -34,6 +37,46 @@ class JsonParser(val schema: String, options: Map[String, String]) extends Outpu
 
   def parse(responseCol: Column): Column =
     F.from_json(cleanJsonString(responseCol), schema, options)
+
+  private def acceptsSingletonObject: Boolean = outputSchema match {
+    case T.ArrayType(_: T.StructType, _) => true
+    case _ => false
+  }
+
+  private[services] def hasParseError(responseCol: Column): Column = {
+    val factory = SQLConfInjections.jsonFactory(options)
+    val acceptsSingleton = acceptsSingletonObject
+    val diagnosticJson = F.udf((text: String) => Option(text).flatMap { value =>
+      val parser = factory.createParser(value)
+      try {
+        Option(parser.nextToken()).flatMap { root =>
+          if (!AIJson.hasValidStringTokens(parser) || Option(parser.nextToken()).nonEmpty) None
+          else {
+            // Spark accepts an object as a singleton array only at the document root.
+            val nested = if (acceptsSingleton && root == JsonToken.START_OBJECT) "[" + value + "\n]" else value
+            Some("{\"value\":" + nested + "\n}")
+          }
+        }
+      } catch {
+        case _: JsonProcessingException => None
+      } finally {
+        parser.close()
+      }
+    })
+    // A struct envelope exposes corrupt records for nested conversions in array and map roots as well.
+    val corrupt = "__synapseml_corrupt_record"
+    val checkedSchema = new T.StructType().add("value", outputSchema).add(corrupt, T.StringType)
+    val cleaned = cleanJsonString(responseCol)
+    val wrapped = diagnosticJson(cleaned)
+    // The root check enforces the original limit before adding either diagnostic envelope.
+    val extraDepth = if (acceptsSingleton) 2 else 1
+    val depth = math.min(Int.MaxValue.toLong,
+      factory.streamReadConstraints().getMaxNestingDepth.toLong + extraDepth)
+    val checkedOptions = options.filterNot { case (key, _) =>
+      key.equalsIgnoreCase("maxNestingDepth") || key.equalsIgnoreCase("columnNameOfCorruptRecord")
+    } ++ Map("maxNestingDepth" -> depth.toString, "columnNameOfCorruptRecord" -> corrupt)
+    wrapped.isNull || F.from_json(wrapped, checkedSchema, checkedOptions).getField(corrupt).isNotNull
+  }
 
   def outputSchema: T.DataType = DataType.fromDDL(schema)
 }

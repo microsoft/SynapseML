@@ -35,6 +35,7 @@ trait HasAIFoundryTextParamsExtended extends HasOpenAITextParamsExtended {
     echo,
     stop,
     cacheLevel,
+    promptCacheOptions,
     presencePenalty,
     frequencyPenalty,
     bestOf,

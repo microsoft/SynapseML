@@ -113,4 +113,19 @@ class UsageUtilsSuite extends TestBase {
     assert(customUsage.getAs[Long]("input_tokens") == 8L)
     assert(customUsage.getMap[String, Long](customUsage.fieldIndex("input_token_details")).isEmpty)
   }
+
+  test("custom usage detail mappings preserve literal dotted field names") {
+    val usageDf = spark.sql(
+      """SELECT named_struct(
+        |'input', named_struct('cached.tokens', 7, 'cache_write_tokens_details.ttl_30m_tokens', 9),
+        |'output', named_struct('reasoning.tokens', 3)) AS usage""".stripMargin)
+    val mapping = UsageUtils.UsageFieldMapping(
+      inputTokens = None, outputTokens = None, totalTokens = None,
+      inputDetails = Some("input" -> Seq("cached.tokens", "cache_write_tokens_details.ttl_30m_tokens")),
+      outputDetails = Some("output" -> Seq("reasoning.tokens")))
+    val normalized = normalizeUsage(usageDf, mapping)
+    assert(normalized.getAs[Map[String, Long]]("input_token_details") ==
+      Map("cached.tokens" -> 7L, "cache_write_tokens_details.ttl_30m_tokens" -> 9L))
+    assert(normalized.getAs[Map[String, Long]]("output_token_details") == Map("reasoning.tokens" -> 3L))
+  }
 }
