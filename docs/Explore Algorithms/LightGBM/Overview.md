@@ -93,6 +93,13 @@ layout, raw-score reconstruction, and per-class mean absolute contributions for
 numeric and one-hot encoded categorical features. These are explanations of
 model scores, not probabilities or causal effects.
 
+### Importing a Python-trained model
+
+The [Python model inputs guide](./Python%20model%20inputs.md) explains how to
+preserve feature order, categorical encodings and missing values when using
+`LightGBMBooster.score` / `predictLeaf` or an imported PySpark model. A new
+`StringIndexer` fit is not a substitute for the Python training mapping.
+
 ### Arguments/Parameters
 
 SynapseML exposes getters/setters for many common LightGBM parameters.

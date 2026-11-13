@@ -24,6 +24,7 @@ module.exports = {
                     label: 'LightGBM',
                     items: [
                         'Explore Algorithms/LightGBM/Overview',
+                        'Explore Algorithms/LightGBM/Python model inputs',
                         'Explore Algorithms/LightGBM/Quickstart - Classification, Ranking, and Regression',
                         'Explore Algorithms/LightGBM/Multiclass SHAP values',
                         'Explore Algorithms/LightGBM/LightGBM - Quantile Regression for Drug Discovery (Scala)',
