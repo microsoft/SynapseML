@@ -53,7 +53,7 @@ class TextTranslatorCoreSuite extends TestBase {
   import spark.implicits._
 
   private def parsedResponseType(schema: DataType): DataType =
-    spark.range(0).select(from_json(lit(null: String), schema, Map.empty[String, String]).as("response"))
+    spark.range(0).select(from_json(lit("null"), schema, Map.empty[String, String]).as("response"))
       .schema("response").dataType
 
   private def toQueryMap(request: HttpRequestBase): Map[String, String] = {

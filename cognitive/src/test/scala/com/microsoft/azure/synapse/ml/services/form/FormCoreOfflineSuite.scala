@@ -21,7 +21,7 @@ import scala.collection.JavaConverters._
 class FormCoreOfflineSuite extends TestBase {
 
   private def parsedResponseType(schema: DataType): DataType =
-    spark.range(0).select(from_json(lit(null: String), schema, Map.empty[String, String]).as("response"))
+    spark.range(0).select(from_json(lit("null"), schema, Map.empty[String, String]).as("response"))
       .schema("response").dataType
 
   private class ExposedAnalyzeLayout(uid: String) extends AnalyzeLayout(uid) {
