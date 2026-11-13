@@ -102,6 +102,42 @@ def test_pipeline_and_templates_parse():
         assert yaml.safe_load(tpl.read_text()) is not None, f"{tpl} failed to parse"
 
 
+def test_cu_diagnostic_mode_skips_every_normal_job():
+    data = yaml.safe_load(_pipeline_text())
+    parameter = next(
+        p for p in data["parameters"] if p["name"] == "diagnoseContentUnderstanding"
+    )
+    assert parameter["default"] is False
+    jobs = {job["job"]: job for job in _jobs(data["jobs"])}
+    diagnostic = jobs["ContentUnderstandingDiagnostic"]
+    assert diagnostic["condition"] == (
+        "eq('${{ parameters.diagnoseContentUnderstanding }}', true)"
+    )
+    for name, job in jobs.items():
+        if name == "ContentUnderstandingDiagnostic":
+            continue
+        if name in ("CIHelpers", "BuildAndCacheSbt"):
+            assert job["condition"] == (
+                "ne('${{ parameters.diagnoseContentUnderstanding }}', true)"
+            )
+        else:
+            assert job["dependsOn"] == "BuildAndCacheSbt"
+            assert "succeeded()" in job.get("condition", "succeeded()")
+    credentials = next(
+        step for step in diagnostic["steps"] if step.get("task") == "AzureKeyVault@2"
+    )
+    original = next(
+        step
+        for step in jobs["PythonTests"]["steps"]
+        if step.get("displayName") == "Fetch shared Foundry key for CU"
+    )
+    assert credentials["inputs"] == original["inputs"]
+    assert not any("template" in step for step in diagnostic["steps"])
+    request = next(step for step in diagnostic["steps"] if "bash" in step)
+    assert request["bash"] == "python3 -m tools.ci.diagnose_content_understanding"
+    assert request["env"]["CONTENT_UNDERSTANDING_API_KEY"] == "$(openai-api-key-3)"
+
+
 def test_cu_live_validation_reuses_shared_foundry_and_existing_pr_approval():
     data = yaml.safe_load(_pipeline_text())
     job = next(job for job in _jobs(data["jobs"]) if job["job"] == "PythonTests")
@@ -311,7 +347,9 @@ def test_prewarm_job_present():
     assert "BuildAndCacheSbt" in jobs
     assert "BuildAndCacheCondaEnv" not in jobs
     prewarm = jobs["BuildAndCacheSbt"]
-    assert "condition" not in prewarm, "prewarm must run whenever sbt jobs can run"
+    assert prewarm["condition"] == (
+        "ne('${{ parameters.diagnoseContentUnderstanding }}', true)"
+    ), "prewarm must run except in the build-free diagnostic mode"
     cache_steps = [
         step
         for step in prewarm["steps"]

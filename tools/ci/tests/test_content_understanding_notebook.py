@@ -104,7 +104,10 @@ def test_redacts_json_escaped_credentials():
     }
 
 
-def test_execution_failure_persists_redacted_evidence(configured, monkeypatch):
+@pytest.mark.parametrize("diagnostic_kind", ["python", "service", "unavailable"])
+def test_execution_failure_persists_redacted_evidence(
+    configured, monkeypatch, diagnostic_kind
+):
     spark = Mock()
     monkeypatch.setitem(
         sys.modules,
@@ -119,17 +122,47 @@ def test_execution_failure_persists_redacted_evidence(configured, monkeypatch):
     monkeypatch.setattr(
         runner, "runtime_evidence", lambda *args: {"sourceCommit": "build"}
     )
-    monkeypatch.setattr(
-        runner,
-        "execute_notebook",
-        Mock(side_effect=ValueError("rejected synthetic-test-secret")),
-    )
+    error = ValueError("rejected synthetic-test-secret")
+    if diagnostic_kind != "python":
+        error.java_exception = Mock()
+        error.java_exception.getClass.return_value.getName.return_value = (
+            "com.microsoft.azure.synapse.ml.services.contentunderstanding."
+            "ContentUnderstandingException"
+        )
+        response = error.java_exception.response.return_value
+        response.httpStatus.return_value = 400
+        response.error.return_value.isDefined.return_value = True
+        response.error.return_value.get.return_value = json.dumps(
+            {
+                "code": "InvalidRequest",
+                "message": "Rejected synthetic-test-secret",
+                "innererror": {"code": "SyntheticConfigurationError"},
+            }
+        )
+        if diagnostic_kind == "unavailable":
+            error.java_exception.response.side_effect = RuntimeError("bridge failed")
+    monkeypatch.setattr(runner, "execute_notebook", Mock(side_effect=error))
     report_path = configured / "evidence.json"
     assert runner.execute(configured, report_path) == 1
     report = json.loads(report_path.read_text())
     assert report["status"] == "failed"
     assert report["runtime"]["sourceCommit"] == "build"
     assert report["error"] == "ValueError: rejected [REDACTED]"
+    if diagnostic_kind == "service":
+        assert report["serviceError"] == {
+            "httpStatus": 400,
+            "error": {
+                "code": "InvalidRequest",
+                "message": "Rejected [REDACTED]",
+                "innererror": {"code": "SyntheticConfigurationError"},
+            },
+        }
+        response.rawResponse.assert_not_called()
+        response.operationLocation.assert_not_called()
+    elif diagnostic_kind == "unavailable":
+        assert report["serviceError"] == {"diagnosticUnavailable": "RuntimeError"}
+    else:
+        assert "serviceError" not in report
     spark.stop.assert_called_once()
 
 
