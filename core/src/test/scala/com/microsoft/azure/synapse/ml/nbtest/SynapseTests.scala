@@ -58,6 +58,7 @@ object SynapseTests {
     "CreateaSparkCluster", // No code to run
     // Opt-in model calls are qualified separately from automatic notebook jobs.
     "ExploreAlgorithmsOpenAIAIPrompt",
+    "ExploreAlgorithmsAIServicesQuickstartContentUnderstanding",
     "Deploying", // New issue
     "TuningHyperOpt", // New issue
     "IsolationForests", // New issue

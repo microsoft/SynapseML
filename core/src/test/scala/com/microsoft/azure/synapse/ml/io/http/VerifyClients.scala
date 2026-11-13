@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.io.http
 
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 
+import java.util.concurrent.CancellationException
 import scala.concurrent.ExecutionContext
 import scala.concurrent.duration._
 
@@ -122,6 +123,27 @@ class VerifyClients extends TestBase {
     }
   }
 
+  test("AsyncClient schedules requests on the supplied execution context") {
+    var scheduled = 0
+    implicit val ec: ExecutionContext = new ExecutionContext {
+      override def execute(runnable: Runnable): Unit = {
+        scheduled += 1
+        runnable.run()
+      }
+
+      override def reportFailure(cause: Throwable): Unit = throw cause
+    }
+    val client = new TestAsyncClient(2, 5.seconds)
+    val requests = Iterator(
+      client.RequestWithContext(Some("a"), None),
+      client.RequestWithContext(Some("b"), None)
+    )
+
+    val responses = client.sendRequestsWithContext(requests).toList
+    assert(scheduled === 2)
+    assert(responses.flatMap(_.response) === List("async-a", "async-b"))
+  }
+
   test("AsyncClient handles empty requests") {
     implicit val ec: ExecutionContext = ExecutionContext.global
     val client = new TestAsyncClient(2, 30.seconds)
@@ -133,6 +155,20 @@ class VerifyClients extends TestBase {
     val responses = client.sendRequestsWithContext(requests).toList
     assert(responses.length === 1)
     assert(responses.head.response === None)
+  }
+
+  test("AsyncClient completes interrupted requests as failures rather than leaving promises pending") {
+    implicit val ec: ExecutionContext = ExecutionContext.global
+    val client = new TestAsyncClient(2, 5.seconds) {
+      override protected def sendRequestWithContext(request: RequestWithContext): ResponseWithContext = {
+        Thread.currentThread().interrupt()
+        throw new InterruptedException("Synthetic interrupted request")
+      }
+    }
+    val failure = intercept[CancellationException] {
+      client.sendRequestsWithContext(Iterator(client.RequestWithContext(Some("a"), None))).next()
+    }
+    assert(failure.getCause.isInstanceOf[InterruptedException])
   }
 
   test("AsyncClient respects concurrency parameter") {

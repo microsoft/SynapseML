@@ -30,6 +30,19 @@ class DatabricksUtilitiesSuite extends AnyFunSuite {
     assert(SynapseTests.selectNotebooks(examples).toSeq == Seq(examples.last))
   }
 
+  test("Keep Content Understanding quickstarts in dedicated live validation") {
+    val examples = DatabricksUtilities.NotebookFiles.filter(_.getName.startsWith("Quickstart - Content Understanding"))
+    assert(examples.length == 2)
+    assert(examples.forall(file => !DatabricksUtilities.CPUNotebooks.contains(file)))
+    assert(DatabricksUtilities.CPUNotebooks.nonEmpty)
+
+    val generated = Array(
+      new File("ExploreAlgorithmsAIServicesQuickstartContentUnderstanding.py"),
+      new File("ExploreAlgorithmsAIServicesQuickstartContentUnderstandinginFabric.py"),
+      new File("OnePlusOne.py"))
+    assert(SynapseTests.selectNotebooks(generated).toSeq == Seq(generated.last))
+  }
+
   test("Accept only the trusted Databricks AAD workspace") {
     val environment = Map(
       "MML_ADB_WORKSPACE_HOST" -> DatabricksUtilities.AadWorkspaceHost,

@@ -1,0 +1,312 @@
+# Copyright (C) Microsoft Corporation. All rights reserved.
+# Licensed under the MIT License. See LICENSE in project root for information.
+
+import base64
+import json
+import os
+import tempfile
+import threading
+import unittest
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from urllib.parse import urlsplit
+
+from synapse.ml.core.init_spark import init_spark
+from synapse.ml.services.contentunderstanding import ContentUnderstanding
+
+spark = init_spark()
+
+
+class TestContentUnderstanding(unittest.TestCase):
+    def setUp(self):
+        self.requests = []
+        requests = self.requests
+
+        class Handler(BaseHTTPRequestHandler):
+            def log_message(self, format, *args):
+                pass
+
+            def send_json(self, status, body, location=None):
+                payload = json.dumps(body).encode("utf-8")
+                self.send_response(status)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(payload)))
+                if location:
+                    self.send_header("Operation-Location", location)
+                self.end_headers()
+                self.wfile.write(payload)
+
+            def read_body(self):
+                return json.loads(self.rfile.read(int(self.headers["Content-Length"])))
+
+            def do_POST(self):
+                requests.append(("POST", self.path, self.read_body()))
+                operation = "123e4567-e89b-12d3-a456-426614174000"
+                location = (
+                    f"http://127.0.0.1:{self.server.server_port}"
+                    f"/contentunderstanding/analyzerResults/{operation}"
+                    "?api-version=2025-11-01"
+                )
+                self.send_json(
+                    202,
+                    {"id": operation, "status": "Running", "result": {"contents": []}},
+                    location,
+                )
+
+            def do_GET(self):
+                requests.append(("GET", self.path, None))
+                if "/analyzerResults/" in self.path:
+                    body = {
+                        "id": "123e4567-e89b-12d3-a456-426614174000",
+                        "status": "Succeeded",
+                        "usage": {"tokens": {"future-model-input": 3}},
+                        "result": {
+                            "contents": [
+                                {
+                                    "markdown": "synthetic result",
+                                    "fields": {"Optional": {"type": "string"}},
+                                }
+                            ]
+                        },
+                    }
+                else:
+                    body = {
+                        "analyzerId": urlsplit(self.path).path.split("/")[-1],
+                        "status": "ready",
+                    }
+                self.send_json(200, body)
+
+            def do_PUT(self):
+                requests.append(("PUT", self.path, self.read_body()))
+                self.send_json(
+                    201,
+                    {
+                        "analyzerId": urlsplit(self.path).path.split("/")[-1],
+                        "status": "ready",
+                    },
+                )
+
+        self.server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
+        self.thread.start()
+
+    def tearDown(self):
+        self.server.shutdown()
+        self.server.server_close()
+        self.thread.join(timeout=5)
+
+    def analyzer(self):
+        return (
+            ContentUnderstanding()
+            .setEndpoint(f"http://127.0.0.1:{self.server.server_port}")
+            .setSubscriptionKey("synthetic-test-key")
+            .setDocumentBytesCol("body")
+            .setMimeType("text/plain")
+            .setDocumentNameCol("documentId")
+            .setOutputCol("analysis")
+            .setMaxPollAttempts(2)
+            .setPollingIntervalSeconds(0)
+        )
+
+    def documents(self):
+        return spark.createDataFrame(
+            [("one", bytearray("Synthetic caf\u00e9 document".encode("utf-8")))],
+            "documentId string, body binary",
+        )
+
+    def test_polling_seconds_share_legacy_parameter_and_survive_persistence(self):
+        defaults = ContentUnderstanding()
+        self.assertEqual(defaults.getPollingIntervalSeconds(), 6.0)
+        self.assertEqual(defaults.getPollingDelay(), 6000)
+        analyzer = self.analyzer().setParams(pollingIntervalSeconds=0.125)
+        self.assertEqual(analyzer.getPollingDelay(), 125)
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "polling-interval")
+            analyzer.copy({}).write().save(path)
+            loaded = ContentUnderstanding.load(path)
+            self.assertEqual(loaded.getPollingIntervalSeconds(), 0.125)
+            self.assertEqual(
+                loaded.transform(self.documents()).first().analysis.status,
+                "Succeeded",
+            )
+        loaded.setPollingDelay(250)
+        self.assertEqual(loaded.getPollingIntervalSeconds(), 0.25)
+        loaded.setPollingIntervalSeconds(0)
+        self.assertEqual(loaded.getPollingDelay(), 0)
+        self.assertEqual(
+            loaded.copy({loaded.pollingDelay: 500}).getPollingIntervalSeconds(), 0.5
+        )
+        loaded.clear(loaded.pollingDelay)
+        self.assertEqual(loaded.getPollingIntervalSeconds(), 6.0)
+        self.assertEqual(loaded.copy({}).getPollingIntervalSeconds(), 6.0)
+
+    def test_generated_wrapper_copy_and_persistence_preserve_request_options(self):
+        analyzer = (
+            self.analyzer()
+            .setModelDeployments({"completion": "my-deployment"})
+            .setStringEncoding("utf16")
+            .setRange("1")
+            .setApiVersion("2026-06-01-preview")
+            .setAllowInputTruncation(False)
+            .setRetryOnThrottling(False)
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "analyzer")
+            analyzer.copy({}).write().save(path)
+            loaded = ContentUnderstanding.load(path)
+            self.assertFalse(loaded.getAllowInputTruncation())
+            self.assertFalse(loaded.getRetryOnThrottling())
+            row = loaded.transform(self.documents()).collect()[0]
+        self.assertEqual(row.analysis.status, "Succeeded")
+        raw = json.loads(row.analysis.rawResponse)
+        self.assertIn("future-model-input", raw["usage"]["tokens"])
+        submitted = next(request for request in self.requests if request[0] == "POST")
+        self.assertIn("stringEncoding=utf16", submitted[1])
+        self.assertIn("allowInputTruncation=false", submitted[1])
+        self.assertEqual(
+            submitted[2]["modelDeployments"], {"completion": "my-deployment"}
+        )
+        document = submitted[2]["inputs"][0]
+        self.assertEqual(document["range"], "1")
+        self.assertEqual(
+            base64.b64decode(document["data"]).decode("utf-8"),
+            "Synthetic caf\u00e9 document",
+        )
+        self.assertNotIn("dataBase64", document)
+
+    def test_set_params_rejects_conflicting_bindings_before_mutation(self):
+        cases = [
+            ("apiVersion", "2025-11-01", "version"),
+            ("documentBytes", b"document", "body"),
+            ("modelDeployments", {"completion": "deployment"}, "deployments"),
+            ("allowInputTruncation", False, "truncate"),
+        ]
+        for name, value, column in cases:
+            for column_first in (False, True):
+                with self.subTest(parameter=name, column_first=column_first):
+                    bindings = [(name, value), (name + "Col", column)]
+                    if column_first:
+                        bindings.reverse()
+                    analyzer = ContentUnderstanding().setOutputCol("original")
+                    with self.assertRaisesRegex(ValueError, "Cannot set both"):
+                        analyzer.setParams(outputCol="changed", **dict(bindings))
+                    self.assertEqual(analyzer.getOutputCol(), "original")
+
+    def test_set_params_preserves_none_and_separate_binding_changes(self):
+        analyzer = ContentUnderstanding(allowInputTruncation=True)
+        self.assertIs(
+            analyzer.setParams(
+                allowInputTruncation=False, allowInputTruncationCol=None
+            ),
+            analyzer,
+        )
+        self.assertFalse(analyzer.getAllowInputTruncation())
+        analyzer.setParams(
+            allowInputTruncation=None, allowInputTruncationCol="truncate"
+        )
+        self.assertEqual(analyzer.getAllowInputTruncationCol(), "truncate")
+        analyzer.setParams(allowInputTruncation=True)
+        self.assertTrue(analyzer.getAllowInputTruncation())
+        analyzer.setParams(documentBytes=b"document")
+        self.assertEqual(bytes(analyzer.getDocumentBytes()), b"document")
+
+    def test_preview_boolean_supports_constructor_copy_clear_and_nullable_columns(self):
+        analyzer = (
+            ContentUnderstanding(allowInputTruncation=True)
+            .setEndpoint(f"http://127.0.0.1:{self.server.server_port}")
+            .setApiVersion("2026-06-01-preview")
+            .setDocumentBytesCol("body")
+            .setOperationMode("submit")
+        )
+        analyzer.transform(self.documents()).collect()
+        copied = analyzer.copy({analyzer.allowInputTruncation: False})
+        copied.transform(self.documents()).collect()
+        copied.clear(copied.allowInputTruncation)
+        copied.transform(self.documents()).collect()
+        queries = [request[1] for request in self.requests]
+        self.assertIn("allowInputTruncation=true", queries[0])
+        self.assertIn("allowInputTruncation=false", queries[1])
+        self.assertNotIn("allowInputTruncation", queries[2])
+
+        frame = spark.createDataFrame(
+            [
+                (bytearray(b"a"), True),
+                (bytearray(b"b"), False),
+                (bytearray(b"c"), None),
+            ],
+            "body binary, truncate boolean",
+        ).coalesce(1)
+        copied.setAllowInputTruncationCol("truncate").transform(frame).collect()
+        queries = [request[1] for request in self.requests[3:]]
+        self.assertIn("allowInputTruncation=true", queries[0])
+        self.assertIn("allowInputTruncation=false", queries[1])
+        self.assertNotIn("allowInputTruncation", queries[2])
+
+    def test_generated_durable_path_helpers_resume_without_resubmission(self):
+        analyzer = self.analyzer()
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "journal")
+            first = analyzer.writeToPath(
+                self.documents(), idCol="documentId", path=path, format="parquet"
+            )
+            self.assertEqual(first.select("status").first()[0], "Succeeded")
+            analyzer.writeToPath(
+                self.documents(), idCol="documentId", path=path, format="parquet"
+            )
+            self.assertEqual(analyzer.readPath(spark, path, "parquet").count(), 1)
+        self.assertEqual(
+            sum(request[0] == "POST" for request in self.requests),
+            1,
+        )
+
+    def test_custom_analyzer_dictionary_is_forwarded_only_by_explicit_driver_call(self):
+        analyzer = self.analyzer().setAnalyzerId("custom-v1")
+        definition = {
+            "baseAnalyzerId": "prebuilt-document",
+            "config": {"returnDetails": True},
+            "fieldSchema": {"fields": {"Supplier": {"type": "string"}}},
+        }
+        created = json.loads(analyzer.createAnalyzer(definition, allowReplace=False))
+        current = json.loads(analyzer.getAnalyzer())
+        self.assertEqual(created["status"], "ready")
+        self.assertEqual(current["analyzerId"], "custom-v1")
+        self.assertEqual(self.requests[0][0], "PUT")
+        self.assertIn("allowReplace=false", self.requests[0][1])
+        self.assertEqual(self.requests[0][2], definition)
+
+    def test_scalar_bytes_survive_constructor_save_load_copy_and_clear(self):
+        payload = bytes([0, 127, 128, 255])
+        analyzer = (
+            ContentUnderstanding(documentBytes=payload)
+            .setEndpoint(f"http://127.0.0.1:{self.server.server_port}")
+            .setOutputCol("analysis")
+            .setOperationMode("submit")
+        )
+        self.assertEqual(bytes(analyzer.getDocumentBytes()), payload)
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "analyzer")
+            analyzer.write().save(path)
+            loaded = ContentUnderstanding.load(path)
+            self.assertEqual(bytes(loaded.getDocumentBytes()), payload)
+            replacement = bytes([255, 128, 1, 0])
+            copied = loaded.copy({loaded.documentBytes: replacement})
+            copied.transform(self.documents()).collect()
+            self.assertEqual(bytes(copied.getDocumentBytes()), replacement)
+            submitted = next(
+                request for request in self.requests if request[0] == "POST"
+            )
+            self.assertEqual(
+                base64.b64decode(submitted[2]["inputs"][0]["data"]), replacement
+            )
+            loaded.clear(loaded.documentBytes)
+            loaded.setDocumentBytesCol("body").transform(self.documents()).collect()
+            submitted = [request for request in self.requests if request[0] == "POST"][
+                -1
+            ]
+            self.assertEqual(
+                base64.b64decode(submitted[2]["inputs"][0]["data"]),
+                "Synthetic caf\u00e9 document".encode("utf-8"),
+            )
+
+
+if __name__ == "__main__":
+    unittest.main()
