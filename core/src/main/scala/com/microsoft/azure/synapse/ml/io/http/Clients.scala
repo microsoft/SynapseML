@@ -87,7 +87,7 @@ abstract class AsyncClient(val concurrency: Int,
       AsyncClient.withTaskContext(task) {
         sendRequestWithContext(r)
       }
-    }(ExecutionContext.global)
+    }(ec)
     )
     AsyncUtils.bufferedAwait(futureResponses, concurrency, timeout)
   }
