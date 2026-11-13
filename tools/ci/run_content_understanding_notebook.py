@@ -18,6 +18,7 @@ from urllib.parse import urlsplit
 from urllib.request import url2pathname
 
 ROOT = Path(__file__).resolve().parents[2]
+JAR_SNAPSHOT = Path("target") / "cu-semantic-notebook" / "packaged-jars.json"
 NOTEBOOK = (
     Path("docs")
     / "Explore Algorithms"
@@ -88,20 +89,59 @@ def verify_wheel(root, module, anchor):
     }
 
 
+def snapshot_jars(root):
+    from synapse.ml.core import __spark_package_version__
+
+    commit = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=root, text=True
+    ).strip()
+    if commit != os.environ["BUILD_SOURCEVERSION"]:
+        raise RuntimeError("The checkout does not match the CI build source version")
+    jars = {}
+    for module in ("core", "cognitive"):
+        built = only_file(
+            (root / module / "target").glob(
+                f"scala-*/synapseml-{module}_*-{__spark_package_version__}.jar"
+            ),
+            f"built {module} JAR",
+        )
+        jars[module] = {
+            "file": built.name,
+            "version": __spark_package_version__,
+            "sha256": sha256(built),
+        }
+    destination = root / JAR_SNAPSHOT
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(
+        json.dumps({"sourceCommit": commit, "jars": jars}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+    return 0
+
+
 def verify_jar(root, module, version, location):
+    snapshot = json.loads((root / JAR_SNAPSHOT).read_text(encoding="utf-8"))
+    if snapshot["sourceCommit"] != os.environ["BUILD_SOURCEVERSION"]:
+        raise RuntimeError("The packaged JAR record belongs to another build source")
+    expected = snapshot["jars"][module]
+    if expected["version"] != version:
+        raise RuntimeError(f"The packaged {module} JAR version does not match Python")
     uri = urlsplit(location)
     if uri.scheme != "file" or uri.netloc:
         raise RuntimeError(
             f"The loaded {module} class must come from a local packaged JAR"
         )
     loaded = Path(url2pathname(uri.path))
-    expected = only_file(
-        (root / module / "target").glob(f"scala-*/synapseml-{module}_*-{version}.jar"),
-        f"built {module} JAR",
-    )
-    if loaded.suffix != ".jar" or sha256(loaded) != sha256(expected):
-        raise RuntimeError(f"The loaded {module} JAR differs from this build")
-    return {"file": expected.name, "version": version, "sha256": sha256(expected)}
+    if loaded.suffix != ".jar":
+        raise RuntimeError(f"The loaded {module} class must come from a packaged JAR")
+    loaded_hash = sha256(loaded)
+    if loaded_hash != expected["sha256"]:
+        raise RuntimeError(
+            f"The loaded {module} JAR differs from this build: "
+            f"expected {expected['file']} ({expected['sha256']}), "
+            f"loaded {loaded} ({loaded_hash})"
+        )
+    return expected
 
 
 def runtime_evidence(root, spark):
@@ -350,6 +390,8 @@ def main():
 
 
 if __name__ == "__main__":
+    if sys.argv[1:] == ["--snapshot-jars"]:
+        sys.exit(snapshot_jars(ROOT))
     if sys.argv[1:] == ["--execute"]:
         sys.exit(
             execute(ROOT, ROOT / "target" / "cu-semantic-notebook" / "evidence.json")

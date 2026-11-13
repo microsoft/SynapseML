@@ -743,14 +743,17 @@ resource-management cleanup. It does not alter shared model defaults.
 worker, so the saved Parquet snapshots use that worker's temporary directory.
 Before any notebook service requests, it checks installed Python code against
 the locally built wheels and loaded JVM JAR hashes against the same build's
-packaged JARs. It records the checkout/merge-parent commits, artifact versions
-and hashes, and Python/Spark/Scala/Java versions. The notebook must return the
+packaged JARs. CI records those JAR hashes immediately after Maven publication,
+before Python coverage tests rebuild the files under `target`. It records the
+checkout/merge-parent commits, artifact versions and hashes, and
+Python/Spark/Scala/Java versions. The notebook must return the
 synthetic order's semantic values and supplier confidence/source grounding;
 an empty table or pending/failed operation fails the step.
 
-The `cu-semantic-notebook-<job attempt>` build artifact contains `evidence.json`
-with those versions, actual extracted fields, and recovery outcome. Only this
-selected evidence is published, not the saved raw responses or operation
+The `cu-semantic-notebook-<job attempt>` build artifact contains the publication-time
+`packaged-jars.json` record and `evidence.json` with those versions, actual
+extracted fields, and recovery outcome. Only this selected evidence is published,
+not the saved raw responses or operation
 handles. The supplied credential is redacted from captured output and evidence.
 `python-test-content-understanding-notebook.xml` is published with the other
 Python test results. There is no whole-notebook retry or extra coverage upload.
