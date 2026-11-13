@@ -123,6 +123,27 @@ class VerifyClients extends TestBase {
     }
   }
 
+  test("AsyncClient schedules requests on the supplied execution context") {
+    var scheduled = 0
+    implicit val ec: ExecutionContext = new ExecutionContext {
+      override def execute(runnable: Runnable): Unit = {
+        scheduled += 1
+        runnable.run()
+      }
+
+      override def reportFailure(cause: Throwable): Unit = throw cause
+    }
+    val client = new TestAsyncClient(2, 5.seconds)
+    val requests = Iterator(
+      client.RequestWithContext(Some("a"), None),
+      client.RequestWithContext(Some("b"), None)
+    )
+
+    val responses = client.sendRequestsWithContext(requests).toList
+    assert(scheduled === 2)
+    assert(responses.flatMap(_.response) === List("async-a", "async-b"))
+  }
+
   test("AsyncClient handles empty requests") {
     implicit val ec: ExecutionContext = ExecutionContext.global
     val client = new TestAsyncClient(2, 30.seconds)
