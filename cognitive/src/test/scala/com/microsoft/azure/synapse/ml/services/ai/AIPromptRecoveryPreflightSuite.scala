@@ -204,15 +204,26 @@ class AIPromptRecoveryPreflightSuite extends AIPromptOutputTestBase {
               assert(server.requests.asScala.last == expectedRequest)
               assert(GlobalParams.getGlobalParam(OpenAIApiVersion).contains(default))
             }
-            Seq(stage.copy(ParamMap.empty).setApiVersion("explicit"),
-              stage.copy(ParamMap.empty).setApiVersionCol("text")).foreach { explicit =>
-              val error = intercept[IllegalArgumentException](explicit.transformSchema(data.schema))
-              assert(error.getMessage.contains("apiVersion is not supported"))
-              if (route == "custom") assert(error.getMessage.contains("customUrlRoot"))
-              val transformError = intercept[IllegalArgumentException](explicit.transform(data))
-              assert(transformError.getMessage == error.getMessage)
+            val supportsExplicitVersion = Set("decisions", "chat_completions", "responses", "global-v1")(route)
+            Seq("explicit" -> stage.copy(ParamMap.empty).setApiVersion("explicit"),
+              "hello" -> stage.copy(ParamMap.empty).setApiVersionCol("text")).foreach { case (version, explicit) =>
+              if (supportsExplicitVersion) {
+                assert(explicit.transformSchema(data.schema) == expectedSchema)
+                assert(AIPromptOutput.fingerprint(explicit.effectiveCopy(), data.schema, expectedSchema, spark) !=
+                  fingerprint)
+                val row = explicit.transform(data).head()
+                assert(row.getAs[Row]("error") == null && !row.isNullAt(row.fieldIndex("answer")))
+                assert(server.requests.asScala.last._1 == expectedRequest._1 + s"?api-version=$version")
+                assert(server.requests.asScala.last._2 == expectedRequest._2)
+              } else {
+                val error = intercept[IllegalArgumentException](explicit.transformSchema(data.schema))
+                assert(error.getMessage.contains("apiVersion is not supported"))
+                if (route == "custom") assert(error.getMessage.contains("customUrlRoot"))
+                val transformError = intercept[IllegalArgumentException](explicit.transform(data))
+                assert(transformError.getMessage == error.getMessage)
+              }
             }
-            assert(server.requests.size() == 5)
+            assert(server.requests.size() == (if (supportsExplicitVersion) 7 else 5))
           }
         } finally {
           previous match {
