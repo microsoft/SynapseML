@@ -782,6 +782,53 @@ class TestContentUnderstanding(unittest.TestCase):
     def test_semantic_notebook_ci_runner_recovers_without_resubmitting(self):
         self.assert_semantic_notebook_run({}, ci_runner=True)
 
+    def test_semantic_notebook_ci_runner_retains_analyzer_service_error(self):
+        key = 'synthetic-"secret\\value'
+        service_error = {
+            "code": "InvalidRequest",
+            "message": f"Synthetic analyzer rejection: {key}",
+            "innererror": {"code": "SyntheticConfigurationError"},
+            "details": [{"code": "InvalidValue", "target": "config"}],
+        }
+
+        def put(handler):
+            self.requests.append(("PUT", handler.path, handler.read_body()))
+            handler.send_json(400, {"error": service_error})
+
+        self.Handler.do_PUT = put
+        cells = self.notebook_cells()
+        notebook = Path(cells["configuration"].co_filename.rsplit("#", 1)[0])
+        repository = next(
+            parent for parent in notebook.parents if (parent / "build.sbt").is_file()
+        )
+        runner = runpy.run_path(
+            str(repository / "tools" / "ci" / "run_content_understanding_notebook.py")
+        )
+        with tempfile.TemporaryDirectory() as directory, patch.dict(
+            os.environ,
+            {
+                "CONTENT_UNDERSTANDING_ENDPOINT": (
+                    f"http://127.0.0.1:{self.server.server_port}"
+                ),
+                "CONTENT_UNDERSTANDING_API_KEY": key,
+                "CONTENT_UNDERSTANDING_OUTPUT_PATH": directory,
+                "CONTENT_UNDERSTANDING_RUN_ID": "loopback-rejected-analyzer",
+                "CONTENT_UNDERSTANDING_MODEL_DEPLOYMENTS": "",
+            },
+        ):
+            report = {}
+            with self.assertRaises(Py4JJavaError) as raised:
+                runner["execute_notebook"](notebook, report)
+            self.assertEqual(report["phase"], "create-analyzer")
+            diagnostic = runner["service_error"](raised.exception)
+            self.assertEqual(diagnostic, {"httpStatus": 400, "error": service_error})
+            redacted = json.loads(runner["redact"](json.dumps(diagnostic), key))
+            self.assertEqual(
+                redacted["error"]["message"],
+                "Synthetic analyzer rejection: [REDACTED]",
+            )
+            self.assertEqual([method for method, _, _ in self.requests], ["PUT"])
+
     def assert_semantic_notebook_run(
         self, deployments: dict[str, str], ci_runner: bool = False
     ) -> None:

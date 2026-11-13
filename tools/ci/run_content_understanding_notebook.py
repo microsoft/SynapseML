@@ -283,6 +283,27 @@ def redact(text, key):
     return text
 
 
+def service_error(error):
+    java_error = getattr(error, "java_exception", None)
+    if java_error is None:
+        return None
+    try:
+        if java_error.getClass().getName() != (
+            "com.microsoft.azure.synapse.ml.services.contentunderstanding."
+            "ContentUnderstandingException"
+        ):
+            return None
+        response = java_error.response()
+        diagnostic = response.error()
+        return {
+            "httpStatus": response.httpStatus(),
+            "error": json.loads(diagnostic.get()) if diagnostic.isDefined() else None,
+        }
+    except Exception as diagnostic_error:
+        # A failed diagnostic read must not replace the original notebook failure.
+        return {"diagnosticUnavailable": type(diagnostic_error).__name__}
+
+
 def execute(root, report_path):
     # CI helper tests do not install Spark; load it only in the execution process.
     from synapse.ml.core.init_spark import init_spark
@@ -301,6 +322,9 @@ def execute(root, report_path):
         report.update(status="passed", phase="complete")
     except Exception as error:
         report["error"] = f"{type(error).__name__}: {error}"
+        diagnostic = service_error(error)
+        if diagnostic is not None:
+            report["serviceError"] = diagnostic
         traceback.print_exc()
     finally:
         text = redact(
