@@ -1,5 +1,6 @@
 """Offline checks for notebook CI execution, provenance, and safe reporting."""
 
+import io
 import json
 import subprocess
 import sys
@@ -7,6 +8,7 @@ import xml.etree.ElementTree as ET
 import zipfile
 from types import SimpleNamespace
 from unittest.mock import Mock
+from urllib.error import HTTPError
 
 import pytest
 
@@ -15,7 +17,14 @@ from tools.ci import run_content_understanding_notebook as runner
 
 @pytest.fixture
 def configured(monkeypatch, tmp_path):
+    notebook = runner.ROOT / runner.NOTEBOOK
+    target = tmp_path / runner.NOTEBOOK
+    target.parent.mkdir(parents=True)
+    target.write_bytes(notebook.read_bytes())
     monkeypatch.setattr(runner, "ROOT", tmp_path)
+    monkeypatch.setattr(
+        runner, "cleanup_analyzer", Mock(return_value={"status": "deleted"})
+    )
     for name, value in {
         "CONTENT_UNDERSTANDING_ENDPOINT": "https://example.services.ai.azure.com",
         "CONTENT_UNDERSTANDING_API_KEY": "synthetic-test-secret",
@@ -44,6 +53,7 @@ def test_missing_configuration_never_starts_notebook(
     monkeypatch.setattr(runner.subprocess, "run", run)
     assert runner.main() == 2
     run.assert_not_called()
+    runner.cleanup_analyzer.assert_not_called()
     assert name in capsys.readouterr().out
     evidence = configured / "target/cu-semantic-notebook/evidence.json"
     assert json.loads(evidence.read_text())["status"] == "failed"
@@ -80,6 +90,13 @@ def test_runs_once_redacts_output_and_propagates_failure(
     junit = configured / "target/python-test-content-understanding-notebook.xml"
     assert ET.parse(junit).getroot().get("failures") == ("1" if exit_code else "0")
     assert "synthetic-test-secret" not in junit.read_text()
+    runner.cleanup_analyzer.assert_called_once_with(
+        kwargs["env"]["CONTENT_UNDERSTANDING_ENDPOINT"],
+        "synthetic-test-secret",
+        "2025-11-01",
+        "synapseml_purchase_order_"
+        + kwargs["env"]["CONTENT_UNDERSTANDING_RUN_ID"].replace("-", "_"),
+    )
 
 
 def test_missing_evidence_is_not_a_success(configured, monkeypatch):
@@ -94,6 +111,123 @@ def test_missing_evidence_is_not_a_success(configured, monkeypatch):
     )
     assert report["status"] == "failed"
     assert report["phase"] == "execution-process"
+    assert report["cleanup"]["status"] == "deleted"
+    runner.cleanup_analyzer.assert_called_once()
+
+
+@pytest.mark.parametrize("cleanup_status", ["deleted", "failed"])
+@pytest.mark.parametrize("exit_code", [0, 5])
+def test_cleanup_runs_after_recovery_and_does_not_hide_notebook_failure(
+    configured, monkeypatch, cleanup_status, exit_code
+):
+    evidence = configured / "target/cu-semantic-notebook/evidence.json"
+
+    def notebook_process(*args, **kwargs):
+        runner.cleanup_analyzer.assert_not_called()
+        evidence.write_text(
+            json.dumps(
+                {
+                    "status": "failed" if exit_code else "passed",
+                    "phase": "saved-handle-recovery",
+                    "error": "Original recovery failure",
+                }
+            )
+        )
+        return subprocess.CompletedProcess(args[0], exit_code, "Recovery attempted", "")
+
+    def cleanup(*args):
+        assert json.loads(evidence.read_text())["phase"] == "saved-handle-recovery"
+        return {"status": cleanup_status}
+
+    runner.cleanup_analyzer.side_effect = cleanup
+    monkeypatch.setattr(runner.subprocess, "run", Mock(side_effect=notebook_process))
+    expected_code = exit_code or (1 if cleanup_status == "failed" else 0)
+    assert runner.main() == expected_code
+    report = json.loads(evidence.read_text())
+    assert report["error"] == "Original recovery failure"
+    assert report["cleanup"]["status"] == cleanup_status
+    assert report["status"] == ("failed" if expected_code else "passed")
+    runner.cleanup_analyzer.assert_called_once()
+
+
+def test_creation_conflict_does_not_delete_an_existing_analyzer(
+    configured, monkeypatch
+):
+    evidence = configured / "target/cu-semantic-notebook/evidence.json"
+
+    def notebook_process(*args, **kwargs):
+        evidence.write_text(
+            json.dumps(
+                {
+                    "status": "failed",
+                    "phase": "create-analyzer",
+                    "serviceError": {"httpStatus": 409},
+                }
+            )
+        )
+        return subprocess.CompletedProcess(args[0], 1, "", "")
+
+    monkeypatch.setattr(runner.subprocess, "run", Mock(side_effect=notebook_process))
+    assert runner.main() == 1
+    runner.cleanup_analyzer.assert_not_called()
+    assert json.loads(evidence.read_text())["cleanup"]["status"] == "not-created"
+
+
+def test_notebook_start_failure_still_writes_cleanup_evidence(configured, monkeypatch):
+    monkeypatch.setattr(
+        runner.subprocess, "run", Mock(side_effect=OSError("cannot start"))
+    )
+    assert runner.main() == 1
+    report = json.loads(
+        (configured / "target/cu-semantic-notebook/evidence.json").read_text()
+    )
+    assert report["status"] == "failed"
+    assert report["cleanup"]["status"] == "deleted"
+    runner.cleanup_analyzer.assert_called_once()
+
+
+@pytest.mark.parametrize("status", [204, 404, 403, 302])
+def test_cleanup_deletes_only_the_requested_ci_analyzer_once(monkeypatch, status):
+    analyzer_id = "synapseml_purchase_order_ci_" + "a" * 32
+
+    def request(request, timeout):
+        assert request.get_method() == "DELETE"
+        assert request.full_url == (
+            f"https://example.invalid/contentunderstanding/analyzers/{analyzer_id}"
+            "?api-version=2025-11-01"
+        )
+        assert timeout == 60
+        response = io.BytesIO()
+        response.code = status
+        response.headers = {"apim-request-id": "cleanup-request"}
+        if status != 204:
+            raise HTTPError(
+                request.full_url, status, "response", response.headers, response
+            )
+        return response
+
+    open_request = Mock(side_effect=request)
+    monkeypatch.setattr(runner, "build_opener", lambda *args: Mock(open=open_request))
+    report = runner.cleanup_analyzer(
+        "https://example.invalid", "synthetic-key", "2025-11-01", analyzer_id
+    )
+    open_request.assert_called_once()
+    assert report["status"] == {204: "deleted", 404: "absent"}.get(status, "failed")
+    assert report["httpStatus"] == status
+    assert report["requestId"] == "cleanup-request"
+
+
+@pytest.mark.parametrize(
+    "analyzer_id", ["prebuilt-document", "my-analyzer", "synapseml_purchase_order_ci_"]
+)
+def test_cleanup_refuses_non_ci_analyzers(monkeypatch, analyzer_id):
+    opener = Mock()
+    monkeypatch.setattr(runner, "build_opener", opener)
+    report = runner.cleanup_analyzer(
+        "https://example.invalid", "synthetic-key", "2025-11-01", analyzer_id
+    )
+    assert report["status"] == "failed"
+    opener.assert_not_called()
 
 
 def test_redacts_json_escaped_credentials():

@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 """Run the actual CU semantic notebook with this build's packaged artifacts."""
 
+import ast
 import hashlib
 import importlib
 import importlib.metadata
 import json
 import os
 import platform
+import re
 import subprocess
 import sys
 import traceback
@@ -14,8 +16,9 @@ import uuid
 import xml.etree.ElementTree as ET
 import zipfile
 from pathlib import Path
-from urllib.parse import urlsplit
-from urllib.request import url2pathname
+from urllib.error import HTTPError
+from urllib.parse import urlencode, urlsplit
+from urllib.request import HTTPRedirectHandler, Request, build_opener, url2pathname
 
 ROOT = Path(__file__).resolve().parents[2]
 JAR_SNAPSHOT = Path("target") / "cu-semantic-notebook" / "packaged-jars.json"
@@ -34,6 +37,70 @@ CELL_IDS = (
     "poll-and-save",
     "display-fields",
 )
+HTTP_TIMEOUT_SECONDS = 60
+
+
+class NoRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        return None
+
+
+def notebook_request(notebook: Path, run_id: str) -> tuple:
+    cells = {
+        cell["id"]: "".join(cell["source"])
+        for cell in json.loads(notebook.read_text(encoding="utf-8"))["cells"]
+        if cell["cell_type"] == "code"
+    }
+    assignments = {}
+    for cell_id in ("configuration", "create-analyzer"):
+        for node in ast.parse(cells[cell_id]).body:
+            if (
+                isinstance(node, ast.Assign)
+                and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name)
+            ):
+                assignments[node.targets[0].id] = node.value
+    # Reuse notebook naming logic without executing its Spark configuration.
+    analyzer_id = eval(
+        compile(ast.Expression(assignments["analyzer_id"]), str(notebook), "eval"),
+        {"__builtins__": {}},
+        {"run_id": run_id},
+    )
+    return (
+        ast.literal_eval(assignments["api_version"]),
+        analyzer_id,
+        ast.literal_eval(assignments["definition"]),
+    )
+
+
+def cleanup_analyzer(endpoint, key, api_version, analyzer_id):
+    report = {"analyzerId": analyzer_id, "status": "failed"}
+    try:
+        if not re.fullmatch(r"synapseml_purchase_order_ci_[0-9a-f]{32}", analyzer_id):
+            raise ValueError("Refusing to delete an analyzer not owned by CI")
+        request = Request(
+            endpoint.rstrip("/")
+            + f"/contentunderstanding/analyzers/{analyzer_id}?"
+            + urlencode({"api-version": api_version}),
+            headers={"Ocp-Apim-Subscription-Key": key},
+            method="DELETE",
+        )
+        try:
+            response = build_opener(NoRedirect()).open(
+                request, timeout=HTTP_TIMEOUT_SECONDS
+            )
+        except HTTPError as error:
+            response = error
+        with response:
+            report["httpStatus"] = response.code
+            report["requestId"] = response.headers.get(
+                "apim-request-id"
+            ) or response.headers.get("x-ms-request-id")
+            if response.code in (204, 404):
+                report["status"] = "deleted" if response.code == 204 else "absent"
+    except Exception as error:
+        report["error"] = type(error).__name__
+    return report
 
 
 def sha256(path):
@@ -367,16 +434,41 @@ def main():
     else:
         env = os.environ.copy()
         env["CONTENT_UNDERSTANDING_RUN_ID"] = "ci-" + uuid.uuid4().hex
+        api_version, analyzer_id, _ = notebook_request(
+            ROOT / NOTEBOOK, env["CONTENT_UNDERSTANDING_RUN_ID"]
+        )
         # Capture in memory so neither notebook output nor JVM exceptions can
         # reach CI logs before the supplied credential has been redacted.
-        completed = subprocess.run(
-            [sys.executable, str(Path(__file__).resolve()), "--execute"],
-            cwd=ROOT,
-            env=env,
-            capture_output=True,
-            text=True,
-            check=False,
-        )
+        try:
+            completed = subprocess.run(
+                [sys.executable, str(Path(__file__).resolve()), "--execute"],
+                cwd=ROOT,
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+        except Exception as error:
+            completed = subprocess.CompletedProcess(
+                [], 1, "", f"Notebook process failed: {type(error).__name__}"
+            )
+        finally:
+            try:
+                child_report = json.loads(report_path.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                child_report = {}
+            if (
+                child_report.get("phase") == "create-analyzer"
+                and child_report.get("serviceError", {}).get("httpStatus") == 409
+            ):
+                cleanup = {"analyzerId": analyzer_id, "status": "not-created"}
+            else:
+                cleanup = cleanup_analyzer(
+                    env["CONTENT_UNDERSTANDING_ENDPOINT"],
+                    key,
+                    api_version,
+                    analyzer_id,
+                )
         result_code = completed.returncode
         message = redact(completed.stdout + completed.stderr, key)
         if not report_path.is_file():
@@ -392,11 +484,17 @@ def main():
                 encoding="utf-8",
             )
         report = json.loads(report_path.read_text(encoding="utf-8"))
+        report["cleanup"] = cleanup
+        if cleanup["status"] == "failed":
+            result_code = result_code or 1
         if result_code or report.get("status") != "passed":
             result_code = result_code or 1
             report["status"] = "failed"
             report["processExitCode"] = result_code
-            report_path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+        report_path.write_text(
+            redact(json.dumps(report, indent=2), key), encoding="utf-8"
+        )
+        message += "\nAnalyzer cleanup: " + redact(json.dumps(cleanup), key)
     print(message)
     suite = ET.Element("testsuite", name="ContentUnderstandingNotebook", tests="1")
     suite.set("failures", "1" if result_code else "0")
