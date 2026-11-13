@@ -1,6 +1,37 @@
 # Review evidence for PR #2815
 
-## Current Rana follow-up and mainline integration
+## Current validation and cumulative inspection
+
+Reduced Azure build
+[246576831](https://dev.azure.com/msdata/A365/_build/results?buildId=246576831)
+passed all 10 active jobs at `fcd5b237741c789bd8d1796cca36dc171d279047`.
+The ordinary cognitive Python suite passed 258 tests with 18 skips. The semantic
+notebook artifact verifies matching Python/JVM artifacts, the expected supplier,
+amount and delivery date, confidence/source grounding, and saved-handle recovery
+with the same operation and fields. CI-owned analyzer cleanup returned HTTP 204.
+
+The HTTP smoke test now uses a loopback server rather than the public dog.ceo
+endpoint, preserving real Spark/JVM HTTP execution and asserting all 20 responses.
+The captured external-call stall established a response-header wait, not whether
+the public service or an intermediary caused it.
+
+Direct cumulative inspection covered the CU production implementation, shared-core
+changes, pipeline wiring, live/diagnostic runners, notebook and guide, with
+targeted regression-assertion review against Rana's five requests. It found stale
+guide examples missing explicit analyzer model roles and stale CI cleanup text.
+This follow-up aligns the guide with the working notebook and adds an assertion
+on the actual creation payload. That assertion failed before the guide fix;
+afterward all three runnable-guide tests and four subtests passed. The Python
+formatting and whitespace checks passed.
+
+No new runtime blocker was identified by this inspection. This is a direct
+inspection, not a new independent or automated multi-model signoff; the cancelled
+review orchestration was not restarted. Prior full build 246564982 passed the CU
+Scala and shared-core jobs but failed the external HTTP smoke test and lost a form
+test agent. Full PR validation, including coverage upload, still needs a clean run
+after these fixes. The guide/test follow-up changes no runtime or pipeline code.
+
+## Historical Rana follow-up and mainline integration
 
 The current follow-up removes the generic JVM-backed `isSet`, `hasDefault`,
 `getOrDefault`, and `extractParamMap` overrides to prevent automatic credential
