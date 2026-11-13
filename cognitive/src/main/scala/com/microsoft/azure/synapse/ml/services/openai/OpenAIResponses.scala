@@ -38,7 +38,7 @@ object OpenAIResponseFormat extends Enumeration {
   }
 }
 
-trait HasOpenAITextParamsResponses extends HasOpenAITextParams with HasOpenAIResponseSchema {
+trait HasOpenAITextParamsResponses extends HasOpenAIModelParams with HasOpenAIResponseSchema {
   val responseFormat: ServiceParam[Map[String, Any]] = new ServiceParam[Map[String, Any]](
     this,
     "responseFormat",
@@ -76,12 +76,17 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams with HasOpenAIRes
   val store: ServiceParam[Boolean] = new ServiceParam[Boolean](
     this,
     "store",
-    "Whether to store the generated model response for later retrieval via API.",
+    "Whether to store the generated model response for later retrieval via API. " +
+      "Unset values and null storage-column values default to false.",
     isRequired = false)
 
   def getStore: Boolean = getScalarParam(store)
 
   def setStore(v: Boolean): this.type = setScalarParam(store, v)
+
+  def getStoreCol: String = getVectorParam(store)
+
+  def setStoreCol(v: String): this.type = setVectorParam(store, v)
 
   val previousResponseId: ServiceParam[String] = new ServiceParam[String](
     this,
@@ -110,6 +115,7 @@ trait HasOpenAITextParamsResponses extends HasOpenAITextParams with HasOpenAIRes
     echo,
     stop,
     cacheLevel,
+    promptCacheOptions,
     presencePenalty,
     frequencyPenalty,
     bestOf,
@@ -138,6 +144,7 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
 
   setDefault(
     apiVersion -> Left("2025-04-01-preview"),
+    deploymentName -> Left(OpenAIDefaults.DefaultTextDeploymentName),
     store -> Left(false)
   )
 
@@ -161,12 +168,13 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   }
 
   override private[ml] def getOptionalParams(r: Row): Map[String, Any] = {
-    val base = super.getOptionalParams(r) - "reasoning_effort"
+    rejectUnsupportedParams(r, "Responses", n, echo, stop, stopSequences, cacheLevel,
+      presencePenalty, frequencyPenalty, bestOf, seed, logitBias)
+    val base = (Map("store" -> false) ++ super.getOptionalParams(r)) - "reasoning_effort"
     val withTokens = resolveMaxTokens(base, "max_output_tokens")
     val withModel = mergeModel(withTokens, r)
     val withText = mergeTextVerbosity(withModel, r)
-    val withReasoning = mergeReasoning(withText, r)
-    dropSamplingForGpt5(withReasoning)
+    resolveLogProbParams(mergeReasoning(withText, r), responses = true)
   }
 
   private def mergeModel(params: Map[String, Any], r: Row): Map[String, Any] = {
@@ -193,22 +201,18 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   }
 
   private def mergeReasoning(params: Map[String, Any], r: Row): Map[String, Any] = {
+    val existing = params.get("reasoning") match {
+      case Some(value: Map[_, _]) => value.asInstanceOf[Map[String, Any]]
+      case Some(_) => throw new IllegalArgumentException("reasoning must be an object.")
+      case None => Map.empty[String, Any]
+    }
     getValueOpt(r, reasoningEffort) match {
       case Some(effort) =>
-        val existing = params.get("reasoning").collect {
-          case m: Map[_, _] => m.asInstanceOf[Map[String, Any]]
-        }.getOrElse(Map.empty)
+        require(existing.get("effort").flatMap(Option(_)).forall(_ == effort),
+          "reasoningEffort conflicts with reasoning.effort. Configure only one effort value.")
         params.updated("reasoning", existing.updated("effort", effort))
       case _ => params
     }
-  }
-
-  private def dropSamplingForGpt5(params: Map[String, Any]): Map[String, Any] = {
-    val isGpt5 = params.get("model").exists {
-      case s: String => s.toLowerCase.contains("gpt-5")
-      case _ => false
-    }
-    if (isGpt5) params - "temperature" - "top_p" - "seed" else params
   }
 
   override val subscriptionKeyHeaderName: String = "api-key"
@@ -219,7 +223,7 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   override protected def getVectorParamMap: Map[String, String] = super.getVectorParamMap
     .updated("input", getMessagesCol)
 
-  override def responseDataType: DataType = ResponsesModelResponse.schema
+  override def responseDataType: DataType = OpenAIResponseSchemas.Responses
 
   private def validatePublicColumnNames(): Unit =
     OpenAIColumnUtils.validateDistinctColumns(
@@ -287,10 +291,10 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
 
   override private[openai] def getOutputMessageText(outputColName: String): org.apache.spark.sql.Column = {
     val outputEntries = F.col(outputColName).getField("output")
-    val lastOutputEntry = F.element_at(outputEntries, -1)
+    val lastOutputEntry = F.when(F.size(outputEntries) > 0, F.element_at(outputEntries, -1))
     val textValues = F.transform(lastOutputEntry.getField("content"), part => part.getField("text"))
     val definedTextValues = F.filter(textValues, text => text.isNotNull)
-    F.element_at(definedTextValues, 1)
+    F.when(F.size(definedTextValues) > 0, F.element_at(definedTextValues, 1))
   }
 
   private def outputEntries(outputRow: Row): Seq[Row] = {
@@ -315,13 +319,23 @@ class OpenAIResponses(override val uid: String) extends OpenAIServicesBase(uid)
   }
 
   override private[openai] def isContentFiltered(outputRow: Row): Boolean = {
-    lastOutputText(outputRow).isEmpty
+    val completedEmpty = Option(outputRow).exists { row =>
+      row.schema.fieldNames.contains("status") &&
+        Option(row.getAs[String]("status")).contains("completed") &&
+        Option(row.getAs[Seq[Row]]("output")).exists(_.isEmpty)
+    }
+    !completedEmpty && lastOutputText(outputRow).isEmpty
   }
 
   override private[openai] def getFilterReason(outputRow: Row): String = {
-    lastOutputEntry(outputRow).iterator
+    val incompleteReason = if (outputRow.schema.fieldNames.contains("incomplete_details")) {
+      Option(outputRow.getAs[Row]("incomplete_details")).flatMap(row => Option(row.getAs[String]("reason")))
+    } else {
+      None
+    }
+    incompleteReason.orElse(lastOutputEntry(outputRow).iterator
       .flatMap(outputEntry => Option(outputEntry.getAs[String]("status")))
-      .find(_.nonEmpty)
+      .find(_.nonEmpty))
       .getOrElse("content_filtered_or_empty")
   }
 }
@@ -464,7 +478,7 @@ object OpenAIResponses extends ComplexParamsReadable[OpenAIResponses] {
   }
 
   private def validateInputTextPart(part: Map[String, Any], location: String): Unit = {
-    requireOnlyFields(part, Set("type", "text"), location)
+    requireOnlyFields(part, Set("type", "text", "prompt_cache_breakpoint"), location)
     part.get("text") match {
       case Some(_: String) =>
       case _ => throw new IllegalArgumentException(s"$location requires a string 'text' field")
@@ -472,7 +486,7 @@ object OpenAIResponses extends ComplexParamsReadable[OpenAIResponses] {
   }
 
   private def validateInputImagePart(part: Map[String, Any], location: String): Unit = {
-    requireOnlyFields(part, Set("type", "image_url", "file_id", "detail"), location)
+    requireOnlyFields(part, Set("type", "image_url", "file_id", "detail", "prompt_cache_breakpoint"), location)
     val imageUrlDefined = part.get("image_url").exists { value =>
       requireNonEmptyString(value, s"$location requires a non-empty string 'image_url' or 'file_id' field")
       true
@@ -490,7 +504,7 @@ object OpenAIResponses extends ComplexParamsReadable[OpenAIResponses] {
   }
 
   private def validateInputFilePart(part: Map[String, Any], location: String): Unit = {
-    requireOnlyFields(part, Set("type", "file_data", "file_id", "filename"), location)
+    requireOnlyFields(part, Set("type", "file_data", "file_id", "filename", "prompt_cache_breakpoint"), location)
     val fileDataDefined = part.get("file_data").exists { value =>
       requireNonEmptyString(value, s"$location requires a non-empty string 'file_data' or 'file_id' field")
       true
@@ -515,6 +529,7 @@ object OpenAIResponses extends ComplexParamsReadable[OpenAIResponses] {
       case _ => throw new IllegalArgumentException(s"$location must be an object")
     }
 
+    OpenAIJsonUtils.validatePromptCacheBreakpoint(fields, location)
     fields.get("type") match {
       case Some("input_text") => validateInputTextPart(fields, location)
       case Some("input_image") => validateInputImagePart(fields, location)

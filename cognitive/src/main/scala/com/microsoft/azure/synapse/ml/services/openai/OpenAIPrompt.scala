@@ -25,7 +25,6 @@ import org.apache.spark.sql.types.{DataType, StructField, StructType}
 import spray.json.DefaultJsonProtocol._
 
 import java.net.{URI, URL}
-
 import scala.collection.JavaConverters._
 import scala.util.{Try, Using}
 
@@ -44,7 +43,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   logClass(FeatureNames.AiServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAIPrompt"))
-
   private[openai] def generatedPythonClass: String = pythonClass()
 
   override def copy(extra: ParamMap): Transformer = {
@@ -82,10 +80,9 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   }
 
   def urlPath: String = ""
-
   override private[ml] def internalServiceType: String = "openai"
 
-  import UsageUtils.{UsageFieldMapping, UsageMappings, UsageStructType}
+  import UsageUtils.{UsageMappings, UsageStructType}
 
   val usageCol: Param[String] = new Param[String](
     this, "usageCol",
@@ -210,13 +207,18 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   val store: ServiceParam[Boolean] = new ServiceParam[Boolean](
     this,
     "store",
-    "Whether to store the generated model response for later retrieval via API. " +
-      "Only applicable when using the 'responses' API type.",
+    "Store Chat/Responses results for retrieval. Null Responses storage-column values default to false.",
     isRequired = false)
 
   def getStore: Boolean = getScalarParam(store)
-
   def setStore(v: Boolean): this.type = setScalarParam(store, v)
+  def getStoreCol: String = getVectorParam(store)
+  def setStoreCol(v: String): this.type = setVectorParam(store, v)
+
+  private def mayStoreResponses: Boolean = get(store).orElse(getDefault(store)).exists {
+    case Left(value) => value
+    case Right(_) => true
+  }
 
   val previousResponseId: ServiceParam[String] = new ServiceParam[String](
     this,
@@ -287,6 +289,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     dropPrompt -> true,
     systemPrompt -> defaultSystemPrompt,
     apiType -> defaultApiType,
+    deploymentName -> Left(OpenAIDefaults.DefaultTextDeploymentName),
     columnTypes -> Map.empty,
     timeout -> 360.0,
     store -> Left(false)
@@ -357,14 +360,13 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     )
   }
 
-  private def usageMappingFor(service: OpenAIServicesBase with HasTextOutput)
-      : Option[UsageFieldMapping] = service match {
+  private def usageNormalizerFor(service: OpenAIServicesBase with HasTextOutput)
+      : Option[Column => Column] = service match {
     case _: OpenAIChatCompletion | _: AIFoundryChatCompletion =>
-      Some(UsageMappings.ChatCompletions)
+      Some(UsageUtils.normalize(_, UsageMappings.ChatCompletionsDetailed))
     case _: OpenAIResponses =>
-      Some(UsageMappings.Responses)
-    case _ =>
-      None
+      Some(UsageUtils.normalizeResponsesDetailed)
+    case _ => None
   }
 
   private def generateText(
@@ -379,22 +381,28 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
     val serviceOutputCol = service.getOutputCol
     val responseCol = F.col(serviceOutputCol)
-
+    val storeFlagCol = OpenAIColumnUtils.findUnusedColumnName(s"${uid}_store")(
+      transformed.columns.toSet ++ Seq(getOutputCol, getResponseIdCol) ++ get(usageCol))
+    var result = transformed
+    if (mayStoreResponses) {
+      val storeEnabled = get(store).orElse(getDefault(store)) match {
+        case Some(Right(columnName)) => F.col(columnName)
+        case _ => F.lit(getStore)
+      }
+      result = result.withColumn(storeFlagCol, storeEnabled)
+    }
     val parsedText = getParser.parse(service.getOutputMessageText(serviceOutputCol))
-    var result = transformed.withColumn(getOutputCol, F.when(parsedText.isNotNull, parsedText))
-
+    result = result.withColumn(getOutputCol, F.when(parsedText.isNotNull, parsedText))
     if (isSet(usageCol)) {
-      usageMappingFor(service).foreach { mapping =>
-        val usage = UsageUtils.normalize(responseCol.getField("usage"), mapping)
-        result = result.withColumn(getUsageCol, F.when(responseCol.isNotNull, usage))
+      usageNormalizerFor(service).foreach { normalize =>
+        result = result.withColumn(getUsageCol, F.when(responseCol.isNotNull, normalize(responseCol.getField("usage"))))
       }
     }
-
-    if (service.isInstanceOf[OpenAIResponses] && getStore) {
-      result = result.withColumn(getResponseIdCol, F.when(responseCol.isNotNull, responseCol.getField("id")))
+    if (mayStoreResponses) {
+      result = result.withColumn(getResponseIdCol,
+        F.when(responseCol.isNotNull && F.col(storeFlagCol), responseCol.getField("id")))
     }
-
-    result = result.drop(serviceOutputCol)
+    result = result.drop(serviceOutputCol, storeFlagCol)
     result.select(result.columns.filter(_ != getErrorCol).map(col) :+ col(getErrorCol): _*)
   }
 
@@ -448,11 +456,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   }
 
   private def validateResponsesOnlyParams(currentApiType: String): Unit = {
-    if (currentApiType != "responses" && isSet(store) && getStore) {
-      throw new IllegalArgumentException(
-        "store parameter requires apiType='responses'. Use .setApiType(\"responses\")")
-    }
-
     if (currentApiType != "responses" && hasPreviousResponseIdConfigured) {
       throw new IllegalArgumentException(
         "previousResponseId requires apiType='responses'. Use .setApiType(\"responses\")")
@@ -664,6 +667,9 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   private[openai] def hasAIFoundryModel: Boolean =
     this.isDefined(model) && isAIFoundryEndpoint && !isOpenAIV1Endpoint
 
+  private def skipNoOpStore(param: Param[_]): Boolean =
+    param.name == store.name && !mayStoreResponses && (getApiType == "chat_completions" || hasAIFoundryModel)
+
   //deployment name can be set by user, it doesn't have to match with model name
   private def getOpenAIChatService: OpenAIServicesBase with HasTextOutput = {
     val completion: OpenAIServicesBase with HasTextOutput =
@@ -679,12 +685,19 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
     extractParamMap().toSeq
       .filter(p => !localParamNames.contains(p.param.name) && completion.hasParam(p.param.name))
+      .filterNot(p => skipNoOpStore(p.param))
       .foreach(p => completion.set(completion.getParam(p.param.name), p.value))
 
     if (this.isDefined(model) &&
-        get(deploymentName).orElse(getDefault(deploymentName)).isEmpty &&
-        (isOpenAIV1Endpoint || completion.isInstanceOf[OpenAIResponses])) {
-      completion.setDeploymentName(getModel)
+        !isSet(deploymentName) &&
+        !hasAIFoundryModel) {
+      if (isOpenAIV1Endpoint || completion.isInstanceOf[OpenAIResponses]) {
+        completion.setDeploymentName(getModel)
+      } else {
+        require(get(customUrlRoot).nonEmpty,
+          "model is not a deployment alias for legacy Chat endpoints. " +
+            "Use setDeploymentName(...) or an OpenAI v1 endpoint.")
+      }
     }
 
     completion
@@ -742,6 +755,12 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   }
 
   override def transformSchema(schema: StructType): StructType = {
+    val resolved = copy(ParamMap.empty).asInstanceOf[OpenAIPrompt]
+    resolved.transferGlobalParamsToParamMap()
+    resolved.transformSchemaWithResolvedParams(schema)
+  }
+
+  private def transformSchemaWithResolvedParams(schema: StructType): StructType = {
     validatePublicColumnNames()
     val outputDataType: DataType = getParser.outputSchema
     val service = getOpenAIChatService
@@ -757,16 +776,16 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
     val fieldsToDrop = Set(service.getOutputCol) ++
       (if (getDropPrompt) Set(getMessagesCol) else Set.empty[String])
-    var withoutServiceOutput = StructType(serviceSchema.filterNot(field => fieldsToDrop(field.name)))
-    var resultSchema = withoutServiceOutput.add(getOutputCol, outputDataType)
+    val withoutServiceOutput = StructType(serviceSchema.filterNot(field => fieldsToDrop(field.name)))
+    var resultSchema = OpenAIColumnUtils.replaceOrAppendField(
+      withoutServiceOutput, StructField(getOutputCol, outputDataType))
 
-    if (isSet(usageCol) && usageMappingFor(service).isDefined) {
-      resultSchema = resultSchema.add(getUsageCol, UsageStructType)
+    if (isSet(usageCol) && usageNormalizerFor(service).isDefined) {
+      resultSchema = OpenAIColumnUtils.replaceOrAppendField(resultSchema, StructField(getUsageCol, UsageStructType))
     }
 
-    val isResponsesApi = service.isInstanceOf[OpenAIResponses]
-    if (isResponsesApi && getStore) {
-      resultSchema = resultSchema.add(getResponseIdCol, T.StringType)
+    if (mayStoreResponses) {
+      resultSchema = OpenAIColumnUtils.replaceOrAppendField(resultSchema, StructField(getResponseIdCol, T.StringType))
     }
 
     val errorFieldOpt: Option[StructField] = resultSchema.fields.find(_.name == getErrorCol)

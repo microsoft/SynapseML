@@ -6,6 +6,7 @@ package com.microsoft.azure.synapse.ml.stages
 import com.microsoft.azure.synapse.ml.core.serialize.ComplexParamTestFixtures.withActiveSession
 import com.microsoft.azure.synapse.ml.core.serialize.TestableNestedParamTest
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
+import com.microsoft.azure.synapse.ml.io.http.SimpleHTTPTransformer
 import org.apache.spark.ml.Serializer
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.expressions.UserDefinedFunction
@@ -18,6 +19,17 @@ private object UDFPersistenceTestHelpers {
 }
 
 class VerifyUDFTransformerPersistence extends TestBase {
+
+  test("complex defaults without constructor-reconstruction opt-in remain persisted and guarded") {
+    val session = spark.newSession()
+    session.conf.set(Serializer.LegacyObjectDeserializationConfig, "false")
+    val path = tmpDir.resolve("unregistered-complex-defaults").toString
+    new SimpleHTTPTransformer().write.session(session).save(path)
+    val error = intercept[SecurityException] {
+      SimpleHTTPTransformer.read.session(session).load(path)
+    }
+    assert(error.getMessage.contains("UserDefinedFunction"))
+  }
 
   Seq(false, true).foreach { allowed =>
     test(s"complex readers use their assigned Spark session deserialization policy with allowed=$allowed") {

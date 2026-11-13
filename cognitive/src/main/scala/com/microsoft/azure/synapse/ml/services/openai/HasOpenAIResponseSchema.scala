@@ -30,6 +30,7 @@ trait HasOpenAIResponseSchema extends Wrappable {
   /**
     * Wrap an inner JSON Schema for the stage's API. The schema is preserved without inferring
     * required fields, changing additionalProperties, or converting Spark data types.
+    * Scala and Java BigDecimal schema values are supported as exact JSON numbers.
     * Use scala.collection.immutable.ListMap for objects whose key order matters;
     * a plain Map does not guarantee insertion order.
     */
@@ -57,6 +58,7 @@ trait HasOpenAIResponseSchema extends Wrappable {
       |    The response-format envelope is added automatically for this stage's API.
       |    The schema itself is not modified. For strict output, supply a schema
       |    supported by the model, including required and additionalProperties.
+      |    Numeric values may include decimal.Decimal and retain their decimal precision.
       |
       |    Args:
       |        schema (dict): Inner JSON Schema, without response-format metadata.

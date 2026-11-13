@@ -65,24 +65,22 @@ class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with Ope
   test("Embedding uses global embedding deployment name when per-instance is not set") {
     val originalEmbeddingDeploymentName = OpenAIDefaults.getEmbeddingDeploymentName
 
-    OpenAIDefaults.setEmbeddingDeploymentName("text-embedding-ada-002")
-
-    val t = new OpenAIEmbedding()
-      .setSubscriptionKey(openAIAPIKey)
-      .setCustomServiceName(openAIServiceName)
-      .setTextCol("text")
-      .setOutputCol("out")
-
-    t.transform(df).collect().foreach(r => {
-      val v = r.getAs[Vector]("out")
-      assert(v.size > 0)
-    })
-
-    // Reset global defaults to avoid cross-test contamination
-    if (originalEmbeddingDeploymentName.isDefined) {
-      OpenAIDefaults.setEmbeddingDeploymentName(originalEmbeddingDeploymentName.get)
-    } else {
-      OpenAIDefaults.resetEmbeddingDeploymentName()
+    try {
+      OpenAIDefaults.setEmbeddingDeploymentName("text-embedding-ada-002")
+      val t = new OpenAIEmbedding()
+        .setSubscriptionKey(openAIAPIKey)
+        .setCustomServiceName(openAIServiceName)
+        .setTextCol("text")
+        .setOutputCol("out")
+      t.transform(df).collect().foreach(r => {
+        val v = r.getAs[Vector]("out")
+        assert(v.size > 0)
+      })
+    } finally {
+      originalEmbeddingDeploymentName match {
+        case Some(value) => OpenAIDefaults.setEmbeddingDeploymentName(value)
+        case None => OpenAIDefaults.resetEmbeddingDeploymentName()
+      }
     }
   }
 
@@ -90,26 +88,28 @@ class OpenAIEmbeddingsSuite extends TransformerFuzzing[OpenAIEmbedding] with Ope
     val originalGeneral = OpenAIDefaults.getDeploymentName
     val originalEmbedding = OpenAIDefaults.getEmbeddingDeploymentName
 
-    // Set a general default that is not an embedding model and a valid embedding default
-    OpenAIDefaults.setDeploymentName("gpt-5-mini")
-    OpenAIDefaults.setEmbeddingDeploymentName("text-embedding-ada-002")
-
-    val t = new OpenAIEmbedding()
-      .setSubscriptionKey(openAIAPIKey)
-      .setCustomServiceName(openAIServiceName)
-      .setTextCol("text")
-      .setOutputCol("out")
-
-    t.transform(df).collect().foreach(r => {
-      val v = r.getAs[Vector]("out")
-      assert(v.size > 0)
-    })
-
-    // Reset global defaults to avoid cross-test contamination
-    if (originalGeneral.isDefined) OpenAIDefaults.setDeploymentName(originalGeneral.get)
-    else OpenAIDefaults.resetDeploymentName()
-    if (originalEmbedding.isDefined) OpenAIDefaults.setEmbeddingDeploymentName(originalEmbedding.get)
-    else OpenAIDefaults.resetEmbeddingDeploymentName()
+    try {
+      OpenAIDefaults.setDeploymentName("gpt-6-luna")
+      OpenAIDefaults.setEmbeddingDeploymentName("text-embedding-ada-002")
+      val t = new OpenAIEmbedding()
+        .setSubscriptionKey(openAIAPIKey)
+        .setCustomServiceName(openAIServiceName)
+        .setTextCol("text")
+        .setOutputCol("out")
+      t.transform(df).collect().foreach(r => {
+        val v = r.getAs[Vector]("out")
+        assert(v.size > 0)
+      })
+    } finally {
+      originalGeneral match {
+        case Some(value) => OpenAIDefaults.setDeploymentName(value)
+        case None => OpenAIDefaults.resetDeploymentName()
+      }
+      originalEmbedding match {
+        case Some(value) => OpenAIDefaults.setEmbeddingDeploymentName(value)
+        case None => OpenAIDefaults.resetEmbeddingDeploymentName()
+      }
+    }
   }
 
   lazy val embeddingExtra: OpenAIEmbedding = new OpenAIEmbedding()

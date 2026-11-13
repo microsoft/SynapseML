@@ -87,7 +87,10 @@ private[ai] object AIRequestAdapter {
     stage.maxTokens, stage.maxCompletionTokens, stage.temperature, stage.topP, stage.user, stage.n,
     stage.stop, stage.echo, stage.cacheLevel, stage.presencePenalty, stage.frequencyPenalty,
     stage.bestOf, stage.logProbs, stage.seed, stage.verbosity, stage.reasoningEffort, stage.responseFormat,
-    stage.store, stage.previousResponseId, stage.dimensions, stage.safetyIdentifier)
+    stage.store, stage.previousResponseId, stage.dimensions, stage.safetyIdentifier,
+    stage.promptCacheOptions, stage.promptCacheKey, stage.promptCacheRetention, stage.serviceTier, stage.metadata,
+    stage.reasoning, stage.include, stage.truncation, stage.logitBias, stage.stopSequences,
+    stage.logProbsEnabled, stage.topLogProbs)
 
   def allowedOptions(api: String): Set[String] = api match {
     case "chat_completions" => Set("maxTokens", "maxCompletionTokens", "temperature", "topP", "user", "n",

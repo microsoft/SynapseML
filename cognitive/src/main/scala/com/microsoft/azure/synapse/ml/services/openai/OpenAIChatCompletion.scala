@@ -21,7 +21,7 @@ import scala.collection.{Seq => CollectionSeq}
 import scala.language.existentials
 
 
-trait HasOpenAITextParamsExtended extends HasOpenAITextParams with HasOpenAIResponseSchema {
+trait HasOpenAITextParamsExtended extends HasOpenAIModelParams with HasOpenAIResponseSchema {
   // The argument keeps this factory out of Spark's zero-argument Param discovery.
   /** Called during trait initialization; overrides must not read uninitialized subclass fields. */
   protected def createResponseFormatParam(name: String): ServiceParam[Map[String, Any]] =
@@ -77,6 +77,7 @@ trait HasOpenAITextParamsExtended extends HasOpenAITextParams with HasOpenAIResp
     echo,
     stop,
     cacheLevel,
+    promptCacheOptions,
     presencePenalty,
     frequencyPenalty,
     bestOf,
@@ -98,6 +99,14 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
 
   def this() = this(Identifiable.randomUID("OpenAIChatCompletion"))
 
+  val store: ServiceParam[Boolean] = new ServiceParam[Boolean](
+    this, "store", "Whether the provider should store this Chat completion.", isRequired = false)
+
+  def getStore: Boolean = getScalarParam(store)
+  def setStore(v: Boolean): this.type = setScalarParam(store, v)
+  def getStoreCol: String = getVectorParam(store)
+  def setStoreCol(v: String): this.type = setVectorParam(store, v)
+
   @transient private lazy val requestBody = new OpenAIRequestBodyCache(OpenAIRequestBody.chat)
 
   def urlPath: String = ""
@@ -105,6 +114,9 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   override private[ml] def internalServiceType: String = "openai"
 
   setDefault(apiVersion -> Left("2025-04-01-preview"))
+  if (internalServiceType == "openai") {
+    setDefault(deploymentName -> Left(OpenAIDefaults.DefaultTextDeploymentName))
+  }
 
   override def setCustomServiceName(v: String): this.type = {
     setUrl(s"https://$v.openai.azure.com/" + urlPath.stripPrefix("/"))
@@ -119,8 +131,14 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   }
 
   override private[ml] def getOptionalParams(r: Row): Map[String, Any] = {
-    val base = super.getOptionalParams(r)
-    resolveMaxTokens(base, "max_completion_tokens")
+    if (internalServiceType == "foundry") {
+      rejectUnsupportedParams(r, "AI Foundry model inference", store)
+    } else {
+      rejectUnsupportedParams(r, "Chat Completions", echo, cacheLevel, bestOf)
+    }
+    rejectUnsupportedParams(r, "Chat Completions", reasoning, include, truncation)
+    val base = super.getOptionalParams(r) ++ getValueOpt(r, store).map(value => "store" -> value)
+    resolveLogProbParams(resolveStopSequences(resolveMaxTokens(base, "max_completion_tokens")), responses = false)
   }
 
   override protected[openai] def prepareEntity: Row => Option[AbstractHttpEntity] = {
@@ -138,7 +156,7 @@ class OpenAIChatCompletion(override val uid: String) extends OpenAIServicesBase(
   override protected def getVectorParamMap: Map[String, String] = super.getVectorParamMap
     .updated("messages", getMessagesCol)
 
-  override def responseDataType: DataType = ChatModelResponse.schema
+  override def responseDataType: DataType = OpenAIResponseSchemas.Chat
 
   private def validatePublicColumnNames(): Unit =
     OpenAIColumnUtils.validateDistinctColumns(
@@ -272,19 +290,23 @@ object OpenAIChatCompletion extends ComplexParamsReadable[OpenAIChatCompletion] 
   }
 
   private def encodeStructuredValue(value: Any, dataType: DataType): Any = {
-    dataType match {
-      case structType: StructType =>
-        value match {
-          case nestedRow: Row => encodeStruct(nestedRow, structType)
-          case other =>
-            throw new IllegalArgumentException(
-              s"Expected struct content part but found ${runtimeType(other)}")
-        }
-      case ArrayType(elementType, _) => encodeStructuredArray(value, elementType)
-      case MapType(StringType, valueType, _) => encodeStructuredMap(value, valueType)
-      case _: MapType =>
-        throw new IllegalArgumentException("Content part map keys must have string type")
-      case _ => value
+    if (value == null) {
+      null // scalastyle:ignore null
+    } else {
+      dataType match {
+        case structType: StructType =>
+          value match {
+            case nestedRow: Row => encodeStruct(nestedRow, structType)
+            case other =>
+              throw new IllegalArgumentException(
+                s"Expected struct content part but found ${runtimeType(other)}")
+          }
+        case ArrayType(elementType, _) => encodeStructuredArray(value, elementType)
+        case MapType(StringType, valueType, _) => encodeStructuredMap(value, valueType)
+        case _: MapType =>
+          throw new IllegalArgumentException("Content part map keys must have string type")
+        case _ => value
+      }
     }
   }
 
@@ -326,6 +348,13 @@ object OpenAIChatCompletion extends ComplexParamsReadable[OpenAIChatCompletion] 
 
   private def encodedMapBackedContent(value: Any, messageIndex: Int): Any = {
     val parts = mapBackedContentParts(value, messageIndex)
+    parts.zipWithIndex.foreach { case (part, partIndex) =>
+      if (part.contains("prompt_cache_breakpoint")) {
+        throw new IllegalArgumentException(
+          s"messages[$messageIndex].content[$partIndex].prompt_cache_breakpoint " +
+            "requires a nested struct content schema")
+      }
+    }
     if (!parts.exists(_.get("type").contains("image_url"))) {
       collapseContentPartsToText(value)
     } else {
@@ -358,7 +387,7 @@ object OpenAIChatCompletion extends ComplexParamsReadable[OpenAIChatCompletion] 
   }
 
   private def validateTextPart(part: Map[String, Any], location: String): Unit = {
-    requireOnlyFields(part, Set("type", "text"), location)
+    requireOnlyFields(part, Set("type", "text", "prompt_cache_breakpoint"), location)
     part.get("text") match {
       case Some(_: String) =>
       case _ => throw new IllegalArgumentException(s"$location requires a string 'text' field")
@@ -366,7 +395,7 @@ object OpenAIChatCompletion extends ComplexParamsReadable[OpenAIChatCompletion] 
   }
 
   private def validateImageUrlPart(part: Map[String, Any], location: String): Unit = {
-    requireOnlyFields(part, Set("type", "image_url"), location)
+    requireOnlyFields(part, Set("type", "image_url", "prompt_cache_breakpoint"), location)
     part.get("image_url") match {
       case Some(rawImageUrl: Map[_, _]) =>
         val imageUrl = rawImageUrl.asInstanceOf[Map[String, Any]]
@@ -395,6 +424,7 @@ object OpenAIChatCompletion extends ComplexParamsReadable[OpenAIChatCompletion] 
       case _ => throw new IllegalArgumentException(s"$location must be an object")
     }
 
+    OpenAIJsonUtils.validatePromptCacheBreakpoint(fields, location)
     fields.get("type") match {
       case Some("text") => validateTextPart(fields, location)
       case Some("image_url") => validateImageUrlPart(fields, location)

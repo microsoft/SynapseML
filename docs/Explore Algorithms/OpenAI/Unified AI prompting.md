@@ -10,9 +10,9 @@ description: Call five model APIs from Spark with typed inputs, native questions
 `AIPrompt` applies a synchronous model API to a Spark DataFrame, using Spark
 partitions and bounded concurrent HTTP requests. It does not require the OpenAI
 Python SDK. Existing `OpenAIPrompt` and `OpenAIEmbedding` stages remain available
-with their existing contracts. Migrating to `AIPrompt` is not a drop-in replacement:
-for example, Responses forwards configured sampling options even for GPT-5-named
-deployments instead of applying the legacy name-based suppression described below.
+with their own contracts. Migrating to `AIPrompt` is not a drop-in replacement:
+for example, `AIPrompt` requires a configured model or applicable operation-specific
+default rather than inheriting `OpenAIPrompt`'s `gpt-6-luna` text deployment fallback.
 
 ![AIPrompt routes a Spark DataFrame through five explicit API contracts, with shared controls, distinct outputs and compatibility limits.](https://github.com/user-attachments/assets/37cd9d44-fea4-4c0a-9610-9cf0ff14265b)
 
@@ -609,6 +609,16 @@ read-failure case, an available redirect status is preserved without replay.
 | `postProcessing`, `postProcessingOptions` | Chat, Responses |
 | Legacy `echo`, `cacheLevel`, `bestOf`, `logProbs` | Explicitly rejected; not silently dropped |
 
+The newer typed OpenAI controls (`promptCacheOptions`, `promptCacheKey`,
+`promptCacheRetention`, `serviceTier`, `metadata`, `reasoning`, `include`,
+`truncation`, `logitBias`, `stopSequences`, `logProbsEnabled`, `topLogProbs`)
+are supported by the legacy OpenAI stages, not by `AIPrompt`'s typed adapter.
+Explicit scalar or column bindings fail before HTTP on the facade, including its
+native subclasses. For provider-supported extensions, use wire names through
+`extraBody`, for example
+`setExtraBody({"prompt_cache_options": {"mode": "auto"}, "prompt_cache_key": "job"})`.
+Provider support and cache hits are not guaranteed.
+
 When configured explicitly or through a parameter default, `fileSizeLimitMB` must
 be positive. An explicit value overrides its default. Invalid limits, including NaN,
 are rejected during preflight in Scala and Python before HTTP.
@@ -637,12 +647,11 @@ endpoint, leave both typed token options unset and use
 `setExtraBody(Map("max_tokens" -> 32))` in Scala. This wire-name override cannot
 be combined with an explicitly set typed token option, including a column binding.
 
-**Responses migration:** Legacy `OpenAIPrompt`/`OpenAIResponses` drops `temperature`,
-`top_p` and `seed` when the deployment name contains `gpt-5` (case-insensitive).
-`AIPrompt` does not infer model capabilities from deployment names: Responses
-forwards explicitly configured `temperature`/`topP` and applicable global defaults
-as `temperature`/`top_p`, including for GPT-5-named deployments. `seed` remains
-unsupported for Responses and is rejected when explicitly set.
+**Responses sampling:** `AIPrompt`, `OpenAIPrompt` and `OpenAIResponses` do not
+infer model capabilities from deployment names. Responses forwards configured
+`temperature`/`topP` as `temperature`/`top_p`, including for GPT-5-named
+deployments. The legacy stages no longer silently suppress those options by
+name. `seed` remains unsupported for Responses and is rejected when configured.
 Some reasoning models reject sampling options. Leave unsupported options unset,
 and clear inherited sampling defaults with `OpenAIDefaults.resetTemperature()` /
 `resetTopP()` in Scala or `reset_temperature()` / `reset_top_p()` on a Python

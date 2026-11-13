@@ -176,6 +176,7 @@ class AIPrompt(override val uid: String) extends OpenAIPrompt(uid)
       "Response format for the completion. One of 'text', 'json_object', or 'json_schema'.", "response_format")
 
   setDefault(handler -> AIPrompt.DefaultHandler)
+  ParamInjections.clearDefault(this, deploymentName)
 
   override protected def supportedApiTypes: Array[String] =
     AIRequestAdapter.SupportedApis.toArray
@@ -188,8 +189,8 @@ class AIPrompt(override val uid: String) extends OpenAIPrompt(uid)
 
   def setModelCol(value: String): this.type = setVectorParam(model, value)
   def getModelCol: String = getVectorParam(model)
-  def setStoreCol(value: String): this.type = setVectorParam(store, value)
-  def getStoreCol: String = getVectorParam(store)
+  override def setStoreCol(value: String): this.type = setVectorParam(store, value)
+  override def getStoreCol: String = getVectorParam(store)
   def setResponseFormatCol(value: String): this.type = setVectorParam(responseFormat, value)
   def getResponseFormatCol: String = getVectorParam(responseFormat)
 
