@@ -1,6 +1,9 @@
+import io
 import json
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from unittest.mock import Mock
+from urllib.error import HTTPError
 
 import pytest
 
@@ -86,3 +89,38 @@ def test_notebook_request_and_redacted_response(tmp_path, capsys, status):
         assert key not in evidence
         assert json.dumps(key)[1:-1] not in evidence
         assert "not-for-diagnostic-evidence" not in evidence
+
+
+def test_model_inspection_only_reads_selected_resource_metadata(tmp_path, monkeypatch):
+    requests = []
+    models = {
+        "completion": ["existing-completion"],
+        "embedding": ["existing-embedding"],
+    }
+
+    def open_request(request):
+        requests.append(request)
+        body = (
+            {"error": {"code": "DefaultsNotSet"}}
+            if "/defaults?" in request.full_url
+            else {"supportedModels": models, "otherData": "not-retained"}
+        )
+        response = io.BytesIO(json.dumps(body).encode())
+        if "error" in body:
+            raise HTTPError(request.full_url, 400, "Rejected", {}, response)
+        response.code = 200
+        return response
+
+    monkeypatch.setattr(
+        diagnostic, "build_opener", lambda *args: Mock(open=open_request)
+    )
+    assert (
+        diagnostic.inspect_models(
+            diagnostic.ROOT, tmp_path, "https://example.invalid", "synthetic-key"
+        )
+        == 0
+    )
+    report = json.loads((tmp_path / "models.json").read_text())
+    assert [request.get_method() for request in requests] == ["GET", "GET"]
+    assert report["defaults"]["error"]["code"] == "DefaultsNotSet"
+    assert report["baseAnalyzer"] == {"httpStatus": 200, "supportedModels": models}
