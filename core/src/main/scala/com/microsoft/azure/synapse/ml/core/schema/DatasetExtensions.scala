@@ -5,8 +5,11 @@ package com.microsoft.azure.synapse.ml.core.schema
 
 import org.apache.spark.ml.linalg.{DenseVector, SparseVector}
 import org.apache.spark.sql.Dataset
+import org.apache.spark.sql.catalyst.analysis.{caseInsensitiveResolution, caseSensitiveResolution}
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types.StructType
+
+import java.util.TreeSet
 
 /** Contains methods for manipulating spark dataframes and datasets. */
 object DatasetExtensions {
@@ -55,8 +58,17 @@ object DatasetExtensions {
   def findUnusedColumnName(prefix: String,
                            columnNames: scala.collection.Set[String],
                            resolver: (String, String) => Boolean): String = {
+    val contains: String => Boolean = if (resolver eq caseSensitiveResolution) {
+      columnNames.contains
+    } else if (resolver eq caseInsensitiveResolution) {
+      val indexed = new TreeSet[String](String.CASE_INSENSITIVE_ORDER)
+      columnNames.foreach(indexed.add)
+      candidate => indexed.contains(candidate)
+    } else {
+      candidate => columnNames.exists(resolver(_, candidate))
+    }
     val stream = Iterator(prefix) ++ Iterator.from(1, 1).map(prefix + "_" + _)
-    stream.dropWhile(candidate => columnNames.exists(resolver(_, candidate))).next()
+    stream.dropWhile(contains).next()
   }
 
   def findUnusedColumnName(prefix: String, schema: StructType): String = {
@@ -65,9 +77,9 @@ object DatasetExtensions {
 
   def resolverFor(df: Dataset[_]): (String, String) => Boolean = {
     if (df.sparkSession.conf.get("spark.sql.caseSensitive", "false").toBoolean) {
-      (left: String, right: String) => left == right
+      caseSensitiveResolution
     } else {
-      (left: String, right: String) => left.equalsIgnoreCase(right)
+      caseInsensitiveResolution
     }
   }
 
