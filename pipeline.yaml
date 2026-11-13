@@ -59,6 +59,10 @@ parameters:
     displayName: Inspect existing CU model deployments instead of creating an analyzer
     type: boolean
     default: false
+  - name: configureContentUnderstandingDefaults
+    displayName: Configure missing CU defaults using existing compatible deployments
+    type: boolean
+    default: false
   - name: fullTests
     displayName: Force all PR test families
     type: boolean
@@ -133,7 +137,7 @@ jobs:
         SecretsFilter: openai-api-key-3
     - task: AzureCLI@2
       displayName: 'Inspect existing CU model deployments'
-      condition: and(succeeded(), eq('${{ parameters.inspectContentUnderstandingDeployments }}', true))
+      condition: and(succeeded(), or(eq('${{ parameters.inspectContentUnderstandingDeployments }}', true), eq('${{ parameters.configureContentUnderstandingDefaults }}', true)))
       inputs:
         azureSubscription: 'SynapseML Build'
         scriptType: bash
@@ -150,6 +154,12 @@ jobs:
             --query "[].{deployment:name,model:properties.model,state:properties.provisioningState}" \
             -o json > target/cu-analyzer-diagnostic/deployments.json
           cat target/cu-analyzer-diagnostic/deployments.json
+    - bash: python3 -m tools.ci.diagnose_content_understanding --configure-defaults
+      displayName: 'Configure and verify missing CU model defaults'
+      condition: and(succeeded(), eq('${{ parameters.configureContentUnderstandingDefaults }}', true), ne('${{ parameters.inspectContentUnderstandingDeployments }}', true))
+      env:
+        CONTENT_UNDERSTANDING_ENDPOINT: https://synapseml-openai-3.services.ai.azure.com
+        CONTENT_UNDERSTANDING_API_KEY: $(openai-api-key-3)
     - bash: python3 -m tools.ci.diagnose_content_understanding
       displayName: 'Send notebook analyzer request and retain redacted diagnostics'
       condition: and(succeeded(), ne('${{ parameters.inspectContentUnderstandingDeployments }}', true))

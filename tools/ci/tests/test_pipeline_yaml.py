@@ -133,7 +133,11 @@ def test_cu_diagnostic_mode_skips_every_normal_job():
     )
     assert credentials["inputs"] == original["inputs"]
     assert not any("template" in step for step in diagnostic["steps"])
-    request = next(step for step in diagnostic["steps"] if "bash" in step)
+    request = next(
+        step
+        for step in diagnostic["steps"]
+        if step.get("bash") == "python3 -m tools.ci.diagnose_content_understanding"
+    )
     assert request["bash"] == "python3 -m tools.ci.diagnose_content_understanding"
     assert request["env"]["CONTENT_UNDERSTANDING_API_KEY"] == "$(openai-api-key-3)"
     inspection = next(
@@ -147,6 +151,26 @@ def test_cu_diagnostic_mode_skips_every_normal_job():
     assert "ne('${{ parameters.inspectContentUnderstandingDeployments }}', true)" in (
         request["condition"]
     )
+    setup = next(
+        step
+        for step in diagnostic["steps"]
+        if step.get("displayName") == "Configure and verify missing CU model defaults"
+    )
+    assert (
+        next(
+            p
+            for p in data["parameters"]
+            if p["name"] == "configureContentUnderstandingDefaults"
+        )["default"]
+        is False
+    )
+    assert setup["condition"] == (
+        "and(succeeded(), eq('${{ parameters.configureContentUnderstandingDefaults }}', true), "
+        "ne('${{ parameters.inspectContentUnderstandingDeployments }}', true))"
+    )
+    assert diagnostic["steps"].index(inspection) < diagnostic["steps"].index(setup)
+    assert diagnostic["steps"].index(setup) < diagnostic["steps"].index(request)
+    assert "parameters.configureContentUnderstandingDefaults" in inspection["condition"]
 
 
 def test_cu_live_validation_reuses_shared_foundry_and_existing_pr_approval():
