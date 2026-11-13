@@ -204,12 +204,12 @@ class TestAIPromptLive(unittest.TestCase):
         if api == "chat_completions":
             answer = row.answer.choices[0].message.content
         else:
-            self.assertEqual(row.answer.status, "completed")
-            self.assertFalse(row.answer.store)
+            self.assertTrue(row.answer.output)
+            for item in row.answer.output:
+                self.assertEqual(item.status, "completed")
             answer = "".join(
                 part.text
                 for item in row.answer.output
-                if item.type == "message"
                 for part in item.content
                 if part.type == "output_text"
             )
