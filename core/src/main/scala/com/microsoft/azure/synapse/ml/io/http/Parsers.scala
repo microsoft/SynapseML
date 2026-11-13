@@ -18,7 +18,7 @@ import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transf
 import org.apache.spark.sql.execution.python.UserDefinedPythonFunction
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions._
-import org.apache.spark.sql.types.{ArrayType, DataType, StringType, StructType}
+import org.apache.spark.sql.types.{ArrayType, DataType, MapType, StringType, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
 import scala.collection.JavaConverters._
@@ -199,9 +199,19 @@ class JSONOutputParser(val uid: String) extends HTTPOutputParser with ComplexPar
     }, dataset.columns.length)
   }
 
+  private def nullableJsonType(dataType: DataType): DataType = dataType match {
+    case StructType(fields) =>
+      StructType(fields.map(field => field.copy(dataType = nullableJsonType(field.dataType), nullable = true)))
+    case ArrayType(elementType, _) => ArrayType(nullableJsonType(elementType), containsNull = true)
+    case MapType(keyType, valueType, _) =>
+      MapType(nullableJsonType(keyType), nullableJsonType(valueType), valueContainsNull = true)
+    case other => other
+  }
+
   override def transformSchema(schema: StructType): StructType = {
     assert(schema(getInputCol).dataType == HTTPSchema.Response)
-    schema.add(getOutputCol, getDataType)
+    // Spark's from_json makes parsed fields nullable even when the supplied schema marks them required.
+    schema.add(getOutputCol, nullableJsonType(getDataType))
   }
 
 }
