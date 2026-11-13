@@ -119,13 +119,25 @@ def test_cu_live_validation_reuses_shared_foundry_and_existing_pr_approval():
     ordinary = next(
         step for step in steps if step.get("displayName") == "Test Python Code"
     )
+    notebook = next(
+        step
+        for step in steps
+        if step.get("displayName")
+        == "Test Content Understanding semantic notebook live"
+    )
+    evidence = next(
+        step
+        for step in steps
+        if step.get("displayName") == "Publish Content Understanding notebook evidence"
+    )
     assert steps.index(ordinary) < steps.index(credentials) < steps.index(live)
+    assert steps.index(live) < steps.index(notebook) < steps.index(evidence)
     assert credentials["inputs"] == {
         "azureSubscription": "SynapseML Build",
         "keyVaultName": "mmlspark-build-keys",
         "SecretsFilter": "openai-api-key-3",
     }
-    for step in (credentials, live):
+    for step in (credentials, live, notebook):
         condition = step["condition"]
         assert "succeeded()" in condition
         assert "eq(variables['PACKAGE'], 'cognitive')" in condition
@@ -137,6 +149,26 @@ def test_cu_live_validation_reuses_shared_foundry_and_existing_pr_approval():
     )
     assert "python tools/ci/run_content_understanding_e2e.py" in live["bash"]
     assert "retryCountOnTaskFailure" not in live
+    assert "retryCountOnTaskFailure" not in notebook
+    assert "python tools/ci/run_content_understanding_notebook.py" in notebook["bash"]
+    assert (
+        notebook["env"]["CONTENT_UNDERSTANDING_API_KEY"]
+        == live["env"]["CONTENT_UNDERSTANDING_API_KEY"]
+    )
+    assert (
+        notebook["env"]["CONTENT_UNDERSTANDING_ENDPOINT"]
+        == live["env"]["CONTENT_UNDERSTANDING_ENDPOINT"]
+    )
+    assert notebook["env"]["CONTENT_UNDERSTANDING_OUTPUT_PATH"] == (
+        "$(Agent.TempDirectory)/cu-semantic-notebook"
+    )
+    assert evidence["task"] == "PublishPipelineArtifact@1"
+    assert "succeededOrFailed()" in evidence["condition"]
+    assert "eq(variables['PACKAGE'], 'cognitive')" in evidence["condition"]
+    assert "eq(variables['cuNotebookEvidenceReady'], 'true')" in evidence["condition"]
+    assert evidence["inputs"]["targetPath"] == (
+        "$(Build.SourcesDirectory)/target/cu-semantic-notebook"
+    )
     assert "CONTENT_UNDERSTANDING_API_KEY" not in ordinary.get("env", {})
 
 

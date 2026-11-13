@@ -42,6 +42,25 @@ approved-fork build policy. No shared defaults or model deployments were changed
 Live CU endpoint/analyzer readiness, packaged live behavior, and the complete
 Azure pipeline remain unverified until the requested build runs.
 
+### Semantic notebook CI follow-up
+
+The same cognitive lane now includes a separate step executing the semantic
+notebook's actual code cells, followed by recovery from saved handles in a fresh
+namespace. Before service requests it verifies installed wheel contents and
+loaded packaged JARs against the build outputs. Its redacted evidence records
+commit/artifact/runtime provenance, actual semantic values and grounding, and
+the recovery outcome. This notebook creates its own uniquely named analyzer;
+it does not modify shared model defaults or retry the whole workload.
+
+Offline validation passed 170 CI helper tests with 9 platform skips, then 47
+runner/wiring tests with 9 platform skips after final hardening. The actual
+notebook regressions passed 4 tests and 22 subtests; the changed runner/runtime
+reflection path subsequently passed its focused Spark regression. The loopback
+runner observed exactly one submission and one analyzer creation across initial
+execution and recovery. Changed Python formatting and whitespace checks passed.
+These are offline results, not live semantic-extraction evidence. No additional
+automated review round was launched.
+
 ## Historical case-class parameter inspection correction
 
 The follow-up to commit `8ff7754af5425d393ef706cc1312cb10ab5f4580` makes
