@@ -15,7 +15,7 @@ import java.io.File
 import java.util.UUID
 import scala.collection.JavaConverters._
 
-private[contentunderstanding] class FabricContentUnderstandingTestStage(
+private[contentunderstanding] class TestableFabricContentUnderstanding(
     trustedRoot: String,
     rejectTokenLookup: Boolean = false,
     rejectTokenRefresh: Boolean = false) extends ContentUnderstanding("fabric-cu-test") {
@@ -51,7 +51,7 @@ class ContentUnderstandingFabricSuite extends TestBase {
     ContentUnderstandingResponse.makeFromRowConverter(transformer.transform(input).collect().head.getAs[Row]("result"))
 
   private def fabricStage(server: ContentUnderstandingStub, rejectTokenLookup: Boolean = false): ContentUnderstanding =
-    new FabricContentUnderstandingTestStage(server.endpoint + fabricRootPath, rejectTokenLookup)
+    new TestableFabricContentUnderstanding(server.endpoint + fabricRootPath, rejectTokenLookup)
       .setDocumentBytes(Array[Byte](1)).setPollingDelay(0).setMaxPollAttempts(3)
       .setOutputCol("result").setErrorCol("error")
 
@@ -108,7 +108,7 @@ class ContentUnderstandingFabricSuite extends TestBase {
 
   test("a failed Fabric token refresh preserves accepted handles for transform and writer recovery") {
     withReplies(Seq(fabricAccepted, ContentUnderstandingStubReply(HttpStatus.SC_UNAUTHORIZED, "{}"))) { server =>
-      val transformer = new FabricContentUnderstandingTestStage(server.endpoint + fabricRootPath,
+      val transformer = new TestableFabricContentUnderstanding(server.endpoint + fabricRootPath,
         rejectTokenRefresh = true).setDocumentBytes(Array[Byte](1)).setPollingDelay(0)
         .setOutputCol("result").setErrorCol("error")
       val result = resultOf(transformer)
@@ -121,7 +121,7 @@ class ContentUnderstandingFabricSuite extends TestBase {
       ContentUnderstandingStubReply(HttpStatus.SC_OK, succeeded))) { server =>
       val destination = new File("cu-fabric-auth-test-" + UUID.randomUUID().toString)
       try {
-        val transformer = new FabricContentUnderstandingTestStage(server.endpoint + fabricRootPath,
+        val transformer = new TestableFabricContentUnderstanding(server.endpoint + fabricRootPath,
           rejectTokenRefresh = true).setDocumentBytes(Array[Byte](1)).setPollingDelay(0)
           .setOutputCol("result").setErrorCol("error")
         val failure = intercept[ContentUnderstandingException] {

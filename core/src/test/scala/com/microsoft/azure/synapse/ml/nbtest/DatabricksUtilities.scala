@@ -268,6 +268,8 @@ object DatabricksUtilities {
     // Opt-in model calls are qualified separately from automatic notebook jobs.
     .filterNot(_.getName == "AIPrompt.ipynb")
     .filterNot(_.getName == "Quickstart - Durable AI results.ipynb")
+    // These require explicit Foundry credentials or the Fabric-managed notebook context.
+    .filterNot(_.getName.startsWith("Quickstart - Content Understanding"))
 
   // Split CPU notebooks into 5 partitions for parallel ADO matrix jobs.
   // Each partition creates its own cluster, so all 5 run simultaneously.
