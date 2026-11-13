@@ -7,8 +7,8 @@ import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import org.apache.http.client.methods.{HttpGet, HttpPost, HttpRequestBase}
 import org.apache.http.util.EntityUtils
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.types.ArrayType
-import org.apache.spark.sql.types.StructType
+import org.apache.spark.sql.functions.{from_json, lit}
+import org.apache.spark.sql.types.{ArrayType, DataType, StructType}
 import spray.json._
 
 import java.net.URLDecoder
@@ -51,6 +51,10 @@ private[translate] class TestableLanguages extends Languages {
 class TextTranslatorCoreSuite extends TestBase {
 
   import spark.implicits._
+
+  private def parsedResponseType(schema: DataType): DataType =
+    spark.range(0).select(from_json(lit("null"), schema, Map.empty[String, String]).as("response"))
+      .schema("response").dataType
 
   private def toQueryMap(request: HttpRequestBase): Map[String, String] = {
     Option(request.getURI.getRawQuery).toSeq.flatMap(_.split("&")).map { kv =>
@@ -268,7 +272,7 @@ class TextTranslatorCoreSuite extends TestBase {
 
     val schema = t.transformSchema(input.schema)
     assert(schema.fieldNames.toSet == Set("text", "toLanguage", "translation", "translationError"))
-    assert(schema("translation").dataType == ArrayType(TranslateResponse.schema))
+    assert(schema("translation").dataType == parsedResponseType(ArrayType(TranslateResponse.schema)))
   }
 
   test("translate validates required parameters during schema creation") {
@@ -500,7 +504,8 @@ class TextTranslatorCoreSuite extends TestBase {
       .setErrorCol("transliterationError")
       .transformSchema(textOnly.schema)
     assert(transliterateSchema.fieldNames.toSet == Set("text", "transliteration", "transliterationError"))
-    assert(transliterateSchema("transliteration").dataType == ArrayType(TransliterateResponse.schema))
+    assert(transliterateSchema("transliteration").dataType ==
+      parsedResponseType(ArrayType(TransliterateResponse.schema)))
 
     val detectSchema = new Detect()
       .setTextCol("text")
@@ -508,7 +513,7 @@ class TextTranslatorCoreSuite extends TestBase {
       .setErrorCol("detectionError")
       .transformSchema(textOnly.schema)
     assert(detectSchema.fieldNames.toSet == Set("text", "detection", "detectionError"))
-    assert(detectSchema("detection").dataType == ArrayType(DetectResponse.schema))
+    assert(detectSchema("detection").dataType == parsedResponseType(ArrayType(DetectResponse.schema)))
 
     val breakSentenceSchema = new BreakSentence()
       .setTextCol("text")
@@ -516,7 +521,8 @@ class TextTranslatorCoreSuite extends TestBase {
       .setErrorCol("breakError")
       .transformSchema(textOnly.schema)
     assert(breakSentenceSchema.fieldNames.toSet == Set("text", "sentenceBreaks", "breakError"))
-    assert(breakSentenceSchema("sentenceBreaks").dataType == ArrayType(BreakSentenceResponse.schema))
+    assert(breakSentenceSchema("sentenceBreaks").dataType ==
+      parsedResponseType(ArrayType(BreakSentenceResponse.schema)))
 
     val lookupSchema = new DictionaryLookup()
       .setTextCol("text")
@@ -526,7 +532,7 @@ class TextTranslatorCoreSuite extends TestBase {
       .setErrorCol("lookupError")
       .transformSchema(textOnly.schema)
     assert(lookupSchema.fieldNames.toSet == Set("text", "lookup", "lookupError"))
-    assert(lookupSchema("lookup").dataType == ArrayType(DictionaryLookupResponse.schema))
+    assert(lookupSchema("lookup").dataType == parsedResponseType(ArrayType(DictionaryLookupResponse.schema)))
 
     val examplesSchema = new DictionaryExamples()
       .setTextAndTranslationCol("textAndTranslation")
@@ -536,7 +542,7 @@ class TextTranslatorCoreSuite extends TestBase {
       .setErrorCol("examplesError")
       .transformSchema(textAndTranslationOnly.schema)
     assert(examplesSchema.fieldNames.toSet == Set("textAndTranslation", "examples", "examplesError"))
-    assert(examplesSchema("examples").dataType == ArrayType(DictionaryExamplesResponse.schema))
+    assert(examplesSchema("examples").dataType == parsedResponseType(ArrayType(DictionaryExamplesResponse.schema)))
   }
 
   test("non-translate classes validate required parameters during schema creation") {

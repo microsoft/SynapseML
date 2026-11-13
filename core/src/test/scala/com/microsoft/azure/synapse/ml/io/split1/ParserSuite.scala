@@ -10,8 +10,8 @@ import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml.Transformer
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.functions.{col, udf}
-import org.apache.spark.sql.types.{StringType, StructType}
-import org.apache.spark.sql.{DataFrame, SparkSession}
+import org.apache.spark.sql.types.{ArrayType, MapType, StringType, StructType}
+import org.apache.spark.sql.{DataFrame, Row, SparkSession}
 
 trait ParserUtils extends WithServer {
 
@@ -53,6 +53,26 @@ class JsonInputParserSuite extends TransformerFuzzing[JSONInputParser] with Pars
 }
 
 class JsonOutputParserSuite extends TransformerFuzzing[JSONOutputParser] with ParserUtils {
+  test("declared JSON schema matches nullable parsed fields and nested containers") {
+    val requiredValue = new StructType().add("value", StringType, nullable = false)
+    val outputType = new StructType()
+      .add("foo", StringType, nullable = false)
+      .add("items", ArrayType(requiredValue, containsNull = false), nullable = false)
+      .add("lookup", MapType(StringType, requiredValue, valueContainsNull = false), nullable = false)
+    val parser = new JSONOutputParser()
+      .setInputCol("unparsedOutput")
+      .setOutputCol("out")
+      .setDataType(outputType)
+    val input = sampleDf(spark)
+    val result = parser.transform(input)
+
+    assert(parser.transformSchema(input.schema) == result.schema)
+    val parsed = result.head().getAs[Row]("out")
+    assert(parsed.getAs[String]("foo") == "here")
+    assert(parsed.isNullAt(parsed.fieldIndex("items")))
+    assert(parsed.isNullAt(parsed.fieldIndex("lookup")))
+  }
+
   override def testObjects(): Seq[TestObject[JSONOutputParser]] = makeTestObject(
     new JSONOutputParser().setInputCol("unparsedOutput").setOutputCol("out")
       .setDataType(new StructType().add("foo", StringType)), spark)

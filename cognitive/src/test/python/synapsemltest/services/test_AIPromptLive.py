@@ -1,16 +1,30 @@
 # Copyright (C) Microsoft Corporation. All rights reserved.
 # Licensed under the MIT License. See LICENSE in project root for information.
 
-"""Opt-in inference with synthetic data and environment-only credentials."""
+"""Opt-in inference with synthetic data and environment-only credentials.
+
+Generative tests use SYNAPSEML_GENERATIVE_{ENDPOINT,V1_ENDPOINT,DEPLOYMENT}
+and TOKEN or KEY. ENDPOINT exercises facade resource-root routing; V1_ENDPOINT
+is the explicit v1 base used by the standalone classes. Embedding tests use
+SYNAPSEML_EMBEDDING_{ENDPOINT,DEPLOYMENT} and TOKEN or KEY, with an explicit
+v1 base and a deployment supporting the dimensions parameter.
+"""
 
 import json
+import math
 import os
 import unittest
 
+from pyspark.ml.linalg import Vector
 from pyspark.sql import SparkSession
 from synapse.ml.core.init_spark import init_spark
 from synapse.ml.services.ai import AIPrompt, AISystemOne
-from synapse.ml.services.openai import OpenAIDecisions
+from synapse.ml.services.openai import (
+    OpenAIChatCompletion,
+    OpenAIDecisions,
+    OpenAIEmbedding,
+    OpenAIResponses,
+)
 
 
 SYSTEM_QUESTIONS = {
@@ -128,6 +142,142 @@ class TestAIPromptLive(unittest.TestCase):
 
     def test_live_responses_default_v1_structured_output(self):
         self._run_generative("responses")
+
+    def _run_direct_generative(self, api, stage_type):
+        prefix = "SYNAPSEML_GENERATIVE"
+        endpoint = os.environ.get(prefix + "_V1_ENDPOINT", "").strip()
+        deployment = os.environ.get(prefix + "_DEPLOYMENT", "").strip()
+        token = os.environ.get(prefix + "_TOKEN", "").strip()
+        key = os.environ.get(prefix + "_KEY", "").strip()
+        if not (endpoint and deployment and (token or key)):
+            self.skipTest(
+                "Live generative v1 endpoint, deployment and credentials are not configured"
+            )
+        spark = SparkSession.getActiveSession() or init_spark()
+        dataset = spark.createDataFrame(
+            [
+                (
+                    [
+                        ("system", "Return the country's capital as a JSON object."),
+                        ("user", "What is the capital of France?"),
+                    ],
+                    0.0,
+                    100,
+                )
+            ],
+            "messages ARRAY<STRUCT<role:STRING,content:STRING>>, "
+            "temperature DOUBLE, tokens INT",
+        )
+        stage = (
+            stage_type()
+            .setUrl(endpoint)
+            .setDeploymentName(deployment)
+            .setMessagesCol("messages")
+            .setTemperatureCol("temperature")
+            .setMaxTokensCol("tokens")
+            .setResponseSchema(
+                {
+                    "type": "object",
+                    "properties": {"capital": {"type": "string"}},
+                    "required": ["capital"],
+                    "additionalProperties": False,
+                }
+            )
+            .setOutputCol("answer")
+            .setErrorCol("error")
+            .setConcurrency(1)
+            .setTimeout(120)
+        )
+        if api == "responses":
+            stage.setStore(False)
+        if token:
+            stage.setAADToken(token)
+        else:
+            stage.setSubscriptionKey(key)
+        result = stage.transform(dataset)
+        expected = stage._java_obj.transformSchema(dataset._jdf.schema()).json()
+        self.assertEqual(json.loads(result.schema.json()), json.loads(expected))
+        row = result.head()
+        self.assertIsNone(row.error, "Live standalone inference returned an error")
+        self.assertTrue(row.answer.model)
+        self.assertIsNotNone(row.answer.usage)
+        if api == "chat_completions":
+            answer = row.answer.choices[0].message.content
+        else:
+            self.assertTrue(row.answer.output)
+            for item in row.answer.output:
+                self.assertEqual(item.status, "completed")
+            answer = "".join(
+                part.text
+                for item in row.answer.output
+                for part in item.content
+                if part.type == "output_text"
+            )
+        self.assertEqual(json.loads(answer)["capital"], "Paris")
+
+    def test_live_chat_standalone_structured_output(self):
+        self._run_direct_generative("chat_completions", OpenAIChatCompletion)
+
+    def test_live_responses_standalone_structured_output(self):
+        self._run_direct_generative("responses", OpenAIResponses)
+
+    def _run_embedding(self, direct):
+        prefix = "SYNAPSEML_EMBEDDING"
+        endpoint = os.environ.get(prefix + "_ENDPOINT", "").strip()
+        deployment = os.environ.get(prefix + "_DEPLOYMENT", "").strip()
+        token = os.environ.get(prefix + "_TOKEN", "").strip()
+        key = os.environ.get(prefix + "_KEY", "").strip()
+        if not (endpoint and deployment and (token or key)):
+            self.skipTest(
+                "Live embedding endpoint, deployment and credentials are not configured"
+            )
+        spark = SparkSession.getActiveSession() or init_spark()
+        dataset = spark.createDataFrame(
+            [(1, "The capital of France is Paris."), (2, None)],
+            "id INT, text STRING",
+        )
+        stage = OpenAIEmbedding() if direct else AIPrompt().setApiType("embeddings")
+        stage.setUrl(endpoint).setDeploymentName(deployment).setTextCol("text")
+        stage.setDimensions(32).setOutputCol("embedding").setErrorCol("error")
+        stage.setUsageCol("usage").setConcurrency(1).setTimeout(120)
+        if not direct:
+            stage.setRawResponseCol("raw")
+        if token:
+            stage.setAADToken(token)
+        else:
+            stage.setSubscriptionKey(key)
+        result = stage.transform(dataset).cache()
+        try:
+            expected = stage._java_obj.transformSchema(dataset._jdf.schema()).json()
+            self.assertEqual(json.loads(result.schema.json()), json.loads(expected))
+            rows = {row.id: row for row in result.collect()}
+            self.assertIsNone(
+                rows[1].error, "Live embedding inference returned an error"
+            )
+            self.assertIsInstance(rows[1].embedding, Vector)
+            self.assertEqual(len(rows[1].embedding), 32)
+            self.assertTrue(all(math.isfinite(value) for value in rows[1].embedding))
+            self.assertGreater(rows[1].embedding.norm(2), 0)
+            self.assertIsNotNone(rows[1].usage)
+            self.assertIsNone(rows[2].embedding)
+            self.assertIsNone(rows[2].usage)
+            if not direct:
+                raw = json.loads(rows[1].raw)
+                self.assertEqual(list(rows[1].embedding), raw["data"][0]["embedding"])
+                self.assertEqual(
+                    json.loads(rows[2].error.response)["code"], "missing_input"
+                )
+            pandas = result.toPandas().set_index("id")
+            self.assertEqual(list(pandas.loc[1, "embedding"]), list(rows[1].embedding))
+            self.assertIsNone(pandas.loc[2, "embedding"])
+        finally:
+            result.unpersist()
+
+    def test_live_embedding_standalone_vector(self):
+        self._run_embedding(direct=True)
+
+    def test_live_embedding_facade_vector(self):
+        self._run_embedding(direct=False)
 
     def _run_native(self, api, direct, prefix, model_setting, questions):
         def configured(name):

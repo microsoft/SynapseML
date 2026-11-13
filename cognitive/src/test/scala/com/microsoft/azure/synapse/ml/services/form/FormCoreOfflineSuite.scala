@@ -9,7 +9,8 @@ import org.apache.http.client.utils.URLEncodedUtils
 import org.apache.http.entity.AbstractHttpEntity
 import org.apache.http.util.EntityUtils
 import org.apache.spark.sql.Row
-import org.apache.spark.sql.types.{ArrayType, DoubleType, StringType, StructField, StructType}
+import org.apache.spark.sql.functions.{from_json, lit}
+import org.apache.spark.sql.types.{ArrayType, DataType, DoubleType, StringType, StructField, StructType}
 import spray.json.DefaultJsonProtocol._
 import spray.json._
 
@@ -18,6 +19,10 @@ import java.nio.charset.StandardCharsets
 import scala.collection.JavaConverters._
 
 class FormCoreOfflineSuite extends TestBase {
+
+  private def parsedResponseType(schema: DataType): DataType =
+    spark.range(0).select(from_json(lit("null"), schema, Map.empty[String, String]).as("response"))
+      .schema("response").dataType
 
   private class ExposedAnalyzeLayout(uid: String) extends AnalyzeLayout(uid) {
     def requestEntity(row: Row): Option[AbstractHttpEntity] = prepareEntity(row)
@@ -131,7 +136,7 @@ class FormCoreOfflineSuite extends TestBase {
       .setOutputCol("documentResult")
       .setErrorCol("documentError")
       .transformSchema(inputSchema)
-    assert(analyzeDocumentSchema("documentResult").dataType == AnalyzeDocumentResponse.schema)
+    assert(analyzeDocumentSchema("documentResult").dataType == parsedResponseType(AnalyzeDocumentResponse.schema))
     assert(analyzeDocumentSchema("documentError").dataType == ErrorUtils.ErrorSchema)
 
     val analyzeLayoutSchema = new AnalyzeLayout("analyze-layout-schema")
@@ -140,7 +145,7 @@ class FormCoreOfflineSuite extends TestBase {
       .setOutputCol("layoutResult")
       .setErrorCol("layoutError")
       .transformSchema(inputSchema)
-    assert(analyzeLayoutSchema("layoutResult").dataType == AnalyzeResponse.schema)
+    assert(analyzeLayoutSchema("layoutResult").dataType == parsedResponseType(AnalyzeResponse.schema))
     assert(analyzeLayoutSchema("layoutError").dataType == ErrorUtils.ErrorSchema)
   }
 
