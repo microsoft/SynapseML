@@ -62,6 +62,39 @@ def endpoint(response, exact_numbers=False):
 
 
 class TestAIPrompt(unittest.TestCase):
+    def test_facade_does_not_inherit_legacy_deployment_default(self):
+        for stage_type in (AIPrompt, AISystemOne, OpenAIDecisions):
+            with self.subTest(stage=stage_type.__name__):
+                stage = stage_type(model="selected-model", inputCol="text")
+                for candidate in (stage, stage.copy({})):
+                    self.assertFalse(candidate.isDefined(candidate.deploymentName))
+                    candidate._transfer_params_to_java()
+                    self.assertFalse(
+                        candidate._java_obj.isDefined(
+                            candidate._java_obj.deploymentName()
+                        )
+                    )
+                    self.assertEqual(candidate.getModel(), "selected-model")
+
+    def test_unsupported_typed_cache_controls_reject_after_copy_and_load(self):
+        data = spark.createDataFrame([("hello",)], "text STRING")
+        for api in ("chat_completions", "responses"):
+            with self.subTest(api=api), endpoint({}) as (
+                url,
+                requests,
+            ), tempfile.TemporaryDirectory() as directory:
+                stage = AIPrompt(
+                    apiType=api, url=url + "/v1", model="model", inputCol="text"
+                ).setPromptCacheOptions({"mode": "auto"})
+                path = str(Path(directory) / "stage")
+                stage.write().save(path)
+                for candidate in (stage, stage.copy({}), AIPrompt.load(path)):
+                    with self.assertRaisesRegex(
+                        IllegalArgumentException, "promptCacheOptions is not supported"
+                    ):
+                        candidate.transform(data)
+                self.assertEqual(requests, [])
+
     def test_http_framing_headers_reject_after_python_copy_and_persistence(self):
         data = spark.createDataFrame([("hello",)], "text STRING")
         for stage_type in (AIPrompt, AISystemOne, OpenAIDecisions):

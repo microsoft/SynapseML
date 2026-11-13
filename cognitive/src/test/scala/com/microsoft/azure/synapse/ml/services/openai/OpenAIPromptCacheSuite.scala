@@ -82,12 +82,11 @@ class OpenAIPromptCacheSuite extends TestBase {
   }
 
   test("Prompt preserves no-op Chat storage through copy save and load") {
-    spark
     Seq(false, true).foreach { explicitFalse =>
       val stage = new OpenAIPrompt().setApiType("chat_completions").setMessagesCol("messages")
       if (explicitFalse) stage.setStore(false)
       val path = tmpDir.resolve(s"chat-no-op-store-$explicitFalse").toString
-      stage.write.save(path)
+      stage.write.session(spark).save(path)
       Seq(stage, stage.copy(ParamMap.empty).asInstanceOf[OpenAIPrompt], OpenAIPrompt.load(path))
         .foreach(candidate => assert(!payload(candidate, requestRow()).fields.contains("store")))
     }
@@ -111,13 +110,12 @@ class OpenAIPromptCacheSuite extends TestBase {
   }
 
   test("Foundry Prompt preserves no-op storage through copy save and load") {
-    spark
     Seq(false, true).foreach { explicitFalse =>
       val stage = new OpenAIPrompt().setModel("foundry-model")
         .setUrl("https://example.services.ai.azure.com").setMessagesCol("messages")
       if (explicitFalse) stage.setStore(false)
       val path = tmpDir.resolve(s"foundry-store-$explicitFalse").toString
-      stage.write.save(path)
+      stage.write.session(spark).save(path)
       Seq(stage, stage.copy(org.apache.spark.ml.param.ParamMap.empty).asInstanceOf[OpenAIPrompt],
         OpenAIPrompt.load(path)).foreach { candidate =>
         val body = payload(candidate, requestRow()).fields
@@ -271,7 +269,6 @@ class OpenAIPromptCacheSuite extends TestBase {
   }
 
   test("new model controls survive Prompt copy save and load for both APIs") {
-    spark
     Seq("chat_completions", "responses").foreach { api =>
       val stage = new OpenAIPrompt().setMessagesCol("messages").setApiType(api)
         .setPromptCacheKey("key").setPromptCacheRetention("24h").setServiceTier("default")
@@ -286,7 +283,7 @@ class OpenAIPromptCacheSuite extends TestBase {
       }
       val expected = payload(stage, requestRow())
       val path = tmpDir.resolve(s"model-controls-$api").toString
-      stage.copy(org.apache.spark.ml.param.ParamMap.empty).asInstanceOf[OpenAIPrompt].write.save(path)
+      stage.copy(ParamMap.empty).asInstanceOf[OpenAIPrompt].write.session(spark).save(path)
       assert(payload(OpenAIPrompt.load(path), requestRow()) == expected)
     }
   }

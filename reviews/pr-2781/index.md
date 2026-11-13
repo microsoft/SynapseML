@@ -1,5 +1,36 @@
 # Review evidence for PR #2781
 
+## Rebase refresh onto the unified AI API
+
+The refreshed source integrates master
+`33200c265adf16d10272e6abcac00f6aa9dccb32`, including its unified
+`AIPrompt` facade and companion request encoders. Shared breakpoint validation
+remains available to both encoders without removing the existing protected
+method. Facade operation-specific model selection is preserved, newly
+inherited unsupported controls fail before HTTP, and documented cache
+extensions still use `extraBody`.
+
+The two remaining Low test-quality findings from the incomplete final review
+are addressed: persistence writers explicitly bind the test Spark session,
+and legacy-URL coverage uses a deployment distinct from the fallback.
+Scala and generated-Python regressions cover the integration, including
+copy/save/load and both text HTTP routes. The first new Responses loopback
+fixture omitted its required assistant role; that fixture was corrected
+without weakening the decoder or changing production behavior.
+
+The PR description records the refreshed revision and its local evidence.
+Earlier CI, automated reviews, live-service results, and test counts below
+apply only to their original revisions. All original review files are retained;
+none were pruned during the history rewrite.
+
+The owner's explicit waiver of further full pre-commit passes is retained.
+It does not qualify the incomplete final review or waive current-head CI,
+the separate final CI-qualified review, persistence assessment, or human
+approval. The old-head CI grant is not reused for this rebase. No clean final
+review or merge-readiness claim is made.
+
+All following sections are historical records.
+
 ## Focused CI follow-up: serializer fixture discovery
 
 CI on `969f36cc946ba1ac12762cff8400b8deb168375e` identified two

@@ -5,13 +5,13 @@ package com.microsoft.azure.synapse.ml.services.ai
 
 import com.microsoft.azure.synapse.ml.core.contracts.HasInputCol
 import com.microsoft.azure.synapse.ml.param.ServiceParam
-import com.microsoft.azure.synapse.ml.services.HasServiceParams
 import com.microsoft.azure.synapse.ml.services.ai.AIJson.AnyFormat
+import com.microsoft.azure.synapse.ml.services.openai.HasOpenAIModelParams
 import org.apache.spark.ml.param.{Param, ParamValidators}
 import spray.json.DefaultJsonProtocol._
 import spray.json.{JsObject, JsValue}
 
-trait AIPromptParams extends HasServiceParams with HasInputCol {
+trait AIPromptParams extends HasOpenAIModelParams with HasInputCol {
   val extraBody: ServiceParam[Map[String, Any]] = new AIJson.ObjectParam(
     this, "extraBody",
     "Provider-owned JSON body extension; cannot override explicit typed options or request identity.", "extraBody") {
@@ -75,14 +75,14 @@ trait AIPromptParams extends HasServiceParams with HasInputCol {
   def setDimensionsCol(value: String): this.type = setVectorParam(dimensions, value)
   def getDimensionsCol: String = getVectorParam(dimensions)
 
-  val safetyIdentifier: ServiceParam[String] = new ServiceParam[String](
+  override val safetyIdentifier: ServiceParam[String] = new ServiceParam[String](
     this, "safetyIdentifier", "Decisions safety_identifier.") {
     override val payloadName: String = "safety_identifier"
   }
-  def setSafetyIdentifier(value: String): this.type = setScalarParam(safetyIdentifier, value)
-  def getSafetyIdentifier: String = getScalarParam(safetyIdentifier)
-  def setSafetyIdentifierCol(value: String): this.type = setVectorParam(safetyIdentifier, value)
-  def getSafetyIdentifierCol: String = getVectorParam(safetyIdentifier)
+  override def setSafetyIdentifier(value: String): this.type = setScalarParam(safetyIdentifier, value)
+  override def getSafetyIdentifier: String = getScalarParam(safetyIdentifier)
+  override def setSafetyIdentifierCol(value: String): this.type = setVectorParam(safetyIdentifier, value)
+  override def getSafetyIdentifierCol: String = getVectorParam(safetyIdentifier)
 
   val rawResponseCol: Param[String] = new Param[String](
     this, "rawResponseCol", "Complete response JSON, including unknown fields; never includes HTTP headers.")

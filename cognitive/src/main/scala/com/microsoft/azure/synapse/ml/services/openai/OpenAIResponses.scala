@@ -529,7 +529,7 @@ object OpenAIResponses extends ComplexParamsReadable[OpenAIResponses] {
       case _ => throw new IllegalArgumentException(s"$location must be an object")
     }
 
-    validatePromptCacheBreakpoint(fields, location)
+    OpenAIJsonUtils.validatePromptCacheBreakpoint(fields, location)
     fields.get("type") match {
       case Some("input_text") => validateInputTextPart(fields, location)
       case Some("input_image") => validateInputImagePart(fields, location)

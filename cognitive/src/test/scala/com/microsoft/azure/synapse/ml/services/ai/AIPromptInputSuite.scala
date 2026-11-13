@@ -37,6 +37,71 @@ class AIPromptInputSuite extends AIPromptTestBase {
     }
   }
 
+  test("facade model selection does not inherit the OpenAIPrompt text deployment fallback") {
+    val schema = new StructType().add("text", StringType)
+    Seq(new AIPrompt(), new AISystemOne(), new OpenAIDecisions(),
+      new AIPrompt().setApiType("embeddings")).foreach { stage =>
+      assert(!stage.isDefined(stage.deploymentName))
+      val configured = stage.setUrl("http://example.invalid/v1").setModel("selected-model").setInputCol("text")
+      assert(configured.copy(ParamMap.empty).effectiveCopy().getModel == "selected-model")
+      assert(!configured.effectiveCopy().isDefined(stage.deploymentName))
+    }
+    val embedding = new AIPrompt().setApiType("embeddings")
+      .setUrl("http://example.invalid/v1").setInputCol("text")
+    val error = intercept[IllegalArgumentException] { embedding.transformSchema(schema) }
+    assert(error.getMessage.contains("Set deploymentName/model"))
+  }
+
+  test("inherited OpenAI-only controls are rejected by the facade before HTTP") {
+    val options: Seq[(String, AIPrompt => AIPrompt)] = Seq(
+      "promptCacheOptions" -> (_.setPromptCacheOptions(Map("mode" -> "auto"))),
+      "promptCacheKey" -> (_.setPromptCacheKey("cache-key")),
+      "promptCacheRetention" -> (_.setPromptCacheRetention("24h")),
+      "serviceTier" -> (_.setServiceTier("default")),
+      "metadata" -> (_.setMetadata(Map("job" -> "test"))),
+      "reasoning" -> (_.setReasoning(Map("effort" -> "low"))),
+      "include" -> (_.setInclude(Seq("reasoning.encrypted_content"))),
+      "truncation" -> (_.setTruncation("disabled")),
+      "logitBias" -> (_.setLogitBias(Map("42" -> 1))),
+      "stopSequences" -> (_.setStopSequences(Seq("END"))),
+      "logProbsEnabled" -> (_.setLogProbsEnabled(true)),
+      "topLogProbs" -> (_.setTopLogProbs(2)))
+    val data = spark.range(1).select(lit("hello").as("text"), lit("value").as("option"))
+    Using.resource(new AIRecordingServer((_, _) => 200 -> chatReply)) { server =>
+      AIRequestAdapter.SupportedApis.foreach { api =>
+        options.foreach { case (name, configure) =>
+          val stage = configure(new AIPrompt().setApiType(api).setUrl(server.url + "/v1")
+            .setModel("model").setInputCol("text"))
+          Seq(stage, stage.copy(ParamMap.empty).set(stage.getParam(name), Right("option"))).foreach { candidate =>
+            val error = intercept[IllegalArgumentException] { candidate.transform(data).collect() }
+            assert(error.getMessage.contains(s"$name is not supported"))
+          }
+        }
+      }
+      assert(server.requests.isEmpty)
+    }
+  }
+
+  test("facade cache extensions still reach both public HTTP request routes") {
+    val responsesReply = """{"status":"completed","output":[{"type":"message","role":"assistant","content":[
+      |{"type":"output_text","text":"answer"}]}]}""".stripMargin
+    val data = spark.range(1).select(lit("hello").as("text"))
+    Seq("chat_completions" -> chatReply, "responses" -> responsesReply).foreach { case (api, reply) =>
+      Using.resource(new AIRecordingServer((_, _) => 200 -> reply)) { server =>
+        val stage = new AIPrompt().setApiType(api).setUrl(server.url + "/v1").setModel("model")
+          .setInputCol("text").setOutputCol("answer").setErrorCol("error")
+          .setExtraBody("""{"prompt_cache_key":"cache-key","prompt_cache_options":{"mode":"auto"}}""")
+        val row = stage.transform(data).head()
+        assert(row.getAs[Row]("error") == null, s"$api: ${row.getAs[Row]("error")}")
+        assert(row.getAs[String]("answer") == "answer")
+        val body = AIJson.objectString(server.requests.poll()._2)
+        assert(body.fields("prompt_cache_key") == JsString("cache-key"))
+        assert(body.fields("prompt_cache_options") == JsObject("mode" -> JsString("auto")))
+        assert(server.requests.isEmpty)
+      }
+    }
+  }
+
   test("null bound API versions produce row errors without requests on dated routes") {
     val previous = GlobalParams.getGlobalParam(OpenAIApiVersion)
     val data = spark.createDataFrame(

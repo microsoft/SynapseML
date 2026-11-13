@@ -276,13 +276,13 @@ class OpenAIV1EndpointSuite extends TestBase {
     Seq("https://example.openai.azure.com", "https://example.openai.azure.com/").foreach { baseUrl =>
       val transformer = new OpenAIChatCompletion()
         .setUrl(baseUrl)
-        .setDeploymentName("gpt-6-luna")
+        .setDeploymentName("custom-legacy-deployment")
         .setMessagesCol("messages")
         .setApiVersion("2025-04-01-preview")
 
       val row = messagesRow
       assert(requestUrl(transformer, row) ==
-        "https://example.openai.azure.com/openai/deployments/gpt-6-luna/chat/completions" +
+        "https://example.openai.azure.com/openai/deployments/custom-legacy-deployment/chat/completions" +
           "?api-version=2025-04-01-preview")
       assert(!requestPayload(transformer, row).fields.contains("model"))
     }

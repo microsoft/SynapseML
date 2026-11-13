@@ -424,7 +424,7 @@ object OpenAIChatCompletion extends ComplexParamsReadable[OpenAIChatCompletion] 
       case _ => throw new IllegalArgumentException(s"$location must be an object")
     }
 
-    validatePromptCacheBreakpoint(fields, location)
+    OpenAIJsonUtils.validatePromptCacheBreakpoint(fields, location)
     fields.get("type") match {
       case Some("text") => validateTextPart(fields, location)
       case Some("image_url") => validateImageUrlPart(fields, location)

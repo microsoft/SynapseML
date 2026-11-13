@@ -40,7 +40,12 @@ trait HasMessagesInput extends Params {
 
   def setMessagesCol(v: String): this.type = set(messagesCol, v)
 
-  protected def validatePromptCacheBreakpoint(part: Map[String, Any], location: String): Unit = {
+  protected def validatePromptCacheBreakpoint(part: Map[String, Any], location: String): Unit =
+    OpenAIJsonUtils.validatePromptCacheBreakpoint(part, location)
+}
+
+private[openai] object OpenAIJsonUtils {
+  def validatePromptCacheBreakpoint(part: Map[String, Any], location: String): Unit = {
     part.get("prompt_cache_breakpoint").foreach {
       case marker: scala.collection.Map[_, _] =>
         val markerLocation = s"$location.prompt_cache_breakpoint"
@@ -57,9 +62,7 @@ trait HasMessagesInput extends Params {
           s"$location.prompt_cache_breakpoint must be an object; use a nested struct content schema")
     }
   }
-}
 
-private[openai] object OpenAIJsonUtils {
   def normalizeValue(value: Any, paramName: String): Any = value match {
     case number: Double =>
       require(java.lang.Double.isFinite(number), s"$paramName numbers must be finite.")
