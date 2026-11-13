@@ -119,6 +119,14 @@ def test_cu_live_validation_reuses_shared_foundry_and_existing_pr_approval():
     ordinary = next(
         step for step in steps if step.get("displayName") == "Test Python Code"
     )
+    packaging = next(
+        step for step in steps if step.get("displayName") == "Install and package deps"
+    )
+    snapshot = next(
+        step
+        for step in steps
+        if step.get("displayName") == "Record CU packaged JARs before coverage rebuild"
+    )
     notebook = next(
         step
         for step in steps
@@ -130,6 +138,12 @@ def test_cu_live_validation_reuses_shared_foundry_and_existing_pr_approval():
         for step in steps
         if step.get("displayName") == "Publish Content Understanding notebook evidence"
     )
+    assert steps.index(packaging) < steps.index(snapshot) < steps.index(ordinary)
+    assert "sbt publishM2" in packaging["bash"]
+    assert (
+        "python tools/ci/run_content_understanding_notebook.py --snapshot-jars"
+        in snapshot["bash"]
+    )
     assert steps.index(ordinary) < steps.index(credentials) < steps.index(live)
     assert steps.index(live) < steps.index(notebook) < steps.index(evidence)
     assert credentials["inputs"] == {
@@ -137,7 +151,7 @@ def test_cu_live_validation_reuses_shared_foundry_and_existing_pr_approval():
         "keyVaultName": "mmlspark-build-keys",
         "SecretsFilter": "openai-api-key-3",
     }
-    for step in (credentials, live, notebook):
+    for step in (snapshot, credentials, live, notebook):
         condition = step["condition"]
         assert "succeeded()" in condition
         assert "eq(variables['PACKAGE'], 'cognitive')" in condition

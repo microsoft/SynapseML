@@ -234,18 +234,69 @@ def test_wheel_verification_rejects_modified_installed_code(tmp_path, monkeypatc
         runner.verify_wheel(tmp_path, "core", name)
 
 
-def test_jar_verification_rejects_another_build(tmp_path):
-    expected = tmp_path / "cognitive/target/scala-2.12/synapseml-cognitive_2.12-1.0.jar"
-    expected.parent.mkdir(parents=True)
-    expected.write_bytes(b"packaged JVM bytes")
-    loaded = tmp_path / "cached.jar"
-    loaded.write_bytes(expected.read_bytes())
-    assert runner.verify_jar(tmp_path, "cognitive", "1.0", loaded.as_uri())[
-        "sha256"
-    ] == runner.sha256(expected)
+@pytest.fixture
+def packaged_jars(configured, monkeypatch):
+    for name in (
+        "CONTENT_UNDERSTANDING_ENDPOINT",
+        "CONTENT_UNDERSTANDING_API_KEY",
+        "CONTENT_UNDERSTANDING_OUTPUT_PATH",
+    ):
+        monkeypatch.delenv(name)
+    monkeypatch.setitem(
+        sys.modules, "synapse.ml.core", SimpleNamespace(__spark_package_version__="1.0")
+    )
+    monkeypatch.setattr(
+        runner.subprocess, "check_output", Mock(return_value="synthetic-build-commit\n")
+    )
+    paths = {}
+    for module in ("core", "cognitive"):
+        path = (
+            configured / f"{module}/target/scala-2.12/synapseml-{module}_2.12-1.0.jar"
+        )
+        path.parent.mkdir(parents=True)
+        path.write_bytes(b"published JVM bytes")
+        paths[module] = path
+    assert runner.snapshot_jars(configured) == 0
+    return configured, paths
+
+
+@pytest.mark.parametrize("module", ["core", "cognitive"])
+def test_jar_record_survives_coverage_rebuild_and_rejects_other_bytes(
+    packaged_jars, module
+):
+    root, paths = packaged_jars
+    built = paths[module]
+    original_hash = runner.sha256(built)
+    loaded = root / "cached.jar"
+    loaded.write_bytes(built.read_bytes())
+    built.write_bytes(b"later coverage-instrumented JVM bytes")
+    assert (
+        runner.verify_jar(root, module, "1.0", loaded.as_uri())["sha256"]
+        == original_hash
+    )
     loaded.write_bytes(b"another build")
     with pytest.raises(RuntimeError, match="differs from this build"):
-        runner.verify_jar(tmp_path, "cognitive", "1.0", loaded.as_uri())
+        runner.verify_jar(root, module, "1.0", loaded.as_uri())
+
+
+def test_jar_record_rejects_other_checkout(packaged_jars, monkeypatch):
+    root, paths = packaged_jars
+    monkeypatch.setenv("BUILD_SOURCEVERSION", "another-commit")
+    with pytest.raises(RuntimeError, match="another build source"):
+        runner.verify_jar(root, "core", "1.0", paths["core"].as_uri())
+    before = (root / runner.JAR_SNAPSHOT).read_bytes()
+    with pytest.raises(RuntimeError, match="checkout does not match"):
+        runner.snapshot_jars(root)
+    assert (root / runner.JAR_SNAPSHOT).read_bytes() == before
+
+
+def test_jar_record_rejects_other_version_or_missing_record(packaged_jars):
+    root, paths = packaged_jars
+    with pytest.raises(RuntimeError, match="version does not match"):
+        runner.verify_jar(root, "core", "2.0", paths["core"].as_uri())
+    (root / runner.JAR_SNAPSHOT).unlink()
+    with pytest.raises(FileNotFoundError):
+        runner.verify_jar(root, "core", "1.0", paths["core"].as_uri())
 
 
 def test_notebook_cell_failure_stops_before_later_side_effects(tmp_path):

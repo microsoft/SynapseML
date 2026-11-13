@@ -654,6 +654,12 @@ jobs:
         sbt publishM2
       displayName: 'Install and package deps'
       timeoutInMinutes: 40
+    - bash: |
+        set -e
+        source activate synapseml
+        python tools/ci/run_content_understanding_notebook.py --snapshot-jars
+      displayName: 'Record CU packaged JARs before coverage rebuild'
+      condition: and(succeeded(), eq(variables['PACKAGE'], 'cognitive'))
     - task: AzureCLI@2
       displayName: 'Test Python Code'
       retryCountOnTaskFailure: 1
