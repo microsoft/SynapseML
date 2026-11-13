@@ -136,6 +136,17 @@ def test_cu_diagnostic_mode_skips_every_normal_job():
     request = next(step for step in diagnostic["steps"] if "bash" in step)
     assert request["bash"] == "python3 -m tools.ci.diagnose_content_understanding"
     assert request["env"]["CONTENT_UNDERSTANDING_API_KEY"] == "$(openai-api-key-3)"
+    inspection = next(
+        step for step in diagnostic["steps"] if step.get("task") == "AzureCLI@2"
+    )
+    assert (
+        "parameters.inspectContentUnderstandingDeployments" in inspection["condition"]
+    )
+    assert "account deployment list" in inspection["inputs"]["inlineScript"]
+    assert "create" not in inspection["inputs"]["inlineScript"]
+    assert "ne('${{ parameters.inspectContentUnderstandingDeployments }}', true)" in (
+        request["condition"]
+    )
 
 
 def test_cu_live_validation_reuses_shared_foundry_and_existing_pr_approval():

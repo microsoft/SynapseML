@@ -55,6 +55,10 @@ parameters:
     displayName: Only diagnose CU analyzer creation (no build or tests)
     type: boolean
     default: false
+  - name: inspectContentUnderstandingDeployments
+    displayName: Inspect existing CU model deployments instead of creating an analyzer
+    type: boolean
+    default: false
   - name: fullTests
     displayName: Force all PR test families
     type: boolean
@@ -127,8 +131,34 @@ jobs:
         azureSubscription: 'SynapseML Build'
         keyVaultName: mmlspark-build-keys
         SecretsFilter: openai-api-key-3
+    - task: AzureCLI@2
+      displayName: 'Inspect existing CU model deployments'
+      condition: and(succeeded(), eq('${{ parameters.inspectContentUnderstandingDeployments }}', true))
+      inputs:
+        azureSubscription: 'SynapseML Build'
+        scriptType: bash
+        scriptLocation: inlineScript
+        inlineScript: |
+          set -euo pipefail
+          mkdir -p target/cu-analyzer-diagnostic
+          account=$(az cognitiveservices account list \
+            --query "[?properties.customSubDomainName=='synapseml-openai-3'].[name,resourceGroup]" -o tsv)
+          read -r account_name resource_group <<< "$account"
+          test -n "$account_name" && test -n "$resource_group"
+          az cognitiveservices account deployment list \
+            --name "$account_name" --resource-group "$resource_group" \
+            --query "[].{deployment:name,model:properties.model,state:properties.provisioningState}" \
+            -o json > target/cu-analyzer-diagnostic/deployments.json
+          cat target/cu-analyzer-diagnostic/deployments.json
     - bash: python3 -m tools.ci.diagnose_content_understanding
       displayName: 'Send notebook analyzer request and retain redacted diagnostics'
+      condition: and(succeeded(), ne('${{ parameters.inspectContentUnderstandingDeployments }}', true))
+      env:
+        CONTENT_UNDERSTANDING_ENDPOINT: https://synapseml-openai-3.services.ai.azure.com
+        CONTENT_UNDERSTANDING_API_KEY: $(openai-api-key-3)
+    - bash: python3 -m tools.ci.diagnose_content_understanding --inspect-models
+      displayName: 'Read CU defaults and supported analyzer models'
+      condition: and(succeeded(), eq('${{ parameters.inspectContentUnderstandingDeployments }}', true))
       env:
         CONTENT_UNDERSTANDING_ENDPOINT: https://synapseml-openai-3.services.ai.azure.com
         CONTENT_UNDERSTANDING_API_KEY: $(openai-api-key-3)

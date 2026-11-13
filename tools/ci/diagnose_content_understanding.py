@@ -1,5 +1,6 @@
 """Reproduce the notebook's analyzer-creation request without building Spark."""
 
+import argparse
 import ast
 import json
 import os
@@ -100,9 +101,50 @@ def diagnose(root: Path, output: Path, endpoint: str, key: str) -> int:
     return 0 if report["requestAccepted"] else 1
 
 
+def inspect_models(root: Path, output: Path, endpoint: str, key: str) -> int:
+    api_version, _, _ = notebook_request(root / NOTEBOOK, "inspection")
+    report = {"phase": "inspect-models"}
+    for name, path in (
+        ("defaults", "defaults"),
+        ("baseAnalyzer", "analyzers/prebuilt-document"),
+    ):
+        request = Request(
+            endpoint.rstrip("/")
+            + f"/contentunderstanding/{path}?api-version={api_version}",
+            headers={"Ocp-Apim-Subscription-Key": key},
+        )
+        try:
+            response = build_opener(NoRedirect()).open(request)
+        except HTTPError as error:
+            response = error
+        with response:
+            body = json.loads(response.read())
+            report[name] = {
+                "httpStatus": response.code,
+                **{
+                    field: body[field]
+                    for field in (
+                        "models",
+                        "supportedModels",
+                        "modelDeployments",
+                        "error",
+                    )
+                    if field in body
+                },
+            }
+    output.mkdir(parents=True, exist_ok=True)
+    text = redact(json.dumps(report, indent=2), key)
+    (output / "models.json").write_text(text + "\n", encoding="utf-8")
+    print(text)
+    return 0
+
+
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--inspect-models", action="store_true")
+    arguments = parser.parse_args()
     raise SystemExit(
-        diagnose(
+        (inspect_models if arguments.inspect_models else diagnose)(
             ROOT,
             ROOT / "target" / "cu-analyzer-diagnostic",
             os.environ.get("CONTENT_UNDERSTANDING_ENDPOINT", ""),
