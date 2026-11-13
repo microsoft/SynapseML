@@ -31,17 +31,15 @@ def notebook_request(notebook: Path, run_id: str) -> tuple:
                 and isinstance(node.targets[0], ast.Name)
             ):
                 assignments[node.targets[0].id] = node.value
-    analyzer_id = assignments["analyzer_id"]
-    if not (
-        isinstance(analyzer_id, ast.BinOp)
-        and isinstance(analyzer_id.op, ast.Add)
-        and isinstance(analyzer_id.right, ast.Name)
-        and analyzer_id.right.id == "run_id"
-    ):
-        raise ValueError("The notebook analyzer ID expression changed")
+    # Reuse notebook naming logic without executing its Spark configuration.
+    analyzer_id = eval(
+        compile(ast.Expression(assignments["analyzer_id"]), str(notebook), "eval"),
+        {"__builtins__": {}},
+        {"run_id": run_id},
+    )
     return (
         ast.literal_eval(assignments["api_version"]),
-        ast.literal_eval(analyzer_id.left) + run_id,
+        analyzer_id,
         ast.literal_eval(assignments["definition"]),
     )
 

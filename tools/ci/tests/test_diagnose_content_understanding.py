@@ -63,8 +63,9 @@ def test_notebook_request_and_redacted_response(tmp_path, capsys, status):
     path, actual_key, definition = requests[0]
     assert path.endswith("?api-version=2025-11-01&allowReplace=false")
     assert path.startswith(
-        "/contentunderstanding/analyzers/synapseml-purchase-order-ci-"
+        "/contentunderstanding/analyzers/synapseml_purchase_order_ci_"
     )
+    assert "-" not in path.split("?")[0].rsplit("/", 1)[1]
     assert actual_key == key
     assert definition == report["request"]["definition"]
     assert definition["baseAnalyzerId"] == "prebuilt-document"
