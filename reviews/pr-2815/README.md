@@ -31,6 +31,14 @@ Scala and shared-core jobs but failed the external HTTP smoke test and lost a fo
 test agent. Full PR validation, including coverage upload, still needs a clean run
 after these fixes. The guide/test follow-up changes no runtime or pipeline code.
 
+Final mainline integration rebased onto
+`45578f08e6bacf8475de0e92f1717e761d40f795` without conflicts; range-diff verified
+that all 22 PR patches remained unchanged. The rebased tree exactly matched
+GitHub's generated merge tree. Targeted integration validation passed all 16
+core JSON-parser/HTTP tests and all 236 cognitive form/translation/CU tests.
+The initially requested full build 246584511 was cancelled for this branch sync;
+it is not counted as validation.
+
 ## Historical Rana follow-up and mainline integration
 
 The current follow-up removes the generic JVM-backed `isSet`, `hasDefault`,
