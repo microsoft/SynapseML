@@ -780,6 +780,24 @@ class TestContentUnderstanding(unittest.TestCase):
         self.assert_semantic_notebook_run({"model": "deployment"})
 
     def test_semantic_notebook_ci_runner_recovers_without_resubmitting(self):
+        original_put = self.Handler.do_PUT
+
+        def put(handler):
+            analyzer_id = handler.path.split("?")[0].rsplit("/", 1)[1]
+            if "-" in analyzer_id:
+                handler.send_json(
+                    400,
+                    {
+                        "error": {
+                            "code": "InvalidAnalyzerId",
+                            "message": "The 'analyzerId' cannot contain '-'",
+                        }
+                    },
+                )
+                return
+            original_put(handler)
+
+        self.Handler.do_PUT = put
         self.assert_semantic_notebook_run({}, ci_runner=True)
 
     def test_semantic_notebook_ci_runner_retains_analyzer_service_error(self):
@@ -928,6 +946,7 @@ class TestContentUnderstanding(unittest.TestCase):
                 self.assertTrue(evidence["java"])
                 report = {}
                 runner["execute_notebook"](notebook, report)
+                self.assertEqual(report["runId"], "loopback-notebook")
                 self.assertEqual(
                     report["recovery"],
                     {"sameOperation": True, "sameFields": True, "status": "Succeeded"},
