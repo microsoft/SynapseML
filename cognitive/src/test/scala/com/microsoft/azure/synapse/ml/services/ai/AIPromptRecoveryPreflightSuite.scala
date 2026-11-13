@@ -27,6 +27,28 @@ class AIPromptRecoveryPreflightSuite extends AIPromptOutputTestBase {
 
   private def input: DataFrame = spark.createDataFrame(
     Seq(Row("hello")).asJava, new StructType().add("text", StringType))
+
+  test("durable facade rejects inherited typed cache controls before HTTP or storage") {
+    val settings: Seq[(String, AIPrompt => AIPrompt)] = Seq(
+      "promptCacheOptions" -> (_.setPromptCacheOptions(Map("mode" -> "auto"))),
+      "promptCacheKey" -> (_.setPromptCacheKey("cache-key")),
+      "promptCacheRetention" -> (_.setPromptCacheRetention("24h")))
+    Using.resource(new AIRecordingServer((_, _) => 200 -> chatReply)) { server =>
+      AIRequestAdapter.SupportedApis.foreach { api =>
+        settings.foreach { case (name, configure) =>
+          val root = path()
+          val stage = configure(new AIPrompt().setApiType(api).setUrl(server.url + "/v1")
+            .setModel("model").setInputCol("text").setOutputPath(root))
+          Seq(stage, stage.copy(ParamMap.empty).set(stage.getParam(name), Right("text"))).foreach { candidate =>
+            val error = intercept[IllegalArgumentException](candidate.transform(input))
+            assert(error.getMessage.contains(s"$name is not supported"))
+          }
+          assert(!Files.exists(java.nio.file.Paths.get(root)) && server.requests.isEmpty)
+        }
+      }
+    }
+  }
+
   Seq("chat_completions", "responses", "decisions").foreach { api =>
     test(s"$api explicit messages reject unused construction settings before HTTP or durable storage") {
       val data = input.selectExpr("text", "array(named_struct('role', 'user', 'content', text)) AS messages")

@@ -24,6 +24,43 @@ import scala.util.Using
 class AIPromptDurableBindingsSuite extends AIPromptOutputTestBase {
   private val chatReply = """{"choices":[{"index":0,"message":{"role":"assistant","content":"answer"}}]}"""
 
+  Seq("chat_completions", "responses").foreach { api =>
+    test(s"durable $api preserves cache extensions and rejects changed cache identity on resume") {
+      delta()
+      val data = spark.range(2).select(col("id").cast(StringType).as("text"))
+      val reply = if (api == "chat_completions") chatReply else {
+        """{"output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"answer"}]}]}"""
+      }
+      val extension = """{"prompt_cache_key":"cache-key","prompt_cache_options":{"mode":"auto"}}"""
+      Using.resource(new AIRecordingServer((_, _) => 200 -> reply)) { server =>
+        val root = path()
+        val stage = new AIPrompt().setApiType(api).setUrl(server.url + "/v1").setModel("model")
+          .setInputCol("text").setOutputCol("answer").setErrorCol("error")
+          .setExtraBody(extension).setOutputPath(root).setOutputBatchSize(1)
+        intercept[IllegalStateException] {
+          AIPromptOutput.transformObserved(stage, data, event =>
+            if (event == "batch_committed") throw new IllegalStateException("stop after committed batch"))
+        }
+        val status = AIPrompt.getOutputStatus(spark, root)
+        assert(status.committedCount == 1 && status.pendingCount == 1 && server.requests.size() == 1)
+        AIPrompt.releaseOutputOwner(spark, root, status.ownerToken.get, confirmStopped = true)
+        val changed = stage.copy(ParamMap.empty).setExtraBody(extension.replace("cache-key", "changed-key"))
+        assert(intercept[IllegalArgumentException](changed.resume(spark)).getMessage.contains("configuration"))
+        assert(server.requests.size() == 1 && AIPrompt.getOutputStatus(spark, root).ownerToken.isEmpty)
+        val rows = stage.copy(ParamMap.empty).resume(spark).collect()
+        assert(rows.length == 2 && rows.forall(_.getAs[String]("answer") == "answer"))
+        assert(rows.forall(_.getAs[Row]("error") == null))
+        assert(AIPrompt.loadOutput(spark, root).collect().toSet == rows.toSet && server.requests.size() == 2)
+        server.requests.asScala.foreach { case (_, body) =>
+          val fields = AIJson.objectString(body).fields
+          assert(fields("prompt_cache_key") == JsString("cache-key"))
+          assert(fields("prompt_cache_options") == JsObject("mode" -> JsString("auto")))
+        }
+        assert(AIPrompt.getOutputStatus(spark, root).allSucceeded)
+      }
+    }
+  }
+
   test("durable custom URL roots ignore unrelated global endpoint changes during recovery") {
     delta()
     val previous = GlobalParams.getGlobalParam(URLKey)
