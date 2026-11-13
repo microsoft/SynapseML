@@ -1060,6 +1060,10 @@ class TestContentUnderstanding(unittest.TestCase):
         creation = creations[0]
         self.assertNotIn("modelDeployments", creation)
         self.assertEqual(creation["baseAnalyzerId"], "prebuilt-document")
+        self.assertEqual(
+            creation["models"],
+            {"completion": "gpt-4.1", "embedding": "text-embedding-3-large"},
+        )
         self.assertTrue(creation["config"]["estimateFieldSourceAndConfidence"])
         self.assertEqual(
             creation["fieldSchema"]["fields"]["OrderSummary"]["method"], "generate"

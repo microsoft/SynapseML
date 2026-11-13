@@ -5,7 +5,9 @@ import json
 import os
 import uuid
 from pathlib import Path
+from time import sleep
 from urllib.error import HTTPError
+from urllib.parse import urljoin, urlsplit
 from urllib.request import Request, build_opener
 
 from tools.ci.run_content_understanding_notebook import (
@@ -20,11 +22,43 @@ from tools.ci.run_content_understanding_notebook import (
 )
 
 
+def poll_provisioning(
+    url: str, key: str, retry_after: str | None, report: dict
+) -> bool:
+    report["pollCount"] = 0
+    while True:
+        sleep(int(retry_after) if retry_after and retry_after.isdigit() else 5)
+        request = Request(url, headers={"Ocp-Apim-Subscription-Key": key})
+        report["pollCount"] += 1
+        try:
+            response = build_opener(NoRedirect()).open(
+                request, timeout=HTTP_TIMEOUT_SECONDS
+            )
+        except HTTPError as error:
+            response = error
+        with response:
+            report["provisioning"] = {
+                "httpStatus": response.code,
+                "requestId": response.headers.get("apim-request-id")
+                or response.headers.get("x-ms-request-id"),
+            }
+            body = json.loads(response.read())
+            report["provisioning"]["status"] = body.get("status")
+            report["serviceError"] = body.get("error")
+            status = str(body.get("status", "")).lower()
+            if response.code != 200 or report["serviceError"]:
+                return False
+            if status not in ("running", "notstarted"):
+                return status == "succeeded"
+            retry_after = response.headers.get("Retry-After")
+
+
 def diagnose(root: Path, output: Path, endpoint: str, key: str) -> int:
     report = {
         "sourceCommit": os.environ.get("BUILD_SOURCEVERSION"),
         "phase": "create-analyzer",
         "requestAccepted": False,
+        "provisioningSucceeded": False,
     }
     cleanup_id = None
     try:
@@ -65,6 +99,8 @@ def diagnose(root: Path, output: Path, endpoint: str, key: str) -> int:
                 "apim-request-id"
             ) or response.headers.get("x-ms-request-id")
             report["requestAccepted"] = 200 <= response.code < 300
+            operation_location = response.headers.get("operation-location")
+            retry_after = response.headers.get("Retry-After")
             body = response.read()
             try:
                 body = json.loads(body) if body else {}
@@ -72,9 +108,37 @@ def diagnose(root: Path, output: Path, endpoint: str, key: str) -> int:
                 report["analyzerStatus"] = body.get("status")
             except (ValueError, AttributeError):
                 report["responseWasJson"] = False
+        if report["requestAccepted"] and report.get("responseWasJson") is not False:
+            report["phase"] = "provision-analyzer"
+            if str(report.get("analyzerStatus", "")).lower() == "ready":
+                report["provisioningSucceeded"] = not report.get("serviceError")
+            else:
+                if not operation_location:
+                    raise ValueError("Accepted creation has no operation location")
+                operation_url = urljoin(url, operation_location)
+                origin, target = urlsplit(url), urlsplit(operation_url)
+                origins = [
+                    (
+                        uri.scheme,
+                        uri.hostname,
+                        uri.port or (443 if uri.scheme == "https" else 80),
+                    )
+                    for uri in (origin, target)
+                ]
+                if (
+                    origins[0] != origins[1]
+                    or target.username is not None
+                    or target.password is not None
+                    or target.fragment
+                ):
+                    raise ValueError("Unsafe analyzer operation location")
+                report["provisioningSucceeded"] = poll_provisioning(
+                    operation_url, key, retry_after, report
+                )
     except Exception as error:
         report["diagnosticError"] = type(error).__name__
-        report["requestAccepted"] = False
+        if report["phase"] == "create-analyzer":
+            report["requestAccepted"] = False
     finally:
         if cleanup_id is not None:
             report["cleanup"] = cleanup_analyzer(endpoint, key, api_version, cleanup_id)
@@ -84,7 +148,7 @@ def diagnose(root: Path, output: Path, endpoint: str, key: str) -> int:
     print(text)
     return (
         0
-        if report["requestAccepted"]
+        if report["provisioningSucceeded"]
         and report.get("cleanup", {}).get("status") != "failed"
         else 1
     )

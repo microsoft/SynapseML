@@ -40,12 +40,21 @@ def test_notebook_request_and_redacted_response(tmp_path, capsys, status):
             self.send_header(
                 "Location", f"http://127.0.0.1:{self.server.server_port}/redirected"
             )
-            self.send_header("operation-location", "not-for-diagnostic-evidence")
+            self.send_header(
+                "operation-location",
+                f"http://127.0.0.1:{self.server.server_port}/not-for-diagnostic-evidence",
+            )
+            self.send_header("Retry-After", "0")
             self.end_headers()
             body = json.dumps(
                 {"error": service_error} if status == 400 else {"status": "creating"}
             ).encode()
             self.wfile.write(body if status != 500 else b"not-json")
+
+        def do_GET(self):
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b'{"status":"Succeeded"}')
 
         def log_message(self, *args):
             pass
@@ -83,6 +92,10 @@ def test_notebook_request_and_redacted_response(tmp_path, capsys, status):
         assert deletions == []
     assert definition == report["request"]["definition"]
     assert definition["baseAnalyzerId"] == "prebuilt-document"
+    assert definition["models"] == {
+        "completion": "gpt-4.1",
+        "embedding": "text-embedding-3-large",
+    }
     assert set(definition["fieldSchema"]["fields"]) == {
         "Supplier",
         "TotalAmount",
@@ -174,7 +187,7 @@ def test_timed_out_create_is_not_retried_and_preserves_cleanup_evidence(
 
 
 def test_accepted_request_with_failed_cleanup_is_not_success(tmp_path, monkeypatch):
-    response = io.BytesIO(b'{"status":"creating"}')
+    response = io.BytesIO(b'{"status":"ready"}')
     response.code = 202
     response.headers = {}
     monkeypatch.setattr(
@@ -193,7 +206,151 @@ def test_accepted_request_with_failed_cleanup_is_not_success(tmp_path, monkeypat
     )
     report = json.loads((tmp_path / "evidence.json").read_text())
     assert report["requestAccepted"] is True
+    assert report["provisioningSucceeded"] is True
     assert report["cleanup"]["httpStatus"] == 503
+
+
+@pytest.mark.parametrize(
+    "terminal,http_status",
+    [
+        ("Succeeded", 200),
+        ("Failed", 200),
+        ("Canceled", 200),
+        ("unknown", 200),
+        ("", 503),
+    ],
+)
+def test_accepted_creation_waits_for_terminal_result_before_cleanup(
+    tmp_path, monkeypatch, capsys, terminal, http_status
+):
+    requests = []
+    responses = [
+        (201, {"status": "creating"}),
+        (200, {"status": "Running"}),
+        (
+            http_status,
+            {
+                "status": terminal,
+                "error": None
+                if terminal == "Succeeded"
+                else {"code": "ResourceError", "message": "Missing synthetic-key"},
+            },
+        ),
+    ]
+
+    def open_request(request, timeout):
+        assert timeout == 60
+        requests.append(request)
+        status, body = responses.pop(0)
+        response = io.BytesIO(json.dumps(body).encode())
+        response.code = status
+        response.headers = {
+            "operation-location": "https://example.invalid/operations/creation",
+            "Retry-After": "2",
+            "apim-request-id": "poll-request",
+        }
+        if status != 200 and request.get_method() == "GET":
+            raise HTTPError(
+                request.full_url, status, "Rejected", response.headers, response
+            )
+        return response
+
+    def cleanup(*args):
+        assert responses == []
+        requests.append("cleanup")
+        return {"status": "deleted"}
+
+    monkeypatch.setattr(
+        diagnostic, "build_opener", lambda *args: Mock(open=open_request)
+    )
+    monkeypatch.setattr(diagnostic, "cleanup_analyzer", cleanup)
+    sleep = Mock()
+    monkeypatch.setattr(diagnostic, "sleep", sleep, raising=False)
+    result = diagnostic.diagnose(
+        diagnostic.ROOT, tmp_path, "https://example.invalid", "synthetic-key"
+    )
+    assert result == (0 if terminal == "Succeeded" else 1)
+    assert [request.get_method() for request in requests[:-1]] == ["PUT", "GET", "GET"]
+    assert requests[-1] == "cleanup"
+    assert [call.args for call in sleep.call_args_list] == [(2,), (2,)]
+    report = json.loads((tmp_path / "evidence.json").read_text())
+    assert report["requestAccepted"] is True
+    assert report["provisioningSucceeded"] == (terminal == "Succeeded")
+    assert report["provisioning"]["status"] == terminal
+    assert report["provisioning"]["httpStatus"] == http_status
+    assert report["pollCount"] == 2
+    assert report["httpStatus"] == 201
+    if terminal != "Succeeded":
+        assert report["serviceError"]["message"] == "Missing [REDACTED]"
+    assert "synthetic-key" not in capsys.readouterr().out
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        None,
+        "https://other.invalid/operation",
+        "http://example.invalid/operation",
+        "https://user:password@example.invalid/operation",
+    ],
+)
+def test_unsafe_or_missing_operation_location_is_not_polled(
+    tmp_path, monkeypatch, location
+):
+    response = io.BytesIO(b'{"status":"creating"}')
+    response.code = 201
+    response.headers = {"operation-location": location} if location else {}
+    open_request = Mock(return_value=response)
+    monkeypatch.setattr(
+        diagnostic, "build_opener", lambda *args: Mock(open=open_request)
+    )
+    cleanup = Mock(return_value={"status": "deleted"})
+    monkeypatch.setattr(diagnostic, "cleanup_analyzer", cleanup)
+    assert (
+        diagnostic.diagnose(
+            diagnostic.ROOT, tmp_path, "https://example.invalid", "synthetic-key"
+        )
+        == 1
+    )
+    open_request.assert_called_once()
+    cleanup.assert_called_once()
+    report = json.loads((tmp_path / "evidence.json").read_text())
+    assert report["requestAccepted"] is True
+    assert report["provisioningSucceeded"] is False
+    assert report["diagnosticError"] == "ValueError"
+
+
+def test_poll_timeout_preserves_acceptance_and_cleans_up_without_resubmission(
+    tmp_path, monkeypatch
+):
+    response = io.BytesIO(b'{"status":"creating"}')
+    response.code = 201
+    response.headers = {
+        "operation-location": "https://example.invalid/operations/creation",
+        "Retry-After": "0",
+    }
+    open_request = Mock(side_effect=[response, TimeoutError("synthetic-key")])
+    monkeypatch.setattr(
+        diagnostic, "build_opener", lambda *args: Mock(open=open_request)
+    )
+    cleanup = Mock(return_value={"status": "deleted"})
+    monkeypatch.setattr(diagnostic, "cleanup_analyzer", cleanup)
+    assert (
+        diagnostic.diagnose(
+            diagnostic.ROOT, tmp_path, "https://example.invalid", "synthetic-key"
+        )
+        == 1
+    )
+    assert [call.args[0].get_method() for call in open_request.call_args_list] == [
+        "PUT",
+        "GET",
+    ]
+    cleanup.assert_called_once()
+    report = json.loads((tmp_path / "evidence.json").read_text())
+    assert report["requestAccepted"] is True
+    assert report["provisioningSucceeded"] is False
+    assert report["diagnosticError"] == "TimeoutError"
+    assert "synthetic-key" not in (tmp_path / "evidence.json").read_text()
 
 
 @pytest.mark.parametrize(
