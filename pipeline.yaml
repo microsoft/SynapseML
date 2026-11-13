@@ -699,6 +699,22 @@ jobs:
       env:
         CONTENT_UNDERSTANDING_ENDPOINT: https://synapseml-openai-3.services.ai.azure.com
         CONTENT_UNDERSTANDING_API_KEY: $(openai-api-key-3)
+    - bash: |
+        set -e
+        source activate synapseml
+        python tools/ci/run_content_understanding_notebook.py
+      displayName: 'Test Content Understanding semantic notebook live'
+      condition: and(succeeded(), eq(variables['PACKAGE'], 'cognitive'))
+      env:
+        CONTENT_UNDERSTANDING_ENDPOINT: https://synapseml-openai-3.services.ai.azure.com
+        CONTENT_UNDERSTANDING_API_KEY: $(openai-api-key-3)
+        CONTENT_UNDERSTANDING_OUTPUT_PATH: $(Agent.TempDirectory)/cu-semantic-notebook
+    - task: PublishPipelineArtifact@1
+      displayName: 'Publish Content Understanding notebook evidence'
+      condition: and(succeededOrFailed(), eq(variables['PACKAGE'], 'cognitive'), eq(variables['cuNotebookEvidenceReady'], 'true'))
+      inputs:
+        targetPath: $(Build.SourcesDirectory)/target/cu-semantic-notebook
+        artifact: cu-semantic-notebook-$(System.JobAttempt)
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:

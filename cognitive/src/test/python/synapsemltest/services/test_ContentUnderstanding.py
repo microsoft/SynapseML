@@ -6,6 +6,7 @@ import json
 import os
 import pickle
 import re
+import runpy
 import tempfile
 import threading
 import time
@@ -778,7 +779,12 @@ class TestContentUnderstanding(unittest.TestCase):
     def test_semantic_notebook_sends_deployments_only_with_analysis(self):
         self.assert_semantic_notebook_run({"model": "deployment"})
 
-    def assert_semantic_notebook_run(self, deployments: dict[str, str]) -> None:
+    def test_semantic_notebook_ci_runner_recovers_without_resubmitting(self):
+        self.assert_semantic_notebook_run({}, ci_runner=True)
+
+    def assert_semantic_notebook_run(
+        self, deployments: dict[str, str], ci_runner: bool = False
+    ) -> None:
         cells = self.notebook_cells()
         supplier = "Contoso Office Supplies"
         prefix = "\U0001f4e6 "
@@ -834,6 +840,63 @@ class TestContentUnderstanding(unittest.TestCase):
                 "CONTENT_UNDERSTANDING_MODEL_DEPLOYMENTS": json.dumps(deployments),
             },
         ):
+            if ci_runner:
+                notebook = Path(cells["configuration"].co_filename.rsplit("#", 1)[0])
+                repository = next(
+                    parent
+                    for parent in notebook.parents
+                    if (parent / "build.sbt").is_file()
+                )
+                runner = runpy.run_path(
+                    str(
+                        repository
+                        / "tools"
+                        / "ci"
+                        / "run_content_understanding_notebook.py"
+                    )
+                )
+                runtime = runner["runtime_evidence"]
+                with patch.dict(
+                    os.environ,
+                    {
+                        "BUILD_SOURCEVERSION": "loopback-build",
+                        "BUILD_SOURCEBRANCH": "refs/heads/loopback",
+                    },
+                ), patch.object(
+                    runner["subprocess"],
+                    "check_output",
+                    return_value="loopback-build\n",
+                ), patch.dict(
+                    runtime.__globals__,
+                    {
+                        "verify_wheel": lambda *args: {"version": "loopback"},
+                        "verify_jar": lambda root, module, version, location: {
+                            "location": location
+                        },
+                    },
+                ):
+                    evidence = runtime(repository, spark)
+                self.assertEqual(evidence["spark"], spark.version)
+                self.assertTrue(evidence["scala"])
+                self.assertTrue(evidence["java"])
+                report = {}
+                runner["execute_notebook"](notebook, report)
+                self.assertEqual(
+                    report["recovery"],
+                    {"sameOperation": True, "sameFields": True, "status": "Succeeded"},
+                )
+                methods = [method for method, _, _ in self.requests]
+                self.assertEqual(methods.count("POST"), 1)
+                self.assertEqual(methods.count("PUT"), 1)
+                self.assertEqual(poll_count, 3)
+                supplier_field = next(
+                    field
+                    for field in report["fields"]
+                    if field["fieldName"] == "Supplier"
+                )
+                self.assertEqual(supplier_field["supportingText"], [supplier])
+                self.assertEqual(supplier_field["confidence"], 0.94)
+                return
             initial = {}
             for name, code in cells.items():
                 exec(code, initial)

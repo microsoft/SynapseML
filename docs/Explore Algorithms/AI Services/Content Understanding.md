@@ -701,8 +701,9 @@ Offline tests establish request forwarding, row association, failure handling,
 and preservation of complete responses, including fields, confidence, grounding,
 multiple content entries, and unknown properties. They do not establish analyzer
 accuracy or a live service connection. A custom semantic analyzer is not required
-to run these connector tests; live tests consume existing analyzers and never
-provision them.
+to run these connector tests; the live E2E suite consumes existing analyzers
+and never provisions them. The separate semantic notebook run below creates
+its own custom analyzer.
 
 ### Shared Foundry resource in CI
 
@@ -729,3 +730,27 @@ no automatic test rerun because analysis requests are billable. Its separate
 `python-test-content-understanding-live.xml` report is published alongside the
 ordinary Python results. The preview case remains opt-in via
 `CONTENT_UNDERSTANDING_TEST_PREVIEW=1`; normal CI validates GA.
+
+A second step executes the semantic notebook's actual code cells with the same
+resource and credential, then repeats saved-handle recovery in a fresh Python
+namespace without recreating the input or submitting again. It requires
+`prebuilt-document`, its model defaults, and permission to create the notebook's
+uniquely named custom analyzer. Like the interactive notebook, it leaves that
+analyzer available for inspection; the evidence records its ID for subsequent
+resource-management cleanup. It does not alter shared model defaults.
+
+`tools/ci/run_content_understanding_notebook.py` starts local Spark on the CI
+worker, so the saved Parquet snapshots use that worker's temporary directory.
+Before any notebook service requests, it checks installed Python code against
+the locally built wheels and loaded JVM JAR hashes against the same build's
+packaged JARs. It records the checkout/merge-parent commits, artifact versions
+and hashes, and Python/Spark/Scala/Java versions. The notebook must return the
+synthetic order's semantic values and supplier confidence/source grounding;
+an empty table or pending/failed operation fails the step.
+
+The `cu-semantic-notebook-<job attempt>` build artifact contains `evidence.json`
+with those versions, actual extracted fields, and recovery outcome. Only this
+selected evidence is published, not the saved raw responses or operation
+handles. The supplied credential is redacted from captured output and evidence.
+`python-test-content-understanding-notebook.xml` is published with the other
+Python test results. There is no whole-notebook retry or extra coverage upload.
