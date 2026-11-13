@@ -14,8 +14,13 @@ from tools.ci.e2e_impact import (
     GOVERNANCE_FILES,
     MODULES,
     OUTPUTS,
+    ALL_JOBS,
+    UNIT_PACKAGES,
     changed_paths,
+    jobs_for_path,
+    required_jobs,
     required_suites,
+    selection_outputs,
     select_suites,
     suites_for_path,
 )
@@ -357,14 +362,14 @@ def test_cli_emits_exact_complete_output_contract(make_pr, reason):
         capture_output=True,
         text=True,
     )
-    selected = frozenset() if reason == "PullRequest" else ALL_SUITES
+    expected = selection_outputs([PYTHON_TEST] if reason == "PullRequest" else [])
     assert result.stdout.splitlines() == [
         line
-        for suite, variable in OUTPUTS.items()
+        for variable, selected in expected.items()
         for line in (
-            f"{variable}={'true' if suite in selected else 'false'}",
+            f"{variable}={'true' if selected else 'false'}",
             f"##vso[task.setvariable variable={variable};isOutput=true]"
-            f"{'true' if suite in selected else 'false'}",
+            f"{'true' if selected else 'false'}",
         )
     ]
 
@@ -386,7 +391,7 @@ def test_pipeline_gates_only_audited_families_and_keeps_full_schedule():
         ) in condition
         assert "succeeded()" in condition
         assert jobs[job]["dependsOn"] == "BuildAndCacheSbt"
-    for job in set(jobs) - set(job_suites):
+    for job in ("CIHelpers", "Style"):
         assert "detectTestImpact" not in jobs[job].get("condition", "")
     prewarm = jobs["BuildAndCacheSbt"]["steps"]
     assert prewarm[0]["fetchDepth"] >= 2
@@ -418,12 +423,12 @@ def test_pipeline_gates_only_audited_families_and_keeps_full_schedule():
         assert parameters[name]["default"] is True
 
 
-def test_selection_preserves_all_expected_coverage_uploads():
+def test_selected_coverage_finishes_after_all_uploaders_and_carries_unaffected_flags():
     pipeline = yaml.safe_load((ROOT / "pipeline.yaml").read_text())
     codecov = yaml.safe_load((ROOT / "codecov.yaml").read_text())
     coverage_jobs = []
     for job in pipeline["jobs"]:
-        if any(
+        if job.get("job") != "CoverageComplete" and any(
             step.get("template") == "templates/codecov.yml"
             or any(
                 isinstance(value, list)
@@ -445,7 +450,143 @@ def test_selection_preserves_all_expected_coverage_uploads():
         len(job.get("strategy", {}).get("matrix", {"single": {}}))
         for job in coverage_jobs
     )
-    assert uploads == codecov["codecov"]["notify"]["after_n_builds"]
-    assert uploads == codecov["comment"]["after_n_builds"]
+    assert uploads == 55
+    assert "after_n_builds" not in codecov["codecov"]["notify"]
+    assert "after_n_builds" not in codecov["comment"]
+    assert codecov["codecov"]["notify"]["manual_trigger"] is True
+    assert codecov["flag_management"]["default_rules"]["carryforward"] is True
+    finalize = next(
+        job for job in pipeline["jobs"] if job.get("job") == "CoverageComplete"
+    )
+    assert {job["job"] for job in coverage_jobs} <= set(finalize["dependsOn"])
+    assert finalize["steps"][-1]["parameters"]["notifyOnly"] is True
+    assert "not(canceled())" in finalize["condition"]
+    template = yaml.safe_load((ROOT / "templates" / "codecov.yml").read_text())
+    script = template["steps"][0]["bash"]
+    assert '--flag "$flag"' in script
     for job in coverage_jobs:
-        assert "detectTestImpact" not in job["condition"]
+        for step in job["steps"]:
+            for value in step.values():
+                if isinstance(value, list):
+                    for template in value:
+                        if template.get("template") == "templates/codecov.yml":
+                            assert template["parameters"]["coverageFlag"]
+    assert "send-notifications" in script
+
+
+@pytest.mark.parametrize(
+    "path,expected",
+    [
+        ("README.md", set()),
+        ("website/doctest.py", {"website"}),
+        ("lightgbm/src/test/python/test_model.py", {"python_lightgbm"}),
+        ("vw/src/test/R/test_model.R", {"r_vw"}),
+        (
+            "cognitive/src/main/scala/Service.scala",
+            {
+                "unit_cognitive",
+                "python_cognitive",
+                "r_cognitive",
+                "website",
+                "docker",
+                "internal",
+            },
+        ),
+        (
+            "opencv/src/test/scala/ImageSuite.scala",
+            {
+                f"{language}_{module}"
+                for language in ("unit", "python", "r")
+                for module in ("opencv", "deep-learning")
+            },
+        ),
+        ("core/src/test/python/shared.py", {f"python_{module}" for module in MODULES}),
+        ("core/src/test/scala/Shared.scala", ALL_JOBS),
+        ("core/src/main/scala/Shared.scala", ALL_JOBS),
+        ("cognitive/src/test/resources/shared.json", ALL_JOBS),
+        ("lightgbm/src/main/resources/model.json", ALL_JOBS),
+        ("pipeline.yaml", ALL_JOBS),
+        ("project/CodegenPlugin.scala", ALL_JOBS),
+        ("environment.yml", ALL_JOBS),
+        ("codecov.yaml", ALL_JOBS),
+        ("tools/ci/e2e_impact.py", ALL_JOBS),
+        ("new-module/src/main/scala/Stage.scala", ALL_JOBS),
+        ("website/../build.sbt", ALL_JOBS),
+    ],
+)
+def test_job_selection_tracks_dependencies_and_shared_inputs(path, expected):
+    assert jobs_for_path(path) == expected
+
+
+def test_mixed_and_empty_job_selection_cannot_hide_changes():
+    assert required_jobs([]) == ALL_JOBS
+    assert required_jobs(["README.md", "unknown"]) == ALL_JOBS
+    assert required_jobs(
+        ["vw/src/test/R/Test.R", "lightgbm/src/test/python/test.py"]
+    ) == {"r_vw", "python_lightgbm"}
+
+
+def test_matrix_keys_all_resolve_and_unknown_keys_cannot_skip():
+    pipeline = yaml.safe_load((ROOT / "pipeline.yaml").read_text())
+    jobs = {job["job"]: job for job in pipeline["jobs"] if "job" in job}
+    outputs = selection_outputs(["lightgbm/src/main/scala/Model.scala"])
+    for job, language in (
+        ("UnitTests", "unit"),
+        ("PythonTests", "python"),
+        ("RTests", "r"),
+    ):
+        assert (
+            f"format('detectTestImpact.{language}_{{0}}', variables['PACKAGE'])"
+            in jobs[job]["condition"]
+        )
+        assert "], 'false')" in jobs[job]["condition"]
+        for lane in jobs[job]["strategy"]["matrix"].values():
+            assert f"{language}_{lane['PACKAGE']}" in outputs
+    declared = {
+        package for packages in UNIT_PACKAGES.values() for package in packages
+    } | {"misc"}
+    assert declared == {
+        lane["PACKAGE"] for lane in jobs["UnitTests"]["strategy"]["matrix"].values()
+    }
+    assert outputs["unit_misc"] is True
+    assert outputs["unit_core"] is True
+    assert outputs["unit_lightgbm.split1"] is True
+    assert outputs["unit_services.openai"] is False
+    assert outputs["python_deepLearning"] is False
+    assert selection_outputs([PYTHON_TEST])["unit_misc"] is False
+
+
+def test_publish_is_unfiltered_and_extensions_summary_follows_publication():
+    pipeline = yaml.safe_load((ROOT / "pipeline.yaml").read_text())
+    publish = next(
+        job
+        for block in pipeline["jobs"]
+        for jobs in block.values()
+        if isinstance(jobs, list)
+        for job in jobs
+        if job.get("job") == "Publish"
+    )
+    assert "detectTestImpact" not in publish["condition"]
+    script = next(
+        step["inputs"]["inlineScript"]
+        for step in publish["steps"]
+        if step.get("displayName") == "Publish Artifacts"
+    )
+    assert script.index("publishPython") < script.index("write_artifact_summary.py")
+    assert script.index("write_artifact_summary.py") < script.index(
+        "task.uploadsummary"
+    )
+
+
+def test_live_site_scan_is_scheduled_and_python_style_stays_in_azure():
+    links = yaml.load(
+        (ROOT / ".github/workflows/check-dead-links.yml").read_text(),
+        Loader=yaml.BaseLoader,
+    )
+    assert "pull_request" not in links["on"]
+    assert "schedule" in links["on"]
+    actions = yaml.safe_load((ROOT / ".github/workflows/pr-validation.yml").read_text())
+    assert "python-style" not in actions["jobs"]
+    pipeline = yaml.safe_load((ROOT / "pipeline.yaml").read_text())
+    style = next(job for job in pipeline["jobs"] if job.get("job") == "Style")
+    assert any("black --check" in step.get("bash", "") for step in style["steps"])

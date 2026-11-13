@@ -2,11 +2,9 @@ name: "Check Dead Links"
 
 on:
   workflow_dispatch:
-  push:
-    branches: [ "master" ]
-  pull_request:
-    # The branches below must be a subset of the branches above
-    branches: [ "master" ]
+  # This checks the deployed website, not the contents of a PR.
+  schedule:
+    - cron: '35 7 * * *'
 
 jobs:
   scan_links:

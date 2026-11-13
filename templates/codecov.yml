@@ -1,3 +1,11 @@
+parameters:
+  - name: notifyOnly
+    type: boolean
+    default: false
+  - name: coverageFlag
+    type: string
+    default: ''
+
 steps:
   - bash: |
       set -euo pipefail
@@ -11,14 +19,20 @@ steps:
       printf '%s  %s\n' "$CODECOV_SHA256" "$codecov_path" |
         sha256sum --check --strict
       chmod +x "$codecov_path"
-      echo "Starting Codecov Upload"
-      "$codecov_path" --verbose upload-process --dir .
-      echo "Codecov Upload Complete"
+      if [ "${NOTIFY_ONLY,,}" = "true" ]; then
+        "$codecov_path" --verbose send-notifications
+      else
+        test -n "$COVERAGE_FLAG"
+        flag="${COVERAGE_FLAG//[^a-zA-Z0-9_]/_}"
+        "$codecov_path" --verbose upload-process --dir . --flag "$flag"
+      fi
     env:
       CODECOV_TOKEN: $(codecov-token)
       CODECOV_VERSION: v11.3.1
       CODECOV_SHA256: ca1d64196d2d34771084afe76ea657d581bf628e31d993ff8e52ea09cc88a56d
+      NOTIFY_ONLY: ${{ parameters.notifyOnly }}
+      COVERAGE_FLAG: ${{ parameters.coverageFlag }}
     retryCountOnTaskFailure: 1
-    displayName: Upload Coverage Report To Codecov.io
+    displayName: Publish Codecov evidence
     condition: succeededOrFailed()
     continueOnError: true

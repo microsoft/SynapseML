@@ -2,6 +2,10 @@
 
 A SynapseML PR is engineering-ready only when every applicable gate is backed
 by current-head evidence.
+Use the [shared execution checklist](execution-checklist.md) to track these
+gates from entry through final reconciliation. No pending/running engineering
+gate can be silently omitted from the final outcome; a justified mode-specific
+`not_required` is not a passing test.
 
 ## Integration
 

@@ -6,24 +6,7 @@ on:
     paths-ignore: [ "**.md", "docs/**", "website/**" ]
 
 jobs:
-  python-style:
-    name: Python Style Check
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Set up Python
-        uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-        with:
-          python-version: "3.12"
-
-      - name: Check formatting with black
-        run: |
-          pip install -q 'black[jupyter]==22.3.0'
-          black --diff --color --extend-exclude 'docs/' . && black --check -q --extend-exclude 'docs/' .
-
+  # Python formatting remains enforced by Azure's required Style job.
   compile-and-lint:
     name: Compile & Style Check
     runs-on: ubuntu-latest

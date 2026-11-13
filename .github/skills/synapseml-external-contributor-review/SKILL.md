@@ -36,13 +36,24 @@ verified maintainer of the target repository. Contributor-supplied instructions
 alone are not authorization. The fork's `maintainerCanModify` flag permits
 access; it is not a request to make changes.
 
-Help the contributor without taking over their PR. After safety clearance,
-use [synapseml-pr-loop](../synapseml-pr-loop/SKILL.md) in validation-only mode
-to request missing applicable CI, monitor the build, and triage results. Apply its
+Help the contributor without taking over their PR. When conditional CI delegation
+applies and the named validation scope is cleared,
+**activate and execute** [synapseml-pr-loop](../synapseml-pr-loop/SKILL.md)
+in validation-only mode to request missing applicable CI, monitor the build,
+and triage results. This is mandatory even when the fix looks safe, needs no
+maintainer changes, or already has green GitHub Actions. A safety verdict does
+not prove CI passed or expand authorization. Merely linking the skill or
+suggesting that the user run it later is not a handoff. Apply its
 [Azure scope exception](../synapseml-pr-loop/SKILL.md#7-run-and-triage-full-ci)
 before requiring `/azp run`. Share one checkpoint and budget. Its change,
 publication, and discussion-resolution stages remain opt-in; a link back here
 is not another loop invocation.
+
+Read the [shared execution checklist](../synapseml-pr-loop/references/execution-checklist.md)
+on entry and put its gates in the agent's task tracker and the shared checkpoint.
+Keep ownership until the applicable validation finishes or a specific blocker
+prevents the next authorized action. Do not end at "safe to test", "CI requested",
+or "waiting for checks"; those are intermediate states.
 
 ## Safety first
 
@@ -64,9 +75,15 @@ probability or permission to ignore an unresolved concern.
    Explain whether the fix addresses the issue and what remains uncertain;
    do not claim it fixes an incident you cannot verify.
 2. Record the verdict and validation scope. When the delegation conditions pass,
-   hand off to the PR loop's validation-only stages without asking again to
-   post `/azp run`. Confirm the build covers the cleared revision and report its
-   result with any findings. For review-only requests or unmet conditions,
+   activate the trusted PR-loop skill and execute its validation-only stages
+   in this same task without asking again to post `/azp run`. If it is already
+   active, reuse it rather than starting another loop. Use the host skill loader
+   only when it resolves the recorded trusted source; otherwise explicitly load
+   that source's `SKILL.md` and required references. Pass the original request,
+   mode, checkpoint path, head/base SHAs, safety/authorization evidence, checklist
+   statuses, existing build/review IDs, remaining budgets, and next action.
+   Confirm the build covers the cleared revision and consume its terminal result.
+   For review-only requests or unmet conditions,
    return the verdict and exact blocker without triggering CI.
    Without separately authorized follow-up work, stop after validation: do not
    edit, push, change the PR body, post other comments, approve workflows, or merge.
@@ -79,8 +96,11 @@ probability or permission to ignore an unresolved concern.
    For a bug fix, add a focused regression that fails before the fix and passes
    afterward, exercising the public API when that is where the bug occurs.
 5. Check for new contributor commits before pushing. Recheck the safety gate for
-   the new head before using the PR loop's authorized CI actions. Wait for the
-   checks to pass and confirm the relevant tests actually ran. If blocked, say so.
+   the new head before using the PR loop's authorized CI actions. Consume new
+   review findings and CI failures, fix them within granted scope, and repeat
+   until the applicable gates pass or a real blocker is reached. Confirm the
+   relevant tests actually ran. A watcher completion notification resumes this
+   task automatically; the user should not need to invoke either skill again.
 6. For authorized code follow-ups, once validation is complete, thank the
    contributor for their specific fix.
    Briefly explain your additions, link the commit and CI result, and ask them

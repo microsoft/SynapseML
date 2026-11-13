@@ -96,7 +96,7 @@ retries for transient service failures. Exhausted attempts still fail the job.
 Certificate validation, test assertions, and required coverage reports are not
 bypassed.
 
-## Conservative PR notebook E2E selection
+## Conservative PR validation selection
 
 `e2e_impact.py` can skip the five Databricks CPU jobs, one Databricks GPU job,
 and Fabric E2E for the isolated inputs below. Mixed changes take the union;
@@ -109,13 +109,44 @@ any unrecognized path enables all seven jobs.
 | `website/`, Markdown under `docs/Quick Examples/` | `website/doctest.py` executes the Quick Examples Markdown. These are not runtime sources or `.ipynb` notebook inputs. |
 | Explicit root governance files, Markdown under `.github/skills/`, `.agents/`, `reviews/` | These are contributor/agent instructions and review records, not test inputs. The exact list is in `GOVERNANCE_FILES`. |
 
-Unit, Python, R, and website-sample tests remain unfiltered. This preserves all
-54 uploads expected by `codecov.yaml`, rather than silently losing coverage
-statuses/comments on selectively tested PRs. Generated tests and cross-module
-helpers also prevent a simple module-to-matrix mapping. Style, compilation/cache
-preparation, Docker builds, publishing, and Internal compatibility keep their existing
-gates. More aggressive matrix filtering needs a separate coverage design and
-verified dependency model first.
+The same exact-merge detector selects unit, Python, R, website, Docker and
+Internal-compatibility jobs. Selection follows the compile/test dependencies in
+`build.sbt`, not only filename extensions:
+
+- Shared core Scala sources, fixtures and codegen, resources,
+  build/dependency/configuration files, CI helpers and unknown paths retain every job.
+- Other modules' Scala sources select their Scala, Python and R tests.
+  OpenCV also selects deep-learning, which depends on it. Scala test fixtures
+  retain the generated Python/R tests too.
+- Any selected Scala tests also retain the `core` and cross-module `misc` legs,
+  including codegen, suite-discovery and serialization checks.
+- Hand-written Python selects the module's Python tests and dependent modules.
+  Python/R test-only changes select the corresponding language tests; core
+  language fixtures conservatively select that language in every module.
+- Production changes retain website samples, Docker packaging and Internal
+  compatibility. Their existing credential/fork restrictions still apply.
+- Isolated governance Markdown does not require runtime jobs. Website and
+  Quick Examples Markdown retain website sample execution.
+
+The required Azure aggregate, independent CI-helper tests, Style, cache
+preparation and **Publish** remain. Publish still builds/uploads the candidate
+packages and uploads `Build.md` to the Extensions tab. The summary adds direct
+links to the built JARs and module wheels; either missing artifact family fails
+the summary step rather than advertising unavailable downloads.
+
+Coverage uploads use explicit test-family/package flags with carryforward
+enabled for omitted, unaffected jobs. Shards sharing a flag are always selected
+together (for example, both cognitive speech shards). The full configuration PR
+and subsequent full master build seed all flags before selective PRs use them.
+`CoverageComplete` waits for every selected coverage producer and explicitly
+sends Codecov notifications; there is no fixed 55-upload wait or invented empty
+upload for a skipped job. Failed tests/publication remain failures. Inspect
+actual carryforward flags when comparing selective reports.
+
+GitHub retains fast Scala compile/style checks, security/dependency checks and
+the path-filtered website build. Python formatting is owned by Azure's Style
+job instead of duplicated in Actions. The deployed-site link scan runs on a
+schedule or manual dispatch, not on unrelated PRs.
 
 All production changes, Scala test changes, shared fixtures, resources,
 notebooks, build/dependency files, pipeline/templates, and CI helpers run all

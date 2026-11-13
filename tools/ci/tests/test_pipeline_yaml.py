@@ -6,6 +6,7 @@ bootstrap inputs, and the duplicated inline retry blocks were replaced by the
 shared helper. Run with: ``python -m pytest tools/ci/tests/test_pipeline_yaml.py``.
 """
 
+import hashlib
 import os
 import re
 import subprocess
@@ -851,6 +852,68 @@ def test_style_does_not_restore_the_full_conda_environment():
         if step.get("displayName") == "Python Style Check"
     )
     assert "black[jupyter]==22.3.0" in python_style["bash"]
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Codecov template requires Bash")
+@pytest.mark.parametrize(
+    "notify,flag,expected",
+    [
+        ("True", "", ["--verbose", "send-notifications"]),
+        (
+            "false",
+            "unit_services.openai",
+            [
+                "--verbose",
+                "upload-process",
+                "--dir",
+                ".",
+                "--flag",
+                "unit_services_openai",
+            ],
+        ),
+        ("false", "", None),
+    ],
+)
+def test_codecov_upload_and_terminal_notification_are_distinct(
+    tmp_path, notify, flag, expected
+):
+    template = yaml.safe_load((REPO_ROOT / "templates" / "codecov.yml").read_text())
+    cli = tmp_path / "fixture-codecov"
+    cli.write_text('#!/usr/bin/env bash\nprintf "%s\\n" "$@" > "$MOCK_ARGS"\n')
+    cli.chmod(0o755)
+    curl = tmp_path / "curl"
+    curl.write_text(
+        "#!/usr/bin/env bash\n"
+        'while [ "$#" -gt 0 ]; do\n'
+        '  if [ "$1" = "--output" ]; then cp "$MOCK_CLI" "$2"; exit; fi\n'
+        "  shift\n"
+        "done\nexit 1\n"
+    )
+    curl.chmod(0o755)
+    output = tmp_path / "args.txt"
+    env = {
+        **os.environ,
+        "PATH": f"{tmp_path}{os.pathsep}{os.environ['PATH']}",
+        "AGENT_TEMPDIRECTORY": str(tmp_path),
+        "CODECOV_VERSION": "fixture",
+        "CODECOV_SHA256": hashlib.sha256(cli.read_bytes()).hexdigest(),
+        "NOTIFY_ONLY": notify,
+        "COVERAGE_FLAG": flag,
+        "MOCK_CLI": str(cli),
+        "MOCK_ARGS": str(output),
+    }
+    result = subprocess.run(
+        ["bash", "-c", template["steps"][0]["bash"]],
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    if expected is None:
+        assert result.returncode != 0
+        assert not output.exists()
+    else:
+        assert result.returncode == 0, result.stderr
+        assert output.read_text().splitlines() == expected
 
 
 def test_every_sbt_running_job_waits_for_the_prewarm_cache():

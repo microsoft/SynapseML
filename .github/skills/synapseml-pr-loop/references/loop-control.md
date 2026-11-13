@@ -3,6 +3,10 @@
 The loop is agent-driven, not an unattended daemon. Keep the existing trusted
 guidance and external-contributor safety gates. A request for high confidence
 does not grant new execution, CI, approval, merge, or resource permissions.
+Within granted scope, the agent owns the task end to end: it must continue
+after tool notifications and fix/review iterations without another user prompt.
+Read and maintain the [shared execution checklist](execution-checklist.md).
+An intermediate progress report or a yielded tool wait is not task completion.
 
 ## Checkpoint before yielding
 
@@ -22,6 +26,7 @@ failure never means zero attempts were used.
 | Scope | Original request, measurable acceptance criteria, baseline, affected paths, authorized actions |
 | Revision | Source and target SHAs, merge identity, fingerprint of reviewed content including pending files |
 | State | `fast`, `waiting`, `gauntlet`, `reconcile`, `engineering-ready`, or `blocked` |
+| Checklist | Every shared gate's status, evidence revision, next action and blocker; mirror actionable gates in the host task tracker |
 | Evidence | Command, environment, revision, exit code, test counts/skips, logs, check/build/review IDs and URLs |
 | Findings | Stable root-cause ID, origin, reproduction, disposition, fix SHA, test proof, thread response |
 | Gauntlet | Mode, actual models, six rounds and attempts, patch fingerprint, artifact paths |
@@ -34,8 +39,9 @@ separate edit/discussion/rewrite/CI permissions, and safety-cleared head and
 execution scope. Share this checkpoint with the contributor workflow; its link
 back to this loop reuses validation, not a new invocation or renewed budget.
 For delegated CI, retain the qualifying request, the cleared source/target pair,
-protected-resource restrictions, and trigger/build IDs. A reference to the skill
-alone is not a grant. Validation-only mode never authorizes integration or fixes.
+protected-resource restrictions, PR-loop activation/source, and trigger/build IDs.
+A reference to the skill alone is not a grant. Validation-only mode never
+authorizes integration or fixes.
 Recheck permissions and safety when the head, target, or execution scope
 changes. Preserve contributor commits and discussions unless the specific
 action is authorized; record handoff and outstanding sign-off separately.
@@ -132,6 +138,11 @@ duplicates to prolong a wait. Review waits must also have a finite timeout.
 At a cap, checkpoint and report the exact remaining failure, attempts, evidence,
 and next action. A cap, missing bot, absent check, or infrastructure failure is
 not success. Do not silently increase budgets or weaken acceptance criteria.
+Before stopping, finish other independent authorized gates that remain within
+budget. Do not call an absent build a user blocker when the recorded grant
+already permits requesting it, or stop at a fixable finding while an authorized
+fix cycle remains. Waiting, checkpoint updates, duplicate findings, and reading
+completed results do not consume fix cycles.
 
 ## Evidence invalidation
 
@@ -223,6 +234,11 @@ links, referenced flags, and existing helper regressions when helpers change.
 | Target moved but integration is not authorized | Review the merge-base diff with target context; target-only edits are not PR reversions |
 | Review-only external PR | Read-only triage; no edits, CI trigger, or workflow approval |
 | External review delegates CI and the named scope is cleared | Run the PR loop's validation-only stages without another trigger confirmation |
+| Cleared no-change external PR has no Azure build | Activate the PR loop, request applicable CI once, and retain ownership until results are triaged |
+| Agent links the PR-loop skill but never loads or executes it | Incomplete handoff; activate the trusted skill and continue its checklist |
+| Readiness snapshot shows missing Azure before automated review arrives | Inspect/trigger authorized missing CI first; do not spend the review wait on an unrequested build |
+| Attached CI watcher completes after a progress update | Resume from the checkpoint and consume results without another user prompt |
+| Authorized fix is needed and cycles remain | Fix, retest, re-review and revalidate; do not return a request to rerun the skill |
 | Delegated CI returns a product failure | Preserve the finding; do not enter the fix loop without edit authorization |
 | Author classification is unverified | Apply the full external-contributor skill, not just its safety checklist |
 | External follow-up permits edits but not rewriting history | Preserve contributor commits; block target integration needing rewrite permission |

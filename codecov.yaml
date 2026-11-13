@@ -1,11 +1,8 @@
 codecov:
   notify:
     require_ci_to_pass: no
-    # Wait for expected number of coverage uploads before sending notifications
-    # This prevents premature comments with incomplete data.
-    # 55 = UnitTests 41 + PythonTests 7 + RTests 6 + WebsiteSamplesTests 1
-    # (every leg of those jobs runs templates/codecov.yml on succeededOrFailed).
-    after_n_builds: 55
+    # CoverageComplete sends one notification after every selected job finishes.
+    manual_trigger: true
 
 comment:
   layout: "reach,diff,flags,files"
@@ -13,8 +10,7 @@ comment:
   require_changes: false
   require_base: false
   require_head: true
-  # Wait for all expected uploads before commenting (see note above)
-  after_n_builds: 55
+  show_carryforward_flags: true
 
 coverage:
   precision: 2
@@ -24,24 +20,19 @@ coverage:
     project:
       default: off
       scala:
-        flags:
-          - scala
+        paths:
+          - "*/src/main/scala"
         target: auto
       python:
-        flags:
-          - python
+        paths:
+          - "*/src/main/python"
         target: auto
     patch:
       default: off
     changes: no
 
-flags:
-  scala:
-    paths:
-      - src/main/scala
-    # Carry forward coverage from previous builds for unchanged files
-    carryforward: true
-  python:
-    paths:
-      - src/main/python
+flag_management:
+  default_rules:
+    # Flags identify a test family/package; shards sharing a flag are always
+    # selected together. Full builds seed coverage for omitted, unaffected jobs.
     carryforward: true
