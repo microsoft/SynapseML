@@ -745,6 +745,11 @@ def test_recovery_job_requires_delta_and_process_tests_without_cloud_credentials
     run = next(step for step in steps if step.get("displayName") == "Test recovery")
     assert run["env"]["SYNAPSEML_REQUIRE_DELTA_TESTS"] == "true"
     assert run["env"]["AIPROMPT_RUN_PROCESS_TESTS"] == "true"
+    lanes = recovery["strategy"]["matrix"]
+    assert len(lanes) == 4
+    assert lanes["durable"]["RECOVERY_HEAP"] == "4g"
+    assert all(lane["RECOVERY_HEAP"] in {"3g", "4g"} for lane in lanes.values())
+    assert "-J-Xmx$(RECOVERY_HEAP)" in run["bash"]
     assert "set -euo pipefail" in run["bash"]
     assert re.search(
         r'cognitive / libraryDependencies \+= "io.delta" %% "delta-spark" % "[^"]+" % Test',
@@ -765,7 +770,13 @@ def test_recovery_job_selects_and_publishes_every_delta_suite():
     run = next(
         step for step in recovery["steps"] if step.get("displayName") == "Test recovery"
     )
-    selectors = re.search(r'cognitive/testOnly ([^"]+)', run["bash"]).group(1).split()
+    assert '"cognitive/testOnly $(RECOVERY_SUITES)"' in run["bash"]
+    lanes = recovery["strategy"]["matrix"]
+    selectors = [
+        selector
+        for lane in lanes.values()
+        for selector in lane["RECOVERY_SUITES"].split()
+    ]
     sources = (
         REPO_ROOT
         / "cognitive/src/test/scala/com/microsoft/azure/synapse/ml/services/ai"
@@ -785,14 +796,16 @@ def test_recovery_job_selects_and_publishes_every_delta_suite():
     )
     reports = publish["inputs"]["testResultsFiles"].splitlines()
     for suite in suites:
-        assert any(
-            fnmatch.fnmatchcase(suite, selector) for selector in selectors
+        assert (
+            sum(fnmatch.fnmatchcase(suite, selector) for selector in selectors) == 1
         ), suite
         report = (
             "cognitive/target/test-reports/"
             f"TEST-com.microsoft.azure.synapse.ml.services.ai.{suite}.xml"
         )
         assert any(fnmatch.fnmatchcase(report, pattern) for pattern in reports), suite
+    for selector in selectors:
+        assert any(fnmatch.fnmatchcase(suite, selector) for suite in suites), selector
 
 
 def test_build_docker_allows_time_for_both_image_builds():
