@@ -757,7 +757,7 @@ def test_recovery_job_requires_delta_and_process_tests_without_cloud_credentials
     assert publish["inputs"]["failTaskOnMissingResultsFile"] is True
 
 
-def test_recovery_job_selects_every_delta_suite():
+def test_recovery_job_selects_and_publishes_every_delta_suite():
     data = yaml.safe_load(_pipeline_text())
     recovery = next(
         job for job in _jobs(data["jobs"]) if job["job"] == "AIPromptRecovery"
@@ -772,17 +772,27 @@ def test_recovery_job_selects_every_delta_suite():
     )
     suites = [
         suite
-        for source in sources.glob("AIPrompt*Suite.scala")
+        for source in sources.glob("*Suite.scala")
         for suite in re.findall(
             r"class\s+(\w+)\s+extends\s+AIPromptOutputTestBase\b", source.read_text()
         )
     ]
     assert suites
     assert "AIPromptStorageProcessSuite" in suites
-    assert all(
-        any(fnmatch.fnmatchcase(suite, selector) for selector in selectors)
-        for suite in suites
+    assert "AIRecoveryJsonSuite" in suites
+    publish = next(
+        step for step in recovery["steps"] if step.get("task") == "PublishTestResults@2"
     )
+    reports = publish["inputs"]["testResultsFiles"].splitlines()
+    for suite in suites:
+        assert any(
+            fnmatch.fnmatchcase(suite, selector) for selector in selectors
+        ), suite
+        report = (
+            "cognitive/target/test-reports/"
+            f"TEST-com.microsoft.azure.synapse.ml.services.ai.{suite}.xml"
+        )
+        assert any(fnmatch.fnmatchcase(report, pattern) for pattern in reports), suite
 
 
 def test_build_docker_allows_time_for_both_image_builds():

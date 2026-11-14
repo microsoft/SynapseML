@@ -1019,7 +1019,7 @@ jobs:
         # Delta belongs only to this test invocation, not the published artifacts or ordinary AI shard.
         sbt -J-Xmx3g -J-Xms512m -J-Xss4m -Dsbt.log.noformat=true \
           'set Seq(core / Test / fork := false, cognitive / Test / fork := false, cognitive / libraryDependencies += "io.delta" %% "delta-spark" % "3.2.0" % Test)' \
-          "cognitive/testOnly *AIPromptOutput* *AIPromptDurable* *AIPromptRecovery* *AIPromptStorage* *AIPromptStoredIdentitySuite *AIPromptInitializationSuite *AIPromptSessionTeardownSuite"
+          "cognitive/testOnly *AIPromptOutput* *AIPromptDurable* *AIPromptRecovery* *AIPromptStorage* *AIPromptStoredIdentitySuite *AIPromptInitializationSuite *AIPromptSessionTeardownSuite *AIRecoveryJsonSuite"
       displayName: 'Test recovery'
       env:
         SYNAPSEML_REQUIRE_DELTA_TESTS: 'true'
@@ -1029,7 +1029,7 @@ jobs:
       displayName: 'Publish recovery test results'
       condition: succeededOrFailed()
       inputs:
-        testResultsFiles: 'cognitive/target/test-reports/TEST-*AIPrompt*.xml'
+        testResultsFiles: 'cognitive/target/test-reports/TEST-com.microsoft.azure.synapse.ml.services.ai.*.xml'
         failTaskOnFailedTests: true
         failTaskOnMissingResultsFile: true
 
