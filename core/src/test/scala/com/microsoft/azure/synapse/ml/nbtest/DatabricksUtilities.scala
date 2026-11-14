@@ -267,6 +267,7 @@ object DatabricksUtilities {
     .filterNot(_.getAbsolutePath.contains("Geospatial Services")) // Azure Maps Spatial API retired 9/30/2025
     // Opt-in model calls are qualified separately from automatic notebook jobs.
     .filterNot(_.getName == "AIPrompt.ipynb")
+    .filterNot(_.getName == "Quickstart - Durable AI results.ipynb")
 
   // Split CPU notebooks into 5 partitions for parallel ADO matrix jobs.
   // Each partition creates its own cluster, so all 5 run simultaneously.

@@ -6,6 +6,7 @@ bootstrap inputs, and the duplicated inline retry blocks were replaced by the
 shared helper. Run with: ``python -m pytest tools/ci/tests/test_pipeline_yaml.py``.
 """
 
+import fnmatch
 import os
 import re
 import subprocess
@@ -726,6 +727,85 @@ def test_non_azure_setup_steps_do_not_authenticate_with_azure_cli():
             )
             assert "bash" in step, f"{job_name}/{display_name} should be a Bash step"
             assert step.get("task") != "AzureCLI@2"
+
+
+def test_recovery_job_requires_delta_and_process_tests_without_cloud_credentials():
+    data = yaml.safe_load(_pipeline_text())
+    jobs = {job["job"]: job for job in _jobs(data["jobs"])}
+    recovery = jobs["AIPromptRecovery"]
+    assert recovery["condition"] == jobs["UnitTests"]["condition"]
+    assert recovery["dependsOn"] == "BuildAndCacheSbt"
+    assert not recovery.get("continueOnError", False)
+    steps = recovery["steps"]
+    templates = [step["template"] for step in steps if "template" in step]
+    assert templates == ["templates/java_setup.yml", "templates/sbt_cache.yml"]
+    assert not any(
+        step.get("task") in {"AzureCLI@2", "AzureKeyVault@2"} for step in steps
+    )
+    run = next(step for step in steps if step.get("displayName") == "Test recovery")
+    assert run["env"]["SYNAPSEML_REQUIRE_DELTA_TESTS"] == "true"
+    assert run["env"]["AIPROMPT_RUN_PROCESS_TESTS"] == "true"
+    lanes = recovery["strategy"]["matrix"]
+    assert len(lanes) == 4
+    assert lanes["durable"]["RECOVERY_HEAP"] == "4g"
+    assert all(lane["RECOVERY_HEAP"] in {"3g", "4g"} for lane in lanes.values())
+    assert "-J-Xmx$(RECOVERY_HEAP)" in run["bash"]
+    assert "set -euo pipefail" in run["bash"]
+    assert re.search(
+        r'cognitive / libraryDependencies \+= "io.delta" %% "delta-spark" % "[^"]+" % Test',
+        run["bash"],
+    )
+    assert not run.get("continueOnError", False)
+    publish = next(step for step in steps if step.get("task") == "PublishTestResults@2")
+    assert publish["condition"] == "succeededOrFailed()"
+    assert publish["inputs"]["failTaskOnFailedTests"] is True
+    assert publish["inputs"]["failTaskOnMissingResultsFile"] is True
+
+
+def test_recovery_job_selects_and_publishes_every_delta_suite():
+    data = yaml.safe_load(_pipeline_text())
+    recovery = next(
+        job for job in _jobs(data["jobs"]) if job["job"] == "AIPromptRecovery"
+    )
+    run = next(
+        step for step in recovery["steps"] if step.get("displayName") == "Test recovery"
+    )
+    assert '"cognitive/testOnly $(RECOVERY_SUITES)"' in run["bash"]
+    lanes = recovery["strategy"]["matrix"]
+    selectors = [
+        selector
+        for lane in lanes.values()
+        for selector in lane["RECOVERY_SUITES"].split()
+    ]
+    sources = (
+        REPO_ROOT
+        / "cognitive/src/test/scala/com/microsoft/azure/synapse/ml/services/ai"
+    )
+    suites = [
+        suite
+        for source in sources.glob("*Suite.scala")
+        for suite in re.findall(
+            r"class\s+(\w+)\s+extends\s+AIPromptOutputTestBase\b", source.read_text()
+        )
+    ]
+    assert suites
+    assert "AIPromptStorageProcessSuite" in suites
+    assert "AIRecoveryJsonSuite" in suites
+    publish = next(
+        step for step in recovery["steps"] if step.get("task") == "PublishTestResults@2"
+    )
+    reports = publish["inputs"]["testResultsFiles"].splitlines()
+    for suite in suites:
+        assert (
+            sum(fnmatch.fnmatchcase(suite, selector) for selector in selectors) == 1
+        ), suite
+        report = (
+            "cognitive/target/test-reports/"
+            f"TEST-com.microsoft.azure.synapse.ml.services.ai.{suite}.xml"
+        )
+        assert any(fnmatch.fnmatchcase(report, pattern) for pattern in reports), suite
+    for selector in selectors:
+        assert any(fnmatch.fnmatchcase(suite, selector) for suite in suites), selector
 
 
 def test_build_docker_allows_time_for_both_image_builds():

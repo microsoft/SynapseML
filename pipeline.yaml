@@ -1003,6 +1003,52 @@ jobs:
       - template: templates/codecov.yml
     - template: templates/publish_coverage_ado.yml
 
+- job: AIPromptRecovery
+  displayName: 'AIPrompt recovery (Delta)'
+  dependsOn: BuildAndCacheSbt
+  cancelTimeoutInMinutes: 1
+  timeoutInMinutes: 120
+  condition: and(succeeded(), eq(variables.runTests, 'True'), eq('${{ parameters.testUnit }}', true))
+  pool:
+    vmImage: $(UBUNTU_VERSION)
+  # Keep the recovery cohort within the job timeout and give the 20 MB inline-media
+  # regression headroom without increasing the heap alongside child Spark drivers.
+  strategy:
+    matrix:
+      output:
+        RECOVERY_SUITES: '*AIPromptOutput*'
+        RECOVERY_HEAP: '3g'
+      durable:
+        RECOVERY_SUITES: '*AIPromptDurable* *AIPromptSessionTeardownSuite'
+        RECOVERY_HEAP: '4g'
+      recovery:
+        RECOVERY_SUITES: '*AIPromptRecovery*'
+        RECOVERY_HEAP: '3g'
+      storage:
+        RECOVERY_SUITES: '*AIPromptStorage* *AIPromptStoredIdentitySuite *AIPromptInitializationSuite *AIRecoveryJsonSuite'
+        RECOVERY_HEAP: '3g'
+  steps:
+    - template: templates/java_setup.yml
+    - template: templates/sbt_cache.yml
+    - bash: |
+        set -euo pipefail
+        # Delta belongs only to this test invocation, not the published artifacts or ordinary AI shard.
+        sbt -J-Xmx$(RECOVERY_HEAP) -J-Xms512m -J-Xss4m -Dsbt.log.noformat=true \
+          'set Seq(core / Test / fork := false, cognitive / Test / fork := false, cognitive / libraryDependencies += "io.delta" %% "delta-spark" % "3.2.0" % Test)' \
+          "cognitive/testOnly $(RECOVERY_SUITES)"
+      displayName: 'Test recovery'
+      env:
+        SYNAPSEML_REQUIRE_DELTA_TESTS: 'true'
+        AIPROMPT_RUN_PROCESS_TESTS: 'true'
+        JAVA_TOOL_OPTIONS: '-XX:ActiveProcessorCount=2'
+    - task: PublishTestResults@2
+      displayName: 'Publish recovery test results'
+      condition: succeededOrFailed()
+      inputs:
+        testResultsFiles: 'cognitive/target/test-reports/TEST-com.microsoft.azure.synapse.ml.services.ai.*.xml'
+        failTaskOnFailedTests: true
+        failTaskOnMissingResultsFile: true
+
 - job: InternalCompat
   displayName: 'SynapseML-Internal Compatibility Check'
   # Scoped to PR builds: this validates that a

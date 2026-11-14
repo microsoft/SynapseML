@@ -12,7 +12,7 @@ import org.apache.spark.sql.types._
 
 /** Preserve Spark values and schema while input rows traverse inference encoders. */
 private[ai] object AIValueCodec {
-  private val VectorStorage = StructType(Seq(
+  private[ai] val VectorStorage = StructType(Seq(
     StructField("sparse", BooleanType),
     StructField("size", IntegerType),
     StructField("indices", ArrayType(IntegerType, containsNull = true)),
@@ -74,7 +74,7 @@ private[ai] object AIValueCodec {
     }: _*)
   }
 
-  private def containsVector(dataType: DataType): Boolean = dataType match {
+  private[ai] def containsVector(dataType: DataType): Boolean = dataType match {
     case t if t == SQLDataTypes.VectorType => true
     case s: StructType => s.fields.exists(field => containsVector(field.dataType))
     case ArrayType(t, _) => containsVector(t)
@@ -113,7 +113,7 @@ private[ai] object AIValueCodec {
     if (nullable) when(column.isNotNull, converted) else converted
   }
 
-  private def convertColumn(column: Column, dataType: DataType, nullable: Boolean, encode: Boolean): Column = {
+  private[ai] def convertColumn(column: Column, dataType: DataType, nullable: Boolean, encode: Boolean): Column = {
     if (!containsVector(dataType)) column else dataType match {
       case t if t == SQLDataTypes.VectorType => convertVectorColumn(column, nullable, encode)
       case s: StructType => convertStructColumn(column, s, nullable, encode)
