@@ -1003,6 +1003,36 @@ jobs:
       - template: templates/codecov.yml
     - template: templates/publish_coverage_ado.yml
 
+- job: AIPromptRecovery
+  displayName: 'AIPrompt recovery (Delta)'
+  dependsOn: BuildAndCacheSbt
+  cancelTimeoutInMinutes: 1
+  timeoutInMinutes: 120
+  condition: and(succeeded(), eq(variables.runTests, 'True'), eq('${{ parameters.testUnit }}', true))
+  pool:
+    vmImage: $(UBUNTU_VERSION)
+  steps:
+    - template: templates/java_setup.yml
+    - template: templates/sbt_cache.yml
+    - bash: |
+        set -euo pipefail
+        # Delta belongs only to this test invocation, not the published artifacts or ordinary AI shard.
+        sbt -J-Xmx3g -J-Xms512m -J-Xss4m -Dsbt.log.noformat=true \
+          'set Seq(core / Test / fork := false, cognitive / Test / fork := false, cognitive / libraryDependencies += "io.delta" %% "delta-spark" % "3.2.0" % Test)' \
+          "cognitive/testOnly *AIPromptOutput* *AIPromptDurable* *AIPromptRecovery* *AIPromptStorage* *AIPromptStoredIdentitySuite *AIPromptInitializationSuite *AIPromptSessionTeardownSuite"
+      displayName: 'Test recovery'
+      env:
+        SYNAPSEML_REQUIRE_DELTA_TESTS: 'true'
+        AIPROMPT_RUN_PROCESS_TESTS: 'true'
+        JAVA_TOOL_OPTIONS: '-XX:ActiveProcessorCount=2'
+    - task: PublishTestResults@2
+      displayName: 'Publish recovery test results'
+      condition: succeededOrFailed()
+      inputs:
+        testResultsFiles: 'cognitive/target/test-reports/TEST-*AIPrompt*.xml'
+        failTaskOnFailedTests: true
+        failTaskOnMissingResultsFile: true
+
 - job: InternalCompat
   displayName: 'SynapseML-Internal Compatibility Check'
   # Scoped to PR builds: this validates that a
