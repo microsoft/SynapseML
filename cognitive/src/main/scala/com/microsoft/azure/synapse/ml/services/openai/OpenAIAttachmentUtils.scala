@@ -123,6 +123,15 @@ private[services] object OpenAIAttachmentUtils {
   private val Utf8Bom = Base64.getDecoder.decode("77u/")
   private val XmlDeclarationPrefix = "<?xml"
 
+  private val OfficeMimeTypes = Map(
+    "doc" -> "application/msword",
+    "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "xls" -> "application/vnd.ms-excel",
+    "xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "ppt" -> "application/vnd.ms-powerpoint",
+    "pptx" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+  )
+
   private val MimeTypeExtensions = Map(
     "image/jpeg" -> "jpg",
     "image/png" -> "png",
@@ -140,7 +149,7 @@ private[services] object OpenAIAttachmentUtils {
     "application/json" -> "json",
     "application/xml" -> "xml",
     "text/xml" -> "xml"
-  )
+  ) ++ OfficeMimeTypes.map { case (extension, mimeType) => mimeType -> extension }
 
   private def extensionForMimeType(mimeType: String): String =
     MimeTypeExtensions.getOrElse(mimeType.toLowerCase(Locale.ROOT), "bin")
@@ -284,8 +293,15 @@ private[services] object OpenAIAttachmentUtils {
   private def inferMimeType(fileName: String, fileBytes: Array[Byte]): String = {
     specificMimeType(URLConnection.guessContentTypeFromStream(new ByteArrayInputStream(fileBytes)))
       .orElse(inferStructuredTextMimeType(fileBytes))
+      // Preserve content detection before overriding generic ZIP/OLE types from name-based MIME registries.
+      .orElse(OfficeMimeTypes.get(fileExtension(fileName)))
       .orElse(specificMimeType(URLConnection.guessContentTypeFromName(fileName)))
       .getOrElse("application/octet-stream")
+  }
+
+  private def fileExtension(fileName: String): String = fileName.lastIndexOf('.') match {
+    case idx if idx >= 0 => fileName.substring(idx + 1).toLowerCase(Locale.ROOT)
+    case _ => ""
   }
 
   private def categorizeFileType(
@@ -301,7 +317,7 @@ private[services] object OpenAIAttachmentUtils {
       effectiveExtension.exists(allowedExtensions.contains)
     }
 
-    if (mimeType == "application/pdf") "file"
+    if (mimeType == "application/pdf" || OfficeMimeTypes.get(extension).contains(mimeType)) "file"
     else if (mimeType.startsWith("image/") && hasAllowedExtension(imageExtensions)) "image"
     else if (mimeType.startsWith("audio/") && hasAllowedExtension(audioExtensions)) "audio"
     else if (mimeType.startsWith("text/") || hasAllowedExtension(textExtensions)) "text"
@@ -389,10 +405,7 @@ private[services] object OpenAIAttachmentUtils {
     val fileDescription = if (isDataUrl) "Data URL attachment" else s"Attachment '$fileName'"
     validateFileSize(fileDescription, fileBytes.length, sizeLimitMB)
 
-    val extension = fileName.lastIndexOf('.') match {
-      case idx if idx >= 0 => fileName.substring(idx + 1).toLowerCase(Locale.ROOT)
-      case _ => ""
-    }
+    val extension = fileExtension(fileName)
     val mimeType = declaredMimeType.getOrElse(inferMimeType(fileName, fileBytes)).toLowerCase(Locale.ROOT)
     val fileType = categorizeFileType(
       mimeType, extension, imageExtensions, audioExtensions, textExtensions)
@@ -461,6 +474,9 @@ private[services] object OpenAIAttachmentUtils {
       "image_url" -> s"data:${mimeType};base64,${Base64.getEncoder.encodeToString(fileBytes)}"
     )
     case "audio" => throw new IllegalArgumentException("Audio input is not supported in the current API version.")
+    case "unsupported" if OfficeMimeTypes.valuesIterator.contains(mimeType) =>
+      throw new IllegalArgumentException(
+        s"Unsupported file type: $mimeType for extension '.${fileExtension(fileName)}'.")
     case "unsupported" => throw new IllegalArgumentException(s"Unsupported file type: $mimeType.")
     case "file" => Map(
       "type" -> "input_file",

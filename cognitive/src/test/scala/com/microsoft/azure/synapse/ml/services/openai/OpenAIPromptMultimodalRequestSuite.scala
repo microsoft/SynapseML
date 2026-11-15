@@ -21,7 +21,7 @@ import java.io.{File, InterruptedIOException}
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.util.concurrent.{Callable, ExecutionException, Executors, TimeUnit}
-import java.util.{Locale, UUID}
+import java.util.{Base64, Locale, UUID}
 import scala.collection.JavaConverters._
 import scala.util.Using
 
@@ -185,6 +185,94 @@ class OpenAIPromptMultimodalRequestSuite extends OpenAIPromptHttpTestBase {
     } finally {
       Locale.setDefault(originalLocale)
       Files.deleteIfExists(tempFile)
+    }
+  }
+
+  Seq(
+    "doc" -> "application/msword",
+    "docx" -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "xls" -> "application/vnd.ms-excel",
+    "xlsx" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "ppt" -> "application/vnd.ms-powerpoint",
+    "pptx" -> "application/vnd.openxmlformats-officedocument.presentationml.presentation"
+  ).foreach { case (extension, mimeType) =>
+    test(s"Responses OpenAIPrompt sends $extension paths and data URLs as input_file") {
+      val fixture = new File(getClass.getResource(s"/office/invoice.$extension").toURI).toPath
+      val content = Files.readAllBytes(fixture)
+      val dataUrl = s"data:$mimeType;base64,${Base64.getEncoder.encodeToString(content)}"
+      val tempFile = Files.createTempFile("synapseml office ", s".${extension.toUpperCase(Locale.ROOT)}")
+      try {
+        Files.write(tempFile, content)
+        Seq(tempFile.toString -> tempFile.getFileName.toString,
+          dataUrl -> s"attachment.$extension").foreach { case (path, filename) =>
+          val (result, payload) = requestPayload(_ => path, "responses")
+          assert(Option(result.getAs[Row]("error")).isEmpty)
+          val JsArray(messages) = payload.fields("input")
+          val JsArray(parts) = messages(1).asJsObject.fields("content")
+          assert(parts(1).asJsObject == JsObject(
+            "type" -> JsString("input_file"),
+            "filename" -> JsString(filename),
+            "file_data" -> JsString(dataUrl)
+          ))
+        }
+
+        Seq(tempFile.toString, dataUrl).foreach { path =>
+          val error = intercept[IllegalArgumentException] {
+            new OpenAIPrompt().setApiType("chat_completions")
+              .createMessagesForRow("Read.", Map("file" -> path), Seq("file"))
+          }
+          assert(error.getMessage.contains("use apiType='responses'"))
+
+          val sizeError = intercept[IllegalArgumentException] {
+            new OpenAIPrompt().setApiType("responses").setFileSizeLimitMB(0.001)
+              .createMessagesForRow("Read.", Map("file" -> path), Seq("file"))
+          }
+          assert(sizeError.getMessage.contains("exceeds limit"))
+        }
+      } finally {
+        Files.deleteIfExists(tempFile)
+      }
+    }
+  }
+
+  for (extension <- Seq("doc", "xls"); apiType <- Seq("chat_completions", "responses")) {
+    test(s"Office-named HTML remains text for $apiType ($extension)") {
+      val html = "<html><body><table><tr><td>Invoice 246.90</td></tr></table></body></html>"
+      val tempFile = Files.createTempFile("synapseml-office-html", s".$extension")
+      try {
+        Files.write(tempFile, html.getBytes(StandardCharsets.UTF_8))
+        val (result, payload) = requestPayload(_ => tempFile.toString, apiType)
+        assert(Option(result.getAs[Row]("error")).isEmpty)
+        val JsArray(messages) = payload.fields(if (apiType == "responses") "input" else "messages")
+        val content = messages(1).asJsObject.fields("content")
+        if (apiType == "responses") {
+          val JsArray(parts) = content
+          assert(parts(1).asJsObject == JsObject(
+            "type" -> JsString("input_text"),
+            "text" -> JsString(html)
+          ))
+        } else {
+          assert(content == JsString(s"Describe this image.\nContent: $html"))
+        }
+      } finally {
+        Files.deleteIfExists(tempFile)
+      }
+    }
+  }
+
+  Seq(
+    "application/zip",
+    "application/x-ole-storage",
+    "application/vnd.ms-word.document.macroenabled.12",
+    "application/vnd.ms-excel.sheet.macroenabled.12",
+    "application/vnd.ms-powerpoint.presentation.macroenabled.12"
+  ).foreach { mimeType =>
+    test(s"$mimeType data URLs are not treated as supported Office documents") {
+      val error = intercept[IllegalArgumentException] {
+        new OpenAIPrompt().setApiType("responses")
+          .createMessagesForRow("Read.", Map("file" -> s"data:$mimeType;base64,UEsDBA=="), Seq("file"))
+      }
+      assert(error.getMessage == s"Unsupported file type: $mimeType.")
     }
   }
 
