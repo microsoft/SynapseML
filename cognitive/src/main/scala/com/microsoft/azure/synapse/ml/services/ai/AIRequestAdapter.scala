@@ -479,7 +479,9 @@ private[ai] final class AIRequestAdapter(stage: AIPrompt, schema: StructType) ex
         Seq("/models/chat/completions", "/openai/responses", "/chat/completions", "/responses")
           .find(basePath.endsWith).map(suffix => rawPath.dropRight(suffix.length)).getOrElse(rawPath)
     }
-    val root = if (prefix.toLowerCase(Locale.ROOT).endsWith("/openai")) prefix else prefix + "/openai"
+    // Fabric's implicit /openai segment belongs to the proxy, not the downstream API.
+    val root = if (prefix.toLowerCase(Locale.ROOT).endsWith("/openai") &&
+      !stage.usingImplicitFabricEndpoint(base + "/")) prefix else prefix + "/openai"
     val operation = if (api == "responses") "responses" else "chat/completions"
     base.dropRight(rawPath.length) + root + "/v1/" + operation
   }
