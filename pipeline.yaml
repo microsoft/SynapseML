@@ -49,3 +49,4 @@ jobs:
         fi
         post done "DONE $(date -u +%FT%TZ)"
         exit 0
+# sync 20261115T0220Z
