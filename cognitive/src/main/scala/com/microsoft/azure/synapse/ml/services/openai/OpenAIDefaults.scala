@@ -8,6 +8,7 @@ import com.microsoft.azure.synapse.ml.services.{OpenAIApiVersion, OpenAISubscrip
 import com.microsoft.azure.synapse.ml.io.http.URLKey
 import com.microsoft.azure.synapse.ml.services.aifoundry.AIFoundryModel
 
+/** Compatibility API. AIDefaults.forApi("openai") reads and writes these same global keys. */
 object OpenAIDefaults {
   private[openai] val DefaultTextDeploymentName: String = "gpt-6-luna"
 

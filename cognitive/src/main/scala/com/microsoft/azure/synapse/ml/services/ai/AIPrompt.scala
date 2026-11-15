@@ -250,8 +250,8 @@ class AIPrompt(override val uid: String) extends OpenAIPrompt(uid)
   }
 
   private def excludedGlobalDefaults(result: AIPrompt): Set[String] = {
-    val overriddenModelDefaults = if (isSet(model)) Set(deploymentName.name)
-      else if (isSet(deploymentName)) Set(model.name) else Set.empty[String]
+    val overriddenModelDefaults = if (result.isSet(result.model)) Set(deploymentName.name)
+      else if (result.isSet(result.deploymentName)) Set(model.name) else Set.empty[String]
     val allowed = AIRequestAdapter.allowedOptions(result.getApiType)
     val inactiveOptions = AIRequestAdapter.bodyOptions(result).filterNot(p => allowed(p.name)).map(_.name).toSet
     val nativeDefaults = if (AIRequestAdapter.NativeApis(result.getApiType)) {
@@ -268,15 +268,16 @@ class AIPrompt(override val uid: String) extends OpenAIPrompt(uid)
       GlobalParams.getParam(apiType).filter(value => supportedApiTypes.contains(value.toString))
         .foreach(value => result.setDefault(result.apiType -> value.toString))
     }
-    val excludedGlobals = excludedGlobalDefaults(result)
-    params.filterNot(p => isSet(p) || excludedGlobals(p.name)).foreach { p =>
+    val scopedExclusions = AIDefaults.applyPrompt(result)
+    val excludedGlobals = excludedGlobalDefaults(result) ++ scopedExclusions
+    params.filterNot(p => result.isSet(result.getParam(p.name)) || excludedGlobals(p.name)).foreach { p =>
       GlobalParams.getParam(p).foreach { value =>
         result.setDefault(result.getParam(p.name).asInstanceOf[Param[Any]] -> value)
       }
     }
     result.setImplicitFabricEndpoint()
     AIRequestAdapter.defaultApiVersion(result).foreach(value => result.setDefault(result.apiVersion -> value))
-    if (result.getApiType == "embeddings" && !isSet(deploymentName) && !isSet(model)) {
+    if (result.getApiType == "embeddings" && !result.isSet(result.deploymentName) && !result.isSet(result.model)) {
       GlobalParams.getGlobalParam(OpenAIEmbeddingDeploymentNameKey).foreach { v =>
         result.setDefault(result.deploymentName -> v)
       }

@@ -35,6 +35,7 @@ module.exports = {
                     label: 'AI Services',
                     items: [
                         "Explore Algorithms/AI Services/Overview",
+                        "Explore Algorithms/AI Services/AI Defaults",
                         "Explore Algorithms/AI Services/Geospatial Services",
                         "Explore Algorithms/AI Services/Advanced Usage - Async, Batching, and Multi-Key",
                         "Explore Algorithms/AI Services/Quickstart - Analyze Celebrity Quotes",
