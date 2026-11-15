@@ -113,7 +113,12 @@ class TestAIPromptLive(unittest.TestCase):
                 )
                 self.assertTrue(row.answer)
                 self.assertFalse(stage.isSet(stage.url))
-                self.assertEqual(stage.isSet(stage.apiVersion), version is not None)
+                self.assertEqual(
+                    stage._java_obj.isSet(stage._java_obj.apiVersion()),
+                    version is not None,
+                )
+                if version:
+                    self.assertEqual(stage.getApiVersion(), version)
         direct = (
             stage_type()
             .setDeploymentName(deployment)
