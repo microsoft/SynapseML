@@ -127,6 +127,63 @@ class TestAIDefaults(unittest.TestCase):
         self.assertIsNone(content.get_model_deployments())
         self.assertIsNone(content.get_allow_input_truncation())
 
+    def test_instance_auth_overrides_shared_key_with_model_only_scopes(self):
+        replies = {
+            "chat_completions": {
+                "choices": [
+                    {
+                        "index": 0,
+                        "message": {"role": "assistant", "content": "answer"},
+                        "finish_reason": "stop",
+                    }
+                ]
+            },
+            "responses": {
+                "status": "completed",
+                "output": [
+                    {
+                        "type": "message",
+                        "role": "assistant",
+                        "content": [{"type": "output_text", "text": "answer"}],
+                    }
+                ],
+            },
+        }
+        data = spark.createDataFrame(
+            [("hello", "synthetic-column"), ("hello", None)],
+            "text STRING, token STRING",
+        )
+        for api, reply in replies.items():
+            headers = []
+            with self.subTest(api=api), endpoint(reply, recorded_headers=headers) as (
+                url,
+                _,
+            ):
+                self.defaults.for_api("openai").set_endpoint(url + "/v1").set_api_key(
+                    "synthetic-shared"
+                )
+                self.defaults.for_api(api).set_model("model")
+                for configure in (
+                    lambda stage: stage.setAADToken("synthetic-aad"),
+                    lambda stage: stage.setCustomAuthHeader("Bearer synthetic-custom"),
+                    lambda stage: stage.setAADTokenCol("token"),
+                    lambda stage: stage.setCustomAuthHeaderCol("token"),
+                ):
+                    headers.clear()
+                    prompt = configure(
+                        AIPrompt(
+                            apiType=api,
+                            inputCol="text",
+                            outputCol="answer",
+                            errorCol="error",
+                        )
+                    )
+                    rows = prompt.transform(data).collect()
+                    self.assertTrue(all(row.answer == "answer" for row in rows))
+                    self.assertEqual(len(headers), 2)
+                    self.assertTrue(all("api-key" not in h for h in headers))
+                    self.assertTrue(any("authorization" in h for h in headers))
+
     def test_content_understanding_public_transform_and_snapshot_when_installed(self):
         try:
             from synapse.ml.services.contentunderstanding import ContentUnderstanding

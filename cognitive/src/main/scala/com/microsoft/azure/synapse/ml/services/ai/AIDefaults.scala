@@ -163,9 +163,10 @@ object AIDefaults {
     val values = snapshot(stage.getApiType)
     val selected = authenticatedValues(stage, values).filterNot { case (field, _) => overridden(stage, field) }
     selected.foreach { case (field, value) => setValue(stage, field, value) }
-    // An API-specific destination must never pick up the legacy OpenAI key.
-    val credentials = if (values.contains("endpoint") || values.contains("apiKey")) Set("subscriptionKey")
-      else Set.empty[String]
+    // Neither an API-specific destination nor explicit authentication may pick up the legacy key.
+    val credentials = if (explicitAuth(stage) || values.contains("endpoint") || values.contains("apiKey")) {
+      Set("subscriptionKey")
+    } else Set.empty[String]
     credentials ++ selected.keys.map {
       case "apiKey" => "subscriptionKey"
       case "endpoint" => "url"

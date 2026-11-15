@@ -230,6 +230,18 @@ class AIDefaultsSuite extends AIPromptTestBase {
     }
   }}
 
+  test("instance authentication wins over shared legacy keys with model-only scoped overrides") { isolated {
+    Using.resource(new AIRecordingServer((_, _) => 200 -> chatReply)) { server =>
+      AIDefaults.forApi("openai").setEndpoint(server.url + "/v1").setApiKey("synthetic-shared")
+      AIDefaults.forApi("chat_completions").setModel("model")
+      Seq(stage().setAADToken("synthetic-aad"), stage().setCustomAuthHeader("Bearer synthetic-custom"))
+        .foreach(_.transform(input).collect())
+      assert(server.headers.asScala.forall(!_.contains("api-key")))
+      assert(server.headers.asScala.map(_("authorization")).toSet ==
+        Set("Bearer synthetic-aad", "Bearer synthetic-custom"))
+    }
+  }}
+
   test("review regression: extraBody overrides scoped generation defaults but not explicit typed options") { isolated {
     Using.resource(new AIRecordingServer((_, _) => 200 -> chatReply)) { server =>
       OpenAIDefaults.setTemperature(0.9)
