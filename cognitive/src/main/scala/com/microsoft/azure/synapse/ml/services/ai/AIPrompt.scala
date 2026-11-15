@@ -83,10 +83,15 @@ object AIPrompt extends ExplicitComplexParamsReadable[AIPrompt] {
     val custom = map(prompt.customHeaders)
     val telemetry = map(prompt.telemHeaders)
     Seq(custom, telemetry).flatten.foreach(validateCallerHeaders)
+    val embeddedAuth = custom.exists(_.exists { case (name, value) =>
+      (name.equalsIgnoreCase(prompt.subscriptionKeyHeaderName) || name.equalsIgnoreCase(prompt.aadHeaderName)) &&
+        ServiceAuthHeaders.nonBlank(value)
+    })
+    val key = if (embeddedAuth && !prompt.isSet(prompt.subscriptionKey)) None else string(prompt.subscriptionKey)
     lazy val implicitAuth = if (includeFabricFallback && prompt.usingImplicitFabricEndpoint(address)) {
       Option(prompt.fabricAuthHeader)
     } else None
-    val resolution = ServiceAuthHeaders.resolve(string(prompt.subscriptionKey), prompt.subscriptionKeyHeaderName,
+    val resolution = ServiceAuthHeaders.resolve(key, prompt.subscriptionKeyHeaderName,
       prompt.aadHeaderName, string(prompt.AADToken), string(prompt.CustomAuthHeader), custom,
       implicitAuth, telemetry, Some("application/json"))
     transportHeaders(prompt, address, resolution)
@@ -99,7 +104,8 @@ object AIPrompt extends ExplicitComplexParamsReadable[AIPrompt] {
       prompt.get(param).orElse(prompt.getDefault(param)).exists(_.isRight)
     // A higher-priority column can suppress a scalar fallback; only its rows can validate that choice.
     val conditionalAuth = Seq(prompt.subscriptionKey, prompt.AADToken, prompt.CustomAuthHeader)
-      .takeWhile(param => !scalar(param).exists(ServiceAuthHeaders.nonBlank)).exists(column(_))
+      .takeWhile(param => !scalar(param).exists(ServiceAuthHeaders.nonBlank)).exists(column(_)) ||
+      (column(prompt.customHeaders) && !prompt.isSet(prompt.subscriptionKey))
     val conditionalTelemetry = column(prompt.telemHeaders)
     requestHeaders(prompt, address, scalar[String], scalar[Map[String, String]], includeFabricFallback = false)
       .filter { case (name, _) =>
@@ -248,6 +254,9 @@ class AIPrompt(override val uid: String) extends OpenAIPrompt(uid)
       fabricEndpoint.foreach(endpoint => setDefault(url -> endpoint))
     }
   }
+
+  private[ai] def setScopedDefault(name: String, value: Any): Unit =
+    setDefault(getParam(name).asInstanceOf[Param[Any]] -> value)
 
   private def excludedGlobalDefaults(result: AIPrompt): Set[String] = {
     val overriddenModelDefaults = if (result.isSet(result.model)) Set(deploymentName.name)

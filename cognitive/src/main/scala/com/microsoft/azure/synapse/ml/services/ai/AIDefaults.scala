@@ -31,6 +31,7 @@ object AIDefaults {
   private val ConnectionFields = Set("endpoint", "apiKey")
   private val ModelFields = ConnectionFields ++ Set("model", "deploymentName", "apiVersion")
   private val GenerationFields = ModelFields ++ Set("temperature", "topP", "verbosity", "reasoningEffort")
+  private val ImplicitPromptFields = Set("apiKey", "temperature", "topP", "seed", "verbosity", "reasoningEffort")
   private[ai] val Fields: Map[String, Set[String]] = Map(
     "openai" -> LegacyKeys.keySet,
     "chat_completions" -> (GenerationFields + "seed"),
@@ -109,7 +110,7 @@ object AIDefaults {
 
   private def explicitAuth(stage: HasCognitiveServiceInput): Boolean = {
     val headerAuth = stage.get(stage.customHeaders).exists {
-      case Right(_) => true
+      case Right(_) => false
       case Left(headers) => ServiceAuthHeaders.sanitizeHeaderMap(headers).exists { case (name, value) =>
         Set("authorization", "api-key", "ocp-apim-subscription-key")(name.toLowerCase(java.util.Locale.ROOT)) &&
           ServiceAuthHeaders.nonBlank(value)
@@ -142,15 +143,19 @@ object AIDefaults {
       case _: ServiceParam[_] => Left(value)
       case _ => value
     }
-    stage.set(param.asInstanceOf[Param[Any]], stored)
+    stage match {
+      case prompt: AIPrompt if ImplicitPromptFields(field) => prompt.setScopedDefault(name, stored)
+      case _ => stage.set(param.asInstanceOf[Param[Any]], stored)
+    }
   }
 
   private def overridden(stage: AIPrompt, field: String): Boolean = {
     val modelExplicit = stage.isSet(stage.model) || stage.isSet(stage.deploymentName)
     if (field == "endpoint") stage.isSet(stage.url) || stage.isSet(stage.customUrlRoot)
     else if (Set("model", "deploymentName")(field)) modelExplicit
-    else field == "apiVersion" ||
-      stage.isSet(stage.getParam(if (field == "apiKey") "subscriptionKey" else field))
+    else if (field == "apiVersion") {
+      stage.getApiType != "decisions" || stage.isSet(stage.customUrlRoot) || stage.isSet(stage.apiVersion)
+    } else stage.isSet(stage.getParam(if (field == "apiKey") "subscriptionKey" else field))
   }
 
   /** Applies only to a disposable effective copy; the user's stage and its persisted params stay unchanged. */
@@ -159,7 +164,13 @@ object AIDefaults {
     val selected = authenticatedValues(stage, values).filterNot { case (field, _) => overridden(stage, field) }
     selected.foreach { case (field, value) => setValue(stage, field, value) }
     // An API-specific destination must never pick up the legacy OpenAI key.
-    if (values.contains("endpoint") || values.contains("apiKey")) Set("subscriptionKey") else Set.empty
+    val credentials = if (values.contains("endpoint") || values.contains("apiKey")) Set("subscriptionKey")
+      else Set.empty[String]
+    credentials ++ selected.keys.map {
+      case "apiKey" => "subscriptionKey"
+      case "endpoint" => "url"
+      case field => field
+    }
   }
 
   private[ai] def applyContent[T <: CognitiveServicesBaseNoHandler with HasCognitiveServiceInput](stage: T): T = {

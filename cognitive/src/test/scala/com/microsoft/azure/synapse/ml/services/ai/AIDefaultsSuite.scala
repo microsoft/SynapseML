@@ -8,8 +8,8 @@ import com.microsoft.azure.synapse.ml.services.language.AnalyzeText
 import com.microsoft.azure.synapse.ml.services.openai.{OpenAIDefaults, OpenAIDecisions, OpenAIPrompt}
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.sql.{DataFrame, Row}
-import org.apache.spark.sql.types.{StringType, StructType}
-import spray.json.{JsString, JsonParser}
+import org.apache.spark.sql.types.{MapType, StringType, StructType}
+import spray.json.{JsNumber, JsString, JsonParser}
 
 import scala.collection.JavaConverters._
 import scala.util.Using
@@ -188,6 +188,61 @@ class AIDefaultsSuite extends AIPromptTestBase {
     val versionless = stage().effectiveCopy()
     assert(!versionless.isSet(versionless.apiVersion))
     stage().transformSchema(input.schema)
+  }}
+
+  test("review regression: header columns retain scoped credentials only when rows have no authentication") { isolated {
+    Using.resource(new AIRecordingServer((_, _) => 200 -> chatReply)) { server =>
+      AIDefaults.forApi("chat_completions").setEndpoint(server.url + "/v1")
+        .setApiKey("synthetic-fallback").setModel("model")
+      val headers = Seq(Map.empty[String, String], Map("X-Correlation" -> "example"),
+        Map("Authorization" -> "Bearer synthetic-row"), Map("api-key" -> "synthetic-row-key"),
+        Map("Authorization" -> ""), Option.empty[Map[String, String]].orNull)
+      val data = spark.createDataFrame(headers.map(h => Row("hello", h)).asJava,
+        new StructType().add("text", StringType).add("headers", MapType(StringType, StringType)))
+      val prompt = stage()
+      prompt.setVectorParam(prompt.customHeaders, "headers")
+      assert(prompt.transform(data).collect().forall(_.getAs[String]("answer") == "answer"))
+      val sent = server.headers.asScala.toSeq
+      assert(sent.count(_.get("api-key").contains("synthetic-fallback")) == 4)
+      assert(sent.count(_.get("authorization").contains("Bearer synthetic-row")) == 1)
+      assert(sent.count(_.get("api-key").contains("synthetic-row-key")) == 1)
+      prompt.setSubscriptionKey("synthetic-explicit").transform(data).collect()
+      assert(server.headers.asScala.toSeq.takeRight(headers.size)
+        .forall(_.get("api-key").contains("synthetic-explicit")))
+      prompt.clear(prompt.subscriptionKey)
+      AIDefaults.forApi("chat_completions").setApiKey("\u0100")
+      val authenticated = data.filter("headers['Authorization'] = 'Bearer synthetic-row'")
+      assert(prompt.transform(authenticated).head().getAs[String]("answer") == "answer")
+    }
+  }}
+
+  test("review regression: Decisions versions reach URLs and respect explicit or complete URL overrides") { isolated {
+    Using.resource(new AIRecordingServer((_, _) => 200 -> NativeRequestFixtures.DecisionResponse)) { server =>
+      AIDefaults.forApi("decisions").setEndpoint(server.url + "/v1").setModel("model").setApiVersion("preview")
+      val prompt = stage("decisions").setQuestions(NativeRequestFixtures.DecisionQuestions)
+      prompt.transform(input).collect()
+      assert(server.requests.peek()._1 == "/v1/decisions?api-version=preview")
+      prompt.setApiVersion("explicit").transform(input).collect()
+      assert(server.requests.asScala.last._1 == "/v1/decisions?api-version=explicit")
+      prompt.clear(prompt.apiVersion)
+      prompt.setCustomUrlRoot(server.url + "/v1/decisions?api-version=complete").transform(input).collect()
+      assert(server.requests.asScala.last._1 == "/v1/decisions?api-version=complete")
+    }
+  }}
+
+  test("review regression: extraBody overrides scoped generation defaults but not explicit typed options") { isolated {
+    Using.resource(new AIRecordingServer((_, _) => 200 -> chatReply)) { server =>
+      OpenAIDefaults.setTemperature(0.9)
+      AIDefaults.forApi("chat_completions").setEndpoint(server.url + "/v1").setModel("model").setTemperature(0.5)
+      val prompt = stage()
+      prompt.transform(input).collect()
+      assert(JsonParser(server.requests.peek()._2).asJsObject.fields("temperature") == JsNumber(0.5))
+      prompt.setExtraBody(Map("temperature" -> 0.2)).transform(input).collect()
+      assert(JsonParser(server.requests.asScala.last._2).asJsObject.fields("temperature") == JsNumber(0.2))
+      intercept[IllegalArgumentException] {
+        prompt.setTemperature(0.7).transformSchema(input.schema)
+      }
+    }
   }}
 
   test("Foundry content settings stay isolated and invalid scopes fields or values leave prior values intact") {

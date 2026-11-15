@@ -195,6 +195,10 @@ accepted. The returned stage has an independent parameter copy; explicit
 instance settings win. It snapshots the defaults, including credentials:
 saving that copy persists them just like calling the stage's own setters.
 Later defaults changes do not change the returned copy.
+Copied credentials follow Content Understanding's normal stage credential
+precedence, including precedence over `customHeadersCol`. For row-varying
+authentication, bind `subscriptionKey` or `AADToken` to a column on the original
+stage; that explicit authentication binding prevents copying the scoped key.
 
 `modelDeployments` is a per-request mapping from service model names or prebuilt
 aliases to Foundry deployment names. The defaults API neither provisions

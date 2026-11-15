@@ -136,7 +136,8 @@ class TestAIDefaults(unittest.TestCase):
             self.skipTest("Requires the separately shipped ContentUnderstanding stage")
         reply = {"status": "Succeeded", "result": {"contents": []}}
         data = spark.createDataFrame(
-            [("https://example.invalid/doc.pdf",)], "url STRING"
+            [("https://example.invalid/doc.pdf", {"X-Correlation": "example"})],
+            "url STRING, headers MAP<STRING, STRING>",
         )
         with endpoint(reply) as (url, requests), tempfile.TemporaryDirectory() as tmp:
             scope = self.defaults.for_api("content_understanding")
@@ -147,6 +148,7 @@ class TestAIDefaults(unittest.TestCase):
             original = (
                 ContentUnderstanding()
                 .setDocumentUrlCol("url")
+                .setCustomHeadersCol("headers")
                 .setOutputCol("analysis")
                 .setErrorCol("error")
             )
