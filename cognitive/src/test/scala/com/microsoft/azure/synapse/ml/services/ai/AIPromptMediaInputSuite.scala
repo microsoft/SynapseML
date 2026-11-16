@@ -106,11 +106,12 @@ class AIPromptMediaInputSuite extends AIPromptTestBase {
     }
   }
 
-  test("Decisions image URL casing and MIME parameters preserve payloads") {
+  test("Decisions hosted URLs and inline image casing and MIME parameters preserve payloads") {
     import spark.implicits._
     val accepted = Seq(validImage, "DATA:image/png;base64,AQID", "data:IMAGE/PNG;base64,AQID",
       "data:image/png;BASE64,AQID", "data:image/png;name=a.png;base64,AQID",
-      "DATA:IMAGE/PNG;NAME=a%20b.png;charset=UTF-8;BASE64,AQID")
+      "DATA:IMAGE/PNG;NAME=a%20b.png;charset=UTF-8;BASE64,AQID",
+      "https://example.invalid/photo.png?signature=a%2Bb&version=2", "http://example.invalid:8080/photo.jpg")
     val rejected = Seq("data:text/plain;base64,AQID", "data:image/png;name;base64,AQID",
       "data:image/png;=a.png;base64,AQID", "data:image/png;name=bad%xy;base64,AQID",
       "data:image/png;base64;name=a.png,AQID", "data:image/png;name=a.png;base64,@@@",
@@ -137,6 +138,79 @@ class AIPromptMediaInputSuite extends AIPromptTestBase {
           assert(byAsset(asset).getAs[Row]("answer") == null)
         }
         assert(server.requests.size() == accepted.size)
+        val forwarded = server.requests.asScala.map { case (_, body) =>
+          AIJson.objectString(body).fields("input").asInstanceOf[JsArray].elements.head.asJsObject
+            .fields("content").asInstanceOf[JsArray].elements.head.asJsObject.fields("image_url")
+        }.toSeq
+        assert(forwarded.toSet == accepted.map(JsString(_)).toSet)
+      }
+    }
+  }
+
+  test("Decisions question images survive column bindings copies and persistence") {
+    import spark.implicits._
+    val text = JsObject("type" -> JsString("input_text"), "text" -> JsString("Compare with the shared image."))
+    val image = JsObject("type" -> JsString("input_image"),
+      "image_url" -> JsString("https://example.invalid/candidate.png?signature=a%2Bb"),
+      "provider_extension" -> JsNull)
+    val suppliedImage = JsObject(image.fields ++ Map("file_id" -> JsNull, "detail" -> JsNull))
+    val question = JsObject("type" -> JsString("predicate"), "name" -> JsString("matches"),
+      "instructions" -> JsArray(text, suppliedImage))
+    val questions = JsArray(question)
+    val expectedQuestions = JsArray(JsObject(question.fields.updated("instructions", JsArray(text, image))))
+    val evidence = JsArray(JsObject("role" -> JsString("user"), "content" -> JsArray(
+      JsObject("type" -> JsString("input_image"), "image_url" -> JsString(validImage)))))
+    val data = Seq((evidence.compactPrint, questions.compactPrint)).toDF("evidence", "questions")
+    for (fromColumn <- Seq(false, true)) {
+      Seq(
+        (new AIPrompt().setApiType("decisions"), AIPrompt.load _),
+        (new OpenAIDecisions(), OpenAIDecisions.load _)
+      ).foreach { case (stage, load) =>
+        Using.resource(new AIRecordingServer((_, _) => 200 -> NativeRequestFixtures.DecisionResponse)) { server =>
+          stage.setUrl(server.url + "/v1").setModel("model").setInputCol("evidence").setInputMode("json")
+            .setOutputCol("answer").setErrorCol("error")
+          if (fromColumn) stage.setQuestionsCol("questions") else stage.setQuestions(questions.compactPrint)
+          val saved = path()
+          stage.write.session(spark).save(saved)
+          Seq(stage, stage.copy(ParamMap.empty), load(saved)).foreach { configured =>
+            val output = configured.transform(data)
+            assert(output.schema == configured.transformSchema(data.schema))
+            val row = output.head()
+            assert(row.getAs[Row]("error") == null && row.getAs[Row]("answer") != null)
+          }
+          assert(server.requests.size() == 3)
+          server.requests.asScala.foreach { case (route, body) =>
+            assert(route == "/v1/decisions")
+            val sent = AIJson.objectString(body)
+            assert(sent.fields("input") == evidence && sent.fields("questions") == expectedQuestions)
+          }
+        }
+      }
+    }
+  }
+
+  test("Decisions counts shared and question images together before sending either public stage") {
+    import spark.implicits._
+    val image = JsObject("type" -> JsString("input_image"), "image_url" -> JsString(validImage))
+    val questions = JsArray(JsObject("type" -> JsString("predicate"), "name" -> JsString("matches"),
+      "instructions" -> JsArray(image))).compactPrint
+    val data = Seq(127, 128).map { count =>
+      val evidence = JsArray(JsObject("role" -> JsString("user"),
+        "content" -> JsArray(Vector.fill(count)(image))))
+      (count, evidence.compactPrint, questions)
+    }.toDF("count", "evidence", "questions")
+    for (fromColumn <- Seq(false, true);
+         stage <- Seq(new AIPrompt().setApiType("decisions"), new OpenAIDecisions())) {
+      Using.resource(new AIRecordingServer((_, _) => 200 -> NativeRequestFixtures.DecisionResponse)) { server =>
+        stage.setUrl(server.url + "/v1").setModel("model").setInputCol("evidence").setInputMode("json")
+          .setOutputCol("answer").setErrorCol("error")
+        if (fromColumn) stage.setQuestionsCol("questions") else stage.setQuestions(questions)
+        val rows = stage.transform(data).collect().sortBy(_.getAs[Int]("count"))
+        assert(rows(0).getAs[Row]("error") == null && rows(0).getAs[Row]("answer") != null)
+        val error = AIJson.objectString(rows(1).getAs[Row]("error").getString(0))
+        assert(error.fields("code") == JsString("invalid_request"))
+        assert(error.fields("message").asInstanceOf[JsString].value.contains("at most 128 images"))
+        assert(rows(1).getAs[Row]("answer") == null && server.requests.size() == 1)
       }
     }
   }

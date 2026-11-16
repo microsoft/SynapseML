@@ -575,8 +575,10 @@ private[ai] final class AIRequestAdapter(stage: AIPrompt, schema: StructType) ex
     val content = if (api == "decisions" && messages.isDefined) {
       AIJson.fromAny(protocolMessages(messages.get))
     } else input(row, preparedText)
-    val validated = if (api == "decisions") NativeQuestions.prepareDecisionsInput(content) else content
-    Map("questions" -> questions, (if (api == "systemone") "state" else "input") -> validated)
+    val (validatedInput, validatedQuestions) = if (api == "decisions") {
+      NativeQuestions.prepareDecisionsRequest(content, questions)
+    } else (content, questions)
+    Map("questions" -> validatedQuestions, (if (api == "systemone") "state" else "input") -> validatedInput)
   }
 
   private def requestVersion(row: Row): Option[String] = {

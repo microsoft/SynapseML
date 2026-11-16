@@ -107,7 +107,7 @@ Params, not aliases.
 For Responses and Decisions, message structs may include `type="message"` or
 a null/absent `type`; other non-null message types are rejected before HTTP.
 Decisions JSON messages follow the same rule; a null `type` is omitted on the wire.
-For inline Decisions images, null `file_id` and `detail` options are also omitted;
+For Decisions images in shared input or question instructions, null `file_id` and `detail` options are omitted;
 non-null file IDs remain unsupported. Decisions JSON input preserves provider
 extension members; `messagesCol` uses the narrower Responses-compatible conversion.
 Chat message structs do not accept this discriminator.
@@ -242,14 +242,43 @@ Score probability entries preserve numeric index and label. Scores must be
 between zero and the last probability-entry index, inclusive; bounds are checked
 on the original JSON number before conversion to Spark `DoubleType`. Out-of-range
 scores produce a `parse_error`. Refusals remain
-typed answers alongside any other answers. Inline images are supported in the
-documented Decisions input form; hosted-image URLs are rejected. Image data URLs
+typed answers alongside any other answers. Decisions accepts images in user-message
+content and in each predicate, choice, or score question's `instructions`.
+Use an `input_image` part with `image_url` set to a publicly accessible HTTP(S)
+image URL or an inline base64 image data URL. SynapseML forwards hosted URLs
+unchanged; the provider fetches them, not the Spark driver or executors. Local
+image files must first be read and encoded as image data URLs. Image data URLs
 accept case-insensitive scheme, media type and `base64` markers, plus MIME
 parameters before `;base64`. Parameter values with special characters must use
 URL escapes. The original URL is forwarded unchanged; the payload must decode
 to nonempty base64 data. Syntax validation does not allocate a decoded image.
 Callers must still bound inline payloads to their executor memory budget and the
 provider's request limits; `fileSizeLimitMB` does not apply to Decisions input.
+The existing 128-image request limit includes images in both shared input and
+all question instructions, not 128 images per question.
+
+Text-only question instructions can remain strings. To compare a candidate image
+with evidence in the shared input, use an instruction array:
+
+```python
+decisions.setQuestions([
+    {
+        "type": "predicate",
+        "name": "matches_reference",
+        "instructions": [
+            {"type": "input_text", "text": "Does this candidate match the shared reference image?"},
+            {"type": "input_image", "image_url": "https://example.com/candidate.png"},
+        ],
+    },
+])
+```
+
+Use the same JSON shape with `setQuestionsCol(...)` for row-specific questions.
+`OpenAIDecisions` and `AIPrompt(apiType="decisions")` share these rules.
+Decisions does not accept Files API IDs, PDF/Office `input_file` parts, audio,
+or document-to-image conversion. System One remains text/JSON-only.
+See OpenAI's [Decisions image-input guide](https://developers.openai.com/api/docs/guides/decisions#check-an-image-for-visible-damage)
+and [per-question images](https://developers.openai.com/api/docs/guides/decisions#include-images-in-question-instructions).
 
 Native JSON validation checks the supported question and input forms, including
 recognized image fields; it is not a complete provider-schema allowlist.
