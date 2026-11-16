@@ -10,6 +10,8 @@ import org.apache.spark.sql.{DataFrame, SparkSession}
 import org.apache.spark.sql.functions.{lit, struct}
 import org.apache.spark.sql.types.{StringType, StructType}
 
+import java.util.Locale
+
 class SimpleHTTPTransformerSuite
   extends TransformerFuzzing[SimpleHTTPTransformer] with WithServer {
 
@@ -56,6 +58,49 @@ class SimpleHTTPTransformerSuite
       val row = output.head()
       assert(row.isNullAt(row.fieldIndex(error)))
       assert(row.getAs[org.apache.spark.sql.Row]("results").getString(0) == "more blah")
+    }
+  }
+
+  test("internal column names use indexed lookup under case-insensitive collisions") {
+    for (prefix <- Seq("parsedInput", "unparsedOutput")) {
+      var visited = 0
+      val occupied = new scala.collection.mutable.HashSet[String] {
+        override def iterator: Iterator[String] = super.iterator.map { name =>
+          visited += 1
+          name
+        }
+        override def foreach[U](f: String => U): Unit = super.foreach { name =>
+          visited += 1
+          f(name)
+        }
+      }
+      val count = 2000
+      val upper = prefix.toUpperCase(Locale.ROOT)
+      occupied ++= (0 until count).map(i => if (i == 0) upper else s"${upper}_$i")
+      assert(SimpleHTTPTransformer.internalColumnName(prefix, occupied) == s"${prefix}_$count")
+      assert(visited <= count * 2, s"Repeatedly scanned occupied names: $visited visits")
+    }
+  }
+
+  test("internal column names preserve colliding input columns in both resolver modes") {
+    val previous = spark.conf.get("spark.sql.caseSensitive")
+    try {
+      for (sensitive <- Seq(false, true)) {
+        spark.conf.set("spark.sql.caseSensitive", sensitive.toString)
+        val frame = Seq(("request", "p0", "p1", "u0", "u1")).toDF(
+          "data", "PARSEDINPUT", "PARSEDINPUT_1", "UNPARSEDOUTPUT", "UNPARSEDOUTPUT_1")
+        val transformer = simpleTransformer.setErrorCol("error")
+        val output = transformer.transform(frame)
+        assert(transformer.transformSchema(frame.schema) == output.schema)
+        val row = output.head()
+        frame.columns.zip(Seq("request", "p0", "p1", "u0", "u1")).foreach { case (name, value) =>
+          assert(row.getAs[String](name) == value)
+        }
+        assert(row.isNullAt(row.fieldIndex("error")))
+        assert(row.getAs[org.apache.spark.sql.Row]("results").getString(0) == "more blah")
+      }
+    } finally {
+      spark.conf.set("spark.sql.caseSensitive", previous)
     }
   }
 

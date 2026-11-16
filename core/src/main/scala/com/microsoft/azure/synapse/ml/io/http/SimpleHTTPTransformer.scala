@@ -13,14 +13,17 @@ import org.apache.spark.injections.UDFUtils
 import org.apache.spark.ml._
 import org.apache.spark.ml.param._
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.sql.catalyst.analysis.{AnsiTypeCoercion, TypeCoercion}
+import org.apache.spark.sql.catalyst.analysis.{AnsiTypeCoercion, TypeCoercion, caseInsensitiveResolution}
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{col, coalesce}
 import org.apache.spark.sql.internal.SQLConf
 import org.apache.spark.sql.types.{StringType, StructField, StructType}
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
 
-object SimpleHTTPTransformer extends ComplexParamsReadable[SimpleHTTPTransformer]
+object SimpleHTTPTransformer extends ComplexParamsReadable[SimpleHTTPTransformer] {
+  private[io] def internalColumnName(prefix: String, columns: scala.collection.Set[String]): String =
+    newCol(prefix, columns, caseInsensitiveResolution)
+}
 
 trait HasErrorCol extends Params {
   val errorCol = new Param[String](this, "errorCol", "column to hold http errors")
@@ -142,9 +145,8 @@ class SimpleHTTPTransformer(val uid: String)
     val colsToAvoid = schema.fieldNames.toSet ++ Set(getOutputCol, getErrorCol)
 
     // Schema-only planning can run under a different session from the input Dataset.
-    val resolver = (left: String, right: String) => left.equalsIgnoreCase(right)
-    val parsedInputCol = newCol("parsedInput", colsToAvoid, resolver)
-    val unparsedOutputCol = newCol("unparsedOutput", colsToAvoid, resolver)
+    val parsedInputCol = SimpleHTTPTransformer.internalColumnName("parsedInput", colsToAvoid)
+    val unparsedOutputCol = SimpleHTTPTransformer.internalColumnName("unparsedOutput", colsToAvoid)
 
     val mb = get(miniBatcher)
 
