@@ -7,7 +7,8 @@ Generative tests use SYNAPSEML_GENERATIVE_{ENDPOINT,V1_ENDPOINT,DEPLOYMENT}
 and TOKEN or KEY. ENDPOINT exercises facade resource-root routing; V1_ENDPOINT
 is the explicit v1 base used by the standalone classes. Embedding tests use
 SYNAPSEML_EMBEDDING_{ENDPOINT,DEPLOYMENT} and TOKEN or KEY, with an explicit
-v1 base and a deployment supporting the dimensions parameter.
+v1 base and a deployment supporting the dimensions parameter. Fabric tests use
+SYNAPSEML_FABRIC_OPENAI_DEPLOYMENT with the notebook's implicit endpoint and auth.
 """
 
 import json
@@ -75,6 +76,77 @@ DECISION_QUESTIONS = [
 
 
 class TestAIPromptLive(unittest.TestCase):
+    def _run_fabric_generative(self, api, stage_type):
+        deployment = os.environ.get("SYNAPSEML_FABRIC_OPENAI_DEPLOYMENT", "").strip()
+        if not deployment:
+            self.skipTest("Live Fabric OpenAI deployment is not configured")
+        spark = SparkSession.getActiveSession() or init_spark()
+        self.assertTrue(
+            spark._jvm.com.microsoft.azure.synapse.ml.logging.common.PlatformDetails.runningOnFabric(),
+            "The configured Fabric test requires a Fabric notebook",
+        )
+        text = "Reply with the single word baseline."
+        dataset = spark.createDataFrame(
+            [(text, [("user", text)])],
+            "text STRING, messages ARRAY<STRUCT<role:STRING,content:STRING>>",
+        )
+        for version in (None, "v1", "2025-04-01-preview"):
+            with self.subTest(api=api, apiVersion=version):
+                stage = (
+                    AIPrompt()
+                    .setApiType(api)
+                    .setModel(deployment)
+                    .setInputCol("text")
+                    .setOutputCol("answer")
+                    .setErrorCol("error")
+                    .setConcurrency(1)
+                    .setTimeout(120)
+                )
+                if version:
+                    stage.setApiVersion(version)
+                result = stage.transform(dataset)
+                expected = stage._java_obj.transformSchema(dataset._jdf.schema()).json()
+                self.assertEqual(json.loads(result.schema.json()), json.loads(expected))
+                row = result.head()
+                self.assertIsNone(
+                    row.error, "Implicit Fabric AIPrompt inference failed"
+                )
+                self.assertTrue(row.answer)
+                self.assertFalse(stage.isSet(stage.url))
+                self.assertEqual(
+                    stage._java_obj.isSet(stage._java_obj.apiVersion()),
+                    version is not None,
+                )
+                if version:
+                    self.assertEqual(stage.getApiVersion(), version)
+        direct = (
+            stage_type()
+            .setDeploymentName(deployment)
+            .setMessagesCol("messages")
+            .setOutputCol("answer")
+            .setErrorCol("error")
+            .setConcurrency(1)
+            .setTimeout(120)
+        )
+        row = direct.transform(dataset).head()
+        self.assertIsNone(row.error, "Implicit Fabric standalone inference failed")
+        if api == "chat_completions":
+            answer = row.answer.choices[0].message.content
+        else:
+            answer = "".join(
+                part.text
+                for item in row.answer.output
+                for part in item.content or []
+                if part.type == "output_text"
+            )
+        self.assertTrue(answer)
+
+    def test_live_fabric_chat_default_v1(self):
+        self._run_fabric_generative("chat_completions", OpenAIChatCompletion)
+
+    def test_live_fabric_responses_default_v1(self):
+        self._run_fabric_generative("responses", OpenAIResponses)
+
     def _run_generative(self, api):
         prefix = "SYNAPSEML_GENERATIVE"
         endpoint = os.environ.get(prefix + "_ENDPOINT", "").strip()

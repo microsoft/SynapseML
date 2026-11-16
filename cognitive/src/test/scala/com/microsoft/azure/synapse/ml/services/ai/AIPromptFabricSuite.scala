@@ -8,6 +8,7 @@ import com.microsoft.azure.synapse.ml.io.http.{HTTPRequestData, HTTPSchema, Hand
 import com.microsoft.azure.synapse.ml.param.GlobalParams
 import com.microsoft.azure.synapse.ml.services.{OpenAIApiVersion, OpenAISubscriptionKey}
 import com.microsoft.azure.synapse.ml.services.openai.OpenAIDecisions
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.{MapType, StringType, StructType}
 import spray.json._
@@ -417,6 +418,60 @@ class AIPromptFabricSuite extends TestBase {
       }
     }
   }
+
+  Seq(("chat_completions", "chat/completions", chat), ("responses", "responses", responses))
+    .foreach { case (api, operation, reply) =>
+      test(s"$api preserves the implicit Fabric proxy prefix for default and explicit v1") {
+        withoutGlobalUrl {
+          val previousVersion = GlobalParams.getGlobalParam(OpenAIApiVersion)
+          val directory = Files.createTempDirectory("aiprompt-fabric-v1-")
+          try {
+            GlobalParams.resetGlobalParam(OpenAIApiVersion)
+            val data = spark.createDataFrame(Collections.singletonList(Row("hello")),
+              new StructType().add("text", "string"))
+            val stage = new TestableAIFabricAuthPrompt(s"fabric-v1-$api").setApiType(api)
+              .setModel("model").setInputCol("text").setOutputCol("answer").setErrorCol("error")
+            val expectedAddress = s"$root/openai/v1/$operation"
+            stage.setHandler { (_, request) =>
+              assert(request.requestLine.uri == expectedAddress)
+              val headers = request.headers.map(h => h.name.toLowerCase(java.util.Locale.ROOT) -> h.value).toMap
+              assert(headers("authorization") == "MwcToken synthetic")
+              assert(headers("x-taxonomy-traffictype") == "Background" && headers("x-llm-service-tier") == "flex")
+              assert(request.headers.exists(_.name == HTTPRequestData.FabricAuthMarkerHeader))
+              HTTPSchema.stringToResponse(reply, 200, "OK")
+            }
+            val path = directory.resolve("stage").toString
+            stage.write.save(path)
+            Seq(stage, stage.copy(ParamMap.empty), AIPrompt.load(path)).foreach { candidate =>
+              Seq(false, true).foreach { explicit =>
+                if (explicit) candidate.setApiVersion("v1")
+                val output = candidate.transform(data)
+                assert(output.schema == candidate.transformSchema(data.schema))
+                val row = output.head()
+                assert(row.getAs[Row]("error") == null && row.getAs[String]("answer") == "ok")
+                assert(!candidate.isDefined(candidate.url))
+                assert(candidate.isSet(candidate.apiVersion) == explicit)
+              }
+            }
+            val expectedExplicitAddress = s"$root/v1/$operation"
+            val explicitUrl = stage.copy(ParamMap.empty).setUrl(root).setSubscriptionKey("synthetic-key")
+              .setHandler { (_, request) =>
+                assert(request.requestLine.uri == expectedExplicitAddress)
+                assert(!request.headers.exists(_.name == HTTPRequestData.FabricAuthMarkerHeader))
+                HTTPSchema.stringToResponse(reply, 200, "OK")
+              }
+            assert(explicitUrl.transform(data).head().getAs[String]("answer") == "ok")
+            assert(GlobalParams.getGlobalParam(URLKey).isEmpty)
+          } finally {
+            org.apache.commons.io.FileUtils.deleteDirectory(directory.toFile)
+            previousVersion match {
+              case Some(value) => GlobalParams.setGlobalParam(OpenAIApiVersion, value)
+              case None => GlobalParams.resetGlobalParam(OpenAIApiVersion)
+            }
+          }
+        }
+      }
+    }
 
   Seq("chat_completions" -> chat, "responses" -> responses, "embeddings" -> embeddings)
     .foreach { case (api, reply) =>

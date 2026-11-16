@@ -306,6 +306,7 @@ checked into source control.
 | API | Required environment variables | Authentication |
 | --- | --- | --- |
 | Chat and Responses | `SYNAPSEML_GENERATIVE_ENDPOINT`, `SYNAPSEML_GENERATIVE_V1_ENDPOINT`, `SYNAPSEML_GENERATIVE_DEPLOYMENT` | `SYNAPSEML_GENERATIVE_TOKEN` or `SYNAPSEML_GENERATIVE_KEY` |
+| Fabric Chat and Responses | `SYNAPSEML_FABRIC_OPENAI_DEPLOYMENT` in a Fabric notebook | Implicit Fabric authentication |
 | Embeddings | `SYNAPSEML_EMBEDDING_ENDPOINT`, `SYNAPSEML_EMBEDDING_DEPLOYMENT` | `SYNAPSEML_EMBEDDING_TOKEN` or `SYNAPSEML_EMBEDDING_KEY` |
 | System One | `SYNAPSEML_SYSTEMONE_ENDPOINT`, `SYNAPSEML_SYSTEMONE_DEPLOYMENT` | `SYNAPSEML_SYSTEMONE_TOKEN` or `SYNAPSEML_SYSTEMONE_KEY` |
 | Decisions | `SYNAPSEML_DECISIONS_ENDPOINT`, `SYNAPSEML_DECISIONS_MODEL` | `SYNAPSEML_DECISIONS_TOKEN` or `SYNAPSEML_DECISIONS_KEY` |
@@ -335,6 +336,10 @@ and conversion of the cached results to pandas. Each configured test makes real
 inference requests and can incur charges. Missing endpoint, model, or credentials
 explicitly skip a live test; a configured endpoint's failure fails the test.
 Skipped tests and local protocol fixtures are not live qualification evidence.
+
+The Fabric tests check AIPrompt's default and explicit v1 routes, a dated-version
+control, and each standalone class's default route. They require no service key
+or explicit URL. Use a model available in the notebook's Fabric environment.
 
 ## Typed option inventory and body extensions
 
@@ -419,6 +424,11 @@ Without a configured version override, Chat and Responses use v1 even when
 `setUrl` supplies a legacy operation route. Existing scalar or column-bound
 global/parameter version defaults still override this fallback on non-v1 URLs.
 Existing v1 URLs omit the query unless a non-v1 version is explicitly set.
+
+In Fabric notebooks, omit the URL and credentials to use the implicit Fabric
+endpoint and authentication. Chat and Responses retain the v1 default: the full
+Fabric proxy prefix is preserved before adding `/openai/v1/chat/completions` or
+`/openai/v1/responses`. No dated API-version workaround is required.
 
 `OpenAIDecisions` defaults to `"v1"` and calls `/v1/decisions` without a version
 query. The facade's `apiType="decisions"` uses the same effective default.
