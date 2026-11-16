@@ -35,11 +35,16 @@ They share the facade's request validation, transport, diagnostics and persisten
 They have **no default model**. Model availability is provider-specific; selecting
 an API never silently redirects to another API based on a model or hostname.
 
-Inference is lazy: `show`, `collect`, repeated actions, recomputation and Spark
+Without `outputPath`, inference is lazy: `show`, `collect`, repeated actions, recomputation and Spark
 task retries can repeat paid requests. These stages do not persist input or
-result datasets and do not require Delta. Provider `store=true` is unrelated to
+result datasets in this mode and do not require Delta. Provider `store=true` is unrelated to
 persisting a Spark result. Plan how your application will materialize outcomes;
 caching alone is not an exactly-once inference guarantee.
+
+The separate [durable-results guide](Durable%20AI%20results.md) describes opt-in
+Delta snapshots and explicit recovery, including the bounded Fabric
+stopped-application checks and their runtime limits. It does not promise
+exactly-once requests or support for arbitrary managed Spark runtimes.
 
 See the [AIPrompt notebook](AIPrompt.md) for examples. Its runnable source is
 [AIPrompt.ipynb](https://github.com/microsoft/SynapseML/blob/master/docs/Explore%20Algorithms/OpenAI/AIPrompt.ipynb).

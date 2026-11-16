@@ -7,6 +7,7 @@ import com.microsoft.azure.synapse.ml.services.openai.OpenAIPromptPythonOverride
 import com.microsoft.azure.synapse.ml.services.openai.OpenAIDecisions
 
 private[ai] object AIPromptPython {
+  private val BridgeClass = classOf[AIPrompt].getName
   private val ObjectParams = Set("responseFormat", "extraBody")
   private val JsonParams = ObjectParams + "questions"
 
@@ -72,7 +73,7 @@ private[ai] object AIPromptPython {
   }
 
   val Methods: String =
-    """
+    s"""
       |def _ai_json(self, value, object_only=False):
       |    import json
       |    from decimal import Decimal
@@ -106,5 +107,38 @@ private[ai] object AIPromptPython {
       |
       |def setStateMode(self, value):
       |    return self.setInputMode(value)
+      |
+      |def resume(self, spark):
+      |    from pyspark.sql import DataFrame
+      |    self._transfer_params_to_java()
+      |    return DataFrame(self._java_obj.resume(spark._jsparkSession), spark)
+      |
+      |@staticmethod
+      |def loadOutput(spark, outputPath):
+      |    from pyspark.sql import DataFrame
+      |    bridge = spark._jvm.$BridgeClass
+      |    return DataFrame(bridge.loadOutput(spark._jsparkSession, outputPath), spark)
+      |
+      |@staticmethod
+      |def getOutputStatus(spark, outputPath):
+      |    '''Read committed outcome counts and run ownership without model calls.
+      |
+      |    ``isComplete`` means no rows are pending; ``allSucceeded`` also requires
+      |    no row errors. These count flags can be true while ``state`` is still
+      |    ``running`` and ``ownerToken`` is present. Neither proves task quiescence.
+      |    Stop the previous application and confirm its work has quiesced before
+      |    releasing its exact owner token; resume finalizes without replaying
+      |    committed rows.
+      |    '''
+      |    import json
+      |    bridge = spark._jvm.$BridgeClass
+      |    return json.loads(bridge.getOutputStatusJson(spark._jsparkSession, outputPath))
+      |
+      |@staticmethod
+      |def releaseOutputOwner(spark, outputPath, expectedOwnerToken, confirmStopped=False):
+      |    if confirmStopped is not True:
+      |        raise ValueError("Stop the previous Spark application and set confirmStopped=True")
+      |    bridge = spark._jvm.$BridgeClass
+      |    bridge.releaseOutputOwner(spark._jsparkSession, outputPath, expectedOwnerToken, True)
       |""".stripMargin
 }

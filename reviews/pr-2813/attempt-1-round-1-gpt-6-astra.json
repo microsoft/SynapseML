@@ -1,0 +1,43 @@
+{
+  "pullRequest": "https://github.com/microsoft/SynapseML/pull/2813",
+  "reviewedHead": "622cfa17d1f4844f653eb87266ac835e9b92cf3e",
+  "base": "37948d7d03ef0fa7f1aa24c54c2dd4d8a29c8dc0",
+  "nativeApiDependency": "1ff8326627df2869dcef10e9c5d390df8357a469",
+  "reviewer": "gpt-6-astra",
+  "scope": [
+    "Recovery production delta: ownership, cancellation, input and request identity, schema codec, persistence and Python bridges",
+    "Independent-process tests and opt-in Delta test selection",
+    "Published support claims, prior Azure failures and retained Fabric evidence"
+  ],
+  "findings": [
+    {
+      "severity": "medium",
+      "path": "docs/Explore Algorithms/OpenAI/Quickstart - Durable AI results.ipynb",
+      "problem": "The notebook fails the repository-pinned Black 22.3.0 formatter, matching a historical Azure style failure.",
+      "resolution": "Applied Black 22.3.0 with notebook dependencies. The check now passes; every code-cell AST is unchanged, outputs are empty, and all execution flags remain false."
+    }
+  ],
+  "validation": [
+    {
+      "command": "python3 -m black --check 'docs/Explore Algorithms/OpenAI/Quickstart - Durable AI results.ipynb' cognitive/src/test/python/synapsemltest/services/aiprompt_fabric_recovery_e2e.py cognitive/src/test/python/synapsemltest/services/test_AIPromptRecovery.py",
+      "toolVersion": "22.3.0",
+      "result": "passed"
+    },
+    {
+      "command": "git diff --check",
+      "result": "passed"
+    }
+  ],
+  "qualification": {
+    "mergeReady": false,
+    "requiredEvidence": [
+      "Exact-final-head compilation, styles, code generation and installed Python behavior",
+      "Required-Delta runtime suites, independent-driver acquisition races, driver death and cancellation",
+      "Exact-final-head managed recovery and separate application-restart qualification",
+      "Required Azure CI and affected port compatibility"
+    ],
+    "retainedFabricEvidence": "An older combined revision passed same-application recovery on ABFSS. It does not qualify this head or managed application restart.",
+    "freshFabricSmoke": "Managed runtime access passed on application_1794304577397_0001, with exact scratch-lakehouse cleanup. This is not recovery coverage.",
+    "automatedReview": "Copilot reviewed 622cfa17d1f4844f653eb87266ac835e9b92cf3e with no unresolved or suppressed findings. It requested closer human review of durable ownership and replay risks; this is not runtime qualification."
+  }
+}

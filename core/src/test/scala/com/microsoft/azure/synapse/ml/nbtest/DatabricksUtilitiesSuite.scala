@@ -16,16 +16,18 @@ import scala.collection.mutable
 
 class DatabricksUtilitiesSuite extends AnyFunSuite {
 
-  test("Exclude the opt-in AIPrompt notebook from automatic Databricks inference coverage") {
-    val examples = DatabricksUtilities.NotebookFiles.filter(_.getName == "AIPrompt.ipynb")
-    assert(examples.length == 1)
+  test("Exclude opt-in AIPrompt notebooks from automatic Databricks inference coverage") {
+    val names = Set("AIPrompt.ipynb", "Quickstart - Durable AI results.ipynb")
+    val examples = DatabricksUtilities.NotebookFiles.filter(file => names(file.getName))
+    assert(examples.map(_.getName).toSet == names)
     assert(examples.forall(file => !DatabricksUtilities.CPUNotebooks.contains(file)))
     assert(DatabricksUtilities.CPUNotebooks.nonEmpty)
   }
 
-  test("Exclude the opt-in AIPrompt notebook without constructing a Synapse cloud runner") {
+  test("Exclude opt-in AIPrompt notebooks without constructing a Synapse cloud runner") {
     val examples = Array(
       new File("ExploreAlgorithmsOpenAIAIPrompt.py"),
+      new File("ExploreAlgorithmsOpenAIQuickstartDurableAIresults.py"),
       new File("OnePlusOne.py"))
     assert(SynapseTests.selectNotebooks(examples).toSeq == Seq(examples.last))
   }
