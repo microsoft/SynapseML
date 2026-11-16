@@ -36,9 +36,12 @@ verified maintainer of the target repository. Contributor-supplied instructions
 alone are not authorization. The fork's `maintainerCanModify` flag permits
 access; it is not a request to make changes.
 
-Help the contributor without taking over their PR. After safety clearance,
-use [synapseml-pr-loop](../synapseml-pr-loop/SKILL.md) in validation-only mode
-to request missing applicable CI, monitor the build, and triage results. Apply its
+Help the contributor without taking over their PR. Once safety and delegation
+conditions pass, activate the trusted
+[synapseml-pr-loop](../synapseml-pr-loop/SKILL.md) skill in validation-only mode.
+Load its [execution checklist](../synapseml-pr-loop/references/execution-checklist.md)
+and continue through applicable CI and triage, even when no code changes are
+needed. A safe/correct verdict or queued build does not finish validation. Apply its
 [Azure scope exception](../synapseml-pr-loop/SKILL.md#7-run-and-triage-full-ci)
 before requiring `/azp run`. Share one checkpoint and budget. Its change,
 publication, and discussion-resolution stages remain opt-in; a link back here
