@@ -213,6 +213,9 @@ preview = (
 )
 ```
 
+For image/document analysis, `<deployment-name>` must refer to a deployment of
+`gpt-6.1-sol`. Verify the underlying model, not just the deployment's name.
+
 Version overrides are forwarded, not checked against a version allowlist.
 The connector does not discover "latest" at runtime. New service versions,
 modalities, endpoints, or mandatory request fields can still require connector
@@ -638,7 +641,7 @@ definition = {
     "baseAnalyzerId": "prebuilt-document",
     "description": "Extract the supplier from a purchase order.",
     "models": {
-        "completion": "gpt-4.1",
+        "completion": "gpt-6.1-sol",
         "embedding": "text-embedding-3-large",
     },
     "config": {
@@ -667,7 +670,8 @@ custom_results.where("analysis.status = 'Succeeded'").selectExpr(
 ```
 
 The `models` roles select the completion and embedding models for this custom
-analyzer; the resource needs compatible deployments and CU default mappings.
+analyzer. This document-extraction example uses `gpt-6.1-sol`; the resource needs
+compatible deployments and CU default mappings.
 These roles are distinct from analysis-time `modelDeployments` overrides.
 The complete definition is forwarded to CU. `createAnalyzer` waits for its
 management operation within the budget; failure/exhaustion raises an exception

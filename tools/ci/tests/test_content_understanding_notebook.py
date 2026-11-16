@@ -21,6 +21,9 @@ def configured(monkeypatch, tmp_path):
     target = tmp_path / runner.NOTEBOOK
     target.parent.mkdir(parents=True)
     target.write_bytes(notebook.read_bytes())
+    protocol = tmp_path / runner.PROTOCOL_SOURCE
+    protocol.parent.mkdir(parents=True)
+    protocol.write_bytes((runner.ROOT / runner.PROTOCOL_SOURCE).read_bytes())
     monkeypatch.setattr(runner, "ROOT", tmp_path)
     monkeypatch.setattr(
         runner, "cleanup_analyzer", Mock(return_value={"status": "deleted"})
@@ -33,6 +36,30 @@ def configured(monkeypatch, tmp_path):
     }.items():
         monkeypatch.setenv(name, value)
     return tmp_path
+
+
+def test_notebook_request_tracks_connector_default(configured):
+    (configured / runner.PROTOCOL_SOURCE).write_text(
+        'val DefaultApiVersion = "2099-01-01-preview"\n', encoding="utf-8"
+    )
+    version, analyzer_id, definition = runner.notebook_request(configured, "ci-example")
+    assert version == "2099-01-01-preview"
+    assert analyzer_id == "synapseml_purchase_order_ci_example"
+    assert definition["baseAnalyzerId"] == "prebuilt-document"
+
+
+def test_unrecognized_connector_default_fails_before_starting_notebook(
+    configured, monkeypatch
+):
+    (configured / runner.PROTOCOL_SOURCE).write_text(
+        "val DefaultApiVersion = resolveVersion()\n", encoding="utf-8"
+    )
+    process = Mock()
+    monkeypatch.setattr(runner.subprocess, "run", process)
+    with pytest.raises(RuntimeError, match="default API version"):
+        runner.main()
+    process.assert_not_called()
+    runner.cleanup_analyzer.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -490,6 +517,41 @@ def test_notebook_cell_failure_stops_before_later_side_effects(tmp_path):
     with pytest.raises(ValueError, match="configuration failed"):
         runner.execute_notebook(notebook, report)
     assert report["phase"] == "configuration"
+
+
+def test_notebook_evidence_uses_runtime_analyzer_version(tmp_path, monkeypatch):
+    notebook = tmp_path / "notebook.ipynb"
+    sources = {
+        "configuration": (
+            "run_id = 'example'\n"
+            "analyzer_id = 'example-analyzer'\n"
+            "run_root = '/saved/example'\n"
+            "handles_path = run_root + '/submitted'\n"
+        ),
+        "create-analyzer": (
+            "from types import SimpleNamespace\n"
+            "analyzer = SimpleNamespace(getApiVersion=lambda: 'runtime-default')\n"
+        ),
+    }
+    notebook.write_text(
+        json.dumps(
+            {
+                "cells": [
+                    {
+                        "id": cell_id,
+                        "cell_type": "code",
+                        "source": sources.get(cell_id, "pass"),
+                    }
+                    for cell_id in runner.CELL_IDS
+                ]
+            }
+        )
+    )
+    monkeypatch.setattr(runner, "semantic_results", lambda _: ([], "saved-operation"))
+    report = {}
+    runner.execute_notebook(notebook, report)
+    assert report["apiVersion"] == "runtime-default"
+    assert report["recovery"]["status"] == "Succeeded"
 
 
 @pytest.mark.parametrize("status", ["Running", "Failed"])

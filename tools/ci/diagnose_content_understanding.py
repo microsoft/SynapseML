@@ -66,7 +66,7 @@ def diagnose(root: Path, output: Path, endpoint: str, key: str) -> int:
             raise ValueError("Missing CU endpoint or resource key")
         notebook = root / NOTEBOOK
         api_version, analyzer_id, definition = notebook_request(
-            notebook, "ci-" + uuid.uuid4().hex
+            root, "ci-" + uuid.uuid4().hex
         )
         report["notebookSha256"] = sha256(notebook)
         url = (
@@ -155,7 +155,7 @@ def diagnose(root: Path, output: Path, endpoint: str, key: str) -> int:
 
 
 def inspect_models(root: Path, output: Path, endpoint: str, key: str) -> int:
-    api_version, _, _ = notebook_request(root / NOTEBOOK, "inspection")
+    api_version, _, _ = notebook_request(root, "inspection")
     report = {"phase": "inspect-models"}
     for name, path in (
         ("defaults", "defaults"),
@@ -229,7 +229,7 @@ def configure_defaults(root: Path, output: Path, endpoint: str, key: str) -> int
         if base["httpStatus"] != 200:
             raise RuntimeError("Could not read the base analyzer's supported models")
         selected = {
-            "completion": "gpt-4.1",
+            "completion": "gpt-6.1-sol",
             "embedding": "text-embedding-3-large",
         }
         mappings = {}
@@ -263,7 +263,7 @@ def configure_defaults(root: Path, output: Path, endpoint: str, key: str) -> int
             name: value for name, value in mappings.items() if name not in before
         }
         report["patch"] = {"modelDeployments": missing}
-        api_version, _, _ = notebook_request(root / NOTEBOOK, "configuration")
+        api_version, _, _ = notebook_request(root, "configuration")
         url = (
             endpoint.rstrip("/")
             + f"/contentunderstanding/defaults?api-version={api_version}"

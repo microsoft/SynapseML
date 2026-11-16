@@ -54,7 +54,7 @@ private[contentunderstanding] object ContentUnderstandingFixtures {
       |  "id":"op-1",
       |  "status":"Succeeded",
       |  "result":{"contents":[{"metadata":{"preview":true},"fields":{"A":{"type":"string","confidence":0.8}}}]},
-      |  "usage":{"documentPagesBasic":2,"gpt-5.2-input":51},
+      |  "usage":{"documentPagesBasic":2,"gpt-6.1-sol-input":51},
       |  "warnings":[{"code":"ExampleWarning"}],
       |  "futureProperty":{"nested":[1,true,null]}
       |}""".stripMargin

@@ -19,6 +19,7 @@ from urllib.parse import urlsplit
 
 import mlflow
 import mlflow.pyspark.ml
+from IPython.core.inputtransformer2 import TransformerManager
 from py4j.protocol import Py4JJavaError
 from pyspark.ml import Pipeline, PipelineModel
 from pyspark.sql.utils import AnalysisException, IllegalArgumentException
@@ -595,7 +596,7 @@ class TestContentUnderstanding(unittest.TestCase):
                     self.assertEqual(
                         creation[2]["models"],
                         {
-                            "completion": "gpt-4.1",
+                            "completion": "gpt-6.1-sol",
                             "embedding": "text-embedding-3-large",
                         },
                     )
@@ -686,9 +687,12 @@ class TestContentUnderstanding(unittest.TestCase):
             / "Quickstart - Semantic Extraction with Content Understanding.ipynb"
         )
         notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
+        transformer = TransformerManager()
         cells = {
             cell["id"]: compile(
-                "".join(cell["source"]), f"{notebook_path}#{cell['id']}", "exec"
+                transformer.transform_cell("".join(cell["source"])),
+                f"{notebook_path}#{cell['id']}",
+                "exec",
             )
             for cell in notebook["cells"]
             if cell["cell_type"] == "code"
@@ -784,7 +788,7 @@ class TestContentUnderstanding(unittest.TestCase):
                 exec(cells["create-analyzer"], configured)
             self.assertEqual([request[0] for request in self.requests], ["PUT"] * 4)
 
-    def test_semantic_notebook_executes_and_recovers_saved_handles(self):
+    def test_semantic_notebook_executes_in_ipython_and_recovers_saved_handles(self):
         self.assert_semantic_notebook_run({})
 
     def test_semantic_notebook_sends_deployments_only_with_analysis(self):
@@ -974,21 +978,22 @@ class TestContentUnderstanding(unittest.TestCase):
                 self.assertEqual(supplier_field["supportingText"], [supplier])
                 self.assertEqual(supplier_field["confidence"], 0.94)
                 return
+
+            def single_poll_analyzer():
+                return ContentUnderstanding().setMaxPollAttempts(1).setPollingDelay(0)
+
             initial = {}
             for name, code in cells.items():
                 exec(code, initial)
                 if name == "configuration":
                     self.assertTrue(
                         {
-                            "max_poll_attempts",
-                            "polling_delay_ms",
                             "run_root",
                             "endpoint_origin",
                         }.issubset(initial),
                         "Notebook configuration globals used by recovery changed.",
                     )
-                    initial["max_poll_attempts"] = 1
-                    initial["polling_delay_ms"] = 0
+                    initial["ContentUnderstanding"] = single_poll_analyzer
             self.assertEqual(initial["results"].first().analysis.status, "Running")
             self.assertEqual(poll_count, 1)
 
@@ -1020,8 +1025,7 @@ class TestContentUnderstanding(unittest.TestCase):
 
             resumed = {}
             exec(cells["configuration"], resumed)
-            resumed["max_poll_attempts"] = 1
-            resumed["polling_delay_ms"] = 0
+            resumed["ContentUnderstanding"] = single_poll_analyzer
             resumed["recovery_input_path"] = initial["recovery_output_path"]
             resumed["recovery_output_path"] = resumed["run_root"] + "/poll-002"
             exec(cells["poll-and-save"], resumed)
@@ -1073,7 +1077,7 @@ class TestContentUnderstanding(unittest.TestCase):
         self.assertEqual(creation["baseAnalyzerId"], "prebuilt-document")
         self.assertEqual(
             creation["models"],
-            {"completion": "gpt-4.1", "embedding": "text-embedding-3-large"},
+            {"completion": "gpt-6.1-sol", "embedding": "text-embedding-3-large"},
         )
         self.assertTrue(creation["config"]["estimateFieldSourceAndConfidence"])
         self.assertEqual(

@@ -28,6 +28,20 @@ NOTEBOOK = (
     / "AI Services"
     / "Quickstart - Semantic Extraction with Content Understanding.ipynb"
 )
+PROTOCOL_SOURCE = Path(
+    "cognitive",
+    "src",
+    "main",
+    "scala",
+    "com",
+    "microsoft",
+    "azure",
+    "synapse",
+    "ml",
+    "services",
+    "contentunderstanding",
+    "ContentUnderstandingProtocol.scala",
+)
 CELL_IDS = (
     "configuration",
     "sample-input",
@@ -45,7 +59,8 @@ class NoRedirect(HTTPRedirectHandler):
         return None
 
 
-def notebook_request(notebook: Path, run_id: str) -> tuple:
+def notebook_request(root: Path, run_id: str) -> tuple:
+    notebook = root / NOTEBOOK
     cells = {
         cell["id"]: "".join(cell["source"])
         for cell in json.loads(notebook.read_text(encoding="utf-8"))["cells"]
@@ -66,8 +81,15 @@ def notebook_request(notebook: Path, run_id: str) -> tuple:
         {"__builtins__": {}},
         {"run_id": run_id},
     )
+    defaults = re.findall(
+        r'^\s*val DefaultApiVersion = "([^"]+)"\s*$',
+        (root / PROTOCOL_SOURCE).read_text(encoding="utf-8"),
+        flags=re.MULTILINE,
+    )
+    if len(defaults) != 1:
+        raise RuntimeError("Could not determine the CU connector's default API version")
     return (
-        ast.literal_eval(assignments["api_version"]),
+        defaults[0],
         analyzer_id,
         ast.literal_eval(assignments["definition"]),
     )
@@ -321,8 +343,9 @@ def execute_notebook(path, report):
             report.update(
                 runId=namespace["run_id"],
                 analyzerId=namespace["analyzer_id"],
-                apiVersion=namespace["api_version"],
             )
+        elif cell_id == "create-analyzer":
+            report["apiVersion"] = namespace["analyzer"].getApiVersion()
     fields, operation = semantic_results(namespace)
     report["fields"] = fields
     # A fresh namespace cannot reuse the original input DataFrame or analyzer.
@@ -435,7 +458,7 @@ def main():
         env = os.environ.copy()
         env["CONTENT_UNDERSTANDING_RUN_ID"] = "ci-" + uuid.uuid4().hex
         api_version, analyzer_id, _ = notebook_request(
-            ROOT / NOTEBOOK, env["CONTENT_UNDERSTANDING_RUN_ID"]
+            ROOT, env["CONTENT_UNDERSTANDING_RUN_ID"]
         )
         # Capture in memory so neither notebook output nor JVM exceptions can
         # reach CI logs before the supplied credential has been redacted.

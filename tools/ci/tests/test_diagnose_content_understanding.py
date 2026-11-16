@@ -93,7 +93,7 @@ def test_notebook_request_and_redacted_response(tmp_path, capsys, status):
     assert definition == report["request"]["definition"]
     assert definition["baseAnalyzerId"] == "prebuilt-document"
     assert definition["models"] == {
-        "completion": "gpt-4.1",
+        "completion": "gpt-6.1-sol",
         "embedding": "text-embedding-3-large",
     }
     assert set(definition["fieldSchema"]["fields"]) == {
@@ -362,6 +362,7 @@ def test_poll_timeout_preserves_acceptance_and_cleans_up_without_resubmission(
         "conflict",
         "disabled",
         "unsupported",
+        "older-deployment",
         "defaults-forbidden",
         "patch-rejected",
         "readback-mismatch",
@@ -370,21 +371,21 @@ def test_poll_timeout_preserves_acceptance_and_cleans_up_without_resubmission(
 def test_defaults_setup_preserves_existing_mappings_and_fails_closed(
     tmp_path, monkeypatch, scenario
 ):
-    models = {"completion": ["gpt-4.1"], "embedding": ["text-embedding-3-large"]}
+    models = {"completion": ["gpt-6.1-sol"], "embedding": ["text-embedding-3-large"]}
     expected = {
-        "gpt-4.1": "gpt-4.1",
-        "prebuilt-analyzer-completion": "gpt-4.1",
+        "gpt-6.1-sol": "gpt-6.1-sol",
+        "prebuilt-analyzer-completion": "gpt-6.1-sol",
         "text-embedding-3-large": "text-embedding-3-large",
         "prebuilt-analyzer-embedding": "text-embedding-3-large",
     }
     deployments = [
         {"deployment": model, "model": {"name": model}, "state": "Succeeded"}
-        for model in ("gpt-4.1", "text-embedding-3-large")
+        for model in ("gpt-6.1-sol", "text-embedding-3-large")
     ]
     before = (
         {}
         if scenario == "unset"
-        else {"unrelated-model": "keep-this-deployment", "gpt-4.1": "gpt-4.1"}
+        else {"unrelated-model": "keep-this-deployment", "gpt-6.1-sol": "gpt-6.1-sol"}
     )
     if scenario == "unchanged":
         before.update(expected)
@@ -393,7 +394,9 @@ def test_defaults_setup_preserves_existing_mappings_and_fails_closed(
     if scenario == "disabled":
         deployments[0]["state"] = "Disabled"
     if scenario == "unsupported":
-        models["completion"] = []
+        models["completion"] = ["gpt-4.1"]
+    if scenario == "older-deployment":
+        deployments[0]["model"]["name"] = "gpt-4.1"
     (tmp_path / "deployments.json").write_text(json.dumps(deployments))
     state = before.copy()
     requests = []

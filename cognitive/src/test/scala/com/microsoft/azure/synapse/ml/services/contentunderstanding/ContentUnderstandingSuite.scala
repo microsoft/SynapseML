@@ -66,7 +66,8 @@ class ContentUnderstandingSuite extends TestBase {
       assert(result.operationLocation.contains(server.endpoint + locationPath))
       assert(row.getAs[Row]("error") == None.orNull)
       assert(result.error.isEmpty)
-      assert(result.rawResponse.parseJson.asJsObject.fields("usage").asJsObject.fields("gpt-5.2-input") == JsNumber(51))
+      assert(result.rawResponse.parseJson.asJsObject.fields("usage")
+        .asJsObject.fields("gpt-6.1-sol-input") == JsNumber(51))
       assert(transformer.transformSchema(input.schema) == transformed.schema)
     }
   }
@@ -89,7 +90,7 @@ class ContentUnderstandingSuite extends TestBase {
         .add("models", MapType(StringType, StringType)).add("key", StringType)
         .add("version", StringType).add("encoding", StringType).add("processing", StringType)
       val models = Map("prebuilt-analyzer-embedding" -> "text-embedding-3-large",
-        "prebuilt-analyzer-completion" -> "gpt-5.2")
+        "prebuilt-analyzer-completion" -> "gpt-6.1-sol")
       val frame = dataFrame(Seq(Row(bytes, "prebuilt-invoice", "invoice.pdf", "application/pdf", "319-320",
         models, "test-key", "2026-06-01-preview", "utf16", "geography")), schema)
       val transformer = stage(server).setOperationMode("submit")
@@ -605,7 +606,7 @@ class ContentUnderstandingSuite extends TestBase {
   test("copy and persistence retain service parameters, binary scalars, and response schemas") {
     val original = new ContentUnderstanding("saved-cu").setEndpoint("https://example.invalid")
       .setDocumentBytes(Array[Byte](0, -1, -128, 127)).setAnalyzerId("custom.invoice")
-      .setApiVersion("2026-06-01-preview").setModelDeployments(Map("prebuilt-analyzer-completion" -> "gpt-5.2"))
+      .setApiVersion("2026-06-01-preview").setModelDeployments(Map("prebuilt-analyzer-completion" -> "gpt-6.1-sol"))
       .setOperationMode("submit").setPollingDelay(0).setOutputCol("result").setErrorCol("error")
     val copied = original.copy(ParamMap(original.outputCol -> "copied"))
     assert(copied.uid == original.uid)
