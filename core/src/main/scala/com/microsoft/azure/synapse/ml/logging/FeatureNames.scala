@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.logging
 
 object FeatureNames {
   object AiServices {
+    val ContentUnderstanding = "aiservice-contentunderstanding"
     val Face = "aiservice-face"
     val Form = "aiservice-form"
     val Language = "aiservice-language"

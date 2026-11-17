@@ -152,6 +152,26 @@ class TestableExplicitSessionParamTest(override val uid: String) extends Testabl
   override protected def validateForWrite(): Unit = ()
 }
 
+class TestableDefaultPreservingSessionParamTest(override val uid: String)
+  extends TestableSessionParamTest(uid) with HasStringParam {
+  override protected def saveDefaultParamsAsExplicit: Boolean = false
+
+  setDefault(stringParam -> "default")
+}
+
+object TestableDefaultPreservingSessionParamTest
+  extends ComplexParamsReadable[TestableDefaultPreservingSessionParamTest]
+
+class TestableDefaultParamTest(override val uid: String) extends MixedParamTest(uid) {
+  setDefault(stringParam -> "default", byteArray -> Array[Byte](1, 2))
+}
+
+object TestableDefaultParamTest extends ComplexParamsReadable[TestableDefaultParamTest]
+
+class TestableExplicitParamTest(override val uid: String) extends TestableDefaultParamTest(uid) {
+  override protected def saveDefaultParamsAsExplicit: Boolean = false
+}
+
 class ValidateComplexParamSerializer extends TestBase {
   val saveFile = new File(tmpDir.toFile, "m1.model").toString
   val saveFile2 = new File(tmpDir.toFile, "m2.model").toString
@@ -304,6 +324,24 @@ class ValidateComplexParamSerializer extends TestBase {
     }
   }
 
+  test("explicit parameter persistence uses its assigned session without promoting defaults") {
+    val stage = new TestableDefaultPreservingSessionParamTest("explicit-assigned-session")
+    val session = spark.newSession()
+    session.conf.set(TestableSessionParamTest.ConfigKey, stage.uid)
+    val previous = SparkSession.getActiveSession
+    SparkSession.setActiveSession(spark)
+    try {
+      val bytes = Array[Byte](1, 2, 3)
+      val path = tmpDir.resolve("explicit-assigned-session.model").toString
+      stage.set(stage.byteArray, bytes).write.session(session).save(path)
+      val restored = TestableDefaultPreservingSessionParamTest.read.session(session).load(path)
+      assert(restored.getOrDefault(restored.byteArray).sameElements(bytes))
+      assert(restored.getStringParam == "default")
+      assert(restored.hasDefault(restored.stringParam))
+      assert(!restored.isSet(restored.stringParam))
+    } finally previous.fold(SparkSession.clearActiveSession())(SparkSession.setActiveSession)
+  }
+
   Seq("active", "default").foreach { selected =>
     test(s"legacy complex parameter helpers use the $selected Spark session") {
       val active = spark.newSession()
@@ -448,6 +486,23 @@ class ValidateComplexParamSerializer extends TestBase {
     val mpt2 = MixedParamTest.load(saveFile2)
     assert(mpt1.getByteArray === mpt2.getByteArray)
     assert(mpt1.getStringParam === mpt2.getStringParam)
+  }
+
+  test("explicit parameter persistence preserves defaults and complex values without changing legacy writers") {
+    for (source <- Seq(new TestableDefaultParamTest("legacy"), new TestableExplicitParamTest("explicit"))) {
+      source.write.session(spark).overwrite().save(saveFile)
+      val loaded = TestableDefaultParamTest.load(saveFile)
+      assert(loaded.getStringParam == source.getStringParam)
+      assert(loaded.getByteArray.sameElements(source.getByteArray))
+      assert(loaded.getDefault(loaded.stringParam) == source.getDefault(source.stringParam))
+      assert(loaded.isSet(loaded.stringParam) == !source.isInstanceOf[TestableExplicitParamTest])
+      source.setStringParam(source.getStringParam)
+      source.write.session(spark).overwrite().save(saveFile)
+      val selected = TestableDefaultParamTest.load(saveFile)
+      assert(selected.isSet(selected.stringParam))
+      selected.clear(selected.stringParam)
+      assert(selected.getStringParam == source.getStringParam)
+    }
   }
 
   test("Complex Param serialization should read metadata written by the legacy SparkContext path") {

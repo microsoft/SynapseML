@@ -223,6 +223,12 @@ trait HasCustomHeaders extends HasServiceParams {
     setScalarParam(customHeaders, ServiceAuthHeaders.sanitizeHeaderMap(v))
   }
 
+  def getCustomHeaders: Map[String, String] = getScalarParam(customHeaders)
+
+  def setCustomHeadersCol(value: String): this.type = setVectorParam(customHeaders, value)
+
+  def getCustomHeadersCol: String = getVectorParam(customHeaders)
+
   // For Pyspark compatibility accept Java HashMap as input to parameter
   // py4J only natively supports conversions from Python Dict to Java HashMap. A null HashMap is
   // handled here (never dereferenced) and null keys/values are dropped by the Scala overload above.
@@ -351,6 +357,11 @@ private[ml] object ServiceAuthHeaders {
   private def sanitizeHeaderMap(headers: Option[Map[String, String]]): Map[String, String] =
     sanitizeHeaderMap(Option(headers).flatten.orNull)
 
+  private def addContentType(headers: mutable.Map[String, String], value: String): Unit = {
+    headers.keys.filter(_.equalsIgnoreCase("Content-Type")).toSeq.foreach(headers.remove)
+    headers += ("Content-Type" -> value)
+  }
+
   // Deterministically select a non-blank credential embedded in customHeaders for one canonical
   // auth header name, canonicalizing its casing. Blank values are ignored and mixed-case duplicates
   // resolve by sorted header name, so an empty entry can never suppress a valid credential.
@@ -414,7 +425,7 @@ private[ml] object ServiceAuthHeaders {
         headers += (headerName -> headerValue)
       }
     }
-    contentType.filterNot(StringUtils.isEmpty).foreach(value => headers += ("Content-Type" -> value))
+    contentType.filterNot(StringUtils.isEmpty).foreach(value => addContentType(headers, value))
 
     Resolution(
       new scala.collection.immutable.TreeMap[String, String]() ++ headers,

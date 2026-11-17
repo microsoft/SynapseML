@@ -155,9 +155,7 @@ class PyCodegenSuite extends AnyFunSuite {
     withTempDir { root =>
       val conf = codegenConfig(root)
       val stage = new TypedPythonStage
-
       stage.makePyFile(conf)
-
       val folder = "/codegen"
       val runtimeFile = new File(packageDir(conf.pySrcDir, folder), "TypedPythonStage.py")
       val stubFile = new File(packageDir(conf.pySrcDir, folder), "TypedPythonStage.pyi")
@@ -181,6 +179,8 @@ class PyCodegenSuite extends AnyFunSuite {
       assert(stub.contains("def setAlias(self: _T, *, value: str) -> _T: ..."))
       assert(stub.contains("def setPositionalAlias(self: _T, value: str, /) -> _T: ..."))
       assert(stub.contains("def clear(self, param: Param) -> None: ..."))
+      assert(!stub.contains("def isSet("), "Keep PySpark's inherited string-or-Param boolean signature.")
+      assert(!runtime.contains("def isSet("), "Keep generic inspection on Python parameter maps.")
       assert(stub.contains(
         "def copy(self: _T, extra: Optional[ParamMap] = ...) -> _T: ..."))
       assert(runtime.contains("self._java_obj.setScalarParam(\"model\", value)"))

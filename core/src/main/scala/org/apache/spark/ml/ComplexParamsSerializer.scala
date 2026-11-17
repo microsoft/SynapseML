@@ -20,7 +20,10 @@ trait ComplexParamsWritable extends MLWritable {
   /** Constructor-recreated defaults that must remain implicit unless explicitly set, including complex params. */
   def paramsWithImplicitDefaults: Set[Param[_]] = Set.empty
 
-  override def write: MLWriter = new ComplexParamsWriter(this)
+  /** Retain legacy metadata by default; stages may keep non-complex defaults out of the explicit paramMap. */
+  protected def saveDefaultParamsAsExplicit: Boolean = true
+
+  override def write: MLWriter = new ComplexParamsWriter(this, saveDefaultParamsAsExplicit)
 }
 
 trait ComplexParamsReadable[T] extends MLReadable[T] {
@@ -52,17 +55,26 @@ private[ml] object ComplexParamsJson {
   *
   * @param instance object to save
   */
-private[ml] class ComplexParamsWriter(instance: Params) extends MLWriter {
+private[ml] class ComplexParamsWriter(instance: Params, saveDefaultParamsAsExplicit: Boolean) extends MLWriter {
+
+  def this(instance: Params) = this(instance, true)
 
   override protected def saveImpl(path: String): Unit = {
     val complexParamLocs = ComplexParamsWriter.getComplexParamLocations(instance, path)
     val complexParamJson = ComplexParamsWriter.getComplexMetadata(complexParamLocs)
-    ComplexParamsWriter.saveMetadata(instance, path, sparkSession, complexParamJson)
+    val explicitParams = if (saveDefaultParamsAsExplicit) None
+      else Some(ComplexParamsWriter.encodeParams(instance.paramMap))
+    ComplexParamsWriter.saveMetadata(instance, path, sparkSession, complexParamJson, explicitParams)
     ComplexParamsWriter.saveComplexParams(path, complexParamLocs, shouldOverwrite, sparkSession)
   }
 }
 
 private[ml] object ComplexParamsWriter {
+
+  private def encodeParams(params: ParamMap): JValue = {
+    val pairs = params.toSeq.filter(!_.param.isInstanceOf[ComplexParam[_]]).asInstanceOf[Seq[ParamPair[Any]]]
+    render(pairs.map { case ParamPair(p, v) => p.name -> ComplexParamsJson.parseExact(p.jsonEncode(v)) }.toList)
+  }
 
   def getComplexMetadata(complexParamLocs: Map[ParamPair[_], Path]): Option[JObject] = {
     if (complexParamLocs.nonEmpty) {

@@ -75,9 +75,7 @@ trait PythonWrappable extends BaseWrappable {
 
   protected def pyParamInputType(p: Param[_]): Option[String] = None
 
-  def pyAdditionalMethods: String = {
-    ""
-  }
+  def pyAdditionalMethods: String = ""
 
   protected lazy val pyInternalWrapper = false
 
@@ -318,6 +316,8 @@ trait PythonWrappable extends BaseWrappable {
         s"""|
             |def get$capName(self):
             |${indent(docString, 1)}
+            |    if self.${sp.name} in self._paramMap:
+            |        return self._paramMap[self.${sp.name}]
             |    return self._service_param_scalar_to_python("${sp.name}", $scalarGetter)
             |
             |def get${capName}Col(self):
