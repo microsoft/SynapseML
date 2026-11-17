@@ -56,6 +56,8 @@ class DoubleMLMultipleTreatmentsTests(unittest.TestCase):
                 "spark.jars", ",".join(row["path"] for row in manifest["jars"])
             )
         cls.spark = builder.getOrCreate()
+        if cls.owns_spark_context:
+            cls.addClassCleanup(cls.spark.stop)
         cls.installed_artifact_provenance_verified = False
         if manifest is not None:
             for name, expected in manifest["python_modules"].items():
@@ -132,11 +134,6 @@ class DoubleMLMultipleTreatmentsTests(unittest.TestCase):
                 }
             )
         )
-
-    @classmethod
-    def tearDownClass(cls):
-        if getattr(cls, "owns_spark_context", False) and hasattr(cls, "spark"):
-            cls.spark.stop()
 
     @staticmethod
     def estimator():
