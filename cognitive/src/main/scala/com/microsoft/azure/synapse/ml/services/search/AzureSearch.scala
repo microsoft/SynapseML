@@ -574,7 +574,7 @@ object AzureSearchWriter extends IndexParser with IndexJsonGetter with SLogging 
   private def dtEqualityModuloNullability(dt1: DataType, dt2: DataType): Boolean = (dt1, dt2) match {
     case (ArrayType(it1, _), ArrayType(it2, _)) => dtEqualityModuloNullability(it1, it2)
     case (StructType(fields1), StructType(fields2)) =>
-      fields1.zip(fields2).forall {
+      fields2.length <= fields1.length && fields1.zip(fields2).forall {
         case (sf1, sf2) => sf1.name == sf2.name && dtEqualityModuloNullability(sf1.dataType, sf2.dataType)
       }
     case _ => dt1 == dt2
