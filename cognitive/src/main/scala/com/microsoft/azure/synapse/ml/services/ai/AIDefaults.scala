@@ -144,7 +144,7 @@ object AIDefaults {
       case _ => value
     }
     stage match {
-      case prompt: AIPrompt if ImplicitPromptFields(field) => prompt.setScopedDefault(name, stored)
+      case prompt: AIPrompt if ImplicitPromptFields(field) => AIPrompt.setScopedDefault(prompt, name, stored)
       case _ => stage.set(param.asInstanceOf[Param[Any]], stored)
     }
   }

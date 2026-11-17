@@ -125,6 +125,9 @@ object AIPrompt extends ExplicitComplexParamsReadable[AIPrompt] {
       (prompt.isDefined(prompt.url) && prompt.usingImplicitFabricEndpoint(prompt.getUrl.stripSuffix("/") + "/"))
   }
 
+  private[ai] def setScopedDefault(prompt: AIPrompt, name: String, value: Any): Unit =
+    prompt.setDefault(prompt.getParam(name).asInstanceOf[Param[Any]] -> value)
+
   private val FirstRetryMs = 100
   private val SecondRetryMs = 500
   private val ThirdRetryMs = 1000
@@ -254,9 +257,6 @@ class AIPrompt(override val uid: String) extends OpenAIPrompt(uid)
       fabricEndpoint.foreach(endpoint => setDefault(url -> endpoint))
     }
   }
-
-  private[ai] def setScopedDefault(name: String, value: Any): Unit =
-    setDefault(getParam(name).asInstanceOf[Param[Any]] -> value)
 
   private def excludedGlobalDefaults(result: AIPrompt): Set[String] = {
     val overriddenModelDefaults = if (result.isSet(result.model)) Set(deploymentName.name)
