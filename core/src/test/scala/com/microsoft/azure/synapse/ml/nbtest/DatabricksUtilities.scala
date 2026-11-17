@@ -255,7 +255,7 @@ object DatabricksUtilities {
 
   val CPUNotebooks: Seq[File] = ParallelizableNotebooks
     // Requires user-supplied CU resource/storage; covered by the loopback notebook test.
-    .filterNot(_.getAbsolutePath.contains("Semantic Extraction with Content Understanding"))
+    .filterNot(_.getName == "Quickstart - Azure Content Understanding in Spark.ipynb")
     .filterNot(_.getAbsolutePath.contains("Fine-tune"))
     .filterNot(_.getAbsolutePath.contains("GPU"))
     .filterNot(_.getAbsolutePath.contains("Phi Model"))

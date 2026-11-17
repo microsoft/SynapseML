@@ -39,7 +39,7 @@ for your runtime. You also need an existing CU resource with access to the
 selected analyzer and any required model deployments.
 
 For a complete runnable example, use the
-[semantic extraction notebook](../Quickstart%20-%20Semantic%20Extraction%20with%20Content%20Understanding).
+[Azure Content Understanding in Spark quickstart](../Quickstart%20-%20Azure%20Content%20Understanding%20in%20Spark).
 It includes runtime/resource setup, a generated sample PDF, explicit endpoint
 and storage configuration, a custom semantic analyzer, extracted fields with
 confidence and source grounding, and saved-handle submit/poll recovery. It reads
@@ -678,7 +678,7 @@ management operation within the budget; failure/exhaustion raises an exception
 carrying the response. `getAnalyzer` can inspect the analyzer afterward.
 The connector never changes shared model defaults. A resource administrator must
 resolve `DefaultsNotSet`. Replacing an analyzer is an explicit choice.
-The [semantic extraction notebook](../Quickstart%20-%20Semantic%20Extraction%20with%20Content%20Understanding)
+The [Azure Content Understanding in Spark quickstart](../Quickstart%20-%20Azure%20Content%20Understanding%20in%20Spark)
 expands this into a runnable example, including input creation, all returned
 content entries, supporting text spans, and recovery without resubmission.
 

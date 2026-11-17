@@ -26,7 +26,7 @@ NOTEBOOK = (
     Path("docs")
     / "Explore Algorithms"
     / "AI Services"
-    / "Quickstart - Semantic Extraction with Content Understanding.ipynb"
+    / "Quickstart - Azure Content Understanding in Spark.ipynb"
 )
 PROTOCOL_SOURCE = Path(
     "cognitive",

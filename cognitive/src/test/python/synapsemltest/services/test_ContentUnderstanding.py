@@ -684,7 +684,7 @@ class TestContentUnderstanding(unittest.TestCase):
             / "docs"
             / "Explore Algorithms"
             / "AI Services"
-            / "Quickstart - Semantic Extraction with Content Understanding.ipynb"
+            / "Quickstart - Azure Content Understanding in Spark.ipynb"
         )
         notebook = json.loads(notebook_path.read_text(encoding="utf-8"))
         transformer = TransformerManager()

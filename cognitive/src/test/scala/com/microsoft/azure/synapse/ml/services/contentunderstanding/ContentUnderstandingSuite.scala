@@ -163,17 +163,29 @@ class ContentUnderstandingSuite extends TestBase {
     }
   }
 
-  test("temporary columns preserve input columns that differ only by case") {
+  test("temporary columns preserve case-insensitive collisions under both resolver modes") {
     val conf = SQLConf.get
     val wasCaseSensitive = conf.caseSensitiveAnalysis
-    conf.setConf(SQLConf.CASE_SENSITIVE, false)
     try {
-      withReplies(Seq(accepted)) { server =>
-        val frame = dataFrame(Seq(Row("keep")), new StructType().add("CONTENTUNDERSTANDINGINPUT", StringType))
-        val result = stage(server).setOperationMode("submit").setDocumentBytes(Array[Byte](1)).transform(frame)
-          .collect().head
-        assert(result.getAs[String]("CONTENTUNDERSTANDINGINPUT") == "keep")
-        assert(response(result).status == "Running")
+      for (sensitive <- Seq(false, true)) {
+        conf.setConf(SQLConf.CASE_SENSITIVE, sensitive)
+        withReplies(Seq(accepted)) { server =>
+          val names = Seq("INPUT", "RESULT", "ERROR", "VALIDATION").flatMap { suffix =>
+            Seq(s"CONTENTUNDERSTANDING$suffix", s"CONTENTUNDERSTANDING${suffix}_1")
+          }
+          val frame = dataFrame(Seq(Row.fromSeq(names)),
+            StructType(names.map(name => StructField(name, StringType))))
+          val transformer = stage(server).setOperationMode("submit").setDocumentBytes(Array[Byte](1))
+          val output = transformer.transform(frame)
+          assert(output.schema == transformer.transformSchema(frame.schema))
+          val result = output.collect().head
+          names.foreach { name =>
+            assert(result.getAs[String](name) == name)
+          }
+          assert(response(result).status == "Running")
+          assert(result.isNullAt(result.fieldIndex("error")))
+          assert(server.requests.map(_.method) == Seq("POST"))
+        }
       }
     } finally {
       conf.setConf(SQLConf.CASE_SENSITIVE, wasCaseSensitive)

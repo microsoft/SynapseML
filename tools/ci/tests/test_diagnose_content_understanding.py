@@ -353,6 +353,85 @@ def test_poll_timeout_preserves_acceptance_and_cleans_up_without_resubmission(
     assert "synthetic-key" not in (tmp_path / "evidence.json").read_text()
 
 
+@pytest.mark.parametrize("retry_after,expected_polls", [("1000", 0), ("4", 2)])
+def test_provisioning_deadline_preserves_evidence_and_cleans_up(
+    tmp_path, monkeypatch, retry_after, expected_polls
+):
+    clock = [0.0]
+    requests = []
+
+    def open_request(request, timeout):
+        requests.append((request.get_method(), timeout))
+        assert len(requests) <= 3, "Provisioning failed to stop at its deadline"
+        response = io.BytesIO(
+            b'{"status":"creating"}'
+            if request.get_method() == "PUT"
+            else b'{"status":"Running"}'
+        )
+        response.code = 201 if request.get_method() == "PUT" else 200
+        response.headers = {
+            "operation-location": "https://example.invalid/operations/creation",
+            "Retry-After": retry_after,
+        }
+        return response
+
+    def advance_clock(seconds):
+        clock[0] += seconds
+
+    monkeypatch.setattr(diagnostic, "PROVISIONING_TIMEOUT_SECONDS", 10, raising=False)
+    monkeypatch.setattr(diagnostic, "monotonic", lambda: clock[0], raising=False)
+    monkeypatch.setattr(diagnostic, "sleep", advance_clock)
+    monkeypatch.setattr(
+        diagnostic, "build_opener", lambda *args: Mock(open=open_request)
+    )
+    cleanup = Mock(return_value={"status": "deleted"})
+    monkeypatch.setattr(diagnostic, "cleanup_analyzer", cleanup)
+
+    assert (
+        diagnostic.diagnose(
+            diagnostic.ROOT, tmp_path, "https://example.invalid", "synthetic-key"
+        )
+        == 1
+    )
+    report = json.loads((tmp_path / "evidence.json").read_text())
+    assert report["requestAccepted"] is True
+    assert report["provisioningSucceeded"] is False
+    assert report["provisioningTimedOut"] is True
+    assert report["pollCount"] == expected_polls
+    assert [method for method, _ in requests] == ["PUT"] + ["GET"] * expected_polls
+    assert [timeout for _, timeout in requests[1:]] == (
+        [] if expected_polls == 0 else [6, 2]
+    )
+    cleanup.assert_called_once()
+    assert report["cleanup"]["status"] == "deleted"
+
+
+def test_provisioning_does_not_accept_a_response_after_the_deadline(monkeypatch):
+    clock = [0.0]
+    response = io.BytesIO(b'{"status":"Succeeded"}')
+    response.code = 200
+    response.headers = {}
+
+    def open_request(request, timeout):
+        assert timeout == 6
+        clock[0] = 11
+        return response
+
+    monkeypatch.setattr(diagnostic, "PROVISIONING_TIMEOUT_SECONDS", 10)
+    monkeypatch.setattr(diagnostic, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(
+        diagnostic, "sleep", lambda seconds: clock.__setitem__(0, seconds)
+    )
+    monkeypatch.setattr(
+        diagnostic, "build_opener", lambda *args: Mock(open=open_request)
+    )
+    report = {}
+    assert not diagnostic.poll_provisioning(
+        "https://example.invalid/operations/creation", "synthetic-key", "4", report
+    )
+    assert report["provisioningTimedOut"] is True
+
+
 @pytest.mark.parametrize(
     "scenario",
     [

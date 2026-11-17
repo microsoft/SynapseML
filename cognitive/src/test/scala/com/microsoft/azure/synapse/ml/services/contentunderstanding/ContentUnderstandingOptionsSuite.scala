@@ -7,6 +7,8 @@ import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import org.apache.spark.sql.Row
 import org.apache.spark.sql.types.{StringType, StructType}
 
+import java.util.Locale
+
 class ContentUnderstandingOptionsSuite extends TestBase {
   import ContentUnderstandingFixtures.{Accepted => accepted, DefaultApiVersion, LocationPath, Succeeded}
   import ContentUnderstandingStub.withReplies
@@ -20,6 +22,28 @@ class ContentUnderstandingOptionsSuite extends TestBase {
 
   private def submit(transformer: ContentUnderstanding): ContentUnderstandingResponse =
     response(transformer.transform(spark.range(0L, 1L, 1L, 1)).head())
+
+  test("temporary column names use indexed lookup under case-insensitive collisions") {
+    for (suffix <- Seq("Input", "Result", "Error", "Validation")) {
+      val prefix = s"contentUnderstanding$suffix"
+      var visited = 0
+      val occupied = new scala.collection.mutable.HashSet[String] {
+        override def iterator: Iterator[String] = super.iterator.map { name =>
+          visited += 1
+          name
+        }
+        override def foreach[U](f: String => U): Unit = super.foreach { name =>
+          visited += 1
+          f(name)
+        }
+      }
+      val count = 2000
+      val upper = prefix.toUpperCase(Locale.ROOT)
+      occupied ++= (0 until count).map(i => if (i == 0) upper else s"${upper}_$i")
+      assert(ContentUnderstanding.internalColumnName(prefix, occupied) == s"${prefix}_$count")
+      assert(visited <= count * 2, s"Repeatedly scanned occupied names: $visited visits")
+    }
+  }
 
   test("allowInputTruncation preserves unset versus explicit false on GA and preview") {
     Seq(DefaultApiVersion, "2026-06-01-preview").foreach { version =>

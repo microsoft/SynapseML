@@ -47,7 +47,7 @@ class SynapseTestCleanup extends TestBase {
 
 object SynapseTests {
   private[nbtest] val ExcludedNotebooks: Set[String] = Set(
-    "SemanticExtractionwithContentUnderstanding", // Requires user-supplied CU resource/storage
+    "QuickstartAzureContentUnderstandinginSpark", // Requires user-supplied CU resource/storage
     "Finetune", // Excluded by design task 1829306
     "GPU",
     "PhiModel",

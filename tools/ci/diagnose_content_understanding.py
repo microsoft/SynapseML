@@ -5,7 +5,7 @@ import json
 import os
 import uuid
 from pathlib import Path
-from time import sleep
+from time import monotonic, sleep
 from urllib.error import HTTPError
 from urllib.parse import urljoin, urlsplit
 from urllib.request import Request, build_opener
@@ -21,18 +21,29 @@ from tools.ci.run_content_understanding_notebook import (
     sha256,
 )
 
+PROVISIONING_TIMEOUT_SECONDS = 600
+
 
 def poll_provisioning(
     url: str, key: str, retry_after: str | None, report: dict
 ) -> bool:
     report["pollCount"] = 0
+    deadline = monotonic() + PROVISIONING_TIMEOUT_SECONDS
     while True:
-        sleep(int(retry_after) if retry_after and retry_after.isdigit() else 5)
+        delay = int(retry_after) if retry_after and retry_after.isdigit() else 5
+        if delay >= deadline - monotonic():
+            report["provisioningTimedOut"] = True
+            return False
+        sleep(delay)
+        remaining = deadline - monotonic()
+        if remaining <= 0:
+            report["provisioningTimedOut"] = True
+            return False
         request = Request(url, headers={"Ocp-Apim-Subscription-Key": key})
         report["pollCount"] += 1
         try:
             response = build_opener(NoRedirect()).open(
-                request, timeout=HTTP_TIMEOUT_SECONDS
+                request, timeout=min(HTTP_TIMEOUT_SECONDS, remaining)
             )
         except HTTPError as error:
             response = error
@@ -46,6 +57,9 @@ def poll_provisioning(
             report["provisioning"]["status"] = body.get("status")
             report["serviceError"] = body.get("error")
             status = str(body.get("status", "")).lower()
+            if monotonic() >= deadline:
+                report["provisioningTimedOut"] = True
+                return False
             if response.code != 200 or report["serviceError"]:
                 return False
             if status not in ("running", "notstarted"):

@@ -34,7 +34,7 @@ class DatabricksUtilitiesSuite extends AnyFunSuite {
   }
 
   test("Exclude the interactive Content Understanding notebook from unattended CPU and Synapse runs") {
-    val notebookName = "Quickstart - Semantic Extraction with Content Understanding.ipynb"
+    val notebookName = "Quickstart - Azure Content Understanding in Spark.ipynb"
     val notebook = DatabricksUtilities.NotebookFiles.find(_.getName == notebookName).get
     assert(!DatabricksUtilities.CPUNotebooks.exists(_.getName == notebookName))
     assert((0 until DatabricksUtilities.NumCPUPartitions).forall { index =>

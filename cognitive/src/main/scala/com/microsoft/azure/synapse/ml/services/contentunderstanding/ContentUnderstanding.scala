@@ -19,6 +19,7 @@ import org.apache.http.entity.{AbstractHttpEntity, ContentType, StringEntity}
 import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.TaskContext
 import org.apache.spark.sql.api.java.UDF1
+import org.apache.spark.sql.catalyst.analysis.caseInsensitiveResolution
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, NamespaceInjections, PipelineModel}
@@ -31,7 +32,11 @@ import spray.json._
 import java.util.Base64
 import scala.util.control.NonFatal
 
-object ContentUnderstanding extends ComplexParamsReadable[ContentUnderstanding]
+object ContentUnderstanding extends ComplexParamsReadable[ContentUnderstanding] {
+  private[contentunderstanding] def internalColumnName(prefix: String,
+                                                      columns: scala.collection.Set[String]): String =
+    DatasetExtensions.findUnusedColumnName(prefix, columns, caseInsensitiveResolution)
+}
 
 /** Lazy, one-document-per-row Content Understanding analysis with resumable operation handles.
   *
@@ -407,14 +412,13 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
       !schema.fieldNames.exists(name => snapshot.sameColumnName(name, snapshot.getErrorCol, resolver)),
       "outputCol and errorCol must not overwrite input columns.")
     val reserved = schema.fieldNames.toSet ++ Set(snapshot.getOutputCol, snapshot.getErrorCol)
-    val internalResolver: ColumnResolver = (left, right) => left.equalsIgnoreCase(right)
-    val inputColumn = DatasetExtensions.findUnusedColumnName("contentUnderstandingInput", reserved, internalResolver)
-    val resultColumn = DatasetExtensions.findUnusedColumnName(
-      "contentUnderstandingResult", reserved + inputColumn, internalResolver)
-    val errorColumn = DatasetExtensions.findUnusedColumnName(
-      "contentUnderstandingError", reserved ++ Set(inputColumn, resultColumn), internalResolver)
-    val validationColumn = DatasetExtensions.findUnusedColumnName(
-      "contentUnderstandingValidation", reserved ++ Set(inputColumn, resultColumn, errorColumn), internalResolver)
+    val inputColumn = ContentUnderstanding.internalColumnName("contentUnderstandingInput", reserved)
+    val resultColumn = ContentUnderstanding.internalColumnName(
+      "contentUnderstandingResult", reserved + inputColumn)
+    val errorColumn = ContentUnderstanding.internalColumnName(
+      "contentUnderstandingError", reserved ++ Set(inputColumn, resultColumn))
+    val validationColumn = ContentUnderstanding.internalColumnName(
+      "contentUnderstandingValidation", reserved ++ Set(inputColumn, resultColumn, errorColumn))
     NamespaceInjections.pipelineModel(Array(
       snapshot.inputTransformer(schema, inputColumn, validationColumn),
       new SimpleHTTPTransformer()

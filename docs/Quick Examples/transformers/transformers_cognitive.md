@@ -25,6 +25,11 @@ import FormRecognizer, {toc as FormRecognizerTOC} from './cognitive/_FormRecogni
 <FormRecognizer/>
 
 
+import ContentUnderstanding, {toc as ContentUnderstandingTOC} from './cognitive/_ContentUnderstanding.md';
+
+<ContentUnderstanding/>
+
+
 import Face, {toc as FaceTOC} from './cognitive/_Face.md';
 
 <Face/>
@@ -41,5 +46,5 @@ import AzureSearch, {toc as AzureSearchTOC} from './cognitive/_AzureSearch.md';
 
 
 export const toc = [...TextAnalyticsTOC, ...TranslatorTOC, ...ComputerVisionTOC,
-...FormRecognizerTOC, ...FaceTOC, ...SpeechToTextTOC,
+...FormRecognizerTOC, ...ContentUnderstandingTOC, ...FaceTOC, ...SpeechToTextTOC,
 ...AzureSearchTOC]
