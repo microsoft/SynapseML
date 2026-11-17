@@ -132,12 +132,14 @@ object AIDefaults {
     }
   }
 
+  private def paramName(field: String): String = field match {
+    case "endpoint" => "url"
+    case "apiKey" => "subscriptionKey"
+    case other => other
+  }
+
   private def setValue(stage: Params, field: String, value: Any): Unit = {
-    val name = field match {
-      case "endpoint" => "url"
-      case "apiKey" => "subscriptionKey"
-      case other => other
-    }
+    val name = paramName(field)
     val param: Param[_] = stage.getParam(name)
     val stored = param match {
       case _: ServiceParam[_] => Left(value)
@@ -155,7 +157,7 @@ object AIDefaults {
     else if (Set("model", "deploymentName")(field)) modelExplicit
     else if (field == "apiVersion") {
       stage.getApiType != "decisions" || stage.isSet(stage.customUrlRoot) || stage.isSet(stage.apiVersion)
-    } else stage.isSet(stage.getParam(if (field == "apiKey") "subscriptionKey" else field))
+    } else stage.isSet(stage.getParam(paramName(field)))
   }
 
   /** Applies only to a disposable effective copy; the user's stage and its persisted params stay unchanged. */
@@ -167,11 +169,7 @@ object AIDefaults {
     val credentials = if (explicitAuth(stage) || values.contains("endpoint") || values.contains("apiKey")) {
       Set("subscriptionKey")
     } else Set.empty[String]
-    credentials ++ selected.keys.map {
-      case "apiKey" => "subscriptionKey"
-      case "endpoint" => "url"
-      case field => field
-    }
+    credentials ++ selected.keys.map(paramName)
   }
 
   private[ai] def applyContent[T <: CognitiveServicesBaseNoHandler with HasCognitiveServiceInput](stage: T): T = {
@@ -180,10 +178,9 @@ object AIDefaults {
     val result = stage.copy(ParamMap.empty).asInstanceOf[T]
     val values = authenticatedValues(result, snapshot("content_understanding"))
     values.foreach { case (field, value) =>
-      val name = if (field == "apiKey") "subscriptionKey" else field
       if (field == "endpoint") {
         if (!result.isSet(result.url) && !result.isSet(result.customUrlRoot)) result.setEndpoint(value.toString)
-      } else if (!result.isSet(result.getParam(name))) setValue(result, field, value)
+      } else if (!result.isSet(result.getParam(paramName(field)))) setValue(result, field, value)
     }
     result
   }

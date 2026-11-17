@@ -190,7 +190,7 @@ class AIDefaultsSuite extends AIPromptTestBase {
     stage().transformSchema(input.schema)
   }}
 
-  test("review regression: header columns retain scoped credentials only when rows have no authentication") { isolated {
+  test("header columns retain scoped credentials only when rows have no authentication") { isolated {
     Using.resource(new AIRecordingServer((_, _) => 200 -> chatReply)) { server =>
       AIDefaults.forApi("chat_completions").setEndpoint(server.url + "/v1")
         .setApiKey("synthetic-fallback").setModel("model")
@@ -216,7 +216,7 @@ class AIDefaultsSuite extends AIPromptTestBase {
     }
   }}
 
-  test("review regression: Decisions versions reach URLs and respect explicit or complete URL overrides") { isolated {
+  test("Decisions versions reach URLs and respect explicit or complete URL overrides") { isolated {
     Using.resource(new AIRecordingServer((_, _) => 200 -> NativeRequestFixtures.DecisionResponse)) { server =>
       AIDefaults.forApi("decisions").setEndpoint(server.url + "/v1").setModel("model").setApiVersion("preview")
       val prompt = stage("decisions").setQuestions(NativeRequestFixtures.DecisionQuestions)
@@ -242,7 +242,7 @@ class AIDefaultsSuite extends AIPromptTestBase {
     }
   }}
 
-  test("review regression: extraBody overrides scoped generation defaults but not explicit typed options") { isolated {
+  test("extraBody overrides scoped generation defaults but not explicit typed options") { isolated {
     Using.resource(new AIRecordingServer((_, _) => 200 -> chatReply)) { server =>
       OpenAIDefaults.setTemperature(0.9)
       AIDefaults.forApi("chat_completions").setEndpoint(server.url + "/v1").setModel("model").setTemperature(0.5)
