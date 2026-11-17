@@ -158,7 +158,13 @@ class VerifyDoubleMLEstimator extends EstimatorFuzzing[DoubleMLEstimator] with F
       .setTreatmentCol("discount")
       .setOutcomeModel(new LinearRegression())
       .setOutcomeCol("price"),
-      mockDataset))
+      mockDataset),
+      new TestObject(new DoubleMLEstimator()
+        .setTreatmentModel(new LinearRegression())
+        .setTreatmentCols(Array("price", "weight"))
+        .setOutcomeModel(new LinearRegression())
+        .setOutcomeCol("support"),
+        mockDataset))
 
   override def reader: MLReadable[_] = DoubleMLEstimator
 
