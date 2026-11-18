@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.services.ai
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.services.openai.OpenAIDecisions
 import org.apache.spark.sql.Row
-import spray.json.{JsArray, JsNumber, JsObject, JsString, JsValue, enrichString}
+import spray.json.{JsArray, JsBoolean, JsNull, JsNumber, JsObject, JsString, JsValue, enrichString}
 
 import java.util.Base64
 import scala.util.Try
@@ -98,6 +98,77 @@ class NativeQuestionsSuite extends TestBase {
 
   private def image(url: String): JsValue = JsObject("type" -> JsString("input_image"), "image_url" -> JsString(url))
 
+  test("Decisions accepts hosted images without fetching or rewriting their URLs") {
+    Seq("https://example.invalid/photo.png?signature=a%2Bb&version=2",
+      "http://example.invalid:8080/photo.jpg",
+      "HTTPS://example.invalid/photo.png",
+      "Http://example.invalid/photo.png",
+      "https://img_cdn.example.invalid/photo.png",
+      "https://img_cdn.example.invalid:8443/photo.png",
+      "https://b\u00fccher.example.invalid:8443/photo.png",
+      "https://[2001:db8::1]/photo.png",
+      "https://[2001:db8::1]:443/photo.png",
+      "https://user:example@example.invalid:443/photo.png",
+      "https://example.invalid:/photo.png",
+      "https://b\u00fccher.example.invalid/photo.png").foreach { url =>
+      val value = input(image(url))
+      NativeQuestions.validateDecisionsInput(value)
+      assert(NativeQuestions.prepareDecisionsInput(value) == value)
+    }
+  }
+
+  test("Decisions accepts image instructions for predicate choice and score questions") {
+    val parts = JsArray(
+      JsObject("type" -> JsString("input_text"), "text" -> JsString("Compare these images.")),
+      image("https://example.invalid/candidate.png"),
+      image("data:image/png;base64,AQID"))
+    val questions = JsArray(decisions.asInstanceOf[JsArray].elements.map { question =>
+      JsObject(question.asJsObject.fields.updated("instructions", parts))
+    })
+    NativeQuestions.validate("decisions", questions)
+  }
+
+  test("Decisions sums image limits across all questions and shared paths") {
+    def questions(secondCount: Int): JsArray = JsArray(Vector(64, secondCount).map { count =>
+      JsObject("type" -> JsString("predicate"), "instructions" ->
+        JsArray(Vector.fill(count)(image("https://example.invalid/photo.png"))))
+    })
+    NativeQuestions.validate("decisions", questions(64))
+    assert(intercept[IllegalArgumentException](NativeQuestions.validate("decisions", questions(65)))
+      .getMessage.contains("at most 128 images"))
+    NativeQuestions.validateDecisionsImageCount(1, questions(63))
+    assert(intercept[IllegalArgumentException](NativeQuestions.validateDecisionsImageCount(1, questions(64)))
+      .getMessage.contains("at most 128 images"))
+  }
+
+  test("Decisions image instructions reject malformed content and unsupported document inputs") {
+    Seq(JsNumber(42), JsBoolean(true), JsObject(), JsNull).foreach { instructions =>
+      val questions = JsArray(JsObject("type" -> JsString("predicate"), "instructions" -> instructions))
+      assert(intercept[IllegalArgumentException](NativeQuestions.validate("decisions", questions))
+        .getMessage == "Decisions instructions must be text or text/image parts")
+    }
+    val invalidParts = Seq(
+      JsArray(),
+      JsArray(JsString("not a content part")),
+      JsArray(image("https:///private-sensitive-value")),
+      JsArray(image("file:///private-sensitive-value.png")),
+      JsArray(image("data:image/png;base64,private@image")),
+      JsArray(JsObject("type" -> JsString("input_file"), "file_id" -> JsString("private-sensitive-value"))),
+      JsArray(JsObject("type" -> JsString("input_image"), "file_id" -> JsString("private-sensitive-value"))),
+      JsArray(JsObject("type" -> JsString("input_text"), "text" -> JsNumber(42)))
+    )
+    invalidParts.foreach { parts =>
+      val questions = JsArray(JsObject("type" -> JsString("predicate"), "instructions" -> parts))
+      val error = intercept[IllegalArgumentException](NativeQuestions.validate("decisions", questions))
+      assert(!error.getMessage.contains("private-sensitive-value") && !error.getMessage.contains("private@image"))
+    }
+    val images = Seq.fill(129)(image("https://example.invalid/photo.png"))
+    val question = JsObject("type" -> JsString("predicate"), "instructions" -> JsArray(images.toVector))
+    intercept[IllegalArgumentException](NativeQuestions.validate("decisions", JsArray(question)))
+    NativeQuestions.validate("decisions", JsArray(JsObject(question.fields.updated(
+      "instructions", JsArray(images.take(128).toVector)))))
+  }
+
   test("direct and facade Decisions inputs distinguish missing, blank and unchanged nonblank text") {
     import spark.implicits._
     Seq("text", "json").foreach { mode =>
@@ -148,9 +219,22 @@ class NativeQuestionsSuite extends TestBase {
     }
   }
 
-  test("Decisions rejects hosted images, invalid base64, unsupported roles and modalities") {
+  test("Decisions rejects invalid image URLs, invalid base64, unsupported roles and modalities") {
     val unsupported = Seq(
-      input(image("https://example.com/image.png")),
+      input(image("https:///image.png")),
+      input(image("https://:443/image.png")),
+      input(image("https://user@/image.png")),
+      input(image("https://example.invalid:bad/image.png")),
+      input(image("https://example.invalid:-1/image.png")),
+      input(image("https://example.invalid:+443/image.png")),
+      input(image("https://example.invalid:\u0664\u0664\u0663/image.png")),
+      input(image("https://[2001:db8::1]:+443/image.png")),
+      input(image("https://user:example@example.invalid:-1/image.png")),
+      input(image("https://example.invalid/image%xy.png")),
+      input(image("https://example.invalid/image with spaces.png")),
+      input(image("file:///image.png")),
+      input(image("ftp://example.invalid/image.png")),
+      input(image("image.png")),
       input(image("data:image/png;base64,not-base64")),
       input(image("data:image/png;base64,")),
       input(JsObject("type" -> JsString("input_image"), "file_id" -> JsString("file-example"))),
@@ -158,6 +242,7 @@ class NativeQuestionsSuite extends TestBase {
         ("file_id" -> JsString("file-example")))),
       input(JsObject(image("data:image/png;base64,AQID").asJsObject.fields + ("detail" -> JsNumber(42)))),
       input(JsObject("type" -> JsString("input_audio"))),
+      input(JsObject("type" -> JsString("input_file"), "file_data" -> JsString("data:application/pdf;base64,AQID"))),
       """[{"role":"system","content":"Evidence"}]""".parseJson,
       """[{"role":"user","content":null}]""".parseJson,
       """[{"role":"user","content":[]}]""".parseJson,

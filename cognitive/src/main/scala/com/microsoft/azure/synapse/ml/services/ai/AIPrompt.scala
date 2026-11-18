@@ -384,10 +384,13 @@ class AIPrompt(override val uid: String) extends OpenAIPrompt(uid)
         }.orNull
       }.toVector)
         .getOrElse(throw new AIMissingInputException("messages is null")))
-    } else if (AIRequestAdapter.GenerativeApis(getApiType)) {
+    } else if (AIRequestAdapter.GenerativeApis(getApiType) || (getApiType == "decisions" && paths.nonEmpty)) {
       val text = prompt.orElse(get(inputCol).flatMap(name =>
         Option(row.getString(indices(name)))))
-        .getOrElse(throw new AIMissingInputException("prompt is null"))
+        .filter(value => getApiType != "decisions" || value.nonEmpty)
+        .getOrElse(throw new AIMissingInputException(
+          if (getApiType == "decisions") "input is null or empty" else "prompt is null"))
+      if (getApiType == "decisions") NativeQuestions.validateDecisionsInput(JsString(text))
       Some(generatedMessages(row, text, indices, paths, conf))
     } else None
   }
@@ -478,8 +481,11 @@ class AIPrompt(override val uid: String) extends OpenAIPrompt(uid)
       rows.map { row =>
         val prompt = promptIndex.flatMap(index => Option(row.getString(index)))
         try {
-          val inputMessages = messages(row, prompt, inputSchema, indices, paths, conf)
-          val (address, body) = adapter.request(row, prompt, inputMessages)
+          lazy val inputMessages = messages(row, prompt, inputSchema, indices, paths, conf)
+          val (address, body) = if (getApiType == "decisions") {
+            val imageCount = paths.count(name => Option(row.getString(indices(name))).exists(_.trim.nonEmpty))
+            adapter.request(row, prompt, () => inputMessages, imageCount)
+          } else adapter.request(row, prompt, inputMessages)
           Row.fromSeq(row.toSeq ++ Seq(buildRequest(row, address, body, adapter, toRequest),
             Option.empty[Row].orNull,
             if (retainGeneratedMessages) inputMessages.orNull else Option.empty[Seq[Row]].orNull))

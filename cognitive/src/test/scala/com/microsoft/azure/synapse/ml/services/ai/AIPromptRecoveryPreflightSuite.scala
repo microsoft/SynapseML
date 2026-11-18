@@ -28,6 +28,32 @@ class AIPromptRecoveryPreflightSuite extends AIPromptOutputTestBase {
   private def input: DataFrame = spark.createDataFrame(
     Seq(Row("hello")).asJava, new StructType().add("text", StringType))
 
+  test("Decisions rejects prompt input columns marked as paths before IO") {
+    val caseSensitive = spark.conf.get("spark.sql.caseSensitive")
+    val root = Files.createTempDirectory("decisions-input-path-")
+    val data = input.selectExpr("text AS asset")
+    try {
+      spark.conf.set("spark.sql.caseSensitive", "false")
+      Using.resource(new AIRecordingServer((_, _) => 200 -> NativeRequestFixtures.DecisionResponse)) { server =>
+        for (name <- Seq("asset", "ASSET"); durable <- Seq(false, true);
+             stage <- Seq(new AIPrompt().setApiType("decisions"), new OpenAIDecisions())) {
+          stage.setUrl(server.url + "/v1").setModel("model").setInputCol(name)
+            .setColumnTypes(Map("asset" -> "path")).setQuestions(NativeRequestFixtures.DecisionQuestions)
+          if (durable) stage.setOutputPath(root.resolve("run").toString)
+          Seq[() => Any](() => stage.transformSchema(data.schema), () => stage.transform(data)).foreach { call =>
+            assert(intercept[IllegalArgumentException](call()).getMessage ==
+              "requirement failed: Decisions inputCol cannot also be a 'path' column; " +
+                "use a separate text column or a promptTemplate filename placeholder")
+            assert(server.requests.isEmpty && !Files.exists(root.resolve("run")))
+          }
+        }
+      }
+    } finally {
+      spark.conf.set("spark.sql.caseSensitive", caseSensitive)
+      org.apache.commons.io.FileUtils.deleteDirectory(root.toFile)
+    }
+  }
+
   test("durable facade rejects inherited typed cache controls before HTTP or storage") {
     val settings: Seq[(String, AIPrompt => AIPrompt)] = Seq(
       "promptCacheOptions" -> (_.setPromptCacheOptions(Map("mode" -> "auto"))),
@@ -49,21 +75,48 @@ class AIPromptRecoveryPreflightSuite extends AIPromptOutputTestBase {
     }
   }
 
+  test("Decisions accepts distinct case-sensitive prompt and image columns") {
+    val caseSensitive = spark.conf.get("spark.sql.caseSensitive")
+    val image = "data:image/png;base64,AQID"
+    try {
+      spark.conf.set("spark.sql.caseSensitive", "true")
+      val data = spark.createDataFrame(Seq(Row(image, "Inspect")).asJava,
+        new StructType().add("asset", StringType).add("ASSET", StringType))
+      Seq(new AIPrompt().setApiType("decisions"), new OpenAIDecisions()).foreach { stage =>
+        Using.resource(new AIRecordingServer((_, _) => 200 -> NativeRequestFixtures.DecisionResponse)) { server =>
+          stage.setUrl(server.url + "/v1").setModel("model").setInputCol("ASSET")
+            .setColumnTypes(Map("asset" -> "path")).setQuestions(NativeRequestFixtures.DecisionQuestions)
+            .setOutputCol("answer").setErrorCol("error")
+          val result = stage.transform(data)
+          assert(result.schema == stage.transformSchema(data.schema))
+          val row = result.head()
+          assert(row.getAs[Row]("error") == null && row.getAs[Row]("answer") != null)
+          assert(server.requests.size() == 1)
+          assert(AIJson.objectString(server.requests.peek()._2).fields("input") == JsArray(
+            JsObject("role" -> JsString("user"), "content" -> JsArray(
+              JsObject("type" -> JsString("input_text"), "text" -> JsString("Inspect")),
+              JsObject("type" -> JsString("input_image"), "image_url" -> JsString(image))))))
+        }
+      }
+    } finally spark.conf.set("spark.sql.caseSensitive", caseSensitive)
+  }
+
   Seq("chat_completions", "responses", "decisions").foreach { api =>
     test(s"$api explicit messages reject unused construction settings before HTTP or durable storage") {
       val data = input.selectExpr("text", "array(named_struct('role', 'user', 'content', text)) AS messages")
-      val settings: Seq[(String, AIPrompt => AIPrompt)] = if (api == "decisions") {
-        Seq("inputMode" -> (_.setInputMode("text")), "inputMode" -> (_.setInputMode("json")))
-      } else Seq("systemPrompt" -> (_.setSystemPrompt("Do not ignore this")),
+      val settings = Seq[(String, AIPrompt => AIPrompt)](
+        "systemPrompt" -> (_.setSystemPrompt("Do not ignore this")),
         "columnTypes" -> (_.setColumnTypes(Map("text" -> "path"))),
         "columnTypes" -> (_.setColumnTypes(Map("text" -> "text"))),
         "fileSizeLimitMB" -> (_.setFileSizeLimitMB(1.0)),
-        "dropPrompt" -> (_.setDropPrompt(false)), "dropPrompt" -> (_.setDropPrompt(true)))
+        "dropPrompt" -> (_.setDropPrompt(false)), "dropPrompt" -> (_.setDropPrompt(true))) ++
+        (if (api == "decisions") Seq[(String, AIPrompt => AIPrompt)]("inputMode" -> (_.setInputMode("text")),
+          "inputMode" -> (_.setInputMode("json"))) else Seq.empty)
       val stages = if (api == "decisions") Seq(new AIPrompt().setApiType(api), new OpenAIDecisions())
       else Seq(new AIPrompt().setApiType(api))
       val reply = if (api == "responses") {
         """{"output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"answer"}]}]}"""
-      } else chatReply
+      } else if (api == "decisions") NativeRequestFixtures.DecisionResponse else chatReply
       Using.resource(new AIRecordingServer((_, _) => 200 -> reply)) { server =>
         val root = Files.createTempDirectory("aiprompt-message-settings-")
         try {
@@ -74,17 +127,18 @@ class AIPromptRecoveryPreflightSuite extends AIPromptOutputTestBase {
               Seq(true).foreach { durable =>
                 val stage = configure(base.copy(ParamMap.empty))
                 if (durable) stage.setOutputPath(root.resolve("run").toString)
-                assert(intercept[IllegalArgumentException](stage.transformSchema(data.schema))
-                  .getMessage.contains(name))
-                assert(intercept[IllegalArgumentException](stage.transform(data)).getMessage.contains(name))
+                Seq[() => Any](() => stage.transformSchema(data.schema), () => stage.transform(data)).foreach { call =>
+                  val message = intercept[IllegalArgumentException](call()).getMessage
+                  if (name == "fileSizeLimitMB") {
+                    assert(message == "fileSizeLimitMB cannot be combined with messagesCol")
+                  } else assert(message.contains(name))
+                }
                 assert(server.requests.isEmpty && !Files.exists(root.resolve("run")))
               }
             }
-            if (api != "decisions") {
-              assert(base.setColumnTypes(Map.empty[String, String]).transform(data).head().getAs[Row]("error") == null)
-              assert(server.requests.size() == 1)
-              server.requests.clear()
-            }
+            assert(base.setColumnTypes(Map.empty[String, String]).transform(data).head().getAs[Row]("error") == null)
+            assert(server.requests.size() == 1)
+            server.requests.clear()
           }
         } finally org.apache.commons.io.FileUtils.deleteDirectory(root.toFile)
       }

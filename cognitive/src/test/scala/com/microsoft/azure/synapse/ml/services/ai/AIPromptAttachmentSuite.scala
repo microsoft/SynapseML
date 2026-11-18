@@ -333,26 +333,20 @@ class AIPromptAttachmentSuite extends AIPromptTestBase {
       }
     }
 
-    test(s"$api propagates attachment CancellationException instead of committing a row error") {
+    test(s"$api path IO errors precede missing row model errors") {
       import spark.implicits._
-      val location = URI.create("aipromptcancel:///private-attachment.png")
-      val conf = new Configuration()
-      conf.setClass("fs.aipromptcancel.impl", classOf[AIPromptCancelledAttachmentFileSystem], classOf[FileSystem])
-      Using.resource(FileSystem.get(location, conf)) { _ =>
-        Using.resource(new AIRecordingServer((_, _) => 200 -> "{}")) { server =>
-          val stage = new AIPrompt().setApiType(api).setUrl(server.url + "/v1").setModel("model")
-            .setPromptTemplate("Review {asset}").setColumnTypes(Map("asset" -> "path"))
+      val missing = new File(path(), "missing.png").toURI.toString
+      val data = Seq((missing, Option.empty[String])).toDF("asset", "model")
+      Using.resource(new AIRecordingServer((_, _) => 400 -> """{"error":{"message":"unexpected inference"}}""")) {
+        server =>
+          val stage = new AIPrompt().setApiType(api).setUrl(server.url + "/v1").setModelCol("model")
+            .setPromptTemplate("Inspect {asset}").setColumnTypes(Map("asset" -> "path"))
             .setOutputCol("answer").setErrorCol("error")
-          val failure = intercept[SparkException] {
-            stage.transform(Seq(location.toString).toDF("asset")).collect()
-          }
-          val causes = Iterator.iterate[Throwable](failure)(_.getCause).takeWhile(_ != null).toVector
-          assert(causes.exists(_.isInstanceOf[CancellationException]))
-          assert(!causes.exists(error => Option(error.getMessage).exists(_.contains("private cancellation details"))))
-          val cancelled = causes.collectFirst { case error: CancellationException => error }.get
-          assert(cancelled.getMessage == "Attachment read canceled" && cancelled.getCause == null)
-          assert(server.requests.isEmpty)
-        }
+          val row = stage.transform(data).head()
+          val error = AIJson.objectString(row.getAs[Row]("error").getString(0))
+          assert(error.fields("code") == JsString("input_io_error"))
+          assert(error.fields("message") == JsString("Unable to read input attachment"))
+          assert(row.getAs[Any]("answer") == null && server.requests.isEmpty)
       }
     }
 
@@ -374,6 +368,32 @@ class AIPromptAttachmentSuite extends AIPromptTestBase {
         assert(AIJson.objectString(rows("invalid").getAs[Row]("error").getString(0))
           .fields("code") == JsString("invalid_request"))
         assert(rows.values.forall(_.getAs[String]("answer") == null) && server.requests.isEmpty)
+      }
+    }
+  }
+
+  Seq("chat_completions", "responses", "decisions").foreach { api =>
+    test(s"$api propagates attachment CancellationException instead of committing a row error") {
+      import spark.implicits._
+      val location = URI.create("aipromptcancel:///private-attachment.png")
+      val conf = new Configuration()
+      conf.setClass("fs.aipromptcancel.impl", classOf[AIPromptCancelledAttachmentFileSystem], classOf[FileSystem])
+      Using.resource(FileSystem.get(location, conf)) { _ =>
+        Using.resource(new AIRecordingServer((_, _) => 200 -> "{}")) { server =>
+          val stage = new AIPrompt().setApiType(api).setUrl(server.url + "/v1").setModel("model")
+            .setPromptTemplate("Review {asset}").setColumnTypes(Map("asset" -> "path"))
+            .setOutputCol("answer").setErrorCol("error")
+          if (api == "decisions") stage.setQuestions(NativeRequestFixtures.DecisionQuestions)
+          val failure = intercept[SparkException] {
+            stage.transform(Seq(location.toString).toDF("asset")).collect()
+          }
+          val causes = Iterator.iterate[Throwable](failure)(_.getCause).takeWhile(_ != null).toVector
+          assert(causes.exists(_.isInstanceOf[CancellationException]))
+          assert(!causes.exists(error => Option(error.getMessage).exists(_.contains("private cancellation details"))))
+          val cancelled = causes.collectFirst { case error: CancellationException => error }.get
+          assert(cancelled.getMessage == "Attachment read canceled" && cancelled.getCause == null)
+          assert(server.requests.isEmpty)
+        }
       }
     }
   }

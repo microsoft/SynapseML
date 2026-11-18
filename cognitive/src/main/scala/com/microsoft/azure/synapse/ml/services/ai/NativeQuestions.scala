@@ -6,7 +6,10 @@ package com.microsoft.azure.synapse.ml.services.ai
 import com.microsoft.azure.synapse.ml.services.openai.OpenAIAttachmentUtils
 import spray.json.{JsArray, JsBoolean, JsNull, JsObject, JsString, JsValue}
 
-/** Shared validation for the native leaves and the facade, without rewriting provider JSON. */
+import java.net.URI
+import scala.util.Try
+
+/** Shared validation and optional-null normalization for the native leaves and facade. */
 private[services] object NativeQuestions {
   private val MaxChoices = 255
   private val MaxImages = 128
@@ -83,7 +86,11 @@ private[services] object NativeQuestions {
   private def decisions(questions: JsValue): Unit = {
     val names = array(questions).flatMap { question =>
       val fields = obj(question)
-      text(required(fields, "instructions"))
+      required(fields, "instructions") match {
+        case value: JsString => text(value)
+        case value: JsArray => array(value).foreach(validatePart)
+        case _ => throw new IllegalArgumentException("Decisions instructions must be text or text/image parts")
+      }
       text(required(fields, "type")) match {
         case "predicate" =>
         case "choice" =>
@@ -108,9 +115,9 @@ private[services] object NativeQuestions {
       optionalText(fields, "name")
     }
     check(names.distinct.size == names.size, "Decision question names must be unique")
+    check(questionImageCount(questions) <= MaxImages, "Decisions accepts at most 128 images per request")
   }
 
-  /** The guide and reference disagree on hosted images; accept only their inline-image common subset. */
   def validateDecisionsInput(input: JsValue): Unit = input match {
     case _: JsString => text(input)
     case _: JsArray =>
@@ -135,18 +142,45 @@ private[services] object NativeQuestions {
     input match {
       case JsArray(messages) => JsArray(messages.map { message =>
         val fields = omitNulls(obj(message), Seq("type"))
-        val content = fields("content") match {
-          case JsArray(parts) => JsArray(parts.map { part =>
-            val fields = obj(part)
-            if (fields("type") == JsString("input_image")) JsObject(omitNulls(fields, Seq("file_id", "detail")))
-            else part
-          })
-          case text => text
-        }
-        JsObject(fields.updated("content", content))
+        JsObject(fields.updated("content", prepareParts(fields("content"))))
       })
       case text => text
     }
+  }
+
+  def prepareDecisionsRequest(input: JsValue, questions: JsValue): (JsValue, JsValue) = {
+    val preparedInput = prepareDecisionsInput(input)
+    val inputImages = preparedInput match {
+      case JsArray(messages) => messages.map(message => imageCount(obj(message)("content"))).sum
+      case _ => 0
+    }
+    validateDecisionsImageCount(inputImages, questions)
+    val preparedQuestions = JsArray(array(questions).map { question =>
+      val fields = obj(question)
+      JsObject(fields.updated("instructions", prepareParts(fields("instructions"))))
+    })
+    (preparedInput, preparedQuestions)
+  }
+
+  def validateDecisionsImageCount(inputImages: Int, questions: JsValue): Unit =
+    check(inputImages + questionImageCount(questions) <= MaxImages,
+      "Decisions accepts at most 128 images per request")
+
+  private def questionImageCount(questions: JsValue): Int =
+    array(questions).map(question => imageCount(obj(question)("instructions"))).sum
+
+  private def imageCount(content: JsValue): Int = content match {
+    case JsArray(parts) => parts.count(part => obj(part).get("type").contains(JsString("input_image")))
+    case _ => 0
+  }
+
+  private def prepareParts(content: JsValue): JsValue = content match {
+    case JsArray(parts) => JsArray(parts.map { part =>
+      val fields = obj(part)
+      if (fields("type") == JsString("input_image")) JsObject(omitNulls(fields, Seq("file_id", "detail")))
+      else part
+    })
+    case text => text
   }
 
   private def omitNulls(fields: Map[String, JsValue], names: Seq[String]): Map[String, JsValue] =
@@ -166,6 +200,18 @@ private[services] object NativeQuestions {
       }
   }
 
+  private def hostedImageUrl(url: String): Boolean = Try {
+    val uri = new URI(url)
+    val authority = Option(uri.getRawAuthority).getOrElse("")
+    val hostAndPort = authority.substring(authority.lastIndexOf('@') + 1)
+    val portSeparator = hostAndPort.lastIndexOf(':')
+    // URL accepts signed and Unicode-digit ports; RFC 3986 permits only ASCII digits.
+    val validPort = portSeparator <= hostAndPort.lastIndexOf(']') ||
+      hostAndPort.substring(portSeparator + 1).forall(c => c >= '0' && c <= '9')
+    Set("http", "https").exists(_.equalsIgnoreCase(uri.getScheme)) &&
+      validPort && Option(uri.toURL.getHost).exists(_.nonEmpty)
+  }.getOrElse(false)
+
   private def validatePart(part: JsValue): Int = {
     val fields = obj(part)
     text(required(fields, "type")) match {
@@ -178,17 +224,21 @@ private[services] object NativeQuestions {
           check(Set("low", "high", "auto", "original").contains(text(value)), "Unsupported image detail")
         }
         val url = text(required(fields, "image_url"))
-        val comma = url.indexOf(',')
-        check(comma > 0 && inlineImageHeader(url.substring(0, comma)),
-          "Decisions images must be inline base64 image data URLs")
-        val encoded = url.substring(comma + 1)
-        try {
-          OpenAIAttachmentUtils.validateBase64Content(encoded)
-        } catch {
-          case _: IllegalArgumentException =>
-            throw new IllegalArgumentException("Decisions image data must be valid base64")
+        if (url.regionMatches(true, 0, InlineImagePrefix, 0, InlineImagePrefix.length)) {
+          val comma = url.indexOf(',')
+          check(comma > 0 && inlineImageHeader(url.substring(0, comma)),
+            "Decisions images must use HTTP(S) URLs or inline base64 image data URLs")
+          val encoded = url.substring(comma + 1)
+          try {
+            OpenAIAttachmentUtils.validateBase64Content(encoded)
+          } catch {
+            case _: IllegalArgumentException =>
+              throw new IllegalArgumentException("Decisions image data must be valid base64")
+          }
+          check(encoded.nonEmpty, "Decisions image data must be nonempty")
+        } else {
+          check(hostedImageUrl(url), "Decisions images must use HTTP(S) URLs or inline base64 image data URLs")
         }
-        check(encoded.nonEmpty, "Decisions image data must be nonempty")
         1
       case _ => throw new IllegalArgumentException("Unsupported Decisions input part")
     }

@@ -4,13 +4,14 @@
 package com.microsoft.azure.synapse.ml.services.ai
 
 import com.microsoft.azure.synapse.ml.io.http.HTTPTransformer
-import com.microsoft.azure.synapse.ml.services.openai.OpenAIPrompt
+import com.microsoft.azure.synapse.ml.services.openai.{OpenAIDecisions, OpenAIPrompt}
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{FSDataInputStream, FSInputStream, FileSystem, Path, RawLocalFileSystem}
 import org.apache.spark.SparkException
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable
 import org.apache.spark.sql.{DataFrame, Dataset, Row}
+import org.apache.spark.sql.functions._
 import org.apache.spark.sql.types.{StringType, StructType}
 import spray.json._
 
@@ -20,9 +21,185 @@ import java.nio.file.{Files, Paths}
 import java.util.concurrent.{CancellationException, ConcurrentLinkedQueue}
 import java.util.concurrent.atomic.AtomicInteger
 import scala.collection.JavaConverters._
+import scala.collection.immutable.ListMap
 import scala.util.Using
 
 class AIPromptRecoveryAttachmentSuite extends AIPromptOutputTestBase {
+  test("Decisions path columns retain inline images across durable output and resume") {
+    delta()
+    import spark.implicits._
+    val inline = "data:image/png;base64,AQID"
+    val data = Seq(inline).toDF("input")
+    Seq(new AIPrompt().setApiType("decisions"), new OpenAIDecisions()).foreach { stage =>
+      Using.resource(new AIRecordingServer((_, _) => 200 -> NativeRequestFixtures.DecisionResponse)) { server =>
+        stage.setUrl(server.url + "/v1").setModel("model").setSubscriptionKey("unused")
+          .setPromptTemplate("Inspect {input}").setColumnTypes(Map("input" -> "path"))
+          .setQuestions(NativeRequestFixtures.DecisionQuestions).setFileSizeLimitMB(1)
+          .setOutputPath(path()).setOutputCol("answer").setErrorCol("error")
+        val row = stage.transform(data).head()
+        assert(row.getAs[Row]("error") == null && row.getAs[Row]("answer") != null)
+        assert(stage.resume(spark).count() == 1 && server.requests.size() == 1)
+        val content = AIJson.objectString(server.requests.peek()._2).fields("input")
+          .asInstanceOf[JsArray].elements.head.asJsObject.fields("content").asInstanceOf[JsArray].elements
+        assert(content == Vector(
+          JsObject("type" -> JsString("input_text"), "text" -> JsString("Inspect attachment.png")),
+          JsObject("type" -> JsString("input_image"), "image_url" -> JsString(inline))))
+        val status = AIPrompt.getOutputStatus(spark, stage.getOutputPath)
+        assert(status.isComplete && status.rowErrorCount == 0 && status.ownerToken.isEmpty)
+        Seq("file:///private-image.png", "https://example.invalid/photo.png").foreach { external =>
+          val rejected = stage.copy(ParamMap.empty).setOutputPath(path())
+          val failure = intercept[SparkException](rejected.transform(Seq(external).toDF("input")))
+          assert(failure.getMessage.contains("Durable media must be inline base64"))
+          assert(!new File(rejected.getOutputPath, "results").exists() && server.requests.size() == 1)
+        }
+      }
+    }
+  }
+
+  test("Decisions durable question images reject hosted URLs and resume inline instructions") {
+    delta()
+    import spark.implicits._
+    val inline = "data:image/png;base64,AQID"
+    def questions(url: String): String = JsArray(JsObject(
+      "type" -> JsString("predicate"), "name" -> JsString("urgent"),
+      "instructions" -> JsArray(
+        JsObject("type" -> JsString("input_text"), "text" -> JsString("Does this image require attention?")),
+        JsObject("type" -> JsString("input_image"), "image_url" -> JsString(url))))).compactPrint
+    val data = Seq("Inspect the image").toDF("text")
+    Seq(new AIPrompt().setApiType("decisions"), new OpenAIDecisions()).foreach { stage =>
+      Using.resource(new AIRecordingServer((_, _) => 200 -> NativeRequestFixtures.DecisionResponse)) { server =>
+        stage.setUrl(server.url + "/v1").setModel("model").setSubscriptionKey("unused")
+          .setInputCol("text").setOutputCol("answer").setErrorCol("error")
+        val hosted = questions(server.url + "/candidate.png")
+        val scalarPath = path()
+        val scalar = stage.copy(ParamMap.empty).setQuestions(hosted).setOutputPath(scalarPath)
+        Seq[() => Any](() => scalar.transformSchema(data.schema), () => scalar.transform(data)).foreach { call =>
+          assert(intercept[IllegalArgumentException](call()).getMessage.contains("Durable media must be inline"))
+          assert(!new File(scalarPath).exists() && server.requests.isEmpty)
+        }
+        val perRow = stage.copy(ParamMap.empty).setQuestionsCol("questions").setOutputPath(path())
+        val invalidData = Seq(("Inspect the image", hosted)).toDF("text", "questions")
+        assert(intercept[SparkException](perRow.transform(invalidData))
+          .getMessage.contains("Durable media must be inline"))
+        assert(server.requests.isEmpty)
+        Seq(false, true).foreach { fromColumn =>
+          val configured = stage.copy(ParamMap.empty).setOutputPath(path())
+          val safe = questions(inline)
+          val input = if (fromColumn) {
+            configured.setQuestionsCol("questions")
+            Seq(("Inspect the image", safe)).toDF("text", "questions")
+          } else {
+            configured.setQuestions(safe)
+            data
+          }
+          val before = server.requests.size()
+          val row = configured.transform(input).head()
+          assert(row.getAs[Row]("error") == null && row.getAs[Row]("answer") != null)
+          assert(configured.resume(spark).count() == 1 && server.requests.size() == before + 1)
+          val status = AIPrompt.getOutputStatus(spark, configured.getOutputPath)
+          assert(status.isComplete && status.rowErrorCount == 0 && status.ownerToken.isEmpty)
+        }
+        assert(server.requests.size() == 2)
+        server.requests.asScala.foreach { case (route, body) =>
+          assert(route == "/v1/decisions")
+          assert(AIJson.objectString(body).fields("questions") == questions(inline).parseJson)
+        }
+      }
+    }
+  }
+
+  test("Decisions durable explicit image inputs reject hosted media and resume inline messages and JSON") {
+    delta()
+    import spark.implicits._
+    val inline = "data:image/png;base64,AQID"
+    for (json <- Seq(false, true); stage <- Seq(new AIPrompt().setApiType("decisions"), new OpenAIDecisions())) {
+      def input(url: String): DataFrame = {
+        val messages = Seq(url).toDF("asset").select(array(struct(lit("user").as("role"), array(
+          map(lit("type"), lit("input_text"), lit("text"), lit("Inspect the image")),
+          map(lit("type"), lit("input_image"), lit("image_url"), col("asset"))).as("content"))).as("messages"))
+        if (json) messages.select(to_json(col("messages")).as("input")) else messages
+      }
+      Using.resource(new AIRecordingServer((_, _) => 200 -> NativeRequestFixtures.DecisionResponse)) { server =>
+        stage.setUrl(server.url + "/v1").setModel("model").setSubscriptionKey("unused")
+          .setQuestions(NativeRequestFixtures.DecisionQuestions).setOutputCol("answer").setErrorCol("error")
+        if (json) stage.setInputCol("input").setInputMode("json") else stage.setMessagesCol("messages")
+        val rejected = stage.copy(ParamMap.empty).setOutputPath(path())
+        val failure = intercept[SparkException](rejected.transform(input(server.url + "/photo.png")))
+        assert(failure.getMessage.contains("Durable media must be inline base64"))
+        assert(server.requests.isEmpty && !new File(rejected.getOutputPath, "results").exists())
+        val data = input(inline)
+        stage.setOutputPath(path())
+        val result = stage.transform(data)
+        assert(result.schema == stage.transformSchema(data.schema))
+        val row = result.head()
+        assert(row.getAs[Row]("error") == null && row.getAs[Row]("answer") != null)
+        assert(stage.resume(spark).head() == row && server.requests.size() == 1)
+        val status = AIPrompt.getOutputStatus(spark, stage.getOutputPath)
+        assert(status.allSucceeded && status.committedCount == 1 && status.ownerToken.isEmpty)
+        val request = server.requests.peek()
+        assert(request._1 == "/v1/decisions")
+        assert(AIJson.objectString(request._2).fields("input") == JsArray(JsObject(
+          "role" -> JsString("user"), "content" -> JsArray(
+            JsObject("type" -> JsString("input_text"), "text" -> JsString("Inspect the image")),
+            JsObject("type" -> JsString("input_image"), "image_url" -> JsString(inline))))))
+      }
+    }
+  }
+
+  test("Decisions path images retain order through copied and loaded partial durable resumes") {
+    delta()
+    import spark.implicits._
+    val left = "data:image/png;base64,AQID"
+    val right = "data:image/png;base64,BAUG"
+    val data = Seq.fill(3)((left, right)).toDF("left", "right").select("right", "left")
+    Seq(new AIPrompt().setApiType("decisions"), new OpenAIDecisions()).foreach { stage =>
+      Using.resource(new AIRecordingServer((_, _) => 200 -> NativeRequestFixtures.DecisionResponse)) { server =>
+        val root = path()
+        stage.setUrl(server.url + "/v1").setModel("model").setSubscriptionKey("unused")
+          .setQuestions(NativeRequestFixtures.DecisionQuestions).setOutputCol("answer").setErrorCol("error")
+          .setOutputPath(root).setOutputBatchSize(1).setFileSizeLimitMB(1)
+          .setPromptTemplate("Compare {left} and {`RiGhT`}; literal {{LEFT}}")
+          .setColumnTypes(ListMap("LEFT" -> "path", "RIGHT" -> "path"))
+        def stopAfterBatch(event: String): Unit =
+          if (event == "batch_committed") throw new IllegalStateException("stop after committed batch")
+        intercept[IllegalStateException](AIPromptOutput.transformObserved(stage, data, stopAfterBatch))
+        val first = AIPrompt.getOutputStatus(spark, root)
+        assert(first.state == "running" && first.committedCount == 1 && first.pendingCount == 2)
+        assert(server.requests.size() == 1)
+        AIPrompt.releaseOutputOwner(spark, root, first.ownerToken.get, confirmStopped = true)
+        val reordered = stage.copy(ParamMap.empty).setColumnTypes(ListMap("RIGHT" -> "path", "LEFT" -> "path"))
+        intercept[IllegalStateException](AIPromptOutput.resumeObserved(reordered, spark, stopAfterBatch))
+        val second = AIPrompt.getOutputStatus(spark, root)
+        assert(second.state == "running" && second.committedCount == 2 && second.pendingCount == 1)
+        assert(server.requests.size() == 2)
+        AIPrompt.releaseOutputOwner(spark, root, second.ownerToken.get, confirmStopped = true)
+        val saved = path()
+        reordered.write.save(saved)
+        val loaded = stage match {
+          case _: OpenAIDecisions => OpenAIDecisions.load(saved)
+          case _ => AIPrompt.load(saved)
+        }
+        val resumed = loaded.resume(spark)
+        assert(resumed.schema == stage.transformSchema(data.schema))
+        val rows = resumed.collect()
+        assert(rows.length == 3 && rows.forall(row =>
+          row.getAs[Row]("error") == null && row.getAs[Row]("answer") != null))
+        assert(loaded.resume(spark).count() == 3 && server.requests.size() == 3)
+        val complete = AIPrompt.getOutputStatus(spark, root)
+        assert(complete.allSucceeded && complete.committedCount == 3 && complete.ownerToken.isEmpty)
+        server.requests.asScala.foreach { case (route, body) =>
+          assert(route == "/v1/decisions")
+          assert(AIJson.objectString(body).fields("input") == JsArray(JsObject(
+            "role" -> JsString("user"), "content" -> JsArray(
+              JsObject("type" -> JsString("input_text"),
+                "text" -> JsString("Compare attachment.png and attachment.png; literal {LEFT}")),
+              JsObject("type" -> JsString("input_image"), "image_url" -> JsString(right)),
+              JsObject("type" -> JsString("input_image"), "image_url" -> JsString(left))))))
+        }
+      }
+    }
+  }
+
   Seq("chat_completions", "responses").foreach { api =>
     test(s"$api attachment size limits reject invalid Param bindings before HTTP or durable storage") {
       val reply = if (api == "chat_completions")

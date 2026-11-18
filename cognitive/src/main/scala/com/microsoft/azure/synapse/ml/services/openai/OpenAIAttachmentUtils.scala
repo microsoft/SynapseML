@@ -119,6 +119,8 @@ private[services] object OpenAIAttachmentUtils {
       originalUrl: String)
 
   private val MimeSniffPrefixLength = 64
+  private val WebpHeaderLength = 12
+  private val RiffFormatOffset = 8
   private val AttachmentBufferSize = 8192
   private val Utf8Bom = Base64.getDecoder.decode("77u/")
   private val XmlDeclarationPrefix = "<?xml"
@@ -291,7 +293,13 @@ private[services] object OpenAIAttachmentUtils {
   }
 
   private def inferMimeType(fileName: String, fileBytes: Array[Byte]): String = {
-    specificMimeType(URLConnection.guessContentTypeFromStream(new ByteArrayInputStream(fileBytes)))
+    // The JDK treats every RIFF container as WAV; inspect its format tag first.
+    val webp = fileBytes.length >= WebpHeaderLength &&
+      new String(fileBytes, 0, 4, StandardCharsets.US_ASCII) == "RIFF" &&
+      new String(fileBytes, RiffFormatOffset, 4, StandardCharsets.US_ASCII) == "WEBP"
+    val detected = if (webp) Some("image/webp")
+      else specificMimeType(URLConnection.guessContentTypeFromStream(new ByteArrayInputStream(fileBytes)))
+    detected
       .orElse(inferStructuredTextMimeType(fileBytes))
       // Preserve content detection before overriding generic ZIP/OLE types from name-based MIME registries.
       .orElse(OfficeMimeTypes.get(fileExtension(fileName)))
@@ -302,6 +310,11 @@ private[services] object OpenAIAttachmentUtils {
   private def fileExtension(fileName: String): String = fileName.lastIndexOf('.') match {
     case idx if idx >= 0 => fileName.substring(idx + 1).toLowerCase(Locale.ROOT)
     case _ => ""
+  }
+
+  private[openai] def mayBeImagePath(path: String, imageExtensions: Set[String]): Boolean = {
+    val extension = fileExtension(attachmentFilename(path))
+    extension.isEmpty || imageExtensions(extension)
   }
 
   private def categorizeFileType(
@@ -414,6 +427,19 @@ private[services] object OpenAIAttachmentUtils {
 
   def isDataUrl(path: String): Boolean =
     path.regionMatches(true, 0, "data:", 0, "data:".length)
+
+  def dataUrlFileType(
+      dataUrl: String,
+      imageExtensions: Set[String],
+      audioExtensions: Set[String],
+      textExtensions: Set[String]
+  ): String = {
+    // Classify only the metadata without copying the potentially large base64 body.
+    val (declaredMimeType, _) = dataUrlMetadata(dataUrl.take(dataUrl.indexOf(',') + 1))
+    val mimeType = declaredMimeType.toLowerCase(Locale.ROOT)
+    categorizeFileType(mimeType, extensionForMimeType(mimeType),
+      imageExtensions, audioExtensions, textExtensions)
+  }
 
   def responsesDataUrlMessage(
       dataUrl: String,
