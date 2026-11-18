@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.core.env;
 
 import java.io.*;
 import java.nio.file.Files;
+import java.util.Locale;
 
 /**
  * A helper class for loading native libraries from Java
@@ -28,6 +29,7 @@ import java.nio.file.Files;
 public class NativeLoader implements Serializable {
 
     private final String resourcesPath;
+    private final String componentName;
     private Boolean extractionDone = false;
     private File tempDir = null;
 
@@ -41,7 +43,12 @@ public class NativeLoader implements Serializable {
     }
 
     public NativeLoader(String topLevelResourcesPath) {
+        this(topLevelResourcesPath, topLevelResourcesPath);
+    }
+
+    public NativeLoader(String topLevelResourcesPath, String componentName) {
         this.resourcesPath = getResourcesPath(topLevelResourcesPath);
+        this.componentName = componentName;
     }
 
     /**
@@ -66,16 +73,37 @@ public class NativeLoader implements Serializable {
                 System.load(getOrCreateTempDir().getAbsolutePath() + File.separator + libName);
             }
             catch (Exception ee) {
+                if (isArm64()) {
+                    throw unsupportedOnArm(libName, ee);
+                }
                 throw new UnsatisfiedLinkError(String.format(
                         "Could not load the native libraries because " +
                         "we encountered the following problems: %s and %s",
                         e.getMessage(), ee.getMessage()));
             }
+            catch (UnsatisfiedLinkError ee) {
+                if (isArm64()) {
+                    throw unsupportedOnArm(libName, ee);
+                }
+                throw ee;
+            }
         }
     }
 
+    private UnsupportedOperationException unsupportedOnArm(String libName, Throwable cause) {
+        return new UnsupportedOperationException(String.format(
+                "%s is not supported on ARM with the available native library %s. " +
+                "Install a compatible ARM64 native library or use x64 compute. Resource path: %s",
+                componentName, libName, resourcesPath), cause);
+    }
+
+    public static boolean isArm64() {
+        String arch = System.getProperty("os.arch", "").toLowerCase(Locale.ROOT);
+        return arch.equals("aarch64") || arch.equals("arm64");
+    }
+
     public static String getOSPrefix() {
-        String OS = System.getProperty("os.name").toLowerCase();
+        String OS = System.getProperty("os.name").toLowerCase(Locale.ROOT);
         if (OS.contains("linux") || OS.contains("mac") || OS.contains("darwin")) {
             return "";
         } else if (OS.contains("windows")) {
@@ -94,16 +122,17 @@ public class NativeLoader implements Serializable {
         extractionDone = true;
     }
 
-    private static String getResourcesPath(String topLevelResourcesPath) {
+    static String getResourcesPath(String topLevelResourcesPath) {
         String sep = "/";
-        String OS = System.getProperty("os.name").toLowerCase();
+        String OS = System.getProperty("os.name").toLowerCase(Locale.ROOT);
+        String architecture = isArm64() ? "aarch64" : "x86_64";
         String resourcePrefix = topLevelResourcesPath + sep + "%s" + sep;
         if (OS.contains("linux")) {
-            return String.format(resourcePrefix, "linux/x86_64");
+            return String.format(resourcePrefix, "linux/" + architecture);
         } else if (OS.contains("windows")) {
-            return String.format(resourcePrefix, "windows/x86_64");
+            return String.format(resourcePrefix, "windows/" + architecture);
         } else if (OS.contains("mac") || OS.contains("darwin")) {
-            return String.format(resourcePrefix, "osx/x86_64");
+            return String.format(resourcePrefix, "osx/" + architecture);
         } else {
             throw new UnsatisfiedLinkError(
                 String.format("This component doesn't currently have native support for OS: %s", OS)

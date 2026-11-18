@@ -8,6 +8,13 @@ import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
 
 object OpenCVUtils {
+  private def loadNativeLibrary(): Unit = {
+    new NativeLoader("/nu/pattern/opencv", "OpenCV image transforms")
+      .loadLibraryByName(org.opencv.core.Core.NATIVE_LIBRARY_NAME)
+  }
+
+  private lazy val ArmNativeLibraryLoaded: Unit = loadNativeLibrary()
+
   /** This object will load the openCV binaries when the object is referenced
     * for the first time, subsequent references will not re-load the binaries.
     * In spark, this loads one copy for each running jvm, instead of once per partition.
@@ -16,13 +23,16 @@ object OpenCVUtils {
     */
   object OpenCVLoader {
 
-    import org.opencv.core.Core
-
-    new NativeLoader("/nu/pattern/opencv").loadLibraryByName(Core.NATIVE_LIBRARY_NAME)
+    loadNativeLibrary()
   }
 
   private[ml] def loadOpenCVFunc[A](it: Iterator[A]) = {
-    OpenCVLoader
+    // A lazy value retries failed ARM loads without poisoning JVM static initialization.
+    if (NativeLoader.isArm64) {
+      ArmNativeLibraryLoaded
+    } else {
+      OpenCVLoader
+    }
     it
   }
 

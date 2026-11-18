@@ -120,6 +120,7 @@ trait VowpalWabbitBase
   protected def getInputColumns: Seq[String]
 
   protected def prepareDataSet(dataset: Dataset[_]): DataFrame = {
+    VowpalWabbitNativeSupport.requireSupported()
     // follow LightGBM pattern
     val numTasksPerExec = ClusterUtil.getNumTasksPerExecutor(dataset.sparkSession, log)
     val numExecutorTasks = ClusterUtil.getNumExecutorTasks(dataset.sparkSession, numTasksPerExec, log)
@@ -149,8 +150,8 @@ trait VowpalWabbitBase
     val args = buildCommandLineArguments(getCommandLineArgs.result)
 
     val vw =
-      if (localInitialModel.isEmpty) new VowpalWabbitNative(args)
-      else new VowpalWabbitNative(args, localInitialModel.get)
+      if (localInitialModel.isEmpty) VowpalWabbitNativeSupport(args)
+      else VowpalWabbitNativeSupport(args, localInitialModel.get)
 
     StreamUtilities.using(vw) { block(_) }.get
   }

@@ -20,8 +20,11 @@ case class PathAndData(path: String, bytes: Array[Byte])
   */
 trait VowpalWabbitBaseModel extends Params {
   @transient
-  lazy val vw: VowpalWabbitNative = FaultToleranceUtils.retryWithTimeout() {
-    new VowpalWabbitNative(s"--testonly $getTestArgs", getModel)
+  lazy val vw: VowpalWabbitNative = {
+    VowpalWabbitNativeSupport.requireSupported()
+    FaultToleranceUtils.retryWithTimeout() {
+      VowpalWabbitNativeSupport(s"--testonly $getTestArgs", getModel)
+    }
   }
 
   @transient
@@ -44,7 +47,7 @@ trait VowpalWabbitBaseModel extends Params {
 
     try {
       // start VW, write the model, stop
-      new VowpalWabbitNative(s"--readable_model ${readableModelFile.getAbsolutePath}", getModel).close()
+      VowpalWabbitNativeSupport(s"--readable_model ${readableModelFile.getAbsolutePath}", getModel).close()
 
       // need to read the model after the VW object is disposed as this triggers the file write
       StreamUtilities.using(Source.fromFile(readableModelFile)) {

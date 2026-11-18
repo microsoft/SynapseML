@@ -49,8 +49,8 @@ trait VowpalWabbitBaseProgressive
 
       val args = buildCommandLineArguments(vwArgs, contextArgs)
 
-      if (localInitialModel.isEmpty) new VowpalWabbitNative(args)
-      else new VowpalWabbitNative(args, localInitialModel.get)
+      if (localInitialModel.isEmpty) VowpalWabbitNativeSupport(args)
+      else VowpalWabbitNativeSupport(args, localInitialModel.get)
     }
 
     override def hasNext: Boolean = {
