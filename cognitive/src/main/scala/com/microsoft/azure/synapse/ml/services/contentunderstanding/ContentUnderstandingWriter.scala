@@ -40,10 +40,20 @@ object ContentUnderstandingWriter {
       .drop("_cu_rank")
   }
 
-  def readTable(spark: SparkSession, tableName: String): DataFrame = latest(spark.table(tableName))
+  def readTable(spark: SparkSession, tableName: String): DataFrame = {
+    require(tableName != null && tableName.trim.nonEmpty, "tableName must not be empty")
+    latest(spark.table(tableName))
+  }
 
-  def readPath(spark: SparkSession, path: String, format: String = "delta"): DataFrame =
+  def readPath(spark: SparkSession, path: String, format: String = "delta"): DataFrame = {
+    require(path != null && path.trim.nonEmpty, "path must not be empty")
+    validateFormat(format)
     latest(spark.read.format(format).load(path))
+  }
+
+  private def validateFormat(format: String): Unit =
+    require(Set("delta", "parquet").contains(format),
+      "format must be delta or parquet; use Delta for transactional lakehouse tables")
 
   def writeToTable(dataset: Dataset[_],
                    analyzer: ContentUnderstanding,
@@ -185,16 +195,16 @@ object ContentUnderstandingWriter {
                     batchSize: Int,
                     journal: Journal): DataFrame = {
     require(batchSize > 0, "batchSize must be positive")
-    require(Set("delta", "parquet").contains(format),
-      "format must be delta or parquet; use Delta for transactional lakehouse tables")
-    validateInput(dataset, analyzer, idCol)
+    validateFormat(format)
+    val effective = analyzer.effectiveCopy
+    validateInput(dataset, effective, idCol)
     val spark = dataset.sparkSession
     if (journal.exists) {
       validateJournal(journal.read().schema)
     }
     // Check the destination and provider before issuing a billable request.
     journal.append(spark.createDataFrame(Seq.empty[Row].asJava, Schema))
-    val selected = (Seq(idCol) ++ analyzer.activeInputColumns).distinct.map(quoted)
+    val selected = (Seq(idCol) ++ effective.activeInputColumns).distinct.map(quoted)
     val input = dataset.select(selected: _*)
     @tailrec
     def writeBatch(after: Option[String]): Unit = {
@@ -209,7 +219,7 @@ object ContentUnderstandingWriter {
           .map(state => state.getAs[String]("documentId") -> state).toMap
         batch.foreach { row =>
           val id = row.getAs[String](idCol)
-          process(spark, journal, analyzer, row, id, states.get(id))
+          process(spark, journal, effective, row, id, states.get(id))
         }
         writeBatch(Some(ids.last))
       }

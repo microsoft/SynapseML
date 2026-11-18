@@ -4,7 +4,7 @@
 package com.microsoft.azure.synapse.ml.services.contentunderstanding
 
 import com.microsoft.azure.synapse.ml.core.schema.SparkBindings
-import com.microsoft.azure.synapse.ml.io.http.{AsyncClient, HeaderData, HTTPRequestData, RequestLineData}
+import com.microsoft.azure.synapse.ml.io.http.{CancellableRequests, HeaderData, HTTPRequestData, RequestLineData}
 import org.apache.http.HttpStatus
 import org.apache.http.client.config.RequestConfig
 import org.apache.http.client.methods.HttpRequestBase
@@ -45,7 +45,6 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
   val ResultsPath = "/contentunderstanding/analyzerResults/"
   val DefaultApiVersion = "2025-11-01"
   val MillisecondsPerSecond = 1000
-  private val CancellationPollMs = 100L
   val TooManyRequests = 429
   private val BufferSize = 8192
   private val MaxPort = 65535
@@ -106,6 +105,17 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
 
   def validApiVersion(value: String): Boolean =
     Option(value).exists(_.matches("[0-9]{4}-[0-9]{2}-[0-9]{2}(-preview)?"))
+
+  def validateTruncationVersion(version: String): Unit =
+    require(version.stripSuffix("-preview") >= "2026-06-01",
+      "allowInputTruncation requires apiVersion 2026-06-01-preview or newer.")
+
+  def validateDocumentUrl(value: String): Unit = {
+    val uri = parseUri(value, "documentUrl")
+    require(Set("http", "https")(Option(uri.getScheme).getOrElse("").toLowerCase(java.util.Locale.ROOT)) &&
+      Option(uri.getHost).isDefined && Option(uri.getRawUserInfo).isEmpty && Option(uri.getRawFragment).isEmpty,
+      "documentUrl must be an absolute HTTP(S) URL without user information or a fragment.")
+  }
 
   private def safeSegment(value: String): Boolean =
     value.matches("[a-zA-Z0-9._-]+") && value != "." && value != ".."
@@ -191,28 +201,16 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
     case other => other.compactPrint
   }
 
-  private def checkInterrupted(): Unit = {
-    if (AsyncClient.isTaskCancelled) {
-      throw new CancellationException("The owning Spark task has ended.")
-    }
-    if (Thread.currentThread().isInterrupted) {
-      throw new InterruptedException("Content Understanding request interrupted.")
-    }
-  }
-
-  @tailrec
   private def pause(delay: Long): Unit = {
-    checkInterrupted()
+    CancellableRequests.check()
     if (delay > 0) {
-      val interval = math.min(delay, CancellationPollMs)
       try {
-        Thread.sleep(interval)
+        Thread.sleep(delay)
       } catch {
         case error: InterruptedException =>
           Thread.currentThread().interrupt()
           throw error
       }
-      pause(delay - interval)
     }
   }
 
@@ -230,7 +228,7 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
     val buffer = new Array[Byte](BufferSize)
     @tailrec
     def read(): Unit = {
-      checkInterrupted()
+      CancellableRequests.check()
       val remaining = limit.toLong - output.size() + 1
       val count = input.read(buffer, 0, math.min(buffer.length.toLong, remaining).toInt)
       if (count >= 0) {
@@ -257,28 +255,30 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
   }
 
   private def exchange(client: CloseableHttpClient, settings: Settings, data: HTTPRequestData): WireResponse = {
-    checkInterrupted()
+    CancellableRequests.check()
     val request = data.toHTTPCore
     request.setConfig(settings.requestConfig)
     var code = 0
     var location = Option.empty[String]
     var retryAfter = Option.empty[String]
     try {
-      val response = client.execute(request)
-      try {
-        code = response.getStatusLine.getStatusCode
-        location = Option(response.getFirstHeader("Operation-Location")).map(_.getValue)
-        retryAfter = Option(response.getFirstHeader("Retry-After")).map(_.getValue)
-        val body = Option(response.getEntity).map { entity =>
-          if (entity.getContentLength > settings.maxResponseBytes) {
-            request.abort()
-            throw new ResponseTooLarge
-          }
-          readBounded(entity.getContent, settings.maxResponseBytes, request)
-        }.getOrElse("")
-        WireResponse(code, body, location, retryAfter)
-      } finally {
-        response.close()
+      CancellableRequests.withRequest(request) {
+        val response = client.execute(request)
+        try {
+          code = response.getStatusLine.getStatusCode
+          location = Option(response.getFirstHeader("Operation-Location")).map(_.getValue)
+          retryAfter = Option(response.getFirstHeader("Retry-After")).map(_.getValue)
+          val body = Option(response.getEntity).map { entity =>
+            if (entity.getContentLength > settings.maxResponseBytes) {
+              request.abort()
+              throw new ResponseTooLarge
+            }
+            readBounded(entity.getContent, settings.maxResponseBytes, request)
+          }.getOrElse("")
+          WireResponse(code, body, location, retryAfter)
+        } finally {
+          response.close()
+        }
       }
     } catch {
       case _: ResponseTooLarge =>
@@ -287,6 +287,7 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
       case error: InterruptedIOException if Thread.currentThread().isInterrupted => throw error
       case error: IOException =>
         request.abort()
+        CancellableRequests.check()
         val message = if (data.requestLine.method == "GET") {
           "HTTP polling transport failed. Retain the operation handle and resume polling."
         } else {
@@ -517,21 +518,26 @@ private[contentunderstanding] object ContentUnderstandingProtocol {
   def execute(settings: Settings,
               request: HTTPRequestData,
               mode: String,
-              failOnClientError: Boolean = false): ContentUnderstandingResponse = {
-    withClient(settings) { client =>
-      if (mode == "poll") {
-        pollWithClient(client, settings, request, request.requestLine.uri, None, 0L,
-          failOnClientError = failOnClientError)
+              failOnClientError: Boolean = false): ContentUnderstandingResponse =
+    withClient(settings)(executeWithClient(_, settings, request, mode, failOnClientError))
+
+  def executeWithClient(client: CloseableHttpClient,
+                        settings: Settings,
+                        request: HTTPRequestData,
+                        mode: String,
+                        failOnClientError: Boolean): ContentUnderstandingResponse = {
+    if (mode == "poll") {
+      pollWithClient(client, settings, request, request.requestLine.uri, None, 0L,
+        failOnClientError = failOnClientError)
+    } else {
+      val raw = exchangeWithThrottling(client, settings, request)
+      val submitted = safeSubmission(settings, raw)
+      val resumable = ongoing(submitted) || (submitted.status == "Unknown" && submitted.operationLocation.isDefined)
+      if (mode == "analyze" && resumable) {
+        pollWithClient(client, settings, request, submitted.operationLocation.get, Some(submitted),
+          retryDelay(raw.retryAfter, settings.pollingDelay), failOnClientError = failOnClientError)
       } else {
-        val raw = exchangeWithThrottling(client, settings, request)
-        val submitted = safeSubmission(settings, raw)
-        val resumable = ongoing(submitted) || (submitted.status == "Unknown" && submitted.operationLocation.isDefined)
-        if (mode == "analyze" && resumable) {
-          pollWithClient(client, settings, request, submitted.operationLocation.get, Some(submitted),
-            retryDelay(raw.retryAfter, settings.pollingDelay), failOnClientError = failOnClientError)
-        } else {
-          submitted
-        }
+        submitted
       }
     }
   }

@@ -8,6 +8,7 @@ import com.microsoft.azure.synapse.ml.services.contentunderstanding.{
   ContentUnderstanding, ContentUnderstandingException, ContentUnderstandingResponse}
 import org.apache.commons.io.FileUtils
 import org.apache.http.HttpStatus
+import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.types.{StringType, StructType}
 
@@ -20,6 +21,9 @@ private[contentunderstanding] class TestableFabricContentUnderstanding(
     rejectTokenLookup: Boolean = false,
     rejectTokenRefresh: Boolean = false) extends ContentUnderstanding("fabric-cu-test") {
   setDefaultInternalEndpoint(trustedRoot)
+
+  override def copy(extra: ParamMap): ContentUnderstanding =
+    copyValues(new TestableFabricContentUnderstanding(trustedRoot, rejectTokenLookup, rejectTokenRefresh), extra)
 
   override protected def fabricEndpoint: Option[String] =
     Some(trustedRoot.stripSuffix("/") + "/cognitive/contentunderstanding/analyzers")
@@ -147,6 +151,12 @@ class ContentUnderstandingFabricSuite extends TestBase {
       val transformer = fabricStage(server, rejectTokenLookup = true).setEndpoint(server.endpoint)
         .setOperationMode("submit")
       assert(resultOf(transformer).status == "Running")
+      assert(!server.requests.head.headers.contains("authorization"))
+    }
+    withReplies(Seq(ContentUnderstandingStubReply(HttpStatus.SC_OK, succeeded))) { server =>
+      val transformer = fabricStage(server, rejectTokenLookup = true)
+      transformer.setUrl(transformer.getUrl)
+      assert(resultOf(transformer).status == "Succeeded")
       assert(!server.requests.head.headers.contains("authorization"))
     }
     withReplies(Seq(ContentUnderstandingStubReply(HttpStatus.SC_OK, succeeded))) { server =>

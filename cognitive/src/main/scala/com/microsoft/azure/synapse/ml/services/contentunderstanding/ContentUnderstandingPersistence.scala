@@ -4,9 +4,13 @@
 package com.microsoft.azure.synapse.ml.services.contentunderstanding
 
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
+import org.apache.spark.ml.ExplicitComplexParamsWritable
 import org.apache.spark.sql.{DataFrame, Dataset, SparkSession}
 
-trait ContentUnderstandingPersistence extends Wrappable { this: ContentUnderstanding =>
+trait ContentUnderstandingPersistence extends Wrappable with ExplicitComplexParamsWritable {
+  this: ContentUnderstanding =>
+
+  override protected def validateForWrite(): Unit = ()
 
   def writeToTable(dataset: Dataset[_],
                    idCol: String,

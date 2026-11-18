@@ -11,6 +11,7 @@ import com.microsoft.azure.synapse.ml.logging.common.PlatformDetails
 import com.microsoft.azure.synapse.ml.param.ServiceParam
 import com.microsoft.azure.synapse.ml.services.{
   CognitiveServicesBaseNoHandler, HasAPIVersion, HasCognitiveServiceInput, HasInternalJsonOutputParser}
+import com.microsoft.azure.synapse.ml.services.ai.AIDefaults
 import com.microsoft.azure.synapse.ml.stages.{DropColumns, Lambda}
 import org.apache.http.client.methods.{HttpGet, HttpPost, HttpPut, HttpRequestBase}
 import org.apache.http.client.utils.URIBuilder
@@ -19,17 +20,19 @@ import org.apache.http.impl.client.CloseableHttpClient
 import org.apache.spark.TaskContext
 import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.Identifiable
-import org.apache.spark.ml.{ComplexParamsReadable, NamespaceInjections, PipelineModel}
+import org.apache.spark.ml.{ExplicitComplexParamsReadable, NamespaceInjections, PipelineModel}
 import org.apache.spark.sql.functions.{coalesce, col, lit, struct, when}
 import org.apache.spark.sql.types.{BinaryType, BooleanType, DataType, MapType, StringType, StructType}
-import org.apache.spark.sql.{DataFrame, Row}
+import org.apache.spark.sql.{DataFrame, Dataset, Row}
 import spray.json._
 
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.util.Base64
 
-object ContentUnderstanding extends ComplexParamsReadable[ContentUnderstanding]
+object ContentUnderstanding extends ExplicitComplexParamsReadable[ContentUnderstanding] {
+  override protected def expectedClass: Class[ContentUnderstanding] = classOf[ContentUnderstanding]
+}
 
 /** Lazy, one-document-per-row Content Understanding analysis with resumable operation handles.
   *
@@ -61,6 +64,16 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
 
   override def copy(extra: ParamMap): ContentUnderstanding = defaultCopy(extra)
 
+  private[contentunderstanding] def effectiveCopy: ContentUnderstanding =
+    AIDefaults.forApi("content_understanding").applyTo(this)
+
+  override def transform(dataset: Dataset[_]): DataFrame =
+    logTransform[DataFrame](
+      effectiveCopy.getInternalTransformer(dataset.schema).transform(dataset), dataset.columns.length)
+
+  override def transformSchema(schema: StructType): StructType =
+    effectiveCopy.getInternalTransformer(schema).transformSchema(schema)
+
   // OpenAI global endpoint, API version, and credentials do not configure Content Understanding.
   override private[ml] def transferGlobalParamsToParamMap(): Unit = ()
 
@@ -74,8 +87,10 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
 
   private def usesFabricEndpoint: Boolean = isDefined(url) && fabricEndpoint.contains(getUrl)
 
+  private def usesImplicitFabricEndpoint: Boolean = !isSet(url) && usesFabricEndpoint
+
   override protected def getFabricFallbackAuthHeader(row: Row): Option[String] =
-    if (usesFabricEndpoint && lacksExplicitAuthCredential(row)) Some(currentFabricAuthHeader) else None
+    if (usesImplicitFabricEndpoint && lacksExplicitAuthCredential(row)) Some(currentFabricAuthHeader) else None
 
   override protected def supportsImplicitFabricAuthRetry: Boolean = true
 
@@ -123,7 +138,9 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
     validateConfiguration()
     Settings(getUrl, math.ceil(getTimeout * MillisecondsPerSecond).toInt,
       getMaxPollAttempts, getPollingDelay, getMaxResponseBytes, getRetryOnThrottling,
-      if (usesFabricEndpoint) Some(FabricAuth(() => currentFabricAuthHeader, refreshFabricAuthHeader _)) else None)
+      if (usesImplicitFabricEndpoint) {
+        Some(FabricAuth(() => currentFabricAuthHeader, refreshFabricAuthHeader _))
+      } else None)
   }
 
   private def expectedType(param: ServiceParam[_]): DataType = {
@@ -138,11 +155,6 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
     }
   }
 
-  private def matchesType(actual: DataType, expected: DataType): Boolean = (actual, expected) match {
-    case (MapType(StringType, StringType, _), MapType(StringType, StringType, _)) => true
-    case _ => actual == expected
-  }
-
   private def validateValue(param: ServiceParam[_], value: Any): Unit = {
     require(Option(value).isDefined, s"${param.name} cannot be null.")
     val validType = (value, expectedType(param)) match {
@@ -155,13 +167,9 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
     }
     require(validType, s"${param.name} has an invalid value type.")
     if (!authParams.contains(param)) {
-      validateInputValue(param, value)
+      validateNonemptyValue(param, value)
+      validateOptionValue(param, value)
     }
-  }
-
-  private def validateInputValue(param: ServiceParam[_], value: Any): Unit = {
-    validateNonemptyValue(param, value)
-    validateOptionValue(param, value)
   }
 
   private def validateNonemptyValue(param: ServiceParam[_], value: Any): Unit = {
@@ -173,13 +181,6 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
           s"${param.name} keys and values cannot be empty.")
       case _ =>
     }
-  }
-
-  private def validateDocumentUrl(value: String): Unit = {
-    val uri = parseUri(value, "documentUrl")
-    require(Set("http", "https")(Option(uri.getScheme).getOrElse("").toLowerCase(java.util.Locale.ROOT)) &&
-      Option(uri.getHost).isDefined && Option(uri.getRawUserInfo).isEmpty && Option(uri.getRawFragment).isEmpty,
-      "documentUrl must be an absolute HTTP(S) URL without user information or a fragment.")
   }
 
   private def validateOptionValue(param: ServiceParam[_], value: Any): Unit = {
@@ -204,8 +205,12 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
         require(Option(name).exists(_.nonEmpty), s"${param.name} column name cannot be empty.")
         val field = schema.fields.find(_.name == name)
         require(field.isDefined, s"The column configured for ${param.name} is missing.")
-        require(matchesType(field.get.dataType, expectedType(param)),
-          s"The column configured for ${param.name} must have type ${expectedType(param).simpleString}.")
+        val expected = expectedType(param)
+        val matches = (field.get.dataType, expected) match {
+          case (MapType(StringType, StringType, _), MapType(StringType, StringType, _)) => true
+          case (actual, _) => actual == expected
+        }
+        require(matches, s"The column configured for ${param.name} must have type ${expected.simpleString}.")
     }
   }
 
@@ -222,11 +227,6 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
     if (!poll && get(allowInputTruncation).exists(_.isLeft)) {
       getOrDefault(apiVersion).left.foreach(validateTruncationVersion)
     }
-  }
-
-  private def validateTruncationVersion(version: String): Unit = {
-    require(version.stripSuffix("-preview") >= "2026-06-01",
-      "allowInputTruncation requires apiVersion 2026-06-01-preview or newer.")
   }
 
   private def validateRow(row: Row, poll: Boolean): Unit = {
@@ -298,8 +298,7 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
     row => Some(prepareRequest(row, getOperationMode == "poll"))
 
   override protected def handlingFunc(client: CloseableHttpClient, request: HTTPRequestData): HTTPResponseData = {
-    // Keep retries admission-aware while using the shared HTTP pipeline's concurrency.
-    val response = execute(settings, request, getOperationMode)
+    val response = executeWithClient(client, settings, request, getOperationMode, failOnClientError = false)
     // Keep service failures in the output rather than letting SimpleHTTPTransformer discard the response.
     HTTPSchema.stringToResponse(response.toJson.compactPrint, org.apache.http.HttpStatus.SC_OK, "OK")
   }
@@ -327,18 +326,19 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
       reserved ++ Set(inputColumn, resultColumn))
     val columns = getVectorParamMap.values.toSeq.distinct.map(name => col(quoted(name)).alias(name))
     val inputs = if (columns.nonEmpty) columns else Seq(lit(false).alias("placeholder"))
+    val http = new SimpleHTTPTransformer()
+      .setInputCol(inputColumn)
+      .setOutputCol(resultColumn)
+      .setErrorCol(errorColumn)
+      .setInputParser(getInternalInputParser(schema))
+      .setOutputParser(getInternalOutputParser(schema))
+      .setHandler(handlingFunc _)
+      .setConcurrency(getConcurrency)
+      .setConcurrentTimeout(get(concurrentTimeout))
+      .setTimeout(getTimeout)
     NamespaceInjections.pipelineModel(Array(
       Lambda(_.withColumn(inputColumn, struct(inputs: _*))),
-      new SimpleHTTPTransformer()
-        .setInputCol(inputColumn)
-        .setOutputCol(resultColumn)
-        .setErrorCol(errorColumn)
-        .setInputParser(getInternalInputParser(schema))
-        .setOutputParser(getInternalOutputParser(schema))
-        .setHandler(handlingFunc _)
-        .setConcurrency(getConcurrency)
-        .setConcurrentTimeout(get(concurrentTimeout))
-        .setTimeout(getTimeout),
+      Lambda(http.transformCancellable _).setTransformSchema(http.transformSchema _),
       Lambda(frame => addServiceErrors(frame.withColumnRenamed(resultColumn, getOutputCol)
         .withColumnRenamed(errorColumn, getErrorCol))),
       new DropColumns().setCol(inputColumn)))
@@ -384,7 +384,8 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
     * Throws ContentUnderstandingException with the response on service failure or poll exhaustion.
     */
   def createAnalyzer(definitionJson: String, allowReplace: Boolean): String = {
-    validateManagement()
+    val stage = effectiveCopy
+    stage.validateManagement()
     require(Option(definitionJson).exists(_.trim.nonEmpty), "definitionJson must be a nonempty analyzer JSON object.")
     val definition = try {
       definitionJson.parseJson
@@ -392,15 +393,17 @@ class ContentUnderstanding(override val uid: String) extends CognitiveServicesBa
       case _: JsonParser.ParsingException => throw new IllegalArgumentException("definitionJson must be valid JSON.")
     }
     require(definition.isInstanceOf[JsObject], "definitionJson must be an analyzer JSON object.")
-    val request = new HttpPut(buildUrl(s"$AnalyzersPath/$getAnalyzerId",
-      Seq("api-version" -> getApiVersion, "allowReplace" -> allowReplace.toString)))
+    val request = new HttpPut(stage.buildUrl(s"$AnalyzersPath/${stage.getAnalyzerId}",
+      Seq("api-version" -> stage.getApiVersion, "allowReplace" -> allowReplace.toString)))
     request.setEntity(new StringEntity(definitionJson, ContentType.APPLICATION_JSON))
-    addHeaders(request, Row.empty)
-    ContentUnderstandingProtocol.createAnalyzer(settings, new HTTPRequestData(request), analyzerRequest, getAnalyzerId)
+    stage.addHeaders(request, Row.empty)
+    ContentUnderstandingProtocol.createAnalyzer(stage.settings, new HTTPRequestData(request),
+      stage.analyzerRequest, stage.getAnalyzerId)
   }
 
   def getAnalyzer(): String = {
-    validateManagement()
-    ContentUnderstandingProtocol.getAnalyzer(settings, analyzerRequest)
+    val stage = effectiveCopy
+    stage.validateManagement()
+    ContentUnderstandingProtocol.getAnalyzer(stage.settings, stage.analyzerRequest)
   }
 }

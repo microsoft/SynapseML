@@ -11,6 +11,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlsplit
 
 from synapse.ml.core.init_spark import init_spark
+from synapse.ml.services.ai import AIDefaults
 from synapse.ml.services.contentunderstanding import ContentUnderstanding
 
 spark = init_spark()
@@ -112,6 +113,51 @@ class TestContentUnderstanding(unittest.TestCase):
             [("one", bytearray("Synthetic caf\u00e9 document".encode("utf-8")))],
             "documentId string, body binary",
         )
+
+    def test_scoped_defaults_survive_unbound_stage_persistence_and_durable_writes(self):
+        defaults = AIDefaults().for_api("content_understanding")
+        fields = ("endpoint", "api_key", "analyzer_id", "model_deployments")
+        previous = {field: getattr(defaults, f"get_{field}")() for field in fields}
+        try:
+            defaults.set_endpoint(f"http://127.0.0.1:{self.server.server_port}")
+            defaults.set_api_key("scoped-test-key").set_analyzer_id("scoped-analyzer")
+            defaults.set_model_deployments({"completion": "scoped-deployment"})
+            analyzer = ContentUnderstanding(
+                documentBytesCol="body", outputCol="analysis", pollingDelay=0
+            )
+            with tempfile.TemporaryDirectory() as directory:
+                model_path = os.path.join(directory, "model")
+                result_path = os.path.join(directory, "results")
+                analyzer.copy({}).write().save(model_path)
+                loaded = ContentUnderstanding.load(model_path)
+                self.assertFalse(loaded.isSet(loaded.subscriptionKey))
+                self.assertFalse(loaded.isSet(loaded.analyzerId))
+                self.assertEqual(
+                    loaded.transform(self.documents()).first().analysis.status,
+                    "Succeeded",
+                )
+                loaded.writeToPath(
+                    self.documents(), "documentId", result_path, format="parquet"
+                )
+                saved = loaded.writeToPath(
+                    self.documents(), "documentId", result_path, format="parquet"
+                )
+                self.assertEqual(saved.first().status, "Succeeded")
+                self.assertEqual(
+                    defaults.apply_to(analyzer).getAnalyzerId(), "scoped-analyzer"
+                )
+            submitted = [request for request in self.requests if request[0] == "POST"]
+            self.assertEqual(len(submitted), 2)
+            for _, path, body in submitted:
+                self.assertIn("/scoped-analyzer:analyze", path)
+                self.assertEqual(
+                    body["modelDeployments"], {"completion": "scoped-deployment"}
+                )
+        finally:
+            for field, value in previous.items():
+                getattr(defaults, f"reset_{field}")()
+                if value is not None:
+                    getattr(defaults, f"set_{field}")(value)
 
     def test_polling_seconds_share_legacy_parameter_and_survive_persistence(self):
         defaults = ContentUnderstanding()

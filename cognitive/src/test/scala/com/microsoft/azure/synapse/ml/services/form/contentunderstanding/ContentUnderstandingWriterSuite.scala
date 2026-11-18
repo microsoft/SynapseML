@@ -115,6 +115,23 @@ class ContentUnderstandingWriterSuite extends TestBase {
   private def documents: DataFrame =
     Seq(("a", "https://example.test/a.pdf"), ("b", "https://example.test/b.pdf")).toDF("docId", "source")
 
+  test("read helpers validate destinations and formats before loading a journal") {
+    val stage = new ContentUnderstanding()
+    Seq(null, "", " \t").foreach { value =>
+      assert(intercept[IllegalArgumentException] {
+        stage.readTable(spark, value)
+      }.getMessage.contains("tableName must not be empty"))
+      assert(intercept[IllegalArgumentException] {
+        stage.readPath(spark, value, "parquet")
+      }.getMessage.contains("path must not be empty"))
+    }
+    Seq(null, "", "json").foreach { format =>
+      assert(intercept[IllegalArgumentException] {
+        stage.readPath(spark, "missing-journal", format)
+      }.getMessage.contains("format must be delta or parquet"))
+    }
+  }
+
   test("writer ignores inactive poll-only columns") {
     Seq("submit", "analyze").foreach { mode =>
       withService { service =>

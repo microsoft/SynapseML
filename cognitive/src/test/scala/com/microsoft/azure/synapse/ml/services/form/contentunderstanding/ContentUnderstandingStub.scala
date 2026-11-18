@@ -50,7 +50,8 @@ private[contentunderstanding] case class ContentUnderstandingStubRequest(method:
                                                                         path: String,
                                                                         query: String,
                                                                         headers: Map[String, String],
-                                                                        body: String)
+                                                                        body: String,
+                                                                        remotePort: Int)
 
 private[contentunderstanding] object ContentUnderstandingStub {
   def withReplies(replies: Seq[ContentUnderstandingStubReply])(test: ContentUnderstandingStub => Unit): Unit = {
@@ -105,7 +106,7 @@ private[contentunderstanding] class ContentUnderstandingStub(
           exchange.getRequestURI.getRawPath, Option(exchange.getRequestURI.getRawQuery).getOrElse(""),
           exchange.getRequestHeaders.asScala.map { case (name, values) =>
             name.toLowerCase(java.util.Locale.ROOT) -> values.asScala.mkString(",")
-          }.toMap, body)
+          }.toMap, body, exchange.getRemoteAddress.getPort)
         recorded.add(request)
         val response = respond(request)
         if (!response.disconnect) {

@@ -5,9 +5,7 @@ package com.microsoft.azure.synapse.ml.io.http
 
 import com.microsoft.azure.synapse.ml.core.utils.AsyncUtils
 import org.apache.log4j.{LogManager, Logger}
-import org.apache.spark.TaskContext
 
-import java.util.concurrent.CancellationException
 import scala.concurrent.duration.Duration
 import scala.concurrent.{ExecutionContext, Future}
 
@@ -47,32 +45,6 @@ private[ml] trait SingleThreadedClient extends BaseClient {
 
 }
 
-object AsyncClient {
-  private val Owner = new ThreadLocal[TaskContext]()
-
-  private[ml] def currentTaskContext: Option[TaskContext] =
-    Option(Owner.get()).orElse(Option(TaskContext.get()))
-
-  private[ml] def isTaskCancelled: Boolean =
-    currentTaskContext.exists(task => task.isInterrupted() || task.isCompleted())
-
-  private def withTaskContext[T](task: Option[TaskContext])(body: => T): T = {
-    val previous = Owner.get()
-    Owner.set(task.orNull)
-    try {
-      if (isTaskCancelled) throw new CancellationException("The owning Spark task has ended.")
-      body
-    } catch {
-      case error: InterruptedException =>
-        // Future does not complete its promise when InterruptedException escapes.
-        Thread.interrupted()
-        throw new CancellationException("The asynchronous request was interrupted.").initCause(error)
-    } finally {
-      if (previous == null) Owner.remove() else Owner.set(previous)
-    }
-  }
-}
-
 abstract class AsyncClient(val concurrency: Int,
                            val timeout: Duration)
                           (implicit val ec: ExecutionContext)
@@ -82,12 +54,9 @@ abstract class AsyncClient(val concurrency: Int,
 
   override def sendRequestsWithContext
   (requests: Iterator[RequestWithContext]): Iterator[ResponseWithContext] = {
-    val task = AsyncClient.currentTaskContext
     val futureResponses = requests.map(r => Future {
-      AsyncClient.withTaskContext(task) {
-        sendRequestWithContext(r)
-      }
-    }(ec)
+      sendRequestWithContext(r)
+    }(ExecutionContext.global)
     )
     AsyncUtils.bufferedAwait(futureResponses, concurrency, timeout)
   }

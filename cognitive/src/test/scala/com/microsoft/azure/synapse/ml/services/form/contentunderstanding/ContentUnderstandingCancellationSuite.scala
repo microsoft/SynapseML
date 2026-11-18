@@ -28,8 +28,20 @@ private[contentunderstanding] class TestableContentUnderstandingCancellation(ove
 }
 
 class ContentUnderstandingCancellationSuite extends TestBase {
+  test("transform reuses the pooled HTTP connection across documents") {
+    ContentUnderstandingStub.withReplies(
+      Seq(ContentUnderstandingStubReply(200, ContentUnderstandingFixtures.Succeeded))) { server =>
+      val analyzer = new ContentUnderstanding().setEndpoint(server.endpoint)
+        .setDocumentBytes(Array[Byte](1)).setOutputCol("analysis")
+      val results = analyzer.transform(spark.range(3).coalesce(1)).select("analysis.status").collect()
+      assert(results.forall(_.getString(0) == "Succeeded"))
+      assert(server.requests.size == 3)
+      assert(server.requests.map(_.remotePort).distinct.size == 1)
+    }
+  }
+
   test("Spark cancellation and concurrentTimeout stop throttling waits in every HTTP worker") {
-    Seq((1, false), (2, false), (2, true)).foreach { case (concurrency, expireTimeout) =>
+    Seq((1, false), (2, false), (1, true), (2, true)).foreach { case (concurrency, expireTimeout) =>
       val entered = new CountDownLatch(concurrency)
       val finished = new CountDownLatch(concurrency)
       val id = "cu-cancel-" + UUID.randomUUID().toString

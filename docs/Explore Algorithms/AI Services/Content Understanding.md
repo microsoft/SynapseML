@@ -2,320 +2,309 @@
 title: Content Understanding
 hide_title: true
 sidebar_label: Content Understanding
-description: Analyze content with Azure Content Understanding and save resumable results to a Fabric lakehouse or Spark table.
+description: Analyze documents from Spark using AI defaults and save resumable Content Understanding results.
 ---
 
 # Azure Content Understanding
 
-`ContentUnderstanding` calls Azure Content Understanding from a Spark DataFrame.
-It supports prebuilt and custom analyzers, document URLs or bytes, page and time
-ranges, and per-request model deployment mappings. The default API version is
-the latest generally available version, `2025-11-01`. Preview versions require
-an explicit opt-in.
+`ContentUnderstanding` analyzes one document per DataFrame row using a prebuilt
+or custom analyzer. Configure connection details once with `AIDefaults`, then
+use `transform` in a Spark pipeline or write resumable results to a lakehouse.
+The implementation calls REST from the JVM; no Content Understanding Python
+SDK is required.
 
-Use `transform` for ordinary Spark pipelines. Use `writeToTable` or `writeToPath`
-when completed documents must survive a later failure. The durable methods save
-each accepted operation handle before polling, then commit each result separately.
-They do not wait for the entire input DataFrame to finish before writing results.
+Install matching SynapseML Python and JVM artifacts containing this class.
+See the [installation guide](../../Get%20Started/Install%20SynapseML.md).
+The [Foundry invoice notebook](./Quickstart%20-%20Content%20Understanding.ipynb)
+and [keyless Fabric notebook](./Quickstart%20-%20Content%20Understanding%20in%20Fabric.ipynb)
+provide complete examples using synthetic PDFs.
 
-For a complete example, open the
-[invoice extraction notebook](https://github.com/microsoft/SynapseML/blob/master/docs/Explore%20Algorithms/AI%20Services/Quickstart%20-%20Content%20Understanding.ipynb).
-It generates a synthetic PDF, extracts invoice fields with confidence and source
-information, and resumes saved operations without submitting the document again.
-For managed OCR without an Azure resource key, use the
-[Fabric notebook](https://github.com/microsoft/SynapseML/blob/master/docs/Explore%20Algorithms/AI%20Services/Quickstart%20-%20Content%20Understanding%20in%20Fabric.ipynb).
+## Configure once, analyze from code
 
-## API at a glance
-
-Import `ContentUnderstanding` from `synapse.ml.services.contentunderstanding`.
-These are instance methods on a configured analyzer:
-
-| Python method | Behavior and return value |
-| --- | --- |
-| `transform(dataset)` | Lazy Spark transformation. Returns the input columns plus `outputCol` and `errorCol`. |
-| `writeToTable(dataset, idCol, tableName, format="delta", batchSize=1)` | Eagerly processes input and persists each operation. Returns a DataFrame with the latest state of every ID in the journal. |
-| `writeToPath(dataset, idCol, path, format="delta", batchSize=1)` | Same persistence and return schema, using a lakehouse or filesystem path. |
-| `readTable(spark, tableName)` | Reads the latest persisted state per ID without contacting the service. |
-| `readPath(spark, path, format="delta")` | Reads the latest persisted state from a path without contacting the service. |
-| `createAnalyzer(definition, allowReplace=False)` | Explicit driver call. Accepts a dictionary or JSON string and returns the analyzer definition as a JSON string. |
-| `getAnalyzer()` | Explicit driver call that returns the configured analyzer's definition as a JSON string. |
-
-`transform` adds a response struct containing `operationLocation`, `id`,
-`status`, `httpStatus`, `rawResponse`, and `error`. The durable methods return
-those fields as top-level columns, with `documentId`, `requestHash`, and
-`sequence`. They do not copy the input document bytes into the journal.
-The writers do not add `outputCol` or `errorCol` to the input, so existing
-columns with those names are allowed. `transform` rejects those collisions
-to avoid overwriting input columns.
-
-### REST calls under the hood
-
-The Scala implementation uses the same SynapseML HTTP and Spark pipeline
-infrastructure as other cognitive-service stages. It sends REST requests
-directly, without a Content Understanding Python SDK dependency:
-
-| Method | REST operation |
-| --- | --- |
-| Analyze or submit | `POST {endpoint}/contentunderstanding/analyzers/{analyzerId}:analyze?api-version={version}` |
-| Poll an accepted operation | `GET {Operation-Location}` |
-| `createAnalyzer` | `PUT {endpoint}/contentunderstanding/analyzers/{analyzerId}?api-version={version}&allowReplace={bool}`, then poll its management operation |
-| `getAnalyzer` | `GET {endpoint}/contentunderstanding/analyzers/{analyzerId}?api-version={version}` |
-
-The analyze body contains one `inputs` entry with either `url` or base64 `data`,
-optional `name`, `mimeType`, and `range`, and an optional top-level
-`modelDeployments` map. `stringEncoding`, `processingLocation`, and the preview
-`allowInputTruncation` option are query parameters. Analyzer configuration is
-sent only by `createAnalyzer`. See the
-[REST analyze reference](https://learn.microsoft.com/rest/api/contentunderstanding/content-analyzers/analyze?view=rest-contentunderstanding-2026-06-01-preview)
-and [Python SDK reference](https://learn.microsoft.com/python/api/azure-ai-contentunderstanding/azure.ai.contentunderstanding.contentunderstandingclient).
-The SDK is a reference, not a required dependency.
-
-## Configure an analyzer
-
-Install the SynapseML Python package and matching JVM artifacts that include this
-class. Fabric's preinstalled SynapseML version may not include a newly released
-class. Follow the [installation guide](../../Get%20Started/Install%20SynapseML.md)
-for your runtime rather than mixing Python and JVM versions.
-
-### Fabric-managed analysis
-
-Where Fabric-managed Content Understanding is enabled, omit the endpoint and
-credentials. SynapseML derives the AI workload endpoint from the current Fabric
-runtime and uses its MWC token, including for result polling and durable writers:
-
-```python
-from synapse.ml.services.contentunderstanding import ContentUnderstanding
-
-analyzer = (
-    ContentUnderstanding()
-    .setAnalyzerId("prebuilt-read")
-    .setDocumentUrlCol("documentUrl")
-    .setConcurrency(4)
-    .setOutputCol("analysis")
-    .setErrorCol("requestError")
-)
-```
-
-`concurrency` controls requests within each `transform` partition; durable
-writers remain sequential. Implicit Fabric tokens are reacquired for requests
-and refreshed once after a handle-free HTTP 401. Explicit credentials are never
-refreshed or replaced by this fallback.
-
-The managed route supports analysis and result polling, not `createAnalyzer`
-or `getAnalyzer`. Analyzer and model availability depend on the Fabric service,
-capacity, and region. Client-side wiring does not enable a managed service or
-make Foundry LLM deployments available through Fabric. Use your own Foundry
-resource for the LLM-backed invoice notebook, custom analyzer management, or
-capabilities unavailable on your managed endpoint.
-
-### Bring your own Foundry resource
-
-Set an explicit resource endpoint and its credentials, both inside and outside
-Fabric. For example, in a Fabric notebook retrieve the key from Key Vault:
+For your own Foundry resource, configure its endpoint and key through your
+secret manager. For example, in a Fabric notebook:
 
 ```python
 import notebookutils
+from synapse.ml.services.ai import AIDefaults
 from synapse.ml.services.contentunderstanding import ContentUnderstanding
 
-key = notebookutils.credentials.getSecret(
-    "https://<your-vault>.vault.azure.net/", "<your-secret-name>"
+defaults = AIDefaults().for_api("content_understanding")
+defaults.set_endpoint("https://<your-resource>.services.ai.azure.com")
+defaults.set_api_key(
+    notebookutils.credentials.getSecret(
+        "https://<your-vault>.vault.azure.net/", "<your-secret-name>"
+    )
+)
+defaults.set_analyzer_id("prebuilt-read")
+
+analyzer = ContentUnderstanding(
+    documentUrlCol="documentUrl",
+    outputCol="analysis",
+    errorCol="requestError",
 )
 
-analyzer = (
-    ContentUnderstanding()
-    .setEndpoint("https://<your-resource>.services.ai.azure.com")
-    .setSubscriptionKey(key)
-    .setAnalyzerId("prebuilt-read")
-    .setDocumentUrlCol("documentUrl")
-    .setOutputCol("analysis")
-    .setErrorCol("requestError")
-)
-```
-
-Outside Fabric, obtain the key from your secret manager. Microsoft Entra ID
-authentication is also supported through `setAADToken` or `setAADTokenCol`.
-Acquire a token for `https://cognitiveservices.azure.com/.default` using an
-identity authorized on your Content Understanding resource. Refresh it for
-long-running work. Explicit BYO endpoints do not inherit Fabric credentials.
-OpenAI global configuration does not configure this transformer.
-
-Operation handles must remain on the configured endpoint and result path. For
-Fabric this also binds the handle to the same capacity and workspace gateway;
-SynapseML does not follow a backend-resource URL or a cross-workspace redirect.
-
-Do not put credentials in notebook arguments, Spark configuration, source code,
-or displayed output. SparkML persistence includes configured scalar parameters:
-save an unauthenticated stage and inject credentials after loading it.
-
-```python
 documents = spark.createDataFrame(
     [("invoice-v1", "https://<storage>/<container>/invoice.pdf")],
     ["documentId", "documentUrl"],
 )
 
-results = analyzer.transform(documents)
-resultPath = "Files/content-understanding/quickstart-results"
-results.write.mode("errorifexists").parquet(resultPath)
-savedResults = spark.read.parquet(resultPath)
-savedResults.selectExpr(
-    "documentId",
-    "analysis.status",
-    "get_json_object(analysis.rawResponse, '$.result.contents[0].markdown') AS markdown",
-    "requestError",
-).show(truncate=False)
+latest = analyzer.writeToPath(
+    documents, idCol="documentId", path="Files/content-understanding/operations"
+)
+latest.select("documentId", "status", "rawResponse", "error").show(truncate=False)
 ```
 
-`transform` is lazy. Repeating an action on `results` can repeat billable
-submissions; display and query `savedResults` instead. Use a new path only when
-you intend to analyze again. This ordinary Spark write does not checkpoint
-individual operations; use the durable writers below when partial recovery is
-required.
-
-A URL must be accessible to the Content Understanding service, not just the
-notebook. For private lakehouse files, use a Spark binary column instead:
+The default storage format is Delta. Use `format="parquet"` where Delta is
+unavailable. The URL must be accessible to the service, not just the notebook.
+For private lakehouse files, supply a binary column instead:
 
 ```python
 files = spark.read.format("binaryFile").load("Files/documents/")
-binaryAnalyzer = (
-    ContentUnderstanding()
-    .setEndpoint("https://<your-resource>.cognitiveservices.azure.com")
-    .setSubscriptionKey(key)
-    .setDocumentBytesCol("content")
-    .setDocumentNameCol("path")
+binaryAnalyzer = ContentUnderstanding(
+    documentBytesCol="content", documentNameCol="path", outputCol="analysis"
 )
+results = binaryAnalyzer.transform(files)
 ```
 
-Configure exactly one source, `documentUrl` or `documentBytes`. Do not set both
-on the same stage. Binary input is base64-encoded in the request's `inputs[].data`
-property. Prefer URLs for large files when access requirements permit it, since
-base64 encoding increases memory and request size.
+Configure exactly one of `documentUrl` and `documentBytes`. Binary data is
+base64-encoded in the request, so prefer accessible URLs for large inputs.
 
-PDF and DOCX files can use the same bytes API. For DOCX, supply a `.docx` name
-and, when setting `mimeType`, use
-`application/vnd.openxmlformats-officedocument.wordprocessingml.document`.
-Use `setMimeTypeCol` for mixed-format input.
+### Defaults and overrides
 
-Do not assume every document response contains a `pages` array. In live
-`prebuilt-read` tests, PDFs returned page-level output and DOCX returned text and
-tables as Markdown with `documentPagesMinimal` usage. A DOCX request with
-`range="2"` still returned the whole document. Use whole-document IDs for DOCX;
-do not use its page range as a checkpoint boundary. The PDF range examples below
-are not a DOCX pagination guarantee.
+The stage reads only the `content_understanding` scope. It does not inherit
+`OpenAIDefaults` or other `AIDefaults` API scopes.
 
-### Request options
-
-Options backed by service parameters accept either a scalar setter or a column
-setter, such as `setRange("1-5")` and `setRangeCol("pageRange")`.
-Python `setParams` rejects scalar and column arguments for the same option in
-one call before changing any parameters. Separate calls can replace the prior
-binding. `None` arguments are ignored; use `clear` to remove an existing value.
-
-| Option | Purpose |
+| Python scope setter | Content Understanding setting |
 | --- | --- |
-| `analyzerId` | Prebuilt analyzer or an existing custom analyzer. Defaults to `prebuilt-read`. |
-| `documentUrl`, `documentBytes` | Mutually exclusive input source. |
-| `documentName`, `mimeType` | Optional name and content type. |
-| `range` | Original 1-based pages for documents, or integer milliseconds for audio/video. |
-| `modelDeployments` | Map the analyzer's model names or aliases to deployments in your resource. |
-| `stringEncoding` | `codePoint`, `utf16`, or `utf8` for response offsets. |
-| `processingLocation` | Service-supported processing-location policy. |
-| `allowInputTruncation` | Optional preview Boolean. Omit to use the analyzer setting; `False` explicitly disables truncation. Supports `BooleanType` columns, where null means omitted. |
-| `apiVersion` | Defaults to `2025-11-01`; use `setApiVersion` to override. |
-| `operationMode` | `analyze`, `submit`, or `poll`. Defaults to `analyze`. |
-| `operationLocation` | Accepted operation URL used by poll-only mode. |
+| `set_endpoint(value)` | Foundry resource root, not an OpenAI deployment URL |
+| `set_api_key(value)` | Resource subscription key; requires an endpoint in this scope |
+| `set_api_version(value)` | Service API version |
+| `set_analyzer_id(value)` | Prebuilt or custom analyzer ID |
+| `set_model_deployments(mapping)` | Analyzer model names/aliases mapped to deployment names |
+| `set_string_encoding(value)` | `codePoint`, `utf16`, or `utf8` |
+| `set_processing_location(value)` | `geography`, `dataZone`, or `global` |
+| `set_allow_input_truncation(value)` | Preview Boolean; requires a supported API version |
 
-Polling and memory controls use ordinary scalar setters:
+Defaults are shared by Spark sessions in the same driver JVM. Configure them
+before starting work. `transform`, `transformSchema`, durable writes, and
+analyzer management each resolve a snapshot onto a copy; they do not mutate
+the configured stage. An already-created transform DataFrame retains its
+snapshot even if defaults change before its Spark action.
 
-| Setter | Default | Purpose |
-| --- | --- | --- |
-| `setMaxPollAttempts` | 120 | Bound GET attempts, excluding 429 responses when throttling retries are enabled. |
-| `setPollingIntervalSeconds` | 6 | Seconds between polls when `Retry-After` is absent. Accepts fractional seconds. |
-| `setPollingDelay` | 6000 | The same polling setting in milliseconds, retained for compatibility. |
-| `setRetryOnThrottling` | `True` | Retry definite HTTP 429 responses until they clear or execution is cancelled. Applies to analysis, polling, and analyzer management. |
-| `setMaxResponseBytes` | 33554432 | Bound each response before parsing JSON. |
-| `setTimeout` | 60 | HTTP connection and read timeout in seconds. |
-| `setConcurrency` | 1 | Concurrent operations per Spark partition for `transform`. |
-| `setConcurrentTimeout` | Unset | Optional seconds to wait for each asynchronous result when concurrency is greater than 1. Expiration fails the Spark task, not the service operation. |
-
-Use `analyzer.setPollingIntervalSeconds(6)` in Python or Scala to configure the
-interval. Python also accepts `analyzer.setParams(pollingIntervalSeconds=6)`.
-Both interval setters update the existing `pollingDelay` parameter, so the last
-setter wins and saved stages retain their configured interval. Values must be
-finite and nonnegative; fractional milliseconds round up to the next millisecond.
-Zero is useful for local tests.
-
-The client honors `Retry-After` seconds and HTTP dates instead of the configured
-interval, including waits longer than a minute. Retry waits stop when the owning
-Spark task is cancelled, including with concurrency greater than 1.
-A driver-side writer or management call stops
-on JVM thread interruption. A blocked HTTP read may wait for its socket timeout
-before observing cancellation. A notebook interrupt that only stops Python
-waiting does not necessarily interrupt a driver-side JVM call.
-Setting `retryOnThrottling=False` returns definite submission 429s as `Rejected` and makes
-polling 429s consume the normal attempt budget.
-
-`setConcurrency` is per partition, not a resource-wide rate limit. For example,
-four active partitions with concurrency two can run eight operations at once.
-In analyze mode, each slot covers submission and polling until the operation
-finishes or the polling attempt limit is reached, not just the initial POST.
-The durable writer remains sequential.
-
-Polling runs while a Spark action or writer call is active; it is not a detached
-background worker. Use `submit` mode to save handles and return without polling,
-then resume them in another action or notebook session. `maxPollAttempts` is an
-attempt limit, `timeout` is an HTTP timeout, and neither is a total operation
-deadline. With throttling retries enabled, an operation can wait indefinitely.
-
-A response-size failure includes `ResponseTooLarge`; increase the bound or choose
-smaller ranges rather than treating an unread response as an empty result.
-
-For example, a prebuilt invoice analyzer can use request-level model aliases:
+Explicit stage values and column bindings win over defaults. For example:
 
 ```python
 invoiceAnalyzer = analyzer.copy({}).setAnalyzerId("prebuilt-invoice")
 invoiceAnalyzer.setModelDeployments(
     {
-        "prebuilt-analyzer-completion": "<your-completion-deployment>",
-        "prebuilt-analyzer-embedding": "<your-embedding-deployment>",
+        "prebuilt-analyzer-completion": "<completion-deployment>",
+        "prebuilt-analyzer-embedding": "<embedding-deployment>",
     }
 )
 ```
 
-The selected model must be supported by the analyzer. A deployment name alone
-does not identify the alias the analyzer expects. See
-[models and deployments](https://learn.microsoft.com/azure/ai-services/content-understanding/concepts/models-deployments).
-Request-level mappings do not modify the resource's shared defaults.
+Use `defaults.set_model_deployments(mapping)` to share that mapping across
+stages. Request-level mappings do not change the Foundry resource's model
+defaults. The resource must already have supported deployments.
 
-To opt into the `2026-06-01-preview` API and its layout behavior:
+Use `setEndpoint` and `setSubscriptionKey` for a self-contained stage.
+`setAADToken` and `setAADTokenCol` support Microsoft Entra ID tokens for
+`https://cognitiveservices.azure.com/.default`. Explicit credentials take
+precedence over the scoped key. A scoped key is never forwarded to an explicit
+endpoint on a different origin.
+
+### Fabric-managed analysis
+
+Where Fabric-managed Content Understanding is enabled, omit the endpoint and
+credentials from both the stage and its defaults scope:
 
 ```python
-previewAnalyzer = (
-    analyzer.copy({})
-    .setApiVersion("2026-06-01-preview")
-    .setAnalyzerId("prebuilt-layout")
-    .setStringEncoding("utf16")
-    .setAllowInputTruncation(False)
+analyzer = ContentUnderstanding(
+    analyzerId="prebuilt-read",
+    documentBytesCol="content",
+    outputCol="analysis",
 )
 ```
 
-`allowInputTruncation` requires API version `2026-06-01-preview` or newer.
-The transformer rejects an explicit `True` or `False` on older versions before
-submitting that row. This also applies when either option comes from a column.
-It is not sent by default. A null truncation column leaves the option unset and
-works with the default GA version.
+SynapseML uses the runtime's workspace endpoint and MWC identity for submission
+and polling. It refreshes implicit authentication once after a handle-free
+HTTP 401; explicit credentials are never replaced. A BYO endpoint takes
+precedence and never inherits Fabric credentials.
 
-### Custom extraction and analyzer configuration
+The managed route supports analysis and result polling, not analyzer
+administration. Availability of analyzers, models, and the managed service
+depends on the Fabric capacity and region. Use your own Foundry resource for
+custom analyzer management or capabilities unavailable on that route.
 
-Layout details, segmentation, and extraction fields belong in an analyzer
-definition, not an `options` object in an analyze request. `createAnalyzer`
-accepts a Python dictionary or JSON string. It is an explicit driver operation
-and never runs automatically during `transform`.
+### Save and load stage configuration
+
+SparkML save/load preserves explicit parameters separately from defaults:
+
+```python
+analyzer.write().overwrite().save("Files/models/document-analyzer")
+loaded = ContentUnderstanding.load("Files/models/document-analyzer")
+```
+
+An unset endpoint, key, or analyzer remains unset after loading and resolves
+the current `AIDefaults` at execution. Ambient defaults are not copied into
+the saved stage. To deliberately freeze defaults, use
+`snapshot = defaults.apply_to(analyzer)` before saving or running it.
+**Explicit credentials, including those captured by `apply_to`, are saved
+with the stage.** Keep credentials in the defaults scope or inject them after
+loading when the saved stage must not contain secrets.
+
+## Choose an execution API
+
+| Python method | Behavior |
+| --- | --- |
+| `transform(dataset)` | Lazy; returns input columns plus `outputCol` and `errorCol`. |
+| `writeToTable(dataset, idCol, tableName, format="delta", batchSize=1)` | Eager; journals accepted operations and results, returning the latest state per ID. |
+| `writeToPath(dataset, idCol, path, format="delta", batchSize=1)` | Same journal behavior at a filesystem/lakehouse path. |
+| `readTable(spark, tableName)` | Reads saved latest states without calling the service. |
+| `readPath(spark, path, format="delta")` | Reads saved latest states from a path. |
+| `createAnalyzer(definition, allowReplace=False)` | Explicit driver call; accepts a dictionary or JSON string, returning definition JSON. |
+| `getAnalyzer()` | Explicit driver call returning the configured analyzer's definition JSON. |
+
+`transform` adds a struct with `operationLocation`, `id`, `status`,
+`httpStatus`, `rawResponse`, and `error`. It rejects output-column collisions.
+`rawResponse` retains results, usage, warnings, and unknown service fields.
+Only `status == "Succeeded"` means successful completion; an HTTP 200 or an
+empty `result` does not.
+
+Repeated Spark actions can repeat billable submissions. Materialize a
+transform's output once and query the saved data. An ordinary DataFrame write
+does not checkpoint individual operations; use the durable methods for that.
+
+### Resume durable results
+
+Use one dedicated journal destination per workload and one writer at a time:
+
+```python
+latest = analyzer.writeToTable(
+    documents, idCol="documentId", tableName="document_analysis_operations"
+)
+saved = analyzer.readTable(spark, "document_analysis_operations")
+completed = saved.where("status = 'Succeeded'")
+```
+
+Rerun the same write with the same input, IDs, options, and destination to
+resume. The writer commits accepted operation handles before polling,
+commits results individually, skips terminal records, and polls unfinished
+handles without submitting those documents again.
+
+This two-phase operation journal is separate from `AIPrompt`'s durable-output
+store: saving only a final inference result would lose CU's accepted handle
+when polling fails. Use `writeToPath`/`writeToTable`, not AIPrompt output-path
+parameters, for Content Understanding recovery.
+
+IDs must be unique, non-null strings identifying immutable document versions
+and selected ranges. Changed bytes, URLs, analyzers, or request options for an
+existing ID are rejected. Credential rotation does not change the fingerprint.
+Keep the same scoped defaults when resuming, or explicitly snapshot them
+before the first write. Content changes behind an unchanged URL and changes
+to remote model/analyzer definitions cannot be detected; version those inputs.
+
+To return after accepting and saving handles, then resume later:
+
+```python
+analyzer.setOperationMode("submit").writeToTable(
+    documents, "documentId", "document_analysis_operations"
+)
+latest = analyzer.setOperationMode("analyze").writeToTable(
+    documents, "documentId", "document_analysis_operations"
+)
+```
+
+`readTable`/`readPath` and writer return values expose latest states as
+top-level response fields plus `documentId`, `requestHash`, and `sequence`.
+Reading the physical journal directly returns its append-only history.
+Input document bytes are not copied into it.
+
+| State or failure | Recovery |
+| --- | --- |
+| `Running` / `NotStarted` | Rerun the writer to poll the saved handle. |
+| `Succeeded`, `Failed`, `Canceled` | Terminal record; inspect the result/error. Use a new versioned ID only for an intentional new analysis. |
+| `Rejected` without a handle | Definite rejection; the writer stops before recording the ID. Correct credentials/options and rerun. |
+| `Unknown` without a handle | Acceptance is uncertain; the journal blocks automatic resubmission. Investigate before choosing a new ID. |
+| `ResultUnavailable` | Poll returned 404/410. The handle is retained; later IDs can continue. |
+| Polling authentication/transport failure | The call fails, preserving the last committed handle for resumption. |
+
+There is a crash window between service acceptance and committing the handle.
+Neither Spark retries nor the journal guarantees exactly-once billing.
+Resume promptly: service results have limited retention, while committed
+`rawResponse` remains in your storage.
+
+The writer is sequential on the driver. `batchSize` bounds collected input
+rows, not commit size or concurrency; each document and response must fit in
+memory. It may rescan and sort the manifest between batches. Supply a static,
+deterministic DataFrame; use controlled batches or `foreachBatch` with stable
+IDs for large workloads, not a streaming DataFrame directly.
+
+## Request and polling options
+
+Service parameters support scalar and column setters, for example
+`setRange("1-5")` or `setRangeCol("pageRange")`. Python `setParams` rejects
+simultaneous scalar/column bindings for the same parameter. `None` is ignored;
+use `clear` to remove a value.
+
+| Parameter | Default / purpose |
+| --- | --- |
+| `analyzerId` | `prebuilt-read`, unless scoped or explicit |
+| `apiVersion` | `2025-11-01`, unless scoped or explicit |
+| `documentUrl`, `documentBytes` | Exactly one input source |
+| `documentName`, `mimeType` | Optional name and content type |
+| `range` | Original 1-based PDF pages, or milliseconds for audio/video |
+| `modelDeployments` | Per-request model/alias-to-deployment map |
+| `operationMode` | `analyze`; also `submit` or `poll` |
+| `operationLocation` | Accepted URL for poll-only mode; its API version is retained |
+| `maxPollAttempts` | 120 GET attempts, excluding automatically retried 429s |
+| `pollingIntervalSeconds` | 6 seconds; fractional values supported |
+| `pollingDelay` | Same setting in milliseconds, retained for compatibility |
+| `retryOnThrottling` | `True`; honors `Retry-After`, including waits longer than a minute |
+| `maxResponseBytes` | 33554432; bounds each response before JSON parsing |
+| `timeout` | 60 seconds for HTTP connection/read timeouts |
+| `concurrency` | 1 operation per transform partition; does not parallelize durable writers |
+| `concurrentTimeout` | Optional per-operation wait in seconds; expiration fails the Spark task |
+
+Each transform concurrency slot covers submission and polling. Four partitions
+at concurrency two can run eight operations. Spark cancellation and
+`concurrentTimeout` cancel workers and abort active requests. Driver writers
+and management calls observe JVM interruption; stopping only Python's wait
+does not necessarily interrupt the JVM call.
+
+Only definite throttling rejections without an accepted handle are retried as
+submissions. Polling retries remain GETs. With throttling retries enabled, an
+operation can wait indefinitely; `maxPollAttempts` is not a total deadline.
+Set `retryOnThrottling=False` to return submission 429s as `Rejected` and
+count polling 429s against the attempt budget.
+
+Preview options require explicit opt-in:
+
+```python
+preview = analyzer.copy({}).setApiVersion("2026-06-01-preview")
+preview.setAnalyzerId("prebuilt-layout").setAllowInputTruncation(False)
+```
+
+`allowInputTruncation` accepts `True` or `False` only on supported API versions;
+a null Boolean column omits it. Offsets can use `setStringEncoding("utf16")`.
+
+For range-level durability, create one row and versioned ID per range and use
+`setRangeCol`. Ranges retain original numbering. Splitting changes extraction
+context; SynapseML does not split automatically or guarantee page-by-page
+streaming results. DOCX may return Markdown without pages and may ignore page
+ranges; use whole-document IDs for DOCX. Follow the
+[service limits](https://learn.microsoft.com/azure/ai-services/content-understanding/service-limits).
+
+## Create a custom analyzer
+
+Extraction fields, layout, and segmentation belong in an analyzer definition,
+not an analyze-request `options` object:
 
 ```python
 custom = analyzer.copy({}).setAnalyzerId("purchase-order-v1")
 definition = {
     "baseAnalyzerId": "prebuilt-document",
-    "description": "Extract the supplier from a purchase order.",
     "config": {"returnDetails": True},
     "fieldSchema": {
         "name": "PurchaseOrder",
@@ -327,253 +316,36 @@ definition = {
         },
     },
 }
-
 created = custom.createAnalyzer(definition, allowReplace=False)
 current = custom.getAnalyzer()
 ```
 
-The service creates analyzers asynchronously. `createAnalyzer` waits within the
-configured polling budget and returns the final analyzer definition. A service
-failure or exhausted creation budget raises an exception with the operation
-response. Use `getAnalyzer` to inspect the analyzer afterward.
-`allowReplace=False` protects an existing analyzer. Replacing an analyzer is an
-explicit administrative choice.
-
-Your resource must have its required default model deployments configured
-before creating a custom analyzer. If the service reports `DefaultsNotSet`,
-have the resource administrator configure those defaults. SynapseML does not
-silently change them. The complete definition is forwarded to the
-[create-analyzer API](https://learn.microsoft.com/rest/api/contentunderstanding/content-analyzers/create-or-replace?view=rest-contentunderstanding-2025-11-01),
-so new service configuration fields do not require a new Python wrapper.
-
-## Save completed work to a lakehouse or table
-
-Use a stable, unique string ID for each immutable document version and selected
-range. `writeToTable` and `writeToPath` are eager actions, unlike `transform`.
-The examples below use Delta, which is the default and the recommended format
-for lakehouse use.
-
-```python
-latest = analyzer.writeToTable(
-    documents,
-    idCol="documentId",
-    tableName="content_understanding_operations",
-)
-
-# An alternative destination using a lakehouse path:
-latest = analyzer.writeToPath(
-    documents,
-    idCol="documentId",
-    path="Files/content-understanding/operations",
-    format="delta",
-)
-```
-
-Choose one destination for a given workload. These two calls are alternatives:
-calling both starts separate analyses in separate journals.
-
-If an action fails, read the already-committed work without contacting the
-service:
-
-```python
-partial = analyzer.readTable(spark, "content_understanding_operations")
-completed = partial.where("status = 'Succeeded'")
-failures = partial.where("status IN ('Failed', 'Canceled', 'ResultUnavailable')")
-```
-
-Rerun `writeToTable` with the same input, IDs, options, and destination to resume.
-It skips terminal records and polls saved handles for unfinished operations.
-It does not POST those documents again. Changing the bytes, URL, analyzer, or
-analysis options for an existing ID raises an error instead of silently mixing
-different analyses. Rotating the resource's authentication credential does not
-change the request fingerprint.
-
-Content changes behind an unchanged URL cannot be detected. Use immutable URLs
-or versioned IDs. A new SAS URL changes the request fingerprint, so retain the
-original manifest when resuming an operation that was already submitted.
-Likewise, version custom analyzers and model deployments: the fingerprint does
-not fetch remote analyzer definitions or model revisions.
-
-To persist accepted handles without waiting for analysis to complete, use
-submit-only mode. Resume against the same destination in analyze mode:
-
-```python
-analyzer.setOperationMode("submit").writeToTable(
-    documents, "documentId", "content_understanding_operations"
-)
-latest = analyzer.setOperationMode("analyze").writeToTable(
-    documents, "documentId", "content_understanding_operations"
-)
-```
-
-Repeated submit-only writes skip IDs that already have saved handles.
-Poll-only `transform` can also consume operation handles through
-`setOperationLocationCol`. It uses the API version in each saved URL, so the
-original document and API-version columns are not required. The durable writers
-require the original document manifest and use `analyze` or `submit` mode.
-
-For a path destination, use
-`analyzer.readPath(spark, "Files/content-understanding/operations")`.
-The read helpers and write return values contain the latest state per ID.
-Reading the physical table or path directly returns the append-only operation
-history, usually multiple rows per document:
-
-| Column | Meaning |
-| --- | --- |
-| `documentId` | Your stable document/range ID. |
-| `requestHash` | SHA-256 fingerprint of the analysis request, excluding resource authentication. |
-| `sequence` | Increasing journal sequence within that ID. |
-| `operationLocation`, `id` | Service operation handle and service-generated ID. |
-| `status`, `httpStatus` | Service operation status or SDK recovery status, and last HTTP status. |
-| `rawResponse` | Complete operation JSON, including results, usage, warnings, and unknown fields. |
-| `error` | Service error or client diagnostic JSON when present. |
-
-Only `Succeeded` means successful completion. A `Running` response can already
-contain an empty `result`, and an HTTP 200 response can report `Failed`. Inspect
-the status and error columns before downstream processing. Terminal failures
-are retained rather than retried indefinitely. Correct the cause and use a new
-versioned ID for an intentional retry.
-
-Submission HTTP 401 or 403 without an operation handle is a definite rejection.
-The writer stops with `Rejected` before recording that ID. Fix the credential and
-rerun against the same journal. Completed IDs remain untouched. Definite HTTP
-429 rejections are retried automatically by default; with
-`retryOnThrottling=False`, they follow the same `Rejected` recovery path.
-
-A submission transport failure, HTTP 408, HTTP 5xx, or unreadable response can
-leave acceptance or completion uncertain. An accepted response with a missing
-or invalid handle is also `Unknown`. The writer records `Unknown` and stops if
-no valid handle was received. It will not automatically submit that ID again.
-Resolve the service outcome before choosing a new ID for an intentional retry.
-To process unrelated documents while investigating, exclude the unresolved IDs
-from the input manifest and keep the same journal.
-
-Polling HTTP 404 or 410 produces a terminal `ResultUnavailable` record with the
-original handle and error. The result may be missing or past the service's
-retention period. The writer continues with later IDs without resubmitting the
-unavailable operation. Only the affected document or range needs a new versioned
-ID if you intentionally analyze it again.
-
-### Large documents and explicit ranges
-
-For range-by-range durability, create one input row and ID per range:
-
-```python
-ranges = spark.createDataFrame(
-    [
-        ("report-v1/pages/1-2", "https://<storage>/report.pdf", "1-2"),
-        ("report-v1/pages/3-4", "https://<storage>/report.pdf", "3-4"),
-    ],
-    ["documentId", "documentUrl", "pageRange"],
-)
-
-rangeAnalyzer = analyzer.copy({}).setRangeCol("pageRange")
-latest = rangeAnalyzer.writeToTable(
-    ranges, idCol="documentId", tableName="report_analysis_operations"
-)
-```
-
-Ranges refer to the original input. They do not restart numbering at page 1.
-Splitting a document changes the context available for cross-page extraction
-and table reasoning, so SynapseML never splits it automatically.
-
-This saves complete documents or selected ranges. The service does not promise
-usable page-by-page output while an operation is still running. Follow the
-[service limits](https://learn.microsoft.com/azure/ai-services/content-understanding/service-limits);
-selecting a range does not remove input-byte or response-size limits.
-
-### Durability and resource limits
-
-Only one writer may own a destination at a time. Use a dedicated output table
-or path, not an existing business table. Delta and Parquet are supported; Delta
-provides the stronger transactional storage behavior.
-
-The writer processes requests sequentially on the driver. `batchSize` controls
-how many input rows it collects at a time, not how many results share a commit.
-It defaults to 1 to limit retained document bytes. It projects only the ID and
-configured parameter columns, but a single binary document or response must
-still fit in memory. `setConcurrency` applies to `transform`, not to the durable
-writer.
-
-The input must be a static, deterministic manifest that does not change during
-the call. Bounded keyset batches can rescan and sort that manifest. For very
-large manifests, call the writer from controlled input batches or a structured
-streaming `foreachBatch` callback using the same journal and globally stable
-IDs. Do not pass a streaming DataFrame directly.
-
-Non-throttled polling has a finite attempt budget. Exhausting it leaves a pending record that
-can be resumed with a fresh credential or a larger budget. Transport errors and
-malformed responses fail the action instead of being reported as success.
-Already-committed handles and results remain available.
-Other polling HTTP errors fail the action without marking the accepted service
-operation as failed. For an expired credential, set a fresh key or token and
-rerun against the same journal. Read helpers expose the last committed state;
-the exception contains the unsuccessful polling response.
-
-There is an unavoidable crash window between the service accepting a POST and
-the journal committing its handle. A crash in that window can cause another
-submission on retry. Neither the writer nor Spark task retries provide
-exactly-once external service calls. Only definite HTTP 429 rejections without
-an operation handle are automatically resubmitted. Transport failures, unreadable
-responses, and responses carrying an operation handle are never replayed as a
-new submission.
-
-Service results are retained for
-[up to 24 hours](https://learn.microsoft.com/azure/foundry/responsible-ai/content-understanding/data-privacy).
-Resume pending operations promptly. A saved handle is not permanent result
-storage; the journal's committed `rawResponse` is.
+Creation is driver-only and waits within the polling budget. It never runs
+implicitly during analysis. `allowReplace=False` protects existing analyzers.
+The resource administrator must configure required model defaults first;
+SynapseML does not alter them to recover from `DefaultsNotSet`.
 
 ## Scala
 
-Scala uses the same implementation and persistence behavior:
+Scala uses the same stage, journal, and defaults:
 
 ```scala
-def transform(dataset: Dataset[_]): DataFrame
-def writeToTable(dataset: Dataset[_], idCol: String, tableName: String,
-                 format: String = "delta", batchSize: Int = 1): DataFrame
-def writeToPath(dataset: Dataset[_], idCol: String, path: String,
-                format: String = "delta", batchSize: Int = 1): DataFrame
-def readTable(spark: SparkSession, tableName: String): DataFrame
-def readPath(spark: SparkSession, path: String, format: String = "delta"): DataFrame
-def createAnalyzer(definitionJson: String, allowReplace: Boolean): String
-def getAnalyzer(): String
-def setPollingIntervalSeconds(value: Double): this.type
-def getPollingIntervalSeconds: Double
-```
-
-```scala
+import com.microsoft.azure.synapse.ml.services.ai.AIDefaults
 import com.microsoft.azure.synapse.ml.services.contentunderstanding.ContentUnderstanding
 
-val analyzer = new ContentUnderstanding()
+AIDefaults.forApi("content_understanding")
   .setEndpoint(endpoint)
-  .setSubscriptionKey(key)
-  .setDocumentUrlCol("documentUrl")
+  .setApiKey(key)
   .setAnalyzerId("prebuilt-read")
 
+val analyzer = new ContentUnderstanding().setDocumentUrlCol("documentUrl")
 val latest = analyzer.writeToTable(
-  documents, idCol = "documentId", tableName = "content_understanding_operations")
-val resumed = analyzer.readTable(spark, "content_understanding_operations")
+  documents, idCol = "documentId", tableName = "document_analysis_operations")
+val saved = analyzer.readTable(spark, "document_analysis_operations")
 ```
 
-No Content Understanding Python SDK is required. The public transformer,
-request handling, and journal logic live in the JVM implementation.
-
-## Content Understanding tests
-
-Offline Scala suites are under
-`cognitive/src/test/scala/com/microsoft/azure/synapse/ml/services/form/contentunderstanding`.
-They remain in the existing document-service CI group, with separate files for
-the public API and protocol, journal writes, recovery, session filesystem
-configuration, and framework fuzzing. Run only this feature with:
-
-```bash
-sbt "cognitive/testOnly *ContentUnderstanding*Suite"
-```
-
-`test_ContentUnderstanding.py` exercises the generated Python wrapper against a
-loopback REST fixture. `test_ContentUnderstandingE2E.py` is a separate, opt-in
-Azure suite that generates synthetic PDF and DOCX files. It covers PDF ranges,
-DOCX text and tables, optional preview metadata, partial table results, and
-submit-only path resumption. Its module docstring lists the environment
-variables and the scratch resources it creates and removes. Without explicitly
-configured live-service credentials, the live suite is skipped.
+Scala writer/read signatures match the Python table above, using
+`Dataset[_]`, `SparkSession`, and `DataFrame`. Scala analyzer creation takes
+`createAnalyzer(definitionJson: String, allowReplace: Boolean): String`.
+Use `AIDefaults.forApi("content_understanding").applyTo(analyzer)` for an
+explicit snapshot.

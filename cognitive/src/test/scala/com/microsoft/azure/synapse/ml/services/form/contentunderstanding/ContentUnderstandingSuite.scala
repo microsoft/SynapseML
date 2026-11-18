@@ -57,6 +57,8 @@ class ContentUnderstandingSuite extends TestBase {
   }
 
   private class HeaderGuard extends ContentUnderstanding("header-guard") {
+    override def copy(extra: ParamMap): ContentUnderstanding = copyValues(new HeaderGuard(), extra)
+
     override protected def getCustomAuthHeader(row: Row): Option[String] =
       throw new IllegalStateException("Headers must not be prepared for an unsafe operation URL.")
   }
