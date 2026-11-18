@@ -81,6 +81,23 @@ class ContentUnderstandingDefaultsSuite extends TestBase {
     }
   }
 
+  test("scoped BYO credentials replace the implicit Fabric endpoint without looking up Fabric auth") {
+    withDefaults { defaults =>
+      withReplies(Seq(ContentUnderstandingStubReply(200, Succeeded))) { server =>
+        defaults.setEndpoint(server.endpoint).setApiKey("scoped-key")
+        val analyzer = new TestableFabricContentUnderstanding("https://fabric.example", rejectTokenLookup = true)
+          .setDocumentBytes(Array[Byte](1)).setOutputCol("analysis")
+        assert(!analyzer.isSet(analyzer.url) && analyzer.get(analyzer.url).isEmpty)
+        assert(analyzer.getUrl.startsWith("https://fabric.example/"))
+        assert(defaults.applyTo(analyzer).getSubscriptionKey == "scoped-key")
+        assert(analyzer.transform(input).head().getAs[Row]("analysis").getAs[String]("status") == "Succeeded")
+        assert(server.requests.head.headers("ocp-apim-subscription-key") == "scoped-key")
+        assert(!server.requests.head.headers.contains("authorization"))
+        assert(!analyzer.isSet(analyzer.url) && !analyzer.isSet(analyzer.subscriptionKey))
+      }
+    }
+  }
+
   test("save and load retain unset parameters while applyTo explicitly persists a snapshot") {
     withDefaults { defaults =>
       withReplies(Seq(ContentUnderstandingStubReply(200, Succeeded))) { server =>

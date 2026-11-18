@@ -15,8 +15,8 @@ SDK is required.
 
 Install matching SynapseML Python and JVM artifacts containing this class.
 See the [installation guide](../../Get%20Started/Install%20SynapseML.md).
-The [Foundry invoice notebook](./Quickstart%20-%20Content%20Understanding.ipynb)
-and [keyless Fabric notebook](./Quickstart%20-%20Content%20Understanding%20in%20Fabric.ipynb)
+The [Foundry invoice notebook](https://github.com/microsoft/SynapseML/blob/master/docs/Explore%20Algorithms/AI%20Services/Quickstart%20-%20Content%20Understanding.ipynb)
+and [keyless Fabric notebook](https://github.com/microsoft/SynapseML/blob/master/docs/Explore%20Algorithms/AI%20Services/Quickstart%20-%20Content%20Understanding%20in%20Fabric.ipynb)
 provide complete examples using synthetic PDFs.
 
 ## Configure once, analyze from code
