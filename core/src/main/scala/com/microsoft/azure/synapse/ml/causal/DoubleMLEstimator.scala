@@ -62,7 +62,7 @@ import scala.concurrent.Future
 //noinspection ScalaDocParserErrorInspection,ScalaDocUnclosedTagWithoutParser
 class DoubleMLEstimator(override val uid: String)
   extends Estimator[DoubleMLModel] with ComplexParamsWritable
-    with DoubleMLParams with SynapseMLLogging with Wrappable {
+    with DoubleMLParams with HasTreatmentCols with SynapseMLLogging with Wrappable {
 
   logClass(FeatureNames.Causal)
 
@@ -74,6 +74,23 @@ class DoubleMLEstimator(override val uid: String)
     * @return The trained DoubleML model, from which you can get Ate and Ci values
     */
   override def fit(dataset: Dataset[_]): DoubleMLModel = {
+    require(isDefined(treatmentCol) != isDefined(treatmentCols),
+      "Set exactly one of treatmentCol or treatmentCols")
+    if (isDefined(treatmentCols)) {
+      logFit({
+        require(getMaxIter > 0, "maxIter should be larger than 0!")
+        val rows = DoubleMLMultipleTreatmentTraining.fit(this, dataset)
+        this.copyValues(new DoubleMLModel(uid))
+          .setRawTreatmentEffectsByIteration(rows.flatten)
+          .setRawTreatmentEffectCount(getTreatmentCols.length)
+          .setFittedTreatmentCols(getTreatmentCols)
+      }, dataset.columns.length)
+    } else {
+      fitSingular(dataset)
+    }
+  }
+
+  private def fitSingular(dataset: Dataset[_]): DoubleMLModel = {
     logFit({
       require(getMaxIter > 0, "maxIter should be larger than 0!")
       validateColTypeWithModel(dataset, getTreatmentCol, getTreatmentModel)
@@ -136,6 +153,10 @@ class DoubleMLEstimator(override val uid: String)
       val dmlModel = this.copyValues(new DoubleMLModel(uid)).setRawTreatmentEffects(ates.toArray)
       dmlModel
     }, dataset.columns.length)
+  }
+
+  private[causal] def validateMultipleOutcome(dataset: Dataset[_]): Unit = {
+    validateColTypeWithModel(dataset, getOutcomeCol, getOutcomeModel)
   }
 
   //scalastyle:off method.length
@@ -313,7 +334,8 @@ object DoubleMLEstimator extends ComplexParamsReadable[DoubleMLEstimator] {
 
 /** Model produced by [[DoubleMLEstimator]]. */
 class DoubleMLModel(val uid: String)
-  extends Model[DoubleMLModel] with DoubleMLParams with ComplexParamsWritable with Wrappable with SynapseMLLogging {
+  extends Model[DoubleMLModel] with DoubleMLParams with DoubleMLMultipleTreatmentResults
+    with ComplexParamsWritable with Wrappable with SynapseMLLogging {
   logClass(FeatureNames.Causal)
 
   override protected lazy val pyInternalWrapper = true
