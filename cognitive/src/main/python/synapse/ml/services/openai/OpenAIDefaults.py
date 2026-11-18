@@ -17,6 +17,8 @@ def getOption(opt):
 
 
 class OpenAIDefaults:
+    """Compatibility API sharing state with AIDefaults().for_api("openai")."""
+
     def __init__(self):
         self.defaults = (
             SparkContext.getOrCreate()._jvm.com.microsoft.azure.synapse.ml.services.openai.OpenAIDefaults

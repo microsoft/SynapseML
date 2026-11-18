@@ -26,11 +26,15 @@ spark = SparkSession.getActiveSession() or init_spark()
 
 
 @contextmanager
-def endpoint(response, exact_numbers=False):
+def endpoint(response, exact_numbers=False, recorded_headers=None):
     requests = []
 
     class Handler(BaseHTTPRequestHandler):
         def do_POST(self):
+            if recorded_headers is not None:
+                recorded_headers.append(
+                    {name.lower(): value for name, value in self.headers.items()}
+                )
             requests.append(
                 (
                     self.path,

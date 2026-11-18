@@ -83,10 +83,15 @@ object AIPrompt extends ExplicitComplexParamsReadable[AIPrompt] {
     val custom = map(prompt.customHeaders)
     val telemetry = map(prompt.telemHeaders)
     Seq(custom, telemetry).flatten.foreach(validateCallerHeaders)
+    val embeddedAuth = custom.exists(_.exists { case (name, value) =>
+      (name.equalsIgnoreCase(prompt.subscriptionKeyHeaderName) || name.equalsIgnoreCase(prompt.aadHeaderName)) &&
+        ServiceAuthHeaders.nonBlank(value)
+    })
+    val key = if (embeddedAuth && !prompt.isSet(prompt.subscriptionKey)) None else string(prompt.subscriptionKey)
     lazy val implicitAuth = if (includeFabricFallback && prompt.usingImplicitFabricEndpoint(address)) {
       Option(prompt.fabricAuthHeader)
     } else None
-    val resolution = ServiceAuthHeaders.resolve(string(prompt.subscriptionKey), prompt.subscriptionKeyHeaderName,
+    val resolution = ServiceAuthHeaders.resolve(key, prompt.subscriptionKeyHeaderName,
       prompt.aadHeaderName, string(prompt.AADToken), string(prompt.CustomAuthHeader), custom,
       implicitAuth, telemetry, Some("application/json"))
     transportHeaders(prompt, address, resolution)
@@ -99,7 +104,8 @@ object AIPrompt extends ExplicitComplexParamsReadable[AIPrompt] {
       prompt.get(param).orElse(prompt.getDefault(param)).exists(_.isRight)
     // A higher-priority column can suppress a scalar fallback; only its rows can validate that choice.
     val conditionalAuth = Seq(prompt.subscriptionKey, prompt.AADToken, prompt.CustomAuthHeader)
-      .takeWhile(param => !scalar(param).exists(ServiceAuthHeaders.nonBlank)).exists(column(_))
+      .takeWhile(param => !scalar(param).exists(ServiceAuthHeaders.nonBlank)).exists(column(_)) ||
+      (column(prompt.customHeaders) && !prompt.isSet(prompt.subscriptionKey))
     val conditionalTelemetry = column(prompt.telemHeaders)
     requestHeaders(prompt, address, scalar[String], scalar[Map[String, String]], includeFabricFallback = false)
       .filter { case (name, _) =>
@@ -118,6 +124,9 @@ object AIPrompt extends ExplicitComplexParamsReadable[AIPrompt] {
     resolved.headers.keys.exists(name => prompt.authenticationHeaderNames(name.toLowerCase(java.util.Locale.ROOT))) ||
       (prompt.isDefined(prompt.url) && prompt.usingImplicitFabricEndpoint(prompt.getUrl.stripSuffix("/") + "/"))
   }
+
+  private[ai] def setScopedDefault(prompt: AIPrompt, name: String, value: Any): Unit =
+    prompt.setDefault(prompt.getParam(name).asInstanceOf[Param[Any]] -> value)
 
   private val FirstRetryMs = 100
   private val SecondRetryMs = 500
@@ -250,8 +259,8 @@ class AIPrompt(override val uid: String) extends OpenAIPrompt(uid)
   }
 
   private def excludedGlobalDefaults(result: AIPrompt): Set[String] = {
-    val overriddenModelDefaults = if (isSet(model)) Set(deploymentName.name)
-      else if (isSet(deploymentName)) Set(model.name) else Set.empty[String]
+    val overriddenModelDefaults = if (result.isSet(result.model)) Set(deploymentName.name)
+      else if (result.isSet(result.deploymentName)) Set(model.name) else Set.empty[String]
     val allowed = AIRequestAdapter.allowedOptions(result.getApiType)
     val inactiveOptions = AIRequestAdapter.bodyOptions(result).filterNot(p => allowed(p.name)).map(_.name).toSet
     val nativeDefaults = if (AIRequestAdapter.NativeApis(result.getApiType)) {
@@ -268,15 +277,16 @@ class AIPrompt(override val uid: String) extends OpenAIPrompt(uid)
       GlobalParams.getParam(apiType).filter(value => supportedApiTypes.contains(value.toString))
         .foreach(value => result.setDefault(result.apiType -> value.toString))
     }
-    val excludedGlobals = excludedGlobalDefaults(result)
-    params.filterNot(p => isSet(p) || excludedGlobals(p.name)).foreach { p =>
+    val scopedExclusions = AIDefaults.applyPrompt(result)
+    val excludedGlobals = excludedGlobalDefaults(result) ++ scopedExclusions
+    params.filterNot(p => result.isSet(result.getParam(p.name)) || excludedGlobals(p.name)).foreach { p =>
       GlobalParams.getParam(p).foreach { value =>
         result.setDefault(result.getParam(p.name).asInstanceOf[Param[Any]] -> value)
       }
     }
     result.setImplicitFabricEndpoint()
     AIRequestAdapter.defaultApiVersion(result).foreach(value => result.setDefault(result.apiVersion -> value))
-    if (result.getApiType == "embeddings" && !isSet(deploymentName) && !isSet(model)) {
+    if (result.getApiType == "embeddings" && !result.isSet(result.deploymentName) && !result.isSet(result.model)) {
       GlobalParams.getGlobalParam(OpenAIEmbeddingDeploymentNameKey).foreach { v =>
         result.setDefault(result.deploymentName -> v)
       }
