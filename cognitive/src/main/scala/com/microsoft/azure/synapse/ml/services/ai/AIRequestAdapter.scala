@@ -247,13 +247,19 @@ private[ai] final class AIRequestAdapter(stage: AIPrompt, schema: StructType) ex
   }
 
   private def validateCapabilities(): Unit = {
+    val hasDecisionsPathColumns = api == "decisions" && stage.getColumnTypes.values.exists(_ == "path")
+    val decisionsSettings = Set[Param[_]](stage.messagesCol, stage.columnTypes, stage.fileSizeLimitMB)
     if (!generative) {
       Seq(stage.systemPrompt, stage.columnTypes, stage.fileSizeLimitMB, stage.postProcessing,
         stage.postProcessingOptions, stage.messagesCol, stage.dropPrompt).filter(stage.isSet).foreach(p =>
-        require(p == stage.messagesCol && api == "decisions",
+        require(api == "decisions" && decisionsSettings(p),
           s"${p.name} is not supported by apiType='$api'"))
     }
+    require(!hasDecisionsPathColumns || stage.getInputMode == "text",
+      "Decisions path columns require inputMode='text'; use explicit image parts with JSON input")
     if (stage.isSet(stage.messagesCol)) validateMessageConstruction()
+    require(api != "decisions" || !stage.isSet(stage.fileSizeLimitMB) || hasDecisionsPathColumns,
+      "fileSizeLimitMB requires a 'path' column in columnTypes for apiType='decisions'")
     validateNativeBindings()
     require(api == "embeddings" || !stage.isDefined(stage.text), "text/textCol requires apiType='embeddings'")
     require(api == "systemone" || !stage.isDefined(stage.stateCol), "stateCol requires apiType='systemone'")
@@ -309,11 +315,21 @@ private[ai] final class AIRequestAdapter(stage: AIPrompt, schema: StructType) ex
       val field = schema(AIColumnPlan.resolve(schema, name))
       require(kind != "path" || field.dataType == StringType, "Path columns must have string type")
     }
+    validateDecisionsInputColumn()
     if (stage.isSet(stage.promptTemplate)) {
       val input = SparkSession.active.createDataFrame(java.util.Collections.emptyList[Row](), schema)
       val expression = AIPrompt.withSafeTemplate(Functions.template(AIJson.validatedString(stage.getPromptTemplate)))
       val rendered = AIPrompt.bindTemplate(input, expression)
       require(rendered.expr.dataType == StringType, "Prompt templates must produce strings")
+    }
+  }
+
+  private def validateDecisionsInputColumn(): Unit = {
+    if (api == "decisions" && stage.isSet(stage.inputCol)) {
+      require(!stage.getColumnTypes.exists { case (name, kind) =>
+        kind == "path" && AIColumnPlan.matches(name, stage.getInputCol)
+      }, "Decisions inputCol cannot also be a 'path' column; " +
+        "use a separate text column or a promptTemplate filename placeholder")
     }
   }
 
@@ -566,14 +582,16 @@ private[ai] final class AIRequestAdapter(stage: AIPrompt, schema: StructType) ex
   }
 
   private def nativeEnvelope(row: Row, preparedText: Option[String],
-                             messages: Option[Seq[Row]]): Map[String, JsValue] = {
+                             messages: () => Option[Seq[Row]], pathImageCount: Int): Map[String, JsValue] = {
     val questions = constantQuestions.getOrElse(value(row, stage.questions).map {
       case s: String => AIJson.parse(s)
       case other => AIJson.fromAny(other)
     }.getOrElse(throw new AIMissingInputException("questions is null")))
     if (constantQuestions.isEmpty) NativeQuestions.validate(api, questions)
-    val content = if (api == "decisions" && messages.isDefined) {
-      AIJson.fromAny(protocolMessages(messages.get))
+    if (api == "decisions") NativeQuestions.validateDecisionsImageCount(pathImageCount, questions)
+    val preparedMessages = messages()
+    val content = if (api == "decisions" && preparedMessages.isDefined) {
+      AIJson.fromAny(protocolMessages(preparedMessages.get))
     } else input(row, preparedText)
     val (validatedInput, validatedQuestions) = if (api == "decisions") {
       NativeQuestions.prepareDecisionsRequest(content, questions)
@@ -591,21 +609,25 @@ private[ai] final class AIRequestAdapter(stage: AIPrompt, schema: StructType) ex
     version
   }
 
-  def request(row: Row, preparedText: Option[String], messages: Option[Seq[Row]]): (String, String) = {
+  def request(row: Row, preparedText: Option[String], messages: Option[Seq[Row]]): (String, String) =
+    request(row, preparedText, () => messages, 0)
+
+  def request(row: Row, preparedText: Option[String], messages: () => Option[Seq[Row]],
+              pathImageCount: Int): (String, String) = {
     val modelName = selectedModel(row)
     val version = requestVersion(row)
     val body = if (staticBody) None else Some(mergedOptions(row))
     val envelope = api match {
       case "chat_completions" =>
-        val mapped = protocolMessages(messages.get)
+        val mapped = protocolMessages(messages().get)
         Map("messages" -> AIJson.fromAny(mapped), "model" -> JsString(modelName))
       case "responses" =>
-        val mapped = protocolMessages(messages.get)
+        val mapped = protocolMessages(messages().get)
         Map("input" -> AIJson.fromAny(mapped), "model" -> JsString(modelName))
       case "embeddings" =>
         Map("input" -> input(row, preparedText), "model" -> JsString(modelName))
       case "systemone" | "decisions" =>
-        nativeEnvelope(row, preparedText, messages) + ("model" -> JsString(modelName))
+        nativeEnvelope(row, preparedText, messages, pathImageCount) + ("model" -> JsString(modelName))
       case _ => throw new IllegalArgumentException("Unsupported apiType")
     }
     val encoded = body.map(b => JsObject(b.fields ++ envelope).compactPrint)

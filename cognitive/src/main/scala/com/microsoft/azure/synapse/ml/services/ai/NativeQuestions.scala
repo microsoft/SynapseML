@@ -7,10 +7,9 @@ import com.microsoft.azure.synapse.ml.services.openai.OpenAIAttachmentUtils
 import spray.json.{JsArray, JsBoolean, JsNull, JsObject, JsString, JsValue}
 
 import java.net.URI
-import scala.collection.immutable.ListMap
 import scala.util.Try
 
-/** Shared validation for the native leaves and the facade, without rewriting provider JSON. */
+/** Shared validation and optional-null normalization for the native leaves and facade. */
 private[services] object NativeQuestions {
   private val MaxChoices = 255
   private val MaxImages = 128
@@ -155,17 +154,17 @@ private[services] object NativeQuestions {
       case JsArray(messages) => messages.map(message => imageCount(obj(message)("content"))).sum
       case _ => 0
     }
-    check(inputImages + questionImageCount(questions) <= MaxImages,
-      "Decisions accepts at most 128 images per request")
+    validateDecisionsImageCount(inputImages, questions)
     val preparedQuestions = JsArray(array(questions).map { question =>
       val fields = obj(question)
-      JsObject(ListMap(fields.toSeq.map {
-        case ("instructions", value) => "instructions" -> prepareParts(value)
-        case field => field
-      }: _*))
+      JsObject(fields.updated("instructions", prepareParts(fields("instructions"))))
     })
     (preparedInput, preparedQuestions)
   }
+
+  def validateDecisionsImageCount(inputImages: Int, questions: JsValue): Unit =
+    check(inputImages + questionImageCount(questions) <= MaxImages,
+      "Decisions accepts at most 128 images per request")
 
   private def questionImageCount(questions: JsValue): Int =
     array(questions).map(question => imageCount(obj(question)("instructions"))).sum
@@ -201,6 +200,18 @@ private[services] object NativeQuestions {
       }
   }
 
+  private def hostedImageUrl(url: String): Boolean = Try {
+    val uri = new URI(url)
+    val authority = Option(uri.getRawAuthority).getOrElse("")
+    val hostAndPort = authority.substring(authority.lastIndexOf('@') + 1)
+    val portSeparator = hostAndPort.lastIndexOf(':')
+    // URL accepts signed and Unicode-digit ports; RFC 3986 permits only ASCII digits.
+    val validPort = portSeparator <= hostAndPort.lastIndexOf(']') ||
+      hostAndPort.substring(portSeparator + 1).forall(c => c >= '0' && c <= '9')
+    Set("http", "https").exists(_.equalsIgnoreCase(uri.getScheme)) &&
+      validPort && Option(uri.toURL.getHost).exists(_.nonEmpty)
+  }.getOrElse(false)
+
   private def validatePart(part: JsValue): Int = {
     val fields = obj(part)
     text(required(fields, "type")) match {
@@ -226,11 +237,7 @@ private[services] object NativeQuestions {
           }
           check(encoded.nonEmpty, "Decisions image data must be nonempty")
         } else {
-          val hosted = Try(new URI(url)).toOption.exists { uri =>
-            Set("http", "https").exists(_.equalsIgnoreCase(uri.getScheme)) &&
-              Option(uri.getHost).exists(_.nonEmpty)
-          }
-          check(hosted, "Decisions images must use HTTP(S) URLs or inline base64 image data URLs")
+          check(hostedImageUrl(url), "Decisions images must use HTTP(S) URLs or inline base64 image data URLs")
         }
         1
       case _ => throw new IllegalArgumentException("Unsupported Decisions input part")

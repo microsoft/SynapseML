@@ -575,7 +575,7 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   }
 
   private[openai] def stringMessageWrapper(str: String): Map[String, String] = {
-    if (this.getApiType == "responses") {
+    if (getApiType == "responses" || getApiType == "decisions") {
       Map("type" -> "input_text", "text" -> str)
     } else {
       Map("type" -> "text", "text" -> str)
@@ -605,34 +605,36 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     attachmentOrder: Seq[String],
     conf: Option[Configuration]
   ): Seq[OpenAICompositeMessage] = {
-    // Filter to get only non-null, non-empty path values
     val orderedAttachments = attachmentOrder.flatMap { columnName =>
       attachmentMap.get(columnName).flatMap(v => Option(v).map(_.trim).filter(_.nonEmpty))
     }
-
-    // If there are path columns but all are null/empty, pass through null
     if (attachmentOrder.nonEmpty && orderedAttachments.isEmpty) {
       null //scalastyle:ignore null
     } else {
       val contentParts = buildContentParts(userMessage, orderedAttachments, conf)
-      getPromptsForMessage(Left(contentParts))
+      if (getApiType == "decisions") Seq(OpenAICompositeMessage("user", contentParts))
+      else getPromptsForMessage(Left(contentParts))
     }
   }
 
-  private def buildContentParts(promptText: String, attachmentPaths: Seq[String],
-                                conf: Option[Configuration]): Seq[Map[String, String]] =
-    Seq(stringMessageWrapper(promptText)) ++ attachmentPaths.flatMap(path => wrapFileToMessagesList(path, conf))
+  private def buildContentParts(prompt: String, paths: Seq[String], conf: Option[Configuration]) =
+    Seq(stringMessageWrapper(prompt)) ++ paths.flatMap(path => wrapFileToMessagesList(path, conf))
 
   private def attachmentSizeLimit: Option[Double] =
     get(fileSizeLimitMB).orElse(if (useBoundedAttachments) getDefault(fileSizeLimitMB) else None)
 
   protected def useBoundedAttachments: Boolean = false
 
+  private def validateImageAttachment(isImage: => Boolean): Unit = if (getApiType == "decisions" && !isImage)
+    throw new IllegalArgumentException("Decisions path columns only support JPEG, PNG, GIF, and WebP images")
+
   private def wrapFileToMessagesList(filePathStr: String, conf: Option[Configuration]): Seq[Map[String, String]] = {
     val limit = attachmentSizeLimit
     val fileMessage = if (OpenAIAttachmentUtils.isDataUrl(filePathStr)) {
+      validateImageAttachment(OpenAIAttachmentUtils.dataUrlFileType(
+        filePathStr, imageExtensions, audioExtensions, textExtensions) == "image")
       this.getApiType match {
-        case "responses" =>
+        case "responses" | "decisions" =>
           OpenAIAttachmentUtils.responsesDataUrlMessage(
             filePathStr, limit, imageExtensions, audioExtensions, textExtensions, stringMessageWrapper)
         case "chat_completions" =>
@@ -640,11 +642,13 @@ class OpenAIPrompt(override val uid: String) extends Transformer
             filePathStr, limit, imageExtensions, audioExtensions, textExtensions, stringMessageWrapper)
       }
     } else {
+      validateImageAttachment(OpenAIAttachmentUtils.mayBeImagePath(filePathStr, imageExtensions))
       val (fileName, fileBytes, fileType, mimeType) = OpenAIAttachmentUtils.prepareFile(
         filePathStr, limit, imageExtensions, audioExtensions, textExtensions,
         useBoundedAttachments, conf.getOrElse(new Configuration()))
+      validateImageAttachment(Set("image/jpeg", "image/png", "image/gif", "image/webp")(mimeType))
       this.getApiType match {
-        case "responses" =>
+        case "responses" | "decisions" =>
           OpenAIAttachmentUtils.responsesMessage(fileName, fileBytes, fileType, mimeType, stringMessageWrapper)
         case "chat_completions" =>
           OpenAIAttachmentUtils.chatCompletionsMessage(fileBytes, fileType, mimeType, stringMessageWrapper)

@@ -245,23 +245,96 @@ scores produce a `parse_error`. Refusals remain
 typed answers alongside any other answers. Decisions accepts images in user-message
 content and in each predicate, choice, or score question's `instructions`.
 Use an `input_image` part with `image_url` set to a publicly accessible HTTP(S)
-image URL or an inline base64 image data URL. SynapseML forwards hosted URLs
-unchanged; the provider fetches them, not the Spark driver or executors. Local
-image files must first be read and encoded as image data URLs. Image data URLs
+image URL or an inline base64 image data URL. For explicit message and question
+parts, SynapseML forwards hosted URLs unchanged; the provider fetches them, not
+the Spark driver or executors. Local image files in explicit parts must first
+be read and encoded as image data URLs. Image data URLs
 accept case-insensitive scheme, media type and `base64` markers, plus MIME
 parameters before `;base64`. Parameter values with special characters must use
 URL escapes. The original URL is forwarded unchanged; the payload must decode
 to nonempty base64 data. Syntax validation does not allocate a decoded image.
 Callers must still bound inline payloads to their executor memory budget and the
-provider's request limits; `fileSizeLimitMB` does not apply to Decisions input.
+provider's request limits; `fileSizeLimitMB` does not apply to explicit message,
+JSON input, or question image parts.
 The existing 128-image request limit includes images in both shared input and
 all question instructions, not 128 images per question.
+
+For automatic image loading, mark image columns as `"path"` instead of `"text"`,
+just as with Chat Completions and Responses. The parameter is always `columnTypes`;
+its keys are your DataFrame column names, not special API parameters. This example
+uses an image column named `input`:
+
+```python
+import os
+from synapse.ml.services.ai import AIPrompt
+
+image_decisions = (
+    AIPrompt()
+    .setApiType("decisions")
+    .setUrl(os.environ["FOUNDRY_ENDPOINT"])
+    .setDeploymentName(os.environ["DECISIONS_DEPLOYMENT"])
+    .setSubscriptionKey(os.environ["FOUNDRY_API_KEY"])
+    .setPromptTemplate("Inspect {input}: {description}")
+    .setColumnTypes({"input": "path", "description": "text"})
+    .setFileSizeLimitMB(10)
+    .setQuestions([{
+        "type": "predicate",
+        "name": "damaged",
+        "instructions": "Does the image show visible damage?",
+    }])
+    .setOutputCol("decision")
+    .setErrorCol("error")
+)
+results = image_decisions.transform(images)
+```
+
+Path columns accept filesystem paths readable by Spark, HTTP(S) URLs, or inline
+image data URLs. Spark loads file/HTTP inputs during execution and sends their
+bytes as image data URLs. Set a finite `fileSizeLimitMB` to cap each read at the
+per-file limit plus one byte; unset or positive-infinite limits read the whole
+file into executor memory. Direct path placeholders in the template become
+filenames; the image content is sent separately, not as ordinary prompt text.
+HTTP(S) path URLs must not contain query strings or percent-encoded characters:
+the Hadoop-based reader escapes `?` and existing `%` escapes as path text rather
+than preserving the URL. For signed or percent-encoded URLs, use explicit
+`input_image` parts so the provider fetches the original URL unchanged, or provide
+a Spark-readable filesystem path or inline data URL.
+Use `inputCol` instead of `promptTemplate` when another column already contains
+the prompt text; it cannot also be marked `"path"`. Both forms require `inputMode="text"` and cannot be combined
+with `messagesCol`. Null or empty prompt text produces `missing_input`, and
+whitespace-only text produces `invalid_request`, before loading images. Missing
+row-level model/version bindings, malformed options/questions and the combined
+image count are also checked before reading path attachments. Row-level HTTP
+header values are still validated after attachment loading. Null or blank path
+cells are skipped when another image is present; a row with no usable image paths
+produces `missing_input`.
+Decisions path columns accept JPEG, PNG, GIF, and WebP images, not text, PDF,
+Office, audio, or other image formats.
+Path loading uses the same filename/MIME detection as Chat Completions and
+Responses. When a filename has an extension, use `.jpg`, `.jpeg`, `.png`, `.gif`,
+or `.webp`; extensionless files depend on the runtime recognizing the image
+header. For JPEGs named `.jfif` or `.jpe`, or extensionless JPEGs whose header
+is not recognized, use a `.jpg`/`.jpeg` filename or an explicit image part.
+Inline path data URLs require standard MIME types, such as `image/jpeg`
+rather than `image/jpg`.
+Filenames with any other extension, including unrecognized ones such as `.ashx`,
+are rejected without reading the file; send such URLs as explicit `input_image` parts instead.
+Attachments are processed in column order, so earlier supported paths may already
+have been read when a later unsupported path is rejected.
+Supported or extensionless names still require content inspection, so IO or
+size-limit failures can occur before the content type is known.
+The same configuration is available on `OpenAIDecisions`.
+With durable `outputPath` enabled, every Decisions image must be an inline data
+URL, including path cells, explicit `messagesCol` or JSON-input image parts, and
+question instructions configured directly or through `questionsCol`. Filesystem
+paths and hosted URLs stop the run before inference rather than producing
+individual row errors. This keeps saved inputs self-contained and reproducible.
 
 Text-only question instructions can remain strings. To compare a candidate image
 with evidence in the shared input, use an instruction array:
 
 ```python
-decisions.setQuestions([
+image_decisions.setQuestions([
     {
         "type": "predicate",
         "name": "matches_reference",
@@ -287,7 +360,8 @@ the provider determines whether they are valid. This permits supported options
 such as Decisions `prompt_cache_breakpoint` on input parts. `messagesCol` uses
 the narrower Responses-compatible message converter.
 
-The same three-question workflows are available directly from Scala:
+The earlier text-only, three-question System One and Decisions workflows are
+also available directly from Scala:
 
 ```scala
 import com.microsoft.azure.synapse.ml.services.ai.AISystemOne
@@ -357,6 +431,12 @@ Model discovery or a successful chat request does not prove native API
 availability. Configure the native endpoint and its authentication on the stage;
 native APIs do not inherit process-wide OpenAI URL or API-key defaults, and the
 facade does not infer an implicit Fabric native route.
+
+The Scala Decisions suite also checks generated inline path images and image
+instructions through both public stages. For its hosted-image case, additionally
+set `SYNAPSEML_DECISIONS_IMAGE_URL` to a stable, publicly accessible HTTPS
+synthetic test image. That case skips when the URL is not configured; the provider
+fetches the image. These checks verify request acceptance, not model accuracy.
 
 ```bash
 sbt "cognitive/testOnly com.microsoft.azure.synapse.ml.services.ai.AISystemOneLiveSuite com.microsoft.azure.synapse.ml.services.openai.OpenAIDecisionsLiveSuite"
@@ -656,7 +736,9 @@ read-failure case, an available redirect status is preserved without replay.
 | `safetyIdentifier` | Decisions |
 | `questions` | System One, Decisions |
 | `stateCol` | System One |
-| `systemPrompt`, `columnTypes`, `fileSizeLimitMB`, `dropPrompt` | Chat, Responses with generated messages, not `messagesCol` |
+| `systemPrompt`, `dropPrompt` | Chat, Responses with generated messages, not `messagesCol` |
+| `columnTypes` | Chat, Responses, Decisions; non-empty mappings cannot be combined with `messagesCol` |
+| `fileSizeLimitMB` | Chat, Responses with generated messages; Decisions with image path columns; not `messagesCol` |
 | `postProcessing`, `postProcessingOptions` | Chat, Responses |
 | Legacy `echo`, `cacheLevel`, `bestOf`, `logProbs` | Explicitly rejected; not silently dropped |
 

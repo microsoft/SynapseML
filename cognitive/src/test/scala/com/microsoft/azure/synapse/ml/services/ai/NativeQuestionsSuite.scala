@@ -6,7 +6,7 @@ package com.microsoft.azure.synapse.ml.services.ai
 import com.microsoft.azure.synapse.ml.core.test.base.TestBase
 import com.microsoft.azure.synapse.ml.services.openai.OpenAIDecisions
 import org.apache.spark.sql.Row
-import spray.json.{JsArray, JsNumber, JsObject, JsString, JsValue, enrichString}
+import spray.json.{JsArray, JsBoolean, JsNull, JsNumber, JsObject, JsString, JsValue, enrichString}
 
 import java.util.Base64
 import scala.util.Try
@@ -100,7 +100,17 @@ class NativeQuestionsSuite extends TestBase {
 
   test("Decisions accepts hosted images without fetching or rewriting their URLs") {
     Seq("https://example.invalid/photo.png?signature=a%2Bb&version=2",
-      "http://example.invalid:8080/photo.jpg").foreach { url =>
+      "http://example.invalid:8080/photo.jpg",
+      "HTTPS://example.invalid/photo.png",
+      "Http://example.invalid/photo.png",
+      "https://img_cdn.example.invalid/photo.png",
+      "https://img_cdn.example.invalid:8443/photo.png",
+      "https://b\u00fccher.example.invalid:8443/photo.png",
+      "https://[2001:db8::1]/photo.png",
+      "https://[2001:db8::1]:443/photo.png",
+      "https://user:example@example.invalid:443/photo.png",
+      "https://example.invalid:/photo.png",
+      "https://b\u00fccher.example.invalid/photo.png").foreach { url =>
       val value = input(image(url))
       NativeQuestions.validateDecisionsInput(value)
       assert(NativeQuestions.prepareDecisionsInput(value) == value)
@@ -118,7 +128,25 @@ class NativeQuestionsSuite extends TestBase {
     NativeQuestions.validate("decisions", questions)
   }
 
+  test("Decisions sums image limits across all questions and shared paths") {
+    def questions(secondCount: Int): JsArray = JsArray(Vector(64, secondCount).map { count =>
+      JsObject("type" -> JsString("predicate"), "instructions" ->
+        JsArray(Vector.fill(count)(image("https://example.invalid/photo.png"))))
+    })
+    NativeQuestions.validate("decisions", questions(64))
+    assert(intercept[IllegalArgumentException](NativeQuestions.validate("decisions", questions(65)))
+      .getMessage.contains("at most 128 images"))
+    NativeQuestions.validateDecisionsImageCount(1, questions(63))
+    assert(intercept[IllegalArgumentException](NativeQuestions.validateDecisionsImageCount(1, questions(64)))
+      .getMessage.contains("at most 128 images"))
+  }
+
   test("Decisions image instructions reject malformed content and unsupported document inputs") {
+    Seq(JsNumber(42), JsBoolean(true), JsObject(), JsNull).foreach { instructions =>
+      val questions = JsArray(JsObject("type" -> JsString("predicate"), "instructions" -> instructions))
+      assert(intercept[IllegalArgumentException](NativeQuestions.validate("decisions", questions))
+        .getMessage == "Decisions instructions must be text or text/image parts")
+    }
     val invalidParts = Seq(
       JsArray(),
       JsArray(JsString("not a content part")),
@@ -194,6 +222,14 @@ class NativeQuestionsSuite extends TestBase {
   test("Decisions rejects invalid image URLs, invalid base64, unsupported roles and modalities") {
     val unsupported = Seq(
       input(image("https:///image.png")),
+      input(image("https://:443/image.png")),
+      input(image("https://user@/image.png")),
+      input(image("https://example.invalid:bad/image.png")),
+      input(image("https://example.invalid:-1/image.png")),
+      input(image("https://example.invalid:+443/image.png")),
+      input(image("https://example.invalid:\u0664\u0664\u0663/image.png")),
+      input(image("https://[2001:db8::1]:+443/image.png")),
+      input(image("https://user:example@example.invalid:-1/image.png")),
       input(image("https://example.invalid/image%xy.png")),
       input(image("https://example.invalid/image with spaces.png")),
       input(image("file:///image.png")),

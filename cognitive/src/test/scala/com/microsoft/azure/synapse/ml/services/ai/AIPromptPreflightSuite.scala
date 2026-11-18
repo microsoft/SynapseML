@@ -61,33 +61,36 @@ class AIPromptPreflightSuite extends TestBase {
   Seq("chat_completions", "responses", "decisions").foreach { api =>
     test(s"$api explicit messages reject unused construction settings before HTTP") {
       val data = input.selectExpr("text", "array(named_struct('role', 'user', 'content', text)) AS messages")
-      val settings: Seq[(String, AIPrompt => AIPrompt)] = if (api == "decisions") {
-        Seq("inputMode" -> (_.setInputMode("text")), "inputMode" -> (_.setInputMode("json")))
-      } else Seq("systemPrompt" -> (_.setSystemPrompt("Do not ignore this")),
+      val settings = Seq[(String, AIPrompt => AIPrompt)](
+        "systemPrompt" -> (_.setSystemPrompt("Do not ignore this")),
         "columnTypes" -> (_.setColumnTypes(Map("text" -> "path"))),
         "columnTypes" -> (_.setColumnTypes(Map("text" -> "text"))),
         "fileSizeLimitMB" -> (_.setFileSizeLimitMB(1.0)),
-        "dropPrompt" -> (_.setDropPrompt(false)), "dropPrompt" -> (_.setDropPrompt(true)))
+        "dropPrompt" -> (_.setDropPrompt(false)), "dropPrompt" -> (_.setDropPrompt(true))) ++
+        (if (api == "decisions") Seq[(String, AIPrompt => AIPrompt)]("inputMode" -> (_.setInputMode("text")),
+          "inputMode" -> (_.setInputMode("json"))) else Seq.empty)
       val stages = if (api == "decisions") Seq(new AIPrompt().setApiType(api), new OpenAIDecisions())
       else Seq(new AIPrompt().setApiType(api))
       val reply = if (api == "responses") {
         """{"output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"answer"}]}]}"""
-      } else chatReply
+      } else if (api == "decisions") NativeRequestFixtures.DecisionResponse else chatReply
       Using.resource(new AIRecordingServer((_, _) => 200 -> reply)) { server =>
         stages.foreach { base =>
           base.setUrl(server.url + "/v1").setModel("model").setMessagesCol("messages").setErrorCol("error")
           if (api == "decisions") base.setQuestions(NativeRequestFixtures.DecisionQuestions)
           settings.foreach { case (name, configure) =>
             val stage = configure(base.copy(ParamMap.empty))
-            assert(intercept[IllegalArgumentException](stage.transformSchema(data.schema)).getMessage.contains(name))
-            assert(intercept[IllegalArgumentException](stage.transform(data)).getMessage.contains(name))
+            Seq[() => Any](() => stage.transformSchema(data.schema), () => stage.transform(data)).foreach { call =>
+              val message = intercept[IllegalArgumentException](call()).getMessage
+              if (name == "fileSizeLimitMB") {
+                assert(message == "fileSizeLimitMB cannot be combined with messagesCol")
+              } else assert(message.contains(name))
+            }
             assert(server.requests.isEmpty)
           }
-          if (api != "decisions") {
-            assert(base.setColumnTypes(Map.empty[String, String]).transform(data).head().getAs[Row]("error") == null)
-            assert(server.requests.size() == 1)
-            server.requests.clear()
-          }
+          assert(base.setColumnTypes(Map.empty[String, String]).transform(data).head().getAs[Row]("error") == null)
+          assert(server.requests.size() == 1)
+          server.requests.clear()
         }
       }
     }
