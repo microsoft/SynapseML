@@ -117,7 +117,7 @@ class ContentUnderstandingWriterSuite extends TestBase {
 
   test("read helpers validate destinations and formats before loading a journal") {
     val stage = new ContentUnderstanding()
-    Seq(null, "", " \t").foreach { value =>
+    Seq(Option.empty[String].orNull, "", " \t").foreach { value =>
       assert(intercept[IllegalArgumentException] {
         stage.readTable(spark, value)
       }.getMessage.contains("tableName must not be empty"))
@@ -125,7 +125,7 @@ class ContentUnderstandingWriterSuite extends TestBase {
         stage.readPath(spark, value, "parquet")
       }.getMessage.contains("path must not be empty"))
     }
-    Seq(null, "", "json").foreach { format =>
+    Seq(Option.empty[String].orNull, "", "json").foreach { format =>
       assert(intercept[IllegalArgumentException] {
         stage.readPath(spark, "missing-journal", format)
       }.getMessage.contains("format must be delta or parquet"))
