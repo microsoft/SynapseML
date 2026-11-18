@@ -145,8 +145,8 @@ trait VowpalWabbitBaseLearner extends VowpalWabbitBase {
           val totalTime = new StopWatch
           val multipassTime = new StopWatch
 
-          StreamUtilities.using(if (localInitialModel.isEmpty) new VowpalWabbitNative(args)
-          else new VowpalWabbitNative(args, localInitialModel.get)) { vw =>
+          StreamUtilities.using(if (localInitialModel.isEmpty) VowpalWabbitNativeSupport(args)
+          else VowpalWabbitNativeSupport(args, localInitialModel.get)) { vw =>
             val trainContext = TrainContext(vw, synchronizationSchedule)
 
             // pass data to VW native part
@@ -228,15 +228,17 @@ trait VowpalWabbitBaseLearner extends VowpalWabbitBase {
     val vwArgs = buildCommandLineArguments(getCommandLineArgs.appendParamFlagIfNotThere("quiet").result, "")
 
     // create base model if we have one
-    val vwBase = baseModel.map({new VowpalWabbitNative(vwArgs, _)})
+    val vwBase = baseModel.map({VowpalWabbitNativeSupport(vwArgs, _)})
 
     // collect new models for each partition
-    val vwForEachPartition = models.map({m => new VowpalWabbitNative(vwArgs, m.getAs[Array[Byte]](0))})
+    val vwForEachPartition = models.map({m => VowpalWabbitNativeSupport(vwArgs, m.getAs[Array[Byte]](0))})
 
     val vwMerged = try {
       // need to pass null if we don't have a base model
       // scalastyle:off null
-      VowpalWabbitNative.mergeModels(vwBase.getOrElse(null), vwForEachPartition)
+      VowpalWabbitNativeSupport.withNativeSupport {
+        VowpalWabbitNative.mergeModels(vwBase.getOrElse(null), vwForEachPartition)
+      }
       // scalastyle:on null
     }
     finally {
@@ -283,8 +285,8 @@ trait VowpalWabbitBaseLearner extends VowpalWabbitBase {
     val driverModel = broadcastedDriverModel.value
     // create VW instance
     StreamUtilities.using(
-      if (driverModel.isEmpty) new VowpalWabbitNative(vwArgs)
-      else new VowpalWabbitNative(vwArgs, driverModel.get)) { vw =>
+      if (driverModel.isEmpty) VowpalWabbitNativeSupport(vwArgs)
+      else VowpalWabbitNativeSupport(vwArgs, driverModel.get)) { vw =>
 
       val trainContext = TrainContext(vw, VowpalWabbitSyncSchedule.Disabled, predictionBuffer)
 
@@ -305,6 +307,7 @@ trait VowpalWabbitBaseLearner extends VowpalWabbitBase {
       df.select(getSplitCol).distinct().orderBy(getSplitCol).collect().map(_.get(0))
 
   protected def trainDistributedExternal[T <: VowpalWabbitBaseModel](df: DataFrame, model: T): T = {
+    VowpalWabbitNativeSupport.requireSupported()
     val schema = df.schema
 
     // iterate over splits
