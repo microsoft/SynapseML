@@ -17,7 +17,7 @@ import scala.collection.mutable
 import scala.concurrent.duration.Duration
 import scala.util.control.NonFatal
 
-private[http] object CancellableRequests extends Logging {
+private[ml] object CancellableRequests extends Logging {
   private val PollMillis = 100L
   private val PollNanos = TimeUnit.MILLISECONDS.toNanos(PollMillis)
   private val DrainSeconds = 5L

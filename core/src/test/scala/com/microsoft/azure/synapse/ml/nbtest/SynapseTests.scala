@@ -59,6 +59,7 @@ object SynapseTests {
     // Opt-in model calls are qualified separately from automatic notebook jobs.
     "ExploreAlgorithmsOpenAIAIPrompt",
     "ExploreAlgorithmsOpenAIQuickstartDurableAIresults",
+    "ExploreAlgorithmsAIServicesQuickstartContentUnderstanding",
     "Deploying", // New issue
     "TuningHyperOpt", // New issue
     "IsolationForests", // New issue

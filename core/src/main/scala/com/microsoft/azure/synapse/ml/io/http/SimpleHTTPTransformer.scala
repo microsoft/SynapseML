@@ -113,7 +113,7 @@ class SimpleHTTPTransformer(val uid: String)
   /** @group setParam */
   def setOutputParser(value: HTTPOutputParser): this.type = set(outputParser, value)
 
-  private def makePipeline(schema: StructType): PipelineModel = {
+  private def makePipeline(schema: StructType, cancellable: Boolean = false): PipelineModel = {
     val colsToAvoid = schema.fieldNames.toSet ++ Set(getOutputCol)
 
     val parsedInputCol = newCol("parsedInput")(colsToAvoid)
@@ -125,13 +125,16 @@ class SimpleHTTPTransformer(val uid: String)
       .setInputCol(getInputCol)
       .setOutputCol(parsedInputCol))
 
-    val client = Some(new HTTPTransformer()
+    val http = new HTTPTransformer()
       .setHandler(getHandler)
       .setConcurrency(getConcurrency)
       .setConcurrentTimeout(get(concurrentTimeout))
       .setTimeout(getTimeout)
       .setInputCol(parsedInputCol)
-      .setOutputCol(unparsedOutputCol))
+      .setOutputCol(unparsedOutputCol)
+    val client: Option[Transformer] = Some(if (cancellable) {
+      Lambda(http.transformCancellable _).setTransformSchema(http.transformSchema _)
+    } else http)
 
     val parseErrors = Some(Lambda(df => {
       val serviceError = ErrorUtils.addErrorUDF(col(unparsedOutputCol))
@@ -166,9 +169,13 @@ class SimpleHTTPTransformer(val uid: String)
 
   }
 
-  override def transform(dataset: Dataset[_]): DataFrame = {
+  override def transform(dataset: Dataset[_]): DataFrame = transformRequests(dataset, cancellable = false)
+
+  private[ml] def transformCancellable(dataset: Dataset[_]): DataFrame = transformRequests(dataset, cancellable = true)
+
+  private def transformRequests(dataset: Dataset[_], cancellable: Boolean): DataFrame = {
     logTransform[DataFrame](
-      makePipeline(dataset.schema).transform(dataset.toDF()),
+      makePipeline(dataset.schema, cancellable).transform(dataset.toDF()),
       dataset.columns.length
     )
   }
