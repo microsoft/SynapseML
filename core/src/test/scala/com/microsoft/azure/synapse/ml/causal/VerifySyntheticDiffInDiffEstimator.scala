@@ -125,6 +125,26 @@ class VerifySyntheticDiffInDiffEstimator
     assert(summary.standardError === 0.27395418857682896)
   }
 
+  test("SyntheticDiffInDiffModel preserves its complete summary across save and load") {
+    val roundTripEstimator = estimator.copy(ParamMap.empty)
+      .asInstanceOf[SyntheticDiffInDiffEstimator]
+      .setMaxIter(5)
+    val model = roundTripEstimator.fit(df)
+    val path = tmpDir.resolve("synthetic-diff-in-diff-summary").toString
+
+    model.write.save(path)
+    val loaded = DiffInDiffModel.load(path)
+    val expected = model.getSummary
+    val actual = loaded.getSummary
+
+    assert(actual.copy(timeWeights = None, unitWeights = None) ==
+      expected.copy(timeWeights = None, unitWeights = None))
+    assert(actual.timeWeights.map(_.orderBy("i").collect().toSeq) ==
+      expected.timeWeights.map(_.orderBy("i").collect().toSeq))
+    assert(actual.unitWeights.map(_.orderBy("i").collect().toSeq) ==
+      expected.unitWeights.map(_.orderBy("i").collect().toSeq))
+  }
+
   override def testObjects(): Seq[TestObject[SyntheticDiffInDiffEstimator]] = Seq(
     new TestObject(estimator, df, df)
   )
