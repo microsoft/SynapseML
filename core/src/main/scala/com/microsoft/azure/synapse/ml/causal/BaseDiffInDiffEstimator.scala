@@ -129,8 +129,17 @@ private object DiffInDiffSummaryPersistence {
       summary.lossHistoryUnitWeights
     )
     spark.createDataset(Seq(data)).write.parquet(new Path(summaryPath, DataDir).toString)
-    summary.timeWeights.foreach(_.write.parquet(new Path(summaryPath, TimeWeightsDir).toString))
-    summary.unitWeights.foreach(_.write.parquet(new Path(summaryPath, UnitWeightsDir).toString))
+
+    def writeWeights(weights: DVector, outputDir: String): Unit = {
+      // Rebind the write plan so SQL options come from the session supplied to this writer.
+      spark.emptyDataset[VectorEntry]
+        .union(weights)
+        .write
+        .parquet(new Path(summaryPath, outputDir).toString)
+    }
+
+    summary.timeWeights.foreach(writeWeights(_, TimeWeightsDir))
+    summary.unitWeights.foreach(writeWeights(_, UnitWeightsDir))
   }
 
   def load(path: String, spark: SparkSession): Option[DiffInDiffSummary] = {

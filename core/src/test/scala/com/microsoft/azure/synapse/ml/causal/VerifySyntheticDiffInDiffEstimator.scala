@@ -6,8 +6,10 @@ package com.microsoft.azure.synapse.ml.causal
 import breeze.linalg.sum
 import breeze.stats.distributions.RandBasis
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
+import org.apache.hadoop.fs.Path
 import org.apache.log4j.{Level, Logger}
 import org.apache.spark.ml.util.MLReadable
+import org.apache.spark.sql.SparkSession
 import org.scalactic.{Equality, TolerantNumerics}
 import com.microsoft.azure.synapse.ml.causal.linalg._
 import org.apache.spark.ml.param.ParamMap
@@ -125,24 +127,59 @@ class VerifySyntheticDiffInDiffEstimator
     assert(summary.standardError === 0.27395418857682896)
   }
 
-  test("SyntheticDiffInDiffModel preserves its complete summary across save and load") {
+  test("SyntheticDiffInDiffModel uses the writer session for persisted weights") {
+    val codecKey = "spark.sql.parquet.compression.codec"
+    val fittingCodec = spark.conf.getOption(codecKey)
+    val writerSession = spark.newSession()
+    val writerCodec = writerSession.conf.getOption(codecKey)
     val roundTripEstimator = estimator.copy(ParamMap.empty)
       .asInstanceOf[SyntheticDiffInDiffEstimator]
       .setMaxIter(5)
-    val model = roundTripEstimator.fit(df)
-    val path = tmpDir.resolve("synthetic-diff-in-diff-summary").toString
 
-    model.write.save(path)
-    val loaded = DiffInDiffModel.load(path)
-    val expected = model.getSummary
-    val actual = loaded.getSummary
+    try {
+      spark.conf.set(codecKey, "snappy")
+      writerSession.conf.set(codecKey, "gzip")
 
-    assert(actual.copy(timeWeights = None, unitWeights = None) ==
-      expected.copy(timeWeights = None, unitWeights = None))
-    assert(actual.timeWeights.map(_.orderBy("i").collect().toSeq) ==
-      expected.timeWeights.map(_.orderBy("i").collect().toSeq))
-    assert(actual.unitWeights.map(_.orderBy("i").collect().toSeq) ==
-      expected.unitWeights.map(_.orderBy("i").collect().toSeq))
+      val model = roundTripEstimator.fit(df)
+      val path = tmpDir.resolve("synthetic-diff-in-diff-summary-writer-session").toString
+      model.write.session(writerSession).save(path)
+
+      def partFiles(weightsDir: String): Seq[String] = {
+        val weightsPath = new Path(new Path(path, "summary"), weightsDir)
+        val fs = weightsPath.getFileSystem(writerSession.sparkContext.hadoopConfiguration)
+        fs.listStatus(weightsPath)
+          .filter(status => status.isFile && status.getPath.getName.startsWith("part-"))
+          .map(_.getPath.getName)
+          .toSeq
+      }
+
+      Seq("timeWeights", "unitWeights").foreach { weightsDir =>
+        val files = partFiles(weightsDir)
+        assert(files.nonEmpty)
+        assert(files.forall(_.endsWith(".gz.parquet")), files.mkString(", "))
+      }
+
+      val loaded = DiffInDiffModel.load(path)
+      val expected = model.getSummary
+      val actual = loaded.getSummary
+
+      assert(actual.copy(timeWeights = None, unitWeights = None) ==
+        expected.copy(timeWeights = None, unitWeights = None))
+      assert(actual.timeWeights.map(_.orderBy("i").collect().toSeq) ==
+        expected.timeWeights.map(_.orderBy("i").collect().toSeq))
+      assert(actual.unitWeights.map(_.orderBy("i").collect().toSeq) ==
+        expected.unitWeights.map(_.orderBy("i").collect().toSeq))
+    } finally {
+      restoreConf(spark, codecKey, fittingCodec)
+      restoreConf(writerSession, codecKey, writerCodec)
+    }
+  }
+
+  private def restoreConf(session: SparkSession, key: String, value: Option[String]): Unit = {
+    value match {
+      case Some(original) => session.conf.set(key, original)
+      case None => session.conf.unset(key)
+    }
   }
 
   override def testObjects(): Seq[TestObject[SyntheticDiffInDiffEstimator]] = Seq(
