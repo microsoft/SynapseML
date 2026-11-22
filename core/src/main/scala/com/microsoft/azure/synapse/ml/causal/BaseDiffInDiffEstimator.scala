@@ -3,19 +3,20 @@
 
 package com.microsoft.azure.synapse.ml.causal
 
-import com.microsoft.azure.synapse.ml.causal.linalg.DVector
+import com.microsoft.azure.synapse.ml.causal.linalg.{DVector, VectorEntry}
 import com.microsoft.azure.synapse.ml.codegen.Wrappable
 import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.DataFrameParam
+import org.apache.hadoop.fs.Path
 import org.apache.spark.SparkException
 import org.apache.spark.ml.feature.VectorAssembler
 import org.apache.spark.ml.param.{Param, ParamMap, Params}
 import org.apache.spark.ml.regression.LinearRegression
-import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.ml.util.{Identifiable, MLReader, MLWriter}
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Estimator, Model}
 import org.apache.spark.sql.types.{BooleanType, NumericType, StructField, StructType}
-import org.apache.spark.sql.{DataFrame, Dataset}
+import org.apache.spark.sql.{AnalysisException, DataFrame, Dataset, SparkSession}
 
 import java.util
 
@@ -92,6 +93,92 @@ case class DiffInDiffSummary(treatmentEffect: Double, standardError: Double,
   }
 }
 
+private[causal] case class DiffInDiffSummaryData(treatmentEffect: Double,
+                                                standardError: Double,
+                                                hasTimeWeights: Boolean,
+                                                timeIntercept: Option[Double],
+                                                timeRMSE: Option[Double],
+                                                hasUnitWeights: Boolean,
+                                                unitIntercept: Option[Double],
+                                                unitRMSE: Option[Double],
+                                                zeta: Option[Double],
+                                                lossHistoryTimeWeights: Option[Seq[Double]],
+                                                lossHistoryUnitWeights: Option[Seq[Double]])
+
+private object DiffInDiffSummaryPersistence {
+  private val SummaryDir = "summary"
+  private val DataDir = "data"
+  private val TimeWeightsDir = "timeWeights"
+  private val UnitWeightsDir = "unitWeights"
+
+  def save(summary: DiffInDiffSummary, path: String, spark: SparkSession): Unit = {
+    import spark.implicits._
+
+    val summaryPath = new Path(path, SummaryDir)
+    val data = DiffInDiffSummaryData(
+      summary.treatmentEffect,
+      summary.standardError,
+      summary.timeWeights.isDefined,
+      summary.timeIntercept,
+      summary.timeRMSE,
+      summary.unitWeights.isDefined,
+      summary.unitIntercept,
+      summary.unitRMSE,
+      summary.zeta,
+      summary.lossHistoryTimeWeights,
+      summary.lossHistoryUnitWeights
+    )
+    spark.createDataset(Seq(data)).write.parquet(new Path(summaryPath, DataDir).toString)
+
+    def writeWeights(weights: DVector, outputDir: String): Unit = {
+      // Rebind the write plan so SQL options come from the session supplied to this writer.
+      spark.emptyDataset[VectorEntry]
+        .union(weights)
+        .write
+        .parquet(new Path(summaryPath, outputDir).toString)
+    }
+
+    summary.timeWeights.foreach(writeWeights(_, TimeWeightsDir))
+    summary.unitWeights.foreach(writeWeights(_, UnitWeightsDir))
+  }
+
+  def load(path: String, spark: SparkSession): Option[DiffInDiffSummary] = {
+    val summaryPath = new Path(path, SummaryDir)
+    import spark.implicits._
+
+    val data = try {
+      Some(spark.read.parquet(new Path(summaryPath, DataDir).toString).as[DiffInDiffSummaryData].head())
+    } catch {
+      case error: AnalysisException if error.getErrorClass == "PATH_NOT_FOUND" => None
+    }
+    data.map { data =>
+      val timeWeights = if (data.hasTimeWeights) {
+        Some(spark.read.parquet(new Path(summaryPath, TimeWeightsDir).toString).as[VectorEntry])
+      } else {
+        None
+      }
+      val unitWeights = if (data.hasUnitWeights) {
+        Some(spark.read.parquet(new Path(summaryPath, UnitWeightsDir).toString).as[VectorEntry])
+      } else {
+        None
+      }
+      DiffInDiffSummary(
+        data.treatmentEffect,
+        data.standardError,
+        timeWeights,
+        data.timeIntercept,
+        data.timeRMSE,
+        unitWeights,
+        data.unitIntercept,
+        data.unitRMSE,
+        data.zeta,
+        data.lossHistoryTimeWeights.map(_.toList),
+        data.lossHistoryUnitWeights.map(_.toList)
+      )
+    }
+  }
+}
+
 class DiffInDiffModel(override val uid: String)
   extends Model[DiffInDiffModel]
     with HasUnitCol
@@ -123,6 +210,20 @@ class DiffInDiffModel(override val uid: String)
   def this() = this(Identifiable.randomUID("DiffInDiffModel"))
 
   private final var summary: Option[DiffInDiffSummary] = None
+
+  override def write: MLWriter = {
+    val paramsWriter = super.write
+    new MLWriter {
+      override protected def saveImpl(path: String): Unit = {
+        val writer = paramsWriter.session(sparkSession)
+        if (shouldOverwrite) {
+          writer.overwrite()
+        }
+        writer.save(path)
+        summary.foreach(DiffInDiffSummaryPersistence.save(_, path, sparkSession))
+      }
+    }
+  }
 
   def getSummary: DiffInDiffSummary = summary.getOrElse {
     throw new SparkException(
@@ -175,7 +276,16 @@ class DiffInDiffModel(override val uid: String)
   }
 }
 
-object DiffInDiffModel extends ComplexParamsReadable[DiffInDiffModel]
+object DiffInDiffModel extends ComplexParamsReadable[DiffInDiffModel] {
+  private def complexParamsReader: MLReader[DiffInDiffModel] = super.read
+
+  override def read: MLReader[DiffInDiffModel] = new MLReader[DiffInDiffModel] {
+    override def load(path: String): DiffInDiffModel = {
+      val model = complexParamsReader.session(sparkSession).load(path)
+      model.setSummary(DiffInDiffSummaryPersistence.load(path, sparkSession))
+    }
+  }
+}
 
 trait DiffInDiffEstimatorParams extends Params
   with HasTreatmentCol

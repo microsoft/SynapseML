@@ -5,6 +5,7 @@ package com.microsoft.azure.synapse.ml.causal
 
 import breeze.stats.distributions.RandBasis
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{EstimatorFuzzing, TestObject}
+import org.apache.spark.SparkException
 import org.apache.spark.ml.util.MLReadable
 
 class VerifyDiffInDiffEstimator
@@ -29,6 +30,26 @@ class VerifyDiffInDiffEstimator
     val summary = estimator.fit(df).getSummary
     // treatment effect is approximately 2
     assert(math.abs(summary.treatmentEffect - 2) < 1E-2)
+  }
+
+  test("DiffInDiffModel preserves its summary across save and load") {
+    val model = estimator.fit(df)
+    val path = tmpDir.resolve("diff-in-diff-summary").toString
+
+    model.write.save(path)
+    val loaded = DiffInDiffModel.load(path)
+
+    assert(loaded.getSummary == model.getSummary)
+  }
+
+  test("DiffInDiffModel loads models saved without a summary") {
+    val path = tmpDir.resolve("diff-in-diff-without-summary").toString
+
+    new DiffInDiffModel().write.save(path)
+    val loaded = DiffInDiffModel.load(path)
+    val error = intercept[SparkException](loaded.getSummary)
+
+    assert(error.getMessage == "No summary available for this DiffInDiffModel")
   }
 
   override def testObjects(): Seq[TestObject[DiffInDiffEstimator]] = Seq(

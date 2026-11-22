@@ -25,26 +25,62 @@ class DiffInDiffModel(_DiffInDiffModel):
     def __init__(self, java_obj=None) -> None:
         super(DiffInDiffModel, self).__init__(java_obj=java_obj)
 
+    @property
+    def summary(self):
+        return self._java_obj.getSummary()
+
+    @property
+    def treatmentEffect(self):
+        return self.summary.treatmentEffect()
+
+    @property
+    def standardError(self):
+        return self.summary.standardError()
+
+    @property
+    def timeIntercept(self):
+        return DiffInDiffModel._unwrapOption(self.summary.timeIntercept())
+
+    @property
+    def unitIntercept(self):
+        return DiffInDiffModel._unwrapOption(self.summary.unitIntercept())
+
+    @property
+    def timeWeights(self):
         ctx = SparkContext._active_spark_context
         sql_ctx = SQLContext.getOrCreate(ctx)
+        return DiffInDiffModel._mapOption(
+            self._java_obj.getTimeWeights(), lambda x: DataFrame(x, sql_ctx)
+        )
 
-        self.summary = java_obj.getSummary()
-        self.treatmentEffect = self.summary.treatmentEffect()
-        self.standardError = self.summary.standardError()
-        self.timeIntercept = DiffInDiffModel._unwrapOption(self.summary.timeIntercept())
-        self.unitIntercept = DiffInDiffModel._unwrapOption(self.summary.unitIntercept())
-        self.timeWeights = DiffInDiffModel._mapOption(
-            java_obj.getTimeWeights(), lambda x: DataFrame(x, sql_ctx)
+    @property
+    def unitWeights(self):
+        ctx = SparkContext._active_spark_context
+        sql_ctx = SQLContext.getOrCreate(ctx)
+        return DiffInDiffModel._mapOption(
+            self._java_obj.getUnitWeights(), lambda x: DataFrame(x, sql_ctx)
         )
-        self.unitWeights = DiffInDiffModel._mapOption(
-            java_obj.getUnitWeights(), lambda x: DataFrame(x, sql_ctx)
-        )
-        self.timeRMSE = DiffInDiffModel._unwrapOption(self.summary.timeRMSE())
-        self.unitRMSE = DiffInDiffModel._unwrapOption(self.summary.unitRMSE())
-        self.zeta = DiffInDiffModel._unwrapOption(self.summary.zeta())
-        self.lossHistoryTimeWeights = DiffInDiffModel._unwrapOption(
+
+    @property
+    def timeRMSE(self):
+        return DiffInDiffModel._unwrapOption(self.summary.timeRMSE())
+
+    @property
+    def unitRMSE(self):
+        return DiffInDiffModel._unwrapOption(self.summary.unitRMSE())
+
+    @property
+    def zeta(self):
+        return DiffInDiffModel._unwrapOption(self.summary.zeta())
+
+    @property
+    def lossHistoryTimeWeights(self):
+        return DiffInDiffModel._unwrapOption(
             self.summary.getLossHistoryTimeWeightsJava()
         )
-        self.lossHistoryUnitWeights = DiffInDiffModel._unwrapOption(
+
+    @property
+    def lossHistoryUnitWeights(self):
+        return DiffInDiffModel._unwrapOption(
             self.summary.getLossHistoryUnitWeightsJava()
         )
